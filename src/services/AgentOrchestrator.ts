@@ -1,4 +1,4 @@
-import { CanvasComponent, AgentMessage } from '../types';
+import { CanvasComponent, AgentMessage, WorkflowStatus } from '../types';
 import { layoutEngine } from './LayoutEngine';
 
 interface AgentResponse {
@@ -13,6 +13,13 @@ export interface StreamingUpdate {
   progress?: number;
 }
 
+interface WorkflowState {
+  currentStage: string;
+  status: WorkflowStatus;
+  completedStages: string[];
+  context: Record<string, any>;
+}
+
 interface AgentCapability {
   name: string;
   description: string;
@@ -24,9 +31,38 @@ class MockAgentOrchestrator {
   private capabilities: AgentCapability[] = [];
   private messageCallbacks: Array<(message: AgentMessage) => void> = [];
   private streamingCallbacks: Array<(update: StreamingUpdate) => void> = [];
+  private workflowState: WorkflowState | null = null;
 
   constructor() {
     this.initializeAgents();
+  }
+
+  initializeWorkflow(initialStage: string, context: Record<string, any> = {}): void {
+    this.workflowState = {
+      currentStage: initialStage,
+      status: 'initiated',
+      completedStages: [],
+      context
+    };
+  }
+
+  getWorkflowState(): WorkflowState | null {
+    return this.workflowState;
+  }
+
+  updateWorkflowStage(stage: string, status: WorkflowStatus): void {
+    if (!this.workflowState) return;
+
+    if (status === 'completed' && !this.workflowState.completedStages.includes(this.workflowState.currentStage)) {
+      this.workflowState.completedStages.push(this.workflowState.currentStage);
+    }
+
+    this.workflowState.currentStage = stage;
+    this.workflowState.status = status;
+  }
+
+  resetWorkflow(): void {
+    this.workflowState = null;
   }
 
   private initializeAgents() {
