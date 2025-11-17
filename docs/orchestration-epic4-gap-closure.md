@@ -171,14 +171,17 @@ SQL
 
 ## 8) Smoke Test the Orchestrator Path
 **Command:** create a workflow execution and drive a happy-path completion.
-```bash
-psql "$DATABASE_URL" <<'SQL'
+
+# Set this to a valid user UUID (e.g., from your Supabase users table)
+CREATED_BY_UUID=<your-user-uuid>
+
+psql "$DATABASE_URL" <<SQL
 -- Create execution instance
 WITH def AS (
   SELECT id FROM workflow_definitions WHERE name = 'lifecycle_v1' AND is_active = true ORDER BY version DESC LIMIT 1
 )
 INSERT INTO workflow_executions (workflow_definition_id, status, current_stage, context, created_by)
-SELECT id, 'in_progress', 'discover', jsonb_build_object('customer','ACME Corp'), auth.uid() FROM def
+SELECT id, 'in_progress', 'discover', jsonb_build_object('customer','ACME Corp'), '$CREATED_BY_UUID' FROM def
 RETURNING id;
 SQL
 ```
