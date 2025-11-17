@@ -329,7 +329,25 @@ export class ValueFabricService {
       return this.fallbackTextSearch(queryText, limit);
     }
 
-    return data || [];
+    const semanticResults = (data || []) as SemanticSearchResult<Capability>[];
+
+    if ((semanticResults?.length || 0) >= limit) {
+      return semanticResults;
+    }
+
+    const existingIds = new Set(semanticResults.map(result => result.item.id));
+    const fallbackResults = await this.fallbackTextSearch(queryText, limit);
+
+    for (const result of fallbackResults) {
+      if (existingIds.has(result.item.id)) continue;
+
+      semanticResults.push(result);
+      existingIds.add(result.item.id);
+
+      if (semanticResults.length >= limit) break;
+    }
+
+    return semanticResults;
   }
 
   private async fallbackTextSearch(
