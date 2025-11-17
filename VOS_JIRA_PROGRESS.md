@@ -309,10 +309,16 @@
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Deploy Redis instance and configure connection | ❌ | Provision managed Redis + environment wiring |
-| Implement Redis caching for Value Fabric ontology lookups | ❌ | Cache ontology graph payloads with TTL |
-| Add distributed cache invalidation strategy | ❌ | Invalidate on ontology/ROI updates via pub/sub |
-| Cache ROI calculation results with formula hash keys | ❌ | Hash formula + inputs to reuse heavy computations |
+| Deploy Redis instance and configure connection | ❌ | Provision managed Redis or dev Docker; add `REDIS_URL`/`REDIS_TLS`; expose shared client with retries/timeouts |
+| Implement Redis caching for Value Fabric ontology lookups | ❌ | Wrap ontology graph fetcher with tenant + version key, TTL 15–30m, payload compression |
+| Add distributed cache invalidation strategy | ❌ | Publish/sub to channels (e.g., `ontology:invalidate`, `roi:invalidate`) on ontology/ROI mutations |
+| Cache ROI calculation results with formula hash keys | ❌ | Deterministic hash from formula + inputs; TTL tuned to data volatility; admin bust endpoint |
+
+**Owner Actions:** Provision Redis, wire env vars, add reusable Redis client, and codify pub/sub channels. Layer caching around ontology fetcher and ROI calculations using deterministic hash keys and TTLs with compression. Expose admin/manual busting and cache metrics.
+
+**Acceptance Criteria:** Health check/script can `PING` Redis; cacheable routes return identical payloads with improved P95 after warmup; distributed invalidation evicts entries across instances within seconds; repeat ROI requests with identical inputs hit cache and reduce CPU.
+
+**Validation Steps:** Run smoke script to connect/set/get key and confirm metrics export; benchmark cached endpoints before/after; spin two app instances, mutate ontology, and verify both miss cache on next read; benchmark formula execution with and without cache and assert hash changes on updates.
 
 ---
 
@@ -320,10 +326,16 @@
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Write k6 test suite for agent endpoints (100/1000/10000 concurrent workflows) | ❌ | Baseline P95 latency + error rate per tier |
-| Create benchmark tests for ROI formula execution with complex calculations | ❌ | Include nested financial formulas and vector lookups |
-| Test SDUI pipeline performance with deeply nested schemas | ❌ | Measure render + hydration timings under load |
-| Establish performance regression protection in CI/CD | ❌ | Wire k6/benchmarks into GitHub Actions with thresholds |
+| Write k6 test suite for agent endpoints (100/1000/10000 concurrent workflows) | ❌ | Staged ramp scenarios; parameterized payloads; publish P50/P95 latency, error rate, throughput |
+| Create benchmark tests for ROI formula execution with complex calculations | ❌ | Harness exercises nested formulas/vector lookups; record CPU/memory; randomized inputs for variance |
+| Test SDUI pipeline performance with deeply nested schemas | ❌ | Generate deep schemas; measure render + hydration; stress layout resolver/registry |
+| Establish performance regression protection in CI/CD | ❌ | GH Actions runs k6 smoke + benchmarks with thresholds and artifact publishing to PR |
+
+**Owner Actions:** Author k6 scenarios for agent endpoints with staged ramps and soak profile; build ROI benchmark harness capturing CPU/memory; generate deep SDUI schemas for render/hydration timing; add CI workflow gating on threshold files and publishing artifacts.
+
+**Acceptance Criteria:** CI artifacts show P50/P95 latency, error rate, throughput per scenario with regression thresholds; baseline benchmark metrics checked into repo; SDUI budgets recorded and enforced; workflows block on regressions and surface artifacts in PRs.
+
+**Validation Steps:** Run k6 locally against staging (5–10m soak) and confirm summary JSON; compare ROI benchmark outputs across commits to detect regressions; repeat SDUI tests to ensure budgets hold; open test PR to verify workflow status and artifacts.
 
 ---
 
@@ -331,10 +343,16 @@
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Integrate APM tooling (Sentry or DataDog) for error tracking | ❌ | Add DSN config + scrub PII by default |
-| Add distributed tracing for cross-service workflows | ❌ | Propagate trace IDs through agent orchestrator calls |
-| Implement slow query alerts with automatic notification | ❌ | pg_stat_statements + alerting via Slack/Webhooks |
-| Create system health dashboard with SLI/SLO tracking | ❌ | Track latency, availability, cache hit rate, throughput |
+| Integrate APM tooling (Sentry or DataDog) for error tracking | ❌ | Initialize SDK with DSN env var, scrub PII, capture user/session context, enable release tracking |
+| Add distributed tracing for cross-service workflows | ❌ | Adopt OpenTelemetry for HTTP/PG/Redis/agent orchestrator; propagate trace IDs across async jobs |
+| Implement slow query alerts with automatic notification | ❌ | Enable `pg_stat_statements`, ship metrics to APM, alert on P95 exceedance with fingerprint + allowlist |
+| Create system health dashboard with SLI/SLO tracking | ❌ | Define SLIs (availability, latency, cache hit rate, throughput, error rate); SLOs with burn-rate alerts and downtime windows |
+
+**Owner Actions:** Add APM SDK initialization with PII scrubbing and release tracking; instrument HTTP, DB, Redis, and agent orchestration with OpenTelemetry and trace propagation; enable slow query alerts via `pg_stat_statements` and notifications; publish system health dashboard with SLIs/SLOs and burn-rate alerting.
+
+**Acceptance Criteria:** Errors and spans visible in APM with anonymized payloads and configurable sampling; end-to-end traces connect user request → agents → DB/cache; slow queries trigger alerts with fingerprints and reduced noise; dashboard shows live SLIs and SLO burn-down with alerting windows.
+
+**Validation Steps:** Trigger test error in staging to confirm alert/trace; view full trace across services after running agent workflow; run intentionally slow query to ensure single alert; simulate latency spike and observe SLO burn-rate alert to on-call channel.
 
 ---
 
