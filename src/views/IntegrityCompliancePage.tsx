@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, CheckCircle2, XCircle, AlertTriangle, FileText, Eye, Search } from 'lucide-react';
+import { Shield, CheckCircle2, XCircle, AlertTriangle, FileText, Eye, Search, Fingerprint } from 'lucide-react';
 import { MetricCard } from '../components/Components/MetricCard';
 import { ProvenanceTraceViewer } from '../components/Integrity/ProvenanceTraceViewer';
 import type {
@@ -20,15 +20,31 @@ export const IntegrityCompliancePage: React.FC = () => {
       source_type: 'discovery_brief',
       source_artifact_id: 'disc-01',
       target_stage: 'target',
-      target_type: 'value_tree',
-      target_artifact_id: 'value_tree_001',
-      relationship_type: 'derived_from',
-      reasoning_trace: 'Value tree nodes aligned to quantified pains from discovery.',
+      target_type: 'business_objective',
+      target_artifact_id: 'obj-01',
+      relationship_type: 'opportunity_to_target',
+      reasoning_trace: 'Objectives derived from discovery notes with conservative sizing.',
       chain_depth: 0,
+      metadata: { owner: 'OpportunityAgent' },
       created_at: new Date().toISOString()
     },
     {
       id: 'link-2',
+      session_id: 'sess-01',
+      source_stage: 'target',
+      source_type: 'business_objective',
+      source_artifact_id: 'obj-01',
+      target_stage: 'target',
+      target_type: 'value_tree',
+      target_artifact_id: 'value_tree_001',
+      relationship_type: 'target_model',
+      reasoning_trace: 'Value tree nodes mapped to the quantified objectives.',
+      chain_depth: 1,
+      metadata: { owner: 'TargetAgent' },
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 'link-3',
       session_id: 'sess-01',
       source_stage: 'target',
       source_type: 'value_tree',
@@ -38,21 +54,53 @@ export const IntegrityCompliancePage: React.FC = () => {
       target_artifact_id: 'roi_model_002',
       relationship_type: 'calculation_model',
       reasoning_trace: 'ROI formulas reference KPI deltas defined in the value tree.',
-      chain_depth: 1,
+      chain_depth: 2,
+      metadata: { owner: 'TargetAgent' },
       created_at: new Date().toISOString()
     },
     {
-      id: 'link-3',
+      id: 'link-4',
       session_id: 'sess-01',
       source_stage: 'target',
       source_type: 'roi_model',
       source_artifact_id: 'roi_model_002',
+      target_stage: 'target',
+      target_type: 'value_commit',
+      target_artifact_id: 'value_commit_003',
+      relationship_type: 'commitment',
+      reasoning_trace: 'Value commitments anchored to ROI model outputs and KPI targets.',
+      chain_depth: 3,
+      metadata: { owner: 'TargetAgent' },
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 'link-5',
+      session_id: 'sess-01',
+      source_stage: 'target',
+      source_type: 'value_commit',
+      source_artifact_id: 'value_commit_003',
       target_stage: 'realization',
       target_type: 'realization_report',
       target_artifact_id: 'realization_004',
-      relationship_type: 'validated_against',
+      relationship_type: 'realization',
       reasoning_trace: 'Telemetry validation compares realized KPIs to ROI projections.',
-      chain_depth: 2,
+      chain_depth: 4,
+      metadata: { owner: 'RealizationAgent' },
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 'link-6',
+      session_id: 'sess-01',
+      source_stage: 'realization',
+      source_type: 'realization_report',
+      source_artifact_id: 'realization_004',
+      target_stage: 'expansion',
+      target_type: 'expansion_model',
+      target_artifact_id: 'expansion_005',
+      relationship_type: 'expansion',
+      reasoning_trace: 'Expansion opportunities generated from realized KPI deltas.',
+      chain_depth: 5,
+      metadata: { owner: 'ExpansionAgent' },
       created_at: new Date().toISOString()
     }
   ];
@@ -67,8 +115,28 @@ export const IntegrityCompliancePage: React.FC = () => {
       action: 'manifesto_compliance_check',
       reasoning_trace: 'Validated calculation provenance and explainability traces.',
       artifact_data: { rule: 'formula_provenance' },
-      input_variables: { total_value: 'value_tree.kpi_nodes' },
-      output_snapshot: { score: 92 },
+      input_variables: {
+        annual_time_savings_hours: 'value_tree.kpi_nodes',
+        hourly_rate: 'benchmark:finance:blended_rate'
+      },
+      output_snapshot: { compliance_score: 92 },
+      metadata: { outcome: 'approved' },
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 'audit-2',
+      session_id: 'sess-01',
+      agent_id: 'integrity-agent',
+      artifact_type: 'realization_report',
+      artifact_id: 'realization_004',
+      action: 'manifesto_compliance_check',
+      reasoning_trace: 'Realization telemetry confirms ROI projections within tolerance.',
+      artifact_data: { rule: 'value_reduction' },
+      input_variables: {
+        actual_value: 'telemetry:event_stream',
+        projected_value: 'roi_model.calculations.total_roi'
+      },
+      output_snapshot: { variance: '+3%' },
       metadata: { outcome: 'approved' },
       created_at: new Date().toISOString()
     }
@@ -337,6 +405,40 @@ export const IntegrityCompliancePage: React.FC = () => {
               audits={provenanceAudits}
               title="Data Lineage & Provenance"
             />
+
+            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+              <div className="flex items-center space-x-2 mb-4">
+                <Fingerprint className="h-5 w-5 text-gray-700" />
+                <h3 className="text-lg font-semibold text-gray-900">ROI Calculation Provenance</h3>
+              </div>
+              <div className="space-y-3">
+                {provenanceAudits.map((audit) => (
+                  <div key={audit.id} className="p-4 rounded-lg border border-gray-100 bg-gray-50">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="text-xs text-gray-500">{audit.artifact_type}</p>
+                        <p className="text-sm font-semibold text-gray-900">{audit.action}</p>
+                      </div>
+                      <span className="text-[10px] text-gray-500">Session {audit.session_id}</span>
+                    </div>
+                    {audit.reasoning_trace && (
+                      <p className="text-xs text-gray-700 mb-3">{audit.reasoning_trace}</p>
+                    )}
+
+                    {audit.input_variables && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {Object.entries(audit.input_variables).map(([name, source]) => (
+                          <div key={`${audit.id}-${name}`} className="p-2 bg-white rounded border border-gray-200">
+                            <p className="text-xs font-semibold text-gray-900">{name}</p>
+                            <p className="text-[10px] text-gray-500">{String(source)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="space-y-6">
