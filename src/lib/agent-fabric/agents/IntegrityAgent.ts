@@ -24,6 +24,7 @@
 import { BaseAgent } from './BaseAgent';
 import { ValueFabricService } from '../../../services/ValueFabricService';
 import { ROIFormulaInterpreter } from '../../../services/ROIFormulaInterpreter';
+import { manifestoValidator } from '../../manifesto/ManifestoRules';
 import type {
   ManifestoValidationResult,
   ManifestoComplianceReport,
@@ -65,7 +66,35 @@ export class IntegrityAgent extends BaseAgent {
   ): Promise<IntegrityCheckOutput> {
     const startTime = Date.now();
 
+    const manifestoCheck = manifestoValidator.validateArtifact(input.artifact_data);
+
     const results: ManifestoValidationResult[] = [];
+
+    manifestoCheck.violations.forEach(violation => {
+      results.push({
+        rule_name: violation.rule.id,
+        passed: false,
+        message: violation.validation.errorMessage,
+        severity: violation.severity,
+        evidence: {
+          principle: violation.rule.principle,
+          validation: violation.validation.name
+        }
+      });
+    });
+
+    manifestoCheck.warnings.forEach(warning => {
+      results.push({
+        rule_name: warning.rule.id,
+        passed: false,
+        message: warning.validation.errorMessage,
+        severity: warning.severity,
+        evidence: {
+          principle: warning.rule.principle,
+          validation: warning.validation.name
+        }
+      });
+    });
 
     results.push(await this.validateValueReduction(input));
 
