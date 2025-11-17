@@ -303,46 +303,38 @@
 
 ## EPIC 7 — Performance & Reliability ❌ 0%
 
-**Goal:** Optimize performance and add caching/monitoring
+**Goal:** Post-MVP hardening with Redis caching, load testing, and advanced observability.
 
-### Story 7.1 — Caching Strategy ❌ NOT STARTED
+### Story 7.1 — Redis Caching Layer ❌ NOT STARTED
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Add Redis caching layer | ❌ | **TODO** - Add Redis integration |
-| Add connection pooling | ❌ | **TODO** - Supabase handles this |
-| Cache Value Fabric lookups | ❌ | **TODO** - Cache capabilities/use_cases |
-| Cache benchmark lookups | ❌ | **TODO** - Cache industry benchmarks |
-| Test cache invalidation | ❌ | **TODO** - Cache invalidation strategy |
-
-**Priority:** Low - Not critical for MVP
+| Deploy Redis instance and configure connection | ❌ | Provision managed Redis + environment wiring |
+| Implement Redis caching for Value Fabric ontology lookups | ❌ | Cache ontology graph payloads with TTL |
+| Add distributed cache invalidation strategy | ❌ | Invalidate on ontology/ROI updates via pub/sub |
+| Cache ROI calculation results with formula hash keys | ❌ | Hash formula + inputs to reuse heavy computations |
 
 ---
 
-### Story 7.2 — Query Optimization ❌ NOT STARTED
+### Story 7.2 — Load Testing & Benchmarking ❌ NOT STARTED
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Optimize recursive CTEs | ❌ | **TODO** - Profile and optimize |
-| Add materialized views for Value Tree | ✅ | **DONE** - 2 materialized views exist |
-| Add performance monitoring | ❌ | **TODO** - Add APM tooling |
-| Add slow query alerts | ❌ | **TODO** - Alert on slow queries |
-
-**Priority:** Medium - Basic optimization done
+| Write k6 test suite for agent endpoints (100/1000/10000 concurrent workflows) | ❌ | Baseline P95 latency + error rate per tier |
+| Create benchmark tests for ROI formula execution with complex calculations | ❌ | Include nested financial formulas and vector lookups |
+| Test SDUI pipeline performance with deeply nested schemas | ❌ | Measure render + hydration timings under load |
+| Establish performance regression protection in CI/CD | ❌ | Wire k6/benchmarks into GitHub Actions with thresholds |
 
 ---
 
-### Story 7.3 — Load Testing ❌ NOT STARTED
+### Story 7.3 — Advanced Monitoring ❌ NOT STARTED
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Write k6 test suite | ❌ | **TODO** - Load testing framework |
-| Simulate 100 → 1,000 → 10,000 workflow executions | ❌ | **TODO** - Stress testing |
-| Load test ROI engine | ❌ | **TODO** - Formula execution perf |
-| Load test SDUI pipeline | ❌ | **TODO** - UI generation perf |
-| Add regression protection | ❌ | **TODO** - Performance benchmarks |
-
-**Priority:** Low - Not critical for MVP
+| Integrate APM tooling (Sentry or DataDog) for error tracking | ❌ | Add DSN config + scrub PII by default |
+| Add distributed tracing for cross-service workflows | ❌ | Propagate trace IDs through agent orchestrator calls |
+| Implement slow query alerts with automatic notification | ❌ | pg_stat_statements + alerting via Slack/Webhooks |
+| Create system health dashboard with SLI/SLO tracking | ❌ | Track latency, availability, cache hit rate, throughput |
 
 ---
 
