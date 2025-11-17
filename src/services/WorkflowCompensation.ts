@@ -90,6 +90,20 @@ export class WorkflowCompensation {
           updated_at: new Date().toISOString()
         })
         .eq('id', artifactId);
+
+      await supabase
+        .from('value_commits')
+        .update({
+          status: 'cancelled',
+          metadata: { rollback_execution: context.execution_id },
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', artifactId);
+
+      await supabase
+        .from('kpi_targets')
+        .delete()
+        .eq('value_commit_id', artifactId);
     }
   }
 

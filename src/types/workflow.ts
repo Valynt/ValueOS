@@ -66,12 +66,15 @@ export interface CircuitBreakerState {
 export interface WorkflowExecution {
   id: string;
   workflow_definition_id: string;
+  workflow_version?: number;
   status: WorkflowStatus;
   current_stage: string | null;
   started_at: string;
   completed_at: string | null;
   error_message: string | null;
   context: Record<string, any>;
+  audit_context?: Record<string, any>;
+  circuit_breaker_state?: Record<string, any>;
   created_by: string;
 }
 
@@ -87,6 +90,7 @@ export interface WorkflowExecutionLog {
   error_message: string | null;
   input_data: Record<string, any>;
   output_data: Record<string, any> | null;
+  retry_policy?: RetryConfig;
 }
 
 export interface WorkflowEvent {
@@ -96,6 +100,14 @@ export interface WorkflowEvent {
   stage_id: string | null;
   timestamp: string;
   metadata: Record<string, any>;
+}
+
+export interface WorkflowAuditLog {
+  id: string;
+  execution_id: string;
+  action: string;
+  metadata: Record<string, any>;
+  created_at: string;
 }
 
 export interface CompensationContext {
