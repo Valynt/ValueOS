@@ -20,3 +20,5 @@ export { userSettingsService } from './UserSettingsService';
 export { authService } from './AuthService';
 export { permissionService } from './PermissionService';
 export { auditLogService } from './AuditLogService';
+
+export { ROIFormulaInterpreter } from './ROIFormulaInterpreter';
