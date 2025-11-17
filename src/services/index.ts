@@ -22,3 +22,5 @@ export { permissionService } from './PermissionService';
 export { auditLogService } from './AuditLogService';
 
 export { ROIFormulaInterpreter } from './ROIFormulaInterpreter';
+export { ValueFabricService } from './ValueFabricService';
+export { BenchmarkService } from './BenchmarkService';

@@ -28,3 +28,10 @@ export type {
   Assumption,
   AgentFabricResult
 } from './types';
+
+// VOS Lifecycle Agents
+export { OpportunityAgent } from './agents/OpportunityAgent';
+export { TargetAgent } from './agents/TargetAgent';
+export { RealizationAgent } from './agents/RealizationAgent';
+export { ExpansionAgent } from './agents/ExpansionAgent';
+export { IntegrityAgent } from './agents/IntegrityAgent';
