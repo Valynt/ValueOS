@@ -164,7 +164,7 @@ export class IntegrityAgent extends BaseAgent {
 
     await this.logProvenanceAudit({
       session_id: sessionId,
-      agent_id: this.agent.id,
+      agent_id: this.agentId,
       artifact_type: input.artifact_type,
       artifact_id: input.artifact_id,
       action: 'manifesto_compliance_check',
