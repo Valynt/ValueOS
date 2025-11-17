@@ -6,6 +6,8 @@ const baseTables = {
   capabilities: [
     { id: 'cap-1', name: 'Automation', is_active: true, tags: ['automation', 'workflow'], category: 'platform' },
     { id: 'cap-2', name: 'Analytics', is_active: true, tags: ['analytics'], category: 'insights' },
+    { id: 'cap-3', name: 'Workflow Automation Suite', is_active: true, tags: ['automation', 'orchestration'], category: 'platform' },
+    { id: 'cap-4', name: 'Automation Insights', is_active: true, tags: ['automation', 'analytics'], category: 'insights' },
   ],
   benchmarks: [
     { id: 'bench-1', kpi_name: 'NPS', industry: 'SaaS', percentile: 25, value: 20, data_date: '2024-01-01' },
@@ -48,6 +50,29 @@ describe('ValueFabricService semantic search and ontology queries', () => {
     const results = await service.semanticSearchCapabilities('analytics', 1);
     expect(results[0].item.name).toBe('Analytics');
     expect(supabase.from).toHaveBeenCalled();
+  });
+
+  it('fills gaps with text search when semantic results are empty', async () => {
+    supabase.rpc.mockResolvedValue({ data: [], error: null });
+
+    const results = await service.semanticSearchCapabilities('analytics', 1);
+    expect(results).toHaveLength(1);
+    expect(results[0].item.name).toBe('Analytics');
+  });
+
+  it('combines semantic and text matches to satisfy limit', async () => {
+    supabase.rpc.mockResolvedValue({
+      data: [{ item: baseTables.capabilities[0], similarity: 0.92 }],
+      error: null,
+    });
+
+    const results = await service.semanticSearchCapabilities('automation', 3);
+
+    expect(results.map(r => r.item.name)).toEqual([
+      'Automation',
+      'Automation Insights',
+      'Workflow Automation Suite',
+    ]);
   });
 
   it('calculates benchmark percentiles and comparison values', async () => {

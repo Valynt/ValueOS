@@ -1,14 +1,28 @@
-# Epic 4 — Orchestration Layer Refactor: Gap-Closure Execution Plan
+#!/bin/bash
+# 
+# Epic 4 — Orchestration Layer Refactor: Full Runbook
+# 
+# This script applies all SQL migrations and functions for the refactor.
+# It MUST be run from a shell that has two environment variables set:
+# 
+# 1. DATABASE_URL: Your full Supabase Postgres connection string.
+#    Example: export DATABASE_URL="postgres://postgres:[YOUR-PASSWORD]@[...].supabase.co:5432/postgres"
+# 
+# 2. CREATED_BY_UUID: A valid user UUID from your auth.users table.
+#    Example: export CREATED_BY_UUID="00000000-0000-0000-0000-000000000000"
+#
 
-This runbook converts the Epic 4 gaps into immediately executable steps. Commands assume a Supabase-compatible Postgres endpoint available in `$DATABASE_URL` and access to the existing orchestration schema (`workflow_definitions`, `workflow_executions`, `workflow_execution_logs`, `workflow_events`, `agents`, `task_queue`). Apply sections independently as needed.
+# --- Safety Check ---
+if [[ -z "$DATABASE_URL" || -z "$CREATED_BY_UUID" ]]; then
+  echo "ERROR: DATABASE_URL and CREATED_BY_UUID must be set as environment variables."
+  echo "Example:"
+  echo '  export DATABASE_URL="postgres://user:pass@host:port/db"'
+  echo '  export CREATED_BY_UUID="<your-auth-user-uuid>"'
+  exit 1
+fi
 
-## 1) Define Lifecycle DAGs (Initiate → Target → Realize → Integrity)
-**Command:** seed canonical DAGs with explicit stage ordering and idempotent upserts.
-
-**Note:** Replace `<your-user-uuid>` with a valid user UUID from your Supabase users table, or execute this through the Supabase client SDK with an authenticated session for `auth.uid()` to work.
-
-```bash
-psql "$DATABASE_URL" <<'SQL'
+echo "--- [1/9] Defining Lifecycle DAGs ---"
+psql "$DATABASE_URL" <<SQL
 INSERT INTO workflow_definitions (name, description, version, dag_schema, is_active, created_by)
 VALUES
   ('lifecycle_v1', 'E2E lifecycle orchestration', 1, '{
@@ -25,15 +39,12 @@ VALUES
       {"from": "target_design", "to": "value_realization"},
       {"from": "value_realization", "to": "integrity"}
     ]
-  }'::jsonb, true, '<your-user-uuid>')
+  }'::jsonb, true, '$CREATED_BY_UUID')
 ON CONFLICT (name, version) DO UPDATE
 SET dag_schema = EXCLUDED.dag_schema, description = EXCLUDED.description, is_active = true;
 SQL
-```
 
-## 2) Rollback Compensation Hooks
-**Command:** attach a compensation function that rewinds artifacts and logs rollback events.
-```bash
+echo "--- [2/9] Creating Rollback Compensation Hooks ---"
 psql "$DATABASE_URL" <<'SQL'
 CREATE OR REPLACE FUNCTION perform_workflow_compensation(p_execution_id uuid, p_reason text)
 RETURNS void AS $$
@@ -51,11 +62,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 SQL
-```
 
-## 3) Stage-Level Retries with Backoff
-**Command:** deterministic retry with capped backoff using `attempt_number` in `workflow_execution_logs`.
-```bash
+echo "--- [3/9] Creating Stage-Level Retries with Backoff ---"
 psql "$DATABASE_URL" <<'SQL'
 CREATE OR REPLACE FUNCTION retry_stage(p_log_id uuid, p_max_attempts int DEFAULT 3)
 RETURNS void AS $$
@@ -81,11 +89,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 SQL
-```
 
-## 4) Circuit Breaker Guardrail
-**Command:** fail fast when error budget or latency SLA is exceeded; persist breaker state.
-```bash
+echo "--- [4/9] Creating Circuit Breaker Guardrail ---"
 psql "$DATABASE_URL" <<'SQL'
 CREATE OR REPLACE FUNCTION trip_circuit_breaker(p_execution_id uuid, p_reason text)
 RETURNS void AS $$
@@ -101,11 +106,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 SQL
-```
 
-## 5) Workflow Audit Logging (Structured)
-**Command:** create an insert-only audit view that joins execution, logs, and events.
-```bash
+echo "--- [5/9] Creating Workflow Audit Log View ---"
 psql "$DATABASE_URL" <<'SQL'
 CREATE OR REPLACE VIEW workflow_audit_feed AS
 SELECT
@@ -130,22 +132,16 @@ LEFT JOIN workflow_execution_logs wel ON wel.execution_id = we.id
 LEFT JOIN workflow_events e ON e.execution_id = we.id
 ORDER BY e.timestamp DESC NULLS LAST, wel.started_at DESC NULLS LAST;
 SQL
-```
 
-## 6) Workflow Definition Versioning and Activation
-**Command:** publish a new version, deactivate the old one atomically.
-
-**Note:** Replace `<your-user-uuid>` with a valid user UUID from your Supabase users table, or execute this through the Supabase client SDK with an authenticated session for `auth.uid()` to work.
-
-```bash
-psql "$DATABASE_URL" <<'SQL'
+echo "--- [6/9] Applying Workflow Definition Versioning ---"
+psql "$DATABASE_URL" <<SQL
 WITH current AS (
   SELECT id, version, dag_schema FROM workflow_definitions WHERE name = 'lifecycle_v1' AND is_active = true ORDER BY version DESC LIMIT 1
 ), new_def AS (
   INSERT INTO workflow_definitions (name, description, version, dag_schema, is_active, created_by)
   SELECT 'lifecycle_v1', 'Lifecycle DAG v2 with integrity checks', current.version + 1,
          current.dag_schema || jsonb_build_object('stages', (current.dag_schema->'stages') || jsonb_build_array(jsonb_build_object('id','post_integrity','next',jsonb_build_array(),'capability','audit'))),
-         true, '<your-user-uuid>'
+         true, '$CREATED_BY_UUID'
   FROM current
   RETURNING id, version
 )
@@ -153,16 +149,10 @@ UPDATE workflow_definitions
 SET is_active = false
 WHERE name = 'lifecycle_v1' AND id <> (SELECT id FROM new_def);
 SQL
-```
 
-## 7) Agent Routing Logic
-**Command:** map DAG stage capabilities to agents and enqueue tasks via `task_queue`.
-
-**Note:** The ON CONFLICT clause requires a unique constraint on `(agent_id, domain, version)` in the `agent_ontologies` table. Add this constraint via migration if it doesn't exist, or remove the ON CONFLICT clause if duplicate entries are acceptable.
-
-```bash
+echo "--- [7/9] Applying Agent Routing Logic ---"
 psql "$DATABASE_URL" <<'SQL'
--- Route by capability → agent.name
+-- Route by capability -> agent.name
 INSERT INTO agent_ontologies (agent_id, domain, knowledge, version)
 SELECT a.id, 'orchestration', jsonb_build_object('capability', c.capability), 1
 FROM (VALUES ('opportunity','Opportunity Agent'),('assessment','Assessment Agent'),('design','Design Agent'),('execution','Realization Agent'),('governance','Integrity Agent')) AS c(capability, agent_name)
@@ -176,32 +166,8 @@ FROM workflow_execution_logs wel
 JOIN workflow_executions we ON we.id = wel.execution_id
 WHERE wel.status = 'pending' AND we.status = 'in_progress';
 SQL
-```
 
-## 8) Smoke Test the Orchestrator Path
-**Command:** create a workflow execution and drive a happy-path completion.
-
-**Note:** Replace `<your-user-uuid>` with a valid user UUID from your Supabase users table, or execute this through the Supabase client SDK with an authenticated session for `auth.uid()` to work.
-
-```bash
-psql "$DATABASE_URL" <<'SQL'
--- Create execution instance
-WITH def AS (
-  SELECT id FROM workflow_definitions WHERE name = 'lifecycle_v1' AND is_active = true ORDER BY version DESC LIMIT 1
-)
-INSERT INTO workflow_executions (workflow_definition_id, status, current_stage, context, created_by)
-SELECT id, 'in_progress', 'discover', jsonb_build_object('customer','ACME Corp'), '<your-user-uuid>' FROM def
-RETURNING id;
-SQL
-```
-After obtaining the `id`, mark the first stage as complete and advance:
-```bash
-EXECUTION_ID=<returned-uuid>
-psql "$DATABASE_URL" <<SQL
-INSERT INTO workflow_execution_logs (execution_id, stage_id, status, started_at, completed_at, attempt_number, output_data)
-VALUES ('$EXECUTION_ID', 'discover', 'completed', now(), now(), 1, jsonb_build_object('summary','captured'));
-
-UPDATE workflow_executions SET current_stage = 'qualify' WHERE id = '$EXECUTION_ID';
-SQL
-```
-Repeat for subsequent stages to validate event logging and audit feed population.
+echo "--- [8/9] Running Initial Smoke Test (Create Instance) ---"
+# Create a new execution instance and capture the returned ID
+# We use -tA to get just the raw UUID output
+EXECUTION_ID=$(psql "$
