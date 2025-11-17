@@ -252,7 +252,8 @@ Return ONLY valid JSON in this exact format:
    */
   async persistTargetArtifacts(
     output: TargetAgentOutput,
-    valueCaseId: string
+    valueCaseId: string,
+    sessionId?: string
   ): Promise<{
     valueTreeId: string;
     roiModelId: string;
@@ -270,6 +271,17 @@ Return ONLY valid JSON in this exact format:
     if (treeError) throw new Error(`Failed to create value tree: ${treeError.message}`);
 
     const valueTreeId = valueTreeData.id;
+
+    if (sessionId) {
+      await this.recordLifecycleLink(sessionId, {
+        source_type: 'value_case',
+        source_id: valueCaseId,
+        target_type: 'value_tree',
+        target_id: valueTreeId,
+        relationship_type: 'target_model',
+        reasoning_trace: 'Value tree derived from prioritized objectives'
+      });
+    }
 
     for (const node of output.businessCase.nodes) {
       await this.supabase
@@ -314,6 +326,17 @@ Return ONLY valid JSON in this exact format:
 
     const roiModelId = roiModelData.id;
 
+    if (sessionId) {
+      await this.recordLifecycleLink(sessionId, {
+        source_type: 'value_tree',
+        source_id: valueTreeId,
+        target_type: 'roi_model',
+        target_id: roiModelId,
+        relationship_type: 'calculation_model',
+        reasoning_trace: 'ROI model built from value tree outcomes'
+      });
+    }
+
     for (const calc of output.businessCase.calculations) {
       await this.supabase
         .from('roi_model_calculations')
@@ -336,6 +359,17 @@ Return ONLY valid JSON in this exact format:
     if (commitError) throw new Error(`Failed to create value commit: ${commitError.message}`);
 
     const valueCommitId = commitData.id;
+
+    if (sessionId) {
+      await this.recordLifecycleLink(sessionId, {
+        source_type: 'roi_model',
+        source_id: roiModelId,
+        target_type: 'value_commit',
+        target_id: valueCommitId,
+        relationship_type: 'commitment',
+        reasoning_trace: 'Commitment captures ROI targets from model'
+      });
+    }
 
     for (const target of output.businessCase.kpi_targets) {
       await this.supabase

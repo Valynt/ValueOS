@@ -228,7 +228,8 @@ Return ONLY valid JSON in this exact format:
    */
   async persistBusinessObjectives(
     valueCaseId: string,
-    objectives: Array<Omit<BusinessObjective, 'id' | 'value_case_id' | 'created_at' | 'updated_at'>>
+    objectives: Array<Omit<BusinessObjective, 'id' | 'value_case_id' | 'created_at' | 'updated_at'>>,
+    sessionId?: string
   ): Promise<BusinessObjective[]> {
     const results: BusinessObjective[] = [];
 
@@ -248,6 +249,17 @@ Return ONLY valid JSON in this exact format:
       }
 
       results.push(data);
+
+      if (sessionId) {
+        await this.recordLifecycleLink(sessionId, {
+          source_type: 'value_case',
+          source_id: valueCaseId,
+          target_type: 'business_objective',
+          target_id: data.id,
+          relationship_type: 'opportunity_to_target',
+          reasoning_trace: 'Objective captured during opportunity analysis'
+        });
+      }
     }
 
     return results;

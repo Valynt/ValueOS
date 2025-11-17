@@ -1,10 +1,78 @@
 import React, { useState } from 'react';
 import { Shield, CheckCircle2, XCircle, AlertTriangle, FileText, Eye, Search } from 'lucide-react';
 import { MetricCard } from '../components/Components/MetricCard';
-import type { ManifestoComplianceReport, ManifestoValidationResult } from '../types/vos';
+import { ProvenanceTraceViewer } from '../components/Integrity/ProvenanceTraceViewer';
+import type {
+  LifecycleArtifactLink,
+  ManifestoComplianceReport,
+  ManifestoValidationResult,
+  ProvenanceAuditEntry
+} from '../types/vos';
 
 export const IntegrityCompliancePage: React.FC = () => {
   const [selectedArtifact, setSelectedArtifact] = useState<string>('value_tree_001');
+
+  const lineageLinks: LifecycleArtifactLink[] = [
+    {
+      id: 'link-1',
+      session_id: 'sess-01',
+      source_stage: 'opportunity',
+      source_type: 'discovery_brief',
+      source_artifact_id: 'disc-01',
+      target_stage: 'target',
+      target_type: 'value_tree',
+      target_artifact_id: 'value_tree_001',
+      relationship_type: 'derived_from',
+      reasoning_trace: 'Value tree nodes aligned to quantified pains from discovery.',
+      chain_depth: 0,
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 'link-2',
+      session_id: 'sess-01',
+      source_stage: 'target',
+      source_type: 'value_tree',
+      source_artifact_id: 'value_tree_001',
+      target_stage: 'target',
+      target_type: 'roi_model',
+      target_artifact_id: 'roi_model_002',
+      relationship_type: 'calculation_model',
+      reasoning_trace: 'ROI formulas reference KPI deltas defined in the value tree.',
+      chain_depth: 1,
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 'link-3',
+      session_id: 'sess-01',
+      source_stage: 'target',
+      source_type: 'roi_model',
+      source_artifact_id: 'roi_model_002',
+      target_stage: 'realization',
+      target_type: 'realization_report',
+      target_artifact_id: 'realization_004',
+      relationship_type: 'validated_against',
+      reasoning_trace: 'Telemetry validation compares realized KPIs to ROI projections.',
+      chain_depth: 2,
+      created_at: new Date().toISOString()
+    }
+  ];
+
+  const provenanceAudits: ProvenanceAuditEntry[] = [
+    {
+      id: 'audit-1',
+      session_id: 'sess-01',
+      agent_id: 'integrity-agent',
+      artifact_type: 'roi_model',
+      artifact_id: 'roi_model_002',
+      action: 'manifesto_compliance_check',
+      reasoning_trace: 'Validated calculation provenance and explainability traces.',
+      artifact_data: { rule: 'formula_provenance' },
+      input_variables: { total_value: 'value_tree.kpi_nodes' },
+      output_snapshot: { score: 92 },
+      metadata: { outcome: 'approved' },
+      created_at: new Date().toISOString()
+    }
+  ];
 
   const mockComplianceReport: ManifestoComplianceReport = {
     validated_at: new Date().toISOString(),
@@ -263,6 +331,12 @@ export const IntegrityCompliancePage: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            <ProvenanceTraceViewer
+              links={lineageLinks}
+              audits={provenanceAudits}
+              title="Data Lineage & Provenance"
+            />
           </div>
 
           <div className="space-y-6">
