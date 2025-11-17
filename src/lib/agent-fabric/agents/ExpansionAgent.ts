@@ -150,10 +150,16 @@ Return ONLY valid JSON:
         rationale: imp.rationale
       }));
 
+    const durationMs = Date.now() - startTime;
+
     await this.logMetric(sessionId, 'tokens_used', response.tokens_used, 'tokens');
-    await this.logMetric(sessionId, 'latency_ms', Date.now() - startTime, 'ms');
+    await this.logMetric(sessionId, 'latency_ms', durationMs, 'ms');
     await this.logMetric(sessionId, 'opportunity_score', parsed.opportunity_score, 'score');
     await this.logMetric(sessionId, 'estimated_value', parsed.expansion_model.estimated_value, 'USD');
+    await this.logPerformanceMetric(sessionId, 'expansion_execute', durationMs, {
+      improvements: expansionImprovements.length,
+      opportunity_score: parsed.opportunity_score,
+    });
 
     await this.logExecution(
       sessionId,
@@ -175,7 +181,7 @@ Return ONLY valid JSON:
 
     await this.memorySystem.storeSemanticMemory(
       sessionId,
-      this.agent.id,
+      this.agentId,
       `Expansion Opportunity: ${parsed.expansion_model.name} - $${parsed.expansion_model.estimated_value.toLocaleString()}`,
       {
         opportunity_type: parsed.expansion_model.opportunity_type,

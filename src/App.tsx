@@ -8,6 +8,7 @@ import { OpportunityWorkspace } from './views/OpportunityWorkspace';
 import { TargetROIWorkspace } from './views/TargetROIWorkspace';
 import { ExpansionInsightPage } from './views/ExpansionInsightPage';
 import { IntegrityCompliancePage } from './views/IntegrityCompliancePage';
+import { PerformanceDashboard } from './views/PerformanceDashboard';
 import { AppSidebar } from './components/Navigation/AppSidebar';
 import { ViewMode } from './types';
 
@@ -63,6 +64,9 @@ function App() {
 
       case 'documentation':
         return <DocumentationView />;
+
+      case 'performance':
+        return <PerformanceDashboard />;
 
       default:
         return null;

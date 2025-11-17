@@ -35,8 +35,16 @@ export interface OntologyStats {
   last_updated: string;
 }
 
+interface CacheEntry<T> {
+  data: T;
+  expiresAt: number;
+}
+
 export class ValueFabricService {
   private supabase: SupabaseClient;
+  private static readonly CACHE_TTL_MS = 5 * 60 * 1000;
+  private static capabilityCache = new Map<string, CacheEntry<Capability[]>>();
+  private static useCaseCache = new Map<string, CacheEntry<UseCase[]>>();
 
   constructor(supabase: SupabaseClient) {
     this.supabase = supabase;
@@ -50,7 +58,16 @@ export class ValueFabricService {
     category?: string;
     tags?: string[];
     search?: string;
+    page?: number;
+    pageSize?: number;
   }): Promise<Capability[]> {
+    const page = filters?.page ?? 1;
+    const pageSize = filters?.pageSize ?? 50;
+    const cacheKey = JSON.stringify({ ...filters, page, pageSize });
+
+    const cached = this.getCachedData(ValueFabricService.capabilityCache, cacheKey);
+    if (cached) return cached;
+
     let query = this.supabase
       .from('capabilities')
       .select('*')
@@ -68,10 +85,15 @@ export class ValueFabricService {
       query = query.ilike('name', `%${filters.search}%`);
     }
 
-    const { data, error } = await query.order('name');
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    const { data, error } = await query.order('name').range(from, to);
 
     if (error) throw error;
-    return data || [];
+    const capabilities = data || [];
+    this.setCachedData(ValueFabricService.capabilityCache, cacheKey, capabilities);
+    return capabilities;
   }
 
   async getCapabilityById(id: string): Promise<Capability | null> {
@@ -93,6 +115,7 @@ export class ValueFabricService {
       .single();
 
     if (error) throw error;
+    ValueFabricService.invalidateCapabilityCache();
     return data;
   }
 
@@ -105,6 +128,7 @@ export class ValueFabricService {
       .single();
 
     if (error) throw error;
+    ValueFabricService.invalidateCapabilityCache();
     return data;
   }
 
@@ -116,7 +140,16 @@ export class ValueFabricService {
     persona?: string;
     industry?: string;
     is_template?: boolean;
+    page?: number;
+    pageSize?: number;
   }): Promise<UseCase[]> {
+    const page = filters?.page ?? 1;
+    const pageSize = filters?.pageSize ?? 50;
+    const cacheKey = JSON.stringify({ ...filters, page, pageSize });
+
+    const cached = this.getCachedData(ValueFabricService.useCaseCache, cacheKey);
+    if (cached) return cached;
+
     let query = this.supabase.from('use_cases').select('*');
 
     if (filters?.persona) {
@@ -131,10 +164,15 @@ export class ValueFabricService {
       query = query.eq('is_template', filters.is_template);
     }
 
-    const { data, error } = await query.order('name');
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    const { data, error } = await query.order('name').range(from, to);
 
     if (error) throw error;
-    return data || [];
+    const useCases = data || [];
+    this.setCachedData(ValueFabricService.useCaseCache, cacheKey, useCases);
+    return useCases;
   }
 
   async getUseCaseById(id: string): Promise<UseCase | null> {
@@ -197,6 +235,8 @@ export class ValueFabricService {
       });
 
     if (error) throw error;
+
+    ValueFabricService.invalidateUseCaseCache();
   }
 
   // =====================================================
@@ -395,6 +435,16 @@ export class ValueFabricService {
     return data || [];
   }
 
+  async getValueTreeHierarchy(valueTreeId: string, maxDepth: number = 5) {
+    const { data, error } = await this.supabase.rpc('get_value_tree_hierarchy', {
+      value_tree_uuid: valueTreeId,
+      max_depth: maxDepth,
+    });
+
+    if (error) throw error;
+    return data || [];
+  }
+
   private async getROIModels(valueCaseId: string) {
     const { data } = await this.supabase
       .from('roi_models')
@@ -507,6 +557,8 @@ export class ValueFabricService {
 
     if (error) throw error;
 
+    ValueFabricService.invalidateUseCaseCache();
+
     for (const capability of template.capabilities) {
       await this.linkCapabilityToUseCase(newUseCase.id, capability.id);
     }
@@ -515,5 +567,33 @@ export class ValueFabricService {
       useCase: newUseCase,
       capabilities: template.capabilities,
     };
+  }
+
+  private getCachedData<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null {
+    const entry = cache.get(key);
+    if (!entry) return null;
+
+    if (entry.expiresAt < Date.now()) {
+      cache.delete(key);
+      return null;
+    }
+
+    return entry.data;
+  }
+
+  private setCachedData<T>(cache: Map<string, CacheEntry<T>>, key: string, data: T): void {
+    cache.set(key, { data, expiresAt: Date.now() + ValueFabricService.CACHE_TTL_MS });
+  }
+
+  private static invalidateCache(cache: Map<string, CacheEntry<any>>): void {
+    cache.clear();
+  }
+
+  private static invalidateCapabilityCache(): void {
+    this.invalidateCache(this.capabilityCache);
+  }
+
+  private static invalidateUseCaseCache(): void {
+    this.invalidateCache(this.useCaseCache);
   }
 }

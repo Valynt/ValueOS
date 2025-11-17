@@ -41,8 +41,18 @@ export interface BenchmarkProvider {
   api_key?: string;
 }
 
+interface CacheEntry<T> {
+  data: T;
+  expiresAt: number;
+}
+
 export class BenchmarkService {
   private supabase: SupabaseClient;
+  private static readonly CACHE_TTL_MS = 5 * 60 * 1000;
+  private static percentileCache = new Map<
+    string,
+    CacheEntry<{ p25?: number; p50?: number; p75?: number; p90?: number }>
+  >();
 
   constructor(supabase: SupabaseClient) {
     this.supabase = supabase;
@@ -77,7 +87,13 @@ export class BenchmarkService {
       };
     }
 
-    const percentiles = this.calculatePercentiles(benchmarks);
+    const cacheKey = this.getPercentileCacheKey(kpiName, filters);
+    let percentiles = this.getCachedPercentiles(cacheKey);
+
+    if (!percentiles) {
+      percentiles = this.calculatePercentiles(benchmarks);
+      this.setPercentileCache(cacheKey, percentiles);
+    }
 
     const percentileRank = this.calculatePercentileRank(actualValue, benchmarks);
 
@@ -126,6 +142,7 @@ export class BenchmarkService {
     vertical?: string;
     company_size?: string;
     region?: string;
+    pagination?: { page?: number; pageSize?: number };
   }): Promise<Benchmark[]> {
     let query = this.supabase.from('benchmarks').select('*');
 
@@ -149,7 +166,12 @@ export class BenchmarkService {
       query = query.eq('region', filters.region);
     }
 
-    const { data, error } = await query.order('data_date', { ascending: false });
+    const page = filters.pagination?.page ?? 1;
+    const pageSize = filters.pagination?.pageSize ?? 100;
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    const { data, error } = await query.order('data_date', { ascending: false }).range(from, to);
 
     if (error) throw error;
     return data || [];
@@ -165,6 +187,7 @@ export class BenchmarkService {
       .single();
 
     if (error) throw error;
+    BenchmarkService.invalidatePercentileCache();
     return data;
   }
 
@@ -204,6 +227,7 @@ export class BenchmarkService {
     }
 
     result.success = result.errors.length === 0;
+    BenchmarkService.invalidatePercentileCache();
     return result;
   }
 
@@ -302,6 +326,47 @@ export class BenchmarkService {
     }
 
     return 'below_average';
+  }
+
+  private getPercentileCacheKey(
+    kpiName: string,
+    filters: { industry: string; vertical?: string; company_size?: string; region?: string }
+  ): string {
+    return [
+      kpiName,
+      filters.industry || '',
+      filters.vertical || '',
+      filters.company_size || '',
+      filters.region || '',
+    ].join('|');
+  }
+
+  private getCachedPercentiles(
+    cacheKey: string
+  ): { p25?: number; p50?: number; p75?: number; p90?: number } | null {
+    const entry = BenchmarkService.percentileCache.get(cacheKey);
+    if (!entry) return null;
+
+    if (entry.expiresAt < Date.now()) {
+      BenchmarkService.percentileCache.delete(cacheKey);
+      return null;
+    }
+
+    return entry.data;
+  }
+
+  private setPercentileCache(
+    cacheKey: string,
+    percentiles: { p25?: number; p50?: number; p75?: number; p90?: number }
+  ): void {
+    BenchmarkService.percentileCache.set(cacheKey, {
+      data: percentiles,
+      expiresAt: Date.now() + BenchmarkService.CACHE_TTL_MS,
+    });
+  }
+
+  private static invalidatePercentileCache(): void {
+    this.percentileCache.clear();
   }
 
   // =====================================================

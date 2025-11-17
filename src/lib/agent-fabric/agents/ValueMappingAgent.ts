@@ -60,8 +60,13 @@ Return ONLY valid JSON in this format:
 
     const parsed = this.extractJSON(response.content);
 
+    const durationMs = Date.now() - startTime;
+
     await this.logMetric(sessionId, 'tokens_used', response.tokens_used, 'tokens');
-    await this.logMetric(sessionId, 'latency_ms', Date.now() - startTime, 'ms');
+    await this.logMetric(sessionId, 'latency_ms', durationMs, 'ms');
+    await this.logPerformanceMetric(sessionId, 'value_mapping_execute', durationMs, {
+      value_maps: parsed.value_maps.length,
+    });
 
     await this.logExecution(
       sessionId,
@@ -79,7 +84,7 @@ Return ONLY valid JSON in this format:
     for (const vm of parsed.value_maps) {
       await this.memorySystem.storeSemanticMemory(
         sessionId,
-        this.agent.id,
+        this.agentId,
         `${vm.feature} drives ${vm.business_outcome}`,
         { value_map: vm }
       );

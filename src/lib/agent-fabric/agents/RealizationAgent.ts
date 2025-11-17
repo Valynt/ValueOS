@@ -144,11 +144,17 @@ Return ONLY valid JSON:
       }
     };
 
+    const durationMs = Date.now() - startTime;
+
     await this.logMetric(sessionId, 'tokens_used', response.tokens_used, 'tokens');
-    await this.logMetric(sessionId, 'latency_ms', Date.now() - startTime, 'ms');
+    await this.logMetric(sessionId, 'latency_ms', durationMs, 'ms');
     await this.logMetric(sessionId, 'kpis_tracked', results.length, 'count');
     await this.logMetric(sessionId, 'kpis_achieved', results.filter(r => r.status === 'achieved' || r.status === 'exceeded').length, 'count');
     await this.logMetric(sessionId, 'kpis_at_risk', results.filter(r => r.status === 'at_risk' || r.status === 'missed').length, 'count');
+    await this.logPerformanceMetric(sessionId, 'realization_execute', durationMs, {
+      results_count: results.length,
+      overall_status: overallStatus,
+    });
 
     await this.logExecution(
       sessionId,
@@ -170,7 +176,7 @@ Return ONLY valid JSON:
 
     await this.memorySystem.storeSemanticMemory(
       sessionId,
-      this.agent.id,
+      this.agentId,
       `Realization Report: ${overallStatus.toUpperCase()} - ${analysis.executive_summary}`,
       {
         overall_status: overallStatus,
