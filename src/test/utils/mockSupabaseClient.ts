@@ -13,6 +13,8 @@ class MockQueryBuilder {
   private operation: 'select' | 'insert' | 'update' | 'delete' = 'select';
   private payload: any;
   private error: Error | null = null;
+  private rangeFrom?: number;
+  private rangeTo?: number;
 
   constructor(
     private tableName: string,
@@ -73,6 +75,12 @@ class MockQueryBuilder {
     return this;
   }
 
+  range(from: number, to: number): this {
+    this.rangeFrom = from;
+    this.rangeTo = to;
+    return this;
+  }
+
   maybeSingle() {
     const { data, error } = this.execute();
     return Promise.resolve({ data: data[0] || null, error });
@@ -126,7 +134,11 @@ class MockQueryBuilder {
       });
     }
 
-    return { data: rows, error: this.error };
+    const from = this.rangeFrom ?? 0;
+    const to = this.rangeTo !== undefined ? this.rangeTo + 1 : undefined;
+    const rangedRows = rows.slice(from, to);
+
+    return { data: rangedRows, error: this.error };
   }
 
   private handleInsert() {
