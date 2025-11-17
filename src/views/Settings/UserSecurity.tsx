@@ -5,6 +5,7 @@ import {
   Shield, Smartphone, Monitor, Copy, Check, Eye, EyeOff,
   AlertCircle, Loader2, QrCode, Download, RefreshCw, MapPin
 } from 'lucide-react';
+import { defaultPasswordPolicy, validatePassword } from '../../utils/security';
 
 interface PasswordStrength {
   score: number;
@@ -63,11 +64,11 @@ export const UserSecurity: React.FC = () => {
 
   const calculatePasswordStrength = (password: string): PasswordStrength => {
     let score = 0;
-    if (password.length >= 8) score++;
-    if (password.length >= 12) score++;
+    if (password.length >= defaultPasswordPolicy.minLength) score++;
     if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++;
     if (/\d/.test(password)) score++;
     if (/[^a-zA-Z\d]/.test(password)) score++;
+    if (password.length >= defaultPasswordPolicy.minLength + 4) score++;
 
     if (score <= 2) return { score, feedback: 'Weak', color: 'bg-red-500' };
     if (score === 3) return { score, feedback: 'Fair', color: 'bg-yellow-500' };
@@ -84,8 +85,9 @@ export const UserSecurity: React.FC = () => {
       return;
     }
 
-    if (newPassword.length < 8) {
-      setPasswordError('New password must be at least 8 characters');
+    const validation = validatePassword(newPassword);
+    if (!validation.valid) {
+      setPasswordError(validation.errors[0]);
       return;
     }
 
@@ -95,7 +97,7 @@ export const UserSecurity: React.FC = () => {
     }
 
     const strength = calculatePasswordStrength(newPassword);
-    if (strength.score < 3) {
+    if (strength.score < 4) {
       setPasswordError('Please choose a stronger password');
       return;
     }
@@ -259,8 +261,8 @@ export const UserSecurity: React.FC = () => {
             <h4 className="text-sm font-medium text-gray-900 mb-2">Password Requirements:</h4>
             <ul className="text-sm text-gray-600 space-y-1">
               <li className="flex items-start">
-                <Check className={`h-4 w-4 mr-2 mt-0.5 ${newPassword.length >= 8 ? 'text-green-600' : 'text-gray-400'}`} />
-                At least 8 characters
+                <Check className={`h-4 w-4 mr-2 mt-0.5 ${newPassword.length >= defaultPasswordPolicy.minLength ? 'text-green-600' : 'text-gray-400'}`} />
+                At least {defaultPasswordPolicy.minLength} characters
               </li>
               <li className="flex items-start">
                 <Check className={`h-4 w-4 mr-2 mt-0.5 ${/[A-Z]/.test(newPassword) && /[a-z]/.test(newPassword) ? 'text-green-600' : 'text-gray-400'}`} />
