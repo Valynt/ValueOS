@@ -66,6 +66,12 @@ Your task is to create:
 2. **ROI Model**: Formula-based calculations showing financial impact
 3. **Value Commit**: Specific, measurable commitments at point of sale
 
+Provenance requirements:
+- Every ROI calculation must list input_variables with name, source, and description
+- Provide source_references mapping each variable back to a KPI, capability, or assumption
+- Include a reasoning_trace (80+ chars) describing the logic/provenance of each calculation
+- Return a business_case_summary plus a confidence_level for the overall chain
+
 Return ONLY valid JSON in this exact format:
 {
   "value_tree": {
@@ -115,7 +121,14 @@ Return ONLY valid JSON in this exact format:
         "description": "Total hours saved per year",
         "calculation_order": 1,
         "result_type": "intermediate",
-        "unit": "hours"
+        "unit": "hours",
+        "input_variables": [
+          { "name": "employees", "source": "discovery:headcount", "description": "Number of impacted employees" },
+          { "name": "hours_per_week", "source": "benchmark:industry_hours", "description": "Average hours per week" },
+          { "name": "efficiency_gain", "source": "capability:automation", "description": "Expected efficiency delta" }
+        ],
+        "source_references": { "employees": "kpi:headcount", "efficiency_gain": "capability:automation" },
+        "reasoning_trace": "Explain how each variable influences the impact and cite its source"
       },
       {
         "name": "annual_cost_savings",
@@ -123,7 +136,12 @@ Return ONLY valid JSON in this exact format:
         "description": "Cost savings from time reduction",
         "calculation_order": 2,
         "result_type": "cost",
-        "unit": "USD"
+        "unit": "USD",
+        "input_variables": [
+          { "name": "hourly_rate", "source": "finance:blended_rate", "description": "Fully loaded rate" }
+        ],
+        "source_references": { "hourly_rate": "benchmark:finance" },
+        "reasoning_trace": "Show why the financial rate is conservative and sourced"
       },
       {
         "name": "total_roi",
@@ -131,7 +149,12 @@ Return ONLY valid JSON in this exact format:
         "description": "3-year ROI percentage",
         "calculation_order": 3,
         "result_type": "intermediate",
-        "unit": "percent"
+        "unit": "percent",
+        "input_variables": [
+          { "name": "total_investment", "source": "sales:pricing", "description": "Implementation and subscription" }
+        ],
+        "source_references": { "total_investment": "order_form:pricing" },
+        "reasoning_trace": "Connect ROI back to upstream calculations and assumptions"
       }
     ],
     "confidence_level": "medium"
@@ -248,7 +271,9 @@ Return ONLY valid JSON in this exact format:
         nodes: parsed.value_tree.nodes,
         links: parsed.value_tree.links,
         calculations: parsed.roi_model.calculations,
-        kpi_targets: parsed.kpi_targets
+        kpi_targets: parsed.kpi_targets,
+        reasoning: parsed.reasoning,
+        confidence_level: parsed.confidence_level
       }
     };
   }
@@ -279,13 +304,24 @@ Return ONLY valid JSON in this exact format:
     const valueTreeId = valueTreeData.id;
 
     if (sessionId) {
+      await this.logArtifactProvenance(sessionId, 'value_tree', valueTreeId, 'artifact_created', {
+        artifact_data: {
+          summary: output.businessCase.summary,
+          node_count: output.businessCase.nodes.length,
+        },
+        reasoning_trace: output.businessCase.reasoning,
+        metadata: { confidence: output.businessCase.confidence_level },
+      });
+
       await this.recordLifecycleLink(sessionId, {
         source_type: 'value_case',
         source_id: valueCaseId,
         target_type: 'value_tree',
         target_id: valueTreeId,
         relationship_type: 'target_model',
-        reasoning_trace: 'Value tree derived from prioritized objectives'
+        reasoning_trace: 'Value tree derived from prioritized objectives',
+        chain_depth: 0,
+        metadata: { stage: 'target' }
       });
     }
 
@@ -333,13 +369,24 @@ Return ONLY valid JSON in this exact format:
     const roiModelId = roiModelData.id;
 
     if (sessionId) {
+      await this.logArtifactProvenance(sessionId, 'roi_model', roiModelId, 'artifact_created', {
+        artifact_data: {
+          assumptions: output.roiModel.assumptions,
+          calculation_count: output.businessCase.calculations.length,
+        },
+        reasoning_trace: output.businessCase.reasoning,
+        metadata: { confidence: output.businessCase.confidence_level },
+      });
+
       await this.recordLifecycleLink(sessionId, {
         source_type: 'value_tree',
         source_id: valueTreeId,
         target_type: 'roi_model',
         target_id: roiModelId,
         relationship_type: 'calculation_model',
-        reasoning_trace: 'ROI model built from value tree outcomes'
+        reasoning_trace: 'ROI model built from value tree outcomes',
+        chain_depth: 1,
+        metadata: { stage: 'target' }
       });
     }
 
@@ -348,8 +395,24 @@ Return ONLY valid JSON in this exact format:
         .from('roi_model_calculations')
         .insert({
           roi_model_id: roiModelId,
-          ...calc
+          ...calc,
+          input_variables: calc.input_variables || [],
+          source_references: calc.source_references || {},
+          reasoning_trace: calc.reasoning_trace || output.businessCase.reasoning
         });
+
+      if (sessionId) {
+        await this.logArtifactProvenance(sessionId, 'roi_model_calculation', roiModelId, 'calculation_defined', {
+          artifact_data: {
+            name: calc.name,
+            formula: calc.formula,
+            description: calc.description,
+            input_variables: calc.input_variables || [],
+            source_references: calc.source_references || {},
+          },
+          reasoning_trace: calc.reasoning_trace || output.businessCase.reasoning,
+        });
+      }
     }
 
     const { data: commitData, error: commitError } = await this.supabase
@@ -367,13 +430,24 @@ Return ONLY valid JSON in this exact format:
     const valueCommitId = commitData.id;
 
     if (sessionId) {
+      await this.logArtifactProvenance(sessionId, 'value_commit', valueCommitId, 'artifact_created', {
+        artifact_data: {
+          kpi_targets: output.businessCase.kpi_targets,
+          target_date: output.valueCommit.target_date,
+        },
+        reasoning_trace: output.businessCase.reasoning,
+        metadata: { confidence: output.businessCase.confidence_level },
+      });
+
       await this.recordLifecycleLink(sessionId, {
         source_type: 'roi_model',
         source_id: roiModelId,
         target_type: 'value_commit',
         target_id: valueCommitId,
         relationship_type: 'commitment',
-        reasoning_trace: 'Commitment captures ROI targets from model'
+        reasoning_trace: 'Commitment captures ROI targets from model',
+        chain_depth: 2,
+        metadata: { stage: 'target' }
       });
     }
 

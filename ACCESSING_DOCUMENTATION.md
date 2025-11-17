@@ -86,6 +86,20 @@ When you first access documentation, you'll see:
 
 ---
 
+## 2.5 Page Templates You Can Use Now
+
+To accelerate authoring, the portal includes ready-to-use templates. When creating a new page, pick one of these layouts:
+
+- **Lifecycle Playbook**: For Opportunity → Expansion workflows; includes sections for inputs, steps, outputs, and escalation notes.
+- **API How-To**: Prebuilt blocks for authentication, request/response examples, and error envelopes.
+- **Troubleshooting Guide**: Triage table with symptoms, root causes, and verified fixes plus a checklist for reproduction steps.
+- **Compliance Checklist**: Manifesto rule matrix with evidence links, persona alignment notes, and approval history.
+- **Release Runbook**: Deployment steps, rollback hooks, and verification tasks tied to specific service versions.
+
+Each template auto-populates hero metadata (title, description, tags) and adds a feedback prompt by default.
+
+---
+
 ## 3. Integration Points
 
 ### From Settings Page

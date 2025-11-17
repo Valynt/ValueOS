@@ -292,13 +292,24 @@ Return ONLY valid JSON:
     const reportId = reportData.id;
 
     if (sessionId) {
+      await this.logArtifactProvenance(sessionId, 'realization_report', reportId, 'artifact_created', {
+        artifact_data: {
+          report_period: output.realizationReport.report_period_start,
+          overall_status: output.realizationReport.overall_status,
+          insights: output.insights,
+        },
+        reasoning_trace: output.recommendations.join('; '),
+      });
+
       await this.recordLifecycleLink(sessionId, {
         source_type: 'value_commit',
         source_id: valueCommitId,
         target_type: 'realization_report',
         target_id: reportId,
         relationship_type: 'realization',
-        reasoning_trace: 'Realization report generated from KPI telemetry'
+        reasoning_trace: 'Realization report generated from KPI telemetry',
+        chain_depth: 3,
+        metadata: { stage: 'realization' }
       });
     }
 
@@ -309,6 +320,16 @@ Return ONLY valid JSON:
           ...result,
           realization_report_id: reportId
         });
+
+      if (sessionId) {
+        await this.logArtifactProvenance(sessionId, 'realization_result', reportId, 'result_recorded', {
+          artifact_data: {
+            kpi_name: result.kpi_name,
+            actual_value: result.actual_value,
+            target_value: result.target_value,
+          },
+        });
+      }
     }
 
     return reportId;

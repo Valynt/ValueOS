@@ -1,0 +1,394 @@
+import { supabase } from '../lib/supabase';
+import {
+  WorkflowDAG,
+  WorkflowExecution,
+  WorkflowExecutionLog,
+  WorkflowEvent,
+  WorkflowStatus,
+  StageStatus,
+  RetryConfig,
+  CircuitBreakerState,
+  WorkflowStage
+} from '../types/workflow';
+
+export class WorkflowOrchestrator {
+  private circuitBreakers: Map<string, CircuitBreakerState> = new Map();
+
+  async executeWorkflow(
+    workflowDefinitionId: string,
+    context: Record<string, any> = {}
+  ): Promise<string> {
+    const { data: definition, error: defError } = await supabase
+      .from('workflow_definitions')
+      .select('*')
+      .eq('id', workflowDefinitionId)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (defError || !definition) {
+      throw new Error(`Workflow definition not found: ${workflowDefinitionId}`);
+    }
+
+    const dag: WorkflowDAG = definition.dag_schema as WorkflowDAG;
+
+    const { data: execution, error: execError } = await supabase
+      .from('workflow_executions')
+      .insert({
+        workflow_definition_id: workflowDefinitionId,
+        status: 'initiated',
+        current_stage: dag.initial_stage,
+        context,
+        circuit_breaker_state: {}
+      })
+      .select()
+      .single();
+
+    if (execError || !execution) {
+      throw new Error('Failed to create workflow execution');
+    }
+
+    await this.logEvent(execution.id, 'stage_started', dag.initial_stage, {
+      workflow_name: definition.name
+    });
+
+    this.executeDAG(execution.id, dag).catch(async (error) => {
+      await this.handleWorkflowFailure(execution.id, error.message);
+    });
+
+    return execution.id;
+  }
+
+  private async executeDAG(executionId: string, dag: WorkflowDAG): Promise<void> {
+    const { data: execution } = await supabase
+      .from('workflow_executions')
+      .select('*')
+      .eq('id', executionId)
+      .single();
+
+    if (!execution) throw new Error('Execution not found');
+
+    let currentStageId = execution.current_stage || dag.initial_stage;
+    const visitedStages = new Set<string>();
+
+    while (currentStageId && !dag.final_stages.includes(currentStageId)) {
+      if (visitedStages.has(currentStageId)) {
+        throw new Error(`Circular dependency at stage: ${currentStageId}`);
+      }
+      visitedStages.add(currentStageId);
+
+      const stage = dag.stages.find(s => s.id === currentStageId);
+      if (!stage) throw new Error(`Stage not found: ${currentStageId}`);
+
+      await this.updateExecutionStatus(executionId, 'in_progress', currentStageId);
+
+      const stageResult = await this.executeStageWithRetry(executionId, stage, execution.context);
+
+      if (stageResult.status === 'failed') {
+        throw new Error(`Stage ${currentStageId} failed: ${stageResult.error_message}`);
+      }
+
+      const nextTransition = dag.transitions.find(t => t.from_stage === currentStageId);
+      if (!nextTransition) break;
+
+      currentStageId = nextTransition.to_stage;
+    }
+
+    await this.updateExecutionStatus(executionId, 'completed', null);
+    await this.logEvent(executionId, 'workflow_completed', null, { final_stage: currentStageId });
+  }
+
+  private async executeStageWithRetry(
+    executionId: string,
+    stage: WorkflowStage,
+    context: Record<string, any>
+  ): Promise<WorkflowExecutionLog> {
+    const circuitBreakerKey = `${executionId}-${stage.id}`;
+    const circuitBreaker = this.getOrCreateCircuitBreaker(circuitBreakerKey);
+
+    if (circuitBreaker.state === 'open') {
+      const cooldownExpired = circuitBreaker.last_failure_time
+        ? Date.now() - new Date(circuitBreaker.last_failure_time).getTime() > circuitBreaker.timeout_seconds * 1000
+        : true;
+
+      if (cooldownExpired) {
+        circuitBreaker.state = 'half_open';
+      } else {
+        throw new Error(`Circuit breaker open for stage: ${stage.id}`);
+      }
+    }
+
+    const retryConfig = stage.retry_config;
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= retryConfig.max_attempts; attempt++) {
+      const logId = await this.createExecutionLog(executionId, stage.id, attempt, context);
+
+      try {
+        await this.logEvent(executionId, 'stage_started', stage.id, { attempt });
+
+        const startTime = Date.now();
+        const result = await this.executeStage(stage, context);
+        const duration = Date.now() - startTime;
+
+        await this.completeExecutionLog(logId, 'completed', duration, result);
+        await this.logEvent(executionId, 'stage_completed', stage.id, { attempt, duration });
+
+        this.resetCircuitBreaker(circuitBreakerKey);
+
+        const { data: log } = await supabase
+          .from('workflow_execution_logs')
+          .select('*')
+          .eq('id', logId)
+          .single();
+
+        return log as WorkflowExecutionLog;
+      } catch (error) {
+        lastError = error as Error;
+        const duration = Date.now() - Date.now();
+
+        await this.completeExecutionLog(logId, 'failed', duration, null, lastError.message);
+        this.recordCircuitBreakerFailure(circuitBreakerKey);
+
+        if (attempt < retryConfig.max_attempts) {
+          await this.logEvent(executionId, 'stage_retrying', stage.id, {
+            attempt,
+            error: lastError.message,
+            next_attempt: attempt + 1
+          });
+
+          const delay = this.calculateRetryDelay(
+            attempt,
+            retryConfig.initial_delay_ms,
+            retryConfig.max_delay_ms,
+            retryConfig.multiplier,
+            retryConfig.jitter
+          );
+
+          await this.delay(delay);
+        } else {
+          await this.logEvent(executionId, 'stage_failed', stage.id, {
+            attempt,
+            error: lastError.message
+          });
+        }
+      }
+    }
+
+    const { data: log } = await supabase
+      .from('workflow_execution_logs')
+      .select('*')
+      .eq('execution_id', executionId)
+      .eq('stage_id', stage.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    return log as WorkflowExecutionLog;
+  }
+
+  private async executeStage(
+    stage: WorkflowStage,
+    context: Record<string, any>
+  ): Promise<Record<string, any>> {
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Stage timeout')), stage.timeout_seconds * 1000);
+    });
+
+    const executionPromise = this.callAgentForStage(stage, context);
+
+    return Promise.race([executionPromise, timeoutPromise]) as Promise<Record<string, any>>;
+  }
+
+  private async callAgentForStage(
+    stage: WorkflowStage,
+    context: Record<string, any>
+  ): Promise<Record<string, any>> {
+    await this.delay(1000);
+
+    return {
+      stage_id: stage.id,
+      agent_type: stage.agent_type,
+      artifacts_created: [],
+      next_context: context
+    };
+  }
+
+  private calculateRetryDelay(
+    attempt: number,
+    initialDelay: number,
+    maxDelay: number,
+    multiplier: number,
+    jitter: boolean
+  ): number {
+    let delay = initialDelay * Math.pow(multiplier, attempt - 1);
+    delay = Math.min(delay, maxDelay);
+
+    if (jitter) {
+      const jitterAmount = delay * 0.1;
+      const randomJitter = (Math.random() - 0.5) * 2 * jitterAmount;
+      delay += randomJitter;
+    }
+
+    return Math.floor(delay);
+  }
+
+  private getOrCreateCircuitBreaker(key: string): CircuitBreakerState {
+    if (!this.circuitBreakers.has(key)) {
+      this.circuitBreakers.set(key, {
+        failure_count: 0,
+        last_failure_time: null,
+        state: 'closed',
+        threshold: 5,
+        timeout_seconds: 60
+      });
+    }
+    return this.circuitBreakers.get(key)!;
+  }
+
+  private recordCircuitBreakerFailure(key: string): void {
+    const breaker = this.getOrCreateCircuitBreaker(key);
+    breaker.failure_count++;
+    breaker.last_failure_time = new Date().toISOString();
+
+    if (breaker.failure_count >= breaker.threshold) {
+      breaker.state = 'open';
+    }
+  }
+
+  private resetCircuitBreaker(key: string): void {
+    const breaker = this.getOrCreateCircuitBreaker(key);
+    breaker.failure_count = 0;
+    breaker.last_failure_time = null;
+    breaker.state = 'closed';
+  }
+
+  private async createExecutionLog(
+    executionId: string,
+    stageId: string,
+    attempt: number,
+    inputData: Record<string, any>
+  ): Promise<string> {
+    const { data, error } = await supabase
+      .from('workflow_execution_logs')
+      .insert({
+        execution_id: executionId,
+        stage_id: stageId,
+        status: 'in_progress',
+        attempt_number: attempt,
+        input_data: inputData
+      })
+      .select()
+      .single();
+
+    if (error || !data) throw new Error('Failed to create execution log');
+    return data.id;
+  }
+
+  private async completeExecutionLog(
+    logId: string,
+    status: StageStatus,
+    durationMs: number,
+    outputData: Record<string, any> | null,
+    errorMessage?: string
+  ): Promise<void> {
+    await supabase
+      .from('workflow_execution_logs')
+      .update({
+        status,
+        completed_at: new Date().toISOString(),
+        duration_ms: durationMs,
+        output_data: outputData,
+        error_message: errorMessage || null
+      })
+      .eq('id', logId);
+  }
+
+  private async updateExecutionStatus(
+    executionId: string,
+    status: WorkflowStatus,
+    currentStage: string | null
+  ): Promise<void> {
+    const update: any = {
+      status,
+      current_stage: currentStage,
+      updated_at: new Date().toISOString()
+    };
+
+    if (status === 'completed' || status === 'failed' || status === 'rolled_back') {
+      update.completed_at = new Date().toISOString();
+    }
+
+    await supabase
+      .from('workflow_executions')
+      .update(update)
+      .eq('id', executionId);
+  }
+
+  private async handleWorkflowFailure(executionId: string, errorMessage: string): Promise<void> {
+    await supabase
+      .from('workflow_executions')
+      .update({
+        status: 'failed',
+        error_message: errorMessage,
+        completed_at: new Date().toISOString()
+      })
+      .eq('id', executionId);
+
+    await this.logEvent(executionId, 'workflow_failed', null, { error: errorMessage });
+  }
+
+  private async logEvent(
+    executionId: string,
+    eventType: WorkflowEvent['event_type'],
+    stageId: string | null,
+    metadata: Record<string, any>
+  ): Promise<void> {
+    await supabase
+      .from('workflow_events')
+      .insert({
+        execution_id: executionId,
+        event_type: eventType,
+        stage_id: stageId,
+        metadata
+      });
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async getExecutionStatus(executionId: string): Promise<WorkflowExecution | null> {
+    const { data, error } = await supabase
+      .from('workflow_executions')
+      .select('*')
+      .eq('id', executionId)
+      .maybeSingle();
+
+    if (error) throw new Error('Failed to fetch execution status');
+    return data as WorkflowExecution | null;
+  }
+
+  async getExecutionLogs(executionId: string): Promise<WorkflowExecutionLog[]> {
+    const { data, error } = await supabase
+      .from('workflow_execution_logs')
+      .select('*')
+      .eq('execution_id', executionId)
+      .order('started_at', { ascending: true});
+
+    if (error) throw new Error('Failed to fetch execution logs');
+    return data as WorkflowExecutionLog[];
+  }
+
+  async getExecutionEvents(executionId: string): Promise<WorkflowEvent[]> {
+    const { data, error } = await supabase
+      .from('workflow_events')
+      .select('*')
+      .eq('execution_id', executionId)
+      .order('timestamp', { ascending: true });
+
+    if (error) throw new Error('Failed to fetch execution events');
+    return data as WorkflowEvent[];
+  }
+}
+
+export const workflowOrchestrator = new WorkflowOrchestrator();

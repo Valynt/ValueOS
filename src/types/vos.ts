@@ -191,11 +191,13 @@ export interface LifecycleArtifactLink {
   relationship_type: string;
   reasoning_trace?: string;
   chain_depth?: number;
+  metadata?: Record<string, any>;
+  created_by?: string;
   created_at?: string;
 }
 
 export interface ProvenanceAuditEntry {
-  id: string;
+  id?: string;
   session_id: string;
   agent_id: string;
   artifact_type: string;
@@ -206,7 +208,7 @@ export interface ProvenanceAuditEntry {
   input_variables?: Record<string, any>;
   output_snapshot?: Record<string, any>;
   metadata?: Record<string, any>;
-  created_at: string;
+  created_at?: string;
 }
 
 export interface KPITarget {

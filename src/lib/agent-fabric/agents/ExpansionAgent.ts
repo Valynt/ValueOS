@@ -261,13 +261,22 @@ Return ONLY valid JSON:
     const expansionModelId = modelData.id;
 
     if (sessionId) {
+      await this.logArtifactProvenance(sessionId, 'expansion_model', expansionModelId, 'artifact_created', {
+        artifact_data: {
+          opportunity_score: output.opportunityScore,
+          executive_summary: output.executiveSummary,
+        },
+      });
+
       await this.recordLifecycleLink(sessionId, {
         source_type: 'realization_report',
         source_id: realizationReportId,
         target_type: 'expansion_model',
         target_id: expansionModelId,
         relationship_type: 'expansion',
-        reasoning_trace: 'Expansion model generated from realized value outcomes'
+        reasoning_trace: 'Expansion model generated from realized value outcomes',
+        chain_depth: 4,
+        metadata: { stage: 'expansion' }
       });
     }
 
@@ -278,6 +287,16 @@ Return ONLY valid JSON:
           ...improvement,
           expansion_model_id: expansionModelId
         });
+
+      if (sessionId) {
+        await this.logArtifactProvenance(sessionId, 'expansion_improvement', expansionModelId, 'improvement_added', {
+          artifact_data: {
+            kpi_name: improvement.kpi_name,
+            incremental_value: improvement.incremental_value,
+            proposed_value: improvement.proposed_value,
+          },
+        });
+      }
     }
 
     return expansionModelId;
