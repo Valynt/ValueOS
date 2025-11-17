@@ -4,6 +4,10 @@ import { LibraryView } from './views/LibraryView';
 import { TemplatesView } from './views/TemplatesView';
 import { SettingsView } from './views/Settings/SettingsView';
 import { DocumentationView } from './views/DocumentationView';
+import { OpportunityWorkspace } from './views/OpportunityWorkspace';
+import { TargetROIWorkspace } from './views/TargetROIWorkspace';
+import { ExpansionInsightPage } from './views/ExpansionInsightPage';
+import { IntegrityCompliancePage } from './views/IntegrityCompliancePage';
 import { AppSidebar } from './components/Navigation/AppSidebar';
 import { ViewMode } from './types';
 
@@ -38,6 +42,18 @@ function App() {
 
       case 'canvas':
         return <MainLayout onBack={handleBackToLibrary} caseId={selectedCaseId} />;
+
+      case 'opportunity':
+        return <OpportunityWorkspace />;
+
+      case 'target':
+        return <TargetROIWorkspace />;
+
+      case 'expansion':
+        return <ExpansionInsightPage />;
+
+      case 'integrity':
+        return <IntegrityCompliancePage />;
 
       case 'templates':
         return <TemplatesView onUseTemplate={handleUseTemplate} />;

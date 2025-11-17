@@ -77,7 +77,7 @@ export interface Case {
   status: 'draft' | 'review' | 'published';
 }
 
-export type ViewMode = 'library' | 'canvas' | 'templates' | 'settings' | 'documentation';
+export type ViewMode = 'library' | 'canvas' | 'opportunity' | 'target' | 'expansion' | 'integrity' | 'templates' | 'settings' | 'documentation';
 
 export type SettingsTier = 'user' | 'team' | 'organization';
 

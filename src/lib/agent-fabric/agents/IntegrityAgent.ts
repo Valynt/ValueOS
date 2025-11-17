@@ -128,11 +128,52 @@ export class IntegrityAgent extends BaseAgent {
       );
     }
 
+    if (overallCompliance || true) {
+      await this.stampArtifactWithCompliance(
+        input.artifact_type,
+        input.artifact_id,
+        complianceReport
+      );
+    }
+
     return {
       compliance_report: complianceReport,
       is_compliant: overallCompliance,
       blocking_issues: blockingIssues
     };
+  }
+
+  private async stampArtifactWithCompliance(
+    artifactType: string,
+    artifactId: string,
+    complianceReport: ManifestoComplianceReport
+  ): Promise<void> {
+    const tableMap: Record<string, string> = {
+      'value_tree': 'value_trees',
+      'roi_model': 'roi_models',
+      'value_commit': 'value_commits',
+      'realization_report': 'realization_reports',
+      'expansion_model': 'expansion_models'
+    };
+
+    const tableName = tableMap[artifactType];
+    if (!tableName) {
+      console.warn(`Unknown artifact type for compliance stamping: ${artifactType}`);
+      return;
+    }
+
+    try {
+      const { error } = await this.supabase
+        .from(tableName)
+        .update({ compliance_metadata: complianceReport })
+        .eq('id', artifactId);
+
+      if (error) {
+        console.error(`Failed to stamp compliance metadata on ${tableName}:`, error);
+      }
+    } catch (err) {
+      console.error(`Error stamping compliance metadata:`, err);
+    }
   }
 
   /**
