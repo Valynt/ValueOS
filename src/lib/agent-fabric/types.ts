@@ -144,6 +144,7 @@ export interface ValueCase {
   description?: string;
   company_profile_id?: string;
   status: 'draft' | 'review' | 'published';
+  lifecycle_stage?: 'opportunity' | 'target' | 'realization' | 'expansion';
   quality_score?: number;
   created_at: Date;
   updated_at: Date;

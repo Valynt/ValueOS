@@ -222,10 +222,16 @@ Return ONLY valid JSON in this exact format:
       metadata: {},
     };
 
+    const durationMs = Date.now() - startTime;
+
     await this.logMetric(sessionId, 'tokens_used', response.tokens_used, 'tokens');
-    await this.logMetric(sessionId, 'latency_ms', Date.now() - startTime, 'ms');
+    await this.logMetric(sessionId, 'latency_ms', durationMs, 'ms');
     await this.logMetric(sessionId, 'value_tree_nodes', parsed.value_tree.nodes.length, 'count');
     await this.logMetric(sessionId, 'kpi_targets', parsed.kpi_targets.length, 'count');
+    await this.logPerformanceMetric(sessionId, 'target_execute', durationMs, {
+      nodes: parsed.value_tree.nodes.length,
+      kpi_targets: parsed.kpi_targets.length,
+    });
 
     await this.logExecution(
       sessionId,
@@ -247,7 +253,7 @@ Return ONLY valid JSON in this exact format:
 
     await this.memorySystem.storeSemanticMemory(
       sessionId,
-      this.agent.id,
+      this.agentId,
       `Business Case: ${parsed.business_case_summary}`,
       {
         value_tree: valueTree,

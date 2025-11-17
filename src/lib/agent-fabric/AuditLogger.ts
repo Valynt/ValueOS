@@ -48,6 +48,28 @@ export class AuditLogger {
     });
   }
 
+  async logPerformanceMetric(
+    sessionId: string,
+    agentId: string,
+    operation: string,
+    durationMs: number,
+    metadata: Record<string, any> = {},
+    alertThresholdMs: number = 1000
+  ): Promise<void> {
+    await this.supabase.from('performance_metrics').insert({
+      session_id: sessionId,
+      agent_id: agentId,
+      operation,
+      duration_ms: durationMs,
+      alert_threshold_ms: alertThresholdMs,
+      metadata,
+    });
+
+    if (durationMs >= alertThresholdMs) {
+      await this.logMetric(sessionId, agentId, 'performance_alert', durationMs, 'ms');
+    }
+  }
+
   async getSessionAuditLog(sessionId: string): Promise<any[]> {
     const { data, error } = await this.supabase
       .from('agent_audit_log')

@@ -125,10 +125,16 @@ export class IntegrityAgent extends BaseAgent {
       results
     };
 
-    await this.logMetric(sessionId, 'latency_ms', Date.now() - startTime, 'ms');
+    const durationMs = Date.now() - startTime;
+
+    await this.logMetric(sessionId, 'latency_ms', durationMs, 'ms');
     await this.logMetric(sessionId, 'rules_passed', passedCount, 'count');
     await this.logMetric(sessionId, 'rules_failed', totalCount - passedCount, 'count');
     await this.logMetric(sessionId, 'compliance_score', (passedCount / totalCount) * 100, 'percent');
+    await this.logPerformanceMetric(sessionId, 'integrity_execute', durationMs, {
+      rules_checked: totalCount,
+      failures: totalCount - passedCount,
+    });
 
     for (const result of results) {
       await this.logArtifactProvenance(sessionId, input.artifact_type, input.artifact_id, 'manifesto_rule_check', {
@@ -174,7 +180,7 @@ export class IntegrityAgent extends BaseAgent {
     if (!overallCompliance) {
       await this.memorySystem.storeSemanticMemory(
         sessionId,
-        this.agent.id,
+        this.agentId,
         `COMPLIANCE FAILURE: ${input.artifact_type} ${input.artifact_id}`,
         { blocking_issues: blockingIssues }
       );

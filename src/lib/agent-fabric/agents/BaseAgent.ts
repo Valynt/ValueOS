@@ -2,20 +2,22 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { LLMGateway } from '../LLMGateway';
 import { MemorySystem } from '../MemorySystem';
 import { AuditLogger } from '../AuditLogger';
-import { Agent, ConfidenceLevel } from '../types';
-import type { LifecycleArtifactLink, ProvenanceAuditEntry } from '../../types/vos';
+import { Agent, ConfidenceLevel } from '../types'; // Kept from main
+import type { LifecycleArtifactLink, ProvenanceAuditEntry } from '../../types/vos'; // Kept from main
 
 export abstract class BaseAgent {
-  protected supabase: SupabaseClient | null;
+protected supabase: SupabaseClient | null; // From dev
+  protected agentId: string; // From codex/optimize-database-query-performance
 
   constructor(
-    protected agent: Agent,
+    agentId: string, // From codex/optimize-database-query-performance
     protected llmGateway: LLMGateway,
     protected memorySystem: MemorySystem,
     protected auditLogger: AuditLogger,
-    supabase?: SupabaseClient | null
+    supabase?: SupabaseClient | null // From dev
   ) {
-    this.supabase = supabase ?? null;
+    this.agentId = agentId; // From codex/optimize-database-query-performance
+    this.supabase = supabase ?? null; // From dev
   }
 
   abstract execute(sessionId: string, input: any): Promise<any>;
@@ -29,7 +31,7 @@ export abstract class BaseAgent {
     confidence: ConfidenceLevel,
     evidence: any[] = []
   ): Promise<void> {
-    await this.auditLogger.logAction(sessionId, this.agent.id, action, {
+    await this.auditLogger.logAction(sessionId, this.agentId, action, {
       reasoning,
       inputData,
       outputData,
@@ -39,7 +41,7 @@ export abstract class BaseAgent {
 
     await this.memorySystem.storeEpisodicMemory(
       sessionId,
-      this.agent.id,
+      this.agentId,
       `${action}: ${reasoning}`,
       { input: inputData, output: outputData }
     );
@@ -51,7 +53,22 @@ export abstract class BaseAgent {
     value: number,
     unit?: string
   ): Promise<void> {
-    await this.auditLogger.logMetric(sessionId, this.agent.id, metricType, value, unit);
+    await this.auditLogger.logMetric(sessionId, this.agentId, metricType, value, unit);
+  }
+
+  protected async logPerformanceMetric(
+    sessionId: string,
+    operation: string,
+    durationMs: number,
+    metadata: Record<string, any> = {}
+  ): Promise<void> {
+    await this.auditLogger.logPerformanceMetric(
+      sessionId,
+      this.agentId,
+      operation,
+      durationMs,
+      metadata
+    );
   }
 
   protected extractJSON(content: string): any {
@@ -87,14 +104,14 @@ export abstract class BaseAgent {
       reasoning_trace: link.reasoning_trace || null,
       chain_depth: link.chain_depth || null,
       metadata: link.metadata || {},
-      created_by: this.agent.id
+      created_by: this.agentId
     };
 
     await this.supabase.from('lifecycle_artifact_links').insert(payload);
 
     await this.logProvenanceAudit({
       session_id: sessionId,
-      agent_id: this.agent.id,
+      agent_id: this.agentId,
       artifact_type: link.target_type,
       artifact_id: link.target_id,
       action: 'lifecycle_link_created',
@@ -137,7 +154,7 @@ export abstract class BaseAgent {
   ): Promise<void> {
     await this.logProvenanceAudit({
       session_id: sessionId,
-      agent_id: this.agent.id,
+      agent_id: this.agentId,
       artifact_type: artifactType,
       artifact_id: artifactId,
       action,

@@ -80,8 +80,13 @@ Return ONLY valid JSON:
 
     const parsed = this.extractJSON(response.content);
 
+    const durationMs = Date.now() - startTime;
+
     await this.logMetric(sessionId, 'tokens_used', response.tokens_used, 'tokens');
-    await this.logMetric(sessionId, 'latency_ms', Date.now() - startTime, 'ms');
+    await this.logMetric(sessionId, 'latency_ms', durationMs, 'ms');
+    await this.logPerformanceMetric(sessionId, 'financial_modeling_execute', durationMs, {
+      calculations: parsed.calculations?.length || 0,
+    });
 
     await this.logExecution(
       sessionId,
@@ -100,7 +105,7 @@ Return ONLY valid JSON:
 
     await this.memorySystem.storeSemanticMemory(
       sessionId,
-      this.agent.id,
+      this.agentId,
       `ROI: ${parsed.roi_percentage}%, NPV: $${(parsed.npv_amount / 1000000).toFixed(2)}M, Payback: ${parsed.payback_months} months`,
       { financial_model: parsed }
     );
