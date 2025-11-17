@@ -134,12 +134,13 @@ SQL
 ```bash
 psql "$DATABASE_URL" <<'SQL'
 WITH current AS (
-  SELECT id, version FROM workflow_definitions WHERE name = 'lifecycle_v1' AND is_active = true ORDER BY version DESC LIMIT 1
+  SELECT id, version, dag_schema FROM workflow_definitions WHERE name = 'lifecycle_v1' AND is_active = true ORDER BY version DESC LIMIT 1
 ), new_def AS (
   INSERT INTO workflow_definitions (name, description, version, dag_schema, is_active, created_by)
-  SELECT 'lifecycle_v1', 'Lifecycle DAG v2 with integrity checks', (SELECT version FROM current) + 1,
-         dag_schema || jsonb_build_object('stages', (dag_schema->'stages') || jsonb_build_array(jsonb_build_object('id','post_integrity','next',jsonb_build_array(),'capability','audit'))),
-         true, auth.uid()
+  SELECT 'lifecycle_v1', 'Lifecycle DAG v2 with integrity checks', current.version + 1,
+         current.dag_schema || jsonb_build_object('stages', (current.dag_schema->'stages') || jsonb_build_array(jsonb_build_object('id','post_integrity','next',jsonb_build_array(),'capability','audit'))),
+         true, '00000000-0000-0000-0000-000000000000'
+  FROM current
   RETURNING id, version
 )
 UPDATE workflow_definitions
