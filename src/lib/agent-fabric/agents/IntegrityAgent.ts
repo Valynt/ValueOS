@@ -130,6 +130,14 @@ export class IntegrityAgent extends BaseAgent {
     await this.logMetric(sessionId, 'rules_failed', totalCount - passedCount, 'count');
     await this.logMetric(sessionId, 'compliance_score', (passedCount / totalCount) * 100, 'percent');
 
+    for (const result of results) {
+      await this.logArtifactProvenance(sessionId, input.artifact_type, input.artifact_id, 'manifesto_rule_check', {
+        artifact_data: result,
+        reasoning_trace: result.message,
+        metadata: { rule_id: result.rule_id },
+      });
+    }
+
     await this.logExecution(
       sessionId,
       'manifesto_compliance_check',
@@ -155,7 +163,7 @@ export class IntegrityAgent extends BaseAgent {
       artifact_id: input.artifact_id,
       action: 'manifesto_compliance_check',
       reasoning_trace: JSON.stringify(results),
-      artifact_data: input.artifact_data,
+      artifact_data: { ...input.artifact_data, compliance_report: complianceReport },
       output_snapshot: { compliance_report: complianceReport },
       metadata: {
         blocking_issues: blockingIssues,
@@ -380,11 +388,13 @@ export class IntegrityAgent extends BaseAgent {
    * Rule 4: All logic must be explainable with reasoning traces
    */
   private async validateExplainability(input: IntegrityCheckInput): Promise<ManifestoValidationResult> {
-    const hasReasoningField = input.artifact_data.reasoning !== undefined;
+    const reasoningText = typeof input.artifact_data?.reasoning === 'string'
+      ? input.artifact_data.reasoning
+      : typeof input.artifact_data?.reasoning_trace === 'string'
+        ? input.artifact_data.reasoning_trace
+        : '';
 
-    const hasExplanation = hasReasoningField &&
-      typeof input.artifact_data.reasoning === 'string' &&
-      input.artifact_data.reasoning.length > 50;
+    const hasExplanation = reasoningText.length > 50;
 
     return {
       rule_id: 'explainability',
@@ -393,7 +403,7 @@ export class IntegrityAgent extends BaseAgent {
       message: hasExplanation
         ? 'Artifact contains detailed reasoning trace'
         : 'Artifact missing reasoning explanation (required: 50+ characters)',
-      evidence: hasReasoningField ? [{ reasoning: input.artifact_data.reasoning }] : []
+      evidence: reasoningText ? [{ reasoning: reasoningText }] : []
     };
   }
 
@@ -418,27 +428,52 @@ export class IntegrityAgent extends BaseAgent {
 
     const evidence: any[] = [];
     let validFormulas = 0;
+    let provenanceComplete = 0;
 
     for (const calc of calculations) {
       const validation = this.roiInterpreter.validateFormula(calc.formula);
+      const hasInputs = Array.isArray(calc.input_variables) && calc.input_variables.length > 0;
+      const hasSources = !!calc.source_references && Object.keys(calc.source_references).length > 0;
+      const hasTrace = typeof calc.reasoning_trace === 'string' && calc.reasoning_trace.length >= 50;
 
       if (validation.valid) {
         validFormulas++;
-        evidence.push({ name: calc.name, formula: calc.formula, valid: true });
+        if (hasInputs && hasSources && hasTrace) provenanceComplete++;
+        evidence.push({
+          name: calc.name,
+          formula: calc.formula,
+          valid: true,
+          provenance: {
+            hasInputs,
+            hasSources,
+            hasTrace,
+          }
+        });
       } else {
-        evidence.push({ name: calc.name, formula: calc.formula, valid: false, errors: validation.errors });
+        evidence.push({
+          name: calc.name,
+          formula: calc.formula,
+          valid: false,
+          errors: validation.errors,
+          provenance: {
+            hasInputs,
+            hasSources,
+            hasTrace,
+          }
+        });
       }
     }
 
     const allValid = validFormulas === calculations.length;
+    const allProvenanceCaptured = provenanceComplete === calculations.length;
 
     return {
       rule_id: 'formula_provenance',
       rule_name: 'Formula Calculation Provenance',
-      passed: allValid,
-      message: allValid
-        ? `All ${calculations.length} formulas are valid`
-        : `Only ${validFormulas}/${calculations.length} formulas are valid`,
+      passed: allValid && allProvenanceCaptured,
+      message: allValid && allProvenanceCaptured
+        ? `All ${calculations.length} formulas are valid with provenance`
+        : `Valid formulas: ${validFormulas}/${calculations.length}; Provenance complete: ${provenanceComplete}/${calculations.length}`,
       evidence
     };
   }

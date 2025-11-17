@@ -251,6 +251,14 @@ Return ONLY valid JSON in this exact format:
       results.push(data);
 
       if (sessionId) {
+        await this.logArtifactProvenance(sessionId, 'business_objective', data.id, 'artifact_created', {
+          artifact_data: {
+            value_case_id: valueCaseId,
+            objective: objective,
+          },
+          reasoning_trace: 'Captured during opportunity analysis with linked discovery context',
+        });
+
         await this.recordLifecycleLink(sessionId, {
           source_type: 'value_case',
           source_id: valueCaseId,
