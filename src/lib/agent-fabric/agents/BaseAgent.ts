@@ -1,3 +1,4 @@
+import { SupabaseClient } from '@supabase/supabase-js';
 import { LLMGateway } from '../LLMGateway';
 import { MemorySystem } from '../MemorySystem';
 import { AuditLogger } from '../AuditLogger';
@@ -27,16 +28,16 @@ interface ProvenanceAuditEntry {
 }
 
 export abstract class BaseAgent {
-  protected supabase: any;
+  protected supabase: SupabaseClient | null;
 
   constructor(
     protected agent: Agent,
     protected llmGateway: LLMGateway,
     protected memorySystem: MemorySystem,
     protected auditLogger: AuditLogger,
-    supabase?: any
+    supabase?: SupabaseClient | null
   ) {
-    this.supabase = supabase;
+    this.supabase = supabase ?? null;
   }
 
   abstract execute(sessionId: string, input: any): Promise<any>;
@@ -77,9 +78,7 @@ export abstract class BaseAgent {
 
   protected extractJSON(content: string): any {
     const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('No JSON found in response');
-    }
+    if (!jsonMatch) throw new Error('No JSON found in LLM response');
     return JSON.parse(jsonMatch[0]);
   }
 
@@ -107,28 +106,26 @@ export abstract class BaseAgent {
       target_type: link.target_type,
       target_artifact_id: link.target_id,
       relationship_type: link.relationship_type || 'derived_from',
-      reasoning_trace: link.reasoning_trace,
-      chain_depth: link.chain_depth,
+      reasoning_trace: link.reasoning_trace || null,
+      chain_depth: link.chain_depth || null,
       metadata: {}
     };
 
     await this.supabase.from('lifecycle_artifact_links').insert(payload);
 
-    await this.logProvenanceAudit(
-      {
-        session_id: sessionId,
-        agent_id: this.agent.id,
-        artifact_type: link.target_type,
-        artifact_id: link.target_id,
-        action: 'lifecycle_link_created',
-        reasoning_trace: link.reasoning_trace,
-        metadata: {
-          source_type: link.source_type,
-          source_id: link.source_id,
-          relationship_type: link.relationship_type || 'derived_from'
-        }
+    await this.logProvenanceAudit({
+      session_id: sessionId,
+      agent_id: this.agent.id,
+      artifact_type: link.target_type,
+      artifact_id: link.target_id,
+      action: 'lifecycle_link_created',
+      reasoning_trace: link.reasoning_trace,
+      metadata: {
+        source_type: link.source_type,
+        source_id: link.source_id,
+        relationship_type: link.relationship_type || 'derived_from'
       }
-    );
+    });
   }
 
   protected async logProvenanceAudit(entry: ProvenanceAuditEntry): Promise<void> {
