@@ -4,6 +4,9 @@ This runbook converts the Epic 4 gaps into immediately executable steps. Command
 
 ## 1) Define Lifecycle DAGs (Initiate → Target → Realize → Integrity)
 **Command:** seed canonical DAGs with explicit stage ordering and idempotent upserts.
+
+**Note:** Replace `<your-user-uuid>` with a valid user UUID from your Supabase users table, or execute this through the Supabase client SDK with an authenticated session for `auth.uid()` to work.
+
 ```bash
 psql "$DATABASE_URL" <<'SQL'
 INSERT INTO workflow_definitions (name, description, version, dag_schema, is_active, created_by)
@@ -22,7 +25,7 @@ VALUES
       {"from": "target_design", "to": "value_realization"},
       {"from": "value_realization", "to": "integrity"}
     ]
-  }'::jsonb, true, auth.uid())
+  }'::jsonb, true, '<your-user-uuid>')
 ON CONFLICT (name, version) DO UPDATE
 SET dag_schema = EXCLUDED.dag_schema, description = EXCLUDED.description, is_active = true;
 SQL
@@ -131,15 +134,19 @@ SQL
 
 ## 6) Workflow Definition Versioning and Activation
 **Command:** publish a new version, deactivate the old one atomically.
+
+**Note:** Replace `<your-user-uuid>` with a valid user UUID from your Supabase users table, or execute this through the Supabase client SDK with an authenticated session for `auth.uid()` to work.
+
 ```bash
 psql "$DATABASE_URL" <<'SQL'
 WITH current AS (
-  SELECT id, version FROM workflow_definitions WHERE name = 'lifecycle_v1' AND is_active = true ORDER BY version DESC LIMIT 1
+  SELECT id, version, dag_schema FROM workflow_definitions WHERE name = 'lifecycle_v1' AND is_active = true ORDER BY version DESC LIMIT 1
 ), new_def AS (
   INSERT INTO workflow_definitions (name, description, version, dag_schema, is_active, created_by)
-  SELECT 'lifecycle_v1', 'Lifecycle DAG v2 with integrity checks', (SELECT version FROM current) + 1,
-         dag_schema || jsonb_build_object('stages', (dag_schema->'stages') || jsonb_build_array(jsonb_build_object('id','post_integrity','next',jsonb_build_array(),'capability','audit'))),
-         true, auth.uid()
+  SELECT 'lifecycle_v1', 'Lifecycle DAG v2 with integrity checks', current.version + 1,
+         current.dag_schema || jsonb_build_object('stages', (current.dag_schema->'stages') || jsonb_build_array(jsonb_build_object('id','post_integrity','next',jsonb_build_array(),'capability','audit'))),
+         true, '<your-user-uuid>'
+  FROM current
   RETURNING id, version
 )
 UPDATE workflow_definitions
@@ -150,6 +157,9 @@ SQL
 
 ## 7) Agent Routing Logic
 **Command:** map DAG stage capabilities to agents and enqueue tasks via `task_queue`.
+
+**Note:** The ON CONFLICT clause requires a unique constraint on `(agent_id, domain, version)` in the `agent_ontologies` table. Add this constraint via migration if it doesn't exist, or remove the ON CONFLICT clause if duplicate entries are acceptable.
+
 ```bash
 psql "$DATABASE_URL" <<'SQL'
 -- Route by capability → agent.name
@@ -160,7 +170,7 @@ JOIN agents a ON a.name = c.agent_name
 ON CONFLICT (agent_id, domain, version) DO NOTHING;
 
 -- Enqueue pending tasks for active executions
-INSERT INTO task_queue (workflow_execution_id, stage_id, payload)
+INSERT INTO task_queue (workflow_execution_id, task_type, input_data)
 SELECT wel.execution_id, wel.stage_id, wel.input_data
 FROM workflow_execution_logs wel
 JOIN workflow_executions we ON we.id = wel.execution_id
@@ -170,6 +180,9 @@ SQL
 
 ## 8) Smoke Test the Orchestrator Path
 **Command:** create a workflow execution and drive a happy-path completion.
+
+**Note:** Replace `<your-user-uuid>` with a valid user UUID from your Supabase users table, or execute this through the Supabase client SDK with an authenticated session for `auth.uid()` to work.
+
 ```bash
 psql "$DATABASE_URL" <<'SQL'
 -- Create execution instance
@@ -177,7 +190,7 @@ WITH def AS (
   SELECT id FROM workflow_definitions WHERE name = 'lifecycle_v1' AND is_active = true ORDER BY version DESC LIMIT 1
 )
 INSERT INTO workflow_executions (workflow_definition_id, status, current_stage, context, created_by)
-SELECT id, 'in_progress', 'discover', jsonb_build_object('customer','ACME Corp'), auth.uid() FROM def
+SELECT id, 'in_progress', 'discover', jsonb_build_object('customer','ACME Corp'), '<your-user-uuid>' FROM def
 RETURNING id;
 SQL
 ```
