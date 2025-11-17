@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: AgentManifest
+metadata:
+  name: realization-agent
+  description: "Monitors telemetry and proves value delivered relative to committed targets."
+  version: "1.0.0"
+spec:
+  schema:
+    input:
+      type: object
+      required:
+        - valueCommit
+        - telemetryData
+      properties:
+        valueCommit:
+          type: object
+          description: Committed value targets (KPIs and expected improvements).
+        telemetryData:
+          type: array
+          description: Time-series or event data representing actual usage and performance metrics.
+          items:
+            type: object
+    output:
+      type: object
+      required:
+        - realizationReport
+        - renewalAlert
+      properties:
+        realizationReport:
+          type: object
+          description: Detailed comparison of actual vs committed performance across KPIs, including financial impact.
+        renewalAlert:
+          type: object
+          description: Notification to Customer Success teams when value delivery is at risk or below threshold.
+  entrypoint:
+    module: agents/realization/main.py
+    class: RealizationAgent
+    method: handle
+    httpEndpoint: "/api/realization/process"
+  runtime:
+    language: python
+    memory: "1Gi"
+    cpu: "500m"
+    dependencies:
+      - name: pandas
+        version: "^2.0"
+      - name: numpy
+        version: "^1.23"
+      - name: scikit-learn
+        version: "^1.2"
+  permissions:
+    roles:
+      - reader: ["valueFabric.models", "valueFabric.targets"]
+      - writer: ["valueFabric.realization"]
+      - publisher: ["events.value.realization.updated"]
+    securityPolicies:
+      - anonymizeTelemetry: true
+      - enforceGDPR: true
+  communication:
+    subscribe:
+      - topic: "events.value.target.defined"
+      - topic: "events.telemetry.raw"
+    publish:
+      - topic: "events.value.realization.updated"
+  health:
+    livenessProbe:
+      httpGet:
+        path: "/health/live"
+        port: 8082
+      intervalSeconds: 30
+    readinessProbe:
+      httpGet:
+        path: "/health/ready"
+        port: 8082
+      intervalSeconds: 30
+  monitoring:
+    metricsEndpoint: "/metrics"
+    logLevel: INFO

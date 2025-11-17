@@ -1,0 +1,79 @@
+apiVersion: v1
+kind: AgentManifest
+metadata:
+  name: target-agent
+  description: "Constructs conservative, defensible business cases and commits to value targets."
+  version: "1.0.0"
+spec:
+  schema:
+    input:
+      type: object
+      required:
+        - initialValueModel
+        - customerObjectives
+      properties:
+        initialValueModel:
+          type: object
+          description: Preliminary value model from OpportunityAgent.
+        customerObjectives:
+          type: array
+          items:
+            type: string
+          description: Strategic objectives and priorities provided by the customer.
+    output:
+      type: object
+      required:
+        - businessCase
+        - valueCommit
+      properties:
+        businessCase:
+          type: object
+          description: Full ROI analysis including payback period, NPV and risk adjustments.
+        valueCommit:
+          type: object
+          description: Agreed-upon target outcomes, KPIs and timelines.
+  entrypoint:
+    module: agents/target/main.py
+    class: TargetAgent
+    method: handle
+    httpEndpoint: "/api/target/process"
+  runtime:
+    language: python
+    memory: "1Gi"
+    cpu: "500m"
+    dependencies:
+      - name: numpy
+        version: "^1.23"
+      - name: pandas
+        version: "^2.0"
+      - name: neo4j
+        version: "^5.0.0"
+      - name: pydantic
+        version: "^1.10.0"
+  permissions:
+    roles:
+      - reader: ["valueFabric.models", "valueFabric.benchmarks"]
+      - writer: ["valueFabric.models"]
+      - publisher: ["events.value.target.defined"]
+    securityPolicies:
+      - encryptSensitiveData: true
+      - enforceInputValidation: true
+  communication:
+    subscribe:
+      - topic: "events.value.opportunity.created"
+    publish:
+      - topic: "events.value.target.defined"
+  health:
+    livenessProbe:
+      httpGet:
+        path: "/health/live"
+        port: 8081
+      intervalSeconds: 30
+    readinessProbe:
+      httpGet:
+        path: "/health/ready"
+        port: 8081
+      intervalSeconds: 30
+  monitoring:
+    metricsEndpoint: "/metrics"
+    logLevel: INFO

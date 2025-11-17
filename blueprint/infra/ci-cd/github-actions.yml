@@ -1,0 +1,49 @@
+name: CI-CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install backend dependencies
+        run: |
+          for dir in blueprint/infra/backend/services/*; do
+            if [ -f "$dir/requirements.txt" ]; then pip install -r "$dir/requirements.txt"; fi
+          done
+      - name: Run unit tests
+        run: |
+          echo "No tests defined yet"
+      - name: Build Docker images
+        run: |
+          docker-compose -f blueprint/infra/docker-compose.yml build
+
+  deploy:
+    needs: build-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v3
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      - name: Deploy Infrastructure
+        run: |
+          cd blueprint/infra/terraform
+          terraform init
+          terraform apply -auto-approve -var "db_password=${{ secrets.DB_PASSWORD }}"
+      - name: Push Docker images to ECR
+        run: |
+          echo "Placeholder for ECR push commands"

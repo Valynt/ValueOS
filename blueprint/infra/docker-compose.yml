@@ -1,0 +1,120 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_USER: vos
+      POSTGRES_PASSWORD: vos_password
+      POSTGRES_DB: vos_db
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  neo4j:
+    image: neo4j:5.15
+    environment:
+      NEO4J_AUTH: neo4j/test
+    ports:
+      - '7474:7474'
+      - '7687:7687'
+    volumes:
+      - neo4j_data:/data
+
+  event-broker:
+    image: confluentinc/cp-kafka:7.5.0
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://event-broker:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    depends_on:
+      - zookeeper
+    ports:
+      - '9092:9092'
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - '2181:2181'
+
+  opportunity:
+    build: ./backend/services/opportunity
+    ports:
+      - '8080:8080'
+    environment:
+      - VALUE_FABRIC_DB_HOST=postgres
+    depends_on:
+      - postgres
+      - event-broker
+
+  target:
+    build: ./backend/services/target
+    ports:
+      - '8081:8081'
+    environment:
+      - VALUE_FABRIC_DB_HOST=postgres
+    depends_on:
+      - postgres
+      - event-broker
+
+  realization:
+    build: ./backend/services/realization
+    ports:
+      - '8082:8082'
+    environment:
+      - VALUE_FABRIC_DB_HOST=postgres
+    depends_on:
+      - postgres
+      - event-broker
+
+  expansion:
+    build: ./backend/services/expansion
+    ports:
+      - '8083:8083'
+    environment:
+      - VALUE_FABRIC_DB_HOST=postgres
+    depends_on:
+      - postgres
+      - event-broker
+
+  integrity:
+    build: ./backend/services/integrity
+    ports:
+      - '8084:8084'
+    environment:
+      - VALUE_FABRIC_DB_HOST=postgres
+    depends_on:
+      - postgres
+      - event-broker
+
+  orchestrator:
+    build: ./backend/services/orchestrator
+    ports:
+      - '8085:8085'
+    environment:
+      - VALUE_FABRIC_DB_HOST=postgres
+    depends_on:
+      - postgres
+      - event-broker
+
+  frontend:
+    build: ./frontend
+    ports:
+      - '3000:3000'
+    depends_on:
+      - opportunity
+      - target
+      - realization
+      - expansion
+      - integrity
+      - orchestrator
+
+volumes:
+  postgres_data:
+  neo4j_data:
