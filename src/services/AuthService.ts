@@ -4,8 +4,16 @@
  */
 
 import { BaseService } from './BaseService';
-import { AuthenticationError, ValidationError } from './errors';
+import { AuthenticationError, RateLimitError, ValidationError } from './errors';
 import { User, Session } from '@supabase/supabase-js';
+import { RateLimiter, sanitizeErrorMessage, validatePassword } from '../utils/security';
+import { securityLogger } from './SecurityLogger';
+
+const loginRateLimiter = new RateLimiter({
+  maxAttempts: 5,
+  windowMs: 5 * 60 * 1000,
+  lockoutMs: 15 * 60 * 1000,
+});
 
 export interface LoginCredentials {
   email: string;
@@ -34,8 +42,9 @@ export class AuthService extends BaseService {
   async signup(data: SignupData): Promise<AuthSession> {
     this.validateRequired(data, ['email', 'password', 'fullName']);
 
-    if (data.password.length < 8) {
-      throw new ValidationError('Password must be at least 8 characters');
+    const passwordValidation = validatePassword(data.password);
+    if (!passwordValidation.valid) {
+      throw new ValidationError(passwordValidation.errors.join('. '));
     }
 
     this.log('info', 'User signup', { email: data.email });
@@ -52,7 +61,7 @@ export class AuthService extends BaseService {
           },
         });
 
-        if (error) throw new AuthenticationError(error.message);
+        if (error) throw new AuthenticationError(sanitizeErrorMessage(error));
         if (!authData.user || !authData.session) {
           throw new AuthenticationError('Signup failed');
         }
@@ -72,6 +81,17 @@ export class AuthService extends BaseService {
   async login(credentials: LoginCredentials): Promise<AuthSession> {
     this.validateRequired(credentials, ['email', 'password']);
 
+    const rateStatus = loginRateLimiter.canAttempt(credentials.email);
+    if (!rateStatus.allowed) {
+      securityLogger.log({
+        category: 'authentication',
+        action: 'login-rate-limit',
+        severity: 'warn',
+        metadata: { email: credentials.email, retryAfter: rateStatus.retryAfter },
+      });
+      throw new RateLimitError('Too many login attempts. Please try again later.', rateStatus.retryAfter);
+    }
+
     this.log('info', 'User login', { email: credentials.email });
 
     return this.executeRequest(
@@ -81,10 +101,33 @@ export class AuthService extends BaseService {
           password: credentials.password,
         });
 
-        if (error) throw new AuthenticationError(error.message);
-        if (!data.user || !data.session) {
+        if (error) {
+          loginRateLimiter.recordFailure(credentials.email);
+          securityLogger.log({
+            category: 'authentication',
+            action: 'login-failed',
+            severity: 'warn',
+            metadata: { email: credentials.email },
+          });
           throw new AuthenticationError('Invalid credentials');
         }
+        if (!data.user || !data.session) {
+          loginRateLimiter.recordFailure(credentials.email);
+          securityLogger.log({
+            category: 'authentication',
+            action: 'login-failed',
+            severity: 'warn',
+            metadata: { email: credentials.email, reason: 'missing-session' },
+          });
+          throw new AuthenticationError('Invalid credentials');
+        }
+
+        loginRateLimiter.reset(credentials.email);
+        securityLogger.log({
+          category: 'authentication',
+          action: 'login-success',
+          metadata: { email: credentials.email },
+        });
 
         return {
           user: data.user,
@@ -104,7 +147,7 @@ export class AuthService extends BaseService {
     return this.executeRequest(
       async () => {
         const { error } = await this.supabase.auth.signOut();
-        if (error) throw new AuthenticationError(error.message);
+        if (error) throw new AuthenticationError(sanitizeErrorMessage(error));
 
         this.clearCache();
       },
@@ -119,7 +162,7 @@ export class AuthService extends BaseService {
     return this.executeRequest(
       async () => {
         const { data, error } = await this.supabase.auth.getSession();
-        if (error) throw new AuthenticationError(error.message);
+        if (error) throw new AuthenticationError(sanitizeErrorMessage(error));
         return data.session;
       },
       { deduplicationKey: 'current-session' }
@@ -133,7 +176,7 @@ export class AuthService extends BaseService {
     return this.executeRequest(
       async () => {
         const { data, error } = await this.supabase.auth.getUser();
-        if (error) throw new AuthenticationError(error.message);
+        if (error) throw new AuthenticationError(sanitizeErrorMessage(error));
         return data.user;
       },
       { deduplicationKey: 'current-user' }
@@ -149,7 +192,7 @@ export class AuthService extends BaseService {
     return this.executeRequest(
       async () => {
         const { data, error } = await this.supabase.auth.refreshSession();
-        if (error) throw new AuthenticationError(error.message);
+        if (error) throw new AuthenticationError(sanitizeErrorMessage(error));
         if (!data.user || !data.session) {
           throw new AuthenticationError('Session refresh failed');
         }
@@ -175,7 +218,7 @@ export class AuthService extends BaseService {
     return this.executeRequest(
       async () => {
         const { error } = await this.supabase.auth.resetPasswordForEmail(email);
-        if (error) throw new AuthenticationError(error.message);
+        if (error) throw new AuthenticationError(sanitizeErrorMessage(error));
       },
       { skipCache: true }
     );
@@ -185,8 +228,9 @@ export class AuthService extends BaseService {
    * Update password
    */
   async updatePassword(newPassword: string): Promise<void> {
-    if (newPassword.length < 8) {
-      throw new ValidationError('Password must be at least 8 characters');
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.valid) {
+      throw new ValidationError(passwordValidation.errors.join('. '));
     }
 
     this.log('info', 'Updating password');
@@ -196,7 +240,7 @@ export class AuthService extends BaseService {
         const { error } = await this.supabase.auth.updateUser({
           password: newPassword,
         });
-        if (error) throw new AuthenticationError(error.message);
+        if (error) throw new AuthenticationError(sanitizeErrorMessage(error));
       },
       { skipCache: true }
     );
