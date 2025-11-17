@@ -1,3 +1,4 @@
+import { SupabaseClient } from '@supabase/supabase-js';
 import { LLMGateway } from '../LLMGateway';
 import { MemorySystem } from '../MemorySystem';
 import { AuditLogger } from '../AuditLogger';
@@ -8,7 +9,8 @@ export abstract class BaseAgent {
     protected agent: Agent,
     protected llmGateway: LLMGateway,
     protected memorySystem: MemorySystem,
-    protected auditLogger: AuditLogger
+    protected auditLogger: AuditLogger,
+    protected supabase: SupabaseClient
   ) {}
 
   abstract execute(sessionId: string, input: any): Promise<any>;
