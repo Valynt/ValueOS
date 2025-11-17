@@ -18,6 +18,8 @@
 -- STEP 1: Drop policies and indexes
 -- =====================================================
 
+DROP POLICY IF EXISTS "Users can view workflow audit logs" ON workflow_audit_logs;
+DROP POLICY IF EXISTS "Users can insert workflow audit logs" ON workflow_audit_logs;
 DROP POLICY IF EXISTS "Users can manage own performance metrics" ON performance_metrics;
 
 -- Indexes from provenance tracking
