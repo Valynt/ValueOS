@@ -10,9 +10,28 @@ import {
   CircuitBreakerState,
   WorkflowStage
 } from '../types/workflow';
+import { LIFECYCLE_WORKFLOW_DEFINITIONS } from '../data/lifecycleWorkflows';
+import { agentRoutingLayer } from './AgentRoutingLayer';
+import { workflowCompensation } from './WorkflowCompensation';
 
 export class WorkflowOrchestrator {
   private circuitBreakers: Map<string, CircuitBreakerState> = new Map();
+
+  async registerLifecycleDefinitions(): Promise<void> {
+    for (const definition of LIFECYCLE_WORKFLOW_DEFINITIONS) {
+      await supabase
+        .from('workflow_definitions')
+        .upsert({
+          name: definition.name,
+          description: definition.description,
+          version: definition.version,
+          dag_schema: definition,
+          is_active: true
+        }, {
+          onConflict: 'name,version'
+        });
+    }
+  }
 
   async executeWorkflow(
     workflowDefinitionId: string,
@@ -35,9 +54,11 @@ export class WorkflowOrchestrator {
       .from('workflow_executions')
       .insert({
         workflow_definition_id: workflowDefinitionId,
+        workflow_version: definition.version,
         status: 'initiated',
         current_stage: dag.initial_stage,
         context,
+        audit_context: { workflow: definition.name, version: definition.version },
         circuit_breaker_state: {}
       })
       .select()
@@ -49,6 +70,11 @@ export class WorkflowOrchestrator {
 
     await this.logEvent(execution.id, 'stage_started', dag.initial_stage, {
       workflow_name: definition.name
+    });
+    await this.logAudit(execution.id, 'workflow_initiated', {
+      workflow_name: definition.name,
+      workflow_version: definition.version,
+      context
     });
 
     this.executeDAG(execution.id, dag).catch(async (error) => {
@@ -76,10 +102,17 @@ export class WorkflowOrchestrator {
       }
       visitedStages.add(currentStageId);
 
-      const stage = dag.stages.find(s => s.id === currentStageId);
-      if (!stage) throw new Error(`Stage not found: ${currentStageId}`);
+      const route = agentRoutingLayer.routeStage(dag, currentStageId, execution.context || {});
+      const stage = route.stage;
 
       await this.updateExecutionStatus(executionId, 'in_progress', currentStageId);
+
+      await this.logAudit(executionId, 'stage_routing', {
+        stage_id: stage.id,
+        lifecycle_stage: route.lifecycle_stage,
+        dependencies: route.dependencies,
+        reason: route.reason
+      });
 
       const stageResult = await this.executeStageWithRetry(executionId, stage, execution.context);
 
@@ -95,6 +128,7 @@ export class WorkflowOrchestrator {
 
     await this.updateExecutionStatus(executionId, 'completed', null);
     await this.logEvent(executionId, 'workflow_completed', null, { final_stage: currentStageId });
+    await this.logAudit(executionId, 'workflow_completed', { final_stage: currentStageId });
   }
 
   private async executeStageWithRetry(
@@ -121,7 +155,7 @@ export class WorkflowOrchestrator {
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= retryConfig.max_attempts; attempt++) {
-      const logId = await this.createExecutionLog(executionId, stage.id, attempt, context);
+      const logId = await this.createExecutionLog(executionId, stage.id, attempt, context, stage.retry_config);
 
       try {
         await this.logEvent(executionId, 'stage_started', stage.id, { attempt });
@@ -148,12 +182,19 @@ export class WorkflowOrchestrator {
 
         await this.completeExecutionLog(logId, 'failed', duration, null, lastError.message);
         this.recordCircuitBreakerFailure(circuitBreakerKey);
+        await this.persistCircuitBreakerState(executionId, circuitBreakerKey);
 
         if (attempt < retryConfig.max_attempts) {
           await this.logEvent(executionId, 'stage_retrying', stage.id, {
             attempt,
             error: lastError.message,
             next_attempt: attempt + 1
+          });
+          await this.logAudit(executionId, 'stage_retrying', {
+            stage_id: stage.id,
+            attempt,
+            retry_policy: retryConfig,
+            error: lastError.message
           });
 
           const delay = this.calculateRetryDelay(
@@ -169,6 +210,12 @@ export class WorkflowOrchestrator {
           await this.logEvent(executionId, 'stage_failed', stage.id, {
             attempt,
             error: lastError.message
+          });
+          await this.logAudit(executionId, 'stage_failed', {
+            stage_id: stage.id,
+            attempt,
+            error: lastError.message,
+            circuit_breaker: this.circuitBreakers.get(circuitBreakerKey)
           });
         }
       }
@@ -209,7 +256,10 @@ export class WorkflowOrchestrator {
       stage_id: stage.id,
       agent_type: stage.agent_type,
       artifacts_created: [],
-      next_context: context
+      next_context: {
+        ...context,
+        lifecycle_stage: stage.agent_type
+      }
     };
   }
 
@@ -262,11 +312,19 @@ export class WorkflowOrchestrator {
     breaker.state = 'closed';
   }
 
+  private async persistCircuitBreakerState(executionId: string, key: string): Promise<void> {
+    await supabase
+      .from('workflow_executions')
+      .update({ circuit_breaker_state: { ...Object.fromEntries(this.circuitBreakers), last_triggered: key } })
+      .eq('id', executionId);
+  }
+
   private async createExecutionLog(
     executionId: string,
     stageId: string,
     attempt: number,
-    inputData: Record<string, any>
+    inputData: Record<string, any>,
+    retryPolicy?: RetryConfig
   ): Promise<string> {
     const { data, error } = await supabase
       .from('workflow_execution_logs')
@@ -275,7 +333,8 @@ export class WorkflowOrchestrator {
         stage_id: stageId,
         status: 'in_progress',
         attempt_number: attempt,
-        input_data: inputData
+        input_data: inputData,
+        retry_policy: retryPolicy
       })
       .select()
       .single();
@@ -335,6 +394,17 @@ export class WorkflowOrchestrator {
       .eq('id', executionId);
 
     await this.logEvent(executionId, 'workflow_failed', null, { error: errorMessage });
+    await this.logAudit(executionId, 'workflow_failed', { error: errorMessage });
+
+    if (await workflowCompensation.canRollback(executionId)) {
+      try {
+        await workflowCompensation.rollbackExecution(executionId);
+        await this.logEvent(executionId, 'workflow_rolled_back', null, { reason: 'automatic_compensation' });
+        await this.logAudit(executionId, 'workflow_rolled_back', { reason: 'automatic_compensation' });
+      } catch (rollbackError) {
+        await this.logAudit(executionId, 'workflow_rollback_failed', { error: (rollbackError as Error).message });
+      }
+    }
   }
 
   private async logEvent(
@@ -349,6 +419,20 @@ export class WorkflowOrchestrator {
         execution_id: executionId,
         event_type: eventType,
         stage_id: stageId,
+        metadata
+      });
+  }
+
+  private async logAudit(
+    executionId: string,
+    action: string,
+    metadata: Record<string, any>
+  ): Promise<void> {
+    await supabase
+      .from('workflow_audit_logs')
+      .insert({
+        execution_id: executionId,
+        action,
         metadata
       });
   }
