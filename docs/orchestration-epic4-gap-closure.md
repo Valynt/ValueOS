@@ -161,7 +161,7 @@ JOIN agents a ON a.name = c.agent_name
 ON CONFLICT (agent_id, domain, version) DO NOTHING;
 
 -- Enqueue pending tasks for active executions
-INSERT INTO task_queue (workflow_execution_id, stage_id, payload)
+INSERT INTO task_queue (workflow_execution_id, task_type, input_data)
 SELECT wel.execution_id, wel.stage_id, wel.input_data
 FROM workflow_execution_logs wel
 JOIN workflow_executions we ON we.id = wel.execution_id
