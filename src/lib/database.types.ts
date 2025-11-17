@@ -143,6 +143,41 @@ export interface Database {
           timestamp?: string
         }
       }
+      performance_metrics: {
+        Row: {
+          id: string
+          session_id: string | null
+          agent_id: string | null
+          operation: string
+          duration_ms: number
+          alert_threshold_ms: number | null
+          alert_triggered: boolean | null
+          metadata: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          session_id?: string | null
+          agent_id?: string | null
+          operation: string
+          duration_ms: number
+          alert_threshold_ms?: number | null
+          alert_triggered?: boolean | null
+          metadata?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          session_id?: string | null
+          agent_id?: string | null
+          operation?: string
+          duration_ms?: number
+          alert_threshold_ms?: number | null
+          alert_triggered?: boolean | null
+          metadata?: Json | null
+          created_at?: string
+        }
+      }
       component_relationships: {
         Row: {
           id: string

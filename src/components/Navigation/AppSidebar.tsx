@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Layers, Sparkles, Settings, Zap, Book } from 'lucide-react';
+import { Activity, Home, Layers, Sparkles, Settings, Zap, Book } from 'lucide-react';
 import { ViewMode } from '../../types';
 
 interface AppSidebarProps {
@@ -11,6 +11,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({ currentView, onNavigate 
   const navItems = [
     { id: 'library' as ViewMode, label: 'Library', icon: Home },
     { id: 'templates' as ViewMode, label: 'Templates', icon: Layers },
+    { id: 'performance' as ViewMode, label: 'Performance', icon: Activity },
     { id: 'documentation' as ViewMode, label: 'Documentation', icon: Book },
   ];
 

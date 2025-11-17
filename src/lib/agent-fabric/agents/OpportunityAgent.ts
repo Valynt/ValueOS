@@ -148,10 +148,16 @@ Return ONLY valid JSON in this exact format:
       value_case_id: '',
     }));
 
+    const durationMs = Date.now() - startTime;
+
     await this.logMetric(sessionId, 'tokens_used', response.tokens_used, 'tokens');
-    await this.logMetric(sessionId, 'latency_ms', Date.now() - startTime, 'ms');
+    await this.logMetric(sessionId, 'latency_ms', durationMs, 'ms');
     await this.logMetric(sessionId, 'pain_points_identified', parsed.pain_points.length, 'count');
     await this.logMetric(sessionId, 'capabilities_matched', capabilities.length, 'count');
+    await this.logPerformanceMetric(sessionId, 'opportunity_execute', durationMs, {
+      discovery_documents: input.discoveryData.length,
+      matched_capabilities: capabilities.length,
+    });
 
     await this.logExecution(
       sessionId,
@@ -172,7 +178,7 @@ Return ONLY valid JSON in this exact format:
 
     await this.memorySystem.storeSemanticMemory(
       sessionId,
-      this.agent.id,
+      this.agentId,
       `Opportunity: ${parsed.opportunity_summary}`,
       {
         persona_fit: parsed.persona_fit,
