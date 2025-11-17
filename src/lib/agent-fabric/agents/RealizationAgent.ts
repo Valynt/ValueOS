@@ -271,7 +271,9 @@ Return ONLY valid JSON:
    * Persist realization report and results
    */
   async persistRealizationReport(
-    output: RealizationAgentOutput
+    output: RealizationAgentOutput,
+    valueCommitId: string,
+    sessionId?: string
   ): Promise<string> {
     const { data: reportData, error: reportError } = await this.supabase
       .from('realization_reports')
@@ -282,6 +284,17 @@ Return ONLY valid JSON:
     if (reportError) throw new Error(`Failed to create realization report: ${reportError.message}`);
 
     const reportId = reportData.id;
+
+    if (sessionId) {
+      await this.recordLifecycleLink(sessionId, {
+        source_type: 'value_commit',
+        source_id: valueCommitId,
+        target_type: 'realization_report',
+        target_id: reportId,
+        relationship_type: 'realization',
+        reasoning_trace: 'Realization report generated from KPI telemetry'
+      });
+    }
 
     for (const result of output.realizationResults) {
       await this.supabase

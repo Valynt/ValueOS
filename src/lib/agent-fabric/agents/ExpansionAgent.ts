@@ -240,7 +240,9 @@ Return ONLY valid JSON:
    * Persist expansion model and improvements
    */
   async persistExpansionModel(
-    output: ExpansionAgentOutput
+    output: ExpansionAgentOutput,
+    realizationReportId: string,
+    sessionId?: string
   ): Promise<string> {
     const { data: modelData, error: modelError } = await this.supabase
       .from('expansion_models')
@@ -251,6 +253,17 @@ Return ONLY valid JSON:
     if (modelError) throw new Error(`Failed to create expansion model: ${modelError.message}`);
 
     const expansionModelId = modelData.id;
+
+    if (sessionId) {
+      await this.recordLifecycleLink(sessionId, {
+        source_type: 'realization_report',
+        source_id: realizationReportId,
+        target_type: 'expansion_model',
+        target_id: expansionModelId,
+        relationship_type: 'expansion',
+        reasoning_trace: 'Expansion model generated from realized value outcomes'
+      });
+    }
 
     for (const improvement of output.expansionImprovements) {
       await this.supabase

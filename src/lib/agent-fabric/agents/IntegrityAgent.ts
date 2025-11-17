@@ -119,6 +119,21 @@ export class IntegrityAgent extends BaseAgent {
       }]
     );
 
+    await this.logProvenanceAudit({
+      session_id: sessionId,
+      agent_id: this.agent.id,
+      artifact_type: input.artifact_type,
+      artifact_id: input.artifact_id,
+      action: 'manifesto_compliance_check',
+      reasoning_trace: JSON.stringify(results),
+      artifact_data: input.artifact_data,
+      output_snapshot: { compliance_report: complianceReport },
+      metadata: {
+        blocking_issues: blockingIssues,
+        is_compliant: overallCompliance
+      }
+    });
+
     if (!overallCompliance) {
       await this.memorySystem.storeSemanticMemory(
         sessionId,
