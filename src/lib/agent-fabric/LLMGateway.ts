@@ -19,6 +19,9 @@ export interface LLMConfig {
 
 export type LLMProvider = 'together' | 'openai';
 
+import { sanitizeLLMContent } from '../../utils/security';
+import { securityLogger } from '../../services/SecurityLogger';
+
 export class LLMGateway {
   private apiKey: string;
   private baseURL: string;
@@ -80,8 +83,20 @@ export class LLMGateway {
     const data = await response.json();
     const latency = Date.now() - startTime;
 
+    const rawContent = data.choices[0].message.content;
+    const sanitizedContent = sanitizeLLMContent(rawContent);
+
+    if (sanitizedContent !== rawContent) {
+      securityLogger.log({
+        category: 'llm',
+        action: 'response-sanitized',
+        severity: 'info',
+        metadata: { provider: this.provider },
+      });
+    }
+
     return {
-      content: data.choices[0].message.content,
+      content: sanitizedContent,
       tokens_used: data.usage?.total_tokens || 0,
       latency_ms: latency,
       model: data.model

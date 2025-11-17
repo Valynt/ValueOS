@@ -25,9 +25,12 @@ import type {
   SensitivityScenario,
   ROIModelCalculation
 } from '../types/vos';
+import { securityLogger } from './SecurityLogger';
 
 export class ROIFormulaInterpreter {
   private supabase: SupabaseClient;
+  private readonly maxEvaluationMs = 750;
+  private readonly maxRecursionDepth = 5;
 
   constructor(supabase: SupabaseClient) {
     this.supabase = supabase;
@@ -43,6 +46,7 @@ export class ROIFormulaInterpreter {
   ): FormulaResult {
     try {
       const intermediateSteps: FormulaStep[] = [];
+      const startedAt = Date.now();
 
       let processedFormula = this.preprocessFormula(formula, context);
 
@@ -57,7 +61,7 @@ export class ROIFormulaInterpreter {
         });
       }
 
-      const result = this.evaluateExpression(processedFormula, context);
+      const result = this.evaluateExpression(processedFormula, context, 0, startedAt);
 
       if (trackSteps) {
         intermediateSteps.push({
@@ -71,6 +75,12 @@ export class ROIFormulaInterpreter {
         intermediateSteps: trackSteps ? intermediateSteps : undefined,
       };
     } catch (error) {
+      securityLogger.log({
+        category: 'formula',
+        action: 'execution-error',
+        severity: 'warn',
+        metadata: { message: error instanceof Error ? error.message : 'Formula execution failed' },
+      });
       return {
         value: 0,
         error: error instanceof Error ? error.message : 'Formula execution failed',
@@ -215,10 +225,22 @@ export class ROIFormulaInterpreter {
   /**
    * Evaluate mathematical expression
    */
-  private evaluateExpression(expression: string, context: FormulaContext): number {
+  private evaluateExpression(
+    expression: string,
+    context: FormulaContext,
+    depth: number = 0,
+    startedAt: number = Date.now()
+  ): number {
     expression = expression.trim();
 
-    expression = this.evaluateFunctions(expression, context);
+    if (Date.now() - startedAt > this.maxEvaluationMs) {
+      throw new Error('Formula execution timeout');
+    }
+    if (depth > this.maxRecursionDepth) {
+      throw new Error('Formula exceeds maximum allowed depth');
+    }
+
+    expression = this.evaluateFunctions(expression, context, depth, startedAt);
 
     expression = expression.replace(/\s+/g, '');
 
@@ -234,7 +256,12 @@ export class ROIFormulaInterpreter {
   /**
    * Evaluate built-in functions
    */
-  private evaluateFunctions(expression: string, context: FormulaContext): string {
+  private evaluateFunctions(
+    expression: string,
+    context: FormulaContext,
+    depth: number,
+    startedAt: number
+  ): string {
     const functionPattern = /([A-Z_]+)\(([^()]*)\)/g;
 
     let result = expression;
@@ -247,7 +274,7 @@ export class ROIFormulaInterpreter {
       const argsString = match[2];
       const args = argsString.split(',').map(arg => {
         const trimmed = arg.trim();
-        return this.evaluateExpression(trimmed, context);
+        return this.evaluateExpression(trimmed, context, depth + 1, startedAt);
       });
 
       const funcResult = this.executeBuiltInFunction(funcName, args);
