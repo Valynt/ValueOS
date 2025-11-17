@@ -141,6 +141,9 @@ export interface ROIModelCalculation {
   calculation_order: number;
   result_type: ROICalculationType;
   unit?: string;
+  input_variables?: Array<{ name: string; source?: string; description?: string }>;
+  source_references?: Record<string, any>;
+  reasoning_trace?: string;
   created_at: string;
 }
 
@@ -173,6 +176,36 @@ export interface ValueCommit {
   target_date?: string;
   notes?: string;
   metadata: Record<string, any>;
+  created_at: string;
+}
+
+export interface LifecycleArtifactLink {
+  id: string;
+  session_id?: string;
+  source_stage?: 'opportunity' | 'target' | 'realization' | 'expansion';
+  source_type: string;
+  source_artifact_id: string;
+  target_stage?: 'opportunity' | 'target' | 'realization' | 'expansion';
+  target_type: string;
+  target_artifact_id: string;
+  relationship_type: string;
+  reasoning_trace?: string;
+  chain_depth?: number;
+  created_at?: string;
+}
+
+export interface ProvenanceAuditEntry {
+  id: string;
+  session_id: string;
+  agent_id: string;
+  artifact_type: string;
+  artifact_id: string;
+  action: string;
+  reasoning_trace?: string;
+  artifact_data?: Record<string, any>;
+  input_variables?: Record<string, any>;
+  output_snapshot?: Record<string, any>;
+  metadata?: Record<string, any>;
   created_at: string;
 }
 
