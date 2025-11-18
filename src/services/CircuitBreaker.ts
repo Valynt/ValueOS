@@ -80,7 +80,6 @@ export class CircuitBreakerManager {
         failure_count: 0,
         last_failure_time: null,
         state: 'closed',
-        threshold: Math.round(config.minimumSamples * config.failureRateThreshold),
         timeout_seconds: Math.ceil(config.timeoutMs / 1000),
         metrics: [],
         opened_at: null,
