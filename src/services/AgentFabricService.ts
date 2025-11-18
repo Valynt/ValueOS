@@ -7,14 +7,10 @@ export class AgentFabricService {
   private initialized: boolean = false;
 
   constructor() {
-    const togetherKey = import.meta.env.VITE_TOGETHER_API_KEY;
-    const openaiKey = import.meta.env.VITE_OPENAI_API_KEY;
-
     this.fabric = new AgentFabric(
       import.meta.env.VITE_SUPABASE_URL,
       import.meta.env.VITE_SUPABASE_ANON_KEY,
-      togetherKey || openaiKey,
-      togetherKey ? 'together' : 'openai'
+      'together'
     );
   }
 
