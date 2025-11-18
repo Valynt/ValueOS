@@ -47,16 +47,19 @@ export class AgentRoutingLayer {
     const candidates = this.registry.getAgentsByLifecycle(lifecycle_stage, true);
 
     if (candidates.length === 0) {
-      return this.propagateError(stageId, new Error('No registered agents available for lifecycle stage'));
+      this.propagateError(stageId, new Error('No registered agents available for lifecycle stage'));
+      // TypeScript now understands execution stops here due to 'never' return type
     }
 
     const scoring = this.scorer.scoreCandidates(stage, candidates, { ...context, required_capabilities: requiredCapabilities }, stickyAgent?.id);
 
+    // Fallback logic: If no healthy agents are available, select the highest-scoring agent regardless of health status (may include degraded agents).
     const healthyCandidates = scoring.ranked.filter(score => score.agent.status === 'healthy');
     const selection = healthyCandidates[0] || scoring.ranked[0];
 
     if (!selection) {
-      return this.propagateError(stageId, new Error('No routable agents after scoring'));
+      this.propagateError(stageId, new Error('No routable agents after scoring'));
+      // TypeScript now understands execution stops here due to 'never' return type
     }
 
     if (context.session_id) {
