@@ -60,8 +60,9 @@ class LlmProxyClient {
 
     const legacySanitized = sanitizeLLMContent(data.content);
     const result = llmSanitizer.sanitizeResponse(legacySanitized, { allowHtml: false });
+    const boundedContent = result.content.slice(0, 4000);
 
-    if (result.wasModified || result.violations.length > 0) {
+    if (result.wasModified || result.violations.length > 0 || boundedContent.length < result.content.length) {
       securityLogger.log({
         category: 'llm',
         action: 'response-sanitized',
@@ -69,12 +70,13 @@ class LlmProxyClient {
         metadata: {
           provider: data.provider,
           violations: result.violations,
+          truncated: boundedContent.length < result.content.length,
         },
       });
     }
 
     return {
-      content: result.content,
+      content: boundedContent,
       tokens_used: data.tokens_used,
       latency_ms: data.latency_ms,
       model: data.model,

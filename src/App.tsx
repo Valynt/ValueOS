@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { MainLayout } from './components/Layout/MainLayout';
 import { LibraryView } from './views/LibraryView';
 import { TemplatesView } from './views/TemplatesView';
@@ -11,10 +11,16 @@ import { IntegrityCompliancePage } from './views/IntegrityCompliancePage';
 import { PerformanceDashboard } from './views/PerformanceDashboard';
 import { AppSidebar } from './components/Navigation/AppSidebar';
 import { ViewMode } from './types';
+import { sessionManager } from './services/SessionManager';
 
 function App() {
   const [currentView, setCurrentView] = useState<ViewMode>('library');
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
+
+  useEffect(() => {
+    sessionManager.initialize();
+    return () => sessionManager.terminate();
+  }, []);
 
   const handleOpenCase = (caseId: string) => {
     setSelectedCaseId(caseId);

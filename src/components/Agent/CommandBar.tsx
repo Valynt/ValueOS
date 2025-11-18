@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Sparkles, X } from 'lucide-react';
+import { sanitizeUserInput } from '../../utils/security';
 
 interface CommandBarProps {
   isOpen: boolean;
@@ -53,8 +54,9 @@ export const CommandBar: React.FC<CommandBarProps> = ({
     } else if (e.key === 'Enter') {
       e.preventDefault();
       const selectedQuery = filteredSuggestions[selectedIndex] || query;
-      if (selectedQuery) {
-        onSubmit(selectedQuery);
+      const sanitized = sanitizeUserInput(selectedQuery, 512);
+      if (sanitized) {
+        onSubmit(sanitized);
         setQuery('');
         onClose();
       }
@@ -62,7 +64,10 @@ export const CommandBar: React.FC<CommandBarProps> = ({
   };
 
   const handleSuggestionClick = (suggestion: string) => {
-    onSubmit(suggestion);
+    const sanitized = sanitizeUserInput(suggestion, 512);
+    if (!sanitized) return;
+
+    onSubmit(sanitized);
     setQuery('');
     onClose();
   };
