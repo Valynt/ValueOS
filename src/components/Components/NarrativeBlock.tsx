@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { NarrativeBlockProps } from '../../types';
 import { FileText, CreditCard as Edit3, Check, X } from 'lucide-react';
+import { sanitizeHtml } from '../../utils/sanitizeHtml';
 
 export const NarrativeBlock: React.FC<NarrativeBlockProps> = ({
   title,
@@ -27,7 +28,8 @@ export const NarrativeBlock: React.FC<NarrativeBlockProps> = ({
   };
 
   const renderMarkdown = (text: string) => {
-    return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    const rendered = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    return sanitizeHtml(rendered);
   };
 
   return (
