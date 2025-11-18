@@ -14,7 +14,7 @@
 
 ### 2) Unsanitized HTML rendering enables XSS (High)
 - **Locations:**
-  - `src/views/DocumentationView.tsx` renders `currentPage.content` with `dangerouslySetInnerHTML`.
+  - `src/views/DocumentationView.tsx` (line 290) renders `currentPage.content` from the database with `dangerouslySetInnerHTML`.
   - `src/components/Components/NarrativeBlock.tsx` renders editable `content` via `dangerouslySetInnerHTML` with only minimal Markdown replacement.
 - **Impact:** Any stored page content or user-editable narrative text containing `<script>` or event handlers executes in other users' browsers (OWASP A03:2021 Injection / CWE-79 Stored XSS).
 - **Recommendation:** Sanitize HTML before rendering (e.g., `DOMPurify.sanitize`) or avoid `dangerouslySetInnerHTML`. Treat user/LLM-generated content as untrusted and enforce an allowlist of safe tags.
