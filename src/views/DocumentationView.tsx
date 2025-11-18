@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Book, Home, ArrowLeft, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { announceToScreenReader } from '../utils/accessibility';
+import { sanitizeHtml } from '../utils/sanitizeHtml';
 
 interface DocCategory {
   id: string;
@@ -287,7 +288,7 @@ export function DocumentationView() {
 
               <div
                 className="prose prose-blue max-w-none"
-                dangerouslySetInnerHTML={{ __html: currentPage.content }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(currentPage.content) }}
               />
 
               {/* Feedback Section */}
