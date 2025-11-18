@@ -1,2 +1,2 @@
-Merged by automation on completion request.
-State: merged
+Closed by automation on completion request after PR was not mergeable.
+State: closed
