@@ -33,7 +33,20 @@ describe('IntegrityAgent manifesto validation', () => {
     const input: IntegrityCheckInput = {
       artifact_type: 'value_tree',
       artifact_id: 'tree-1',
-      artifact_data: { reasoning: 'This is a detailed reasoning narrative that exceeds fifty characters to satisfy the rule.' },
+      artifact_data: {
+        reasoning: 'This is a detailed reasoning narrative that exceeds fifty characters to satisfy the rule.',
+        business_outcome: 'Reduce churn by improving onboarding',
+        kpis: ['Churn Reduction'],
+        roi_model: { methodology: 'standard', confidence_level: 'conservative' },
+        assumptions: [{ description: 'Based on analyst benchmark', source: 'industry analyst', rationale: 'Recent report' }],
+        lifecycle_stage: 'opportunity',
+        owner: 'value-lead',
+        stakeholders: ['sales', 'product'],
+        version: 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        value_tree: { capabilities: ['capability'], outcomes: ['outcome'], kpis: ['Churn Reduction'] },
+      },
     };
 
     const result = await agent.execute('session-1', input);
