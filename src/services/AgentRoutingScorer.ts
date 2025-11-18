@@ -16,8 +16,22 @@ export interface ScoringResult {
   stickyApplied: boolean;
 }
 
+export interface AgentScoringWeights {
+  capability: number;
+  load: number;
+  proximity: number;
+  stickiness: number;
+}
+
+export const DEFAULT_AGENT_SCORING_WEIGHTS: AgentScoringWeights = {
+  capability: 0.4,
+  load: 0.2,
+  proximity: 0.2,
+  stickiness: 0.2
+};
+
 export class AgentRoutingScorer {
-  constructor(private weights = { capability: 0.4, load: 0.2, proximity: 0.2, stickiness: 0.2 }) {}
+  constructor(private weights: AgentScoringWeights = DEFAULT_AGENT_SCORING_WEIGHTS) {}
 
   scoreCandidates(
     stage: WorkflowStage,
