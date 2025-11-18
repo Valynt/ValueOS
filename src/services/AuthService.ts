@@ -15,6 +15,18 @@ const loginRateLimiter = new RateLimiter({
   lockoutMs: 15 * 60 * 1000,
 });
 
+const signupRateLimiter = new RateLimiter({
+  maxAttempts: 3,
+  windowMs: 10 * 60 * 1000,
+  lockoutMs: 30 * 60 * 1000,
+});
+
+const resetRateLimiter = new RateLimiter({
+  maxAttempts: 5,
+  windowMs: 60 * 60 * 1000,
+  lockoutMs: 2 * 60 * 60 * 1000,
+});
+
 export interface LoginCredentials {
   email: string;
   password: string;
@@ -38,13 +50,24 @@ export class AuthService extends BaseService {
 
   /**
    * Sign up a new user
-   */
+  */
   async signup(data: SignupData): Promise<AuthSession> {
     this.validateRequired(data, ['email', 'password', 'fullName']);
 
     const passwordValidation = validatePassword(data.password);
     if (!passwordValidation.valid) {
       throw new ValidationError(passwordValidation.errors.join('. '));
+    }
+
+    const rateStatus = signupRateLimiter.canAttempt(data.email);
+    if (!rateStatus.allowed) {
+      securityLogger.log({
+        category: 'authentication',
+        action: 'signup-rate-limit',
+        severity: 'warn',
+        metadata: { email: data.email, retryAfter: rateStatus.retryAfter },
+      });
+      throw new RateLimitError('Too many signup attempts. Please try again later.', rateStatus.retryAfter);
     }
 
     this.log('info', 'User signup', { email: data.email });
@@ -61,7 +84,10 @@ export class AuthService extends BaseService {
           },
         });
 
-        if (error) throw new AuthenticationError(sanitizeErrorMessage(error));
+        if (error) {
+          signupRateLimiter.recordFailure(data.email);
+          throw new AuthenticationError(sanitizeErrorMessage(error));
+        }
         if (!authData.user || !authData.session) {
           throw new AuthenticationError('Signup failed');
         }
@@ -213,12 +239,26 @@ export class AuthService extends BaseService {
    * Request password reset
    */
   async requestPasswordReset(email: string): Promise<void> {
+    const rateStatus = resetRateLimiter.canAttempt(email);
+    if (!rateStatus.allowed) {
+      securityLogger.log({
+        category: 'authentication',
+        action: 'password-reset-rate-limit',
+        severity: 'warn',
+        metadata: { email, retryAfter: rateStatus.retryAfter },
+      });
+      throw new RateLimitError('Too many reset attempts. Please try again later.', rateStatus.retryAfter);
+    }
+
     this.log('info', 'Password reset requested', { email });
 
     return this.executeRequest(
       async () => {
         const { error } = await this.supabase.auth.resetPasswordForEmail(email);
-        if (error) throw new AuthenticationError(sanitizeErrorMessage(error));
+        if (error) {
+          resetRateLimiter.recordFailure(email);
+          throw new AuthenticationError(sanitizeErrorMessage(error));
+        }
       },
       { skipCache: true }
     );

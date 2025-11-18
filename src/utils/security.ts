@@ -19,6 +19,18 @@ export interface PasswordValidationResult {
   errors: string[];
 }
 
+const INPUT_SANITIZE_PATTERN = /<[^>]*>|\s{2,}/g;
+
+export function sanitizeUserInput(value: string, maxLength = 2000): string {
+  if (!value) return '';
+
+  const trimmed = value.trim().slice(0, maxLength);
+  return trimmed
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(INPUT_SANITIZE_PATTERN, match => (match.startsWith('<') ? '' : ' '))
+    .trim();
+}
+
 export function validatePassword(
   password: string,
   policy: PasswordPolicy = defaultPasswordPolicy

@@ -3,6 +3,7 @@ import { Search, Plus, Target, TrendingUp, AlertCircle, Lightbulb, Users, Dollar
 import { MetricCard } from '../components/Components/MetricCard';
 import { NarrativeBlock } from '../components/Components/NarrativeBlock';
 import type { BusinessObjective, Capability } from '../types/vos';
+import { sanitizeUserInput } from '../utils/security';
 
 export const OpportunityWorkspace: React.FC = () => {
   const [selectedCapabilities, setSelectedCapabilities] = useState<string[]>([]);
@@ -80,7 +81,7 @@ export const OpportunityWorkspace: React.FC = () => {
               </div>
               <textarea
                 value={discoveryNotes}
-                onChange={(e) => setDiscoveryNotes(e.target.value)}
+                onChange={(e) => setDiscoveryNotes(sanitizeUserInput(e.target.value, 1200))}
                 placeholder="Enter discovery call notes, email transcripts, or meeting summaries here..."
                 className="w-full h-40 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
               />
