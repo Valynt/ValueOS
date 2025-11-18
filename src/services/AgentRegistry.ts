@@ -47,15 +47,7 @@ export class AgentRegistry {
     // Check if agent already exists to avoid silent overwrite
     const existingAgent = this.agents.get(registration.id);
     if (existingAgent) {
-      // Update the existing agent instead of overwriting it
-      existingAgent.name = registration.name;
-      existingAgent.lifecycle_stage = registration.lifecycle_stage;
-      existingAgent.capabilities = registration.capabilities;
-      existingAgent.region = registration.region;
-      existingAgent.endpoint = registration.endpoint;
-      existingAgent.metadata = registration.metadata;
-      existingAgent.last_heartbeat = Date.now();
-      return existingAgent;
+      throw new Error(`Agent with ID '${registration.id}' is already registered`);
     }
 
     const record: AgentRecord = {

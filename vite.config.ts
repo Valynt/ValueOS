@@ -1,9 +1,16 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { getEnvironmentHeaders } from './src/lib/security/headers';
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    headers: getEnvironmentHeaders('development'),
+  },
+  preview: {
+    headers: getEnvironmentHeaders('production'),
+  },
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
