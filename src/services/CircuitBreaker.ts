@@ -128,6 +128,13 @@ export class CircuitBreakerManager {
   private pruneMetrics(breaker: CircuitBreakerState): void {
     const cutoff = Date.now() - breaker.window_ms;
     breaker.metrics = breaker.metrics.filter(metric => metric.timestamp >= cutoff);
+    
+    // Limit metrics array size to prevent unbounded growth
+    // Keep at most 10x minimum_samples or 100 metrics, whichever is larger
+    const maxMetrics = Math.max(breaker.minimum_samples * 10, 100);
+    if (breaker.metrics.length > maxMetrics) {
+      breaker.metrics = breaker.metrics.slice(-maxMetrics);
+    }
   }
 
   private recordMetric(breaker: CircuitBreakerState, metric: CircuitBreakerMetric): void {
@@ -167,7 +174,7 @@ export class CircuitBreakerManager {
       breaker.failure_count = 0;
       breaker.opened_at = null;
       breaker.last_failure_time = null;
-      breaker.metrics = breaker.metrics.slice(-breaker.minimum_samples);
+      // Metrics are already pruned by pruneMetrics() call above
     }
   }
 }
