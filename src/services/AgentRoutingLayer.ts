@@ -47,7 +47,7 @@ export class AgentRoutingLayer {
     const candidates = this.registry.getAgentsByLifecycle(lifecycle_stage, true);
 
     if (candidates.length === 0) {
-      this.propagateError(stageId, new Error('No registered agents available for lifecycle stage'));
+      return this.propagateError(stageId, new Error('No registered agents available for lifecycle stage'));
     }
 
     const scoring = this.scorer.scoreCandidates(stage, candidates, { ...context, required_capabilities: requiredCapabilities }, stickyAgent?.id);
@@ -56,7 +56,7 @@ export class AgentRoutingLayer {
     const selection = healthyCandidates[0] || scoring.ranked[0];
 
     if (!selection) {
-      this.propagateError(stageId, new Error('No routable agents after scoring'));
+      return this.propagateError(stageId, new Error('No routable agents after scoring'));
     }
 
     if (context.session_id) {
