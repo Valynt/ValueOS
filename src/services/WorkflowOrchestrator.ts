@@ -7,7 +7,9 @@ import {
   WorkflowStatus,
   StageStatus,
   RetryConfig,
-  WorkflowStage
+  CircuitBreakerState, // <-- Keep this
+  WorkflowStage,
+  ExecutedStep       // <-- Keep this
 } from '../types/workflow';
 import { LIFECYCLE_WORKFLOW_DEFINITIONS } from '../data/lifecycleWorkflows';
 import { agentRoutingLayer } from './AgentRoutingLayer';
@@ -94,6 +96,8 @@ export class WorkflowOrchestrator {
     if (!execution) throw new Error('Execution not found');
 
     let currentStageId = execution.current_stage || dag.initial_stage;
+    let executionContext = execution.context || {};
+    let executedSteps: ExecutedStep[] = executionContext.executed_steps || [];
     const visitedStages = new Set<string>();
 
     while (currentStageId && !dag.final_stages.includes(currentStageId)) {
@@ -114,11 +118,15 @@ export class WorkflowOrchestrator {
         reason: route.reason
       });
 
-      const stageResult = await this.executeStageWithRetry(executionId, stage, execution.context);
+      const stageResult = await this.executeStageWithRetry(executionId, stage, executionContext);
 
       if (stageResult.status === 'failed') {
         throw new Error(`Stage ${currentStageId} failed: ${stageResult.error_message}`);
       }
+
+      executionContext = this.mergeExecutionContext(executionContext, stage, stageResult?.output_data || {}, executedSteps);
+      executedSteps = executionContext.executed_steps || executedSteps;
+      await this.persistExecutionContext(executionId, executionContext, currentStageId);
 
       const nextTransition = dag.transitions.find(t => t.from_stage === currentStageId);
       if (!nextTransition) break;
@@ -303,6 +311,41 @@ export class WorkflowOrchestrator {
 
     if (error || !data) throw new Error('Failed to create execution log');
     return data.id;
+  }
+
+  private mergeExecutionContext(
+    currentContext: Record<string, any>,
+    stage: WorkflowStage,
+    outputData: Record<string, any>,
+    executedSteps: ExecutedStep[]
+  ): Record<string, any> {
+    const updatedSteps = [...executedSteps, {
+      stage_id: stage.id,
+      stage_type: stage.agent_type,
+      compensator: stage.compensation_handler || stage.agent_type,
+      completed_at: new Date().toISOString()
+    }];
+
+    return {
+      ...currentContext,
+      ...outputData?.next_context,
+      executed_steps: updatedSteps
+    };
+  }
+
+  private async persistExecutionContext(
+    executionId: string,
+    context: Record<string, any>,
+    currentStage: string
+  ): Promise<void> {
+    await supabase
+      .from('workflow_executions')
+      .update({
+        context,
+        current_stage: currentStage,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', executionId);
   }
 
   private async completeExecutionLog(
