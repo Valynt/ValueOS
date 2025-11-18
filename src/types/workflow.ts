@@ -31,6 +31,7 @@ export interface WorkflowStage {
   id: string;
   name: string;
   agent_type: LifecycleStage;
+  required_capabilities?: string[];
   timeout_seconds: number;
   retry_config: RetryConfig;
   compensation_handler?: string;
