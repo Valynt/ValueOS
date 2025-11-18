@@ -30,6 +30,9 @@ export interface RoutingContext {
   [key: string]: any;
 }
 
+const LOAD_INCREMENT_PER_ASSIGNMENT = 0.1;
+const LOAD_DECREMENT_PER_RELEASE = 0.05;
+
 export class AgentRegistry {
   private agents: Map<string, AgentRecord> = new Map();
   private heartbeatTimeoutMs: number;
@@ -74,14 +77,14 @@ export class AgentRegistry {
   recordAssignment(agentId: string): void {
     const agent = this.agents.get(agentId);
     if (!agent) return;
-    agent.load = Math.min(1, agent.load + 0.1);
+    agent.load = Math.min(1, agent.load + LOAD_INCREMENT_PER_ASSIGNMENT);
     agent.last_heartbeat = Date.now();
   }
 
   recordRelease(agentId: string): void {
     const agent = this.agents.get(agentId);
     if (!agent) return;
-    agent.load = Math.max(0, agent.load - 0.05);
+    agent.load = Math.max(0, agent.load - LOAD_DECREMENT_PER_RELEASE);
     agent.last_heartbeat = Date.now();
   }
 
