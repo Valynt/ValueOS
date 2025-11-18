@@ -32,11 +32,10 @@ export interface RoutingContext {
 
 const LOAD_INCREMENT_PER_ASSIGNMENT = 0.1;
 const LOAD_DECREMENT_PER_RELEASE = 0.05;
+const OFFLINE_FAILURE_THRESHOLD = 3;
+const DEGRADED_FAILURE_THRESHOLD = 2;
 
 export class AgentRegistry {
-  private static readonly OFFLINE_FAILURE_THRESHOLD = 3;
-  private static readonly DEGRADED_FAILURE_THRESHOLD = 2;
-  
   private agents: Map<string, AgentRecord> = new Map();
   private heartbeatTimeoutMs: number;
 
@@ -45,9 +44,18 @@ export class AgentRegistry {
   }
 
   registerAgent(registration: AgentRegistration): AgentRecord {
-    // Check if agent already exists to prevent overwriting state
-    if (this.agents.has(registration.id)) {
-      throw new Error(`Agent with ID '${registration.id}' is already registered. Use updateHeartbeat or other methods to update existing agents.`);
+    // Check if agent already exists to avoid silent overwrite
+    const existingAgent = this.agents.get(registration.id);
+    if (existingAgent) {
+      // Update the existing agent instead of overwriting it
+      existingAgent.name = registration.name;
+      existingAgent.lifecycle_stage = registration.lifecycle_stage;
+      existingAgent.capabilities = registration.capabilities;
+      existingAgent.region = registration.region;
+      existingAgent.endpoint = registration.endpoint;
+      existingAgent.metadata = registration.metadata;
+      existingAgent.last_heartbeat = Date.now();
+      return existingAgent;
     }
 
     const record: AgentRecord = {
@@ -101,9 +109,9 @@ export class AgentRegistry {
     if (!agent) return undefined;
 
     agent.consecutive_failures += 1;
-    if (agent.consecutive_failures >= AgentRegistry.OFFLINE_FAILURE_THRESHOLD) {
+    if (agent.consecutive_failures >= OFFLINE_FAILURE_THRESHOLD) {
       agent.status = 'offline';
-    } else if (agent.consecutive_failures >= AgentRegistry.DEGRADED_FAILURE_THRESHOLD) {
+    } else if (agent.consecutive_failures >= DEGRADED_FAILURE_THRESHOLD) {
       agent.status = 'degraded';
     }
     agent.last_heartbeat = Date.now();
@@ -118,15 +126,25 @@ export class AgentRegistry {
     agent.last_heartbeat = Date.now();
   }
 
-  getAgentsByLifecycle(lifecycle_stage: LifecycleStage, includeDegraded = false): AgentRecord[] {
+  // Separate method to update agent health status based on heartbeat
+  private updateAgentHealthStatus(agent: AgentRecord): void {
     const now = Date.now();
+    const stale = now - agent.last_heartbeat > this.heartbeatTimeoutMs;
+    if (stale) {
+      agent.status = 'offline';
+    }
+  }
+
+  getAgentsByLifecycle(lifecycle_stage: LifecycleStage, includeDegraded = false): AgentRecord[] {
+    // First, update health status for all agents
+    for (const agent of this.agents.values()) {
+      this.updateAgentHealthStatus(agent);
+    }
+
+    // Then filter and sort
     return Array.from(this.agents.values())
       .filter(agent => agent.lifecycle_stage === lifecycle_stage)
       .filter(agent => {
-        const stale = now - agent.last_heartbeat > this.heartbeatTimeoutMs;
-        if (stale) {
-          agent.status = 'offline';
-        }
         if (agent.status === 'offline') return false;
         if (!includeDegraded && agent.status !== 'healthy') return false;
         return true;

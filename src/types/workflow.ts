@@ -62,6 +62,14 @@ export interface CircuitBreakerState {
   state: 'closed' | 'open' | 'half_open';
   threshold: number;
   timeout_seconds: number;
+  metrics: Array<{ timestamp: number; success: boolean; durationMs: number }>;
+  opened_at: string | null;
+  half_open_probes: number;
+  failure_rate_threshold: number;
+  latency_threshold_ms: number;
+  window_ms: number;
+  minimum_samples: number;
+  half_open_max_probes: number;
 }
 
 export interface WorkflowExecution {
@@ -77,6 +85,21 @@ export interface WorkflowExecution {
   audit_context?: Record<string, any>;
   circuit_breaker_state?: Record<string, any>;
   created_by: string;
+}
+
+export interface ExecutedStep {
+  stage_id: string;
+  stage_type: LifecycleStage;
+  compensator?: string;
+  completed_at?: string;
+}
+
+export type CompensationPolicy = 'continue_on_error' | 'halt_on_error';
+
+export interface RollbackState {
+  status: 'idle' | 'in_progress' | 'completed' | 'failed';
+  completed_steps: string[];
+  failed_stage?: string;
 }
 
 export interface WorkflowExecutionLog {

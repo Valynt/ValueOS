@@ -222,7 +222,8 @@ export function createAgentInfrastructureMocks() {
   } as any;
   const auditLogger = {
     logAction: vi.fn(),
-    logMetric: vi.fn()
+    logMetric: vi.fn(),
+    logPerformanceMetric: vi.fn()
   } as any;
 
   return { llmGateway, memorySystem, auditLogger };

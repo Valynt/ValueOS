@@ -21,11 +21,10 @@ export class AgentFabric {
   constructor(
     supabaseUrl: string,
     supabaseKey: string,
-    llmApiKey?: string,
     llmProvider: LLMProvider = 'together'
   ) {
     this.supabase = new SupabaseClient(supabaseUrl, supabaseKey);
-    this.llmGateway = new LLMGateway(llmApiKey, llmProvider);
+    this.llmGateway = new LLMGateway(llmProvider);
     this.memorySystem = new MemorySystem(this.supabase, this.llmGateway);
     this.auditLogger = new AuditLogger(this.supabase);
     this.reflectionEngine = new ReflectionEngine(this.llmGateway);

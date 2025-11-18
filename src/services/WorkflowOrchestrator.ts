@@ -7,15 +7,17 @@ import {
   WorkflowStatus,
   StageStatus,
   RetryConfig,
-  CircuitBreakerState,
-  WorkflowStage
+  CircuitBreakerState, // <-- Keep this
+  WorkflowStage,
+  ExecutedStep       // <-- Keep this
 } from '../types/workflow';
 import { LIFECYCLE_WORKFLOW_DEFINITIONS } from '../data/lifecycleWorkflows';
 import { agentRoutingLayer, StageRoute } from './AgentRoutingLayer';
 import { workflowCompensation } from './WorkflowCompensation';
+import { CircuitBreakerManager } from './CircuitBreaker';
 
 export class WorkflowOrchestrator {
-  private circuitBreakers: Map<string, CircuitBreakerState> = new Map();
+  private circuitBreakers = new CircuitBreakerManager();
 
   async registerLifecycleDefinitions(): Promise<void> {
     for (const definition of LIFECYCLE_WORKFLOW_DEFINITIONS) {
@@ -94,6 +96,8 @@ export class WorkflowOrchestrator {
     if (!execution) throw new Error('Execution not found');
 
     let currentStageId = execution.current_stage || dag.initial_stage;
+    let executionContext = execution.context || {};
+    let executedSteps: ExecutedStep[] = executionContext.executed_steps || [];
     const visitedStages = new Set<string>();
 
     while (currentStageId && !dag.final_stages.includes(currentStageId)) {
@@ -102,7 +106,7 @@ export class WorkflowOrchestrator {
       }
       visitedStages.add(currentStageId);
 
-      const route = agentRoutingLayer.routeStage(dag, currentStageId, execution.context || {});
+      const route = agentRoutingLayer.routeStage(dag, currentStageId, executionContext || {});
       const stage = route.stage;
 
       await this.updateExecutionStatus(executionId, 'in_progress', currentStageId);
@@ -123,11 +127,15 @@ export class WorkflowOrchestrator {
         reason: route.reason
       });
 
-      const stageResult = await this.executeStageWithRetry(executionId, stage, execution.context, route);
+      const stageResult = await this.executeStageWithRetry(executionId, stage, executionContext, route);
 
       if (stageResult.status === 'failed') {
         throw new Error(`Stage ${currentStageId} failed: ${stageResult.error_message}`);
       }
+
+      executionContext = this.mergeExecutionContext(executionContext, stage, stageResult?.output_data || {}, executedSteps);
+      executedSteps = executionContext.executed_steps || executedSteps;
+      await this.persistExecutionContext(executionId, executionContext, currentStageId);
 
       const nextTransition = dag.transitions.find(t => t.from_stage === currentStageId);
       if (!nextTransition) break;
@@ -147,20 +155,6 @@ export class WorkflowOrchestrator {
     route?: StageRoute
   ): Promise<WorkflowExecutionLog> {
     const circuitBreakerKey = `${executionId}-${stage.id}`;
-    const circuitBreaker = this.getOrCreateCircuitBreaker(circuitBreakerKey);
-
-    if (circuitBreaker.state === 'open') {
-      const cooldownExpired = circuitBreaker.last_failure_time
-        ? Date.now() - new Date(circuitBreaker.last_failure_time).getTime() > circuitBreaker.timeout_seconds * 1000
-        : true;
-
-      if (cooldownExpired) {
-        circuitBreaker.state = 'half_open';
-      } else {
-        throw new Error(`Circuit breaker open for stage: ${stage.id}`);
-      }
-    }
-
     const retryConfig = stage.retry_config;
     let lastError: Error | null = null;
 
@@ -171,7 +165,14 @@ export class WorkflowOrchestrator {
       try {
         await this.logEvent(executionId, 'stage_started', stage.id, { attempt });
 
-        const result = await this.executeStage(stage, context, route);
+        const result = await this.circuitBreakers.execute(
+          circuitBreakerKey,
+          () => this.executeStage(stage, context, route),
+          {
+            latencyThresholdMs: Math.floor(stage.timeout_seconds * 1000 * 0.8),
+            timeoutMs: stage.timeout_seconds * 1000
+          }
+        );
         const duration = Date.now() - startTime;
 
         await this.completeExecutionLog(logId, 'completed', duration, result);
@@ -183,7 +184,7 @@ export class WorkflowOrchestrator {
           registry.markHealthy(route.selected_agent.id);
         }
 
-        this.resetCircuitBreaker(circuitBreakerKey);
+        await this.persistCircuitBreakerState(executionId);
 
         const { data: log } = await supabase
           .from('workflow_execution_logs')
@@ -197,8 +198,7 @@ export class WorkflowOrchestrator {
         const duration = Date.now() - startTime;
 
         await this.completeExecutionLog(logId, 'failed', duration, null, lastError.message);
-        this.recordCircuitBreakerFailure(circuitBreakerKey);
-        await this.persistCircuitBreakerState(executionId, circuitBreakerKey);
+        await this.persistCircuitBreakerState(executionId);
 
         if (route?.selected_agent) {
           agentRoutingLayer.getRegistry().recordFailure(route.selected_agent.id);
@@ -235,7 +235,7 @@ export class WorkflowOrchestrator {
             stage_id: stage.id,
             attempt,
             error: lastError.message,
-            circuit_breaker: this.circuitBreakers.get(circuitBreakerKey)
+            circuit_breaker: this.circuitBreakers.getState(circuitBreakerKey)
           });
         }
       }
@@ -307,40 +307,10 @@ export class WorkflowOrchestrator {
     return Math.floor(delay);
   }
 
-  private getOrCreateCircuitBreaker(key: string): CircuitBreakerState {
-    if (!this.circuitBreakers.has(key)) {
-      this.circuitBreakers.set(key, {
-        failure_count: 0,
-        last_failure_time: null,
-        state: 'closed',
-        threshold: 5,
-        timeout_seconds: 60
-      });
-    }
-    return this.circuitBreakers.get(key)!;
-  }
-
-  private recordCircuitBreakerFailure(key: string): void {
-    const breaker = this.getOrCreateCircuitBreaker(key);
-    breaker.failure_count++;
-    breaker.last_failure_time = new Date().toISOString();
-
-    if (breaker.failure_count >= breaker.threshold) {
-      breaker.state = 'open';
-    }
-  }
-
-  private resetCircuitBreaker(key: string): void {
-    const breaker = this.getOrCreateCircuitBreaker(key);
-    breaker.failure_count = 0;
-    breaker.last_failure_time = null;
-    breaker.state = 'closed';
-  }
-
-  private async persistCircuitBreakerState(executionId: string, key: string): Promise<void> {
+  private async persistCircuitBreakerState(executionId: string): Promise<void> {
     await supabase
       .from('workflow_executions')
-      .update({ circuit_breaker_state: { ...Object.fromEntries(this.circuitBreakers), last_triggered: key } })
+      .update({ circuit_breaker_state: { ...this.circuitBreakers.exportState() } })
       .eq('id', executionId);
   }
 
@@ -366,6 +336,41 @@ export class WorkflowOrchestrator {
 
     if (error || !data) throw new Error('Failed to create execution log');
     return data.id;
+  }
+
+  private mergeExecutionContext(
+    currentContext: Record<string, any>,
+    stage: WorkflowStage,
+    outputData: Record<string, any>,
+    executedSteps: ExecutedStep[]
+  ): Record<string, any> {
+    const updatedSteps = [...executedSteps, {
+      stage_id: stage.id,
+      stage_type: stage.agent_type,
+      compensator: stage.compensation_handler || stage.agent_type,
+      completed_at: new Date().toISOString()
+    }];
+
+    return {
+      ...currentContext,
+      ...outputData?.next_context,
+      executed_steps: updatedSteps
+    };
+  }
+
+  private async persistExecutionContext(
+    executionId: string,
+    context: Record<string, any>,
+    currentStage: string
+  ): Promise<void> {
+    await supabase
+      .from('workflow_executions')
+      .update({
+        context,
+        current_stage: currentStage,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', executionId);
   }
 
   private async completeExecutionLog(
