@@ -42,6 +42,11 @@ export class AgentRegistry {
   }
 
   registerAgent(registration: AgentRegistration): AgentRecord {
+    // Check if agent already exists to prevent overwriting state
+    if (this.agents.has(registration.id)) {
+      throw new Error(`Agent with ID '${registration.id}' is already registered. Use updateHeartbeat or other methods to update existing agents.`);
+    }
+
     const record: AgentRecord = {
       ...registration,
       load: 0,
