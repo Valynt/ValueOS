@@ -106,7 +106,7 @@ export class WorkflowOrchestrator {
       }
       visitedStages.add(currentStageId);
 
-      const route = agentRoutingLayer.routeStage(dag, currentStageId, execution.context || {});
+      const route = agentRoutingLayer.routeStage(dag, currentStageId, executionContext || {});
       const stage = route.stage;
 
       await this.updateExecutionStatus(executionId, 'in_progress', currentStageId);
