@@ -43,12 +43,12 @@ Add a mandatory, append-only compliance stamp to every system output (UI payload
 - **Pipelines**: 
   - **SDUI**: Instrument component actions (load, edit, export) via a client logger buffering to a server-side ingestion API with retry/backpressure.
   - **Financial models**: Wrap model execution, validation, approvals, and publication steps with server-side emitters that include model version, dataset IDs, and control totals.
-- **Storage**: Write to an append-only log store (e.g., Kafka topic + WORM object storage) with daily snapshots to a SOX-compliant archive. Enable partitioning by tenant and data domain for GDPR access/erasure workflows.
+- **Storage**: Write to an append-only log store (e.g., Kafka topic + WORM (Write Once Read Many) object storage) with daily snapshots to a SOX-compliant archive. Enable partitioning by tenant and data domain for GDPR access/erasure workflows.
 - **Immutability controls**: Use object-lock/retention on archive buckets; hash-chains per `trace_id` to detect tampering.
 
 ### 2.2 Real-time anomaly detection
 - **Rule layer**: Deterministic checks (e.g., export without `approved` stamp, cross-border access for restricted data, model outputs missing control totals).
-- **Statistical layer**: EWMA/Z-score detectors over event frequency and value distributions per actor, tenant, and action. Maintain baselines per 1h and 24h windows.
+- **Statistical layer**: EWMA (Exponentially Weighted Moving Average)/Z-score detectors over event frequency and value distributions per actor, tenant, and action. Maintain baselines per 1h and 24h windows.
 - **Sequence layer**: Detect audit trail breaks by ensuring sequential stage ordering per `trace_id` (e.g., `ingest -> transform -> validate -> approve -> publish`). Missing or reordered stages trigger alerts.
 - **Output correlation**: Compare `stamp_hash` against stored stamps; mismatch flags potential tampering.
 
@@ -67,7 +67,7 @@ Add a mandatory, append-only compliance stamp to every system output (UI payload
 ## 4. Risks and mitigations
 - **False positives in anomaly detection**: Start with conservative thresholds; allow per-tenant overrides; maintain feedback loop to tune baselines.
 - **Performance overhead**: Use async/batch logging with backpressure; cache PDP decisions; HMAC using hardware acceleration where available.
-- **Data residency/GDPR conflicts**: Partition logs by region; apply data-subject erasure via keyed delete of personal fields while retaining hash envelope; ensure DPA coverage with vendors.
+- **Data residency/GDPR conflicts**: Partition logs by region; apply data-subject erasure via keyed delete of personal fields while retaining hash envelope; ensure DPA (Data Processing Agreement) coverage with vendors.
 - **Operational disruption**: Deploy stamping and audit hooks behind feature flags; enable shadow mode logging before enforcement; provide rollback playbooks.
 - **Security review dependencies**: Pre-submit threat model and data-flow diagrams; schedule review mid-sprint; block GA until approval.
 
