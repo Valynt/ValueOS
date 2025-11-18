@@ -20,6 +20,16 @@ interface DocPage {
   content: string;
   category_id: string;
   view_count: number;
+  tags?: string[];
+  featured?: boolean;
+}
+
+interface DocTemplate {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  template: string;
 }
 
 interface SearchResult {
@@ -32,13 +42,264 @@ interface SearchResult {
 }
 
 export function DocumentationView() {
-  const [view, setView] = useState<'home' | 'category' | 'page'>('home');
+  const [view, setView] = useState<'home' | 'category' | 'page' | 'templates'>('home');
   const [categories, setCategories] = useState<DocCategory[]>([]);
   const [popularPages, setPopularPages] = useState<DocPage[]>([]);
   const [currentPage, setCurrentPage] = useState<DocPage | null>(null);
+  const [currentCategory, setCurrentCategory] = useState<DocCategory | null>(null);
+  const [categoryPages, setCategoryPages] = useState<DocPage[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [breadcrumbs, setBreadcrumbs] = useState<string[]>(['Documentation']);
+  const [templates] = useState<DocTemplate[]>([
+    {
+      id: 'lifecycle-playbook',
+      name: 'Lifecycle Playbook',
+      description: 'For Opportunity → Expansion workflows with inputs, steps, outputs, and escalation notes',
+      icon: '🔄',
+      template: `# [Lifecycle Stage] Playbook
+
+## Overview
+Brief description of this lifecycle stage and its objectives.
+
+## Inputs Required
+- Input 1: Description
+- Input 2: Description
+- Input 3: Description
+
+## Process Steps
+1. **Step 1**: Detailed description
+2. **Step 2**: Detailed description
+3. **Step 3**: Detailed description
+
+## Expected Outputs
+- Output 1: Description
+- Output 2: Description
+- Output 3: Description
+
+## Escalation & Support
+- **When to escalate**: Conditions
+- **Who to contact**: Team/person
+- **SLA**: Response time
+
+## Related Resources
+- [Link to related doc](#)
+- [Link to related doc](#)
+`,
+    },
+    {
+      id: 'api-howto',
+      name: 'API How-To',
+      description: 'Prebuilt blocks for authentication, request/response examples, and error handling',
+      icon: '🔌',
+      template: `# [API Name] Integration Guide
+
+## Authentication
+\`\`\`bash
+curl -X POST https://api.example.com/auth \\
+  -H "Content-Type: application/json" \\
+  -d '{"api_key": "your_api_key"}'
+\`\`\`
+
+## Request Format
+\`\`\`json
+{
+  "param1": "value1",
+  "param2": "value2"
+}
+\`\`\`
+
+## Response Format
+\`\`\`json
+{
+  "success": true,
+  "data": {
+    "result": "value"
+  }
+}
+\`\`\`
+
+## Error Handling
+| Code | Message | Description |
+|------|---------|-------------|
+| 400 | Bad Request | Invalid parameters |
+| 401 | Unauthorized | Invalid API key |
+| 500 | Server Error | Internal error |
+
+## Code Examples
+### JavaScript
+\`\`\`javascript
+const response = await fetch('https://api.example.com/endpoint', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_API_KEY',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({ param: 'value' })
+});
+\`\`\`
+`,
+    },
+    {
+      id: 'troubleshooting',
+      name: 'Troubleshooting Guide',
+      description: 'Triage table with symptoms, root causes, and verified fixes',
+      icon: '🔧',
+      template: `# [Feature/System] Troubleshooting Guide
+
+## Common Issues
+
+### Issue 1: [Problem Description]
+**Symptoms:**
+- Symptom 1
+- Symptom 2
+
+**Root Cause:**
+Explanation of what causes this issue.
+
+**Solution:**
+1. Step 1
+2. Step 2
+3. Step 3
+
+**Prevention:**
+How to avoid this issue in the future.
+
+---
+
+### Issue 2: [Problem Description]
+**Symptoms:**
+- Symptom 1
+- Symptom 2
+
+**Root Cause:**
+Explanation of what causes this issue.
+
+**Solution:**
+1. Step 1
+2. Step 2
+3. Step 3
+
+**Prevention:**
+How to avoid this issue in the future.
+
+## Diagnostic Checklist
+- [ ] Check system status
+- [ ] Verify configuration
+- [ ] Review logs
+- [ ] Test connectivity
+- [ ] Validate permissions
+
+## Still Need Help?
+Contact support at support@example.com
+`,
+    },
+    {
+      id: 'compliance-checklist',
+      name: 'Compliance Checklist',
+      description: 'Manifesto rule matrix with evidence links and approval history',
+      icon: '✅',
+      template: `# [Feature/Process] Compliance Checklist
+
+## Manifesto Alignment
+
+| Rule | Status | Evidence | Notes |
+|------|--------|----------|-------|
+| Value-First Principle | ✅ Pass | [Link](#) | Aligned with customer outcomes |
+| Unified Language | ✅ Pass | [Link](#) | Consistent terminology |
+| Provenance Tracking | ⚠️ Review | [Link](#) | Needs additional documentation |
+| Integrity Controls | ✅ Pass | [Link](#) | All checks implemented |
+
+## Persona Alignment
+- **Economic Buyer**: Value proposition clear
+- **Technical Buyer**: Implementation details provided
+- **End User**: Usability validated
+
+## Approval History
+| Date | Approver | Status | Comments |
+|------|----------|--------|----------|
+| 2025-01-15 | John Doe | Approved | All requirements met |
+| 2025-01-10 | Jane Smith | Requested Changes | Need more evidence |
+
+## Next Review Date
+[Date]
+
+## Compliance Officer
+[Name and contact]
+`,
+    },
+    {
+      id: 'release-runbook',
+      name: 'Release Runbook',
+      description: 'Deployment steps, rollback hooks, and verification tasks',
+      icon: '🚀',
+      template: `# [Release Version] Deployment Runbook
+
+## Pre-Deployment Checklist
+- [ ] All tests passing
+- [ ] Code review completed
+- [ ] Documentation updated
+- [ ] Stakeholders notified
+- [ ] Backup created
+
+## Deployment Steps
+1. **Prepare Environment**
+   \`\`\`bash
+   # Commands here
+   \`\`\`
+
+2. **Deploy Application**
+   \`\`\`bash
+   # Commands here
+   \`\`\`
+
+3. **Run Migrations**
+   \`\`\`bash
+   # Commands here
+   \`\`\`
+
+4. **Verify Deployment**
+   \`\`\`bash
+   # Commands here
+   \`\`\`
+
+## Verification Tasks
+- [ ] Health check endpoint responding
+- [ ] Database migrations applied
+- [ ] Key features functional
+- [ ] Monitoring alerts configured
+
+## Rollback Procedure
+If issues are detected:
+
+1. **Stop Traffic**
+   \`\`\`bash
+   # Commands here
+   \`\`\`
+
+2. **Revert to Previous Version**
+   \`\`\`bash
+   # Commands here
+   \`\`\`
+
+3. **Verify Rollback**
+   \`\`\`bash
+   # Commands here
+   \`\`\`
+
+## Post-Deployment
+- [ ] Monitor for 24 hours
+- [ ] Review metrics
+- [ ] Update status page
+- [ ] Send completion notification
+
+## Contacts
+- **On-Call Engineer**: [Name/Phone]
+- **Release Manager**: [Name/Phone]
+- **Escalation**: [Name/Phone]
+`,
+    },
+  ]);
 
   useEffect(() => {
     loadCategories();
@@ -121,8 +382,35 @@ export function DocumentationView() {
   const goHome = () => {
     setView('home');
     setCurrentPage(null);
+    setCurrentCategory(null);
     setBreadcrumbs(['Documentation']);
     announceToScreenReader('Returned to documentation home', 'polite');
+  };
+
+  const openCategory = async (category: DocCategory) => {
+    setCurrentCategory(category);
+    setView('category');
+    setBreadcrumbs(['Documentation', category.name]);
+
+    // Load pages in this category
+    const { data } = await supabase
+      .from('doc_pages')
+      .select('*')
+      .eq('category_id', category.id)
+      .eq('status', 'published')
+      .order('title');
+
+    if (data) {
+      setCategoryPages(data);
+    }
+
+    announceToScreenReader(`Viewing ${category.name} category`, 'polite');
+  };
+
+  const viewTemplates = () => {
+    setView('templates');
+    setBreadcrumbs(['Documentation', 'Templates']);
+    announceToScreenReader('Viewing page templates', 'polite');
   };
 
   return (
@@ -215,9 +503,26 @@ export function DocumentationView() {
               <h2 className="text-4xl font-bold text-gray-900 mb-4">
                 Welcome to Documentation
               </h2>
-              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-6">
                 Everything you need to get started, build, and succeed with our platform
               </p>
+              <div className="flex justify-center gap-4">
+                <button
+                  onClick={viewTemplates}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                  📄 View Templates
+                </button>
+                <button
+                  onClick={() => {
+                    const searchInput = document.querySelector('input[type="search"]') as HTMLInputElement;
+                    searchInput?.focus();
+                  }}
+                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                >
+                  🔍 Search Docs
+                </button>
+              </div>
             </div>
 
             {/* Categories Grid */}
@@ -225,13 +530,10 @@ export function DocumentationView() {
               <h3 className="text-2xl font-bold text-gray-900 mb-6">Browse by Category</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {categories.map((category) => (
-                  <div
+                  <button
                     key={category.id}
-                    className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow cursor-pointer"
-                    onClick={() => {
-                      setView('category');
-                      setBreadcrumbs(['Documentation', category.name]);
-                    }}
+                    className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow text-left w-full"
+                    onClick={() => openCategory(category)}
                   >
                     <div className="flex items-start space-x-4">
                       <div className="text-4xl">{category.icon}</div>
@@ -242,7 +544,7 @@ export function DocumentationView() {
                         <p className="text-sm text-gray-600">{category.description}</p>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -269,6 +571,101 @@ export function DocumentationView() {
                   </button>
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+
+        {view === 'category' && currentCategory && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="mb-8">
+              <div className="flex items-center space-x-4 mb-4">
+                <div className="text-5xl">{currentCategory.icon}</div>
+                <div>
+                  <h2 className="text-3xl font-bold text-gray-900">{currentCategory.name}</h2>
+                  <p className="text-lg text-gray-600 mt-2">{currentCategory.description}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {categoryPages.map((page) => (
+                <button
+                  key={page.id}
+                  onClick={() => openPage(page.slug)}
+                  className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow text-left"
+                >
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    {page.title}
+                  </h3>
+                  <p className="text-sm text-gray-600 line-clamp-3 mb-4">
+                    {page.description}
+                  </p>
+                  {page.tags && page.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {page.tags.slice(0, 3).map((tag, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {categoryPages.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-gray-500">No pages in this category yet.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {view === 'templates' && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">Page Templates</h2>
+              <p className="text-lg text-gray-600">
+                Ready-to-use templates to accelerate your documentation authoring
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {templates.map((template) => (
+                <div
+                  key={template.id}
+                  className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow"
+                >
+                  <div className="flex items-start space-x-4 mb-4">
+                    <div className="text-4xl">{template.icon}</div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                        {template.name}
+                      </h3>
+                      <p className="text-sm text-gray-600">{template.description}</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 rounded p-4 mb-4 max-h-48 overflow-y-auto">
+                    <pre className="text-xs text-gray-700 whitespace-pre-wrap">
+                      {template.template.substring(0, 300)}...
+                    </pre>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(template.template);
+                      announceToScreenReader('Template copied to clipboard', 'polite');
+                    }}
+                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Copy Template
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         )}

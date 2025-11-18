@@ -1,10 +1,17 @@
 import { CanvasComponent, AgentMessage, WorkflowStatus } from '../types';
 import { layoutEngine } from './LayoutEngine';
+import { getAgentAPI, AgentType, AgentContext, AgentResponse as APIAgentResponse } from './AgentAPI';
+import { SDUIPageDefinition } from '../sdui/schema';
+import { renderPage, RenderPageOptions } from '../sdui/renderPage';
+import { workflowDAGExecutor, getWorkflowExecutionStatus, retryWorkflowFromLastStage } from './workflows/WorkflowDAGIntegration';
+import { WorkflowDAG } from '../types/workflow';
+import { ALL_WORKFLOW_DEFINITIONS, getWorkflowById } from './workflows/WorkflowDAGDefinitions';
 
 interface AgentResponse {
-  type: 'component' | 'message' | 'suggestion';
+  type: 'component' | 'message' | 'suggestion' | 'sdui-page';
   payload: any;
   streaming?: boolean;
+  sduiPage?: SDUIPageDefinition;
 }
 
 export interface StreamingUpdate {
@@ -32,6 +39,7 @@ class MockAgentOrchestrator {
   private messageCallbacks: Array<(message: AgentMessage) => void> = [];
   private streamingCallbacks: Array<(update: StreamingUpdate) => void> = [];
   private workflowState: WorkflowState | null = null;
+  private agentAPI = getAgentAPI();
 
   constructor() {
     this.initializeAgents();
@@ -244,6 +252,112 @@ class MockAgentOrchestrator {
     this.streamingCallbacks.push(callback);
   }
 
+  /**
+   * Generate SDUI page using AgentAPI
+   */
+  async generateSDUIPage(
+    agent: AgentType,
+    query: string,
+    context?: AgentContext
+  ): Promise<AgentResponse> {
+    this.notifyStreaming({
+      stage: 'analyzing',
+      message: `Invoking ${agent} agent...`,
+      progress: 10,
+    });
+
+    try {
+      let response: APIAgentResponse<SDUIPageDefinition>;
+
+      // Route to appropriate agent method
+      switch (agent) {
+        case 'opportunity':
+          response = await this.agentAPI.generateValueCase(query, context);
+          break;
+        case 'realization':
+          response = await this.agentAPI.generateRealizationDashboard(query, context);
+          break;
+        case 'expansion':
+          response = await this.agentAPI.generateExpansionOpportunities(query, context);
+          break;
+        default:
+          response = await this.agentAPI.invokeAgent({ agent, query, context });
+      }
+
+      this.notifyStreaming({
+        stage: 'processing',
+        message: 'Processing agent response...',
+        progress: 60,
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Agent request failed');
+      }
+
+      this.notifyStreaming({
+        stage: 'complete',
+        message: 'SDUI page generated successfully',
+        progress: 100,
+      });
+
+      this.notifyActivity({
+        agent: `${agent} Agent`,
+        title: 'SDUI Page Generated',
+        content: `Generated dynamic page layout with ${response.data?.sections?.length || 0} sections`,
+      });
+
+      return {
+        type: 'sdui-page',
+        payload: response.data,
+        sduiPage: response.data,
+      };
+    } catch (error) {
+      this.notifyActivity({
+        agent: `${agent} Agent`,
+        title: 'Generation Failed',
+        content: (error as Error).message,
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Generate and render SDUI page
+   */
+  async generateAndRenderPage(
+    agent: AgentType,
+    query: string,
+    context?: AgentContext,
+    renderOptions?: RenderPageOptions
+  ): Promise<{
+    response: AgentResponse;
+    rendered: ReturnType<typeof renderPage>;
+  }> {
+    const response = await this.generateSDUIPage(agent, query, context);
+
+    if (response.sduiPage) {
+      const rendered = renderPage(response.sduiPage, renderOptions);
+      return { response, rendered };
+    }
+
+    throw new Error('No SDUI page in response');
+  }
+
+  /**
+   * Get circuit breaker status for an agent
+   */
+  getAgentCircuitBreakerStatus(agent: AgentType) {
+    return this.agentAPI.getCircuitBreakerStatus(agent);
+  }
+
+  /**
+   * Reset circuit breaker for an agent
+   */
+  resetAgentCircuitBreaker(agent: AgentType) {
+    this.agentAPI.resetCircuitBreaker(agent);
+  }
+
   private notifyStreaming(update: StreamingUpdate) {
     this.streamingCallbacks.forEach(callback => callback(update));
   }
@@ -293,3 +407,67 @@ class MockAgentOrchestrator {
 }
 
 export const agentOrchestrator = new MockAgentOrchestrator();
+
+// ============================================================================
+// Workflow DAG Integration Methods
+// ============================================================================
+
+/**
+ * Initialize workflow system by registering all workflow definitions
+ */
+export async function initializeWorkflowSystem(): Promise<void> {
+  await workflowDAGExecutor.registerAllWorkflows();
+}
+
+/**
+ * Execute a workflow by ID
+ */
+export async function executeWorkflowDAG(
+  workflowId: string,
+  context: Record<string, any>,
+  userId: string
+): Promise<string> {
+  return workflowDAGExecutor.executeWorkflow(workflowId, context, userId);
+}
+
+/**
+ * Get workflow execution status
+ */
+export async function getWorkflowStatus(executionId: string) {
+  return getWorkflowExecutionStatus(executionId);
+}
+
+/**
+ * Retry failed workflow
+ */
+export async function retryFailedWorkflow(executionId: string, userId: string): Promise<string> {
+  return retryWorkflowFromLastStage(executionId, userId);
+}
+
+/**
+ * Get all available workflow definitions
+ */
+export function getAvailableWorkflows(): WorkflowDAG[] {
+  return ALL_WORKFLOW_DEFINITIONS;
+}
+
+/**
+ * Get workflow definition by ID
+ */
+export function getWorkflowDefinition(workflowId: string): WorkflowDAG | undefined {
+  return getWorkflowById(workflowId);
+}
+
+/**
+ * Get circuit breaker status for a workflow stage
+ */
+export function getWorkflowCircuitBreakerStatus(workflowId: string, stageId: string) {
+  return workflowDAGExecutor.getCircuitBreakerStatus(workflowId, stageId);
+}
+
+/**
+ * Reset circuit breaker for a workflow stage
+ */
+export function resetWorkflowCircuitBreaker(workflowId: string, stageId: string): void {
+  workflowDAGExecutor.resetCircuitBreaker(workflowId, stageId);
+}
