@@ -154,7 +154,9 @@ export class CircuitBreakerManager {
       return;
     }
 
-    if (total >= breaker.minimum_samples && (failureRate >= breaker.failure_rate_threshold || avgLatency >= breaker.latency_threshold_ms)) {
+    const isFailureRateExceeded = failureRate >= breaker.failure_rate_threshold;
+    const isLatencyExceeded = avgLatency >= breaker.latency_threshold_ms;
+    if (total >= breaker.minimum_samples && (isFailureRateExceeded || isLatencyExceeded)) {
       breaker.state = 'open';
       breaker.opened_at = new Date().toISOString();
       breaker.half_open_probes = 0;
