@@ -4,6 +4,8 @@ import { AgentRoutingLayer } from '../../services/AgentRoutingLayer';
 import { AgentRoutingScorer } from '../../services/AgentRoutingScorer';
 import { WorkflowDAG } from '../../types/workflow';
 
+const TEST_HEARTBEAT_TIMEOUT_MS = 5000;
+
 const retryConfig = {
   max_attempts: 2,
   initial_delay_ms: 100,
@@ -35,7 +37,7 @@ const baseDag: WorkflowDAG = {
 };
 
 const createLayer = () => {
-  const registry = new AgentRegistry(5000);
+  const registry = new AgentRegistry(TEST_HEARTBEAT_TIMEOUT_MS);
   const scorer = new AgentRoutingScorer();
   const layer = new AgentRoutingLayer(registry, scorer);
   return { registry, layer };
