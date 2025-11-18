@@ -78,6 +78,21 @@ export interface WorkflowExecution {
   created_by: string;
 }
 
+export interface ExecutedStep {
+  stage_id: string;
+  stage_type: LifecycleStage;
+  compensator?: string;
+  completed_at?: string;
+}
+
+export type CompensationPolicy = 'continue_on_error' | 'halt_on_error';
+
+export interface RollbackState {
+  status: 'idle' | 'in_progress' | 'completed' | 'failed';
+  completed_steps: string[];
+  failed_stage?: string;
+}
+
 export interface WorkflowExecutionLog {
   id: string;
   execution_id: string;
