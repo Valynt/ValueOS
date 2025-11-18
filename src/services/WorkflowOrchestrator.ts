@@ -159,7 +159,7 @@ export class WorkflowOrchestrator {
           circuitBreakerKey,
           () => this.executeStage(stage, context),
           {
-            latencyThresholdMs: stage.timeout_seconds * 1000,
+            latencyThresholdMs: Math.floor(stage.timeout_seconds * 1000 * 0.8),
             timeoutMs: stage.timeout_seconds * 1000
           }
         );
