@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: valuecanvas
+  labels:
+    name: valuecanvas
+    environment: production
