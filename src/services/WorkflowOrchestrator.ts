@@ -178,8 +178,9 @@ export class WorkflowOrchestrator {
         await this.logEvent(executionId, 'stage_completed', stage.id, { attempt, duration });
 
         if (route?.selected_agent) {
-          agentRoutingLayer.getRegistry().recordRelease(route.selected_agent.id);
-          agentRoutingLayer.getRegistry().markHealthy(route.selected_agent.id);
+          const registry = agentRoutingLayer.getRegistry();
+          registry.recordRelease(route.selected_agent.id);
+          registry.markHealthy(route.selected_agent.id);
         }
 
         this.resetCircuitBreaker(circuitBreakerKey);
