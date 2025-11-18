@@ -13,6 +13,7 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
+import { llmProxyClient } from './LlmProxyClient';
 import type {
   Capability,
   UseCase,
@@ -363,24 +364,7 @@ export class ValueFabricService {
   }
 
   private async generateEmbedding(text: string): Promise<number[]> {
-    const response = await fetch('https://api.openai.com/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY || ''}`,
-      },
-      body: JSON.stringify({
-        model: 'text-embedding-ada-002',
-        input: text,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to generate embedding');
-    }
-
-    const result = await response.json();
-    return result.data[0].embedding;
+    return llmProxyClient.generateEmbedding({ input: text, provider: 'openai' });
   }
 
   // =====================================================

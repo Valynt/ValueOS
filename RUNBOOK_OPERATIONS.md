@@ -8,7 +8,7 @@ This runbook provides day-2 operational guidance for the ValueCanvas platform, c
 ## Deployment Procedures by Service
 
 ### Frontend (Vite/React UI)
-1. **Pre-flight**: Ensure `.env` contains `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and an LLM key (`VITE_TOGETHER_API_KEY` or `VITE_OPENAI_API_KEY`).
+1. **Pre-flight**: Ensure `.env` contains `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; LLM keys must be configured in the server/edge runtime (e.g., Supabase function `llm-proxy`).
 2. **Build**: `npm ci && npm run build` (artifacts emitted to `dist/`).
 3. **Smoke test**: `npm run preview -- --host 0.0.0.0 --port 4173` and validate `/documentation` renders.
 4. **Deploy**: Upload `dist/` to the CDN/edge host (e.g., Vercel/Netlify) with cache invalidation on `index.html` and `assets/*`.

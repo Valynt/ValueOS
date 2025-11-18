@@ -94,23 +94,16 @@ The complete schema is already applied via Supabase migration:
 
 ### 2. Environment Configuration
 
-The Agent Fabric uses **Together.ai as the primary LLM provider** (vLLM router) with OpenAI as a fallback.
-
-Add your Together.ai API key to `.env`:
-
-```bash
-VITE_TOGETHER_API_KEY=your-together-api-key-here
-```
-
-Get your key from: https://api.together.xyz/settings/api-keys
-
-**Optional**: If you prefer to use OpenAI instead, you can leave Together.ai blank and add:
+The Agent Fabric uses **Together.ai as the primary LLM provider** (vLLM router) with OpenAI as a fallback. LLM credentials must
+be injected on the server-side only to avoid leaking them in the browser bundle. Configure the Supabase Edge Function
+`llm-proxy` with server environment variables:
 
 ```bash
-VITE_OPENAI_API_KEY=sk-...
+TOGETHER_API_KEY=your-together-api-key-here
+OPENAI_API_KEY=sk-... # optional fallback
 ```
 
-Get OpenAI key from: https://platform.openai.com/api-keys
+Keys are read exclusively by the proxy function and are never exposed to the client runtime.
 
 #### LLM Provider Configuration
 
