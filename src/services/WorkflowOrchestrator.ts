@@ -7,16 +7,17 @@ import {
   WorkflowStatus,
   StageStatus,
   RetryConfig,
-  CircuitBreakerState,
+  CircuitBreakerState, // <-- Keep this
   WorkflowStage,
-  ExecutedStep
+  ExecutedStep       // <-- Keep this
 } from '../types/workflow';
 import { LIFECYCLE_WORKFLOW_DEFINITIONS } from '../data/lifecycleWorkflows';
 import { agentRoutingLayer } from './AgentRoutingLayer';
 import { workflowCompensation } from './WorkflowCompensation';
+import { CircuitBreakerManager } from './CircuitBreaker';
 
 export class WorkflowOrchestrator {
-  private circuitBreakers: Map<string, CircuitBreakerState> = new Map();
+  private circuitBreakers = new CircuitBreakerManager();
 
   async registerLifecycleDefinitions(): Promise<void> {
     for (const definition of LIFECYCLE_WORKFLOW_DEFINITIONS) {
@@ -144,20 +145,6 @@ export class WorkflowOrchestrator {
     context: Record<string, any>
   ): Promise<WorkflowExecutionLog> {
     const circuitBreakerKey = `${executionId}-${stage.id}`;
-    const circuitBreaker = this.getOrCreateCircuitBreaker(circuitBreakerKey);
-
-    if (circuitBreaker.state === 'open') {
-      const cooldownExpired = circuitBreaker.last_failure_time
-        ? Date.now() - new Date(circuitBreaker.last_failure_time).getTime() > circuitBreaker.timeout_seconds * 1000
-        : true;
-
-      if (cooldownExpired) {
-        circuitBreaker.state = 'half_open';
-      } else {
-        throw new Error(`Circuit breaker open for stage: ${stage.id}`);
-      }
-    }
-
     const retryConfig = stage.retry_config;
     let lastError: Error | null = null;
 
@@ -168,13 +155,20 @@ export class WorkflowOrchestrator {
         await this.logEvent(executionId, 'stage_started', stage.id, { attempt });
 
         const startTime = Date.now();
-        const result = await this.executeStage(stage, context);
+        const result = await this.circuitBreakers.execute(
+          circuitBreakerKey,
+          () => this.executeStage(stage, context),
+          {
+            latencyThresholdMs: Math.floor(stage.timeout_seconds * 1000 * 0.8),
+            timeoutMs: stage.timeout_seconds * 1000
+          }
+        );
         const duration = Date.now() - startTime;
 
         await this.completeExecutionLog(logId, 'completed', duration, result);
         await this.logEvent(executionId, 'stage_completed', stage.id, { attempt, duration });
 
-        this.resetCircuitBreaker(circuitBreakerKey);
+        await this.persistCircuitBreakerState(executionId);
 
         const { data: log } = await supabase
           .from('workflow_execution_logs')
@@ -185,11 +179,10 @@ export class WorkflowOrchestrator {
         return log as WorkflowExecutionLog;
       } catch (error) {
         lastError = error as Error;
-        const duration = Date.now() - Date.now();
+        const duration = Date.now() - startTime;
 
         await this.completeExecutionLog(logId, 'failed', duration, null, lastError.message);
-        this.recordCircuitBreakerFailure(circuitBreakerKey);
-        await this.persistCircuitBreakerState(executionId, circuitBreakerKey);
+        await this.persistCircuitBreakerState(executionId);
 
         if (attempt < retryConfig.max_attempts) {
           await this.logEvent(executionId, 'stage_retrying', stage.id, {
@@ -222,7 +215,7 @@ export class WorkflowOrchestrator {
             stage_id: stage.id,
             attempt,
             error: lastError.message,
-            circuit_breaker: this.circuitBreakers.get(circuitBreakerKey)
+            circuit_breaker: this.circuitBreakers.getState(circuitBreakerKey)
           });
         }
       }
@@ -289,40 +282,10 @@ export class WorkflowOrchestrator {
     return Math.floor(delay);
   }
 
-  private getOrCreateCircuitBreaker(key: string): CircuitBreakerState {
-    if (!this.circuitBreakers.has(key)) {
-      this.circuitBreakers.set(key, {
-        failure_count: 0,
-        last_failure_time: null,
-        state: 'closed',
-        threshold: 5,
-        timeout_seconds: 60
-      });
-    }
-    return this.circuitBreakers.get(key)!;
-  }
-
-  private recordCircuitBreakerFailure(key: string): void {
-    const breaker = this.getOrCreateCircuitBreaker(key);
-    breaker.failure_count++;
-    breaker.last_failure_time = new Date().toISOString();
-
-    if (breaker.failure_count >= breaker.threshold) {
-      breaker.state = 'open';
-    }
-  }
-
-  private resetCircuitBreaker(key: string): void {
-    const breaker = this.getOrCreateCircuitBreaker(key);
-    breaker.failure_count = 0;
-    breaker.last_failure_time = null;
-    breaker.state = 'closed';
-  }
-
-  private async persistCircuitBreakerState(executionId: string, key: string): Promise<void> {
+  private async persistCircuitBreakerState(executionId: string): Promise<void> {
     await supabase
       .from('workflow_executions')
-      .update({ circuit_breaker_state: { ...Object.fromEntries(this.circuitBreakers), last_triggered: key } })
+      .update({ circuit_breaker_state: { ...this.circuitBreakers.exportState() } })
       .eq('id', executionId);
   }
 
