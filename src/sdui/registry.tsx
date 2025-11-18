@@ -6,6 +6,12 @@ import {
   SectionErrorFallback,
   UnknownComponentFallback,
   ValueTreeCard,
+  MetricBadge,
+  KPIForm,
+  ValueCommitForm,
+  RealizationDashboard,
+  LifecyclePanel,
+  IntegrityReviewPanel,
 } from '../components/SDUI';
 import { SDUIComponentSection } from './schema';
 
@@ -17,6 +23,7 @@ export interface RegistryEntry {
 }
 
 const baseRegistry: Record<string, RegistryEntry> = {
+  // Existing components
   InfoBanner: {
     component: InfoBanner,
     versions: [1, 2],
@@ -40,6 +47,44 @@ const baseRegistry: Record<string, RegistryEntry> = {
     versions: [1, 2],
     requiredProps: ['gaps', 'roi'],
     description: 'ROI snapshot for expansion stage.',
+  },
+
+  // New components
+  MetricBadge: {
+    component: MetricBadge,
+    versions: [1],
+    requiredProps: ['label', 'value'],
+    description: 'Displays a KPI label with numeric or percentage value.',
+  },
+  KPIForm: {
+    component: KPIForm,
+    versions: [1],
+    requiredProps: ['kpiName', 'onSubmit'],
+    description: 'Form for entering baseline and target values for a KPI.',
+  },
+  ValueCommitForm: {
+    component: ValueCommitForm,
+    versions: [1],
+    requiredProps: ['kpis', 'onCommit'],
+    description: 'Extended form for multiple KPI entries with assumptions.',
+  },
+  RealizationDashboard: {
+    component: RealizationDashboard,
+    versions: [1],
+    requiredProps: [],
+    description: 'Displays baseline vs. target vs. actual results for realized value.',
+  },
+  LifecyclePanel: {
+    component: LifecyclePanel,
+    versions: [1],
+    requiredProps: ['stage', 'children'],
+    description: 'Generic panel container for each lifecycle stage.',
+  },
+  IntegrityReviewPanel: {
+    component: IntegrityReviewPanel,
+    versions: [1],
+    requiredProps: ['results'],
+    description: 'Displays manifesto rule validation results.',
   },
 };
 
