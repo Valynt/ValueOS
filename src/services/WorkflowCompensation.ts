@@ -1,9 +1,16 @@
 import { supabase } from '../lib/supabase';
-import { CompensationContext, LifecycleStage } from '../types/workflow';
+import {
+  CompensationContext,
+  CompensationPolicy,
+  ExecutedStep,
+  LifecycleStage,
+  RollbackState
+} from '../types/workflow';
 
 type CompensationHandler = (context: CompensationContext) => Promise<void>;
 
 export class WorkflowCompensation {
+  private static readonly ROLLBACK_TIMEOUT_MS = 5000;
   private handlers: Map<LifecycleStage, CompensationHandler> = new Map();
 
   constructor() {
@@ -19,6 +26,26 @@ export class WorkflowCompensation {
   }
 
   async rollbackExecution(executionId: string): Promise<void> {
+    const { data: execution, error: executionError } = await supabase
+      .from('workflow_executions')
+      .select('status, context')
+      .eq('id', executionId)
+      .maybeSingle();
+
+    if (executionError) throw new Error('Failed to fetch execution for rollback');
+
+    const executionContext = execution?.context || {};
+    const executedSteps: ExecutedStep[] = executionContext.executed_steps || [];
+
+    const rollbackState: RollbackState = executionContext.rollback_state || {
+      status: 'idle',
+      completed_steps: []
+    };
+
+    if (!execution || executedSteps.length === 0) return;
+    if (rollbackState.status === 'completed') return;
+    if (rollbackState.status === 'in_progress') return;
+
     const { data: logs, error: logsError } = await supabase
       .from('workflow_execution_logs')
       .select('*')
@@ -29,46 +56,95 @@ export class WorkflowCompensation {
     if (logsError) throw new Error('Failed to fetch execution logs for rollback');
     if (!logs || logs.length === 0) return;
 
-    await this.logRollbackEvent(executionId, 'started', { stages_to_rollback: logs.length });
+    await this.logRollbackEvent(executionId, 'started', { stages_to_rollback: executedSteps.length });
 
+    const logByStage = new Map<string, any>();
     for (const log of logs) {
+      if (!logByStage.has(log.stage_id)) {
+        logByStage.set(log.stage_id, log);
+      }
+    }
+
+    const policy = this.getCompensationPolicy(executionContext);
+    let updatedRollbackState: RollbackState = { ...rollbackState, status: 'in_progress' };
+    await this.persistRollbackState(executionId, executionContext, updatedRollbackState);
+
+    for (const step of [...executedSteps].reverse()) {
+      if (updatedRollbackState.completed_steps.includes(step.stage_id)) {
+        continue;
+      }
+
+      const log = logByStage.get(step.stage_id);
+      if (!log) continue;
+
+      const compensationContext: CompensationContext = {
+        execution_id: executionId,
+        stage_id: step.stage_id,
+        artifacts_created: log.output_data?.artifacts_created || [],
+        state_changes: log.output_data || {}
+      };
+
+      const handler = this.resolveHandler(step.compensator, step.stage_type);
+
       try {
-        const compensationContext: CompensationContext = {
-          execution_id: executionId,
-          stage_id: log.stage_id,
-          artifacts_created: log.output_data?.artifacts_created || [],
-          state_changes: log.output_data || {}
-        };
-
-        const stageType = this.extractStageType(log.stage_id);
-        const handler = this.handlers.get(stageType);
-
         if (handler) {
-          await handler(compensationContext);
-          await this.logRollbackEvent(executionId, 'stage_compensated', {
-            stage_id: log.stage_id,
-            stage_type: stageType
-          });
+          await this.executeWithTimeout(handler(compensationContext));
         }
+        updatedRollbackState = {
+          ...updatedRollbackState,
+          completed_steps: [...updatedRollbackState.completed_steps, step.stage_id]
+        };
+        await this.persistRollbackState(executionId, executionContext, updatedRollbackState);
+        await this.logRollbackEvent(executionId, 'stage_compensated', {
+          stage_id: step.stage_id,
+          stage_type: step.stage_type,
+          compensator: step.compensator
+        });
       } catch (error) {
+        updatedRollbackState = {
+          ...updatedRollbackState,
+          status: 'failed',
+          failed_stage: step.stage_id
+        };
+        await this.persistRollbackState(executionId, executionContext, updatedRollbackState);
         await this.logRollbackEvent(executionId, 'stage_compensation_failed', {
-          stage_id: log.stage_id,
+          stage_id: step.stage_id,
           error: (error as Error).message
         });
-        throw error;
+
+        if (policy === 'halt_on_error') {
+          return;
+        }
       }
+    }
+
+    updatedRollbackState = { ...updatedRollbackState, status: 'completed' };
+    await this.persistRollbackState(executionId, executionContext, updatedRollbackState, true);
+    await this.logRollbackEvent(executionId, 'completed', { stages_rolled_back: executedSteps.length });
+  }
+
+  private async persistRollbackState(
+    executionId: string,
+    executionContext: Record<string, any>,
+    rollbackState: RollbackState,
+    markRolledBack = false
+  ): Promise<void> {
+    const updatedContext = { ...executionContext, rollback_state: rollbackState };
+
+    const update: Record<string, any> = {
+      context: updatedContext,
+      updated_at: new Date().toISOString()
+    };
+
+    if (markRolledBack) {
+      update.status = 'rolled_back';
+      update.completed_at = new Date().toISOString();
     }
 
     await supabase
       .from('workflow_executions')
-      .update({
-        status: 'rolled_back',
-        completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
+      .update(update)
       .eq('id', executionId);
-
-    await this.logRollbackEvent(executionId, 'completed', { stages_rolled_back: logs.length });
   }
 
   private async compensateOpportunityStage(context: CompensationContext): Promise<void> {
@@ -142,6 +218,26 @@ export class WorkflowCompensation {
     if (lowerStageId.includes('expansion')) return 'expansion';
     if (lowerStageId.includes('integrity')) return 'integrity';
     return 'opportunity';
+  }
+
+  private resolveHandler(reference: string | undefined, stageType: LifecycleStage): CompensationHandler | undefined {
+    const normalizedRef = reference?.toLowerCase() || '';
+    const derivedType = normalizedRef
+      ? this.extractStageType(normalizedRef)
+      : stageType;
+
+    return this.handlers.get(derivedType);
+  }
+
+  private async executeWithTimeout<T>(promise: Promise<T>): Promise<T> {
+    return Promise.race<T>([
+      promise,
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Compensation timeout')), WorkflowCompensation.ROLLBACK_TIMEOUT_MS))
+    ]);
+  }
+
+  private getCompensationPolicy(context: Record<string, any>): CompensationPolicy {
+    return context.compensation_policy || 'continue_on_error';
   }
 
   private async logRollbackEvent(
