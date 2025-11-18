@@ -34,6 +34,9 @@ const LOAD_INCREMENT_PER_ASSIGNMENT = 0.1;
 const LOAD_DECREMENT_PER_RELEASE = 0.05;
 
 export class AgentRegistry {
+  private static readonly OFFLINE_FAILURE_THRESHOLD = 3;
+  private static readonly DEGRADED_FAILURE_THRESHOLD = 2;
+  
   private agents: Map<string, AgentRecord> = new Map();
   private heartbeatTimeoutMs: number;
 
@@ -98,9 +101,9 @@ export class AgentRegistry {
     if (!agent) return undefined;
 
     agent.consecutive_failures += 1;
-    if (agent.consecutive_failures >= 3) {
+    if (agent.consecutive_failures >= AgentRegistry.OFFLINE_FAILURE_THRESHOLD) {
       agent.status = 'offline';
-    } else if (agent.consecutive_failures >= 2) {
+    } else if (agent.consecutive_failures >= AgentRegistry.DEGRADED_FAILURE_THRESHOLD) {
       agent.status = 'degraded';
     }
     agent.last_heartbeat = Date.now();
