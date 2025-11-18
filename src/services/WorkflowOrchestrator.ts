@@ -11,7 +11,7 @@ import {
   WorkflowStage
 } from '../types/workflow';
 import { LIFECYCLE_WORKFLOW_DEFINITIONS } from '../data/lifecycleWorkflows';
-import { agentRoutingLayer } from './AgentRoutingLayer';
+import { agentRoutingLayer, StageRoute } from './AgentRoutingLayer';
 import { workflowCompensation } from './WorkflowCompensation';
 
 export class WorkflowOrchestrator {
@@ -111,10 +111,19 @@ export class WorkflowOrchestrator {
         stage_id: stage.id,
         lifecycle_stage: route.lifecycle_stage,
         dependencies: route.dependencies,
+        selected_agent_id: route.selected_agent.id,
+        fallback_agents: route.fallback_agents.map(agent => agent.id),
+        score: {
+          total: route.score.total,
+          capability: route.score.capabilityScore,
+          load: route.score.loadScore,
+          proximity: route.score.proximityScore,
+          stickiness: route.score.stickinessScore
+        },
         reason: route.reason
       });
 
-      const stageResult = await this.executeStageWithRetry(executionId, stage, execution.context);
+      const stageResult = await this.executeStageWithRetry(executionId, stage, execution.context, route);
 
       if (stageResult.status === 'failed') {
         throw new Error(`Stage ${currentStageId} failed: ${stageResult.error_message}`);
@@ -134,7 +143,8 @@ export class WorkflowOrchestrator {
   private async executeStageWithRetry(
     executionId: string,
     stage: WorkflowStage,
-    context: Record<string, any>
+    context: Record<string, any>,
+    route?: StageRoute
   ): Promise<WorkflowExecutionLog> {
     const circuitBreakerKey = `${executionId}-${stage.id}`;
     const circuitBreaker = this.getOrCreateCircuitBreaker(circuitBreakerKey);
@@ -156,16 +166,21 @@ export class WorkflowOrchestrator {
 
     for (let attempt = 1; attempt <= retryConfig.max_attempts; attempt++) {
       const logId = await this.createExecutionLog(executionId, stage.id, attempt, context, stage.retry_config);
+      const startTime = Date.now();
 
       try {
         await this.logEvent(executionId, 'stage_started', stage.id, { attempt });
 
-        const startTime = Date.now();
-        const result = await this.executeStage(stage, context);
+        const result = await this.executeStage(stage, context, route);
         const duration = Date.now() - startTime;
 
         await this.completeExecutionLog(logId, 'completed', duration, result);
         await this.logEvent(executionId, 'stage_completed', stage.id, { attempt, duration });
+
+        if (route?.selected_agent) {
+          agentRoutingLayer.getRegistry().recordRelease(route.selected_agent.id);
+          agentRoutingLayer.getRegistry().markHealthy(route.selected_agent.id);
+        }
 
         this.resetCircuitBreaker(circuitBreakerKey);
 
@@ -178,11 +193,15 @@ export class WorkflowOrchestrator {
         return log as WorkflowExecutionLog;
       } catch (error) {
         lastError = error as Error;
-        const duration = Date.now() - Date.now();
+        const duration = Date.now() - startTime;
 
         await this.completeExecutionLog(logId, 'failed', duration, null, lastError.message);
         this.recordCircuitBreakerFailure(circuitBreakerKey);
         await this.persistCircuitBreakerState(executionId, circuitBreakerKey);
+
+        if (route?.selected_agent) {
+          agentRoutingLayer.getRegistry().recordFailure(route.selected_agent.id);
+        }
 
         if (attempt < retryConfig.max_attempts) {
           await this.logEvent(executionId, 'stage_retrying', stage.id, {
@@ -235,30 +254,35 @@ export class WorkflowOrchestrator {
 
   private async executeStage(
     stage: WorkflowStage,
-    context: Record<string, any>
+    context: Record<string, any>,
+    route?: StageRoute
   ): Promise<Record<string, any>> {
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error('Stage timeout')), stage.timeout_seconds * 1000);
     });
 
-    const executionPromise = this.callAgentForStage(stage, context);
+    const executionPromise = this.callAgentForStage(stage, context, route);
 
     return Promise.race([executionPromise, timeoutPromise]) as Promise<Record<string, any>>;
   }
 
   private async callAgentForStage(
     stage: WorkflowStage,
-    context: Record<string, any>
+    context: Record<string, any>,
+    route?: StageRoute
   ): Promise<Record<string, any>> {
     await this.delay(1000);
 
     return {
       stage_id: stage.id,
       agent_type: stage.agent_type,
+      agent_id: route?.selected_agent.id,
       artifacts_created: [],
       next_context: {
         ...context,
-        lifecycle_stage: stage.agent_type
+        lifecycle_stage: stage.agent_type,
+        previous_agent_id: route?.selected_agent.id,
+        fallback_agents: route?.fallback_agents.map(agent => agent.id)
       }
     };
   }
