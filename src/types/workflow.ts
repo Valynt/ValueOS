@@ -61,6 +61,14 @@ export interface CircuitBreakerState {
   state: 'closed' | 'open' | 'half_open';
   threshold: number;
   timeout_seconds: number;
+  metrics: Array<{ timestamp: number; success: boolean; durationMs: number }>;
+  opened_at: string | null;
+  half_open_probes: number;
+  failure_rate_threshold: number;
+  latency_threshold_ms: number;
+  window_ms: number;
+  minimum_samples: number;
+  half_open_max_probes: number;
 }
 
 export interface WorkflowExecution {
