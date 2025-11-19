@@ -7,6 +7,7 @@
 
 import { getConfig, validateEnvironmentConfig, isProduction } from './config/environment';
 import { initializeAgents, SystemHealth } from './services/AgentInitializer';
+import { initializeSecurity, validateSecurity } from './security';
 
 /**
  * Bootstrap result
@@ -134,10 +135,67 @@ export async function bootstrap(
   console.log(`   Usage Tracking: ${config.features.usageTracking ? '✅' : '❌'}`);
   console.log(`   Billing: ${config.features.billing ? '✅' : '❌'}`);
 
-  // Step 4: Initialize monitoring (if enabled)
+  // Step 4: Initialize security
+  onProgress?.('Initializing security...');
+  console.log('\n🔒 Step 4: Security initialization');
+  try {
+    // Validate security configuration
+    const securityValidation = validateSecurity();
+    if (securityValidation.errors.length > 0) {
+      securityValidation.errors.forEach((error) => {
+        errors.push(error);
+        onError?.(error);
+        console.error(`   ❌ ${error}`);
+      });
+
+      if (failFast) {
+        return {
+          success: false,
+          config,
+          errors,
+          warnings,
+          duration: Date.now() - startTime,
+        };
+      }
+    }
+
+    if (securityValidation.warnings.length > 0) {
+      securityValidation.warnings.forEach((warning) => {
+        warnings.push(warning);
+        onWarning?.(warning);
+        console.warn(`   ⚠️  ${warning}`);
+      });
+    }
+
+    // Initialize security features
+    initializeSecurity();
+    console.log('   ✅ Security features initialized');
+    console.log(`   - Password policy: ${config.passwordPolicy.minLength}+ chars`);
+    console.log(`   - CSRF protection: ${config.security.csrfEnabled ? '✅' : '❌'}`);
+    console.log(`   - Rate limiting: ${config.rateLimit.global.enabled ? '✅' : '❌'}`);
+    console.log(`   - CSP: ${config.csp.enabled ? '✅' : '❌'}`);
+    console.log(`   - HTTPS only: ${config.security.httpsOnly ? '✅' : '❌'}`);
+  } catch (error) {
+    const errorMsg = `Failed to initialize security: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    errors.push(errorMsg);
+    onError?.(errorMsg);
+    console.error(`   ❌ ${errorMsg}`);
+
+    if (failFast) {
+      return {
+        success: false,
+        config,
+        errors,
+        warnings,
+        duration: Date.now() - startTime,
+      };
+    }
+  }
+
+  // Step 5: Initialize monitoring (if enabled)
   if (config.monitoring.sentry.enabled) {
     onProgress?.('Initializing error tracking...');
-    console.log('\n📊 Step 4: Initializing Sentry');
+    console.log('\n📊 Step 5: Initializing Sentry');
     try {
       // TODO: Initialize Sentry
       // await initializeSentry(config.monitoring.sentry);
@@ -151,15 +209,15 @@ export async function bootstrap(
       console.warn(`   ⚠️  ${errorMsg}`);
     }
   } else {
-    console.log('\n📊 Step 4: Error tracking disabled');
+    console.log('\n📊 Step 5: Error tracking disabled');
   }
 
-  // Step 5: Initialize Agent Fabric
+  // Step 6: Initialize Agent Fabric
   let agentHealth: SystemHealth | undefined;
 
   if (config.features.agentFabric && !skipAgentCheck) {
     onProgress?.('Checking agent health...');
-    console.log('\n🤖 Step 5: Initializing Agent Fabric');
+    console.log('\n🤖 Step 6: Initializing Agent Fabric');
 
     try {
       agentHealth = await initializeAgents({
@@ -211,13 +269,13 @@ export async function bootstrap(
       }
     }
   } else {
-    console.log('\n🤖 Step 5: Agent Fabric disabled or skipped');
+    console.log('\n🤖 Step 6: Agent Fabric disabled or skipped');
   }
 
-  // Step 6: Database connection check
+  // Step 7: Database connection check
   if (config.database.url) {
     onProgress?.('Checking database connection...');
-    console.log('\n💾 Step 6: Database connection');
+    console.log('\n💾 Step 7: Database connection');
     try {
       // TODO: Check database connection
       // await checkDatabaseConnection();
@@ -231,13 +289,13 @@ export async function bootstrap(
       console.warn(`   ⚠️  ${errorMsg}`);
     }
   } else {
-    console.log('\n💾 Step 6: Database not configured');
+    console.log('\n💾 Step 7: Database not configured');
   }
 
-  // Step 7: Cache initialization
+  // Step 8: Cache initialization
   if (config.cache.enabled) {
     onProgress?.('Initializing cache...');
-    console.log('\n🗄️  Step 7: Cache initialization');
+    console.log('\n🗄️  Step 8: Cache initialization');
     try {
       // TODO: Initialize Redis cache
       // await initializeCache(config.cache);
@@ -251,7 +309,7 @@ export async function bootstrap(
       console.warn(`   ⚠️  ${errorMsg}`);
     }
   } else {
-    console.log('\n🗄️  Step 7: Cache disabled');
+    console.log('\n🗄️  Step 8: Cache disabled');
   }
 
   // Calculate duration
