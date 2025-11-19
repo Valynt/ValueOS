@@ -8,6 +8,7 @@
 import { CircuitBreaker } from './CircuitBreaker';
 import { SDUIPageDefinition, validateSDUISchema } from '../sdui/schema';
 import { getAuditLogger, logAgentResponse } from './AgentAuditLogger';
+import { getConfig } from '../config/environment';
 
 /**
  * Agent types supported by the system
@@ -196,17 +197,21 @@ export interface AgentAPIConfig {
 }
 
 /**
- * Default configuration
+ * Get default configuration from environment
  */
-const DEFAULT_CONFIG: Required<AgentAPIConfig> = {
-  baseUrl: '/api/agents',
-  timeout: 30000,
-  enableCircuitBreaker: true,
-  failureThreshold: 5,
-  cooldownPeriod: 60000,
-  enableLogging: false,
-  headers: {},
-};
+function getDefaultConfig(): Required<AgentAPIConfig> {
+  const envConfig = getConfig();
+  
+  return {
+    baseUrl: envConfig.agents.apiUrl,
+    timeout: envConfig.agents.timeout,
+    enableCircuitBreaker: envConfig.agents.circuitBreaker.enabled,
+    failureThreshold: envConfig.agents.circuitBreaker.threshold,
+    cooldownPeriod: envConfig.agents.circuitBreaker.cooldown,
+    enableLogging: envConfig.agents.logging,
+    headers: {},
+  };
+}
 
 /**
  * AgentAPI Service Class
@@ -219,7 +224,7 @@ export class AgentAPI {
   private circuitBreakers: Map<AgentType, CircuitBreaker>;
 
   constructor(config: AgentAPIConfig = {}) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+    this.config = { ...getDefaultConfig(), ...config };
     this.circuitBreakers = new Map();
 
     // Initialize circuit breakers for each agent type

@@ -23,4 +23,14 @@ coverage
 *.njsproj
 *.sln
 *.sw?
+
+# Environment files
 .env
+.env.local
+.env.production
+.env.staging
+.env.*.local
+
+# Keep example files
+!.env.example
+!.env.production.example
