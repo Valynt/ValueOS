@@ -10,6 +10,16 @@ const SDUIFallbackSchema = z.object({
   props: z.record(z.any()).optional(),
 });
 
+// Layout directive for CoordinatorAgent
+export const SDUILayoutDirectiveSchema = z.object({
+  type: z.literal('layout.directive'),
+  intent: z.string().min(1, 'Intent is required'),
+  component: z.string().min(1, 'Component name is required'),
+  props: z.record(z.any()).default({}),
+  layout: z.enum(['default', 'full_width', 'two_column', 'dashboard', 'single_column']).optional(),
+  metadata: z.record(z.any()).optional(),
+});
+
 export const SDUIComponentSectionSchema = z.object({
   type: z.literal('component'),
   component: z.string().min(1, 'Component name is required'),
@@ -25,14 +35,22 @@ const SDUIMetadataSchema = z.object({
   experienceId: z.string().optional(),
 }).optional();
 
+// Union type for sections (component or layout directive)
+export const SDUISectionSchema = z.union([
+  SDUIComponentSectionSchema,
+  SDUILayoutDirectiveSchema,
+]);
+
 export const SDUIPageSchema = z.object({
   type: z.literal('page'),
   version: SDUIComponentVersionSchema.default(1),
-  sections: z.array(SDUIComponentSectionSchema).min(1, 'At least one section is required'),
+  sections: z.array(SDUISectionSchema).min(1, 'At least one section is required'),
   metadata: SDUIMetadataSchema,
 }).strict();
 
+export type SDUILayoutDirective = z.infer<typeof SDUILayoutDirectiveSchema>;
 export type SDUIComponentSection = z.infer<typeof SDUIComponentSectionSchema>;
+export type SDUISection = z.infer<typeof SDUISectionSchema>;
 export type SDUIPageDefinition = z.infer<typeof SDUIPageSchema>;
 
 export type SDUIValidationResult =
@@ -60,6 +78,16 @@ export function normalizeComponentSection(section: SDUIComponentSection): SDUICo
   };
 }
 
+export function normalizeSection(section: SDUISection): SDUISection {
+  if (section.type === 'layout.directive') {
+    return {
+      ...section,
+      props: section.props ?? {},
+    };
+  }
+  return normalizeComponentSection(section);
+}
+
 export function validateSDUISchema(payload: unknown): SDUIValidationResult {
   if (!payload || typeof payload !== 'object') {
     return { success: false, errors: ['Payload must be an object'] };
@@ -71,7 +99,7 @@ export function validateSDUISchema(payload: unknown): SDUIValidationResult {
     return { success: false, errors: issues };
   }
 
-  const normalizedSections = parsed.data.sections.map(normalizeComponentSection);
+  const normalizedSections = parsed.data.sections.map(normalizeSection);
   const warnings: string[] = [];
   if (parsed.data.version > SDUI_VERSION) {
     warnings.push(`Layout version ${parsed.data.version} is newer than supported (${SDUI_VERSION}). Using ${SDUI_VERSION}.`);
