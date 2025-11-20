@@ -1,0 +1,69 @@
+# CoordinatorAgent Configuration
+# Defines behavior, routing rules, and SDUI generation for the coordinator
+
+name: CoordinatorAgent
+version: 1.0.0
+description: Master coordinator for task decomposition and agent routing
+
+capabilities:
+  - task_decomposition
+  - agent_routing
+  - sdui_layout_generation
+  - workflow_orchestration
+  - decision_logging
+
+configuration:
+  max_subgoals_per_task: 10
+  max_routing_attempts: 3
+  default_priority: 5
+  enable_simulation: true
+  enable_audit_logging: true
+
+routing_strategy:
+  type: capability_based
+  fallback: round_robin
+  load_balancing: false
+
+llm_config:
+  primary_model: gpt-4
+  fallback_model: phi-4-mini
+  temperature: 0.7
+  max_tokens: 2000
+  use_gating: true
+
+subgoal_generation:
+  strategy: pattern_based
+  use_ontology: true
+  ontology_path: /ontology/planning.graph.json
+  max_depth: 3
+  parallel_execution: true
+
+sdui_generation:
+  enabled: true
+  default_layout: dashboard
+  component_registry: /sdui/components/registry.ts
+  template_path: /sdui/templates
+
+audit_logging:
+  enabled: true
+  log_level: info
+  include_reasoning: true
+  include_context: true
+
+error_handling:
+  retry_failed_subgoals: true
+  max_retries: 3
+  fallback_to_manual: false
+  notify_on_failure: true
+
+performance:
+  cache_plans: true
+  cache_ttl: 3600
+  parallel_subgoals: true
+  max_parallel: 5
+
+integration:
+  message_bus: redis
+  memory_system: enabled
+  governance: enabled
+  simulation: enabled
