@@ -20,25 +20,39 @@ import type {
 import type { SDUIPageDefinition } from '../sdui/types';
 import planningOntology from '../ontology/planning.graph.json';
 import { createAuditEvent } from '../lib/sof-governance';
+import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
+import {
+  getComponentToolDocumentation,
+  validateComponentSelection,
+  searchComponentTools,
+} from '../sdui/ComponentToolRegistry';
+import { getUIGenerationTracker } from '../services/UIGenerationTracker';
+import { getUIRefinementLoop } from '../services/UIRefinementLoop';
 
 export class CoordinatorAgent {
   private ontology: typeof planningOntology;
+  private llmGateway: LLMGateway;
   private config: {
     maxSubgoalsPerTask: number;
     maxRoutingAttempts: number;
     defaultPriority: number;
     enableSimulation: boolean;
     enableAuditLogging: boolean;
+    enableDynamicUI: boolean;
+    enableUIRefinement: boolean;
   };
 
   constructor() {
     this.ontology = planningOntology;
+    this.llmGateway = new LLMGateway('together', true);
     this.config = {
       maxSubgoalsPerTask: 10,
       maxRoutingAttempts: 3,
       defaultPriority: 5,
       enableSimulation: true,
       enableAuditLogging: true,
+      enableDynamicUI: true,
+      enableUIRefinement: true,
     };
   }
 
@@ -185,12 +199,197 @@ export class CoordinatorAgent {
 
   /**
    * Produce SDUI layout for a subgoal's output
+   * Uses dynamic UI generation if enabled, falls back to static mapping
    */
   async produceSDUILayout(subgoal: Subgoal): Promise<SDUIPageDefinition> {
     if (!subgoal.output) {
       throw new Error('Subgoal has no output to render');
     }
 
+    // Use dynamic UI generation if enabled
+    if (this.config.enableDynamicUI) {
+      try {
+        return await this.generateDynamicUILayout(subgoal);
+      } catch (error) {
+        console.warn('Dynamic UI generation failed, falling back to static:', error);
+        // Fall through to static generation
+      }
+    }
+
+    // Static generation (original implementation)
+    return await this.generateStaticUILayout(subgoal);
+  }
+
+  /**
+   * Generate UI layout dynamically using LLM
+   */
+  private async generateDynamicUILayout(subgoal: Subgoal): Promise<SDUIPageDefinition> {
+    const startTime = Date.now();
+    const tracker = getUIGenerationTracker();
+
+    // Get component tool documentation
+    const componentDocs = getComponentToolDocumentation();
+
+    // Search for relevant components based on subgoal type
+    const relevantComponents = searchComponentTools(subgoal.subgoal_type);
+
+    // Prepare LLM prompt
+    const messages = [
+      {
+        role: 'system' as const,
+        content: `You are a UI designer for a business intelligence platform. Your task is to generate SDUI (Server-Driven UI) layouts.
+
+Available Components:
+${componentDocs}
+
+Output Format:
+Generate a valid JSON object matching this structure:
+{
+  "type": "page",
+  "version": 1,
+  "sections": [
+    {
+      "type": "component" | "layout.directive",
+      "component": "ComponentName",
+      "props": {...},
+      "layout": "default" | "full_width" | "two_column" | "dashboard" | "single_column"
+    }
+  ]
+}
+
+Rules:
+1. Always start with a PageHeader component
+2. Choose components that best display the data type
+3. Use appropriate layouts for the content
+4. Follow best practices from component documentation
+5. Validate all required props are included
+6. Output ONLY valid JSON, no explanations`,
+      },
+      {
+        role: 'user' as const,
+        content: `Generate a UI layout for this task:
+
+Task Type: ${subgoal.subgoal_type}
+Description: ${subgoal.description}
+Agent: ${subgoal.assigned_agent}
+
+Output Data Structure:
+${JSON.stringify(subgoal.output, null, 2)}
+
+Context:
+${JSON.stringify(subgoal.context, null, 2)}
+
+Relevant Components: ${relevantComponents.map((c) => c.name).join(', ')}
+
+Generate the optimal SDUI layout for this data.`,
+      },
+    ];
+
+    // Call LLM with gating
+    const response = await this.llmGateway.complete(
+      messages,
+      {
+        use_gating: true,
+        temperature: 0.3,
+        max_tokens: 2000,
+      },
+      {
+        task_type: 'ui_generation',
+        complexity: this.estimateUIComplexity(subgoal),
+      }
+    );
+
+    // Parse response
+    let layout: SDUIPageDefinition;
+    try {
+      // Extract JSON from response (handle markdown code blocks)
+      let jsonContent = response.content.trim();
+      if (jsonContent.startsWith('```')) {
+        jsonContent = jsonContent.replace(/```json?\n?/g, '').replace(/```\n?$/g, '');
+      }
+      layout = JSON.parse(jsonContent);
+    } catch (error) {
+      throw new Error(`Failed to parse LLM response as JSON: ${error}`);
+    }
+
+    // Validate generated layout
+    const validation = this.validateGeneratedLayout(layout);
+    if (!validation.valid) {
+      throw new Error(`Invalid layout generated: ${validation.errors.join(', ')}`);
+    }
+
+    // Add metadata
+    layout.metadata = {
+      ...layout.metadata,
+      debug: false,
+      experienceId: subgoal.id,
+      generated_by: 'dynamic_ui',
+      llm_model: response.model,
+    };
+
+    const generationTime = Date.now() - startTime;
+
+    // Track trajectory
+    const trajectoryId = await tracker.trackGeneration({
+      subgoal_id: subgoal.id,
+      generation_method: 'dynamic',
+      llm_model: response.model,
+      tokens_used: response.tokens_used,
+      generation_time_ms: generationTime,
+      components_selected: layout.sections.map((s) => s.component),
+      layout_chosen: layout.sections.find((s) => s.type === 'layout.directive')?.layout || 'default',
+      reasoning: `Dynamic UI generation for ${subgoal.subgoal_type}`,
+      alternatives_considered: relevantComponents.map((c) => c.name),
+      confidence_score: validation.warnings.length === 0 ? 0.9 : 0.7,
+      validation_passed: validation.valid,
+      validation_errors: validation.errors,
+      validation_warnings: validation.warnings,
+    });
+
+    // Store trajectory ID in metadata
+    layout.metadata.trajectory_id = trajectoryId;
+
+    // Apply refinement loop if enabled
+    if (this.config.enableUIRefinement) {
+      const refinementLoop = getUIRefinementLoop();
+      const refinementResult = await refinementLoop.generateAndRefine(subgoal, layout);
+
+      // Use refined layout if it improved
+      if (refinementResult.final_score > validation.warnings.length === 0 ? 90 : 70) {
+        layout = refinementResult.layout;
+
+        // Log refinement
+        if (this.config.enableAuditLogging) {
+          await this.logDecision('ui_refined', refinementResult, {
+            subgoal_id: subgoal.id,
+            trajectory_id: trajectoryId,
+            iterations: refinementResult.iterations,
+            final_score: refinementResult.final_score,
+            improvement: refinementResult.improvement_history,
+          });
+        }
+      }
+    }
+
+    // Log generation
+    if (this.config.enableAuditLogging) {
+      await this.logDecision('dynamic_ui_generated', layout, {
+        subgoal_id: subgoal.id,
+        trajectory_id: trajectoryId,
+        model: response.model,
+        tokens_used: response.tokens_used,
+        generation_time_ms: generationTime,
+        components_used: layout.sections.map((s) => s.component),
+      });
+    }
+
+    return layout;
+  }
+
+  /**
+   * Generate UI layout using static mapping (fallback)
+   */
+  private async generateStaticUILayout(subgoal: Subgoal): Promise<SDUIPageDefinition> {
     // Determine output type
     const outputType = this.determineOutputType(subgoal);
 
@@ -201,7 +400,7 @@ export class CoordinatorAgent {
       throw new Error(`No SDUI mapping found for output type: ${outputType}`);
     }
 
-    // Generate layout using new schema with layout directives
+    // Generate layout using static mapping
     const layout: SDUIPageDefinition = {
       type: 'page',
       version: 1,
@@ -234,12 +433,13 @@ export class CoordinatorAgent {
       metadata: {
         debug: false,
         experienceId: subgoal.id,
+        generated_by: 'static_mapping',
       },
     };
 
     // Log SDUI generation
     if (this.config.enableAuditLogging) {
-      await this.logDecision('sdui_generated', layout, {
+      await this.logDecision('static_ui_generated', layout, {
         subgoal_id: subgoal.id,
         component: sduiMapping.component,
         layout: sduiMapping.layout,
@@ -247,6 +447,123 @@ export class CoordinatorAgent {
     }
 
     return layout;
+  }
+
+  /**
+   * Estimate UI complexity for gating
+   */
+  private estimateUIComplexity(subgoal: Subgoal): number {
+    let complexity = 0.3; // Base
+
+    // Factor in output size
+    const outputSize = JSON.stringify(subgoal.output).length;
+    complexity += Math.min(outputSize / 5000, 0.3);
+
+    // Factor in data structure complexity
+    const dataDepth = this.calculateObjectDepth(subgoal.output);
+    complexity += Math.min(dataDepth / 10, 0.2);
+
+    // Factor in subgoal type
+    const complexTypes = ['analysis', 'design', 'monitoring'];
+    if (complexTypes.includes(subgoal.subgoal_type)) {
+      complexity += 0.2;
+    }
+
+    return Math.min(complexity, 1);
+  }
+
+  /**
+   * Calculate object depth
+   */
+  private calculateObjectDepth(obj: any, depth: number = 0): number {
+    if (typeof obj !== 'object' || obj === null) return depth;
+
+    const depths = Object.values(obj).map((value) =>
+      this.calculateObjectDepth(value, depth + 1)
+    );
+
+    return depths.length > 0 ? Math.max(...depths) : depth;
+  }
+
+  /**
+   * Validate generated layout
+   */
+  private validateGeneratedLayout(layout: any): {
+    valid: boolean;
+    errors: string[];
+    warnings: string[];
+  } {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    // Check basic structure
+    if (!layout || typeof layout !== 'object') {
+      errors.push('Layout must be an object');
+      return { valid: false, errors, warnings };
+    }
+
+    if (layout.type !== 'page') {
+      errors.push('Layout type must be "page"');
+    }
+
+    if (!Array.isArray(layout.sections)) {
+      errors.push('Layout must have sections array');
+      return { valid: false, errors, warnings };
+    }
+
+    if (layout.sections.length === 0) {
+      errors.push('Layout must have at least one section');
+    }
+
+    // Validate each section
+    for (const section of layout.sections) {
+      if (!section.component) {
+        errors.push('Section missing component name');
+        continue;
+      }
+
+      // Validate component selection
+      const validation = validateComponentSelection(
+        section.component,
+        section.props || {}
+      );
+
+      errors.push(...validation.errors);
+      warnings.push(...validation.warnings);
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+      warnings,
+    };
+  }
+
+  /**
+   * Enable/disable dynamic UI generation
+   */
+  setDynamicUIEnabled(enabled: boolean): void {
+    this.config.enableDynamicUI = enabled;
+  }
+
+  /**
+   * Enable/disable UI refinement loop
+   */
+  setUIRefinementEnabled(enabled: boolean): void {
+    this.config.enableUIRefinement = enabled;
+  }
+
+  /**
+   * Get UI generation configuration
+   */
+  getUIConfig(): {
+    dynamicUIEnabled: boolean;
+    refinementEnabled: boolean;
+  } {
+    return {
+      dynamicUIEnabled: this.config.enableDynamicUI,
+      refinementEnabled: this.config.enableUIRefinement,
+    };
   }
 
   /**
