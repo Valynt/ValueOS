@@ -47,9 +47,12 @@ Open http://localhost:5173 and start creating value!
 - **[Production Readiness](./PRODUCTION_READY_FINAL.md)** - Production checklist
 - **[Operations Runbook](./RUNBOOK_OPERATIONS.md)** - Day-to-day operations
 
-### Security & Compliance
+### Security & Compliance 🔒 NEW
 - **[Security Overview](./SECURITY.md)** - Security features
-- **[Security Audit](./SECURITY_AUDIT.md)** - Audit results
+- **[RBAC Guide](./docs/security/rbac-guide.md)** - Role-Based Access Control ⭐
+- **[Audit Logging](./docs/security/audit-logging.md)** - Compliance audit trails ⭐
+- **[Circuit Breaker](./docs/security/circuit-breaker.md)** - Agent safety controls ⭐
+- **[Security Sprint Report](./reports/security-sprint-2024/)** - Operation Fortress completion
 - **[Compliance Guide](./MANIFESTO_COMPLIANCE_GUIDE.md)** - Compliance guidelines
 
 ### Enterprise Features
@@ -119,6 +122,31 @@ Comprehensive value realization framework:
 
 ---
 
+## 🔒 Security & Compliance (Production-Ready)
+
+ValueCanvas implements enterprise-grade security controls:
+
+### Security Features ⭐ NEW
+- ✅ **Zero PII Leakage** - Automatic PII sanitization in all logs
+- ✅ **Agent Circuit Breaker** - Prevents runaway execution and cost overruns
+  - Max 30s execution time
+  - Max 20 LLM calls per execution
+  - Max 5 recursion depth
+  - Memory usage monitoring
+- ✅ **Rate Limiting** - Tiered API protection (5-300 req/min)
+- ✅ **Immutable Audit Logs** - Cryptographic integrity with hash chain
+- ✅ **RBAC System** - 40+ granular permissions, 6 role levels
+- ✅ **Tenant Isolation** - Defense-in-depth data separation
+
+### Compliance Status
+- ✅ **SOC 2 Ready** - Immutable audit trails, access control
+- ✅ **GDPR Compliant** - PII sanitization, data retention policies
+- ✅ **Production Hardened** - Completed security sprint (Operation Fortress)
+
+See [Security Documentation](./docs/security/) for implementation details.
+
+---
+
 ## 🎯 Features
 
 ### Core Capabilities
@@ -132,8 +160,8 @@ Comprehensive value realization framework:
 
 ### Enterprise Features
 - ✅ **Multi-tenancy** - Isolated tenant environments
-- ✅ **Role-based Access Control** - Granular permissions
-- ✅ **Audit Logging** - Comprehensive activity tracking
+- ✅ **Role-based Access Control** - Granular permissions (40+ permissions)
+- ✅ **Audit Logging** - Immutable, tamper-evident activity tracking
 - ✅ **Usage Tracking** - Resource monitoring and billing
 - ✅ **Documentation Portal** - Built-in help system
 - ✅ **Settings Management** - Flexible configuration
