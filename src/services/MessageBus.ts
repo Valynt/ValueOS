@@ -5,6 +5,7 @@
  * Supports pub/sub, message compression, and delivery guarantees.
  */
 
+import { logger } from '../lib/logger';
 import { v4 as uuidv4 } from 'uuid';
 import type {
   CommunicationEvent,
@@ -126,7 +127,7 @@ export class MessageBus {
       const compressed = compress(jsonString);
       return { __compressed: true, data: compressed };
     } catch (error) {
-      console.error('Failed to compress message:', error);
+      logger.error('Failed to compress message', error instanceof Error ? error : undefined);
       return payload;
     }
   }
@@ -142,7 +143,7 @@ export class MessageBus {
       }
       return payload;
     } catch (error) {
-      console.error('Failed to expand message:', error);
+      logger.error('Failed to expand message', error instanceof Error ? error : undefined);
       return payload;
     }
   }
@@ -310,7 +311,7 @@ export class MessageBus {
 
       deliveryPromises.push(
         handler.handler(expandedEvent).catch((error) => {
-          console.error(`Handler error for ${handler.agent_name}:`, error);
+          logger.error('Handler error for ${handler.agent_name}:', error instanceof Error ? error : undefined);
           this.updateStats(channel, 'failed_delivery');
         })
       );
@@ -384,7 +385,7 @@ export class MessageBus {
     try {
       await this.redis.publish(channel, JSON.stringify(event));
     } catch (error) {
-      console.error('Redis publish error:', error);
+      logger.error('Redis publish error', error instanceof Error ? error : undefined);
     }
   }
 
@@ -399,7 +400,7 @@ export class MessageBus {
         handler(event);
       });
     } catch (error) {
-      console.error('Redis subscribe error:', error);
+      logger.error('Redis subscribe error', error instanceof Error ? error : undefined);
     }
   }
 
@@ -408,7 +409,7 @@ export class MessageBus {
     try {
       await this.nats.publish(channel, JSON.stringify(event));
     } catch (error) {
-      console.error('NATS publish error:', error);
+      logger.error('NATS publish error', error instanceof Error ? error : undefined);
     }
   }
 
@@ -423,7 +424,7 @@ export class MessageBus {
         handler(event);
       });
     } catch (error) {
-      console.error('NATS subscribe error:', error);
+      logger.error('NATS subscribe error', error instanceof Error ? error : undefined);
     }
   }
 }

@@ -15,6 +15,7 @@
  * - "NPV(0.10, cash_flow_1, cash_flow_2, cash_flow_3)"
  */
 
+import { logger } from '../lib/logger';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type {
   FormulaVariable,

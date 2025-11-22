@@ -4,6 +4,7 @@
  * Tracks UI generation trajectories, user interactions, and calculates effectiveness metrics.
  */
 
+import { logger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 import type {
@@ -310,7 +311,7 @@ export class UIGenerationTracker {
         p_layout: layout,
       });
     } catch (error) {
-      console.error('Failed to update component stats:', error);
+      logger.error('Failed to update component stats', error instanceof Error ? error : undefined);
     }
   }
 }

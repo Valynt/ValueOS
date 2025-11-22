@@ -72,8 +72,8 @@ export interface ValueCommitFormProps {
  * <ValueCommitForm
  *   kpis={['Lead Conversion Rate', 'Manual Hours Reduced']}
  *   onCommit={(committed, assumptions) => {
- *     console.log('Committed KPIs:', committed);
- *     console.log('Assumptions:', assumptions);
+ *     logger.debug('Committed KPIs:', committed);
+ *     logger.debug('Assumptions:', assumptions);
  *   }}
  * />
  * ```

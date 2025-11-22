@@ -102,7 +102,7 @@ export const TeamSettings: React.FC = () => {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
-      console.error('Import failed:', error);
+      logger.error('Import failed:', error);
     } finally {
       setImporting(false);
     }

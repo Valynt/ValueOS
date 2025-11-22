@@ -149,12 +149,12 @@ export const UserSecurity: React.FC = () => {
 
   const handleLogoutSession = async (sessionId: string) => {
     await new Promise(resolve => setTimeout(resolve, 500));
-    console.log('Logged out session:', sessionId);
+    logger.debug('Logged out session:', sessionId);
   };
 
   const handleLogoutAllSessions = async () => {
     await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log('Logged out all sessions');
+    logger.debug('Logged out all sessions');
   };
 
   const passwordStrength = newPassword ? calculatePasswordStrength(newPassword) : null;
@@ -499,7 +499,7 @@ export const UserSecurity: React.FC = () => {
             confirmText: 'REVOKE',
             onConfirm: async () => {
               await new Promise(resolve => setTimeout(resolve, 1000));
-              console.log('All sessions revoked');
+              logger.debug('All sessions revoked');
             },
           },
         ]}

@@ -936,7 +936,7 @@ export function useSettings<T = any>(
  * );
  * 
  * // Access values
- * console.log(values['user.theme']);
+ * logger.debug(values['user.theme']);
  * 
  * // Update a setting
  * await updateSetting('user.theme', 'dark');

@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { CircuitBreakerState } from '../types/workflow';
 
 export interface CircuitBreakerConfig {

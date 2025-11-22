@@ -218,7 +218,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onBack, caseId: propCase
 
       setTimeout(() => setStreamingUpdate(null), 3000);
     } catch (error) {
-      console.error('Agent Fabric error:', error);
+      logger.error('Agent Fabric error:', error);
 
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
 
@@ -255,7 +255,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onBack, caseId: propCase
           timestamp: new Date()
         });
       } catch (fallbackError) {
-        console.error('Fallback error:', fallbackError);
+        logger.error('Fallback error:', fallbackError);
         setStreamingUpdate({
           agent: 'orchestrator',
           action: `❌ Error: ${fallbackError instanceof Error ? fallbackError.message : 'Failed to process request'}`,

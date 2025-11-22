@@ -2,6 +2,7 @@
  * Testing Utilities for Permission Testing and Integration Tests
  */
 
+import { logger } from '../lib/logger';
 import { Permission } from '../services/PermissionService';
 
 export type RoleType = 'admin' | 'moderator' | 'member' | 'guest' | 'owner';
@@ -247,7 +248,7 @@ export async function measurePerformance<T>(
   const result = await fn();
   const duration = performance.now() - start;
 
-  console.log(`Performance: ${name} took ${duration.toFixed(2)}ms`);
+  logger.debug(`Performance: ${name} took ${duration.toFixed(2)}ms`);
 
   return { result, duration };
 }

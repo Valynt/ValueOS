@@ -1,3 +1,4 @@
+import { logger } from '../../lib/logger';
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 /**
@@ -156,8 +157,8 @@ const isCacheValid = (entry: CacheEntry, ttl: number): boolean => {
  * const { data, loading, error, retry } = useDataHydration(
  *   ['/api/user', '/api/settings'],
  *   {
- *     onSuccess: (data) => console.log('Hydrated:', data),
- *     onError: (error) => console.error('Failed:', error),
+ *     onSuccess: (data) => logger.debug('Hydrated:', data),
+ *     onError: (error) => logger.error('Failed:', error),
  *     timeout: 5000,
  *   }
  * );
@@ -317,7 +318,7 @@ export function useDataHydration(
 
       // If some requests failed, log warnings but continue
       if (errors.length > 0) {
-        console.warn('Some hydration endpoints failed:', errors);
+        logger.warn('Some hydration endpoints failed:', errors);
         errors.forEach(({ endpoint, error }) => {
           onError?.(error, endpoint);
         });

@@ -5,6 +5,7 @@
  * Only initializes in production environment.
  */
 
+import { logger } from './lib/logger';
 import { isProduction, isDevelopment, getConfig } from '../config/environment';
 
 // Type-safe Sentry interface (will be replaced with actual SDK)
@@ -42,19 +43,19 @@ interface SentryExtra {
  */
 export function initializeSentry(): void {
   if (!isProduction()) {
-    console.log('[Sentry] Skipping initialization (not in production)');
+    logger.debug('[Sentry] Skipping initialization (not in production)');
     return;
   }
 
   const config = getConfig();
 
   if (!config.monitoring.sentry.enabled) {
-    console.log('[Sentry] Disabled in configuration');
+    logger.debug('[Sentry] Disabled in configuration');
     return;
   }
 
   if (!config.monitoring.sentry.dsn) {
-    console.error('[Sentry] DSN not configured');
+    logger.error('[Sentry] DSN not configured');
     return;
   }
 
@@ -92,14 +93,14 @@ export function initializeSentry(): void {
         ],
       });
 
-      console.log('[Sentry] Initialized successfully');
+      logger.debug('[Sentry] Initialized successfully');
     });
     */
 
-    console.log('[Sentry] Ready to initialize (SDK not yet installed)');
-    console.log('[Sentry] Run: npm install @sentry/react @sentry/vite-plugin');
+    logger.debug('[Sentry] Ready to initialize (SDK not yet installed)');
+    logger.debug('[Sentry] Run: npm install @sentry/react @sentry/vite-plugin');
   } catch (error) {
-    console.error('[Sentry] Initialization failed:', error);
+    logger.error('[Sentry] Initialization failed:', error);
   }
 }
 
@@ -125,7 +126,7 @@ export function captureException(
   }
 ): void {
   if (!isProduction()) {
-    console.error('[Sentry] Would capture exception:', error, options);
+    logger.error('[Sentry] Would capture exception:', error, options);
     return;
   }
 
@@ -136,7 +137,7 @@ export function captureException(
   });
   */
 
-  console.error('[Sentry] Exception captured (SDK not installed):', error);
+  logger.error('[Sentry] Exception captured (SDK not installed):', error);
 }
 
 /**
@@ -158,7 +159,7 @@ export function captureMessage(
   }
 ): void {
   if (!isProduction()) {
-    console.log('[Sentry] Would capture message:', message, options);
+    logger.debug('[Sentry] Would capture message:', message, options);
     return;
   }
 
@@ -169,7 +170,7 @@ export function captureMessage(
   });
   */
 
-  console.log('[Sentry] Message captured (SDK not installed):', message);
+  logger.debug('[Sentry] Message captured (SDK not installed):', message);
 }
 
 /**
@@ -191,7 +192,7 @@ export function setUser(user: {
   [key: string]: unknown;
 } | null): void {
   if (!isProduction()) {
-    console.log('[Sentry] Would set user:', user);
+    logger.debug('[Sentry] Would set user:', user);
     return;
   }
 
@@ -202,7 +203,7 @@ export function setUser(user: {
   });
   */
 
-  console.log('[Sentry] User set (SDK not installed):', user?.id);
+  logger.debug('[Sentry] User set (SDK not installed):', user?.id);
 }
 
 /**
@@ -224,7 +225,7 @@ export function addBreadcrumb(breadcrumb: {
   data?: Record<string, unknown>;
 }): void {
   if (!isProduction()) {
-    console.log('[Sentry] Would add breadcrumb:', breadcrumb);
+    logger.debug('[Sentry] Would add breadcrumb:', breadcrumb);
     return;
   }
 
@@ -235,7 +236,7 @@ export function addBreadcrumb(breadcrumb: {
   });
   */
 
-  console.log('[Sentry] Breadcrumb added (SDK not installed):', breadcrumb.message);
+  logger.debug('[Sentry] Breadcrumb added (SDK not installed):', breadcrumb.message);
 }
 
 /**
@@ -261,10 +262,10 @@ export function startTransaction(options: {
   setStatus: (status: string) => void;
 } {
   if (!isProduction()) {
-    console.log('[Sentry] Would start transaction:', options);
+    logger.debug('[Sentry] Would start transaction:', options);
     return {
-      finish: () => console.log('[Sentry] Transaction finished:', options.name),
-      setStatus: (status) => console.log('[Sentry] Transaction status:', status),
+      finish: () => logger.debug('[Sentry] Transaction finished:', options.name),
+      setStatus: (status) => logger.debug('[Sentry] Transaction status:', status),
     };
   }
 

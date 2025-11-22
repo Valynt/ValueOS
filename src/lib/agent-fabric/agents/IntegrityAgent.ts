@@ -21,6 +21,7 @@
  * - Block non-compliant outputs
  */
 
+import { logger } from '../../../lib/logger';
 import { BaseAgent } from './BaseAgent';
 import { ValueFabricService } from '../../../services/ValueFabricService';
 import { ROIFormulaInterpreter } from '../../../services/ROIFormulaInterpreter';
@@ -216,7 +217,7 @@ export class IntegrityAgent extends BaseAgent {
 
     const tableName = tableMap[artifactType];
     if (!tableName) {
-      console.warn(`Unknown artifact type for compliance stamping: ${artifactType}`);
+      logger.warn(`Unknown artifact type for compliance stamping: ${artifactType}`);
       return;
     }
 
@@ -227,10 +228,10 @@ export class IntegrityAgent extends BaseAgent {
         .eq('id', artifactId);
 
       if (error) {
-        console.error(`Failed to stamp compliance metadata on ${tableName}:`, error);
+        logger.error(`Failed to stamp compliance metadata on ${tableName}:`, error);
       }
     } catch (err) {
-      console.error(`Error stamping compliance metadata:`, err);
+      logger.error(`Error stamping compliance metadata:`, err);
     }
   }
 

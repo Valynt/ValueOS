@@ -1,15 +1,30 @@
 /**
- * Structured Logging Utility
+ * Structured Logging Utility with PII Protection
+ * 
+ * SEC-004: Production-ready logger with automatic PII sanitization
  * 
  * Provides consistent, environment-aware logging across the application.
- * Replaces console.log/error with structured logging that can be:
- * - Filtered by environment
- * - Sent to monitoring services
- * - Formatted consistently
- * - Disabled in production
+ * Replaces console.log/error with structured logging that:
+ * - Automatically sanitizes PII (GDPR/SOC 2 compliant)
+ * - Filters by environment
+ * - Sends to monitoring services
+ * - Formats consistently
+ * - Prevents sensitive data leakage
+ * 
+ * USAGE:
+ *   import { logger } from '@/lib/logger';
+ *   logger.info('User action', { userId: '123', action: 'login' });
+ *   logger.error('Operation failed', error, { context: data });
  */
 
 import { isDevelopment, isProduction, isTest } from '../config/environment';
+import { 
+  sanitizeForLogging, 
+  sanitizeUser, 
+  sanitizeRequest, 
+  sanitizeError,
+  validateLogMessage 
+} from './piiFilter';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -58,31 +73,43 @@ class Logger {
   }
 
   /**
-   * Log a debug message
+   * Log a debug message (with automatic PII sanitization)
    */
   debug(message: string, context?: LogContext): void {
-    this.log('debug', message, context);
+    validateLogMessage(message, context);
+    const sanitizedContext = context ? sanitizeForLogging(context) as LogContext : undefined;
+    this.log('debug', message, sanitizedContext);
   }
 
   /**
-   * Log an info message
+   * Log an info message (with automatic PII sanitization)
    */
   info(message: string, context?: LogContext): void {
-    this.log('info', message, context);
+    validateLogMessage(message, context);
+    const sanitizedContext = context ? sanitizeForLogging(context) as LogContext : undefined;
+    this.log('info', message, sanitizedContext);
   }
 
   /**
-   * Log a warning message
+   * Log a warning message (with automatic PII sanitization)
    */
   warn(message: string, context?: LogContext): void {
-    this.log('warn', message, context);
+    validateLogMessage(message, context);
+    const sanitizedContext = context ? sanitizeForLogging(context) as LogContext : undefined;
+    this.log('warn', message, sanitizedContext);
   }
 
   /**
-   * Log an error message
+   * Log an error message (with automatic PII sanitization)
    */
   error(message: string, error?: Error, context?: LogContext): void {
-    this.log('error', message, { ...context, error });
+    validateLogMessage(message, context);
+    const sanitizedContext = context ? sanitizeForLogging(context) as LogContext : undefined;
+    const sanitizedError = error ? sanitizeError(error) : undefined;
+    this.log('error', message, { 
+      ...sanitizedContext, 
+      error: sanitizedError as any 
+    });
   }
 
   /**
@@ -107,7 +134,7 @@ class Logger {
         listener(entry);
       } catch (err) {
         // Don't let listener errors break logging
-        console.error('Logger listener error:', err);
+        logger.error('Logger listener error:', err);
       }
     });
 
@@ -142,16 +169,16 @@ class Logger {
 
     switch (entry.level) {
       case 'debug':
-        console.debug(fullMessage);
+        logger.debug(fullMessage);
         break;
       case 'info':
-        console.info(fullMessage);
+        logger.info(fullMessage);
         break;
       case 'warn':
-        console.warn(fullMessage);
+        logger.warn(fullMessage);
         break;
       case 'error':
-        console.error(fullMessage, entry.error);
+        logger.error(fullMessage, entry.error);
         break;
     }
   }
@@ -176,20 +203,48 @@ export const log = {
 };
 
 /**
- * Create a logger with default context
+ * Create a logger with default context (automatically sanitized)
  */
 export function createLogger(defaultContext: LogContext) {
+  const sanitizedDefault = sanitizeForLogging(defaultContext) as LogContext;
   return {
     debug: (message: string, context?: LogContext) =>
-      logger.debug(message, { ...defaultContext, ...context }),
+      logger.debug(message, { ...sanitizedDefault, ...context }),
     info: (message: string, context?: LogContext) =>
-      logger.info(message, { ...defaultContext, ...context }),
+      logger.info(message, { ...sanitizedDefault, ...context }),
     warn: (message: string, context?: LogContext) =>
-      logger.warn(message, { ...defaultContext, ...context }),
+      logger.warn(message, { ...sanitizedDefault, ...context }),
     error: (message: string, error?: Error, context?: LogContext) =>
-      logger.error(message, error, { ...defaultContext, ...context }),
+      logger.error(message, error, { ...sanitizedDefault, ...context }),
   };
 }
+
+/**
+ * Specialized loggers for common use cases
+ */
+export const secureLog = {
+  /**
+   * Log user-related actions (automatically sanitizes user objects)
+   */
+  user: (message: string, user: any, context?: LogContext) => {
+    logger.info(message, { ...sanitizeUser(user), ...context });
+  },
+  
+  /**
+   * Log request-related actions (automatically sanitizes requests)
+   */
+  request: (message: string, req: any, context?: LogContext) => {
+    logger.info(message, { ...sanitizeRequest(req), ...context });
+  },
+  
+  /**
+   * Log errors with automatic sanitization
+   */
+  error: (message: string, error: unknown, context?: LogContext) => {
+    const sanitizedError = error instanceof Error ? error : new Error(String(error));
+    logger.error(message, sanitizedError, context);
+  },
+};
 
 /**
  * Integration with monitoring services

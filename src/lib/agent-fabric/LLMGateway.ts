@@ -24,6 +24,8 @@ export type LLMProvider = 'together' | 'openai';
 import { sanitizeLLMContent } from '../../utils/security';
 import { securityLogger } from '../../services/SecurityLogger';
 import { llmProxyClient } from '../../services/LlmProxyClient';
+import { AgentCircuitBreaker } from './CircuitBreaker';
+import { logger } from '../logger';
 
 export class LLMGateway {
   private provider: LLMProvider;
@@ -50,8 +52,18 @@ export class LLMGateway {
   async complete(
     messages: LLMMessage[],
     config: LLMConfig = {},
-    taskContext?: any
+    taskContext?: any,
+    circuitBreaker?: AgentCircuitBreaker
   ): Promise<LLMResponse> {
+    // Track LLM call in circuit breaker
+    if (circuitBreaker) {
+      circuitBreaker.recordLLMCall();
+      circuitBreaker.checkMemory();
+      
+      if (circuitBreaker.shouldAbort()) {
+        throw new Error('LLM call aborted by circuit breaker');
+      }
+    }
     // Apply LLM gating if enabled
     let selectedModel = config.force_model || config.model || this.defaultModel;
     

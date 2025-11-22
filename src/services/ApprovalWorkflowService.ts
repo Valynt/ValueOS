@@ -3,6 +3,7 @@
  * Multi-level approval system for sensitive configuration changes
  */
 
+import { logger } from '../lib/logger';
 import { BaseService } from './BaseService';
 import { NotFoundError, AuthorizationError } from './errors';
 

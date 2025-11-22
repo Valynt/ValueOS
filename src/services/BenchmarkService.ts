@@ -11,6 +11,7 @@
  * - Support multiple benchmark providers
  */
 
+import { logger } from '../lib/logger';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Benchmark, ConfidenceLevel } from '../types/vos';
 

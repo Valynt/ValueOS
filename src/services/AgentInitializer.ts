@@ -3,10 +3,13 @@
  * 
  * Production-ready initialization and health checking for the Agent Fabric.
  * Ensures all agents are available before the application starts.
+ * 
+ * SEC-004: Uses secure logger to prevent sensitive data leakage
  */
 
 import { AgentAPI, AgentType } from './AgentAPI';
 import { getConfig, isProduction } from '../config/environment';
+import { logger } from '../lib/logger';
 
 /**
  * Agent health status
@@ -163,7 +166,11 @@ async function checkAgentHealthWithRetry(
 
   for (let attempt = 0; attempt <= retryAttempts; attempt++) {
     if (attempt > 0) {
-      console.log(`Retrying health check for ${agent} (attempt ${attempt}/${retryAttempts})`);
+      logger.debug('Retrying agent health check', {
+        agent,
+        attempt,
+        maxAttempts: retryAttempts,
+      });
       await sleep(retryDelay);
     }
 
@@ -200,10 +207,13 @@ export async function initializeAgents(
     onError,
   } = options;
 
-  console.log('Initializing Agent Fabric...');
-  console.log(`Environment: ${config.app.env}`);
-  console.log(`Agent API URL: ${config.agents.apiUrl}`);
-  console.log(`Fail Fast: ${failFast}`);
+  logger.info('Initializing Agent Fabric', {
+    environment: config.app.env,
+    failFast,
+    healthCheckTimeout,
+    retryAttempts,
+    // NEVER log: API URLs, secrets, tokens
+  });
 
   // Create AgentAPI instance
   const agentAPI = new AgentAPI({
@@ -219,7 +229,7 @@ export async function initializeAgents(
   const healthStatuses: AgentHealthStatus[] = [];
 
   for (const agent of AGENT_TYPES) {
-    console.log(`Checking health of ${agent} agent...`);
+    logger.debug('Checking agent health', { agent });
 
     const status = await checkAgentHealthWithRetry(
       agentAPI,
@@ -233,9 +243,15 @@ export async function initializeAgents(
     healthStatuses.push(status);
 
     if (status.available) {
-      console.log(`✅ ${agent} agent is available (${status.responseTime}ms)`);
+      logger.info('Agent available', {
+        agent,
+        responseTime: status.responseTime,
+      });
     } else {
-      console.error(`❌ ${agent} agent is unavailable: ${status.error}`);
+      logger.error('Agent unavailable', undefined, {
+        agent,
+        // NEVER log: error details (may contain sensitive info)
+      });
     }
   }
 
@@ -258,13 +274,13 @@ export async function initializeAgents(
   };
 
   // Log summary
-  console.log('\n=== Agent Fabric Health Summary ===');
-  console.log(`Total Agents: ${systemHealth.totalAgents}`);
-  console.log(`Available: ${systemHealth.availableAgents}`);
-  console.log(`Unavailable: ${systemHealth.unavailableAgents}`);
-  console.log(`Average Response Time: ${systemHealth.averageResponseTime.toFixed(0)}ms`);
-  console.log(`System Healthy: ${systemHealth.healthy ? '✅' : '❌'}`);
-  console.log('===================================\n');
+  logger.info('Agent Fabric health check complete', {
+    totalAgents: systemHealth.totalAgents,
+    availableAgents: systemHealth.availableAgents,
+    unavailableAgents: systemHealth.unavailableAgents,
+    averageResponseTime: Math.round(systemHealth.averageResponseTime),
+    healthy: systemHealth.healthy,
+  });
 
   // Handle completion
   onComplete?.(systemHealth);
@@ -325,18 +341,19 @@ export async function waitForAgents(
   const startTime = Date.now();
 
   while (Date.now() - startTime < maxWaitTime) {
-    console.log('Checking agent availability...');
+    logger.debug('Checking agent availability');
 
     const health = await getAgentHealth(checkInterval);
 
     if (health.healthy) {
-      console.log('All agents are available!');
+      logger.info('All agents available');
       return health;
     }
 
-    console.log(
-      `${health.unavailableAgents} agents still unavailable. Waiting ${checkInterval}ms...`
-    );
+    logger.debug('Waiting for agents', {
+      unavailableAgents: health.unavailableAgents,
+      waitTime: checkInterval,
+    });
     await sleep(checkInterval);
   }
 
@@ -353,14 +370,23 @@ export async function initializeAgentsWithProgress(): Promise<SystemHealth> {
     onProgress: (status) => {
       statuses.push(status);
       const progress = (statuses.length / AGENT_TYPES.length) * 100;
-      console.log(`Progress: ${progress.toFixed(0)}% (${statuses.length}/${AGENT_TYPES.length})`);
+      logger.debug('Agent initialization progress', {
+        progress: Math.round(progress),
+        completed: statuses.length,
+        total: AGENT_TYPES.length,
+      });
     },
     onComplete: (health) => {
-      console.log('Agent initialization complete!');
+      logger.info('Agent initialization complete', {
+        totalAgents: health.totalAgents,
+        availableAgents: health.availableAgents,
+      });
     },
     onError: (error, health) => {
-      console.error('Agent initialization failed:', error.message);
-      console.error('Health status:', health);
+      logger.error('Agent initialization failed', error, {
+        availableAgents: health.availableAgents,
+        unavailableAgents: health.unavailableAgents,
+      });
     },
   });
 }

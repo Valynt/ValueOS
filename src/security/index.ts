@@ -123,22 +123,22 @@ export {
  * Initialize all security features
  */
 export function initializeSecurity(sessionId?: string): void {
-  console.log('Initializing security features...');
+  logger.debug('Initializing security features...');
 
   // Load configuration
   const config = getSecurityConfig();
-  console.log('Security configuration loaded');
+  logger.debug('Security configuration loaded');
 
   // Initialize CSRF protection
   if (config.security.csrfEnabled) {
     initializeCSRFProtection(sessionId);
-    console.log('CSRF protection initialized');
+    logger.debug('CSRF protection initialized');
   }
 
   // Create security meta tags
   if (config.csp.enabled || config.headers.referrerPolicy.enabled) {
     createSecurityMetaTags();
-    console.log('Security meta tags created');
+    logger.debug('Security meta tags created');
   }
 
   // Log security headers in development
@@ -146,7 +146,7 @@ export function initializeSecurity(sessionId?: string): void {
     logSecurityHeaders();
   }
 
-  console.log('Security initialization complete');
+  logger.debug('Security initialization complete');
 }
 
 /**

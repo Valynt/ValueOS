@@ -4,6 +4,7 @@
  * Handles rendering of SDUI pages including layout directives from CoordinatorAgent.
  */
 
+import { logger } from '../../lib/logger';
 import React from 'react';
 import type { SDUIPageDefinition, SDUISection, SDUILayoutDirective } from '../schema';
 
@@ -53,7 +54,7 @@ export function renderPage(
       renderedSections
     );
   } catch (error) {
-    console.error('Failed to render SDUI page:', error);
+    logger.error('Failed to render SDUI page:', error);
     return React.createElement(
       'div',
       { className: 'sdui-error' },
@@ -94,7 +95,7 @@ function renderLayoutDirective(
   const Component = componentRegistry?.get(component);
 
   if (!Component) {
-    console.warn(`Component not found in registry: ${component}`);
+    logger.warn(`Component not found in registry: ${component}`);
     return renderMissingComponent(component, index);
   }
 
@@ -138,7 +139,7 @@ function renderComponent(
   const Component = componentRegistry?.get(component);
 
   if (!Component) {
-    console.warn(`Component not found in registry: ${component}`);
+    logger.warn(`Component not found in registry: ${component}`);
     
     // Use fallback if provided
     if (fallback?.component) {

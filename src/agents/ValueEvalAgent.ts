@@ -8,6 +8,7 @@
  * - Supporting reinforcement learning
  */
 
+import { logger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 
@@ -392,7 +393,7 @@ export class ValueEvalAgent {
         p_metrics: result.metrics,
       });
     } catch (error) {
-      console.error('Failed to store artifact score:', error);
+      logger.error('Failed to store artifact score', error instanceof Error ? error : undefined);
     }
   }
 

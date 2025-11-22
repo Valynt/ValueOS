@@ -41,7 +41,7 @@ class PerformanceMonitor {
       try {
         performance.measure(name, `${name}-start`, `${name}-end`);
       } catch (error) {
-        console.warn('Performance measure failed:', error);
+        logger.warn('Performance measure failed:', error);
       }
 
       const duration = endTime - startTime;
@@ -71,10 +71,10 @@ class PerformanceMonitor {
     const benchmark = PERFORMANCE_BENCHMARKS[metric.name];
     if (benchmark && metric.unit === 'ms') {
       if (metric.value > benchmark.critical) {
-        console.error(`Performance critical: ${metric.name} took ${metric.value}ms`);
+        logger.error('Performance critical: ${metric.name} took ${metric.value}ms');
         this.reportPerformanceIssue(metric, 'critical');
       } else if (metric.value > benchmark.warning) {
-        console.warn(`Performance warning: ${metric.name} took ${metric.value}ms`);
+        logger.warn('Performance warning: ${metric.name} took ${metric.value}ms');
         this.reportPerformanceIssue(metric, 'warning');
       }
     }
@@ -134,7 +134,7 @@ class PerformanceMonitor {
       lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true });
       this.observers.set('lcp', lcpObserver);
     } catch (error) {
-      console.warn('LCP observation failed:', error);
+      logger.warn('LCP observation failed:', error);
     }
 
     // First Input Delay (FID)
@@ -154,7 +154,7 @@ class PerformanceMonitor {
       fidObserver.observe({ type: 'first-input', buffered: true });
       this.observers.set('fid', fidObserver);
     } catch (error) {
-      console.warn('FID observation failed:', error);
+      logger.warn('FID observation failed:', error);
     }
 
     // Cumulative Layout Shift (CLS)
@@ -179,7 +179,7 @@ class PerformanceMonitor {
       clsObserver.observe({ type: 'layout-shift', buffered: true });
       this.observers.set('cls', clsObserver);
     } catch (error) {
-      console.warn('CLS observation failed:', error);
+      logger.warn('CLS observation failed:', error);
     }
   }
 
@@ -401,4 +401,5 @@ export function debounce<T extends (...args: any[]) => any>(
   return debounced as any;
 }
 
+import { logger } from './lib/logger';
 import React from 'react';

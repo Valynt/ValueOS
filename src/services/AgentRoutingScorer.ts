@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { WorkflowStage } from '../types/workflow';
 import { AgentRecord, RoutingContext } from './AgentRegistry';
 

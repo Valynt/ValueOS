@@ -177,7 +177,7 @@ export interface HydrationActions {
  * ```tsx
  * const { state, rendered, hydrate, retry } = useHydratePage({
  *   agent: 'opportunity',
- *   onHydrationSuccess: (page) => console.log('Hydrated:', page),
+ *   onHydrationSuccess: (page) => logger.debug('Hydrated:', page),
  * });
  * 
  * // Trigger hydration
@@ -316,7 +316,7 @@ export function useHydratePage(
           const renderResult = renderPage(pageData, renderOptions);
           setRendered(renderResult);
         } catch (renderError) {
-          console.error('Render error:', renderError);
+          logger.error('Render error:', renderError);
           throw new Error(`Failed to render page: ${(renderError as Error).message}`);
         }
 

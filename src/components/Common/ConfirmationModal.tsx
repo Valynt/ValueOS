@@ -69,7 +69,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
       await onConfirm();
       onClose();
     } catch (error) {
-      console.error('Confirmation action failed:', error);
+      logger.error('Confirmation action failed:', error);
     } finally {
       setIsProcessing(false);
     }

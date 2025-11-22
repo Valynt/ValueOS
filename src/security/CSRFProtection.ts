@@ -5,6 +5,7 @@
  * Generates and validates CSRF tokens for state-changing operations.
  */
 
+import { logger } from './lib/logger';
 import { getSecurityConfig } from './SecurityConfig';
 
 /**
@@ -265,7 +266,7 @@ export function addCSRFHeader(
   const csrfToken = token || getCSRFCookie(cfg);
 
   if (!csrfToken) {
-    console.warn('No CSRF token available');
+    logger.warn('No CSRF token available');
     return headers;
   }
 
@@ -290,7 +291,7 @@ export function addCSRFToFormData(
   const csrfToken = token || getCSRFCookie(cfg);
 
   if (!csrfToken) {
-    console.warn('No CSRF token available');
+    logger.warn('No CSRF token available');
     return formData;
   }
 
@@ -310,7 +311,7 @@ export function addCSRFToURL(
   const csrfToken = token || getCSRFCookie(cfg);
 
   if (!csrfToken) {
-    console.warn('No CSRF token available');
+    logger.warn('No CSRF token available');
     return url;
   }
 
@@ -361,7 +362,7 @@ export function initializeCSRFProtection(
   const securityConfig = getSecurityConfig();
 
   if (!securityConfig.security.csrfEnabled) {
-    console.warn('CSRF protection is disabled');
+    logger.warn('CSRF protection is disabled');
   }
 
   // Generate initial token

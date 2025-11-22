@@ -6,6 +6,7 @@
  * Part of the Systemic Outcome Framework (SOF).
  */
 
+import { logger } from '../lib/logger';
 import type {
   SystemMap,
   InterventionPoint,
@@ -78,7 +79,7 @@ export class RealizationLoopAgent {
    * Track realization loops
    */
   async track(input: RealizationLoopInput): Promise<RealizationLoopOutput> {
-    console.log(`[${this.agentName}] Tracking realization loops...`);
+    logger.debug('Tracking realization loops...', { agent: this.agentName });
 
     // Identify feedback loops in the system
     const feedbackLoops = this.identifyFeedbackLoops(input);
@@ -104,7 +105,7 @@ export class RealizationLoopAgent {
     // Calculate confidence
     const confidence = this.calculateConfidence(input, feedbackLoops);
 
-    console.log(`[${this.agentName}] Identified ${feedbackLoops.length} feedback loops. Confidence: ${confidence}`);
+    logger.debug('Identified ${feedbackLoops.length} feedback loops. Confidence: ${confidence}', { agent: this.agentName });
 
     return {
       feedbackLoops,

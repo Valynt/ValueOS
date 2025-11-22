@@ -3,6 +3,7 @@
  * Logging and retrieving audit events with filtering
  */
 
+import { logger } from '../lib/logger';
 import { BaseService } from './BaseService';
 import { AuditLogEntry } from '../types';
 

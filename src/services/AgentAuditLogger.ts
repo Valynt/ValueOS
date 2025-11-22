@@ -5,6 +5,7 @@
  * database persistence and query capabilities.
  */
 
+import { logger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
 import { AgentType, AgentContext } from './AgentAPI';
 
@@ -280,12 +281,12 @@ export class AgentAuditLogger {
         .insert(entries);
 
       if (error) {
-        console.error('Failed to flush audit logs:', error);
+        logger.error('Failed to flush audit logs', error instanceof Error ? error : undefined);
         // Re-add to queue on failure
         this.logQueue.unshift(...entries);
       }
     } catch (error) {
-      console.error('Error flushing audit logs:', error);
+      logger.error('Error flushing audit logs', error instanceof Error ? error : undefined);
       // Re-add to queue on failure
       this.logQueue.unshift(...entries);
     }
@@ -345,7 +346,7 @@ export class AgentAuditLogger {
     const { data, error } = await query;
 
     if (error) {
-      console.error('Failed to query audit logs:', error);
+      logger.error('Failed to query audit logs', error instanceof Error ? error : undefined);
       return [];
     }
 
@@ -444,7 +445,7 @@ export class AgentAuditLogger {
       .select('id');
 
     if (error) {
-      console.error('Failed to delete old logs:', error);
+      logger.error('Failed to delete old logs', error instanceof Error ? error : undefined);
       return 0;
     }
 

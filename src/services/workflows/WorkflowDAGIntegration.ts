@@ -10,6 +10,7 @@
  * - Error recovery strategies
  */
 
+import { logger } from '../../lib/logger';
 import { supabase } from '../../lib/supabase';
 import {
   WorkflowDAG,
@@ -75,12 +76,12 @@ export class WorkflowDAGExecutor {
       // Validate workflow before registration
       const validation = validateWorkflowDAG(workflow);
       if (!validation.valid) {
-        console.error(`Workflow ${workflow.id} validation failed:`, validation.errors);
+        logger.error(`Workflow ${workflow.id} validation failed:`, validation.errors);
         continue;
       }
 
       if (validation.warnings.length > 0) {
-        console.warn(`Workflow ${workflow.id} warnings:`, validation.warnings);
+        logger.warn(`Workflow ${workflow.id} warnings:`, validation.warnings);
       }
 
       await supabase
@@ -327,7 +328,7 @@ export class WorkflowDAGExecutor {
     const executedSteps: ExecutedStep[] = context.executed_steps || [];
     const alreadyExecuted = executedSteps.find((step) => step.stage_id === stage.id);
     if (alreadyExecuted) {
-      console.log(`Stage ${stage.id} already executed, skipping (idempotent)`);
+      logger.debug('Stage ${stage.id} already executed, skipping (idempotent)');
       return { idempotent: true, previous_execution: alreadyExecuted };
     }
 
@@ -396,7 +397,7 @@ export class WorkflowDAGExecutor {
     try {
       await workflowCompensation.rollbackExecution(executionId);
     } catch (error) {
-      console.error('Compensation failed:', error);
+      logger.error('Compensation failed', error instanceof Error ? error : undefined);
       await this.logEvent(executionId, 'compensation_failed', null, {
         error: (error as Error).message,
       });
@@ -577,7 +578,7 @@ export async function getWorkflowExecutionStatus(
     .single();
 
   if (error) {
-    console.error('Failed to get workflow execution:', error);
+    logger.error('Failed to get workflow execution', error instanceof Error ? error : undefined);
     return null;
   }
 
@@ -595,7 +596,7 @@ export async function getWorkflowExecutionLogs(executionId: string): Promise<any
     .order('created_at', { ascending: true });
 
   if (error) {
-    console.error('Failed to get workflow logs:', error);
+    logger.error('Failed to get workflow logs', error instanceof Error ? error : undefined);
     return [];
   }
 

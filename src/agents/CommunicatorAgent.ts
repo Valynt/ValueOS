@@ -8,6 +8,7 @@
  * - Message compression and optimization
  */
 
+import { logger } from '../lib/logger';
 import { v4 as uuidv4 } from 'uuid';
 import { getMessageBus } from '../services/MessageBus';
 import { createLogger } from '../lib/logger';

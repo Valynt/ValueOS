@@ -276,7 +276,7 @@ export function logSecurityHeaders(): void {
 
   console.group('Security Headers');
   for (const [key, value] of Object.entries(headers)) {
-    console.log(`${key}: ${value}`);
+    logger.debug(`${key}: ${value}`);
   }
   console.groupEnd();
 }
