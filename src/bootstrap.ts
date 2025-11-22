@@ -8,6 +8,7 @@
 import { getConfig, validateEnvironmentConfig, isProduction } from './config/environment';
 import { initializeAgents, SystemHealth } from './services/AgentInitializer';
 import { initializeSecurity, validateSecurity } from './security';
+import { createLogger } from './lib/logger';
 
 /**
  * Bootstrap result
@@ -62,6 +63,7 @@ export async function bootstrap(
   const startTime = Date.now();
   const errors: string[] = [];
   const warnings: string[] = [];
+  const logger = createLogger({ component: 'Bootstrap' });
 
   const {
     skipAgentCheck = false,
@@ -71,24 +73,29 @@ export async function bootstrap(
     onError,
   } = options;
 
-  console.log('🚀 Bootstrapping ValueCanvas Application...\n');
+  logger.info('🚀 Bootstrapping ValueCanvas Application', { action: 'bootstrap_start' });
 
   // Step 1: Load and validate environment configuration
   onProgress?.('Loading environment configuration...');
-  console.log('📋 Step 1: Loading environment configuration');
+  logger.info('Step 1: Loading environment configuration', { action: 'load_config' });
 
   let config: ReturnType<typeof getConfig>;
   try {
     config = getConfig();
-    console.log(`   Environment: ${config.app.env}`);
-    console.log(`   App URL: ${config.app.url}`);
-    console.log(`   API URL: ${config.app.apiBaseUrl}`);
-    console.log(`   Agent API: ${config.agents.apiUrl}`);
+    logger.info('Configuration loaded', {
+      action: 'config_loaded',
+      environment: config.app.env,
+      appUrl: config.app.url,
+      apiUrl: config.app.apiBaseUrl,
+      agentApi: config.agents.apiUrl,
+    });
   } catch (error) {
     const errorMsg = `Failed to load configuration: ${error instanceof Error ? error.message : 'Unknown error'}`;
     errors.push(errorMsg);
     onError?.(errorMsg);
-    console.error(`   ❌ ${errorMsg}`);
+    logger.error('Failed to load configuration', error instanceof Error ? error : undefined, {
+      action: 'config_load_failed',
+    });
 
     return {
       success: false,
@@ -101,14 +108,17 @@ export async function bootstrap(
 
   // Step 2: Validate configuration
   onProgress?.('Validating configuration...');
-  console.log('\n📋 Step 2: Validating configuration');
+  logger.info('Step 2: Validating configuration', { action: 'validate_config' });
 
   const configErrors = validateEnvironmentConfig(config);
   if (configErrors.length > 0) {
     configErrors.forEach((error) => {
       errors.push(error);
       onError?.(error);
-      console.error(`   ❌ ${error}`);
+      logger.error('Configuration validation error', undefined, {
+        action: 'config_validation_failed',
+        error,
+      });
     });
 
     if (failFast) {
@@ -121,12 +131,12 @@ export async function bootstrap(
       };
     }
   } else {
-    console.log('   ✅ Configuration valid');
+    logger.info('Configuration valid', { action: 'config_validated' });
   }
 
   // Step 3: Check feature flags
   onProgress?.('Checking feature flags...');
-  console.log('\n🎯 Step 3: Feature flags');
+  logger.info('Step 3: Feature flags', { action: 'check_features' });
   console.log(`   SDUI Debug: ${config.features.sduiDebug ? '✅' : '❌'}`);
   console.log(`   Agent Fabric: ${config.features.agentFabric ? '✅' : '❌'}`);
   console.log(`   Workflow: ${config.features.workflow ? '✅' : '❌'}`);

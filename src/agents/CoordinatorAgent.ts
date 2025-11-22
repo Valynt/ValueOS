@@ -475,10 +475,10 @@ Generate the optimal SDUI layout for this data.`,
   /**
    * Calculate object depth
    */
-  private calculateObjectDepth(obj: any, depth: number = 0): number {
+  private calculateObjectDepth(obj: unknown, depth: number = 0): number {
     if (typeof obj !== 'object' || obj === null) return depth;
 
-    const depths = Object.values(obj).map((value) =>
+    const depths = Object.values(obj as Record<string, unknown>).map((value) =>
       this.calculateObjectDepth(value, depth + 1)
     );
 
@@ -488,7 +488,7 @@ Generate the optimal SDUI layout for this data.`,
   /**
    * Validate generated layout
    */
-  private validateGeneratedLayout(layout: any): {
+  private validateGeneratedLayout(layout: unknown): {
     valid: boolean;
     errors: string[];
     warnings: string[];
@@ -663,7 +663,7 @@ Generate the optimal SDUI layout for this data.`,
    */
   private calculateRoutingConfidence(
     subgoal: Subgoal,
-    agentInfo: any
+    agentInfo: { capabilities: string[]; complexity_range: [number, number] }
   ): number {
     // Check if subgoal type matches agent capabilities
     const capabilityMatch = agentInfo.capabilities.some((cap: string) =>
@@ -725,8 +725,8 @@ Generate the optimal SDUI layout for this data.`,
    */
   private async logDecision(
     decisionType: string,
-    data: any,
-    metadata: Record<string, any>
+    data: Record<string, unknown>,
+    metadata: Record<string, unknown>
   ): Promise<void> {
     try {
       await createAuditEvent({
