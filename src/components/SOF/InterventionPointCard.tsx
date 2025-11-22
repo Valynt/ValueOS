@@ -4,7 +4,7 @@
  * Displays intervention point details with risks, pathways, and actions.
  */
 
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import type { InterventionPoint } from '../../types/sof';
 
 export interface InterventionPointCardProps {
@@ -16,7 +16,7 @@ export interface InterventionPointCardProps {
   onView?: () => void;
 }
 
-export const InterventionPointCard: React.FC<InterventionPointCardProps> = ({
+export const InterventionPointCard: React.FC<InterventionPointCardProps> = React.memo(({
   intervention,
   showRisks = true,
   showPathways = true,
@@ -24,7 +24,7 @@ export const InterventionPointCard: React.FC<InterventionPointCardProps> = ({
   onEdit,
   onView,
 }) => {
-  const getStatusColor = (status: InterventionPoint['status']) => {
+  const getStatusColor = useCallback((status: InterventionPoint['status']) => {
     const colors = {
       proposed: 'bg-blue-100 text-blue-800',
       validated: 'bg-green-100 text-green-800',
@@ -34,14 +34,24 @@ export const InterventionPointCard: React.FC<InterventionPointCardProps> = ({
       retired: 'bg-gray-100 text-gray-800',
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
-  };
+  }, []);
 
-  const getLeverageColor = (level: number) => {
+  const getLeverageColor = useCallback((level: number) => {
     if (level >= 8) return 'text-red-600 font-bold';
     if (level >= 6) return 'text-orange-600 font-semibold';
     if (level >= 4) return 'text-yellow-600';
     return 'text-gray-600';
-  };
+  }, []);
+
+  const statusColor = useMemo(
+    () => getStatusColor(intervention.status),
+    [intervention.status, getStatusColor]
+  );
+
+  const leverageColor = useMemo(
+    () => getLeverageColor(intervention.leverage_level),
+    [intervention.leverage_level, getLeverageColor]
+  );
 
   return (
     <div className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition-shadow">
@@ -166,6 +176,8 @@ export const InterventionPointCard: React.FC<InterventionPointCardProps> = ({
       </div>
     </div>
   );
-};
+});
+
+InterventionPointCard.displayName = 'InterventionPointCard';
 
 export default InterventionPointCard;

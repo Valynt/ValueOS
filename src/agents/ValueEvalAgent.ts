@@ -11,15 +11,29 @@
 import { supabase } from '../lib/supabase';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 
+export interface ImprovementSuggestion {
+  category: string;
+  priority: 'low' | 'medium' | 'high';
+  description: string;
+  impact: string;
+}
+
 export interface ScoreResult {
   overall_score: number;
   quality_score: number;
   completeness_score: number;
   accuracy_score: number;
   usefulness_score: number;
-  metrics: Record<string, any>;
+  metrics: Record<string, number | string | boolean>;
   recommendations: string[];
-  improvement_suggestions: any[];
+  improvement_suggestions: ImprovementSuggestion[];
+}
+
+export interface CustomRule {
+  name: string;
+  condition: (artifact: Record<string, unknown>) => boolean;
+  weight: number;
+  message: string;
 }
 
 export interface EvaluationCriteria {
@@ -30,7 +44,7 @@ export interface EvaluationCriteria {
     good: number;
     acceptable: number;
   };
-  custom_rules?: any[];
+  custom_rules?: CustomRule[];
 }
 
 export class ValueEvalAgent {
@@ -48,7 +62,7 @@ export class ValueEvalAgent {
   async evaluateArtifact(
     artifactType: string,
     artifactId: string,
-    artifact: any,
+    artifact: Record<string, unknown>,
     criteria?: EvaluationCriteria
   ): Promise<ScoreResult> {
     // Get evaluation criteria

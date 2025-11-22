@@ -10,6 +10,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { getMessageBus } from '../services/MessageBus';
+import { createLogger } from '../lib/logger';
 import type {
   CommunicationEvent,
   CreateCommunicationEvent,
@@ -21,16 +22,18 @@ export class CommunicatorAgent {
   private agentName: string;
   private subscriptions: Map<string, () => void>;
   private pendingRequests: Map<string, {
-    resolve: (value: any) => void;
+    resolve: (value: unknown) => void;
     reject: (error: Error) => void;
     timeout: NodeJS.Timeout;
   }>;
+  private logger: ReturnType<typeof createLogger>;
 
   constructor(agentName: string = 'CommunicatorAgent') {
     this.agentName = agentName;
     this.messageBus = getMessageBus();
     this.subscriptions = new Map();
     this.pendingRequests = new Map();
+    this.logger = createLogger({ component: 'CommunicatorAgent', agent: agentName });
 
     // Subscribe to agent's dedicated channel
     this.subscribeToOwnChannel();
@@ -42,7 +45,7 @@ export class CommunicatorAgent {
   async sendMessage(
     recipientAgent: string,
     messageType: CommunicationEvent['message_type'],
-    payload: any,
+    payload: Record<string, unknown>,
     options?: {
       priority?: CommunicationEvent['priority'];
       correlationId?: string;
@@ -68,7 +71,7 @@ export class CommunicatorAgent {
    */
   async broadcast(
     messageType: CommunicationEvent['message_type'],
-    payload: any,
+    payload: Record<string, unknown>,
     options?: {
       priority?: CommunicationEvent['priority'];
     }
@@ -85,11 +88,11 @@ export class CommunicatorAgent {
   /**
    * Send a request and wait for response
    */
-  async request(
+  async request<T = unknown>(
     recipientAgent: string,
-    payload: any,
+    payload: Record<string, unknown>,
     timeout: number = 5000
-  ): Promise<any> {
+  ): Promise<T> {
     const correlationId = uuidv4();
     const replyChannel = `${this.agentName}.reply.${correlationId}`;
 
@@ -137,7 +140,7 @@ export class CommunicatorAgent {
    */
   async reply(
     originalEvent: CommunicationEvent,
-    responsePayload: any
+    responsePayload: Record<string, unknown>
   ): Promise<void> {
     if (!originalEvent.reply_to || !originalEvent.correlation_id) {
       throw new Error('Cannot reply to event without reply_to or correlation_id');
@@ -202,7 +205,7 @@ export class CommunicatorAgent {
    */
   async assignTask(
     agentName: string,
-    taskData: any,
+    taskData: Record<string, unknown>,
     priority: CommunicationEvent['priority'] = 'normal'
   ): Promise<string> {
     return await this.sendMessage(agentName, 'task_assignment', taskData, {
@@ -216,7 +219,7 @@ export class CommunicatorAgent {
   async notifyTaskCompletion(
     coordinatorAgent: string,
     taskId: string,
-    result: any
+    result: unknown
   ): Promise<void> {
     await this.sendMessage(coordinatorAgent, 'task_completion', {
       task_id: taskId,
@@ -243,7 +246,7 @@ export class CommunicatorAgent {
   /**
    * Send status update
    */
-  async sendStatusUpdate(status: any): Promise<void> {
+  async sendStatusUpdate(status: Record<string, unknown>): Promise<void> {
     await this.messageBus.publishMessage('status', {
       channel: 'status',
       message_type: 'status_update',
@@ -298,7 +301,12 @@ export class CommunicatorAgent {
     const channel = this.getAgentChannel(this.agentName);
     this.subscribe(channel, async (event) => {
       // Handle incoming messages
-      console.log(`${this.agentName} received message:`, event);
+      this.logger.debug('Received message', {
+        action: 'message_received',
+        channel,
+        messageType: event.message_type,
+        sender: event.sender_agent,
+      });
     });
   }
 
@@ -309,24 +317,24 @@ export class CommunicatorAgent {
   /**
    * Compress large payloads
    */
-  compressPayload(payload: any): any {
+  compressPayload(payload: Record<string, unknown>): string {
     return this.messageBus.compressMessage(payload);
   }
 
   /**
    * Expand compressed payloads
    */
-  expandPayload(payload: any): any {
+  expandPayload(payload: string): Record<string, unknown> {
     return this.messageBus.expandMessage(payload);
   }
 
   /**
    * Create a coordination request
    */
-  async requestCoordination(
+  async requestCoordination<T = unknown>(
     coordinatorAgent: string,
-    request: any
-  ): Promise<any> {
+    request: Record<string, unknown>
+  ): Promise<T> {
     return await this.request(coordinatorAgent, {
       type: 'coordination_request',
       ...request,
@@ -338,7 +346,7 @@ export class CommunicatorAgent {
    */
   async respondToCoordination(
     originalEvent: CommunicationEvent,
-    response: any
+    response: Record<string, unknown>
   ): Promise<void> {
     await this.reply(originalEvent, {
       type: 'coordination_response',
