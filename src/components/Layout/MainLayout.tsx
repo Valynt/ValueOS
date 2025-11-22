@@ -6,7 +6,7 @@ import { calculationEngine } from '../../services/CalculationEngine';
 import { Canvas } from './Canvas';
 import { ControlsPanel } from './ControlsPanel';
 import { Toolbar } from './Toolbar';
-import { SaveIndicator } from './SaveIndicator';
+import { SaveIndicator } from '../Common/SaveIndicator';
 import { CommandBar } from '../Agent/CommandBar';
 import { GhostPreview } from '../Agent/GhostPreview';
 import { SuggestionCard, Suggestion } from '../Agent/SuggestionCard';
@@ -35,7 +35,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onBack, caseId: propCase
   const [ghostPreview, setGhostPreview] = useState<Omit<CanvasComponent, 'id'> | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'saving' | 'error'>('idle');
   const [highlightedComponentId, setHighlightedComponentId] = useState<string | null>(null);
   const [streamingUpdate, setStreamingUpdate] = useState<StreamingUpdate | null>(null);
   const [rippleEffects, setRippleEffects] = useState<Array<{ id: string; componentId: string; position: { x: number; y: number } }>>([]);
