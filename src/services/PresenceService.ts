@@ -1,9 +1,11 @@
 /**
  * Presence Service
  * Real-time collaboration indicators showing active users
+ * 
+ * SEC-003: Migrated to TenantAwareService for tenant isolation
  */
 
-import { BaseService } from './BaseService';
+import { TenantAwareService } from './TenantAwareService';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 export interface ActiveSession {
@@ -25,7 +27,7 @@ export interface PresenceUser {
   lastSeen: string;
 }
 
-export class PresenceService extends BaseService {
+export class PresenceService extends TenantAwareService {
   private heartbeatInterval?: NodeJS.Timeout;
   private currentSessionId?: string;
   private realtimeChannel?: RealtimeChannel;
@@ -36,22 +38,28 @@ export class PresenceService extends BaseService {
 
   /**
    * Start presence tracking for current user
+   * SEC-003: Added tenant validation
    */
   async startPresence(
     userId: string,
+    tenantId: string,
     pagePath: string,
     action: string = 'viewing',
     metadata: Record<string, any> = {}
   ): Promise<string> {
-    this.log('info', 'Starting presence tracking', { userId, pagePath, action });
+    this.log('info', 'Starting presence tracking', { userId, tenantId, pagePath, action });
+
+    // SEC-003: Validate tenant access
+    await this.validateTenantAccess(userId, tenantId);
 
     return this.executeRequest(
       async () => {
-        // Create session
+        // Create session with tenant_id
         const { data, error } = await this.supabase
           .from('active_sessions')
           .insert({
             user_id: userId,
+            tenant_id: tenantId, // SEC-003: Always include tenant_id
             page_path: pagePath,
             action,
             metadata,
