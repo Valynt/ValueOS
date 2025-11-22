@@ -1,0 +1,114 @@
+# ============================================================================
+# ValueCanvas Development Docker Compose
+# ============================================================================
+# Local development environment with hot-reloading
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # ============================================================================
+  # ValueCanvas Application (Development)
+  # ============================================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: valuecanvas-dev
+    ports:
+      - "5173:5173"  # Vite dev server
+      - "24678:24678"  # Vite HMR
+    volumes:
+      # Mount source code for hot-reloading
+      - ./src:/app/src:cached
+      - ./public:/app/public:cached
+      - ./index.html:/app/index.html:cached
+      - ./vite.config.ts:/app/vite.config.ts:cached
+      - ./tsconfig.json:/app/tsconfig.json:cached
+      - ./tsconfig.app.json:/app/tsconfig.app.json:cached
+      - ./tsconfig.node.json:/app/tsconfig.node.json:cached
+      - ./package.json:/app/package.json:cached
+      - ./package-lock.json:/app/package-lock.json:cached
+      # Exclude node_modules (use container's version)
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - VITE_HOST=0.0.0.0
+      - VITE_PORT=5173
+      - VITE_HMR_PORT=24678
+      # Supabase (use .env.local values)
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+      # LLM API
+      - VITE_LLM_API_KEY=${VITE_LLM_API_KEY}
+      - VITE_LLM_PROVIDER=${VITE_LLM_PROVIDER:-together}
+    networks:
+      - valuecanvas-network
+    command: npm run dev
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5173"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ============================================================================
+  # PostgreSQL Database (Optional - for local testing)
+  # ============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: valuecanvas-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=valuecanvas
+      - POSTGRES_USER=valuecanvas
+      - POSTGRES_PASSWORD=valuecanvas_dev_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./supabase/migrations:/docker-entrypoint-initdb.d:ro
+    networks:
+      - valuecanvas-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U valuecanvas"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================================
+  # Redis (Optional - for rate limiting and caching)
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: valuecanvas-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - valuecanvas-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: redis-server --appendonly yes
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  valuecanvas-network:
+    driver: bridge
+
+# ============================================================================
+# Volumes
+# ============================================================================
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local

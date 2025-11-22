@@ -1,0 +1,30 @@
+# ============================================================================
+# ValueCanvas Development Dockerfile
+# ============================================================================
+# Optimized for local development with hot-reloading
+# ============================================================================
+
+FROM node:20-alpine
+
+# Install development tools
+RUN apk update && apk add --no-cache \
+    git \
+    curl \
+    && rm -rf /var/cache/apk/*
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies (including devDependencies)
+RUN npm ci --legacy-peer-deps
+
+# Copy source code (will be overridden by volume mount)
+COPY . .
+
+# Expose ports
+EXPOSE 5173 24678
+
+# Start development server
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

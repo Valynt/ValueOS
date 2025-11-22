@@ -8,23 +8,42 @@ ValueCanvas is an enterprise-grade platform that combines LLM-powered multi-agen
 
 ## 🚀 Quick Start
 
-Get up and running in 5 minutes:
+### Option 1: Docker (Recommended)
+
+Get up and running in 5 minutes with Docker:
+
+```bash
+# 1. Clone and setup
+git clone https://github.com/bmsull560/ValueCanvas.git
+cd ValueCanvas
+cp .env.example .env.local
+# Edit .env.local with your credentials
+
+# 2. Start with Docker Compose
+docker-compose -f docker-compose.dev.yml up -d
+
+# 3. Open browser
+open http://localhost:5173
+```
+
+### Option 2: Native Development
 
 ```bash
 # 1. Install dependencies
 npm install
 
 # 2. Set up environment
-cp .env.local .env
-# Edit .env and add your LLM API key
+cp .env.example .env.local
+# Edit .env.local and add your credentials
 
-# 3. Start everything
-./start.sh
+# 3. Start development server
+npm run dev
 ```
 
 Open http://localhost:5173 and start creating value!
 
-📖 **New to ValueCanvas?** See [QUICKSTART.md](./QUICKSTART.md) for detailed setup instructions.
+📖 **New to ValueCanvas?** See [QUICKSTART.md](./QUICKSTART.md) for detailed setup instructions.  
+🐳 **Production Deployment?** See [DEPLOYMENT.md](./DEPLOYMENT.md) for comprehensive deployment guide.
 
 ---
 
@@ -220,6 +239,48 @@ npm run test:watch   # Run tests in watch mode
 npm run lint         # Run ESLint
 npm run security:scan # Run security audit
 ```
+
+---
+
+## 🐳 Deployment
+
+### Docker Deployment
+
+ValueCanvas includes production-ready Docker configurations:
+
+```bash
+# Development (with hot-reloading)
+docker-compose -f docker-compose.dev.yml up -d
+
+# Production (optimized build)
+docker-compose -f docker-compose.prod.yml up -d
+
+# Verify deployment
+bash scripts/verify-deployment.sh
+```
+
+### Cloud Deployment
+
+Deploy to your preferred cloud provider:
+
+- **AWS ECS/Fargate**: See [DEPLOYMENT.md#aws-deployment](./DEPLOYMENT.md#aws-deployment)
+- **Google Cloud Run**: See [DEPLOYMENT.md#gcp-deployment](./DEPLOYMENT.md#gcp-deployment)
+- **Azure Container Instances**: See [DEPLOYMENT.md#azure-deployment](./DEPLOYMENT.md#azure-deployment)
+- **Kubernetes**: See [infrastructure/kubernetes/](./infrastructure/kubernetes/)
+
+### Production Checklist
+
+Before deploying to production:
+
+- [ ] Set production environment variables in `.env.production`
+- [ ] Configure SSL/TLS certificates
+- [ ] Set up monitoring and logging
+- [ ] Configure backup strategy
+- [ ] Run security audit: `npm run security:scan`
+- [ ] Verify no console.log: `bash scripts/audit-logs.sh`
+- [ ] Test deployment: `bash scripts/verify-deployment.sh`
+
+📖 **Complete Deployment Guide**: See [DEPLOYMENT.md](./DEPLOYMENT.md) for comprehensive instructions.
 
 ### Project Structure
 
