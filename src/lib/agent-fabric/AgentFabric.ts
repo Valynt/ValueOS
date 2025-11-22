@@ -7,6 +7,8 @@ import { CompanyIntelligenceAgent } from './agents/CompanyIntelligenceAgent';
 import { ValueMappingAgent } from './agents/ValueMappingAgent';
 import { FinancialModelingAgent } from './agents/FinancialModelingAgent';
 import { Agent, Workflow, WorkflowExecution, AgentFabricResult } from './types';
+import { AgentCircuitBreaker, SafetyLimits, SafetyError } from './CircuitBreaker';
+import { logger } from '../logger';
 
 export class AgentFabric {
   private supabase: SupabaseClient;
@@ -14,6 +16,7 @@ export class AgentFabric {
   private memorySystem: MemorySystem;
   private auditLogger: AuditLogger;
   private reflectionEngine: ReflectionEngine;
+  private safetyLimits: SafetyLimits;
 
   private agents: Map<string, Agent> = new Map();
   private workflow?: Workflow;
@@ -21,13 +24,22 @@ export class AgentFabric {
   constructor(
     supabaseUrl: string,
     supabaseKey: string,
-    llmProvider: LLMProvider = 'together'
+    llmProvider: LLMProvider = 'together',
+    safetyLimits?: Partial<SafetyLimits>
   ) {
     this.supabase = new SupabaseClient(supabaseUrl, supabaseKey);
     this.llmGateway = new LLMGateway(llmProvider);
     this.memorySystem = new MemorySystem(this.supabase, this.llmGateway);
     this.auditLogger = new AuditLogger(this.supabase);
     this.reflectionEngine = new ReflectionEngine(this.llmGateway);
+    this.safetyLimits = {
+      maxExecutionTime: 30000,
+      maxLLMCalls: 20,
+      maxRecursionDepth: 5,
+      maxMemoryBytes: 100 * 1024 * 1024,
+      enableDetailedTracking: false,
+      ...safetyLimits,
+    };
   }
 
   async initialize(): Promise<void> {

@@ -240,7 +240,7 @@ class CacheManager {
     try {
       sessionStorage.setItem(key, JSON.stringify(entry));
     } catch (error) {
-      console.warn('Session storage error:', error);
+      logger.warn('Session storage error:', error);
     }
   }
 
@@ -251,7 +251,7 @@ class CacheManager {
       const item = sessionStorage.getItem(key);
       return item ? JSON.parse(item) : null;
     } catch (error) {
-      console.warn('Session storage error:', error);
+      logger.warn('Session storage error:', error);
       return null;
     }
   }
@@ -262,7 +262,7 @@ class CacheManager {
     try {
       localStorage.setItem(key, JSON.stringify(entry));
     } catch (error) {
-      console.warn('Local storage error:', error);
+      logger.warn('Local storage error:', error);
     }
   }
 
@@ -273,7 +273,7 @@ class CacheManager {
       const item = localStorage.getItem(key);
       return item ? JSON.parse(item) : null;
     } catch (error) {
-      console.warn('Local storage error:', error);
+      logger.warn('Local storage error:', error);
       return null;
     }
   }
@@ -331,4 +331,5 @@ export const useCache = <T,>(
   return { data, loading, error, invalidate };
 };
 
+import { logger } from './lib/logger';
 import React from 'react';

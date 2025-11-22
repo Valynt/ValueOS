@@ -5,6 +5,7 @@
  * Provides defense-in-depth tenant isolation even if RLS fails.
  */
 
+import { logger } from '../lib/logger';
 import { BaseService } from './BaseService';
 import { AuthorizationError, ValidationError } from './errors';
 import { createLogger } from '../lib/logger';

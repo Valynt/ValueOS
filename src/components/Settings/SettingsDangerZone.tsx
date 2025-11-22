@@ -22,7 +22,7 @@ export const SettingsDangerZone: React.FC<SettingsDangerZoneProps> = ({ actions 
       setConfirmingAction(null);
       setConfirmText('');
     } catch (error) {
-      console.error('Action failed:', error);
+      logger.error('Action failed:', error);
     } finally {
       setIsExecuting(false);
     }

@@ -288,7 +288,7 @@ export class ManifestoValidator {
             }
           }
         } catch (error) {
-          console.error(`Validation error for rule ${rule.id}:`, error);
+          logger.error(`Validation error for rule ${rule.id}:`, error);
         }
       }
     }

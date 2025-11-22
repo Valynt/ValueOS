@@ -10,6 +10,7 @@
  * - Session refresh
  */
 
+import { logger } from '../lib/logger';
 import { BaseService } from './BaseService';
 import { authService } from './AuthService';
 

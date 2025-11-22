@@ -49,7 +49,7 @@ export const AgentAuditLogView: React.FC = () => {
       const data = await logger.query(filters);
       setLogs(data);
     } catch (error) {
-      console.error('Failed to load logs:', error);
+      logger.error('Failed to load logs:', error);
     } finally {
       setLoading(false);
     }
@@ -63,7 +63,7 @@ export const AgentAuditLogView: React.FC = () => {
       const data = await logger.getStats(filters);
       setStats(data);
     } catch (error) {
-      console.error('Failed to load stats:', error);
+      logger.error('Failed to load stats:', error);
     }
   };
 

@@ -3,6 +3,7 @@
  * Role-based access control and permission checking
  */
 
+import { logger } from '../lib/logger';
 import { BaseService } from './BaseService';
 import { AuthorizationError, NotFoundError } from './errors';
 

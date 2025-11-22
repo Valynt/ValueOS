@@ -5,6 +5,7 @@
  * and value stories. Part of the Systemic Outcome Framework (SOF).
  */
 
+import { logger } from '../lib/logger';
 import type {
   SystemMap,
   InterventionPoint,
@@ -70,7 +71,7 @@ export class OutcomeEngineerAgent {
    * Engineer outcome hypotheses
    */
   async engineer(input: OutcomeEngineerInput): Promise<OutcomeEngineerOutput> {
-    console.log(`[${this.agentName}] Engineering outcome hypotheses...`);
+    logger.debug('Engineering outcome hypotheses...', { agent: this.agentName });
 
     const hypotheses: Array<Omit<OutcomeHypothesis, 'id' | 'created_at' | 'updated_at'>> = [];
 
@@ -97,7 +98,7 @@ export class OutcomeEngineerAgent {
     // Calculate confidence
     const confidence = this.calculateConfidence(input, hypotheses);
 
-    console.log(`[${this.agentName}] Created ${hypotheses.length} outcome hypotheses. Confidence: ${confidence}`);
+    logger.debug('Created ${hypotheses.length} outcome hypotheses. Confidence: ${confidence}', { agent: this.agentName });
 
     return {
       outcomeHypotheses: hypotheses,

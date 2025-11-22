@@ -2,6 +2,7 @@
  * Utility functions for SDUI rendering
  */
 
+import { logger } from '../../lib/logger';
 import { SDUIComponentSection, SDUIPageDefinition } from '../schema';
 import { ComponentMetadata, RenderPerformanceMetrics } from '../types';
 
@@ -342,7 +343,7 @@ export function isDevelopment(): boolean {
  */
 export function devLog(message: string, ...args: any[]): void {
   if (isDevelopment()) {
-    console.log(`[SDUI] ${message}`, ...args);
+    logger.debug(`[SDUI] ${message}`, ...args);
   }
 }
 
@@ -351,7 +352,7 @@ export function devLog(message: string, ...args: any[]): void {
  */
 export function devWarn(message: string, ...args: any[]): void {
   if (isDevelopment()) {
-    console.warn(`[SDUI] ${message}`, ...args);
+    logger.warn(`[SDUI] ${message}`, ...args);
   }
 }
 
@@ -359,5 +360,5 @@ export function devWarn(message: string, ...args: any[]): void {
  * Log error (always logged)
  */
 export function logError(message: string, error?: Error, ...args: any[]): void {
-  console.error(`[SDUI] ${message}`, error, ...args);
+  logger.error(`[SDUI] ${message}`, error, ...args);
 }

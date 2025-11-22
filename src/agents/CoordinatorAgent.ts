@@ -6,9 +6,12 @@
  * - Routing subgoals to appropriate agents
  * - Generating SDUI layouts
  * - Logging all decisions to audit system
+ * 
+ * SEC-004: Uses secure logger to prevent sensitive data leakage
  */
 
 import { v4 as uuidv4 } from 'uuid';
+import { logger } from '../lib/logger';
 import type {
   TaskIntent,
   CreateTaskIntent,
@@ -211,7 +214,10 @@ export class CoordinatorAgent {
       try {
         return await this.generateDynamicUILayout(subgoal);
       } catch (error) {
-        console.warn('Dynamic UI generation failed, falling back to static:', error);
+        logger.warn('Dynamic UI generation failed, using fallback', {
+          subgoalType: subgoal.type,
+          // NEVER log: error details (may contain sensitive data)
+        });
         // Fall through to static generation
       }
     }
@@ -742,7 +748,9 @@ Generate the optimal SDUI layout for this data.`,
         },
       });
     } catch (error) {
-      console.error('Failed to log coordinator decision:', error);
+      logger.error('Failed to log coordinator decision', error instanceof Error ? error : undefined, {
+        decisionType,
+      });
     }
   }
 

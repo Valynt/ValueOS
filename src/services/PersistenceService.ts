@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
 import { CanvasComponent } from '../types';
 
@@ -48,7 +49,7 @@ class PersistenceService {
       .single();
 
     if (error) {
-      console.error('Error creating business case:', error);
+      logger.error('Error creating business case', error instanceof Error ? error : undefined);
       return null;
     }
 
@@ -63,7 +64,7 @@ class PersistenceService {
       .single();
 
     if (error) {
-      console.error('Error fetching business case:', error);
+      logger.error('Error fetching business case', error instanceof Error ? error : undefined);
       return null;
     }
 
@@ -77,7 +78,7 @@ class PersistenceService {
       .eq('id', caseId);
 
     if (error) {
-      console.error('Error updating business case:', error);
+      logger.error('Error updating business case', error instanceof Error ? error : undefined);
       return false;
     }
 
@@ -102,7 +103,7 @@ class PersistenceService {
       .single();
 
     if (error) {
-      console.error('Error saving component:', error);
+      logger.error('Error saving component', error instanceof Error ? error : undefined);
       return null;
     }
 
@@ -144,7 +145,7 @@ class PersistenceService {
       .eq('id', componentId);
 
     if (error) {
-      console.error('Error updating component:', error);
+      logger.error('Error updating component', error instanceof Error ? error : undefined);
       return false;
     }
 
@@ -182,7 +183,7 @@ class PersistenceService {
       .eq('id', componentId);
 
     if (error) {
-      console.error('Error deleting component:', error);
+      logger.error('Error deleting component', error instanceof Error ? error : undefined);
       return false;
     }
 
@@ -197,7 +198,7 @@ class PersistenceService {
       .order('created_at', { ascending: true });
 
     if (error) {
-      console.error('Error loading components:', error);
+      logger.error('Error loading components', error instanceof Error ? error : undefined);
       return [];
     }
 
@@ -226,7 +227,7 @@ class PersistenceService {
       });
 
     if (error) {
-      console.error('Error logging history:', error);
+      logger.error('Error logging history', error instanceof Error ? error : undefined);
     }
   }
 
@@ -238,7 +239,7 @@ class PersistenceService {
       .order('timestamp', { ascending: false });
 
     if (error) {
-      console.error('Error fetching component history:', error);
+      logger.error('Error fetching component history', error instanceof Error ? error : undefined);
       return [];
     }
 
@@ -257,7 +258,7 @@ class PersistenceService {
       .limit(limit);
 
     if (error) {
-      console.error('Error fetching global history:', error);
+      logger.error('Error fetching global history', error instanceof Error ? error : undefined);
       return [];
     }
 
@@ -284,7 +285,7 @@ class PersistenceService {
       });
 
     if (error) {
-      console.error('Error logging agent activity:', error);
+      logger.error('Error logging agent activity', error instanceof Error ? error : undefined);
     }
   }
 
@@ -297,7 +298,7 @@ class PersistenceService {
       .limit(limit);
 
     if (error) {
-      console.error('Error fetching agent activities:', error);
+      logger.error('Error fetching agent activities', error instanceof Error ? error : undefined);
       return [];
     }
 

@@ -3,7 +3,11 @@
  * 
  * Centralized configuration management for the ValueCanvas application.
  * Reads from environment variables and provides type-safe access.
+ * 
+ * SEC-004: Uses secure logger to prevent config/secret leakage
  */
+
+import { logger } from '../lib/logger';
 
 /**
  * Application environment type
@@ -336,21 +340,24 @@ export function getConfig(): EnvironmentConfig {
     // Validate configuration
     const errors = validateEnvironmentConfig(configInstance);
     if (errors.length > 0) {
-      console.error('Environment configuration errors:', errors);
+      logger.error('Environment configuration errors', undefined, { 
+        errorCount: errors.length,
+        // NEVER log actual errors - may contain secrets
+      });
       if (configInstance.app.env === 'production') {
-        throw new Error(`Invalid environment configuration: ${errors.join(', ')}`);
+        throw new Error(`Invalid environment configuration: ${errors.length} errors found`);
       }
     }
 
-    // Log configuration in development
+    // Log minimal configuration in development only
     if (configInstance.app.env === 'development') {
-      console.log('Environment configuration loaded:', {
+      logger.info('Environment configuration loaded', {
         env: configInstance.app.env,
-        features: configInstance.features,
-        agents: {
-          apiUrl: configInstance.agents.apiUrl,
-          circuitBreaker: configInstance.agents.circuitBreaker.enabled,
-        },
+        featuresEnabled: Object.keys(configInstance.features).filter(
+          k => configInstance.features[k as keyof typeof configInstance.features]
+        ).length,
+        agentCircuitBreakerEnabled: configInstance.agents.circuitBreaker.enabled,
+        // NEVER log: URLs, API keys, secrets, full config
       });
     }
   }

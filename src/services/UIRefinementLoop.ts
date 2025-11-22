@@ -5,6 +5,7 @@
  * Evaluates generated UIs and refines them based on feedback.
  */
 
+import { logger } from '../lib/logger';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import { getUIGenerationTracker } from './UIGenerationTracker';
 import { validateComponentSelection } from '../sdui/ComponentToolRegistry';
@@ -263,14 +264,14 @@ Generate an improved layout that addresses these issues.`,
       refinedLayout = JSON.parse(jsonContent);
     } catch (error) {
       // If parsing fails, return current layout
-      console.error('Failed to parse refined layout:', error);
+      logger.error('Failed to parse refined layout', error instanceof Error ? error : undefined);
       return currentLayout;
     }
 
     // Validate refined layout
     const validation = this.validateLayout(refinedLayout);
     if (!validation.valid) {
-      console.warn('Refined layout validation failed:', validation.errors);
+      logger.warn('Refined layout validation failed:', validation.errors);
       return currentLayout;
     }
 

@@ -40,7 +40,7 @@ export function WorkflowErrorPanel({ executionId, onRetry, onRollback, onClose }
         .map(log => log.stage_id);
       setExpandedStages(new Set(failedStages));
     } catch (error) {
-      console.error('Failed to load execution data:', error);
+      logger.error('Failed to load execution data:', error);
     } finally {
       setLoading(false);
     }

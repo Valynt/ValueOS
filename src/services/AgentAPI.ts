@@ -5,6 +5,7 @@
  * and comprehensive error handling.
  */
 
+import { logger } from '../lib/logger';
 import { CircuitBreaker } from './CircuitBreaker';
 import { SDUIPageDefinition, validateSDUISchema } from '../sdui/schema';
 import { getAuditLogger, logAgentResponse } from './AgentAuditLogger';
@@ -317,7 +318,7 @@ export class AgentAPI {
     try {
       // Log request if enabled
       if (this.config.enableLogging) {
-        console.log(`[AgentAPI] Request to ${agent}:`, { endpoint, body });
+        logger.debug(`[AgentAPI] Request to ${agent}:`, { endpoint, body });
       }
 
       // Make HTTP request
@@ -355,7 +356,7 @@ export class AgentAPI {
 
       // Log response if enabled
       if (this.config.enableLogging) {
-        console.log(`[AgentAPI] Response from ${agent}:`, data);
+        logger.debug(`[AgentAPI] Response from ${agent}:`, data);
       }
 
       const result = {
@@ -394,7 +395,7 @@ export class AgentAPI {
 
       // Log error if enabled
       if (this.config.enableLogging) {
-        console.error(`[AgentAPI] Error from ${agent}:`, error);
+        logger.error(`[AgentAPI] Error from ${agent}:`, error);
       }
 
       const result = {

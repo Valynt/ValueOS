@@ -12,6 +12,7 @@
  * - Ontology versioning
  */
 
+import { logger } from '../lib/logger';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { llmProxyClient } from './LlmProxyClient';
 import type {
@@ -326,7 +327,7 @@ export class ValueFabricService {
     });
 
     if (error) {
-      console.warn('Semantic search failed, falling back to text search:', error);
+      logger.warn('Semantic search failed, falling back to text search:', error);
       return this.fallbackTextSearch(queryText, limit);
     }
 

@@ -68,7 +68,7 @@ export interface KPIFormProps {
  *   kpiName="Lead Conversion Rate"
  *   unit="%"
  *   onSubmit={(baseline, target) => {
- *     console.log(`Baseline: ${baseline}, Target: ${target}`);
+ *     logger.debug(`Baseline: ${baseline}, Target: ${target}`);
  *   }}
  * />
  * ```

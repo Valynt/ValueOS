@@ -14,6 +14,7 @@
  * - Recommend relevant capabilities from Value Fabric
  */
 
+import { logger } from '../../../lib/logger';
 import { BaseAgent } from './BaseAgent';
 import { ValueFabricService } from '../../../services/ValueFabricService';
 import type {
@@ -222,7 +223,7 @@ Return ONLY valid JSON in this exact format:
           sc => !capabilities.find(c => c.id === sc.id)
         ));
       } catch (error) {
-        console.warn('Semantic search failed, using tag-based results only:', error);
+        logger.warn('Semantic search failed, using tag-based results only:', error);
       }
     }
 
@@ -250,7 +251,7 @@ Return ONLY valid JSON in this exact format:
         .single();
 
       if (error) {
-        console.error('Failed to persist business objective:', error);
+        logger.error('Failed to persist business objective:', error);
         continue;
       }
 

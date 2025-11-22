@@ -7,6 +7,7 @@
  * Based on the Agent Fabric documentation's reflection and refinement system.
  */
 
+import { logger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
 import { getAgentAPI } from './AgentAPI';
 

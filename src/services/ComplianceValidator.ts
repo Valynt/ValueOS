@@ -5,6 +5,7 @@
  * Generates compliance stamps with evidence and confidence scores.
  */
 
+import { logger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
 import { ComplianceRule, ComplianceMetadata } from '../components/Compliance/ComplianceStamp';
 

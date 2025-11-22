@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { CanvasComponent, AgentMessage, WorkflowStatus } from '../types';
 import { layoutEngine } from './LayoutEngine';
 import { getAgentAPI, AgentType, AgentContext, AgentResponse as APIAgentResponse } from './AgentAPI';

@@ -3,8 +3,11 @@
  * 
  * Identifies high-leverage interventions from system maps and connects
  * them to KPIs and value models. Part of the Systemic Outcome Framework (SOF).
+ * 
+ * SEC-004: Uses secure logger to prevent sensitive data leakage
  */
 
+import { logger } from '../lib/logger';
 import type {
   SystemMap,
   InterventionPoint,
@@ -73,7 +76,10 @@ export class InterventionDesignerAgent {
    * Design interventions from system map
    */
   async design(input: InterventionDesignerInput): Promise<InterventionDesignerOutput> {
-    console.log(`[${this.agentName}] Designing interventions for system map...`);
+    logger.debug('Designing interventions', {
+      agent: this.agentName,
+      organizationId: input.organizationId,
+    });
 
     // Analyze leverage points from system map
     const leverageAnalysis = this.analyzeLeveragePoints(input.systemMap.leverage_points, input.kpis);
@@ -113,7 +119,11 @@ export class InterventionDesignerAgent {
     // Calculate confidence
     const confidence = this.calculateConfidence(input.systemMap, interventionPoints);
 
-    console.log(`[${this.agentName}] Designed ${interventionPoints.length} interventions. Confidence: ${confidence}`);
+    logger.info('Interventions designed', {
+      agent: this.agentName,
+      interventionCount: interventionPoints.length,
+      confidence,
+    });
 
     return {
       interventionPoints,

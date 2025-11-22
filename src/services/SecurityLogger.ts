@@ -21,7 +21,7 @@ class SecurityLogger {
     }
 
     if (process.env.NODE_ENV !== 'test') {
-      console.log('[security-event]', {
+      logger.debug('[security-event]', {
         ...enriched,
         timestamp: new Date().toISOString(),
       });

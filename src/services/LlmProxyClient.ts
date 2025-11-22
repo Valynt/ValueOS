@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
 import { securityLogger } from './SecurityLogger';
 import { sanitizeLLMContent } from '../utils/security';

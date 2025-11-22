@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import React, { ReactElement } from 'react';
 import { ErrorBoundary } from '../components/Common/ErrorBoundary';
 import { SectionErrorFallback, UnknownComponentFallback } from '../components/SDUI';
@@ -216,7 +217,7 @@ const SectionRenderer: React.FC<{
   } = useDataHydration(section.hydrateWith || [], {
     enabled: !!section.hydrateWith && section.hydrateWith.length > 0,
     onError: (error, endpoint) => {
-      console.error(`Hydration failed for ${section.component}:`, error);
+      logger.error(`Hydration failed for ${section.component}:`, error);
       onHydrationError?.(error, endpoint);
     },
     onSuccess: (data) => {
@@ -413,7 +414,7 @@ const PageRenderer: React.FC<PageRendererProps> = ({ page, options, warnings }) 
  * ```tsx
  * const result = renderPage(serverPageDefinition, {
  *   debug: true,
- *   onValidationError: (errors) => console.error('Validation failed:', errors),
+ *   onValidationError: (errors) => logger.error('Validation failed:', errors),
  *   onHydrationError: (error, endpoint) => logError(error, endpoint),
  * });
  *
@@ -436,7 +437,7 @@ export function renderPage(
 
     // Log errors in development
     if (process.env.NODE_ENV === 'development') {
-      console.error('SDUI Schema Validation Failed:', errors);
+      logger.error('SDUI Schema Validation Failed:', errors);
     }
 
     // Throw validation error for caller to handle
@@ -471,7 +472,7 @@ export function renderPage(
   const element = (
     <ErrorBoundary
       onError={(error) => {
-        console.error('Fatal error rendering SDUI page:', error);
+        logger.error('Fatal error rendering SDUI page:', error);
         options.onRenderError?.(error, 'PageRenderer');
       }}
     >

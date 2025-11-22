@@ -34,7 +34,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
         : await persistenceService.getGlobalHistory(caseId);
       setHistory(entries);
     } catch (error) {
-      console.error('Error loading history:', error);
+      logger.error('Error loading history:', error);
     } finally {
       setIsLoading(false);
     }

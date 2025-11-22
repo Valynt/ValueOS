@@ -86,7 +86,7 @@ export class AgentErrorBoundary extends Component<
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     const { agent, onError } = this.props;
 
-    console.error(
+    logger.error(
       `Error in agent-driven content${agent ? ` (${agent})` : ''}:`,
       error,
       errorInfo

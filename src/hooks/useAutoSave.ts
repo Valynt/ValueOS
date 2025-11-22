@@ -42,7 +42,7 @@ export const useAutoSave = (options: AutoSaveOptions) => {
     } catch (error) {
       savingRef.current.delete(componentId);
       onSaveError?.(error as Error);
-      console.error('Auto-save error:', error);
+      logger.error('Auto-save error:', error);
     }
   }, [onSaveStart, onSaveComplete, onSaveError]);
 

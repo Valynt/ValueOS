@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { LifecycleStage, WorkflowStage } from '../types/workflow';
 
 export type AgentHealthStatus = 'healthy' | 'degraded' | 'offline';

@@ -1,9 +1,12 @@
 /**
  * User Settings Service
  * Handles user profile and preference operations
+ * 
+ * SEC-003: Migrated to TenantAwareService for tenant isolation
  */
 
-import { BaseService } from './BaseService';
+import { logger } from '../lib/logger';
+import { TenantAwareService } from './TenantAwareService';
 import { settingsService } from './SettingsService';
 import { NotFoundError, ValidationError } from './errors';
 
@@ -35,16 +38,20 @@ export interface UserProfileUpdateInput {
   language?: string;
 }
 
-export class UserSettingsService extends BaseService {
+export class UserSettingsService extends TenantAwareService {
   constructor() {
     super('UserSettingsService');
   }
 
   /**
    * Get user profile
+   * SEC-003: Added tenant validation
    */
-  async getProfile(userId: string): Promise<UserProfile> {
-    this.log('info', 'Getting user profile', { userId });
+  async getProfile(userId: string, tenantId: string): Promise<UserProfile> {
+    this.log('info', 'Getting user profile', { userId, tenantId });
+
+    // SEC-003: Validate tenant access
+    await this.validateTenantAccess(userId, tenantId);
 
     return this.executeRequest(
       async () => {
@@ -57,24 +64,35 @@ export class UserSettingsService extends BaseService {
         if (error) throw error;
         if (!data) throw new NotFoundError('User profile');
 
+        // SEC-003: Verify user belongs to tenant
+        const userTenants = await this.getUserTenants(userId);
+        if (!userTenants.includes(tenantId)) {
+          throw new NotFoundError('User profile');
+        }
+
         return data;
       },
-      { deduplicationKey: `user-profile-${userId}` }
+      { deduplicationKey: `user-profile-${userId}-${tenantId}` }
     );
   }
 
   /**
    * Update user profile
+   * SEC-003: Added tenant validation
    */
   async updateProfile(
     userId: string,
+    tenantId: string,
     input: UserProfileUpdateInput
   ): Promise<UserProfile> {
-    this.log('info', 'Updating user profile', { userId });
+    this.log('info', 'Updating user profile', { userId, tenantId });
 
     if (input.email) {
       throw new ValidationError('Email cannot be changed through this endpoint');
     }
+
+    // SEC-003: Validate tenant access
+    await this.validateTenantAccess(userId, tenantId);
 
     return this.executeRequest(
       async () => {
@@ -90,7 +108,7 @@ export class UserSettingsService extends BaseService {
 
         if (error) throw error;
 
-        this.clearCache(`user-profile-${userId}`);
+        this.clearCache(`user-profile-${userId}-${tenantId}`);
         return data;
       },
       { skipCache: true }

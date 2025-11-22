@@ -3,6 +3,7 @@
  * Centralized settings API calls with caching, validation, and error handling
  */
 
+import { logger } from '../lib/logger';
 import { BaseService } from './BaseService';
 import { ValidationError, NotFoundError } from './errors';
 

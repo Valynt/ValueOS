@@ -372,7 +372,7 @@ export class CacheService {
 
       return JSON.parse(item) as CacheEntry<T>;
     } catch (error) {
-      console.error('Failed to get from storage:', error);
+      logger.error('Failed to get from storage', error instanceof Error ? error : undefined);
       return null;
     }
   }
@@ -382,12 +382,12 @@ export class CacheService {
       storage.setItem(key, JSON.stringify(entry));
     } catch (error) {
       // Storage quota exceeded, evict and retry
-      console.warn('Storage quota exceeded, evicting entries');
+      logger.warn('Storage quota exceeded, evicting entries');
       this.evictStorageIfNeeded(storage, 1);
       try {
         storage.setItem(key, JSON.stringify(entry));
       } catch (retryError) {
-        console.error('Failed to set to storage after eviction:', retryError);
+        logger.error('Failed to set to storage after eviction:', retryError);
       }
     }
   }

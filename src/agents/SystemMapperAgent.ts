@@ -7,6 +7,7 @@
  * Part of the Systemic Outcome Framework (SOF).
  */
 
+import { logger } from '../lib/logger';
 import type {
   SystemMap,
   SystemEntity,
@@ -69,7 +70,7 @@ export class SystemMapperAgent {
    * Analyze discovery data and create system map
    */
   async analyze(input: SystemMapperInput): Promise<SystemMapperOutput> {
-    console.log(`[${this.agentName}] Starting system analysis...`);
+    logger.debug('Starting system analysis...', { agent: this.agentName });
 
     // Extract entities from discovery data
     const entities = this.extractEntities(input.discoveryData);
@@ -121,7 +122,7 @@ export class SystemMapperAgent {
     // Calculate confidence
     const confidence = this.calculateConfidence(input.discoveryData, entities, relationships);
 
-    console.log(`[${this.agentName}] System analysis complete. Confidence: ${confidence}`);
+    logger.debug('System analysis complete. Confidence: ${confidence}', { agent: this.agentName });
 
     return {
       systemMap,

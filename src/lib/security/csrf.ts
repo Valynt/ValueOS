@@ -48,7 +48,7 @@ export function getCsrfToken(): string {
 
     return rotateCsrfToken();
   } catch (error) {
-    console.error('Failed to get CSRF token:', error);
+    logger.error('Failed to get CSRF token:', error);
     return '';
   }
 }
@@ -68,7 +68,7 @@ export function rotateCsrfToken(): string {
 
     return token;
   } catch (error) {
-    console.error('Failed to rotate CSRF token:', error);
+    logger.error('Failed to rotate CSRF token:', error);
     return '';
   }
 }
@@ -83,7 +83,7 @@ export function clearCsrfToken(): void {
     sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(TOKEN_EXPIRY_KEY);
   } catch (error) {
-    console.error('Failed to clear CSRF token:', error);
+    logger.error('Failed to clear CSRF token:', error);
   }
 }
 
@@ -109,7 +109,7 @@ export function validateCsrfToken(requestToken: string): boolean {
 
     return storedToken === requestToken;
   } catch (error) {
-    console.error('Failed to validate CSRF token:', error);
+    logger.error('Failed to validate CSRF token:', error);
     return false;
   }
 }
@@ -144,7 +144,7 @@ export function validateOrigin(requestOrigin: string | null): boolean {
       );
     });
   } catch (error) {
-    console.error('Invalid origin:', requestOrigin, error);
+    logger.error('Invalid origin:', requestOrigin, error);
     return false;
   }
 }

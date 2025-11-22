@@ -1,3 +1,4 @@
+import { logger } from '../../lib/logger';
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
 
@@ -96,7 +97,7 @@ export class ComponentErrorBoundary extends Component<
     const { componentName, onError } = this.props;
 
     // Log to console
-    console.error(
+    logger.error(
       `Error in SDUI component "${componentName}":`,
       error,
       errorInfo

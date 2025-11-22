@@ -5,6 +5,7 @@
  * Validates password strength, prevents common passwords, and enforces policy.
  */
 
+import { logger } from './lib/logger';
 import { getSecurityConfig } from './SecurityConfig';
 
 /**
@@ -228,7 +229,7 @@ export async function checkPasswordBreach(password: string): Promise<boolean> {
     // Query HIBP API
     const response = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`);
     if (!response.ok) {
-      console.warn('Failed to check password breach status');
+      logger.warn('Failed to check password breach status');
       return false;
     }
 
@@ -245,7 +246,7 @@ export async function checkPasswordBreach(password: string): Promise<boolean> {
 
     return false; // Password not found in breaches
   } catch (error) {
-    console.error('Error checking password breach:', error);
+    logger.error('Error checking password breach:', error);
     return false; // Fail open - don't block if service is unavailable
   }
 }
@@ -386,7 +387,7 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 
     return match;
   } catch (error) {
-    console.error('Error verifying password:', error);
+    logger.error('Error verifying password:', error);
     return false;
   }
 }

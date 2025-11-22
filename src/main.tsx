@@ -1,3 +1,4 @@
+import { logger } from './lib/logger';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
@@ -38,19 +39,19 @@ async function main() {
 
   try {
     // Bootstrap the application
-    console.log('Starting application bootstrap...');
+    logger.debug('Starting application bootstrap...');
     
     const result = await bootstrap({
       skipAgentCheck: false,
       failFast: isProduction(),
       onProgress: (message) => {
-        console.log(`⏳ ${message}`);
+        logger.debug('⏳ ${message}');
       },
       onWarning: (warning) => {
-        console.warn(`⚠️  ${warning}`);
+        logger.warn('⚠️  ${warning}');
       },
       onError: (error) => {
-        console.error(`❌ ${error}`);
+        logger.error('❌ ${error}');
       },
     });
 
@@ -79,12 +80,12 @@ async function main() {
 
     // Log warnings in development
     if (isDevelopment() && result.warnings.length > 0) {
-      console.warn('Bootstrap completed with warnings:');
-      result.warnings.forEach(warning => console.warn(`  - ${warning}`));
+      logger.warn('Bootstrap completed with warnings:');
+      result.warnings.forEach(warning => logger.warn(`  - ${warning}`));
     }
 
     // Render the application
-    console.log('Rendering application...');
+    logger.debug('Rendering application...');
     
     const root = createRoot(rootElement);
     root.render(
@@ -93,10 +94,10 @@ async function main() {
       </StrictMode>
     );
 
-    console.log('✅ Application rendered successfully');
+    logger.debug('✅ Application rendered successfully');
     
   } catch (error) {
-    console.error('Fatal error during application initialization:', error);
+    logger.error('Fatal error during application initialization:', error);
     
     // Show error screen
     rootElement.innerHTML = `
@@ -121,5 +122,5 @@ async function main() {
 
 // Start the application
 main().catch((error) => {
-  console.error('Unhandled error in main():', error);
+  logger.error('Unhandled error in main():', error);
 });

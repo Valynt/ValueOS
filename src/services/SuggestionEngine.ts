@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { CanvasComponent } from '../types';
 import { Suggestion } from '../components/Agent/SuggestionCard';
 

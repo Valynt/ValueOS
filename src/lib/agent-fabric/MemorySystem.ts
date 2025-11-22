@@ -1,3 +1,4 @@
+import { logger } from '../../lib/logger';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { MemoryType, AgentMemory } from './types';
 import { LLMGateway } from './LLMGateway';
@@ -383,7 +384,7 @@ export class MemorySystem {
     });
 
     if (error) {
-      console.warn('Semantic search failed, falling back to text search:', error);
+      logger.warn('Semantic search failed, falling back to text search:', error);
       const { data: fallbackData } = await this.supabase
         .from('agent_memory')
         .select('*')

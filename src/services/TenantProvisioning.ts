@@ -10,6 +10,7 @@
  * - Billing integration
  */
 
+import { logger } from '../lib/logger';
 import { getConfig } from '../config/environment';
 
 /**
@@ -179,96 +180,112 @@ export async function provisionTenant(
     usage: false,
   };
 
-  console.log(`Provisioning tenant: ${config.name} (${config.tier})`);
+  logger.info('Starting tenant provisioning', {
+    tenantName: config.name,
+    tier: config.tier,
+    organizationId: config.organizationId,
+  });
 
   try {
     // Step 1: Create organization
-    console.log('  1/6: Creating organization...');
+    logger.debug('Provisioning step 1/6: Creating organization');
     try {
       await createOrganization(config);
       resources.organization = true;
-      console.log('  ✅ Organization created');
+      logger.info('Organization created', { organizationId: config.organizationId });
     } catch (error) {
       const msg = `Failed to create organization: ${error instanceof Error ? error.message : 'Unknown error'}`;
       errors.push(msg);
-      console.error(`  ❌ ${msg}`);
+      logger.error('Organization creation failed', error instanceof Error ? error : undefined, {
+        organizationId: config.organizationId,
+      });
     }
 
     // Step 2: Initialize settings
-    console.log('  2/6: Initializing settings...');
+    logger.debug('Provisioning step 2/6: Initializing settings');
     try {
       await initializeSettings(config);
       resources.settings = true;
-      console.log('  ✅ Settings initialized');
+      logger.info('Settings initialized', { organizationId: config.organizationId });
     } catch (error) {
       const msg = `Failed to initialize settings: ${error instanceof Error ? error.message : 'Unknown error'}`;
       errors.push(msg);
-      console.error(`  ❌ ${msg}`);
+      logger.error('Settings initialization failed', error instanceof Error ? error : undefined, {
+        organizationId: config.organizationId,
+      });
     }
 
     // Step 3: Create default team and roles
-    console.log('  3/6: Creating teams and roles...');
+    logger.debug('Provisioning step 3/6: Creating teams and roles');
     try {
       await createTeamsAndRoles(config);
       resources.teams = true;
       resources.roles = true;
-      console.log('  ✅ Teams and roles created');
+      logger.info('Teams and roles created', { organizationId: config.organizationId });
     } catch (error) {
       const msg = `Failed to create teams/roles: ${error instanceof Error ? error.message : 'Unknown error'}`;
       errors.push(msg);
-      console.error(`  ❌ ${msg}`);
+      logger.error('Teams/roles creation failed', error instanceof Error ? error : undefined, {
+        organizationId: config.organizationId,
+      });
     }
 
     // Step 4: Initialize billing
     const appConfig = getConfig();
     if (appConfig.features.billing) {
-      console.log('  4/6: Initializing billing...');
+      logger.debug('Provisioning step 4/6: Initializing billing');
       try {
         await initializeBilling(config);
         resources.billing = true;
-        console.log('  ✅ Billing initialized');
+        logger.info('Billing initialized', { organizationId: config.organizationId });
       } catch (error) {
         const msg = `Failed to initialize billing: ${error instanceof Error ? error.message : 'Unknown error'}`;
         warnings.push(msg);
-        console.warn(`  ⚠️  ${msg}`);
+        logger.warn('Billing initialization failed', {
+          organizationId: config.organizationId,
+        });
       }
     } else {
-      console.log('  4/6: Billing disabled');
+      logger.debug('Provisioning step 4/6: Billing disabled');
       resources.billing = true; // Mark as complete since it's disabled
     }
 
     // Step 5: Initialize usage tracking
     if (appConfig.features.usageTracking) {
-      console.log('  5/6: Initializing usage tracking...');
+      logger.debug('Provisioning step 5/6: Initializing usage tracking');
       try {
         await initializeUsageTracking(config);
         resources.usage = true;
-        console.log('  ✅ Usage tracking initialized');
+        logger.info('Usage tracking initialized', { organizationId: config.organizationId });
       } catch (error) {
         const msg = `Failed to initialize usage tracking: ${error instanceof Error ? error.message : 'Unknown error'}`;
         warnings.push(msg);
-        console.warn(`  ⚠️  ${msg}`);
+        logger.warn('Usage tracking initialization failed', {
+          organizationId: config.organizationId,
+        });
       }
     } else {
-      console.log('  5/6: Usage tracking disabled');
+      logger.debug('Provisioning step 5/6: Usage tracking disabled');
       resources.usage = true; // Mark as complete since it's disabled
     }
 
     // Step 6: Send welcome email
-    console.log('  6/6: Sending welcome email...');
+    logger.debug('Provisioning step 6/6: Sending welcome email');
     try {
       await sendWelcomeEmail(config);
-      console.log('  ✅ Welcome email sent');
+      logger.info('Welcome email sent', { organizationId: config.organizationId });
     } catch (error) {
       const msg = `Failed to send welcome email: ${error instanceof Error ? error.message : 'Unknown error'}`;
       warnings.push(msg);
-      console.warn(`  ⚠️  ${msg}`);
+      logger.warn('Welcome email failed', {
+        organizationId: config.organizationId,
+      });
     }
 
     const success = errors.length === 0;
     const status: TenantStatus = success ? 'active' : 'provisioning';
 
-    console.log(`Provisioning ${success ? 'complete' : 'incomplete'}: ${config.name}`);
+    logger.info(success ? 'Tenant provisioning complete' : 'Tenant provisioning incomplete', { tenantName: config.name, errors: errors.length, warnings: warnings.length });
 
     return {
       success,
@@ -310,7 +327,7 @@ async function createOrganization(config: TenantConfig): Promise<void> {
   //   created_at: new Date().toISOString(),
   // });
 
-  console.log(`    Organization ${config.organizationId} created`);
+  logger.debug('Organization ${config.organizationId} created');
 }
 
 /**
@@ -330,7 +347,7 @@ async function initializeSettings(config: TenantConfig): Promise<void> {
   //   defaultSettings
   // );
 
-  console.log(`    Settings initialized for ${config.organizationId}`);
+  logger.debug('Settings initialized for ${config.organizationId}');
 }
 
 /**
@@ -368,7 +385,7 @@ async function createTeamsAndRoles(config: TenantConfig): Promise<void> {
   //   created_at: new Date().toISOString(),
   // });
 
-  console.log(`    Teams and roles created for ${config.organizationId}`);
+  logger.debug('Teams and roles created for ${config.organizationId}');
 }
 
 /**
@@ -381,7 +398,7 @@ async function initializeBilling(config: TenantConfig): Promise<void> {
   // - Configure payment method
   // - Set up webhooks
 
-  console.log(`    Billing initialized for ${config.organizationId}`);
+  logger.debug('Billing initialized for ${config.organizationId}');
 }
 
 /**
@@ -405,7 +422,7 @@ async function initializeUsageTracking(config: TenantConfig): Promise<void> {
   // TODO: Implement database call
   // await supabase.from('tenant_usage').insert(initialUsage);
 
-  console.log(`    Usage tracking initialized for ${config.organizationId}`);
+  logger.debug('Usage tracking initialized for ${config.organizationId}');
 }
 
 /**
@@ -415,7 +432,7 @@ async function sendWelcomeEmail(config: TenantConfig): Promise<void> {
   const appConfig = getConfig();
 
   if (!appConfig.email.enabled) {
-    console.log('    Email disabled, skipping welcome email');
+    logger.debug('    Email disabled, skipping welcome email');
     return;
   }
 
@@ -432,7 +449,7 @@ async function sendWelcomeEmail(config: TenantConfig): Promise<void> {
   //   },
   // });
 
-  console.log(`    Welcome email sent to ${config.ownerEmail}`);
+  logger.debug('Welcome email sent to ${config.ownerEmail}');
 }
 
 /**
@@ -444,53 +461,53 @@ export async function deprovisionTenant(
 ): Promise<{ success: boolean; errors: string[] }> {
   const errors: string[] = [];
 
-  console.log(`Deprovisioning tenant: ${organizationId}`);
+  logger.info('Starting tenant deprovisioning', { organizationId });
 
   try {
     // 1. Cancel billing
-    console.log('  1/5: Canceling billing...');
+    logger.debug('Deprovisioning step 1/5: Canceling billing...');
     try {
       await cancelBilling(organizationId);
-      console.log('  ✅ Billing canceled');
+      logger.info('Billing canceled');
     } catch (error) {
       errors.push(`Failed to cancel billing: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 
     // 2. Archive data
-    console.log('  2/5: Archiving data...');
+    logger.debug('Deprovisioning step 2/5: Archiving data...');
     try {
       await archiveTenantData(organizationId);
-      console.log('  ✅ Data archived');
+      logger.info('Data archived');
     } catch (error) {
       errors.push(`Failed to archive data: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 
     // 3. Revoke access
-    console.log('  3/5: Revoking access...');
+    logger.debug('Deprovisioning step 3/5: Revoking access...');
     try {
       await revokeAllAccess(organizationId);
-      console.log('  ✅ Access revoked');
+      logger.info('Access revoked');
     } catch (error) {
       errors.push(`Failed to revoke access: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 
     // 4. Update status
-    console.log('  4/5: Updating status...');
+    logger.debug('Deprovisioning step 4/5: Updating status...');
     try {
       await updateTenantStatus(organizationId, 'deactivated');
-      console.log('  ✅ Status updated');
+      logger.info('Status updated');
     } catch (error) {
       errors.push(`Failed to update status: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 
     // 5. Send notification
-    console.log('  5/5: Sending notification...');
+    logger.debug('Deprovisioning step 5/5: Sending notification...');
     try {
       await sendDeactivationEmail(organizationId, reason);
-      console.log('  ✅ Notification sent');
+      logger.info('Notification sent');
     } catch (error) {
       // Non-critical, just log
-      console.warn(`  ⚠️  Failed to send notification: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      logger.warn('Failed to send notification: ${error instanceof Error ? error.message : 'Unknown error'}');
     }
 
     return {
@@ -511,7 +528,7 @@ export async function deprovisionTenant(
  */
 async function cancelBilling(organizationId: string): Promise<void> {
   // TODO: Implement billing cancellation
-  console.log(`    Billing canceled for ${organizationId}`);
+  logger.debug('Billing canceled for ${organizationId}');
 }
 
 /**
@@ -522,7 +539,7 @@ async function archiveTenantData(organizationId: string): Promise<void> {
   // - Export all data to archive storage
   // - Mark records as archived
   // - Schedule for deletion after retention period
-  console.log(`    Data archived for ${organizationId}`);
+  logger.debug('Data archived for ${organizationId}');
 }
 
 /**
@@ -533,7 +550,7 @@ async function revokeAllAccess(organizationId: string): Promise<void> {
   // - Revoke all user sessions
   // - Revoke API keys
   // - Disable integrations
-  console.log(`    Access revoked for ${organizationId}`);
+  logger.debug('Access revoked for ${organizationId}');
 }
 
 /**
@@ -549,7 +566,7 @@ async function updateTenantStatus(
   //   .update({ status, updated_at: new Date().toISOString() })
   //   .eq('id', organizationId);
 
-  console.log(`    Status updated to ${status} for ${organizationId}`);
+  logger.debug('Status updated to ${status} for ${organizationId}');
 }
 
 /**
@@ -560,7 +577,7 @@ async function sendDeactivationEmail(
   reason?: string
 ): Promise<void> {
   // TODO: Implement email sending
-  console.log(`    Deactivation email sent for ${organizationId}`);
+  logger.debug('Deactivation email sent for ${organizationId}');
 }
 
 /**

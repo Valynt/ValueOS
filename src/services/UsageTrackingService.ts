@@ -5,6 +5,7 @@
  * Provides real-time usage monitoring and reporting.
  */
 
+import { logger } from '../lib/logger';
 import { getConfig } from '../config/environment';
 import { TenantUsage, TenantLimits, isWithinLimits } from './TenantProvisioning';
 
@@ -120,11 +121,11 @@ export async function trackUsage(event: UsageEvent): Promise<void> {
 
   // Persist to database (async, non-blocking)
   persistUsage(usage).catch((error) => {
-    console.error('Failed to persist usage:', error);
+    logger.error('Failed to persist usage', error instanceof Error ? error : undefined);
   });
 
   // Log event
-  console.log(`Usage tracked: ${event.type} for ${event.organizationId} (${event.amount})`);
+  logger.debug('Usage tracked: ${event.type} for ${event.organizationId} (${event.amount})');
 }
 
 /**
@@ -285,7 +286,7 @@ async function persistUsage(usage: TenantUsage): Promise<void> {
   //     last_updated: usage.lastUpdated.toISOString(),
   //   });
 
-  console.log(`Usage persisted for ${usage.organizationId}`);
+  logger.debug('Usage persisted for ${usage.organizationId}');
 }
 
 /**
@@ -315,7 +316,7 @@ export async function resetUsageForNewPeriod(
   usageCache.set(cacheKey, newUsage);
   await persistUsage(newUsage);
 
-  console.log(`Usage reset for new period: ${newPeriod}`);
+  logger.debug('Usage reset for new period: ${newPeriod}');
 }
 
 /**
@@ -372,7 +373,7 @@ export function useUsageTracking(organizationId: string, limits: TenantLimits) {
           setLoading(false);
         }
       } catch (error) {
-        console.error('Failed to load usage:', error);
+        logger.error('Failed to load usage', error instanceof Error ? error : undefined);
         if (mounted) {
           setLoading(false);
         }
