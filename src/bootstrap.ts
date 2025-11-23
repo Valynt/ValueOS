@@ -137,13 +137,13 @@ export async function bootstrap(
   // Step 3: Check feature flags
   onProgress?.('Checking feature flags...');
   logger.info('Step 3: Feature flags', { action: 'check_features' });
-  logger.info('   SDUI Debug: ${config.features.sduiDebug ? '✅' : '❌'}');
-  logger.info('   Agent Fabric: ${config.features.agentFabric ? '✅' : '❌'}');
-  logger.info('   Workflow: ${config.features.workflow ? '✅' : '❌'}');
-  logger.info('   Compliance: ${config.features.compliance ? '✅' : '❌'}');
-  logger.info('   Multi-Tenant: ${config.features.multiTenant ? '✅' : '❌'}');
-  logger.info('   Usage Tracking: ${config.features.usageTracking ? '✅' : '❌'}');
-  logger.info('   Billing: ${config.features.billing ? '✅' : '❌'}');
+  logger.info(`   SDUI Debug: ${config.features.sduiDebug ? '✅' : '❌'}`);
+  logger.info(`   Agent Fabric: ${config.features.agentFabric ? '✅' : '❌'}`);
+  logger.info(`   Workflow: ${config.features.workflow ? '✅' : '❌'}`);
+  logger.info(`   Compliance: ${config.features.compliance ? '✅' : '❌'}`);
+  logger.info(`   Multi-Tenant: ${config.features.multiTenant ? '✅' : '❌'}`);
+  logger.info(`   Usage Tracking: ${config.features.usageTracking ? '✅' : '❌'}`);
+  logger.info(`   Billing: ${config.features.billing ? '✅' : '❌'}`);
 
   // Step 4: Initialize security
   onProgress?.('Initializing security...');
@@ -180,11 +180,11 @@ export async function bootstrap(
     // Initialize security features
     initializeSecurity();
     logger.info('   ✅ Security features initialized');
-    logger.info('   - Password policy: ${config.passwordPolicy.minLength}+ chars');
-    logger.info('   - CSRF protection: ${config.security.csrfEnabled ? '✅' : '❌'}');
-    logger.info('   - Rate limiting: ${config.rateLimit.global.enabled ? '✅' : '❌'}');
-    logger.info('   - CSP: ${config.csp.enabled ? '✅' : '❌'}');
-    logger.info('   - HTTPS only: ${config.security.httpsOnly ? '✅' : '❌'}');
+    logger.info(`   - Password policy: ${config.passwordPolicy.minLength}+ chars`);
+    logger.info(`   - CSRF protection: ${config.security.csrfEnabled ? '✅' : '❌'}`);
+    logger.info(`   - Rate limiting: ${config.rateLimit.global.enabled ? '✅' : '❌'}`);
+    logger.info(`   - CSP: ${config.csp.enabled ? '✅' : '❌'}`);
+    logger.info(`   - HTTPS only: ${config.security.httpsOnly ? '✅' : '❌'}`);
   } catch (error) {
     const errorMsg = `Failed to initialize security: ${error instanceof Error ? error.message : 'Unknown error'}`;
     errors.push(errorMsg);
@@ -238,7 +238,7 @@ export async function bootstrap(
         onProgress: (status) => {
           const icon = status.available ? '✅' : '❌';
           const time = status.responseTime ? ` (${status.responseTime}ms)` : '';
-          logger.info('   ${icon} ${status.agent}${time}');
+          logger.info(`   ${icon} ${status.agent}${time}`);
         },
       });
 
@@ -329,10 +329,10 @@ export async function bootstrap(
   logger.debug('\n' + '='.repeat(50));
   logger.info('🎉 Bootstrap Complete!');
   logger.debug('='.repeat(50));
-  logger.info('Duration: ${duration}ms');
-  logger.info('Errors: ${errors.length}');
-  logger.info('Warnings: ${warnings.length}');
-  logger.info('Status: ${errors.length === 0 ? '✅ SUCCESS' : '❌ FAILED'}');
+  logger.info(`Duration: ${duration}ms`);
+  logger.info(`Errors: ${errors.length}`);
+  logger.info(`Warnings: ${warnings.length}`);
+  logger.info(`Status: ${errors.length === 0 ? '✅ SUCCESS' : '❌ FAILED'}`);
   logger.info('='.repeat(50) + '\n');
 
   const success = errors.length === 0;

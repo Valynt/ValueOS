@@ -5,7 +5,7 @@
  * Generates and validates CSRF tokens for state-changing operations.
  */
 
-import { logger } from './lib/logger';
+import { logger } from '../lib/logger';
 import { getSecurityConfig } from './SecurityConfig';
 
 /**
