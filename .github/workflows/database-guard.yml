@@ -1,0 +1,318 @@
+name: Database Guard
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/config.toml'
+      - '.github/workflows/database-guard.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  SUPABASE_CLI_VERSION: latest
+
+jobs:
+  verify-migrations:
+    name: Verify Database Migrations
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+      
+      - name: Verify Supabase CLI installation
+        run: |
+          supabase --version
+          echo "✅ Supabase CLI installed successfully"
+      
+      - name: Initialize Supabase project
+        run: |
+          # Check if config.toml exists
+          if [ ! -f "supabase/config.toml" ]; then
+            echo "📝 Creating default Supabase configuration..."
+            supabase init
+          else
+            echo "✅ Using existing Supabase configuration"
+          fi
+      
+      - name: Start Supabase local instance
+        run: |
+          echo "🚀 Starting Supabase local instance..."
+          # Start only the database, exclude other services for speed
+          supabase start --exclude gotrue,realtime,storage,imgproxy,inbucket,edge-runtime,logflare,vector
+          echo "✅ Supabase started successfully"
+      
+      - name: Verify migrations apply cleanly
+        id: verify
+        run: |
+          echo "🔍 Verifying migrations..."
+          
+          # Apply all migrations
+          supabase db reset --no-confirmation
+          
+          echo "✅ All migrations applied successfully"
+          
+          # Get migration count
+          MIGRATION_COUNT=$(ls -1 supabase/migrations/*.sql 2>/dev/null | wc -l)
+          echo "migration_count=$MIGRATION_COUNT" >> $GITHUB_OUTPUT
+          
+          # Check for rollback migrations
+          ROLLBACK_COUNT=$(ls -1 supabase/migrations/rollbacks/*.sql 2>/dev/null | wc -l || echo "0")
+          echo "rollback_count=$ROLLBACK_COUNT" >> $GITHUB_OUTPUT
+      
+      - name: Run migration linting
+        id: lint
+        run: |
+          echo "🔍 Linting SQL migrations..."
+          
+          # Check for common issues
+          ISSUES=0
+          
+          # Check 1: No DROP TABLE without IF EXISTS
+          if grep -r "DROP TABLE" supabase/migrations/*.sql | grep -v "IF EXISTS" | grep -v "rollbacks"; then
+            echo "⚠️ WARNING: Found DROP TABLE without IF EXISTS"
+            ISSUES=$((ISSUES + 1))
+          fi
+          
+          # Check 2: No ALTER TABLE without IF EXISTS checks
+          if grep -r "ALTER TABLE.*ADD COLUMN" supabase/migrations/*.sql | grep -v "IF NOT EXISTS" | grep -v "rollbacks"; then
+            echo "⚠️ WARNING: Found ALTER TABLE ADD COLUMN without IF NOT EXISTS"
+            ISSUES=$((ISSUES + 1))
+          fi
+          
+          # Check 3: Check for missing transaction blocks in complex migrations
+          for file in supabase/migrations/*.sql; do
+            if [ -f "$file" ] && [ $(wc -l < "$file") -gt 100 ]; then
+              if ! grep -q "BEGIN;" "$file" || ! grep -q "COMMIT;" "$file"; then
+                echo "⚠️ WARNING: Large migration $file missing transaction block"
+                ISSUES=$((ISSUES + 1))
+              fi
+            fi
+          done
+          
+          # Check 4: Verify migration naming convention
+          for file in supabase/migrations/*.sql; do
+            filename=$(basename "$file")
+            if [[ ! "$filename" =~ ^[0-9]{14}_.+\.sql$ ]] && [[ "$filename" != "rollbacks" ]]; then
+              echo "⚠️ WARNING: Migration $filename doesn't follow naming convention (YYYYMMDDHHmmss_description.sql)"
+              ISSUES=$((ISSUES + 1))
+            fi
+          done
+          
+          echo "lint_issues=$ISSUES" >> $GITHUB_OUTPUT
+          
+          if [ $ISSUES -eq 0 ]; then
+            echo "✅ No linting issues found"
+          else
+            echo "⚠️ Found $ISSUES linting issues (warnings only)"
+          fi
+      
+      - name: Check for dangerous operations
+        id: danger
+        run: |
+          echo "🔍 Checking for dangerous operations..."
+          
+          DANGEROUS=0
+          WARNINGS=""
+          
+          # Check for DROP DATABASE
+          if grep -r "DROP DATABASE" supabase/migrations/*.sql | grep -v "rollbacks"; then
+            echo "🚨 CRITICAL: Found DROP DATABASE command"
+            WARNINGS="${WARNINGS}\n- 🚨 DROP DATABASE detected"
+            DANGEROUS=$((DANGEROUS + 1))
+          fi
+          
+          # Check for TRUNCATE
+          if grep -r "TRUNCATE" supabase/migrations/*.sql | grep -v "rollbacks"; then
+            echo "⚠️ WARNING: Found TRUNCATE command"
+            WARNINGS="${WARNINGS}\n- ⚠️ TRUNCATE detected"
+          fi
+          
+          # Check for DROP SCHEMA
+          if grep -r "DROP SCHEMA" supabase/migrations/*.sql | grep -v "IF EXISTS" | grep -v "rollbacks"; then
+            echo "⚠️ WARNING: Found DROP SCHEMA without IF EXISTS"
+            WARNINGS="${WARNINGS}\n- ⚠️ DROP SCHEMA without IF EXISTS"
+          fi
+          
+          # Check for ALTER TABLE DROP COLUMN
+          if grep -r "ALTER TABLE.*DROP COLUMN" supabase/migrations/*.sql | grep -v "rollbacks"; then
+            echo "⚠️ WARNING: Found ALTER TABLE DROP COLUMN"
+            WARNINGS="${WARNINGS}\n- ⚠️ ALTER TABLE DROP COLUMN detected"
+          fi
+          
+          echo "dangerous_count=$DANGEROUS" >> $GITHUB_OUTPUT
+          echo "warnings<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$WARNINGS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          if [ $DANGEROUS -gt 0 ]; then
+            echo "🚨 Found $DANGEROUS critical dangerous operations"
+            exit 1
+          else
+            echo "✅ No critical dangerous operations found"
+          fi
+      
+      - name: Generate migration report
+        id: report
+        if: always()
+        run: |
+          echo "📊 Generating migration report..."
+          
+          # Count migrations by type
+          SCHEMA_CHANGES=$(grep -l "CREATE TABLE\|ALTER TABLE\|DROP TABLE" supabase/migrations/*.sql 2>/dev/null | wc -l)
+          INDEX_CHANGES=$(grep -l "CREATE INDEX\|DROP INDEX" supabase/migrations/*.sql 2>/dev/null | wc -l)
+          RLS_CHANGES=$(grep -l "CREATE POLICY\|ALTER POLICY\|DROP POLICY" supabase/migrations/*.sql 2>/dev/null | wc -l)
+          FUNCTION_CHANGES=$(grep -l "CREATE FUNCTION\|CREATE OR REPLACE FUNCTION\|DROP FUNCTION" supabase/migrations/*.sql 2>/dev/null | wc -l)
+          
+          echo "schema_changes=$SCHEMA_CHANGES" >> $GITHUB_OUTPUT
+          echo "index_changes=$INDEX_CHANGES" >> $GITHUB_OUTPUT
+          echo "rls_changes=$RLS_CHANGES" >> $GITHUB_OUTPUT
+          echo "function_changes=$FUNCTION_CHANGES" >> $GITHUB_OUTPUT
+          
+          echo "📊 Migration Report:"
+          echo "  - Schema changes: $SCHEMA_CHANGES"
+          echo "  - Index changes: $INDEX_CHANGES"
+          echo "  - RLS policy changes: $RLS_CHANGES"
+          echo "  - Function changes: $FUNCTION_CHANGES"
+      
+      - name: Post results to PR
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request' && always()
+        with:
+          script: |
+            const verifyResult = '${{ steps.verify.outcome }}';
+            const lintResult = '${{ steps.lint.outcome }}';
+            const dangerResult = '${{ steps.danger.outcome }}';
+            
+            const migrationCount = '${{ steps.verify.outputs.migration_count }}';
+            const rollbackCount = '${{ steps.verify.outputs.rollback_count }}';
+            const lintIssues = '${{ steps.lint.outputs.lint_issues }}';
+            const dangerousCount = '${{ steps.danger.outputs.dangerous_count }}';
+            const warnings = `${{ steps.danger.outputs.warnings }}`;
+            
+            const schemaChanges = '${{ steps.report.outputs.schema_changes }}';
+            const indexChanges = '${{ steps.report.outputs.index_changes }}';
+            const rlsChanges = '${{ steps.report.outputs.rls_changes }}';
+            const functionChanges = '${{ steps.report.outputs.function_changes }}';
+            
+            const verifyIcon = verifyResult === 'success' ? '✅' : '❌';
+            const lintIcon = lintResult === 'success' ? '✅' : '⚠️';
+            const dangerIcon = dangerResult === 'success' ? '✅' : '🚨';
+            
+            let warningSection = '';
+            if (warnings && warnings.trim()) {
+              warningSection = `
+            
+            ### ⚠️ Warnings
+            
+            ${warnings}
+            
+            **Please review these operations carefully before merging.**
+            `;
+            }
+            
+            let dangerSection = '';
+            if (dangerousCount > 0) {
+              dangerSection = `
+            
+            ### 🚨 CRITICAL: Dangerous Operations Detected
+            
+            This PR contains **${dangerousCount} critical dangerous operation(s)** that could cause data loss.
+            
+            **DO NOT MERGE** without careful review and approval from database administrators.
+            `;
+            }
+            
+            const output = `## Database Migration Verification 🛡️
+            
+            **Status**: ${verifyResult === 'success' ? '✅ All migrations verified' : '❌ Migration verification failed'}
+            
+            ### Verification Results
+            
+            | Check | Status |
+            |-------|--------|
+            | Migration Apply | ${verifyIcon} Migrations apply cleanly |
+            | SQL Linting | ${lintIcon} ${lintIssues} issue(s) found |
+            | Dangerous Operations | ${dangerIcon} ${dangerousCount} critical operation(s) |
+            
+            ### Migration Summary
+            
+            | Metric | Count |
+            |--------|-------|
+            | Total Migrations | ${migrationCount} |
+            | Rollback Scripts | ${rollbackCount} |
+            | Schema Changes | ${schemaChanges} |
+            | Index Changes | ${indexChanges} |
+            | RLS Policy Changes | ${rlsChanges} |
+            | Function Changes | ${functionChanges} |
+            ${warningSection}
+            ${dangerSection}
+            
+            ### What This Checks
+            
+            - ✅ All migrations apply without errors
+            - ✅ No syntax errors in SQL
+            - ✅ Migration naming conventions
+            - ✅ Transaction block usage
+            - ✅ Safe operation patterns
+            - ✅ Dangerous operation detection
+            
+            ---
+            
+            **Workflow**: [\`Database Guard\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            **Commit**: \`${{ github.event.pull_request.head.sha }}\`
+            `;
+            
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => {
+              return comment.user.type === 'Bot' && comment.body.includes('Database Migration Verification');
+            });
+            
+            // Update or create comment
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: output
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: output
+              });
+            }
+      
+      - name: Stop Supabase
+        if: always()
+        run: |
+          echo "🛑 Stopping Supabase..."
+          supabase stop --no-backup
+          echo "✅ Cleanup complete"
+      
+      - name: Fail if dangerous operations found
+        if: steps.danger.outputs.dangerous_count > 0
+        run: |
+          echo "🚨 Workflow failed due to dangerous operations"
+          echo "Review the warnings above and ensure these operations are intentional"
+          exit 1
