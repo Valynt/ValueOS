@@ -44,7 +44,6 @@ services:
       - VITE_LLM_PROVIDER=${VITE_LLM_PROVIDER:-together}
     networks:
       - valuecanvas-network
-    command: npm run dev
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5173"]
