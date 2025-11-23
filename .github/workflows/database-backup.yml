@@ -1,0 +1,145 @@
+name: Automated Database Backup
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  
+  workflow_dispatch:
+    inputs:
+      retention_days:
+        description: 'Backup retention in days'
+        required: false
+        default: '90'
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  S3_BACKUP_BUCKET: valuecanvas-production-backups
+
+jobs:
+  backup:
+    name: Backup Production Database
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      
+      - name: Run backup script
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          S3_BACKUP_BUCKET: ${{ env.S3_BACKUP_BUCKET }}
+          BACKUP_RETENTION_DAYS: ${{ github.event.inputs.retention_days || '90' }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          chmod +x scripts/backup-database.sh
+          ./scripts/backup-database.sh
+      
+      - name: Verify backup in S3
+        run: |
+          LATEST_BACKUP=$(aws s3 ls s3://${{ env.S3_BACKUP_BUCKET }}/database-backups/ | \
+            grep "valuecanvas_backup_" | \
+            sort -r | \
+            head -1 | \
+            awk '{print $4}')
+          
+          if [ -z "$LATEST_BACKUP" ]; then
+            echo "❌ ERROR: No backup found in S3"
+            exit 1
+          fi
+          
+          echo "✅ Latest backup verified: $LATEST_BACKUP"
+          
+          # Check backup age (should be less than 1 hour old)
+          BACKUP_TIME=$(echo "$LATEST_BACKUP" | grep -oP '\d{8}_\d{6}' | head -1)
+          BACKUP_TIMESTAMP=$(date -d "${BACKUP_TIME:0:8} ${BACKUP_TIME:9:2}:${BACKUP_TIME:11:2}:${BACKUP_TIME:13:2}" +%s)
+          CURRENT_TIMESTAMP=$(date +%s)
+          AGE=$((CURRENT_TIMESTAMP - BACKUP_TIMESTAMP))
+          
+          if [ $AGE -gt 3600 ]; then
+            echo "⚠️ WARNING: Backup is older than 1 hour"
+          else
+            echo "✅ Backup is fresh (${AGE}s old)"
+          fi
+      
+      - name: Test backup integrity
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          S3_BACKUP_BUCKET: ${{ env.S3_BACKUP_BUCKET }}
+        run: |
+          # Download latest backup
+          LATEST_BACKUP=$(aws s3 ls s3://${{ env.S3_BACKUP_BUCKET }}/database-backups/ | \
+            grep "valuecanvas_backup_" | \
+            sort -r | \
+            head -1 | \
+            awk '{print $4}')
+          
+          echo "Testing backup integrity: $LATEST_BACKUP"
+          
+          # Download and verify checksum
+          aws s3 cp "s3://${{ env.S3_BACKUP_BUCKET }}/database-backups/${LATEST_BACKUP}" /tmp/
+          aws s3 cp "s3://${{ env.S3_BACKUP_BUCKET }}/database-backups/${LATEST_BACKUP}.sha256" /tmp/
+          
+          cd /tmp
+          EXPECTED=$(cat "${LATEST_BACKUP}.sha256")
+          ACTUAL=$(sha256sum "$LATEST_BACKUP" | awk '{print $1}')
+          
+          if [ "$EXPECTED" = "$ACTUAL" ]; then
+            echo "✅ Backup integrity verified"
+          else
+            echo "❌ ERROR: Backup integrity check failed"
+            exit 1
+          fi
+          
+          # Test decompression
+          gunzip -t "$LATEST_BACKUP"
+          echo "✅ Backup decompression test passed"
+      
+      - name: Update backup metrics
+        if: always()
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          # Log backup status to database
+          BACKUP_STATUS="${{ job.status }}"
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          
+          # This would insert into a backup_logs table
+          echo "Backup status: $BACKUP_STATUS at $TIMESTAMP"
+      
+      - name: Notify on failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            curl -X POST "$SLACK_WEBHOOK_URL" \
+              -H 'Content-Type: application/json' \
+              -d '{
+                "text": "🚨 Database Backup Failed",
+                "attachments": [{
+                  "color": "danger",
+                  "fields": [
+                    {"title": "Workflow", "value": "${{ github.workflow }}", "short": true},
+                    {"title": "Run", "value": "${{ github.run_id }}", "short": true},
+                    {"title": "Status", "value": "Failed", "short": true}
+                  ]
+                }]
+              }'
+          fi

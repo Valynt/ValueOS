@@ -1,0 +1,227 @@
+{
+  "dashboard": {
+    "title": "LLM Monitoring Dashboard",
+    "tags": ["llm", "ai", "cost"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "LLM Requests per Minute",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "rate(llm_requests_total[5m])",
+            "legendFormat": "{{provider}} - {{model}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "reqps", "label": "Requests/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 2,
+        "title": "LLM Request Latency (p95)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(llm_request_duration_bucket[5m]))",
+            "legendFormat": "{{provider}} - {{model}} (p95)",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(llm_request_duration_bucket[5m]))",
+            "legendFormat": "{{provider}} - {{model}} (p50)",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {"format": "ms", "label": "Latency"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 3,
+        "title": "LLM Cost per Hour",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "rate(llm_cost_total[1h])",
+            "legendFormat": "{{provider}} - {{model}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "currencyUSD", "label": "Cost/hour"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Cache Hit Rate",
+        "type": "gauge",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "targets": [
+          {
+            "expr": "rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])) * 100",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showThresholdLabels": false,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 30, "color": "yellow"},
+                {"value": 50, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Tokens Processed per Minute",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+        "targets": [
+          {
+            "expr": "rate(llm_tokens_total{type=\"prompt\"}[5m])",
+            "legendFormat": "Prompt Tokens - {{provider}}",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(llm_tokens_total{type=\"completion\"}[5m])",
+            "legendFormat": "Completion Tokens - {{provider}}",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Tokens/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Circuit Breaker State",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+        "targets": [
+          {
+            "expr": "circuit_breaker_state",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "none",
+          "colorMode": "background"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {"type": "value", "value": "0", "text": "CLOSED"},
+              {"type": "value", "value": "1", "text": "OPEN"},
+              {"type": "value", "value": "2", "text": "HALF-OPEN"}
+            ],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "red"},
+                {"value": 2, "color": "yellow"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Provider Distribution",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+        "targets": [
+          {
+            "expr": "sum by (provider) (rate(llm_requests_total[5m]))",
+            "legendFormat": "{{provider}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Error Rate",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+        "targets": [
+          {
+            "expr": "rate(llm_requests_total{status=\"failed\"}[5m])",
+            "legendFormat": "{{provider}} - Errors",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "reqps", "label": "Errors/sec"},
+          {"format": "short"}
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": {"params": [0.1], "type": "gt"},
+              "operator": {"type": "and"},
+              "query": {"params": ["A", "5m", "now"]},
+              "reducer": {"params": [], "type": "avg"},
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "1m",
+          "handler": 1,
+          "name": "High LLM Error Rate",
+          "noDataState": "no_data",
+          "notifications": []
+        }
+      },
+      {
+        "id": 9,
+        "title": "Top Users by Cost",
+        "type": "table",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 32},
+        "targets": [
+          {
+            "expr": "topk(10, sum by (user_id) (rate(llm_cost_total[1h])))",
+            "format": "table",
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {},
+              "indexByName": {},
+              "renameByName": {
+                "user_id": "User ID",
+                "Value": "Cost/hour (USD)"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "refresh": "10s",
+    "schemaVersion": 38,
+    "version": 1
+  }
+}
