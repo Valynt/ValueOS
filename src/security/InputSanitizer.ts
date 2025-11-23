@@ -241,6 +241,10 @@ export function sanitizeString(
   };
 }
 
+export function sanitizeInput(input: string, options: SanitizeOptions = {}): string {
+  return sanitizeString(input, options).sanitized;
+}
+
 /**
  * Validate and sanitize URL
  */

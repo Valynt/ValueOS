@@ -35,3 +35,7 @@ const supabaseOptions: SupabaseClientOptions<Database> = {
 };
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, supabaseOptions);
+
+export function getSupabaseClient() {
+  return supabase;
+}
