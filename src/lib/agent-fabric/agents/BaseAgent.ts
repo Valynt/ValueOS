@@ -4,6 +4,9 @@ import { MemorySystem } from '../MemorySystem';
 import { AuditLogger } from '../AuditLogger';
 import { Agent, ConfidenceLevel } from '../types'; // Kept from main
 import type { LifecycleArtifactLink, ProvenanceAuditEntry } from '../../types/vos'; // Kept from main
+import { parseLLMOutputStrict } from '../../../utils/safeJsonParser';
+import { z } from 'zod';
+import { featureFlags } from '../../../config/featureFlags';
 
 export abstract class BaseAgent {
 protected supabase: SupabaseClient | null; // From dev
@@ -71,10 +74,19 @@ protected supabase: SupabaseClient | null; // From dev
     );
   }
 
-  protected extractJSON(content: string): any {
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('No JSON found in LLM response');
-    return JSON.parse(jsonMatch[0]);
+  protected async extractJSON(content: string, schema?: z.ZodSchema): Promise<any> {
+    if (featureFlags.ENABLE_SAFE_JSON_PARSER && schema) {
+      // Use SafeJSON parser with schema validation
+      return await parseLLMOutputStrict(content, schema);
+    } else if (featureFlags.ENABLE_SAFE_JSON_PARSER) {
+      // Use SafeJSON parser without schema (permissive)
+      return await parseLLMOutputStrict(content, z.any());
+    } else {
+      // Legacy: Use regex-based parsing
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('No JSON found in LLM response');
+      return JSON.parse(jsonMatch[0]);
+    }
   }
 
   protected determineConfidence(

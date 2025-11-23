@@ -1,5 +1,8 @@
 import { LLMGateway } from './LLMGateway';
 import { QualityRubric } from './types';
+import { parseLLMOutputStrict } from '../../utils/safeJsonParser';
+import { featureFlags } from '../../config/featureFlags';
+import { z } from 'zod';
 
 export interface QualityAssessment {
   total_score: number;
@@ -44,14 +47,33 @@ Return ONLY valid JSON with no additional text or formatting.`
     });
 
     let assessment: QualityAssessment;
-    try {
-      assessment = JSON.parse(response.content);
-    } catch (e) {
-      const jsonMatch = response.content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        assessment = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('Failed to parse quality assessment response');
+    if (featureFlags.ENABLE_SAFE_JSON_PARSER) {
+      // Use SafeJSON parser with schema
+      const schema = z.object({
+        total_score: z.number(),
+        max_score: z.number(),
+        dimension_scores: z.object({
+          traceability: z.number(),
+          relevance: z.number(),
+          realism: z.number(),
+          clarity: z.number(),
+          actionability: z.number(),
+          polish: z.number(),
+        }),
+        feedback: z.string(),
+      });
+      assessment = await parseLLMOutputStrict(response.content, schema);
+    } else {
+      // Legacy parsing
+      try {
+        assessment = JSON.parse(response.content);
+      } catch (e) {
+        const jsonMatch = response.content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          assessment = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error('Failed to parse quality assessment response');
+        }
       }
     }
 

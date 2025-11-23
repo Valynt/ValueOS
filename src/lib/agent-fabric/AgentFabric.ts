@@ -9,6 +9,9 @@ import { FinancialModelingAgent } from './agents/FinancialModelingAgent';
 import { Agent, Workflow, WorkflowExecution, AgentFabricResult } from './types';
 import { AgentCircuitBreaker, SafetyLimits, SafetyError } from './CircuitBreaker';
 import { logger } from '../logger';
+import { parseLLMOutputStrict, CommonSchemas } from '../../utils/safeJsonParser';
+import { featureFlags } from '../../config/featureFlags';
+import { z } from 'zod';
 
 export class AgentFabric {
   private supabase: SupabaseClient;
@@ -286,7 +289,9 @@ Return JSON:
       { role: 'user', content: prompt }
     ]);
 
-    const parsed = JSON.parse(response.content.match(/\{[\s\S]*\}/)![0]);
+    const parsed = featureFlags.ENABLE_SAFE_JSON_PARSER
+      ? await parseLLMOutputStrict(response.content, CommonSchemas.kpiSchema)
+      : JSON.parse(response.content.match(/\{[\s\S]*\}/)![0]);
 
     const kpisToInsert = parsed.kpis.map((kpi: any) => ({
       value_case_id: valueCaseId,
@@ -321,7 +326,9 @@ Return JSON:
       { role: 'user', content: prompt }
     ]);
 
-    return JSON.parse(response.content.match(/\{[\s\S]*\}/)![0]);
+    return featureFlags.ENABLE_SAFE_JSON_PARSER
+      ? await parseLLMOutputStrict(response.content, z.any())
+      : JSON.parse(response.content.match(/\{[\s\S]*\}/)![0]);
   }
 
   private async createSession(userId: string): Promise<string> {

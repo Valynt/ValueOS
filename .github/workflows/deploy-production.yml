@@ -78,7 +78,9 @@ jobs:
   build-frontend:
     name: Build Frontend
     runs-on: ubuntu-latest
-    needs: [test, security-scan]
+    needs: [test, security-scan, detect-changes]
+    # Only run if frontend changed
+    if: ${{ needs.detect-changes.outputs.frontend == 'true' }}
     
     steps:
       - name: Checkout code
@@ -109,19 +111,56 @@ jobs:
           path: dist/
           retention-days: 7
 
+  # Detect which services changed
+  detect-changes:
+    name: Detect Service Changes
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.filter.outputs.changes }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      infrastructure: ${{ steps.filter.outputs.infrastructure }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Detect changed paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            opportunity:
+              - 'blueprint/infra/backend/services/opportunity/**'
+            target:
+              - 'blueprint/infra/backend/services/target/**'
+            realization:
+              - 'blueprint/infra/backend/services/realization/**'
+            expansion:
+              - 'blueprint/infra/backend/services/expansion/**'
+            integrity:
+              - 'blueprint/infra/backend/services/integrity/**'
+            orchestrator:
+              - 'blueprint/infra/backend/services/orchestrator/**'
+            frontend:
+              - 'src/**'
+              - 'public/**'
+              - 'index.html'
+              - 'package.json'
+              - 'vite.config.ts'
+              - 'tsconfig.json'
+            infrastructure:
+              - 'infrastructure/**'
+              - '.github/workflows/**'
+
   build-images:
     name: Build Docker Images
     runs-on: ubuntu-latest
-    needs: [test, security-scan]
+    needs: [test, security-scan, detect-changes]
+    # Only run if services changed
+    if: ${{ needs.detect-changes.outputs.services != '[]' && needs.detect-changes.outputs.services != '' }}
     strategy:
       matrix:
-        service:
-          - opportunity
-          - target
-          - realization
-          - expansion
-          - integrity
-          - orchestrator
+        # Dynamically build only changed services
+        service: ${{ fromJSON(needs.detect-changes.outputs.services) }}
     
     steps:
       - name: Checkout code
@@ -159,8 +198,12 @@ jobs:
   deploy-infrastructure:
     name: Deploy Infrastructure
     runs-on: ubuntu-latest
-    needs: [build-images]
-    if: github.ref == 'refs/heads/main'
+    needs: [build-images, detect-changes]
+    # Only run on main branch AND if infrastructure or services changed
+    if: |
+      github.ref == 'refs/heads/main' && 
+      (needs.detect-changes.outputs.infrastructure == 'true' || 
+       needs.detect-changes.outputs.services != '[]')
     
     steps:
       - name: Checkout code
@@ -202,7 +245,9 @@ jobs:
   deploy-kubernetes:
     name: Deploy to Kubernetes
     runs-on: ubuntu-latest
-    needs: [deploy-infrastructure]
+    needs: [deploy-infrastructure, detect-changes]
+    # Only run if services changed
+    if: ${{ needs.detect-changes.outputs.services != '[]' && needs.detect-changes.outputs.services != '' }}
     
     steps:
       - name: Checkout code
@@ -221,29 +266,42 @@ jobs:
             --region ${{ env.AWS_REGION }} \
             --name ${{ env.EKS_CLUSTER_NAME }}
       
-      - name: Deploy to Kubernetes
+      - name: Deploy changed services to Kubernetes
         run: |
-          # Update image tags
           cd infrastructure/k8s/overlays/production
-          kustomize edit set image \
-            opportunity=${{ env.ECR_REGISTRY }}/valuecanvas-opportunity:${{ github.sha }} \
-            target=${{ env.ECR_REGISTRY }}/valuecanvas-target:${{ github.sha }} \
-            realization=${{ env.ECR_REGISTRY }}/valuecanvas-realization:${{ github.sha }} \
-            expansion=${{ env.ECR_REGISTRY }}/valuecanvas-expansion:${{ github.sha }} \
-            integrity=${{ env.ECR_REGISTRY }}/valuecanvas-integrity:${{ github.sha }} \
-            orchestrator=${{ env.ECR_REGISTRY }}/valuecanvas-orchestrator:${{ github.sha }}
+          
+          # Parse changed services from JSON array
+          SERVICES='${{ needs.detect-changes.outputs.services }}'
+          echo "Changed services: $SERVICES"
+          
+          # Update image tags for changed services only
+          for service in $(echo $SERVICES | jq -r '.[]'); do
+            echo "Updating image for service: $service"
+            kustomize edit set image \
+              $service=${{ env.ECR_REGISTRY }}/valuecanvas-$service:${{ github.sha }}
+          done
           
           # Apply manifests
           kubectl apply -k .
       
-      - name: Wait for rollout
+      - name: Wait for rollout of changed services
         run: |
-          kubectl rollout status deployment/opportunity-agent -n valuecanvas --timeout=5m
-          kubectl rollout status deployment/target-agent -n valuecanvas --timeout=5m
-          kubectl rollout status deployment/realization-agent -n valuecanvas --timeout=5m
-          kubectl rollout status deployment/expansion-agent -n valuecanvas --timeout=5m
-          kubectl rollout status deployment/integrity-agent -n valuecanvas --timeout=5m
-          kubectl rollout status deployment/orchestrator -n valuecanvas --timeout=5m
+          SERVICES='${{ needs.detect-changes.outputs.services }}'
+          
+          for service in $(echo $SERVICES | jq -r '.[]'); do
+            echo "Waiting for rollout of $service..."
+            # Map service name to deployment name
+            case $service in
+              orchestrator)
+                DEPLOYMENT="orchestrator"
+                ;;
+              *)
+                DEPLOYMENT="${service}-agent"
+                ;;
+            esac
+            
+            kubectl rollout status deployment/$DEPLOYMENT -n valuecanvas --timeout=5m
+          done
       
       - name: Verify deployment
         run: |
@@ -253,7 +311,9 @@ jobs:
   deploy-frontend:
     name: Deploy Frontend to CDN
     runs-on: ubuntu-latest
-    needs: [build-frontend, deploy-kubernetes]
+    needs: [build-frontend, deploy-kubernetes, detect-changes]
+    # Only run if frontend was built
+    if: ${{ needs.detect-changes.outputs.frontend == 'true' }}
     
     steps:
       - name: Download build artifacts
@@ -281,10 +341,53 @@ jobs:
             --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
             --paths "/*"
 
+  # Summary job to handle conditional deployments
+  deployment-summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-images, build-frontend, deploy-kubernetes, deploy-frontend]
+    if: always()
+    
+    steps:
+      - name: Print deployment summary
+        run: |
+          echo "=== Deployment Summary ==="
+          echo "Changed services: ${{ needs.detect-changes.outputs.services }}"
+          echo "Frontend changed: ${{ needs.detect-changes.outputs.frontend }}"
+          echo "Infrastructure changed: ${{ needs.detect-changes.outputs.infrastructure }}"
+          echo ""
+          echo "=== Job Status ==="
+          echo "Build images: ${{ needs.build-images.result }}"
+          echo "Build frontend: ${{ needs.build-frontend.result }}"
+          echo "Deploy Kubernetes: ${{ needs.deploy-kubernetes.result }}"
+          echo "Deploy frontend: ${{ needs.deploy-frontend.result }}"
+          
+          # Check if any deployment failed
+          if [[ "${{ needs.build-images.result }}" == "failure" ]] || \
+             [[ "${{ needs.build-frontend.result }}" == "failure" ]] || \
+             [[ "${{ needs.deploy-kubernetes.result }}" == "failure" ]] || \
+             [[ "${{ needs.deploy-frontend.result }}" == "failure" ]]; then
+            echo "❌ Deployment failed"
+            exit 1
+          fi
+          
+          # Check if nothing was deployed
+          if [[ "${{ needs.detect-changes.outputs.services }}" == "[]" ]] && \
+             [[ "${{ needs.detect-changes.outputs.frontend }}" != "true" ]]; then
+            echo "ℹ️  No changes detected - skipping deployment"
+          else
+            echo "✅ Deployment successful"
+          fi
+
   smoke-tests:
     name: Run Smoke Tests
     runs-on: ubuntu-latest
-    needs: [deploy-frontend]
+    needs: [deployment-summary, detect-changes]
+    # Only run smoke tests if something was deployed
+    if: |
+      needs.deployment-summary.result == 'success' &&
+      (needs.detect-changes.outputs.services != '[]' || 
+       needs.detect-changes.outputs.frontend == 'true')
     
     steps:
       - name: Checkout code
