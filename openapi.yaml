@@ -1,0 +1,869 @@
+openapi: 3.1.0
+info:
+  title: ValueCanvas API
+  version: 1.0.0
+  description: |
+    ValueCanvas API provides AI-powered business model canvas generation and refinement.
+    
+    ## Features
+    - Business model canvas generation
+    - Canvas section refinement
+    - LLM-powered suggestions
+    - Cost tracking and analytics
+    - Prompt version control
+    
+    ## Authentication
+    All endpoints require Bearer token authentication.
+    
+    ## Rate Limits
+    - Free: 10 requests/day
+    - Basic: 50 requests/day
+    - Pro: 500 requests/day
+    - Enterprise: 5000 requests/day
+    
+  contact:
+    name: ValueCanvas API Support
+    email: api@valuecanvas.com
+    url: https://valuecanvas.com/support
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.valuecanvas.com
+    description: Production server
+  - url: https://staging.valuecanvas.com
+    description: Staging server
+  - url: http://localhost:3000
+    description: Local development
+
+tags:
+  - name: Canvas
+    description: Business model canvas operations
+  - name: LLM
+    description: LLM service operations
+  - name: Health
+    description: Health check endpoints
+  - name: User
+    description: User management
+  - name: Prompts
+    description: Prompt version control
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health/live:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      description: Kubernetes liveness probe endpoint
+      security: []
+      responses:
+        '200':
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /health/ready:
+    get:
+      tags: [Health]
+      summary: Readiness probe
+      description: Kubernetes readiness probe endpoint
+      security: []
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ready
+                  checks:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        status:
+                          type: string
+                          enum: [healthy, unhealthy]
+                        latency:
+                          type: number
+        '503':
+          description: Service is not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/canvas/generate:
+    post:
+      tags: [Canvas]
+      summary: Generate business model canvas
+      description: Generate a complete business model canvas using AI
+      operationId: generateCanvas
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - businessDescription
+              properties:
+                businessDescription:
+                  type: string
+                  description: Description of the business
+                  example: A SaaS platform for project management
+                industry:
+                  type: string
+                  description: Industry sector
+                  example: Technology
+                targetMarket:
+                  type: string
+                  description: Target market segment
+                  example: SMBs
+                model:
+                  type: string
+                  description: LLM model to use
+                  default: meta-llama/Llama-3-70b-chat-hf
+                  enum:
+                    - meta-llama/Llama-3-70b-chat-hf
+                    - meta-llama/Llama-3-8b-chat-hf
+                    - mistralai/Mixtral-8x7B-Instruct-v0.1
+      responses:
+        '200':
+          description: Canvas generated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      canvasId:
+                        type: string
+                        format: uuid
+                      canvas:
+                        $ref: '#/components/schemas/Canvas'
+                      provider:
+                        type: string
+                        enum: [together_ai, openai, cache]
+                      cost:
+                        type: number
+                        format: float
+                        example: 0.002
+                      latency:
+                        type: number
+                        example: 1500
+                      cached:
+                        type: boolean
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitError'
+        '503':
+          description: LLM service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/canvas/{canvasId}:
+    get:
+      tags: [Canvas]
+      summary: Get canvas by ID
+      operationId: getCanvas
+      parameters:
+        - name: canvasId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Canvas retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Canvas'
+        '404':
+          description: Canvas not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      tags: [Canvas]
+      summary: Update canvas
+      operationId: updateCanvas
+      parameters:
+        - name: canvasId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Canvas'
+      responses:
+        '200':
+          description: Canvas updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Canvas'
+
+    delete:
+      tags: [Canvas]
+      summary: Delete canvas
+      operationId: deleteCanvas
+      parameters:
+        - name: canvasId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Canvas deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  /api/canvas/{canvasId}/refine:
+    post:
+      tags: [Canvas]
+      summary: Refine canvas section
+      description: Get AI-powered suggestions to improve a canvas section
+      operationId: refineCanvas
+      parameters:
+        - name: canvasId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - section
+              properties:
+                section:
+                  type: string
+                  enum:
+                    - keyPartners
+                    - keyActivities
+                    - valuePropositions
+                    - customerRelationships
+                    - customerSegments
+                    - keyResources
+                    - channels
+                    - costStructure
+                    - revenueStreams
+                context:
+                  type: string
+                  description: Additional context for refinement
+                  example: We want to expand into enterprise market
+      responses:
+        '200':
+          description: Suggestions generated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      suggestions:
+                        type: array
+                        items:
+                          type: string
+                      reasoning:
+                        type: string
+                      cost:
+                        type: number
+                      cached:
+                        type: boolean
+
+  /api/llm/chat:
+    post:
+      tags: [LLM]
+      summary: Send LLM chat request
+      description: Send a chat completion request to LLM with automatic fallback
+      operationId: llmChat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - prompt
+                - model
+              properties:
+                prompt:
+                  type: string
+                  description: The prompt to send to the LLM
+                model:
+                  type: string
+                  description: LLM model to use
+                  example: meta-llama/Llama-3-70b-chat-hf
+                maxTokens:
+                  type: integer
+                  default: 1000
+                  minimum: 1
+                  maximum: 4000
+                temperature:
+                  type: number
+                  format: float
+                  default: 0.7
+                  minimum: 0
+                  maximum: 2
+      responses:
+        '200':
+          description: LLM response generated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      content:
+                        type: string
+                      provider:
+                        type: string
+                        enum: [together_ai, openai, cache]
+                      model:
+                        type: string
+                      usage:
+                        type: object
+                        properties:
+                          promptTokens:
+                            type: integer
+                          completionTokens:
+                            type: integer
+                          totalTokens:
+                            type: integer
+                      cost:
+                        type: number
+                        format: float
+                      latency:
+                        type: number
+                      cached:
+                        type: boolean
+
+  /api/llm/stats:
+    get:
+      tags: [LLM]
+      summary: Get LLM statistics
+      description: Get statistics about LLM usage and circuit breaker status
+      operationId: getLLMStats
+      responses:
+        '200':
+          description: Statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      togetherAI:
+                        $ref: '#/components/schemas/ProviderStats'
+                      openAI:
+                        $ref: '#/components/schemas/ProviderStats'
+                      cache:
+                        type: object
+                        properties:
+                          hits:
+                            type: integer
+                          misses:
+                            type: integer
+
+  /api/llm/health:
+    get:
+      tags: [LLM]
+      summary: Check LLM service health
+      description: Check health of LLM providers and circuit breakers
+      operationId: getLLMHealth
+      responses:
+        '200':
+          description: All providers healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      togetherAI:
+                        $ref: '#/components/schemas/ProviderHealth'
+                      openAI:
+                        $ref: '#/components/schemas/ProviderHealth'
+        '503':
+          description: One or more providers unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/user/llm-usage:
+    get:
+      tags: [User]
+      summary: Get user LLM usage
+      description: Get LLM usage statistics for the authenticated user
+      operationId: getUserLLMUsage
+      parameters:
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Usage statistics retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      totalCost:
+                        type: number
+                        format: float
+                      requestCount:
+                        type: integer
+                      tokenUsage:
+                        type: object
+                        properties:
+                          prompt:
+                            type: integer
+                          completion:
+                            type: integer
+                          total:
+                            type: integer
+                      byModel:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            model:
+                              type: string
+                            requests:
+                              type: integer
+                            cost:
+                              type: number
+
+  /api/prompts/versions:
+    get:
+      tags: [Prompts]
+      summary: List prompt versions
+      description: List all versions for a prompt key
+      operationId: listPromptVersions
+      parameters:
+        - name: promptKey
+          in: query
+          required: true
+          schema:
+            type: string
+            example: canvas.generate
+      responses:
+        '200':
+          description: Versions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PromptVersion'
+
+    post:
+      tags: [Prompts]
+      summary: Create prompt version
+      description: Create a new version of a prompt
+      operationId: createPromptVersion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - promptKey
+                - template
+                - variables
+                - metadata
+              properties:
+                promptKey:
+                  type: string
+                  example: canvas.generate
+                template:
+                  type: string
+                  example: "Generate a canvas for {{businessDescription}}"
+                variables:
+                  type: array
+                  items:
+                    type: string
+                  example: [businessDescription, industry]
+                metadata:
+                  type: object
+                  properties:
+                    author:
+                      type: string
+                    description:
+                      type: string
+                    tags:
+                      type: array
+                      items:
+                        type: string
+                    model:
+                      type: string
+      responses:
+        '201':
+          description: Version created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/PromptVersion'
+
+  /api/prompts/versions/{promptKey}/{version}/activate:
+    post:
+      tags: [Prompts]
+      summary: Activate prompt version
+      description: Activate a specific version of a prompt
+      operationId: activatePromptVersion
+      parameters:
+        - name: promptKey
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Version activated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Canvas:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        businessDescription:
+          type: string
+        keyPartners:
+          type: array
+          items:
+            type: string
+        keyActivities:
+          type: array
+          items:
+            type: string
+        valuePropositions:
+          type: array
+          items:
+            type: string
+        customerRelationships:
+          type: array
+          items:
+            type: string
+        customerSegments:
+          type: array
+          items:
+            type: string
+        keyResources:
+          type: array
+          items:
+            type: string
+        channels:
+          type: array
+          items:
+            type: string
+        costStructure:
+          type: array
+          items:
+            type: string
+        revenueStreams:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PromptVersion:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        promptKey:
+          type: string
+        version:
+          type: integer
+        template:
+          type: string
+        variables:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+        performance:
+          type: object
+          properties:
+            avgLatency:
+              type: number
+            avgCost:
+              type: number
+            successRate:
+              type: number
+            userSatisfaction:
+              type: number
+        status:
+          type: string
+          enum: [draft, testing, active, deprecated]
+        createdAt:
+          type: string
+          format: date-time
+
+    ProviderStats:
+      type: object
+      properties:
+        state:
+          type: string
+          enum: [open, half-open, closed]
+        calls:
+          type: integer
+        failures:
+          type: integer
+        fallbacks:
+          type: integer
+
+    ProviderHealth:
+      type: object
+      properties:
+        healthy:
+          type: boolean
+        state:
+          type: string
+          enum: [open, half-open, closed]
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+    RateLimitError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Rate limit exceeded
+        message:
+          type: string
+        upgradeUrl:
+          type: string
+          example: /pricing
+        retryAfter:
+          type: integer
+          description: Seconds until rate limit resets
+
+  responses:
+    UnauthorizedError:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Unauthorized
+            message: Authentication token required
+
+    ForbiddenError:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Forbidden
+            message: Insufficient permissions
+
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Not Found
+            message: Resource not found
+
+    RateLimitError:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RateLimitError'
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      description: Page number
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    LimitParam:
+      name: limit
+      in: query
+      description: Items per page
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  examples:
+    CanvasGenerateRequest:
+      value:
+        businessDescription: A SaaS platform for project management
+        industry: Technology
+        targetMarket: SMBs
+
+    CanvasGenerateResponse:
+      value:
+        success: true
+        data:
+          canvasId: 123e4567-e89b-12d3-a456-426614174000
+          canvas:
+            keyPartners:
+              - Cloud infrastructure providers
+              - Payment processors
+            keyActivities:
+              - Software development
+              - Customer support
+            valuePropositions:
+              - Streamlined project management
+              - Real-time collaboration
+          provider: together_ai
+          cost: 0.002
+          latency: 1500
+          cached: false
