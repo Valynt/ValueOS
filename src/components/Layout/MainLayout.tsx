@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { agentOrchestrator, StreamingUpdate } from '../../services/AgentOrchestrator';
+import { agentOrchestrator, StreamingUpdate } from '../../services/AgentOrchestratorAdapter';
 import { persistenceService } from '../../services/PersistenceService';
 import { suggestionEngine } from '../../services/SuggestionEngine';
 import { calculationEngine } from '../../services/CalculationEngine';
