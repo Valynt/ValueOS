@@ -179,3 +179,81 @@ export class CircuitBreakerManager {
     }
   }
 }
+
+export class CircuitBreaker {
+  private state: CircuitBreakerState;
+
+  constructor(
+    private key: string,
+    private failureThreshold: number,
+    private cooldownPeriod: number
+  ) {
+    this.state = {
+      failure_count: 0,
+      last_failure_time: null,
+      state: 'closed',
+      timeout_seconds: Math.ceil(cooldownPeriod / 1000),
+      metrics: [],
+      opened_at: null,
+      half_open_probes: 0,
+      failure_rate_threshold: failureThreshold,
+      latency_threshold_ms: cooldownPeriod,
+      window_ms: cooldownPeriod,
+      minimum_samples: failureThreshold,
+      half_open_max_probes: 1,
+    };
+  }
+
+  canExecute(): boolean {
+    if (this.state.state === 'open' && this.state.opened_at) {
+      const openedAt = new Date(this.state.opened_at).getTime();
+      const elapsed = Date.now() - openedAt;
+      if (elapsed >= this.cooldownPeriod) {
+        this.state.state = 'half_open';
+        this.state.half_open_probes = 0;
+        return true;
+      }
+      return false;
+    }
+
+    if (
+      this.state.state === 'half_open' &&
+      this.state.half_open_probes >= this.state.half_open_max_probes
+    ) {
+      return false;
+    }
+
+    return true;
+  }
+
+  recordSuccess(): void {
+    this.state.failure_count = 0;
+    this.state.last_failure_time = null;
+    this.state.state = 'closed';
+    this.state.opened_at = null;
+    this.state.half_open_probes = 0;
+  }
+
+  recordFailure(): void {
+    this.state.failure_count += 1;
+    this.state.last_failure_time = new Date().toISOString();
+
+    if (this.state.failure_count >= this.failureThreshold) {
+      this.state.state = 'open';
+      this.state.opened_at = new Date().toISOString();
+      this.state.half_open_probes = 0;
+      logger.warn('Circuit breaker opened', {
+        key: this.key,
+        failureCount: this.state.failure_count,
+      });
+    }
+  }
+
+  reset(): void {
+    this.state.failure_count = 0;
+    this.state.last_failure_time = null;
+    this.state.state = 'closed';
+    this.state.opened_at = null;
+    this.state.half_open_probes = 0;
+  }
+}
