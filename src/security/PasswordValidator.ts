@@ -5,7 +5,7 @@
  * Validates password strength, prevents common passwords, and enforces policy.
  */
 
-import { logger } from './lib/logger';
+import { logger } from '../lib/logger';
 import { getSecurityConfig } from './SecurityConfig';
 
 /**
