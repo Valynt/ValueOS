@@ -3,9 +3,17 @@
  * 
  * Treats each UI component as a "tool" that agents can use.
  * Provides documentation, examples, and validation for LLM-based component selection.
+ * 
+ * DYNAMIC DATA BINDINGS:
+ * Components support live data bindings instead of static values.
+ * Instead of: { value: "$1.2M" }
+ * Use: { value: { $bind: "metrics.revenue_uplift", $source: "realization_engine", $fallback: "Calculating..." } }
+ * 
+ * This allows generated UIs to stay fresh without LLM regeneration.
  */
 
 import { z } from 'zod';
+import { DataBinding, EXAMPLE_BINDINGS } from './DataBindingSchema';
 
 export interface ComponentTool {
   name: string;
@@ -246,25 +254,42 @@ export const COMPONENT_TOOL_REGISTRY: Record<string, ComponentTool> = {
 
   StatCard: {
     name: 'StatCard',
-    description: 'Display a single metric or statistic',
-    when_to_use: 'Show key metrics, KPIs, or statistics',
+    description: 'Display a single metric or statistic with support for live data bindings',
+    when_to_use: 'Show key metrics, KPIs, or statistics that update automatically',
     category: 'data',
     required_props: ['label', 'value'],
     optional_props: ['icon', 'color', 'trend', 'change'],
     prop_types: {
       label: 'string',
-      value: 'string | number',
+      value: 'string | number | DataBinding',
       icon: 'string',
       color: 'string',
       trend: 'up | down | neutral',
     },
     examples: [
       {
-        scenario: 'Display KPI',
+        scenario: 'Display KPI with static value',
         props: {
           label: 'Success Rate',
           value: '85%',
           icon: 'trending-up',
+          color: 'green',
+          trend: 'up',
+        },
+        layout_recommendation: 'default',
+      },
+      {
+        scenario: 'Display KPI with live data binding',
+        props: {
+          label: 'Revenue Uplift',
+          value: {
+            $bind: 'metrics.revenue_uplift',
+            $source: 'realization_engine',
+            $transform: 'currency',
+            $fallback: 'Calculating...',
+            $refresh: 30000,
+          },
+          icon: 'dollar-sign',
           color: 'green',
           trend: 'up',
         },
@@ -275,10 +300,15 @@ export const COMPONENT_TOOL_REGISTRY: Record<string, ComponentTool> = {
       'Use in Grid for multiple stats',
       'Include trend indicators',
       'Choose appropriate colors',
+      'Use data bindings for live metrics that change frequently',
+      'Set appropriate $refresh intervals (30s for real-time, 5min for slower metrics)',
+      'Always provide $fallback values for loading states',
     ],
     common_mistakes: [
       'Too much text in label',
       'Missing units on values',
+      'Forgetting $fallback in data bindings',
+      'Setting $refresh too low (causes excessive API calls)',
     ],
   },
 
@@ -490,7 +520,56 @@ export function searchComponentTools(query: string): ComponentTool[] {
 export function getComponentToolDocumentation(): string {
   const tools = getAllComponentTools();
   
-  return tools
+  const header = `
+# SDUI Component Tools
+
+## Dynamic Data Bindings
+
+Components support live data bindings for values that change over time.
+Instead of hardcoding values, use data binding objects:
+
+\`\`\`json
+{
+  "value": {
+    "$bind": "metrics.revenue_uplift",
+    "$source": "realization_engine",
+    "$transform": "currency",
+    "$fallback": "Calculating...",
+    "$refresh": 30000
+  }
+}
+\`\`\`
+
+**Available Data Sources**:
+- \`realization_engine\` - RealizationLoopAgent metrics and loops
+- \`system_mapper\` - SystemMapperAgent entities and relationships
+- \`intervention_designer\` - InterventionDesignerAgent interventions
+- \`outcome_engineer\` - OutcomeEngineerAgent hypotheses
+- \`value_eval\` - ValueEvalAgent scores
+- \`semantic_memory\` - SemanticMemoryService memories
+- \`tool_registry\` - ToolRegistry execution results
+- \`mcp_tool\` - MCP tool execution
+- \`supabase\` - Direct Supabase queries
+
+**Transform Functions**:
+- \`currency\` - Format as currency ($1.2M)
+- \`percentage\` - Format as percentage (85%)
+- \`number\` - Format with commas (1,234,567)
+- \`date\` - Format as date (Jan 15, 2024)
+- \`relative_time\` - Format as relative time (2 hours ago)
+- \`round\` - Round to 2 decimals
+- \`array_length\` - Get array length
+- \`sum\`, \`average\`, \`max\`, \`min\` - Array aggregations
+
+**Example Bindings**:
+\`\`\`json
+${JSON.stringify(EXAMPLE_BINDINGS, null, 2)}
+\`\`\`
+
+---
+`;
+
+  const componentDocs = tools
     .map(
       (tool) => `
 ## ${tool.name}
@@ -514,6 +593,8 @@ ${JSON.stringify(tool.examples[0], null, 2)}
 `
     )
     .join('\n---\n');
+
+  return header + componentDocs;
 }
 
 /**
