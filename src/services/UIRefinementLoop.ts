@@ -3,12 +3,23 @@
  * 
  * Implements the Evaluator-Optimizer pattern for iterative UI improvement.
  * Evaluates generated UIs and refines them based on feedback.
+ * 
+ * PARTIAL MUTATION SUPPORT:
+ * Instead of regenerating entire layouts, the loop can now apply atomic
+ * mutations to specific components for snappy, responsive updates.
  */
 
 import { logger } from '../lib/logger';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import { getUIGenerationTracker } from './UIGenerationTracker';
 import { validateComponentSelection } from '../sdui/ComponentToolRegistry';
+import { ComponentMutationService } from './ComponentMutationService';
+import {
+  AtomicUIAction,
+  createPropertyUpdate,
+  createMutateAction,
+  validateAtomicAction,
+} from '../sdui/AtomicUIActions';
 import type { SDUIPageDefinition } from '../sdui/types';
 import type { Subgoal } from '../types/Subgoal';
 
@@ -42,19 +53,23 @@ export interface RefinementResult {
 export class UIRefinementLoop {
   private llmGateway: LLMGateway;
   private tracker: ReturnType<typeof getUIGenerationTracker>;
+  private mutationService: ComponentMutationService;
   private config: {
     maxIterations: number;
     targetScore: number;
     minImprovement: number;
+    usePartialMutations: boolean;
   };
 
   constructor() {
     this.llmGateway = new LLMGateway('together', true);
     this.tracker = getUIGenerationTracker();
+    this.mutationService = new ComponentMutationService();
     this.config = {
       maxIterations: 3,
       targetScore: 85,
       minImprovement: 5,
+      usePartialMutations: true, // Enable partial mutations by default
     };
   }
 
@@ -207,6 +222,146 @@ Evaluate the layout's effectiveness for this task.`,
     evaluation: UIEvaluationResult,
     subgoal: Subgoal
   ): Promise<SDUIPageDefinition> {
+    // Check if we should use partial mutations
+    if (this.config.usePartialMutations && this.shouldUsePartialMutation(evaluation)) {
+      logger.info('Using partial mutation for refinement');
+      return this.refineWithPartialMutation(currentLayout, evaluation);
+    }
+
+    // Fall back to full regeneration
+    logger.info('Using full regeneration for refinement');
+    return this.refineWithFullRegeneration(currentLayout, evaluation, subgoal);
+  }
+
+  /**
+   * Determine if partial mutation is appropriate
+   */
+  private shouldUsePartialMutation(evaluation: UIEvaluationResult): boolean {
+    // Use partial mutation if:
+    // 1. Only a few components have issues (< 30% of total)
+    // 2. Issues are specific and actionable
+    // 3. No major layout restructuring needed
+
+    const hasSpecificComponentIssues = evaluation.component_issues.length > 0;
+    const hasMinorLayoutIssues =
+      evaluation.layout_issues.length === 0 ||
+      evaluation.layout_issues.every((i) => i.severity === 'low');
+
+    return hasSpecificComponentIssues && hasMinorLayoutIssues;
+  }
+
+  /**
+   * Refine layout using partial mutations
+   */
+  private async refineWithPartialMutation(
+    currentLayout: SDUIPageDefinition,
+    evaluation: UIEvaluationResult
+  ): Promise<SDUIPageDefinition> {
+    const messages = [
+      {
+        role: 'system' as const,
+        content: `You are a UI designer applying targeted fixes to interface components.
+Given evaluation feedback, generate atomic UI actions to fix specific issues.
+
+Output valid JSON array of atomic actions:
+[
+  {
+    "type": "mutate_component",
+    "selector": { "type": "ComponentName", "index": 0 },
+    "mutations": [
+      { "path": "props.propertyName", "operation": "set", "value": "newValue" }
+    ],
+    "description": "What this fixes"
+  }
+]
+
+Available action types:
+- mutate_component: Modify component props
+- add_component: Add new component
+- remove_component: Remove component
+- update_layout: Change layout directive
+
+Available operations:
+- set: Set property value
+- merge: Merge with existing object
+- append: Add to array
+- prepend: Add to start of array
+- remove: Delete property
+
+Focus on surgical fixes that address specific issues without touching unrelated components.`,
+      },
+      {
+        role: 'user' as const,
+        content: `Generate atomic actions to fix these issues:
+
+Current Layout:
+${JSON.stringify(currentLayout, null, 2)}
+
+Component Issues:
+${evaluation.component_issues.map((i) => `- ${i.component}: ${i.issue} (${i.severity})`).join('\n')}
+
+Suggestions:
+${evaluation.suggestions.map((s) => `- ${s}`).join('\n')}
+
+Generate minimal atomic actions to fix these specific issues.`,
+      },
+    ];
+
+    const response = await this.llmGateway.complete(
+      messages,
+      { use_gating: true, temperature: 0.3 },
+      { task_type: 'ui_mutation', complexity: 0.4 }
+    );
+
+    // Parse actions
+    let actions: AtomicUIAction[];
+    try {
+      let jsonContent = response.content.trim();
+      if (jsonContent.startsWith('```')) {
+        jsonContent = jsonContent.replace(/```json?\n?/g, '').replace(/```\n?$/g, '');
+      }
+      actions = JSON.parse(jsonContent);
+
+      if (!Array.isArray(actions)) {
+        throw new Error('Expected array of actions');
+      }
+    } catch (error) {
+      logger.error('Failed to parse atomic actions', error instanceof Error ? error : undefined);
+      return currentLayout;
+    }
+
+    // Apply actions
+    let refinedLayout = currentLayout;
+    for (const action of actions) {
+      const validation = validateAtomicAction(action);
+      if (!validation.valid) {
+        logger.warn('Invalid action, skipping', { errors: validation.errors });
+        continue;
+      }
+
+      const { layout, result } = await this.mutationService.applyAction(refinedLayout, action);
+      if (result.success) {
+        refinedLayout = layout;
+        logger.info('Applied atomic action', {
+          action_type: action.type,
+          affected_components: result.affected_components,
+        });
+      } else {
+        logger.warn('Action failed', { error: result.error });
+      }
+    }
+
+    return refinedLayout;
+  }
+
+  /**
+   * Refine layout with full regeneration (original behavior)
+   */
+  private async refineWithFullRegeneration(
+    currentLayout: SDUIPageDefinition,
+    evaluation: UIEvaluationResult,
+    subgoal: Subgoal
+  ): Promise<SDUIPageDefinition> {
     const messages = [
       {
         role: 'system' as const,
@@ -276,6 +431,102 @@ Generate an improved layout that addresses these issues.`,
     }
 
     return refinedLayout;
+  }
+
+  /**
+   * Apply a user-requested mutation (for Playground)
+   */
+  async applyUserMutation(
+    currentLayout: SDUIPageDefinition,
+    userRequest: string
+  ): Promise<{ layout: SDUIPageDefinition; changes: string[] }> {
+    logger.info('Processing user mutation request', { request: userRequest });
+
+    const messages = [
+      {
+        role: 'system' as const,
+        content: `You are a UI designer interpreting user requests for UI changes.
+Given a user's natural language request, generate atomic UI actions to fulfill it.
+
+Output valid JSON array of atomic actions:
+[
+  {
+    "type": "mutate_component",
+    "selector": { "type": "ComponentName", "description": "the ROI chart" },
+    "mutations": [
+      { "path": "props.type", "operation": "set", "value": "bar" }
+    ],
+    "description": "Change chart type to bar"
+  }
+]
+
+Examples:
+- "Change the ROI chart to a bar graph" → mutate chart type
+- "Update the revenue metric to $2M" → mutate metric value
+- "Remove the third card" → remove component at index 2
+- "Add a new metric showing profit" → add component
+
+Be specific with selectors (use type, index, or description).`,
+      },
+      {
+        role: 'user' as const,
+        content: `User request: "${userRequest}"
+
+Current layout:
+${JSON.stringify(currentLayout, null, 2)}
+
+Generate atomic actions to fulfill this request.`,
+      },
+    ];
+
+    const response = await this.llmGateway.complete(
+      messages,
+      { use_gating: true, temperature: 0.2 },
+      { task_type: 'ui_mutation', complexity: 0.3 }
+    );
+
+    // Parse actions
+    let actions: AtomicUIAction[];
+    try {
+      let jsonContent = response.content.trim();
+      if (jsonContent.startsWith('```')) {
+        jsonContent = jsonContent.replace(/```json?\n?/g, '').replace(/```\n?$/g, '');
+      }
+      actions = JSON.parse(jsonContent);
+
+      if (!Array.isArray(actions)) {
+        throw new Error('Expected array of actions');
+      }
+    } catch (error) {
+      logger.error('Failed to parse user mutation actions', error instanceof Error ? error : undefined);
+      return { layout: currentLayout, changes: [] };
+    }
+
+    // Apply actions
+    let refinedLayout = currentLayout;
+    const changes: string[] = [];
+
+    for (const action of actions) {
+      const validation = validateAtomicAction(action);
+      if (!validation.valid) {
+        logger.warn('Invalid action from user request', { errors: validation.errors });
+        continue;
+      }
+
+      const { layout, result } = await this.mutationService.applyAction(refinedLayout, action);
+      if (result.success) {
+        refinedLayout = layout;
+        changes.push(...result.changes_made);
+        logger.info('Applied user mutation', {
+          action_type: action.type,
+          affected_components: result.affected_components,
+        });
+      } else {
+        logger.warn('User mutation failed', { error: result.error });
+      }
+    }
+
+    return { layout: refinedLayout, changes };
   }
 
   /**

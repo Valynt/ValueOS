@@ -1,5 +1,6 @@
 import { logger } from '../lib/logger';
 import { CanvasComponent } from '../types';
+import { createCurrencyBinding, createPercentageBinding, createMetricBinding } from '../sdui/DataBindingSchema';
 
 export interface ComponentTemplate {
   id: string;
@@ -60,6 +61,84 @@ class TemplateLibrary {
                 { name: 'Q4', value: 245, id: 'q4', color: '#3b82f6' }
               ],
               config: { showValue: true, showLegend: false }
+            }
+          }
+        ]
+      },
+      {
+        id: 'realization-dashboard-live',
+        name: 'Realization Dashboard (Live)',
+        description: 'Live realization metrics with dynamic data bindings - always shows latest data',
+        category: 'composite',
+        tags: ['realization', 'live', 'metrics', 'feedback-loops'],
+        components: [
+          {
+            type: 'metric-card',
+            size: { width: 280, height: 120 },
+            props: {
+              title: 'Revenue Uplift',
+              value: createCurrencyBinding('metrics.revenue_uplift', 'realization_engine', {
+                $fallback: 'Calculating...',
+                $refresh: 30000,
+              }),
+              trend: 'up',
+              icon: 'dollar-sign'
+            }
+          },
+          {
+            type: 'metric-card',
+            size: { width: 280, height: 120 },
+            props: {
+              title: 'Active Feedback Loops',
+              value: createMetricBinding('loops.filter(realization_stage=active).length', {
+                $fallback: 0,
+                $refresh: 30000,
+              }),
+              trend: 'neutral',
+              icon: 'activity'
+            }
+          },
+          {
+            type: 'metric-card',
+            size: { width: 280, height: 120 },
+            props: {
+              title: 'Loop Strength',
+              value: {
+                $bind: 'loops[0].loop_strength',
+                $source: 'realization_engine',
+                $fallback: 'Unknown',
+                $refresh: 30000,
+              },
+              trend: 'up',
+              icon: 'trending-up'
+            }
+          },
+          {
+            type: 'metric-card',
+            size: { width: 280, height: 120 },
+            props: {
+              title: 'Behavior Changes',
+              value: createMetricBinding('behavior_changes.length', {
+                $fallback: 0,
+                $refresh: 60000,
+              }),
+              trend: 'up',
+              icon: 'users'
+            }
+          },
+          {
+            type: 'data-table',
+            size: { width: 600, height: 300 },
+            props: {
+              title: 'Recent Behavior Changes',
+              headers: ['Entity', 'Change', 'Evidence', 'Time'],
+              rows: {
+                $bind: 'behavior_changes',
+                $source: 'realization_engine',
+                $params: { limit: 5 },
+                $fallback: [],
+                $refresh: 60000,
+              }
             }
           }
         ]

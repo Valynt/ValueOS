@@ -3,12 +3,17 @@ import { ErrorBoundary } from '../components/Common/ErrorBoundary';
 import { UnknownComponentFallback, SectionErrorFallback } from '../components/SDUI';
 import { SDUIComponentSection, SDUIPageDefinition, validateSDUISchema } from './schema';
 import { RegistryPlaceholderComponent, resolveComponent } from './registry';
+import { DataBindingResolver } from './DataBindingResolver';
+import { DataSourceContext } from './DataBindingSchema';
+import { useDataBindings } from './useDataBinding';
 
 interface SDUIRendererProps {
   schema: unknown;
   debugOverlay?: boolean;
   onValidationError?: (errors: string[]) => void;
   onHydrationWarning?: (warnings: string[]) => void;
+  dataBindingResolver?: DataBindingResolver;
+  dataSourceContext?: DataSourceContext;
 }
 
 interface HydrationTraceProps {
@@ -42,7 +47,76 @@ const InvalidSchemaFallback: React.FC<{ errors: string[] }> = ({ errors }) => (
   </div>
 );
 
-const renderSection = (section: SDUIComponentSection, index: number, debugOverlay?: boolean) => {
+/**
+ * Component wrapper that resolves data bindings
+ */
+const ComponentWithBindings: React.FC<{
+  section: SDUIComponentSection;
+  Component: React.ComponentType<any>;
+  resolver?: DataBindingResolver;
+  context?: DataSourceContext;
+  debugOverlay?: boolean;
+}> = ({ section, Component, resolver, context, debugOverlay }) => {
+  // If no resolver or context, render without binding resolution
+  if (!resolver || !context) {
+    return (
+      <>
+        <Component {...section.props} />
+        {debugOverlay && (
+          <HydrationTrace
+            section={section}
+            status="rendered"
+            warning="No data binding resolver configured"
+          />
+        )}
+      </>
+    );
+  }
+
+  // Resolve data bindings in props
+  const { props: resolvedProps, loading, errors } = useDataBindings(section.props, {
+    resolver,
+    context,
+  });
+
+  if (loading) {
+    return (
+      <div className="animate-pulse space-y-2">
+        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+        <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+      </div>
+    );
+  }
+
+  if (Object.keys(errors).length > 0) {
+    return (
+      <div className="text-red-600 text-sm p-4 border border-red-200 rounded">
+        Failed to resolve data bindings: {errors._global || 'Unknown error'}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Component {...resolvedProps} />
+      {debugOverlay && (
+        <HydrationTrace
+          section={section}
+          status="rendered"
+          warning="Data bindings resolved successfully"
+        />
+      )}
+    </>
+  );
+};
+
+const renderSection = (
+  section: SDUIComponentSection,
+  index: number,
+  debugOverlay?: boolean,
+  resolver?: DataBindingResolver,
+  context?: DataSourceContext
+) => {
   const entry = resolveComponent(section);
   if (!entry) {
     return (
@@ -64,9 +138,14 @@ const renderSection = (section: SDUIComponentSection, index: number, debugOverla
   return (
     <div key={`${section.component}-${index}`} className="space-y-2">
       <ErrorBoundary fallback={<SectionErrorFallback componentName={section.component} />}>
-        <Component {...section.props} />
+        <ComponentWithBindings
+          section={section}
+          Component={Component}
+          resolver={resolver}
+          context={context}
+          debugOverlay={debugOverlay}
+        />
       </ErrorBoundary>
-      {debugOverlay && <HydrationTrace section={section} status="rendered" warning={entry.description} />}
     </div>
   );
 };
@@ -76,6 +155,8 @@ export const SDUIRenderer: React.FC<SDUIRendererProps> = ({
   debugOverlay = false,
   onValidationError,
   onHydrationWarning,
+  dataBindingResolver,
+  dataSourceContext,
 }) => {
   const validation = useMemo(() => validateSDUISchema(schema), [schema]);
 
@@ -92,7 +173,15 @@ export const SDUIRenderer: React.FC<SDUIRendererProps> = ({
 
   return (
     <div className="space-y-4" data-testid="sdui-renderer">
-      {page.sections.map((section, index) => renderSection(section, index, debugOverlay || page.metadata?.debug))}
+      {page.sections.map((section, index) =>
+        renderSection(
+          section,
+          index,
+          debugOverlay || page.metadata?.debug,
+          dataBindingResolver,
+          dataSourceContext
+        )
+      )}
     </div>
   );
 };
