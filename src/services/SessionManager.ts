@@ -52,6 +52,7 @@ export class SessionManager extends BaseService {
   private checkInterval: number | null = null;
   private activityListenersBound = false;
   private eventListeners: SessionEventListener[] = [];
+  private throttledActivityHandler: (() => void) | null = null;
 
   constructor(config?: Partial<SessionConfig>) {
     super('SessionManager');
@@ -181,10 +182,10 @@ export class SessionManager extends BaseService {
   private bindActivityListeners(): void {
     if (typeof window === 'undefined' || this.activityListenersBound) return;
 
-    const throttledActivity = this.throttle(() => this.recordActivity(), 10000);
+    this.throttledActivityHandler = this.throttle(() => this.recordActivity(), 10000);
 
     SessionManager.ACTIVITY_EVENTS.forEach(event => {
-      window.addEventListener(event, throttledActivity, { passive: true });
+      window.addEventListener(event, this.throttledActivityHandler!, { passive: true });
     });
 
     this.activityListenersBound = true;
@@ -196,9 +197,12 @@ export class SessionManager extends BaseService {
   private unbindActivityListeners(): void {
     if (typeof window === 'undefined' || !this.activityListenersBound) return;
 
-    SessionManager.ACTIVITY_EVENTS.forEach(event => {
-      window.removeEventListener(event, this.recordActivity as EventListener);
-    });
+    if (this.throttledActivityHandler) {
+      SessionManager.ACTIVITY_EVENTS.forEach(event => {
+        window.removeEventListener(event, this.throttledActivityHandler!);
+      });
+      this.throttledActivityHandler = null;
+    }
 
     this.activityListenersBound = false;
   }
