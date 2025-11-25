@@ -184,8 +184,8 @@ describe('SessionManager', () => {
       
       const infoAfter = sessionManager.getSessionInfo();
       
-      // Idle time should be reset
-      expect(infoAfter?.idleMinutes).toBeLessThan(infoBefore?.idleMinutes || 0);
+      // Idle time should be reset (should be very close to zero)
+      expect(infoAfter?.idleMinutes).toBeLessThan(0.01);
     });
   });
 
