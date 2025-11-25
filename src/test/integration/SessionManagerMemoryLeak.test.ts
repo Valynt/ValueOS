@@ -7,7 +7,6 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { SessionManager } from '../../services/SessionManager';
-import { authService } from '../../services/AuthService';
 
 vi.mock('../../services/AuthService', () => ({
   authService: {
