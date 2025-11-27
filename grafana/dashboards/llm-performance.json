@@ -1,0 +1,153 @@
+{
+  "dashboard": {
+    "title": "LLM Performance Dashboard",
+    "tags": ["llm", "performance", "cost"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "LLM Call Latency (p50, p95, p99)",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "refId": "A",
+            "rawSql": "SELECT time_bucket, provider, model, p50_latency_ms as p50, p95_latency_ms as p95, p99_latency_ms as p99 FROM llm_performance_metrics WHERE time_bucket \u003e NOW() - INTERVAL '24 hours' ORDER BY time_bucket",
+            "format": "time_series"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms"
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Cache Hit Rate",
+        "type": "timeseries",
+        "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "refId": "A",
+            "rawSql": "SELECT time_bucket, provider, model, cache_hits::float / (cache_hits + cache_misses) * 100 as hit_rate FROM llm_performance_metrics WHERE time_bucket \u003e NOW() - INTERVAL '24 hours' ORDER BY time_bucket",
+            "format": "time_series"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "LLM Cost Over Time",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "refId": "A",
+            "rawSql": "SELECT time_bucket, provider, model, total_cost FROM llm_performance_metrics WHERE time_bucket \u003e NOW() - INTERVAL '24 hours' ORDER BY time_bucket",
+            "format": "time_series"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "currencyUSD"
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Token Usage",
+        "type": "timeseries",
+        "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "refId": "A",
+            "rawSql": "SELECT time_bucket, provider, model, total_tokens FROM llm_performance_metrics WHERE time_bucket \u003e NOW() - INTERVAL '24 hours' ORDER BY time_bucket",
+            "format": "time_series"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "LLM Calls by Provider",
+        "type": "piechart",
+        "gridPos": { "x": 0, "y": 16, "w": 8, "h": 8 },
+        "targets": [
+          {
+            "refId": "A",
+            "rawSql": "SELECT provider, SUM(total_calls) as total FROM llm_performance_metrics WHERE time_bucket \u003e NOW() - INTERVAL '24 hours' GROUP BY provider",
+            "format": "table"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Total Cost (Last Hour)",
+        "type": "stat",
+        "gridPos": { "x": 8, "y": 16, "w": 8, "h": 8 },
+        "targets": [
+          {
+            "refId": "A",
+            "rawSql": "SELECT SUM(total_cost) as cost FROM llm_performance_metrics WHERE time_bucket \u003e NOW() - INTERVAL '1 hour'",
+            "format": "table"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "currencyUSD",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 10, "color": "yellow" },
+                { "value": 50, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Error Rate",
+        "type": "gauge",
+        "gridPos": { "x": 16, "y": 16, "w": 8, "h": 8 },
+        "targets": [
+          {
+            "refId": "A",
+            "rawSql": "SELECT SUM(error_count)::float / SUM(total_calls) * 100 as error_rate FROM llm_performance_metrics WHERE time_bucket \u003e NOW() - INTERVAL '1 hour'",
+            "format": "table"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 5, "color": "yellow" },
+                { "value": 10, "color": "red" }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}

@@ -18,6 +18,8 @@ import {
 } from '../schemas/SecureAgentOutput';
 import { logger } from '../../logger';
 import { sanitizeUserInput } from '../../../utils/security';
+import { getTracer, addSpanAttributes, addSpanEvent, recordSpanException } from '../../observability';
+import { SpanStatusCode } from '@opentelemetry/api';
 
 export interface SecureInvocationOptions {
   /** Custom confidence thresholds */

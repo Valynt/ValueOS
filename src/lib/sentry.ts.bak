@@ -60,15 +60,15 @@ export function initializeSentry(): void {
   }
 
   try {
-    // Sentry SDK is now installed
-    
+    // TODO: Uncomment when @sentry/react is installed
+    /*
     import('@sentry/react').then((Sentry) => {
       Sentry.init({
         dsn: config.monitoring.sentry.dsn,
         environment: config.monitoring.sentry.environment,
         integrations: [
-          Sentry.browserTracingIntegration(),
-          Sentry.replayIntegration({
+          new Sentry.BrowserTracing(),
+          new Sentry.Replay({
             maskAllText: true,
             blockAllMedia: true,
           }),
@@ -95,8 +95,10 @@ export function initializeSentry(): void {
 
       logger.debug('[Sentry] Initialized successfully');
     });
-    
+    */
 
+    logger.debug('[Sentry] Ready to initialize (SDK not yet installed)');
+    logger.debug('[Sentry] Run: npm install @sentry/react @sentry/vite-plugin');
   } catch (error) {
     logger.error('[Sentry] Initialization failed:', error);
   }
@@ -128,7 +130,7 @@ export function captureException(
     return;
   }
 
-  // Sentry SDK is now installed
+  // TODO: Uncomment when @sentry/react is installed
   /*
   import('@sentry/react').then((Sentry) => {
     Sentry.captureException(error, options);
@@ -161,7 +163,7 @@ export function captureMessage(
     return;
   }
 
-  // Sentry SDK is now installed
+  // TODO: Uncomment when @sentry/react is installed
   /*
   import('@sentry/react').then((Sentry) => {
     Sentry.captureMessage(message, options?.level || 'info');
@@ -194,7 +196,7 @@ export function setUser(user: {
     return;
   }
 
-  // Sentry SDK is now installed
+  // TODO: Uncomment when @sentry/react is installed
   /*
   import('@sentry/react').then((Sentry) => {
     Sentry.setUser(user);
@@ -227,7 +229,7 @@ export function addBreadcrumb(breadcrumb: {
     return;
   }
 
-  // Sentry SDK is now installed
+  // TODO: Uncomment when @sentry/react is installed
   /*
   import('@sentry/react').then((Sentry) => {
     Sentry.addBreadcrumb(breadcrumb);
@@ -267,7 +269,7 @@ export function startTransaction(options: {
     };
   }
 
-  // Sentry SDK is now installed
+  // TODO: Uncomment when @sentry/react is installed
   /*
   import('@sentry/react').then((Sentry) => {
     return Sentry.startTransaction(options);
