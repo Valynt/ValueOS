@@ -13,7 +13,9 @@ export type AgentType =
   | 'realization'
   | 'expansion'
   | 'integrity'
-  | 'outcome-engineer';
+  | 'company-intelligence'
+  | 'financial-modeling'
+  | 'value-mapping';
 
 /**
  * Agent request context
@@ -22,12 +24,12 @@ export interface AgentContext {
   /**
    * User ID making the request
    */
-  userId: string;
+  userId?: string;
 
   /**
-   * Tenant ID for multi-tenancy
+   * Organization ID
    */
-  tenantId?: string;
+  organizationId?: string;
 
   /**
    * Session ID for tracking
@@ -35,7 +37,7 @@ export interface AgentContext {
   sessionId?: string;
 
   /**
-   * Additional metadata
+   * Additional context data
    */
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, any>;
 }

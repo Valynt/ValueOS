@@ -77,10 +77,11 @@ export class CircuitBreakerManager {
   ): CircuitBreakerState {
     if (!this.breakers.has(key)) {
       const config = { ...this.defaults, ...overrides };
-      this.breakers.set(key, {
+      const newState: CircuitBreakerState = {
         failure_count: 0,
         last_failure_time: null,
         state: 'closed',
+        threshold: config.failureRateThreshold,
         timeout_seconds: Math.ceil(config.timeoutMs / 1000),
         metrics: [],
         opened_at: null,
@@ -89,8 +90,9 @@ export class CircuitBreakerManager {
         latency_threshold_ms: config.latencyThresholdMs,
         window_ms: config.windowMs,
         minimum_samples: config.minimumSamples,
-        half_open_max_probes: config.halfOpenMaxProbes
-      });
+        half_open_max_probes: config.halfOpenMaxProbes,
+      };
+      this.breakers.set(key, newState);
     }
 
     const existing = this.breakers.get(key)!;
@@ -192,6 +194,7 @@ export class CircuitBreaker {
       failure_count: 0,
       last_failure_time: null,
       state: 'closed',
+      threshold: failureThreshold,
       timeout_seconds: Math.ceil(cooldownPeriod / 1000),
       metrics: [],
       opened_at: null,
@@ -255,5 +258,17 @@ export class CircuitBreaker {
     this.state.state = 'closed';
     this.state.opened_at = null;
     this.state.half_open_probes = 0;
+  }
+
+  getState(): CircuitBreakerState {
+    return { ...this.state };
+  }
+
+  getFailureCount(): number {
+    return this.state.failure_count;
+  }
+
+  getLastFailureTime(): string | null {
+    return this.state.last_failure_time;
   }
 }

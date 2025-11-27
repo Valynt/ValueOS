@@ -118,7 +118,7 @@ function isSensitiveValue(value: unknown): boolean {
 /**
  * Redact a sensitive value
  */
-function redactValue(value: unknown, key?: string): string {
+function redactValue(value: unknown, _key?: string): string {
   if (value === null || value === undefined) {
     return '[NULL]';
   }
@@ -229,29 +229,35 @@ export function sanitizeRequest(req: any): Record<string, unknown> {
 }
 
 /**
- * Sanitize error for logging
- * Remove stack traces in production, sanitize error details
+ * Sanitize error objects for logging
+ * Preserves stack trace in development only
  */
 export function sanitizeError(error: unknown): Record<string, unknown> {
   if (!error) return { error: null };
   
   if (error instanceof Error) {
+    // Get additional properties safely
+    const additionalProps = sanitizeForLogging(
+      Object.fromEntries(
+        Object.entries(error).filter(([key]) => 
+          !['name', 'message', 'stack'].includes(key)
+        )
+      )
+    );
+    
     return {
       name: error.name,
       message: error.message,
       stack: isDevelopment() ? error.stack : '[REDACTED]',
-      // Sanitize any additional properties
-      ...sanitizeForLogging(
-        Object.fromEntries(
-          Object.entries(error).filter(([key]) => 
-            !['name', 'message', 'stack'].includes(key)
-          )
-        )
-      ),
+      // Only spread if it's an object
+      ...(typeof additionalProps === 'object' && additionalProps !== null ? additionalProps : {}),
     };
   }
   
-  return sanitizeForLogging(error);
+  const sanitized = sanitizeForLogging(error);
+  return typeof sanitized === 'object' && sanitized !== null ? 
+    sanitized as Record<string, unknown> : 
+    { value: sanitized };
 }
 
 /**
@@ -259,7 +265,10 @@ export function sanitizeError(error: unknown): Record<string, unknown> {
  * Use this to build log context objects
  */
 export function createLogContext(context: Record<string, unknown>): Record<string, unknown> {
-  return sanitizeForLogging(context);
+  const sanitized = sanitizeForLogging(context);
+  return typeof sanitized === 'object' && sanitized !== null ?
+    sanitized as Record<string, unknown> :
+    { value: sanitized };
 }
 
 /**
