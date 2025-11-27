@@ -13,7 +13,7 @@ import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
 import { Resource } from '@opentelemetry/resources';
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
 import { trace, context, SpanStatusCode, Span } from '@opentelemetry/api';
-import { logger } from '../utils/logger';
+import { logger } from '../lib/logger';
 
 // Service configuration
 const SERVICE_NAME = process.env.OTEL_SERVICE_NAME || 'valuecanvas-api';
