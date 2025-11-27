@@ -10,12 +10,19 @@ import { ExpansionInsightPage } from './views/ExpansionInsightPage';
 import { IntegrityCompliancePage } from './views/IntegrityCompliancePage';
 import { PerformanceDashboard } from './views/PerformanceDashboard';
 import { AppSidebar } from './components/Navigation/AppSidebar';
+import { SDUIApp } from './components/SDUIApp';
 import { ViewMode } from './types';
+import { LifecycleStage } from './types/workflow';
 import { sessionManager } from './services/SessionManager';
+
+// Feature flag for SDUI mode
+const ENABLE_SDUI = import.meta.env.VITE_ENABLE_SDUI === 'true' || false;
 
 function App() {
   const [currentView, setCurrentView] = useState<ViewMode>('library');
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
+  const [sduiWorkspaceId, setSduiWorkspaceId] = useState<string | null>(null);
+  const [sduiStage, setSduiStage] = useState<LifecycleStage>('opportunity');
 
   useEffect(() => {
     sessionManager.initialize();
@@ -43,6 +50,20 @@ function App() {
   };
 
   const renderView = () => {
+    // If SDUI is enabled and we have a workspace, use SDUI rendering
+    if (ENABLE_SDUI && sduiWorkspaceId) {
+      return (
+        <SDUIApp
+          workspaceId={sduiWorkspaceId}
+          userId={sessionManager.getUserId() || 'anonymous'}
+          initialStage={sduiStage}
+          sessionId={sessionManager.getSessionId()}
+          debug={import.meta.env.DEV}
+        />
+      );
+    }
+
+    // Otherwise, use traditional React views
     switch (currentView) {
       case 'library':
         return <LibraryView onOpenCase={handleOpenCase} onCreateNew={handleCreateNew} />;
@@ -51,15 +72,39 @@ function App() {
         return <MainLayout onBack={handleBackToLibrary} caseId={selectedCaseId} />;
 
       case 'opportunity':
+        // If SDUI enabled, switch to SDUI mode
+        if (ENABLE_SDUI && selectedCaseId) {
+          setSduiWorkspaceId(selectedCaseId);
+          setSduiStage('opportunity');
+          return null;
+        }
         return <OpportunityWorkspace />;
 
       case 'target':
+        // If SDUI enabled, switch to SDUI mode
+        if (ENABLE_SDUI && selectedCaseId) {
+          setSduiWorkspaceId(selectedCaseId);
+          setSduiStage('target');
+          return null;
+        }
         return <TargetROIWorkspace />;
 
       case 'expansion':
+        // If SDUI enabled, switch to SDUI mode
+        if (ENABLE_SDUI && selectedCaseId) {
+          setSduiWorkspaceId(selectedCaseId);
+          setSduiStage('expansion');
+          return null;
+        }
         return <ExpansionInsightPage />;
 
       case 'integrity':
+        // If SDUI enabled, switch to SDUI mode
+        if (ENABLE_SDUI && selectedCaseId) {
+          setSduiWorkspaceId(selectedCaseId);
+          setSduiStage('integrity');
+          return null;
+        }
         return <IntegrityCompliancePage />;
 
       case 'templates':
@@ -81,7 +126,8 @@ function App() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {currentView !== 'canvas' && currentView !== 'settings' && currentView !== 'documentation' && (
+      {/* Hide sidebar in SDUI mode or specific views */}
+      {!sduiWorkspaceId && currentView !== 'canvas' && currentView !== 'settings' && currentView !== 'documentation' && (
         <AppSidebar currentView={currentView} onNavigate={setCurrentView} />
       )}
       {renderView()}
