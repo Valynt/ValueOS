@@ -1,5 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { LLMGateway } from '../LLMGateway';
+import { LLMGateway, LLMMessage } from '../LLMGateway';
 import { MemorySystem } from '../MemorySystem';
 import { AuditLogger } from '../AuditLogger';
 import { Agent, ConfidenceLevel } from '../types'; // Kept from main
@@ -7,10 +7,35 @@ import type { LifecycleArtifactLink, ProvenanceAuditEntry } from '../../types/vo
 import { parseLLMOutputStrict } from '../../../utils/safeJsonParser';
 import { z } from 'zod';
 import { featureFlags } from '../../../config/featureFlags';
+import {
+  SecureAgentOutput,
+  SecureAgentOutputSchema,
+  createSecureAgentSchema,
+  getSecureAgentSystemPrompt,
+  validateAgentOutput,
+  ConfidenceThresholds,
+  DEFAULT_CONFIDENCE_THRESHOLDS
+} from '../schemas/SecureAgentOutput';
+import { logger } from '../../logger';
+import { sanitizeUserInput } from '../../../utils/security';
+
+export interface SecureInvocationOptions {
+  /** Custom confidence thresholds */
+  confidenceThresholds?: ConfidenceThresholds;
+  /** Whether to throw on low confidence */
+  throwOnLowConfidence?: boolean;
+  /** Whether to store prediction for accuracy tracking */
+  trackPrediction?: boolean;
+  /** Additional context for the agent */
+  context?: Record<string, any>;
+}
 
 export abstract class BaseAgent {
-protected supabase: SupabaseClient | null; // From dev
+  protected supabase: SupabaseClient | null; // From dev
   protected agentId: string; // From codex/optimize-database-query-performance
+  public abstract lifecycleStage: string;
+  public abstract version: string;
+  public abstract name: string;
 
   constructor(
     agentId: string, // From codex/optimize-database-query-performance
@@ -24,6 +49,198 @@ protected supabase: SupabaseClient | null; // From dev
   }
 
   abstract execute(sessionId: string, input: any): Promise<any>;
+
+  /**
+   * Secure agent invocation with structured outputs and hallucination detection
+   */
+  protected async secureInvoke<T extends z.ZodType>(
+    sessionId: string,
+    input: any,
+    resultSchema: T,
+    options: SecureInvocationOptions = {}
+  ): Promise<SecureAgentOutput & { result: z.infer<T> }> {
+    const startTime = Date.now();
+    const thresholds = options.confidenceThresholds || DEFAULT_CONFIDENCE_THRESHOLDS;
+
+    try {
+      // Sanitize input
+      const sanitizedInput = this.sanitizeInput(input);
+
+      // Create full schema with result type
+      const fullSchema = createSecureAgentSchema(resultSchema);
+
+      // Build messages with XML sandboxing
+      const messages: LLMMessage[] = [
+        {
+          role: 'system',
+          content: getSecureAgentSystemPrompt(this.name, this.lifecycleStage)
+        },
+        {
+          role: 'user',
+          content: this.buildSandboxedPrompt(sanitizedInput)
+        }
+      ];
+
+      // Invoke LLM with structured output
+      const response = await this.llmGateway.complete(messages, {
+        temperature: 0.7,
+        max_tokens: 4000
+      });
+
+      // Parse and validate response
+      const parsed = await this.extractJSON(response.content, fullSchema);
+      const validation = validateAgentOutput(parsed, thresholds);
+
+      // Log warnings
+      if (validation.warnings.length > 0) {
+        logger.warn('Agent output validation warnings', {
+          agent: this.agentId,
+          sessionId,
+          warnings: validation.warnings
+        });
+      }
+
+      // Handle errors
+      if (!validation.valid) {
+        logger.error('Agent output validation failed', {
+          agent: this.agentId,
+          sessionId,
+          errors: validation.errors
+        });
+
+        if (options.throwOnLowConfidence) {
+          throw new Error(`Agent output validation failed: ${validation.errors.join(', ')}`);
+        }
+      }
+
+      const processingTime = Date.now() - startTime;
+      const enhancedOutput = {
+        ...validation.enhanced,
+        processing_time_ms: processingTime
+      };
+
+      // Store prediction for accuracy tracking
+      if (options.trackPrediction && this.supabase) {
+        await this.storePrediction(sessionId, sanitizedInput, enhancedOutput);
+      }
+
+      // Log execution
+      await this.logExecution(
+        sessionId,
+        'secure_invoke',
+        sanitizedInput,
+        enhancedOutput.result,
+        enhancedOutput.reasoning || 'No reasoning provided',
+        enhancedOutput.confidence_level,
+        enhancedOutput.evidence || []
+      );
+
+      return enhancedOutput as SecureAgentOutput & { result: z.infer<T> };
+
+    } catch (error) {
+      logger.error('Secure invocation failed', {
+        agent: this.agentId,
+        sessionId,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Sanitize user input to prevent prompt injection
+   */
+  private sanitizeInput(input: any): any {
+    if (typeof input === 'string') {
+      return sanitizeUserInput(input);
+    }
+
+    if (Array.isArray(input)) {
+      return input.map(item => this.sanitizeInput(item));
+    }
+
+    if (typeof input === 'object' && input !== null) {
+      const sanitized: any = {};
+      for (const [key, value] of Object.entries(input)) {
+        sanitized[key] = this.sanitizeInput(value);
+      }
+      return sanitized;
+    }
+
+    return input;
+  }
+
+  /**
+   * Store prediction for accuracy tracking
+   */
+  private async storePrediction(
+    sessionId: string,
+    input: any,
+    output: SecureAgentOutput
+  ): Promise<void> {
+    if (!this.supabase) return;
+
+    try {
+      await this.supabase.from('agent_predictions').insert({
+        session_id: sessionId,
+        agent_id: this.agentId,
+        agent_type: this.lifecycleStage,
+        input_hash: this.hashInput(input),
+        input_data: input,
+        prediction: output.result,
+        confidence_level: output.confidence_level,
+        confidence_score: output.confidence_score,
+        hallucination_detected: output.hallucination_check,
+        assumptions: output.assumptions,
+        data_gaps: output.data_gaps,
+        evidence: output.evidence,
+        reasoning: output.reasoning,
+        created_at: new Date().toISOString()
+      });
+    } catch (error) {
+      logger.error('Failed to store prediction', {
+        agent: this.agentId,
+        sessionId,
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Hash input for deduplication
+   */
+  private hashInput(input: any): string {
+    const str = JSON.stringify(input);
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return hash.toString(36);
+  }
+
+  /**
+   * Build sandboxed prompt with XML tags
+   */
+  private buildSandboxedPrompt(input: any): string {
+    const inputStr = typeof input === 'string' ? input : JSON.stringify(input);
+    
+    // Apply XML sandboxing to clearly delineate user input
+    return `<user_input>${this.escapeXml(inputStr)}</user_input>`;
+  }
+
+  /**
+   * Escape XML special characters
+   */
+  private escapeXml(text: string): string {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  }
 
   protected async logExecution(
     sessionId: string,
