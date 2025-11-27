@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { securityLogger } from './SecurityLogger';
 import { sanitizeLLMContent } from '../utils/security';
 import { llmSanitizer } from './LLMSanitizer';
-import type { LLMConfig, LLMMessage, LLMResponse, LLMProvider } from '../lib/agent-fabric/LLMGateway';
+import type { LLMConfig, LLMMessage, LLMResponse, LLMProvider } from '../lib/agent-fabric/llm-types';
 
 interface ProxyChatRequest {
   messages: LLMMessage[];

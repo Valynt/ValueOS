@@ -7,7 +7,6 @@
  * NEVER log raw user objects, request bodies, or configuration.
  */
 
-import { logger } from '../lib/logger';
 import { isDevelopment } from '../config/environment';
 
 /**
@@ -272,7 +271,7 @@ export function validateLogMessage(message: string, context?: unknown): void {
   
   // Check message for email patterns
   if (/@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(message)) {
-    logger.warn('⚠️ WARNING: Possible email in log message:', message);
+    console.warn('⚠️ WARNING: Possible email in log message:', message);
   }
   
   // Check context for sensitive keys
@@ -281,7 +280,7 @@ export function validateLogMessage(message: string, context?: unknown): void {
     const sensitiveKeys = keys.filter(isSensitiveKey);
     
     if (sensitiveKeys.length > 0) {
-      logger.warn('⚠️ WARNING: Sensitive keys in log context:', sensitiveKeys);
+      console.warn('⚠️ WARNING: Sensitive keys in log context:', sensitiveKeys);
     }
   }
 }
