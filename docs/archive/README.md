@@ -1,6 +1,32 @@
 # Archived Documentation
 
-This directory contains historical documentation files that have been consolidated into the main documentation or are no longer actively maintained.
+This directory contains historical documentation that is no longer actively maintained but preserved for reference.
+
+## Contents
+
+### Completion Reports (`completion-reports/`)
+Historical completion reports for various features and phases:
+- 22 feature completion documents
+- Phase completion summaries
+- Implementation milestone reports
+
+### Progress Reports (`progress-reports/`)
+Weekly and phase progress tracking documents:
+- 30 progress tracking documents
+- Week 1-6 completion reports
+- Architecture reviews and remediation plans
+- Executive summaries
+
+### Testing Reports (`testing-reports/`)
+Testing and audit documentation:
+- 13 testing and audit reports
+- Coverage reports
+- Testing strategy documents
+- Codebase audit reports
+
+## Note
+
+These documents were archived during the repository cleanup on 2024. They represent completed work and historical progress tracking. For current documentation, see the main [README.md](../../README.md).
 
 ## Purpose
 

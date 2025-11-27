@@ -49,45 +49,35 @@ Open http://localhost:5173 and start creating value!
 
 ## 📚 Documentation
 
-### Getting Started
+**[📖 Complete Documentation](./docs/README.md)** - Full documentation index with 30+ guides
+
+### Quick Links
+
+**Getting Started**
 - **[Quick Start Guide](./QUICKSTART.md)** - Get running in 5 minutes
-- **[Local Setup Guide](./LOCAL_SETUP_GUIDE.md)** - Comprehensive development setup
-- **[Troubleshooting](./TROUBLESHOOTING.md)** - Common issues and solutions
+- **[Local Setup Guide](./docs/getting-started/LOCAL_SETUP_GUIDE.md)** - Comprehensive development setup
+- **[Troubleshooting](./docs/getting-started/TROUBLESHOOTING.md)** - Common issues and solutions
 
-### Core Features
-- **[LLM-MARL System](./LLM_MARL_COMPLETE.md)** - Multi-agent reinforcement learning
-- **[Generative UI](./GENERATIVE_UI_COMPLETE.md)** - Dynamic UI generation
-- **[SOF Framework](./SOF_IMPLEMENTATION_COMPLETE.md)** - Systemic Outcome Framework
-- **[SDUI Components](./SDUI_COMPONENTS_GUIDE.md)** - Server-driven UI components
+**Architecture & Operations**
+- **[Architecture Diagrams](./docs/architecture/ARCHITECTURE_DIAGRAMS.md)** - System architecture
+- **[Deployment Guide](./docs/operations/DEPLOYMENT.md)** - Production deployment
+- **[Operations Runbook](./docs/operations/RUNBOOK_OPERATIONS.md)** - Day-to-day operations
 
-### Architecture & Operations
-- **[Deployment Architecture](./DEPLOYMENT_ARCHITECTURE.md)** - System architecture
-- **[Scalability Guide](./DEPLOYMENT_SCALABILITY_COMPLETE.md)** - Scaling strategies
-- **[Production Readiness](./PRODUCTION_READY_FINAL.md)** - Production checklist
-- **[Operations Runbook](./RUNBOOK_OPERATIONS.md)** - Day-to-day operations
+**Features & APIs**
+- **[Enterprise Features](./docs/features/ENTERPRISE_FEATURES.md)** - Enterprise capabilities
+- **[SDUI Components](./docs/features/SDUI_COMPONENTS_GUIDE.md)** - Server-driven UI
+- **[API Documentation](./docs/api/SERVICES_API.md)** - Service APIs
 
-### Security & Compliance 🔒 NEW
-- **[Security Overview](./SECURITY.md)** - Security features
+**Security & Compliance** 🔒
+- **[Security Overview](./docs/security/SECURITY.md)** - Security features
 - **[RBAC Guide](./docs/security/rbac-guide.md)** - Role-Based Access Control ⭐
 - **[Audit Logging](./docs/security/audit-logging.md)** - Compliance audit trails ⭐
 - **[Circuit Breaker](./docs/security/circuit-breaker.md)** - Agent safety controls ⭐
-- **[Security Sprint Report](./reports/security-sprint-2024/)** - Operation Fortress completion
-- **[Compliance Guide](./MANIFESTO_COMPLIANCE_GUIDE.md)** - Compliance guidelines
 
-### Enterprise Features
-- **[Enterprise Features](./ENTERPRISE_FEATURES.md)** - Enterprise capabilities
-- **[Documentation Portal](./DOCUMENTATION_PORTAL.md)** - Built-in documentation
-- **[Settings Architecture](./SETTINGS_ARCHITECTURE.md)** - Configuration system
-
-### Testing & Quality
-- **[Testing Framework](./TESTING_FRAMEWORK_COMPLETE.md)** - Testing approach
-- **[Performance Testing](./TESTING_PERFORMANCE.md)** - Performance benchmarks
-- **[Codebase Audit](./CODEBASE_AUDIT_REPORT.md)** - Code quality audit
-
-### Additional Resources
-- **[Archived Documentation](./docs/archive/README.md)** - Historical documentation
-- **[API Documentation](./SERVICES_API.md)** - Service APIs
-- **[External APIs](./EXTERNAL_API_DOCUMENTATION.md)** - External integrations
+**Additional Resources**
+- **[Agent Guides](./docs/guides/)** - Agent fabric and integration guides
+- **[FAQ](./docs/FAQ.md)** - Frequently asked questions
+- **[Archived Documentation](./docs/archive/README.md)** - Historical reports (65 documents)
 
 ---
 
