@@ -58,11 +58,25 @@ export const EnhancedWorkflowContainer: React.FC<EnhancedWorkflowContainerProps>
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [agentProcessing, setAgentProcessing] = useState(false);
   const [showMetrics, setShowMetrics] = useState(false);
+  
+  // Refs for cleanup
+  const healthMonitorTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const isComponentMounted = React.useRef(true);
 
   // Initialize workflow
   useEffect(() => {
+    isComponentMounted.current = true;
     initializeWorkflow();
     monitorAgentHealth();
+    
+    // Cleanup on unmount
+    return () => {
+      isComponentMounted.current = false;
+      if (healthMonitorTimeoutRef.current) {
+        clearTimeout(healthMonitorTimeoutRef.current);
+        healthMonitorTimeoutRef.current = null;
+      }
+    };
   }, [workflowId]);
 
   const initializeWorkflow = async () => {
@@ -143,6 +157,9 @@ export const EnhancedWorkflowContainer: React.FC<EnhancedWorkflowContainerProps>
   };
 
   const monitorAgentHealth = async () => {
+    // Don't continue if component is unmounted
+    if (!isComponentMounted.current) return;
+    
     const agents = BUSINESS_WORKFLOW_STAGES.map(s => s.agentType);
     const healthStatus: Record<AgentType, AgentHealthStatus> = {} as any;
     
@@ -160,8 +177,15 @@ export const EnhancedWorkflowContainer: React.FC<EnhancedWorkflowContainerProps>
       };
     }
     
-    setAgentHealth(healthStatus);
-    setTimeout(monitorAgentHealth, 30000);
+    // Only update state if component is still mounted
+    if (isComponentMounted.current) {
+      setAgentHealth(healthStatus);
+      
+      // Schedule next check and store the timeout ID
+      healthMonitorTimeoutRef.current = setTimeout(() => {
+        monitorAgentHealth();
+      }, 30000);
+    }
   };
 
   const validateStage = (stage: WorkflowStage): boolean | string[] => {
