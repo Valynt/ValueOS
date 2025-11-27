@@ -3,7 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <!-- Security Headers (Relaxed for Development - Tighten in Production) -->
+    <!-- 
+      ⚠️ DEVELOPMENT CSP - INTENTIONALLY RELAXED ⚠️
+      
+      This CSP includes 'unsafe-inline' and 'unsafe-eval' to support Vite HMR during development.
+      
+      BEFORE PRODUCTION DEPLOYMENT:
+      1. Remove this meta tag entirely
+      2. Set CSP via HTTP headers (Nginx/Apache/Cloudflare)
+      3. Remove 'unsafe-inline' and 'unsafe-eval'
+      4. Use CSP hashes for inline scripts
+      5. See docs/security/CSP_CONFIGURATION.md for production config
+      
+      NEVER deploy this relaxed CSP to production!
+    -->
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' ws://localhost:* http://localhost:* https://*.supabase.co https://api.together.xyz; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self';"

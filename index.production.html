@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <!-- 
+      PRODUCTION SECURITY HEADERS
+      
+      ⚠️ CSP should be set via HTTP headers, not meta tags!
+      This meta tag is a fallback only. Configure your web server:
+      
+      Nginx:
+        add_header Content-Security-Policy "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'sha256-HASH'; script-src 'self' 'sha256-HASH'; connect-src 'self' https://*.supabase.co https://api.together.xyz; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests;" always;
+      
+      See docs/security/CSP_CONFIGURATION.md for complete configuration.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data: https:; style-src 'self'; script-src 'self'; connect-src 'self' https://*.supabase.co https://api.together.xyz; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self';"
+    />
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agentic Value Canvas</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
