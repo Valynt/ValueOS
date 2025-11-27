@@ -134,7 +134,8 @@ class Logger {
         listener(entry);
       } catch (err) {
         // Don't let listener errors break logging
-        logger.error('Logger listener error:', err);
+        // Use console.error to avoid recursion and type issues
+        console.error('Logger listener error:', err);
       }
     });
 
@@ -169,16 +170,16 @@ class Logger {
 
     switch (entry.level) {
       case 'debug':
-        logger.debug(fullMessage);
+        console.debug(fullMessage);
         break;
       case 'info':
-        logger.info(fullMessage);
+        console.info(fullMessage);
         break;
       case 'warn':
-        logger.warn(fullMessage);
+        console.warn(fullMessage);
         break;
       case 'error':
-        logger.error(fullMessage, entry.error);
+        console.error(fullMessage, entry.error);
         break;
     }
   }

@@ -5,9 +5,8 @@
  * Reads from environment variables and provides type-safe access.
  * 
  * SEC-004: Uses secure logger to prevent config/secret leakage
+ * Note: Cannot import logger here due to circular dependency
  */
-
-import { logger } from '../lib/logger';
 
 /**
  * Application environment type
@@ -340,10 +339,8 @@ export function getConfig(): EnvironmentConfig {
     // Validate configuration
     const errors = validateEnvironmentConfig(configInstance);
     if (errors.length > 0) {
-      logger.error('Environment configuration errors', undefined, { 
-        errorCount: errors.length,
-        // NEVER log actual errors - may contain secrets
-      });
+      // Use console instead of logger to avoid circular dependency
+      console.error('[Environment] Configuration errors:', errors.length);
       if (configInstance.app.env === 'production') {
         throw new Error(`Invalid environment configuration: ${errors.length} errors found`);
       }
@@ -351,15 +348,20 @@ export function getConfig(): EnvironmentConfig {
 
     // Log minimal configuration in development only
     if (configInstance.app.env === 'development') {
-      logger.info('Environment configuration loaded', {
+      console.info('[Environment] Configuration loaded:', {
         env: configInstance.app.env,
         featuresEnabled: Object.keys(configInstance.features).filter(
-          k => configInstance.features[k as keyof typeof configInstance.features]
+          k => configInstance?.features[k as keyof typeof configInstance.features]
         ).length,
         agentCircuitBreakerEnabled: configInstance.agents.circuitBreaker.enabled,
         // NEVER log: URLs, API keys, secrets, full config
       });
     }
+  }
+
+  // TypeScript null check - configInstance is guaranteed to be set above
+  if (!configInstance) {
+    throw new Error('Failed to initialize configuration');
   }
 
   return configInstance;
