@@ -50,31 +50,31 @@ function parseBoolean(value: string | undefined, defaultValue: boolean = false):
 function loadFeatureFlags(): FeatureFlags {
   const flags: FeatureFlags = {
     ENABLE_STATELESS_ORCHESTRATION: parseBoolean(
-      process.env.VITE_ENABLE_STATELESS_ORCHESTRATION,
+      import.meta.env.VITE_ENABLE_STATELESS_ORCHESTRATION,
       false // Default: disabled for safety
     ),
     ENABLE_SAFE_JSON_PARSER: parseBoolean(
-      process.env.VITE_ENABLE_SAFE_JSON_PARSER,
+      import.meta.env.VITE_ENABLE_SAFE_JSON_PARSER,
       true // Default: enabled (low risk, high benefit)
     ),
     ENABLE_INPUT_SANITIZATION: parseBoolean(
-      process.env.VITE_ENABLE_INPUT_SANITIZATION,
+      import.meta.env.VITE_ENABLE_INPUT_SANITIZATION,
       true // Default: enabled (security)
     ),
     ENABLE_TRACE_LOGGING: parseBoolean(
-      process.env.VITE_ENABLE_TRACE_LOGGING,
+      import.meta.env.VITE_ENABLE_TRACE_LOGGING,
       true // Default: enabled (observability)
     ),
     ENABLE_CIRCUIT_BREAKER: parseBoolean(
-      process.env.VITE_ENABLE_CIRCUIT_BREAKER,
+      import.meta.env.VITE_ENABLE_CIRCUIT_BREAKER,
       true // Default: enabled (safety)
     ),
     ENABLE_RATE_LIMITING: parseBoolean(
-      process.env.VITE_ENABLE_RATE_LIMITING,
+      import.meta.env.VITE_ENABLE_RATE_LIMITING,
       true // Default: enabled (security)
     ),
     ENABLE_AUDIT_LOGGING: parseBoolean(
-      process.env.VITE_ENABLE_AUDIT_LOGGING,
+      import.meta.env.VITE_ENABLE_AUDIT_LOGGING,
       true // Default: enabled (compliance)
     ),
   };
