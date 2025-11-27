@@ -5,49 +5,14 @@
  * and comprehensive error handling.
  */
 
+// Re-export types from shared file to maintain backwards compatibility
+export type { AgentType, AgentContext } from './agent-types';
+
 import { logger } from '../lib/logger';
 import { CircuitBreaker } from './CircuitBreaker';
 import { SDUIPageDefinition, validateSDUISchema } from '../sdui/schema';
 import { getAuditLogger, logAgentResponse } from './AgentAuditLogger';
 import { getConfig } from '../config/environment';
-
-/**
- * Agent types supported by the system
- */
-export type AgentType =
-  | 'opportunity'
-  | 'target'
-  | 'realization'
-  | 'expansion'
-  | 'integrity'
-  | 'company-intelligence'
-  | 'financial-modeling'
-  | 'value-mapping';
-
-/**
- * Agent request context
- */
-export interface AgentContext {
-  /**
-   * User ID making the request
-   */
-  userId?: string;
-
-  /**
-   * Organization ID
-   */
-  organizationId?: string;
-
-  /**
-   * Session ID for tracking
-   */
-  sessionId?: string;
-
-  /**
-   * Additional context data
-   */
-  metadata?: Record<string, any>;
-}
 
 /**
  * Agent request payload

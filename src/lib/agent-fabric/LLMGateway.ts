@@ -1,25 +1,6 @@
-export interface LLMMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
-
-export interface LLMResponse {
-  content: string;
-  tokens_used: number;
-  latency_ms: number;
-  model: string;
-}
-
-export interface LLMConfig {
-  model?: string;
-  temperature?: number;
-  max_tokens?: number;
-  top_p?: number;
-  use_gating?: boolean;
-  force_model?: string;
-}
-
-export type LLMProvider = 'together' | 'openai';
+// Re-export types from shared file to maintain backwards compatibility
+export type { LLMMessage, LLMResponse, LLMConfig, LLMProvider } from './llm-types';
+import type { LLMMessage, LLMResponse, LLMConfig, LLMProvider } from './llm-types';
 
 import { sanitizeLLMContent } from '../../utils/security';
 import { securityLogger } from '../../services/SecurityLogger';
