@@ -19,6 +19,7 @@ import { AuditLogService } from './AuditLogService';
 import { AgentOrchestrator } from './AgentOrchestrator';
 import { WorkflowOrchestrator } from './WorkflowOrchestrator';
 import { ComponentMutationService } from './ComponentMutationService';
+import { manifestoEnforcer } from './ManifestoEnforcer';
 
 /**
  * Action Router
@@ -219,52 +220,25 @@ export class ActionRouter {
     context: ActionContext
   ): Promise<ManifestoCheckResult> {
     try {
-      const violations: ManifestoViolation[] = [];
-      const warnings: any[] = [];
+      // Use ManifestoEnforcer for comprehensive rule checking
+      const result = await manifestoEnforcer.checkAction(action, context);
 
-      // Check action-specific Manifesto rules
-      switch (action.type) {
-        case 'updateValueTree':
-          // Ensure value tree follows standard structure
-          if (action.updates && !this.validateValueTreeStructure(action.updates)) {
-            violations.push({
-              rule: 'RULE_003',
-              severity: 'error',
-              message: 'Value Tree must follow standard structure: Capabilities → Outcomes → KPIs',
-            });
-          }
-          break;
-
-        case 'updateAssumption':
-          // Ensure assumptions have evidence
-          if (action.updates && !this.validateAssumptionEvidence(action.updates)) {
-            violations.push({
-              rule: 'RULE_004',
-              severity: 'error',
-              message: 'All assumptions must have documented evidence sources',
-            });
-          }
-          break;
-
-        case 'exportArtifact':
-          // Ensure artifact has business outcome defined
-          warnings.push({
-            rule: 'RULE_001',
-            message: 'Ensure artifact defines clear business outcomes',
-            suggestion: 'Review artifact for outcome-focused language',
-          });
-          break;
-
-        default:
-          // No specific rules for other actions
-          break;
+      // Log violations and warnings
+      if (result.violations.length > 0) {
+        logger.warn('Manifesto rule violations detected', {
+          actionType: action.type,
+          violations: result.violations.map((v) => v.rule),
+        });
       }
 
-      return {
-        allowed: violations.length === 0,
-        violations,
-        warnings,
-      };
+      if (result.warnings.length > 0) {
+        logger.info('Manifesto rule warnings', {
+          actionType: action.type,
+          warnings: result.warnings.map((w) => w.rule),
+        });
+      }
+
+      return result;
     } catch (error) {
       logger.error('Failed to check Manifesto rules', {
         actionType: action.type,
@@ -490,6 +464,78 @@ export class ActionRouter {
         return {
           success: true,
           data: result,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    });
+
+    // requestOverride handler
+    this.registerHandler('requestOverride', async (action: any, context) => {
+      try {
+        const { actionId, violations, justification } = action;
+
+        const requestId = await manifestoEnforcer.requestOverride(
+          actionId,
+          context.userId,
+          violations,
+          justification
+        );
+
+        return {
+          success: true,
+          data: { requestId },
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    });
+
+    // approveOverride handler
+    this.registerHandler('approveOverride', async (action: any, context) => {
+      try {
+        const { requestId, reason } = action;
+
+        await manifestoEnforcer.decideOverride(
+          requestId,
+          true,
+          context.userId,
+          reason
+        );
+
+        return {
+          success: true,
+          data: { requestId, approved: true },
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    });
+
+    // rejectOverride handler
+    this.registerHandler('rejectOverride', async (action: any, context) => {
+      try {
+        const { requestId, reason } = action;
+
+        await manifestoEnforcer.decideOverride(
+          requestId,
+          false,
+          context.userId,
+          reason
+        );
+
+        return {
+          success: true,
+          data: { requestId, approved: false },
         };
       } catch (error) {
         return {
