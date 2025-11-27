@@ -40,19 +40,55 @@ export class LLMSanitizer extends BaseService {
   };
 
   private static readonly SUSPICIOUS_PATTERNS = [
+    // Prompt injection attempts
     /system\s*:/i,
-    /ignore\s+(previous|above|all)\s+instructions/i,
+    /ignore\s+(previous|above|all|prior)\s+(instructions|prompts|rules)/i,
+    /disregard\s+(previous|above|all|prior)\s+(instructions|prompts|rules)/i,
+    /forget\s+(previous|above|all|prior)\s+(instructions|prompts|rules)/i,
     /jailbreak/i,
+    /you\s+are\s+now\s+in\s+developer\s+mode/i,
+    /pretend\s+you\s+are/i,
+    /act\s+as\s+(if|though)/i,
+    /new\s+instructions:/i,
+    /override\s+(previous|system)\s+(instructions|rules)/i,
+    
+    // Code injection
     /\beval\s*\(/i,
     /\bFunction\s*\(/i,
+    /\bexec\s*\(/i,
+    /\bsetTimeout\s*\(/i,
+    /\bsetInterval\s*\(/i,
     /\b(on\w+\s*=|javascript:)/i,
     /<script[\s>]/i,
     /document\.cookie/i,
     /localStorage/i,
     /sessionStorage/i,
+    /window\.(location|open)/i,
+    
+    // Prototype pollution
     /__proto__/,
     /constructor\[/,
     /prototype\[/,
+    
+    // SQL injection patterns
+    /;\s*(drop|delete|truncate|alter)\s+table/i,
+    /union\s+select/i,
+    /'\s*or\s+'1'\s*=\s*'1/i,
+    
+    // Command injection
+    /;\s*(rm|del|format|shutdown)/i,
+    /\|\s*(curl|wget|nc|netcat)/i,
+    /`[^`]*`/,
+    /\$\([^)]*\)/,
+    
+    // Path traversal
+    /\.\.[\/\\]/,
+    /\.\.%2[fF]/,
+    
+    // XXE/SSRF
+    /<!ENTITY/i,
+    /file:\/\//i,
+    /gopher:\/\//i,
   ];
 
   private static readonly BLOCKED_TAGS = [
@@ -376,6 +412,185 @@ export class LLMSanitizer extends BaseService {
     );
 
     return redacted;
+  }
+}
+
+  /**
+   * Detect prompt injection attempts
+   */
+  detectPromptInjection(content: string): {
+    detected: boolean;
+    confidence: number;
+    patterns: string[];
+    severity: 'low' | 'medium' | 'high';
+  } {
+    const patterns: string[] = [];
+    let score = 0;
+
+    // High-risk patterns (score: 10)
+    const highRiskPatterns = [
+      /ignore\s+(previous|above|all|prior)\s+(instructions|prompts|rules)/i,
+      /disregard\s+(previous|above|all|prior)\s+(instructions|prompts|rules)/i,
+      /override\s+(previous|system)\s+(instructions|rules)/i,
+      /you\s+are\s+now\s+in\s+developer\s+mode/i,
+    ];
+
+    for (const pattern of highRiskPatterns) {
+      if (pattern.test(content)) {
+        patterns.push(`High-risk: ${pattern.source}`);
+        score += 10;
+      }
+    }
+
+    // Medium-risk patterns (score: 5)
+    const mediumRiskPatterns = [
+      /system\s*:/i,
+      /new\s+instructions:/i,
+      /pretend\s+you\s+are/i,
+      /act\s+as\s+(if|though)/i,
+    ];
+
+    for (const pattern of mediumRiskPatterns) {
+      if (pattern.test(content)) {
+        patterns.push(`Medium-risk: ${pattern.source}`);
+        score += 5;
+      }
+    }
+
+    // Low-risk patterns (score: 2)
+    const lowRiskPatterns = [
+      /jailbreak/i,
+      /forget\s+(previous|above|all|prior)/i,
+    ];
+
+    for (const pattern of lowRiskPatterns) {
+      if (pattern.test(content)) {
+        patterns.push(`Low-risk: ${pattern.source}`);
+        score += 2;
+      }
+    }
+
+    // Determine severity and confidence
+    let severity: 'low' | 'medium' | 'high' = 'low';
+    if (score >= 10) severity = 'high';
+    else if (score >= 5) severity = 'medium';
+
+    const confidence = Math.min(score / 20, 1); // Normalize to 0-1
+
+    return {
+      detected: patterns.length > 0,
+      confidence,
+      patterns,
+      severity
+    };
+  }
+
+  /**
+   * Apply XML sandboxing to user input
+   */
+  applyXmlSandbox(input: string): string {
+    // Wrap user input in XML tags to clearly delineate it
+    return `<user_input>${this.escapeXml(input)}</user_input>`;
+  }
+
+  /**
+   * Escape XML special characters
+   */
+  private escapeXml(text: string): string {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  }
+
+  /**
+   * Comprehensive input sanitization for agent invocations
+   */
+  sanitizeAgentInput(input: any): {
+    sanitized: any;
+    violations: string[];
+    injectionDetected: boolean;
+    severity: 'low' | 'medium' | 'high';
+  } {
+    const violations: string[] = [];
+    let injectionDetected = false;
+    let maxSeverity: 'low' | 'medium' | 'high' = 'low';
+
+    // Handle different input types
+    if (typeof input === 'string') {
+      // Check for prompt injection
+      const injection = this.detectPromptInjection(input);
+      if (injection.detected) {
+        injectionDetected = true;
+        maxSeverity = injection.severity;
+        violations.push(...injection.patterns);
+      }
+
+      // Sanitize the string
+      const result = this.sanitizePrompt(input);
+      violations.push(...result.violations);
+
+      return {
+        sanitized: result.content,
+        violations,
+        injectionDetected,
+        severity: maxSeverity
+      };
+    }
+
+    if (Array.isArray(input)) {
+      const sanitizedArray = input.map(item => {
+        const result = this.sanitizeAgentInput(item);
+        violations.push(...result.violations);
+        if (result.injectionDetected) {
+          injectionDetected = true;
+          if (result.severity === 'high' || maxSeverity !== 'high') {
+            maxSeverity = result.severity;
+          }
+        }
+        return result.sanitized;
+      });
+
+      return {
+        sanitized: sanitizedArray,
+        violations,
+        injectionDetected,
+        severity: maxSeverity
+      };
+    }
+
+    if (typeof input === 'object' && input !== null) {
+      const sanitizedObj: any = {};
+
+      for (const [key, value] of Object.entries(input)) {
+        const result = this.sanitizeAgentInput(value);
+        violations.push(...result.violations);
+        if (result.injectionDetected) {
+          injectionDetected = true;
+          if (result.severity === 'high' || maxSeverity !== 'high') {
+            maxSeverity = result.severity;
+          }
+        }
+        sanitizedObj[key] = result.sanitized;
+      }
+
+      return {
+        sanitized: sanitizedObj,
+        violations,
+        injectionDetected,
+        severity: maxSeverity
+      };
+    }
+
+    // Primitive types (number, boolean, null, undefined)
+    return {
+      sanitized: input,
+      violations,
+      injectionDetected,
+      severity: maxSeverity
+    };
   }
 }
 

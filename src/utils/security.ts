@@ -134,3 +134,75 @@ export function sanitizeLLMContent(content: string): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 }
+
+/**
+ * Enhanced security utilities using LLMSanitizer
+ */
+import { llmSanitizer } from '../services/LLMSanitizer';
+import { logger } from '../lib/logger';
+
+/**
+ * Sanitize and detect prompt injection in agent input
+ */
+export function sanitizeAgentInput(input: any): {
+  sanitized: any;
+  safe: boolean;
+  violations: string[];
+  severity: 'low' | 'medium' | 'high';
+} {
+  const result = llmSanitizer.sanitizeAgentInput(input);
+  
+  if (result.injectionDetected) {
+    logger.warn('Prompt injection detected', {
+      severity: result.severity,
+      violations: result.violations
+    });
+  }
+  
+  return {
+    sanitized: result.sanitized,
+    safe: !result.injectionDetected || result.severity === 'low',
+    violations: result.violations,
+    severity: result.severity
+  };
+}
+
+/**
+ * Apply XML sandboxing to user input
+ */
+export function applyXmlSandbox(input: string): string {
+  return llmSanitizer.applyXmlSandbox(input);
+}
+
+/**
+ * Detect prompt injection attempts
+ */
+export function detectPromptInjection(content: string): {
+  detected: boolean;
+  confidence: number;
+  patterns: string[];
+  severity: 'low' | 'medium' | 'high';
+} {
+  return llmSanitizer.detectPromptInjection(content);
+}
+
+/**
+ * Redact sensitive information from content
+ */
+export function redactSensitive(content: string): string {
+  return llmSanitizer.redactSensitive(content);
+}
+
+/**
+ * Check if content contains credentials
+ */
+export function containsCredentials(content: string): boolean {
+  return llmSanitizer.containsCredentials(content);
+}
+
+/**
+ * Sanitize object (remove dangerous properties)
+ */
+export function sanitizeObject<T extends Record<string, any>>(obj: T): T {
+  return llmSanitizer.sanitizeObject(obj);
+}
