@@ -413,7 +413,6 @@ export class LLMSanitizer extends BaseService {
 
     return redacted;
   }
-}
 
   /**
    * Detect prompt injection attempts
