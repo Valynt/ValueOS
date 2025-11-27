@@ -12,7 +12,7 @@ export default defineConfig({
     headers: getEnvironmentHeaders('production'),
   },
   optimizeDeps: {
-    exclude: ['lucide-react'],
+    include: ['lucide-react'],
   },
   test: {
     environment: 'jsdom',

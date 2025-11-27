@@ -140,7 +140,8 @@ export function getEnvironmentHeaders(env: 'development' | 'production'): Record
       "default-src 'self'",
       "img-src 'self' data: https:",
       "style-src 'self' 'unsafe-inline'",
-      "script-src 'self' 'unsafe-eval'", // Allow eval for HMR
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Allow inline and eval for HMR
+      "script-src-elem 'self' 'unsafe-inline'", // Allow inline script elements
       "connect-src 'self' https://*.supabase.co ws://localhost:* http://localhost:*", // Allow dev server
       "font-src 'self' data:",
       "object-src 'none'",

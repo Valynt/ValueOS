@@ -7,6 +7,7 @@
 
 // Re-export types from shared file to maintain backwards compatibility
 export type { AgentType, AgentContext } from './agent-types';
+import type { AgentType, AgentContext } from './agent-types';
 
 import { logger } from '../lib/logger';
 import { CircuitBreaker } from './CircuitBreaker';
@@ -360,7 +361,7 @@ export class AgentAPI {
 
       // Log error if enabled
       if (this.config.enableLogging) {
-        logger.error(`[AgentAPI] Error from ${agent}:`, error);
+        logger.error(`[AgentAPI] Error from ${agent}:`, error instanceof Error ? error : new Error(String(error)));
       }
 
       const result = {
@@ -560,21 +561,24 @@ export class AgentAPI {
   getCircuitBreakerStatus(agent: AgentType): {
     state: 'closed' | 'open' | 'half-open';
     failureCount: number;
-    lastFailureTime: number | null;
+    lastFailureTime: string | null;
   } | null {
     const breaker = this.getCircuitBreaker(agent);
     if (!breaker) {
       return null;
     }
 
+    const lastFailureTime = breaker.getLastFailureTime();
+    const lastFailureTs = lastFailureTime ? new Date(lastFailureTime).getTime() : 0;
+    
     return {
       state: breaker.canExecute()
         ? 'closed'
-        : Date.now() - (breaker['lastFailureTime'] || 0) > this.config.cooldownPeriod
+        : Date.now() - lastFailureTs > this.config.cooldownPeriod
         ? 'half-open'
         : 'open',
-      failureCount: breaker['failureCount'] || 0,
-      lastFailureTime: breaker['lastFailureTime'] || null,
+      failureCount: breaker.getFailureCount(),
+      lastFailureTime: lastFailureTime,
     };
   }
 
