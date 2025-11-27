@@ -20,6 +20,8 @@ import { AgentOrchestrator } from './AgentOrchestrator';
 import { WorkflowOrchestrator } from './WorkflowOrchestrator';
 import { ComponentMutationService } from './ComponentMutationService';
 import { manifestoEnforcer } from './ManifestoEnforcer';
+import { atomicActionExecutor } from './AtomicActionExecutor';
+import { canvasSchemaService } from './CanvasSchemaService';
 
 /**
  * Action Router
@@ -452,18 +454,40 @@ export class ActionRouter {
       }
 
       try {
-        // Route to component mutation service
-        // TODO: Get current schema and apply mutation
-        const result = {
-          success: true,
-          affected_components: [],
-          changes_made: [],
-          duration_ms: 0,
-        };
+        // Get current schema
+        const currentSchema = canvasSchemaService.getCachedSchema(context.workspaceId);
+        
+        if (!currentSchema) {
+          return {
+            success: false,
+            error: 'No schema available for workspace',
+          };
+        }
+
+        // Execute atomic action
+        const executionResult = await atomicActionExecutor.executeAction(
+          action.action,
+          currentSchema,
+          context.workspaceId
+        );
+
+        // If successful, update cached schema
+        if (executionResult.success) {
+          // Cache the updated schema
+          // Note: In production, this would trigger a proper schema update
+          logger.info('Atomic action executed successfully', {
+            executionId: executionResult.executionId,
+            affectedComponents: executionResult.actionResult.affected_components.length,
+          });
+        }
 
         return {
-          success: true,
-          data: result,
+          success: executionResult.success,
+          data: {
+            executionId: executionResult.executionId,
+            ...executionResult.actionResult,
+          },
+          atomicActions: executionResult.success ? [action.action] : undefined,
         };
       } catch (error) {
         return {
