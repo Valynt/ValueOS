@@ -13,3 +13,16 @@ export * from './ValueCommitForm';
 export * from './RealizationDashboard';
 export * from './LifecyclePanel';
 export * from './IntegrityReviewPanel';
+
+// Navigation components
+export * from './SideNavigation';
+export * from './TabBar';
+export * from './Breadcrumbs';
+
+// Data display components
+export * from './DataTable';
+export * from './ConfidenceIndicator';
+
+// Agent-specific components
+export * from './AgentResponseCard';
+export * from './AgentWorkflowPanel';

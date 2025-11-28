@@ -12,6 +12,13 @@ import {
   RealizationDashboard,
   LifecyclePanel,
   IntegrityReviewPanel,
+  SideNavigation,
+  TabBar,
+  Breadcrumbs,
+  DataTable,
+  ConfidenceIndicator,
+  AgentResponseCard,
+  AgentWorkflowPanel,
 } from '../components/SDUI';
 import { SDUIComponentSection } from './schema';
 
@@ -85,6 +92,54 @@ const baseRegistry: Record<string, RegistryEntry> = {
     versions: [1],
     requiredProps: ['results'],
     description: 'Displays manifesto rule validation results.',
+  },
+
+  // Navigation components
+  SideNavigation: {
+    component: SideNavigation,
+    versions: [1],
+    requiredProps: ['items'],
+    description: 'Collapsible sidebar navigation with workflow stages.',
+  },
+  TabBar: {
+    component: TabBar,
+    versions: [1],
+    requiredProps: ['tabs'],
+    description: 'Secondary navigation with neon green active indicator.',
+  },
+  Breadcrumbs: {
+    component: Breadcrumbs,
+    versions: [1],
+    requiredProps: ['items'],
+    description: 'Path indicators with separators for navigation hierarchy.',
+  },
+
+  // Data display components
+  DataTable: {
+    component: DataTable,
+    versions: [1],
+    requiredProps: ['data', 'columns'],
+    description: 'Sortable, filterable data grid with pagination and virtual scrolling.',
+  },
+  ConfidenceIndicator: {
+    component: ConfidenceIndicator,
+    versions: [1],
+    requiredProps: ['value'],
+    description: 'Visual confidence meter for AI outputs (0-100%).',
+  },
+
+  // Agent-specific components
+  AgentResponseCard: {
+    component: AgentResponseCard,
+    versions: [1],
+    requiredProps: ['response'],
+    description: 'Displays agent outputs with reasoning transparency and actions.',
+  },
+  AgentWorkflowPanel: {
+    component: AgentWorkflowPanel,
+    versions: [1],
+    requiredProps: ['agents'],
+    description: 'Shows active agents, collaboration status, and communication log.',
   },
 };
 
