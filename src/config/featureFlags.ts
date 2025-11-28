@@ -1,11 +1,15 @@
 /**
  * Feature Flags Configuration
  * 
- * PHASE 3: Gradual rollout controls for critical remediation
+ * CONSOLIDATION: Updated with unified orchestration flags
+ * 
+ * Migration Path:
+ * 1. ENABLE_UNIFIED_ORCHESTRATION: true -> use UnifiedAgentOrchestrator
+ * 2. ENABLE_STATELESS_ORCHESTRATION: deprecated, superseded by unified
  * 
  * Usage:
  *   import { featureFlags } from '@/config/featureFlags';
- *   if (featureFlags.ENABLE_STATELESS_ORCHESTRATION) { ... }
+ *   if (featureFlags.ENABLE_UNIFIED_ORCHESTRATION) { ... }
  */
 
 import { logger } from '../lib/logger';
@@ -14,7 +18,17 @@ import { logger } from '../lib/logger';
  * Feature flag configuration
  */
 export interface FeatureFlags {
-  /** Enable stateless orchestration (fixes singleton state bug) */
+  /** 
+   * Enable unified orchestration (consolidates all orchestrators)
+   * When enabled: Uses UnifiedAgentOrchestrator
+   * When disabled: Falls back to legacy orchestrators
+   */
+  ENABLE_UNIFIED_ORCHESTRATION: boolean;
+  
+  /** 
+   * @deprecated Use ENABLE_UNIFIED_ORCHESTRATION instead
+   * Enable stateless orchestration (fixes singleton state bug) 
+   */
   ENABLE_STATELESS_ORCHESTRATION: boolean;
   
   /** Enable SafeJSON parser (fixes fragile JSON parsing) */
@@ -49,9 +63,15 @@ function parseBoolean(value: string | undefined, defaultValue: boolean = false):
  */
 function loadFeatureFlags(): FeatureFlags {
   const flags: FeatureFlags = {
+    // Unified orchestration (consolidation flag)
+    ENABLE_UNIFIED_ORCHESTRATION: parseBoolean(
+      import.meta.env.VITE_ENABLE_UNIFIED_ORCHESTRATION,
+      true // Default: enabled (use consolidated orchestrator)
+    ),
+    // Legacy stateless flag (deprecated, kept for backward compatibility)
     ENABLE_STATELESS_ORCHESTRATION: parseBoolean(
       import.meta.env.VITE_ENABLE_STATELESS_ORCHESTRATION,
-      false // Default: disabled for safety
+      false // Default: disabled (superseded by unified)
     ),
     ENABLE_SAFE_JSON_PARSER: parseBoolean(
       import.meta.env.VITE_ENABLE_SAFE_JSON_PARSER,
@@ -81,6 +101,7 @@ function loadFeatureFlags(): FeatureFlags {
 
   // Log feature flag status on startup
   logger.info('Feature flags loaded', {
+    unifiedOrchestration: flags.ENABLE_UNIFIED_ORCHESTRATION,
     statelessOrchestration: flags.ENABLE_STATELESS_ORCHESTRATION,
     safeJsonParser: flags.ENABLE_SAFE_JSON_PARSER,
     inputSanitization: flags.ENABLE_INPUT_SANITIZATION,
