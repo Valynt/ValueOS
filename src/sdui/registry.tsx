@@ -19,6 +19,9 @@ import {
   ConfidenceIndicator,
   AgentResponseCard,
   AgentWorkflowPanel,
+  NarrativeBlock,
+  SDUIForm,
+  ScenarioSelector,
 } from '../components/SDUI';
 import { SDUIComponentSection } from './schema';
 
@@ -140,6 +143,24 @@ const baseRegistry: Record<string, RegistryEntry> = {
     versions: [1],
     requiredProps: ['agents'],
     description: 'Shows active agents, collaboration status, and communication log.',
+  },
+  NarrativeBlock: {
+    component: NarrativeBlock,
+    versions: [1],
+    requiredProps: ['title', 'content'],
+    description: 'Displays AI-generated narrative content with optional editing and transparency.',
+  },
+  SDUIForm: {
+    component: SDUIForm,
+    versions: [1],
+    requiredProps: ['id', 'onSubmit'],
+    description: 'Dynamic form generation from JSON schema with validation and AI suggestions.',
+  },
+  ScenarioSelector: {
+    component: ScenarioSelector,
+    versions: [1],
+    requiredProps: ['scenarios', 'onSelect'],
+    description: 'Template/scenario selection interface with AI recommendations.',
   },
 };
 
