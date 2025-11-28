@@ -31,6 +31,9 @@ import { CommandBar } from '../Agent/CommandBar';
 import { UploadNotesModal, ExtractedNotes } from '../Modals';
 import { EmailAnalysisModal } from '../Modals/EmailAnalysisModal';
 import { EmailAnalysis } from '../../services/EmailAnalysisService';
+import { CRMImportModal } from '../Modals/CRMImportModal';
+import { MappedValueCase } from '../../services/CRMFieldMapper';
+import { CRMDeal } from '../../mcp-crm/types';
 import { renderPage, RenderPageResult } from '../../sdui/renderPage';
 import { SDUIPageDefinition } from '../../sdui/schema';
 import { StreamingUpdate } from '../../services/UnifiedAgentOrchestrator';
@@ -324,6 +327,13 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
   // Email analysis modal state
   const [isEmailAnalysisModalOpen, setIsEmailAnalysisModalOpen] = useState(false);
 
+  // CRM import modal state
+  const [isCRMImportModalOpen, setIsCRMImportModalOpen] = useState(false);
+
+  // User/tenant for CRM import
+  const [currentUserId, setCurrentUserId] = useState<string | undefined>();
+  const [currentTenantId, setCurrentTenantId] = useState<string | undefined>();
+
   // Derived state
   const selectedCase = cases.find(c => c.id === selectedCaseId);
   const inProgressCases = cases.filter(c => c.status === 'in-progress');
@@ -367,6 +377,20 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
     });
 
     return () => unsubscribe();
+  }, []);
+
+  // Get current user/tenant for CRM import
+  useEffect(() => {
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setCurrentUserId(session.user.id);
+        // Use user's default tenant or user ID as tenant
+        // In a multi-tenant app, this would come from user metadata or a tenants table
+        setCurrentTenantId(session.user.user_metadata?.tenant_id || session.user.id);
+      }
+    };
+    getSession();
   }, []);
 
   // Initialize workflow state for selected case
@@ -530,9 +554,11 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
       case 'analyze_email':
         setIsEmailAnalysisModalOpen(true);
         break;
-      case 'upload_call':
       case 'import_crm':
-        // TODO: Implement specific modals for these
+        setIsCRMImportModalOpen(true);
+        break;
+      case 'upload_call':
+        // TODO: Implement Sales Call modal
         setIsNewCaseModalOpen(true);
         break;
       default:
@@ -684,6 +710,75 @@ Based on this email analysis, help me create a value hypothesis and action plan.
         emailAnalysis: analysis,
       },
     }).catch(err => logger.warn('Failed to persist case from email', { error: err }));
+  }, [handleCommand]);
+
+  // Handle CRM import completion
+  const handleCRMImportComplete = useCallback((mappedCase: MappedValueCase, deal: CRMDeal) => {
+    const newCase: ValueCase = {
+      id: uuidv4(),
+      name: mappedCase.name,
+      company: mappedCase.company,
+      stage: mappedCase.stage,
+      status: mappedCase.status,
+      updatedAt: new Date(),
+    };
+
+    setCases(prev => [newCase, ...prev]);
+    setSelectedCaseId(newCase.id);
+    setIsCRMImportModalOpen(false);
+
+    // Initialize workflow with CRM context
+    setWorkflowState({
+      currentStage: mappedCase.stage,
+      status: 'in_progress',
+      completedStages: [],
+      context: {
+        caseId: newCase.id,
+        company: mappedCase.company,
+        crmDeal: deal,
+        crmMetadata: mappedCase.metadata,
+      },
+    });
+
+    // Auto-send deal info to AI for analysis
+    setTimeout(async () => {
+      const stakeholderList = mappedCase.metadata.stakeholders?.map(s =>
+        `${s.name}${s.role ? ` (${s.role})` : ''}${s.title ? ` - ${s.title}` : ''}`
+      ) || [];
+
+      const importPrompt = `I've imported a deal from ${mappedCase.metadata.crmProvider}:
+
+**Deal:** ${deal.name}
+**Company:** ${mappedCase.company}
+**Stage:** ${deal.stage} → mapped to ${mappedCase.stage}
+**Value:** ${deal.amount ? `$${deal.amount.toLocaleString()}` : 'Not specified'}
+**Close Date:** ${mappedCase.metadata.closeDate || 'Not specified'}
+
+${stakeholderList.length ? `**Stakeholders:**\n${stakeholderList.map(s => `- ${s}`).join('\n')}` : ''}
+
+Based on this deal information, help me:
+1. Identify key value drivers for this opportunity
+2. Suggest questions to uncover pain points
+3. Recommend next steps to advance this deal`;
+
+      handleCommand(importPrompt);
+    }, 100);
+
+    // Persist to Supabase
+    valueCaseService.createValueCase({
+      name: mappedCase.name,
+      company: mappedCase.company,
+      stage: mappedCase.stage,
+      status: mappedCase.status,
+      metadata: {
+        importedFrom: 'crm',
+        crmProvider: mappedCase.metadata.crmProvider,
+        crmDealId: mappedCase.metadata.crmDealId,
+        dealValue: mappedCase.metadata.dealValue,
+        closeDate: mappedCase.metadata.closeDate,
+        stakeholders: mappedCase.metadata.stakeholders,
+      },
+    }).catch(err => logger.warn('Failed to persist case from CRM', { error: err }));
   }, [handleCommand]);
 
   return (
@@ -940,6 +1035,15 @@ Based on this email analysis, help me create a value hypothesis and action plan.
         isOpen={isEmailAnalysisModalOpen}
         onClose={() => setIsEmailAnalysisModalOpen(false)}
         onComplete={handleEmailComplete}
+      />
+
+      {/* CRM Import Modal */}
+      <CRMImportModal
+        isOpen={isCRMImportModalOpen}
+        onClose={() => setIsCRMImportModalOpen(false)}
+        onComplete={handleCRMImportComplete}
+        tenantId={currentTenantId}
+        userId={currentUserId}
       />
     </div>
   );
