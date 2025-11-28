@@ -328,21 +328,25 @@ export const UpdateLayoutActionSchema = z.object({
   description: z.string().optional(),
 });
 
-// Forward declaration for recursive type
-const BatchActionSchema: z.ZodType<BatchAction> = z.lazy(() =>
-  z.object({
-    type: z.literal('batch'),
-    actions: z.array(AtomicUIActionSchema),
-    description: z.string().optional(),
-  })
-);
-
-export const AtomicUIActionSchema: z.ZodType<AtomicUIAction> = z.discriminatedUnion('type', [
+// Non-batch actions discriminated union (no circular reference)
+const NonBatchActionSchema = z.discriminatedUnion('type', [
   MutateComponentActionSchema,
   AddComponentActionSchema,
   RemoveComponentActionSchema,
   ReorderComponentsActionSchema,
   UpdateLayoutActionSchema,
+]);
+
+// Batch action schema with explicit type literal
+const BatchActionSchema = z.object({
+  type: z.literal('batch'),
+  actions: z.array(z.lazy(() => AtomicUIActionSchema)),
+  description: z.string().optional(),
+});
+
+// Combined schema using union (not discriminatedUnion to avoid lazy issues)
+export const AtomicUIActionSchema: z.ZodType<AtomicUIAction> = z.union([
+  NonBatchActionSchema,
   BatchActionSchema,
 ]);
 

@@ -22,8 +22,8 @@ test.describe('UI Debug Tests', () => {
 
     await page.goto('/');
     
-    // Wait a bit for React to initialize
-    await page.waitForTimeout(3000);
+    // Wait for the app to fully load (bootstrap takes time for agent health checks)
+    await page.waitForTimeout(20000);
     
     // Take screenshot of initial state
     await page.screenshot({ path: 'test-results/homepage.png', fullPage: true });
