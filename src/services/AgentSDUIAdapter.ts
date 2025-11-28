@@ -3,6 +3,15 @@
  * 
  * Converts agent outputs to SDUI schema updates.
  * This is the bridge between the Agent Fabric and the SDUI system.
+ * 
+ * REFACTORED: Now uses Intent-Based UI Registry for decoupled agent-to-component mapping.
+ * - Agents emit "intents" describing what they want to display
+ * - IntentRegistry resolves intents to specific React components
+ * - This enables adding new agents without modifying this service
+ * 
+ * @see src/types/intent.ts - Intent type definitions
+ * @see src/services/IntentRegistry.ts - Intent resolution
+ * @see src/services/AgentIntentConverter.ts - Agent output to intent conversion
  */
 
 import { logger } from '../lib/logger';
@@ -26,6 +35,9 @@ import {
   createRemoveAction,
 } from '../sdui/AtomicUIActions';
 import { canvasSchemaService } from './CanvasSchemaService';
+import { UIIntent, IntentResolution } from '../types/intent';
+import { intentRegistry } from './IntentRegistry';
+import { agentIntentConverter } from './AgentIntentConverter';
 
 /**
  * Agent SDUI Adapter
@@ -98,7 +110,98 @@ export class AgentSDUIAdapter {
   }
 
   /**
-   * Determine which components need updates
+   * NEW: Process agent output using Intent-Based UI Registry
+   * 
+   * This is the recommended method for new integrations.
+   * Uses decoupled intent→component mapping instead of hardcoded switch statements.
+   */
+  async processAgentOutputWithIntents(
+    agentId: string,
+    output: AgentOutput,
+    workspaceId: string,
+    tenantId?: string
+  ): Promise<SDUIUpdate> {
+    logger.info('Processing agent output with intents', {
+      agentId,
+      agentType: output.agentType,
+      workspaceId,
+    });
+
+    try {
+      // Step 1: Convert agent output to intents
+      const intents = agentIntentConverter.convert(output as AgentOutput & Record<string, unknown>);
+      
+      if (intents.length === 0) {
+        logger.warn('No intents generated from agent output', { agentType: output.agentType });
+        return {
+          type: 'partial_update',
+          workspaceId,
+          actions: [],
+          timestamp: Date.now(),
+          source: `agent:${agentId}`,
+        };
+      }
+
+      // Step 2: Resolve intents to components
+      const atomicActions: AtomicUIAction[] = [];
+      
+      for (const intent of intents) {
+        const resolution = intentRegistry.resolve(intent, tenantId);
+        
+        if (resolution.resolved) {
+          // Create add action for resolved component
+          atomicActions.push(
+            createAddAction(
+              {
+                component: resolution.component,
+                props: resolution.props as Record<string, unknown>,
+              },
+              { append: true },
+              `Add ${resolution.component} from ${intent.type} intent`
+            )
+          );
+        } else if (resolution.fallback) {
+          // Use fallback component
+          atomicActions.push(
+            createAddAction(
+              {
+                component: resolution.fallback,
+                props: resolution.props as Record<string, unknown>,
+              },
+              { append: true },
+              `Add fallback ${resolution.fallback} for ${intent.type}`
+            )
+          );
+        }
+      }
+
+      logger.info('Generated SDUI update from intents', {
+        agentId,
+        intentCount: intents.length,
+        actionCount: atomicActions.length,
+      });
+
+      return {
+        type: atomicActions.length > 0 ? 'atomic_actions' : 'partial_update',
+        workspaceId,
+        actions: atomicActions,
+        timestamp: Date.now(),
+        source: `agent:${agentId}`,
+      };
+    } catch (error) {
+      logger.error('Failed to process agent output with intents', {
+        agentId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      // Fallback to legacy processing
+      return this.processAgentOutput(agentId, output, workspaceId);
+    }
+  }
+
+  /**
+   * @deprecated Use analyzeImpactWithIntents for new code
+   * Determine which components need updates (legacy method)
    */
   analyzeImpact(
     output: AgentOutput,
