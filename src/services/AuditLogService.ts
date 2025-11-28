@@ -57,7 +57,7 @@ export class AuditLogService extends BaseService {
    * Create an audit log entry (immutable)
    * AUD-301: Logs are INSERT-only with cryptographic integrity
    */
-  async log(input: AuditLogCreateInput): Promise<AuditLogEntry> {
+  async createEntry(input: AuditLogCreateInput): Promise<AuditLogEntry> {
     this.validateRequired(input, [
       'userId',
       'userName',
@@ -101,8 +101,8 @@ export class AuditLogService extends BaseService {
         };
 
         const { data, error } = await this.supabase
-          .from('audit_logs')
-          .insert(logEntry)
+          .from('audit_logs' as any)
+          .insert(logEntry as any)
           .select()
           .single();
 
@@ -116,7 +116,7 @@ export class AuditLogService extends BaseService {
         }
 
         this.lastHash = hash;
-        return data;
+        return data as unknown as AuditLogEntry;
       },
       { skipCache: true }
     );
@@ -139,26 +139,26 @@ export class AuditLogService extends BaseService {
    * Query audit logs with filters
    */
   async query(query: AuditLogQuery = {}): Promise<AuditLogEntry[]> {
-    this.log('info', 'Querying audit logs', query);
+    super.log('info', 'Querying audit logs', query);
 
     return this.executeRequest(
       async () => {
-        let dbQuery = this.supabase.from('audit_logs').select('*');
+        let dbQuery = this.supabase.from('audit_logs' as any).select('*');
 
         if (query.userId) {
-          dbQuery = dbQuery.eq('user_id', query.userId);
+          dbQuery = dbQuery.eq('user_id' as any, query.userId as any);
         }
 
         if (query.action) {
-          dbQuery = dbQuery.eq('action', query.action);
+          dbQuery = dbQuery.eq('action' as any, query.action as any);
         }
 
         if (query.resourceType) {
-          dbQuery = dbQuery.eq('resource_type', query.resourceType);
+          dbQuery = dbQuery.eq('resource_type' as any, query.resourceType as any);
         }
 
         if (query.status) {
-          dbQuery = dbQuery.eq('status', query.status);
+          dbQuery = dbQuery.eq('status' as any, query.status as any);
         }
 
         if (query.startDate) {
@@ -182,7 +182,7 @@ export class AuditLogService extends BaseService {
         const { data, error } = await dbQuery;
 
         if (error) throw error;
-        return data || [];
+        return (data || []) as unknown as AuditLogEntry[];
       },
       {
         deduplicationKey: `audit-logs-${JSON.stringify(query)}`,
@@ -197,13 +197,13 @@ export class AuditLogService extends BaseService {
     return this.executeRequest(
       async () => {
         const { data, error } = await this.supabase
-          .from('audit_logs')
+          .from('audit_logs' as any)
           .select('*')
-          .eq('id', id)
+          .eq('id' as any, id as any)
           .maybeSingle();
 
         if (error) throw error;
-        return data;
+        return data as unknown as AuditLogEntry | null;
       },
       {
         deduplicationKey: `audit-log-${id}`,
@@ -215,7 +215,7 @@ export class AuditLogService extends BaseService {
    * Export audit logs
    */
   async export(options: AuditLogExportOptions): Promise<string> {
-    this.log('info', 'Exporting audit logs', options);
+    super.log('info', 'Exporting audit logs', options);
 
     const logs = await this.query(options.query);
 
@@ -330,8 +330,8 @@ export class AuditLogService extends BaseService {
       async () => {
         // Mark as archived instead of deleting
         const { data, error } = await this.supabase
-          .from('audit_logs')
-          .update({ archived: true })
+          .from('audit_logs' as any)
+          .update({ archived: true } as any)
           .lt('timestamp', olderThan)
           .select('id');
 
