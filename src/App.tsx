@@ -18,8 +18,8 @@ import { sessionManager } from './services/SessionManager';
 
 // Feature flags
 const ENABLE_SDUI = import.meta.env.VITE_ENABLE_SDUI === 'true' || false;
-// New simplified Chat + Canvas UI (set to true to enable)
-const ENABLE_CHAT_CANVAS = import.meta.env.VITE_ENABLE_CHAT_CANVAS === 'true' || true;
+// Chat + Canvas UI is now the default experience
+const ENABLE_CHAT_CANVAS = true;
 
 function App() {
   const [currentView, setCurrentView] = useState<ViewMode>('library');
