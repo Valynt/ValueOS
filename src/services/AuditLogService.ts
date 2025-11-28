@@ -373,8 +373,8 @@ export class AuditLogService extends BaseService {
         );
       }
 
-      // Verify integrity hash
-      const calculatedHash = this.calculateHash({
+      // Verify integrity hash (using secure SHA-256)
+      const calculatedHash = await this.calculateHash({
         userId: log.user_id,
         action: log.action,
         resourceType: log.resource_type,
