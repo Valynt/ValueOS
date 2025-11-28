@@ -1,0 +1,59 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e6]:
+      - img [ref=e8]
+      - generic [ref=e10]:
+        - heading "ValueCanvas" [level=1] [ref=e11]
+        - paragraph [ref=e12]: AI Value Engineering
+    - button "New Value Case" [ref=e14] [cursor=pointer]:
+      - img [ref=e15]
+      - text: New Value Case
+    - generic [ref=e16]:
+      - generic [ref=e17]:
+        - generic [ref=e18]:
+          - img [ref=e19]
+          - text: In Progress (2)
+        - generic [ref=e22]:
+          - button "Acme Corp - SaaS ROI Acme Corp Target 1h ago" [ref=e23] [cursor=pointer]:
+            - generic [ref=e24]:
+              - generic [ref=e25]:
+                - heading "Acme Corp - SaaS ROI" [level=3] [ref=e26]
+                - paragraph [ref=e27]: Acme Corp
+              - img [ref=e28]
+            - generic [ref=e30]:
+              - generic [ref=e31]: Target
+              - generic [ref=e32]: 1h ago
+          - button "TechStart - Migration TechStart Opportunity 1d ago" [ref=e33] [cursor=pointer]:
+            - generic [ref=e34]:
+              - generic [ref=e35]:
+                - heading "TechStart - Migration" [level=3] [ref=e36]
+                - paragraph [ref=e37]: TechStart
+              - img [ref=e38]
+            - generic [ref=e40]:
+              - generic [ref=e41]: Opportunity
+              - generic [ref=e42]: 1d ago
+      - generic [ref=e43]:
+        - generic [ref=e44]:
+          - img [ref=e45]
+          - text: Completed (0)
+        - paragraph [ref=e49]: No completed cases
+    - generic [ref=e51]:
+      - button "Settings" [ref=e52] [cursor=pointer]:
+        - img [ref=e53]
+      - button "Help" [ref=e56] [cursor=pointer]:
+        - img [ref=e57]
+      - generic [ref=e60]:
+        - img [ref=e61]
+        - generic [ref=e63]: K
+  - main [ref=e64]:
+    - generic [ref=e66]:
+      - img [ref=e68]
+      - heading "Welcome to ValueCanvas" [level=2] [ref=e70]
+      - paragraph [ref=e71]: Select a case from the library or create a new one to get started. Use ⌘K to ask the AI assistant anything.
+      - button "New Value Case" [ref=e72] [cursor=pointer]:
+        - img [ref=e73]
+        - text: New Value Case
+```

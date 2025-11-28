@@ -11,12 +11,15 @@ import { IntegrityCompliancePage } from './views/IntegrityCompliancePage';
 import { PerformanceDashboard } from './views/PerformanceDashboard';
 import { AppSidebar } from './components/Navigation/AppSidebar';
 import { SDUIApp } from './components/SDUIApp';
+import { ChatCanvasLayout } from './components/ChatCanvas';
 import { ViewMode } from './types';
 import { LifecycleStage } from './types/workflow';
 import { sessionManager } from './services/SessionManager';
 
-// Feature flag for SDUI mode
+// Feature flags
 const ENABLE_SDUI = import.meta.env.VITE_ENABLE_SDUI === 'true' || false;
+// New simplified Chat + Canvas UI (set to true to enable)
+const ENABLE_CHAT_CANVAS = import.meta.env.VITE_ENABLE_CHAT_CANVAS === 'true' || true;
 
 function App() {
   const [currentView, setCurrentView] = useState<ViewMode>('library');
@@ -124,6 +127,17 @@ function App() {
     }
   };
 
+  // If Chat + Canvas mode is enabled, use the simplified layout
+  if (ENABLE_CHAT_CANVAS) {
+    return (
+      <ChatCanvasLayout
+        onSettingsClick={() => setCurrentView('settings')}
+        onHelpClick={() => setCurrentView('documentation')}
+      />
+    );
+  }
+
+  // Legacy multi-view layout
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Hide sidebar in SDUI mode or specific views */}

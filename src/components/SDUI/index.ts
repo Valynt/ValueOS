@@ -26,3 +26,8 @@ export * from './ConfidenceIndicator';
 // Agent-specific components
 export * from './AgentResponseCard';
 export * from './AgentWorkflowPanel';
+export * from './NarrativeBlock';
+
+// Form and selection components
+export * from './SDUIForm';
+export * from './ScenarioSelector';
