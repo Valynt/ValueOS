@@ -13,6 +13,8 @@
  * - Configuration management
  */
 
+import { logger } from '../lib/logger';
+
 // Configuration
 export {
   getSecurityConfig,
