@@ -1,0 +1,560 @@
+# =============================================================================
+# ValueCanvas Rules Configuration
+# =============================================================================
+# 
+# This configuration file defines the rules framework for the enterprise
+# agentic SaaS platform. Rules are divided into:
+#
+# 1. GLOBAL RULES (Platform Constitution)
+#    - Immutable safety and compliance constraints
+#    - Applied to ALL agents regardless of tenant/function
+#    - Cannot be overridden by local rules
+#
+# 2. LOCAL RULES (Agent Job Description)
+#    - Applied to specific agents or tenants
+#    - Define scope, behavior, workflow, and error handling
+#    - Can be customized per tenant
+#
+# =============================================================================
+
+version: "1.0"
+lastUpdated: "2024-01-01"
+
+# =============================================================================
+# ENVIRONMENT SETTINGS
+# =============================================================================
+
+environments:
+  development:
+    strictMode: false
+    auditMode: false
+    enableGlobalRules: true
+    enableLocalRules: true
+    maxLoopSteps: 20
+    maxLLMCalls: 50
+    maxSessionCost: 5.00
+    maxExecutionTimeMs: 60000
+    
+  staging:
+    strictMode: true
+    auditMode: false
+    enableGlobalRules: true
+    enableLocalRules: true
+    maxLoopSteps: 15
+    maxLLMCalls: 30
+    maxSessionCost: 10.00
+    maxExecutionTimeMs: 45000
+    
+  production:
+    strictMode: true
+    auditMode: false
+    enableGlobalRules: true
+    enableLocalRules: true
+    maxLoopSteps: 10
+    maxLLMCalls: 20
+    maxSessionCost: 25.00
+    maxExecutionTimeMs: 30000
+
+# =============================================================================
+# GLOBAL RULES - The Platform "Constitution"
+# =============================================================================
+
+globalRules:
+  
+  # ---------------------------------------------------------------------------
+  # SYSTEMIC SAFETY
+  # ---------------------------------------------------------------------------
+  
+  - id: GR-001
+    name: Block Dangerous System Commands
+    category: systemic_safety
+    severity: critical
+    enabled: true
+    enforcementMode: block
+    devOverridable: false
+    description: |
+      Prevents "God Mode" by blocking dangerous system-level commands.
+      Blocks: DROP TABLE, rm -rf, sudo, eval(), credential exposure patterns.
+    patterns:
+      - "DROP (TABLE|DATABASE|SCHEMA)"
+      - "TRUNCATE TABLE"
+      - "DELETE FROM .* without WHERE"
+      - "rm -rf /"
+      - "sudo"
+      - "eval("
+      - "password|secret|api_key = "
+
+  - id: GR-002
+    name: Network Allowlist Enforcement
+    category: systemic_safety
+    severity: critical
+    enabled: true
+    enforcementMode: block
+    devOverridable: false
+    description: |
+      Blocks outbound traffic to non-allowlisted domains.
+    allowlist:
+      - localhost
+      - "127.0.0.1"
+      - "*.supabase.co"
+      - "api.together.ai"
+      - "api.openai.com"
+      - "api.anthropic.com"
+      - "*.sentry.io"
+    blocklist:
+      - "*.github.com"  # Block in production
+      - "*.pastebin.com"
+      - "*.ngrok.io"
+
+  - id: GR-003
+    name: Recursion Depth Limit
+    category: systemic_safety
+    severity: high
+    enabled: true
+    enforcementMode: block
+    devOverridable: true
+    description: |
+      Prevents infinite loops and stack overflow attacks.
+    limits:
+      development: 10
+      staging: 7
+      production: 5
+
+  # ---------------------------------------------------------------------------
+  # DATA SOVEREIGNTY
+  # ---------------------------------------------------------------------------
+
+  - id: GR-010
+    name: Tenant Isolation Enforcement
+    category: data_sovereignty
+    severity: critical
+    enabled: true
+    enforcementMode: block
+    devOverridable: false
+    description: |
+      Ensures all database operations include tenant_id filter.
+      Prevents cross-tenant data access.
+    requiredField: tenant_id
+    dbOperations:
+      - query
+      - insert
+      - update
+      - delete
+      - select
+
+  - id: GR-011
+    name: Cross-Tenant Data Transfer Block
+    category: data_sovereignty
+    severity: critical
+    enabled: true
+    enforcementMode: block
+    devOverridable: false
+    description: |
+      Blocks any operation that transfers data between tenants.
+    blockedOperations:
+      - copy
+      - move
+      - transfer
+      - migrate
+      - export
+
+  # ---------------------------------------------------------------------------
+  # PII PROTECTION
+  # ---------------------------------------------------------------------------
+
+  - id: GR-020
+    name: PII Detection and Redaction
+    category: pii_protection
+    severity: critical
+    enabled: true
+    enforcementMode: block
+    devOverridable: false
+    description: |
+      Detects and blocks PII patterns (SSN, credit cards, etc.)
+      Ensures GDPR/SOC 2 compliance.
+    patterns:
+      ssn: '\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b'
+      credit_card: '\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14})\b'
+      phone: '\b(?:\+1[-.\s]?)?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}\b'
+      email_bulk: '\[\s*["''][^"'']+@[^"'']+["'']\s*,'
+
+  - id: GR-021
+    name: Logging PII Prevention
+    category: pii_protection
+    severity: high
+    enabled: true
+    enforcementMode: block
+    devOverridable: false
+    description: |
+      Prevents PII from being written to logs.
+
+  # ---------------------------------------------------------------------------
+  # COST CONTROL
+  # ---------------------------------------------------------------------------
+
+  - id: GR-030
+    name: Reasoning Loop Step Limit
+    category: cost_control
+    severity: high
+    enabled: true
+    enforcementMode: block
+    devOverridable: true
+    description: |
+      Limits reasoning loop steps to prevent runaway execution.
+    limits:
+      development:
+        maxSteps: 20
+        maxLLMCalls: 50
+      staging:
+        maxSteps: 15
+        maxLLMCalls: 30
+      production:
+        maxSteps: 10
+        maxLLMCalls: 20
+
+  - id: GR-031
+    name: Session Cost Limit
+    category: cost_control
+    severity: high
+    enabled: true
+    enforcementMode: block
+    devOverridable: true
+    description: |
+      Hard cap on spending per session.
+    limits:
+      development: 5.00
+      staging: 10.00
+      production: 25.00
+    currency: USD
+
+  - id: GR-032
+    name: Execution Time Limit
+    category: cost_control
+    severity: high
+    enabled: true
+    enforcementMode: block
+    devOverridable: true
+    description: |
+      Limits maximum execution time per agent action.
+    limits:
+      development: 60000  # 60 seconds
+      staging: 45000      # 45 seconds
+      production: 30000   # 30 seconds
+
+  # ---------------------------------------------------------------------------
+  # AUDIT COMPLIANCE
+  # ---------------------------------------------------------------------------
+
+  - id: GR-040
+    name: Action Audit Trail Requirement
+    category: audit_compliance
+    severity: medium
+    enabled: true
+    enforcementMode: audit
+    devOverridable: true
+    description: |
+      Requires audit logging for all significant actions.
+    auditableActions:
+      - create
+      - update
+      - delete
+      - export
+      - approve
+      - reject
+      - submit
+      - publish
+
+# =============================================================================
+# LOCAL RULES - Agent "Job Descriptions"
+# =============================================================================
+
+localRules:
+
+  # ---------------------------------------------------------------------------
+  # SCOPE OF AUTHORITY
+  # ---------------------------------------------------------------------------
+
+  - id: LR-001
+    name: Tool Access Control
+    category: scope_of_authority
+    priority: 100
+    enabled: true
+    description: |
+      Controls which tools each agent type can access.
+      Enforces explicit allow/deny lists per agent.
+
+  - id: LR-002
+    name: Agent Delegation Control
+    category: scope_of_authority
+    priority: 90
+    enabled: true
+    description: |
+      Controls agent-to-agent delegation permissions.
+
+  # ---------------------------------------------------------------------------
+  # BEHAVIORAL ALIGNMENT
+  # ---------------------------------------------------------------------------
+
+  - id: LR-010
+    name: Response Quality Standards
+    category: behavioral_alignment
+    priority: 80
+    enabled: true
+    description: |
+      Enforces quality standards for agent responses.
+      Blocks unhelpful patterns and hyperbolic language.
+
+  - id: LR-011
+    name: Persona Enforcement
+    category: behavioral_alignment
+    priority: 70
+    enabled: true
+    description: |
+      Ensures agent maintains consistent persona and tone.
+      Prevents first-person opinions and informal language.
+
+  - id: LR-012
+    name: Uncertainty Handling
+    category: behavioral_alignment
+    priority: 75
+    enabled: true
+    description: |
+      Requires agents to seek clarification when uncertain.
+      Blocks high-impact actions with low confidence.
+
+  # ---------------------------------------------------------------------------
+  # WORKFLOW LOGIC
+  # ---------------------------------------------------------------------------
+
+  - id: LR-020
+    name: Stage Transition Validation
+    category: workflow_logic
+    priority: 95
+    enabled: true
+    description: |
+      Validates workflow stage transitions follow correct sequence.
+    transitions:
+      opportunity: [target]
+      target: [expansion, opportunity]
+      expansion: [integrity, target]
+      integrity: [realization, expansion]
+      realization: [integrity]
+
+  - id: LR-021
+    name: Approval Workflow Enforcement
+    category: workflow_logic
+    priority: 85
+    enabled: true
+    description: |
+      Requires approval workflow for high-value actions.
+    thresholds:
+      expense_amount: 500
+      roi_projection: 100000
+      risk_score: 0.7
+      stakeholder_count: 10
+
+  - id: LR-022
+    name: Prerequisite Validation
+    category: workflow_logic
+    priority: 90
+    enabled: true
+    description: |
+      Validates that prerequisites are met before actions.
+    prerequisites:
+      build_value_tree:
+        - system_map_complete
+        - opportunities_identified
+      calculate_roi:
+        - value_tree_complete
+        - assumptions_documented
+      finalize_intervention:
+        - roi_calculated
+        - risks_assessed
+
+  # ---------------------------------------------------------------------------
+  # ERROR HANDLING
+  # ---------------------------------------------------------------------------
+
+  - id: LR-030
+    name: Graceful Degradation
+    category: error_handling
+    priority: 100
+    enabled: true
+    description: |
+      Defines fallback behavior when tools/services fail.
+    fallbacks:
+      calendar_api: "I cannot schedule meetings right now."
+      database: "Let me try an alternative approach."
+      llm_service: "Let me try a simpler approach."
+      external_api: "I'll proceed with available information."
+
+  - id: LR-031
+    name: Retry Policy
+    category: error_handling
+    priority: 95
+    enabled: true
+    description: |
+      Defines retry behavior for transient failures.
+    nonRetryable: [400, 401, 403, 404, 422]
+    maxRetries:
+      development: 5
+      staging: 3
+      production: 2
+
+  # ---------------------------------------------------------------------------
+  # RESOURCE LIMITS
+  # ---------------------------------------------------------------------------
+
+  - id: LR-040
+    name: Context Window Management
+    category: resource_limits
+    priority: 85
+    enabled: true
+    description: |
+      Manages context window size for LLM calls.
+    tokenLimits:
+      development: 100000
+      staging: 50000
+      production: 32000
+
+  - id: LR-041
+    name: Memory Usage Limit
+    category: resource_limits
+    priority: 80
+    enabled: true
+    description: |
+      Limits agent memory consumption.
+    memoryLimits:
+      development: 10485760   # 10MB
+      staging: 5242880        # 5MB
+      production: 2097152     # 2MB
+
+# =============================================================================
+# AGENT TOOL ACCESS CONFIGURATION
+# =============================================================================
+
+agentToolAccess:
+
+  coordinator:
+    allowed:
+      - plan_task
+      - delegate_to_agent
+      - summarize_results
+      - request_clarification
+      - update_workflow_state
+      - generate_sdui_layout
+    denied:
+      - execute_sql
+      - modify_system_config
+      - access_raw_database
+      - delete_tenant_data
+    requireApproval:
+      - finalize_workflow
+      - publish_artifact
+
+  system_mapper:
+    allowed:
+      - analyze_system
+      - create_system_map
+      - identify_components
+      - map_dependencies
+      - generate_diagram
+      - search_knowledge_base
+    denied:
+      - modify_production_system
+      - execute_commands
+      - access_external_systems
+    requireApproval:
+      - export_system_map
+
+  intervention_designer:
+    allowed:
+      - design_intervention
+      - analyze_impact
+      - create_recommendation
+      - compare_alternatives
+      - calculate_roi_estimate
+      - search_best_practices
+    denied:
+      - implement_intervention
+      - modify_live_systems
+      - commit_changes
+    requireApproval:
+      - approve_intervention
+      - schedule_implementation
+
+  outcome_engineer:
+    allowed:
+      - define_outcomes
+      - create_kpis
+      - build_value_tree
+      - calculate_projections
+      - validate_assumptions
+      - generate_roi_model
+    denied:
+      - modify_financial_records
+      - adjust_actual_metrics
+      - bypass_validation
+    requireApproval:
+      - finalize_value_tree
+      - commit_roi_model
+
+  realization_loop:
+    allowed:
+      - track_metrics
+      - compare_projections
+      - generate_reports
+      - identify_variances
+      - create_feedback
+      - update_tracking_dashboard
+    denied:
+      - modify_baseline_metrics
+      - delete_historical_data
+      - alter_projections_retroactively
+    requireApproval:
+      - close_realization_loop
+      - mark_value_realized
+
+  value_eval:
+    allowed:
+      - evaluate_value
+      - score_artifact
+      - compare_alternatives
+      - generate_assessment
+      - rank_opportunities
+      - create_evaluation_report
+    denied:
+      - override_scores
+      - bypass_criteria
+      - modify_evaluation_weights
+    requireApproval:
+      - finalize_evaluation
+      - publish_rankings
+
+  communicator:
+    allowed:
+      - send_message
+      - broadcast_update
+      - notify_stakeholders
+      - format_report
+      - translate_content
+      - summarize_for_audience
+    denied:
+      - send_external_email
+      - post_to_social_media
+      - access_external_apis
+    requireApproval:
+      - send_to_executives
+      - publish_externally
+
+# =============================================================================
+# TENANT OVERRIDE EXAMPLE
+# =============================================================================
+
+tenantOverrides:
+  example_tenant:
+    disabledRules:
+      - GR-003  # Allow deeper recursion for complex workflows
+    customThresholds:
+      maxLoopSteps: 25
+      maxSessionCost: 50.00
