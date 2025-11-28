@@ -29,6 +29,8 @@ import {
 } from 'lucide-react';
 import { CommandBar } from '../Agent/CommandBar';
 import { UploadNotesModal, ExtractedNotes } from '../Modals';
+import { EmailAnalysisModal } from '../Modals/EmailAnalysisModal';
+import { EmailAnalysis } from '../../services/EmailAnalysisService';
 import { renderPage, RenderPageResult } from '../../sdui/renderPage';
 import { SDUIPageDefinition } from '../../sdui/schema';
 import { StreamingUpdate } from '../../services/UnifiedAgentOrchestrator';
@@ -318,6 +320,9 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
 
   // Upload notes modal state
   const [isUploadNotesModalOpen, setIsUploadNotesModalOpen] = useState(false);
+  
+  // Email analysis modal state
+  const [isEmailAnalysisModalOpen, setIsEmailAnalysisModalOpen] = useState(false);
 
   // Derived state
   const selectedCase = cases.find(c => c.id === selectedCaseId);
@@ -522,8 +527,10 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
       case 'upload_notes':
         setIsUploadNotesModalOpen(true);
         break;
-      case 'upload_call':
       case 'analyze_email':
+        setIsEmailAnalysisModalOpen(true);
+        break;
+      case 'upload_call':
       case 'import_crm':
         // TODO: Implement specific modals for these
         setIsNewCaseModalOpen(true);
@@ -569,12 +576,19 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
 
     // Auto-send the notes to the AI for deeper analysis
     setTimeout(async () => {
+      const insights = notes.insights;
+      const stakeholderList = insights?.stakeholders?.map(s => 
+        typeof s === 'string' ? s : `${s.name}${s.role ? ` (${s.role})` : ''}`
+      ) || [];
+
       const analysisPrompt = `I've imported opportunity notes. Here's what I found:
 
 Company: ${companyName}
-${notes.insights?.painPoints.length ? `\nPain Points:\n${notes.insights.painPoints.map(p => `- ${p}`).join('\n')}` : ''}
-${notes.insights?.stakeholders.length ? `\nStakeholders:\n${notes.insights.stakeholders.map(s => `- ${s}`).join('\n')}` : ''}
-${notes.insights?.opportunities.length ? `\nOpportunities:\n${notes.insights.opportunities.map(o => `- ${o}`).join('\n')}` : ''}
+${insights?.summary ? `\nSummary: ${insights.summary}` : ''}
+${insights?.painPoints?.length ? `\nPain Points:\n${insights.painPoints.map(p => `- ${p}`).join('\n')}` : ''}
+${stakeholderList.length ? `\nStakeholders:\n${stakeholderList.map(s => `- ${s}`).join('\n')}` : ''}
+${insights?.opportunities?.length ? `\nOpportunities:\n${insights.opportunities.map(o => `- ${o}`).join('\n')}` : ''}
+${insights?.nextSteps?.length ? `\nNext Steps:\n${insights.nextSteps.map(n => `- ${n}`).join('\n')}` : ''}
 
 Please analyze these notes and help me build a value hypothesis. What key value drivers should we focus on?`;
 
@@ -594,6 +608,82 @@ Please analyze these notes and help me build a value hypothesis. What key value 
         extractedInsights: notes.insights,
       },
     }).catch(err => logger.warn('Failed to persist case from notes', { error: err }));
+  }, [handleCommand]);
+
+  // Handle email analysis completion
+  const handleEmailComplete = useCallback((analysis: EmailAnalysis, rawText: string) => {
+    // Determine company name from participants or thread
+    const companyName = analysis.participants?.[0]?.name?.split('@')[0] || 'Unknown Company';
+    const caseName = `${companyName} - Email Analysis`;
+
+    const newCase: ValueCase = {
+      id: uuidv4(),
+      name: caseName,
+      company: companyName,
+      stage: 'opportunity',
+      status: 'in-progress',
+      updatedAt: new Date(),
+    };
+
+    setCases(prev => [newCase, ...prev]);
+    setSelectedCaseId(newCase.id);
+    setIsEmailAnalysisModalOpen(false);
+
+    // Initialize workflow with analysis context
+    setWorkflowState({
+      currentStage: 'opportunity',
+      status: 'in_progress',
+      completedStages: [],
+      context: {
+        caseId: newCase.id,
+        company: companyName,
+        emailThread: rawText,
+        emailAnalysis: analysis,
+      },
+    });
+
+    // Auto-send analysis to AI for next steps
+    setTimeout(async () => {
+      const stakeholderList = analysis.participants?.map(p =>
+        `${p.name}${p.role ? ` (${p.role})` : ''} - ${p.sentiment}`
+      ) || [];
+
+      const analysisPrompt = `I've analyzed an email thread. Here's what I found:
+
+**Summary:** ${analysis.threadSummary}
+
+**Sentiment:** ${analysis.sentiment} - ${analysis.sentimentExplanation}
+
+**Urgency:** ${analysis.urgencyScore}/10 - ${analysis.urgencyReason}
+
+${stakeholderList.length ? `**Participants:**\n${stakeholderList.map(s => `- ${s}`).join('\n')}` : ''}
+
+${analysis.keyAsks?.length ? `**Key Asks:**\n${analysis.keyAsks.map(k => `- ${k}`).join('\n')}` : ''}
+
+${analysis.objections?.length ? `**Objections:**\n${analysis.objections.map(o => `- ${o}`).join('\n')}` : ''}
+
+${analysis.dealSignals?.positive?.length ? `**Positive Signals:**\n${analysis.dealSignals.positive.map(s => `- ${s}`).join('\n')}` : ''}
+
+${analysis.dealSignals?.negative?.length ? `**Warning Signs:**\n${analysis.dealSignals.negative.map(s => `- ${s}`).join('\n')}` : ''}
+
+**Suggested Next Step:** ${analysis.suggestedNextStep}
+
+Based on this email analysis, help me create a value hypothesis and action plan. What should I focus on to move this opportunity forward?`;
+
+      handleCommand(analysisPrompt);
+    }, 100);
+
+    // Persist to Supabase
+    valueCaseService.createValueCase({
+      name: caseName,
+      company: companyName,
+      stage: 'opportunity',
+      status: 'in-progress',
+      metadata: {
+        importedFrom: 'email',
+        emailAnalysis: analysis,
+      },
+    }).catch(err => logger.warn('Failed to persist case from email', { error: err }));
   }, [handleCommand]);
 
   return (
@@ -843,6 +933,13 @@ Please analyze these notes and help me build a value hypothesis. What key value 
         isOpen={isUploadNotesModalOpen}
         onClose={() => setIsUploadNotesModalOpen(false)}
         onComplete={handleNotesComplete}
+      />
+
+      {/* Email Analysis Modal */}
+      <EmailAnalysisModal
+        isOpen={isEmailAnalysisModalOpen}
+        onClose={() => setIsEmailAnalysisModalOpen(false)}
+        onComplete={handleEmailComplete}
       />
     </div>
   );
