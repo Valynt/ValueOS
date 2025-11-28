@@ -18,6 +18,8 @@ import { SDUIPageDefinition } from '../sdui/schema';
 import { WorkflowState } from '../repositories/WorkflowStateRepository';
 import type { LifecycleStage } from '../types/vos';
 import { getRelevantExamples, formatExampleForPrompt } from '../data/valueModelExamples';
+import { getAllTools, createToolExecutor } from './MCPTools';
+import { mcpGroundTruthService } from './MCPGroundTruthService';
 
 // ============================================================================
 // Types
@@ -28,6 +30,7 @@ export interface ChatRequest {
   caseId: string;
   userId: string;
   sessionId: string;
+  tenantId?: string;  // For CRM tool access
   workflowState: WorkflowState;
 }
 
@@ -135,11 +138,32 @@ class AgentChatService {
         { role: 'user' as const, content: request.query },
       ];
 
-      // Call LLM
-      const llmResponse = await this.llm.complete(llmMessages, {
-        temperature: 0.7,
-        max_tokens: 2048,
-      });
+      // Check if we should use tool calling
+      const needsFinancialData = mcpGroundTruthService.isAvailable() && this.queryNeedsFinancialData(request.query);
+      const needsCRMData = request.tenantId && this.queryNeedsCRMData(request.query);
+      const useToolCalling = needsFinancialData || needsCRMData;
+
+      let llmResponse;
+      if (useToolCalling) {
+        // Get available tools (MCP + CRM if connected)
+        const tools = await getAllTools(request.tenantId, request.userId);
+        const toolExecutor = createToolExecutor(request.tenantId, request.userId);
+
+        // Use tool calling - LLM decides what data it needs
+        llmResponse = await this.llm.completeWithTools(
+          llmMessages,
+          tools,
+          toolExecutor,
+          { temperature: 0.7, max_tokens: 2048 },
+          3 // max iterations
+        );
+      } else {
+        // Standard completion without tools
+        llmResponse = await this.llm.complete(llmMessages, {
+          temperature: 0.7,
+          max_tokens: 2048,
+        });
+      }
 
       // Extract confidence and reasoning from response
       const { content, confidence, reasoning } = this.parseResponse(llmResponse.content);
@@ -274,6 +298,40 @@ class AgentChatService {
       confidence,
       reasoning: reasoning.slice(0, 5),
     };
+  }
+
+  /**
+   * Check if query likely needs financial data lookup
+   */
+  private queryNeedsFinancialData(query: string): boolean {
+    const dataKeywords = [
+      'revenue', 'income', 'profit', 'margin', 'earnings',
+      'financial', 'roi', 'cost', 'savings', 'benchmark',
+      'compare', 'industry', 'market', 'growth', 'performance',
+      'competitor', 'actual', 'real',
+      'sec', 'filing', 'quarterly', 'annual', 'fy', 'q1', 'q2', 'q3', 'q4'
+    ];
+    
+    const queryLower = query.toLowerCase();
+    return dataKeywords.some(keyword => queryLower.includes(keyword));
+  }
+
+  /**
+   * Check if query likely needs CRM data lookup
+   */
+  private queryNeedsCRMData(query: string): boolean {
+    const crmKeywords = [
+      'deal', 'opportunity', 'pipeline', 'salesforce', 'hubspot', 'crm',
+      'contact', 'stakeholder', 'decision maker', 'champion', 'buyer',
+      'account', 'prospect', 'lead', 'customer',
+      'activity', 'email', 'call', 'meeting', 'last contact',
+      'close date', 'stage', 'probability', 'forecast',
+      'find the', 'look up', 'search for', 'get the', 'show me',
+      'who is', 'when was', 'what is the status'
+    ];
+    
+    const queryLower = query.toLowerCase();
+    return crmKeywords.some(keyword => queryLower.includes(keyword));
   }
 
   /**

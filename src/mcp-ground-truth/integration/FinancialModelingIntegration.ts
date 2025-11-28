@@ -12,7 +12,7 @@
 
 import { MCPFinancialGroundTruthServer } from '../core/MCPServer';
 import { BaseTool, ToolResult, ToolExecutionContext } from '../../services/ToolRegistry';
-import { logger } from '../../utils/logger';
+import { logger } from '../../lib/logger';
 
 /**
  * Enhanced Financial Modeling Tool with Ground Truth Integration

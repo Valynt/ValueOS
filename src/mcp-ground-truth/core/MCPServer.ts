@@ -22,7 +22,7 @@ import { MarketDataModule } from '../modules/MarketDataModule';
 import { PrivateCompanyModule } from '../modules/PrivateCompanyModule';
 import { IndustryBenchmarkModule } from '../modules/IndustryBenchmarkModule';
 import { GroundTruthError, ErrorCodes } from '../types';
-import { logger } from '../../utils/logger';
+import { logger } from '../../lib/logger';
 
 interface MCPServerConfig {
   // Module configurations

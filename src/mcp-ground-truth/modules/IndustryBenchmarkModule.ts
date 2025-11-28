@@ -22,7 +22,7 @@ import {
   GroundTruthError,
   ErrorCodes,
 } from '../types';
-import { logger } from '../../utils/logger';
+import { logger } from '../../lib/logger';
 
 interface BenchmarkConfig {
   blsApiKey?: string;

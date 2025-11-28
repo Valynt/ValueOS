@@ -119,6 +119,7 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
     const provider = body.provider === 'openai' ? 'openai' : 'together';
 
+    // Handle embedding requests
     if (body.type === 'embedding') {
       const embeddingModel = provider === 'together'
         ? 'togethercomputer/m2-bert-80M-8k-retrieval'
@@ -138,6 +139,64 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    // Handle chat with tools (function calling)
+    if (body.type === 'chat_with_tools') {
+      // Use a model that supports function calling
+      const toolModel = provider === 'together'
+        ? 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo'  // Supports function calling
+        : 'gpt-4-turbo-preview';
+
+      const toolPayload: Record<string, unknown> = {
+        model: body.config?.model || toolModel,
+        messages: body.messages,
+        temperature: body.config?.temperature ?? 0.7,
+        max_tokens: body.config?.max_tokens ?? 2000,
+        top_p: body.config?.top_p ?? 1,
+      };
+
+      // Add tools if provided
+      if (body.tools && body.tools.length > 0) {
+        toolPayload.tools = body.tools;
+        toolPayload.tool_choice = 'auto';  // Let model decide when to use tools
+      }
+
+      const start = Date.now();
+      const response = await callProvider({ provider, path: '/chat/completions', payload: toolPayload });
+      if (!response.ok) return response;
+
+      const data = await response.json();
+      const latency = Date.now() - start;
+      const message = data.choices?.[0]?.message || {};
+
+      // Extract tool calls if present
+      const toolCalls = message.tool_calls?.map((tc: {
+        id: string;
+        type: string;
+        function: { name: string; arguments: string };
+      }) => ({
+        id: tc.id,
+        type: tc.type,
+        function: {
+          name: tc.function.name,
+          arguments: tc.function.arguments,
+        },
+      })) || [];
+
+      return new Response(
+        JSON.stringify({
+          content: message.content || '',
+          tool_calls: toolCalls,
+          finish_reason: data.choices?.[0]?.finish_reason || 'stop',
+          tokens_used: data.usage?.total_tokens || 0,
+          latency_ms: latency,
+          model: data.model,
+          provider,
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      );
+    }
+
+    // Standard chat completion (no tools)
     const chatPayload = {
       model: body.config?.model || (provider === 'together'
         ? 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo'
