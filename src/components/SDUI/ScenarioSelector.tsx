@@ -21,7 +21,6 @@ import {
   Users,
   Shield,
   Search,
-  Filter,
   Grid,
   List,
   ExternalLink
@@ -287,7 +286,7 @@ const ScenarioCard: React.FC<ScenarioCardProps> = ({ scenario, selected, showAI,
 // Scenario Row (List View)
 // ============================================================================
 
-const ScenarioRow: React.FC<ScenarioCardProps> = ({ scenario, selected, showAI, onSelect, onPreview }) => {
+const ScenarioRow: React.FC<ScenarioCardProps> = ({ scenario, selected, showAI, onSelect, onPreview: _onPreview }) => {
   const Icon = scenario.icon ? IconMap[scenario.icon] : Layers;
 
   return (

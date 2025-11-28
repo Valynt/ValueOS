@@ -1,6 +1,6 @@
 // Re-export types from shared file to maintain backwards compatibility
-export type { LLMMessage, LLMResponse, LLMConfig, LLMProvider } from './llm-types';
-import type { LLMMessage, LLMResponse, LLMConfig, LLMProvider } from './llm-types';
+export type { LLMMessage, LLMResponse, LLMConfig, LLMProvider, LLMTool, LLMToolCall } from './llm-types';
+import type { LLMMessage, LLMResponse, LLMConfig, LLMProvider, LLMTool } from './llm-types';
 
 import { sanitizeLLMContent } from '../../utils/security';
 import { securityLogger } from '../../services/SecurityLogger';
@@ -95,11 +95,79 @@ export class LLMGateway {
     };
   }
 
-  async generateEmbedding(text: string): Promise<number[]> {
-    const embeddingModel = this.provider === 'together'
-      ? 'togethercomputer/m2-bert-80M-8k-retrieval'
-      : 'text-embedding-ada-002';
+  /**
+   * Complete with tool calling support
+   * Executes a conversation loop where LLM can call tools
+   */
+  async completeWithTools(
+    messages: LLMMessage[],
+    tools: LLMTool[],
+    executeToolFn: (name: string, args: Record<string, any>) => Promise<string>,
+    config: LLMConfig = {},
+    maxIterations: number = 5
+  ): Promise<LLMResponse> {
+    let currentMessages = [...messages];
+    let iterations = 0;
+    let finalResponse: LLMResponse | null = null;
 
+    while (iterations < maxIterations) {
+      iterations++;
+
+      // Call LLM with tools
+      const response = await llmProxyClient.completeWithTools({
+        messages: currentMessages,
+        tools,
+        config: {
+          model: config.model || this.defaultModel,
+          temperature: config.temperature,
+          max_tokens: config.max_tokens,
+        },
+        provider: this.provider,
+      });
+
+      // If no tool calls, we're done
+      if (!response.tool_calls || response.tool_calls.length === 0) {
+        finalResponse = response;
+        break;
+      }
+
+      // Add assistant message with tool calls
+      currentMessages.push({
+        role: 'assistant',
+        content: response.content || '',
+        tool_calls: response.tool_calls,
+      });
+
+      // Execute each tool call
+      for (const toolCall of response.tool_calls) {
+        try {
+          const args = JSON.parse(toolCall.function.arguments);
+          const result = await executeToolFn(toolCall.function.name, args);
+          
+          currentMessages.push({
+            role: 'tool',
+            content: result,
+            tool_call_id: toolCall.id,
+          });
+        } catch (error) {
+          currentMessages.push({
+            role: 'tool',
+            content: JSON.stringify({ error: error instanceof Error ? error.message : 'Tool execution failed' }),
+            tool_call_id: toolCall.id,
+          });
+        }
+      }
+    }
+
+    return finalResponse || {
+      content: 'Maximum tool iterations reached',
+      tokens_used: 0,
+      latency_ms: 0,
+      model: this.defaultModel,
+    };
+  }
+
+  async generateEmbedding(text: string): Promise<number[]> {
     return llmProxyClient.generateEmbedding({
       input: text,
       provider: this.provider,

@@ -1,7 +1,9 @@
 /**
  * SDUIForm Storybook Stories
+ * Install @storybook/react to use these stories
  */
 
+// @ts-ignore - Storybook types not installed
 import type { Meta, StoryObj } from '@storybook/react';
 import { SDUIForm } from './SDUIForm';
 

@@ -17,6 +17,7 @@ import { conversationHistoryService, ConversationMessage } from './ConversationH
 import { SDUIPageDefinition } from '../sdui/schema';
 import { WorkflowState } from '../repositories/WorkflowStateRepository';
 import type { LifecycleStage } from '../types/vos';
+import { getRelevantExamples, formatExampleForPrompt } from '../data/valueModelExamples';
 
 // ============================================================================
 // Types
@@ -68,6 +69,31 @@ When responding, structure your output with:
 - Supporting reasoning (2-3 key points)
 - Suggested next actions`;
 
+/**
+ * Build context-aware prompt with relevant examples
+ */
+function buildPromptWithExamples(query: string, industry?: string): string {
+  const examples = getRelevantExamples(query, industry, 2);
+  
+  if (examples.length === 0) {
+    return SYSTEM_PROMPT;
+  }
+  
+  const exampleSection = examples
+    .map(ex => formatExampleForPrompt(ex))
+    .join('\n\n---\n\n');
+  
+  return `${SYSTEM_PROMPT}
+
+## Reference Examples
+Use these examples as templates for structure and depth:
+
+${exampleSection}
+
+---
+Now help the user with their specific request, following similar structure and rigor.`;
+}
+
 // ============================================================================
 // Service
 // ============================================================================
@@ -102,9 +128,9 @@ class AgentChatService {
       // Get conversation context
       const recentMessages = await conversationHistoryService.getRecentMessages(request.caseId, 10);
       
-      // Build LLM messages
+      // Build LLM messages with relevant examples for few-shot learning
       const llmMessages = [
-        { role: 'system' as const, content: this.buildSystemPrompt(request.workflowState) },
+        { role: 'system' as const, content: this.buildSystemPrompt(request.workflowState, request.query) },
         ...conversationHistoryService.formatForLLM(recentMessages),
         { role: 'user' as const, content: request.query },
       ];
@@ -166,9 +192,9 @@ class AgentChatService {
   }
 
   /**
-   * Build system prompt based on current stage
+   * Build system prompt based on current stage with relevant examples
    */
-  private buildSystemPrompt(state: WorkflowState): string {
+  private buildSystemPrompt(state: WorkflowState, query?: string): string {
     const stageContext = {
       opportunity: 'Focus on discovering pain points, understanding the customer context, and identifying potential value drivers.',
       target: 'Focus on building quantifiable ROI models, setting realistic targets, and creating compelling business cases.',
@@ -179,7 +205,15 @@ class AgentChatService {
     const stage = state.currentStage as LifecycleStage;
     const stagePrompt = stageContext[stage] || stageContext.opportunity;
 
-    return `${SYSTEM_PROMPT}\n\nCurrent Stage: ${state.currentStage}\n${stagePrompt}`;
+    // Get industry from context if available
+    const industry = state.context?.industry as string | undefined;
+    
+    // Build prompt with relevant examples for better few-shot guidance
+    const basePrompt = query 
+      ? buildPromptWithExamples(query, industry)
+      : SYSTEM_PROMPT;
+
+    return `${basePrompt}\n\nCurrent Stage: ${state.currentStage}\n${stagePrompt}`;
   }
 
   /**

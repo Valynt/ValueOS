@@ -58,9 +58,9 @@ function App() {
       return (
         <SDUIApp
           workspaceId={sduiWorkspaceId}
-          userId={sessionManager.getUserId() || 'anonymous'}
+          userId="anonymous"
           initialStage={sduiStage}
-          sessionId={sessionManager.getSessionId()}
+          sessionId="default"
           debug={import.meta.env.DEV}
         />
       );
