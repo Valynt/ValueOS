@@ -31,7 +31,9 @@ export interface ValueCaseCreate {
   name: string;
   description?: string;
   company: string;
+  website?: string;
   stage?: LifecycleStage;
+  status?: 'in-progress' | 'completed';
   metadata?: Record<string, unknown>;
 }
 

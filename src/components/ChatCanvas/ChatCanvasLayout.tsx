@@ -12,16 +12,23 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Plus, 
-  Clock, 
-  CheckCircle2, 
   ChevronRight,
   Sparkles,
   Settings,
   HelpCircle,
-  Command,
-  Loader2
+  Loader2,
+  X,
+  Building2,
+  Globe,
+  FileText,
+  Mic,
+  Link2,
+  Mail,
+  Search,
+  Upload
 } from 'lucide-react';
 import { CommandBar } from '../Agent/CommandBar';
+import { UploadNotesModal, ExtractedNotes } from '../Modals';
 import { renderPage, RenderPageResult } from '../../sdui/renderPage';
 import { SDUIPageDefinition } from '../../sdui/schema';
 import { StreamingUpdate } from '../../services/UnifiedAgentOrchestrator';
@@ -95,7 +102,8 @@ const StageIndicator: React.FC<{ stage: ValueCase['stage'] }> = ({ stage }) => {
   );
 };
 
-const CaseCard: React.FC<{
+// Condensed case item (like screenshot)
+const CaseItem: React.FC<{
   case_: ValueCase;
   isSelected: boolean;
   onClick: () => void;
@@ -103,52 +111,129 @@ const CaseCard: React.FC<{
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left p-3 rounded-lg transition-all ${
+      className={`w-full text-left px-3 py-2 rounded-md transition-all text-sm truncate ${
         isSelected 
-          ? 'bg-indigo-50 border-2 border-indigo-500' 
-          : 'bg-white border border-gray-200 hover:border-indigo-300 hover:shadow-sm'
+          ? 'bg-gray-800 text-white' 
+          : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
       }`}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex-1 min-w-0">
-          <h3 className="font-medium text-gray-900 truncate">{case_.name}</h3>
-          <p className="text-sm text-gray-500 mt-0.5">{case_.company}</p>
-        </div>
-        <ChevronRight className={`w-4 h-4 mt-1 transition-colors ${
-          isSelected ? 'text-indigo-500' : 'text-gray-400'
-        }`} />
-      </div>
-      <div className="flex items-center gap-2 mt-2">
-        <StageIndicator stage={case_.stage} />
-        <span className="text-xs text-gray-400">
-          {formatRelativeTime(case_.updatedAt)}
-        </span>
-      </div>
+      {case_.name}
     </button>
   );
 };
 
-const EmptyCanvas: React.FC<{ onNewCase: () => void }> = ({ onNewCase }) => {
+// Starter card component
+const StarterCard: React.FC<{
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  onClick: () => void;
+  primary?: boolean;
+}> = ({ icon, title, description, onClick, primary }) => (
+  <button
+    onClick={onClick}
+    className={`flex flex-col items-center text-center p-5 rounded-xl border transition-all hover:scale-[1.02] ${
+      primary 
+        ? 'bg-gray-800 border-gray-700 hover:border-indigo-500 hover:bg-gray-750' 
+        : 'bg-gray-900 border-gray-800 hover:border-gray-600'
+    }`}
+  >
+    <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${
+      primary ? 'bg-indigo-600' : 'bg-gray-800'
+    }`}>
+      {icon}
+    </div>
+    <h3 className="text-white font-medium text-sm mb-1">{title}</h3>
+    <p className="text-gray-500 text-xs">{description}</p>
+  </button>
+);
+
+const EmptyCanvas: React.FC<{ 
+  onNewCase: () => void;
+  onStarterAction: (action: string, data?: any) => void;
+}> = ({ onNewCase, onStarterAction }) => {
   return (
-    <div className="flex flex-col items-center justify-center h-full text-center p-8">
-      <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
-        <Sparkles className="w-8 h-8 text-indigo-600" />
+    <div className="flex flex-col items-center justify-center h-full bg-gray-950 p-8">
+      <div className="max-w-3xl w-full">
+        {/* Header */}
+        <div className="text-center mb-10">
+          <h1 className="text-2xl font-semibold text-white mb-2">
+            Start Building Value
+          </h1>
+          <p className="text-gray-400">
+            Create a new case or import data to begin
+          </p>
+        </div>
+
+        {/* Primary Actions - Large Cards */}
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <StarterCard
+            icon={<Mic className="w-5 h-5 text-white" />}
+            title="Analyze Sales Call"
+            description="Upload recording or paste transcript"
+            onClick={() => onStarterAction('upload_call')}
+            primary
+          />
+          <StarterCard
+            icon={<Link2 className="w-5 h-5 text-white" />}
+            title="Import from CRM"
+            description="Paste Salesforce or HubSpot URL"
+            onClick={() => onStarterAction('import_crm')}
+            primary
+          />
+        </div>
+
+        {/* Secondary Actions - Smaller Cards */}
+        <div className="grid grid-cols-4 gap-3 mb-8">
+          <StarterCard
+            icon={<FileText className="w-4 h-4 text-gray-400" />}
+            title="Upload Notes"
+            description="PDF, Doc, or text"
+            onClick={() => onStarterAction('upload_notes')}
+          />
+          <StarterCard
+            icon={<Mail className="w-4 h-4 text-gray-400" />}
+            title="Email Thread"
+            description="Paste to analyze"
+            onClick={() => onStarterAction('analyze_email')}
+          />
+          <StarterCard
+            icon={<Search className="w-4 h-4 text-gray-400" />}
+            title="Research Company"
+            description="Enter domain"
+            onClick={onNewCase}
+          />
+          <StarterCard
+            icon={<Plus className="w-4 h-4 text-gray-400" />}
+            title="New Case"
+            description="Start fresh"
+            onClick={onNewCase}
+          />
+        </div>
+
+        {/* Drop Zone Hint */}
+        <div className="text-center">
+          <p className="text-gray-600 text-sm flex items-center justify-center gap-2">
+            <Upload className="w-4 h-4" />
+            Or drag & drop files anywhere
+          </p>
+        </div>
+
+        {/* Chat Input Placeholder */}
+        <div className="mt-10">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="It all starts here..."
+              className="w-full px-4 py-4 bg-gray-900 border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600"
+              onFocus={onNewCase}
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600">
+              <kbd className="px-2 py-1 bg-gray-800 rounded text-xs">↑</kbd>
+            </div>
+          </div>
+        </div>
       </div>
-      <h2 className="text-xl font-semibold text-gray-900 mb-2">
-        Welcome to ValueCanvas
-      </h2>
-      <p className="text-gray-600 max-w-md mb-6">
-        Select a case from the library or create a new one to get started.
-        Use <kbd className="px-2 py-1 bg-gray-100 rounded text-sm font-mono">⌘K</kbd> to 
-        ask the AI assistant anything.
-      </p>
-      <button
-        onClick={onNewCase}
-        className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-      >
-        <Plus className="w-4 h-4" />
-        New Value Case
-      </button>
     </div>
   );
 };
@@ -225,6 +310,14 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
   const [isFetchingCases, setIsFetchingCases] = useState(true);
   const [streamingUpdate, setStreamingUpdate] = useState<StreamingUpdate | null>(null);
   const [workflowState, setWorkflowState] = useState<WorkflowState | null>(null);
+  
+  // New case modal state
+  const [isNewCaseModalOpen, setIsNewCaseModalOpen] = useState(false);
+  const [newCaseCompany, setNewCaseCompany] = useState('');
+  const [newCaseWebsite, setNewCaseWebsite] = useState('');
+
+  // Upload notes modal state
+  const [isUploadNotesModalOpen, setIsUploadNotesModalOpen] = useState(false);
 
   // Derived state
   const selectedCase = cases.find(c => c.id === selectedCaseId);
@@ -313,8 +406,8 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
   // Handle command submission
   const handleCommand = useCallback(async (query: string) => {
     if (!workflowState || !selectedCaseId) {
-      // No case selected, create a new one based on query
-      handleNewCase(query);
+      // No case selected, prompt user to create one first
+      setIsNewCaseModalOpen(true);
       return;
     }
 
@@ -378,11 +471,12 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
   }, [workflowState, selectedCaseId]);
 
   // Handle new case creation
-  const handleNewCase = useCallback((initialQuery?: string) => {
+  const handleNewCase = useCallback((companyName: string, website: string) => {
+    const domain = website.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
     const newCase: ValueCase = {
       id: uuidv4(),
-      name: initialQuery ? `New Case - ${initialQuery.slice(0, 30)}...` : 'New Value Case',
-      company: 'New Company',
+      name: `${companyName} - Value Case`,
+      company: companyName,
       stage: 'opportunity',
       status: 'in-progress',
       updatedAt: new Date(),
@@ -390,109 +484,197 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
 
     setCases(prev => [newCase, ...prev]);
     setSelectedCaseId(newCase.id);
+    setIsNewCaseModalOpen(false);
+    setNewCaseCompany('');
+    setNewCaseWebsite('');
 
-    // If there's an initial query, process it
-    if (initialQuery) {
-      setTimeout(() => handleCommand(initialQuery), 100);
+    // Initialize workflow with company context
+    setWorkflowState({
+      currentStage: 'opportunity',
+      status: 'in_progress',
+      completedStages: [],
+      context: {
+        caseId: newCase.id,
+        company: companyName,
+        website: website,
+        domain: domain,
+      },
+    });
+
+    // Persist to Supabase if available
+    valueCaseService.createValueCase({
+      name: newCase.name,
+      company: companyName,
+      website: website,
+      stage: 'opportunity',
+      status: 'in-progress',
+    }).catch(err => logger.warn('Failed to persist new case', { error: err }));
+  }, []);
+
+  // Open new case modal
+  const openNewCaseModal = useCallback(() => {
+    setIsNewCaseModalOpen(true);
+  }, []);
+
+  // Handle starter card actions
+  const handleStarterAction = useCallback((action: string, _data?: any) => {
+    switch (action) {
+      case 'upload_notes':
+        setIsUploadNotesModalOpen(true);
+        break;
+      case 'upload_call':
+      case 'analyze_email':
+      case 'import_crm':
+        // TODO: Implement specific modals for these
+        setIsNewCaseModalOpen(true);
+        break;
+      default:
+        setIsNewCaseModalOpen(true);
     }
+  }, []);
+
+  // Handle notes upload completion
+  const handleNotesComplete = useCallback((notes: ExtractedNotes) => {
+    // Create a new case from the extracted notes
+    const companyName = notes.insights?.companyName || 'Unknown Company';
+    const caseName = notes.fileName
+      ? `${companyName} - ${notes.fileName}`
+      : `${companyName} - Imported Notes`;
+
+    const newCase: ValueCase = {
+      id: uuidv4(),
+      name: caseName,
+      company: companyName,
+      stage: 'opportunity',
+      status: 'in-progress',
+      updatedAt: new Date(),
+    };
+
+    setCases(prev => [newCase, ...prev]);
+    setSelectedCaseId(newCase.id);
+    setIsUploadNotesModalOpen(false);
+
+    // Initialize workflow with extracted context
+    setWorkflowState({
+      currentStage: 'opportunity',
+      status: 'in_progress',
+      completedStages: [],
+      context: {
+        caseId: newCase.id,
+        company: companyName,
+        importedNotes: notes.rawText,
+        extractedInsights: notes.insights,
+      },
+    });
+
+    // Auto-send the notes to the AI for deeper analysis
+    setTimeout(async () => {
+      const analysisPrompt = `I've imported opportunity notes. Here's what I found:
+
+Company: ${companyName}
+${notes.insights?.painPoints.length ? `\nPain Points:\n${notes.insights.painPoints.map(p => `- ${p}`).join('\n')}` : ''}
+${notes.insights?.stakeholders.length ? `\nStakeholders:\n${notes.insights.stakeholders.map(s => `- ${s}`).join('\n')}` : ''}
+${notes.insights?.opportunities.length ? `\nOpportunities:\n${notes.insights.opportunities.map(o => `- ${o}`).join('\n')}` : ''}
+
+Please analyze these notes and help me build a value hypothesis. What key value drivers should we focus on?`;
+
+      // This will trigger the AI analysis
+      handleCommand(analysisPrompt);
+    }, 100);
+
+    // Persist to Supabase
+    valueCaseService.createValueCase({
+      name: caseName,
+      company: companyName,
+      stage: 'opportunity',
+      status: 'in-progress',
+      metadata: {
+        importedFrom: 'notes',
+        fileName: notes.fileName,
+        extractedInsights: notes.insights,
+      },
+    }).catch(err => logger.warn('Failed to persist case from notes', { error: err }));
   }, [handleCommand]);
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Library Sidebar */}
-      <aside className="w-72 bg-white border-r border-gray-200 flex flex-col">
+    <div className="flex h-screen bg-gray-950">
+      {/* Library Sidebar - Dark theme, condensed */}
+      <aside className="w-56 bg-gray-900 border-r border-gray-800 flex flex-col">
         {/* Header */}
-        <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="font-semibold text-gray-900">ValueCanvas</h1>
-              <p className="text-xs text-gray-500">AI Value Engineering</p>
-            </div>
+        <div className="p-3 border-b border-gray-800">
+          <div className="flex items-center justify-between">
+            <span className="text-gray-300 text-sm font-medium">←</span>
+            <span className="text-gray-400 text-xs">ValueCanvas</span>
           </div>
         </div>
 
-        {/* New Case Button */}
-        <div className="p-3">
+        {/* New Chat Button */}
+        <div className="p-2">
           <button
-            onClick={() => handleNewCase()}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            onClick={openNewCaseModal}
+            className="w-full flex items-center justify-between px-3 py-2 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors"
           >
+            <span>New Chat</span>
             <Plus className="w-4 h-4" />
-            New Value Case
           </button>
         </div>
 
-        {/* Case Lists */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-4">
-          {/* In Progress */}
-          <div>
-            <div className="flex items-center gap-2 px-2 py-1 text-sm font-medium text-gray-600">
-              <Clock className="w-4 h-4" />
-              In Progress ({inProgressCases.length})
+        {/* Case Lists - Condensed */}
+        <div className="flex-1 overflow-y-auto px-2 py-3">
+          {/* Recent */}
+          {inProgressCases.length > 0 && (
+            <div className="mb-4">
+              <p className="px-3 py-1 text-xs text-gray-500 font-medium">Recent</p>
+              <div className="space-y-0.5">
+                {inProgressCases.map(case_ => (
+                  <CaseItem
+                    key={case_.id}
+                    case_={case_}
+                    isSelected={selectedCaseId === case_.id}
+                    onClick={() => setSelectedCaseId(case_.id)}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="mt-2 space-y-2">
-              {inProgressCases.map(case_ => (
-                <CaseCard
-                  key={case_.id}
-                  case_={case_}
-                  isSelected={selectedCaseId === case_.id}
-                  onClick={() => setSelectedCaseId(case_.id)}
-                />
-              ))}
-              {inProgressCases.length === 0 && (
-                <p className="text-sm text-gray-400 px-2 py-4 text-center">
-                  No cases in progress
-                </p>
-              )}
-            </div>
-          </div>
+          )}
 
           {/* Completed */}
-          <div>
-            <div className="flex items-center gap-2 px-2 py-1 text-sm font-medium text-gray-600">
-              <CheckCircle2 className="w-4 h-4" />
-              Completed ({completedCases.length})
+          {completedCases.length > 0 && (
+            <div>
+              <p className="px-3 py-1 text-xs text-gray-500 font-medium">Previous 30 Days</p>
+              <div className="space-y-0.5">
+                {completedCases.map(case_ => (
+                  <CaseItem
+                    key={case_.id}
+                    case_={case_}
+                    isSelected={selectedCaseId === case_.id}
+                    onClick={() => setSelectedCaseId(case_.id)}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="mt-2 space-y-2">
-              {completedCases.map(case_ => (
-                <CaseCard
-                  key={case_.id}
-                  case_={case_}
-                  isSelected={selectedCaseId === case_.id}
-                  onClick={() => setSelectedCaseId(case_.id)}
-                />
-              ))}
-              {completedCases.length === 0 && (
-                <p className="text-sm text-gray-400 px-2 py-4 text-center">
-                  No completed cases
-                </p>
-              )}
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Footer */}
-        <div className="p-3 border-t border-gray-200">
-          <div className="flex items-center justify-between">
+        <div className="p-2 border-t border-gray-800">
+          <div className="flex items-center justify-between px-2">
             <button
               onClick={onSettingsClick}
-              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
               title="Settings"
             >
-              <Settings className="w-5 h-5" />
+              <Settings className="w-4 h-4" />
             </button>
             <button
               onClick={onHelpClick}
-              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
               title="Help"
             >
-              <HelpCircle className="w-5 h-5" />
+              <HelpCircle className="w-4 h-4" />
             </button>
-            <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs text-gray-500">
-              <Command className="w-3 h-3" />
+            <div className="flex items-center gap-1 px-2 py-1 bg-gray-800 rounded text-xs text-gray-500">
+              <span>⌘</span>
               <span>K</span>
             </div>
           </div>
@@ -503,22 +685,22 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
       <main className="flex-1 flex flex-col">
         {/* Canvas Header (when case selected) */}
         {selectedCase && (
-          <header className="bg-white border-b border-gray-200 px-6 py-4">
+          <header className="bg-gray-900 border-b border-gray-800 px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">{selectedCase.name}</h2>
+                <h2 className="text-lg font-semibold text-white">{selectedCase.name}</h2>
                 <div className="flex items-center gap-3 mt-1">
                   <StageIndicator stage={selectedCase.stage} />
-                  <span className="text-sm text-gray-500">{selectedCase.company}</span>
+                  <span className="text-sm text-gray-400">{selectedCase.company}</span>
                 </div>
               </div>
               <button
                 onClick={() => setIsCommandBarOpen(true)}
-                className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm text-gray-700 transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm text-gray-300 transition-colors"
               >
                 <Sparkles className="w-4 h-4" />
                 Ask AI
-                <kbd className="ml-2 px-1.5 py-0.5 bg-white rounded text-xs font-mono border border-gray-300">⌘K</kbd>
+                <kbd className="ml-2 px-1.5 py-0.5 bg-gray-700 rounded text-xs font-mono border border-gray-600">⌘K</kbd>
               </button>
             </div>
           </header>
@@ -533,22 +715,25 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
               streamingUpdate={streamingUpdate}
             />
           ) : (
-            <EmptyCanvas onNewCase={() => handleNewCase()} />
+            <EmptyCanvas 
+              onNewCase={openNewCaseModal} 
+              onStarterAction={handleStarterAction}
+            />
           )}
         </div>
 
         {/* Command Bar Input (always visible at bottom when case selected) */}
         {selectedCase && (
-          <div className="border-t border-gray-200 bg-white p-4">
+          <div className="border-t border-gray-800 bg-gray-900 p-4">
             <button
               onClick={() => setIsCommandBarOpen(true)}
-              className="w-full flex items-center gap-3 px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors text-left"
+              className="w-full flex items-center gap-3 px-4 py-3 bg-gray-800 hover:bg-gray-750 rounded-lg border border-gray-700 transition-colors text-left"
             >
-              <Sparkles className="w-5 h-5 text-indigo-500" />
-              <span className="flex-1 text-gray-500">
+              <Sparkles className="w-5 h-5 text-indigo-400" />
+              <span className="flex-1 text-gray-400">
                 Ask AI anything about this value case...
               </span>
-              <kbd className="px-2 py-1 bg-white rounded border border-gray-300 text-xs font-mono text-gray-500">
+              <kbd className="px-2 py-1 bg-gray-700 rounded border border-gray-600 text-xs font-mono text-gray-400">
                 ⌘K
               </kbd>
             </button>
@@ -568,6 +753,96 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
           'Show value drivers',
           'Build business case for CFO',
         ]}
+      />
+
+      {/* New Case Modal */}
+      {isNewCaseModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 m-4">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">New Value Case</h2>
+              <button
+                onClick={() => setIsNewCaseModalOpen(false)}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (newCaseCompany.trim()) {
+                  handleNewCase(newCaseCompany.trim(), newCaseWebsite.trim());
+                }
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-1">
+                  Company Name *
+                </label>
+                <div className="relative">
+                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    id="company"
+                    type="text"
+                    value={newCaseCompany}
+                    onChange={(e) => setNewCaseCompany(e.target.value)}
+                    placeholder="e.g., Acme Corporation"
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                    autoFocus
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="website" className="block text-sm font-medium text-gray-700 mb-1">
+                  Company Website
+                </label>
+                <div className="relative">
+                  <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    id="website"
+                    type="url"
+                    value={newCaseWebsite}
+                    onChange={(e) => setNewCaseWebsite(e.target.value)}
+                    placeholder="e.g., https://acme.com"
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  Used to enrich with public company data
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsNewCaseModalOpen(false)}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!newCaseCompany.trim()}
+                  className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Create Case
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Notes Modal */}
+      <UploadNotesModal
+        isOpen={isUploadNotesModalOpen}
+        onClose={() => setIsUploadNotesModalOpen(false)}
+        onComplete={handleNotesComplete}
       />
     </div>
   );

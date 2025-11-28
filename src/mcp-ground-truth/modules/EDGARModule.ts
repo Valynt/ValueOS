@@ -19,7 +19,7 @@ import {
   GroundTruthError,
   ErrorCodes,
 } from '../types';
-import { logger } from '../../utils/logger';
+import { logger } from '../../lib/logger';
 
 interface EDGARConfig {
   userAgent: string; // Required by SEC: "Company Name contact@email.com"
