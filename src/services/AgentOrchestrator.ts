@@ -35,7 +35,7 @@ interface AgentCapability {
   execute: (query: string, context: any) => Promise<AgentResponse>;
 }
 
-class MockAgentOrchestrator {
+export class AgentOrchestrator {
   private capabilities: AgentCapability[] = [];
   private messageCallbacks: Array<(message: AgentMessage) => void> = [];
   private streamingCallbacks: Array<(update: StreamingUpdate) => void> = [];
@@ -407,7 +407,7 @@ class MockAgentOrchestrator {
   }
 }
 
-export const agentOrchestrator = new MockAgentOrchestrator();
+export const agentOrchestrator = new AgentOrchestrator();
 
 // ============================================================================
 // Workflow DAG Integration Methods

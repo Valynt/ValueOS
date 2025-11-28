@@ -24,6 +24,7 @@
     "@opentelemetry/sdk-metrics": "^2.2.0",
     "@opentelemetry/sdk-node": "^0.208.0",
     "@opentelemetry/semantic-conventions": "^1.38.0",
+    "@playwright/test": "^1.57.0",
     "@sentry/react": "^10.27.0",
     "@sentry/vite-plugin": "^4.6.1",
     "@supabase/supabase-js": "^2.57.4",
