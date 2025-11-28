@@ -3,12 +3,16 @@ import { supabase } from '../lib/supabase';
 import { securityLogger } from './SecurityLogger';
 import { sanitizeLLMContent } from '../utils/security';
 import { llmSanitizer } from './LLMSanitizer';
-import type { LLMConfig, LLMMessage, LLMResponse, LLMProvider } from '../lib/agent-fabric/llm-types';
+import type { LLMConfig, LLMMessage, LLMResponse, LLMProvider, LLMTool } from '../lib/agent-fabric/llm-types';
 
 interface ProxyChatRequest {
   messages: LLMMessage[];
   config?: LLMConfig;
   provider?: LLMProvider;
+}
+
+interface ProxyToolsRequest extends ProxyChatRequest {
+  tools: LLMTool[];
 }
 
 interface ProxyEmbeddingRequest {
@@ -81,6 +85,53 @@ class LlmProxyClient {
       tokens_used: data.tokens_used,
       latency_ms: data.latency_ms,
       model: data.model,
+    };
+  }
+
+  async completeWithTools({ messages, tools, config, provider }: ProxyToolsRequest): Promise<LLMResponse> {
+    if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
+      return {
+        content: 'Test response',
+        tokens_used: 0,
+        latency_ms: 0,
+        model: config?.model || 'test-model',
+      };
+    }
+
+    const sanitizedMessages = messages.map(msg => ({
+      ...msg,
+      content: msg.content ? llmSanitizer.sanitizePrompt(msg.content).content : '',
+    }));
+
+    const { data, error } = await supabase.functions.invoke('llm-proxy', {
+      body: {
+        type: 'chat_with_tools',
+        messages: sanitizedMessages,
+        tools,
+        config,
+        provider,
+      },
+    });
+
+    if (error) {
+      securityLogger.log({
+        category: 'llm',
+        action: 'proxy-tools-error',
+        severity: 'error',
+        metadata: { message: error.message },
+      });
+      throw new Error(`LLM proxy with tools failed: ${error.message}`);
+    }
+
+    const sanitizedContent = data.content ? sanitizeLLMContent(data.content) : '';
+
+    return {
+      content: sanitizedContent,
+      tokens_used: data.tokens_used || 0,
+      latency_ms: data.latency_ms || 0,
+      model: data.model,
+      tool_calls: data.tool_calls,
+      finish_reason: data.finish_reason,
     };
   }
 

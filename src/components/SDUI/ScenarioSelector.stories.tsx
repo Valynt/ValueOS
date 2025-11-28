@@ -1,7 +1,9 @@
 /**
  * ScenarioSelector Storybook Stories
+ * Install @storybook/react to use these stories
  */
 
+// @ts-ignore - Storybook types not installed
 import type { Meta, StoryObj } from '@storybook/react';
 import { ScenarioSelector } from './ScenarioSelector';
 
@@ -112,7 +114,7 @@ export const Default: Story = {
 export const WithPreviewImages: Story = {
   args: {
     title: 'Templates with Previews',
-    scenarios: mockScenarios.map((s, i) => ({
+    scenarios: mockScenarios.map((s) => ({
       ...s,
       previewImage: `https://picsum.photos/seed/${s.id}/400/200`,
     })),

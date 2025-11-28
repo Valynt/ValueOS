@@ -1,4 +1,42 @@
-import React from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
+import { Check, AlertCircle, Info, ChevronDown, ChevronUp, Loader2, Sparkles } from 'lucide-react';
+
+// Types
+export interface FormFieldOption {
+  value: string | number;
+  label: string;
+  disabled?: boolean;
+}
+
+export interface FormFieldValidation {
+  required?: boolean;
+  minLength?: number;
+  maxLength?: number;
+  min?: number;
+  max?: number;
+}
+
+export interface FormField {
+  id: string;
+  type: 'text' | 'number' | 'email' | 'textarea' | 'select' | 'checkbox' | 'date' | 'currency' | 'slider' | 'hidden';
+  label: string;
+  placeholder?: string;
+  defaultValue?: any;
+  options?: FormFieldOption[];
+  validation?: FormFieldValidation;
+  helpText?: string;
+  aiSuggested?: boolean;
+  disabled?: boolean;
+}
+
+export interface FormSection {
+  id: string;
+  title: string;
+  description?: string;
+  fields: FormField[];
+  collapsible?: boolean;
+  defaultCollapsed?: boolean;
+}
 
 export interface SDUIFormProps {
   id: string;
