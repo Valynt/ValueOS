@@ -20,7 +20,7 @@ export interface ValueCase {
   description?: string;
   company: string;
   stage: LifecycleStage;
-  status: 'in-progress' | 'completed';
+  status: 'in-progress' | 'completed' | 'paused';
   quality_score?: number;
   created_at: Date;
   updated_at: Date;
@@ -33,7 +33,7 @@ export interface ValueCaseCreate {
   company: string;
   website?: string;
   stage?: LifecycleStage;
-  status?: 'in-progress' | 'completed';
+  status?: 'in-progress' | 'completed' | 'paused';
   metadata?: Record<string, unknown>;
 }
 
@@ -42,7 +42,7 @@ export interface ValueCaseUpdate {
   description?: string;
   company?: string;
   stage?: LifecycleStage;
-  status?: 'in-progress' | 'completed';
+  status?: 'in-progress' | 'completed' | 'paused';
   quality_score?: number;
   metadata?: Record<string, unknown>;
 }

@@ -40,7 +40,7 @@ export interface FormSection {
 
 export interface SDUIFormProps {
   id: string;
-  itle?: string;
+  title?: string;
   description?: string;
   sections?: FormSection[];
   fields?: FormField[];
