@@ -9,6 +9,8 @@
  * - Origin validation for all state-changing requests
  */
 
+import { logger } from '../logger';
+
 const TOKEN_KEY = 'vc.csrf.token';
 const TOKEN_EXPIRY_KEY = 'vc.csrf.expiry';
 const TOKEN_VALIDITY_MS = 3600000; // 1 hour
