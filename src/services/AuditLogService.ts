@@ -11,7 +11,7 @@
  * - Compliance exports
  */
 
-import { createHash } from 'crypto';
+// Browser-compatible hash function (replaces Node.js crypto)
 import { logger } from '../lib/logger';
 import { sanitizeForLogging } from '../lib/piiFilter';
 import { BaseService } from './BaseService';
@@ -125,9 +125,25 @@ export class AuditLogService extends BaseService {
   /**
    * Calculate cryptographic hash for integrity
    */
-  private calculateHash(data: any): string {
+  private async calculateHashAsync(data: any): Promise<string> {
     const content = JSON.stringify(data);
-    return createHash('sha256').update(content).digest('hex');
+    const encoder = new TextEncoder();
+    const dataBuffer = encoder.encode(content);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  private calculateHash(data: any): string {
+    // Synchronous fallback using simple hash for non-critical paths
+    const content = JSON.stringify(data);
+    let hash = 0;
+    for (let i = 0; i < content.length; i++) {
+      const char = content.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash).toString(16).padStart(8, '0');
   }
 
   /**
