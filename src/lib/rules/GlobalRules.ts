@@ -292,14 +292,14 @@ export const RULE_TENANT_ISOLATION: GlobalRule = {
       };
     }
 
-    // Check for tenant_id in payload or filters
-    const hasTenantId = 
-      context.tenantId !== undefined ||
-      (context.payload.filters as Record<string, unknown>)?.tenant_id !== undefined ||
-      (context.payload.where as Record<string, unknown>)?.tenant_id !== undefined ||
-      context.payload.tenant_id !== undefined;
+    // Check for tenant_id in payload or filters - must match context tenant
+    const payloadTenantId = 
+      (context.payload.filters as Record<string, unknown>)?.tenant_id ??
+      (context.payload.where as Record<string, unknown>)?.tenant_id ??
+      context.payload.tenant_id;
 
-    if (!hasTenantId) {
+    // Payload must explicitly include tenant_id filter
+    if (payloadTenantId === undefined) {
       return {
         passed: false,
         ruleId: 'GR-010',
@@ -312,13 +312,8 @@ export const RULE_TENANT_ISOLATION: GlobalRule = {
       };
     }
 
-    // Verify tenant_id matches context
-    const providedTenantId = 
-      (context.payload.filters as Record<string, unknown>)?.tenant_id ||
-      (context.payload.where as Record<string, unknown>)?.tenant_id ||
-      context.payload.tenant_id;
-
-    if (providedTenantId && providedTenantId !== context.tenantId) {
+    // Verify tenant_id matches context (use already-extracted value)
+    if (payloadTenantId !== context.tenantId) {
       return {
         passed: false,
         ruleId: 'GR-010',
