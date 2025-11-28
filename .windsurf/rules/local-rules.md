@@ -1,3 +1,7 @@
+---
+trigger: always_on
+---
+
 # Local Rules - Agent Job Descriptions
 
 These rules define specific behaviors for individual agent types.

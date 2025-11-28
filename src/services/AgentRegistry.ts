@@ -1,8 +1,26 @@
+/**
+ * Agent Registry
+ * 
+ * CONSOLIDATION: Updated to use canonical agent types from src/types/agent.ts
+ * 
+ * This registry manages all agent registrations, health status, and routing.
+ */
+
 import { logger } from '../lib/logger';
-import { LifecycleStage, WorkflowStage } from '../types/workflow';
+import { WorkflowStage } from '../types/workflow';
+import { 
+  LifecycleStage, 
+  AgentHealthStatus,
+  AgentRegistration as CanonicalAgentRegistration,
+  AgentRecord as CanonicalAgentRecord 
+} from '../types/agent';
 
-export type AgentHealthStatus = 'healthy' | 'degraded' | 'offline';
+// Re-export canonical types for backward compatibility
+export type { AgentHealthStatus } from '../types/agent';
 
+/**
+ * Agent registration interface (uses canonical types with snake_case for DB compat)
+ */
 export interface AgentRegistration {
   id: string;
   name: string;
@@ -13,6 +31,9 @@ export interface AgentRegistration {
   metadata?: Record<string, any>;
 }
 
+/**
+ * Agent state (runtime)
+ */
 export interface AgentState {
   load: number;
   status: AgentHealthStatus;
@@ -21,7 +42,45 @@ export interface AgentState {
   sticky_sessions: Set<string>;
 }
 
+/**
+ * Agent record combines registration and state
+ */
 export type AgentRecord = AgentRegistration & AgentState;
+
+/**
+ * Convert from canonical to registry format
+ */
+export function fromCanonicalRegistration(canonical: CanonicalAgentRegistration): AgentRegistration {
+  return {
+    id: canonical.id,
+    name: canonical.name,
+    lifecycle_stage: canonical.lifecycleStage,
+    capabilities: canonical.capabilities,
+    region: canonical.region,
+    endpoint: canonical.endpoint,
+    metadata: canonical.metadata,
+  };
+}
+
+/**
+ * Convert from registry to canonical format
+ */
+export function toCanonicalRecord(record: AgentRecord): CanonicalAgentRecord {
+  return {
+    id: record.id,
+    name: record.name,
+    lifecycleStage: record.lifecycle_stage,
+    capabilities: record.capabilities,
+    region: record.region,
+    endpoint: record.endpoint,
+    metadata: record.metadata,
+    load: record.load,
+    status: record.status,
+    lastHeartbeat: record.last_heartbeat,
+    consecutiveFailures: record.consecutive_failures,
+    stickySessions: record.sticky_sessions,
+  };
+}
 
 export interface RoutingContext {
   session_id?: string;

@@ -1,3 +1,14 @@
+/**
+ * @deprecated This module is deprecated. Use UnifiedAgentOrchestrator instead.
+ * 
+ * Migration Guide:
+ * - Import from './UnifiedAgentOrchestrator' instead
+ * - Use getUnifiedOrchestrator() to get the singleton instance
+ * - All methods have compatible signatures in the new orchestrator
+ * 
+ * This file will be removed in a future version.
+ */
+
 import { logger } from '../lib/logger';
 import { CanvasComponent, AgentMessage, WorkflowStatus } from '../types';
 import { layoutEngine } from './LayoutEngine';
@@ -7,6 +18,9 @@ import { renderPage, RenderPageOptions } from '../sdui/renderPage';
 import { workflowDAGExecutor, getWorkflowExecutionStatus, retryWorkflowFromLastStage } from './workflows/WorkflowDAGIntegration';
 import { WorkflowDAG } from '../types/workflow';
 import { ALL_WORKFLOW_DEFINITIONS, getWorkflowById } from './workflows/WorkflowDAGDefinitions';
+
+// Log deprecation warning on module load
+logger.warn('AgentOrchestrator is deprecated. Migrate to UnifiedAgentOrchestrator.');
 
 interface AgentResponse {
   type: 'component' | 'message' | 'suggestion' | 'sdui-page';

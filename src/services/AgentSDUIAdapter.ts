@@ -4,10 +4,19 @@
  * Converts agent outputs to SDUI schema updates.
  * This is the bridge between the Agent Fabric and the SDUI system.
  * 
- * REFACTORED: Now uses Intent-Based UI Registry for decoupled agent-to-component mapping.
+ * CONSOLIDATION STATUS:
+ * - PRIMARY: processAgentOutputWithIntents() - Use this for all new code
+ * - DEPRECATED: processAgentOutput() - Legacy method, to be removed
+ * - DEPRECATED: analyzeImpact() - Legacy method, to be removed
+ * 
+ * Intent-Based UI Registry Architecture:
  * - Agents emit "intents" describing what they want to display
  * - IntentRegistry resolves intents to specific React components
  * - This enables adding new agents without modifying this service
+ * 
+ * Migration:
+ * - All callers should switch to processAgentOutputWithIntents()
+ * - Legacy methods will be removed after migration period
  * 
  * @see src/types/intent.ts - Intent type definitions
  * @see src/services/IntentRegistry.ts - Intent resolution
@@ -44,7 +53,10 @@ import { agentIntentConverter } from './AgentIntentConverter';
  */
 export class AgentSDUIAdapter {
   /**
-   * Process agent output and generate SDUI update
+   * @deprecated Use processAgentOutputWithIntents instead
+   * 
+   * Process agent output and generate SDUI update (legacy method)
+   * This method uses hardcoded switch statements and will be removed.
    */
   async processAgentOutput(
     agentId: string,
