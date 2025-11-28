@@ -10,9 +10,8 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Plus, 
-  ChevronRight,
+import {
+  Plus,
   Sparkles,
   Settings,
   HelpCircle,
@@ -32,8 +31,10 @@ import { UploadNotesModal, ExtractedNotes } from '../Modals';
 import { EmailAnalysisModal } from '../Modals/EmailAnalysisModal';
 import { EmailAnalysis } from '../../services/EmailAnalysisService';
 import { CRMImportModal } from '../Modals/CRMImportModal';
+import { SalesCallModal } from '../Modals/SalesCallModal';
 import { MappedValueCase } from '../../services/CRMFieldMapper';
 import { CRMDeal } from '../../mcp-crm/types';
+import { CallAnalysis } from '../../services/CallAnalysisService';
 import { renderPage, RenderPageResult } from '../../sdui/renderPage';
 import { SDUIPageDefinition } from '../../sdui/schema';
 import { StreamingUpdate } from '../../services/UnifiedAgentOrchestrator';
@@ -53,7 +54,7 @@ interface ValueCase {
   name: string;
   company: string;
   stage: 'opportunity' | 'target' | 'realization' | 'expansion';
-  status: 'in-progress' | 'completed';
+  status: 'in-progress' | 'completed' | 'paused';
   updatedAt: Date;
   sduiPage?: SDUIPageDefinition;
 }
@@ -330,6 +331,9 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
   // CRM import modal state
   const [isCRMImportModalOpen, setIsCRMImportModalOpen] = useState(false);
 
+  // Sales call modal state
+  const [isSalesCallModalOpen, setIsSalesCallModalOpen] = useState(false);
+
   // User/tenant for CRM import
   const [currentUserId, setCurrentUserId] = useState<string | undefined>();
   const [currentTenantId, setCurrentTenantId] = useState<string | undefined>();
@@ -558,8 +562,7 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
         setIsCRMImportModalOpen(true);
         break;
       case 'upload_call':
-        // TODO: Implement Sales Call modal
-        setIsNewCaseModalOpen(true);
+        setIsSalesCallModalOpen(true);
         break;
       default:
         setIsNewCaseModalOpen(true);
@@ -779,6 +782,83 @@ Based on this deal information, help me:
         stakeholders: mappedCase.metadata.stakeholders,
       },
     }).catch(err => logger.warn('Failed to persist case from CRM', { error: err }));
+  }, [handleCommand]);
+
+  // Handle sales call analysis completion
+  const handleSalesCallComplete = useCallback((analysis: CallAnalysis, transcript: string) => {
+    const caseName = `Sales Call - ${new Date().toLocaleDateString()}`;
+    const companyName = analysis.participants?.find(p => p.role === 'prospect')?.name || 'Unknown Prospect';
+
+    const newCase: ValueCase = {
+      id: uuidv4(),
+      name: caseName,
+      company: companyName,
+      stage: 'opportunity',
+      status: 'in-progress',
+      updatedAt: new Date(),
+    };
+
+    setCases(prev => [newCase, ...prev]);
+    setSelectedCaseId(newCase.id);
+    setIsSalesCallModalOpen(false);
+
+    // Initialize workflow with call context
+    setWorkflowState({
+      currentStage: 'opportunity',
+      status: 'in_progress',
+      completedStages: [],
+      context: {
+        caseId: newCase.id,
+        company: companyName,
+        callTranscript: transcript,
+        callAnalysis: analysis,
+      },
+    });
+
+    // Auto-send analysis to AI for next steps
+    setTimeout(async () => {
+      const analysisPrompt = `I've analyzed a sales call. Here's what I found:
+
+**Summary:** ${analysis.summary}
+
+**Call Score:** ${analysis.callScore}/10
+- Discovery: ${analysis.scoreBreakdown.discovery}/10
+- Value Articulation: ${analysis.scoreBreakdown.valueArticulation}/10
+- Objection Handling: ${analysis.scoreBreakdown.objectionHandling}/10
+- Next Steps Clarity: ${analysis.scoreBreakdown.nextStepsClarity}/10
+
+${analysis.painPoints?.length ? `**Pain Points:**\n${analysis.painPoints.map(p => `- ${p}`).join('\n')}` : ''}
+
+${analysis.objections?.length ? `**Objections:**\n${analysis.objections.map(o => `- ${o.objection}${o.handled ? ' ✓' : ' ✗'}`).join('\n')}` : ''}
+
+${analysis.buyingSignals?.length ? `**Buying Signals:**\n${analysis.buyingSignals.map(s => `- ${s}`).join('\n')}` : ''}
+
+${analysis.warningFlags?.length ? `**Warning Flags:**\n${analysis.warningFlags.map(f => `- ${f}`).join('\n')}` : ''}
+
+${analysis.nextSteps?.length ? `**Agreed Next Steps:**\n${analysis.nextSteps.map(n => `- ${n}`).join('\n')}` : ''}
+
+Based on this call analysis, help me:
+1. Build a value hypothesis addressing the pain points
+2. Prepare for the next conversation
+3. Identify any gaps in my discovery`;
+
+      handleCommand(analysisPrompt);
+    }, 100);
+
+    // Persist to Supabase
+    valueCaseService.createValueCase({
+      name: caseName,
+      company: companyName,
+      stage: 'opportunity',
+      status: 'in-progress',
+      metadata: {
+        importedFrom: 'call',
+        callDuration: analysis.duration,
+        callScore: analysis.callScore,
+        painPoints: analysis.painPoints,
+        nextSteps: analysis.nextSteps,
+      },
+    }).catch(err => logger.warn('Failed to persist case from call', { error: err }));
   }, [handleCommand]);
 
   return (
@@ -1044,6 +1124,13 @@ Based on this deal information, help me:
         onComplete={handleCRMImportComplete}
         tenantId={currentTenantId}
         userId={currentUserId}
+      />
+
+      {/* Sales Call Modal */}
+      <SalesCallModal
+        isOpen={isSalesCallModalOpen}
+        onClose={() => setIsSalesCallModalOpen(false)}
+        onComplete={handleSalesCallComplete}
       />
     </div>
   );
