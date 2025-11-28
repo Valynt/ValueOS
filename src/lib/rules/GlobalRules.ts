@@ -320,7 +320,7 @@ export const RULE_TENANT_ISOLATION: GlobalRule = {
         message: 'Cross-tenant access attempt detected',
         details: {
           expectedTenant: context.tenantId,
-          attemptedTenant: providedTenantId,
+          attemptedTenant: payloadTenantId,
         },
         remediation: 'Ensure operations only target current tenant data',
       };

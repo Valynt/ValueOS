@@ -203,7 +203,7 @@ export class RulesEnforcer {
     
     // Filter out tenant-overridden rules
     const applicableRules = enabledRules.filter(rule => {
-      if (this.config.tenantOverrides?.disabledRules.includes(rule.id)) {
+      if (this.config.tenantOverrides?.disabledRules?.includes(rule.id)) {
         logger.debug('Rule disabled by tenant override', {
           ruleId: rule.id,
           tenantId: this.config.tenantOverrides.tenantId,
