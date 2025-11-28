@@ -29,10 +29,16 @@ export const SDUIComponentSectionSchema = z.object({
   fallback: SDUIFallbackSchema.optional(),
 });
 
+// Multi-tenant metadata schema
 const SDUIMetadataSchema = z.object({
   debug: z.boolean().optional(),
   cacheTtlSeconds: z.number().int().positive().optional(),
   experienceId: z.string().optional(),
+  // Multi-tenant support
+  permissions: z.array(z.string()).optional(),
+  theme: z.enum(['dark', 'light']).default('dark'),
+  featureFlags: z.record(z.boolean()).optional(),
+  dataResidency: z.enum(['us', 'eu', 'apac']).optional(),
 }).optional();
 
 // Union type for sections (component or layout directive)
@@ -41,9 +47,13 @@ export const SDUISectionSchema = z.union([
   SDUILayoutDirectiveSchema,
 ]);
 
+// Multi-tenant page schema
 export const SDUIPageSchema = z.object({
   type: z.literal('page'),
   version: SDUIComponentVersionSchema.default(1),
+  // Multi-tenant identifiers
+  tenantId: z.string().optional(),
+  organizationId: z.string().optional(),
   sections: z.array(SDUISectionSchema).min(1, 'At least one section is required'),
   metadata: SDUIMetadataSchema,
 }).strict();

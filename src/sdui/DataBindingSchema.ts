@@ -23,7 +23,8 @@ export type DataSourceType =
   | 'semantic_memory'       // SemanticMemoryService
   | 'tool_registry'         // ToolRegistry execution results
   | 'supabase'              // Direct Supabase query
-  | 'mcp_tool';             // MCP tool execution
+  | 'mcp_tool'              // MCP tool execution
+  | 'realtime_stream';      // WebSocket real-time data stream
 
 /**
  * Data binding configuration
@@ -111,6 +112,7 @@ export const DataBindingSchema = z.object({
     'tool_registry',
     'supabase',
     'mcp_tool',
+    'realtime_stream',
   ]),
   $fallback: z.any().optional(),
   $refresh: z.number().positive().optional(),

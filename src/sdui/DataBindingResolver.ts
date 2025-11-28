@@ -2,7 +2,7 @@
  * Data Binding Resolver
  * 
  * Resolves dynamic data bindings from various sources (agents, MCP tools, Supabase).
- * Supports caching, transforms, and live refresh.
+ * Supports caching, transforms, live refresh, and tenant-aware permissions.
  */
 
 import { logger } from '../lib/logger';
@@ -15,6 +15,7 @@ import {
   isDataBinding,
   validateDataBinding,
 } from './DataBindingSchema';
+import { TenantContext, hasPermission } from './TenantContext';
 import { ToolRegistry } from '../services/ToolRegistry';
 import { SemanticMemoryService } from '../services/SemanticMemory';
 import { createClient } from '@supabase/supabase-js';
