@@ -74,8 +74,8 @@ export class AuditLogService extends BaseService {
           ? (sanitizeForLogging(input.details) as Record<string, any>)
           : {};
 
-        // Calculate integrity hash
-        const hash = this.calculateHash({
+        // Calculate integrity hash (using secure SHA-256)
+        const hash = await this.calculateHash({
           userId: input.userId,
           action: input.action,
           resourceType: input.resourceType,
@@ -125,25 +125,14 @@ export class AuditLogService extends BaseService {
   /**
    * Calculate cryptographic hash for integrity
    */
-  private async calculateHashAsync(data: any): Promise<string> {
+  private async calculateHash(data: any): Promise<string> {
     const content = JSON.stringify(data);
     const encoder = new TextEncoder();
     const dataBuffer = encoder.encode(content);
+    // Use Web Crypto API for secure SHA-256 hash (browser-compatible)
     const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  }
-
-  private calculateHash(data: any): string {
-    // Synchronous fallback using simple hash for non-critical paths
-    const content = JSON.stringify(data);
-    let hash = 0;
-    for (let i = 0; i < content.length; i++) {
-      const char = content.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32bit integer
-    }
-    return Math.abs(hash).toString(16).padStart(8, '0');
   }
 
   /**
