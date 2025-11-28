@@ -80,12 +80,41 @@ export interface ContentHashResult {
 }
 
 /**
+ * Recursively sort object keys for consistent serialization
+ * Handles nested objects and arrays
+ */
+function sortObjectKeys(obj: unknown): unknown {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(sortObjectKeys);
+  }
+  
+  if (typeof obj === 'object') {
+    const sorted: Record<string, unknown> = {};
+    const keys = Object.keys(obj as Record<string, unknown>).sort();
+    
+    for (const key of keys) {
+      sorted[key] = sortObjectKeys((obj as Record<string, unknown>)[key]);
+    }
+    
+    return sorted;
+  }
+  
+  return obj;
+}
+
+/**
  * Hash an object by serializing to JSON
  * Ensures consistent serialization for reproducible hashes
+ * Uses recursive key sorting for nested objects
  */
 export async function hashObject(obj: unknown): Promise<ContentHashResult> {
-  // Sort keys for consistent serialization
-  const content = JSON.stringify(obj, Object.keys(obj as object).sort());
+  // Recursively sort all keys for consistent serialization
+  const sorted = sortObjectKeys(obj);
+  const content = JSON.stringify(sorted);
   const hash = await sha256(content);
   
   return {
