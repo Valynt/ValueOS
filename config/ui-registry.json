@@ -1,0 +1,199 @@
+{
+  "$schema": "./ui-registry.schema.json",
+  "version": "1.0.0",
+  "description": "Intent-based UI registry configuration for ValueCanvas",
+  "defaultFallback": "JsonViewer",
+  
+  "intents": [
+    {
+      "intentType": "visualize_graph",
+      "component": "SystemMapCanvas",
+      "fallback": "JsonViewer",
+      "description": "Display system maps, entity-relationship diagrams, and network graphs",
+      "propMappings": {
+        "entities": "data.entities",
+        "relationships": "data.relationships",
+        "leveragePoints": "data.leveragePoints",
+        "title": "data.title"
+      }
+    },
+    {
+      "intentType": "visualize_tree",
+      "component": "ValueTreeCard",
+      "fallback": "JsonViewer",
+      "description": "Display hierarchical value trees and driver structures",
+      "propMappings": {
+        "tree": "data.tree",
+        "title": "data.title",
+        "expandedNodes": "data.expandedNodes"
+      }
+    },
+    {
+      "intentType": "display_metric",
+      "component": "MetricBadge",
+      "fallback": "StatCard",
+      "description": "Display a single KPI or metric value",
+      "propMappings": {
+        "value": "data.value",
+        "label": "data.label",
+        "trend": "data.trend",
+        "format": "data.format",
+        "icon": "data.icon"
+      }
+    },
+    {
+      "intentType": "display_metrics_grid",
+      "component": "RealizationDashboard",
+      "fallback": "DataTable",
+      "description": "Display multiple metrics in a dashboard grid",
+      "propMappings": {
+        "metrics": "data.metrics",
+        "baseline": "data.baseline",
+        "target": "data.target",
+        "actual": "data.actual"
+      }
+    },
+    {
+      "intentType": "display_table",
+      "component": "DataTable",
+      "fallback": "JsonViewer",
+      "description": "Display tabular data with sorting and filtering",
+      "propMappings": {
+        "data": "data.rows",
+        "columns": "data.columns",
+        "sortable": "context.sortable",
+        "filterable": "context.filterable",
+        "pagination": "context.pagination"
+      }
+    },
+    {
+      "intentType": "display_list",
+      "component": "ItemList",
+      "fallback": "DataTable",
+      "description": "Display a list of items",
+      "propMappings": {
+        "items": "data.items",
+        "title": "data.title"
+      }
+    },
+    {
+      "intentType": "input_form",
+      "component": "KPIForm",
+      "fallback": "BasicForm",
+      "description": "Display a dynamic form for user input",
+      "propMappings": {
+        "fields": "data.fields",
+        "initialValues": "data.initialValues",
+        "validation": "data.validation"
+      }
+    },
+    {
+      "intentType": "show_agent_response",
+      "component": "AgentResponseCard",
+      "fallback": "InfoBanner",
+      "description": "Display agent response with reasoning transparency",
+      "propMappings": {
+        "response": "data.response",
+        "reasoning": "data.reasoning",
+        "confidence": "data.confidence",
+        "agentName": "source.agentType",
+        "timestamp": "source.timestamp"
+      }
+    },
+    {
+      "intentType": "show_agent_progress",
+      "component": "AgentWorkflowPanel",
+      "fallback": "ProgressBar",
+      "description": "Display agent workflow progress and status",
+      "propMappings": {
+        "stages": "data.stages",
+        "currentStage": "data.currentStage",
+        "progress": "data.progress",
+        "estimatedTime": "data.estimatedTime"
+      }
+    },
+    {
+      "intentType": "show_confidence",
+      "component": "ConfidenceIndicator",
+      "fallback": "MetricBadge",
+      "description": "Display confidence or certainty indicator",
+      "propMappings": {
+        "value": "data.confidence",
+        "label": "data.label",
+        "breakdown": "data.breakdown",
+        "explanation": "data.explanation"
+      }
+    },
+    {
+      "intentType": "show_info",
+      "component": "InfoBanner",
+      "fallback": "TextBlock",
+      "description": "Display informational message",
+      "propMappings": {
+        "message": "data.message",
+        "title": "data.title",
+        "variant": "data.variant",
+        "dismissible": "context.dismissible"
+      }
+    },
+    {
+      "intentType": "visualize_timeline",
+      "component": "LifecyclePanel",
+      "fallback": "DataTable",
+      "description": "Display workflow lifecycle or timeline",
+      "propMappings": {
+        "stages": "data.stages",
+        "currentStage": "data.currentStage",
+        "completedStages": "data.completedStages"
+      }
+    },
+    {
+      "intentType": "input_confirmation",
+      "component": "ValueCommitForm",
+      "fallback": "ConfirmationDialog",
+      "description": "Display commitment or confirmation form",
+      "propMappings": {
+        "kpis": "data.kpis",
+        "assumptions": "data.assumptions",
+        "commitments": "data.commitments"
+      }
+    }
+  ],
+  
+  "tenantOverrides": {
+    "enterprise-demo": [
+      {
+        "intentType": "visualize_graph",
+        "component": "EnterpriseSystemMap",
+        "priority": 10
+      }
+    ]
+  },
+  
+  "agentMappings": {
+    "SystemMapperAgent": {
+      "primaryIntent": "visualize_graph",
+      "secondaryIntents": ["display_list"]
+    },
+    "InterventionDesignerAgent": {
+      "primaryIntent": "input_form",
+      "secondaryIntents": ["show_agent_response"]
+    },
+    "OutcomeEngineerAgent": {
+      "primaryIntent": "display_metrics_grid",
+      "secondaryIntents": ["show_confidence"]
+    },
+    "RealizationLoopAgent": {
+      "primaryIntent": "display_metrics_grid",
+      "secondaryIntents": ["visualize_timeline"]
+    },
+    "ValueEvalAgent": {
+      "primaryIntent": "display_metric",
+      "secondaryIntents": ["show_confidence"]
+    },
+    "CoordinatorAgent": {
+      "primaryIntent": "show_agent_progress",
+      "secondaryIntents": ["show_info"]
+    }
+  }
+}

@@ -23,6 +23,17 @@ import { generateSOFTargetPage } from '../sdui/templates/sof-target-template';
 import { generateSOFExpansionPage } from '../sdui/templates/sof-expansion-template';
 import { generateSOFIntegrityPage } from '../sdui/templates/sof-integrity-template';
 import { generateSOFRealizationPage } from '../sdui/templates/sof-realization-template';
+import { hashObject, shortHash } from '../lib/contentHash';
+
+/**
+ * Schema head pointer - points to current schema hash
+ */
+interface SchemaHead {
+  hash: string;
+  version: number;
+  updatedAt: number;
+  workspaceId: string;
+}
 
 /**
  * Canvas Schema Service
@@ -188,7 +199,7 @@ export class CanvasSchemaService {
   }
 
   /**
-   * Cache schema
+   * Cache schema (legacy TTL-based)
    */
   private cacheSchema(workspaceId: string, schema: SDUIPageDefinition): void {
     try {
@@ -200,7 +211,7 @@ export class CanvasSchemaService {
         workspaceId,
         version: schema.version,
       };
-      this.cacheService.set(cacheKey, entry, this.CACHE_TTL);
+      this.cacheService.set(cacheKey, entry, { ttl: this.CACHE_TTL * 1000 });
       logger.debug('Cached schema', { workspaceId, ttl: this.CACHE_TTL });
     } catch (error) {
       logger.error('Failed to cache schema', {
@@ -208,6 +219,153 @@ export class CanvasSchemaService {
         error: error instanceof Error ? error.message : String(error),
       });
     }
+  }
+
+  // ==========================================================================
+  // Content-Addressable Storage (CAS) Methods
+  // ==========================================================================
+
+  /**
+   * Store schema using CAS (Content-Addressable Storage)
+   * Schema is stored by its content hash, making it cacheable forever.
+   * A "head" pointer tracks the current version.
+   */
+  async cacheSchemaWithCAS(workspaceId: string, schema: SDUIPageDefinition): Promise<string> {
+    try {
+      // Step 1: Calculate content hash
+      const { hash, size } = await hashObject(schema);
+      
+      // Step 2: Store schema by hash (immutable, long TTL)
+      await this.cacheService.setCAS(hash, schema, { namespace: 'schema' });
+      
+      // Step 3: Update head pointer
+      await this.cacheService.setHead(workspaceId, hash, { namespace: 'schema' });
+      
+      logger.debug('Cached schema with CAS', {
+        workspaceId,
+        hash: shortHash(hash),
+        size,
+        version: schema.version,
+      });
+      
+      return hash;
+    } catch (error) {
+      logger.error('Failed to cache schema with CAS', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Get schema head pointer (current hash) - always fetched fresh
+   * This is the lightweight endpoint that clients call first.
+   */
+  async getSchemaHead(workspaceId: string): Promise<SchemaHead | null> {
+    try {
+      const head = await this.cacheService.getHead(workspaceId, { namespace: 'schema' });
+      
+      if (!head) return null;
+      
+      return {
+        hash: head.hash,
+        version: 1, // Could be stored in head if needed
+        updatedAt: head.updatedAt,
+        workspaceId,
+      };
+    } catch (error) {
+      logger.error('Failed to get schema head', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Get schema by its content hash - heavily cached
+   * Clients call this after getting the head to fetch actual content.
+   */
+  async getSchemaByHash(hash: string): Promise<SDUIPageDefinition | null> {
+    try {
+      const schema = await this.cacheService.getCAS<SDUIPageDefinition>(hash, { namespace: 'schema' });
+      
+      if (schema) {
+        logger.debug('Retrieved schema by hash', { hash: shortHash(hash) });
+      }
+      
+      return schema;
+    } catch (error) {
+      logger.error('Failed to get schema by hash', {
+        hash: shortHash(hash),
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Get schema using CAS (resolves head -> hash -> content)
+   * This is the main entry point for CAS-backed schema retrieval.
+   */
+  async getSchemaWithCAS(workspaceId: string): Promise<{
+    schema: SDUIPageDefinition;
+    hash: string;
+    updatedAt: number;
+  } | null> {
+    try {
+      const result = await this.cacheService.getByResourceId<SDUIPageDefinition>(
+        workspaceId,
+        { namespace: 'schema' }
+      );
+      
+      if (result) {
+        logger.debug('Retrieved schema with CAS', {
+          workspaceId,
+          hash: shortHash(result.hash),
+        });
+        return {
+          schema: result.content,
+          hash: result.hash,
+          updatedAt: result.updatedAt,
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      logger.error('Failed to get schema with CAS', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Generate schema and store with CAS
+   */
+  async generateSchemaWithCAS(
+    workspaceId: string,
+    context: WorkspaceContext
+  ): Promise<{ schema: SDUIPageDefinition; hash: string }> {
+    // Check CAS cache first
+    const cached = await this.getSchemaWithCAS(workspaceId);
+    if (cached) {
+      logger.debug('Returning CAS-cached schema', {
+        workspaceId,
+        hash: shortHash(cached.hash),
+      });
+      return { schema: cached.schema, hash: cached.hash };
+    }
+
+    // Generate new schema
+    const schema = await this.generateSchema(workspaceId, context);
+    
+    // Store with CAS
+    const hash = await this.cacheSchemaWithCAS(workspaceId, schema);
+    
+    return { schema, hash };
   }
 
   /**

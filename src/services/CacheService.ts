@@ -485,6 +485,96 @@ export class CacheService {
     const regex = new RegExp(`^${regexPattern}$`);
     return regex.test(key);
   }
+
+  // ==========================================================================
+  // Content-Addressable Storage (CAS) Operations
+  // ==========================================================================
+
+  /**
+   * Store content by its hash (immutable, long TTL)
+   * Content is identified by its SHA-256 hash, making it cacheable forever.
+   */
+  async setCAS<T>(
+    hash: string,
+    content: T,
+    options: { namespace?: string; storage?: 'memory' | 'local' | 'session' } = {}
+  ): Promise<void> {
+    const casKey = `cas:${hash}`;
+    // CAS entries are immutable - use 1 year TTL
+    const ttl = 365 * 24 * 60 * 60 * 1000; // 1 year
+    await this.set(casKey, content, { ...options, ttl });
+  }
+
+  /**
+   * Get content by its hash
+   */
+  async getCAS<T>(
+    hash: string,
+    options: { namespace?: string; storage?: 'memory' | 'local' | 'session' } = {}
+  ): Promise<T | null> {
+    const casKey = `cas:${hash}`;
+    return this.get<T>(casKey, options);
+  }
+
+  /**
+   * Check if content exists by hash
+   */
+  async hasCAS(
+    hash: string,
+    options: { namespace?: string; storage?: 'memory' | 'local' | 'session' } = {}
+  ): Promise<boolean> {
+    const casKey = `cas:${hash}`;
+    return this.has(casKey, options);
+  }
+
+  /**
+   * Set the "head" pointer for a resource (short TTL, always fresh)
+   * This points to the current content hash for a mutable resource.
+   */
+  async setHead(
+    resourceId: string,
+    hash: string,
+    options: { namespace?: string; storage?: 'memory' | 'local' | 'session' } = {}
+  ): Promise<void> {
+    const headKey = `head:${resourceId}`;
+    // Head pointers have very short TTL - must be fetched fresh
+    const ttl = 10 * 1000; // 10 seconds
+    await this.set(headKey, { hash, updatedAt: Date.now() }, { ...options, ttl });
+  }
+
+  /**
+   * Get the current "head" pointer for a resource
+   */
+  async getHead(
+    resourceId: string,
+    options: { namespace?: string; storage?: 'memory' | 'local' | 'session' } = {}
+  ): Promise<{ hash: string; updatedAt: number } | null> {
+    const headKey = `head:${resourceId}`;
+    return this.get(headKey, options);
+  }
+
+  /**
+   * Get content by resource ID (resolves head -> hash -> content)
+   * This is the main entry point for CAS-backed resources.
+   */
+  async getByResourceId<T>(
+    resourceId: string,
+    options: { namespace?: string; storage?: 'memory' | 'local' | 'session' } = {}
+  ): Promise<{ content: T; hash: string; updatedAt: number } | null> {
+    // Step 1: Get head pointer
+    const head = await this.getHead(resourceId, options);
+    if (!head) return null;
+
+    // Step 2: Get content by hash
+    const content = await this.getCAS<T>(head.hash, options);
+    if (!content) return null;
+
+    return {
+      content,
+      hash: head.hash,
+      updatedAt: head.updatedAt,
+    };
+  }
 }
 
 // ============================================================================
