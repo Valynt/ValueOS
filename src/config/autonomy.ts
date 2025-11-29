@@ -12,6 +12,8 @@ export interface AutonomyConfig {
   maxDurationMs: number;
   requireApprovalForDestructive: boolean;
   serviceIdentityToken?: string;
+  agentAutonomyLevels?: Record<string, 'observe' | 'assist' | 'act'>;
+  destructiveActions?: string[];
 }
 
 export function getAutonomyConfig(): AutonomyConfig {
@@ -21,6 +23,8 @@ export function getAutonomyConfig(): AutonomyConfig {
     maxDurationMs: Number(getEnv('AUTONOMY_MAX_DURATION_MS', `${5 * 60 * 1000}`)),
     requireApprovalForDestructive: getEnv('AUTONOMY_REQUIRE_APPROVAL', 'false') === 'true',
     serviceIdentityToken: getEnv('SERVICE_IDENTITY_TOKEN', ''),
+    agentAutonomyLevels: JSON.parse(getEnv('AGENT_AUTONOMY_LEVELS', '{}')),
+    destructiveActions: getEnv('DESTRUCTIVE_ACTIONS', '').split(',').map((v) => v.trim()).filter(Boolean),
   };
 }
 

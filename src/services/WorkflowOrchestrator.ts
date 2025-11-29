@@ -171,6 +171,27 @@ export class WorkflowOrchestrator {
         }
       }
 
+      // Enforce per-agent autonomy level
+      const agentLevels = autonomy.agentAutonomyLevels || {};
+      const stageAgentId = route?.selected_agent?.id;
+      const level = stageAgentId ? agentLevels[stageAgentId] : undefined;
+      if (level === 'observe') {
+        await this.handleWorkflowFailure(executionId, `Agent ${stageAgentId} restricted to observe-only`);
+        throw new Error('Autonomy guard: observe-only agent attempted action');
+      }
+
+      // Block destructive actions lacking approval, based on configured keywords
+      const destructiveActions = autonomy.destructiveActions || [];
+      if (destructiveActions.length > 0 && route?.stage?.actions) {
+        const forbidden = (route.stage.actions as string[]).some((a) =>
+          destructiveActions.includes(a)
+        );
+        if (forbidden && !executionContext.approvals?.[executionId]) {
+          await this.handleWorkflowFailure(executionId, 'Destructive action requires approval');
+          throw new Error('Autonomy guard: destructive action requires approval');
+        }
+      }
+
       const route = agentRoutingLayer.routeStage(dag, currentStageId, executionContext || {});
       const stage = route.stage;
 

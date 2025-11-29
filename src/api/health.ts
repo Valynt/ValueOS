@@ -7,8 +7,14 @@
 
 import { Router, Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
+import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
+import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
+import { rateLimiters } from '../middleware/rateLimiter';
 
 const router = Router();
+router.use(securityHeadersMiddleware);
+router.use(serviceIdentityMiddleware);
+router.use(rateLimiters.loose);
 
 interface HealthCheckResult {
   status: 'healthy' | 'degraded' | 'unhealthy';
