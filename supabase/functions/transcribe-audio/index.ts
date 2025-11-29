@@ -31,6 +31,33 @@ serve(async (req: Request) => {
   }
 
   try {
+    // Verify authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return jsonResponse({ success: false, error: 'Unauthorized' }, 401);
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+
+    // Verify token with Supabase
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !supabaseKey) {
+      return jsonResponse({ success: false, error: 'Server configuration error' }, 500);
+    }
+
+    const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'apikey': supabaseKey,
+      },
+    });
+
+    if (!userResponse.ok) {
+      return jsonResponse({ success: false, error: 'Invalid or expired token' }, 401);
+    }
+
     // Get OpenAI API key from environment
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openaiApiKey) {

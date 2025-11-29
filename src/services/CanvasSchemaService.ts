@@ -18,6 +18,7 @@ import {
 import { LifecycleStage } from '../types/workflow';
 import { CacheService } from './CacheService';
 import { ValueFabricService } from './ValueFabricService';
+import { getSupabaseClient } from '../lib/supabase';
 import { generateSOFOpportunityPage } from '../sdui/templates/sof-opportunity-template';
 import { generateSOFTargetPage } from '../sdui/templates/sof-target-template';
 import { generateSOFExpansionPage } from '../sdui/templates/sof-expansion-template';
@@ -49,7 +50,7 @@ export class CanvasSchemaService {
     valueFabricService?: ValueFabricService
   ) {
     this.cacheService = cacheService || new CacheService();
-    this.valueFabricService = valueFabricService || new ValueFabricService();
+    this.valueFabricService = valueFabricService || new ValueFabricService(getSupabaseClient());
   }
 
   /**
@@ -63,7 +64,7 @@ export class CanvasSchemaService {
 
     try {
       // Check cache first
-      const cached = this.getCachedSchema(workspaceId);
+      const cached = await this.getCachedSchema(workspaceId);
       if (cached) {
         logger.debug('Returning cached schema', { workspaceId });
         return cached;
@@ -121,7 +122,7 @@ export class CanvasSchemaService {
 
       // If action result includes atomic actions, apply them
       if (result.atomicActions && result.atomicActions.length > 0) {
-        const currentSchema = this.getCachedSchema(workspaceId);
+        const currentSchema = await this.getCachedSchema(workspaceId);
         if (currentSchema) {
           // Apply atomic actions to current schema
           const updatedSchema = await this.applyAtomicActions(
@@ -148,7 +149,7 @@ export class CanvasSchemaService {
       });
 
       // Return current cached schema or fallback
-      const cached = this.getCachedSchema(workspaceId);
+      const cached = await this.getCachedSchema(workspaceId);
       if (cached) return cached;
 
       return this.generateFallbackSchema('opportunity');
@@ -158,10 +159,10 @@ export class CanvasSchemaService {
   /**
    * Get cached schema if available
    */
-  getCachedSchema(workspaceId: string): SDUIPageDefinition | null {
+  async getCachedSchema(workspaceId: string): Promise<SDUIPageDefinition | null> {
     try {
       const cacheKey = `${this.CACHE_PREFIX}${workspaceId}`;
-      const cached = this.cacheService.get<SchemaCacheEntry>(cacheKey);
+      const cached = await this.cacheService.get<SchemaCacheEntry>(cacheKey);
 
       if (!cached) return null;
 
