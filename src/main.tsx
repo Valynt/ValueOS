@@ -39,6 +39,7 @@ async function main() {
 
   try {
     // Bootstrap the application
+    console.log('[DEBUG] Starting application bootstrap...');
     logger.debug('Starting application bootstrap...');
     
     const result = await bootstrap({
@@ -85,18 +86,22 @@ async function main() {
     }
 
     // Render the application
+    console.log('[DEBUG] Rendering application...');
     logger.debug('Rendering application...');
     
     const root = createRoot(rootElement);
+    console.log('[DEBUG] Root created, rendering React app...');
     root.render(
       <StrictMode>
         <App />
       </StrictMode>
     );
 
+    console.log('[DEBUG] ✅ Application rendered successfully');
     logger.debug('✅ Application rendered successfully');
     
   } catch (error) {
+    console.error('[FATAL] Error during application initialization:', error);
     logger.error('Fatal error during application initialization:', error);
     
     // Show error screen
