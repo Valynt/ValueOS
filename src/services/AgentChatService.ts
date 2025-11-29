@@ -16,11 +16,12 @@ import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import { llmConfig } from '../config/llm';
 import { conversationHistoryService, ConversationMessage } from './ConversationHistoryService';
 import { SDUIPageDefinition } from '../sdui/schema';
-import { WorkflowState } from '../repositories/WorkflowStateRepository';
+import { WorkflowState, WorkflowStateRepository } from '../repositories/WorkflowStateRepository';
 import type { LifecycleStage } from '../types/vos';
 import { getRelevantExamples, formatExampleForPrompt } from '../data/valueModelExamples';
 import { getAllTools, createToolExecutor } from './MCPTools';
 import { mcpGroundTruthService } from './MCPGroundTruthService';
+import { checkStageTransition } from '../config/chatWorkflowConfig';
 
 // ============================================================================
 // Types
@@ -104,9 +105,11 @@ Now help the user with their specific request, following similar structure and r
 
 class AgentChatService {
   private llm: LLMGateway;
+  private stateRepo?: WorkflowStateRepository;
 
-  constructor() {
+  constructor(stateRepository?: WorkflowStateRepository) {
     this.llm = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
+    this.stateRepo = stateRepository;
   }
 
   /**
@@ -182,7 +185,21 @@ class AgentChatService {
       const sduiPage = this.generateSDUIPage(content, confidence, reasoning, request.workflowState);
 
       // Update workflow state
-      const nextState = this.updateWorkflowState(request.workflowState, request.query, content);
+      const nextState = this.updateWorkflowState(
+        request.workflowState,
+        request.query,
+        content,
+        confidence
+      );
+
+      // Persist state if repository available
+      if (this.stateRepo && request.sessionId) {
+        await this.stateRepo.saveState(request.sessionId, nextState);
+        logger.debug('Workflow state persisted', {
+          sessionId: request.sessionId,
+          stage: nextState.currentStage,
+        });
+      }
 
       logger.info('Chat response generated', {
         traceId,
@@ -378,11 +395,14 @@ class AgentChatService {
 
   /**
    * Update workflow state based on conversation
+   * 
+   * Uses chatWorkflowConfig for stage transition logic
    */
   private updateWorkflowState(
     currentState: WorkflowState,
     query: string,
-    response: string
+    response: string,
+    confidence: number
   ): WorkflowState {
     const nextState = { ...currentState };
 
@@ -394,28 +414,31 @@ class AgentChatService {
       lastUpdated: new Date().toISOString(),
     };
 
-    // Check for stage transitions
-    const lowerQuery = query.toLowerCase();
-    const lowerResponse = response.toLowerCase();
+    // Check for stage transitions using config
+    const transitionStage = checkStageTransition(
+      currentState.currentStage as LifecycleStage,
+      query,
+      response,
+      confidence
+    );
 
-    if (currentState.currentStage === 'opportunity') {
-      if (lowerQuery.includes('roi') || lowerQuery.includes('business case') || 
-          lowerResponse.includes('ready to target') || lowerResponse.includes('move to target')) {
-        nextState.completedStages = [...(currentState.completedStages || []), 'opportunity'];
-        nextState.currentStage = 'target';
+    if (transitionStage && transitionStage !== currentState.currentStage) {
+      logger.info('Stage transition triggered', {
+        from: currentState.currentStage,
+        to: transitionStage,
+        query: query.substring(0, 50),
+      });
+
+      // Mark current stage as completed
+      if (!currentState.completedStages?.includes(currentState.currentStage)) {
+        nextState.completedStages = [
+          ...(currentState.completedStages || []),
+          currentState.currentStage,
+        ];
       }
-    } else if (currentState.currentStage === 'target') {
-      if (lowerQuery.includes('track') || lowerQuery.includes('measure') ||
-          lowerResponse.includes('ready to realize') || lowerResponse.includes('implementation')) {
-        nextState.completedStages = [...(currentState.completedStages || []), 'target'];
-        nextState.currentStage = 'realization';
-      }
-    } else if (currentState.currentStage === 'realization') {
-      if (lowerQuery.includes('expand') || lowerQuery.includes('upsell') ||
-          lowerResponse.includes('expansion opportunity') || lowerResponse.includes('additional value')) {
-        nextState.completedStages = [...(currentState.completedStages || []), 'realization'];
-        nextState.currentStage = 'expansion';
-      }
+
+      // Transition to new stage
+      nextState.currentStage = transitionStage;
     }
 
     return nextState;
