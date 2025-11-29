@@ -12,16 +12,19 @@ import {
   securityHeadersMiddleware,
   sessionTimeoutMiddleware,
 } from '../middleware/securityMiddleware';
+import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
+import { rateLimiters } from '../middleware/rateLimiter';
 
 const router = Router();
 router.use(securityHeadersMiddleware);
+router.use(serviceIdentityMiddleware);
 
 /**
  * POST /api/queue/llm
  * 
  * Submit LLM job to queue
  */
-router.post('/llm', csrfProtectionMiddleware, sessionTimeoutMiddleware, async (req: Request, res: Response) => {
+router.post('/llm', rateLimiters.standard, csrfProtectionMiddleware, sessionTimeoutMiddleware, async (req: Request, res: Response) => {
   try {
     const { type, promptKey, promptVariables, prompt, model, maxTokens, temperature, metadata } = req.body;
     
@@ -154,7 +157,7 @@ router.get('/llm/:jobId/result', async (req: Request, res: Response) => {
  * 
  * Cancel job
  */
-router.delete('/llm/:jobId', csrfProtectionMiddleware, sessionTimeoutMiddleware, async (req: Request, res: Response) => {
+router.delete('/llm/:jobId', rateLimiters.standard, csrfProtectionMiddleware, sessionTimeoutMiddleware, async (req: Request, res: Response) => {
   try {
     const { jobId } = req.params;
     
@@ -207,7 +210,7 @@ router.get('/metrics', async (req: Request, res: Response) => {
  * 
  * Submit batch of LLM jobs
  */
-router.post('/llm/batch', csrfProtectionMiddleware, sessionTimeoutMiddleware, async (req: Request, res: Response) => {
+router.post('/llm/batch', rateLimiters.strict, csrfProtectionMiddleware, sessionTimeoutMiddleware, async (req: Request, res: Response) => {
   try {
     const { jobs } = req.body;
     

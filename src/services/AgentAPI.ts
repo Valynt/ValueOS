@@ -16,6 +16,7 @@ import { getAuditLogger, logAgentResponse } from './AgentAuditLogger';
 import { getConfig } from '../config/environment';
 import { llmSanitizer } from './LLMSanitizer';
 import { fetchWithCSRF, sanitizeObject, sanitizeString } from '../security';
+import { addServiceIdentityHeader } from '../middleware/serviceIdentityMiddleware';
 
 /**
  * Agent request payload
@@ -333,6 +334,7 @@ export class AgentAPI {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            ...addServiceIdentityHeader({}),
             ...this.config.headers,
           },
           body: JSON.stringify(sanitizedBody),

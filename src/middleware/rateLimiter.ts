@@ -161,12 +161,18 @@ const store = new RateLimitStore();
  * Default key generator (uses user ID or IP)
  */
 function defaultKeyGenerator(req: Request): string {
+  const tenantId = (req as any).user?.organizationId || req.header('x-tenant-id');
+
   // Use user ID if authenticated
   if (req.user?.id) {
-    return `user:${req.user.id}`;
+    return tenantId ? `tenant:${tenantId}:user:${req.user.id}` : `user:${req.user.id}`;
   }
 
-  // Fall back to IP address
+  // Fall back to tenant or IP address
+  if (tenantId) {
+    return `tenant:${tenantId}:ip:${req.ip || 'unknown'}`;
+  }
+
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
   return `ip:${ip}`;
 }

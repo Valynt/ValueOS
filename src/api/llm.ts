@@ -14,16 +14,19 @@ import {
   securityHeadersMiddleware,
   sessionTimeoutMiddleware,
 } from '../middleware/securityMiddleware';
+import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
+import { rateLimiters } from '../middleware/rateLimiter';
 
 const router = Router();
 router.use(securityHeadersMiddleware);
+router.use(serviceIdentityMiddleware);
 
 /**
  * POST /api/llm/chat
  * 
  * Send a chat completion request to LLM with automatic fallback
  */
-router.post('/chat', csrfProtectionMiddleware, sessionTimeoutMiddleware, llmRateLimiter, async (req: Request, res: Response) => {
+router.post('/chat', rateLimiters.agentExecution, csrfProtectionMiddleware, sessionTimeoutMiddleware, llmRateLimiter, async (req: Request, res: Response) => {
   try {
     const { prompt, model, maxTokens, temperature } = req.body;
     
@@ -95,7 +98,7 @@ router.post('/chat', csrfProtectionMiddleware, sessionTimeoutMiddleware, llmRate
  * 
  * Get LLM service statistics
  */
-router.get('/stats', async (req: Request, res: Response) => {
+router.get('/stats', rateLimiters.loose, async (req: Request, res: Response) => {
   try {
     const stats = llmFallback.getStats();
     
@@ -143,7 +146,7 @@ router.get('/health', async (req: Request, res: Response) => {
  * 
  * Reset circuit breakers (admin only)
  */
-router.post('/reset', csrfProtectionMiddleware, sessionTimeoutMiddleware, async (req: Request, res: Response) => {
+router.post('/reset', rateLimiters.strict, csrfProtectionMiddleware, sessionTimeoutMiddleware, async (req: Request, res: Response) => {
   try {
     // Check admin permission (assumed to be set by auth middleware)
     const isAdmin = (req as any).user?.role === 'admin';

@@ -21,6 +21,7 @@ import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import { llmConfig } from '../config/llm';
 import { ValueEvalAgent } from '../agents/ValueEvalAgent';
 import { v4 as uuidv4 } from 'uuid';
+import { getAutonomyConfig } from '../config/autonomy';
 
 export interface SimulationResult {
   simulation_id: string;
@@ -38,6 +39,7 @@ export class WorkflowOrchestrator {
   private memorySystem: MemorySystem;
   private llmGateway: LLMGateway;
   private valueEvalAgent: ValueEvalAgent;
+  private readonly startedAt = new Map<string, number>();
 
   constructor() {
     this.llmGateway = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
@@ -65,6 +67,11 @@ export class WorkflowOrchestrator {
     workflowDefinitionId: string,
     context: Record<string, any> = {}
   ): Promise<string> {
+    const autonomy = getAutonomyConfig();
+    if (autonomy.killSwitchEnabled) {
+      throw new Error('Autonomy kill-switch enabled: workflow execution blocked');
+    }
+
     const { data: definition, error: defError } = await supabase
       .from('workflow_definitions')
       .select('*')
@@ -105,6 +112,14 @@ export class WorkflowOrchestrator {
       context
     });
 
+    // Initialize guardrail tracking
+    this.startedAt.set(execution.id, Date.now());
+    await this.persistExecutionContext(execution.id, {
+      ...execution.context,
+      approvals: context.approvals || {},
+      cost_accumulated_usd: context.cost_accumulated_usd || 0,
+    }, dag.initial_stage);
+
     this.executeDAG(execution.id, dag).catch(async (error) => {
       await this.handleWorkflowFailure(execution.id, error.message);
     });
@@ -125,12 +140,36 @@ export class WorkflowOrchestrator {
     let executionContext = execution.context || {};
     let executedSteps: ExecutedStep[] = executionContext.executed_steps || [];
     const visitedStages = new Set<string>();
+    const autonomy = getAutonomyConfig();
+    const startedAt = this.startedAt.get(executionId) || Date.now();
 
     while (currentStageId && !dag.final_stages.includes(currentStageId)) {
       if (visitedStages.has(currentStageId)) {
         throw new Error(`Circular dependency at stage: ${currentStageId}`);
       }
       visitedStages.add(currentStageId);
+
+       // Guardrails: duration & cost limits
+      const elapsed = Date.now() - startedAt;
+      if (elapsed > autonomy.maxDurationMs) {
+        await this.handleWorkflowFailure(executionId, 'Autonomy guard: max duration exceeded');
+        throw new Error('Autonomy guard: max duration exceeded');
+      }
+
+      const cost = executionContext.cost_accumulated_usd || 0;
+      if (cost > autonomy.maxCostUsd) {
+        await this.handleWorkflowFailure(executionId, 'Autonomy guard: max cost exceeded');
+        throw new Error('Autonomy guard: max cost exceeded');
+      }
+
+      if (autonomy.requireApprovalForDestructive) {
+        const approvalState = executionContext.approvals || {};
+        const destructivePending = executionContext.destructive_actions_pending as string[] | undefined;
+        if (destructivePending && destructivePending.length > 0 && !approvalState[executionId]) {
+          await this.handleWorkflowFailure(executionId, 'Approval required for destructive actions');
+          throw new Error('Approval required for destructive actions');
+        }
+      }
 
       const route = agentRoutingLayer.routeStage(dag, currentStageId, executionContext || {});
       const stage = route.stage;
@@ -172,6 +211,7 @@ export class WorkflowOrchestrator {
     await this.updateExecutionStatus(executionId, 'completed', null);
     await this.logEvent(executionId, 'workflow_completed', null, { final_stage: currentStageId });
     await this.logAudit(executionId, 'workflow_completed', { final_stage: currentStageId });
+    this.startedAt.delete(executionId);
   }
 
   private async executeStageWithRetry(
