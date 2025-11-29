@@ -83,7 +83,7 @@ export class CanvasSchemaService {
       const schema = await this.generateSchemaFromTemplate(template, data, workspaceState);
 
       // Cache the schema
-      this.cacheSchema(workspaceId, schema);
+      await this.cacheSchema(workspaceId, schema);
 
       logger.info('Generated SDUI schema', {
         workspaceId,
@@ -116,7 +116,7 @@ export class CanvasSchemaService {
     try {
       // If action result includes schema update, use it
       if (result.schemaUpdate) {
-        this.cacheSchema(workspaceId, result.schemaUpdate);
+        await this.cacheSchema(workspaceId, result.schemaUpdate);
         return result.schemaUpdate;
       }
 
@@ -129,13 +129,13 @@ export class CanvasSchemaService {
             currentSchema,
             result.atomicActions
           );
-          this.cacheSchema(workspaceId, updatedSchema);
+          await this.cacheSchema(workspaceId, updatedSchema);
           return updatedSchema;
         }
       }
 
       // Otherwise, invalidate cache and regenerate
-      this.invalidateCache(workspaceId);
+      await this.invalidateCache(workspaceId);
       
       // Get workspace context from action
       const context = this.extractContextFromAction(action);
@@ -169,7 +169,7 @@ export class CanvasSchemaService {
       // Check if cache is still valid
       const now = Date.now();
       if (now - cached.timestamp > cached.ttl * 1000) {
-        this.invalidateCache(workspaceId);
+        await this.invalidateCache(workspaceId);
         return null;
       }
 
@@ -186,10 +186,10 @@ export class CanvasSchemaService {
   /**
    * Invalidate schema cache
    */
-  invalidateCache(workspaceId: string): void {
+  async invalidateCache(workspaceId: string): Promise<void> {
     try {
       const cacheKey = `${this.CACHE_PREFIX}${workspaceId}`;
-      this.cacheService.delete(cacheKey);
+      await this.cacheService.delete(cacheKey);
       logger.debug('Invalidated schema cache', { workspaceId });
     } catch (error) {
       logger.error('Failed to invalidate cache', {
@@ -202,7 +202,7 @@ export class CanvasSchemaService {
   /**
    * Cache schema (legacy TTL-based)
    */
-  private cacheSchema(workspaceId: string, schema: SDUIPageDefinition): void {
+  private async cacheSchema(workspaceId: string, schema: SDUIPageDefinition): Promise<void> {
     try {
       const cacheKey = `${this.CACHE_PREFIX}${workspaceId}`;
       const entry: SchemaCacheEntry = {
@@ -212,7 +212,7 @@ export class CanvasSchemaService {
         workspaceId,
         version: schema.version,
       };
-      this.cacheService.set(cacheKey, entry, { ttl: this.CACHE_TTL * 1000 });
+      await this.cacheService.set(cacheKey, entry, { ttl: this.CACHE_TTL * 1000 });
       logger.debug('Cached schema', { workspaceId, ttl: this.CACHE_TTL });
     } catch (error) {
       logger.error('Failed to cache schema', {

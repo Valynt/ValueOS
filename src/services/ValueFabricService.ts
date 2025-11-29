@@ -14,6 +14,7 @@
 
 import { logger } from '../lib/logger';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseClient } from '../lib/supabase';
 import { llmProxyClient } from './LlmProxyClient';
 import type {
   Capability,
@@ -48,7 +49,7 @@ export class ValueFabricService {
   private static capabilityCache = new Map<string, CacheEntry<Capability[]>>();
   private static useCaseCache = new Map<string, CacheEntry<UseCase[]>>();
 
-  constructor(supabase: SupabaseClient) {
+  constructor(supabase: SupabaseClient = getSupabaseClient()) {
     this.supabase = supabase;
   }
 
