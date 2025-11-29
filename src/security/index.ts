@@ -14,6 +14,8 @@
  */
 
 import { logger } from '../lib/logger';
+import { getSecurityConfig, validateSecurityConfig } from './SecurityConfig';
+import { initializeCSRFProtection, attachCSRFFetchInterceptor } from './CSRFProtection';
 
 // Configuration
 export {
@@ -80,6 +82,7 @@ export {
   addCSRFToURL,
   fetchWithCSRF,
   initializeCSRFProtection,
+  attachCSRFFetchInterceptor,
   getCSRFTokenFromMeta,
   useCSRFToken,
   type CSRFToken,
@@ -134,6 +137,7 @@ export function initializeSecurity(sessionId?: string): void {
   // Initialize CSRF protection
   if (config.security.csrfEnabled) {
     initializeCSRFProtection(sessionId);
+    attachCSRFFetchInterceptor();
     logger.debug('CSRF protection initialized');
   }
 

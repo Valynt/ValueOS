@@ -24,6 +24,7 @@ import type { SDUIPageDefinition } from '../sdui/types';
 import planningOntology from '../ontology/planning.graph.json';
 import { createAuditEvent } from '../lib/sof-governance';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
+import { llmConfig } from '../config/llm';
 import {
   getComponentToolDocumentation,
   validateComponentSelection,
@@ -47,7 +48,7 @@ export class CoordinatorAgent {
 
   constructor() {
     this.ontology = planningOntology;
-    this.llmGateway = new LLMGateway('together', true);
+    this.llmGateway = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
     this.config = {
       maxSubgoalsPerTask: 10,
       maxRoutingAttempts: 3,

@@ -216,8 +216,8 @@ export class SettingsRegistry {
     this.defaultSettings.set('organization.workingHours.end', '17:00');
     this.defaultSettings.set('organization.security.mfaRequired', false);
     this.defaultSettings.set('organization.security.ssoRequired', false);
-    this.defaultSettings.set('organization.security.sessionTimeout', 480); // 8 hours in minutes
-    this.defaultSettings.set('organization.security.passwordPolicy.minLength', 8);
+    this.defaultSettings.set('organization.security.sessionTimeout', 60); // 1 hour in minutes
+    this.defaultSettings.set('organization.security.passwordPolicy.minLength', 12);
     this.defaultSettings.set('organization.security.passwordPolicy.requireUppercase', true);
     this.defaultSettings.set('organization.security.passwordPolicy.requireLowercase', true);
     this.defaultSettings.set('organization.security.passwordPolicy.requireNumbers', true);

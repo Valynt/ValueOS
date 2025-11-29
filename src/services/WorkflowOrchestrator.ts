@@ -18,6 +18,7 @@ import { workflowCompensation } from './WorkflowCompensation';
 import { CircuitBreakerManager } from './CircuitBreaker';
 import { MemorySystem } from '../lib/agent-fabric/MemorySystem';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
+import { llmConfig } from '../config/llm';
 import { ValueEvalAgent } from '../agents/ValueEvalAgent';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -39,7 +40,7 @@ export class WorkflowOrchestrator {
   private valueEvalAgent: ValueEvalAgent;
 
   constructor() {
-    this.llmGateway = new LLMGateway('together', true);
+    this.llmGateway = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
     this.memorySystem = new MemorySystem(supabase, this.llmGateway);
     this.valueEvalAgent = new ValueEvalAgent();
   }

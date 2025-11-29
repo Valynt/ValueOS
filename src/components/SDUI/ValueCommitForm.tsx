@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AlertCircle, CheckCircle, Plus, Trash2 } from 'lucide-react';
+import { sanitizeString } from '../../security';
 
 /**
  * KPI commitment data structure
@@ -89,8 +90,10 @@ export const ValueCommitForm: React.FC<ValueCommitFormProps> = ({
   showSuccess = false,
   allowCustomKPIs = false,
 }) => {
+  const sanitizeText = (value: string, maxLength = 200) =>
+    sanitizeString(value, { maxLength, stripScripts: true }).sanitized;
   const [committed, setCommitted] = useState<CommitKPI[]>(initialCommitted);
-  const [assumptions, setAssumptions] = useState(initialAssumptions);
+  const [assumptions, setAssumptions] = useState(sanitizeText(initialAssumptions, 1500));
   const [currentKPI, setCurrentKPI] = useState<string>('');
   const [currentBaseline, setCurrentBaseline] = useState<number | ''>('');
   const [currentTarget, setCurrentTarget] = useState<number | ''>('');
@@ -138,13 +141,13 @@ export const ValueCommitForm: React.FC<ValueCommitFormProps> = ({
       return;
     }
 
-    const kpiName = currentKPI === 'custom' ? customKPIName : currentKPI;
+    const kpiName = sanitizeText(currentKPI === 'custom' ? customKPIName : currentKPI, 120);
 
     const newKPI: CommitKPI = {
       kpiName,
       baseline: Number(currentBaseline),
       target: Number(currentTarget),
-      unit: currentUnit || undefined,
+      unit: sanitizeText(currentUnit, 32) || undefined,
     };
 
     setCommitted([...committed, newKPI]);
@@ -281,7 +284,7 @@ export const ValueCommitForm: React.FC<ValueCommitFormProps> = ({
               id="custom-kpi"
               type="text"
               value={customKPIName}
-              onChange={(e) => setCustomKPIName(e.target.value)}
+              onChange={(e) => setCustomKPIName(sanitizeText(e.target.value, 120))}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter custom KPI name"
               disabled={disabled || loading}
@@ -349,7 +352,7 @@ export const ValueCommitForm: React.FC<ValueCommitFormProps> = ({
             id="kpi-unit"
             type="text"
             value={currentUnit}
-            onChange={(e) => setCurrentUnit(e.target.value)}
+            onChange={(e) => setCurrentUnit(sanitizeText(e.target.value, 32))}
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="e.g., %, hours, USD"
             disabled={disabled || loading}
@@ -435,7 +438,7 @@ export const ValueCommitForm: React.FC<ValueCommitFormProps> = ({
           id="assumptions"
           value={assumptions}
           onChange={(e) => {
-            setAssumptions(e.target.value);
+            setAssumptions(sanitizeText(e.target.value, 1500));
             setErrors((prev) => ({ ...prev, assumptions: undefined }));
           }}
           className={`mt-2 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${

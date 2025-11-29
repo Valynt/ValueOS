@@ -13,6 +13,7 @@
 import { logger } from '../lib/logger';
 import { v4 as uuidv4 } from 'uuid';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
+import { llmConfig } from '../config/llm';
 import { conversationHistoryService, ConversationMessage } from './ConversationHistoryService';
 import { SDUIPageDefinition } from '../sdui/schema';
 import { WorkflowState } from '../repositories/WorkflowStateRepository';
@@ -105,7 +106,7 @@ class AgentChatService {
   private llm: LLMGateway;
 
   constructor() {
-    this.llm = new LLMGateway('together', true);
+    this.llm = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
   }
 
   /**

@@ -203,7 +203,7 @@ export function loadEnvironmentConfig(): EnvironmentConfig {
     },
 
     auth: {
-      sessionTimeout: getNumberEnv('VITE_SESSION_TIMEOUT', 3600000),
+      sessionTimeout: getNumberEnv('VITE_SESSION_TIMEOUT', 1800000),
       mfaEnabled: getBoolEnv('VITE_MFA_ENABLED', false),
     },
 
