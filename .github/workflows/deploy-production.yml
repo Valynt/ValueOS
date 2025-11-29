@@ -4,15 +4,12 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Environment to deploy to'
-        required: true
-        default: 'production'
-        type: choice
-        options:
-          - production
-          - staging
+
+# Restrict permissions for security
+permissions:
+  contents: read
+  packages: write
+  security-events: write
 
 env:
   AWS_REGION: us-east-1
@@ -32,7 +29,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: npm
           cache-dependency-path: package-lock.json
       
       - name: Install dependencies
@@ -45,7 +42,7 @@ jobs:
         run: npm test
       
       - name: Upload coverage
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           files: ./coverage/lcov.info
 
@@ -60,15 +57,15 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-results.sarif
       
       - name: Upload Trivy results
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: 'trivy-results.sarif'
+          sarif_file: trivy-results.sarif
 
   build-frontend:
     name: Build Frontend
@@ -85,7 +82,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: npm
           cache-dependency-path: package-lock.json
       
       - name: Install dependencies
@@ -97,7 +94,7 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: frontend-build
           path: dist/
@@ -309,7 +306,7 @@ jobs:
     
     steps:
       - name: Download build artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: frontend-build
           path: dist/

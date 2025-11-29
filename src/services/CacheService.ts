@@ -10,6 +10,8 @@
  * - LRU eviction for browser storage
  */
 
+import { logger } from '../lib/logger';
+
 export interface CacheOptions {
   ttl?: number; // Time to live in milliseconds
   namespace?: string; // Cache namespace for organization
@@ -66,10 +68,14 @@ export class CacheService {
         entry = this.memoryCache.get(fullKey) || null;
         break;
       case 'local':
-        entry = this.getFromStorage(fullKey, localStorage);
+        if (this.isStorageAvailable('local')) {
+          entry = this.getFromStorage(fullKey, localStorage);
+        }
         break;
       case 'session':
-        entry = this.getFromStorage(fullKey, sessionStorage);
+        if (this.isStorageAvailable('session')) {
+          entry = this.getFromStorage(fullKey, sessionStorage);
+        }
         break;
     }
 
@@ -127,13 +133,17 @@ export class CacheService {
         break;
 
       case 'local':
-        this.setToStorage(fullKey, entry, localStorage);
-        this.evictStorageIfNeeded(localStorage, this.MAX_STORAGE_SIZE);
+        if (this.isStorageAvailable('local')) {
+          this.setToStorage(fullKey, entry, localStorage);
+          this.evictStorageIfNeeded(localStorage, this.MAX_STORAGE_SIZE);
+        }
         break;
 
       case 'session':
-        this.setToStorage(fullKey, entry, sessionStorage);
-        this.evictStorageIfNeeded(sessionStorage, this.MAX_STORAGE_SIZE);
+        if (this.isStorageAvailable('session')) {
+          this.setToStorage(fullKey, entry, sessionStorage);
+          this.evictStorageIfNeeded(sessionStorage, this.MAX_STORAGE_SIZE);
+        }
         break;
     }
   }
@@ -150,10 +160,14 @@ export class CacheService {
         this.memoryCache.delete(fullKey);
         break;
       case 'local':
-        localStorage.removeItem(fullKey);
+        if (this.isStorageAvailable('local')) {
+          localStorage.removeItem(fullKey);
+        }
         break;
       case 'session':
-        sessionStorage.removeItem(fullKey);
+        if (this.isStorageAvailable('session')) {
+          sessionStorage.removeItem(fullKey);
+        }
         break;
     }
   }
@@ -189,11 +203,15 @@ export class CacheService {
         break;
 
       case 'local':
-        this.clearStorage(localStorage, namespace);
+        if (this.isStorageAvailable('local')) {
+          this.clearStorage(localStorage, namespace);
+        }
         break;
 
       case 'session':
-        this.clearStorage(sessionStorage, namespace);
+        if (this.isStorageAvailable('session')) {
+          this.clearStorage(sessionStorage, namespace);
+        }
         break;
     }
   }
@@ -338,10 +356,10 @@ export class CacheService {
           .map(key => key.substring(prefix.length));
 
       case 'local':
-        return this.getStorageKeys(localStorage, prefix);
+        return this.isStorageAvailable('local') ? this.getStorageKeys(localStorage, prefix) : [];
 
       case 'session':
-        return this.getStorageKeys(sessionStorage, prefix);
+        return this.isStorageAvailable('session') ? this.getStorageKeys(sessionStorage, prefix) : [];
 
       default:
         return [];
@@ -574,6 +592,22 @@ export class CacheService {
       hash: head.hash,
       updatedAt: head.updatedAt,
     };
+  }
+
+  /**
+   * Determine if browser storage is available (guards SSR/test)
+   */
+  private isStorageAvailable(type: 'local' | 'session'): boolean {
+    if (typeof window === 'undefined') return false;
+    try {
+      const storage = type === 'local' ? window.localStorage : window.sessionStorage;
+      const testKey = `${this.defaultNamespace}:__cache_test__`;
+      storage.setItem(testKey, '1');
+      storage.removeItem(testKey);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 

@@ -2,12 +2,8 @@ import { createClient, type SupabaseClientOptions } from '@supabase/supabase-js'
 import { Database } from './database.types';
 import { createProtectedFetch, getCsrfToken } from './security/csrf';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
-}
+const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
 const protectedFetch = createProtectedFetch();
 
@@ -34,7 +30,33 @@ const supabaseOptions: SupabaseClientOptions<Database> = {
   },
 };
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, supabaseOptions);
+function createMockSupabase() {
+  const notConfiguredError = () => new Error('Supabase not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
+
+  const mockQuery = () => ({
+    select: () => ({ data: null, error: notConfiguredError() }),
+    maybeSingle: () => ({ data: null, error: notConfiguredError() }),
+    single: () => ({ data: null, error: notConfiguredError() }),
+    insert: () => ({ data: null, error: notConfiguredError() }),
+    update: () => ({ data: null, error: notConfiguredError() }),
+    eq: () => mockQuery(),
+    contains: () => mockQuery(),
+    ilike: () => mockQuery(),
+    order: () => mockQuery(),
+    range: () => ({ data: null, error: notConfiguredError() }),
+  });
+
+  return {
+    auth: {
+      getSession: async () => ({ data: { session: null }, error: notConfiguredError() }),
+    },
+    from: () => mockQuery(),
+  };
+}
+
+export const supabase = supabaseUrl && supabaseAnonKey
+  ? createClient<Database>(supabaseUrl, supabaseAnonKey, supabaseOptions)
+  : (createMockSupabase() as unknown as ReturnType<typeof createClient<Database>>);
 
 export function getSupabaseClient() {
   return supabase;

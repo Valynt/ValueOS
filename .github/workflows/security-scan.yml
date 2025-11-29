@@ -7,7 +7,7 @@ on:
     branches: [ main, develop ]
   schedule:
     # Run weekly on Monday at 9 AM UTC
-    - cron: '0 9 * * 1'
+    - cron: 0 9 * * 1
   workflow_dispatch:
 
 jobs:
@@ -23,7 +23,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: npm
       
       - name: Install dependencies
         run: npm ci
