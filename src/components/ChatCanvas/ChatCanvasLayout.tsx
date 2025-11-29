@@ -45,6 +45,7 @@ import { supabase } from '../../lib/supabase';
 import { valueCaseService } from '../../services/ValueCaseService';
 import { logger } from '../../lib/logger';
 import { v4 as uuidv4 } from 'uuid';
+import { sduiTelemetry, TelemetryEventType } from '../../lib/telemetry/SDUITelemetry';
 
 // ============================================================================
 // Types
@@ -286,7 +287,20 @@ const CanvasContent: React.FC<{
 // Helper Functions
 // ============================================================================
 
-function formatRelativeTime(date: Date): string {
+// Phase 3: Add telemetry debug helper
+const logTelemetrySummary = () => {
+  if (typeof window !== 'undefined' && (window as any).__SDUI_DEBUG__) {
+    const summary = sduiTelemetry.getPerformanceSummary();
+    console.group('[SDUI Telemetry Summary]');
+    console.log('Average Render Time:', summary.avgRenderTime.toFixed(2), 'ms');
+    console.log('Average Hydration Time:', summary.avgHydrationTime.toFixed(2), 'ms');
+    console.log('Error Rate:', (summary.errorRate * 100).toFixed(2), '%');
+    console.log('Total Events:', summary.totalEvents);
+    console.groupEnd();
+  }
+};
+
+const formatRelativeTime = (date: Date): string => {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
@@ -345,6 +359,9 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
     () => new WorkflowStateService(supabase),
     []
   );
+
+  // Phase 3: Telemetry tracking
+  const [renderStartTime, setRenderStartTime] = React.useState<number | null>(null);
 
   // Derived state
   const selectedCase = cases.find(c => c.id === selectedCaseId);
@@ -443,8 +460,42 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
 
       // If case has cached SDUI page, render it
       if (selectedCase.sduiPage) {
-        const result = renderPage(selectedCase.sduiPage);
-        setRenderedPage(result);
+        // Phase 3: Track SDUI rendering
+        const renderStart = Date.now();
+        setRenderStartTime(renderStart);
+        sduiTelemetry.startSpan(
+          `render-${selectedCase.id}`,
+          TelemetryEventType.RENDER_START,
+          {
+            caseId: selectedCase.id,
+            stage: selectedCase.stage,
+          }
+        );
+
+        try {
+          const result = renderPage(selectedCase.sduiPage);
+          setRenderedPage(result);
+
+          sduiTelemetry.endSpan(
+            `render-${selectedCase.id}`,
+            TelemetryEventType.RENDER_COMPLETE,
+            {
+              componentCount: result.metadata?.componentCount,
+              warnings: result.warnings?.length || 0,
+            }
+          );
+        } catch (error) {
+          sduiTelemetry.endSpan(
+            `render-${selectedCase.id}`,
+            TelemetryEventType.RENDER_ERROR,
+            { caseId: selectedCase.id },
+            {
+              message: error instanceof Error ? error.message : 'Render error',
+              stack: error instanceof Error ? error.stack : undefined,
+            }
+          );
+          setRenderedPage(null);
+        }
       } else {
         setRenderedPage(null);
       }
@@ -490,6 +541,18 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
       // Use current session ID or fall back to access token
       const actualSessionId = currentSessionId || sessionId;
 
+      // Phase 3: Track chat request
+      const chatSpanId = `chat-${Date.now()}`;
+      sduiTelemetry.startSpan(
+        chatSpanId,
+        TelemetryEventType.CHAT_REQUEST_START,
+        {
+          caseId: selectedCaseId,
+          stage: workflowState.currentStage,
+          queryLength: query.length,
+        }
+      );
+
       // Process through AgentChatService (uses Together.ai LLM)
       const result = await agentChatService.chat({
         query,
@@ -499,17 +562,48 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
         workflowState,
       });
 
+      // Track chat completion
+      sduiTelemetry.endSpan(
+        chatSpanId,
+        TelemetryEventType.CHAT_REQUEST_COMPLETE,
+        {
+          hasSDUI: !!result.sduiPage,
+          stageTransitioned: result.nextState.currentStage !== workflowState.currentStage,
+        }
+      );
+
       // Update workflow state in memory
       setWorkflowState(result.nextState);
 
       // Persist workflow state to database
       if (currentSessionId) {
         try {
+          // Track state save
+          sduiTelemetry.recordEvent({
+            type: TelemetryEventType.WORKFLOW_STATE_SAVE,
+            metadata: {
+              sessionId: currentSessionId,
+              stage: result.nextState.currentStage,
+            },
+          });
+
           await workflowStateService.saveWorkflowState(currentSessionId, result.nextState);
           logger.debug('Workflow state persisted after chat', {
             sessionId: currentSessionId,
             stage: result.nextState.currentStage,
           });
+
+          // Track stage transition if occurred
+          if (result.nextState.currentStage !== workflowState.currentStage) {
+            sduiTelemetry.recordWorkflowStateChange(
+              currentSessionId,
+              workflowState.currentStage,
+              result.nextState.currentStage,
+              {
+                caseId: selectedCaseId,
+              }
+            );
+          }
         } catch (error) {
           logger.warn('Failed to persist workflow state', { error });
           // Continue even if persistence fails
@@ -520,8 +614,41 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
 
       // Render SDUI page if available
       if (result.sduiPage) {
-        const rendered = renderPage(result.sduiPage);
-        setRenderedPage(rendered);
+        // Phase 3: Track SDUI rendering
+        const renderSpanId = `render-response-${Date.now()}`;
+        sduiTelemetry.startSpan(
+          renderSpanId,
+          TelemetryEventType.RENDER_START,
+          {
+            caseId: selectedCaseId,
+            stage: result.nextState.currentStage,
+          }
+        );
+
+        try {
+          const rendered = renderPage(result.sduiPage);
+          setRenderedPage(rendered);
+
+          sduiTelemetry.endSpan(
+            renderSpanId,
+            TelemetryEventType.RENDER_COMPLETE,
+            {
+              componentCount: rendered.metadata?.componentCount,
+              warnings: rendered.warnings?.length || 0,
+            }
+          );
+        } catch (renderError) {
+          sduiTelemetry.endSpan(
+            renderSpanId,
+            TelemetryEventType.RENDER_ERROR,
+            {},
+            {
+              message: renderError instanceof Error ? renderError.message : 'Render error',
+              stack: renderError instanceof Error ? renderError.stack : undefined,
+            }
+          );
+          throw renderError;
+        }
 
         // Cache in case
         setCases(prev => prev.map(c => 
@@ -544,6 +671,19 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
       setTimeout(() => setStreamingUpdate(null), 1000);
 
     } catch (error) {
+      // Phase 3: Track chat error
+      sduiTelemetry.recordEvent({
+        type: TelemetryEventType.CHAT_REQUEST_ERROR,
+        metadata: {
+          caseId: selectedCaseId,
+          stage: workflowState?.currentStage,
+        },
+        error: {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+        },
+      });
+
       logger.error('Error processing command', error instanceof Error ? error : undefined);
       setStreamingUpdate({ stage: 'complete', message: 'Error occurred. Please try again.' });
       setTimeout(() => setStreamingUpdate(null), 2000);

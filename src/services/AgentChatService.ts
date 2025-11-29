@@ -22,6 +22,7 @@ import { getRelevantExamples, formatExampleForPrompt } from '../data/valueModelE
 import { getAllTools, createToolExecutor } from './MCPTools';
 import { mcpGroundTruthService } from './MCPGroundTruthService';
 import { checkStageTransition } from '../config/chatWorkflowConfig';
+import { generateChatSDUIPage, hasTemplateForStage } from '../sdui/templates/chat-templates';
 
 // ============================================================================
 // Types
@@ -181,8 +182,15 @@ class AgentChatService {
         reasoning,
       });
 
-      // Generate SDUI page
-      const sduiPage = this.generateSDUIPage(content, confidence, reasoning, request.workflowState);
+      // Generate SDUI page with session/trace context
+      const sduiPage = this.generateSDUIPage(
+        content,
+        confidence,
+        reasoning,
+        request.workflowState,
+        request.sessionId,
+        traceId
+      );
 
       // Update workflow state
       const nextState = this.updateWorkflowState(
@@ -354,13 +362,37 @@ class AgentChatService {
 
   /**
    * Generate SDUI page from response
+   * 
+   * Phase 3: Refactored to use stage-specific templates
+   * Maintains backward compatibility with fallback to generic page
    */
   private generateSDUIPage(
     content: string,
     confidence: number,
     reasoning: string[],
-    state: WorkflowState
+    state: WorkflowState,
+    sessionId?: string,
+    traceId?: string
   ): SDUIPageDefinition {
+    const stage = state.currentStage as LifecycleStage;
+
+    // Use stage-specific template if available
+    if (hasTemplateForStage(stage)) {
+      logger.debug('Using stage-specific template', { stage });
+      
+      return generateChatSDUIPage(stage, {
+        content,
+        confidence,
+        reasoning,
+        workflowState: state,
+        sessionId,
+        traceId,
+      });
+    }
+
+    // Fallback to generic template for backward compatibility
+    logger.warn('No template found for stage, using fallback', { stage });
+    
     return {
       type: 'page',
       version: 1,
@@ -381,7 +413,7 @@ class AgentChatService {
                 id: `step-${i}`,
                 step: i + 1,
                 description: r,
-                confidence: confidence - (i * 0.05), // Slightly decreasing confidence per step
+                confidence: confidence - (i * 0.05),
               })),
               status: 'pending' as const,
             },
@@ -390,6 +422,16 @@ class AgentChatService {
           },
         },
       ],
+      metadata: {
+        lifecycle_stage: state.currentStage,
+        case_id: state.context.caseId as string,
+        session_id: sessionId,
+        generated_at: Date.now(),
+        agent_name: this.getAgentName(state.currentStage),
+        confidence_score: confidence,
+        telemetry_enabled: true,
+        trace_id: traceId,
+      },
     };
   }
 
