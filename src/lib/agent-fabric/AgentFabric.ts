@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { LLMGateway, LLMProvider } from './LLMGateway';
+import { llmConfig } from '../../config/llm';
 import { MemorySystem } from './MemorySystem';
 import { AuditLogger } from './AuditLogger';
 import { ReflectionEngine } from './ReflectionEngine';
@@ -27,11 +28,11 @@ export class AgentFabric {
   constructor(
     supabaseUrl: string,
     supabaseKey: string,
-    llmProvider: LLMProvider = 'together',
+    llmProvider: LLMProvider = llmConfig.provider,
     safetyLimits?: Partial<SafetyLimits>
   ) {
     this.supabase = new SupabaseClient(supabaseUrl, supabaseKey);
-    this.llmGateway = new LLMGateway(llmProvider);
+    this.llmGateway = new LLMGateway(llmProvider, llmConfig.gatingEnabled);
     this.memorySystem = new MemorySystem(this.supabase, this.llmGateway);
     this.auditLogger = new AuditLogger(this.supabase);
     this.reflectionEngine = new ReflectionEngine(this.llmGateway);

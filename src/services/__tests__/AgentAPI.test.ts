@@ -328,6 +328,31 @@ describe('AgentAPI', () => {
         expect(result.confidence).toBeLessThanOrEqual(1);
       }
     });
+
+    it('sanitizes malicious agent responses and bounds token usage', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          data: {
+            summary: '<script>alert(1)</script>Clean content',
+          },
+          tokens: {
+            total: 999999,
+          },
+        }),
+      });
+
+      const result = await api.invoke({
+        agent: 'opportunity',
+        query: '<img src=x onerror=alert(1)>',
+      });
+
+      expect(result.success).toBe(true);
+      expect((result.data as any).summary).not.toContain('<script>');
+      expect(result.metadata?.tokens?.total).toBeLessThanOrEqual(20000);
+    });
   });
 
   describe('SDUI Page Generation', () => {

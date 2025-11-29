@@ -91,6 +91,23 @@ describe('renderPage', () => {
 
       expect(() => renderPage(pageDefinition)).toThrow(SDUIValidationError);
     });
+
+    it('should reject structurally invalid layouts before render', () => {
+      const invalidDefinition = {
+        type: 'page',
+        version: 1,
+        sections: [
+          {
+            type: 'layout',
+            component: 'Grid',
+            // Missing layout configuration and invalid children payload
+            columns: ['<script>alert(1)</script>'],
+          },
+        ],
+      } as unknown as SDUIPageDefinition;
+
+      expect(() => renderPage(invalidDefinition)).toThrow(SDUIValidationError);
+    });
   });
 
   describe('Component Rendering', () => {

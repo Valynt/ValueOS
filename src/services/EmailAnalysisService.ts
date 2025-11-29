@@ -7,6 +7,7 @@
 
 import { logger } from '../lib/logger';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
+import { llmConfig } from '../config/llm';
 
 // ============================================================================
 // Types
@@ -62,7 +63,7 @@ class EmailAnalysisService {
   private llm: LLMGateway;
 
   constructor() {
-    this.llm = new LLMGateway('together', true);
+    this.llm = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
   }
 
   /**

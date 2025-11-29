@@ -11,6 +11,7 @@
 
 import { logger } from '../lib/logger';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
+import { llmConfig } from '../config/llm';
 import { getUIGenerationTracker } from './UIGenerationTracker';
 import { validateComponentSelection } from '../sdui/ComponentToolRegistry';
 import { ComponentMutationService } from './ComponentMutationService';
@@ -62,7 +63,7 @@ export class UIRefinementLoop {
   };
 
   constructor() {
-    this.llmGateway = new LLMGateway('together', true);
+    this.llmGateway = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
     this.tracker = getUIGenerationTracker();
     this.mutationService = new ComponentMutationService();
     this.config = {
