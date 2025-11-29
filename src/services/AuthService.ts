@@ -9,11 +9,14 @@ import { AuthenticationError, RateLimitError, ValidationError } from './errors';
 import { User, Session } from '@supabase/supabase-js';
 import { sanitizeErrorMessage, validatePassword } from '../utils/security';
 import { securityLogger } from './SecurityLogger';
+import { getConfig } from '../config/environment';
+import { checkPasswordBreach } from '../security';
 import { consumeAuthRateLimit, resetRateLimit, RateLimitExceededError } from '../security';
 
 export interface LoginCredentials {
   email: string;
   password: string;
+  otpCode?: string;
 }
 
 export interface SignupData {
@@ -63,6 +66,21 @@ export class AuthService extends BaseService {
       throw new ValidationError(passwordValidation.errors.join('. '));
     }
 
+    const breached = await checkPasswordBreach(data.password);
+    if (breached) {
+      throw new ValidationError('Password appears in breach corpus. Choose a different password.');
+    }
+
+    const config = getConfig();
+    if (config.auth.mfaEnabled) {
+      securityLogger.log({
+        category: 'authentication',
+        action: 'signup-mfa-hint',
+        severity: 'info',
+        metadata: { email: data.email },
+      });
+    }
+
     this.enforceAuthRateLimit(data.email, 'signup');
 
     this.log('info', 'User signup', { email: data.email });
@@ -102,6 +120,10 @@ export class AuthService extends BaseService {
    */
   async login(credentials: LoginCredentials): Promise<AuthSession> {
     this.validateRequired(credentials, ['email', 'password']);
+    const config = getConfig();
+    if (config.auth.mfaEnabled && !credentials.otpCode) {
+      throw new ValidationError('MFA code required for login');
+    }
 
     this.enforceAuthRateLimit(credentials.email, 'login');
 
@@ -112,6 +134,9 @@ export class AuthService extends BaseService {
         const { data, error } = await this.supabase.auth.signInWithPassword({
           email: credentials.email,
           password: credentials.password,
+          options: {
+            captchaToken: credentials.otpCode, // reuse field for MFA/OTP when required by backend
+          },
         });
 
         if (error) {
@@ -247,6 +272,20 @@ export class AuthService extends BaseService {
     const passwordValidation = validatePassword(newPassword);
     if (!passwordValidation.valid) {
       throw new ValidationError(passwordValidation.errors.join('. '));
+    }
+
+    const breached = await checkPasswordBreach(newPassword);
+    if (breached) {
+      throw new ValidationError('Password appears in breach corpus. Choose a different password.');
+    }
+
+    const config = getConfig();
+    if (config.auth.mfaEnabled) {
+      securityLogger.log({
+        category: 'authentication',
+        action: 'password-update-mfa-required',
+        severity: 'info',
+      });
     }
 
     this.log('info', 'Updating password');
