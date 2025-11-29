@@ -21,7 +21,8 @@ export {
 } from './validateEnv';
 export type { ValidationResult, LLMValidationResult } from './validateEnv';
 
-// Health checks (SERVER-SIDE ONLY - import directly from api/health/config in Node.js code)
+// Health check types (safe for client-side, moved to avoid importing server code)
+export type { ConfigHealth, ComponentHealth, HealthStatus } from '../types/health';
+
+// Health check functions (SERVER-SIDE ONLY - import directly from api/health/config in Node.js code)
 // DO NOT export here as this file is used by client-side code
-// export { getConfigHealth, logConfigHealth, getConfigHealthJSON } from '../api/health/config';
-export type { ConfigHealth, ComponentHealth, HealthStatus } from '../api/health/config';

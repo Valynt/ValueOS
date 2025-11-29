@@ -1,8 +1,13 @@
-import { redisClient } from './llmRateLimiter';
+// NOTE: Redis client import removed to avoid bundling server-side Express middleware in client
+// If Redis is needed, it should be conditionally imported server-side only
+// import { redisClient } from './llmRateLimiter';
 
 /**
- * Nonce store with Redis backing and in-memory fallback.
+ * Nonce store with in-memory storage.
  * Prevents replay attacks when combined with timestamp checks.
+ * 
+ * Note: Redis backing removed to prevent client/server code mixing.
+ * For production, implement Redis in server-side middleware only.
  */
 class NonceStore {
   private memory = new Map<string, number>();
@@ -16,20 +21,7 @@ class NonceStore {
    * Returns true if nonce is unique (not seen), false if replayed.
    */
   async consumeOnce(key: string): Promise<boolean> {
-    // Prefer Redis if connected
-    try {
-      if (redisClient?.isOpen) {
-        const result = await redisClient.set(key, '1', {
-          NX: true,
-          PX: this.ttlMs,
-        });
-        return result === 'OK';
-      }
-    } catch (error) {
-      // fall through to memory cache
-      console.error('NonceStore redis error', error);
-    }
-
+    // Use in-memory cache only (Redis integration should be server-side only)
     const now = Date.now();
     const existing = this.memory.get(key);
     if (existing && now - existing < this.ttlMs) {
