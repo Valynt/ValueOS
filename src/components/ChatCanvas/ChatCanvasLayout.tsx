@@ -40,6 +40,7 @@ import { SDUIPageDefinition } from '../../sdui/schema';
 import { StreamingUpdate } from '../../services/UnifiedAgentOrchestrator';
 import { agentChatService } from '../../services/AgentChatService';
 import { WorkflowState } from '../../repositories/WorkflowStateRepository';
+import { WorkflowStateService } from '../../services/WorkflowStateService';
 import { supabase } from '../../lib/supabase';
 import { valueCaseService } from '../../services/ValueCaseService';
 import { logger } from '../../lib/logger';
@@ -316,6 +317,7 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
   const [isFetchingCases, setIsFetchingCases] = useState(true);
   const [streamingUpdate, setStreamingUpdate] = useState<StreamingUpdate | null>(null);
   const [workflowState, setWorkflowState] = useState<WorkflowState | null>(null);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   
   // New case modal state
   const [isNewCaseModalOpen, setIsNewCaseModalOpen] = useState(false);
@@ -337,6 +339,12 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
   // User/tenant for CRM import
   const [currentUserId, setCurrentUserId] = useState<string | undefined>();
   const [currentTenantId, setCurrentTenantId] = useState<string | undefined>();
+
+  // Workflow state service (initialized once)
+  const workflowStateService = React.useMemo(
+    () => new WorkflowStateService(supabase),
+    []
+  );
 
   // Derived state
   const selectedCase = cases.find(c => c.id === selectedCaseId);
@@ -399,16 +407,39 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
 
   // Initialize workflow state for selected case
   useEffect(() => {
-    if (selectedCase) {
-      setWorkflowState({
-        currentStage: selectedCase.stage,
-        status: 'in_progress',
-        completedStages: [],
-        context: {
+    if (selectedCase && currentUserId) {
+      // Load or create session for this case
+      workflowStateService
+        .loadOrCreateSession({
           caseId: selectedCase.id,
-          company: selectedCase.company,
-        },
-      });
+          userId: currentUserId,
+          initialStage: selectedCase.stage as any,
+          context: {
+            company: selectedCase.company,
+          },
+        })
+        .then(({ sessionId, state }) => {
+          setCurrentSessionId(sessionId);
+          setWorkflowState(state);
+          logger.info('Workflow session initialized', {
+            sessionId,
+            caseId: selectedCase.id,
+            stage: state.currentStage,
+          });
+        })
+        .catch((error) => {
+          logger.error('Failed to initialize workflow session', error);
+          // Fallback to in-memory state
+          setWorkflowState({
+            currentStage: selectedCase.stage,
+            status: 'in_progress',
+            completedStages: [],
+            context: {
+              caseId: selectedCase.id,
+              company: selectedCase.company,
+            },
+          });
+        });
 
       // If case has cached SDUI page, render it
       if (selectedCase.sduiPage) {
@@ -420,8 +451,9 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
     } else {
       setWorkflowState(null);
       setRenderedPage(null);
+      setCurrentSessionId(null);
     }
-  }, [selectedCaseId]);
+  }, [selectedCaseId, currentUserId, workflowStateService]);
 
   // Keyboard shortcut for command bar
   useEffect(() => {
@@ -455,17 +487,34 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
 
       setStreamingUpdate({ stage: 'processing', message: 'Consulting AI agent...' });
 
+      // Use current session ID or fall back to access token
+      const actualSessionId = currentSessionId || sessionId;
+
       // Process through AgentChatService (uses Together.ai LLM)
       const result = await agentChatService.chat({
         query,
         caseId: selectedCaseId,
         userId,
-        sessionId,
+        sessionId: actualSessionId,
         workflowState,
       });
 
-      // Update workflow state
+      // Update workflow state in memory
       setWorkflowState(result.nextState);
+
+      // Persist workflow state to database
+      if (currentSessionId) {
+        try {
+          await workflowStateService.saveWorkflowState(currentSessionId, result.nextState);
+          logger.debug('Workflow state persisted after chat', {
+            sessionId: currentSessionId,
+            stage: result.nextState.currentStage,
+          });
+        } catch (error) {
+          logger.warn('Failed to persist workflow state', { error });
+          // Continue even if persistence fails
+        }
+      }
 
       setStreamingUpdate({ stage: 'generating', message: 'Generating response...' });
 
