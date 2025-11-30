@@ -9,7 +9,7 @@
  * This is the simplified UI following the chat + canvas pattern.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import {
   Plus,
   Sparkles,
@@ -46,6 +46,27 @@ import { valueCaseService } from '../../services/ValueCaseService';
 import { logger } from '../../lib/logger';
 import { v4 as uuidv4 } from 'uuid';
 import { sduiTelemetry, TelemetryEventType } from '../../lib/telemetry/SDUITelemetry';
+
+// ============================================================================
+// Custom Hooks
+// ============================================================================
+
+/**
+ * useEvent Hook - Always gets latest callback without closure issues
+ * Solves the stale closure problem in setTimeout/setInterval
+ */
+function useEvent<T extends (...args: any[]) => any>(handler: T): T {
+  const handlerRef = useRef<T>(handler);
+  
+  useLayoutEffect(() => {
+    handlerRef.current = handler;
+  });
+  
+  return useCallback(((...args) => {
+    const fn = handlerRef.current;
+    return fn(...args);
+  }) as T, []);
+}
 
 // ============================================================================
 // Types
@@ -160,8 +181,36 @@ const EmptyCanvas: React.FC<{
   onNewCase: () => void;
   onStarterAction: (action: string, data?: any) => void;
 }> = ({ onNewCase, onStarterAction }) => {
+  const [isDragging, setIsDragging] = useState(false);
+  
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+  
+  const handleDragLeave = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+  
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      onStarterAction('upload_notes', { files });
+    }
+  }, [onStarterAction]);
+  
   return (
-    <div className="flex flex-col items-center justify-center h-full bg-gray-950 p-8">
+    <div 
+      className={`flex flex-col items-center justify-center h-full bg-gray-950 p-8 transition-all ${
+        isDragging ? 'ring-2 ring-indigo-500 ring-inset bg-gray-900' : ''
+      }`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <div className="max-w-3xl w-full">
         {/* Header */}
         <div className="text-center mb-10">
@@ -520,7 +569,7 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
   }, []);
 
   // Handle command submission
-  const handleCommand = useCallback(async (query: string) => {
+  const handleCommand = useEvent(async (query: string) => {
     if (!workflowState || !selectedCaseId) {
       // No case selected, prompt user to create one first
       setIsNewCaseModalOpen(true);
@@ -690,7 +739,7 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [workflowState, selectedCaseId]);
+  });
 
   // Handle new case creation
   const handleNewCase = useCallback((companyName: string, website: string) => {
@@ -826,7 +875,7 @@ Please analyze these notes and help me build a value hypothesis. What key value 
         extractedInsights: notes.insights,
       },
     }).catch(err => logger.warn('Failed to persist case from notes', { error: err }));
-  }, [handleCommand]);
+  }, []);
 
   // Handle email analysis completion
   const handleEmailComplete = useCallback((analysis: EmailAnalysis, rawText: string) => {
@@ -902,7 +951,7 @@ Based on this email analysis, help me create a value hypothesis and action plan.
         emailAnalysis: analysis,
       },
     }).catch(err => logger.warn('Failed to persist case from email', { error: err }));
-  }, [handleCommand]);
+  }, []);
 
   // Handle CRM import completion
   const handleCRMImportComplete = useCallback((mappedCase: MappedValueCase, deal: CRMDeal) => {
@@ -971,7 +1020,7 @@ Based on this deal information, help me:
         stakeholders: mappedCase.metadata.stakeholders,
       },
     }).catch(err => logger.warn('Failed to persist case from CRM', { error: err }));
-  }, [handleCommand]);
+  }, []);
 
   // Handle sales call analysis completion
   const handleSalesCallComplete = useCallback((analysis: CallAnalysis, transcript: string) => {
@@ -1048,7 +1097,7 @@ Based on this call analysis, help me:
         nextSteps: analysis.nextSteps,
       },
     }).catch(err => logger.warn('Failed to persist case from call', { error: err }));
-  }, [handleCommand]);
+  }, []);
 
   return (
     <div className="flex h-screen bg-gray-950">
