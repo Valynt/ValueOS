@@ -2,6 +2,10 @@
 # ValueCanvas Development Docker Compose
 # ============================================================================
 # Local development environment with hot-reloading
+# Security hardened while maintaining developer productivity
+# 
+# IMPORTANT: This uses WEAK PASSWORDS suitable only for LOCAL DEVELOPMENT.
+# Never use these configurations in production!
 # ============================================================================
 
 version: '3.8'
@@ -31,17 +35,13 @@ services:
       - ./package-lock.json:/app/package-lock.json:cached
       # Exclude node_modules (use container's version)
       - /app/node_modules
+    env_file:
+      - .env.local  # Load from .env.local (copy from .env.dev.example)
     environment:
       - NODE_ENV=development
       - VITE_HOST=0.0.0.0
       - VITE_PORT=5173
       - VITE_HMR_PORT=24678
-      # Supabase (use .env.local values)
-      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
-      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
-      # LLM API
-      - VITE_LLM_API_KEY=${VITE_LLM_API_KEY}
-      - VITE_LLM_PROVIDER=${VITE_LLM_PROVIDER:-together}
     networks:
       - valuecanvas-network
     restart: unless-stopped
@@ -51,19 +51,34 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    # Security hardening (dev environment)
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # ============================================================================
   # PostgreSQL Database (Optional - for local testing)
   # ============================================================================
+  # WARNING: Uses weak password for LOCAL DEVELOPMENT only!
+  # Consider commenting out port mapping (5432:5432) to reduce attack surface
+  # Access DB via container network instead of exposing to host
   postgres:
     image: postgres:15-alpine
     container_name: valuecanvas-postgres
+    # Port mapping - consider removing for better security
+    # Comment out the next 2 lines to prevent exposing PostgreSQL to host
     ports:
       - "5432:5432"
+    env_file:
+      - .env.local
     environment:
-      - POSTGRES_DB=valuecanvas
-      - POSTGRES_USER=valuecanvas
-      - POSTGRES_PASSWORD=valuecanvas_dev_password
+      - POSTGRES_DB=${POSTGRES_DB:-valuecanvas}
+      - POSTGRES_USER=${POSTGRES_USER:-valuecanvas}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-valuecanvas_dev_password_CHANGE_ME}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./supabase/migrations:/docker-entrypoint-initdb.d:ro
@@ -71,30 +86,55 @@ services:
       - valuecanvas-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U valuecanvas"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-valuecanvas}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    # Security hardening (dev environment)
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # ============================================================================
   # Redis (Optional - for rate limiting and caching)
   # ============================================================================
+  # WARNING: Uses weak password for LOCAL DEVELOPMENT only!
   redis:
     image: redis:7-alpine
     container_name: valuecanvas-redis
+    # Port mapping - consider removing for better security
     ports:
       - "6379:6379"
+    env_file:
+      - .env.local
     volumes:
       - redis-data:/data
     networks:
       - valuecanvas-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD:-redis_dev_password_CHANGE_ME}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-    command: redis-server --appendonly yes
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD:-redis_dev_password_CHANGE_ME}
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+    # Security hardening (dev environment)
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 # ============================================================================
 # Networks

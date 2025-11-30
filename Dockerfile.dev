@@ -2,29 +2,60 @@
 # ValueCanvas Development Dockerfile
 # ============================================================================
 # Optimized for local development with hot-reloading
+# Security hardened while maintaining developer productivity
 # ============================================================================
 
 FROM node:20-alpine
 
-# Install development tools
-RUN apk update && apk add --no-cache \
+# Install security updates and development tools
+RUN apk update && apk upgrade && apk add --no-cache \
     git \
     curl \
+    dumb-init \
     && rm -rf /var/cache/apk/*
+
+# Create non-root user for development (matching production standards)
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodeuser -u 1001 -G nodejs
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy package files with proper ownership
+COPY --chown=nodeuser:nodejs package*.json ./
+
+# Switch to non-root user for npm install
+USER nodeuser
 
 # Install all dependencies (including devDependencies)
 RUN npm ci --legacy-peer-deps
 
-# Copy source code (will be overridden by volume mount)
-COPY . .
+# Copy source code (will be overridden by volume mount in docker-compose)
+# Using root temporarily for COPY, then switching back
+USER root
+COPY --chown=nodeuser:nodejs . .
+USER nodeuser
 
 # Expose ports
+# 5173: Vite dev server
+# 24678: Vite HMR (Hot Module Replacement)
 EXPOSE 5173 24678
 
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:5173/ || exit 1
+
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
+
 # Start development server
+# Binds to 0.0.0.0 to allow access from host (safe in development context)
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+
+# ============================================================================
+# Metadata
+# ============================================================================
+LABEL maintainer="ValueCanvas Team"
+LABEL version="2.0-dev"
+LABEL description="ValueCanvas Development Environment"
+LABEL security.standard="Operation Fortress - Development"
+LABEL org.opencontainers.image.source="https://github.com/bmsull560/ValueCanvas"
