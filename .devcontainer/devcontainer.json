@@ -42,8 +42,8 @@
 		"source=valuecanvas-bashhistory,target=/home/vscode/commandhistory,type=volume",
 		// Persist VS Code extensions
 		"source=valuecanvas-vscode-extensions,target=/home/vscode/.vscode-server/extensions,type=volume",
-		// Mount git config (optional - uncomment if needed)
-		// "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached"
+		// Share git configuration (Windows: USERPROFILE, Linux/Mac: HOME)
+		"source=${localEnv:USERPROFILE}${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached"
 	],
 
 	// VS Code extensions to install
@@ -94,19 +94,28 @@
 		}
 	},
 
-	// Post-create command to install dependencies
-	"postCreateCommand": "npm install",
-
-	// Post-start command to display welcome message
-	"postStartCommand": "echo '🚀 ValueCanvas development environment ready! Run npm run dev to start.'",
-
 	// Features (optional enhancements)
 	"features": {
 		"ghcr.io/devcontainers/features/git:1": {
-			"version": "latest"
+			"version": "latest",
+			"ppa": false
 		},
 		"ghcr.io/devcontainers/features/github-cli:1": {
 			"version": "latest"
+		},
+		"ghcr.io/devcontainers/features/git-lfs:1": {
+			"version": "latest"
 		}
-	}
+	},
+
+	// Configure git to use host credentials
+	"containerEnv": {
+		"GIT_EDITOR": "code --wait"
+	},
+
+	// Post-create command: install dependencies and configure git
+	"postCreateCommand": "npm install && git config --global credential.helper store",
+
+	// Post-start command to display welcome message
+	"postStartCommand": "echo '🚀 ValueCanvas development environment ready! Run npm run dev to start.'"
 }

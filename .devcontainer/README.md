@@ -33,6 +33,9 @@ Both are hardened following **Operation Fortress** security standards while main
    - ✅ Persistent bash history
    - ✅ Hot module reloading
    - ✅ Security hardened
+   - ✅ Git configuration shared from host
+   - ✅ Git credential helper configured
+   - ✅ GitHub CLI and Git LFS included
 
 ### Option 2: Docker Compose Development
 
@@ -199,6 +202,27 @@ VITE_PORT=5174
    ```bash
    docker-compose -f docker-compose.dev.yml exec postgres psql -U valuecanvas -d valuecanvas
    ```
+
+### Git not working or asking for credentials
+
+The dev container shares your `.gitconfig` from the host:
+
+1. **Verify git config is mounted:**
+   ```bash
+   # Inside container
+   cat ~/.gitconfig
+   ```
+
+2. **Configure git if needed:**
+   ```bash
+   git config --global user.name "Your Name"
+   git config --global user.email "your.email@example.com"
+   ```
+
+3. **For GitHub authentication:**
+   - Use the built-in GitHub CLI: `gh auth login`
+   - Or use a personal access token
+   - Credentials are stored via `credential.helper store`
 
 ## 📚 Resources
 
