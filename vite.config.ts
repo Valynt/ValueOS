@@ -7,6 +7,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     headers: getEnvironmentHeaders('development'),
+    // Optional: Enable HTTPS for local development
+    // Uncomment the next line to use HTTPS (will use self-signed certificate)
+    // https: true,
   },
   preview: {
     headers: getEnvironmentHeaders('production'),
