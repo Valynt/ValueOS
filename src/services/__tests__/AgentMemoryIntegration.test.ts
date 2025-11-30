@@ -120,7 +120,7 @@ describe('AgentMemoryIntegration', () => {
         agent: 'opportunity' as const,
         query: 'Find market opportunities',
         useMemory: true,
-        context: { industry: 'tech' },
+        context: { industry: 'tech' } as any,
       };
 
       const mockAgentAPI = integration.getAgentAPI() as any;

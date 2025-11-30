@@ -1,11 +1,12 @@
 /**
- * LLM Cost Tracking and Alert System
+ * LLM Cost Tracker
  * 
- * Tracks Together.ai API usage and costs, sends alerts when thresholds are exceeded.
- * Provides analytics and cost optimization insights.
+ * Tracks and monitors LLM usage costs across the application.
+ * Provides cost analytics, alerts, and optimization recommendations.
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { logger } from '../lib/logger';
 
 /**
  * Together.ai pricing (as of 2024)
@@ -145,7 +146,7 @@ export class LLMCostTracker {
       .insert(record);
     
     if (error) {
-      console.error('Failed to track LLM usage:', error);
+      logger.error('Failed to track LLM usage', error);
     }
     
     // Check for cost threshold violations
@@ -173,7 +174,7 @@ export class LLMCostTracker {
     const { data, error } = await query;
     
     if (error) {
-      console.error('Failed to get cost for period:', error);
+      logger.error('Failed to get cost for period', error);
       return 0;
     }
     
@@ -294,7 +295,7 @@ export class LLMCostTracker {
     this.alertsSent.add(alertKey);
     setTimeout(() => this.alertsSent.delete(alertKey), 60 * 60 * 1000);
     
-    console.error('LLM COST ALERT:', alert);
+    logger.warn('LLM COST ALERT', alert as any);
     
     // Store alert in database
     await this.supabase.from('cost_alerts').insert({
@@ -361,7 +362,7 @@ export class LLMCostTracker {
         })
       });
     } catch (error) {
-      console.error('Failed to send Slack alert:', error);
+      logger.error('Failed to send Slack alert', error instanceof Error ? error : new Error(String(error)));
     }
   }
   
@@ -370,7 +371,7 @@ export class LLMCostTracker {
    */
   private async sendEmailAlert(alert: CostAlert): Promise<void> {
     // Implement email sending (e.g., using SendGrid, AWS SES)
-    console.log('Email alert would be sent:', alert);
+    logger.info('Email alert would be sent', alert as any);
   }
   
   /**

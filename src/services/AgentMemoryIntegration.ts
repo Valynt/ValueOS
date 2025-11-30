@@ -43,8 +43,8 @@ export class AgentMemoryIntegration {
 
   constructor() {
     this.agentAPI = new AgentAPI();
-    this.llmGateway = new LLMGateway(supabase);
-    this.memorySystem = new MemorySystem(supabase, this.llmGateway);
+    this.llmGateway = new LLMGateway(supabase as any);
+    this.memorySystem = new MemorySystem(supabase as any, this.llmGateway);
   }
 
   /**
@@ -128,9 +128,8 @@ export class AgentMemoryIntegration {
         },
       };
     } catch (error) {
-      logger.error('Agent invocation with memory failed', {
+      logger.error('Agent invocation with memory failed', error instanceof Error ? error : new Error(String(error)), {
         agent: request.agent,
-        error: error instanceof Error ? error.message : String(error),
         sessionId,
       });
       throw error;
@@ -209,11 +208,11 @@ export class AgentMemoryIntegration {
         },
         finalState: {
           result: response.data,
-          tokens: response.tokenUsage,
+          tokens: (response as any).tokenUsage,
         },
         success: response.success,
         rewardScore: this.calculateRewardScore(response),
-        durationSeconds: (response.tokenUsage?.totalTokens || 0) / 1000, // Rough estimate
+        durationSeconds: ((response as any).tokenUsage?.totalTokens || 0) / 1000, // Rough estimate
       });
 
       // Store episodic memory for quick retrieval
@@ -229,8 +228,7 @@ export class AgentMemoryIntegration {
 
       return episodeId;
     } catch (error) {
-      logger.error('Failed to store episode', {
-        error: error instanceof Error ? error.message : String(error),
+      logger.error('Failed to store episode', error instanceof Error ? error : new Error(String(error)), {
         sessionId,
         agent: request.agent,
       });
@@ -250,8 +248,8 @@ export class AgentMemoryIntegration {
     }
 
     // Token efficiency bonus (fewer tokens = better)
-    if (response.tokenUsage) {
-      const totalTokens = response.tokenUsage.totalTokens || 0;
+    if ((response as any).tokenUsage) {
+      const totalTokens = (response as any).tokenUsage.totalTokens || 0;
       if (totalTokens < 500) {
         score += 0.2;
       } else if (totalTokens < 1000) {
@@ -279,7 +277,7 @@ export class AgentMemoryIntegration {
     averageReward: number;
   }> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('episodes')
         .select('reward_score')
         .eq('session_id', sessionId);
@@ -288,7 +286,7 @@ export class AgentMemoryIntegration {
 
       const episodes = data || [];
       const totalReward = episodes.reduce(
-        (sum, ep) => sum + (ep.reward_score || 0),
+        (sum: number, ep: any) => sum + (ep.reward_score || 0),
         0
       );
 
@@ -298,8 +296,7 @@ export class AgentMemoryIntegration {
         averageReward: episodes.length > 0 ? totalReward / episodes.length : 0,
       };
     } catch (error) {
-      logger.error('Failed to get session memory stats', {
-        error: error instanceof Error ? error.message : String(error),
+      logger.error('Failed to get session memory stats', error instanceof Error ? error : new Error(String(error)), {
         sessionId,
       });
       return {
@@ -316,21 +313,20 @@ export class AgentMemoryIntegration {
   async clearSessionMemory(sessionId: string): Promise<void> {
     try {
       // Delete all episodes for this session
-      await supabase
+      await (supabase as any)
         .from('episodes')
         .delete()
         .eq('session_id', sessionId);
 
       // Delete all episodic memories
-      await supabase
+      await (supabase as any)
         .from('agent_memory')
         .delete()
         .eq('session_id', sessionId);
 
       logger.info('Cleared session memory', { sessionId });
     } catch (error) {
-      logger.error('Failed to clear session memory', {
-        error: error instanceof Error ? error.message : String(error),
+      logger.error('Failed to clear session memory', error instanceof Error ? error : new Error(String(error)), {
         sessionId,
       });
       throw error;
