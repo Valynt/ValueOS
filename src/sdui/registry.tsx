@@ -23,6 +23,12 @@ import {
   SDUIForm,
   ScenarioSelector,
 } from '../components/SDUI';
+import {
+  VerticalSplit,
+  HorizontalSplit,
+  Grid,
+  DashboardPanel,
+} from '../components/SDUI/CanvasLayout';
 import { SDUIComponentSection } from './schema';
 
 export interface RegistryEntry {
@@ -33,6 +39,32 @@ export interface RegistryEntry {
 }
 
 const baseRegistry: Record<string, RegistryEntry> = {
+  // Layout components
+  VerticalSplit: {
+    component: VerticalSplit,
+    versions: [1],
+    requiredProps: ['ratios', 'children'],
+    description: 'Vertical split layout with configurable ratios',
+  },
+  HorizontalSplit: {
+    component: HorizontalSplit,
+    versions: [1],
+    requiredProps: ['ratios', 'children'],
+    description: 'Horizontal split layout with configurable ratios',
+  },
+  Grid: {
+    component: Grid,
+    versions: [1],
+    requiredProps: ['columns', 'children'],
+    description: 'Responsive grid layout with configurable columns',
+  },
+  DashboardPanel: {
+    component: DashboardPanel,
+    versions: [1],
+    requiredProps: ['children'],
+    description: 'Collapsible panel container for dashboard sections',
+  },
+  
   // Existing components
   InfoBanner: {
     component: InfoBanner,
