@@ -160,7 +160,7 @@ const store = new RateLimitStore();
 /**
  * Default key generator (uses user ID or IP)
  */
-function defaultKeyGenerator(req: Request): string {
+export function getRateLimitKey(req: Request): string {
   const tenantId = (req as any).user?.organizationId || req.header('x-tenant-id');
 
   // Use user ID if authenticated
@@ -185,7 +185,7 @@ export function createRateLimiter(
   customConfig?: Partial<RateLimitConfig>
 ): (req: Request, res: Response, next: NextFunction) => void {
   const config = { ...TIER_CONFIGS[tier], ...customConfig };
-  const keyGenerator = config.keyGenerator || defaultKeyGenerator;
+  const keyGenerator = config.keyGenerator || getRateLimitKey;
 
   return (req: Request, res: Response, next: NextFunction) => {
     // Skip if configured
