@@ -26,10 +26,10 @@ import { getAutonomyConfig } from '../config/autonomy';
 export interface SimulationResult {
   simulation_id: string;
   workflow_definition_id: string;
-  predicted_outcome: any;
+  predicted_outcome: Record<string, unknown>;
   confidence_score: number;
-  risk_assessment: any;
-  steps_simulated: any[];
+  risk_assessment: Record<string, unknown>;
+  steps_simulated: Record<string, unknown>[];
   duration_estimate_seconds: number;
   success_probability: number;
 }
@@ -65,7 +65,7 @@ export class WorkflowOrchestrator {
 
   async executeWorkflow(
     workflowDefinitionId: string,
-    context: Record<string, any> = {}
+    context: Record<string, unknown> = {}
   ): Promise<string> {
     const autonomy = getAutonomyConfig();
     if (autonomy.killSwitchEnabled) {
