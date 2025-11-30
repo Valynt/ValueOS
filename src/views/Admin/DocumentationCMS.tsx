@@ -25,6 +25,7 @@ import {
   Search,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { sanitizeHtml } from '../../utils/sanitizeHtml';
 
 interface DocPage {
   id: string;
@@ -511,7 +512,7 @@ export const DocumentationCMS: React.FC = () => {
                   <article className="prose prose-blue max-w-none">
                     <h1>{selectedPage.title}</h1>
                     {selectedPage.description && <p className="lead">{selectedPage.description}</p>}
-                    <div dangerouslySetInnerHTML={{ __html: selectedPage.content }} />
+                    <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedPage.content) }} />
                   </article>
                 </div>
               )}

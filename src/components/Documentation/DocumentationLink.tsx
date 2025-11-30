@@ -8,6 +8,7 @@
 import React, { useState } from 'react';
 import { HelpCircle, ExternalLink, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { sanitizeHtml } from '../../utils/sanitizeHtml';
 
 interface DocumentationLinkProps {
   /** Documentation page slug to link to */
@@ -169,7 +170,7 @@ const QuickHelpModal: React.FC<QuickHelpModalProps> = ({ content, loading, onClo
               )}
               <div
                 className="prose prose-blue max-w-none"
-                dangerouslySetInnerHTML={{ __html: content.content }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(content.content) }}
               />
             </>
           )}
