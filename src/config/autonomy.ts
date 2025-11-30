@@ -14,6 +14,8 @@ export interface AutonomyConfig {
   serviceIdentityToken?: string;
   agentAutonomyLevels?: Record<string, 'observe' | 'assist' | 'act'>;
   destructiveActions?: string[];
+  agentKillSwitches?: Record<string, boolean>;
+  agentMaxIterations?: Record<string, number>;
 }
 
 export function getAutonomyConfig(): AutonomyConfig {
@@ -25,6 +27,8 @@ export function getAutonomyConfig(): AutonomyConfig {
     serviceIdentityToken: getEnv('SERVICE_IDENTITY_TOKEN', ''),
     agentAutonomyLevels: JSON.parse(getEnv('AGENT_AUTONOMY_LEVELS', '{}')),
     destructiveActions: getEnv('DESTRUCTIVE_ACTIONS', '').split(',').map((v) => v.trim()).filter(Boolean),
+    agentKillSwitches: JSON.parse(getEnv('AGENT_KILL_SWITCHES', '{}')),
+    agentMaxIterations: JSON.parse(getEnv('AGENT_MAX_ITERATIONS', '{}')),
   };
 }
 

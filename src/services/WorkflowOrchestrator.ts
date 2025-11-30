@@ -180,6 +180,25 @@ export class WorkflowOrchestrator {
         throw new Error('Autonomy guard: observe-only agent attempted action');
       }
 
+      // Enforce per-agent kill switches and iteration limits
+      const agentKillSwitches = autonomy.agentKillSwitches || {};
+      if (stageAgentId && agentKillSwitches[stageAgentId]) {
+        await this.handleWorkflowFailure(executionId, `Agent ${stageAgentId} is disabled by kill switch`);
+        throw new Error('Autonomy guard: agent disabled');
+      }
+
+      const agentMaxIterations = autonomy.agentMaxIterations || {};
+      const maxIterations = stageAgentId ? agentMaxIterations[stageAgentId] : undefined;
+      if (maxIterations !== undefined) {
+        const executed = (executionContext.executed_steps || []).filter(
+          (s: any) => s.agent_id === stageAgentId
+        ).length;
+        if (executed >= maxIterations) {
+          await this.handleWorkflowFailure(executionId, `Agent ${stageAgentId} exceeded iteration limit`);
+          throw new Error('Autonomy guard: iteration limit exceeded');
+        }
+      }
+
       // Block destructive actions lacking approval, based on configured keywords
       const destructiveActions = autonomy.destructiveActions || [];
       if (destructiveActions.length > 0 && route?.stage?.actions) {
