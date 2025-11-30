@@ -243,7 +243,7 @@ describe('Tenant Isolation Tests', () => {
 
     it('should check permissions before data access', async () => {
       // Simulate permission check
-      const hasPermission = (userId: string, resource: string, action: string) => {
+      const hasPermission = (userId: string, _resource: string, _action: string) => {
         // Mock permission logic
         return userId === 'admin-user';
       };
@@ -385,7 +385,7 @@ describe('Tenant Isolation Tests', () => {
     it('should automatically scope all SELECT queries to tenant', async () => {
       const tenantId = 'tenant-1';
       
-      mockSupabase.from.mockImplementation((table: string) => {
+      mockSupabase.from.mockImplementation((_table: string) => {
         const mockQuery = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),

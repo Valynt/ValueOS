@@ -64,19 +64,6 @@ export function validateLLMConfig(): LLMValidationResult {
   // Get current provider from llmConfig
   const { provider, gatingEnabled } = llmConfig;
 
-  // Check for leaked secrets (client-side check)
-  const leakedSecrets = [
-    'VITE_TOGETHER_API_KEY',
-    'VITE_OPENAI_API_KEY',
-    'VITE_SUPABASE_SERVICE_ROLE_KEY',
-  ].filter((key) => Boolean(getEnv(key)));
-
-  if (leakedSecrets.length > 0) {
-    errors.push(
-      `SECURITY: API keys must not have VITE_ prefix: ${leakedSecrets.join(', ')}`
-    );
-  }
-
   // Validate provider configuration
   if (!provider || (provider !== 'together' && provider !== 'openai')) {
     errors.push(
@@ -91,6 +78,17 @@ export function validateLLMConfig(): LLMValidationResult {
   if (isNodeEnv) {
     const togetherKey = process.env.TOGETHER_API_KEY;
     const openaiKey = process.env.OPENAI_API_KEY;
+    const leakedClientKeys = [
+      'VITE_TOGETHER_API_KEY',
+      'VITE_OPENAI_API_KEY',
+      'VITE_SUPABASE_SERVICE_ROLE_KEY',
+    ].filter((key) => Boolean(process.env[key]));
+
+    if (leakedClientKeys.length > 0) {
+      errors.push(
+        `SECURITY: API keys must not use VITE_ prefix or be present in client builds: ${leakedClientKeys.join(', ')}`
+      );
+    }
 
     // Check provider-specific keys
     if (provider === 'together') {
