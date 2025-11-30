@@ -1,17 +1,31 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { getRateLimitKey, createRateLimiter } from '../rateLimiter';
 
-const mockReq = (overrides: any = {}) =>
-  ({
+const mockReq = (overrides: any = {}) => {
+  const headers = overrides.headers || {};
+  return {
     user: overrides.user || undefined,
-    headers: overrides.headers || {},
+    headers,
+    header: (name: string) => headers[name.toLowerCase()],
+    get: (name: string) => headers[name.toLowerCase()],
     ip: overrides.ip || '1.1.1.1',
     socket: { remoteAddress: overrides.remoteAddress || '1.1.1.1' },
     path: overrides.path || '/test',
     method: overrides.method || 'GET',
-  } as any);
+  } as any;
+};
 
 describe('rateLimiter tenant isolation', () => {
+  // Reset rate limiter state between tests
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.clearAllTimers();
+    vi.useRealTimers();
+  });
+
   it('keys by tenant + user when both are present', () => {
     const key = getRateLimitKey(
       mockReq({
@@ -37,30 +51,35 @@ describe('rateLimiter tenant isolation', () => {
 
   it('enforces limits per tenant boundary', () => {
     const limiter = createRateLimiter('standard');
-    const res: any = {
-      headers: {},
-      setHeader: vi.fn(function (name: string, value: string) {
-        this.headers[name] = value;
-      }),
-      status: vi.fn().mockReturnThis(),
-      json: vi.fn().mockReturnThis(),
+    
+    const makeRes = () => {
+      const headers: Record<string, string> = {};
+      return {
+        headers,
+        setHeader: vi.fn((name: string, value: string | number) => {
+          headers[name] = String(value);
+        }),
+        status: vi.fn().mockReturnThis(),
+        json: vi.fn().mockReturnThis(),
+      };
     };
-    const next = vi.fn();
 
     // Tenant A first request
-    limiter(mockReq({ headers: { 'x-tenant-id': 'org-A' } }), res, next);
-    expect(res.headers['X-RateLimit-Remaining']).toBe(59);
+    const resA1 = makeRes();
+    const nextA1 = vi.fn();
+    limiter(mockReq({ headers: { 'x-tenant-id': 'org-A' } }), resA1 as any, nextA1);
+    expect(resA1.headers['X-RateLimit-Remaining']).toBe('59');
 
     // Tenant B first request should not decrement Tenant A's remaining
-    const resB: any = { ...res, headers: {}, setHeader: res.setHeader.bind({ headers: {} }) };
-    const nextB = vi.fn();
-    limiter(mockReq({ headers: { 'x-tenant-id': 'org-B' } }), resB, nextB);
-    expect(resB.headers['X-RateLimit-Remaining']).toBe(59);
+    const resB1 = makeRes();
+    const nextB1 = vi.fn();
+    limiter(mockReq({ headers: { 'x-tenant-id': 'org-B' } }), resB1 as any, nextB1);
+    expect(resB1.headers['X-RateLimit-Remaining']).toBe('59');
 
     // Tenant A second request decrements its own quota
-    const resA2: any = { ...res, headers: {}, setHeader: res.setHeader.bind({ headers: {} }) };
+    const resA2 = makeRes();
     const nextA2 = vi.fn();
-    limiter(mockReq({ headers: { 'x-tenant-id': 'org-A' } }), resA2, nextA2);
-    expect(resA2.headers['X-RateLimit-Remaining']).toBe(58);
+    limiter(mockReq({ headers: { 'x-tenant-id': 'org-A' } }), resA2 as any, nextA2);
+    expect(resA2.headers['X-RateLimit-Remaining']).toBe('58');
   });
 });

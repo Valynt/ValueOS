@@ -7,7 +7,7 @@ describe('SDUI schema validation', () => {
     const result = validateSDUISchema(OpportunityTemplate);
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.page.sections.length).toBe(2);
+      expect(result.page.sections.length).toBe(3);
     }
   });
 

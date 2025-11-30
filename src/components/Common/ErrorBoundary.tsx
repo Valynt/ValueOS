@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { logger } from '../../lib/logger';
 
 interface Props {
   children: ReactNode;
@@ -23,7 +24,9 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    logger.error('ErrorBoundary caught an error:', error, errorInfo);
+    logger.error('ErrorBoundary caught an error:', error, { 
+      componentStack: errorInfo.componentStack 
+    });
     this.props.onError?.(error, errorInfo);
 
     const announcement = document.createElement('div');
