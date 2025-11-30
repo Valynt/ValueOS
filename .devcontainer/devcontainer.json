@@ -1,20 +1,112 @@
-// The Dev Container format allows you to configure your environment. At the heart of it
-// is a Docker image or Dockerfile which controls the tools available in your environment.
-//
-// See https://aka.ms/devcontainer.json for more information.
+// ============================================================================
+// ValueCanvas Development Container Configuration
+// ============================================================================
+// VS Code Remote Containers configuration with security hardening
+// See https://aka.ms/devcontainer.json for reference
+// ============================================================================
 {
-	"name": "Ona",
-	// Use "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
-	// instead of the build to use a pre-built image.
+	"name": "ValueCanvas Development",
+	
+	// Build configuration
 	"build": {
-        "context": ".",
-        "dockerfile": "Dockerfile"
-    }
-	// Features add additional features to your environment. See https://containers.dev/features
-	// Beware: features are not supported on all platforms and may have unintended side-effects.
-	// "features": {
-    //   "ghcr.io/devcontainers/features/docker-in-docker": {
-    //     "moby": false
-    //   }
-    // }
+		"context": "..",
+		"dockerfile": "Dockerfile"
+	},
+
+	// Container user (non-root for security)
+	"remoteUser": "vscode",
+	"containerUser": "vscode",
+
+	// Security options
+	"runArgs": [
+		"--security-opt=no-new-privileges",
+		"--cap-drop=ALL"
+	],
+
+	// Port forwarding for development server and HMR
+	"forwardPorts": [5173, 24678],
+	"portsAttributes": {
+		"5173": {
+			"label": "Vite Dev Server",
+			"onAutoForward": "notify"
+		},
+		"24678": {
+			"label": "Vite HMR",
+			"onAutoForward": "silent"
+		}
+	},
+
+	// Mount configuration
+	"mounts": [
+		// Persist bash history
+		"source=valuecanvas-bashhistory,target=/home/vscode/commandhistory,type=volume",
+		// Persist VS Code extensions
+		"source=valuecanvas-vscode-extensions,target=/home/vscode/.vscode-server/extensions,type=volume",
+		// Mount git config (optional - uncomment if needed)
+		// "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached"
+	],
+
+	// VS Code extensions to install
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				// TypeScript/JavaScript
+				"dbaeumer.vscode-eslint",
+				"esbenp.prettier-vscode",
+				
+				// React
+				"dsznajder.es7-react-js-snippets",
+				
+				// Testing
+				"vitest.explorer",
+				
+				// Git
+				"eamodio.gitlens",
+				"mhutchie.git-graph",
+				
+				// Docker
+				"ms-azuretools.vscode-docker",
+				
+				// Utilities
+				"christian-kohler.path-intellisense",
+				"usernamehw.errorlens",
+				"streetsidesoftware.code-spell-checker",
+				
+				// Tailwind CSS
+				"bradlc.vscode-tailwindcss",
+				
+				// Markdown
+				"yzhang.markdown-all-in-one"
+			],
+			
+			// VS Code settings
+			"settings": {
+				"editor.defaultFormatter": "esbenp.prettier-vscode",
+				"editor.formatOnSave": true,
+				"editor.codeActionsOnSave": {
+					"source.fixAll.eslint": "explicit"
+				},
+				"typescript.tsdk": "node_modules/typescript/lib",
+				"typescript.enablePromptUseWorkspaceTsdk": true,
+				"files.eol": "\n",
+				"terminal.integrated.defaultProfile.linux": "bash"
+			}
+		}
+	},
+
+	// Post-create command to install dependencies
+	"postCreateCommand": "npm install",
+
+	// Post-start command to display welcome message
+	"postStartCommand": "echo '🚀 ValueCanvas development environment ready! Run npm run dev to start.'",
+
+	// Features (optional enhancements)
+	"features": {
+		"ghcr.io/devcontainers/features/git:1": {
+			"version": "latest"
+		},
+		"ghcr.io/devcontainers/features/github-cli:1": {
+			"version": "latest"
+		}
+	}
 }
