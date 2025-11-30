@@ -1,7 +1,7 @@
 import { logger } from './lib/logger';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import App from './App.tsx';
+import AppRoutes from './AppRoutes.tsx';
 import './index.css';
 import { bootstrap } from './bootstrap';
 import { isProduction, isDevelopment } from './config/environment';
@@ -93,7 +93,7 @@ async function main() {
     console.log('[DEBUG] Root created, rendering React app...');
     root.render(
       <StrictMode>
-        <App />
+        <AppRoutes />
       </StrictMode>
     );
 

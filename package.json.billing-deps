@@ -1,0 +1,17 @@
+{
+  "description": "Dependencies to add for billing system",
+  "dependencies": {
+    "stripe": "^14.7.0",
+    "uuid": "^9.0.1",
+    "redis": "^4.6.11"
+  },
+  "devDependencies": {
+    "@types/uuid": "^9.0.7"
+  },
+  "scripts": {
+    "billing:aggregate": "node -r ts-node/register src/services/metering/UsageAggregator.ts",
+    "billing:submit": "node -r ts-node/register src/services/metering/UsageSink.ts",
+    "billing:setup-stripe": "./infrastructure/billing/stripe-products-setup.sh"
+  },
+  "instructions": "Run: npm install stripe uuid redis && npm install --save-dev @types/uuid"
+}
