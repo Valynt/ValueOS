@@ -13,10 +13,11 @@
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["vitest", "vitest/globals"],
+    "types": ["vitest", "vitest/globals", "node"],
 
     /* Linting */
     "strict": true,
+    "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true

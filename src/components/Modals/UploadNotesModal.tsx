@@ -5,14 +5,24 @@
  * Extracts content and creates a value case with AI-generated insights.
  */
 
-import React, { useState, useCallback, useRef } from 'react';
-import { X, Upload, FileText, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import {
+  X,
+  Upload,
+  FileText,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+  Sparkles,
+} from 'lucide-react';
+import { ProgressBar, StepProgress } from '../Common/ProgressBar';
 import { documentParserService, ExtractedInsights } from '../../services/DocumentParserService';
 
 interface UploadNotesModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onComplete: (data: ExtractedNotes) => void;
+  onComplete: (notes: ExtractedNotes) => void;
+  initialFile?: File | null;
 }
 
 export interface ExtractedNotes {
@@ -28,14 +38,17 @@ export const UploadNotesModal: React.FC<UploadNotesModalProps> = ({
   isOpen,
   onClose,
   onComplete,
+  initialFile,
 }) => {
   const [activeTab, setActiveTab] = useState<'upload' | 'paste'>('upload');
   const [pastedText, setPastedText] = useState('');
   const [uploadState, setUploadState] = useState<UploadState>('idle');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [file, setFile] = useState<File | null>(initialFile || null);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const appliedInitialFileKey = useRef<string | null>(null);
 
   const handleFileSelect = useCallback((file: File) => {
     const validTypes = [
@@ -56,7 +69,7 @@ export const UploadNotesModal: React.FC<UploadNotesModalProps> = ({
       return;
     }
 
-    setSelectedFile(file);
+    setFile(file);
     setError(null);
   }, []);
 
@@ -147,6 +160,7 @@ export const UploadNotesModal: React.FC<UploadNotesModalProps> = ({
     setUploadState('idle');
     setError(null);
     setActiveTab('upload');
+    appliedInitialFileKey.current = null;
   };
 
   const handleClose = () => {
@@ -154,11 +168,37 @@ export const UploadNotesModal: React.FC<UploadNotesModalProps> = ({
     onClose();
   };
 
+  useEffect(() => {
+    if (!isOpen || !initialFile) return;
+
+    const fileKey = `${initialFile.name}-${initialFile.size}-${initialFile.lastModified}`;
+    if (appliedInitialFileKey.current === fileKey) return;
+
+    handleFileSelect(initialFile);
+    appliedInitialFileKey.current = fileKey;
+  }, [isOpen, initialFile, handleFileSelect]);
+
+  // Handle Escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-      <div className="bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl m-4 border border-gray-800">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="upload-notes-title"
+    >
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-800">
           <div className="flex items-center gap-3">
@@ -260,6 +300,7 @@ export const UploadNotesModal: React.FC<UploadNotesModalProps> = ({
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                    aria-label="Choose file to upload"
                   >
                     Choose File
                   </button>
@@ -298,29 +339,32 @@ export const UploadNotesModal: React.FC<UploadNotesModalProps> = ({
             <button
               onClick={handleClose}
               className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+              aria-label="Cancel upload"
             >
               Cancel
             </button>
             <button
               onClick={handleSubmit}
               disabled={uploadState === 'uploading' || uploadState === 'processing'}
+              aria-busy={uploadState === 'uploading' || uploadState === 'processing'}
+              aria-label={uploadState === 'uploading' ? 'Uploading file' : uploadState === 'processing' ? 'Analyzing notes' : 'Analyze notes'}
               className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
             >
               {uploadState === 'uploading' && (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
                   Uploading...
                 </>
               )}
               {uploadState === 'processing' && (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
                   Analyzing...
                 </>
               )}
               {uploadState === 'success' && (
                 <>
-                  <CheckCircle className="w-4 h-4" />
+                  <CheckCircle className="w-4 h-4" aria-hidden="true" />
                   Done!
                 </>
               )}

@@ -24,7 +24,7 @@ export interface AuditLogCreateInput {
   action: string;
   resourceType: string;
   resourceId: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   ipAddress?: string;
   userAgent?: string;
   status?: 'success' | 'failed';
@@ -71,7 +71,7 @@ export class AuditLogService extends BaseService {
       async () => {
         // Sanitize sensitive data
         const sanitizedDetails = input.details
-          ? (sanitizeForLogging(input.details) as Record<string, any>)
+          ? (sanitizeForLogging(input.details) as Record<string, unknown>)
           : {};
 
         // Calculate integrity hash (using secure SHA-256)

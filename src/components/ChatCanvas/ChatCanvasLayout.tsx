@@ -9,7 +9,7 @@
  * This is the simplified UI following the chat + canvas pattern.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import {
   Plus,
   Sparkles,
@@ -40,10 +40,37 @@ import { SDUIPageDefinition } from '../../sdui/schema';
 import { StreamingUpdate } from '../../services/UnifiedAgentOrchestrator';
 import { agentChatService } from '../../services/AgentChatService';
 import { WorkflowState } from '../../repositories/WorkflowStateRepository';
+import { WorkflowStateService } from '../../services/WorkflowStateService';
 import { supabase } from '../../lib/supabase';
 import { valueCaseService } from '../../services/ValueCaseService';
 import { logger } from '../../lib/logger';
 import { v4 as uuidv4 } from 'uuid';
+import { sduiTelemetry, TelemetryEventType } from '../../lib/telemetry/SDUITelemetry';
+import { useCanvasStore } from '../../sdui/canvas/CanvasStore';
+import { SkeletonCanvas } from '../Common/SkeletonCanvas';
+import { toUserFriendlyError } from '../../utils/errorHandling';
+import { useToast } from '../Common/Toast';
+
+// ============================================================================
+// Custom Hooks
+// ============================================================================
+
+/**
+ * useEvent Hook - Always gets latest callback without closure issues
+ * Solves the stale closure problem in setTimeout/setInterval
+ */
+function useEvent<T extends (...args: any[]) => any>(handler: T): T {
+  const handlerRef = useRef<T>(handler);
+  
+  useLayoutEffect(() => {
+    handlerRef.current = handler;
+  });
+  
+  return useCallback(((...args) => {
+    const fn = handlerRef.current;
+    return fn(...args);
+  }) as T, []);
+}
 
 // ============================================================================
 // Types
@@ -117,10 +144,12 @@ const CaseItem: React.FC<{
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left px-3 py-2 rounded-md transition-all text-sm truncate ${
+      aria-label={`${isSelected ? 'Currently viewing' : 'Open'} ${case_.name} for ${case_.company}`}
+      aria-current={isSelected ? 'page' : undefined}
+      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
         isSelected 
           ? 'bg-gray-800 text-white' 
-          : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+          : 'text-gray-300 hover:bg-gray-800 hover:text-white'
       }`}
     >
       {case_.name}
@@ -138,6 +167,7 @@ const StarterCard: React.FC<{
 }> = ({ icon, title, description, onClick, primary }) => (
   <button
     onClick={onClick}
+    aria-label={`${title} - ${description}`}
     className={`flex flex-col items-center text-center p-5 rounded-xl border transition-all hover:scale-[1.02] ${
       primary 
         ? 'bg-gray-800 border-gray-700 hover:border-indigo-500 hover:bg-gray-750' 
@@ -158,8 +188,36 @@ const EmptyCanvas: React.FC<{
   onNewCase: () => void;
   onStarterAction: (action: string, data?: any) => void;
 }> = ({ onNewCase, onStarterAction }) => {
+  const [isDragging, setIsDragging] = useState(false);
+  
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+  
+  const handleDragLeave = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+  
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      onStarterAction('upload_notes', { files });
+    }
+  }, [onStarterAction]);
+  
   return (
-    <div className="flex flex-col items-center justify-center h-full bg-gray-950 p-8">
+    <div 
+      className={`flex flex-col items-center justify-center h-full bg-gray-950 p-8 transition-all ${
+        isDragging ? 'ring-2 ring-indigo-500 ring-inset bg-gray-900' : ''
+      }`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <div className="max-w-3xl w-full">
         {/* Header */}
         <div className="text-center mb-10">
@@ -231,6 +289,7 @@ const EmptyCanvas: React.FC<{
             <input
               type="text"
               placeholder="It all starts here..."
+              aria-label="Create new case to get started"
               className="w-full px-4 py-4 bg-gray-900 border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600"
               onFocus={onNewCase}
             />
@@ -248,12 +307,24 @@ const CanvasContent: React.FC<{
   renderedPage: RenderPageResult | null;
   isLoading: boolean;
   streamingUpdate: StreamingUpdate | null;
-}> = ({ renderedPage, isLoading, streamingUpdate }) => {
+  isInitialLoad?: boolean;
+}> = ({ renderedPage, isLoading, streamingUpdate, isInitialLoad }) => {
+  // Show skeleton on initial load
+  if (isInitialLoad) {
+    return <SkeletonCanvas />;
+  }
+
+  // Show streaming progress indicator
   if (isLoading || streamingUpdate) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-4">
+      <div 
+        className="flex flex-col items-center justify-center h-full gap-4"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+      >
         <div className="flex items-center gap-3 px-4 py-3 bg-indigo-50 rounded-lg">
-          <Loader2 className="w-5 h-5 text-indigo-600 animate-spin" />
+          <Loader2 className="w-5 h-5 text-indigo-600 animate-spin" aria-hidden="true" />
           <span className="text-indigo-700 font-medium">
             {streamingUpdate?.message || 'Processing...'}
           </span>
@@ -266,10 +337,15 @@ const CanvasContent: React.FC<{
             )}
           </div>
         )}
+        <span className="sr-only">
+          {streamingUpdate?.message || 'Processing your request'}
+          {streamingUpdate?.progress !== undefined && ` - ${Math.round(streamingUpdate.progress * 100)}% complete`}
+        </span>
       </div>
     );
   }
 
+  // Show rendered content
   if (renderedPage?.element) {
     return (
       <div className="p-6 overflow-auto h-full">
@@ -285,7 +361,20 @@ const CanvasContent: React.FC<{
 // Helper Functions
 // ============================================================================
 
-function formatRelativeTime(date: Date): string {
+// Phase 3: Add telemetry debug helper
+const logTelemetrySummary = () => {
+  if (typeof window !== 'undefined' && (window as any).__SDUI_DEBUG__) {
+    const summary = sduiTelemetry.getPerformanceSummary();
+    console.group('[SDUI Telemetry Summary]');
+    console.log('Average Render Time:', summary.avgRenderTime.toFixed(2), 'ms');
+    console.log('Average Hydration Time:', summary.avgHydrationTime.toFixed(2), 'ms');
+    console.log('Error Rate:', (summary.errorRate * 100).toFixed(2), '%');
+    console.log('Total Events:', summary.totalEvents);
+    console.groupEnd();
+  }
+};
+
+const formatRelativeTime = (date: Date): string => {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
@@ -314,8 +403,10 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
   const [renderedPage, setRenderedPage] = useState<RenderPageResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingCases, setIsFetchingCases] = useState(true);
+  const [isInitialCanvasLoad, setIsInitialCanvasLoad] = useState(false);
   const [streamingUpdate, setStreamingUpdate] = useState<StreamingUpdate | null>(null);
   const [workflowState, setWorkflowState] = useState<WorkflowState | null>(null);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   
   // New case modal state
   const [isNewCaseModalOpen, setIsNewCaseModalOpen] = useState(false);
@@ -324,6 +415,7 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
 
   // Upload notes modal state
   const [isUploadNotesModalOpen, setIsUploadNotesModalOpen] = useState(false);
+  const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
   
   // Email analysis modal state
   const [isEmailAnalysisModalOpen, setIsEmailAnalysisModalOpen] = useState(false);
@@ -337,6 +429,21 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
   // User/tenant for CRM import
   const [currentUserId, setCurrentUserId] = useState<string | undefined>();
   const [currentTenantId, setCurrentTenantId] = useState<string | undefined>();
+
+  // Workflow state service (initialized once)
+  const workflowStateService = React.useMemo(
+    () => new WorkflowStateService(supabase),
+    []
+  );
+
+  // Phase 3: Telemetry tracking
+  const [renderStartTime, setRenderStartTime] = React.useState<number | null>(null);
+  
+  // Canvas store for undo/redo
+  const { undo, redo, canUndo, canRedo } = useCanvasStore();
+  
+  // Toast notifications
+  const { error: showError, success: showSuccess, info: showInfo } = useToast();
 
   // Derived state
   const selectedCase = cases.find(c => c.id === selectedCaseId);
@@ -399,45 +506,124 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
 
   // Initialize workflow state for selected case
   useEffect(() => {
-    if (selectedCase) {
-      setWorkflowState({
-        currentStage: selectedCase.stage,
-        status: 'in_progress',
-        completedStages: [],
-        context: {
+    if (selectedCase && currentUserId) {
+      // Load or create session for this case
+      workflowStateService
+        .loadOrCreateSession({
           caseId: selectedCase.id,
-          company: selectedCase.company,
-        },
-      });
+          userId: currentUserId,
+          initialStage: selectedCase.stage as any,
+          context: {
+            company: selectedCase.company,
+          },
+        })
+        .then(({ sessionId, state }) => {
+          setCurrentSessionId(sessionId);
+          setWorkflowState(state);
+          logger.info('Workflow session initialized', {
+            sessionId,
+            caseId: selectedCase.id,
+            stage: state.currentStage,
+          });
+        })
+        .catch((error) => {
+          logger.error('Failed to initialize workflow session', error);
+          // Fallback to in-memory state
+          setWorkflowState({
+            currentStage: selectedCase.stage,
+            status: 'in_progress',
+            completedStages: [],
+            context: {
+              caseId: selectedCase.id,
+              company: selectedCase.company,
+            },
+          });
+        });
 
       // If case has cached SDUI page, render it
       if (selectedCase.sduiPage) {
-        const result = renderPage(selectedCase.sduiPage);
-        setRenderedPage(result);
+        // Phase 3: Track SDUI rendering
+        const renderStart = Date.now();
+        setRenderStartTime(renderStart);
+        sduiTelemetry.startSpan(
+          `render-${selectedCase.id}`,
+          TelemetryEventType.RENDER_START,
+          {
+            caseId: selectedCase.id,
+            stage: selectedCase.stage,
+          }
+        );
+
+        try {
+          const result = renderPage(selectedCase.sduiPage);
+          setRenderedPage(result);
+          setIsInitialCanvasLoad(false);
+
+          sduiTelemetry.endSpan(
+            `render-${selectedCase.id}`,
+            TelemetryEventType.RENDER_COMPLETE,
+            {
+              componentCount: result.metadata?.componentCount,
+              warnings: result.warnings?.length || 0,
+            }
+          );
+        } catch (error) {
+          setIsInitialCanvasLoad(false);
+          sduiTelemetry.endSpan(
+            `render-${selectedCase.id}`,
+            TelemetryEventType.RENDER_ERROR,
+            { caseId: selectedCase.id },
+            {
+              message: error instanceof Error ? error.message : 'Render error',
+              stack: error instanceof Error ? error.stack : undefined,
+            }
+          );
+          setRenderedPage(null);
+        }
       } else {
         setRenderedPage(null);
+        setIsInitialCanvasLoad(false);
       }
     } else {
       setWorkflowState(null);
       setRenderedPage(null);
+      setCurrentSessionId(null);
+      setIsInitialCanvasLoad(false);
     }
-  }, [selectedCaseId]);
+  }, [selectedCaseId, currentUserId, workflowStateService]);
 
-  // Keyboard shortcut for command bar
+  // Keyboard shortcuts (⌘K for command bar, ⌘Z/⌘⇧Z for undo/redo)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Command bar: ⌘K
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setIsCommandBarOpen(true);
+        return;
+      }
+      
+      // Undo/Redo: ⌘Z / ⌘⇧Z
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          if (canRedo()) {
+            redo();
+          }
+        } else {
+          if (canUndo()) {
+            undo();
+          }
+        }
+        return;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [undo, redo, canUndo, canRedo]);
 
   // Handle command submission
-  const handleCommand = useCallback(async (query: string) => {
+  const handleCommand = useEvent(async (query: string) => {
     if (!workflowState || !selectedCaseId) {
       // No case selected, prompt user to create one first
       setIsNewCaseModalOpen(true);
@@ -455,24 +641,117 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
 
       setStreamingUpdate({ stage: 'processing', message: 'Consulting AI agent...' });
 
+      // Use current session ID or fall back to access token
+      const actualSessionId = currentSessionId || sessionId;
+
+      // Phase 3: Track chat request
+      const chatSpanId = `chat-${Date.now()}`;
+      sduiTelemetry.startSpan(
+        chatSpanId,
+        TelemetryEventType.CHAT_REQUEST_START,
+        {
+          caseId: selectedCaseId,
+          stage: workflowState.currentStage,
+          queryLength: query.length,
+        }
+      );
+
       // Process through AgentChatService (uses Together.ai LLM)
       const result = await agentChatService.chat({
         query,
         caseId: selectedCaseId,
         userId,
-        sessionId,
+        sessionId: actualSessionId,
         workflowState,
       });
 
-      // Update workflow state
+      // Track chat completion
+      sduiTelemetry.endSpan(
+        chatSpanId,
+        TelemetryEventType.CHAT_REQUEST_COMPLETE,
+        {
+          hasSDUI: !!result.sduiPage,
+          stageTransitioned: result.nextState.currentStage !== workflowState.currentStage,
+        }
+      );
+
+      // Update workflow state in memory
       setWorkflowState(result.nextState);
+
+      // Persist workflow state to database
+      if (currentSessionId) {
+        try {
+          // Track state save
+          sduiTelemetry.recordEvent({
+            type: TelemetryEventType.WORKFLOW_STATE_SAVE,
+            metadata: {
+              sessionId: currentSessionId,
+              stage: result.nextState.currentStage,
+            },
+          });
+
+          await workflowStateService.saveWorkflowState(currentSessionId, result.nextState);
+          logger.debug('Workflow state persisted after chat', {
+            sessionId: currentSessionId,
+            stage: result.nextState.currentStage,
+          });
+
+          // Track stage transition if occurred
+          if (result.nextState.currentStage !== workflowState.currentStage) {
+            sduiTelemetry.recordWorkflowStateChange(
+              currentSessionId,
+              workflowState.currentStage,
+              result.nextState.currentStage,
+              {
+                caseId: selectedCaseId,
+              }
+            );
+          }
+        } catch (error) {
+          logger.warn('Failed to persist workflow state', { error });
+          // Continue even if persistence fails
+        }
+      }
 
       setStreamingUpdate({ stage: 'generating', message: 'Generating response...' });
 
       // Render SDUI page if available
       if (result.sduiPage) {
-        const rendered = renderPage(result.sduiPage);
-        setRenderedPage(rendered);
+        // Phase 3: Track SDUI rendering
+        const renderSpanId = `render-response-${Date.now()}`;
+        sduiTelemetry.startSpan(
+          renderSpanId,
+          TelemetryEventType.RENDER_START,
+          {
+            caseId: selectedCaseId,
+            stage: result.nextState.currentStage,
+          }
+        );
+
+        try {
+          const rendered = renderPage(result.sduiPage);
+          setRenderedPage(rendered);
+
+          sduiTelemetry.endSpan(
+            renderSpanId,
+            TelemetryEventType.RENDER_COMPLETE,
+            {
+              componentCount: rendered.metadata?.componentCount,
+              warnings: rendered.warnings?.length || 0,
+            }
+          );
+        } catch (renderError) {
+          sduiTelemetry.endSpan(
+            renderSpanId,
+            TelemetryEventType.RENDER_ERROR,
+            {},
+            {
+              message: renderError instanceof Error ? renderError.message : 'Render error',
+              stack: renderError instanceof Error ? renderError.stack : undefined,
+            }
+          );
+          throw renderError;
+        }
 
         // Cache in case
         setCases(prev => prev.map(c => 
@@ -495,13 +774,37 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
       setTimeout(() => setStreamingUpdate(null), 1000);
 
     } catch (error) {
-      logger.error('Error processing command', error instanceof Error ? error : undefined);
-      setStreamingUpdate({ stage: 'complete', message: 'Error occurred. Please try again.' });
-      setTimeout(() => setStreamingUpdate(null), 2000);
+      // Phase 3: Track chat error
+      sduiTelemetry.recordEvent({
+        type: TelemetryEventType.CHAT_REQUEST_ERROR,
+        metadata: {
+          caseId: selectedCaseId,
+          stage: workflowState?.currentStage,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+
+      logger.error('Agent chat failed', error instanceof Error ? error : new Error(String(error)));
+
+      // Show user-friendly error with retry action
+      const friendlyError = toUserFriendlyError(
+        error,
+        'AI Analysis',
+        () => handleCommand(query)
+      );
+      
+      showError(
+        friendlyError.title,
+        friendlyError.message,
+        friendlyError.action
+      );
+
+      setIsLoading(false);
+      setStreamingUpdate(null);
     } finally {
       setIsLoading(false);
     }
-  }, [workflowState, selectedCaseId]);
+  });
 
   // Handle new case creation
   const handleNewCase = useCallback((companyName: string, website: string) => {
@@ -520,6 +823,12 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
     setIsNewCaseModalOpen(false);
     setNewCaseCompany('');
     setNewCaseWebsite('');
+    
+    // Show success notification
+    showSuccess(
+      'Case Created',
+      `${companyName} value case is ready`
+    );
 
     // Initialize workflow with company context
     setWorkflowState({
@@ -549,10 +858,16 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
     setIsNewCaseModalOpen(true);
   }, []);
 
+  const closeUploadNotesModal = useCallback(() => {
+    setPendingUploadFile(null);
+    setIsUploadNotesModalOpen(false);
+  }, []);
+
   // Handle starter card actions
-  const handleStarterAction = useCallback((action: string, _data?: any) => {
+  const handleStarterAction = useCallback((action: string, data?: { files?: File[] }) => {
     switch (action) {
       case 'upload_notes':
+        setPendingUploadFile(data?.files?.[0] ?? null);
         setIsUploadNotesModalOpen(true);
         break;
       case 'analyze_email':
@@ -588,7 +903,13 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
 
     setCases(prev => [newCase, ...prev]);
     setSelectedCaseId(newCase.id);
-    setIsUploadNotesModalOpen(false);
+    closeUploadNotesModal();
+    
+    // Show success notification
+    showSuccess(
+      'Notes Analyzed',
+      `Created case for ${companyName}`
+    );
 
     // Initialize workflow with extracted context
     setWorkflowState({
@@ -637,7 +958,7 @@ Please analyze these notes and help me build a value hypothesis. What key value 
         extractedInsights: notes.insights,
       },
     }).catch(err => logger.warn('Failed to persist case from notes', { error: err }));
-  }, [handleCommand]);
+  }, [closeUploadNotesModal, handleCommand]);
 
   // Handle email analysis completion
   const handleEmailComplete = useCallback((analysis: EmailAnalysis, rawText: string) => {
@@ -713,7 +1034,7 @@ Based on this email analysis, help me create a value hypothesis and action plan.
         emailAnalysis: analysis,
       },
     }).catch(err => logger.warn('Failed to persist case from email', { error: err }));
-  }, [handleCommand]);
+  }, []);
 
   // Handle CRM import completion
   const handleCRMImportComplete = useCallback((mappedCase: MappedValueCase, deal: CRMDeal) => {
@@ -782,7 +1103,7 @@ Based on this deal information, help me:
         stakeholders: mappedCase.metadata.stakeholders,
       },
     }).catch(err => logger.warn('Failed to persist case from CRM', { error: err }));
-  }, [handleCommand]);
+  }, []);
 
   // Handle sales call analysis completion
   const handleSalesCallComplete = useCallback((analysis: CallAnalysis, transcript: string) => {
@@ -859,7 +1180,7 @@ Based on this call analysis, help me:
         nextSteps: analysis.nextSteps,
       },
     }).catch(err => logger.warn('Failed to persist case from call', { error: err }));
-  }, [handleCommand]);
+  }, []);
 
   return (
     <div className="flex h-screen bg-gray-950">
@@ -877,6 +1198,7 @@ Based on this call analysis, help me:
         <div className="p-2">
           <button
             onClick={openNewCaseModal}
+            aria-label="Create new case"
             className="w-full flex items-center justify-between px-3 py-2 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors"
           >
             <span>New Chat</span>
@@ -926,6 +1248,7 @@ Based on this call analysis, help me:
           <div className="flex items-center justify-between px-2">
             <button
               onClick={onSettingsClick}
+              aria-label="Open settings"
               className="p-2 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
               title="Settings"
             >
@@ -933,6 +1256,7 @@ Based on this call analysis, help me:
             </button>
             <button
               onClick={onHelpClick}
+              aria-label="Get help"
               className="p-2 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
               title="Help"
             >
@@ -961,6 +1285,7 @@ Based on this call analysis, help me:
               </div>
               <button
                 onClick={() => setIsCommandBarOpen(true)}
+                aria-label="Ask AI a question (⌘K)"
                 className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm text-gray-300 transition-colors"
               >
                 <Sparkles className="w-4 h-4" />
@@ -978,6 +1303,7 @@ Based on this call analysis, help me:
               renderedPage={renderedPage}
               isLoading={isLoading}
               streamingUpdate={streamingUpdate}
+              isInitialLoad={isInitialCanvasLoad}
             />
           ) : (
             <EmptyCanvas 
@@ -993,6 +1319,7 @@ Based on this call analysis, help me:
             <button
               onClick={() => setIsCommandBarOpen(true)}
               className="w-full flex items-center gap-3 px-4 py-3 bg-gray-800 hover:bg-gray-750 rounded-lg border border-gray-700 transition-colors text-left"
+              aria-label="Open command bar (⌘K)"
             >
               <Sparkles className="w-5 h-5 text-indigo-400" />
               <span className="flex-1 text-gray-400">
@@ -1029,8 +1356,9 @@ Based on this call analysis, help me:
               <button
                 onClick={() => setIsNewCaseModalOpen(false)}
                 className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Close new case dialog"
               >
-                <X className="w-5 h-5 text-gray-500" />
+                <X className="w-5 h-5 text-gray-500" aria-hidden="true" />
               </button>
             </div>
 
@@ -1087,6 +1415,7 @@ Based on this call analysis, help me:
                   type="button"
                   onClick={() => setIsNewCaseModalOpen(false)}
                   className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  aria-label="Cancel new case creation"
                 >
                   Cancel
                 </button>
@@ -1094,6 +1423,7 @@ Based on this call analysis, help me:
                   type="submit"
                   disabled={!newCaseCompany.trim()}
                   className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  aria-label="Create new value case"
                 >
                   Create Case
                 </button>
@@ -1106,8 +1436,12 @@ Based on this call analysis, help me:
       {/* Upload Notes Modal */}
       <UploadNotesModal
         isOpen={isUploadNotesModalOpen}
-        onClose={() => setIsUploadNotesModalOpen(false)}
+        onClose={() => {
+          setIsUploadNotesModalOpen(false);
+          setPendingUploadFile(null);
+        }}
         onComplete={handleNotesComplete}
+        initialFile={pendingUploadFile}
       />
 
       {/* Email Analysis Modal */}

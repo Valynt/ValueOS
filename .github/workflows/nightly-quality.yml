@@ -1,0 +1,67 @@
+name: Nightly Quality Gates
+
+on:
+  schedule:
+    - cron: "0 2 * * *" # nightly UTC
+  workflow_dispatch:
+
+jobs:
+  full-playwright:
+    name: Playwright Full Suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx playwright install --with-deps
+      - run: npx playwright test --reporter=line
+
+  migrations:
+    name: Migration Tests
+    runs-on: ubuntu-latest
+    env:
+      RUN_MIGRATION_TESTS: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Install testcontainers deps
+        run: npm install --no-save testcontainers pg
+      - name: Run migration suite
+        run: npx vitest run test/migrations/migrations.test.ts --reporter=dot
+
+  contracts:
+    name: Contract Tests
+    runs-on: ubuntu-latest
+    env:
+      RUN_CONTRACT_TESTS: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Install Pact deps
+        run: npm install --no-save @pact-foundation/pact
+      - name: Run contract suite
+        run: npx vitest run test/contracts/crm-contract.test.ts --reporter=dot
+
+  sast:
+    name: SAST & Dependency Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Snyk scan
+        run: npm run security:scan:snyk

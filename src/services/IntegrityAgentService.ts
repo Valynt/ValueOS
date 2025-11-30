@@ -7,6 +7,7 @@
 
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import { logger } from '../lib/logger';
+import { llmConfig } from '../config/llm';
 import { QuizQuestion, LabSuccessCriterion } from '../types/academy';
 
 // Lab message type (also defined in LabPanel)
@@ -76,7 +77,7 @@ class IntegrityAgentService {
   private llmGateway: LLMGateway;
 
   constructor() {
-    this.llmGateway = new LLMGateway();
+    this.llmGateway = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
   }
 
   /**

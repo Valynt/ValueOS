@@ -9,8 +9,12 @@ import swaggerUi from 'swagger-ui-express';
 import YAML from 'yamljs';
 import path from 'path';
 import { logger } from '../utils/logger';
+import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
+import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
 
 const router = Router();
+router.use(securityHeadersMiddleware);
+router.use(serviceIdentityMiddleware);
 
 // Load OpenAPI specification
 const openApiPath = path.join(__dirname, '../../openapi.yaml');

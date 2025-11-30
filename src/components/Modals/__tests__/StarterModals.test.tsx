@@ -196,6 +196,21 @@ describe("UploadNotesModal", () => {
     expect(screen.getByText(/Drop your file here/i)).toBeInTheDocument();
   });
 
+  it("preselects an initial file when provided", async () => {
+    const file = new File(["hello"], "notes.txt", { type: "text/plain", lastModified: 0 });
+
+    render(
+      <UploadNotesModal
+        isOpen={true}
+        onClose={mockOnClose}
+        onComplete={mockOnComplete}
+        initialFile={file}
+      />,
+    );
+
+    expect(await screen.findByText(/notes\.txt/i)).toBeInTheDocument();
+  });
+
   it("calls onClose when cancel is clicked", async () => {
     const user = userEvent.setup();
 

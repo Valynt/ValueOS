@@ -209,8 +209,8 @@ const DEFAULT_RATE_LIMIT: RateLimitConfig = {
  * Default session configuration
  */
 const DEFAULT_SESSION_CONFIG: SessionConfig = {
-  timeout: 3600000, // 1 hour
-  absoluteTimeout: 28800000, // 8 hours
+  timeout: 1800000, // 30 minutes idle timeout
+  absoluteTimeout: 3600000, // 1 hour absolute
   renewalThreshold: 300000, // 5 minutes
   secure: true,
   httpOnly: true,
@@ -439,8 +439,8 @@ export function validateSecurityConfig(config: SecurityConfig): string[] {
   const errors: string[] = [];
 
   // Password policy validation
-  if (config.passwordPolicy.minLength < 8) {
-    errors.push('Password minimum length must be at least 8 characters');
+  if (config.passwordPolicy.minLength < 12) {
+    errors.push('Password minimum length must be at least 12 characters');
   }
 
   // Rate limiting validation

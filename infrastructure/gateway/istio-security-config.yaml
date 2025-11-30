@@ -1,0 +1,267 @@
+# ValueCanvas - Istio Security Headers Configuration
+# Phase 1 & 2: Gateway-level security + mTLS
+# Apply with: kubectl apply -f istio-security-config.yaml
+
+---
+# ============================================================================
+# Gateway (Ingress)
+# ============================================================================
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: valuecanvas-gateway
+  namespace: valuecanvas
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  # HTTPS
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: valuecanvas-tls-cert  # Secret with TLS cert
+      minProtocolVersion: TLSV1_2
+      maxProtocolVersion: TLSV1_3
+      cipherSuites:
+      - ECDHE-ECDSA-AES128-GCM-SHA256
+      - ECDHE-RSA-AES128-GCM-SHA256
+      - ECDHE-ECDSA-AES256-GCM-SHA384
+      - ECDHE-RSA-AES256-GCM-SHA384
+    hosts:
+    - "valuecanvas.example.com"
+  
+  # HTTP (redirect to HTTPS)
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "valuecanvas.example.com"
+    tls:
+      httpsRedirect: true
+
+---
+# ============================================================================
+# VirtualService (Routing + Security Headers)
+# ============================================================================
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: valuecanvas
+  namespace: valuecanvas
+spec:
+  hosts:
+  - "valuecanvas.example.com"
+  gateways:
+  - valuecanvas-gateway
+  http:
+  # Auth endpoints - strict rate limiting
+  - match:
+    - uri:
+        prefix: "/auth/"
+    route:
+    - destination:
+        host: backend-service
+        port:
+          number: 3000
+      headers:
+        request:
+          add:
+            x-route-type: "auth"
+    # Security headers added via EnvoyFilter (see below)
+  
+  # API endpoints - moderate rate limiting
+  - match:
+    - uri:
+        prefix: "/api/"
+    route:
+    - destination:
+        host: backend-service
+        port:
+          number: 3000
+      headers:
+        request:
+          add:
+            x-route-type: "api"
+  
+  # Frontend
+  - match:
+    - uri:
+        prefix: "/"
+    route:
+    - destination:
+        host: frontend-service
+        port:
+          number: 80
+
+---
+# ============================================================================
+# EnvoyFilter - Add Security Headers
+# ============================================================================
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: security-headers
+  namespace: valuecanvas
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: GATEWAY
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+            subFilter:
+              name: "envoy.filters.http.router"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.lua
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+          inline_code: |
+            function envoy_on_response(response_handle)
+              -- Content Security Policy
+              response_handle:headers():add(
+                "Content-Security-Policy",
+                "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; font-src 'self' data: https://fonts.gstatic.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+              )
+              
+              -- HSTS
+              response_handle:headers():add(
+                "Strict-Transport-Security",
+                "max-age=31536000; includeSubDomains; preload"
+              )
+              
+              -- X-Frame-Options
+              response_handle:headers():add("X-Frame-Options", "DENY")
+              
+              -- X-Content-Type-Options
+              response_handle:headers():add("X-Content-Type-Options", "nosniff")
+              
+              -- Referrer Policy
+              response_handle:headers():add(
+                "Referrer-Policy",
+                "strict-origin-when-cross-origin"
+              )
+              
+              -- X-XSS-Protection
+              response_handle:headers():add("X-XSS-Protection", "1; mode=block")
+              
+              -- Permissions Policy
+              response_handle:headers():add(
+                "Permissions-Policy",
+                "geolocation=(), microphone=(), camera=(), payment=()"
+              )
+            end
+
+---
+# ============================================================================
+# PeerAuthentication - STRICT mTLS (Phase 2)
+# ============================================================================
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: valuecanvas
+spec:
+  mtls:
+    mode: STRICT  # All traffic must use mTLS
+
+---
+# ============================================================================
+# AuthorizationPolicy - Service-to-Service Access Control
+# ============================================================================
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: backend-authz
+  namespace: valuecanvas
+spec:
+  selector:
+    matchLabels:
+      app: backend
+  action: ALLOW
+  rules:
+  # Allow from ingress gateway
+  - from:
+    - source:
+        principals:
+        - "cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"
+  
+  # Allow from frontend (if needed for SSR)
+  - from:
+    - source:
+        principals:
+        - "cluster.local/ns/valuecanvas/sa/frontend-service-account"
+
+---
+# ============================================================================
+# RequestAuthentication - JWT Validation (Optional)
+# ============================================================================
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: jwt-auth
+  namespace: valuecanvas
+spec:
+  selector:
+    matchLabels:
+      app: backend
+  jwtRules:
+  - issuer: "https://your-supabase-project.supabase.co/auth/v1"
+    jwksUri: "https://your-supabase-project.supabase.co/auth/v1/jwks"
+    audiences:
+    - "authenticated"
+
+---
+# ============================================================================
+# DestinationRule - Traffic Policy
+# ============================================================================
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: backend-destination
+  namespace: valuecanvas
+spec:
+  host: backend-service
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL  # Use mTLS
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 50
+        http2MaxRequests: 100
+        maxRequestsPerConnection: 2
+    outlierDetection:
+      consecutiveErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+
+---
+# ============================================================================
+# Verification Commands
+# ============================================================================
+# Apply configuration:
+# kubectl apply -f istio-security-config.yaml
+#
+# Verify gateway:
+# kubectl get gateway -n valuecanvas
+#
+# Verify security headers:
+# curl -I https://valuecanvas.example.com/ | grep -Ei 'content-security-policy|strict-transport-security'
+#
+# Check mTLS status:
+# istioctl authn tls-check backend-service.valuecanvas.svc.cluster.local
+#
+# View Envoy config:
+# istioctl proxy-config listeners istio-ingressgateway-xxx.istio-system --port 443 -o json

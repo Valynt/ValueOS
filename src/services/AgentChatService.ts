@@ -13,13 +13,16 @@
 import { logger } from '../lib/logger';
 import { v4 as uuidv4 } from 'uuid';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
+import { llmConfig } from '../config/llm';
 import { conversationHistoryService, ConversationMessage } from './ConversationHistoryService';
 import { SDUIPageDefinition } from '../sdui/schema';
-import { WorkflowState } from '../repositories/WorkflowStateRepository';
+import { WorkflowState, WorkflowStateRepository } from '../repositories/WorkflowStateRepository';
 import type { LifecycleStage } from '../types/vos';
 import { getRelevantExamples, formatExampleForPrompt } from '../data/valueModelExamples';
 import { getAllTools, createToolExecutor } from './MCPTools';
 import { mcpGroundTruthService } from './MCPGroundTruthService';
+import { checkStageTransition } from '../config/chatWorkflowConfig';
+import { generateChatSDUIPage, hasTemplateForStage } from '../sdui/templates/chat-templates';
 
 // ============================================================================
 // Types
@@ -103,9 +106,11 @@ Now help the user with their specific request, following similar structure and r
 
 class AgentChatService {
   private llm: LLMGateway;
+  private stateRepo?: WorkflowStateRepository;
 
-  constructor() {
-    this.llm = new LLMGateway('together', true);
+  constructor(stateRepository?: WorkflowStateRepository) {
+    this.llm = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
+    this.stateRepo = stateRepository;
   }
 
   /**
@@ -177,11 +182,32 @@ class AgentChatService {
         reasoning,
       });
 
-      // Generate SDUI page
-      const sduiPage = this.generateSDUIPage(content, confidence, reasoning, request.workflowState);
+      // Generate SDUI page with session/trace context
+      const sduiPage = this.generateSDUIPage(
+        content,
+        confidence,
+        reasoning,
+        request.workflowState,
+        request.sessionId,
+        traceId
+      );
 
       // Update workflow state
-      const nextState = this.updateWorkflowState(request.workflowState, request.query, content);
+      const nextState = this.updateWorkflowState(
+        request.workflowState,
+        request.query,
+        content,
+        confidence
+      );
+
+      // Persist state if repository available
+      if (this.stateRepo && request.sessionId) {
+        await this.stateRepo.saveState(request.sessionId, nextState);
+        logger.debug('Workflow state persisted', {
+          sessionId: request.sessionId,
+          stage: nextState.currentStage,
+        });
+      }
 
       logger.info('Chat response generated', {
         traceId,
@@ -336,13 +362,37 @@ class AgentChatService {
 
   /**
    * Generate SDUI page from response
+   * 
+   * Phase 3: Refactored to use stage-specific templates
+   * Maintains backward compatibility with fallback to generic page
    */
   private generateSDUIPage(
     content: string,
     confidence: number,
     reasoning: string[],
-    state: WorkflowState
+    state: WorkflowState,
+    sessionId?: string,
+    traceId?: string
   ): SDUIPageDefinition {
+    const stage = state.currentStage as LifecycleStage;
+
+    // Use stage-specific template if available
+    if (hasTemplateForStage(stage)) {
+      logger.debug('Using stage-specific template', { stage });
+      
+      return generateChatSDUIPage(stage, {
+        content,
+        confidence,
+        reasoning,
+        workflowState: state,
+        sessionId,
+        traceId,
+      });
+    }
+
+    // Fallback to generic template for backward compatibility
+    logger.warn('No template found for stage, using fallback', { stage });
+    
     return {
       type: 'page',
       version: 1,
@@ -363,7 +413,7 @@ class AgentChatService {
                 id: `step-${i}`,
                 step: i + 1,
                 description: r,
-                confidence: confidence - (i * 0.05), // Slightly decreasing confidence per step
+                confidence: confidence - (i * 0.05),
               })),
               status: 'pending' as const,
             },
@@ -372,16 +422,29 @@ class AgentChatService {
           },
         },
       ],
+      metadata: {
+        lifecycle_stage: state.currentStage,
+        case_id: state.context.caseId as string,
+        session_id: sessionId,
+        generated_at: Date.now(),
+        agent_name: this.getAgentName(state.currentStage),
+        confidence_score: confidence,
+        telemetry_enabled: true,
+        trace_id: traceId,
+      },
     };
   }
 
   /**
    * Update workflow state based on conversation
+   * 
+   * Uses chatWorkflowConfig for stage transition logic
    */
   private updateWorkflowState(
     currentState: WorkflowState,
     query: string,
-    response: string
+    response: string,
+    confidence: number
   ): WorkflowState {
     const nextState = { ...currentState };
 
@@ -393,28 +456,31 @@ class AgentChatService {
       lastUpdated: new Date().toISOString(),
     };
 
-    // Check for stage transitions
-    const lowerQuery = query.toLowerCase();
-    const lowerResponse = response.toLowerCase();
+    // Check for stage transitions using config
+    const transitionStage = checkStageTransition(
+      currentState.currentStage as LifecycleStage,
+      query,
+      response,
+      confidence
+    );
 
-    if (currentState.currentStage === 'opportunity') {
-      if (lowerQuery.includes('roi') || lowerQuery.includes('business case') || 
-          lowerResponse.includes('ready to target') || lowerResponse.includes('move to target')) {
-        nextState.completedStages = [...(currentState.completedStages || []), 'opportunity'];
-        nextState.currentStage = 'target';
+    if (transitionStage && transitionStage !== currentState.currentStage) {
+      logger.info('Stage transition triggered', {
+        from: currentState.currentStage,
+        to: transitionStage,
+        query: query.substring(0, 50),
+      });
+
+      // Mark current stage as completed
+      if (!currentState.completedStages?.includes(currentState.currentStage)) {
+        nextState.completedStages = [
+          ...(currentState.completedStages || []),
+          currentState.currentStage,
+        ];
       }
-    } else if (currentState.currentStage === 'target') {
-      if (lowerQuery.includes('track') || lowerQuery.includes('measure') ||
-          lowerResponse.includes('ready to realize') || lowerResponse.includes('implementation')) {
-        nextState.completedStages = [...(currentState.completedStages || []), 'target'];
-        nextState.currentStage = 'realization';
-      }
-    } else if (currentState.currentStage === 'realization') {
-      if (lowerQuery.includes('expand') || lowerQuery.includes('upsell') ||
-          lowerResponse.includes('expansion opportunity') || lowerResponse.includes('additional value')) {
-        nextState.completedStages = [...(currentState.completedStages || []), 'realization'];
-        nextState.currentStage = 'expansion';
-      }
+
+      // Transition to new stage
+      nextState.currentStage = transitionStage;
     }
 
     return nextState;

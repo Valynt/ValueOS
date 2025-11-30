@@ -15,7 +15,7 @@ export const OrganizationSecurity: React.FC = () => {
     passwordRequireNumbers: true,
     passwordRequireSymbols: true,
     passwordExpiryDays: 90,
-    sessionTimeoutMinutes: 480,
+    sessionTimeoutMinutes: 60,
     idleTimeoutMinutes: 30,
     maxConcurrentSessions: 3,
   });
