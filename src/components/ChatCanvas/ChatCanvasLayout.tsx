@@ -46,6 +46,10 @@ import { valueCaseService } from '../../services/ValueCaseService';
 import { logger } from '../../lib/logger';
 import { v4 as uuidv4 } from 'uuid';
 import { sduiTelemetry, TelemetryEventType } from '../../lib/telemetry/SDUITelemetry';
+import { useCanvasStore } from '../../sdui/canvas/CanvasStore';
+import { SkeletonCanvas } from '../Common/SkeletonCanvas';
+import { toUserFriendlyError } from '../../utils/errorHandling';
+import { useToast } from '../Common/Toast';
 
 // ============================================================================
 // Custom Hooks
@@ -140,10 +144,12 @@ const CaseItem: React.FC<{
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left px-3 py-2 rounded-md transition-all text-sm truncate ${
+      aria-label={`${isSelected ? 'Currently viewing' : 'Open'} ${case_.name} for ${case_.company}`}
+      aria-current={isSelected ? 'page' : undefined}
+      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
         isSelected 
           ? 'bg-gray-800 text-white' 
-          : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+          : 'text-gray-300 hover:bg-gray-800 hover:text-white'
       }`}
     >
       {case_.name}
@@ -161,6 +167,7 @@ const StarterCard: React.FC<{
 }> = ({ icon, title, description, onClick, primary }) => (
   <button
     onClick={onClick}
+    aria-label={`${title} - ${description}`}
     className={`flex flex-col items-center text-center p-5 rounded-xl border transition-all hover:scale-[1.02] ${
       primary 
         ? 'bg-gray-800 border-gray-700 hover:border-indigo-500 hover:bg-gray-750' 
@@ -282,6 +289,7 @@ const EmptyCanvas: React.FC<{
             <input
               type="text"
               placeholder="It all starts here..."
+              aria-label="Create new case to get started"
               className="w-full px-4 py-4 bg-gray-900 border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600"
               onFocus={onNewCase}
             />
@@ -299,12 +307,24 @@ const CanvasContent: React.FC<{
   renderedPage: RenderPageResult | null;
   isLoading: boolean;
   streamingUpdate: StreamingUpdate | null;
-}> = ({ renderedPage, isLoading, streamingUpdate }) => {
+  isInitialLoad?: boolean;
+}> = ({ renderedPage, isLoading, streamingUpdate, isInitialLoad }) => {
+  // Show skeleton on initial load
+  if (isInitialLoad) {
+    return <SkeletonCanvas />;
+  }
+
+  // Show streaming progress indicator
   if (isLoading || streamingUpdate) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-4">
+      <div 
+        className="flex flex-col items-center justify-center h-full gap-4"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+      >
         <div className="flex items-center gap-3 px-4 py-3 bg-indigo-50 rounded-lg">
-          <Loader2 className="w-5 h-5 text-indigo-600 animate-spin" />
+          <Loader2 className="w-5 h-5 text-indigo-600 animate-spin" aria-hidden="true" />
           <span className="text-indigo-700 font-medium">
             {streamingUpdate?.message || 'Processing...'}
           </span>
@@ -317,10 +337,15 @@ const CanvasContent: React.FC<{
             )}
           </div>
         )}
+        <span className="sr-only">
+          {streamingUpdate?.message || 'Processing your request'}
+          {streamingUpdate?.progress !== undefined && ` - ${Math.round(streamingUpdate.progress * 100)}% complete`}
+        </span>
       </div>
     );
   }
 
+  // Show rendered content
   if (renderedPage?.element) {
     return (
       <div className="p-6 overflow-auto h-full">
@@ -378,6 +403,7 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
   const [renderedPage, setRenderedPage] = useState<RenderPageResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingCases, setIsFetchingCases] = useState(true);
+  const [isInitialCanvasLoad, setIsInitialCanvasLoad] = useState(false);
   const [streamingUpdate, setStreamingUpdate] = useState<StreamingUpdate | null>(null);
   const [workflowState, setWorkflowState] = useState<WorkflowState | null>(null);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -389,6 +415,7 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
 
   // Upload notes modal state
   const [isUploadNotesModalOpen, setIsUploadNotesModalOpen] = useState(false);
+  const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
   
   // Email analysis modal state
   const [isEmailAnalysisModalOpen, setIsEmailAnalysisModalOpen] = useState(false);
@@ -411,6 +438,12 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
 
   // Phase 3: Telemetry tracking
   const [renderStartTime, setRenderStartTime] = React.useState<number | null>(null);
+  
+  // Canvas store for undo/redo
+  const { undo, redo, canUndo, canRedo } = useCanvasStore();
+  
+  // Toast notifications
+  const { error: showError, success: showSuccess, info: showInfo } = useToast();
 
   // Derived state
   const selectedCase = cases.find(c => c.id === selectedCaseId);
@@ -524,6 +557,7 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
         try {
           const result = renderPage(selectedCase.sduiPage);
           setRenderedPage(result);
+          setIsInitialCanvasLoad(false);
 
           sduiTelemetry.endSpan(
             `render-${selectedCase.id}`,
@@ -534,6 +568,7 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
             }
           );
         } catch (error) {
+          setIsInitialCanvasLoad(false);
           sduiTelemetry.endSpan(
             `render-${selectedCase.id}`,
             TelemetryEventType.RENDER_ERROR,
@@ -547,26 +582,45 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
         }
       } else {
         setRenderedPage(null);
+        setIsInitialCanvasLoad(false);
       }
     } else {
       setWorkflowState(null);
       setRenderedPage(null);
       setCurrentSessionId(null);
+      setIsInitialCanvasLoad(false);
     }
   }, [selectedCaseId, currentUserId, workflowStateService]);
 
-  // Keyboard shortcut for command bar
+  // Keyboard shortcuts (⌘K for command bar, ⌘Z/⌘⇧Z for undo/redo)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Command bar: ⌘K
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setIsCommandBarOpen(true);
+        return;
+      }
+      
+      // Undo/Redo: ⌘Z / ⌘⇧Z
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          if (canRedo()) {
+            redo();
+          }
+        } else {
+          if (canUndo()) {
+            undo();
+          }
+        }
+        return;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [undo, redo, canUndo, canRedo]);
 
   // Handle command submission
   const handleCommand = useEvent(async (query: string) => {
@@ -726,16 +780,27 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
         metadata: {
           caseId: selectedCaseId,
           stage: workflowState?.currentStage,
-        },
-        error: {
-          message: error instanceof Error ? error.message : 'Unknown error',
-          stack: error instanceof Error ? error.stack : undefined,
+          error: error instanceof Error ? error.message : String(error),
         },
       });
 
-      logger.error('Error processing command', error instanceof Error ? error : undefined);
-      setStreamingUpdate({ stage: 'complete', message: 'Error occurred. Please try again.' });
-      setTimeout(() => setStreamingUpdate(null), 2000);
+      logger.error('Agent chat failed', error instanceof Error ? error : new Error(String(error)));
+
+      // Show user-friendly error with retry action
+      const friendlyError = toUserFriendlyError(
+        error,
+        'AI Analysis',
+        () => handleCommand(query)
+      );
+      
+      showError(
+        friendlyError.title,
+        friendlyError.message,
+        friendlyError.action
+      );
+
+      setIsLoading(false);
+      setStreamingUpdate(null);
     } finally {
       setIsLoading(false);
     }
@@ -758,6 +823,12 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
     setIsNewCaseModalOpen(false);
     setNewCaseCompany('');
     setNewCaseWebsite('');
+    
+    // Show success notification
+    showSuccess(
+      'Case Created',
+      `${companyName} value case is ready`
+    );
 
     // Initialize workflow with company context
     setWorkflowState({
@@ -787,10 +858,16 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
     setIsNewCaseModalOpen(true);
   }, []);
 
+  const closeUploadNotesModal = useCallback(() => {
+    setPendingUploadFile(null);
+    setIsUploadNotesModalOpen(false);
+  }, []);
+
   // Handle starter card actions
-  const handleStarterAction = useCallback((action: string, _data?: any) => {
+  const handleStarterAction = useCallback((action: string, data?: { files?: File[] }) => {
     switch (action) {
       case 'upload_notes':
+        setPendingUploadFile(data?.files?.[0] ?? null);
         setIsUploadNotesModalOpen(true);
         break;
       case 'analyze_email':
@@ -826,7 +903,13 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
 
     setCases(prev => [newCase, ...prev]);
     setSelectedCaseId(newCase.id);
-    setIsUploadNotesModalOpen(false);
+    closeUploadNotesModal();
+    
+    // Show success notification
+    showSuccess(
+      'Notes Analyzed',
+      `Created case for ${companyName}`
+    );
 
     // Initialize workflow with extracted context
     setWorkflowState({
@@ -875,7 +958,7 @@ Please analyze these notes and help me build a value hypothesis. What key value 
         extractedInsights: notes.insights,
       },
     }).catch(err => logger.warn('Failed to persist case from notes', { error: err }));
-  }, []);
+  }, [closeUploadNotesModal, handleCommand]);
 
   // Handle email analysis completion
   const handleEmailComplete = useCallback((analysis: EmailAnalysis, rawText: string) => {
@@ -1115,6 +1198,7 @@ Based on this call analysis, help me:
         <div className="p-2">
           <button
             onClick={openNewCaseModal}
+            aria-label="Create new case"
             className="w-full flex items-center justify-between px-3 py-2 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors"
           >
             <span>New Chat</span>
@@ -1164,6 +1248,7 @@ Based on this call analysis, help me:
           <div className="flex items-center justify-between px-2">
             <button
               onClick={onSettingsClick}
+              aria-label="Open settings"
               className="p-2 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
               title="Settings"
             >
@@ -1171,6 +1256,7 @@ Based on this call analysis, help me:
             </button>
             <button
               onClick={onHelpClick}
+              aria-label="Get help"
               className="p-2 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
               title="Help"
             >
@@ -1199,6 +1285,7 @@ Based on this call analysis, help me:
               </div>
               <button
                 onClick={() => setIsCommandBarOpen(true)}
+                aria-label="Ask AI a question (⌘K)"
                 className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm text-gray-300 transition-colors"
               >
                 <Sparkles className="w-4 h-4" />
@@ -1216,6 +1303,7 @@ Based on this call analysis, help me:
               renderedPage={renderedPage}
               isLoading={isLoading}
               streamingUpdate={streamingUpdate}
+              isInitialLoad={isInitialCanvasLoad}
             />
           ) : (
             <EmptyCanvas 
@@ -1231,6 +1319,7 @@ Based on this call analysis, help me:
             <button
               onClick={() => setIsCommandBarOpen(true)}
               className="w-full flex items-center gap-3 px-4 py-3 bg-gray-800 hover:bg-gray-750 rounded-lg border border-gray-700 transition-colors text-left"
+              aria-label="Open command bar (⌘K)"
             >
               <Sparkles className="w-5 h-5 text-indigo-400" />
               <span className="flex-1 text-gray-400">
@@ -1267,8 +1356,9 @@ Based on this call analysis, help me:
               <button
                 onClick={() => setIsNewCaseModalOpen(false)}
                 className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Close new case dialog"
               >
-                <X className="w-5 h-5 text-gray-500" />
+                <X className="w-5 h-5 text-gray-500" aria-hidden="true" />
               </button>
             </div>
 
@@ -1325,6 +1415,7 @@ Based on this call analysis, help me:
                   type="button"
                   onClick={() => setIsNewCaseModalOpen(false)}
                   className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  aria-label="Cancel new case creation"
                 >
                   Cancel
                 </button>
@@ -1332,6 +1423,7 @@ Based on this call analysis, help me:
                   type="submit"
                   disabled={!newCaseCompany.trim()}
                   className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  aria-label="Create new value case"
                 >
                   Create Case
                 </button>
@@ -1344,8 +1436,12 @@ Based on this call analysis, help me:
       {/* Upload Notes Modal */}
       <UploadNotesModal
         isOpen={isUploadNotesModalOpen}
-        onClose={() => setIsUploadNotesModalOpen(false)}
+        onClose={() => {
+          setIsUploadNotesModalOpen(false);
+          setPendingUploadFile(null);
+        }}
         onComplete={handleNotesComplete}
+        initialFile={pendingUploadFile}
       />
 
       {/* Email Analysis Modal */}

@@ -80,3 +80,56 @@ describe('CanvasPatcher.reorderChildren', () => {
     ]);
   });
 });
+
+describe('CanvasPatcher add/replace/remove', () => {
+  it('adds and replaces values at nested paths', () => {
+    const layout: CanvasLayout = {
+      type: 'VerticalSplit',
+      ratios: [50, 50],
+      gap: 16,
+      children: [component('kpi_a')],
+    };
+
+    const delta = {
+      operations: [
+        {
+          op: 'add' as const,
+          path: '/children/1',
+          value: component('kpi_b'),
+        },
+        {
+          op: 'replace' as const,
+          path: '/children/0/component',
+          value: 'MetricBadge',
+        },
+      ],
+      timestamp: Date.now(),
+    };
+
+    const result = CanvasPatcher.applyDelta(layout, delta);
+    expect(result.children[0].component).toBe('MetricBadge');
+    expect(result.children[1].componentId).toBe('kpi_b');
+  });
+
+  it('removes values at array paths safely', () => {
+    const layout: CanvasLayout = {
+      type: 'Grid',
+      columns: 2,
+      gap: 16,
+      children: [component('kpi_a'), component('kpi_b'), component('kpi_c')],
+    };
+
+    const delta = {
+      operations: [
+        {
+          op: 'remove' as const,
+          path: '/children/1',
+        },
+      ],
+      timestamp: Date.now(),
+    };
+
+    const result = CanvasPatcher.applyDelta(layout, delta);
+    expect(result.children.map((c) => c.componentId)).toEqual(['kpi_a', 'kpi_c']);
+  });
+});
