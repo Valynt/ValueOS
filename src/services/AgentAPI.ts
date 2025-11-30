@@ -40,13 +40,13 @@ export interface AgentRequest {
   /**
    * Additional parameters
    */
-  parameters?: Record<string, any>;
+  parameters?: Record<string, unknown>;
 }
 
 /**
  * Agent response format
  */
-export interface AgentResponse<T = any> {
+export interface AgentResponse<T = unknown> {
   /**
    * Whether the request was successful
    */
