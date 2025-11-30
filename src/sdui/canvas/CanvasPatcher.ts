@@ -160,34 +160,58 @@ export class CanvasPatcher {
     const parts = parentPath.split('/').filter(Boolean);
 
     const reorder = (node: any, remainingPath: string[]): any => {
+      // Base: reached target container (or its children array)
       if (remainingPath.length === 0) {
-        if (!('children' in node) || !Array.isArray(node.children)) {
+        const children = Array.isArray(node)
+          ? node
+          : ('children' in node ? node.children : undefined);
+
+        if (!Array.isArray(children)) {
           throw new Error('Cannot reorder: node has no children');
         }
 
-        const newChildren = [...node.children];
+        if (
+          fromIndex < 0 ||
+          fromIndex >= children.length ||
+          toIndex < 0 ||
+          toIndex > children.length
+        ) {
+          throw new Error('Invalid reorder indexes');
+        }
+
+        const newChildren = [...children];
         const [moved] = newChildren.splice(fromIndex, 1);
         newChildren.splice(toIndex, 0, moved);
 
-        return { ...node, children: newChildren };
+        // If we're reordering the array itself, return it; otherwise update the node
+        return Array.isArray(node) ? newChildren : { ...node, children: newChildren };
       }
 
       const [head, ...tail] = remainingPath;
-      if (!('children' in node)) {
-        throw new Error(`Cannot traverse path: ${head}`);
+
+      if (!head) {
+        throw new Error('Invalid path: empty segment');
       }
 
-      const index = parseInt(head);
-      if (isNaN(index)) {
-        throw new Error(`Invalid path index: ${head}`);
-      }
+      if (Array.isArray(node)) {
+        const index = parseInt(head, 10);
+        if (isNaN(index)) {
+          throw new Error(`Invalid path index: ${head}`);
+        }
 
-      return {
-        ...node,
-        children: node.children.map((child: any, i: number) =>
+        return node.map((child: any, i: number) =>
           i === index ? reorder(child, tail) : child
-        ),
-      };
+        );
+      }
+
+      if (node && typeof node === 'object' && head in node) {
+        return {
+          ...node,
+          [head]: reorder(node[head], tail),
+        };
+      }
+
+      throw new Error(`Cannot traverse path: ${head}`);
     };
 
     return reorder(layout, parts);
