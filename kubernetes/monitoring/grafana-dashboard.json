@@ -1,0 +1,132 @@
+{
+  "dashboard": {
+    "title": "ValueCanvas Secrets Management",
+    "tags": ["secrets", "security", "kubernetes"],
+    "timezone": "UTC",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Secret Access Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(secret_access_total[5m])",
+            "legendFormat": "{{tenant_id}} - {{result}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Requests/sec",
+            "format": "reqps"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Secret Access Latency (p95)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(secret_access_latency_seconds_bucket[5m]))",
+            "legendFormat": "{{provider}} - {{cached}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Latency (s)",
+            "format": "s"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Cache Hit Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "rate(secret_cache_hits_total[5m]) / (rate(secret_cache_hits_total[5m]) + rate(secret_cache_misses_total[5m])) * 100",
+            "legendFormat": "Cache Hit %"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Secret Rotation Success Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "rate(secret_rotation_total{result=\"success\"}[1h]) / rate(secret_rotation_total[1h]) * 100",
+            "legendFormat": "Success Rate %"
+          }
+        ],
+        "thresholds": [
+          {
+            "value": 99,
+            "color": "green"
+          },
+          {
+            "value": 95,
+            "color": "yellow"
+          },
+          {
+            "value": 0,
+            "color": "red"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Secret Access Errors",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(secret_access_errors_total[5m])",
+            "legendFormat": "{{tenant_id}} - {{error_type}}"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Rotation Duration (p95)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(secret_rotation_duration_seconds_bucket[1h]))",
+            "legendFormat": "{{tenant_id}} - {{secret_key}}"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Active Rotation Jobs",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "secret_rotation_jobs_active"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Secrets Watched",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "secrets_watched"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Secret Cache Size",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "secret_cache_size",
+            "legendFormat": "{{provider}}"
+          }
+        ]
+      }
+    ]
+  }
+}
