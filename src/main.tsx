@@ -3,6 +3,9 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import AppRoutes from './AppRoutes.tsx';
 import './index.css';
+import './styles/focus-visible.css';
+import './styles/micro-interactions.css';
+import './styles/responsive.css';
 import { bootstrap } from './bootstrap';
 import { isProduction, isDevelopment } from './config/environment';
 
