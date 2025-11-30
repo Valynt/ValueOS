@@ -5,13 +5,23 @@
 
 [Supabase](https://supabase.io) is an open source Firebase alternative. We're building the features of Firebase using enterprise-grade open source tools.
 
-This repository contains all the functionality for Supabase CLI.
+## 📚 Documentation
 
-- [x] Running Supabase locally
-- [x] Managing database migrations
-- [x] Creating and deploying Supabase Functions
-- [x] Generating types directly from your database schema
-- [x] Making authenticated HTTP requests to [Management API](https://supabase.com/docs/reference/api/introduction)
+**Last Updated:** 2024-11-29
+
+Comprehensive documentation is available in the `docs/` directory:
+
+### Essential Docs
+- **[Project Status](docs/STATUS.md)** ⭐ - Current project status and metrics
+- **[Documentation Index](docs/README.md)** - Complete documentation overview
+- **[Quick Start Guide](QUICKSTART.md)** - Get up and running in 5 minutes
+- **[Deployment Checklist](docs/deployment/DEPLOYMENT_CHECKLIST.md)** ⭐ - Phase-by-phase deployment
+
+### Technical Docs
+- **[Architecture Diagrams](docs/architecture/ARCHITECTURE_DIAGRAMS.md)** - System architecture
+- **[API Documentation](docs/api/)** - API reference and examples
+- **[Security Remediation](docs/security/SECURITY_REMEDIATION.md)** - Security hardening (2024-11-29)
+- **[Contributing Guide](CONTRIBUTING.md)** - How to contribute to the project
 
 ## Getting started
 
