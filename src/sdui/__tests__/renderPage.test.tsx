@@ -154,6 +154,50 @@ describe('renderPage', () => {
       // Should render fallback component
     });
 
+    it('renders fallback content for unknown components', () => {
+      const pageDefinition: SDUIPageDefinition = {
+        type: 'page',
+        version: 1,
+        sections: [
+          {
+            type: 'component',
+            component: 'NonExistentComponent',
+            version: 1,
+            props: {},
+          },
+        ],
+      };
+
+      const result = renderPage(pageDefinition);
+      const rendered = result.element as any;
+      expect(JSON.stringify(rendered)).toContain('Component unavailable');
+    });
+
+    it('renders layout container components without validation errors', () => {
+      const pageDefinition: SDUIPageDefinition = {
+        type: 'page',
+        version: 1,
+        sections: [
+          {
+            type: 'component',
+            component: 'Grid',
+            version: 1,
+            props: {
+              columns: 2,
+              children: [
+                { type: 'component', component: 'InfoBanner', version: 1, props: { title: 'A' } },
+                { type: 'component', component: 'InfoBanner', version: 1, props: { title: 'B' } },
+              ],
+            },
+          },
+        ],
+      } as unknown as SDUIPageDefinition;
+
+      const result = renderPage(pageDefinition);
+      expect(result.metadata.componentCount).toBeGreaterThan(0);
+      expect(result.warnings).toEqual([]);
+    });
+
     it('should call onComponentRender callback', () => {
       const onComponentRender = vi.fn();
       const pageDefinition: SDUIPageDefinition = {

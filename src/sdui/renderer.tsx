@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { VerticalSplit, HorizontalSplit, Grid, DashboardPanel } from '../components/SDUI/CanvasLayout';
 import { ErrorBoundary } from '../components/Common/ErrorBoundary';
 import { UnknownComponentFallback, SectionErrorFallback } from '../components/SDUI';
 import { SDUIComponentSection, SDUIPageDefinition, validateSDUISchema } from './schema';
@@ -111,13 +112,73 @@ const ComponentWithBindings: React.FC<{
 };
 
 const renderSection = (
-  section: SDUIComponentSection,
+  section: any,
   index: number,
   debugOverlay?: boolean,
   resolver?: DataBindingResolver,
   context?: DataSourceContext
-) => {
-  const entry = resolveComponent(section);
+): React.ReactNode => {
+  // Handle layout types (VerticalSplit, HorizontalSplit, Grid, DashboardPanel)
+  if (section.type && ['VerticalSplit', 'HorizontalSplit', 'Grid', 'DashboardPanel'].includes(section.type)) {
+    const key = `layout-${section.type}-${index}`;
+    
+    // Recursively render children
+    const childNodes = section.children?.map((child: any, i: number) => 
+      renderSection(child, i, debugOverlay, resolver, context)
+    ) || [];
+    
+    switch (section.type) {
+      case 'VerticalSplit':
+        return (
+          <VerticalSplit
+            key={key}
+            ratios={section.ratios || [1, 1]}
+            gap={section.gap}
+          >
+            {childNodes}
+          </VerticalSplit>
+        );
+      
+      case 'HorizontalSplit':
+        return (
+          <HorizontalSplit
+            key={key}
+            ratios={section.ratios || [1, 1]}
+            gap={section.gap}
+          >
+            {childNodes}
+          </HorizontalSplit>
+        );
+      
+      case 'Grid':
+        return (
+          <Grid
+            key={key}
+            columns={section.columns || 2}
+            rows={section.rows}
+            gap={section.gap}
+            responsive={section.responsive}
+          >
+            {childNodes}
+          </Grid>
+        );
+      
+      case 'DashboardPanel':
+        return (
+          <DashboardPanel
+            key={key}
+            title={section.title}
+            collapsible={section.collapsible}
+            defaultExpanded={section.defaultExpanded}
+          >
+            {childNodes}
+          </DashboardPanel>
+        );
+    }
+  }
+  
+  // Handle component types (original logic)
+  const entry = resolveComponent(section as SDUIComponentSection);
   if (!entry) {
     return (
       <div key={`${section.component}-${index}`}>

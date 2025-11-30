@@ -1,0 +1,142 @@
+/**
+ * Focus-Visible Styles
+ * Provides consistent, accessible keyboard navigation focus indicators
+ * Only shows focus ring when navigating with keyboard, not mouse clicks
+ */
+
+/* Remove default browser focus outline */
+*:focus {
+  outline: none;
+}
+
+/* Focus-visible ring for keyboard navigation */
+*:focus-visible {
+  outline: 2px solid #6366f1; /* Indigo-500 */
+  outline-offset: 2px;
+  border-radius: 0.375rem;
+}
+
+/* Button-specific focus styles */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+}
+
+/* Input-specific focus styles */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 0;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+/* Link focus styles */
+a:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+/* Card/Panel focus styles */
+[tabindex]:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
+/* Dark mode support */
+.dark *:focus-visible,
+.dark button:focus-visible,
+.dark a:focus-visible {
+  outline-color: #818cf8; /* Indigo-400 */
+  box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.15);
+}
+
+/* Error state focus */
+.error:focus-visible,
+[aria-invalid="true"]:focus-visible {
+  outline-color: #ef4444; /* Red-500 */
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+/* Success state focus */
+.success:focus-visible {
+  outline-color: #10b981; /* Green-500 */
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+/* Disabled elements - no focus ring */
+button:disabled:focus-visible,
+input:disabled:focus-visible,
+[aria-disabled="true"]:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Skip link focus (for accessibility) */
+.skip-link:focus-visible {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 9999;
+  padding: 0.75rem 1.5rem;
+  background: #1f2937;
+  color: white;
+  border-radius: 0.5rem;
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+/* Focus within - for container elements */
+.focus-within:focus-within {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
+/* Custom focus ring utilities */
+.focus-ring-primary:focus-visible {
+  outline-color: #6366f1;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+}
+
+.focus-ring-success:focus-visible {
+  outline-color: #10b981;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+}
+
+.focus-ring-warning:focus-visible {
+  outline-color: #f59e0b;
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.1);
+}
+
+.focus-ring-error:focus-visible {
+  outline-color: #ef4444;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1);
+}
+
+/* No focus ring utility (use sparingly) */
+.focus-ring-none:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Enhanced focus for high contrast mode */
+@media (prefers-contrast: high) {
+  *:focus-visible {
+    outline-width: 3px;
+    outline-offset: 3px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *:focus-visible {
+    transition: none;
+  }
+}
