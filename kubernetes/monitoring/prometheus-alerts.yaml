@@ -1,0 +1,142 @@
+# Prometheus Alerting Rules for Secrets Management
+#
+# Sprint 3: Kubernetes Integration
+# Created: 2024-11-29
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-secrets-alerts
+  namespace: monitoring
+data:
+  secrets-alerts.yaml: |
+    groups:
+    - name: secrets_management
+      interval: 30s
+      rules:
+      
+      # High secret access error rate
+      - alert: HighSecretAccessErrorRate
+        expr: |
+          rate(secret_access_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: secrets
+        annotations:
+          summary: "High secret access error rate for tenant {{ $labels.tenant_id }}"
+          description: "Secret access error rate is {{ $value }} errors/sec for tenant {{ $labels.tenant_id }}"
+      
+      # Secret rotation failure
+      - alert: SecretRotationFailure
+        expr: |
+          rate(secret_rotation_errors_total[1h]) > 0
+        for: 5m
+        labels:
+          severity: critical
+          component: secrets
+        annotations:
+          summary: "Secret rotation failed for {{ $labels.tenant_id }}/{{$labels.secret_key }}"
+          description: "Secret rotation failed with error: {{ $labels.error_type }}"
+      
+      # Low cache hit rate
+      - alert: LowCacheHitRate
+        expr: |
+          (
+            rate(secret_cache_hits_total[10m]) /
+            (rate(secret_cache_hits_total[10m]) + rate(secret_cache_misses_total[10m]))
+          ) < 0.7
+        for: 15m
+        labels:
+          severity: warning
+          component: secrets
+        annotations:
+          summary: "Low secret cache hit rate"
+          description: "Cache hit rate is {{ $value | humanizePercentage }} for provider {{ $labels.provider }}"
+      
+      # High secret access latency
+      - alert: HighSecretAccessLatency
+        expr: |
+          histogram_quantile(0.95, rate(secret_access_latency_seconds_bucket[5m])) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          component: secrets
+        annotations:
+          summary: "High secret access latency"
+          description: "P95 secret access latency is {{ $value }}s for provider {{ $labels.provider }}"
+      
+      # Secret rotation success rate below threshold
+      - alert: LowRotationSuccessRate
+        expr: |
+          (
+            rate(secret_rotation_total{result="success"}[6h]) /
+            rate(secret_rotation_total[6h])
+          ) < 0.99
+        for: 30m
+        labels:
+          severity: critical
+          component: secrets
+        annotations:
+          summary: "Secret rotation success rate below 99%"
+          description: "Rotation success rate is {{ $value | humanizePercentage }}"
+      
+      # No secrets being watched (volume watcher down)
+      - alert: SecretWatcherDown
+        expr: |
+          secrets_watched == 0
+        for: 5m
+        labels:
+          severity: warning
+          component: secrets
+        annotations:
+          summary: "Secret volume watcher not watching any secrets"
+          description: "Secret watcher may be down or misconfigured"
+      
+      # High rotation duration
+      - alert: HighRotationDuration
+        expr: |
+          histogram_quantile(0.95, rate(secret_rotation_duration_seconds_bucket[1h])) > 300
+        for: 30m
+        labels:
+          severity: warning
+          component: secrets
+        annotations:
+          summary: "Secret rotation taking too long"
+          description: "P95 rotation duration is {{ $value }}s for {{ $labels.tenant_id }}"
+      
+      # Provider unavailable
+      - alert: SecretProviderDown
+        expr: |
+          up{job="secret-provider"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: secrets
+        annotations:
+          summary: "Secret provider is down"
+          description: "Secret provider {{ $labels.provider }} is not responding"
+      
+      # Excessive secret access (potential breach)
+      - alert: ExcessiveSecretAccess
+        expr: |
+          rate(secret_access_total[5m]) > 100
+        for: 10m
+        labels:
+          severity: warning
+          component: secrets
+        annotations:
+          summary: "Unusually high secret access rate"
+          description: "Secret access rate is {{ $value }} req/sec for tenant {{ $labels.tenant_id }} - potential security incident"
+      
+      # Cache size growing too large
+      - alert: LargeSecretCache
+        expr: |
+          secret_cache_size > 1000
+        for: 15m
+        labels:
+          severity: info
+          component: secrets
+        annotations:
+          summary: "Secret cache size is large"
+          description: "Cache contains {{ $value }} secrets for provider {{ $labels.provider }} - consider tuning TTL"

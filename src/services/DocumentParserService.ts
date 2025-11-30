@@ -8,6 +8,7 @@
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
+import { llmConfig } from '../config/llm';
 
 // ============================================================================
 // Types
@@ -49,7 +50,7 @@ class DocumentParserService {
   private functionUrl: string;
 
   constructor() {
-    this.llm = new LLMGateway('together', true);
+    this.llm = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
     this.functionUrl = `${supabaseUrl}/functions/v1/parse-document`;
   }

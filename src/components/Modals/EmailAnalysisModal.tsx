@@ -46,6 +46,16 @@ export const EmailAnalysisModal: React.FC<EmailAnalysisModalProps> = ({
   onClose,
   onComplete,
 }) => {
+  // Handle Escape key
+  React.useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isOpen, onClose]);
   const [emailText, setEmailText] = useState('');
   const [analysisState, setAnalysisState] = useState<AnalysisState>('idle');
   const [analysis, setAnalysis] = useState<EmailAnalysis | null>(null);
@@ -96,7 +106,12 @@ export const EmailAnalysisModal: React.FC<EmailAnalysisModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="email-analysis-title"
+    >
       <div className="bg-gray-900 rounded-xl shadow-2xl w-full max-w-4xl m-4 border border-gray-800 max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-800 flex-shrink-0">
@@ -105,7 +120,7 @@ export const EmailAnalysisModal: React.FC<EmailAnalysisModalProps> = ({
               <Mail className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">Analyze Email Thread</h2>
+              <h2 id="email-analysis-title" className="text-xl font-semibold text-gray-900">Analyze Email Thread</h2>
               <p className="text-sm text-gray-400">Paste an email conversation for AI analysis</p>
             </div>
           </div>

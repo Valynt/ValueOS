@@ -14,6 +14,9 @@ import { CircuitBreaker } from './CircuitBreaker';
 import { SDUIPageDefinition, validateSDUISchema } from '../sdui/schema';
 import { getAuditLogger, logAgentResponse } from './AgentAuditLogger';
 import { getConfig } from '../config/environment';
+import { llmSanitizer } from './LLMSanitizer';
+import { fetchWithCSRF, sanitizeObject, sanitizeString } from '../security';
+import { addServiceIdentityHeader } from '../middleware/serviceIdentityMiddleware';
 
 /**
  * Agent request payload
@@ -37,13 +40,13 @@ export interface AgentRequest {
   /**
    * Additional parameters
    */
-  parameters?: Record<string, any>;
+  parameters?: Record<string, unknown>;
 }
 
 /**
  * Agent response format
  */
-export interface AgentResponse<T = any> {
+export interface AgentResponse<T = unknown> {
   /**
    * Whether the request was successful
    */
@@ -231,6 +234,39 @@ export class AgentAPI {
   }
 
   /**
+   * Sanitize outbound agent payloads to guard against prompt injection and XSS.
+   */
+  private sanitizeRequestBody(body: any): any {
+    const sanitizedQuery = body.query
+      ? sanitizeString(
+          llmSanitizer.sanitizePrompt(String(body.query), { maxLength: 4000 }).content,
+          { maxLength: 4000, stripScripts: true }
+        ).sanitized
+      : body.query;
+
+    return sanitizeObject({
+      ...body,
+      query: sanitizedQuery,
+    });
+  }
+
+  /**
+   * Normalize token counts to a safe ceiling to prevent overflow and abuse.
+   */
+  private normalizeTokenUsage(tokens?: any): { prompt?: number; completion?: number; total?: number } | undefined {
+    if (!tokens) return undefined;
+
+    const clamp = (value: number | undefined, max = 20000) =>
+      Math.min(Math.max(Number(value || 0), 0), max);
+
+    const prompt = clamp(tokens.prompt);
+    const completion = clamp(tokens.completion);
+    const total = clamp(tokens.total || prompt + completion);
+
+    return { prompt, completion, total };
+  }
+
+  /**
    * Make HTTP request with timeout
    */
   private async fetchWithTimeout(
@@ -241,11 +277,13 @@ export class AgentAPI {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+    const baseFetch = (globalThis.fetch || fetch).bind(globalThis);
+
     try {
-      const response = await fetch(url, {
+      const response = await fetchWithCSRF(url, {
         ...options,
         signal: controller.signal,
-      });
+      }, {}, baseFetch);
       clearTimeout(timeoutId);
       return response;
     } catch (error) {
@@ -267,6 +305,7 @@ export class AgentAPI {
   ): Promise<AgentResponse<T>> {
     const startTime = Date.now();
     const circuitBreaker = this.getCircuitBreaker(agent);
+    const sanitizedBody = this.sanitizeRequestBody(body);
 
     // Check circuit breaker state
     if (circuitBreaker && !circuitBreaker.canExecute()) {
@@ -284,7 +323,7 @@ export class AgentAPI {
     try {
       // Log request if enabled
       if (this.config.enableLogging) {
-        logger.debug(`[AgentAPI] Request to ${agent}:`, { endpoint, body });
+        logger.debug(`[AgentAPI] Request to ${agent}:`, { endpoint, body: sanitizedBody });
       }
 
       // Make HTTP request
@@ -295,9 +334,10 @@ export class AgentAPI {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            ...addServiceIdentityHeader({}),
             ...this.config.headers,
           },
-          body: JSON.stringify(body),
+          body: JSON.stringify(sanitizedBody),
         },
         this.config.timeout
       );
@@ -314,6 +354,8 @@ export class AgentAPI {
 
       // Parse response
       const data = await response.json();
+      const sanitizedData = sanitizeObject(data.data || data);
+      const normalizedTokens = this.normalizeTokenUsage(data.tokens);
 
       // Record success in circuit breaker
       if (circuitBreaker) {
@@ -327,27 +369,27 @@ export class AgentAPI {
 
       const result = {
         success: true,
-        data: data.data || data,
+        data: sanitizedData,
         confidence: data.confidence,
         metadata: {
           agent,
           duration,
           timestamp: new Date().toISOString(),
           model: data.model,
-          tokens: data.tokens,
+          tokens: normalizedTokens,
         },
-        warnings: data.warnings,
+        warnings: sanitizeObject(data.warnings || []),
       };
 
       // Log to audit system
       await logAgentResponse(
         agent,
-        body.query || '',
+        sanitizedBody.query || '',
         true,
-        data.data || data,
+        sanitizedData,
         result.metadata,
         undefined,
-        body.context
+        sanitizedBody.context
       );
 
       return result;
@@ -377,12 +419,12 @@ export class AgentAPI {
       // Log to audit system
       await logAgentResponse(
         agent,
-        body.query || '',
+        sanitizedBody.query || '',
         false,
         undefined,
         result.metadata,
         (error as Error).message,
-        body.context
+        sanitizedBody.context
       );
 
       return result;

@@ -29,7 +29,7 @@ export const SDUIComponentSectionSchema = z.object({
   fallback: SDUIFallbackSchema.optional(),
 });
 
-// Multi-tenant metadata schema
+// Multi-tenant metadata schema with enhanced fields
 const SDUIMetadataSchema = z.object({
   debug: z.boolean().optional(),
   cacheTtlSeconds: z.number().int().positive().optional(),
@@ -39,6 +39,30 @@ const SDUIMetadataSchema = z.object({
   theme: z.enum(['dark', 'light']).default('dark'),
   featureFlags: z.record(z.boolean()).optional(),
   dataResidency: z.enum(['us', 'eu', 'apac']).optional(),
+  // Phase 3: Enhanced metadata
+  lifecycle_stage: z.string().optional(), // e.g., 'opportunity', 'target', 'realization', 'expansion'
+  case_id: z.string().optional(), // Associated value case ID
+  session_id: z.string().optional(), // Workflow session ID
+  generated_at: z.number().optional(), // Unix timestamp
+  agent_name: z.string().optional(), // Which agent generated this
+  confidence_score: z.number().min(0).max(1).optional(), // AI confidence (0-1)
+  // Performance hints
+  estimated_render_time_ms: z.number().positive().optional(),
+  priority: z.enum(['low', 'normal', 'high', 'critical']).optional(),
+  // Component dependencies for lazy loading
+  required_components: z.array(z.string()).optional(),
+  optional_components: z.array(z.string()).optional(),
+  // Accessibility
+  accessibility: z.object({
+    level: z.enum(['A', 'AA', 'AAA']).optional(),
+    screen_reader_optimized: z.boolean().optional(),
+    high_contrast_mode: z.boolean().optional(),
+    keyboard_navigation: z.boolean().optional(),
+  }).optional(),
+  // Telemetry
+  telemetry_enabled: z.boolean().optional(),
+  trace_id: z.string().optional(),
+  parent_span_id: z.string().optional(),
 }).optional();
 
 // Union type for sections (component or layout directive)

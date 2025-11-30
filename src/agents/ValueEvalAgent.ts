@@ -11,6 +11,7 @@
 import { logger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
+import { llmConfig } from '../config/llm';
 
 export interface ImprovementSuggestion {
   category: string;
@@ -53,7 +54,7 @@ export class ValueEvalAgent {
   private agentName: string;
 
   constructor() {
-    this.llmGateway = new LLMGateway('together', true);
+    this.llmGateway = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
     this.agentName = 'ValueEvalAgent';
   }
 

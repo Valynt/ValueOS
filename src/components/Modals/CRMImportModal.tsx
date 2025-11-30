@@ -57,6 +57,17 @@ export const CRMImportModal: React.FC<CRMImportModalProps> = ({
   tenantId,
   userId,
 }) => {
+  // Handle Escape key
+  React.useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isOpen, onClose]);
+
   // State
   const [activeTab, setActiveTab] = useState<'url' | 'search'>('url');
   const [urlInput, setUrlInput] = useState('');
@@ -270,7 +281,12 @@ export const CRMImportModal: React.FC<CRMImportModalProps> = ({
   const hasAnyCRM = crmStatus.hubspot || crmStatus.salesforce;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="crm-import-title"
+    >
       <div className="bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl m-4 border border-gray-800 max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-800 flex-shrink-0">
@@ -279,7 +295,7 @@ export const CRMImportModal: React.FC<CRMImportModalProps> = ({
               <Link2 className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">Import from CRM</h2>
+              <h2 id="crm-import-title" className="text-xl font-semibold text-gray-900">Import from CRM</h2>
               <p className="text-sm text-gray-400">
                 {checkingStatus ? 'Checking connections...' : 
                   hasAnyCRM 

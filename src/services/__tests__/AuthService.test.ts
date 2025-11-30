@@ -1,91 +1,117 @@
-/**
- * AuthService Tests
- * 
- * Tests for authentication service with security validation
- */
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { AuthService } from '../AuthService';
+import { ValidationError, RateLimitError } from '../errors';
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+const mockSupabaseAuth = {
+  signInWithPassword: vi.fn(),
+  signUp: vi.fn(),
+  resetPasswordForEmail: vi.fn(),
+  updateUser: vi.fn(),
+  signOut: vi.fn(),
+  getSession: vi.fn(),
+  getUser: vi.fn(),
+};
+
+vi.mock('../../lib/supabase', () => ({
+  supabase: { auth: mockSupabaseAuth },
+}));
+
+const mockConsumeAuthRateLimit = vi.fn();
+const mockResetRateLimit = vi.fn();
+vi.mock('../../security', async () => {
+  const actual = await vi.importActual<typeof import('../../security')>('../../security');
+  return {
+    ...actual,
+    consumeAuthRateLimit: mockConsumeAuthRateLimit,
+    resetRateLimit: mockResetRateLimit,
+    checkPasswordBreach: vi.fn().mockResolvedValue(false),
+  };
+});
+
+const mockGetConfig = vi.fn(() => ({
+  auth: { mfaEnabled: false },
+}));
+
+vi.mock('../../config/environment', async () => {
+  const actual = await vi.importActual<typeof import('../../config/environment')>('../../config/environment');
+  return {
+    ...actual,
+    getConfig: mockGetConfig,
+  };
+});
 
 describe('AuthService', () => {
-  describe('Authentication', () => {
-    it('should authenticate valid users', async () => {
-      const credentials = {
-        email: 'test@example.com',
-        password: 'SecurePass123!'
-      };
+  let service: AuthService;
 
-      // Mock authentication
-      const result = { success: true, token: 'jwt-token', userId: 'user-1' };
-
-      expect(result.success).toBe(true);
-      expect(result.token).toBeDefined();
-      expect(result.userId).toBeDefined();
-    });
-
-    it('should reject invalid credentials', async () => {
-      const credentials = {
-        email: 'test@example.com',
-        password: 'wrong-password'
-      };
-
-      const result = { success: false, error: 'Invalid credentials' };
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBeDefined();
-    });
-
-    it('should validate token format', async () => {
-      const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
-      
-      expect(token).toBeDefined();
-      expect(token.length).toBeGreaterThan(0);
-    });
-
-    it('should handle session expiry', async () => {
-      const expiredToken = 'expired-token';
-      
-      const result = { valid: false, error: 'Token expired' };
-
-      expect(result.valid).toBe(false);
-      expect(result.error).toContain('expired');
-    });
+  beforeEach(() => {
+    service = new AuthService();
+    vi.clearAllMocks();
+    mockGetConfig.mockReturnValue({ auth: { mfaEnabled: false } });
   });
 
-  describe('Authorization', () => {
-    it('should validate user permissions', async () => {
-      const user = { id: 'user-1', role: 'admin' };
-      const permission = 'read:agents';
-
-      const hasPermission = user.role === 'admin';
-
-      expect(hasPermission).toBe(true);
-    });
-
-    it('should enforce role-based access', async () => {
-      const user = { id: 'user-1', role: 'viewer' };
-      const action = 'delete:agents';
-
-      const canPerform = user.role === 'admin';
-
-      expect(canPerform).toBe(false);
-    });
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
-  describe('Security', () => {
-    it('should hash passwords', async () => {
-      const password = 'SecurePass123!';
-      const hashed = 'hashed-password-value';
+  it('requires MFA code when MFA is enabled', async () => {
+    mockGetConfig.mockReturnValue({ auth: { mfaEnabled: true } });
 
-      expect(hashed).not.toBe(password);
-      expect(hashed.length).toBeGreaterThan(password.length);
+    await expect(
+      service.login({ email: 'user@example.com', password: 'Secret123!' })
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it('rejects signup when password is breached', async () => {
+    const { checkPasswordBreach } = await import('../../security');
+    (checkPasswordBreach as vi.Mock).mockResolvedValueOnce(true);
+
+    await expect(
+      service.signup({ email: 'user@example.com', password: 'Secret123!', fullName: 'User' })
+    ).rejects.toThrow(/breach/);
+    expect(mockSupabaseAuth.signUp).not.toHaveBeenCalled();
+  });
+
+  it('rejects password update when password is breached', async () => {
+    const { checkPasswordBreach } = await import('../../security');
+    (checkPasswordBreach as vi.Mock).mockResolvedValueOnce(true);
+
+    await expect(service.updatePassword('Secret123!')).rejects.toThrow(/breach/);
+    expect(mockSupabaseAuth.updateUser).not.toHaveBeenCalled();
+  });
+
+  it('throws RateLimitError when rate limit exceeded on login', async () => {
+    const { RateLimitExceededError } = await import('../../security');
+    mockConsumeAuthRateLimit.mockImplementation(() => {
+      throw new RateLimitExceededError(1000, 5, 300000);
     });
 
-    it('should enforce password complexity', async () => {
-      const weakPassword = '123';
-      const strongPassword = 'SecurePass123!';
+    await expect(
+      service.login({ email: 'user@example.com', password: 'Secret123!', otpCode: '123456' })
+    ).rejects.toBeInstanceOf(RateLimitError);
+    expect(mockSupabaseAuth.signInWithPassword).not.toHaveBeenCalled();
+  });
 
-      expect(weakPassword.length).toBeLessThan(8);
-      expect(strongPassword.length).toBeGreaterThanOrEqual(8);
+  it('logs in successfully when MFA provided and backend returns session', async () => {
+    mockGetConfig.mockReturnValue({ auth: { mfaEnabled: true } });
+    mockSupabaseAuth.signInWithPassword.mockResolvedValue({
+      data: { user: { id: 'u1' }, session: { access_token: 't' } },
+      error: null,
     });
+
+    const result = await service.login({
+      email: 'user@example.com',
+      password: 'Secret123!',
+      otpCode: '654321',
+    });
+
+    expect(result.user?.id).toBe('u1');
+    expect(result.session?.access_token).toBe('t');
+    expect(mockSupabaseAuth.signInWithPassword).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'user@example.com',
+        password: 'Secret123!',
+        options: expect.objectContaining({ captchaToken: '654321' }),
+      })
+    );
   });
 });

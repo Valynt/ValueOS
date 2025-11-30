@@ -1,8 +1,11 @@
 import { logger } from './lib/logger';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import App from './App.tsx';
+import AppRoutes from './AppRoutes.tsx';
 import './index.css';
+import './styles/focus-visible.css';
+import './styles/micro-interactions.css';
+import './styles/responsive.css';
 import { bootstrap } from './bootstrap';
 import { isProduction, isDevelopment } from './config/environment';
 
@@ -45,13 +48,13 @@ async function main() {
       skipAgentCheck: false,
       failFast: isProduction(),
       onProgress: (message) => {
-        logger.debug('⏳ ${message}');
+        logger.debug(`⏳ ${message}`);
       },
       onWarning: (warning) => {
-        logger.warn('⚠️  ${warning}');
+        logger.warn(`⚠️  ${warning}`);
       },
       onError: (error) => {
-        logger.error('❌ ${error}');
+        logger.error(`❌ ${error}`);
       },
     });
 
@@ -88,16 +91,17 @@ async function main() {
     logger.debug('Rendering application...');
     
     const root = createRoot(rootElement);
+    logger.debug('Root created, rendering React app...');
     root.render(
       <StrictMode>
-        <App />
+        <AppRoutes />
       </StrictMode>
     );
 
     logger.debug('✅ Application rendered successfully');
     
   } catch (error) {
-    logger.error('Fatal error during application initialization:', error);
+    logger.error('Fatal error during application initialization', error instanceof Error ? error : new Error(String(error)));
     
     // Show error screen
     rootElement.innerHTML = `

@@ -1,460 +1,193 @@
-# ValueCanvas
+# Supabase CLI
 
-**AI-Powered Value Realization Platform**
+[![Coverage Status](https://coveralls.io/repos/github/supabase/cli/badge.svg?branch=main)](https://coveralls.io/github/supabase/cli?branch=main) [![Bitbucket Pipelines](https://img.shields.io/bitbucket/pipelines/supabase-cli/setup-cli/master?style=flat-square&label=Bitbucket%20Canary)](https://bitbucket.org/supabase-cli/setup-cli/pipelines) [![Gitlab Pipeline Status](https://img.shields.io/gitlab/pipeline-status/sweatybridge%2Fsetup-cli?label=Gitlab%20Canary)
+](https://gitlab.com/sweatybridge/setup-cli/-/pipelines)
 
-ValueCanvas is an enterprise-grade platform that combines LLM-powered multi-agent systems with generative UI to help organizations discover, target, realize, and expand business value through systematic outcome frameworks.
-
----
-
-## 🚀 Quick Start
-
-### Option 1: Docker (Recommended)
-
-Get up and running in 5 minutes with Docker:
-
-```bash
-# 1. Clone and setup
-git clone https://github.com/bmsull560/ValueCanvas.git
-cd ValueCanvas
-cp .env.example .env.local
-# Edit .env.local with your credentials
-
-# 2. Start with Docker Compose
-docker-compose -f docker-compose.dev.yml up -d
-
-# 3. Open browser
-open http://localhost:5173
-```
-
-### Option 2: Native Development
-
-```bash
-# 1. Install dependencies
-npm install
-
-# 2. Set up environment
-cp .env.example .env.local
-# Edit .env.local and add your credentials
-
-# 3. Start development server
-npm run dev
-```
-
-Open http://localhost:5173 and start creating value!
-
-📖 **New to ValueCanvas?** See [QUICKSTART.md](./QUICKSTART.md) for detailed setup instructions.  
-🐳 **Production Deployment?** See [DEPLOYMENT.md](./DEPLOYMENT.md) for comprehensive deployment guide.
-
----
+[Supabase](https://supabase.io) is an open source Firebase alternative. We're building the features of Firebase using enterprise-grade open source tools.
 
 ## 📚 Documentation
 
-**[📖 Complete Documentation](./docs/README.md)** - Full documentation index with 30+ guides
+**Last Updated:** 2024-11-29
 
-### Quick Links
+Comprehensive documentation is available in the `docs/` directory:
 
-**Getting Started**
-- **[Quick Start Guide](./QUICKSTART.md)** - Get running in 5 minutes
-- **[Local Setup Guide](./docs/getting-started/LOCAL_SETUP_GUIDE.md)** - Comprehensive development setup
-- **[Troubleshooting](./docs/getting-started/TROUBLESHOOTING.md)** - Common issues and solutions
+### Essential Docs
+- **[Project Status](docs/STATUS.md)** ⭐ - Current project status and metrics
+- **[Documentation Index](docs/README.md)** - Complete documentation overview
+- **[Quick Start Guide](QUICKSTART.md)** - Get up and running in 5 minutes
+- **[Deployment Checklist](docs/deployment/DEPLOYMENT_CHECKLIST.md)** ⭐ - Phase-by-phase deployment
 
-**Architecture & Operations**
-- **[Architecture Diagrams](./docs/architecture/ARCHITECTURE_DIAGRAMS.md)** - System architecture
-- **[Deployment Guide](./docs/operations/DEPLOYMENT.md)** - Production deployment
-- **[Operations Runbook](./docs/operations/RUNBOOK_OPERATIONS.md)** - Day-to-day operations
+### Technical Docs
+- **[Architecture Diagrams](docs/architecture/ARCHITECTURE_DIAGRAMS.md)** - System architecture
+- **[API Documentation](docs/api/)** - API reference and examples
+- **[Security Remediation](docs/security/SECURITY_REMEDIATION.md)** - Security hardening (2024-11-29)
+- **[Contributing Guide](CONTRIBUTING.md)** - How to contribute to the project
 
-**Features & APIs**
-- **[Enterprise Features](./docs/features/ENTERPRISE_FEATURES.md)** - Enterprise capabilities
-- **[SDUI Components](./docs/features/SDUI_COMPONENTS_GUIDE.md)** - Server-driven UI
-- **[API Documentation](./docs/api/SERVICES_API.md)** - Service APIs
+## Getting started
 
-**Security & Compliance** 🔒
-- **[Security Overview](./docs/security/SECURITY.md)** - Security features
-- **[RBAC Guide](./docs/security/rbac-guide.md)** - Role-Based Access Control ⭐
-- **[Audit Logging](./docs/security/audit-logging.md)** - Compliance audit trails ⭐
-- **[Circuit Breaker](./docs/security/circuit-breaker.md)** - Agent safety controls ⭐
+### Install the CLI
 
-**Additional Resources**
-- **[Agent Guides](./docs/guides/)** - Agent fabric and integration guides
-- **[FAQ](./docs/FAQ.md)** - Frequently asked questions
-- **[Archived Documentation](./docs/archive/README.md)** - Historical reports (65 documents)
-
----
-
-## 🏗️ Architecture
-
-ValueCanvas is built on a modern, scalable architecture:
-
-### Technology Stack
-- **Frontend:** React 18 + TypeScript + Vite
-- **Backend:** Supabase (PostgreSQL + Auth + Storage)
-- **AI/ML:** LLM-MARL multi-agent system
-- **UI:** Generative SDUI with dynamic component selection
-- **Testing:** Vitest + Testing Library
-
-### Key Components
-
-#### 1. LLM-MARL Agent System
-Multi-agent reinforcement learning system with:
-- **CoordinatorAgent** - Task planning and orchestration
-- **SystemMapperAgent** - System analysis and mapping
-- **InterventionDesignerAgent** - Intervention design
-- **OutcomeEngineerAgent** - Outcome engineering
-- **RealizationLoopAgent** - Value realization tracking
-- **ValueEvalAgent** - Value evaluation and scoring
-- **CommunicatorAgent** - Inter-agent communication
-
-#### 2. Generative UI System
-Dynamic UI generation with:
-- Component selection based on context
-- LLM-powered layout generation
-- Automatic refinement (3 iterations)
-- Metrics tracking and optimization
-- A/B testing support
-
-#### 3. Systemic Outcome Framework (SOF)
-Comprehensive value realization framework:
-- System mapping and analysis
-- Intervention point identification
-- Feedback loop tracking
-- Governance and compliance
-- Artifact scoring
-
-#### 4. Database Schema
-20+ tables supporting:
-- Business intelligence
-- Agent fabric and episodic memory
-- Workflow orchestration
-- SOF governance
-- UI generation metrics
-- Artifact scoring
-
----
-
-## 🔒 Security & Compliance (Production-Ready)
-
-ValueCanvas implements enterprise-grade security controls:
-
-### Security Features ⭐ NEW
-- ✅ **Zero PII Leakage** - Automatic PII sanitization in all logs
-- ✅ **Agent Circuit Breaker** - Prevents runaway execution and cost overruns
-  - Max 30s execution time
-  - Max 20 LLM calls per execution
-  - Max 5 recursion depth
-  - Memory usage monitoring
-- ✅ **Rate Limiting** - Tiered API protection (5-300 req/min)
-- ✅ **Immutable Audit Logs** - Cryptographic integrity with hash chain
-- ✅ **RBAC System** - 40+ granular permissions, 6 role levels
-- ✅ **Tenant Isolation** - Defense-in-depth data separation
-
-### Compliance Status
-- ✅ **SOC 2 Ready** - Immutable audit trails, access control
-- ✅ **GDPR Compliant** - PII sanitization, data retention policies
-- ✅ **Production Hardened** - Completed security sprint (Operation Fortress)
-
-See [Security Documentation](./docs/security/) for implementation details.
-
----
-
-## 🎯 Features
-
-### Core Capabilities
-- ✅ **AI-Powered Value Discovery** - LLM agents identify opportunities
-- ✅ **Dynamic UI Generation** - Context-aware interface creation
-- ✅ **Workflow Orchestration** - Complex workflow automation
-- ✅ **Real-time Collaboration** - Multi-user support with presence
-- ✅ **Episodic Memory** - Learning from user interactions
-- ✅ **Simulation Engine** - "What-if" scenario analysis
-- ✅ **Compliance Tracking** - Built-in governance and audit
-
-### Enterprise Features
-- ✅ **Multi-tenancy** - Isolated tenant environments
-- ✅ **Role-based Access Control** - Granular permissions (40+ permissions)
-- ✅ **Audit Logging** - Immutable, tamper-evident activity tracking
-- ✅ **Usage Tracking** - Resource monitoring and billing
-- ✅ **Documentation Portal** - Built-in help system
-- ✅ **Settings Management** - Flexible configuration
-
-### Developer Experience
-- ✅ **TypeScript** - Full type safety
-- ✅ **Hot Module Replacement** - Fast development
-- ✅ **Comprehensive Testing** - Unit, integration, and E2E tests
-- ✅ **ESLint + Prettier** - Code quality enforcement
-- ✅ **Storybook** - Component development and documentation
-
----
-
-## 🛠️ Development
-
-### Prerequisites
-- Node.js 18+ and npm
-- Docker Desktop (for Supabase)
-- Supabase CLI
-- Git
-
-### Local Development
+Available via [NPM](https://www.npmjs.com) as dev dependency. To install:
 
 ```bash
-# Clone the repository
-git clone https://github.com/bmsull560/ValueCanvas.git
-cd ValueCanvas
-
-# Install dependencies
-npm install
-
-# Set up environment variables
-cp .env.local .env
-# Edit .env and add your LLM API key from together.ai or openai.com
-
-# Start Supabase (database)
-supabase start
-
-# Run database migrations
-supabase db push
-
-# Start development server
-npm run dev
+npm i supabase --save-dev
 ```
 
-Visit http://localhost:5173 to see the application.
-
-### Available Scripts
+To install the beta release channel:
 
 ```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run preview      # Preview production build
-npm run test         # Run tests
-npm run test:watch   # Run tests in watch mode
-npm run lint         # Run ESLint
-npm run security:scan # Run security audit
+npm i supabase@beta --save-dev
 ```
 
----
+When installing with yarn 4, you need to disable experimental fetch with the following nodejs config.
 
-## 🐳 Deployment
+```
+NODE_OPTIONS=--no-experimental-fetch yarn add supabase
+```
 
-### Docker Deployment
+> **Note**
+For Bun versions below v1.0.17, you must add `supabase` as a [trusted dependency](https://bun.sh/guides/install/trusted) before running `bun add -D supabase`.
 
-ValueCanvas includes production-ready Docker configurations:
+<details>
+  <summary><b>macOS</b></summary>
+
+  Available via [Homebrew](https://brew.sh). To install:
+
+  ```sh
+  brew install supabase/tap/supabase
+  ```
+
+  To install the beta release channel:
+  
+  ```sh
+  brew install supabase/tap/supabase-beta
+  brew link --overwrite supabase-beta
+  ```
+  
+  To upgrade:
+
+  ```sh
+  brew upgrade supabase
+  ```
+</details>
+
+<details>
+  <summary><b>Windows</b></summary>
+
+  Available via [Scoop](https://scoop.sh). To install:
+
+  ```powershell
+  scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
+  scoop install supabase
+  ```
+
+  To upgrade:
+
+  ```powershell
+  scoop update supabase
+  ```
+</details>
+
+<details>
+  <summary><b>Linux</b></summary>
+
+  Available via [Homebrew](https://brew.sh) and Linux packages.
+
+  #### via Homebrew
+
+  To install:
+
+  ```sh
+  brew install supabase/tap/supabase
+  ```
+
+  To upgrade:
+
+  ```sh
+  brew upgrade supabase
+  ```
+
+  #### via Linux packages
+
+  Linux packages are provided in [Releases](https://github.com/supabase/cli/releases). To install, download the `.apk`/`.deb`/`.rpm`/`.pkg.tar.zst` file depending on your package manager and run the respective commands.
+
+  ```sh
+  sudo apk add --allow-untrusted <...>.apk
+  ```
+
+  ```sh
+  sudo dpkg -i <...>.deb
+  ```
+
+  ```sh
+  sudo rpm -i <...>.rpm
+  ```
+
+  ```sh
+  sudo pacman -U <...>.pkg.tar.zst
+  ```
+</details>
+
+<details>
+  <summary><b>Other Platforms</b></summary>
+
+  You can also install the CLI via [go modules](https://go.dev/ref/mod#go-install) without the help of package managers.
+
+  ```sh
+  go install github.com/supabase/cli@latest
+  ```
+
+  Add a symlink to the binary in `$PATH` for easier access:
+
+  ```sh
+  ln -s "$(go env GOPATH)/bin/cli" /usr/bin/supabase
+  ```
+
+  This works on other non-standard Linux distros.
+</details>
+
+<details>
+  <summary><b>Community Maintained Packages</b></summary>
+
+  Available via [pkgx](https://pkgx.sh/). Package script [here](https://github.com/pkgxdev/pantry/blob/main/projects/supabase.com/cli/package.yml).
+  To install in your working directory:
+
+  ```bash
+  pkgx install supabase
+  ```
+
+  Available via [Nixpkgs](https://nixos.org/). Package script [here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/supabase-cli/default.nix).
+</details>
+
+### Run the CLI
 
 ```bash
-# Development (with hot-reloading)
-docker-compose -f docker-compose.dev.yml up -d
-
-# Production (optimized build)
-docker-compose -f docker-compose.prod.yml up -d
-
-# Verify deployment
-bash scripts/verify-deployment.sh
+supabase bootstrap
 ```
 
-### Cloud Deployment
-
-Deploy to your preferred cloud provider:
-
-- **AWS ECS/Fargate**: See [DEPLOYMENT.md#aws-deployment](./DEPLOYMENT.md#aws-deployment)
-- **Google Cloud Run**: See [DEPLOYMENT.md#gcp-deployment](./DEPLOYMENT.md#gcp-deployment)
-- **Azure Container Instances**: See [DEPLOYMENT.md#azure-deployment](./DEPLOYMENT.md#azure-deployment)
-- **Kubernetes**: See [infrastructure/kubernetes/](./infrastructure/kubernetes/)
-
-### Production Checklist
-
-Before deploying to production:
-
-- [ ] Set production environment variables in `.env.production`
-- [ ] Configure SSL/TLS certificates
-- [ ] Set up monitoring and logging
-- [ ] Configure backup strategy
-- [ ] Run security audit: `npm run security:scan`
-- [ ] Verify no console.log: `bash scripts/audit-logs.sh`
-- [ ] Test deployment: `bash scripts/verify-deployment.sh`
-
-📖 **Complete Deployment Guide**: See [DEPLOYMENT.md](./DEPLOYMENT.md) for comprehensive instructions.
-
-### Project Structure
-
-```
-ValueCanvas/
-├── src/
-│   ├── agents/           # LLM-MARL agent implementations
-│   ├── components/       # React components
-│   ├── services/         # Business logic services
-│   ├── sdui/            # Generative UI system
-│   ├── lib/             # Utilities and helpers
-│   ├── types/           # TypeScript type definitions
-│   ├── hooks/           # Custom React hooks
-│   └── views/           # Page-level components
-├── supabase/
-│   ├── migrations/      # Database migrations
-│   └── functions/       # Edge functions
-├── docs/                # Additional documentation
-├── test/                # Test files
-└── scripts/             # Build and deployment scripts
-```
-
----
-
-## 🧪 Testing
-
-ValueCanvas has comprehensive test coverage:
+Or using npx:
 
 ```bash
-# Run all tests
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Run tests with coverage
-npm run test -- --coverage
-
-# Run specific test file
-npm test src/services/AgentOrchestrator.test.ts
+npx supabase bootstrap
 ```
 
-### Test Categories
-- **Unit Tests** - Individual functions and components
-- **Integration Tests** - Service interactions and workflows
-- **Component Tests** - React component behavior
-- **E2E Tests** - Full user workflows (planned)
+The bootstrap command will guide you through the process of setting up a Supabase project using one of the [starter](https://github.com/supabase-community/supabase-samples/blob/main/samples.json) templates.
 
----
+## Docs
 
-## 🚢 Deployment
+Command & config reference can be found [here](https://supabase.com/docs/reference/cli/about).
 
-### Production Deployment
+## Breaking changes
 
-See [DEPLOYMENT_ARCHITECTURE.md](./DEPLOYMENT_ARCHITECTURE.md) for detailed deployment instructions.
+We follow semantic versioning for changes that directly impact CLI commands, flags, and configurations.
 
-Quick deployment options:
-- **Vercel** - Recommended for frontend
-- **Supabase Cloud** - Managed database and auth
-- **Docker** - Containerized deployment
-- **Kubernetes** - Enterprise-scale deployment
+However, due to dependencies on other service images, we cannot guarantee that schema migrations, seed.sql, and generated types will always work for the same CLI major version. If you need such guarantees, we encourage you to pin a specific version of CLI in package.json.
 
-### Environment Variables
+## Developing
 
-Required environment variables for production:
+To run from source:
 
-```bash
-# Application
-VITE_APP_ENV=production
-VITE_APP_URL=https://your-domain.com
-
-# Supabase
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
-
-# Agent Fabric
-VITE_AGENT_API_URL=https://your-agent-api.com
-VITE_LLM_API_KEY=your-llm-api-key
-
-# Security
-VITE_HTTPS_ONLY=true
-CSRF_PROTECTION_ENABLED=true
-CSP_ENABLED=true
-
-# Monitoring (optional)
-VITE_SENTRY_DSN=your-sentry-dsn
-VITE_SENTRY_ENABLED=true
+```sh
+# Go >= 1.22
+go run . help
 ```
-
----
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our contributing guidelines:
-
-1. **Fork the repository**
-2. **Create a feature branch** (`git checkout -b feature/amazing-feature`)
-3. **Make your changes** with tests
-4. **Run tests and linting** (`npm test && npm run lint`)
-5. **Commit your changes** (`git commit -m 'feat: Add amazing feature'`)
-6. **Push to the branch** (`git push origin feature/amazing-feature`)
-7. **Open a Pull Request**
-
-### Code Standards
-- Write TypeScript with strict mode
-- Add tests for new features
-- Follow existing code style
-- Document public APIs
-- Update documentation as needed
-
-### Commit Convention
-We follow [Conventional Commits](https://www.conventionalcommits.org/):
-
-```
-feat: Add new feature
-fix: Fix bug
-docs: Update documentation
-style: Format code
-refactor: Refactor code
-test: Add tests
-chore: Update dependencies
-```
-
----
-
-## 📊 Project Status
-
-### Current Version: 0.0.0 (Pre-release)
-
-### Recent Updates
-- ✅ LLM-MARL agent system complete
-- ✅ Generative UI system complete
-- ✅ SOF framework integrated
-- ✅ Enterprise features implemented
-- ✅ Security audit completed
-- ✅ Codebase cleanup completed
-- 🚧 Production deployment in progress
-
-### Roadmap
-- [ ] Production deployment
-- [ ] Performance optimization
-- [ ] Enhanced monitoring
-- [ ] Mobile responsive design
-- [ ] API documentation portal
-- [ ] Plugin system
-
----
-
-## 📄 License
-
-This project is proprietary software. All rights reserved.
-
----
-
-## 🙏 Acknowledgments
-
-Built with:
-- [React](https://react.dev/) - UI framework
-- [TypeScript](https://www.typescriptlang.org/) - Type safety
-- [Vite](https://vitejs.dev/) - Build tool
-- [Supabase](https://supabase.com/) - Backend platform
-- [Tailwind CSS](https://tailwindcss.com/) - Styling
-- [Lucide Icons](https://lucide.dev/) - Icons
-
----
-
-## 📞 Support
-
-- **Documentation:** See documentation links above
-- **Issues:** [GitHub Issues](https://github.com/bmsull560/ValueCanvas/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/bmsull560/ValueCanvas/discussions)
-
----
-
-## 📈 Statistics
-
-- **Lines of Code:** ~68,000
-- **Components:** 94 React components
-- **Services:** 50+ business logic services
-- **Agents:** 7 LLM-MARL agents
-- **Database Tables:** 20+ tables
-- **Test Files:** 29 test suites
-- **Documentation:** 39 markdown files
-
----
-
-**Built with ❤️ by the ValueCanvas Team**

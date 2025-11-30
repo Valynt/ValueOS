@@ -124,27 +124,119 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
 
 ### 3. LLM Services
 
+ValueCanvas uses LLM providers (Together.ai and/or OpenAI) for AI-powered features. Configuration is split between frontend and backend variables.
+
+#### Frontend Configuration (Client-Side)
+
+These variables control LLM behavior in the browser:
+
 ```bash
-# Together.ai (Primary Provider)
+# LLM Provider Selection
+# Controls which LLM service to use for requests
+# Options: 'together' | 'openai'
+# Default: 'together'
+VITE_LLM_PROVIDER=together
+
+# LLM Gating Control
+# Enables/disables intelligent model selection based on task complexity
+# When enabled: Simple tasks use smaller/cheaper models, complex tasks use larger models
+# When disabled: All tasks use the default model for the selected provider
+# Options: 'true' | 'false'
+# Default: 'true'
+VITE_LLM_GATING_ENABLED=true
+```
+
+**Provider Selection Guide**:
+- **Together.ai** (`together`):
+  - ✅ Cost-effective for high volume
+  - ✅ Open-source models (Llama 3, Mixtral, etc.)
+  - ✅ Good for development and production
+  - ✅ Supports streaming responses
+  
+- **OpenAI** (`openai`):
+  - ✅ Industry-leading quality (GPT-4, GPT-3.5)
+  - ⚠️ Higher cost per request
+  - ✅ Best for critical production workflows
+  - ✅ Advanced reasoning capabilities
+
+**Gating Explained**:
+When `VITE_LLM_GATING_ENABLED=true`, the system automatically selects models based on:
+- Query complexity (keyword extraction → small model)
+- Response requirements (business case generation → large model)
+- Cost vs. quality tradeoffs
+
+When `VITE_LLM_GATING_ENABLED=false`, all requests use the default model.
+
+#### Backend Configuration (Server-Side)
+
+**⚠️ SECURITY WARNING**: These keys must NEVER be prefixed with `VITE_` as that exposes them to the client bundle.
+
+```bash
+# Together.ai API Key (Server-Side ONLY)
+# Required when VITE_LLM_PROVIDER=together
+# Get your key from: https://api.together.xyz/settings/api-keys
 TOGETHER_API_KEY=your-together-api-key-here
 
-# OpenAI (Fallback Provider)
+# OpenAI API Key (Server-Side ONLY)
+# Required when VITE_LLM_PROVIDER=openai OR for fallback capability
+# Get your key from: https://platform.openai.com/api-keys
 OPENAI_API_KEY=your-openai-api-key-here
 
-# Default model
+# Optional: Model Configuration
 LLM_DEFAULT_MODEL=meta-llama/Llama-3-70b-chat-hf
-
-# Request timeout
 LLM_TIMEOUT=30000
 
-# Caching
+# Optional: Caching
 LLM_CACHE_ENABLED=true
 LLM_CACHE_TTL=86400
 ```
 
-**How to get**:
-- Together.ai: [https://api.together.xyz/settings/api-keys](https://api.together.xyz/settings/api-keys)
-- OpenAI: [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+**How to get API keys**:
+1. **Together.ai**:
+   - Visit [https://api.together.xyz/settings/api-keys](https://api.together.xyz/settings/api-keys)
+   - Sign up for an account (free tier available)
+   - Generate a new API key
+   - Copy and set as `TOGETHER_API_KEY` (NOT `VITE_TOGETHER_API_KEY`)
+
+2. **OpenAI**:
+   - Visit [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+   - Sign in to your OpenAI account
+   - Create a new API key
+   - Copy and set as `OPENAI_API_KEY` (NOT `VITE_OPENAI_API_KEY`)
+
+**Common Configuration Scenarios**:
+
+**Development (Together.ai only)**:
+```bash
+VITE_LLM_PROVIDER=together
+VITE_LLM_GATING_ENABLED=true
+TOGETHER_API_KEY=your-key-here
+# OPENAI_API_KEY not required
+```
+
+**Production (Together.ai with OpenAI fallback)**:
+```bash
+VITE_LLM_PROVIDER=together
+VITE_LLM_GATING_ENABLED=true
+TOGETHER_API_KEY=your-together-key
+OPENAI_API_KEY=your-openai-key  # Used if Together.ai is down
+```
+
+**Production (OpenAI only)**:
+```bash
+VITE_LLM_PROVIDER=openai
+VITE_LLM_GATING_ENABLED=true
+OPENAI_API_KEY=your-openai-key
+# TOGETHER_API_KEY not required
+```
+
+**Security Best Practices**:
+- ⚠️ NEVER prefix API keys with `VITE_` (exposes to client)
+- ⚠️ NEVER commit API keys to git (use `.env.local` or secrets manager)
+- ✅ Use environment-specific keys (dev vs. prod)
+- ✅ Rotate keys regularly
+- ✅ Set up rate limiting and monitoring
+- ✅ Use Supabase Edge Functions or backend proxy to hide keys from clients
 
 **Cost optimization**:
 - Enable caching: `LLM_CACHE_ENABLED=true`

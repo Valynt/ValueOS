@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AlertCircle, CheckCircle } from 'lucide-react';
+import { sanitizeString } from '../../security';
 
 /**
  * Props for KPIForm component
@@ -85,6 +86,8 @@ export const KPIForm: React.FC<KPIFormProps> = ({
   onCancel,
   showSuccess = false,
 }) => {
+  const safeKpiName = sanitizeString(kpiName, { maxLength: 120, stripScripts: true }).sanitized;
+  const safeUnit = unit ? sanitizeString(unit, { maxLength: 16, stripScripts: true }).sanitized : unit;
   const [baseline, setBaseline] = useState<number | ''>(initialBaseline ?? '');
   const [target, setTarget] = useState<number | ''>(initialTarget ?? '');
   const [errors, setErrors] = useState<{ baseline?: string; target?: string }>({});
@@ -150,7 +153,7 @@ export const KPIForm: React.FC<KPIFormProps> = ({
     >
       {/* Header */}
       <div className="border-b border-gray-200 pb-3">
-        <h3 className="text-lg font-bold text-gray-900">{kpiName}</h3>
+        <h3 className="text-lg font-bold text-gray-900">{safeKpiName}</h3>
         {description && <p className="text-sm text-gray-600 mt-1">{description}</p>}
       </div>
 
@@ -168,10 +171,10 @@ export const KPIForm: React.FC<KPIFormProps> = ({
       {/* Baseline Input */}
       <div>
         <label htmlFor={`baseline-${kpiName}`} className="block text-sm font-medium text-gray-700">
-          Baseline {unit && `(${unit})`}
+          Baseline {safeUnit && `(${safeUnit})`}
         </label>
         <input
-          id={`baseline-${kpiName}`}
+          id={`baseline-${safeKpiName}`}
           type="number"
           step="any"
           value={baseline}
@@ -185,11 +188,11 @@ export const KPIForm: React.FC<KPIFormProps> = ({
           disabled={disabled || loading}
           required
           aria-invalid={!!errors.baseline}
-          aria-describedby={errors.baseline ? `baseline-error-${kpiName}` : undefined}
+          aria-describedby={errors.baseline ? `baseline-error-${safeKpiName}` : undefined}
         />
         {errors.baseline && (
           <p
-            id={`baseline-error-${kpiName}`}
+            id={`baseline-error-${safeKpiName}`}
             className="mt-1 text-sm text-red-600 flex items-center gap-1"
           >
             <AlertCircle className="h-4 w-4" />
@@ -201,10 +204,10 @@ export const KPIForm: React.FC<KPIFormProps> = ({
       {/* Target Input */}
       <div>
         <label htmlFor={`target-${kpiName}`} className="block text-sm font-medium text-gray-700">
-          Target {unit && `(${unit})`}
+          Target {safeUnit && `(${safeUnit})`}
         </label>
         <input
-          id={`target-${kpiName}`}
+          id={`target-${safeKpiName}`}
           type="number"
           step="any"
           value={target}
@@ -218,11 +221,11 @@ export const KPIForm: React.FC<KPIFormProps> = ({
           disabled={disabled || loading}
           required
           aria-invalid={!!errors.target}
-          aria-describedby={errors.target ? `target-error-${kpiName}` : undefined}
+          aria-describedby={errors.target ? `target-error-${safeKpiName}` : undefined}
         />
         {errors.target && (
           <p
-            id={`target-error-${kpiName}`}
+            id={`target-error-${safeKpiName}`}
             className="mt-1 text-sm text-red-600 flex items-center gap-1"
           >
             <AlertCircle className="h-4 w-4" />

@@ -135,6 +135,7 @@ class Logger {
       } catch (err) {
         // Don't let listener errors break logging
         // Use console.error to avoid recursion and type issues
+        // eslint-disable-next-line no-console
         console.error('Logger listener error:', err);
       }
     });
@@ -168,6 +169,7 @@ class Logger {
     const contextStr = entry.context ? ` ${JSON.stringify(entry.context)}` : '';
     const fullMessage = `${prefix} ${entry.message}${contextStr}`;
 
+    // eslint-disable-next-line no-console
     switch (entry.level) {
       case 'debug':
         console.debug(fullMessage);

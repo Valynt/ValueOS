@@ -326,7 +326,8 @@ export function addCSRFToURL(
 export async function fetchWithCSRF(
   url: string,
   options: RequestInit = {},
-  config: Partial<CSRFTokenConfig> = {}
+  config: Partial<CSRFTokenConfig> = {},
+  fetchImpl: typeof fetch = fetch
 ): Promise<Response> {
   const cfg = { ...DEFAULT_CSRF_CONFIG, ...config };
 
@@ -349,7 +350,7 @@ export async function fetchWithCSRF(
     options.headers = headers;
   }
 
-  return fetch(url, options);
+  return fetchImpl(url, options);
 }
 
 /**
@@ -437,3 +438,36 @@ export function useCSRFToken(sessionId?: string): {
 
 // Import React for the hook
 import React from 'react';
+
+let csrfFetchInterceptorInstalled = false;
+let originalFetch: typeof fetch | null = null;
+
+/**
+ * Attach a global fetch interceptor that automatically injects CSRF tokens
+ * on state-changing requests.
+ */
+export function attachCSRFFetchInterceptor(config: Partial<CSRFTokenConfig> = {}): void {
+  if (csrfFetchInterceptorInstalled || typeof fetch === 'undefined') {
+    return;
+  }
+
+  originalFetch = fetch.bind(globalThis);
+  csrfFetchInterceptorInstalled = true;
+
+  const baseFetch = originalFetch;
+
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const options = init || {};
+    const method = (options.method || 'GET').toUpperCase();
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+      return fetchWithCSRF(
+        typeof input === 'string' || input instanceof URL ? input.toString() : String(input),
+        options,
+        config,
+        baseFetch
+      );
+    }
+
+    return baseFetch(input as any, options);
+  }) as typeof fetch;
+}
