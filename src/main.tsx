@@ -39,20 +39,19 @@ async function main() {
 
   try {
     // Bootstrap the application
-    console.log('[DEBUG] Starting application bootstrap...');
     logger.debug('Starting application bootstrap...');
     
     const result = await bootstrap({
       skipAgentCheck: false,
       failFast: isProduction(),
       onProgress: (message) => {
-        logger.debug('⏳ ${message}');
+        logger.debug(`⏳ ${message}`);
       },
       onWarning: (warning) => {
-        logger.warn('⚠️  ${warning}');
+        logger.warn(`⚠️  ${warning}`);
       },
       onError: (error) => {
-        logger.error('❌ ${error}');
+        logger.error(`❌ ${error}`);
       },
     });
 
@@ -86,23 +85,20 @@ async function main() {
     }
 
     // Render the application
-    console.log('[DEBUG] Rendering application...');
     logger.debug('Rendering application...');
     
     const root = createRoot(rootElement);
-    console.log('[DEBUG] Root created, rendering React app...');
+    logger.debug('Root created, rendering React app...');
     root.render(
       <StrictMode>
         <AppRoutes />
       </StrictMode>
     );
 
-    console.log('[DEBUG] ✅ Application rendered successfully');
     logger.debug('✅ Application rendered successfully');
     
   } catch (error) {
-    console.error('[FATAL] Error during application initialization:', error);
-    logger.error('Fatal error during application initialization:', error);
+    logger.error('Fatal error during application initialization', error instanceof Error ? error : new Error(String(error)));
     
     // Show error screen
     rootElement.innerHTML = `

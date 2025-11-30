@@ -1,0 +1,27 @@
+# Build output
+dist/
+build/
+*.min.js
+
+# Dependencies
+node_modules/
+vendor/
+
+# Generated files
+coverage/
+.cache/
+
+# Configuration
+*.config.js
+!eslint.config.js
+
+# Test fixtures
+**/__fixtures__/
+**/__mocks__/
+
+# Examples that may have console.log for demonstration
+src/mcp-ground-truth/examples/
+
+# Storybook
+.storybook/
+storybook-static/

@@ -15,13 +15,11 @@ import {
   Plus,
   Edit,
   Trash2,
-  Eye,
   Save,
   X,
   Clock,
   CheckCircle,
   AlertCircle,
-  Upload,
   Search,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -67,7 +65,7 @@ export const DocumentationCMS: React.FC = () => {
   const loadPages = async () => {
     setLoading(true);
 
-    let query = supabase
+    let query = (supabase as any)
       .from('doc_pages')
       .select('*')
       .order('updated_at', { ascending: false });
@@ -90,7 +88,7 @@ export const DocumentationCMS: React.FC = () => {
   };
 
   const loadCategories = async () => {
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from('doc_categories')
       .select('*')
       .order('display_order');
@@ -120,11 +118,6 @@ export const DocumentationCMS: React.FC = () => {
     setIsEditing(true);
   };
 
-  const editPage = (page: DocPage) => {
-    setSelectedPage(page);
-    setIsEditing(true);
-  };
-
   const savePage = async () => {
     if (!selectedPage) return;
 
@@ -143,14 +136,14 @@ export const DocumentationCMS: React.FC = () => {
 
     if (selectedPage.id) {
       // Update existing page
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('doc_pages')
         .update(pageData)
         .eq('id', selectedPage.id);
 
       if (!error) {
         // Create version history entry
-        await supabase.from('doc_versions').insert({
+        await (supabase as any).from('doc_versions').insert({
           page_id: selectedPage.id,
           version: selectedPage.version,
           title: selectedPage.title,
@@ -161,7 +154,7 @@ export const DocumentationCMS: React.FC = () => {
       }
     } else {
       // Create new page
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('doc_pages')
         .insert(pageData)
         .select()
@@ -179,13 +172,13 @@ export const DocumentationCMS: React.FC = () => {
   const deletePage = async (pageId: string) => {
     if (!confirm('Are you sure you want to delete this page?')) return;
 
-    await supabase.from('doc_pages').delete().eq('id', pageId);
+    await (supabase as any).from('doc_pages').delete().eq('id', pageId);
     loadPages();
     setSelectedPage(null);
   };
 
   const publishPage = async (pageId: string) => {
-    await supabase
+    await (supabase as any)
       .from('doc_pages')
       .update({
         status: 'published',
@@ -197,7 +190,7 @@ export const DocumentationCMS: React.FC = () => {
   };
 
   const unpublishPage = async (pageId: string) => {
-    await supabase
+    await (supabase as any)
       .from('doc_pages')
       .update({ status: 'draft' })
       .eq('id', pageId);

@@ -62,7 +62,7 @@ export const DocumentationLink: React.FC<DocumentationLinkProps> = ({
         setLoading(true);
         setShowQuickHelp(true);
 
-        const { data } = await supabase
+        const { data } = await (supabase as any)
           .from('doc_pages')
           .select('*')
           .eq('slug', docSlug)
