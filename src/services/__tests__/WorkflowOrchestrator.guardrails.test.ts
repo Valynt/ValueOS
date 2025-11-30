@@ -35,11 +35,9 @@ vi.mock('../../lib/logger', () => ({
 
 describe('WorkflowOrchestrator - Guardrail Tests', () => {
   let orchestrator: WorkflowOrchestrator;
-  let originalGetAutonomyConfig: typeof autonomyModule.getAutonomyConfig;
 
   beforeEach(() => {
     orchestrator = new WorkflowOrchestrator();
-    originalGetAutonomyConfig = autonomyModule.getAutonomyConfig;
   });
 
   afterEach(() => {
@@ -427,17 +425,15 @@ describe('WorkflowOrchestrator - Guardrail Tests', () => {
     });
 
     it('should allow execution below iteration limit', async () => {
-      const context = {
-        executed_steps: [
-          { agent_id: 'agent-1' },
-          { agent_id: 'agent-1' },
-          // 2 iterations - below limit of 3
-        ],
-      };
+      const executedSteps = [
+        { agent_id: 'agent-1' },
+        { agent_id: 'agent-1' },
+        // 2 iterations - below limit of 3
+      ];
 
       const config = autonomyModule.getAutonomyConfig();
       const limit = config.agentMaxIterations?.['agent-1'] || Infinity;
-      const currentCount = context.executed_steps.filter(
+      const currentCount = executedSteps.filter(
         (s: any) => s.agent_id === 'agent-1'
       ).length;
 
@@ -579,8 +575,7 @@ describe('WorkflowOrchestrator - Guardrail Tests', () => {
         };
       });
 
-      // Start execution and simulate time passage
-      const startTime = Date.now();
+      // Simulate time passage
       const config = autonomyModule.getAutonomyConfig();
       const elapsed = 11000; // 11 seconds - exceeds 10 second limit
 

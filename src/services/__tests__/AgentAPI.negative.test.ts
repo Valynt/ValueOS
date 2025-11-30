@@ -56,7 +56,7 @@ describe('AgentAPI - Negative Path Tests', () => {
       } as AgentRequest;
 
       await expect(
-        agentAPI.call(invalidRequest)
+        agentAPI.invokeAgent(invalidRequest)
       ).rejects.toThrow(/agent.*required/i);
     });
 
@@ -67,7 +67,7 @@ describe('AgentAPI - Negative Path Tests', () => {
       };
 
       await expect(
-        agentAPI.call(invalidRequest)
+        agentAPI.invokeAgent(invalidRequest)
       ).rejects.toThrow(/agent.*invalid/i);
     });
 
@@ -78,7 +78,7 @@ describe('AgentAPI - Negative Path Tests', () => {
       } as AgentRequest;
 
       await expect(
-        agentAPI.call(invalidRequest)
+        agentAPI.invokeAgent(invalidRequest)
       ).rejects.toThrow(/query.*required/i);
     });
 
@@ -89,7 +89,7 @@ describe('AgentAPI - Negative Path Tests', () => {
       };
 
       await expect(
-        agentAPI.call(invalidRequest)
+        agentAPI.invokeAgent(invalidRequest)
       ).rejects.toThrow(/query.*empty/i);
     });
 
@@ -100,7 +100,7 @@ describe('AgentAPI - Negative Path Tests', () => {
       };
 
       await expect(
-        agentAPI.call(invalidRequest)
+        agentAPI.invokeAgent(invalidRequest)
       ).rejects.toThrow(/query.*too long/i);
     });
 
@@ -111,7 +111,7 @@ describe('AgentAPI - Negative Path Tests', () => {
       };
 
       await expect(
-        agentAPI.call(invalidRequest)
+        agentAPI.invokeAgent(invalidRequest)
       ).rejects.toThrow(/unknown agent/i);
     });
 
@@ -125,7 +125,7 @@ describe('AgentAPI - Negative Path Tests', () => {
       };
 
       await expect(
-        agentAPI.call(invalidRequest)
+        agentAPI.invokeAgent(invalidRequest)
       ).rejects.toThrow(/invalid context/i);
     });
 
@@ -140,7 +140,7 @@ describe('AgentAPI - Negative Path Tests', () => {
       };
 
       await expect(
-        agentAPI.call(invalidRequest)
+        agentAPI.invokeAgent(invalidRequest)
       ).rejects.toThrow(/circular|serialize/i);
     });
 
@@ -159,7 +159,7 @@ describe('AgentAPI - Negative Path Tests', () => {
         query: '<script>alert("xss")</script>',
       };
 
-      await agentAPI.call(xssAttempt);
+      await agentAPI.invokeAgent(xssAttempt);
 
       // Verify that query was sanitized before sending
       const callArgs = mockFetch.mock.calls[0];
@@ -182,7 +182,7 @@ describe('AgentAPI - Negative Path Tests', () => {
         }),
       });
 
-      await agentAPI.call(sqlInjection);
+      await agentAPI.invokeAgent(sqlInjection);
 
       // Verify sanitization happened
       const callArgs = mockFetch.mock.calls[0];
@@ -209,7 +209,7 @@ describe('AgentAPI - Negative Path Tests', () => {
       };
 
       await expect(
-        agentAPI.call(request)
+        agentAPI.invokeAgent(request)
       ).rejects.toThrow(/rate limit/i);
     });
 
@@ -230,7 +230,7 @@ describe('AgentAPI - Negative Path Tests', () => {
       };
 
       try {
-        await agentAPI.call(request);
+        await agentAPI.invokeAgent(request);
         expect.fail('Should have thrown RateLimitError');
       } catch (error: any) {
         expect(error.message).toContain('rate limit');
@@ -255,7 +255,7 @@ describe('AgentAPI - Negative Path Tests', () => {
       };
 
       await expect(
-        agentAPI.call(request)
+        agentAPI.invokeAgent(request)
       ).rejects.toThrow(/rate limit/i);
     });
 
@@ -279,7 +279,7 @@ describe('AgentAPI - Negative Path Tests', () => {
       // Should eventually open circuit breaker
       for (let i = 0; i < 5; i++) {
         try {
-          await agentAPI.call(request);
+          await agentAPI.invokeAgent(request);
         } catch (e) {
           // Expected
         }
@@ -287,7 +287,7 @@ describe('AgentAPI - Negative Path Tests', () => {
 
       // Next call should fail fast due to open circuit
       await expect(
-        agentAPI.call(request)
+        agentAPI.invokeAgent(request)
       ).rejects.toThrow();
     });
   });
@@ -309,7 +309,7 @@ describe('AgentAPI - Negative Path Tests', () => {
       };
 
       await expect(
-        agentAPI.call(request)
+        agentAPI.invokeAgent(request)
       ).rejects.toThrow(/CSRF|forbidden/i);
     });
 
@@ -331,7 +331,7 @@ describe('AgentAPI - Negative Path Tests', () => {
         query: 'Test query',
       };
 
-      await agentAPI.call(request);
+      await agentAPI.invokeAgent(request);
 
       // Verify CSRF token was included
       const callArgs = mockFetch.mock.calls[0];
@@ -355,7 +355,7 @@ describe('AgentAPI - Negative Path Tests', () => {
       };
 
       await expect(
-        agentAPI.call(request)
+        agentAPI.invokeAgent(request)
       ).rejects.toThrow(/CSRF|forbidden/i);
     });
 
@@ -387,7 +387,7 @@ describe('AgentAPI - Negative Path Tests', () => {
 
       // First attempt should fail
       await expect(
-        agentAPI.call(request)
+        agentAPI.invokeAgent(request)
       ).rejects.toThrow(/CSRF/i);
     });
   });
@@ -403,7 +403,7 @@ describe('AgentAPI - Negative Path Tests', () => {
       };
 
       await expect(
-        agentAPI.call(request)
+        agentAPI.invokeAgent(request)
       ).rejects.toThrow(/network/i);
     });
 
@@ -421,7 +421,7 @@ describe('AgentAPI - Negative Path Tests', () => {
       };
 
       await expect(
-        agentAPI.call(request)
+        agentAPI.invokeAgent(request)
       ).rejects.toThrow(/timeout/i);
     });
 
@@ -441,7 +441,7 @@ describe('AgentAPI - Negative Path Tests', () => {
       };
 
       await expect(
-        agentAPI.call(request)
+        agentAPI.invokeAgent(request)
       ).rejects.toThrow(/server error|500/i);
     });
 
@@ -461,7 +461,7 @@ describe('AgentAPI - Negative Path Tests', () => {
       };
 
       await expect(
-        agentAPI.call(request)
+        agentAPI.invokeAgent(request)
       ).rejects.toThrow(/unavailable|503/i);
     });
   });
@@ -483,7 +483,7 @@ describe('AgentAPI - Negative Path Tests', () => {
       };
 
       await expect(
-        agentAPI.call(request)
+        agentAPI.invokeAgent(request)
       ).rejects.toThrow(/invalid response/i);
     });
 
@@ -502,7 +502,7 @@ describe('AgentAPI - Negative Path Tests', () => {
       };
 
       await expect(
-        agentAPI.call(request)
+        agentAPI.invokeAgent(request)
       ).rejects.toThrow(/JSON|parse/i);
     });
 
@@ -523,7 +523,7 @@ describe('AgentAPI - Negative Path Tests', () => {
         query: 'Test query',
       };
 
-      const response = await agentAPI.call(request);
+      const response = await agentAPI.invokeAgent(request);
       
       // Response should be sanitized
       expect(response.data.result).not.toContain('<script>');
@@ -555,7 +555,7 @@ describe('AgentAPI - Negative Path Tests', () => {
         query: 'Test query',
       };
 
-      const response = await agentAPI.call(request);
+      const response = await agentAPI.invokeAgent(request);
       expect(response.success).toBe(true);
     });
 
@@ -574,7 +574,7 @@ describe('AgentAPI - Negative Path Tests', () => {
       };
 
       await expect(
-        agentAPI.call(request)
+        agentAPI.invokeAgent(request)
       ).rejects.toThrow();
 
       // Should only have called fetch once
@@ -599,7 +599,7 @@ describe('AgentAPI - Negative Path Tests', () => {
       };
 
       await expect(
-        agentAPI.call(request)
+        agentAPI.invokeAgent(request)
       ).rejects.toThrow();
     });
   });
