@@ -1,12 +1,16 @@
 # ValueCanvas Documentation
 
+**Last Updated:** 2024-11-29
+
 Complete documentation for the ValueCanvas AI-Powered Value Realization Platform.
 
 ## 📖 Quick Navigation
 
 ### Essential
+- **[Project Status](STATUS.md)** ⭐ - Current project status and metrics
 - **[Main README](../README.md)** - Project overview and quick start
 - **[Quick Start Guide](../QUICKSTART.md)** - Get running in 5 minutes
+- **[Deployment Checklist](deployment/DEPLOYMENT_CHECKLIST.md)** ⭐ - Phase-by-phase deployment guide
 - **[Contributing Guide](../CONTRIBUTING.md)** - How to contribute
 
 ---
@@ -47,11 +51,12 @@ Complete documentation for the ValueCanvas AI-Powered Value Realization Platform
 
 ### 🔒 Security
 **Location:** `security/`
+- **[Security Remediation](./security/SECURITY_REMEDIATION.md)** - 2024-11-29 security hardening ⭐
 - **[Security Overview](./security/SECURITY.md)** - Security features and best practices
 - **[Compliance Guide](./security/MANIFESTO_COMPLIANCE_GUIDE.md)** - Compliance requirements
-- **[RBAC Guide](./security/rbac-guide.md)** - Role-Based Access Control ⭐
-- **[Audit Logging](./security/audit-logging.md)** - Compliance audit trails ⭐
-- **[Circuit Breaker](./security/circuit-breaker.md)** - Agent safety controls ⭐
+- **[RBAC Guide](./security/rbac-guide.md)** - Role-Based Access Control
+- **[Audit Logging](./security/audit-logging.md)** - Compliance audit trails
+- **[Circuit Breaker](./security/circuit-breaker.md)** - Agent safety controls
 
 ### 📘 Guides
 **Location:** `guides/`
@@ -137,5 +142,22 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines on:
 
 ---
 
-**Last Updated:** November 27, 2024  
+**Last Updated:** 2024-11-29  
 **Maintained by:** ValueCanvas Team
+
+---
+
+## 🗂️ Deprecated Documentation
+
+The following files have been consolidated into canonical documentation:
+
+**Moved to Archive:**
+- All `PHASE*_COMPLETE.md` files → See [STATUS.md](STATUS.md)
+- All `*_SUMMARY.md` files → See [STATUS.md](STATUS.md)
+- Historical completion reports → See `archive/`
+
+**Current Canonical Sources:**
+- **Status:** `docs/STATUS.md` (updated 2024-11-29)
+- **Security:** `docs/security/SECURITY_REMEDIATION.md` (updated 2024-11-29)
+- **Deployment:** `docs/deployment/DEPLOYMENT_CHECKLIST.md` (updated 2024-11-29)
+- **Console Cleanup:** Root `CONSOLE_CLEANUP_SUMMARY.md` (updated 2024-11-29)
