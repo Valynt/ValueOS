@@ -267,6 +267,6 @@ BEGIN
   RAISE NOTICE '  - cleanup_table_data(table_name, dry_run)';
   RAISE NOTICE '';
   RAISE NOTICE 'Schedule with cron:';
-  RAISE NOTICE '  SELECT cron.schedule(''daily-cleanup'', ''0 2 * * *'', $$SELECT * FROM cleanup_expired_data()$$);';
+  RAISE NOTICE '  SELECT cron.schedule(''daily-cleanup'', ''0 2 * * *'', ''SELECT * FROM cleanup_expired_data()'');';
   RAISE NOTICE '';
 END $$;

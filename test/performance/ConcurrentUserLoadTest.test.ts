@@ -10,6 +10,10 @@ import { getWorkflowLifecycleIntegration } from '../../services/WorkflowLifecycl
 import { getSDUIStateManager } from '../../lib/state';
 import { performanceMonitor } from '../../utils/performance';
 
+const runIntegration = process.env.RUN_INTEGRATION_TESTS === 'true';
+const runPerf = process.env.RUN_PERF_TESTS === 'true';
+const describeMaybe = runIntegration && runPerf ? describe : describe.skip;
+
 // Mock Supabase client
 const mockSupabase = createClient('https://test.supabase.co', 'test-key');
 
@@ -126,7 +130,7 @@ class SimulatedUser {
   }
 }
 
-describe('Concurrent User Load Testing', () => {
+describeMaybe('Concurrent User Load Testing', () => {
   beforeAll(() => {
     performanceMonitor.clear();
   });

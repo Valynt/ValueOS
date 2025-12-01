@@ -152,4 +152,78 @@ describe('Environment Configuration', () => {
       expect(config1).not.toBe(config2);
     });
   });
+
+  // ============================================================================
+  // Supabase Configuration Tests (Dec 1, 2025 Fix)
+  // ============================================================================
+  describe('Supabase Configuration', () => {
+    it('should load Supabase URL from environment', () => {
+      const config = getConfig();
+      
+      expect(config.database.url).toBeDefined();
+    });
+
+    it('should load Supabase anon key from environment', () => {
+      const config = getConfig();
+      
+      expect(config.database.anonKey).toBeDefined();
+    });
+
+    it('should validate Supabase URL format if provided', () => {
+      const config = getConfig();
+      
+      if (config.database.url) {
+        // Should be a valid URL
+        expect(() => new URL(config.database.url)).not.toThrow();
+        
+        // If it's a real Supabase URL (not placeholder), validate format
+        if (!config.database.url.includes('your-project')) {
+          expect(config.database.url).toMatch(/^https:\/\//);
+        }
+      }
+    });
+
+    it('should have valid Supabase key format if provided', () => {
+      const config = getConfig();
+      
+      if (config.database.anonKey && !config.database.anonKey.includes('your-')) {
+        // Real keys should have proper prefix
+        expect(
+          config.database.anonKey.startsWith('eyJ') || 
+          config.database.anonKey.startsWith('sb_publishable_')
+        ).toBe(true);
+      }
+    });
+  });
+
+  // ============================================================================
+  // CORS Configuration Tests (Dec 1, 2025 Fix)
+  // ============================================================================
+  describe('CORS Configuration', () => {
+    it('should have CORS origins configured', () => {
+      const config = getConfig();
+      
+      expect(config.security.corsOrigins).toBeDefined();
+      expect(Array.isArray(config.security.corsOrigins)).toBe(true);
+    });
+
+    it('should include localhost in development CORS origins', () => {
+      const config = getConfig();
+      
+      if (config.app.env === 'development') {
+        const hasLocalhost = config.security.corsOrigins.some(
+          origin => origin.includes('localhost')
+        );
+        expect(hasLocalhost).toBe(true);
+      }
+    });
+
+    it('should have proper security settings', () => {
+      const config = getConfig();
+      
+      expect(config.security.csrfEnabled).toBeDefined();
+      expect(config.security.cspEnabled).toBeDefined();
+      expect(config.security.rateLimitPerMinute).toBeGreaterThan(0);
+    });
+  });
 });

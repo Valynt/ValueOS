@@ -251,9 +251,38 @@ describe('AgentAPI', () => {
     });
 
     it('should allow requests after cooldown period', async () => {
-      // This would require time manipulation or a longer test
-      // Placeholder for circuit breaker recovery test
-      expect(true).toBe(true);
+      vi.useFakeTimers();
+      const recoveringApi = new AgentAPI({
+        baseUrl: 'http://localhost:3000/api',
+        timeout: 100,
+        enableCircuitBreaker: true,
+        enableLogging: false,
+        failureThreshold: 1,
+        cooldownPeriod: 50
+      });
+
+      mockFetch.mockRejectedValueOnce(new Error('Service unavailable'));
+
+      const request: AgentRequest = { agent: 'opportunity', query: 'Test query' };
+
+      await recoveringApi.invoke(request);
+
+      const openStatus = recoveringApi.getCircuitBreakerStatus('opportunity');
+      expect(openStatus?.state).toBe('open');
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true })
+      });
+
+      await vi.advanceTimersByTimeAsync(60);
+
+      const recovered = await recoveringApi.invoke(request);
+      expect(recovered.success).toBe(true);
+      expect(recoveringApi.getCircuitBreakerStatus('opportunity')?.state).toBe('closed');
+
+      vi.useRealTimers();
     });
   });
 

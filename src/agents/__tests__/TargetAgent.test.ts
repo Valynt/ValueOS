@@ -6,6 +6,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TargetAgent } from '../../lib/agent-fabric/agents/TargetAgent';
+import { createBoltClientMock } from '../../../test/mocks/mockSupabaseClient';
 
 describe('TargetAgent', () => {
   let agent: TargetAgent;
@@ -153,6 +154,133 @@ describe('TargetAgent', () => {
       expect(result.valueTreeId).toBeDefined();
       expect(result.roiModelId).toBeDefined();
       expect(result.valueCommitId).toBeDefined();
+    });
+
+    it('throws when inserting duplicate node IDs', async () => {
+      const supabase = createBoltClientMock({
+        value_tree_nodes: [{ id: 'existing', value_tree_id: 'tree-dup', node_id: 'dup', label: 'Dup', type: 'capability' }]
+      });
+
+      const agentWithMockDb = new TargetAgent('target-dup', mockLLM as any, mockMemory as any, mockAudit as any, supabase as any);
+      const output = {
+        valueTree: { name: 'Tree', value_case_id: 'vc-1' },
+        roiModel: { name: 'ROI', assumptions: [] },
+        valueCommit: { notes: 'Test', target_date: '2025-12-31' },
+        businessCase: {
+          summary: 'Test',
+          nodes: [
+            { node_id: 'dup', label: 'Node', type: 'capability' },
+            { node_id: 'dup', label: 'Node2', type: 'capability' }
+          ],
+          links: [],
+          calculations: [],
+          kpi_targets: [],
+          reasoning: 'Test',
+          confidence_level: 'high'
+        }
+      };
+
+      const originalFrom = supabase.from;
+      supabase.from = vi.fn((table: string) => {
+        if (table === 'value_tree_nodes') {
+          return {
+            insert: () => {
+              throw new Error('duplicate node_id');
+            }
+          } as any;
+        }
+        return originalFrom(table);
+      });
+
+      await expect(agentWithMockDb.persistTargetArtifacts(output as any, 'vc-1')).rejects.toThrow(/duplicate node_id/);
+    });
+
+    it('propagates ROI model insert errors and stops before value commit', async () => {
+      const supabase = createBoltClientMock({
+        value_trees: [],
+        value_tree_nodes: [],
+        value_tree_links: [],
+        roi_models: [],
+        roi_model_calculations: [],
+        value_commits: [],
+        kpi_targets: []
+      });
+
+      const agentWithMockDb = new TargetAgent('target-roi-fail', mockLLM as any, mockMemory as any, mockAudit as any, supabase as any);
+      const output = {
+        valueTree: { name: 'Tree', value_case_id: 'vc-1' },
+        roiModel: { name: 'ROI', assumptions: [] },
+        valueCommit: { notes: 'Test', target_date: '2025-12-31' },
+        businessCase: {
+          summary: 'Test',
+          nodes: [{ node_id: 'n1', label: 'Node', type: 'capability' }],
+          links: [],
+          calculations: [{ name: 'calc', formula: '1+1', description: '', calculation_order: 1, result_type: 'cost', unit: 'usd' }],
+          kpi_targets: [],
+          reasoning: 'Test',
+          confidence_level: 'high'
+        }
+      };
+
+      const originalFrom = supabase.from;
+      supabase.from = vi.fn((table: string) => {
+        if (table === 'roi_models') {
+          return {
+            insert: () => ({
+              select: () => ({
+                single: async () => ({ data: null, error: new Error('ROI fail') })
+              })
+            })
+          } as any;
+        }
+        return originalFrom(table);
+      });
+
+      await expect(agentWithMockDb.persistTargetArtifacts(output as any, 'vc-1')).rejects.toThrow(/ROI fail/);
+      expect(supabase.tables.value_commits || []).toHaveLength(0);
+    });
+
+    it('throws when KPI target insertion fails', async () => {
+      const supabase = createBoltClientMock({
+        value_trees: [],
+        value_tree_nodes: [],
+        value_tree_links: [],
+        roi_models: [],
+        roi_model_calculations: [],
+        value_commits: [],
+        kpi_targets: []
+      });
+
+      const agentWithMockDb = new TargetAgent('target-kpi-fail', mockLLM as any, mockMemory as any, mockAudit as any, supabase as any);
+      const output = {
+        valueTree: { name: 'Tree', value_case_id: 'vc-1' },
+        roiModel: { name: 'ROI', assumptions: [] },
+        valueCommit: { notes: 'Test', target_date: '2025-12-31' },
+        businessCase: {
+          summary: 'Test',
+          nodes: [{ node_id: 'n1', label: 'Node', type: 'capability' }],
+          links: [],
+          calculations: [],
+          kpi_targets: [{ kpi_name: 'Hours', baseline_value: 1, target_value: 2, unit: 'hours', deadline: '2025-12-31', confidence_level: 'high' }],
+          reasoning: 'Test',
+          confidence_level: 'high'
+        }
+      };
+
+      const originalFrom = supabase.from;
+      supabase.from = vi.fn((table: string) => {
+        if (table === 'kpi_targets') {
+          return {
+            insert: () => {
+              throw new Error('KPI insert fail');
+            }
+          } as any;
+        }
+        return originalFrom(table);
+      });
+
+      await expect(agentWithMockDb.persistTargetArtifacts(output as any, 'vc-1')).rejects.toThrow(/KPI insert fail/);
+      expect(supabase.tables.kpi_targets).toHaveLength(0);
     });
   });
 

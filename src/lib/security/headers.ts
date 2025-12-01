@@ -23,7 +23,7 @@ export const SECURITY_HEADERS: SecurityHeadersConfig = {
     "img-src 'self' data: https:",
     "style-src 'self' 'unsafe-inline'",
     "script-src 'self'",
-    "connect-src 'self' https://*.supabase.co",
+    "connect-src 'self' https://*.supabase.co https://api.pwnedpasswords.com",
     "font-src 'self' data:",
     "object-src 'none'",
     "base-uri 'self'",
@@ -142,7 +142,7 @@ export function getEnvironmentHeaders(env: 'development' | 'production'): Record
       "style-src 'self' 'unsafe-inline'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Allow inline and eval for HMR
       "script-src-elem 'self' 'unsafe-inline'", // Allow inline script elements
-      "connect-src 'self' https://*.supabase.co ws://localhost:* http://localhost:*", // Allow dev server
+      "connect-src 'self' https://*.supabase.co https://api.pwnedpasswords.com ws://localhost:* http://localhost:*", // Allow dev server and password breach API
       "font-src 'self' data:",
       "object-src 'none'",
       "base-uri 'self'",

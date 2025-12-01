@@ -38,8 +38,8 @@ CREATE TABLE IF NOT EXISTS tenant_integrations (
 );
 
 -- Index for quick tenant lookups
-CREATE INDEX idx_tenant_integrations_tenant ON tenant_integrations(tenant_id);
-CREATE INDEX idx_tenant_integrations_provider ON tenant_integrations(provider);
+CREATE INDEX IF NOT EXISTS idx_tenant_integrations_tenant ON tenant_integrations(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_integrations_provider ON tenant_integrations(provider);
 
 -- ============================================================================
 -- ROW LEVEL SECURITY
@@ -47,30 +47,41 @@ CREATE INDEX idx_tenant_integrations_provider ON tenant_integrations(provider);
 
 ALTER TABLE tenant_integrations ENABLE ROW LEVEL SECURITY;
 
--- Admins can manage integrations for their tenant
-CREATE POLICY "Admins can manage tenant integrations"
-  ON tenant_integrations
-  FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM tenant_members tm
-      WHERE tm.tenant_id = tenant_integrations.tenant_id
-        AND tm.user_id = auth.uid()
-        AND tm.role IN ('admin', 'owner')
-    )
-  );
+-- RLS policies (only if tenant_members table exists)
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'tenant_members') THEN
+    DROP POLICY IF EXISTS "Admins can manage tenant integrations" ON tenant_integrations;
+    DROP POLICY IF EXISTS "Members can read integration status" ON tenant_integrations;
+    
+    -- Admins can manage integrations for their tenant
+    CREATE POLICY "Admins can manage tenant integrations"
+      ON tenant_integrations
+      FOR ALL
+      USING (
+        EXISTS (
+          SELECT 1 FROM tenant_members tm
+          WHERE tm.tenant_id = tenant_integrations.tenant_id
+            AND tm.user_id = auth.uid()
+            AND tm.role IN ('admin', 'owner')
+        )
+      );
 
--- All members can read/use integrations (but not see tokens)
-CREATE POLICY "Members can read integration status"
-  ON tenant_integrations
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM tenant_members tm
-      WHERE tm.tenant_id = tenant_integrations.tenant_id
-        AND tm.user_id = auth.uid()
-    )
-  );
+    -- All members can read/use integrations (but not see tokens)
+    CREATE POLICY "Members can read integration status"
+      ON tenant_integrations
+      FOR SELECT
+      USING (
+        EXISTS (
+          SELECT 1 FROM tenant_members tm
+          WHERE tm.tenant_id = tenant_integrations.tenant_id
+            AND tm.user_id = auth.uid()
+        )
+      );
+  ELSE
+    RAISE NOTICE 'Skipping tenant_integrations RLS policies - tenant_members table does not exist';
+  END IF;
+END $$;
 
 -- ============================================================================
 -- INTEGRATION USAGE LOG (for audit)
@@ -87,8 +98,8 @@ CREATE TABLE IF NOT EXISTS integration_usage_log (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE INDEX idx_integration_usage_integration ON integration_usage_log(integration_id);
-CREATE INDEX idx_integration_usage_created ON integration_usage_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_integration_usage_integration ON integration_usage_log(integration_id);
+CREATE INDEX IF NOT EXISTS idx_integration_usage_created ON integration_usage_log(created_at);
 
 -- ============================================================================
 -- HELPER FUNCTIONS
@@ -183,6 +194,8 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_tenant_integrations_updated_at ON tenant_integrations;
 
 CREATE TRIGGER trigger_tenant_integrations_updated_at
   BEFORE UPDATE ON tenant_integrations

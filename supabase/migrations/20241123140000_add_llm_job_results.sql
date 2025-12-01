@@ -2,7 +2,7 @@
 -- Stores results from async LLM processing queue
 
 CREATE TABLE IF NOT EXISTS llm_job_results (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   job_id TEXT NOT NULL UNIQUE,
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   type TEXT NOT NULL CHECK (type IN ('canvas_generation', 'canvas_refinement', 'custom_prompt')),
@@ -20,10 +20,10 @@ CREATE TABLE IF NOT EXISTS llm_job_results (
 );
 
 -- Indexes
-CREATE INDEX idx_llm_job_results_job_id ON llm_job_results(job_id);
-CREATE INDEX idx_llm_job_results_user ON llm_job_results(user_id, created_at DESC);
-CREATE INDEX idx_llm_job_results_type ON llm_job_results(type, created_at DESC);
-CREATE INDEX idx_llm_job_results_created ON llm_job_results(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_llm_job_results_job_id ON llm_job_results(job_id);
+CREATE INDEX IF NOT EXISTS idx_llm_job_results_user ON llm_job_results(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_llm_job_results_type ON llm_job_results(type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_llm_job_results_created ON llm_job_results(created_at DESC);
 
 -- Row Level Security
 ALTER TABLE llm_job_results ENABLE ROW LEVEL SECURITY;

@@ -10,7 +10,7 @@ BEGIN;
 CREATE TABLE IF NOT EXISTS llm_usage (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    session_id UUID REFERENCES agent_sessions(id) ON DELETE SET NULL,
+    session_id UUID, -- Foreign key will be added later when agent_sessions exists
     provider TEXT NOT NULL CHECK (provider IN ('together_ai', 'openai')),
     model TEXT NOT NULL,
     prompt_tokens INTEGER NOT NULL CHECK (prompt_tokens >= 0),
@@ -23,6 +23,22 @@ CREATE TABLE IF NOT EXISTS llm_usage (
     latency_ms INTEGER CHECK (latency_ms >= 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Add foreign key constraint if agent_sessions table exists
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_schema = 'public' AND table_name = 'agent_sessions'
+  ) THEN
+    ALTER TABLE llm_usage
+    DROP CONSTRAINT IF EXISTS llm_usage_session_id_fkey;
+    
+    ALTER TABLE llm_usage
+    ADD CONSTRAINT llm_usage_session_id_fkey
+    FOREIGN KEY (session_id) REFERENCES agent_sessions(id) ON DELETE SET NULL;
+  END IF;
+END $$;
 
 -- Indexes for LLM usage
 CREATE INDEX IF NOT EXISTS idx_llm_usage_user_id ON llm_usage(user_id);

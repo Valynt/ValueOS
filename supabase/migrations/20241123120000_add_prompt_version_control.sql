@@ -3,7 +3,7 @@
 
 -- Prompt Versions Table
 CREATE TABLE IF NOT EXISTS prompt_versions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   prompt_key TEXT NOT NULL,
   version INTEGER NOT NULL,
   template TEXT NOT NULL,
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS prompt_versions (
 
 -- Prompt Executions Table
 CREATE TABLE IF NOT EXISTS prompt_executions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   prompt_version_id UUID NOT NULL REFERENCES prompt_versions(id) ON DELETE CASCADE,
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   variables JSONB NOT NULL DEFAULT '{}',
@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS prompt_executions (
 
 -- A/B Tests Table
 CREATE TABLE IF NOT EXISTS ab_tests (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   prompt_key TEXT NOT NULL,
   variants JSONB NOT NULL, -- [{name, versionId, weight}]
@@ -48,12 +48,12 @@ CREATE TABLE IF NOT EXISTS ab_tests (
 );
 
 -- Indexes for performance
-CREATE INDEX idx_prompt_versions_key_status ON prompt_versions(prompt_key, status);
-CREATE INDEX idx_prompt_versions_key_version ON prompt_versions(prompt_key, version DESC);
-CREATE INDEX idx_prompt_executions_version ON prompt_executions(prompt_version_id);
-CREATE INDEX idx_prompt_executions_user ON prompt_executions(user_id);
-CREATE INDEX idx_prompt_executions_created ON prompt_executions(created_at DESC);
-CREATE INDEX idx_ab_tests_key_status ON ab_tests(prompt_key, status);
+CREATE INDEX IF NOT EXISTS idx_prompt_versions_key_status ON prompt_versions(prompt_key, status);
+CREATE INDEX IF NOT EXISTS idx_prompt_versions_key_version ON prompt_versions(prompt_key, version DESC);
+CREATE INDEX IF NOT EXISTS idx_prompt_executions_version ON prompt_executions(prompt_version_id);
+CREATE INDEX IF NOT EXISTS idx_prompt_executions_user ON prompt_executions(user_id);
+CREATE INDEX IF NOT EXISTS idx_prompt_executions_created ON prompt_executions(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ab_tests_key_status ON ab_tests(prompt_key, status);
 
 -- Function to get active prompt version
 CREATE OR REPLACE FUNCTION get_active_prompt_version(p_prompt_key TEXT)
@@ -138,7 +138,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trigger_update_version_performance
+DROP TRIGGER IF EXISTS trigger_update_version_performance
 AFTER INSERT OR UPDATE ON prompt_executions
 FOR EACH ROW
 WHEN (NEW.success IS NOT NULL)

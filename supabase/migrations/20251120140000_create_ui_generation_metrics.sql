@@ -36,10 +36,10 @@ CREATE TABLE IF NOT EXISTS ui_generation_trajectories (
   created_at timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_ui_trajectories_subgoal ON ui_generation_trajectories(subgoal_id);
-CREATE INDEX idx_ui_trajectories_method ON ui_generation_trajectories(generation_method);
-CREATE INDEX idx_ui_trajectories_created ON ui_generation_trajectories(created_at DESC);
-CREATE INDEX idx_ui_trajectories_components ON ui_generation_trajectories USING gin(components_selected);
+CREATE INDEX IF NOT EXISTS idx_ui_trajectories_subgoal ON ui_generation_trajectories(subgoal_id);
+CREATE INDEX IF NOT EXISTS idx_ui_trajectories_method ON ui_generation_trajectories(generation_method);
+CREATE INDEX IF NOT EXISTS idx_ui_trajectories_created ON ui_generation_trajectories(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ui_trajectories_components ON ui_generation_trajectories USING gin(components_selected);
 
 COMMENT ON TABLE ui_generation_trajectories IS 'Tracks UI generation decisions and reasoning';
 
@@ -77,10 +77,10 @@ CREATE TABLE IF NOT EXISTS ui_interaction_events (
   created_at timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_ui_interactions_trajectory ON ui_interaction_events(trajectory_id);
-CREATE INDEX idx_ui_interactions_user ON ui_interaction_events(user_id);
-CREATE INDEX idx_ui_interactions_type ON ui_interaction_events(event_type);
-CREATE INDEX idx_ui_interactions_created ON ui_interaction_events(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ui_interactions_trajectory ON ui_interaction_events(trajectory_id);
+CREATE INDEX IF NOT EXISTS idx_ui_interactions_user ON ui_interaction_events(user_id);
+CREATE INDEX IF NOT EXISTS idx_ui_interactions_type ON ui_interaction_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_ui_interactions_created ON ui_interaction_events(created_at DESC);
 
 COMMENT ON TABLE ui_interaction_events IS 'Tracks user interactions with generated UIs';
 
@@ -121,9 +121,9 @@ CREATE TABLE IF NOT EXISTS ui_generation_metrics (
   calculated_at timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_ui_metrics_trajectory ON ui_generation_metrics(trajectory_id);
-CREATE INDEX idx_ui_metrics_quality ON ui_generation_metrics(overall_quality_score DESC);
-CREATE INDEX idx_ui_metrics_success ON ui_generation_metrics(task_success);
+CREATE INDEX IF NOT EXISTS idx_ui_metrics_trajectory ON ui_generation_metrics(trajectory_id);
+CREATE INDEX IF NOT EXISTS idx_ui_metrics_quality ON ui_generation_metrics(overall_quality_score DESC);
+CREATE INDEX IF NOT EXISTS idx_ui_metrics_success ON ui_generation_metrics(task_success);
 
 COMMENT ON TABLE ui_generation_metrics IS 'Aggregated metrics for UI generation effectiveness';
 
@@ -151,8 +151,8 @@ CREATE TABLE IF NOT EXISTS ui_generation_feedback (
   created_at timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_ui_feedback_trajectory ON ui_generation_feedback(trajectory_id);
-CREATE INDEX idx_ui_feedback_type ON ui_generation_feedback(feedback_type);
+CREATE INDEX IF NOT EXISTS idx_ui_feedback_trajectory ON ui_generation_feedback(trajectory_id);
+CREATE INDEX IF NOT EXISTS idx_ui_feedback_type ON ui_generation_feedback(feedback_type);
 
 COMMENT ON TABLE ui_generation_feedback IS 'Feedback on UI generation quality';
 
@@ -188,8 +188,8 @@ CREATE TABLE IF NOT EXISTS component_usage_stats (
   last_updated timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_component_stats_name ON component_usage_stats(component_name);
-CREATE INDEX idx_component_stats_success ON component_usage_stats(success_rate DESC);
+CREATE INDEX IF NOT EXISTS idx_component_stats_name ON component_usage_stats(component_name);
+CREATE INDEX IF NOT EXISTS idx_component_stats_success ON component_usage_stats(success_rate DESC);
 
 COMMENT ON TABLE component_usage_stats IS 'Aggregated statistics for component usage';
 
@@ -222,8 +222,8 @@ CREATE TABLE IF NOT EXISTS layout_effectiveness (
   last_updated timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_layout_effectiveness_type ON layout_effectiveness(layout_type);
-CREATE INDEX idx_layout_effectiveness_completion ON layout_effectiveness(task_completion_rate DESC);
+CREATE INDEX IF NOT EXISTS idx_layout_effectiveness_type ON layout_effectiveness(layout_type);
+CREATE INDEX IF NOT EXISTS idx_layout_effectiveness_completion ON layout_effectiveness(task_completion_rate DESC);
 
 COMMENT ON TABLE layout_effectiveness IS 'Effectiveness metrics for different layout types';
 

@@ -35,8 +35,8 @@ CREATE TABLE IF NOT EXISTS auth.login_attempts (
   failure_reason TEXT
 );
 
-CREATE INDEX idx_login_attempts_email ON auth.login_attempts(email);
-CREATE INDEX idx_login_attempts_timestamp ON auth.login_attempts(attempted_at);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_email ON auth.login_attempts(email);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_timestamp ON auth.login_attempts(attempted_at);
 
 COMMENT ON TABLE auth.login_attempts IS 
 'Tracks all login attempts for security monitoring and account lockout';

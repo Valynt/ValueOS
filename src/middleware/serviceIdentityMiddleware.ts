@@ -1,7 +1,15 @@
 import { NextFunction, Request, Response } from 'express';
-import { randomUUID } from 'crypto';
 import { getAutonomyConfig } from '../config/autonomy';
 import { nonceStore } from './nonceStore';
+
+// Use browser-compatible crypto when available, fallback to Node crypto
+const randomUUID = (): string => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback for Node.js environment
+  return require('crypto').randomUUID();
+};
 
 const MAX_CLOCK_SKEW_MS = 2 * 60 * 1000; // 2 minutes
 

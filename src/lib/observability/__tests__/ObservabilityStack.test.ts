@@ -39,6 +39,7 @@ describe('Observability Stack', () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await shutdownObservability();
   });
 
@@ -424,43 +425,30 @@ describe('Observability Stack', () => {
       const alerting = getAlertingService(mockSupabase);
       const metrics = getMetricsCollector(mockSupabase);
 
-      // Mock high error rate
-      vi.spyOn(mockSupabase, 'from').mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          gte: vi.fn().mockResolvedValue({
-            data: Array(100).fill({
-              agent_type: 'test_agent',
-              confidence_level: 'low',
-              confidence_score: 0.3,
-              hallucination_detected: false,
-              processing_time_ms: 1000
-            }),
-            error: null
-          })
-        }),
-        insert: vi.fn().mockResolvedValue({
-          data: null,
-          error: null
-        })
-      } as any);
+      const insertSpy = vi.fn().mockResolvedValue({ data: null, error: null });
+      vi.spyOn(mockSupabase, 'from').mockReturnValue({ insert: insertSpy } as any);
+      vi.spyOn(metrics, 'getAgentMetrics').mockResolvedValue([
+        {
+          agentType: 'test_agent',
+          totalInvocations: 10,
+          successfulInvocations: 5,
+          failedInvocations: 5,
+          successRate: 0.5,
+          avgResponseTime: 6000,
+          p50ResponseTime: 3000,
+          p95ResponseTime: 6000,
+          p99ResponseTime: 7000,
+          avgConfidenceScore: 0.4,
+          hallucinationRate: 0.2
+        }
+      ]);
 
-      // Record high error rate
-      for (let i = 0; i \u003c 10; i++) {
-        metrics.recordAgentInvocation('test_agent', false, 1000, 0.3, false);
-      }
-
-      // Start alerting (will check immediately)
       alerting.start();
-
-      // Wait for check to complete
-      await new Promise(resolve =\u003e setTimeout(resolve, 100));
-
-      // Stop alerting
+      await new Promise(resolve => setTimeout(resolve, 0));
       alerting.stop();
 
-      // Note: In real scenario, alerts would be triggered
-      // Here we just verify the service runs without errors
-      expect(true).toBe(true);
+      expect(insertSpy).toHaveBeenCalled();
+      expect(alerting.getActiveAlerts().length).toBeGreaterThan(0);
     });
   });
 

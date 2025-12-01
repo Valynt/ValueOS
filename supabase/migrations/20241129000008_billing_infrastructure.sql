@@ -36,9 +36,9 @@ CREATE TABLE IF NOT EXISTS public.billing_customers (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_billing_customers_tenant ON public.billing_customers(tenant_id);
-CREATE INDEX idx_billing_customers_stripe ON public.billing_customers(stripe_customer_id);
-CREATE INDEX idx_billing_customers_status ON public.billing_customers(status);
+CREATE INDEX IF NOT EXISTS idx_billing_customers_tenant ON public.billing_customers(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_billing_customers_stripe ON public.billing_customers(stripe_customer_id);
+CREATE INDEX IF NOT EXISTS idx_billing_customers_status ON public.billing_customers(status);
 
 COMMENT ON TABLE public.billing_customers IS 
 'Maps tenants to Stripe customers for billing';
@@ -87,11 +87,11 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_subscriptions_customer ON public.subscriptions(billing_customer_id);
-CREATE INDEX idx_subscriptions_tenant ON public.subscriptions(tenant_id);
-CREATE INDEX idx_subscriptions_stripe ON public.subscriptions(stripe_subscription_id);
-CREATE INDEX idx_subscriptions_status ON public.subscriptions(status);
-CREATE INDEX idx_subscriptions_period ON public.subscriptions(current_period_start, current_period_end);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_customer ON public.subscriptions(billing_customer_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_tenant ON public.subscriptions(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe ON public.subscriptions(stripe_subscription_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON public.subscriptions(status);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_period ON public.subscriptions(current_period_start, current_period_end);
 
 COMMENT ON TABLE public.subscriptions IS 
 'Active subscriptions per tenant with billing periods';
@@ -135,9 +135,9 @@ CREATE TABLE IF NOT EXISTS public.subscription_items (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_subscription_items_subscription ON public.subscription_items(subscription_id);
-CREATE INDEX idx_subscription_items_metric ON public.subscription_items(metric);
-CREATE INDEX idx_subscription_items_stripe_item ON public.subscription_items(stripe_subscription_item_id);
+CREATE INDEX IF NOT EXISTS idx_subscription_items_subscription ON public.subscription_items(subscription_id);
+CREATE INDEX IF NOT EXISTS idx_subscription_items_metric ON public.subscription_items(metric);
+CREATE INDEX IF NOT EXISTS idx_subscription_items_stripe_item ON public.subscription_items(stripe_subscription_item_id);
 
 COMMENT ON TABLE public.subscription_items IS 
 'Metered line items per subscription (one per metric)';
@@ -175,11 +175,11 @@ CREATE TABLE IF NOT EXISTS public.usage_events (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_usage_events_tenant ON public.usage_events(tenant_id);
-CREATE INDEX idx_usage_events_metric ON public.usage_events(metric);
-CREATE INDEX idx_usage_events_timestamp ON public.usage_events(timestamp DESC);
-CREATE INDEX idx_usage_events_processed ON public.usage_events(processed, timestamp) WHERE NOT processed;
-CREATE INDEX idx_usage_events_request ON public.usage_events(request_id);
+CREATE INDEX IF NOT EXISTS idx_usage_events_tenant ON public.usage_events(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_usage_events_metric ON public.usage_events(metric);
+CREATE INDEX IF NOT EXISTS idx_usage_events_timestamp ON public.usage_events(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_usage_events_processed ON public.usage_events(processed, timestamp) WHERE NOT processed;
+CREATE INDEX IF NOT EXISTS idx_usage_events_request ON public.usage_events(request_id);
 
 COMMENT ON TABLE public.usage_events IS 
 'Raw usage events emitted from services (queue source for aggregation)';
@@ -223,12 +223,12 @@ CREATE TABLE IF NOT EXISTS public.usage_aggregates (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_usage_aggregates_tenant ON public.usage_aggregates(tenant_id);
-CREATE INDEX idx_usage_aggregates_metric ON public.usage_aggregates(metric);
-CREATE INDEX idx_usage_aggregates_period ON public.usage_aggregates(period_start, period_end);
-CREATE INDEX idx_usage_aggregates_submitted ON public.usage_aggregates(submitted_to_stripe, created_at) 
+CREATE INDEX IF NOT EXISTS idx_usage_aggregates_tenant ON public.usage_aggregates(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_usage_aggregates_metric ON public.usage_aggregates(metric);
+CREATE INDEX IF NOT EXISTS idx_usage_aggregates_period ON public.usage_aggregates(period_start, period_end);
+CREATE INDEX IF NOT EXISTS idx_usage_aggregates_submitted ON public.usage_aggregates(submitted_to_stripe, created_at) 
   WHERE NOT submitted_to_stripe;
-CREATE INDEX idx_usage_aggregates_idempotency ON public.usage_aggregates(idempotency_key);
+CREATE INDEX IF NOT EXISTS idx_usage_aggregates_idempotency ON public.usage_aggregates(idempotency_key);
 
 COMMENT ON TABLE public.usage_aggregates IS 
 'Aggregated usage ready for Stripe submission (batched from events)';
@@ -285,11 +285,11 @@ CREATE TABLE IF NOT EXISTS public.invoices (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_invoices_customer ON public.invoices(billing_customer_id);
-CREATE INDEX idx_invoices_tenant ON public.invoices(tenant_id);
-CREATE INDEX idx_invoices_stripe ON public.invoices(stripe_invoice_id);
-CREATE INDEX idx_invoices_status ON public.invoices(status);
-CREATE INDEX idx_invoices_period ON public.invoices(period_start, period_end);
+CREATE INDEX IF NOT EXISTS idx_invoices_customer ON public.invoices(billing_customer_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_tenant ON public.invoices(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_stripe ON public.invoices(stripe_invoice_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_status ON public.invoices(status);
+CREATE INDEX IF NOT EXISTS idx_invoices_period ON public.invoices(period_start, period_end);
 
 COMMENT ON TABLE public.invoices IS 
 'Stored Stripe invoices per tenant for history/UI';
@@ -329,10 +329,10 @@ CREATE TABLE IF NOT EXISTS public.usage_quotas (
   UNIQUE(tenant_id, metric, period_start)
 );
 
-CREATE INDEX idx_usage_quotas_tenant ON public.usage_quotas(tenant_id);
-CREATE INDEX idx_usage_quotas_metric ON public.usage_quotas(metric);
-CREATE INDEX idx_usage_quotas_period ON public.usage_quotas(period_start, period_end);
-CREATE INDEX idx_usage_quotas_sync ON public.usage_quotas(last_synced_at);
+CREATE INDEX IF NOT EXISTS idx_usage_quotas_tenant ON public.usage_quotas(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_usage_quotas_metric ON public.usage_quotas(metric);
+CREATE INDEX IF NOT EXISTS idx_usage_quotas_period ON public.usage_quotas(period_start, period_end);
+CREATE INDEX IF NOT EXISTS idx_usage_quotas_sync ON public.usage_quotas(last_synced_at);
 
 COMMENT ON TABLE public.usage_quotas IS 
 'Plan quotas and current usage per tenant/metric (cached from Stripe)';
@@ -370,10 +370,10 @@ CREATE TABLE IF NOT EXISTS public.usage_alerts (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_usage_alerts_tenant ON public.usage_alerts(tenant_id);
-CREATE INDEX idx_usage_alerts_metric ON public.usage_alerts(metric);
-CREATE INDEX idx_usage_alerts_acknowledged ON public.usage_alerts(acknowledged);
-CREATE INDEX idx_usage_alerts_created ON public.usage_alerts(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_usage_alerts_tenant ON public.usage_alerts(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_usage_alerts_metric ON public.usage_alerts(metric);
+CREATE INDEX IF NOT EXISTS idx_usage_alerts_acknowledged ON public.usage_alerts(acknowledged);
+CREATE INDEX IF NOT EXISTS idx_usage_alerts_created ON public.usage_alerts(created_at DESC);
 
 COMMENT ON TABLE public.usage_alerts IS 
 'Usage alert history (80%/100%/120% thresholds)';
@@ -402,9 +402,9 @@ CREATE TABLE IF NOT EXISTS public.webhook_events (
   received_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_webhook_events_stripe ON public.webhook_events(stripe_event_id);
-CREATE INDEX idx_webhook_events_type ON public.webhook_events(event_type);
-CREATE INDEX idx_webhook_events_processed ON public.webhook_events(processed, received_at) WHERE NOT processed;
+CREATE INDEX IF NOT EXISTS idx_webhook_events_stripe ON public.webhook_events(stripe_event_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_type ON public.webhook_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_processed ON public.webhook_events(processed, received_at) WHERE NOT processed;
 
 COMMENT ON TABLE public.webhook_events IS 
 'Stripe webhook event log for idempotent processing';
@@ -531,15 +531,36 @@ CREATE POLICY "admins_full_access_billing"
     )
   );
 
--- Users can view their own tenant's billing data
-CREATE POLICY "users_view_own_billing"
-  ON public.billing_customers FOR SELECT
-  USING (
-    tenant_id IN (
-      SELECT tenant_id FROM public.user_tenants
-      WHERE user_id = auth.uid() AND status = 'active'
-    )
-  );
+-- RLS policies that depend on user_tenants table
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'user_tenants') THEN
+    DROP POLICY IF EXISTS "users_view_own_billing" ON public.billing_customers;
+    
+    -- Users can view their own tenant's billing data
+    CREATE POLICY "users_view_own_billing"
+      ON public.billing_customers FOR SELECT
+      USING (
+        tenant_id IN (
+          SELECT tenant_id FROM public.user_tenants
+          WHERE user_id = auth.uid() AND status = 'active'
+        )
+      );
+
+    DROP POLICY IF EXISTS "users_view_own_subscriptions" ON public.subscriptions;
+    
+    CREATE POLICY "users_view_own_subscriptions"
+      ON public.subscriptions FOR SELECT
+      USING (
+        tenant_id IN (
+          SELECT tenant_id FROM public.user_tenants
+          WHERE user_id = auth.uid() AND status = 'active'
+        )
+      );
+  ELSE
+    RAISE NOTICE 'Skipping user_tenants-dependent billing policies - table does not exist';
+  END IF;
+END $$;
 
 -- Apply similar policies to other tables
 CREATE POLICY "admins_full_access_subscriptions"
@@ -549,15 +570,6 @@ CREATE POLICY "admins_full_access_subscriptions"
       SELECT 1 FROM auth.users
       WHERE id = auth.uid()
         AND raw_user_meta_data->>'role' = 'admin'
-    )
-  );
-
-CREATE POLICY "users_view_own_subscriptions"
-  ON public.subscriptions FOR SELECT
-  USING (
-    tenant_id IN (
-      SELECT tenant_id FROM public.user_tenants
-      WHERE user_id = auth.uid() AND status = 'active'
     )
   );
 

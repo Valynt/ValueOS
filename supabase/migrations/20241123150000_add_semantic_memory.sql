@@ -6,7 +6,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 -- Semantic Memory Table
 CREATE TABLE IF NOT EXISTS semantic_memory (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   type TEXT NOT NULL CHECK (type IN ('value_proposition', 'target_definition', 'opportunity', 'integrity_check', 'workflow_result')),
   content TEXT NOT NULL,
   embedding vector(1536), -- OpenAI text-embedding-3-small dimension
@@ -15,17 +15,17 @@ CREATE TABLE IF NOT EXISTS semantic_memory (
 );
 
 -- Indexes for performance
-CREATE INDEX idx_semantic_memory_type ON semantic_memory(type);
-CREATE INDEX idx_semantic_memory_created ON semantic_memory(created_at DESC);
-CREATE INDEX idx_semantic_memory_metadata_gin ON semantic_memory USING gin(metadata);
+CREATE INDEX IF NOT EXISTS idx_semantic_memory_type ON semantic_memory(type);
+CREATE INDEX IF NOT EXISTS idx_semantic_memory_created ON semantic_memory(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_semantic_memory_metadata_gin ON semantic_memory USING gin(metadata);
 
 -- Vector similarity index (HNSW for fast approximate nearest neighbor search)
-CREATE INDEX idx_semantic_memory_embedding ON semantic_memory 
+CREATE INDEX IF NOT EXISTS idx_semantic_memory_embedding ON semantic_memory 
 USING hnsw (embedding vector_cosine_ops)
 WITH (m = 16, ef_construction = 64);
 
 -- Alternative: IVFFlat index (faster build, slower query)
--- CREATE INDEX idx_semantic_memory_embedding ON semantic_memory 
+-- CREATE INDEX IF NOT EXISTS idx_semantic_memory_embedding ON semantic_memory 
 -- USING ivfflat (embedding vector_cosine_ops)
 -- WITH (lists = 100);
 
