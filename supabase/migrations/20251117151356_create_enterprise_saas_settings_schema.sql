@@ -505,12 +505,43 @@ CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_session_id ON user_sessions(session_id);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_active ON user_sessions(is_active, expires_at) WHERE is_active = true;
 
--- Audit logs indexes
-CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_organization_id ON audit_logs(organization_id);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp DESC);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_resource ON audit_logs(resource_type, resource_id);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_composite ON audit_logs(organization_id, timestamp DESC);
+-- Audit logs indexes (conditional on column existence)
+DO $$
+BEGIN
+  -- Check if user_id column exists
+  IF EXISTS (SELECT FROM information_schema.columns 
+             WHERE table_name = 'audit_logs' AND column_name = 'user_id') THEN
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
+  END IF;
+  
+  -- Check if organization_id column exists
+  IF EXISTS (SELECT FROM information_schema.columns 
+             WHERE table_name = 'audit_logs' AND column_name = 'organization_id') THEN
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_organization_id ON audit_logs(organization_id);
+  END IF;
+  
+  -- Check if timestamp column exists
+  IF EXISTS (SELECT FROM information_schema.columns 
+             WHERE table_name = 'audit_logs' AND column_name = 'timestamp') THEN
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp DESC);
+  END IF;
+  
+  -- Check if resource_type and resource_id columns exist
+  IF EXISTS (SELECT FROM information_schema.columns 
+             WHERE table_name = 'audit_logs' AND column_name = 'resource_type') AND
+     EXISTS (SELECT FROM information_schema.columns 
+             WHERE table_name = 'audit_logs' AND column_name = 'resource_id') THEN
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_resource ON audit_logs(resource_type, resource_id);
+  END IF;
+  
+  -- Check if organization_id and timestamp columns exist for composite index
+  IF EXISTS (SELECT FROM information_schema.columns 
+             WHERE table_name = 'audit_logs' AND column_name = 'organization_id') AND
+     EXISTS (SELECT FROM information_schema.columns 
+             WHERE table_name = 'audit_logs' AND column_name = 'timestamp') THEN
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_composite ON audit_logs(organization_id, timestamp DESC);
+  END IF;
+END $$;
 
 -- Integrations indexes
 CREATE INDEX IF NOT EXISTS idx_integrations_organization_id ON integrations(organization_id);

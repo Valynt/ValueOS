@@ -2,29 +2,29 @@
 -- Comprehensive RLS enforcement for multi-tenant isolation
 
 -- Enable RLS on all tables
-ALTER TABLE IF EXISTS user_tenants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS organization_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS workflow_executions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS workflow_execution_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS workflow_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS workflow_audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS agent_predictions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS value_trees ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS canvas_data ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS billing_subscriptions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS billing_usage ENABLE ROW LEVEL SECURITY;
+-- canvas_data table does not exist, skipping
+ALTER TABLE IF EXISTS subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS usage_events ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if they exist (wrapped in conditional checks)
 DO $$
 BEGIN
-  -- user_tenants policies
-  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'user_tenants') THEN
-    DROP POLICY IF EXISTS "Users can view their own tenant memberships" ON user_tenants;
+  -- organization_members policies
+  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'organization_members') THEN
+    DROP POLICY IF EXISTS "Users can view their own organization memberships" ON organization_members;
   END IF;
   
   -- workflow_executions policies
   IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'workflow_executions') THEN
-    DROP POLICY IF EXISTS "Users can view workflow executions in their tenants" ON workflow_executions;
-    DROP POLICY IF EXISTS "Users can create workflow executions in their tenants" ON workflow_executions;
+    DROP POLICY IF EXISTS "Users can view their own workflow executions" ON workflow_executions;
+    DROP POLICY IF EXISTS "Users can create their own workflow executions" ON workflow_executions;
     DROP POLICY IF EXISTS "Users can update their own workflow executions" ON workflow_executions;
   END IF;
   
@@ -51,70 +51,64 @@ BEGIN
   
   -- value_trees policies
   IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'value_trees') THEN
-    DROP POLICY IF EXISTS "Users can view their tenant value trees" ON value_trees;
-    DROP POLICY IF EXISTS "Users can update their tenant value trees" ON value_trees;
+    DROP POLICY IF EXISTS "Users can view their organization value trees" ON value_trees;
+    DROP POLICY IF EXISTS "Users can update their organization value trees" ON value_trees;
   END IF;
   
-  -- canvas_data policies
-  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'canvas_data') THEN
-    DROP POLICY IF EXISTS "Users can view their tenant canvas data" ON canvas_data;
-    DROP POLICY IF EXISTS "Users can update their tenant canvas data" ON canvas_data;
+  -- canvas_data table does not exist, skipping
+  
+  -- subscriptions policies
+  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'subscriptions') THEN
+    DROP POLICY IF EXISTS "Users can view their tenant subscriptions" ON subscriptions;
   END IF;
   
-  -- billing_subscriptions policies
-  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'billing_subscriptions') THEN
-    DROP POLICY IF EXISTS "Users can view their tenant subscriptions" ON billing_subscriptions;
-  END IF;
-  
-  -- billing_usage policies
-  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'billing_usage') THEN
-    DROP POLICY IF EXISTS "Users can view their tenant usage" ON billing_usage;
+  -- usage_events policies
+  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'usage_events') THEN
+    DROP POLICY IF EXISTS "Users can view their tenant usage" ON usage_events;
   END IF;
 END $$;
 
--- User Tenants: Users can only see their own memberships (conditional)
+-- Organization Members: Users can only see their own memberships (conditional)
 DO $$
 BEGIN
-  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'user_tenants') THEN
-    CREATE POLICY "Users can view their own tenant memberships"
-      ON user_tenants
+  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'organization_members') THEN
+    CREATE POLICY "Users can view their own organization memberships"
+      ON organization_members
       FOR SELECT
       USING (auth.uid() = user_id AND status = 'active');
 
-    CREATE POLICY "Prevent unauthorized tenant changes"
-      ON user_tenants
+    CREATE POLICY "Prevent unauthorized organization changes"
+      ON organization_members
       FOR ALL
       USING (false); -- Only admin/backend can modify
   END IF;
 END $$;
 
--- Workflow Executions: Scoped to user's tenants (conditional)
+-- Workflow Executions: Scoped to user's sessions (conditional)
 DO $$
 BEGIN
   IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'workflow_executions') AND
-     EXISTS (SELECT FROM pg_tables WHERE tablename = 'user_tenants') THEN
+     EXISTS (SELECT FROM pg_tables WHERE tablename = 'agent_sessions') THEN
     
-    CREATE POLICY "Users can view workflow executions in their tenants"
+    CREATE POLICY "Users can view their own workflow executions"
       ON workflow_executions
       FOR SELECT
       USING (
         EXISTS (
-          SELECT 1 FROM user_tenants
-          WHERE user_tenants.user_id = auth.uid()
-            AND user_tenants.tenant_id = workflow_executions.tenant_id
-            AND user_tenants.status = 'active'
+          SELECT 1 FROM agent_sessions
+          WHERE agent_sessions.id = workflow_executions.session_id
+            AND agent_sessions.user_id = auth.uid()
         )
       );
 
-    CREATE POLICY "Users can create workflow executions in their tenants"
+    CREATE POLICY "Users can create their own workflow executions"
       ON workflow_executions
       FOR INSERT
       WITH CHECK (
         EXISTS (
-          SELECT 1 FROM user_tenants
-          WHERE user_tenants.user_id = auth.uid()
-            AND user_tenants.tenant_id = workflow_executions.tenant_id
-            AND user_tenants.status = 'active'
+          SELECT 1 FROM agent_sessions
+          WHERE agent_sessions.id = workflow_executions.session_id
+            AND agent_sessions.user_id = auth.uid()
         )
       );
 
@@ -122,12 +116,10 @@ BEGIN
       ON workflow_executions
       FOR UPDATE
       USING (
-        auth.uid() = created_by AND
         EXISTS (
-          SELECT 1 FROM user_tenants
-          WHERE user_tenants.user_id = auth.uid()
-            AND user_tenants.tenant_id = workflow_executions.tenant_id
-            AND user_tenants.status = 'active'
+          SELECT 1 FROM agent_sessions
+          WHERE agent_sessions.id = workflow_executions.session_id
+            AND agent_sessions.user_id = auth.uid()
         )
       );
   END IF;
@@ -138,7 +130,7 @@ DO $$
 BEGIN
   IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'workflow_execution_logs') AND
      EXISTS (SELECT FROM pg_tables WHERE tablename = 'workflow_executions') AND
-     EXISTS (SELECT FROM pg_tables WHERE tablename = 'user_tenants') THEN
+     EXISTS (SELECT FROM pg_tables WHERE tablename = 'agent_sessions') THEN
     
     CREATE POLICY "Users can view logs for their workflow executions"
       ON workflow_execution_logs
@@ -146,10 +138,9 @@ BEGIN
       USING (
         EXISTS (
           SELECT 1 FROM workflow_executions we
-          JOIN user_tenants ut ON ut.tenant_id = we.tenant_id
+          JOIN agent_sessions asess ON asess.id = we.session_id
           WHERE we.id = workflow_execution_logs.execution_id
-            AND ut.user_id = auth.uid()
-            AND ut.status = 'active'
+            AND asess.user_id = auth.uid()
         )
       );
   END IF;
@@ -160,7 +151,7 @@ DO $$
 BEGIN
   IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'workflow_events') AND
      EXISTS (SELECT FROM pg_tables WHERE tablename = 'workflow_executions') AND
-     EXISTS (SELECT FROM pg_tables WHERE tablename = 'user_tenants') THEN
+     EXISTS (SELECT FROM pg_tables WHERE tablename = 'agent_sessions') THEN
     
     CREATE POLICY "Users can view events for their workflow executions"
       ON workflow_events
@@ -168,10 +159,9 @@ BEGIN
       USING (
         EXISTS (
           SELECT 1 FROM workflow_executions we
-          JOIN user_tenants ut ON ut.tenant_id = we.tenant_id
+          JOIN agent_sessions asess ON asess.id = we.session_id
           WHERE we.id = workflow_events.execution_id
-            AND ut.user_id = auth.uid()
-            AND ut.status = 'active'
+            AND asess.user_id = auth.uid()
         )
       );
   END IF;
@@ -182,7 +172,7 @@ DO $$
 BEGIN
   IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'workflow_audit_logs') AND
      EXISTS (SELECT FROM pg_tables WHERE tablename = 'workflow_executions') AND
-     EXISTS (SELECT FROM pg_tables WHERE tablename = 'user_tenants') THEN
+     EXISTS (SELECT FROM pg_tables WHERE tablename = 'agent_sessions') THEN
     
     CREATE POLICY "Users can view audit logs for their workflow executions"
       ON workflow_audit_logs
@@ -190,10 +180,9 @@ BEGIN
       USING (
         EXISTS (
           SELECT 1 FROM workflow_executions we
-          JOIN user_tenants ut ON ut.tenant_id = we.tenant_id
+          JOIN agent_sessions asess ON asess.id = we.session_id
           WHERE we.id = workflow_audit_logs.execution_id
-            AND ut.user_id = auth.uid()
-            AND ut.status = 'active'
+            AND asess.user_id = auth.uid()
         )
       );
   END IF;
@@ -242,140 +231,123 @@ BEGIN
   END IF;
 END $$;
 
--- Value Trees: Tenant-scoped (conditional)
+-- Value Trees: Organization-scoped (conditional)
 DO $$
 BEGIN
   IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'value_trees') AND
-     EXISTS (SELECT FROM pg_tables WHERE tablename = 'user_tenants') THEN
+     EXISTS (SELECT FROM pg_tables WHERE tablename = 'organization_members') THEN
     
-    CREATE POLICY "Users can view their tenant value trees"
+    CREATE POLICY "Users can view their organization value trees"
       ON value_trees
       FOR SELECT
       USING (
         EXISTS (
-          SELECT 1 FROM user_tenants
-          WHERE user_tenants.user_id = auth.uid()
-            AND user_tenants.tenant_id = value_trees.tenant_id
-            AND user_tenants.status = 'active'
+          SELECT 1 FROM organization_members
+          WHERE organization_members.user_id = auth.uid()
+            AND organization_members.organization_id = value_trees.organization_id
+            AND organization_members.status = 'active'
         )
       );
 
-    CREATE POLICY "Users can update their tenant value trees"
+    CREATE POLICY "Users can update their organization value trees"
       ON value_trees
       FOR ALL
       USING (
         EXISTS (
-          SELECT 1 FROM user_tenants
-          WHERE user_tenants.user_id = auth.uid()
-            AND user_tenants.tenant_id = value_trees.tenant_id
-            AND user_tenants.status = 'active'
-            AND user_tenants.role IN ('admin', 'editor')
+          SELECT 1 FROM organization_members
+          WHERE organization_members.user_id = auth.uid()
+            AND organization_members.organization_id = value_trees.organization_id
+            AND organization_members.status = 'active'
+            AND organization_members.role_id IN (SELECT id FROM roles WHERE role_name IN ('admin', 'editor'))
         )
       );
   END IF;
 END $$;
 
--- Canvas Data: Tenant-scoped (conditional)
+-- Canvas Data: Table does not exist, skipping policies
+
+-- Subscriptions: Tenant-scoped, read-only for users (conditional)
 DO $$
 BEGIN
-  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'canvas_data') AND
-     EXISTS (SELECT FROM pg_tables WHERE tablename = 'user_tenants') THEN
-    
-    CREATE POLICY "Users can view their tenant canvas data"
-      ON canvas_data
-      FOR SELECT
-      USING (
-        EXISTS (
-          SELECT 1 FROM user_tenants
-          WHERE user_tenants.user_id = auth.uid()
-            AND user_tenants.tenant_id = canvas_data.tenant_id
-            AND user_tenants.status = 'active'
-        )
-      );
-
-    CREATE POLICY "Users can update their tenant canvas data"
-      ON canvas_data
-      FOR ALL
-      USING (
-        EXISTS (
-          SELECT 1 FROM user_tenants
-          WHERE user_tenants.user_id = auth.uid()
-            AND user_tenants.tenant_id = canvas_data.tenant_id
-            AND user_tenants.status = 'active'
-            AND user_tenants.role IN ('admin', 'editor')
-        )
-      );
-  END IF;
-END $$;
-
--- Billing Subscriptions: Tenant-scoped, read-only for users (conditional)
-DO $$
-BEGIN
-  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'billing_subscriptions') AND
-     EXISTS (SELECT FROM pg_tables WHERE tablename = 'user_tenants') THEN
+  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'subscriptions') THEN
     
     CREATE POLICY "Users can view their tenant subscriptions"
-      ON billing_subscriptions
+      ON subscriptions
       FOR SELECT
       USING (
-        EXISTS (
-          SELECT 1 FROM user_tenants
-          WHERE user_tenants.user_id = auth.uid()
-            AND user_tenants.tenant_id = billing_subscriptions.tenant_id
-            AND user_tenants.status = 'active'
+        tenant_id IN (
+          SELECT organization_id 
+          FROM organization_members 
+          WHERE user_id = auth.uid() 
+            AND status = 'active'
         )
       );
 
     -- Prevent user modifications to billing (backend only)
     CREATE POLICY "Prevent user billing modifications"
-      ON billing_subscriptions
+      ON subscriptions
       FOR ALL
       USING (false);
   END IF;
 END $$;
 
--- Billing Usage: Tenant-scoped, read-only for users (conditional)
+-- Usage Events: Tenant-scoped, read-only for users (conditional)
 DO $$
 BEGIN
-  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'billing_usage') AND
-     EXISTS (SELECT FROM pg_tables WHERE tablename = 'user_tenants') THEN
+  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'usage_events') THEN
     
     CREATE POLICY "Users can view their tenant usage"
-      ON billing_usage
+      ON usage_events
       FOR SELECT
       USING (
-        EXISTS (
-          SELECT 1 FROM user_tenants
-          WHERE user_tenants.user_id = auth.uid()
-            AND user_tenants.tenant_id = billing_usage.tenant_id
-            AND user_tenants.status = 'active'
+        tenant_id IN (
+          SELECT organization_id 
+          FROM organization_members 
+          WHERE user_id = auth.uid() 
+            AND status = 'active'
         )
       );
 
     -- Prevent user modifications to usage data (backend only)
     CREATE POLICY "Prevent user usage modifications"
-      ON billing_usage
+      ON usage_events
       FOR ALL
       USING (false);
   END IF;
 END $$;
 
--- Create indexes for performance
-CREATE INDEX IF NOT EXISTS idx_user_tenants_user_tenant 
-  ON user_tenants(user_id, tenant_id) 
-  WHERE status = 'active';
+-- Create indexes for performance (conditional)
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'organization_members') THEN
+    CREATE INDEX IF NOT EXISTS idx_organization_members_user_org 
+      ON organization_members(user_id, organization_id) 
+      WHERE status = 'active';
+  END IF;
 
-CREATE INDEX IF NOT EXISTS idx_workflow_executions_tenant 
-  ON workflow_executions(tenant_id);
+  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'workflow_executions') AND
+     EXISTS (SELECT FROM information_schema.columns 
+             WHERE table_name = 'workflow_executions' AND column_name = 'session_id') THEN
+    CREATE INDEX IF NOT EXISTS idx_workflow_executions_session 
+      ON workflow_executions(session_id);
+  END IF;
 
-CREATE INDEX IF NOT EXISTS idx_agent_predictions_user 
-  ON agent_predictions(user_id);
+  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'agent_predictions') AND
+     EXISTS (SELECT FROM information_schema.columns 
+             WHERE table_name = 'agent_predictions' AND column_name = 'user_id') THEN
+    CREATE INDEX IF NOT EXISTS idx_agent_predictions_user 
+      ON agent_predictions(user_id);
+  END IF;
 
-CREATE INDEX IF NOT EXISTS idx_value_trees_tenant 
-  ON value_trees(tenant_id);
+  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'value_trees') AND
+     EXISTS (SELECT FROM information_schema.columns 
+             WHERE table_name = 'value_trees' AND column_name = 'organization_id') THEN
+    CREATE INDEX IF NOT EXISTS idx_value_trees_org 
+      ON value_trees(organization_id);
+  END IF;
 
-CREATE INDEX IF NOT EXISTS idx_canvas_data_tenant 
-  ON canvas_data(tenant_id);
+  -- canvas_data table does not exist, skipping index
+END $$;
 
 -- Add audit trigger for policy violations
 CREATE OR REPLACE FUNCTION log_rls_violation()
@@ -415,19 +387,22 @@ ALTER TABLE security_audit_log ENABLE ROW LEVEL SECURITY;
 -- Only admins can view audit logs (conditional)
 DO $$
 BEGIN
-  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'user_tenants') THEN
+  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'organization_members') AND
+     EXISTS (SELECT FROM pg_tables WHERE tablename = 'roles') THEN
     CREATE POLICY "Only admins can view security audit logs"
       ON security_audit_log
       FOR SELECT
       USING (
         EXISTS (
-          SELECT 1 FROM user_tenants
-          WHERE user_tenants.user_id = auth.uid()
-            AND user_tenants.role = 'admin'
+          SELECT 1 FROM organization_members om
+          JOIN roles r ON r.id = om.role_id
+          WHERE om.user_id = auth.uid()
+            AND r.role_name = 'admin'
+            AND om.status = 'active'
         )
       );
   ELSE
-    -- If user_tenants doesn't exist, only service_role can view
+    -- If organization_members doesn't exist, only service_role can view
     CREATE POLICY "Service role can view security audit logs"
       ON security_audit_log
       FOR SELECT
