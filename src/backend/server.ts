@@ -8,14 +8,16 @@ import cors from 'cors';
 import billingRouter from '../api/billing';
 import { createLogger } from '../lib/logger';
 
+import { settings } from '../config/settings';
+
 const logger = createLogger({ component: 'BillingServer' });
 
 const app = express();
-const PORT = process.env.API_PORT || 3001;
+const PORT = settings.API_PORT;
 
 // Middleware
 app.use(cors({
-  origin: process.env.VITE_APP_URL || 'http://localhost:5173',
+  origin: settings.VITE_APP_URL || 'http://localhost:5173',
   credentials: true,
 }));
 app.use(express.json());
@@ -42,7 +44,7 @@ app.use(
   ): void => {
     logger.error('Server error', err instanceof Error ? err : new Error(String(err)));
     const message =
-      process.env.NODE_ENV === 'development' && err instanceof Error ? err.message : undefined;
+      settings.NODE_ENV === 'development' && err instanceof Error ? err.message : undefined;
     res.status(500).json({
       error: 'Internal server error',
       message,
