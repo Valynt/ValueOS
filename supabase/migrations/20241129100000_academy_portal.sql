@@ -146,7 +146,7 @@ CREATE INDEX IF NOT EXISTS idx_academy_certifications_user ON academy_certificat
 CREATE TABLE IF NOT EXISTS value_ledger (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  value_case_id UUID NOT NULL REFERENCES value_cases(id) ON DELETE CASCADE,
+  value_case_id UUID NOT NULL,  -- FK added conditionally below
   value_realized DECIMAL(15, 2) NOT NULL DEFAULT 0,
   verified_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   verified_by TEXT NOT NULL CHECK (verified_by IN ('realization_agent', 'manual')),
@@ -159,6 +159,24 @@ CREATE TABLE IF NOT EXISTS value_ledger (
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_value_ledger_user ON value_ledger(user_id);
 CREATE INDEX IF NOT EXISTS idx_value_ledger_value ON value_ledger(value_realized DESC);
+
+-- Add FK to value_cases if it exists
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'value_cases') THEN
+    -- Add FK constraint if it doesn't already exist
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint 
+      WHERE conname = 'value_ledger_value_case_id_fkey'
+    ) THEN
+      ALTER TABLE value_ledger 
+        ADD CONSTRAINT value_ledger_value_case_id_fkey 
+        FOREIGN KEY (value_case_id) 
+        REFERENCES value_cases(id) 
+        ON DELETE CASCADE;
+    END IF;
+  END IF;
+END $$;
 
 -- ============================================================================
 -- Resource Artifacts Table
