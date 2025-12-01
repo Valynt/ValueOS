@@ -79,6 +79,9 @@ COMMENT ON TABLE public.login_attempts IS
 -- Account Lockout Check
 -- ============================================================================
 
+-- Drop existing function if it exists
+DROP FUNCTION IF EXISTS public.check_account_lockout(TEXT) CASCADE;
+
 CREATE OR REPLACE FUNCTION public.check_account_lockout(user_email TEXT)
 RETURNS BOOLEAN AS $$
 DECLARE
@@ -103,6 +106,9 @@ COMMENT ON FUNCTION public.check_account_lockout IS
 -- ============================================================================
 -- Log Login Attempt
 -- ============================================================================
+
+-- Drop existing function if it has a different signature
+DROP FUNCTION IF EXISTS public.log_login_attempt(TEXT, BOOLEAN, INET, TEXT, TEXT) CASCADE;
 
 CREATE OR REPLACE FUNCTION public.log_login_attempt(
   user_email TEXT,
@@ -135,6 +141,9 @@ COMMENT ON FUNCTION public.log_login_attempt IS
 -- ============================================================================
 -- Cleanup Old Login Attempts
 -- ============================================================================
+
+-- Drop existing function if it exists
+DROP FUNCTION IF EXISTS public.cleanup_old_login_attempts() CASCADE;
 
 CREATE OR REPLACE FUNCTION public.cleanup_old_login_attempts()
 RETURNS VOID AS $$
