@@ -1,6 +1,7 @@
 -- ============================================================================
--- ValueCanvas Seed Data for Local Development
--- This file is run after migrations on `supabase db reset`
+-- ValueCanvas Seed Data
+-- Minimal seed data for local development
+-- Runs automatically on `supabase db reset`
 -- ============================================================================
 
 BEGIN;
@@ -8,70 +9,72 @@ BEGIN;
 -- ============================================================================
 -- 1. Default Roles
 -- ============================================================================
-INSERT INTO roles (id, role_name, description) VALUES
-  (gen_random_uuid(), 'owner', 'Organization owner with full access'),
-  (gen_random_uuid(), 'admin', 'Administrator with management access'),
-  (gen_random_uuid(), 'editor', 'Can edit and manage content'),
-  (gen_random_uuid(), 'member', 'Standard member access'),
-  (gen_random_uuid(), 'viewer', 'Read-only access')
-ON CONFLICT (role_name) DO NOTHING;
+
+DO $$
+BEGIN
+  -- System roles (no organization_id)
+  INSERT INTO roles (role_name, description, is_custom_role, permissions)
+  VALUES
+    ('owner', 'Organization owner with full access', false, '[]'::jsonb),
+    ('admin', 'Administrator with management access', false, '[]'::jsonb),
+    ('member', 'Standard member access', false, '[]'::jsonb),
+    ('viewer', 'Read-only access', false, '[]'::jsonb)
+  ON CONFLICT (role_name) DO NOTHING;
+  
+  RAISE NOTICE 'Created default roles';
+END $$;
 
 -- ============================================================================
--- 2. Test Users (for local development only)
+-- 2. Essential Feature Flags
 -- ============================================================================
--- Note: These users won't exist in auth.users unless you create them
--- via Supabase auth or manually in the auth schema
 
--- INSERT INTO users (id, email, full_name) VALUES
---   ('00000000-0000-0000-0000-000000000001', 'admin@test.local', 'Admin User'),
---   ('00000000-0000-0000-0000-000000000002', 'user@test.local', 'Test User')
--- ON CONFLICT (id) DO NOTHING;
-
--- ============================================================================
--- 3. Test Organization
--- ============================================================================
--- INSERT INTO organizations (id, name, slug, settings) VALUES
---   ('10000000-0000-0000-0000-000000000001', 'Test Organization', 'test-org', '{}')
--- ON CONFLICT (id) DO NOTHING;
-
--- ============================================================================
--- 4. Default Feature Flags
--- ============================================================================
-INSERT INTO feature_flags (name, description, enabled, config) VALUES
-  ('agent_fabric', 'Enable Agent Fabric features', true, '{"version": "1.0"}'),
-  ('episodic_memory', 'Enable episodic memory for agents', true, '{}'),
-  ('semantic_search', 'Enable vector-based semantic search', true, '{"threshold": 0.7}'),
-  ('sof_governance', 'Enable Scope of Fidelity governance', true, '{}'),
-  ('advanced_analytics', 'Enable advanced analytics dashboard', false, '{}')
-ON CONFLICT (name) DO NOTHING;
+DO $$
+BEGIN
+  INSERT INTO feature_flags (name, description, enabled, config)
+  VALUES
+    ('agent_fabric', 'Enable Agent Fabric', true, '{"version": "1.0"}'::jsonb),
+    ('episodic_memory', 'Enable episodic memory', true, '{}'::jsonb),
+    ('semantic_search', 'Enable vector search', true, '{"threshold": 0.7}'::jsonb),
+    ('llm_monitoring', 'Enable LLM cost tracking', true, '{}'::jsonb)
+  ON CONFLICT (name) DO NOTHING;
+  
+  RAISE NOTICE 'Created feature flags';
+END $$;
 
 -- ============================================================================
--- 5. Agent Types (if using agent_ontologies)
+-- 3. Default Agents (Optional - uncomment if needed)
 -- ============================================================================
--- INSERT INTO agent_ontologies (name, description, capabilities) VALUES
---   ('Opportunity Agent', 'Identifies business opportunities', '["analysis", "research"]'),
---   ('Target Agent', 'Defines intervention targets', '["planning", "strategy"]'),
---   ('Realization Agent', 'Tracks value realization', '["monitoring", "reporting"]')
--- ON CONFLICT (name) DO NOTHING;
 
--- ============================================================================
--- 6. Default Retention Policies
--- ============================================================================
--- INSERT INTO retention_policies (table_name, retention_days, archive_enabled) VALUES
---   ('audit_logs', 365, true),
---   ('agent_sessions', 90, false),
---   ('llm_usage', 180, true)
--- ON CONFLICT (table_name) DO NOTHING;
+-- DO $$
+-- BEGIN
+--   INSERT INTO agents (name, agent_type, description, model, system_prompt)
+--   VALUES
+--     ('Opportunity Agent', 'opportunity', 'Identifies business opportunities', 'gpt-4', 'You are an expert at identifying business opportunities...'),
+--     ('Target Agent', 'target', 'Defines intervention targets', 'gpt-4', 'You are an expert at defining intervention targets...'),
+--     ('Realization Agent', 'realization', 'Tracks value realization', 'gpt-4', 'You are an expert at tracking value realization...')
+--   ON CONFLICT DO NOTHING;
+--   
+--   RAISE NOTICE 'Created default agents';
+-- END $$;
 
 COMMIT;
 
 -- ============================================================================
 -- Verification
 -- ============================================================================
+
 DO $$
+DECLARE
+  role_count INTEGER;
+  flag_count INTEGER;
 BEGIN
-  RAISE NOTICE '✅ Seed data loaded successfully';
-  RAISE NOTICE '   - % roles created', (SELECT count(*) FROM roles);
-  RAISE NOTICE '   - % feature flags set', (SELECT count(*) FROM feature_flags);
+  SELECT count(*) INTO role_count FROM roles WHERE is_custom_role = false;
+  SELECT count(*) INTO flag_count FROM feature_flags;
+  
+  RAISE NOTICE '';
+  RAISE NOTICE '✅ Seed Data Loaded Successfully';
+  RAISE NOTICE '   Roles:         % system roles', role_count;
+  RAISE NOTICE '   Feature Flags: % flags', flag_count;
+  RAISE NOTICE '';
 END $$;
 
