@@ -24,18 +24,22 @@ import type {
   OpportunityAgentOutput
 } from '../../../types/vos';
 
+import { AgentConfig } from '../../../types/agent';
+
+
 export class OpportunityAgent extends BaseAgent {
   private valueFabricService: ValueFabricService;
 
-  constructor(
-    agentId: string,
-    llmGateway: any,
-    memorySystem: any,
-    auditLogger: any,
-    supabase: any
-  ) {
-    super(agentId, llmGateway, memorySystem, auditLogger, supabase);
-    this.valueFabricService = new ValueFabricService(supabase);
+  public lifecycleStage = 'opportunity';
+  public version = '1.0';
+  public name = 'Opportunity Agent';
+
+  constructor(config: AgentConfig) {
+    super(config);
+    if (!config.supabase) {
+      throw new Error("Supabase client is required for OpportunityAgent");
+    }
+    this.valueFabricService = new ValueFabricService(config.supabase);
   }
 
   async execute(

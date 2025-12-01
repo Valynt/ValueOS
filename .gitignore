@@ -79,3 +79,7 @@ yarn-error.log*
 
 # Misc
 .bolt/
+
+# Windsurf - keep local rules only
+.windsurf/*
+!.windsurf/rules/

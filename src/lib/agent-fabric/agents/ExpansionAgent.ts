@@ -25,18 +25,21 @@ import type {
   ExpansionAgentOutput
 } from '../../../types/vos';
 
+import { AgentConfig } from '../../../types/agent';
+
 export class ExpansionAgent extends BaseAgent {
   private valueFabricService: ValueFabricService;
 
-  constructor(
-    agentId: string,
-    llmGateway: any,
-    memorySystem: any,
-    auditLogger: any,
-    supabase: any
-  ) {
-    super(agentId, llmGateway, memorySystem, auditLogger, supabase);
-    this.valueFabricService = new ValueFabricService(supabase);
+  public lifecycleStage = 'expansion';
+  public version = '1.0';
+  public name = 'Expansion Agent';
+
+  constructor(config: AgentConfig) {
+    super(config);
+    if (!config.supabase) {
+      throw new Error("Supabase client is required for ExpansionAgent");
+    }
+    this.valueFabricService = new ValueFabricService(config.supabase);
   }
 
   async execute(

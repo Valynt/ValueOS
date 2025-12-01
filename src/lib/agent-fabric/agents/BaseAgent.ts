@@ -2,23 +2,8 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { LLMGateway, LLMMessage } from '../LLMGateway';
 import { MemorySystem } from '../MemorySystem';
 import { AuditLogger } from '../AuditLogger';
-import { Agent, ConfidenceLevel } from '../types'; // Kept from main
-import type { LifecycleArtifactLink, ProvenanceAuditEntry } from '../../types/vos'; // Kept from main
-import { parseLLMOutputStrict } from '../../../utils/safeJsonParser';
-import { z } from 'zod';
-import { featureFlags } from '../../../config/featureFlags';
-import {
-  SecureAgentOutput,
-  SecureAgentOutputSchema,
-  createSecureAgentSchema,
-  getSecureAgentSystemPrompt,
-  validateAgentOutput,
-  ConfidenceThresholds,
-  DEFAULT_CONFIDENCE_THRESHOLDS
-} from '../schemas/SecureAgentOutput';
-import { logger } from '../../logger';
-import { sanitizeUserInput } from '../../../utils/security';
-import { getTracer, addSpanAttributes, addSpanEvent, recordSpanException } from '../../observability';
+import { AgentConfig, ConfidenceLevel } from '../../../types/agent';
+import { getTracer } from '../../observability';
 import { SpanStatusCode } from '@opentelemetry/api';
 
 export interface SecureInvocationOptions {
@@ -33,21 +18,31 @@ export interface SecureInvocationOptions {
 }
 
 export abstract class BaseAgent {
-  protected supabase: SupabaseClient | null; // From dev
-  protected agentId: string; // From codex/optimize-database-query-performance
+  protected supabase: SupabaseClient | null;
+  protected agentId: string;
+  protected organizationId?: string;
+  protected userId?: string;
+  protected sessionId?: string;
+  protected llmGateway: LLMGateway;
+  protected memorySystem: MemorySystem;
+  protected auditLogger: AuditLogger;
+
   public abstract lifecycleStage: string;
   public abstract version: string;
   public abstract name: string;
 
-  constructor(
-    agentId: string, // From codex/optimize-database-query-performance
-    protected llmGateway: LLMGateway,
-    protected memorySystem: MemorySystem,
-    protected auditLogger: AuditLogger,
-    supabase?: SupabaseClient | null // From dev
-  ) {
-    this.agentId = agentId; // From codex/optimize-database-query-performance
-    this.supabase = supabase ?? null; // From dev
+  constructor(config: AgentConfig) {
+    if (!config.llmGateway || !config.memorySystem || !config.auditLogger) {
+      throw new Error('Agent requires llmGateway, memorySystem, and auditLogger in its configuration.');
+    }
+    this.agentId = config.id;
+    this.organizationId = config.organizationId;
+    this.userId = config.userId;
+    this.sessionId = config.sessionId;
+    this.supabase = config.supabase ?? null;
+    this.llmGateway = config.llmGateway;
+    this.memorySystem = config.memorySystem;
+    this.auditLogger = config.auditLogger;
   }
 
   abstract execute(sessionId: string, input: any): Promise<any>;

@@ -252,6 +252,12 @@ export type AgentFactory = (config: AgentConfig) => IAgent;
 export interface AgentConfig {
   /** Agent identifier */
   id: string;
+  /** The organization this agent instance is scoped to */
+  organizationId?: string;
+  /** The user executing the request */
+  userId?: string;
+  /** The session for the current execution */
+  sessionId?: string;
   /** LLM gateway instance */
   llmGateway?: any;
   /** Memory system instance */
@@ -262,6 +268,17 @@ export interface AgentConfig {
   supabase?: any;
   /** Additional configuration */
   options?: Record<string, any>;
+}
+
+/**
+ * Execution context for VOS lifecycle operations.
+ * This provides tenant and user context to services and agents.
+ */
+export interface LifecycleContext {
+  userId: string;
+  organizationId?: string;
+  sessionId?: string;
+  metadata?: Record<string, any>;
 }
 
 // ============================================================================

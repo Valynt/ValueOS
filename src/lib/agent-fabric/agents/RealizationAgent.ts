@@ -25,7 +25,22 @@ import type {
   ResultStatus
 } from '../../../types/vos';
 
+import { AgentConfig } from '../../../types/agent';
+
+
 export class RealizationAgent extends BaseAgent {
+
+  public lifecycleStage = 'realization';
+  public version = '1.0';
+  public name = 'Realization Agent';
+
+  constructor(config: AgentConfig) {
+    super(config);
+    if (!config.supabase) {
+      throw new Error("Supabase client is required for RealizationAgent");
+    }
+  }
+
   async execute(
     sessionId: string,
     input: RealizationAgentInput
