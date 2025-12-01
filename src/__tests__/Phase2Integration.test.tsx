@@ -145,6 +145,20 @@ describe('Phase 2 Integration Tests', () => {
     });
 
     it('should handle stage completion', async () => {
+      const completionSpy = vi.fn();
+      workflowEventListener.on('workflow:stage_completed', completionSpy);
+      await workflowEventListener.handleWorkflowStarted(
+        'workflow-1',
+        'exec-1',
+        {
+          initialStage: 'stage-1',
+          totalStages: 2,
+          workspaceId: 'workspace-1',
+        }
+      );
+
+      vi.spyOn(workflowSDUIAdapter, 'onStageCompletion').mockResolvedValue([]);
+
       await workflowEventListener.handleStageCompletion(
         'workflow-1',
         'stage-1',
@@ -152,8 +166,12 @@ describe('Phase 2 Integration Tests', () => {
         5000
       );
 
-      // Verify event was handled (in real implementation, would check SDUI update)
-      expect(true).toBe(true);
+      const progress = workflowEventListener.getProgress('workflow-1');
+
+      expect(progress?.completedStages).toContain('stage-1');
+      expect(completionSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ workflowId: 'workflow-1', stageId: 'stage-1', status: 'completed' })
+      );
     });
 
     it('should handle workflow completion', async () => {

@@ -45,30 +45,27 @@ echo ""
 echo "📦 Running database migrations..."
 echo ""
 
-MIGRATIONS=(
-    "20251117123718_create_business_intelligence_schema.sql"
-    "20251117131452_create_agent_fabric_schema.sql"
-    "20251117151356_create_enterprise_saas_settings_schema.sql"
-    "20251117160000_create_enterprise_features_schema.sql"
-    "20251117170000_create_documentation_portal_schema.sql"
-    "20251117180000_create_vos_value_fabric_schema.sql"
-    "20251117221232_add_compliance_metadata.sql"
-    "20251117223002_create_workflow_orchestration.sql"
-    "20251118000000_add_provenance_tracking.sql"
-    "20251118010000_extend_workflow_orchestrator.sql"
-    "20251118090000_performance_optimizations.sql"
-    "20251118120000_populate_documentation_content.sql"
-)
+# Count migrations
+MIGRATION_COUNT=$(ls -1 ../../supabase/migrations/*.sql 2>/dev/null | wc -l)
+echo "  Found $MIGRATION_COUNT migration files"
+echo ""
 
-for migration in "${MIGRATIONS[@]}"; do
-    echo "  → Running $migration"
-    supabase db push --file "../../supabase/migrations/$migration" || {
-        echo -e "${RED}❌ Failed to run $migration${NC}"
-        exit 1
-    }
-done
+# Push all migrations to Supabase
+echo "  → Applying migrations to remote database..."
+cd ../..
+supabase db push || {
+    echo -e "${RED}❌ Failed to apply migrations${NC}"
+    echo ""
+    echo "Troubleshooting:"
+    echo "  1. Check your internet connection"
+    echo "  2. Verify project is linked: supabase link --project-ref $SUPABASE_PROJECT_ID"
+    echo "  3. Check migration files for syntax errors"
+    echo ""
+    exit 1
+}
+cd infrastructure/supabase
 
-echo -e "${GREEN}✅ All migrations completed${NC}"
+echo -e "${GREEN}✅ All migrations applied successfully${NC}"
 echo ""
 
 # Verify RLS is enabled

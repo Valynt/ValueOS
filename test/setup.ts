@@ -22,6 +22,11 @@ process.env.VITE_AGENT_API_URL = 'http://localhost:8000/api/agents';
 process.env.VITE_MOCK_AGENTS = 'true';
 process.env.TEST_MODE = 'true';
 
+// Real Supabase credentials for integration tests
+// Tests will connect to actual database - no mocks!
+process.env.VITE_SUPABASE_URL = 'https://bxaiabnqalurloblfwua.supabase.co';
+process.env.VITE_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4YWlhYm5xYWx1cmxvYmxmd3VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzMwNjI3ODcsImV4cCI6MjA0ODYzODc4N30.gK3zXg3EqoBBRwHqKsEP5hCgxvtMQ-N0v-lCO_kYm88';
+
 // Mock fetch globally
 global.fetch = vi.fn();
 

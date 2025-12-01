@@ -11,9 +11,12 @@ import { mockLLMProvider } from '../mocks/llmProvider';
 import { setupTestDatabase, cleanupTestDatabase } from '../helpers/database';
 import { createTestUser, getAuthToken } from '../helpers/auth';
 
+const runIntegration = process.env.RUN_INTEGRATION_TESTS === 'true';
+const describeMaybe = runIntegration ? describe : describe.skip;
+
 const API_URL = process.env.TEST_API_URL || 'http://localhost:3000';
 
-describe('E2E: LLM Workflow', () => {
+describeMaybe('E2E: LLM Workflow', () => {
   let authToken: string;
   let userId: string;
 

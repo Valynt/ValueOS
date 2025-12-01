@@ -3,7 +3,7 @@
 
 -- Feature Flags Table
 CREATE TABLE IF NOT EXISTS feature_flags (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   key TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   description TEXT NOT NULL,
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS feature_flags (
 
 -- Feature Flag Evaluations Table (for analytics)
 CREATE TABLE IF NOT EXISTS feature_flag_evaluations (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   flag_key TEXT NOT NULL,
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   enabled BOOLEAN NOT NULL,
@@ -27,10 +27,10 @@ CREATE TABLE IF NOT EXISTS feature_flag_evaluations (
 );
 
 -- Indexes
-CREATE INDEX idx_feature_flags_key ON feature_flags(key);
-CREATE INDEX idx_feature_flags_enabled ON feature_flags(enabled);
-CREATE INDEX idx_feature_flag_evaluations_flag ON feature_flag_evaluations(flag_key, evaluated_at DESC);
-CREATE INDEX idx_feature_flag_evaluations_user ON feature_flag_evaluations(user_id, evaluated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_feature_flags_key ON feature_flags(key);
+CREATE INDEX IF NOT EXISTS idx_feature_flags_enabled ON feature_flags(enabled);
+CREATE INDEX IF NOT EXISTS idx_feature_flag_evaluations_flag ON feature_flag_evaluations(flag_key, evaluated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_feature_flag_evaluations_user ON feature_flag_evaluations(user_id, evaluated_at DESC);
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_feature_flag_timestamp()
@@ -41,7 +41,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trigger_update_feature_flag_timestamp
+DROP TRIGGER IF EXISTS trigger_update_feature_flag_timestamp
 BEFORE UPDATE ON feature_flags
 FOR EACH ROW
 EXECUTE FUNCTION update_feature_flag_timestamp();

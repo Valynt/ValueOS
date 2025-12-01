@@ -45,13 +45,13 @@ CREATE TABLE IF NOT EXISTS episodes (
   updated_at timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_episodes_session ON episodes(session_id);
-CREATE INDEX idx_episodes_agent ON episodes(agent_id);
-CREATE INDEX idx_episodes_type ON episodes(episode_type);
-CREATE INDEX idx_episodes_success ON episodes(success);
-CREATE INDEX idx_episodes_reward ON episodes(reward_score DESC);
-CREATE INDEX idx_episodes_started ON episodes(started_at DESC);
-CREATE INDEX idx_episodes_tags ON episodes USING gin(tags);
+CREATE INDEX IF NOT EXISTS idx_episodes_session ON episodes(session_id);
+CREATE INDEX IF NOT EXISTS idx_episodes_agent ON episodes(agent_id);
+CREATE INDEX IF NOT EXISTS idx_episodes_type ON episodes(episode_type);
+CREATE INDEX IF NOT EXISTS idx_episodes_success ON episodes(success);
+CREATE INDEX IF NOT EXISTS idx_episodes_reward ON episodes(reward_score DESC);
+CREATE INDEX IF NOT EXISTS idx_episodes_started ON episodes(started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_episodes_tags ON episodes USING gin(tags);
 
 COMMENT ON TABLE episodes IS 'Stores complete episodes for episodic memory and reinforcement learning';
 
@@ -93,10 +93,10 @@ CREATE TABLE IF NOT EXISTS episode_steps (
   created_at timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_episode_steps_episode ON episode_steps(episode_id);
-CREATE INDEX idx_episode_steps_number ON episode_steps(episode_id, step_number);
-CREATE INDEX idx_episode_steps_agent ON episode_steps(agent_name);
-CREATE INDEX idx_episode_steps_action ON episode_steps(action_type);
+CREATE INDEX IF NOT EXISTS idx_episode_steps_episode ON episode_steps(episode_id);
+CREATE INDEX IF NOT EXISTS idx_episode_steps_number ON episode_steps(episode_id, step_number);
+CREATE INDEX IF NOT EXISTS idx_episode_steps_agent ON episode_steps(agent_name);
+CREATE INDEX IF NOT EXISTS idx_episode_steps_action ON episode_steps(action_type);
 
 COMMENT ON TABLE episode_steps IS 'Individual steps within an episode for detailed analysis';
 
@@ -124,9 +124,9 @@ CREATE TABLE IF NOT EXISTS episode_similarities (
   UNIQUE(source_episode_id, target_episode_id, similarity_type)
 );
 
-CREATE INDEX idx_episode_similarities_source ON episode_similarities(source_episode_id);
-CREATE INDEX idx_episode_similarities_target ON episode_similarities(target_episode_id);
-CREATE INDEX idx_episode_similarities_score ON episode_similarities(similarity_score DESC);
+CREATE INDEX IF NOT EXISTS idx_episode_similarities_source ON episode_similarities(source_episode_id);
+CREATE INDEX IF NOT EXISTS idx_episode_similarities_target ON episode_similarities(target_episode_id);
+CREATE INDEX IF NOT EXISTS idx_episode_similarities_score ON episode_similarities(similarity_score DESC);
 
 COMMENT ON TABLE episode_similarities IS 'Pre-computed similarities between episodes for fast retrieval';
 
@@ -157,9 +157,9 @@ CREATE TABLE IF NOT EXISTS simulation_results (
   created_at timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_simulation_results_episode ON simulation_results(episode_id);
-CREATE INDEX idx_simulation_results_type ON simulation_results(simulation_type);
-CREATE INDEX idx_simulation_results_confidence ON simulation_results(confidence_score DESC);
+CREATE INDEX IF NOT EXISTS idx_simulation_results_episode ON simulation_results(episode_id);
+CREATE INDEX IF NOT EXISTS idx_simulation_results_type ON simulation_results(simulation_type);
+CREATE INDEX IF NOT EXISTS idx_simulation_results_confidence ON simulation_results(confidence_score DESC);
 
 COMMENT ON TABLE simulation_results IS 'Results from simulated workflows for decision support';
 

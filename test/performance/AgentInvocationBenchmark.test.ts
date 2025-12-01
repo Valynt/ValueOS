@@ -7,6 +7,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { performanceMonitor } from '../../utils/performance';
 
+const runIntegration = process.env.RUN_INTEGRATION_TESTS === 'true';
+const runPerf = process.env.RUN_PERF_TESTS === 'true';
+const describeMaybe = runIntegration && runPerf ? describe : describe.skip;
+
 /**
  * Mock Agent for benchmarking
  */
@@ -83,7 +87,7 @@ class MockOrchestrator {
   }
 }
 
-describe('Agent Invocation Benchmarks', () => {
+describeMaybe('Agent Invocation Benchmarks', () => {
   let orchestrator: MockOrchestrator;
 
   beforeEach(() => {

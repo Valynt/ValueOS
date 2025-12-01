@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { OpportunityAgent } from '../../lib/agent-fabric/agents/OpportunityAgent';
 import { TargetAgent } from '../../lib/agent-fabric/agents/TargetAgent';
 import { createAgentInfrastructureMocks, createBoltClientMock } from '../utils/mockSupabaseClient';
@@ -66,6 +66,10 @@ describe('Opportunity to Target lifecycle flow', () => {
       ok: true,
       json: async () => ({ data: [{ embedding: [0.1, 0.2, 0.3] }] }),
     });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('produces compatible outputs and persisted artifacts', async () => {

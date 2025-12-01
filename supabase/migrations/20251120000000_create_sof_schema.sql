@@ -20,7 +20,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- SYSTEM MAPS
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS system_maps (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     business_case_id UUID REFERENCES business_cases(id) ON DELETE CASCADE,
     
@@ -55,11 +55,11 @@ CREATE TABLE IF NOT EXISTS system_maps (
 );
 
 -- Indexes for system_maps
-CREATE INDEX idx_system_maps_org ON system_maps(organization_id);
-CREATE INDEX idx_system_maps_business_case ON system_maps(business_case_id);
-CREATE INDEX idx_system_maps_status ON system_maps(status);
-CREATE INDEX idx_system_maps_type ON system_maps(system_type);
-CREATE INDEX idx_system_maps_created_at ON system_maps(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_system_maps_org ON system_maps(organization_id);
+CREATE INDEX IF NOT EXISTS idx_system_maps_business_case ON system_maps(business_case_id);
+CREATE INDEX IF NOT EXISTS idx_system_maps_status ON system_maps(status);
+CREATE INDEX IF NOT EXISTS idx_system_maps_type ON system_maps(system_type);
+CREATE INDEX IF NOT EXISTS idx_system_maps_created_at ON system_maps(created_at DESC);
 
 -- Enable RLS
 ALTER TABLE system_maps ENABLE ROW LEVEL SECURITY;
@@ -87,7 +87,7 @@ CREATE POLICY "Users can update system maps in their organization"
 -- INTERVENTION POINTS
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS intervention_points (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     system_map_id UUID NOT NULL REFERENCES system_maps(id) ON DELETE CASCADE,
     
@@ -129,11 +129,11 @@ CREATE TABLE IF NOT EXISTS intervention_points (
 );
 
 -- Indexes for intervention_points
-CREATE INDEX idx_intervention_points_org ON intervention_points(organization_id);
-CREATE INDEX idx_intervention_points_system_map ON intervention_points(system_map_id);
-CREATE INDEX idx_intervention_points_status ON intervention_points(status);
-CREATE INDEX idx_intervention_points_type ON intervention_points(intervention_type);
-CREATE INDEX idx_intervention_points_leverage ON intervention_points(leverage_level DESC);
+CREATE INDEX IF NOT EXISTS idx_intervention_points_org ON intervention_points(organization_id);
+CREATE INDEX IF NOT EXISTS idx_intervention_points_system_map ON intervention_points(system_map_id);
+CREATE INDEX IF NOT EXISTS idx_intervention_points_status ON intervention_points(status);
+CREATE INDEX IF NOT EXISTS idx_intervention_points_type ON intervention_points(intervention_type);
+CREATE INDEX IF NOT EXISTS idx_intervention_points_leverage ON intervention_points(leverage_level DESC);
 
 -- Enable RLS
 ALTER TABLE intervention_points ENABLE ROW LEVEL SECURITY;
@@ -161,7 +161,7 @@ CREATE POLICY "Users can update intervention points in their organization"
 -- OUTCOME HYPOTHESES
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS outcome_hypotheses (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     system_map_id UUID NOT NULL REFERENCES system_maps(id) ON DELETE CASCADE,
     intervention_point_id UUID REFERENCES intervention_points(id) ON DELETE SET NULL,
@@ -203,12 +203,12 @@ CREATE TABLE IF NOT EXISTS outcome_hypotheses (
 );
 
 -- Indexes for outcome_hypotheses
-CREATE INDEX idx_outcome_hypotheses_org ON outcome_hypotheses(organization_id);
-CREATE INDEX idx_outcome_hypotheses_system_map ON outcome_hypotheses(system_map_id);
-CREATE INDEX idx_outcome_hypotheses_intervention ON outcome_hypotheses(intervention_point_id);
-CREATE INDEX idx_outcome_hypotheses_status ON outcome_hypotheses(status);
-CREATE INDEX idx_outcome_hypotheses_type ON outcome_hypotheses(hypothesis_type);
-CREATE INDEX idx_outcome_hypotheses_confidence ON outcome_hypotheses(confidence_score DESC);
+CREATE INDEX IF NOT EXISTS idx_outcome_hypotheses_org ON outcome_hypotheses(organization_id);
+CREATE INDEX IF NOT EXISTS idx_outcome_hypotheses_system_map ON outcome_hypotheses(system_map_id);
+CREATE INDEX IF NOT EXISTS idx_outcome_hypotheses_intervention ON outcome_hypotheses(intervention_point_id);
+CREATE INDEX IF NOT EXISTS idx_outcome_hypotheses_status ON outcome_hypotheses(status);
+CREATE INDEX IF NOT EXISTS idx_outcome_hypotheses_type ON outcome_hypotheses(hypothesis_type);
+CREATE INDEX IF NOT EXISTS idx_outcome_hypotheses_confidence ON outcome_hypotheses(confidence_score DESC);
 
 -- Enable RLS
 ALTER TABLE outcome_hypotheses ENABLE ROW LEVEL SECURITY;
@@ -236,7 +236,7 @@ CREATE POLICY "Users can update outcome hypotheses in their organization"
 -- SYSTEMIC RISKS
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS systemic_risks (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     system_map_id UUID NOT NULL REFERENCES system_maps(id) ON DELETE CASCADE,
     intervention_point_id UUID REFERENCES intervention_points(id) ON DELETE SET NULL,
@@ -295,12 +295,12 @@ CREATE TABLE IF NOT EXISTS systemic_risks (
 );
 
 -- Indexes for systemic_risks
-CREATE INDEX idx_systemic_risks_org ON systemic_risks(organization_id);
-CREATE INDEX idx_systemic_risks_system_map ON systemic_risks(system_map_id);
-CREATE INDEX idx_systemic_risks_intervention ON systemic_risks(intervention_point_id);
-CREATE INDEX idx_systemic_risks_status ON systemic_risks(status);
-CREATE INDEX idx_systemic_risks_score ON systemic_risks(risk_score DESC);
-CREATE INDEX idx_systemic_risks_type ON systemic_risks(risk_type);
+CREATE INDEX IF NOT EXISTS idx_systemic_risks_org ON systemic_risks(organization_id);
+CREATE INDEX IF NOT EXISTS idx_systemic_risks_system_map ON systemic_risks(system_map_id);
+CREATE INDEX IF NOT EXISTS idx_systemic_risks_intervention ON systemic_risks(intervention_point_id);
+CREATE INDEX IF NOT EXISTS idx_systemic_risks_status ON systemic_risks(status);
+CREATE INDEX IF NOT EXISTS idx_systemic_risks_score ON systemic_risks(risk_score DESC);
+CREATE INDEX IF NOT EXISTS idx_systemic_risks_type ON systemic_risks(risk_type);
 
 -- Enable RLS
 ALTER TABLE systemic_risks ENABLE ROW LEVEL SECURITY;
@@ -328,7 +328,7 @@ CREATE POLICY "Users can update systemic risks in their organization"
 -- FEEDBACK LOOPS
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS feedback_loops (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     system_map_id UUID NOT NULL REFERENCES system_maps(id) ON DELETE CASCADE,
     
@@ -368,11 +368,11 @@ CREATE TABLE IF NOT EXISTS feedback_loops (
 );
 
 -- Indexes for feedback_loops
-CREATE INDEX idx_feedback_loops_org ON feedback_loops(organization_id);
-CREATE INDEX idx_feedback_loops_system_map ON feedback_loops(system_map_id);
-CREATE INDEX idx_feedback_loops_type ON feedback_loops(loop_type);
-CREATE INDEX idx_feedback_loops_stage ON feedback_loops(realization_stage);
-CREATE INDEX idx_feedback_loops_closure ON feedback_loops(closure_status);
+CREATE INDEX IF NOT EXISTS idx_feedback_loops_org ON feedback_loops(organization_id);
+CREATE INDEX IF NOT EXISTS idx_feedback_loops_system_map ON feedback_loops(system_map_id);
+CREATE INDEX IF NOT EXISTS idx_feedback_loops_type ON feedback_loops(loop_type);
+CREATE INDEX IF NOT EXISTS idx_feedback_loops_stage ON feedback_loops(realization_stage);
+CREATE INDEX IF NOT EXISTS idx_feedback_loops_closure ON feedback_loops(closure_status);
 
 -- Enable RLS
 ALTER TABLE feedback_loops ENABLE ROW LEVEL SECURITY;
@@ -400,7 +400,7 @@ CREATE POLICY "Users can update feedback loops in their organization"
 -- ACADEMY PROGRESS
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS academy_progress (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     
@@ -440,11 +440,11 @@ CREATE TABLE IF NOT EXISTS academy_progress (
 );
 
 -- Indexes for academy_progress
-CREATE INDEX idx_academy_progress_user ON academy_progress(user_id);
-CREATE INDEX idx_academy_progress_org ON academy_progress(organization_id);
-CREATE INDEX idx_academy_progress_track ON academy_progress(track_id);
-CREATE INDEX idx_academy_progress_status ON academy_progress(status);
-CREATE INDEX idx_academy_progress_mastery ON academy_progress(mastery_level DESC);
+CREATE INDEX IF NOT EXISTS idx_academy_progress_user ON academy_progress(user_id);
+CREATE INDEX IF NOT EXISTS idx_academy_progress_org ON academy_progress(organization_id);
+CREATE INDEX IF NOT EXISTS idx_academy_progress_track ON academy_progress(track_id);
+CREATE INDEX IF NOT EXISTS idx_academy_progress_status ON academy_progress(status);
+CREATE INDEX IF NOT EXISTS idx_academy_progress_mastery ON academy_progress(mastery_level DESC);
 
 -- Enable RLS
 ALTER TABLE academy_progress ENABLE ROW LEVEL SECURITY;
@@ -513,22 +513,22 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Triggers for updated_at
-CREATE TRIGGER update_system_maps_updated_at BEFORE UPDATE ON system_maps
+DROP TRIGGER IF EXISTS update_system_maps_updated_at ON  UPDATE ON system_maps
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_intervention_points_updated_at BEFORE UPDATE ON intervention_points
+DROP TRIGGER IF EXISTS update_intervention_points_updated_at ON  UPDATE ON intervention_points
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_outcome_hypotheses_updated_at BEFORE UPDATE ON outcome_hypotheses
+DROP TRIGGER IF EXISTS update_outcome_hypotheses_updated_at ON  UPDATE ON outcome_hypotheses
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_systemic_risks_updated_at BEFORE UPDATE ON systemic_risks
+DROP TRIGGER IF EXISTS update_systemic_risks_updated_at ON  UPDATE ON systemic_risks
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_feedback_loops_updated_at BEFORE UPDATE ON feedback_loops
+DROP TRIGGER IF EXISTS update_feedback_loops_updated_at ON  UPDATE ON feedback_loops
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_academy_progress_updated_at BEFORE UPDATE ON academy_progress
+DROP TRIGGER IF EXISTS update_academy_progress_updated_at ON  UPDATE ON academy_progress
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================================================

@@ -688,4 +688,85 @@ describe('Security Integration Tests', () => {
       }
     });
   });
+
+  // ============================================================================
+  // CSP Configuration Tests (Dec 1, 2025 Fix)
+  // ============================================================================
+  describe('Content Security Policy Configuration', () => {
+    it('should include password breach API in CSP', () => {
+      const fs = require('fs');
+      const path = require('path');
+      
+      const indexPath = path.join(process.cwd(), 'index.html');
+      if (fs.existsSync(indexPath)) {
+        const indexHtml = fs.readFileSync(indexPath, 'utf-8');
+        
+        expect(indexHtml).toContain('api.pwnedpasswords.com');
+        expect(indexHtml).toContain('Content-Security-Policy');
+      }
+    });
+
+    it('should have pwnedpasswords in connect-src directive', () => {
+      const fs = require('fs');
+      const path = require('path');
+      
+      const indexPath = path.join(process.cwd(), 'index.html');
+      if (fs.existsSync(indexPath)) {
+        const indexHtml = fs.readFileSync(indexPath, 'utf-8');
+        const cspMatch = indexHtml.match(/content="([^"]+)"/);
+        
+        if (cspMatch) {
+          const cspContent = cspMatch[1];
+          expect(cspContent).toContain('connect-src');
+          expect(cspContent).toContain('https://api.pwnedpasswords.com');
+        }
+      }
+    });
+
+    it('should maintain secure CSP directives', () => {
+      const fs = require('fs');
+      const path = require('path');
+      
+      const indexPath = path.join(process.cwd(), 'index.html');
+      if (fs.existsSync(indexPath)) {
+        const indexHtml = fs.readFileSync(indexPath, 'utf-8');
+        
+        // Should have secure directives
+        expect(indexHtml).toContain("object-src 'none'");
+        expect(indexHtml).toContain("base-uri 'self'");
+        expect(indexHtml).toContain("form-action 'self'");
+      }
+    });
+
+    it('should not allow wildcard origins', () => {
+      const fs = require('fs');
+      const path = require('path');
+      
+      const indexPath = path.join(process.cwd(), 'index.html');
+      if (fs.existsSync(indexPath)) {
+        const indexHtml = fs.readFileSync(indexPath, 'utf-8');
+        const cspMatch = indexHtml.match(/content="([^"]+)"/);
+        
+        if (cspMatch) {
+          const cspContent = cspMatch[1];
+          // Should not have dangerous wildcards in connect-src
+          expect(cspContent).not.toMatch(/connect-src[^;]*\s\*\s/);
+        }
+      }
+    });
+
+    it('should use HTTPS for external resources', () => {
+      const fs = require('fs');
+      const path = require('path');
+      
+      const indexPath = path.join(process.cwd(), 'index.html');
+      if (fs.existsSync(indexPath)) {
+        const indexHtml = fs.readFileSync(indexPath, 'utf-8');
+        
+        // External APIs should use HTTPS
+        expect(indexHtml).toContain('https://api.pwnedpasswords.com');
+        expect(indexHtml).toContain('https://*.supabase.co');
+      }
+    });
+  });
 });

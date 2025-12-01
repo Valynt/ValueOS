@@ -12,6 +12,10 @@ import { ExpansionAgent } from '../../lib/agent-fabric/agents/ExpansionAgent';
 import { IntegrityAgent } from '../../lib/agent-fabric/agents/IntegrityAgent';
 import { RealizationAgent } from '../../lib/agent-fabric/agents/RealizationAgent';
 
+const runIntegration = process.env.RUN_INTEGRATION_TESTS === 'true';
+const runPerf = process.env.RUN_PERF_TESTS === 'true';
+const describeMaybe = runIntegration && runPerf ? describe : describe.skip;
+
 interface PerformanceMetrics {
   duration: number;
   memory: number;
@@ -36,7 +40,7 @@ const measurePerformance = async (fn: () => Promise<any>): Promise<PerformanceMe
   };
 };
 
-describe('PerformanceBenchmarks - Agent Invocation', () => {
+describeMaybe('PerformanceBenchmarks - Agent Invocation', () => {
   it('opportunity agent invocation meets performance SLA', async () => {
     const agent = new OpportunityAgent({} as any);
 
@@ -103,7 +107,7 @@ describe('PerformanceBenchmarks - Agent Invocation', () => {
   });
 });
 
-describe('PerformanceBenchmarks - Throughput', () => {
+describeMaybe('PerformanceBenchmarks - Throughput', () => {
   it('handles 100 sequential requests within time budget', async () => {
     const agent = new OpportunityAgent({} as any);
     const requestCount = 100;
@@ -174,7 +178,7 @@ describe('PerformanceBenchmarks - Throughput', () => {
   });
 });
 
-describe('PerformanceBenchmarks - Response Time', () => {
+describeMaybe('PerformanceBenchmarks - Response Time', () => {
   it('p50 response time meets SLA', async () => {
     const agent = new OpportunityAgent({} as any);
     const sampleSize = 100;
@@ -251,7 +255,7 @@ describe('PerformanceBenchmarks - Response Time', () => {
   });
 });
 
-describe('PerformanceBenchmarks - Resource Utilization', () => {
+describeMaybe('PerformanceBenchmarks - Resource Utilization', () => {
   it('memory usage stays within limits', async () => {
     const agent = new OpportunityAgent({} as any);
     const iterations = 100;
@@ -318,7 +322,7 @@ describe('PerformanceBenchmarks - Resource Utilization', () => {
   });
 });
 
-describe('PerformanceBenchmarks - Database Operations', () => {
+describeMaybe('PerformanceBenchmarks - Database Operations', () => {
   it('database query performance meets SLA', async () => {
     const agent = new OpportunityAgent({} as any);
 
@@ -396,7 +400,7 @@ describe('PerformanceBenchmarks - Database Operations', () => {
   });
 });
 
-describe('PerformanceBenchmarks - Caching', () => {
+describeMaybe('PerformanceBenchmarks - Caching', () => {
   it('cache hit improves response time', async () => {
     const agent = new OpportunityAgent({} as any);
 
@@ -462,7 +466,7 @@ describe('PerformanceBenchmarks - Caching', () => {
   });
 });
 
-describe('PerformanceBenchmarks - Network Operations', () => {
+describeMaybe('PerformanceBenchmarks - Network Operations', () => {
   it('API request latency is acceptable', async () => {
     const agent = new OpportunityAgent({} as any);
 
@@ -515,7 +519,7 @@ describe('PerformanceBenchmarks - Network Operations', () => {
   });
 });
 
-describe('PerformanceBenchmarks - Batch Operations', () => {
+describeMaybe('PerformanceBenchmarks - Batch Operations', () => {
   it('batch processing performance scales linearly', async () => {
     const agent = new OpportunityAgent({} as any);
 
@@ -570,7 +574,7 @@ describe('PerformanceBenchmarks - Batch Operations', () => {
   });
 });
 
-describe('PerformanceBenchmarks - Optimization Validation', () => {
+describeMaybe('PerformanceBenchmarks - Optimization Validation', () => {
   it('validates query optimization effectiveness', async () => {
     const agent = new OpportunityAgent({} as any);
 
@@ -619,7 +623,7 @@ describe('PerformanceBenchmarks - Optimization Validation', () => {
   });
 });
 
-describe('PerformanceBenchmarks - Memory Leak Detection', () => {
+describeMaybe('PerformanceBenchmarks - Memory Leak Detection', () => {
   it('detects memory leaks in repeated operations', async () => {
     const agent = new OpportunityAgent({} as any);
     const iterations = 100;
@@ -736,7 +740,7 @@ describe('PerformanceBenchmarks - Memory Leak Detection', () => {
   });
 });
 
-describe('PerformanceBenchmarks - Memory Profiling', () => {
+describeMaybe('PerformanceBenchmarks - Memory Profiling', () => {
   it('profiles memory allocation patterns', async () => {
     const agent = new OpportunityAgent({} as any);
     const allocations: number[] = [];

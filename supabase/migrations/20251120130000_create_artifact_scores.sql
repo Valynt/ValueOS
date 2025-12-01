@@ -51,11 +51,11 @@ CREATE TABLE IF NOT EXISTS artifact_scores (
   updated_at timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_artifact_scores_artifact ON artifact_scores(artifact_type, artifact_id);
-CREATE INDEX idx_artifact_scores_overall ON artifact_scores(overall_score DESC);
-CREATE INDEX idx_artifact_scores_quality ON artifact_scores(quality_score DESC);
-CREATE INDEX idx_artifact_scores_evaluator ON artifact_scores(evaluator_type, evaluator_id);
-CREATE INDEX idx_artifact_scores_created ON artifact_scores(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_artifact_scores_artifact ON artifact_scores(artifact_type, artifact_id);
+CREATE INDEX IF NOT EXISTS idx_artifact_scores_overall ON artifact_scores(overall_score DESC);
+CREATE INDEX IF NOT EXISTS idx_artifact_scores_quality ON artifact_scores(quality_score DESC);
+CREATE INDEX IF NOT EXISTS idx_artifact_scores_evaluator ON artifact_scores(evaluator_type, evaluator_id);
+CREATE INDEX IF NOT EXISTS idx_artifact_scores_created ON artifact_scores(created_at DESC);
 
 COMMENT ON TABLE artifact_scores IS 'Quality scores and evaluations for all artifacts';
 
@@ -77,8 +77,8 @@ CREATE TABLE IF NOT EXISTS artifact_score_history (
   created_at timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_score_history_artifact ON artifact_score_history(artifact_score_id);
-CREATE INDEX idx_score_history_created ON artifact_score_history(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_score_history_artifact ON artifact_score_history(artifact_score_id);
+CREATE INDEX IF NOT EXISTS idx_score_history_created ON artifact_score_history(created_at DESC);
 
 COMMENT ON TABLE artifact_score_history IS 'Historical record of score changes for tracking improvements';
 

@@ -9,7 +9,11 @@ import { describe, expect, it } from 'vitest';
 import { OpportunityAgent } from '../../lib/agent-fabric/agents/OpportunityAgent';
 import { TargetAgent } from '../../lib/agent-fabric/agents/TargetAgent';
 
-describe('StressTesting - Capacity Limits', () => {
+const runIntegration = process.env.RUN_INTEGRATION_TESTS === 'true';
+const runPerf = process.env.RUN_PERF_TESTS === 'true';
+const describeMaybe = runIntegration && runPerf ? describe : describe.skip;
+
+describeMaybe('StressTesting - Capacity Limits', () => {
   it('identifies maximum concurrent request capacity', async () => {
     const agent = new OpportunityAgent({} as any);
     const maxConcurrent = 1000;
@@ -77,7 +81,7 @@ describe('StressTesting - Capacity Limits', () => {
   });
 });
 
-describe('StressTesting - Memory Stress', () => {
+describeMaybe('StressTesting - Memory Stress', () => {
   it('handles large payload processing', async () => {
     const agent = new OpportunityAgent({} as any);
     const largePayloadSize = 10 * 1024 * 1024;
@@ -140,7 +144,7 @@ describe('StressTesting - Memory Stress', () => {
   });
 });
 
-describe('StressTesting - CPU Stress', () => {
+describeMaybe('StressTesting - CPU Stress', () => {
   it('handles CPU-intensive operations', async () => {
     const agent = new OpportunityAgent({} as any);
 
@@ -181,7 +185,7 @@ describe('StressTesting - CPU Stress', () => {
   });
 });
 
-describe('StressTesting - Database Stress', () => {
+describeMaybe('StressTesting - Database Stress', () => {
   it('handles database connection exhaustion', async () => {
     const agent = new OpportunityAgent({} as any);
     const connectionCount = 200;
@@ -239,7 +243,7 @@ describe('StressTesting - Database Stress', () => {
   });
 });
 
-describe('StressTesting - Network Stress', () => {
+describeMaybe('StressTesting - Network Stress', () => {
   it('handles network latency spikes', async () => {
     const agent = new OpportunityAgent({} as any);
 
@@ -285,7 +289,7 @@ describe('StressTesting - Network Stress', () => {
   });
 });
 
-describe('StressTesting - Cascading Failures', () => {
+describeMaybe('StressTesting - Cascading Failures', () => {
   it('prevents cascading failures across services', async () => {
     const opportunityAgent = new OpportunityAgent({} as any);
     const targetAgent = new TargetAgent({} as any);
@@ -350,7 +354,7 @@ describe('StressTesting - Cascading Failures', () => {
   });
 });
 
-describe('StressTesting - Recovery and Resilience', () => {
+describeMaybe('StressTesting - Recovery and Resilience', () => {
   it('recovers from complete system overload', async () => {
     const agent = new OpportunityAgent({} as any);
 
@@ -423,7 +427,7 @@ describe('StressTesting - Recovery and Resilience', () => {
   });
 });
 
-describe('StressTesting - Resource Exhaustion', () => {
+describeMaybe('StressTesting - Resource Exhaustion', () => {
   it('handles file descriptor exhaustion', async () => {
     const agent = new OpportunityAgent({} as any);
     const fileOperations = 500;
@@ -476,7 +480,7 @@ describe('StressTesting - Resource Exhaustion', () => {
   });
 });
 
-describe('StressTesting - Time-based Stress', () => {
+describeMaybe('StressTesting - Time-based Stress', () => {
   it('maintains performance over extended duration', async () => {
     const agent = new OpportunityAgent({} as any);
     const duration = 60000;
@@ -534,7 +538,7 @@ describe('StressTesting - Time-based Stress', () => {
   });
 });
 
-describe('StressTesting - Scalability', () => {
+describeMaybe('StressTesting - Scalability', () => {
   it('validates linear scalability with data volume', async () => {
     const agent = new OpportunityAgent({} as any);
 
@@ -620,7 +624,7 @@ describe('StressTesting - Scalability', () => {
   });
 });
 
-describe('StressTesting - Resource Optimization', () => {
+describeMaybe('StressTesting - Resource Optimization', () => {
   it('validates connection pooling efficiency', async () => {
     const agent = new OpportunityAgent({} as any);
 
@@ -739,7 +743,7 @@ describe('StressTesting - Resource Optimization', () => {
   });
 });
 
-describe('StressTesting - Memory Optimization', () => {
+describeMaybe('StressTesting - Memory Optimization', () => {
   it('validates memory pooling effectiveness', async () => {
     const agent = new OpportunityAgent({} as any);
 

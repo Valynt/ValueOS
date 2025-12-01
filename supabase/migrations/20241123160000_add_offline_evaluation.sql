@@ -3,7 +3,7 @@
 
 -- Golden Examples Table
 CREATE TABLE IF NOT EXISTS golden_examples (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   description TEXT NOT NULL,
   agent_type TEXT NOT NULL CHECK (agent_type IN ('OpportunityAgent', 'TargetAgent', 'IntegrityAgent', 'ReflectionEngine')),
@@ -27,11 +27,11 @@ CREATE TABLE IF NOT EXISTS evaluation_runs (
 );
 
 -- Indexes
-CREATE INDEX idx_golden_examples_agent_type ON golden_examples(agent_type);
-CREATE INDEX idx_golden_examples_created ON golden_examples(created_at DESC);
-CREATE INDEX idx_evaluation_runs_agent_type ON evaluation_runs(agent_type);
-CREATE INDEX idx_evaluation_runs_created ON evaluation_runs(created_at DESC);
-CREATE INDEX idx_evaluation_runs_prompt_version ON evaluation_runs(prompt_version);
+CREATE INDEX IF NOT EXISTS idx_golden_examples_agent_type ON golden_examples(agent_type);
+CREATE INDEX IF NOT EXISTS idx_golden_examples_created ON golden_examples(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_evaluation_runs_agent_type ON evaluation_runs(agent_type);
+CREATE INDEX IF NOT EXISTS idx_evaluation_runs_created ON evaluation_runs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_evaluation_runs_prompt_version ON evaluation_runs(prompt_version);
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_golden_example_timestamp()
@@ -42,7 +42,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trigger_update_golden_example_timestamp
+DROP TRIGGER IF EXISTS trigger_update_golden_example_timestamp
 BEFORE UPDATE ON golden_examples
 FOR EACH ROW
 EXECUTE FUNCTION update_golden_example_timestamp();

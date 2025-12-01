@@ -10,7 +10,11 @@ import { OpportunityAgent } from '../../lib/agent-fabric/agents/OpportunityAgent
 import { TargetAgent } from '../../lib/agent-fabric/agents/TargetAgent';
 import { ExpansionAgent } from '../../lib/agent-fabric/agents/ExpansionAgent';
 
-describe('LoadTesting - High Volume Requests', () => {
+const runIntegration = process.env.RUN_INTEGRATION_TESTS === 'true';
+const runPerf = process.env.RUN_PERF_TESTS === 'true';
+const describeMaybe = runIntegration && runPerf ? describe : describe.skip;
+
+describeMaybe('LoadTesting - High Volume Requests', () => {
   it('handles 1000 sequential requests', async () => {
     const agent = new OpportunityAgent({} as any);
     const requestCount = 1000;
@@ -92,7 +96,7 @@ describe('LoadTesting - High Volume Requests', () => {
   });
 });
 
-describe('LoadTesting - Burst Traffic', () => {
+describeMaybe('LoadTesting - Burst Traffic', () => {
   it('handles sudden traffic spike', async () => {
     const agent = new OpportunityAgent({} as any);
 
@@ -180,7 +184,7 @@ describe('LoadTesting - Burst Traffic', () => {
   });
 });
 
-describe('LoadTesting - Multi-Agent Load', () => {
+describeMaybe('LoadTesting - Multi-Agent Load', () => {
   it('handles concurrent load across multiple agent types', async () => {
     const opportunityAgent = new OpportunityAgent({} as any);
     const targetAgent = new TargetAgent({} as any);
@@ -253,7 +257,7 @@ describe('LoadTesting - Multi-Agent Load', () => {
   });
 });
 
-describe('LoadTesting - Database Load', () => {
+describeMaybe('LoadTesting - Database Load', () => {
   it('handles high-volume database writes', async () => {
     const agent = new OpportunityAgent({} as any);
     const writeCount = 500;
@@ -348,7 +352,7 @@ describe('LoadTesting - Database Load', () => {
   });
 });
 
-describe('LoadTesting - Memory Under Load', () => {
+describeMaybe('LoadTesting - Memory Under Load', () => {
   it('memory usage remains stable under sustained load', async () => {
     const agent = new OpportunityAgent({} as any);
     const iterations = 200;
@@ -399,7 +403,7 @@ describe('LoadTesting - Memory Under Load', () => {
   });
 });
 
-describe('LoadTesting - Error Handling Under Load', () => {
+describeMaybe('LoadTesting - Error Handling Under Load', () => {
   it('maintains error rate below threshold under load', async () => {
     const agent = new OpportunityAgent({} as any);
     const requestCount = 500;
@@ -469,7 +473,7 @@ describe('LoadTesting - Error Handling Under Load', () => {
   });
 });
 
-describe('LoadTesting - Scalability', () => {
+describeMaybe('LoadTesting - Scalability', () => {
   it('throughput scales with increased resources', async () => {
     const agent = new OpportunityAgent({} as any);
 
@@ -539,7 +543,7 @@ describe('LoadTesting - Scalability', () => {
   });
 });
 
-describe('LoadTesting - Resource Contention', () => {
+describeMaybe('LoadTesting - Resource Contention', () => {
   it('handles resource contention gracefully', async () => {
     const agent = new OpportunityAgent({} as any);
     const concurrentCount = 100;

@@ -83,10 +83,10 @@ CREATE TABLE IF NOT EXISTS sof_governance_controls (
   created_by uuid REFERENCES auth.users(id)
 );
 
-CREATE INDEX idx_sof_governance_business_case ON sof_governance_controls(business_case_id);
-CREATE INDEX idx_sof_governance_system_map ON sof_governance_controls(system_map_id);
-CREATE INDEX idx_sof_governance_intervention ON sof_governance_controls(intervention_point_id);
-CREATE INDEX idx_sof_governance_status ON sof_governance_controls(compliance_status);
+CREATE INDEX IF NOT EXISTS idx_sof_governance_business_case ON sof_governance_controls(business_case_id);
+CREATE INDEX IF NOT EXISTS idx_sof_governance_system_map ON sof_governance_controls(system_map_id);
+CREATE INDEX IF NOT EXISTS idx_sof_governance_intervention ON sof_governance_controls(intervention_point_id);
+CREATE INDEX IF NOT EXISTS idx_sof_governance_status ON sof_governance_controls(compliance_status);
 
 COMMENT ON TABLE sof_governance_controls IS 'Governance controls applied to SOF system maps and interventions';
 
@@ -147,10 +147,10 @@ CREATE TABLE IF NOT EXISTS sof_audit_events (
   created_at timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_sof_audit_business_case ON sof_audit_events(business_case_id);
-CREATE INDEX idx_sof_audit_system_map ON sof_audit_events(system_map_id);
-CREATE INDEX idx_sof_audit_event_type ON sof_audit_events(event_type);
-CREATE INDEX idx_sof_audit_created_at ON sof_audit_events(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sof_audit_business_case ON sof_audit_events(business_case_id);
+CREATE INDEX IF NOT EXISTS idx_sof_audit_system_map ON sof_audit_events(system_map_id);
+CREATE INDEX IF NOT EXISTS idx_sof_audit_event_type ON sof_audit_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_sof_audit_created_at ON sof_audit_events(created_at DESC);
 
 COMMENT ON TABLE sof_audit_events IS 'Immutable audit trail for all SOF entity changes and system events';
 

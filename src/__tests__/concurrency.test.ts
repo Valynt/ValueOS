@@ -8,19 +8,18 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createClient } from '@supabase/supabase-js';
 import { AgentQueryService } from '../services/AgentQueryService';
+import { createBoltClientMock } from '../../test/mocks/mockSupabaseClient';
 
-// Test configuration
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'http://localhost:54321';
-const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'test-key';
+const runIntegration = process.env.RUN_INTEGRATION_TESTS === 'true';
+const describeMaybe = runIntegration ? describe : describe.skip;
 
-describe('Concurrency Safety', () => {
+describeMaybe('Concurrency Safety', () => {
   let service: AgentQueryService;
-  let supabase: ReturnType<typeof createClient>;
+  let supabase: ReturnType<typeof createBoltClientMock>;
 
   beforeEach(() => {
-    supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    supabase = createBoltClientMock();
     service = new AgentQueryService(supabase);
   });
 

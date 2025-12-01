@@ -398,7 +398,8 @@ export function loadSecurityConfig(): SecurityConfig {
           envConfig.app.apiBaseUrl,
           envConfig.agents.apiUrl,
           envConfig.database.url,
-        ],
+          'https://api.pwnedpasswords.com', // Password breach checking
+        ].filter(Boolean),
         upgradeInsecureRequests: envConfig.security.httpsOnly,
       },
     },

@@ -5,17 +5,24 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { createBoltClientMock } from '../mocks/mockSupabaseClient';
+
+const runIntegration = process.env.RUN_INTEGRATION_TESTS === 'true';
 
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
 const SUPABASE_URL = process.env.TEST_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const SUPABASE_KEY = process.env.TEST_SUPABASE_KEY || process.env.SUPABASE_ANON_KEY || '';
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+// Default to an in-memory supabase mock unless explicitly running integration tests
+export const supabase = runIntegration
+  ? createClient(SUPABASE_URL, SUPABASE_KEY)
+  : (createBoltClientMock() as any);
 
 /**
  * Set up test database
  */
 export async function setupTestDatabase(): Promise<void> {
+  if (!runIntegration) return;
   // Run migrations if needed
   // This assumes migrations are idempotent
   
@@ -27,6 +34,7 @@ export async function setupTestDatabase(): Promise<void> {
  * Clean up test database
  */
 export async function cleanupTestDatabase(): Promise<void> {
+  if (!runIntegration) return;
   // Delete test data in reverse order of dependencies
   const tables = [
     'llm_usage',
@@ -67,6 +75,16 @@ export async function createTestCanvas(data: {
   businessDescription: string;
   canvas?: any;
 }): Promise<any> {
+  if (!runIntegration) {
+    // In mock mode, just echo back a canvas-like object
+    return {
+      id: `mock-canvas-${Date.now()}`,
+      user_id: data.userId,
+      business_description: data.businessDescription,
+      canvas_data: data.canvas,
+      status: 'active'
+    };
+  }
   const { data: canvas, error } = await supabase
     .from('canvases')
     .insert({
@@ -96,6 +114,9 @@ export async function createTestCanvas(data: {
  * Get canvas by ID
  */
 export async function getCanvas(canvasId: string): Promise<any> {
+  if (!runIntegration) {
+    return { id: canvasId };
+  }
   const { data, error } = await supabase
     .from('canvases')
     .select('*')
@@ -110,6 +131,9 @@ export async function getCanvas(canvasId: string): Promise<any> {
  * Update canvas
  */
 export async function updateCanvas(canvasId: string, updates: any): Promise<any> {
+  if (!runIntegration) {
+    return { id: canvasId, ...updates };
+  }
   const { data, error } = await supabase
     .from('canvases')
     .update(updates)
@@ -125,6 +149,7 @@ export async function updateCanvas(canvasId: string, updates: any): Promise<any>
  * Delete canvas
  */
 export async function deleteCanvas(canvasId: string): Promise<void> {
+  if (!runIntegration) return;
   const { error } = await supabase
     .from('canvases')
     .delete()
@@ -143,6 +168,16 @@ export async function createTestLLMUsage(data: {
   completionTokens: number;
   cost: number;
 }): Promise<any> {
+  if (!runIntegration) {
+    return {
+      id: `mock-usage-${Date.now()}`,
+      user_id: data.userId,
+      model: data.model,
+      prompt_tokens: data.promptTokens,
+      completion_tokens: data.completionTokens,
+      cost_usd: data.cost
+    };
+  }
   const { data: usage, error } = await supabase
     .from('llm_usage')
     .insert({
@@ -164,6 +199,7 @@ export async function createTestLLMUsage(data: {
  * Get LLM usage for user
  */
 export async function getLLMUsage(userId: string): Promise<any[]> {
+  if (!runIntegration) return [];
   const { data, error } = await supabase
     .from('llm_usage')
     .select('*')
@@ -202,6 +238,9 @@ export async function seedTestData(): Promise<{
   users: any[];
   canvases: any[];
 }> {
+  if (!runIntegration) {
+    return { users: [], canvases: [] };
+  }
   const users = [];
   const canvases = [];
 
