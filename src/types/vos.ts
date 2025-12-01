@@ -122,6 +122,7 @@ export interface ValueTreeLink {
 
 export interface ROIModel {
   id: string;
+  organization_id: string;
   value_tree_id: string;
   financial_model_id?: string;
   name: string;
@@ -213,6 +214,7 @@ export interface ProvenanceAuditEntry {
 
 export interface KPITarget {
   id: string;
+  organization_id: string;
   value_commit_id: string;
   kpi_hypothesis_id: string;
   kpi_name: string;
