@@ -80,3 +80,4 @@ yarn-error.log*
 # Misc
 .bolt/
 .windsurf/
+!.windsurf/rules/
