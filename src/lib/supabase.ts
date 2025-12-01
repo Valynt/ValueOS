@@ -1,15 +1,12 @@
 import { createClient, type SupabaseClientOptions } from '@supabase/supabase-js';
+import { settings } from '../config/settings';
 
-const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = settings.VITE_SUPABASE_URL;
+const supabaseAnonKey = settings.VITE_SUPABASE_ANON_KEY;
 
-// Fail fast if Supabase is not configured
+// The settings file already fails fast, so this check is redundant, but kept for clarity.
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Supabase configuration missing!\n' +
-    'Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env.local file.\n' +
-    'See .env.example for reference.'
-  );
+  throw new Error('Supabase configuration is missing in the centralized settings.');
 }
 
 const supabaseOptions: SupabaseClientOptions<'public'> = {

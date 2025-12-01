@@ -128,26 +128,45 @@ export class ValueLifecycleOrchestrator {
   // ... (rest of the class remains the same) ...
 
 
+import { TargetAgentInputSchema } from '../validators/agentInputs';
+import { z } from 'zod';
+
+// ... inside ValueLifecycleOrchestrator class
+
   private async validatePrerequisites(
     stage: LifecycleStage,
     input: StageInput,
     context: LifecycleContext
   ): Promise<void> {
+    if (stage === 'target') {
+      try {
+        TargetAgentInputSchema.parse(input);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          throw new ValidationError(`Invalid input for target stage: ${error.errors.map(e => e.message).join(', ')}`);
+        }
+        throw error;
+      }
+      return;
+    }
+
+    // Fallback to old logic for other stages
     const prerequisites: Record<LifecycleStage, string[]> = {
       opportunity: [],
-      target: ['opportunity_id'],
+      target: [], // Handled by Zod now
       expansion: ['value_tree_id'],
       integrity: ['roi_model_id'],
       realization: ['value_commit_id']
     };
 
     const required = prerequisites[stage];
-    const missing = required.filter(field => !input[field]);
-
-    if (missing.length > 0) {
-      throw new ValidationError(
-        `Missing prerequisites for ${stage}: ${missing.join(', ')}`
-      );
+    if (required) {
+        const missing = required.filter(field => !input[field]);
+        if (missing.length > 0) {
+          throw new ValidationError(
+            `Missing prerequisites for ${stage}: ${missing.join(', ')}`
+          );
+        }
     }
   }
 

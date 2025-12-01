@@ -281,8 +281,10 @@ Return ONLY valid JSON in this exact format:
     };
   }
 
+import { ModelService } from '../../../services/ModelService';
+
   /**
-   * Persist complete Target artifacts to database
+   * Persist complete Target artifacts to database using the ModelService.
    */
   async persistTargetArtifacts(
     output: TargetAgentOutput,
@@ -293,182 +295,24 @@ Return ONLY valid JSON in this exact format:
     roiModelId: string;
     valueCommitId: string;
   }> {
-    const { data: valueTreeData, error: treeError } = await this.supabase
-      .from('value_trees')
-      .insert({
-        ...output.valueTree,
-        value_case_id: valueCaseId
-      })
-      .select()
-      .single();
-
-    if (treeError) throw new Error(`Failed to create value tree: ${treeError.message}`);
-
-    const valueTreeId = valueTreeData.id;
-
-    if (sessionId) {
-      await this.logArtifactProvenance(sessionId, 'value_tree', valueTreeId, 'artifact_created', {
-        artifact_data: {
-          summary: output.businessCase.summary,
-          node_count: output.businessCase.nodes.length,
-        },
-        reasoning_trace: output.businessCase.reasoning,
-        metadata: { confidence: output.businessCase.confidence_level },
-      });
-
-      await this.recordLifecycleLink(sessionId, {
-        source_type: 'value_case',
-        source_id: valueCaseId,
-        target_type: 'value_tree',
-        target_id: valueTreeId,
-        relationship_type: 'target_model',
-        reasoning_trace: 'Value tree derived from prioritized objectives',
-        chain_depth: 0,
-        metadata: { stage: 'target' }
-      });
+    if (!this.organizationId || !this.userId) {
+      throw new Error("Agent is missing required user and organization context.");
     }
-
-    for (const node of output.businessCase.nodes) {
-      await this.supabase
-        .from('value_tree_nodes')
-        .insert({
-          value_tree_id: valueTreeId,
-          node_id: node.node_id,
-          label: node.label,
-          type: node.type,
-          reference_id: node.reference_id,
-          properties: {}
-        });
-    }
-
-    for (const link of output.businessCase.links) {
-      const parentNode = await this.findNodeByNodeId(valueTreeId, link.parent_node_id);
-      const childNode = await this.findNodeByNodeId(valueTreeId, link.child_node_id);
-
-      if (parentNode && childNode) {
-        await this.supabase
-          .from('value_tree_links')
-          .insert({
-            parent_id: parentNode.id,
-            child_id: childNode.id,
-            link_type: 'drives',
-            weight: link.weight || 1.0,
-            metadata: {}
-          });
-      }
-    }
-
-    const { data: roiModelData, error: roiError } = await this.supabase
-      .from('roi_models')
-      .insert({
-        ...output.roiModel,
-        value_tree_id: valueTreeId
-      })
-      .select()
-      .single();
-
-    if (roiError) throw new Error(`Failed to create ROI model: ${roiError.message}`);
-
-    const roiModelId = roiModelData.id;
-
-    if (sessionId) {
-      await this.logArtifactProvenance(sessionId, 'roi_model', roiModelId, 'artifact_created', {
-        artifact_data: {
-          assumptions: output.roiModel.assumptions,
-          calculation_count: output.businessCase.calculations.length,
-        },
-        reasoning_trace: output.businessCase.reasoning,
-        metadata: { confidence: output.businessCase.confidence_level },
-      });
-
-      await this.recordLifecycleLink(sessionId, {
-        source_type: 'value_tree',
-        source_id: valueTreeId,
-        target_type: 'roi_model',
-        target_id: roiModelId,
-        relationship_type: 'calculation_model',
-        reasoning_trace: 'ROI model built from value tree outcomes',
-        chain_depth: 1,
-        metadata: { stage: 'target' }
-      });
-    }
-
-    for (const calc of output.businessCase.calculations) {
-      await this.supabase
-        .from('roi_model_calculations')
-        .insert({
-          roi_model_id: roiModelId,
-          ...calc,
-          input_variables: calc.input_variables || [],
-          source_references: calc.source_references || {},
-          reasoning_trace: calc.reasoning_trace || output.businessCase.reasoning
-        });
-
-      if (sessionId) {
-        await this.logArtifactProvenance(sessionId, 'roi_model_calculation', roiModelId, 'calculation_defined', {
-          artifact_data: {
-            name: calc.name,
-            formula: calc.formula,
-            description: calc.description,
-            input_variables: calc.input_variables || [],
-            source_references: calc.source_references || {},
-          },
-          reasoning_trace: calc.reasoning_trace || output.businessCase.reasoning,
-        });
-      }
-    }
-
-    const { data: commitData, error: commitError } = await this.supabase
-      .from('value_commits')
-      .insert({
-        ...output.valueCommit,
-        value_tree_id: valueTreeId,
-        value_case_id: valueCaseId
-      })
-      .select()
-      .single();
-
-    if (commitError) throw new Error(`Failed to create value commit: ${commitError.message}`);
-
-    const valueCommitId = commitData.id;
-
-    if (sessionId) {
-      await this.logArtifactProvenance(sessionId, 'value_commit', valueCommitId, 'artifact_created', {
-        artifact_data: {
-          kpi_targets: output.businessCase.kpi_targets,
-          target_date: output.valueCommit.target_date,
-        },
-        reasoning_trace: output.businessCase.reasoning,
-        metadata: { confidence: output.businessCase.confidence_level },
-      });
-
-      await this.recordLifecycleLink(sessionId, {
-        source_type: 'roi_model',
-        source_id: roiModelId,
-        target_type: 'value_commit',
-        target_id: valueCommitId,
-        relationship_type: 'commitment',
-        reasoning_trace: 'Commitment captures ROI targets from model',
-        chain_depth: 2,
-        metadata: { stage: 'target' }
-      });
-    }
-
-    for (const target of output.businessCase.kpi_targets) {
-      await this.supabase
-        .from('kpi_targets')
-        .insert({
-          value_commit_id: valueCommitId,
-          kpi_hypothesis_id: '',
-          ...target
-        });
-    }
-
-    return {
-      valueTreeId,
-      roiModelId,
-      valueCommitId
+    
+    const context = {
+      userId: this.userId,
+      organizationId: this.organizationId,
+      sessionId: sessionId,
     };
+
+    const modelService = new ModelService(context);
+    
+    // Note: The provenance logging logic that was here previously should be
+    // moved into the ModelService as well, ideally into an AuditService that
+    // the ModelService would use. For this refactoring step, we are focusing
+    // on moving the core persistence logic.
+
+    return modelService.persistBusinessCase(output, valueCaseId);
   }
 
   private async findNodeByNodeId(valueTreeId: string, nodeId: string) {
