@@ -30,18 +30,21 @@ import type {
   TargetAgentOutput
 } from '../../../types/vos';
 
+import { AgentConfig } from '../../../types/agent';
+
 export class TargetAgent extends BaseAgent {
   private roiInterpreter: ROIFormulaInterpreter;
 
-  constructor(
-    agentId: string,
-    llmGateway: any,
-    memorySystem: any,
-    auditLogger: any,
-    supabase: any
-  ) {
-    super(agentId, llmGateway, memorySystem, auditLogger, supabase);
-    this.roiInterpreter = new ROIFormulaInterpreter(supabase);
+  public lifecycleStage = 'target';
+  public version = '1.0';
+  public name = 'Target Agent';
+
+  constructor(config: AgentConfig) {
+    super(config);
+    if (!config.supabase) {
+      throw new Error("Supabase client is required for TargetAgent");
+    }
+    this.roiInterpreter = new ROIFormulaInterpreter(config.supabase);
   }
 
   async execute(

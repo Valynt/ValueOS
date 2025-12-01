@@ -45,20 +45,23 @@ export interface IntegrityCheckOutput {
   blocking_issues: string[];
 }
 
+import { AgentConfig } from '../../../types/agent';
+
 export class IntegrityAgent extends BaseAgent {
   private valueFabricService: ValueFabricService;
   private roiInterpreter: ROIFormulaInterpreter;
 
-  constructor(
-    agentId: string,
-    llmGateway: any,
-    memorySystem: any,
-    auditLogger: any,
-    supabase: any
-  ) {
-    super(agentId, llmGateway, memorySystem, auditLogger, supabase);
-    this.valueFabricService = new ValueFabricService(supabase);
-    this.roiInterpreter = new ROIFormulaInterpreter(supabase);
+  public lifecycleStage = 'integrity';
+  public version = '1.0';
+  public name = 'Integrity Agent';
+
+  constructor(config: AgentConfig) {
+    super(config);
+    if (!config.supabase) {
+      throw new Error("Supabase client is required for IntegrityAgent");
+    }
+    this.valueFabricService = new ValueFabricService(config.supabase);
+    this.roiInterpreter = new ROIFormulaInterpreter(config.supabase);
   }
 
   async execute(
