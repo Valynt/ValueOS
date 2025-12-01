@@ -61,7 +61,7 @@ BEGIN
 
     DROP TRIGGER IF EXISTS update_agent_sessions_updated_at ON agent_sessions;
 
-    DROP TRIGGER IF EXISTS update_agent_sessions_updated_at 
+    CREATE TRIGGER update_agent_sessions_updated_at 
     BEFORE UPDATE ON agent_sessions 
     FOR EACH ROW 
     EXECUTE FUNCTION update_updated_at_column();

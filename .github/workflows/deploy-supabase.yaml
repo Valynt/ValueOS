@@ -1,0 +1,159 @@
+name: Deploy Supabase
+
+on:
+  push:
+    branches: [main, production]
+    paths:
+      - 'supabase/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/**'
+
+jobs:
+  # ============================================================================
+  # Validate Migrations
+  # ============================================================================
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start Supabase Local
+        run: supabase start
+
+      - name: Run Database Tests
+        run: |
+          # Install pgTAP
+          sudo apt-get update
+          sudo apt-get install -y postgresql-contrib
+
+          # Run tests
+          supabase test db
+
+      - name: Run Validation Script
+        run: |
+          psql $DATABASE_URL -f supabase/tests/database/validate_all_fixes.sql
+
+      - name: Stop Supabase
+        run: supabase stop
+
+  # ============================================================================
+  # Deploy to Staging (on PR)
+  # ============================================================================
+  deploy-staging:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: validate
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link to Staging Project
+        run: supabase link --project-ref ${{ secrets.SUPABASE_STAGING_PROJECT_REF }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Deploy Migrations to Staging
+        run: supabase db push
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_STAGING_DB_PASSWORD }}
+
+      - name: Deploy Edge Functions to Staging
+        run: |
+          supabase functions deploy --project-ref ${{ secrets.SUPABASE_STAGING_PROJECT_REF }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+  # ============================================================================
+  # Deploy to Production (on push to main)
+  # ============================================================================
+  deploy-production:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: validate
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Create Backup
+        run: |
+          echo "Creating database backup before deployment..."
+          # Add your backup logic here
+          # pg_dump or Supabase dashboard backup
+
+      - name: Link to Production Project
+        run: supabase link --project-ref ${{ secrets.SUPABASE_PRODUCTION_PROJECT_REF }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Deploy Migrations to Production
+        run: supabase db push
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_PRODUCTION_DB_PASSWORD }}
+
+      - name: Deploy Edge Functions to Production
+        run: |
+          supabase functions deploy --project-ref ${{ secrets.SUPABASE_PRODUCTION_PROJECT_REF }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Post-Deployment Validation
+        run: |
+          echo "Running post-deployment checks..."
+          # Add health checks, smoke tests, etc.
+
+      - name: Notify Team
+        if: always()
+        run: |
+          echo "Deployment ${{ job.status }}"
+          # Add Slack/Discord notification here
+
+  # ============================================================================
+  # Rollback (Manual Trigger)
+  # ============================================================================
+  rollback:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Confirm Rollback
+        run: |
+          echo "⚠️ WARNING: This will rollback the last migration"
+          echo "Migration to rollback: ${{ github.event.inputs.migration_version }}"
+
+      - name: Execute Rollback
+        run: |
+          psql $DATABASE_URL -f supabase/rollbacks/${{ github.event.inputs.migration_version }}_rollback.sql
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_PRODUCTION_DB_URL }}
+
+      - name: Remove Migration Record
+        run: |
+          psql $DATABASE_URL -c "DELETE FROM supabase_migrations.schema_migrations WHERE version = '${{ github.event.inputs.migration_version }}';"
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_PRODUCTION_DB_URL }}
