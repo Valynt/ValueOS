@@ -5,6 +5,7 @@ import { AuditLogger } from '../AuditLogger';
 import { AgentConfig, ConfidenceLevel } from '../../../types/agent';
 import { getTracer } from '../../observability';
 import { SpanStatusCode } from '@opentelemetry/api';
+import { AgentCircuitBreaker, SafetyLimits, withCircuitBreaker } from '../CircuitBreaker';
 
 export interface SecureInvocationOptions {
   /** Custom confidence thresholds */
@@ -15,6 +16,8 @@ export interface SecureInvocationOptions {
   trackPrediction?: boolean;
   /** Additional context for the agent */
   context?: Record<string, any>;
+  /** Custom safety limits for circuit breaker */
+  safetyLimits?: Partial<SafetyLimits>;
 }
 
 export abstract class BaseAgent {
@@ -49,6 +52,7 @@ export abstract class BaseAgent {
 
   /**
    * Secure agent invocation with structured outputs and hallucination detection
+   * NOW WITH CIRCUIT BREAKER PROTECTION (Production Fix)
    */
   protected async secureInvoke<T extends z.ZodType>(
     sessionId: string,
@@ -59,89 +63,101 @@ export abstract class BaseAgent {
     const startTime = Date.now();
     const thresholds = options.confidenceThresholds || DEFAULT_CONFIDENCE_THRESHOLDS;
 
-    try {
-      // Sanitize input
-      const sanitizedInput = this.sanitizeInput(input);
+    // CRITICAL FIX: Wrap execution in circuit breaker
+    const { result: output, metrics } = await withCircuitBreaker(
+      async (breaker: AgentCircuitBreaker) => {
+        // Sanitize input
+        const sanitizedInput = this.sanitizeInput(input);
 
-      // Create full schema with result type
-      const fullSchema = createSecureAgentSchema(resultSchema);
+        // Create full schema with result type
+        const fullSchema = createSecureAgentSchema(resultSchema);
 
-      // Build messages with XML sandboxing
-      const messages: LLMMessage[] = [
-        {
-          role: 'system',
-          content: getSecureAgentSystemPrompt(this.name, this.lifecycleStage)
-        },
-        {
-          role: 'user',
-          content: this.buildSandboxedPrompt(sanitizedInput)
+        // Build messages with XML sandboxing
+        const messages: LLMMessage[] = [
+          {
+            role: 'system',
+            content: getSecureAgentSystemPrompt(this.name, this.lifecycleStage)
+          },
+          {
+            role: 'user',
+            content: this.buildSandboxedPrompt(sanitizedInput)
+          }
+        ];
+
+        // Invoke LLM with structured output + circuit breaker
+        const response = await this.llmGateway.complete(
+          messages,
+          {
+            temperature: 0.7,
+            max_tokens: 4000
+          },
+          undefined, // taskContext
+          breaker    // CRITICAL: Pass circuit breaker
+        );
+
+        // Parse and validate response
+        const parsed = await this.extractJSON(response.content, fullSchema);
+        const validation = validateAgentOutput(parsed, thresholds);
+
+        // Log warnings
+        if (validation.warnings.length > 0) {
+          logger.warn('Agent output validation warnings', {
+            agent: this.agentId,
+            sessionId,
+            warnings: validation.warnings
+          });
         }
-      ];
 
-      // Invoke LLM with structured output
-      const response = await this.llmGateway.complete(messages, {
-        temperature: 0.7,
-        max_tokens: 4000
-      });
+        // Handle errors
+        if (!validation.valid) {
+          logger.error('Agent output validation failed', {
+            agent: this.agentId,
+            sessionId,
+            errors: validation.errors
+          });
 
-      // Parse and validate response
-      const parsed = await this.extractJSON(response.content, fullSchema);
-      const validation = validateAgentOutput(parsed, thresholds);
-
-      // Log warnings
-      if (validation.warnings.length > 0) {
-        logger.warn('Agent output validation warnings', {
-          agent: this.agentId,
-          sessionId,
-          warnings: validation.warnings
-        });
-      }
-
-      // Handle errors
-      if (!validation.valid) {
-        logger.error('Agent output validation failed', {
-          agent: this.agentId,
-          sessionId,
-          errors: validation.errors
-        });
-
-        if (options.throwOnLowConfidence) {
-          throw new Error(`Agent output validation failed: ${validation.errors.join(', ')}`);
+          if (options.throwOnLowConfidence) {
+            throw new Error(`Agent output validation failed: ${validation.errors.join(', ')}`);
+          }
         }
-      }
 
-      const processingTime = Date.now() - startTime;
-      const enhancedOutput = {
-        ...validation.enhanced,
-        processing_time_ms: processingTime
-      };
+        const processingTime = Date.now() - startTime;
+        const enhancedOutput = {
+          ...validation.enhanced,
+          processing_time_ms: processingTime
+        };
 
-      // Store prediction for accuracy tracking
-      if (options.trackPrediction && this.supabase) {
-        await this.storePrediction(sessionId, sanitizedInput, enhancedOutput);
-      }
+        // Store prediction for accuracy tracking
+        if (options.trackPrediction && this.supabase) {
+          await this.storePrediction(sessionId, sanitizedInput, enhancedOutput);
+        }
 
-      // Log execution
-      await this.logExecution(
-        sessionId,
-        'secure_invoke',
-        sanitizedInput,
-        enhancedOutput.result,
-        enhancedOutput.reasoning || 'No reasoning provided',
-        enhancedOutput.confidence_level,
-        enhancedOutput.evidence || []
-      );
+        // Log execution
+        await this.logExecution(
+          sessionId,
+          'secure_invoke',
+          sanitizedInput,
+          enhancedOutput.result,
+          enhancedOutput.reasoning || 'No reasoning provided',
+          enhancedOutput.confidence_level,
+          enhancedOutput.evidence || []
+        );
 
-      return enhancedOutput as SecureAgentOutput & { result: z.infer<T> };
+        return enhancedOutput as SecureAgentOutput & { result: z.infer<T> };
+      },
+      options.safetyLimits // Pass custom safety limits if provided
+    );
 
-    } catch (error) {
-      logger.error('Secure invocation failed', {
-        agent: this.agentId,
-        sessionId,
-        error: error.message
-      });
-      throw error;
-    }
+    // Log circuit breaker metrics
+    logger.info('Agent execution metrics', {
+      agent: this.agentId,
+      sessionId,
+      llmCalls: metrics.llmCallCount,
+      duration: metrics.duration,
+      completed: metrics.completed
+    });
+
+    return output;
   }
 
   /**
