@@ -153,11 +153,6 @@ Return ONLY valid JSON in this exact format:
       painPoints.map((p: any) => p.description).join(' ')
     );
 
-    const businessObjectivesWithCase = businessObjectives.map((obj: any) => ({
-      ...obj,
-      value_case_id: '',
-    }));
-
     const durationMs = Date.now() - startTime;
 
     await this.logMetric(sessionId, 'tokens_used', response.tokens_used, 'tokens');
@@ -232,7 +227,7 @@ Return ONLY valid JSON in this exact format:
           sc => !capabilities.find(c => c.id === sc.id)
         ));
       } catch (error) {
-        logger.warn('Semantic search failed, using tag-based results only:', error);
+        logger.warn('Semantic search failed, using tag-based results only:', { error: error instanceof Error ? error.message : String(error) });
       }
     }
 
@@ -247,6 +242,10 @@ Return ONLY valid JSON in this exact format:
     objectives: Array<Omit<BusinessObjective, 'id' | 'value_case_id' | 'created_at' | 'updated_at'>>,
     sessionId?: string
   ): Promise<BusinessObjective[]> {
+    if (!this.supabase) {
+      throw new Error('Supabase client is required for persistBusinessObjectives');
+    }
+
     const results: BusinessObjective[] = [];
 
     for (const objective of objectives) {
