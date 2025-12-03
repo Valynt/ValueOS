@@ -141,14 +141,19 @@ Return ONLY valid JSON in this exact format:
       max_tokens: 3000
     });
 
-    const parsed = this.extractJSON(response.content);
+    const parsed = await this.extractJSON(response.content);
+
+    // Ensure required arrays exist with defaults
+    const painPoints = parsed.pain_points || [];
+    const businessObjectives = parsed.business_objectives || [];
+    const recommendedCapabilityTags = parsed.recommended_capability_tags || [];
 
     const capabilities = await this.findRelevantCapabilities(
-      parsed.recommended_capability_tags || [],
-      parsed.pain_points.map((p: any) => p.description).join(' ')
+      recommendedCapabilityTags,
+      painPoints.map((p: any) => p.description).join(' ')
     );
 
-    const businessObjectives = parsed.business_objectives.map((obj: any) => ({
+    const businessObjectivesWithCase = businessObjectives.map((obj: any) => ({
       ...obj,
       value_case_id: '',
     }));
@@ -157,7 +162,7 @@ Return ONLY valid JSON in this exact format:
 
     await this.logMetric(sessionId, 'tokens_used', response.tokens_used, 'tokens');
     await this.logMetric(sessionId, 'latency_ms', durationMs, 'ms');
-    await this.logMetric(sessionId, 'pain_points_identified', parsed.pain_points.length, 'count');
+    await this.logMetric(sessionId, 'pain_points_identified', painPoints.length, 'count');
     await this.logMetric(sessionId, 'capabilities_matched', capabilities.length, 'count');
     await this.logPerformanceMetric(sessionId, 'opportunity_execute', durationMs, {
       discovery_documents: input.discoveryData.length,

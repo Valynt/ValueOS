@@ -16,7 +16,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { OpportunityAgent } from '../../lib/agent-fabric/agents/OpportunityAgent';
-import type { OpportunityAgentInput, OpportunityAgentOutput } from '../../types/vos';
+import type { OpportunityAgentInput } from '../../types/vos';
 
 describe('OpportunityAgent', () => {
   let agent: OpportunityAgent;
@@ -132,14 +132,17 @@ describe('OpportunityAgent', () => {
       })
     };
 
-    // Create agent instance
-    agent = new OpportunityAgent(
-      'opportunity-agent-1',
-      mockLLMGateway,
-      mockMemorySystem,
-      mockAuditLogger,
-      mockSupabase
-    );
+    // Create agent instance with AgentConfig
+    agent = new OpportunityAgent({
+      id: 'opportunity-agent-1',
+      organizationId: 'org-123',
+      userId: 'user-456',
+      sessionId: 'session-789',
+      llmGateway: mockLLMGateway,
+      memorySystem: mockMemorySystem,
+      auditLogger: mockAuditLogger,
+      supabase: mockSupabase
+    });
 
     // Mock ValueFabricService methods
     mockValueFabricService = {
@@ -244,10 +247,11 @@ describe('OpportunityAgent', () => {
 
       // Verify objective structure
       const objective = result.businessObjectives[0];
-      expect(objective.name).toBeDefined();
-      expect(objective.description).toBeDefined();
-      expect(objective.priority).toBeGreaterThan(0);
-      expect(objective.owner).toBeDefined();
+      expect(objective).toBeDefined();
+      expect(objective?.name).toBeDefined();
+      expect(objective?.description).toBeDefined();
+      expect(objective?.priority).toBeGreaterThan(0);
+      expect(objective?.owner).toBeDefined();
     });
 
     it('should identify and quantify pain points', async () => {
@@ -301,9 +305,10 @@ describe('OpportunityAgent', () => {
 
       // Verify capability structure
       const capability = result.recommendedCapabilities[0];
-      expect(capability.id).toBeDefined();
-      expect(capability.name).toBeDefined();
-      expect(capability.description).toBeDefined();
+      expect(capability).toBeDefined();
+      expect(capability?.id).toBeDefined();
+      expect(capability?.name).toBeDefined();
+      expect(capability?.description).toBeDefined();
     });
 
     it('should use tag-based capability matching', async () => {
@@ -405,7 +410,7 @@ describe('OpportunityAgent', () => {
         {
           name: 'Reduce costs',
           description: 'Cut operational expenses by 30%',
-          priority: 1,
+          priority: 1 as const,
           owner: 'CFO'
         }
       ];
@@ -424,7 +429,8 @@ describe('OpportunityAgent', () => {
       expect(result).toBeDefined();
       expect(Array.isArray(result)).toBe(true);
       expect(result.length).toBe(1);
-      expect(result[0].id).toBeDefined();
+      expect(result[0]).toBeDefined();
+      expect(result[0]?.id).toBeDefined();
     });
 
     it('should handle database errors gracefully', async () => {
@@ -438,7 +444,7 @@ describe('OpportunityAgent', () => {
         {
           name: 'Test Objective',
           description: 'Test',
-          priority: 1,
+          priority: 1 as const,
           owner: 'Test'
         }
       ];

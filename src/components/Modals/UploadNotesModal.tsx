@@ -13,9 +13,7 @@ import {
   Loader2,
   CheckCircle,
   AlertCircle,
-  Sparkles,
 } from 'lucide-react';
-import { ProgressBar, StepProgress } from '../Common/ProgressBar';
 import { documentParserService, ExtractedInsights } from '../../services/DocumentParserService';
 
 interface UploadNotesModalProps {
@@ -43,7 +41,6 @@ export const UploadNotesModal: React.FC<UploadNotesModalProps> = ({
   const [activeTab, setActiveTab] = useState<'upload' | 'paste'>('upload');
   const [pastedText, setPastedText] = useState('');
   const [uploadState, setUploadState] = useState<UploadState>('idle');
-  const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [file, setFile] = useState<File | null>(initialFile || null);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -118,18 +115,18 @@ export const UploadNotesModal: React.FC<UploadNotesModalProps> = ({
         // Continue without insights if extraction fails
       }
     } else {
-      if (!selectedFile) {
+      if (!file) {
         setError('Please select a file');
         return;
       }
       
       setUploadState('uploading');
-      fileName = selectedFile.name;
-      fileType = selectedFile.type;
+      fileName = file.name;
+      fileType = file.type;
       
       try {
         // Parse document and extract insights using the service
-        const result = await documentParserService.parseAndExtract(selectedFile);
+        const result = await documentParserService.parseAndExtract(file);
         textContent = result.document.text;
         insights = result.insights;
         
@@ -155,7 +152,7 @@ export const UploadNotesModal: React.FC<UploadNotesModalProps> = ({
   };
 
   const resetState = () => {
-    setSelectedFile(null);
+    setFile(null);
     setPastedText('');
     setUploadState('idle');
     setError(null);
@@ -255,22 +252,22 @@ export const UploadNotesModal: React.FC<UploadNotesModalProps> = ({
                   ? 'border-indigo-500 bg-indigo-500/10' 
                   : 'border-gray-700 hover:border-gray-600'
                 }
-                ${selectedFile ? 'bg-gray-800/50' : ''}
+                ${file ? 'bg-gray-800/50' : ''}
               `}
             >
-              {selectedFile ? (
+              {file ? (
                 <div className="space-y-3">
                   <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center mx-auto">
                     <CheckCircle className="w-6 h-6 text-green-500" />
                   </div>
                   <div>
-                    <p className="text-white font-medium">{selectedFile.name}</p>
+                    <p className="text-white font-medium">{file.name}</p>
                     <p className="text-gray-500 text-sm">
-                      {(selectedFile.size / 1024).toFixed(1)} KB
+                      {(file.size / 1024).toFixed(1)} KB
                     </p>
                   </div>
                   <button
-                    onClick={() => setSelectedFile(null)}
+                    onClick={() => setFile(null)}
                     className="text-sm text-gray-400 hover:text-white"
                   >
                     Remove and choose another

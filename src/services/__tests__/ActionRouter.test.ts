@@ -16,13 +16,22 @@ vi.mock('../AgentOrchestrator');
 vi.mock('../WorkflowOrchestrator');
 vi.mock('../ComponentMutationService');
 vi.mock('../../lib/logger');
+vi.mock('../ManifestoEnforcer', () => ({
+  manifestoEnforcer: {
+    checkAction: vi.fn().mockResolvedValue({
+      allowed: true,
+      violations: [],
+      warnings: [],
+    }),
+  },
+}));
 
 describe('ActionRouter', () => {
   let router: ActionRouter;
-  let mockAuditLogService: AuditLogService;
-  let mockAgentOrchestrator: AgentOrchestrator;
-  let mockWorkflowOrchestrator: WorkflowOrchestrator;
-  let mockComponentMutationService: ComponentMutationService;
+  let mockAuditLogService: any;
+  let mockAgentOrchestrator: any;
+  let mockWorkflowOrchestrator: any;
+  let mockComponentMutationService: any;
 
   const context: ActionContext = {
     workspaceId: 'workspace-1',
@@ -32,10 +41,22 @@ describe('ActionRouter', () => {
   };
 
   beforeEach(() => {
-    mockAuditLogService = new AuditLogService();
-    mockAgentOrchestrator = new AgentOrchestrator();
-    mockWorkflowOrchestrator = new WorkflowOrchestrator();
-    mockComponentMutationService = new ComponentMutationService();
+    // Create proper mocks with required methods
+    mockAuditLogService = {
+      logAction: vi.fn().mockResolvedValue(undefined),
+    } as any;
+
+    mockAgentOrchestrator = {
+      invokeAgent: vi.fn().mockResolvedValue({ result: 'success' }),
+    } as any;
+
+    mockWorkflowOrchestrator = {
+      executeWorkflow: vi.fn().mockResolvedValue({ status: 'completed' }),
+    } as any;
+
+    mockComponentMutationService = {
+      mutateComponent: vi.fn().mockResolvedValue({ success: true }),
+    } as any;
 
     router = new ActionRouter(
       mockAuditLogService,
@@ -123,6 +144,17 @@ describe('ActionRouter', () => {
     });
 
     it('should detect violations for updateValueTree without proper structure', async () => {
+      const { manifestoEnforcer } = await import('../ManifestoEnforcer');
+      vi.mocked(manifestoEnforcer.checkAction).mockResolvedValueOnce({
+        allowed: false,
+        violations: [{
+          rule: 'RULE_003',
+          severity: 'error',
+          message: 'Value tree must include outcomes',
+        }],
+        warnings: [],
+      });
+
       const action: CanonicalAction = {
         type: 'updateValueTree',
         treeId: 'tree-1',
@@ -137,10 +169,21 @@ describe('ActionRouter', () => {
 
       expect(result.allowed).toBe(false);
       expect(result.violations.length).toBeGreaterThan(0);
-      expect(result.violations[0].rule).toBe('RULE_003');
+      expect(result.violations[0]?.rule).toBe('RULE_003');
     });
 
     it('should detect violations for updateAssumption without evidence', async () => {
+      const { manifestoEnforcer } = await import('../ManifestoEnforcer');
+      vi.mocked(manifestoEnforcer.checkAction).mockResolvedValueOnce({
+        allowed: false,
+        violations: [{
+          rule: 'RULE_004',
+          severity: 'error',
+          message: 'Assumptions require evidence',
+        }],
+        warnings: [],
+      });
+
       const action: CanonicalAction = {
         type: 'updateAssumption',
         assumptionId: 'assumption-1',
@@ -153,10 +196,20 @@ describe('ActionRouter', () => {
 
       expect(result.allowed).toBe(false);
       expect(result.violations.length).toBeGreaterThan(0);
-      expect(result.violations[0].rule).toBe('RULE_004');
+      expect(result.violations[0]?.rule).toBe('RULE_004');
     });
 
     it('should provide warnings for exportArtifact', async () => {
+      const { manifestoEnforcer } = await import('../ManifestoEnforcer');
+      vi.mocked(manifestoEnforcer.checkAction).mockResolvedValueOnce({
+        allowed: true,
+        violations: [],
+        warnings: [{
+          rule: 'EXPORT_001',
+          message: 'Export may contain estimates',
+        }],
+      });
+
       const action: CanonicalAction = {
         type: 'exportArtifact',
         artifactType: 'report',
@@ -179,15 +232,18 @@ describe('ActionRouter', () => {
         context: {},
       };
 
-      vi.spyOn(mockAgentOrchestrator, 'invokeAgent').mockResolvedValue({
-        success: true,
-        data: { result: 'test result' },
-      });
+      // Mock is already configured in beforeEach
+      (mockAgentOrchestrator.invokeAgent as any).mockResolvedValue({ result: 'test result' });
 
       const result = await router.routeAction(action, context);
 
       expect(result.success).toBe(true);
       expect(result.data).toBeDefined();
+      expect(mockAgentOrchestrator.invokeAgent).toHaveBeenCalledWith(
+        'agent-1',
+        { query: 'test' },
+        expect.objectContaining({ workspaceId: 'workspace-1' })
+      );
     });
 
     it('should route navigateToStage action successfully', async () => {
@@ -227,6 +283,17 @@ describe('ActionRouter', () => {
     });
 
     it('should fail routing for action violating Manifesto rules', async () => {
+      const { manifestoEnforcer } = await import('../ManifestoEnforcer');
+      vi.mocked(manifestoEnforcer.checkAction).mockResolvedValueOnce({
+        allowed: false,
+        violations: [{
+          rule: 'RULE_003',
+          severity: 'error',
+          message: 'Value tree structure incomplete',
+        }],
+        warnings: [],
+      });
+
       const action: CanonicalAction = {
         type: 'updateValueTree',
         treeId: 'tree-1',
@@ -251,7 +318,8 @@ describe('ActionRouter', () => {
         context: {},
       };
 
-      vi.spyOn(mockAgentOrchestrator, 'invokeAgent').mockRejectedValue(
+      // Configure mock to reject
+      (mockAgentOrchestrator.invokeAgent as any).mockRejectedValue(
         new Error('Test error')
       );
 
