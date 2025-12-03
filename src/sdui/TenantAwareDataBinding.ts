@@ -228,8 +228,11 @@ export function logDataAccess(
     },
   };
 
-  // In production, send to audit logging service
-  console.log('[DATA ACCESS AUDIT]', log);
+  // Send to audit logging service
+  // TODO: Integrate with AuditLogger service
+  if (process.env.NODE_ENV === 'development') {
+    console.warn('[DATA ACCESS AUDIT]', log);
+  }
 
   return log;
 }

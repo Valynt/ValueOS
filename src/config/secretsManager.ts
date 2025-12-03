@@ -126,7 +126,7 @@ export class SecretsManager {
       // Invalidate cache
       this.cache.delete(this.secretName);
       
-      console.log('Secret updated successfully');
+      // Secret updated successfully - logged in audit trail
     } catch (error) {
       console.error('Failed to update secret:', error);
       throw error;
@@ -147,7 +147,7 @@ export class SecretsManager {
       // Invalidate cache
       this.cache.delete(this.secretName);
       
-      console.log('Secret rotation initiated');
+      // Secret rotation initiated - logged in audit trail
     } catch (error) {
       console.error('Failed to rotate secret:', error);
       throw error;
@@ -192,7 +192,7 @@ export const secretsManager = new SecretsManager();
  * Initialize secrets on application startup
  */
 export async function initializeSecrets(): Promise<void> {
-  console.log('Initializing secrets from AWS Secrets Manager...');
+  // Initializing secrets from AWS Secrets Manager
   
   try {
     const validation = await secretsManager.validateSecrets();
@@ -201,7 +201,7 @@ export async function initializeSecrets(): Promise<void> {
       console.warn('Missing required secrets:', validation.missing);
       console.warn('Application may not function correctly');
     } else {
-      console.log('✅ All required secrets loaded successfully');
+      // All required secrets loaded successfully
     }
   } catch (error) {
     console.error('Failed to initialize secrets:', error);
