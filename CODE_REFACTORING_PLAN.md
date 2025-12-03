@@ -12,7 +12,7 @@ This document outlines high-priority refactoring tasks to improve the codebase's
 
 **Solution:** Refactor the `BaseAgent` and all derived agents to accept and use a `LifecycleContext` containing the `organizationId`. This makes agents explicitly tenant-aware and improves security.
 
-#### Before:
+#### Before
 
 ```typescript
 // src/services/ValueLifecycleOrchestrator.ts
@@ -25,7 +25,7 @@ private getAgentForStage(stage: LifecycleStage): BaseAgent {
   }
 ```
 
-#### After:
+#### After
 
 ```typescript
 // src/lib/agent-fabric/agents/BaseAgent.ts
@@ -61,7 +61,7 @@ const agent = this.getAgentForStage(stage, context);
 
 **Solution:** Abstract all database interactions behind a DAO/Repository layer. A Service layer will then use one or more DAOs to perform business operations.
 
-#### Before (Simplified Example):
+#### Before (Simplified Example)
 
 ```typescript
 // src/services/SomeService.ts
@@ -83,7 +83,7 @@ async function getModelAndRelatedKpis(modelId: string, orgId: string) {
 }
 ```
 
-#### After (DAO/Service Pattern):
+#### After (DAO/Service Pattern)
 
 ```typescript
 // src/repositories/ModelRepository.ts
@@ -154,7 +154,7 @@ export class ModelService {
 
 **Solution:** Use `Zod` (already in `package.json`) to define schemas for all inputs (API requests, function arguments) and validate them at the entry point of the business logic.
 
-#### Example:
+#### Example
 
 ```typescript
 // src/validators/modelValidators.ts

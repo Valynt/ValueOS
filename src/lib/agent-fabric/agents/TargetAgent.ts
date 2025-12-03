@@ -15,17 +15,11 @@
  */
 
 import { BaseAgent } from './BaseAgent';
-import { ROIFormulaInterpreter } from '../../../services/ROIFormulaInterpreter';
+import { ModelService } from '../../../services/ModelService';
 import type {
-  BusinessObjective,
-  Capability,
   ValueTree,
-  ValueTreeNode,
-  ValueTreeLink,
   ROIModel,
-  ROIModelCalculation,
   ValueCommit,
-  KPITarget,
   TargetAgentInput,
   TargetAgentOutput
 } from '../../../types/vos';
@@ -33,8 +27,6 @@ import type {
 import { AgentConfig } from '../../../types/agent';
 
 export class TargetAgent extends BaseAgent {
-  private roiInterpreter: ROIFormulaInterpreter;
-
   public lifecycleStage = 'target';
   public version = '1.0';
   public name = 'Target Agent';
@@ -44,7 +36,6 @@ export class TargetAgent extends BaseAgent {
     if (!config.supabase) {
       throw new Error("Supabase client is required for TargetAgent");
     }
-    this.roiInterpreter = new ROIFormulaInterpreter(config.supabase);
   }
 
   async execute(
@@ -195,7 +186,7 @@ Return ONLY valid JSON in this exact format:
       max_tokens: 4000
     });
 
-    const parsed = this.extractJSON(response.content);
+    const parsed = await this.extractJSON(response.content);
 
     const valueTree: Omit<ValueTree, 'id' | 'created_at' | 'updated_at'> = {
       value_case_id: input.valueCaseId,
@@ -207,6 +198,7 @@ Return ONLY valid JSON in this exact format:
     };
 
     const roiModel: Omit<ROIModel, 'id' | 'value_tree_id' | 'created_at' | 'updated_at'> = {
+      organization_id: this.organizationId || '',
       financial_model_id: undefined,
       name: parsed.roi_model.name,
       assumptions: parsed.roi_model.assumptions,
@@ -281,8 +273,6 @@ Return ONLY valid JSON in this exact format:
     };
   }
 
-import { ModelService } from '../../../services/ModelService';
-
   /**
    * Persist complete Target artifacts to database using the ModelService.
    */
@@ -313,16 +303,5 @@ import { ModelService } from '../../../services/ModelService';
     // on moving the core persistence logic.
 
     return modelService.persistBusinessCase(output, valueCaseId);
-  }
-
-  private async findNodeByNodeId(valueTreeId: string, nodeId: string) {
-    const { data } = await this.supabase
-      .from('value_tree_nodes')
-      .select('id')
-      .eq('value_tree_id', valueTreeId)
-      .eq('node_id', nodeId)
-      .maybeSingle();
-
-    return data;
   }
 }
