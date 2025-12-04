@@ -69,10 +69,12 @@ paths:
                 properties:
                   status:
                     type: string
-                    example: ok
                   timestamp:
                     type: string
                     format: date-time
+              example:
+                status: ok
+                timestamp: '2024-01-01T00:00:00Z'
 
   /health/ready:
     get:
@@ -90,7 +92,6 @@ paths:
                 properties:
                   status:
                     type: string
-                    example: ready
                   checks:
                     type: array
                     items:
@@ -103,12 +104,24 @@ paths:
                           enum: [healthy, unhealthy]
                         latency:
                           type: number
+              example:
+                status: ready
+                checks:
+                  - name: database
+                    status: healthy
+                    latency: 23
+                  - name: cache
+                    status: healthy
+                    latency: 12
         '503':
           description: Service is not ready
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              example:
+                error: ServiceUnavailable
+                message: Upstream dependency check failed
 
   /api/canvas/generate:
     post:
@@ -145,6 +158,11 @@ paths:
                     - meta-llama/Llama-3-70b-chat-hf
                     - meta-llama/Llama-3-8b-chat-hf
                     - mistralai/Mixtral-8x7B-Instruct-v0.1
+            example:
+              businessDescription: A SaaS platform for project management
+              industry: Technology
+              targetMarket: SMBs
+              model: meta-llama/Llama-3-70b-chat-hf
       responses:
         '200':
           description: Canvas generated successfully
@@ -176,29 +194,56 @@ paths:
                         example: 1500
                       cached:
                         type: boolean
+              example:
+                success: true
+                data:
+                  canvasId: 123e4567-e89b-12d3-a456-426614174000
+                  canvas:
+                    id: 123e4567-e89b-12d3-a456-426614174000
+                    businessDescription: A SaaS platform for project management
+                    valuePropositions:
+                      - Real-time project tracking
+                    customerSegments:
+                      - SMBs
+                  provider: together_ai
+                  cost: 0.002
+                  latency: 1500
+                  cached: false
         '400':
           description: Invalid request
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              example:
+                error: InvalidRequest
+                message: businessDescription is required
         '429':
           description: Rate limit exceeded
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/RateLimitError'
+              example:
+                error: Rate limit exceeded
+                message: Upgrade for more requests
+                upgradeUrl: /pricing
+                retryAfter: 60
         '503':
           description: LLM service unavailable
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              example:
+                error: ServiceUnavailable
+                message: LLM provider is unavailable
 
   /api/canvas/{canvasId}:
     get:
       tags: [Canvas]
       summary: Get canvas by ID
+      description: Retrieve a saved canvas with all sections populated
       operationId: getCanvas
       parameters:
         - name: canvasId
@@ -219,16 +264,30 @@ paths:
                     type: boolean
                   data:
                     $ref: '#/components/schemas/Canvas'
+              example:
+                success: true
+                data:
+                  id: 123e4567-e89b-12d3-a456-426614174000
+                  businessDescription: Product analytics for SaaS teams
+                  valuePropositions:
+                    - Self-serve dashboards
+                  customerSegments:
+                    - Startup
+                  updatedAt: '2024-01-01T00:00:00Z'
         '404':
           description: Canvas not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              example:
+                error: NotFound
+                message: Canvas not found
 
     put:
       tags: [Canvas]
       summary: Update canvas
+      description: Persist changes to an existing canvas record
       operationId: updateCanvas
       parameters:
         - name: canvasId
@@ -243,6 +302,10 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/Canvas'
+            example:
+              businessDescription: Updated description
+              valuePropositions:
+                - New positioning statement
       responses:
         '200':
           description: Canvas updated successfully
@@ -255,10 +318,18 @@ paths:
                     type: boolean
                   data:
                     $ref: '#/components/schemas/Canvas'
+              example:
+                success: true
+                data:
+                  id: 123e4567-e89b-12d3-a456-426614174000
+                  businessDescription: Updated description
+                  valuePropositions:
+                    - New positioning statement
 
     delete:
       tags: [Canvas]
       summary: Delete canvas
+      description: Remove an existing canvas and its associated sections
       operationId: deleteCanvas
       parameters:
         - name: canvasId
@@ -277,6 +348,8 @@ paths:
                 properties:
                   success:
                     type: boolean
+              example:
+                success: true
 
   /api/canvas/{canvasId}/refine:
     post:
@@ -316,6 +389,9 @@ paths:
                   type: string
                   description: Additional context for refinement
                   example: We want to expand into enterprise market
+            example:
+              section: valuePropositions
+              context: We want to expand into enterprise market
       responses:
         '200':
           description: Suggestions generated successfully
@@ -339,6 +415,15 @@ paths:
                         type: number
                       cached:
                         type: boolean
+              example:
+                success: true
+                data:
+                  suggestions:
+                    - Emphasize enterprise-grade security controls
+                    - Offer dedicated onboarding
+                  reasoning: Aligning to enterprise buyers increases win rate
+                  cost: 0.001
+                  cached: false
 
   /api/llm/chat:
     post:
@@ -374,6 +459,11 @@ paths:
                   default: 0.7
                   minimum: 0
                   maximum: 2
+            example:
+              prompt: Suggest three marketing experiments for Q1
+              model: meta-llama/Llama-3-70b-chat-hf
+              maxTokens: 500
+              temperature: 0.5
       responses:
         '200':
           description: LLM response generated successfully
@@ -410,6 +500,22 @@ paths:
                         type: number
                       cached:
                         type: boolean
+              example:
+                success: true
+                data:
+                  content: |
+                    1) Launch a targeted LinkedIn campaign for enterprise PMs.
+                    2) Run a webinar on reducing delivery risk.
+                    3) Offer a 14-day pilot with success metrics.
+                  provider: together_ai
+                  model: meta-llama/Llama-3-70b-chat-hf
+                  usage:
+                    promptTokens: 150
+                    completionTokens: 120
+                    totalTokens: 270
+                  cost: 0.0015
+                  latency: 1200
+                  cached: false
 
   /api/llm/stats:
     get:
@@ -441,6 +547,22 @@ paths:
                             type: integer
                           misses:
                             type: integer
+              example:
+                success: true
+                data:
+                  togetherAI:
+                    state: open
+                    calls: 120
+                    failures: 2
+                    fallbacks: 1
+                  openAI:
+                    state: open
+                    calls: 40
+                    failures: 0
+                    fallbacks: 0
+                  cache:
+                    hits: 60
+                    misses: 20
 
   /api/llm/health:
     get:
@@ -465,12 +587,24 @@ paths:
                         $ref: '#/components/schemas/ProviderHealth'
                       openAI:
                         $ref: '#/components/schemas/ProviderHealth'
+              example:
+                success: true
+                data:
+                  togetherAI:
+                    healthy: true
+                    state: open
+                  openAI:
+                    healthy: true
+                    state: open
         '503':
           description: One or more providers unhealthy
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              example:
+                error: ProviderUnhealthy
+                message: togetherAI circuit breaker is open
 
   /api/user/llm-usage:
     get:
@@ -527,6 +661,22 @@ paths:
                               type: integer
                             cost:
                               type: number
+              example:
+                success: true
+                data:
+                  totalCost: 12.5
+                  requestCount: 320
+                  tokenUsage:
+                    prompt: 120000
+                    completion: 84000
+                    total: 204000
+                  byModel:
+                    - model: meta-llama/Llama-3-70b-chat-hf
+                      requests: 200
+                      cost: 9.5
+                    - model: meta-llama/Llama-3-8b-chat-hf
+                      requests: 120
+                      cost: 3
 
   /api/prompts/versions:
     get:
@@ -555,6 +705,21 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/PromptVersion'
+              example:
+                success: true
+                data:
+                  - id: 123e4567-e89b-12d3-a456-426614174000
+                    promptKey: canvas.generate
+                    version: 1
+                    template: Generate a canvas for {{businessDescription}}
+                    variables: [businessDescription]
+                    status: active
+                  - id: 223e4567-e89b-12d3-a456-426614174000
+                    promptKey: canvas.generate
+                    version: 2
+                    template: Generate a canvas with industry {{industry}}
+                    variables: [businessDescription, industry]
+                    status: testing
 
     post:
       tags: [Prompts]
@@ -597,6 +762,15 @@ paths:
                         type: string
                     model:
                       type: string
+            example:
+              promptKey: canvas.generate
+              template: "Generate a canvas for {{businessDescription}}"
+              variables: [businessDescription, industry]
+              metadata:
+                author: product@valuecanvas.ai
+                description: Default canvas generation prompt
+                tags: [canvas, generation]
+                model: meta-llama/Llama-3-70b-chat-hf
       responses:
         '201':
           description: Version created successfully
@@ -609,6 +783,17 @@ paths:
                     type: boolean
                   data:
                     $ref: '#/components/schemas/PromptVersion'
+              example:
+                success: true
+                data:
+                  id: 323e4567-e89b-12d3-a456-426614174000
+                  promptKey: canvas.generate
+                  version: 3
+                  template: Generate a canvas for {{businessDescription}}
+                  variables: [businessDescription, industry]
+                  metadata:
+                    author: product@valuecanvas.ai
+                  status: testing
 
   /api/prompts/versions/{promptKey}/{version}/activate:
     post:
@@ -637,6 +822,8 @@ paths:
                 properties:
                   success:
                     type: boolean
+              example:
+                success: true
 
 components:
   securitySchemes:
