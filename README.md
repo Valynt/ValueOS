@@ -1,3 +1,50 @@
+# Project Environments
+
+## Development Environment (Dev Container)
+
+```bash
+# Open in VS Code with Dev Containers extension
+code .
+# Then: Reopen in Container
+```
+
+## Staging Environment
+
+```bash
+# Build and start
+docker-compose -f docker/stage/docker-compose.yml up -d --build
+
+# View logs
+docker-compose -f docker/stage/docker-compose.yml logs -f
+
+# Stop
+docker-compose -f docker/stage/docker-compose.yml down
+```
+
+## Production Environment
+
+```bash
+# Deploy
+./scripts/deploy.sh prod
+
+# Health check
+./scripts/health-check.sh prod 8000
+
+# View logs
+docker-compose -f docker/prod/docker-compose.yml logs -f app
+```
+
+## Environment Variables
+
+Copy `.env.example` to `.env.dev`, `.env.stage`, and `.env.prod` and update values.
+
+## Health Endpoints
+
+- `/healthz` - Liveness probe
+- `/ready` - Readiness probe
+
+---
+
 # Supabase CLI
 
 [![Coverage Status](https://coveralls.io/repos/github/supabase/cli/badge.svg?branch=main)](https://coveralls.io/github/supabase/cli?branch=main) [![Bitbucket Pipelines](https://img.shields.io/bitbucket/pipelines/supabase-cli/setup-cli/master?style=flat-square&label=Bitbucket%20Canary)](https://bitbucket.org/supabase-cli/setup-cli/pipelines) [![Gitlab Pipeline Status](https://img.shields.io/gitlab/pipeline-status/sweatybridge%2Fsetup-cli?label=Gitlab%20Canary)
