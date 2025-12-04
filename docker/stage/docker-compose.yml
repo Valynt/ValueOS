@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: ../../
+      dockerfile: docker/stage/Dockerfile
+    container_name: stage-app
+    ports:
+      - "8001:8000"
+    environment:
+      - NODE_ENV=staging
+      - DATABASE_URL=${STAGE_DATABASE_URL}
+      - REDIS_URL=${STAGE_REDIS_URL}
+    env_file:
+      - ../../.env.stage
+    networks:
+      - stage-network
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: stage-postgres
+    environment:
+      POSTGRES_DB: ${STAGE_DB_NAME}
+      POSTGRES_USER: ${STAGE_DB_USER}
+      POSTGRES_PASSWORD: ${STAGE_DB_PASSWORD}
+    volumes:
+      - stage-postgres-data:/var/lib/postgresql/data
+    networks:
+      - stage-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: stage-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - stage-redis-data:/data
+    networks:
+      - stage-network
+    restart: unless-stopped
+
+networks:
+  stage-network:
+    driver: bridge
+
+volumes:
+  stage-postgres-data:
+  stage-redis-data:
