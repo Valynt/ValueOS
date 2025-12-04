@@ -1,0 +1,96 @@
+# ============================================================================
+# ValueCanvas SAML Testing Environment
+# ============================================================================
+# Keycloak as mock SAML IdP for automated testing
+# Used for SAML compliance suite and SLO verification
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # ============================================================================
+  # Keycloak SAML Identity Provider (Test Only)
+  # ============================================================================
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0
+    container_name: valuecanvas-saml-idp
+    command:
+      - start-dev
+      - --import-realm
+    environment:
+      # Admin credentials (TEST ONLY)
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      
+      # Database (embedded H2 for testing)
+      KC_DB: dev-mem
+      
+      # Hostname configuration
+      KC_HOSTNAME_STRICT: false
+      KC_HOSTNAME_STRICT_HTTPS: false
+      KC_HTTP_ENABLED: true
+      
+      # Logging
+      KC_LOG_LEVEL: INFO
+    ports:
+      - "8080:8080"
+    volumes:
+      # Import pre-configured realm with SAML client
+      - ./test/saml/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      # Test certificates
+      - ./test/saml/certs:/opt/keycloak/certs:ro
+    networks:
+      - saml-test-network
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200 OK'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    restart: unless-stopped
+
+  # ============================================================================
+  # ValueCanvas Application (Test Instance)
+  # ============================================================================
+  app-saml-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: valuecanvas-saml-test
+    ports:
+      - "5174:5173"  # Different port to avoid conflicts
+    environment:
+      - NODE_ENV=test
+      - VITE_HOST=0.0.0.0
+      - VITE_PORT=5173
+      - VITE_SAML_ENABLED=true
+      - VITE_SAML_IDP_URL=http://keycloak:8080/realms/valuecanvas-test/protocol/saml
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    networks:
+      - saml-test-network
+    restart: unless-stopped
+
+  # ============================================================================
+  # Redis for session management
+  # ============================================================================
+  redis-saml-test:
+    image: redis:7-alpine
+    container_name: valuecanvas-redis-saml-test
+    ports:
+      - "6380:6379"
+    command: redis-server --requirepass saml_test_redis_pass
+    networks:
+      - saml-test-network
+    restart: unless-stopped
+
+networks:
+  saml-test-network:
+    driver: bridge
+
+volumes:
+  keycloak-data:
+    driver: local
