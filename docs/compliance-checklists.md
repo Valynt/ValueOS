@@ -7,8 +7,8 @@
 - **Security monitoring (CC7.2)**: Security audit log captures event type/severity and is fed by request middleware plus existing audit hooks for agents and authorization changes.【F:supabase/migrations/20250101000000_baseline_schema.sql†L272-L293】【F:src/backend/server.ts†L8-L31】
 
 ## Operational checklist
-- [ ] Run `scripts/backup-database.sh` daily via cron or CI with S3 credentials and confirm successful uploads.
-- [ ] Ensure `kubernetes/security-audit-retention-cronjob.yaml` is applied with the `valuecanvas-database` secret and `audit-ops` service account bound.
-- [ ] Perform quarterly restore dry-runs using `scripts/restore-database.sh` in staging and record RPO/RTO results in the incident log.
-- [ ] Validate DSR automation monthly using a test account; export and anonymize flows should both write audit entries.
+- [ ] Run `scripts/backup-database.sh` daily via cron or CI with S3 credentials; alert on failures and record upload/checksum metrics.
+- [ ] Ensure `kubernetes/security-audit-retention-cronjob.yaml` is applied with the `valuecanvas-database` secret and `audit-ops` service account bound; verify 180-day primary/archived lifecycles are enforced.
+- [ ] Perform quarterly restore dry-runs using `scripts/restore-database.sh` in staging and record RPO/RTO results and any manual steps in the incident log.
+- [ ] Validate DSR automation monthly using a test account; export and anonymize flows should both write audit entries and the audit log should be reviewed for the expected request ID.
 - [ ] Keep onboarding training updated with locations of PII-bearing tables and the audit/retention flows documented in `docs/data-protection-overview.md`.
