@@ -1,0 +1,157 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-broker
+  labels:
+    app: redis-broker
+spec:
+  type: ClusterIP
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+  selector:
+    app: redis-broker
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-broker
+  labels:
+    app: redis-broker
+spec:
+  serviceName: redis-broker
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-broker
+  template:
+    metadata:
+      labels:
+        app: redis-broker
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          args:
+            - redis-server
+            - "--appendonly"
+            - "yes"
+          ports:
+            - containerPort: 6379
+              name: redis
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: message-worker
+  labels:
+    app: message-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: message-worker
+  template:
+    metadata:
+      labels:
+        app: message-worker
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9464"
+    spec:
+      containers:
+        - name: message-worker
+          image: ${ECR_REGISTRY:-valuecanvas}/message-worker:${IMAGE_TAG:-latest}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: REDIS_URL
+              value: redis://redis-broker:6379
+            - name: BROKER_STREAM
+              value: valuecanvas.events
+            - name: BROKER_GROUP
+              value: valuecanvas-workers
+            - name: NODE_ENV
+              value: production
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "pgrep node"]
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          readinessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "pgrep node"]
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          ports:
+            - containerPort: 9464
+              name: metrics
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: message-worker
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: message-worker
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 75
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
