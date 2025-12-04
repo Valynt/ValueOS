@@ -108,6 +108,9 @@ export {
   type RateLimitResult,
 } from './RateLimiter';
 
+// Secure in-memory caching with zeroization
+export { SecureCache, secureCache, type SecureCacheOptions } from './SecureCache';
+
 // Security Headers
 export {
   generateCSPHeader,
