@@ -1,0 +1,31 @@
+name: Synthetic Golden Path Monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'
+
+jobs:
+  golden-path:
+    name: Golden Path Synthetic Monitor
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Playwright (Chromium only)
+        run: npx playwright install --with-deps chromium
+      - name: Run golden path synthetic monitor
+        run: npm run monitor:golden-path
+        env:
+          MONITOR_BASE_URL: ${{ secrets.MONITOR_BASE_URL }}
+          MONITOR_EMAIL: ${{ secrets.MONITOR_EMAIL }}
+          MONITOR_PASSWORD: ${{ secrets.MONITOR_PASSWORD }}
+          MONITOR_OTP: ${{ secrets.MONITOR_OTP }}
+          MONITOR_EXPORT_FORMAT: ${{ secrets.MONITOR_EXPORT_FORMAT }}
+          PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
