@@ -152,6 +152,16 @@ spec:
   minReplicas: 1
   maxReplicas: 5
   metrics:
+    - type: External
+      external:
+        metric:
+          name: message_worker_queue_depth
+          selector:
+            matchLabels:
+              app: message-worker
+        target:
+          type: AverageValue
+          averageValue: 50
     - type: Resource
       resource:
         name: cpu
