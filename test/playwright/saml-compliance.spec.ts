@@ -192,19 +192,12 @@ test.describe('SAML Compliance Suite', () => {
       
       const mockTime = Date.now() + (CLOCK_SKEW_TOLERANCE_SECONDS - 30) * 1000;
 
-      // Mock system time
+      // Mock Date.now() to simulate clock skew
       await page.addInitScript((time) => {
-        const originalDate = Date;
-        (window as any).Date = class extends originalDate {
-          constructor(...args: any[]) {
-            if (args.length === 0) {
-              return new originalDate(time);
-            }
-            return new originalDate(...args);
-          }
-          static now() {
-            return time;
-          }
+        const originalNow = Date.now;
+        Date.now = () => time;
+        Date.prototype.getTime = function() {
+          return time;
         };
       }, mockTime);
 
@@ -221,18 +214,11 @@ test.describe('SAML Compliance Suite', () => {
       // Set time far in the future (beyond tolerance)
       const mockTime = Date.now() + (CLOCK_SKEW_TOLERANCE_SECONDS + 60) * 1000;
 
+      // Mock Date.now() to simulate excessive clock skew
       await page.addInitScript((time) => {
-        const originalDate = Date;
-        (window as any).Date = class extends originalDate {
-          constructor(...args: any[]) {
-            if (args.length === 0) {
-              return new originalDate(time);
-            }
-            return new originalDate(...args);
-          }
-          static now() {
-            return time;
-          }
+        Date.now = () => time;
+        Date.prototype.getTime = function() {
+          return time;
         };
       }, mockTime);
 
