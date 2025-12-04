@@ -1,0 +1,84 @@
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: valuecanvas-default-peer-auth
+  namespace: valuecanvas
+spec:
+  mtls:
+    mode: STRICT
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: api-allow-gateway-spiffe
+  namespace: valuecanvas
+spec:
+  selector:
+    matchLabels:
+      component: api
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - spiffe://valuecanvas/api-gateway
+      to:
+        - operation:
+            ports: ["3000"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: agents-allow-api-and-proxy
+  namespace: valuecanvas
+spec:
+  selector:
+    matchLabels:
+      component: agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - spiffe://valuecanvas/api-gateway
+              - spiffe://valuecanvas/llm-proxy
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: redis-allow-mesh-identities
+  namespace: valuecanvas
+spec:
+  selector:
+    matchLabels:
+      app: redis-broker
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - spiffe://valuecanvas/message-worker
+              - spiffe://valuecanvas/opportunity-agent
+              - spiffe://valuecanvas/api-gateway
+      to:
+        - operation:
+            ports: ["6379"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-plaintext
+  namespace: valuecanvas
+spec:
+  action: DENY
+  rules:
+    - when:
+        - key: connection.mtls
+          values: ["false"]

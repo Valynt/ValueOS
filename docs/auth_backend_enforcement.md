@@ -39,7 +39,7 @@ COMMENT ON POLICY password_not_breached ON profiles IS 'Blocks updates when pass
 - Enable bot protection/captcha for signup if allowed.
 
 ## Deployment checklist
-- Set GOTRUE env vars for complexity + MFA.
-- Deploy Edge Function + add claim injection to JWT (`password_breached` + `mfa`).
-- Apply RLS policies above; test with and without MFA/breached-password flags.
-- Add monitoring/alerts on failed MFA and breach blocks.
+- Set GOTRUE env vars for complexity + MFA. (Configured in `supabase/docker-compose.supabase.yml` with explicit complexity flags, MFA toggles, and concurrent signin/signup limits.)
+- Deploy Edge Function + add claim injection to JWT (`password_breached` + `mfa`). (Implemented in `supabase/functions/check-password-breach/index.ts` using service-role updates and `X-Supabase-Custom-Claims` header.)
+- Apply RLS policies above; test with and without MFA/breached-password flags. (Enforced via `supabase/migrations/20251204231500_auth_claim_enforcement.sql`.)
+- Add monitoring/alerts on failed MFA and breach blocks. (Nginx auth gateway config logs `auth_block_reason` for `/auth/v1` endpoints in `infrastructure/gateway/nginx-auth-rate-limiting.conf`.)
