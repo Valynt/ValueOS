@@ -11,4 +11,9 @@
 - [ ] Ensure `kubernetes/security-audit-retention-cronjob.yaml` is applied with the `valuecanvas-database` secret and `audit-ops` service account bound; verify 180-day primary/archived lifecycles are enforced.
 - [ ] Perform quarterly restore dry-runs using `scripts/restore-database.sh` in staging and record RPO/RTO results and any manual steps in the incident log.
 - [ ] Validate DSR automation monthly using a test account; export and anonymize flows should both write audit entries and the audit log should be reviewed for the expected request ID.
+- [ ] Run `scripts/backup-database.sh` daily via cron or CI with S3 credentials and confirm successful uploads.
+- [ ] Ensure `kubernetes/security-audit-retention-cronjob.yaml` is applied with the `valuecanvas-database` secret and `audit-ops` service account bound.
+- [ ] Monitor the `security-audit-retention` CronJob for a recent `lastSuccessfulTime`, alert on `suspend: true`, and verify the `audit_request_events_archive` table keeps appending rows without unexpected deletes.
+- [ ] Perform quarterly restore dry-runs using `scripts/restore-database.sh` in staging and record RPO/RTO results in the incident log.
+- [ ] Validate DSR automation monthly using a test account; export and anonymize flows should both write audit entries.
 - [ ] Keep onboarding training updated with locations of PII-bearing tables and the audit/retention flows documented in `docs/data-protection-overview.md`.

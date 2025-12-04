@@ -222,7 +222,11 @@ export function requirePermission(
   permission: Permission,
   scope: PermissionScope = 'tenant'
 ) {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async function requirePermissionMiddleware(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     try {
       const user = req.user as any;
       

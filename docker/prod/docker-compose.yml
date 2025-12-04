@@ -12,6 +12,11 @@ services:
       - NODE_ENV=production
       - DATABASE_URL=${PROD_DATABASE_URL}
       - REDIS_URL=${PROD_REDIS_URL}
+      - UV_THREADPOOL_SIZE=${UV_THREADPOOL_SIZE:-8}
+      - PG_POOL_MIN=${PG_POOL_MIN:-4}
+      - PG_POOL_MAX=${PG_POOL_MAX:-40}
+      - PG_POOL_IDLE_TIMEOUT_MS=${PG_POOL_IDLE_TIMEOUT_MS:-10000}
+      - PG_POOL_CONNECTION_TIMEOUT_MS=${PG_POOL_CONNECTION_TIMEOUT_MS:-2000}
     env_file:
       - ../../.env.prod
     networks:
