@@ -45,6 +45,11 @@ export interface SearchOptions {
 export interface SearchResult {
   memory: SemanticMemory;
   similarity: number;
+  lineage?: {
+    source_origin?: string;
+    data_sensitivity_level?: string;
+  };
+  evidenceLog?: string;
 }
 
 // ============================================================================
@@ -102,17 +107,30 @@ export class VectorSearchService {
       }
 
       // Format results
-      const results: SearchResult[] = (data || []).map((row: any) => ({
-        memory: {
-          id: row.id,
-          type: row.type,
-          content: row.content,
-          embedding: row.embedding,
-          metadata: row.metadata,
-          created_at: row.created_at
-        },
-        similarity: row.similarity
-      }));
+      const results: SearchResult[] = (data || []).map((row: any) => {
+        const lineage = {
+          source_origin: row.metadata?.source_origin,
+          data_sensitivity_level: row.metadata?.data_sensitivity_level
+        };
+
+        const evidenceLog = lineage.source_origin
+          ? `Source: ${lineage.source_origin} (sensitivity: ${lineage.data_sensitivity_level || 'unspecified'})`
+          : 'Lineage unavailable';
+
+        return {
+          memory: {
+            id: row.id,
+            type: row.type,
+            content: row.content,
+            embedding: row.embedding,
+            metadata: row.metadata,
+            created_at: row.created_at
+          },
+          similarity: row.similarity,
+          lineage,
+          evidenceLog
+        };
+      });
 
       // Cache results
       if (useCache) {
@@ -344,7 +362,16 @@ export class VectorSearchService {
     type?: SemanticMemory['type'],
     filters: Record<string, any> = {}
   ): string {
-    const conditions: string[] = [];
+    const conditions: string[] = [
+      "(metadata ? 'source_origin')",
+      "(metadata ? 'data_sensitivity_level')",
+      "metadata->>'source_origin' IS NOT NULL",
+      "metadata->>'data_sensitivity_level' IS NOT NULL",
+      "metadata->>'source_origin' <> ''",
+      "metadata->>'data_sensitivity_level' <> ''",
+      "LOWER(metadata->>'source_origin') <> 'unknown'",
+      "LOWER(metadata->>'data_sensitivity_level') <> 'unknown'"
+    ];
 
     // Type filter
     if (type) {
