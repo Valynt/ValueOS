@@ -47,7 +47,9 @@ app.use(
     res: express.Response,
     _next: express.NextFunction
   ): void => {
-    logger.error('Server error', err instanceof Error ? err : new Error(String(err)));
+    logger.error('Server error', err instanceof Error ? err : new Error(String(err)), {
+      requestId: res.locals.requestId,
+    });
     const message =
       settings.NODE_ENV === 'development' && err instanceof Error ? err.message : undefined;
     res.status(500).json({
