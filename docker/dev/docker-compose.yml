@@ -13,6 +13,11 @@ services:
       - PORT=3000
       - DATABASE_URL=${DEV_DATABASE_URL}
       - REDIS_URL=${DEV_REDIS_URL}
+      - UV_THREADPOOL_SIZE=${UV_THREADPOOL_SIZE:-8}
+      - PG_POOL_MIN=${PG_POOL_MIN:-4}
+      - PG_POOL_MAX=${PG_POOL_MAX:-40}
+      - PG_POOL_IDLE_TIMEOUT_MS=${PG_POOL_IDLE_TIMEOUT_MS:-10000}
+      - PG_POOL_CONNECTION_TIMEOUT_MS=${PG_POOL_CONNECTION_TIMEOUT_MS:-2000}
     env_file:
       - ../../.env.dev
     volumes:
