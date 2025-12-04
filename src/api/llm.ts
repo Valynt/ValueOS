@@ -16,10 +16,17 @@ import {
 } from '../middleware/securityMiddleware';
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
 import { rateLimiters } from '../middleware/rateLimiter';
+import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
 
 const router = Router();
+router.use(requestAuditMiddleware());
 router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
+
+const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
+  requestId: (req as any).requestId || res.locals.requestId,
+  ...meta,
+});
 
 /**
  * POST /api/llm/chat
@@ -49,12 +56,15 @@ router.post('/chat', rateLimiters.agentExecution, csrfProtectionMiddleware, sess
     const userId = (req as any).user?.id || 'anonymous';
     const sessionId = (req as any).sessionId;
     
-    logger.info('LLM chat request received', {
-      userId,
-      sessionId,
-      model,
-      promptLength: prompt.length
-    });
+    logger.info(
+      'LLM chat request received',
+      withRequestContext(req, res, {
+        userId,
+        sessionId,
+        model,
+        promptLength: prompt.length,
+      })
+    );
     
     // Process request with fallback
     const response = await llmFallback.processRequest({
@@ -84,7 +94,7 @@ router.post('/chat', rateLimiters.agentExecution, csrfProtectionMiddleware, sess
       }
     });
   } catch (error) {
-    logger.error('LLM chat request failed', error as Error);
+    logger.error('LLM chat request failed', error as Error, withRequestContext(req, res));
     
     res.status(500).json({
       error: 'LLM request failed',
@@ -107,7 +117,7 @@ router.get('/stats', rateLimiters.loose, async (req: Request, res: Response) => 
       data: stats
     });
   } catch (error) {
-    logger.error('Failed to get LLM stats', error as Error);
+    logger.error('Failed to get LLM stats', error as Error, withRequestContext(req, res));
     
     res.status(500).json({
       error: 'Failed to get stats',
@@ -132,7 +142,7 @@ router.get('/health', async (req: Request, res: Response) => {
       data: health
     });
   } catch (error) {
-    logger.error('LLM health check failed', error as Error);
+    logger.error('LLM health check failed', error as Error, withRequestContext(req, res));
     
     res.status(500).json({
       error: 'Health check failed',
@@ -160,16 +170,19 @@ router.post('/reset', rateLimiters.strict, csrfProtectionMiddleware, sessionTime
     
     llmFallback.reset();
     
-    logger.info('Circuit breakers reset by admin', {
-      userId: (req as any).user?.id
-    });
+    logger.info(
+      'Circuit breakers reset by admin',
+      withRequestContext(req, res, {
+        userId: (req as any).user?.id,
+      })
+    );
     
     res.json({
       success: true,
       message: 'Circuit breakers reset successfully'
     });
   } catch (error) {
-    logger.error('Failed to reset circuit breakers', error as Error);
+    logger.error('Failed to reset circuit breakers', error as Error, withRequestContext(req, res));
     
     res.status(500).json({
       error: 'Reset failed',
