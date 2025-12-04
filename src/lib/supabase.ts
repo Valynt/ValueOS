@@ -2,10 +2,12 @@ import { createClient, type SupabaseClientOptions } from '@supabase/supabase-js'
 import { settings } from '../config/settings';
 
 const supabaseUrl = settings.VITE_SUPABASE_URL;
-const supabaseAnonKey = settings.VITE_SUPABASE_ANON_KEY;
+const supabaseKey = typeof window === 'undefined'
+  ? settings.SUPABASE_SERVICE_KEY || settings.VITE_SUPABASE_ANON_KEY
+  : settings.VITE_SUPABASE_ANON_KEY;
 
 // The settings file already fails fast, so this check is redundant, but kept for clarity.
-if (!supabaseUrl || !supabaseAnonKey) {
+if (!supabaseUrl || !supabaseKey) {
   throw new Error('Supabase configuration is missing in the centralized settings.');
 }
 
@@ -21,7 +23,7 @@ const supabaseOptions: SupabaseClientOptions<'public'> = {
 };
 
 // Always use real Supabase client - no mocks
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, supabaseOptions);
+export const supabase = createClient(supabaseUrl, supabaseKey, supabaseOptions);
 
 export function getSupabaseClient() {
   return supabase;
