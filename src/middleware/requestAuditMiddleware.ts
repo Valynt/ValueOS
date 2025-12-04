@@ -29,7 +29,17 @@ export function requestAuditMiddleware(options?: { ignoredPaths?: string[] }) {
   const ignoredPaths = options?.ignoredPaths || DEFAULT_IGNORED_PATHS;
 
   return (req: Request, res: Response, next: NextFunction) => {
+    if ((req as any)._auditMiddlewareAttached) {
+      return next();
+    }
+
+    (req as any)._auditMiddlewareAttached = true;
+
     if (ignoredPaths.some((path) => req.path.startsWith(path))) {
+      const ignoredRequestId = getRequestId(req);
+      res.locals.requestId = ignoredRequestId;
+      (req as any).requestId = ignoredRequestId;
+      res.setHeader('X-Request-Id', ignoredRequestId);
       return next();
     }
 
@@ -38,6 +48,8 @@ export function requestAuditMiddleware(options?: { ignoredPaths?: string[] }) {
     const startedAt = Date.now();
 
     res.locals.requestId = requestId;
+    (req as any).requestId = requestId;
+    res.setHeader('X-Request-Id', requestId);
 
     res.on('finish', async () => {
       try {

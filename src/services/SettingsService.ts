@@ -6,6 +6,7 @@
 import { logger } from '../lib/logger';
 import { BaseService } from './BaseService';
 import { ValidationError, NotFoundError } from './errors';
+import { tenantCache } from './cache/TenantCache';
 
 export interface Setting {
   id: string;
@@ -115,6 +116,31 @@ export class SettingsService extends BaseService {
   }
 
   /**
+   * Get organization-level configuration with tenant-aware caching
+   */
+  async getOrganizationConfig(tenantId: string): Promise<Record<string, any>> {
+    const cacheKey = tenantCache.buildOrgConfigKey(tenantId);
+    const cached = await tenantCache.get<Record<string, any>>(cacheKey);
+
+    if (cached) {
+      return cached;
+    }
+
+    const settings = await this.getSettings({
+      scope: 'organization',
+      scopeId: tenantId,
+    });
+
+    const config = settings.reduce<Record<string, any>>((acc, setting) => {
+      acc[setting.key] = setting.value;
+      return acc;
+    }, {});
+
+    await tenantCache.set(cacheKey, config);
+    return config;
+  }
+
+  /**
    * Create a new setting
    * @param input - Setting creation input
    * @returns Created setting
@@ -158,6 +184,10 @@ export class SettingsService extends BaseService {
 
         this.clearCache(`get-setting-${input.scope}-${input.scopeId}-${input.key}`);
         this.clearCache(); // Clear all cached queries
+
+        if (input.scope === 'organization') {
+          await tenantCache.invalidate(tenantCache.buildOrgConfigKey(input.scopeId));
+        }
 
         return {
           ...data,
@@ -222,6 +252,10 @@ export class SettingsService extends BaseService {
         this.clearCache(`get-setting-${scope}-${scopeId}-${key}`);
         this.clearCache(); // Clear all cached queries
 
+        if (scope === 'organization') {
+          await tenantCache.invalidate(tenantCache.buildOrgConfigKey(scopeId));
+        }
+
         return {
           ...data,
           value: this.deserializeValue(data.value, data.type),
@@ -280,6 +314,10 @@ export class SettingsService extends BaseService {
 
         this.clearCache(`get-setting-${scope}-${scopeId}-${key}`);
         this.clearCache();
+
+        if (scope === 'organization') {
+          await tenantCache.invalidate(tenantCache.buildOrgConfigKey(scopeId));
+        }
       },
       {
         skipCache: true,

@@ -179,6 +179,32 @@ tokens_per_request........: avg=300
 
 ## Test Scenarios
 
+### Tenant Workflow SLA (Login → Profile → Agent)
+
+Use the new end-to-end tenant script to validate the 2-pod baseline and tuning knobs:
+
+```bash
+# Baseline against the 2-pod minimum
+k6 run test/load/tenant-workflow-test.js
+
+# Override endpoints or credentials as needed
+k6 run --vus 60 --duration 10m \
+  -e API_URL=https://api.valuecanvas.com \
+  -e LOGIN_URL=https://api.valuecanvas.com/auth/v1/token?grant_type=password \
+  -e PROFILE_URL=https://api.valuecanvas.com/api/user/profile \
+  -e WORKFLOW_URL=https://api.valuecanvas.com/api/llm/chat \
+  -e AUTH_EMAIL=user@example.com -e AUTH_PASSWORD=secret \
+  test/load/tenant-workflow-test.js
+```
+
+**Acceptance targets:** P95 < 200ms across login, profile, and workflow steps; no `ECONNRESET` or timeouts.
+
+**Tuning guidance:**
+- Set `UV_THREADPOOL_SIZE` to 8–16 (higher if crypto/fs heavy) before starting the Node containers.
+- Start Postgres pools at `PG_POOL_MIN=4`, `PG_POOL_MAX=40`, `PG_POOL_IDLE_TIMEOUT_MS=10000`, `PG_POOL_CONNECTION_TIMEOUT_MS=2000` and adjust based on active connection graphs.
+- Run baseline, then increase/decrease pool size until p95 stabilizes without saturating connections; keep utilization <80%.
+- Hold at 2x peak (default VUs=60) and confirm zero connection resets in k6 output and API logs.
+
 ### Scenario 1: Normal Business Hours
 
 ```javascript
