@@ -82,9 +82,19 @@ services:
       
       # Max password length
       GOTRUE_PASSWORD_MIN_LENGTH: "12"
-      
-      # Require strong password
+
+      # Require strong password (explicit flags for GoTrue v2)
       GOTRUE_PASSWORD_REQUIRED_CHARACTERS: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()"
+      GOTRUE_PASSWORD_REQUIRE_SPECIAL_CHARS: "true"
+      GOTRUE_PASSWORD_REQUIRE_UPPERCASE: "true"
+      GOTRUE_PASSWORD_REQUIRE_LOWERCASE: "true"
+      GOTRUE_PASSWORD_REQUIRE_NUMBERS: "true"
+
+      # Enforce MFA at the auth service level
+      GOTRUE_MFA_ENABLED: "true"
+      GOTRUE_MFA_TOTP_ENABLED: "true"
+      GOTRUE_MFA_PHONE_ENABLED: "false"  # Keep SMS off until provider configured
+      GOTRUE_MFA_SUPPRESS_CLEAR_CONFIG: "true"  # Prevent silent MFA downgrade
       
       # ========================================================================
       # Rate Limiting (GoTrue built-in)
@@ -92,12 +102,16 @@ services:
       
       # Max retries for API calls
       GOTRUE_API_MAX_RETRIES: "1"
-      
+
       # Rate limit per email (signups/password resets)
       GOTRUE_RATE_LIMIT_EMAIL_SENT: "3"
-      
+
       # Rate limit window (in seconds)
       GOTRUE_RATE_LIMIT_WINDOW: "3600"  # 1 hour
+
+      # Concurrency limits to slow password spraying
+      GOTRUE_MAX_CONCURRENT_SIGNINS: "3"
+      GOTRUE_MAX_CONCURRENT_SIGNUPS: "2"
       
       # ========================================================================
       # Logging
