@@ -6,14 +6,22 @@
 
 import { Router, Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
+import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
+import { logger } from '../utils/logger';
 
 const router = Router();
+router.use(requestAuditMiddleware());
 
 // Initialize Supabase client (server-side)
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || '',
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
 );
+
+const withRequestContext = (req: Request, meta?: Record<string, unknown>) => ({
+  requestId: (req as any).requestId,
+  ...meta,
+});
 
 /**
  * POST /api/approvals/request
@@ -50,7 +58,7 @@ router.post('/request', async (req: Request, res: Response) => {
     });
 
     if (error) {
-      console.error('Error creating approval request:', error);
+      logger.error('Error creating approval request', error, withRequestContext(req));
       return res.status(500).json({ error: error.message });
     }
 
@@ -60,7 +68,7 @@ router.post('/request', async (req: Request, res: Response) => {
       status: 'pending',
     });
   } catch (error) {
-    console.error('Approval request error:', error);
+    logger.error('Approval request error', error as Error, withRequestContext(req));
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -83,7 +91,7 @@ router.get('/pending', async (req: Request, res: Response) => {
 
     return res.json({ requests: data || [] });
   } catch (error) {
-    console.error('Error fetching pending approvals:', error);
+    logger.error('Error fetching pending approvals', error as Error, withRequestContext(req));
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -113,7 +121,7 @@ router.get('/my-requests', async (req: Request, res: Response) => {
 
     return res.json({ requests: data || [] });
   } catch (error) {
-    console.error('Error fetching user requests:', error);
+    logger.error('Error fetching user requests', error as Error, withRequestContext(req));
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -165,7 +173,7 @@ router.post('/:requestId/approve', async (req: Request, res: Response) => {
       success: data,
     });
   } catch (error) {
-    console.error('Error approving request:', error);
+    logger.error('Error approving request', error as Error, withRequestContext(req));
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -194,7 +202,7 @@ router.post('/:requestId/reject', async (req: Request, res: Response) => {
       success: data,
     });
   } catch (error) {
-    console.error('Error rejecting request:', error);
+    logger.error('Error rejecting request', error as Error, withRequestContext(req));
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -222,7 +230,7 @@ router.get('/:requestId', async (req: Request, res: Response) => {
 
     return res.json({ request: data });
   } catch (error) {
-    console.error('Error fetching request:', error);
+    logger.error('Error fetching request', error as Error, withRequestContext(req));
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -248,7 +256,7 @@ router.delete('/:requestId', async (req: Request, res: Response) => {
 
     return res.json({ message: 'Request cancelled' });
   } catch (error) {
-    console.error('Error cancelling request:', error);
+    logger.error('Error cancelling request', error as Error, withRequestContext(req));
     return res.status(500).json({ error: 'Internal server error' });
   }
 });

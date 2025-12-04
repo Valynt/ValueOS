@@ -12,6 +12,11 @@ import { createLogger } from '../../lib/logger';
 const router = express.Router();
 const logger = createLogger({ component: 'UsageAPI' });
 
+const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
+  requestId: (req as any).requestId || res.locals.requestId,
+  ...meta,
+});
+
 /**
  * GET /api/billing/usage
  * Get current period usage summary
@@ -28,7 +33,7 @@ router.get('/', async (req: Request, res: Response) => {
     
     res.json(summary);
   } catch (error) {
-    logger.error('Error fetching usage', error as Error);
+    logger.error('Error fetching usage', error as Error, withRequestContext(req, res));
     res.status(500).json({ error: 'Failed to fetch usage' });
   }
 });
@@ -60,7 +65,7 @@ router.get('/:metric', async (req: Request, res: Response) => {
       remaining: quota - usage,
     });
   } catch (error) {
-    logger.error('Error fetching metric usage', error as Error);
+    logger.error('Error fetching metric usage', error as Error, withRequestContext(req, res));
     res.status(500).json({ error: 'Failed to fetch metric usage' });
   }
 });
@@ -95,7 +100,7 @@ router.get('/quotas', async (req: Request, res: Response) => {
 
     res.json(quotas);
   } catch (error) {
-    logger.error('Error fetching quotas', error as Error);
+    logger.error('Error fetching quotas', error as Error, withRequestContext(req, res));
     res.status(500).json({ error: 'Failed to fetch quotas' });
   }
 });

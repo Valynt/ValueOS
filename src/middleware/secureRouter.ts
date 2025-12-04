@@ -6,6 +6,7 @@ import {
 } from './securityMiddleware';
 import { serviceIdentityMiddleware } from './serviceIdentityMiddleware';
 import { rateLimiters, RateLimitTier } from './rateLimiter';
+import { requestAuditMiddleware } from './requestAuditMiddleware';
 
 /**
  * Factory for new routers with standard security middlewares pre-applied.
@@ -13,6 +14,7 @@ import { rateLimiters, RateLimitTier } from './rateLimiter';
  */
 export function createSecureRouter(tier: RateLimitTier = 'standard'): ReturnType<typeof Router> {
   const router = Router();
+  router.use(requestAuditMiddleware());
   router.use(securityHeadersMiddleware);
   router.use(serviceIdentityMiddleware);
   router.use(csrfProtectionMiddleware);
