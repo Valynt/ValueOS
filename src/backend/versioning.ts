@@ -40,7 +40,12 @@ export function createVersionedApiRouter(): express.Router {
     }
 
     if (pathVersion) {
-      req.url = req.url.replace(`/${pathVersion}`, '');
+      // Remove the version prefix from the path, preserving the query string
+      const versionPrefix = `/${pathVersion}`;
+      if (req.url.startsWith(versionPrefix)) {
+        const newPath = req.url.slice(versionPrefix.length) || '/';
+        req.url = newPath;
+      }
     }
 
     next();
