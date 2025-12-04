@@ -1,0 +1,39 @@
+name: Bias Probes
+
+on:
+  push:
+    paths:
+      - 'src/security/bias-probes/**'
+      - 'src/agents/**'
+      - 'src/config/**'
+  pull_request:
+    paths:
+      - 'src/security/bias-probes/**'
+      - 'src/agents/**'
+      - 'src/config/**'
+  workflow_dispatch: {}
+
+env:
+  NODE_ENV: test
+
+jobs:
+  run-bias-probes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run bias probes
+        env:
+          STAGING_AGENT_URL: ${{ secrets.STAGING_AGENT_URL }}
+        run: npm run ci:bias-probes

@@ -40,6 +40,8 @@ export interface SearchOptions {
   filters?: Record<string, any>;
   /** Enable caching */
   useCache?: boolean;
+  /** Require lineage metadata */
+  requireLineage?: boolean;
 }
 
 export interface SearchResult {
@@ -67,7 +69,8 @@ export class VectorSearchService {
       threshold,
       limit = 10,
       filters = {},
-      useCache = true
+      useCache = true,
+      requireLineage = true
     } = options;
 
     try {
@@ -83,7 +86,7 @@ export class VectorSearchService {
         (type ? getSemanticThreshold(type) : semanticMemoryConfig.defaultThreshold);
 
       // Build filter clause
-      const filterClause = this.buildFilterClause(type, filters);
+      const filterClause = this.buildFilterClause(type, filters, requireLineage);
 
       // Execute search
       const startTime = Date.now();
@@ -342,13 +345,21 @@ export class VectorSearchService {
 
   private buildFilterClause(
     type?: SemanticMemory['type'],
-    filters: Record<string, any> = {}
+    filters: Record<string, any> = {},
+    requireLineage: boolean = true
   ): string {
     const conditions: string[] = [];
 
     // Type filter
     if (type) {
       conditions.push(`type = '${type}'`);
+    }
+
+    if (requireLineage) {
+      conditions.push("metadata ? 'source_origin'");
+      conditions.push("metadata ? 'data_sensitivity_level'");
+      conditions.push("COALESCE(metadata->>'source_origin', '') <> ''");
+      conditions.push("COALESCE(metadata->>'data_sensitivity_level', 'unknown') <> 'unknown'");
     }
 
     // Metadata filters
