@@ -11,6 +11,8 @@
     "lint:console": "bash scripts/cleanup-console-logs.sh",
     "preview": "vite preview",
     "test": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "test:rls": "supabase test db --workdir supabase --tests supabase/tests/database/rls_policies.test.sql supabase/tests/database/multi_tenant_rls.test.sql",
     "test:watch": "vitest",
     "test:perf": "vitest run --config vitest.config.ts --include \"test/performance/**/*.test.ts\"",
     "db:setup": "bash infrastructure/supabase/setup.sh",

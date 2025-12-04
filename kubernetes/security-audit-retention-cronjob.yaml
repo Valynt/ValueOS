@@ -1,0 +1,26 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: security-audit-retention
+  namespace: valuecanvas
+spec:
+  schedule: "30 2 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: audit-retention
+              image: postgres:16
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: valuecanvas-database
+                      key: url
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  psql "$DATABASE_URL" -c "SELECT public.rotate_security_audit_logs(180);"
+          serviceAccountName: audit-ops
