@@ -11,8 +11,10 @@ import path from 'path';
 import { logger } from '../utils/logger';
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
+import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
 
 const router = Router();
+router.use(requestAuditMiddleware());
 router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
 

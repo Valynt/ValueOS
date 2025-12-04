@@ -7,6 +7,7 @@ import express from 'express';
 import cors from 'cors';
 import billingRouter from '../api/billing';
 import { createLogger } from '../lib/logger';
+import { createVersionedApiRouter } from './versioning';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
 
 import { settings } from '../config/settings';
@@ -15,6 +16,7 @@ const logger = createLogger({ component: 'BillingServer' });
 
 const app = express();
 const PORT = settings.API_PORT;
+const apiRouter = createVersionedApiRouter();
 
 // Middleware
 app.use(cors({
@@ -33,8 +35,9 @@ app.get(
   }
 );
 
-// Mount billing routes
-app.use('/api/billing', billingRouter);
+// Mount billing routes with versioning support
+apiRouter.use('/billing', billingRouter);
+app.use('/api', apiRouter);
 
 // Error handler
 app.use(
@@ -44,7 +47,9 @@ app.use(
     res: express.Response,
     _next: express.NextFunction
   ): void => {
-    logger.error('Server error', err instanceof Error ? err : new Error(String(err)));
+    logger.error('Server error', err instanceof Error ? err : new Error(String(err)), {
+      requestId: res.locals.requestId,
+    });
     const message =
       settings.NODE_ENV === 'development' && err instanceof Error ? err.message : undefined;
     res.status(500).json({

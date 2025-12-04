@@ -10,6 +10,11 @@ import { createLogger } from '../../lib/logger';
 const router = express.Router();
 const logger = createLogger({ component: 'InvoicesAPI' });
 
+const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
+  requestId: (req as any).requestId || res.locals.requestId,
+  ...meta,
+});
+
 /**
  * GET /api/billing/invoices
  * List invoices for tenant
@@ -28,7 +33,7 @@ router.get('/', async (req: Request, res: Response) => {
     
     res.json({ invoices, limit, offset });
   } catch (error) {
-    logger.error('Error fetching invoices', error as Error);
+    logger.error('Error fetching invoices', error as Error, withRequestContext(req, res));
     res.status(500).json({ error: 'Failed to fetch invoices' });
   }
 });
@@ -49,7 +54,7 @@ router.get('/upcoming', async (req: Request, res: Response) => {
     
     res.json(upcomingInvoice);
   } catch (error) {
-    logger.error('Error fetching upcoming invoice', error as Error);
+    logger.error('Error fetching upcoming invoice', error as Error, withRequestContext(req, res));
     res.status(500).json({ error: 'Failed to fetch upcoming invoice' });
   }
 });
@@ -70,7 +75,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 
     res.json(invoice);
   } catch (error) {
-    logger.error('Error fetching invoice', error as Error);
+    logger.error('Error fetching invoice', error as Error, withRequestContext(req, res));
     res.status(500).json({ error: 'Failed to fetch invoice' });
   }
 });
@@ -87,7 +92,7 @@ router.get('/:id/pdf', async (req: Request, res: Response) => {
     
     res.json({ pdfUrl });
   } catch (error) {
-    logger.error('Error fetching invoice PDF', error as Error);
+    logger.error('Error fetching invoice PDF', error as Error, withRequestContext(req, res));
     res.status(500).json({ error: 'Failed to fetch invoice PDF' });
   }
 });

@@ -2,24 +2,57 @@
 // Uses k-anonymity model - only sends first 5 chars of SHA-1 hash
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import {
+  corsError,
+  corsResponse,
+  handleCors,
+} from '../_shared/cors.ts';
+import {
+  createServiceClient,
+  extractJWT,
+  verifyEnv,
+} from '../_shared/database.ts';
 
 serve(async (req) => {
+  const cors = handleCors(req);
+  if (cors) return cors;
+
   try {
-    // Only allow POST requests
+    verifyEnv();
+
     if (req.method !== 'POST') {
-      return new Response(
-        JSON.stringify({ error: 'Method not allowed' }),
-        { status: 405, headers: { 'Content-Type': 'application/json' } }
-      );
+      return corsError('Method not allowed', 405);
     }
 
-    const { password } = await req.json();
+    let payload: { password?: unknown };
+    try {
+      payload = await req.json();
+    } catch {
+      return corsError('Invalid JSON body', 400);
+    }
+
+    const { password } = payload;
 
     if (!password || typeof password !== 'string') {
-      return new Response(
-        JSON.stringify({ error: 'Password is required' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return corsError('Password is required', 400);
+    }
+
+    const supabase = createServiceClient();
+    const authHeader = req.headers.get('authorization');
+    let userId: string | null = null;
+    let existingAppMetadata: Record<string, unknown> = {};
+
+    if (authHeader) {
+      try {
+        const jwt = extractJWT(authHeader);
+        const { data, error } = await supabase.auth.getUser(jwt);
+        if (error) throw error;
+        userId = data.user?.id ?? null;
+        existingAppMetadata =
+          (data.user?.app_metadata as Record<string, unknown>) ?? {};
+      } catch (error) {
+        console.warn('Unable to resolve user for custom claims', error);
+      }
     }
 
     // SHA-1 hash the password
@@ -56,34 +89,54 @@ serve(async (req) => {
 
     // Check if our hash suffix is in the list
     const breached = text.split('\n').some((line) => {
-      const [hash, count] = line.split(':');
+      const [hash] = line.split(':');
       return hash === suffix;
     });
 
-    return new Response(
-      JSON.stringify({
+    const customClaims = {
+      // Ensures JWT claim is present for RLS enforcement
+      password_breached: breached,
+      mfa_verified: Boolean(existingAppMetadata?.mfa_verified ?? false),
+    };
+
+    if (userId) {
+      const { error: updateError } = await supabase.auth.admin.updateUserById(
+        userId,
+        {
+          app_metadata: {
+            ...existingAppMetadata,
+            ...customClaims,
+          },
+        }
+      );
+
+      if (updateError) {
+        console.error('Failed to persist custom claims', updateError);
+      }
+    }
+
+    return corsResponse(
+      {
         breached,
         message: breached
           ? 'This password has been exposed in a data breach'
           : 'Password not found in known breaches',
-      }),
+        customClaims,
+      },
+      200,
       {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        'X-Supabase-Custom-Claims': JSON.stringify(customClaims),
       }
     );
   } catch (error) {
     console.error('Password breach check error:', error);
 
-    return new Response(
-      JSON.stringify({
+    return corsResponse(
+      {
         error: 'Failed to check password breach',
         details: error.message,
-      }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      }
+      },
+      500
     );
   }
 });
