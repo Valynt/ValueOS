@@ -14,10 +14,17 @@ import {
 } from '../middleware/securityMiddleware';
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
 import { rateLimiters } from '../middleware/rateLimiter';
+import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
 
 const router = Router();
+router.use(requestAuditMiddleware());
 router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
+
+const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
+  requestId: (req as any).requestId || res.locals.requestId,
+  ...meta,
+});
 
 /**
  * POST /api/queue/llm
@@ -61,11 +68,14 @@ router.post('/llm', rateLimiters.standard, csrfProtectionMiddleware, sessionTime
       metadata
     });
     
-    logger.info('LLM job submitted', {
-      jobId: job.id,
-      type,
-      userId
-    });
+    logger.info(
+      'LLM job submitted',
+      withRequestContext(req, res, {
+        jobId: job.id,
+        type,
+        userId,
+      })
+    );
     
     res.status(202).json({
       success: true,
@@ -76,7 +86,7 @@ router.post('/llm', rateLimiters.standard, csrfProtectionMiddleware, sessionTime
       }
     });
   } catch (error) {
-    logger.error('Failed to submit LLM job', error as Error);
+    logger.error('Failed to submit LLM job', error as Error, withRequestContext(req, res));
     
     res.status(500).json({
       error: 'Failed to submit job',
@@ -111,7 +121,7 @@ router.get('/llm/:jobId', async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    logger.error('Failed to get job status', error as Error);
+    logger.error('Failed to get job status', error as Error, withRequestContext(req, res));
     
     res.status(500).json({
       error: 'Failed to get job status',
@@ -143,7 +153,7 @@ router.get('/llm/:jobId/result', async (req: Request, res: Response) => {
       data: result
     });
   } catch (error) {
-    logger.error('Failed to get job result', error as Error);
+    logger.error('Failed to get job result', error as Error, withRequestContext(req, res));
     
     res.status(500).json({
       error: 'Failed to get job result',
@@ -163,17 +173,20 @@ router.delete('/llm/:jobId', rateLimiters.standard, csrfProtectionMiddleware, se
     
     await llmQueue.cancelJob(jobId);
     
-    logger.info('LLM job cancelled', {
-      jobId,
-      userId: (req as any).user?.id
-    });
+    logger.info(
+      'LLM job cancelled',
+      withRequestContext(req, res, {
+        jobId,
+        userId: (req as any).user?.id,
+      })
+    );
     
     res.json({
       success: true,
       message: 'Job cancelled'
     });
   } catch (error) {
-    logger.error('Failed to cancel job', error as Error);
+    logger.error('Failed to cancel job', error as Error, withRequestContext(req, res));
     
     res.status(500).json({
       error: 'Failed to cancel job',
@@ -196,7 +209,7 @@ router.get('/metrics', async (req: Request, res: Response) => {
       data: metrics
     });
   } catch (error) {
-    logger.error('Failed to get queue metrics', error as Error);
+    logger.error('Failed to get queue metrics', error as Error, withRequestContext(req, res));
     
     res.status(500).json({
       error: 'Failed to get metrics',
@@ -248,10 +261,13 @@ router.post('/llm/batch', rateLimiters.strict, csrfProtectionMiddleware, session
       })
     );
     
-    logger.info('Batch LLM jobs submitted', {
-      count: jobs.length,
-      userId
-    });
+    logger.info(
+      'Batch LLM jobs submitted',
+      withRequestContext(req, res, {
+        count: jobs.length,
+        userId,
+      })
+    );
     
     res.status(202).json({
       success: true,
@@ -261,7 +277,7 @@ router.post('/llm/batch', rateLimiters.strict, csrfProtectionMiddleware, session
       }
     });
   } catch (error) {
-    logger.error('Failed to submit batch jobs', error as Error);
+    logger.error('Failed to submit batch jobs', error as Error, withRequestContext(req, res));
     
     res.status(500).json({
       error: 'Failed to submit batch',
