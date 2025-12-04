@@ -44,16 +44,22 @@ spec:
             - redis-server
             - "--appendonly"
             - "yes"
+            - "--maxmemory"
+            - "1gb"
+            - "--maxmemory-policy"
+            - "allkeys-lru"
+            - "--active-expire-effort"
+            - "10"
           ports:
             - containerPort: 6379
               name: redis
           resources:
             requests:
               cpu: 100m
-              memory: 256Mi
+              memory: 512Mi
             limits:
               cpu: 500m
-              memory: 512Mi
+              memory: 1Gi
           livenessProbe:
             exec:
               command: ["redis-cli", "ping"]
