@@ -83,6 +83,7 @@
 
 - **[TESTING_FRAMEWORK_COMPLETE.md](./TESTING_FRAMEWORK_COMPLETE.md)** - Testing approach
 - **[TESTING_PERFORMANCE.md](./TESTING_PERFORMANCE.md)** - Performance benchmarks
+- **[multi-tenant-isolation-tests.md](./multi-tenant-isolation-tests.md)** - Isolation coverage for multi-tenant SaaS
 
 ---
 
