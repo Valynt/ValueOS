@@ -20,6 +20,6 @@
 
 ## Operational lifecycle controls
 - **Backups with success tracking**: `scripts/backup-database.sh` should run daily through cron/CI with cloud credentials injected via secrets; each run must publish a success/failure metric (or exit-code alert) so on-call can validate uploads and checksum verification.【F:scripts/backup-database.sh†L3-L154】
-- **Restore dry-runs**: quarterly restores in staging validate RPO/RTO by loading the latest backup, replaying migrations, and confirming application health, with the drill outcome logged alongside timing and any manual steps.
+- **Restore dry-runs**: quarterly restores in staging validate RPO/RTO by loading the latest backup, replaying migrations, and confirming application health, with the drill outcome logged alongside timing and any manual steps.【F:scripts/restore-database.sh†L3-L154】
 - **Lifecycle enforcement**: S3 objects keep a 90-day retention window, while audit log rotation retains 180 days in primaries and archives older entries; scheduled jobs should emit metrics when pruning or moving data so drift is detectable.【F:kubernetes/security-audit-retention-cronjob.yaml†L1-L22】【F:scripts/backup-database.sh†L11-L154】【F:supabase/migrations/20250601110000_audit_request_retention.sql†L6-L83】
 - **DSR drills with audit verification**: monthly dry-runs against a test account exercise both export and anonymization paths in `scripts/data-subject-request.js`; operators must confirm matching entries in `security_audit_log` to ensure traceability remains intact.【F:scripts/data-subject-request.js†L9-L111】
