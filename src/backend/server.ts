@@ -8,6 +8,7 @@ import cors from 'cors';
 import billingRouter from '../api/billing';
 import { createLogger } from '../lib/logger';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
+import { getMetricsRegistry, metricsMiddleware } from '../middleware/metricsMiddleware';
 
 import { settings } from '../config/settings';
 
@@ -23,6 +24,7 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.raw({ type: 'application/json' })); // For Stripe webhooks
+app.use(metricsMiddleware());
 app.use(requestAuditMiddleware());
 
 // Health check
@@ -32,6 +34,12 @@ app.get(
     res.json({ status: 'ok', service: 'billing-api' });
   }
 );
+
+app.get('/metrics', async (_req: express.Request, res: express.Response) => {
+  const registry = getMetricsRegistry();
+  res.set('Content-Type', registry.contentType);
+  res.end(await registry.metrics());
+});
 
 // Mount billing routes
 app.use('/api/billing', billingRouter);
