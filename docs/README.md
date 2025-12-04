@@ -1,6 +1,6 @@
 # ValueCanvas Documentation
 
-**Last Updated:** 2024-11-29
+**Last Updated:** 2025-05-05
 
 Complete documentation for the ValueCanvas AI-Powered Value Realization Platform.
 
@@ -42,6 +42,7 @@ Complete documentation for the ValueCanvas AI-Powered Value Realization Platform
 - **[Deployment Guide](./operations/DEPLOYMENT.md)** - Production deployment instructions
 - **[Operations Runbook](./operations/RUNBOOK_OPERATIONS.md)** - Day-to-day operations guide
 - **[Production Readiness](./operations/PRODUCTION_READY_FINAL.md)** - Production checklist and requirements
+- **[Scenario & Quality Validation](./operations/SCENARIO_QUALITY_VALIDATION.md)** - Synthetic monitors and weekly feedback cadence
 
 ### 🔌 API Documentation
 **Location:** `api/`
@@ -142,7 +143,7 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines on:
 
 ---
 
-**Last Updated:** 2024-11-29  
+**Last Updated:** 2025-05-05
 **Maintained by:** ValueCanvas Team
 
 ---
