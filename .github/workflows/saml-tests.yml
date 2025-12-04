@@ -1,0 +1,173 @@
+name: SAML Authentication Tests
+
+on:
+  pull_request:
+    paths:
+      - 'src/api/auth/**'
+      - 'src/services/AuthService.ts'
+      - 'test/saml/**'
+      - 'test/playwright/saml-*.spec.ts'
+      - 'docker-compose.saml-test.yml'
+  push:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+jobs:
+  saml-compliance-tests:
+    name: SAML Compliance & SLO Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Generate SAML test certificates
+        run: |
+          cd test/saml/certs
+          chmod +x generate-test-certs.sh
+          ./generate-test-certs.sh
+          ls -la
+
+      - name: Start Keycloak SAML IdP
+        run: |
+          docker-compose -f docker-compose.saml-test.yml up -d keycloak
+          echo "Waiting for Keycloak to be ready..."
+          
+      - name: Wait for Keycloak health check
+        run: |
+          timeout 180 bash -c 'until curl -f http://localhost:8080/health/ready 2>/dev/null; do 
+            echo "Waiting for Keycloak..."; 
+            sleep 5; 
+          done'
+          echo "Keycloak is ready!"
+
+      - name: Verify Keycloak realm configuration
+        run: |
+          curl -f http://localhost:8080/realms/valuecanvas-test/.well-known/openid-configuration || exit 1
+          echo "Keycloak realm verified"
+
+      - name: Start ValueCanvas test instance
+        run: |
+          docker-compose -f docker-compose.saml-test.yml up -d app-saml-test
+          echo "Waiting for application to start..."
+
+      - name: Wait for application health check
+        run: |
+          timeout 90 bash -c 'until curl -f http://localhost:5174 2>/dev/null; do 
+            echo "Waiting for app..."; 
+            sleep 3; 
+          done'
+          echo "Application is ready!"
+
+      - name: Run SAML compliance tests
+        run: npm run test:saml:compliance
+        env:
+          CI: true
+
+      - name: Run SAML SLO tests
+        run: npm run test:saml:slo
+        env:
+          CI: true
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: saml-playwright-report
+          path: playwright-report/
+          retention-days: 30
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: saml-test-results
+          path: test-results/
+          retention-days: 7
+
+      - name: Capture service logs
+        if: failure()
+        run: |
+          echo "=== Keycloak Logs ==="
+          docker-compose -f docker-compose.saml-test.yml logs keycloak
+          echo "=== App Logs ==="
+          docker-compose -f docker-compose.saml-test.yml logs app-saml-test
+
+      - name: Cleanup Docker resources
+        if: always()
+        run: |
+          docker-compose -f docker-compose.saml-test.yml down -v
+          docker system prune -f
+
+  security-audit:
+    name: SAML Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for hardcoded secrets in SAML configs
+        run: |
+          echo "Scanning for hardcoded secrets..."
+          ! grep -r "password\s*=\s*['\"]" test/saml/ --exclude-dir=node_modules || exit 1
+          ! grep -r "secret\s*=\s*['\"]" test/saml/ --exclude-dir=node_modules || exit 1
+          echo "✓ No hardcoded secrets found"
+
+      - name: Verify test certificates are test-only
+        run: |
+          cd test/saml/certs
+          if [ -f saml-sp-cert.pem ]; then
+            openssl x509 -in saml-sp-cert.pem -text -noout | grep "Subject: CN = valuecanvas-test" || exit 1
+            echo "✓ Test certificate validated"
+          fi
+
+      - name: Check SAML endpoint configuration
+        run: |
+          echo "Verifying SAML endpoints use localhost..."
+          ! grep -r "https://production" test/saml/ --exclude-dir=node_modules || exit 1
+          echo "✓ SAML endpoints properly configured for testing"
+
+  report-status:
+    name: Report Test Status
+    runs-on: ubuntu-latest
+    needs: [saml-compliance-tests, security-audit]
+    if: always()
+    
+    steps:
+      - name: Check test results
+        run: |
+          if [ "${{ needs.saml-compliance-tests.result }}" == "success" ] && \
+             [ "${{ needs.security-audit.result }}" == "success" ]; then
+            echo "✅ All SAML tests passed!"
+            exit 0
+          else
+            echo "❌ SAML tests failed"
+            exit 1
+          fi
