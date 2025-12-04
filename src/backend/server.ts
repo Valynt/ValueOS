@@ -8,6 +8,7 @@ import cors from 'cors';
 import billingRouter from '../api/billing';
 import { createLogger } from '../lib/logger';
 import { createVersionedApiRouter } from './versioning';
+import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
 
 import { settings } from '../config/settings';
 
@@ -24,6 +25,7 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.raw({ type: 'application/json' })); // For Stripe webhooks
+app.use(requestAuditMiddleware());
 
 // Health check
 app.get(

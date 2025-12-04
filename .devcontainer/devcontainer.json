@@ -1,121 +1,26 @@
-// ============================================================================
-// ValueCanvas Development Container Configuration
-// ============================================================================
-// VS Code Remote Containers configuration with security hardening
-// See https://aka.ms/devcontainer.json for reference
-// ============================================================================
 {
-	"name": "ValueCanvas Development",
-	
-	// Build configuration
-	"build": {
-		"context": "..",
-		"dockerfile": "Dockerfile"
-	},
-
-	// Container user (non-root for security)
-	"remoteUser": "vscode",
-	"containerUser": "vscode",
-
-	// Security options
-	"runArgs": [
-		"--security-opt=no-new-privileges",
-		"--cap-drop=ALL"
-	],
-
-	// Port forwarding for development server and HMR
-	"forwardPorts": [5173, 24678],
-	"portsAttributes": {
-		"5173": {
-			"label": "Vite Dev Server",
-			"onAutoForward": "notify"
-		},
-		"24678": {
-			"label": "Vite HMR",
-			"onAutoForward": "silent"
-		}
-	},
-
-	// Mount configuration
-	"mounts": [
-		// Persist bash history
-		"source=valuecanvas-bashhistory,target=/home/vscode/commandhistory,type=volume",
-		// Persist VS Code extensions
-		"source=valuecanvas-vscode-extensions,target=/home/vscode/.vscode-server/extensions,type=volume",
-		// Share git configuration (Windows: USERPROFILE, Linux/Mac: HOME)
-		"source=${localEnv:USERPROFILE}${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached"
-	],
-
-	// VS Code extensions to install
-	"customizations": {
-		"vscode": {
-			"extensions": [
-				// TypeScript/JavaScript
-				"dbaeumer.vscode-eslint",
-				"esbenp.prettier-vscode",
-				
-				// React
-				"dsznajder.es7-react-js-snippets",
-				
-				// Testing
-				"vitest.explorer",
-				
-				// Git
-				"eamodio.gitlens",
-				"mhutchie.git-graph",
-				
-				// Docker
-				"ms-azuretools.vscode-docker",
-				
-				// Utilities
-				"christian-kohler.path-intellisense",
-				"usernamehw.errorlens",
-				"streetsidesoftware.code-spell-checker",
-				
-				// Tailwind CSS
-				"bradlc.vscode-tailwindcss",
-				
-				// Markdown
-				"yzhang.markdown-all-in-one"
-			],
-			
-			// VS Code settings
-			"settings": {
-				"editor.defaultFormatter": "esbenp.prettier-vscode",
-				"editor.formatOnSave": true,
-				"editor.codeActionsOnSave": {
-					"source.fixAll.eslint": "explicit"
-				},
-				"typescript.tsdk": "node_modules/typescript/lib",
-				"typescript.enablePromptUseWorkspaceTsdk": true,
-				"files.eol": "\n",
-				"terminal.integrated.defaultProfile.linux": "bash"
-			}
-		}
-	},
-
-	// Features (optional enhancements)
-	"features": {
-		"ghcr.io/devcontainers/features/git:1": {
-			"version": "latest",
-			"ppa": false
-		},
-		"ghcr.io/devcontainers/features/github-cli:1": {
-			"version": "latest"
-		},
-		"ghcr.io/devcontainers/features/git-lfs:1": {
-			"version": "latest"
-		}
-	},
-
-	// Configure git to use host credentials
-	"containerEnv": {
-		"GIT_EDITOR": "code --wait"
-	},
-
-	// Post-create command: install dependencies and configure git
-	"postCreateCommand": "npm install && git config --global credential.helper store",
-
-	// Post-start command to display welcome message
-	"postStartCommand": "echo '🚀 ValueCanvas development environment ready! Run npm run dev to start.'"
+  "name": "Development Environment",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-azuretools.vscode-docker",
+        "eamodio.gitlens"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "forwardPorts": [3000, 8000, 5432],
+  "postCreateCommand": "npm install && pip install -r requirements.txt",
+  "remoteUser": "vscode",
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached"
+  ],
+  "runArgs": ["--name=dev-container"]
 }
