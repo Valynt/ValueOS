@@ -6,6 +6,8 @@
 
 import { Queue, Worker, Job, QueueEvents } from 'bullmq';
 import Redis from 'ioredis';
+import http from 'http';
+import { collectDefaultMetrics, Gauge, Registry } from 'prom-client';
 import { logger } from '../utils/logger';
 import { llmFallbackWithTracing } from './LLMFallbackWithTracing';
 import { promptVersionControl } from './PromptVersionControl';
@@ -50,12 +52,25 @@ export class LLMQueueService {
   private worker: Worker<LLMJobData, LLMJobResult>;
   private events: QueueEvents;
   private supabase: ReturnType<typeof createClient>;
+  private metricsRegistry: Registry;
+  private queueDepthGauge: Gauge;
+  private queueDepth: number = 0;
+  private metricsServer?: http.Server;
 
   constructor() {
     this.supabase = createClient(
       process.env.SUPABASE_URL || '',
       process.env.SUPABASE_KEY || ''
     );
+
+    this.metricsRegistry = new Registry();
+    collectDefaultMetrics({ register: this.metricsRegistry });
+    this.queueDepthGauge = new Gauge({
+      name: 'message_worker_queue_depth',
+      help: 'Current queue depth for message worker backlog',
+      labelNames: ['app'],
+      registers: [this.metricsRegistry],
+    });
 
     // Create queue
     this.queue = new Queue<LLMJobData, LLMJobResult>('llm-processing', {
@@ -96,6 +111,13 @@ export class LLMQueueService {
     });
 
     this.setupEventListeners();
+    this.startMetricsServer();
+    this.refreshQueueDepth();
+    setInterval(() => {
+      this.refreshQueueDepth().catch((error) =>
+        logger.warn('Failed to refresh queue depth', error as Error)
+      );
+    }, 5000);
   }
 
   /**
@@ -327,6 +349,7 @@ export class LLMQueueService {
     completed: number;
     failed: number;
     delayed: number;
+    queueDepth: number;
   }> {
     const [waiting, active, completed, failed, delayed] = await Promise.all([
       this.queue.getWaitingCount(),
@@ -336,7 +359,11 @@ export class LLMQueueService {
       this.queue.getDelayedCount(),
     ]);
 
-    return { waiting, active, completed, failed, delayed };
+    const queueDepth = waiting + active + delayed;
+    this.queueDepth = queueDepth;
+    this.queueDepthGauge.set({ app: 'message-worker' }, queueDepth);
+
+    return { waiting, active, completed, failed, delayed, queueDepth };
   }
 
   /**
@@ -375,6 +402,30 @@ export class LLMQueueService {
     });
   }
 
+  private async refreshQueueDepth(): Promise<void> {
+    const [waiting, active, delayed] = await Promise.all([
+      this.queue.getWaitingCount(),
+      this.queue.getActiveCount(),
+      this.queue.getDelayedCount(),
+    ]);
+
+    this.queueDepth = waiting + active + delayed;
+    this.queueDepthGauge.set({ app: 'message-worker' }, this.queueDepth);
+  }
+
+  private startMetricsServer(): void {
+    const metricsPort = Number(process.env.METRICS_PORT || '9464');
+
+    this.metricsServer = http.createServer(async (_req, res) => {
+      res.setHeader('Content-Type', this.metricsRegistry.contentType);
+      res.end(await this.metricsRegistry.metrics());
+    });
+
+    this.metricsServer.listen(metricsPort, () => {
+      logger.info('Message worker metrics server started', { port: metricsPort });
+    });
+  }
+
   /**
    * Graceful shutdown
    */
@@ -384,6 +435,9 @@ export class LLMQueueService {
     await this.worker.close();
     await this.queue.close();
     await this.events.close();
+    if (this.metricsServer) {
+      await new Promise<void>((resolve) => this.metricsServer?.close(() => resolve()));
+    }
     await redisConnection.quit();
 
     logger.info('LLM queue service shut down');
