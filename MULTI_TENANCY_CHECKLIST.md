@@ -57,6 +57,6 @@
 - [ ] Error logs don't expose tenant data
 
 ## 10. Testing
-- [ ] Unit tests verify organization_id filtering
-- [ ] Integration tests verify cross-tenant isolation
+- [x] Unit tests verify organization_id filtering (evidence: src/lib/rules/__tests__/RulesEnforcer.test.ts)
+- [x] Integration tests verify cross-tenant isolation (evidence: supabase/tests/database/multi_tenant_rls.test.sql in secure CI RLS stage)
 - [ ] Penetration tests attempt cross-tenant access
