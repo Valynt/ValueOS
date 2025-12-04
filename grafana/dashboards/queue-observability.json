@@ -1,0 +1,88 @@
+{
+  "__inputs": [],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "9.5.0" },
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" }
+  ],
+  "title": "Queue Observability",
+  "uid": "queue-observability",
+  "timezone": "browser",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Events Published",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(increase(broker_events_published_total[5m])) by (event_name)",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
+        "orientation": "horizontal",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 }
+    },
+    {
+      "type": "stat",
+      "title": "Events Failed",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(increase(broker_events_failed_total[5m]))",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["last"], "fields": "", "values": false },
+        "orientation": "horizontal",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Processing Latency (ms)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(broker_event_processing_ms_bucket[5m])) by (le))",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 6 },
+      "options": {
+        "legend": { "showLegend": true },
+        "tooltip": { "mode": "multi" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Publish vs Consume Rate",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(broker_events_published_total[1m])) by (event_name)",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(broker_events_consumed_total[1m])) by (event_name)",
+          "refId": "B"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 14 },
+      "options": {
+        "legend": { "showLegend": true },
+        "tooltip": { "mode": "multi" }
+      }
+    }
+  ],
+  "schemaVersion": 38,
+  "version": 1
+}
