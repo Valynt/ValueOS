@@ -12,6 +12,7 @@ import { CronJob } from 'cron';
 import { logger } from '../../lib/logger';
 import type { ISecretProvider, RotationPolicy, SecretMetadata } from './ISecretProvider';
 import { EventEmitter } from 'events';
+import { auditLogService } from '../../services/AuditLogService';
 
 /**
  * Rotation job configuration
@@ -434,6 +435,41 @@ export function createRotationScheduler(provider: ISecretProvider): SecretRotati
 
   scheduler.on('rollback-failure', (event) => {
     logger.error('Rollback failure event', new Error(event.error || 'Unknown error'), event);
+  });
+
+  const logAuditEvent = async (
+    event: RotationEvent,
+    status: 'success' | 'failed'
+  ): Promise<void> => {
+    try {
+      await auditLogService.createEntry({
+        userId: 'system-rotation',
+        userName: 'Rotation Scheduler',
+        userEmail: 'rotation@valuecanvas.io',
+        action: 'secret.rotate',
+        resourceType: 'secret',
+        resourceId: `${event.tenantId}:${event.secretKey}`,
+        status,
+        details: {
+          duration_ms: event.duration,
+          error: event.error,
+        },
+      });
+    } catch (error) {
+      logger.error('Failed to write audit entry for rotation', error instanceof Error ? error : new Error(String(error)), {
+        tenantId: event.tenantId,
+        secretKey: event.secretKey,
+        status,
+      });
+    }
+  };
+
+  scheduler.on('rotation-success', (event) => {
+    void logAuditEvent(event, 'success');
+  });
+
+  scheduler.on('rotation-failure', (event) => {
+    void logAuditEvent(event, 'failed');
   });
 
   return scheduler;
