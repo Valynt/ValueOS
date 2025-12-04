@@ -23,13 +23,15 @@ export function handleCors(req: Request): Response | null {
  */
 export function corsResponse(
   data: unknown,
-  status: number = 200
+  status: number = 200,
+  extraHeaders: Record<string, string> = {}
 ): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       ...corsHeaders,
       'Content-Type': 'application/json',
+      ...extraHeaders,
     },
   });
 }
