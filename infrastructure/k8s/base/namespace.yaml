@@ -5,3 +5,6 @@ metadata:
   labels:
     name: valuecanvas
     environment: production
+    istio-injection: enabled
+  annotations:
+    security.istio.io/tlsMode: istio
