@@ -6,6 +6,8 @@
 import express from 'express';
 import cors from 'cors';
 import billingRouter from '../api/billing';
+import agentsRouter from '../api/agents';
+import workflowRouter from '../api/workflow';
 import { createLogger } from '../lib/logger';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
 
@@ -35,6 +37,10 @@ app.get(
 
 // Mount billing routes
 app.use('/api/billing', billingRouter);
+
+// Agent transparency and workflow explainability
+app.use('/api/agents', agentsRouter);
+app.use('/api', workflowRouter);
 
 // Error handler
 app.use(
