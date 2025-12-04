@@ -158,6 +158,14 @@ afterEach(async () => {
 });
 ```
 
+## API Contract Validation
+
+Run the OpenAPI validation gate in CI to block breaking changes and missing examples:
+```bash
+npm run lint:openapi
+```
+The script verifies schema validity, operation descriptions, and examples on every request and response body.
+
 ### Test Isolation
 
 Use unique identifiers:

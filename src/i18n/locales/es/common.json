@@ -1,0 +1,11 @@
+{
+  "app.title": "ValueCanvas",
+  "navigation.home": "Inicio",
+  "navigation.dashboard": "Panel",
+  "form.save": "Guardar",
+  "form.cancel": "Cancelar",
+  "errors.generic": "Algo salió mal. Inténtalo de nuevo.",
+  "errors.network": "Hubo un problema de red. Comprueba tu conexión e inténtalo de nuevo.",
+  "canvas.summary": "Resumen del modelo de negocio",
+  "canvas.refresh": "Actualizar ideas"
+}
