@@ -4,6 +4,7 @@ import {
   Shield, Lock, Clock, Users, Globe, Plus, Trash2, Check, AlertCircle, Key
 } from 'lucide-react';
 import { AuthPolicy, AllowedDomain } from '../../types';
+import { analyticsClient } from '../../lib/analyticsClient';
 
 export const OrganizationSecurity: React.FC = () => {
   const [policy, setPolicy] = useState<AuthPolicy>({
@@ -32,6 +33,16 @@ export const OrganizationSecurity: React.FC = () => {
 
   const [newDomain, setNewDomain] = useState('');
   const [saving, setSaving] = useState(false);
+  const [apiKeys, setApiKeys] = useState<Array<{ id: string; label: string; key: string; createdAt: string; lastUsed?: string }>>([
+    {
+      id: 'key-1',
+      label: 'Primary Server Key',
+      key: 'vc_demo_primary_key',
+      createdAt: '2024-11-01',
+      lastUsed: '2024-12-15',
+    },
+  ]);
+  const [lastGeneratedKey, setLastGeneratedKey] = useState<string | null>(null);
 
   const handleSavePolicy = async () => {
     setSaving(true);
@@ -58,6 +69,27 @@ export const OrganizationSecurity: React.FC = () => {
   const handleRemoveDomain = (id: string) => {
     setDomains(domains.filter(d => d.id !== id));
   };
+
+  const generateApiKey = () => {
+    const rawKey = `vc_${Math.random().toString(36).slice(2, 10)}${Math.random().toString(36).slice(2, 8)}`;
+    const newKey = {
+      id: `key-${apiKeys.length + 1}`,
+      label: `Key ${apiKeys.length + 1}`,
+      key: rawKey,
+      createdAt: new Date().toISOString(),
+      lastUsed: 'Never',
+    };
+
+    setApiKeys([...apiKeys, newKey]);
+    setLastGeneratedKey(rawKey);
+    analyticsClient.trackWorkflowEvent('api_key_generated', 'api_access', {
+      key_id: newKey.id,
+      label: newKey.label,
+      last4: rawKey.slice(-4),
+    });
+  };
+
+  const maskKey = (key: string) => `${key.slice(0, 4)}••••${key.slice(-4)}`;
 
   return (
     <div className="space-y-6">
@@ -274,6 +306,54 @@ export const OrganizationSecurity: React.FC = () => {
               <p className="text-sm text-gray-500 mt-1">Add a domain to control user access</p>
             </div>
           )}
+        </div>
+      </SettingsSection>
+
+      <SettingsSection
+        title="API Access & Keys"
+        description="Generate and rotate API keys for integrations"
+        actions={
+          <button
+            onClick={generateApiKey}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Key className="h-4 w-4 mr-2" />
+            Generate Key
+          </button>
+        }
+      >
+        <div className="space-y-4">
+          {lastGeneratedKey && (
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
+              <p className="font-semibold">New key generated</p>
+              <p className="break-all text-gray-800">{lastGeneratedKey}</p>
+              <p className="text-xs text-gray-600">Copy and store it now — we only show it once.</p>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            {apiKeys.map((apiKey) => (
+              <div key={apiKey.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                <div>
+                  <p className="font-medium text-gray-900">{apiKey.label}</p>
+                  <p className="text-sm text-gray-600">{maskKey(apiKey.key)}</p>
+                  <p className="text-xs text-gray-500">Created {new Date(apiKey.createdAt).toLocaleDateString()} • Last used {apiKey.lastUsed}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    navigator.clipboard?.writeText(apiKey.key);
+                    analyticsClient.track('api_key_copied', {
+                      key_id: apiKey.id,
+                      workflow: 'api_access',
+                    });
+                  }}
+                  className="px-3 py-1 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Copy
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       </SettingsSection>
 

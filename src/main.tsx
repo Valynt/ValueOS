@@ -8,6 +8,8 @@ import './styles/micro-interactions.css';
 import './styles/responsive.css';
 import { bootstrap } from './bootstrap';
 import { isProduction, isDevelopment } from './config/environment';
+import { startConsoleCapture } from './utils/consoleRecorder';
+import { analyticsClient } from './lib/analyticsClient';
 
 /**
  * Application entry point with production-ready bootstrap
@@ -41,6 +43,10 @@ async function main() {
   `;
 
   try {
+    // Initialize telemetry helpers
+    startConsoleCapture();
+    analyticsClient.initialize({ betaCohort: true });
+
     // Bootstrap the application
     logger.debug('Starting application bootstrap...');
     
