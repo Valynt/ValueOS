@@ -2,6 +2,7 @@
  * Centralized, environment-aware, and schema-validated configuration.
  */
 import { z } from 'zod';
+import { hydrateServerSecretsFromManager } from './secrets/SecretHydrator';
 
 // Define the schema for all environment variables
 const SettingsSchema = z.object({
@@ -24,14 +25,15 @@ const SettingsSchema = z.object({
 // Determine if we are in a server-side (Node.js) or client-side (browser) environment
 const isServer = typeof window === 'undefined';
 
-// Use import.meta.env for client-side, process.env for server-side
-const envSource = isServer ? process.env : import.meta.env;
+// Load managed secrets on the server before parsing the environment
+const managedSecrets = await hydrateServerSecretsFromManager();
 
 // We need to handle the case where the server might not have the VITE_ prefix.
 // This function helps merge the two possibilities.
 const getMergedEnv = () => {
     if (isServer) {
         return {
+            ...managedSecrets,
             ...process.env,
             VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
             VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY,
