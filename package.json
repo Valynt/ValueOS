@@ -32,7 +32,8 @@
     "billing:setup-stripe": "./infrastructure/billing/stripe-products-setup.sh",
     "billing:test-flow": "./infrastructure/testing/test-billing-flow.sh",
     "backend:dev": "tsx watch src/backend/server.ts",
-    "backend:start": "node dist/backend/server.js"
+    "backend:start": "node dist/backend/server.js",
+    "ci:bias-probes": "node -r tsx/cjs scripts/run-bias-probes.ts"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",

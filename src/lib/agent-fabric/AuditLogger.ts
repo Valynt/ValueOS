@@ -1,7 +1,10 @@
 import { SupabaseClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 import { ConfidenceLevel } from './types';
 
 export class AuditLogger {
+  private traceAnchors: Map<string, string> = new Map();
+
   constructor(private supabase: SupabaseClient) {}
 
   async logAction(
@@ -112,5 +115,33 @@ export class AuditLogger {
 
     if (error || !data) return 0;
     return data.reduce((sum, item) => sum + item.metric_value, 0);
+  }
+
+  async logAgentTrace(
+    sessionId: string,
+    agentId: string,
+    tool: string,
+    payload: { input: Record<string, any>; output: Record<string, any> },
+    metadata: Record<string, any> = {}
+  ): Promise<void> {
+    const previousHash = this.traceAnchors.get(sessionId) || '';
+    const entry = {
+      session_id: sessionId,
+      agent_id: agentId,
+      tool,
+      input: payload.input,
+      output: payload.output,
+      metadata,
+      previous_hash: previousHash
+    };
+
+    const serialized = JSON.stringify(entry);
+    const hash = crypto.createHash('sha256').update(serialized).digest('hex');
+    this.traceAnchors.set(sessionId, hash);
+
+    await this.supabase.from('agent_audit_log').insert({
+      ...entry,
+      hash
+    });
   }
 }
