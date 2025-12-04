@@ -34,7 +34,16 @@
     "billing:setup-stripe": "./infrastructure/billing/stripe-products-setup.sh",
     "billing:test-flow": "./infrastructure/testing/test-billing-flow.sh",
     "backend:dev": "tsx watch src/backend/server.ts",
-    "backend:start": "node dist/backend/server.js"
+    "backend:start": "node dist/backend/server.js",
+    "test:saml": "playwright test test/playwright/saml-compliance.spec.ts test/playwright/saml-slo.spec.ts",
+    "test:saml:compliance": "playwright test test/playwright/saml-compliance.spec.ts",
+    "test:saml:slo": "playwright test test/playwright/saml-slo.spec.ts",
+    "test:saml:headed": "playwright test test/playwright/saml-compliance.spec.ts test/playwright/saml-slo.spec.ts --headed",
+    "test:saml:report": "playwright show-report",
+    "saml:start": "docker-compose -f docker-compose.saml-test.yml up -d",
+    "saml:stop": "docker-compose -f docker-compose.saml-test.yml down",
+    "saml:logs": "docker-compose -f docker-compose.saml-test.yml logs -f",
+    "saml:certs": "cd test/saml/certs && ./generate-test-certs.sh"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
