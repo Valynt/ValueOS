@@ -9,6 +9,7 @@ import { logger } from '../lib/logger';
 import { TenantAwareService } from './TenantAwareService';
 import { settingsService } from './SettingsService';
 import { NotFoundError, ValidationError } from './errors';
+import { tenantCache } from './cache/TenantCache';
 
 export interface UserProfile {
   id: string;
@@ -50,10 +51,17 @@ export class UserSettingsService extends TenantAwareService {
   async getProfile(userId: string, tenantId: string): Promise<UserProfile> {
     this.log('info', 'Getting user profile', { userId, tenantId });
 
+    const cacheKey = tenantCache.buildUserProfileKey(tenantId, userId);
+
+    const cachedProfile = await tenantCache.get<UserProfile>(cacheKey);
+    if (cachedProfile) {
+      return cachedProfile;
+    }
+
     // SEC-003: Validate tenant access
     await this.validateTenantAccess(userId, tenantId);
 
-    return this.executeRequest(
+    const profile = await this.executeRequest(
       async () => {
         const { data, error } = await this.supabase
           .from('users')
@@ -72,8 +80,11 @@ export class UserSettingsService extends TenantAwareService {
 
         return data;
       },
-      { deduplicationKey: `user-profile-${userId}-${tenantId}` }
+      { deduplicationKey: `user-profile-${userId}-${tenantId}`, skipCache: true }
     );
+
+    await tenantCache.set(cacheKey, profile);
+    return profile;
   }
 
   /**
@@ -108,8 +119,10 @@ export class UserSettingsService extends TenantAwareService {
 
         if (error) throw error;
 
+        const cacheKey = tenantCache.buildUserProfileKey(tenantId, userId);
+        await tenantCache.set(cacheKey, data as UserProfile);
         this.clearCache(`user-profile-${userId}-${tenantId}`);
-        return data;
+        return data as UserProfile;
       },
       { skipCache: true }
     );
@@ -166,6 +179,7 @@ export class UserSettingsService extends TenantAwareService {
 
     return this.executeRequest(
       async () => {
+        const tenantIds = await this.getUserTenants(userId).catch(() => []);
         const { error } = await this.supabase
           .from('users')
           .delete()
@@ -173,6 +187,11 @@ export class UserSettingsService extends TenantAwareService {
 
         if (error) throw error;
 
+        for (const tenantId of tenantIds) {
+          await tenantCache.invalidate(
+            tenantCache.buildUserProfileKey(tenantId, userId)
+          );
+        }
         this.clearCache();
       },
       { skipCache: true }
