@@ -15,6 +15,7 @@ import {
   Clock,
   TrendingUp,
   AlertTriangle,
+  Shield,
 } from 'lucide-react';
 import {
   getAuditLogger,
@@ -23,6 +24,7 @@ import {
   AuditLogStats,
 } from '../../services/AgentAuditLogger';
 import { AgentType } from '../../services/AgentAPI';
+import { ModelInfoModal } from '../../components/Settings/ModelInfoModal';
 
 /**
  * Agent Audit Log View Component
@@ -37,6 +39,8 @@ export const AgentAuditLogView: React.FC = () => {
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLog, setSelectedLog] = useState<AgentAuditLog | null>(null);
+  const [isModelInfoOpen, setIsModelInfoOpen] = useState(false);
+  const [modelAgentId, setModelAgentId] = useState('opportunity');
 
   const logger = getAuditLogger();
 
@@ -133,6 +137,13 @@ export const AgentAuditLogView: React.FC = () => {
           </p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => setIsModelInfoOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+          >
+            <Shield className="h-4 w-4" />
+            Model Info
+          </button>
           <button
             onClick={loadLogs}
             disabled={loading}
@@ -455,6 +466,13 @@ export const AgentAuditLogView: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ModelInfoModal
+        isOpen={isModelInfoOpen}
+        agentId={modelAgentId}
+        onClose={() => setIsModelInfoOpen(false)}
+        onAgentChange={setModelAgentId}
+      />
     </div>
   );
 };
