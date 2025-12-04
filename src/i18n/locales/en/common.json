@@ -1,0 +1,11 @@
+{
+  "app.title": "ValueCanvas",
+  "navigation.home": "Home",
+  "navigation.dashboard": "Dashboard",
+  "form.save": "Save",
+  "form.cancel": "Cancel",
+  "errors.generic": "Something went wrong. Please try again.",
+  "errors.network": "A network issue occurred. Check your connection and retry.",
+  "canvas.summary": "Business model canvas overview",
+  "canvas.refresh": "Refresh insights"
+}
