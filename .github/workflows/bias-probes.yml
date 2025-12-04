@@ -1,0 +1,47 @@
+name: Bias Probes
+
+on:
+  push:
+    branches: [ main, develop, staging ]
+    paths:
+      - 'src/agents/**'
+      - 'src/config/**'
+      - 'src/lib/agent-fabric/**'
+      - 'scripts/redteam/**'
+  pull_request:
+    branches: [ main, develop, staging ]
+    paths:
+      - 'src/agents/**'
+      - 'src/config/**'
+      - 'src/lib/agent-fabric/**'
+      - 'scripts/redteam/**'
+
+jobs:
+  bias-probes:
+    name: Red Team Fairness Probes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run fairness probes
+        env:
+          STAGING_AGENT_URL: ${{ secrets.STAGING_AGENT_URL }}
+          DECISION_VARIANCE_THRESHOLD: 5
+        run: npm run bias:probes
+
+      - name: Upload bias probe report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bias-probe-report
+          path: reports/bias-probe-report.json

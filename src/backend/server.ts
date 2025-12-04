@@ -6,6 +6,7 @@
 import express from 'express';
 import cors from 'cors';
 import billingRouter from '../api/billing';
+import documentRouter from '../api/documents';
 import { createLogger } from '../lib/logger';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
 
@@ -35,6 +36,7 @@ app.get(
 
 // Mount billing routes
 app.use('/api/billing', billingRouter);
+app.use('/api/documents', documentRouter);
 
 // Error handler
 app.use(
