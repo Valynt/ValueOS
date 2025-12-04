@@ -140,3 +140,38 @@ data:
         annotations:
           summary: "Secret cache size is large"
           description: "Cache contains {{ $value }} secrets for provider {{ $labels.provider }} - consider tuning TTL"
+
+    - name: network_security
+      interval: 30s
+      rules:
+
+      - alert: MeshPlaintextTraffic
+        expr: |
+          sum(rate(istio_requests_total{reporter="destination",connection_security_policy!="mutual_tls"}[5m])) > 0
+        for: 2m
+        labels:
+          severity: critical
+          component: mesh
+        annotations:
+          summary: "Plaintext traffic detected inside the mesh"
+          description: "{{ $value }} req/s observed without mutual TLS; verify sidecar injection and PeerAuthentication"
+
+      - alert: MeshTLSHandshakeFailures
+        expr: increase(istio_authentication_handshake_error_count[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          component: mesh
+        annotations:
+          summary: "mTLS handshakes are failing"
+          description: "{{ $value }} handshake errors in the last 5m; check SPIFFE IDs and mesh CA health"
+
+      - alert: NetworkPolicyDenyBursts
+        expr: increase(kube_networkpolicy_denied_packets_total[5m]) > 10
+        for: 1m
+        labels:
+          severity: warning
+          component: network-policy
+        annotations:
+          summary: "NetworkPolicy denies are spiking"
+          description: "Denied packets exceeded 10 in 5m; review recent deployments and allowlists"
