@@ -12,6 +12,11 @@ import { createLogger } from '../../lib/logger';
 const router = express.Router();
 const logger = createLogger({ component: 'SubscriptionsAPI' });
 
+const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
+  requestId: (req as any).requestId || res.locals.requestId,
+  ...meta,
+});
+
 /**
  * GET /api/billing/subscription
  * Get current subscription
@@ -32,7 +37,7 @@ router.get('/', async (req: Request, res: Response) => {
 
     res.json(subscription);
   } catch (error) {
-    logger.error('Error fetching subscription', error as Error);
+    logger.error('Error fetching subscription', error as Error, withRequestContext(req, res));
     res.status(500).json({ error: 'Failed to fetch subscription' });
   }
 });
@@ -62,7 +67,7 @@ router.post('/', async (req: Request, res: Response) => {
 
     res.status(201).json(subscription);
   } catch (error) {
-    logger.error('Error creating subscription', error as Error);
+    logger.error('Error creating subscription', error as Error, withRequestContext(req, res));
     res.status(500).json({ error: 'Failed to create subscription' });
   }
 });
@@ -91,7 +96,7 @@ router.put('/', async (req: Request, res: Response) => {
 
     res.json(subscription);
   } catch (error) {
-    logger.error('Error updating subscription', error as Error);
+    logger.error('Error updating subscription', error as Error, withRequestContext(req, res));
     res.status(500).json({ error: 'Failed to update subscription' });
   }
 });
@@ -116,7 +121,7 @@ router.delete('/', async (req: Request, res: Response) => {
 
     res.json(subscription);
   } catch (error) {
-    logger.error('Error canceling subscription', error as Error);
+    logger.error('Error canceling subscription', error as Error, withRequestContext(req, res));
     res.status(500).json({ error: 'Failed to cancel subscription' });
   }
 });
@@ -137,7 +142,7 @@ router.post('/preview', async (req: Request, res: Response) => {
     // TODO: Implement preview logic
     res.json({ message: 'Preview not yet implemented' });
   } catch (error) {
-    logger.error('Error previewing subscription', error as Error);
+    logger.error('Error previewing subscription', error as Error, withRequestContext(req, res));
     res.status(500).json({ error: 'Failed to preview subscription' });
   }
 });
