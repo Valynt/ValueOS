@@ -24,3 +24,4 @@ export { auditLogService } from './AuditLogService';
 export { ROIFormulaInterpreter } from './ROIFormulaInterpreter';
 export { ValueFabricService } from './ValueFabricService';
 export { BenchmarkService } from './BenchmarkService';
+export { RotationService, rotationService, type RotationContext, type RotationResult } from './RotationService';
