@@ -48,7 +48,8 @@
     "test:chaos": "ts-node scripts/chaos-test.ts",
     "chaos:enable": "CHAOS_ENABLED=true npm run dev",
     "chaos:pipeline": "bash scripts/run-chaos-pipeline.sh",
-    "ci:bias-probes": "node -r tsx/cjs scripts/run-bias-probes.ts"
+    "ci:bias-probes": "node -r tsx/cjs scripts/run-bias-probes.ts",
+    "beta:provision": "node -r tsx/cjs scripts/beta-provision.ts"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
