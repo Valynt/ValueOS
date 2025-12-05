@@ -2,6 +2,97 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    --background: 0 0% 4%;
+    --foreground: 0 0% 88%;
+
+    --card: 0 0% 6%;
+    --card-foreground: 0 0% 88%;
+
+    --popover: 0 0% 6%;
+    --popover-foreground: 0 0% 88%;
+
+    --muted: 0 0% 23%;
+    --muted-foreground: 0 0% 60%;
+
+    --primary: 157 100% 50%;
+    --primary-foreground: 0 0% 4%;
+
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 88%;
+
+    --accent: 196 100% 47%;
+    --accent-foreground: 0 0% 4%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --status-success: 157 100% 50%;
+    --status-warning: 38 100% 55%;
+    --status-error: 0 84% 60%;
+    --status-info: 196 100% 47%;
+
+    --border: 0 0% 23%;
+    --input: 0 0% 23%;
+
+    --ring: 157 100% 50%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 6%;
+    --sidebar-foreground: 0 0% 88%;
+    --sidebar-primary: 157 100% 50%;
+    --sidebar-primary-foreground: 0 0% 4%;
+    --sidebar-accent: 196 100% 47%;
+    --sidebar-accent-foreground: 0 0% 4%;
+    --sidebar-border: 0 0% 23%;
+    --sidebar-ring: 157 100% 50%;
+  }
+
+  .dark {
+    --background: 0 0% 4%;
+    --foreground: 0 0% 88%;
+
+    --card: 0 0% 6%;
+    --card-foreground: 0 0% 88%;
+
+    --popover: 0 0% 6%;
+    --popover-foreground: 0 0% 88%;
+
+    --muted: 0 0% 23%;
+    --muted-foreground: 0 0% 60%;
+
+    --primary: 157 100% 50%;
+    --primary-foreground: 0 0% 4%;
+
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 88%;
+
+    --accent: 196 100% 47%;
+    --accent-foreground: 0 0% 4%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 23%;
+    --input: 0 0% 23%;
+
+    --ring: 157 100% 50%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 6%;
+    --sidebar-foreground: 0 0% 88%;
+    --sidebar-primary: 157 100% 50%;
+    --sidebar-primary-foreground: 0 0% 4%;
+    --sidebar-accent: 196 100% 47%;
+    --sidebar-accent-foreground: 0 0% 4%;
+    --sidebar-border: 0 0% 23%;
+    --sidebar-ring: 157 100% 50%;
+  }
+}
+
 @layer utilities {
   @keyframes pulse-border {
     0%, 100% {

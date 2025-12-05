@@ -1,14 +1,15 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { SettingsSection } from '../../components/Settings/SettingsSection';
 import { Upload, Building2, Check, AlertCircle, Loader2, X } from 'lucide-react';
+import { applyBrandTheme } from '../../styles/brandTheme';
 
 export const OrganizationGeneral: React.FC = () => {
   const [orgName, setOrgName] = useState('Acme Corporation');
   const [domain, setDomain] = useState('acme.com');
   const [industry, setIndustry] = useState('technology');
   const [orgSize, setOrgSize] = useState('51-200');
-  const [primaryColor, setPrimaryColor] = useState('#3B82F6');
-  const [secondaryColor, setSecondaryColor] = useState('#8B5CF6');
+  const [primaryColor, setPrimaryColor] = useState('#00FF9D');
+  const [secondaryColor, setSecondaryColor] = useState('#00AEEF');
   const [logo, setLogo] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -66,11 +67,19 @@ export const OrganizationGeneral: React.FC = () => {
     setSaving(true);
     try {
       await new Promise(resolve => setTimeout(resolve, 1500));
+      applyBrandTheme({ primary: primaryColor, secondary: secondaryColor });
       setIsDirty(false);
     } finally {
       setSaving(false);
     }
   };
+
+  useEffect(() => {
+    applyBrandTheme({ primary: primaryColor, secondary: secondaryColor });
+    // We only want to apply the initial defaults on mount; subsequent updates
+    // are driven via the save handler.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="space-y-6">
