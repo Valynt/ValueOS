@@ -1,0 +1,112 @@
+groups:
+  - name: api-slo-availability
+    rules:
+      # /health availability SLO ~99.9%
+      - alert: HealthAvailabilityFastBurn
+        expr: |
+          sum(rate(valuecanvas_http_requests_total{route="/health",status_code=~"5.."}[5m]))
+          /
+          sum(rate(valuecanvas_http_requests_total{route="/health"}[5m]))
+          > 0.02
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Fast burn: /health availability SLO breach"
+          description: "5xx error rate on /health > 2% over the last 10 minutes."
+
+      - alert: HealthAvailabilitySlowBurn
+        expr: |
+          sum(rate(valuecanvas_http_requests_total{route="/health",status_code=~"5.."}[30m]))
+          /
+          sum(rate(valuecanvas_http_requests_total{route="/health"}[30m]))
+          > 0.005
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow burn: /health availability SLO at risk"
+          description: "5xx error rate on /health > 0.5% over the last 1 hour."
+
+      # /api/llm/chat availability SLO ~99.5%
+      - alert: LLMChatAvailabilityFastBurn
+        expr: |
+          sum(rate(valuecanvas_http_requests_total{route="/api/llm/chat",status_code=~"5.."}[5m]))
+          /
+          sum(rate(valuecanvas_http_requests_total{route="/api/llm/chat"}[5m]))
+          > 0.02
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Fast burn: /api/llm/chat availability SLO breach"
+          description: "5xx error rate on /api/llm/chat > 2% over the last 10 minutes."
+
+      - alert: LLMChatAvailabilitySlowBurn
+        expr: |
+          sum(rate(valuecanvas_http_requests_total{route="/api/llm/chat",status_code=~"5.."}[30m]))
+          /
+          sum(rate(valuecanvas_http_requests_total{route="/api/llm/chat"}[30m]))
+          > 0.005
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow burn: /api/llm/chat availability SLO at risk"
+          description: "5xx error rate on /api/llm/chat > 0.5% over the last 1 hour."
+
+      # /api/billing* availability SLO ~99.5%
+      - alert: BillingAvailabilityFastBurn
+        expr: |
+          sum(rate(valuecanvas_http_requests_total{route=~"/api/billing.*",status_code=~"5.."}[5m]))
+          /
+          sum(rate(valuecanvas_http_requests_total{route=~"/api/billing.*"}[5m]))
+          > 0.02
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Fast burn: /api/billing availability SLO breach"
+          description: "5xx error rate on /api/billing* > 2% over the last 10 minutes."
+
+      - alert: BillingAvailabilitySlowBurn
+        expr: |
+          sum(rate(valuecanvas_http_requests_total{route=~"/api/billing.*",status_code=~"5.."}[30m]))
+          /
+          sum(rate(valuecanvas_http_requests_total{route=~"/api/billing.*"}[30m]))
+          > 0.005
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow burn: /api/billing availability SLO at risk"
+          description: "5xx error rate on /api/billing* > 0.5% over the last 1 hour."
+
+  - name: api-slo-latency
+    rules:
+      # p95 latency SLOs (1s) for LLM chat and billing
+      - alert: LLMChatLatencyP95High
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(valuecanvas_http_request_duration_ms_bucket{route="/api/llm/chat"}[5m])) by (le)
+          ) > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High p95 latency on /api/llm/chat"
+          description: "p95 latency on /api/llm/chat > 1s over the last 10 minutes."
+
+      - alert: BillingLatencyP95High
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(valuecanvas_http_request_duration_ms_bucket{route=~"/api/billing.*"}[5m])) by (le)
+          ) > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High p95 latency on /api/billing*"
+          description: "p95 latency on /api/billing routes > 1s over the last 10 minutes."

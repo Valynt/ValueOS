@@ -8,6 +8,7 @@ import StripeService from './StripeService';
 import InvoiceService from './InvoiceService';
 import { STRIPE_CONFIG } from '../../config/billing';
 import { createLogger } from '../../lib/logger';
+import { recordStripeWebhook, recordInvoiceEvent, recordBillingJobFailure } from '../../metrics/billingMetrics';
 
 const logger = createLogger({ component: 'WebhookService' });
 
@@ -104,8 +105,11 @@ class WebhookService {
 
       // Mark as processed
       await this.markEventProcessed(event.id);
+      recordStripeWebhook(event.type, 'processed');
     } catch (error) {
       logger.error('Error processing webhook event', error, { eventId: event.id });
+      recordStripeWebhook(event.type, 'failed');
+      recordBillingJobFailure('stripe_webhook', (error as Error).message);
       await this.markEventFailed(event.id, (error as Error).message);
       throw error;
     }
@@ -161,6 +165,7 @@ class WebhookService {
     const invoice = event.data.object;
     await InvoiceService.storeInvoice(invoice);
     logger.info('Invoice event processed', { invoiceId: invoice.id });
+    recordInvoiceEvent(event.type);
   }
 
   /**
@@ -187,6 +192,7 @@ class WebhookService {
     }
 
     logger.info('Payment succeeded processed', { invoiceId: invoice.id });
+    recordInvoiceEvent(event.type);
   }
 
   /**
@@ -223,6 +229,7 @@ class WebhookService {
         invoiceId: invoice.id 
       });
     }
+    recordInvoiceEvent(event.type);
   }
 
   /**

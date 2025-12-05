@@ -6,6 +6,7 @@
 import express, { Request, Response } from 'express';
 import WebhookService from '../../services/billing/WebhookService';
 import { createLogger } from '../../lib/logger';
+import { recordStripeWebhook } from '../../metrics/billingMetrics';
 
 const router = express.Router();
 const logger = createLogger({ component: 'WebhooksAPI' });
@@ -29,6 +30,7 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Re
 
     // Verify and construct event
     const event = WebhookService.verifySignature(req.body, signature);
+    recordStripeWebhook(event.type, 'received');
     
     logger.info(
       'Webhook received',

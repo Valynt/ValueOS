@@ -17,6 +17,7 @@ export interface LLMRequest {
   temperature?: number;
   userId: string;
   sessionId?: string;
+  tenantId?: string;
 }
 
 export interface LLMResponse {
@@ -39,6 +40,12 @@ export interface CircuitBreakerStats {
   rejects: number;
   fires: number;
 }
+
+type LLMFallbackStats = {
+  togetherAI: CircuitBreakerStats & { calls: number; failures: number; fallbacks: number };
+  openAI: CircuitBreakerStats & { calls: number; failures: number };
+  cache: { hits: number; misses: number };
+};
 
 export class LLMFallbackService {
   private togetherAIBreaker: CircuitBreaker;
@@ -106,7 +113,7 @@ export class LLMFallbackService {
     
     // OpenAI events
     this.openAIBreaker.on('open', () => {
-      logger.error('OpenAI circuit breaker opened - both LLM providers down!', {
+      logger.error('OpenAI circuit breaker opened - both LLM providers down!', undefined, {
         stats: this.openAIBreaker.stats
       });
     });
@@ -328,9 +335,9 @@ export class LLMFallbackService {
       'gpt-4': { input: 30, output: 60 }, // per 1M tokens
       'gpt-3.5-turbo': { input: 0.5, output: 1.5 }
     };
-    
-    const price = pricing[model] || pricing['gpt-3.5-turbo'];
-    
+
+    const price: { input: number; output: number } = pricing[model] ?? pricing['gpt-3.5-turbo'];
+
     return (
       (promptTokens / 1_000_000) * price.input +
       (completionTokens / 1_000_000) * price.output
@@ -386,11 +393,7 @@ export class LLMFallbackService {
   /**
    * Get circuit breaker statistics
    */
-  getStats(): {
-    togetherAI: CircuitBreakerStats & typeof this.stats.togetherAI;
-    openAI: CircuitBreakerStats & typeof this.stats.openAI;
-    cache: typeof this.stats.cache;
-  } {
+  getStats(): LLMFallbackStats {
     return {
       togetherAI: {
         ...this.togetherAIBreaker.stats,
