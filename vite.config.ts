@@ -14,8 +14,14 @@ export default defineConfig({
   preview: {
     headers: getEnvironmentHeaders('production'),
   },
+  build: {
+    rollupOptions: {
+      external: ['fs', 'path', 'crypto', 'node-vault'],
+    },
+  },
   optimizeDeps: {
     include: ['lucide-react'],
+    exclude: ['node-vault'],
   },
   test: {
     environment: 'jsdom',
