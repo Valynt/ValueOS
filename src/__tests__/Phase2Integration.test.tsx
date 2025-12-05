@@ -321,7 +321,7 @@ describe('Phase 2 Integration Tests', () => {
         },
         {
           agentId: 'agent-2',
-          agentType: 'ValueEvalAgent',
+          agentType: 'IntegrityAgent',
           timestamp: Date.now(),
           workspaceId: 'workspace-1',
           lifecycleStage: 'opportunity' as const,

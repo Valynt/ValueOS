@@ -15,11 +15,11 @@ import { z } from 'zod';
  * Supported data source types
  */
 export type DataSourceType =
-  | 'realization_engine'    // RealizationLoopAgent metrics
+  | 'realization_engine'    // RealizationAgent metrics
   | 'system_mapper'         // SystemMapperAgent entities/relationships
-  | 'intervention_designer' // InterventionDesignerAgent interventions
-  | 'outcome_engineer'      // OutcomeEngineerAgent hypotheses
-  | 'value_eval'            // ValueEvalAgent scores
+  | 'intervention_designer' // TargetAgent interventions
+  | 'outcome_engineer'      // OpportunityAgent hypotheses
+  | 'value_eval'            // IntegrityAgent scores
   | 'semantic_memory'       // SemanticMemoryService
   | 'tool_registry'         // ToolRegistry execution results
   | 'supabase'              // Direct Supabase query

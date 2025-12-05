@@ -1,8 +1,8 @@
 /**
- * InterventionDesignerAgent
+ * TargetAgent
  * 
- * Identifies high-leverage interventions from system maps and connects
- * them to KPIs and value models. Part of the Systemic Outcome Framework (SOF).
+ * Designs targeted interventions from system maps and connects
+ * them to KPIs and value models. Part of the ValueCanvas Framework.
  * 
  * SEC-004: Uses secure logger to prevent sensitive data leakage
  */
@@ -19,9 +19,9 @@ import type {
 } from '../types/sof';
 
 /**
- * Agent input for intervention design
+ * Agent input for target intervention design
  */
-export interface InterventionDesignerInput {
+export interface TargetInput {
   organizationId: string;
   systemMap: SystemMap;
   kpis: Array<{
@@ -44,9 +44,9 @@ export interface InterventionDesignerInput {
 }
 
 /**
- * Agent output with intervention points
+ * Agent output with target interventions
  */
-export interface InterventionDesignerOutput {
+export interface TargetOutput {
   interventionPoints: Array<Omit<InterventionPoint, 'id' | 'created_at' | 'updated_at'>>;
   sduiLayout: {
     type: 'InterventionDesignPage';
@@ -66,16 +66,16 @@ export interface InterventionDesignerOutput {
 }
 
 /**
- * InterventionDesignerAgent class
+ * TargetAgent class
  */
-export class InterventionDesignerAgent {
-  private agentId = 'intervention-designer-v1';
-  private agentName = 'Intervention Designer';
+export class TargetAgent {
+  private agentId = 'target-v1';
+  private agentName = 'Target Agent';
 
   /**
    * Design interventions from system map
    */
-  async design(input: InterventionDesignerInput): Promise<InterventionDesignerOutput> {
+  async design(input: TargetInput): Promise<TargetOutput> {
     logger.debug('Designing interventions', {
       agent: this.agentName,
       organizationId: input.organizationId,
@@ -138,7 +138,7 @@ export class InterventionDesignerAgent {
    */
   private analyzeLeveragePoints(
     leveragePoints: LeveragePoint[],
-    kpis: InterventionDesignerInput['kpis']
+    kpis: TargetInput['kpis']
   ) {
     return {
       total: leveragePoints.length,
@@ -153,7 +153,7 @@ export class InterventionDesignerAgent {
    */
   private assessKPIAlignment(
     leveragePoints: LeveragePoint[],
-    kpis: InterventionDesignerInput['kpis']
+    kpis: TargetInput['kpis']
   ): number {
     // Simple heuristic: high-priority KPIs with large gaps align well with high-impact leverage points
     const criticalKPIs = kpis.filter((kpi) => kpi.priority === 'critical' || kpi.priority === 'high');
@@ -168,9 +168,9 @@ export class InterventionDesignerAgent {
   private designIntervention(
     leveragePoint: LeveragePoint,
     systemMap: SystemMap,
-    kpis: InterventionDesignerInput['kpis'],
-    constraints?: InterventionDesignerInput['constraints'],
-    preferences?: InterventionDesignerInput['preferences']
+    kpis: TargetInput['kpis'],
+    constraints?: TargetInput['constraints'],
+    preferences?: TargetInput['preferences']
   ): Omit<InterventionPoint, 'id' | 'created_at' | 'updated_at'> | null {
     // Determine intervention type
     const interventionType = this.determineInterventionType(leveragePoint);
@@ -253,7 +253,7 @@ export class InterventionDesignerAgent {
    */
   private mapToKPIs(
     leveragePoint: LeveragePoint,
-    kpis: InterventionDesignerInput['kpis'],
+    kpis: TargetInput['kpis'],
     systemMap: SystemMap
   ): OutcomePathway[] {
     const pathways: OutcomePathway[] = [];
@@ -287,7 +287,7 @@ export class InterventionDesignerAgent {
   private findConnectedKPIs(
     leveragePoint: LeveragePoint,
     systemMap: SystemMap,
-    kpis: InterventionDesignerInput['kpis']
+    kpis: TargetInput['kpis']
   ) {
     // Find KPI entities in system map
     const kpiEntities = systemMap.entities.filter((e) => e.type === 'kpi');
@@ -341,7 +341,7 @@ export class InterventionDesignerAgent {
    */
   private estimateKPIDelta(
     leveragePoint: LeveragePoint,
-    kpi: InterventionDesignerInput['kpis'][0],
+    _kpi: TargetInput['kpis'][0],
     gap: number
   ): number {
     // Impact factor based on leverage level
@@ -358,7 +358,7 @@ export class InterventionDesignerAgent {
    */
   private calculatePathwayConfidence(
     leveragePoint: LeveragePoint,
-    kpi: InterventionDesignerInput['kpis'][0]
+    kpi: TargetInput['kpis'][0]
   ): number {
     let confidence = 0.5;
 
@@ -444,7 +444,7 @@ export class InterventionDesignerAgent {
    */
   private meetsConstraints(
     leveragePoint: LeveragePoint,
-    constraints: InterventionDesignerInput['constraints']
+    constraints: TargetInput['constraints']
   ): boolean {
     // Timeframe constraint
     if (constraints.timeframe === 'short' && leveragePoint.effort === 'very_high') {
@@ -569,7 +569,7 @@ export class InterventionDesignerAgent {
    */
   private generateAnalysis(
     interventionPoints: Array<Omit<InterventionPoint, 'id' | 'created_at' | 'updated_at'>>,
-    kpis: InterventionDesignerInput['kpis']
+    kpis: TargetInput['kpis']
   ) {
     const highLeverage = interventionPoints.filter((ip) => ip.leverage_level >= 8);
     const totalRisks = interventionPoints.reduce((sum, ip) => sum + ip.risks.length, 0);
@@ -598,7 +598,7 @@ export class InterventionDesignerAgent {
    */
   private generateSDUILayout(
     interventionPoints: Array<Omit<InterventionPoint, 'id' | 'created_at' | 'updated_at'>>,
-    analysis: InterventionDesignerOutput['analysis']
+    analysis: TargetOutput['analysis']
   ) {
     return {
       type: 'InterventionDesignPage' as const,
@@ -664,4 +664,4 @@ export class InterventionDesignerAgent {
 /**
  * Export singleton instance
  */
-export const interventionDesignerAgent = new InterventionDesignerAgent();
+export const targetAgent = new TargetAgent();

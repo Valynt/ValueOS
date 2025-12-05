@@ -444,12 +444,26 @@ Generate the optimal SDUI layout for this data.`,
       },
     };
 
+    // Validate generated layout
+    const validation = this.validateGeneratedLayout(layout);
+    
+    if (!validation.valid) {
+      logger.warn('Generated layout validation failed, using fallback', {
+        errors: validation.errors,
+        subgoalId: subgoal.id,
+      });
+      
+      // Fallback to simple text display
+      return this.generateFallbackLayout(subgoal);
+    }
+
     // Log SDUI generation
     if (this.config.enableAuditLogging) {
       await this.logDecision('static_ui_generated', layout, {
         subgoal_id: subgoal.id,
         component: sduiMapping.component,
         layout: sduiMapping.layout,
+        validation_warnings: validation.warnings,
       });
     }
 
@@ -493,9 +507,38 @@ Generate the optimal SDUI layout for this data.`,
   }
 
   /**
-   * Validate generated layout
+   * Generate fallback layout when SDUI generation fails
    */
-  private validateGeneratedLayout(layout: unknown): {
+  private generateFallbackLayout(subgoal: Subgoal): SDUIPageDefinition {
+    return {
+      type: 'page',
+      version: 1,
+      sections: [
+        {
+          type: 'component',
+          component: 'TextDisplay',
+          version: 1,
+          props: {
+            title: subgoal.description,
+            content: JSON.stringify(subgoal.output, null, 2),
+            status: 'warning',
+            message: 'Using fallback display due to UI generation issue',
+          },
+        },
+      ],
+      metadata: {
+        debug: true,
+        experienceId: subgoal.id,
+        generated_by: 'fallback',
+        fallback_reason: 'validation_failed',
+      },
+    };
+  }
+
+  /**
+   * Validate generated layout against SDUI schema
+   */
+  private validateGeneratedLayout(layout: any): {
     valid: boolean;
     errors: string[];
     warnings: string[];

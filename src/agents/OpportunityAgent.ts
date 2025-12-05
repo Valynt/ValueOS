@@ -1,8 +1,9 @@
 /**
- * OutcomeEngineerAgent
+ * OpportunityAgent
  * 
- * Builds systemic outcome hypotheses that bridge system changes to KPI deltas
- * and value stories. Part of the Systemic Outcome Framework (SOF).
+ * Identifies and analyzes value opportunities by building systemic outcome hypotheses
+ * that bridge system changes to KPI deltas and value stories.
+ * Part of the ValueCanvas Framework.
  */
 
 import { logger } from '../lib/logger';
@@ -17,9 +18,9 @@ import type {
 } from '../types/sof';
 
 /**
- * Agent input for outcome engineering
+ * Agent input for opportunity analysis
  */
-export interface OutcomeEngineerInput {
+export interface OpportunityInput {
   organizationId: string;
   systemMap: SystemMap;
   interventionPoint: InterventionPoint;
@@ -39,9 +40,9 @@ export interface OutcomeEngineerInput {
 }
 
 /**
- * Agent output with outcome hypotheses
+ * Agent output with opportunity analysis and hypotheses
  */
-export interface OutcomeEngineerOutput {
+export interface OpportunityOutput {
   outcomeHypotheses: Array<Omit<OutcomeHypothesis, 'id' | 'created_at' | 'updated_at'>>;
   sduiLayout: {
     type: 'OutcomeEngineeringPage';
@@ -61,17 +62,17 @@ export interface OutcomeEngineerOutput {
 }
 
 /**
- * OutcomeEngineerAgent class
+ * OpportunityAgent class
  */
-export class OutcomeEngineerAgent {
-  private agentId = 'outcome-engineer-v1';
-  private agentName = 'Outcome Engineer';
+export class OpportunityAgent {
+  private agentId = 'opportunity-v1';
+  private agentName = 'Opportunity Agent';
 
   /**
-   * Engineer outcome hypotheses
+   * Analyze opportunities and generate hypotheses
    */
-  async engineer(input: OutcomeEngineerInput): Promise<OutcomeEngineerOutput> {
-    logger.debug('Engineering outcome hypotheses...', { agent: this.agentName });
+  async analyze(input: OpportunityInput): Promise<OpportunityOutput> {
+    logger.debug('Analyzing opportunities...', { agent: this.agentName });
 
     const hypotheses: Array<Omit<OutcomeHypothesis, 'id' | 'created_at' | 'updated_at'>> = [];
 
@@ -112,7 +113,7 @@ export class OutcomeEngineerAgent {
    * Create primary hypothesis (direct impact)
    */
   private createPrimaryHypothesis(
-    input: OutcomeEngineerInput
+    input: OpportunityInput
   ): Omit<OutcomeHypothesis, 'id' | 'created_at' | 'updated_at'> {
     // Build hypothesis statement
     const hypothesisStatement = this.buildHypothesisStatement(
@@ -169,7 +170,7 @@ export class OutcomeEngineerAgent {
    * Create secondary hypotheses (indirect impacts)
    */
   private createSecondaryHypotheses(
-    input: OutcomeEngineerInput
+    input: OpportunityInput
   ): Array<Omit<OutcomeHypothesis, 'id' | 'created_at' | 'updated_at'>> {
     const hypotheses: Array<Omit<OutcomeHypothesis, 'id' | 'created_at' | 'updated_at'>> = [];
 
@@ -189,7 +190,7 @@ export class OutcomeEngineerAgent {
    * Create feedback loop hypothesis
    */
   private createFeedbackHypothesis(
-    input: OutcomeEngineerInput
+    input: OpportunityInput
   ): Omit<OutcomeHypothesis, 'id' | 'created_at' | 'updated_at'> | null {
     // Check if intervention creates or affects a feedback loop
     const feedbackOpportunity = this.identifyFeedbackOpportunity(input.interventionPoint, input.systemMap);
@@ -286,7 +287,7 @@ export class OutcomeEngineerAgent {
    */
   private mapToKPIDeltas(
     pathways: InterventionPoint['outcome_pathways'],
-    kpis: OutcomeEngineerInput['kpis']
+    kpis: OpportunityInput['kpis']
   ): KPIDelta[] {
     return pathways.map((pathway) => {
       const kpi = kpis.find((k) => k.id === pathway.kpi_id);
@@ -308,7 +309,7 @@ export class OutcomeEngineerAgent {
   private buildValueStory(
     intervention: InterventionPoint,
     kpiDeltas: KPIDelta[],
-    context?: OutcomeEngineerInput['context']
+    context?: OpportunityInput['context']
   ): string {
     const industry = context?.industry || 'the organization';
     const timeframe = context?.timeframe || intervention.time_to_impact;
@@ -570,7 +571,7 @@ export class OutcomeEngineerAgent {
    * Create indirect hypothesis
    */
   private createIndirectHypothesis(
-    input: OutcomeEngineerInput,
+    input: OpportunityInput,
     impact: { entity: string; impact: string; pathway: string[] }
   ): Omit<OutcomeHypothesis, 'id' | 'created_at' | 'updated_at'> {
     return {
@@ -705,7 +706,7 @@ export class OutcomeEngineerAgent {
    */
   private generateInsights(
     hypotheses: Array<Omit<OutcomeHypothesis, 'id' | 'created_at' | 'updated_at'>>,
-    input: OutcomeEngineerInput
+    _input: OpportunityInput
   ) {
     const primary = hypotheses.find((h) => h.hypothesis_type === 'direct_impact');
     const causalPathways = hypotheses.reduce((sum, h) => sum + h.causal_chain.length, 0);
@@ -740,7 +741,7 @@ export class OutcomeEngineerAgent {
    */
   private generateSDUILayout(
     hypotheses: Array<Omit<OutcomeHypothesis, 'id' | 'created_at' | 'updated_at'>>,
-    insights: OutcomeEngineerOutput['insights']
+    insights: OpportunityOutput['insights']
   ) {
     return {
       type: 'OutcomeEngineeringPage' as const,
@@ -782,7 +783,7 @@ export class OutcomeEngineerAgent {
    * Calculate confidence
    */
   private calculateConfidence(
-    input: OutcomeEngineerInput,
+    input: OpportunityInput,
     hypotheses: Array<Omit<OutcomeHypothesis, 'id' | 'created_at' | 'updated_at'>>
   ): number {
     let confidence = 0.6; // Base confidence
@@ -805,4 +806,4 @@ export class OutcomeEngineerAgent {
 /**
  * Export singleton instance
  */
-export const outcomeEngineerAgent = new OutcomeEngineerAgent();
+export const opportunityAgent = new OpportunityAgent();

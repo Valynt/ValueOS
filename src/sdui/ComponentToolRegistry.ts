@@ -541,11 +541,11 @@ Instead of hardcoding values, use data binding objects:
 \`\`\`
 
 **Available Data Sources**:
-- \`realization_engine\` - RealizationLoopAgent metrics and loops
+- \`realization_engine\` - RealizationAgent metrics and loops
 - \`system_mapper\` - SystemMapperAgent entities and relationships
-- \`intervention_designer\` - InterventionDesignerAgent interventions
-- \`outcome_engineer\` - OutcomeEngineerAgent hypotheses
-- \`value_eval\` - ValueEvalAgent scores
+- \`intervention_designer\` - TargetAgent interventions
+- \`outcome_engineer\` - OpportunityAgent hypotheses
+- \`value_eval\` - IntegrityAgent scores
 - \`semantic_memory\` - SemanticMemoryService memories
 - \`tool_registry\` - ToolRegistry execution results
 - \`mcp_tool\` - MCP tool execution

@@ -73,7 +73,7 @@ const defaultAgentConfig: Record<string, AgentAutonomyConfig> = {
     },
   },
   
-  ValueEvalAgent: {
+  IntegrityAgent: {
     level: 'low',
     maxCost: 10,
     maxDuration: 600000,   // 10 minutes

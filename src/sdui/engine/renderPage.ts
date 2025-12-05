@@ -114,7 +114,7 @@ function renderLayoutDirective(
   });
 
   if (layout) {
-    return wrapWithLayout(element, layout, index);
+    return wrapWithLayout(element, layout, index, context, componentRegistry);
   }
 
   return element;
@@ -170,22 +170,33 @@ function renderComponent(
 }
 
 /**
- * Wrap element with layout container
+ * Wrap element with layout container (supports nested layouts)
  */
 function wrapWithLayout(
   element: React.ReactElement,
-  layout: string,
-  index: number
+  layout: string | { type: string; children?: any[] },
+  index: number,
+  context?: RenderContext,
+  componentRegistry?: Map<string, React.ComponentType<any>>
 ): React.ReactElement {
+  // Handle nested layout objects
+  if (typeof layout === 'object' && layout.type) {
+    return renderNestedLayout(layout, element, index, context, componentRegistry);
+  }
+
+  // Handle simple string layout types
   const layoutClasses: Record<string, string> = {
     default: 'sdui-layout-default',
     full_width: 'sdui-layout-full-width',
     two_column: 'sdui-layout-two-column',
     dashboard: 'sdui-layout-dashboard',
     single_column: 'sdui-layout-single-column',
+    grid: 'sdui-layout-grid',
+    flex: 'sdui-layout-flex',
+    nested: 'sdui-layout-nested',
   };
 
-  const className = layoutClasses[layout] || layoutClasses.default;
+  const className = layoutClasses[layout as string] || layoutClasses.default;
 
   return React.createElement(
     'div',
@@ -199,25 +210,91 @@ function wrapWithLayout(
 }
 
 /**
- * Render error fallback
+ * Render nested layout with recursive child rendering
+ */
+function renderNestedLayout(
+  layout: { type: string; children?: any[]; props?: any },
+  primaryElement: React.ReactElement,
+  index: number,
+  context?: RenderContext,
+  componentRegistry?: Map<string, React.ComponentType<any>>
+): React.ReactElement {
+  const { type, children, props } = layout;
+
+  // Render child sections recursively
+  const renderedChildren = children
+    ? children.map((child, childIndex) => {
+        if (child.type === 'component' || child.type === 'layout.directive') {
+          return renderSection(child, `${index}-${childIndex}` as any, context, componentRegistry);
+        }
+        return null;
+      }).filter(Boolean)
+    : [];
+
+  // Combine primary element with rendered children
+  const allChildren = [primaryElement, ...renderedChildren];
+
+  return React.createElement(
+    'div',
+    {
+      key: `nested-layout-${index}`,
+      className: `sdui-nested-layout sdui-nested-layout-${type}`,
+      'data-layout-type': type,
+      ...props,
+    },
+    allChildren
+  );
+}
+
+/**
+ * Render error fallback with error boundary
  */
 function renderErrorFallback(
   section: SDUISection,
   error: Error,
   index: number
 ): React.ReactElement {
+  // Log error for monitoring
+  logger.error('SDUI render error', {
+    component: (section as any).component,
+    sectionType: section.type,
+    error: error.message,
+    stack: error.stack,
+  });
+
   return React.createElement(
     'div',
     {
       key: `error-${index}`,
       className: 'sdui-error-fallback',
+      'data-error-type': 'render-failure',
+      'data-component': (section as any).component,
     },
-    React.createElement('h3', null, 'Failed to render component'),
-    React.createElement('p', null, error.message),
     React.createElement(
-      'pre',
-      null,
-      JSON.stringify(section, null, 2)
+      'div',
+      { className: 'sdui-error-header' },
+      React.createElement('h3', null, '⚠️ Component Render Failed')
+    ),
+    React.createElement(
+      'div',
+      { className: 'sdui-error-details' },
+      React.createElement('p', { className: 'sdui-error-message' }, error.message),
+      process.env.NODE_ENV === 'development' &&
+        React.createElement(
+          'details',
+          { className: 'sdui-error-debug' },
+          React.createElement('summary', null, 'Debug Information'),
+          React.createElement(
+            'pre',
+            { className: 'sdui-error-section' },
+            JSON.stringify(section, null, 2)
+          ),
+          React.createElement(
+            'pre',
+            { className: 'sdui-error-stack' },
+            error.stack
+          )
+        )
     )
   );
 }
