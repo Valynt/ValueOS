@@ -44,7 +44,10 @@
     "saml:start": "docker-compose -f docker-compose.saml-test.yml up -d",
     "saml:stop": "docker-compose -f docker-compose.saml-test.yml down",
     "saml:logs": "docker-compose -f docker-compose.saml-test.yml logs -f",
-    "saml:certs": "cd test/saml/certs && ./generate-test-certs.sh"
+    "saml:certs": "cd test/saml/certs && ./generate-test-certs.sh",
+    "test:chaos": "ts-node scripts/chaos-test.ts",
+    "chaos:enable": "CHAOS_ENABLED=true npm run dev",
+    "chaos:pipeline": "bash scripts/run-chaos-pipeline.sh"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
