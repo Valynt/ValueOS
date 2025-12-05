@@ -10,7 +10,7 @@ import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentation
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
-import { Resource } from '@opentelemetry/resources';
+import * as resources from '@opentelemetry/resources';
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
 import { trace, context, SpanStatusCode, Span } from '@opentelemetry/api';
 import { logger } from '../lib/logger';
@@ -30,7 +30,7 @@ const METRICS_ENDPOINT = `${OTLP_ENDPOINT}/v1/metrics`;
  */
 export function initializeTelemetry(): NodeSDK {
   const sdk = new NodeSDK({
-    resource: new Resource({
+    resource: new resources.Resource({
       [SemanticResourceAttributes.SERVICE_NAME]: SERVICE_NAME,
       [SemanticResourceAttributes.SERVICE_VERSION]: SERVICE_VERSION,
       [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: ENVIRONMENT,

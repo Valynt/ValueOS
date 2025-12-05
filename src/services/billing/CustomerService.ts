@@ -3,17 +3,23 @@
  * Manages Stripe customer creation and mapping to tenants
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import StripeService from './StripeService';
 import { BillingCustomer } from '../../types/billing';
 import { createLogger } from '../../lib/logger';
 
 const logger = createLogger({ component: 'CustomerService' });
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+let supabase: SupabaseClient | null = null;
+
+if (supabaseUrl && supabaseServiceRoleKey) {
+  supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+} else {
+  logger.warn('Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing');
+}
 
 class CustomerService {
   private stripe = StripeService.getInstance().getClient();
@@ -29,6 +35,9 @@ class CustomerService {
     metadata?: Record<string, any>
   ): Promise<BillingCustomer> {
     try {
+      if (!supabase) {
+        throw new Error('Billing storage is not configured (Supabase env vars missing)');
+      }
       logger.info('Creating Stripe customer', { tenantId, organizationName });
 
       // Check if customer already exists
@@ -79,6 +88,9 @@ class CustomerService {
    * Get customer by tenant ID
    */
   async getCustomerByTenantId(tenantId: string): Promise<BillingCustomer | null> {
+    if (!supabase) {
+      throw new Error('Billing storage is not configured (Supabase env vars missing)');
+    }
     const { data, error } = await supabase
       .from('billing_customers')
       .select('*')
@@ -97,6 +109,9 @@ class CustomerService {
    * Get customer by Stripe customer ID
    */
   async getCustomerByStripeId(stripeCustomerId: string): Promise<BillingCustomer | null> {
+    if (!supabase) {
+      throw new Error('Billing storage is not configured (Supabase env vars missing)');
+    }
     const { data, error } = await supabase
       .from('billing_customers')
       .select('*')
