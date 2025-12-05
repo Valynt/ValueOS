@@ -83,3 +83,7 @@ yarn-error.log*
 # Windsurf - keep local rules only
 .windsurf/*
 !.windsurf/rules/
+
+# Local development secrets (Docker Secrets)
+secrets/
+!secrets/README.md

@@ -30,6 +30,7 @@ services:
       - jaeger-data:/badger
     networks:
       - observability
+      - valuecanvas-network
 
   # Prometheus - Metrics Collection
   prometheus:
@@ -48,6 +49,7 @@ services:
       - prometheus-data:/prometheus
     networks:
       - observability
+      - valuecanvas-network
 
   # Grafana - Visualization
   grafana:
@@ -69,6 +71,7 @@ services:
       - jaeger
     networks:
       - observability
+      - valuecanvas-network
 
   # OpenTelemetry Collector (optional, for advanced setups)
   otel-collector:
@@ -88,6 +91,7 @@ services:
       - prometheus
     networks:
       - observability
+      - valuecanvas-network
 
 volumes:
   jaeger-data:
@@ -97,3 +101,5 @@ volumes:
 networks:
   observability:
     driver: bridge
+  valuecanvas-network:
+    external: true
