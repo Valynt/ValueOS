@@ -49,7 +49,8 @@
     "chaos:enable": "CHAOS_ENABLED=true npm run dev",
     "chaos:pipeline": "bash scripts/run-chaos-pipeline.sh",
     "ci:bias-probes": "node -r tsx/cjs scripts/run-bias-probes.ts",
-    "beta:provision": "node -r tsx/cjs scripts/beta-provision.ts"
+    "beta:provision": "node -r tsx/cjs scripts/beta-provision.ts",
+    "monitor:golden-path": "npx playwright test --config=playwright.monitor.config.ts --reporter=list"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
