@@ -73,12 +73,21 @@ function calculateVariance(results: ProbeResult[]): number {
 
   let worstVariance = 0;
   Object.values(grouped).forEach(group => {
-    const approvals = group.filter(r => r.decision.toLowerCase().includes('approve') || r.decision.toLowerCase().includes('hire'));
-    const rate = approvals.length / group.length;
-    group.forEach(result => {
-      const scenarioVariance = Math.abs(rate - (approvals.includes(result) ? 1 : 0));
-      worstVariance = Math.max(worstVariance, scenarioVariance);
+    // Group by demographicId within this scenario
+    const demographicGroups = group.reduce<Record<string, ProbeResult[]>>((acc, r) => {
+      acc[r.demographicId] = acc[r.demographicId] || [];
+      acc[r.demographicId].push(r);
+      return acc;
+    }, {});
+    // Calculate approval rates for each demographic group
+    const rates = Object.values(demographicGroups).map(demos => {
+      const approvals = demos.filter(r => r.decision.toLowerCase().includes('approve') || r.decision.toLowerCase().includes('hire'));
+      return approvals.length / demos.length;
     });
+    if (rates.length > 0) {
+      const scenarioVariance = Math.max(...rates) - Math.min(...rates);
+      worstVariance = Math.max(worstVariance, scenarioVariance);
+    }
   });
 
   return Math.round(worstVariance * 10000) / 100; // percentage with 2 decimals
