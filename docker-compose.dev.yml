@@ -51,6 +51,15 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    # Resource limits for 12-agent fabric support
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 6G
+        reservations:
+          cpus: '2.0'
+          memory: 4G
     # Security hardening (dev environment)
     security_opt:
       - no-new-privileges:true
@@ -78,7 +87,9 @@ services:
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-valuecanvas}
       - POSTGRES_USER=${POSTGRES_USER:-valuecanvas}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-valuecanvas_dev_password_CHANGE_ME}
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
+    secrets:
+      - db_password
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./supabase/migrations:/docker-entrypoint-initdb.d:ro
@@ -90,6 +101,15 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
     # Security hardening (dev environment)
     security_opt:
       - no-new-privileges:true
@@ -116,17 +136,28 @@ services:
     networks:
       - valuecanvas-network
     restart: unless-stopped
+    secrets:
+      - redis_password
     healthcheck:
-      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD:-redis_dev_password_CHANGE_ME}", "ping"]
+      test: ["CMD", "sh", "-c", "redis-cli --no-auth-warning -a $(cat /run/secrets/redis_password) ping"]
       interval: 10s
       timeout: 5s
       retries: 5
     command: >
-      redis-server
+      sh -c 'redis-server
       --appendonly yes
-      --requirepass ${REDIS_PASSWORD:-redis_dev_password_CHANGE_ME}
+      --requirepass $$(cat /run/secrets/redis_password)
       --maxmemory 128mb
-      --maxmemory-policy allkeys-lru
+      --maxmemory-policy allkeys-lru'
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
     # Security hardening (dev environment)
     security_opt:
       - no-new-privileges:true
@@ -151,3 +182,13 @@ volumes:
     driver: local
   redis-data:
     driver: local
+
+# ============================================================================
+# Secrets (Local Development)
+# ============================================================================
+# Docker Secrets for local dev - files stored in ./secrets/ (gitignored)
+secrets:
+  db_password:
+    file: ./secrets/dev_db_password.txt
+  redis_password:
+    file: ./secrets/dev_redis_password.txt
