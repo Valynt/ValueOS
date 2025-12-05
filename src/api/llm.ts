@@ -17,6 +17,7 @@ import {
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
 import { rateLimiters } from '../middleware/rateLimiter';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
+import { requireConsent } from '../middleware/consentMiddleware';
 
 const router = Router();
 router.use(requestAuditMiddleware());
@@ -33,7 +34,14 @@ const withRequestContext = (req: Request, res: Response, meta?: Record<string, u
  * 
  * Send a chat completion request to LLM with automatic fallback
  */
-router.post('/chat', rateLimiters.agentExecution, csrfProtectionMiddleware, sessionTimeoutMiddleware, llmRateLimiter, async (req: Request, res: Response) => {
+router.post(
+  '/chat',
+  rateLimiters.agentExecution,
+  csrfProtectionMiddleware,
+  sessionTimeoutMiddleware,
+  requireConsent('llm.chat'),
+  llmRateLimiter,
+  async (req: Request, res: Response) => {
   try {
     const { prompt, model, maxTokens, temperature } = req.body;
     
@@ -101,7 +109,8 @@ router.post('/chat', rateLimiters.agentExecution, csrfProtectionMiddleware, sess
       message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
-});
+  }
+);
 
 /**
  * GET /api/llm/stats

@@ -15,6 +15,7 @@ import {
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
 import { rateLimiters } from '../middleware/rateLimiter';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
+import { requireConsent } from '../middleware/consentMiddleware';
 
 const router = Router();
 router.use(requestAuditMiddleware());
@@ -31,7 +32,13 @@ const withRequestContext = (req: Request, res: Response, meta?: Record<string, u
  * 
  * Submit LLM job to queue
  */
-router.post('/llm', rateLimiters.standard, csrfProtectionMiddleware, sessionTimeoutMiddleware, async (req: Request, res: Response) => {
+router.post(
+  '/llm',
+  rateLimiters.standard,
+  csrfProtectionMiddleware,
+  sessionTimeoutMiddleware,
+  requireConsent('queue.llm'),
+  async (req: Request, res: Response) => {
   try {
     const { type, promptKey, promptVariables, prompt, model, maxTokens, temperature, metadata } = req.body;
     
@@ -93,7 +100,8 @@ router.post('/llm', rateLimiters.standard, csrfProtectionMiddleware, sessionTime
       message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
-});
+  }
+);
 
 /**
  * GET /api/queue/llm/:jobId
@@ -167,7 +175,13 @@ router.get('/llm/:jobId/result', async (req: Request, res: Response) => {
  * 
  * Cancel job
  */
-router.delete('/llm/:jobId', rateLimiters.standard, csrfProtectionMiddleware, sessionTimeoutMiddleware, async (req: Request, res: Response) => {
+router.delete(
+  '/llm/:jobId',
+  rateLimiters.standard,
+  csrfProtectionMiddleware,
+  sessionTimeoutMiddleware,
+  requireConsent('queue.llm.cancel'),
+  async (req: Request, res: Response) => {
   try {
     const { jobId } = req.params;
     
@@ -193,7 +207,8 @@ router.delete('/llm/:jobId', rateLimiters.standard, csrfProtectionMiddleware, se
       message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
-});
+  }
+);
 
 /**
  * GET /api/queue/metrics
