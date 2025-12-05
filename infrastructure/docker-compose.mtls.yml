@@ -54,12 +54,12 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       
       # TLS certificates
-      - ./tls/certs/ca-cert.pem:/certs/ca.pem:ro
-      - ./tls/certs/app-cert.pem:/certs/server-cert.pem:ro
-      - ./tls/certs/app-key.pem:/certs/server-key.pem:ro
+      - ./infrastructure/tls/certs/ca-cert.pem:/certs/ca.pem:ro
+      - ./infrastructure/tls/certs/app-cert.pem:/certs/server-cert.pem:ro
+      - ./infrastructure/tls/certs/app-key.pem:/certs/server-key.pem:ro
       
       # Dynamic configuration
-      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+      - ./infrastructure/traefik/dynamic:/etc/traefik/dynamic:ro
     
     networks:
       - valuecanvas-network
