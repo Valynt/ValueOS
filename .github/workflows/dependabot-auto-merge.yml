@@ -1,0 +1,132 @@
+name: Dependabot Auto-Merge
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+jobs:
+  dependabot-auto-merge:
+    runs-on: ubuntu-latest
+    # Only run on Dependabot PRs
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Wait for CI Tests - Unit & Integration
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          check-name: 'Unit & Integration Tests'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 30
+          allowed-conclusions: success
+
+      - name: Wait for CI Tests - Playwright Smoke
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          check-name: 'Playwright Smoke'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 30
+          allowed-conclusions: success
+
+      - name: Wait for ESLint Check
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          check-name: 'ESLint Check'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 30
+          allowed-conclusions: success
+
+      - name: Wait for TypeScript Check
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          check-name: 'TypeScript Check'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 30
+          allowed-conclusions: success
+
+      - name: Wait for Security Audit
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          check-name: 'Security Audit'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 30
+          allowed-conclusions: success
+
+      - name: Wait for Secret Scanning
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          check-name: 'Secret scanning'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 30
+          allowed-conclusions: success
+
+      - name: Log dependency information
+        run: |
+          echo "🔍 Dependency Update Information:"
+          echo "  - Dependency: ${{ steps.metadata.outputs.dependency-names }}"
+          echo "  - Update Type: ${{ steps.metadata.outputs.update-type }}"
+          echo "  - Package Ecosystem: ${{ steps.metadata.outputs.package-ecosystem }}"
+          echo "  - Previous Version: ${{ steps.metadata.outputs.previous-version }}"
+          echo "  - New Version: ${{ steps.metadata.outputs.new-version }}"
+
+      - name: Auto-approve patch and minor updates
+        # Auto-approve patch and minor updates first
+        if: |
+          steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-minor'
+        run: |
+          echo "✅ Auto-approving ${{ steps.metadata.outputs.update-type }} update for ${{ steps.metadata.outputs.dependency-names }}"
+          gh pr review --approve "$PR_URL" --body "✅ Auto-approved by Dependabot workflow. All tests are passing for ${{ steps.metadata.outputs.update-type }} update of ${{ steps.metadata.outputs.dependency-names }}."
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Auto-merge patch and minor updates
+        # Only auto-merge patch and minor updates for security
+        if: |
+          steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-minor'
+        run: |
+          echo "🚀 Auto-merging ${{ steps.metadata.outputs.dependency-names }} (${{ steps.metadata.outputs.update-type }})"
+          gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Comment on major updates
+        # Comment on major updates instead of auto-merging
+        if: steps.metadata.outputs.update-type == 'version-update:semver-major'
+        run: |
+          echo "⚠️ Major version update detected - requiring manual review"
+          gh pr comment "$PR_URL" --body "🚨 **Major version update detected** for ${{ steps.metadata.outputs.dependency-names }} (from ${{ steps.metadata.outputs.previous-version }} to ${{ steps.metadata.outputs.new-version }}). This requires manual review before merging due to potential breaking changes."
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Handle unknown update types
+        # Handle any other update types
+        if: |
+          steps.metadata.outputs.update-type != 'version-update:semver-patch' &&
+          steps.metadata.outputs.update-type != 'version-update:semver-minor' &&
+          steps.metadata.outputs.update-type != 'version-update:semver-major'
+        run: |
+          echo "❓ Unknown update type: ${{ steps.metadata.outputs.update-type }}"
+          gh pr comment "$PR_URL" --body "❓ **Unknown update type** (${{ steps.metadata.outputs.update-type }}) for ${{ steps.metadata.outputs.dependency-names }}. Please review manually."
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
