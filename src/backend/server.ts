@@ -8,6 +8,7 @@ import cors from 'cors';
 import billingRouter from '../api/billing';
 import agentsRouter from '../api/agents';
 import workflowRouter from '../api/workflow';
+import documentRouter from '../api/documents';
 import { createLogger } from '../lib/logger';
 import { createVersionedApiRouter } from './versioning';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
@@ -44,6 +45,7 @@ app.use('/api', apiRouter);
 // Agent transparency and workflow explainability
 app.use('/api/agents', agentsRouter);
 app.use('/api', workflowRouter);
+app.use('/api/documents', documentRouter);
 
 // Error handler
 app.use(
