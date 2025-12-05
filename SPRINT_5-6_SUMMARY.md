@@ -191,9 +191,8 @@ Production-grade reverse proxy with mTLS:
 # Generate certificates first
 bash infrastructure/tls/generate-dev-certs.sh
 
-# Start mTLS environment
+# Start mTLS environment (merges configs from multiple files)
 docker-compose -f docker-compose.dev.yml \
-               -f infrastructure/docker-compose.observability.yml \
                -f infrastructure/docker-compose.mtls.yml up -d
 
 # Access Traefik dashboard
@@ -333,6 +332,11 @@ bash infrastructure/tls/test-mtls.sh
 
 **2. Start mTLS Environment:**
 ```bash
+# Basic mTLS
+docker-compose -f docker-compose.dev.yml \
+               -f infrastructure/docker-compose.mtls.yml up -d
+
+# With observability (recommended)
 docker-compose -f docker-compose.dev.yml \
                -f infrastructure/docker-compose.observability.yml \
                -f infrastructure/docker-compose.mtls.yml up -d
@@ -428,9 +432,13 @@ npm run chaos:pipeline          # Full chaos pipeline
 bash infrastructure/tls/generate-dev-certs.sh  # Generate certs
 bash infrastructure/tls/test-mtls.sh           # Test mTLS
 
-# Full Stack
+# Full Stack (Dev + Observability + mTLS)
 docker-compose -f docker-compose.dev.yml \
                -f infrastructure/docker-compose.observability.yml \
+               -f infrastructure/docker-compose.mtls.yml up -d
+
+# Or minimal (Dev + mTLS only)
+docker-compose -f docker-compose.dev.yml \
                -f infrastructure/docker-compose.mtls.yml up -d
 
 # URLs

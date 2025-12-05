@@ -6,6 +6,8 @@ RUN apt-get update && apt-get install -y \
     curl \
     wget \
     vim \
+    make \
+    build-essential \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
