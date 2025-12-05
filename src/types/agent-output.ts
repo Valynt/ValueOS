@@ -37,8 +37,8 @@ export interface SystemMapperOutput extends BaseAgentOutput {
 /**
  * Intervention Designer Agent output
  */
-export interface InterventionDesignerOutput extends BaseAgentOutput {
-  agentType: 'InterventionDesignerAgent';
+export interface TargetOutput extends BaseAgentOutput {
+  agentType: 'TargetAgent';
   interventions: InterventionPoint[];
   recommendations: string[];
   feasibilityScores: Record<string, number>;
@@ -47,8 +47,8 @@ export interface InterventionDesignerOutput extends BaseAgentOutput {
 /**
  * Outcome Engineer Agent output
  */
-export interface OutcomeEngineerOutput extends BaseAgentOutput {
-  agentType: 'OutcomeEngineerAgent';
+export interface OpportunityOutput extends BaseAgentOutput {
+  agentType: 'OpportunityAgent';
   hypotheses: OutcomeHypothesis[];
   kpis: any[];
   assumptions: any[];
@@ -58,8 +58,8 @@ export interface OutcomeEngineerOutput extends BaseAgentOutput {
 /**
  * Realization Loop Agent output
  */
-export interface RealizationLoopOutput extends BaseAgentOutput {
-  agentType: 'RealizationLoopAgent';
+export interface RealizationOutput extends BaseAgentOutput {
+  agentType: 'RealizationAgent';
   feedbackLoops: FeedbackLoop[];
   metrics: any[];
   behaviorChanges: any[];
@@ -69,8 +69,8 @@ export interface RealizationLoopOutput extends BaseAgentOutput {
 /**
  * Value Eval Agent output
  */
-export interface ValueEvalOutput extends BaseAgentOutput {
-  agentType: 'ValueEvalAgent';
+export interface IntegrityOutput extends BaseAgentOutput {
+  agentType: 'IntegrityAgent';
   scores: Record<string, number>;
   recommendations: string[];
   risks: any[];
@@ -92,10 +92,10 @@ export interface CoordinatorOutput extends BaseAgentOutput {
  */
 export type AgentOutput =
   | SystemMapperOutput
-  | InterventionDesignerOutput
-  | OutcomeEngineerOutput
-  | RealizationLoopOutput
-  | ValueEvalOutput
+  | TargetOutput
+  | OpportunityOutput
+  | RealizationOutput
+  | IntegrityOutput
   | CoordinatorOutput;
 
 /**

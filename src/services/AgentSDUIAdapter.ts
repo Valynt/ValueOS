@@ -31,10 +31,10 @@ import {
   ComponentImpact,
   AgentSDUIUpdate,
   SystemMapperOutput,
-  InterventionDesignerOutput,
-  OutcomeEngineerOutput,
-  RealizationLoopOutput,
-  ValueEvalOutput,
+  TargetOutput,
+  OpportunityOutput,
+  RealizationOutput,
+  IntegrityOutput,
   CoordinatorOutput,
 } from '../types/agent-output';
 import {
@@ -227,20 +227,20 @@ export class AgentSDUIAdapter {
         impacts.push(...this.analyzeSystemMapperImpact(output as SystemMapperOutput));
         break;
 
-      case 'InterventionDesignerAgent':
-        impacts.push(...this.analyzeInterventionDesignerImpact(output as InterventionDesignerOutput));
+      case 'TargetAgent':
+        impacts.push(...this.analyzeInterventionDesignerImpact(output as TargetOutput));
         break;
 
-      case 'OutcomeEngineerAgent':
-        impacts.push(...this.analyzeOutcomeEngineerImpact(output as OutcomeEngineerOutput));
+      case 'OpportunityAgent':
+        impacts.push(...this.analyzeOutcomeEngineerImpact(output as OpportunityOutput));
         break;
 
-      case 'RealizationLoopAgent':
-        impacts.push(...this.analyzeRealizationLoopImpact(output as RealizationLoopOutput));
+      case 'RealizationAgent':
+        impacts.push(...this.analyzeRealizationLoopImpact(output as RealizationOutput));
         break;
 
-      case 'ValueEvalAgent':
-        impacts.push(...this.analyzeValueEvalImpact(output as ValueEvalOutput));
+      case 'IntegrityAgent':
+        impacts.push(...this.analyzeValueEvalImpact(output as IntegrityOutput));
         break;
 
       case 'CoordinatorAgent':
@@ -320,9 +320,9 @@ export class AgentSDUIAdapter {
   }
 
   /**
-   * Analyze InterventionDesignerAgent output impact
+   * Analyze TargetAgent output impact
    */
-  private analyzeInterventionDesignerImpact(output: InterventionDesignerOutput): ComponentImpact[] {
+  private analyzeInterventionDesignerImpact(output: TargetOutput): ComponentImpact[] {
     const impacts: ComponentImpact[] = [];
 
     // If interventions designed, add InterventionDesigner component
@@ -331,7 +331,7 @@ export class AgentSDUIAdapter {
         componentId: 'intervention-designer',
         componentType: 'InterventionDesigner',
         impactType: 'add',
-        reason: 'Interventions designed by InterventionDesignerAgent',
+        reason: 'Interventions designed by TargetAgent',
         priority: 'high',
         affectedProps: ['interventions', 'recommendations'],
       });
@@ -341,9 +341,9 @@ export class AgentSDUIAdapter {
   }
 
   /**
-   * Analyze OutcomeEngineerAgent output impact
+   * Analyze OpportunityAgent output impact
    */
-  private analyzeOutcomeEngineerImpact(output: OutcomeEngineerOutput): ComponentImpact[] {
+  private analyzeOutcomeEngineerImpact(output: OpportunityOutput): ComponentImpact[] {
     const impacts: ComponentImpact[] = [];
 
     // If hypotheses generated, add OutcomeHypothesesPanel component
@@ -362,9 +362,9 @@ export class AgentSDUIAdapter {
   }
 
   /**
-   * Analyze RealizationLoopAgent output impact
+   * Analyze RealizationAgent output impact
    */
-  private analyzeRealizationLoopImpact(output: RealizationLoopOutput): ComponentImpact[] {
+  private analyzeRealizationLoopImpact(output: RealizationOutput): ComponentImpact[] {
     const impacts: ComponentImpact[] = [];
 
     // If feedback loops detected, add FeedbackLoopViewer component
@@ -395,9 +395,9 @@ export class AgentSDUIAdapter {
   }
 
   /**
-   * Analyze ValueEvalAgent output impact
+   * Analyze IntegrityAgent output impact
    */
-  private analyzeValueEvalImpact(output: ValueEvalOutput): ComponentImpact[] {
+  private analyzeValueEvalImpact(output: IntegrityOutput): ComponentImpact[] {
     const impacts: ComponentImpact[] = [];
 
     // If scores calculated, update metric badges
@@ -485,14 +485,14 @@ export class AgentSDUIAdapter {
         break;
 
       case 'InterventionDesigner':
-        if ((output as InterventionDesignerOutput).interventions) {
+        if ((output as TargetOutput).interventions) {
           actions.push(
             createAddAction(
               {
                 component: 'InterventionDesigner',
                 props: {
-                  interventions: (output as InterventionDesignerOutput).interventions,
-                  recommendations: (output as InterventionDesignerOutput).recommendations,
+                  interventions: (output as TargetOutput).interventions,
+                  recommendations: (output as TargetOutput).recommendations,
                 },
               },
               { append: true },
@@ -503,13 +503,13 @@ export class AgentSDUIAdapter {
         break;
 
       case 'FeedbackLoopViewer':
-        if ((output as RealizationLoopOutput).feedbackLoops) {
+        if ((output as RealizationOutput).feedbackLoops) {
           actions.push(
             createAddAction(
               {
                 component: 'FeedbackLoopViewer',
                 props: {
-                  feedbackLoops: (output as RealizationLoopOutput).feedbackLoops,
+                  feedbackLoops: (output as RealizationOutput).feedbackLoops,
                 },
               },
               { append: true },
@@ -532,9 +532,9 @@ export class AgentSDUIAdapter {
     // Generate update action based on component type
     switch (impact.componentType) {
       case 'MetricBadge':
-        if ((output as ValueEvalOutput).scores) {
+        if ((output as IntegrityOutput).scores) {
           const metric = impact.componentId.replace('metric-badge-', '');
-          const score = (output as ValueEvalOutput).scores[metric];
+          const score = (output as IntegrityOutput).scores[metric];
           if (score !== undefined) {
             actions.push(
               createMutateAction(
@@ -548,7 +548,7 @@ export class AgentSDUIAdapter {
         break;
 
       case 'RealizationDashboard':
-        if ((output as RealizationLoopOutput).metrics) {
+        if ((output as RealizationOutput).metrics) {
           actions.push(
             createMutateAction(
               { type: 'RealizationDashboard' },
@@ -556,7 +556,7 @@ export class AgentSDUIAdapter {
                 {
                   path: 'props.metrics',
                   operation: 'set',
-                  value: (output as RealizationLoopOutput).metrics,
+                  value: (output as RealizationOutput).metrics,
                 },
               ],
               'Update realization metrics'

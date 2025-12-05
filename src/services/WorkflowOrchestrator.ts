@@ -19,7 +19,7 @@ import { CircuitBreakerManager } from './CircuitBreaker';
 import { MemorySystem } from '../lib/agent-fabric/MemorySystem';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import { llmConfig } from '../config/llm';
-import { ValueEvalAgent } from '../agents/ValueEvalAgent';
+import { IntegrityAgent } from '../agents/IntegrityAgent';
 import { v4 as uuidv4 } from 'uuid';
 import { getAutonomyConfig } from '../config/autonomy';
 
@@ -38,13 +38,13 @@ export class WorkflowOrchestrator {
   private circuitBreakers = new CircuitBreakerManager();
   private memorySystem: MemorySystem;
   private llmGateway: LLMGateway;
-  private valueEvalAgent: ValueEvalAgent;
+  private integrityAgent: IntegrityAgent;
   private readonly startedAt = new Map<string, number>();
 
   constructor() {
     this.llmGateway = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
     this.memorySystem = new MemorySystem(supabase, this.llmGateway);
-    this.valueEvalAgent = new ValueEvalAgent();
+    this.integrityAgent = new IntegrityAgent();
   }
 
   async registerLifecycleDefinitions(): Promise<void> {

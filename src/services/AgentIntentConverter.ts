@@ -107,7 +107,7 @@ class SystemMapperConverter extends BaseAgentConverter {
 }
 
 /**
- * InterventionDesignerAgent converter
+ * TargetAgent converter
  */
 class InterventionDesignerConverter extends BaseAgentConverter {
   readonly supportedAgentTypes = ['interventiondesigner', 'intervention-designer', 'intervention_designer'];
@@ -132,7 +132,7 @@ class InterventionDesignerConverter extends BaseAgentConverter {
 }
 
 /**
- * OutcomeEngineerAgent converter
+ * OpportunityAgent converter
  */
 class OutcomeEngineerConverter extends BaseAgentConverter {
   readonly supportedAgentTypes = ['outcomeengineer', 'outcome-engineer', 'outcome_engineer'];
@@ -158,7 +158,7 @@ class OutcomeEngineerConverter extends BaseAgentConverter {
 }
 
 /**
- * RealizationLoopAgent converter
+ * RealizationAgent converter
  */
 class RealizationLoopConverter extends BaseAgentConverter {
   readonly supportedAgentTypes = ['realizationloop', 'realization-loop', 'realization_loop'];
@@ -193,7 +193,7 @@ class RealizationLoopConverter extends BaseAgentConverter {
 }
 
 /**
- * ValueEvalAgent converter
+ * IntegrityAgent converter
  */
 class ValueEvalConverter extends BaseAgentConverter {
   readonly supportedAgentTypes = ['valueeval', 'value-eval', 'value_eval'];

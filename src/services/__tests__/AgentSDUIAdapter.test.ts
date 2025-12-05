@@ -6,9 +6,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AgentSDUIAdapter } from '../AgentSDUIAdapter';
 import {
   SystemMapperOutput,
-  InterventionDesignerOutput,
-  RealizationLoopOutput,
-  ValueEvalOutput,
+  TargetOutput,
+  RealizationOutput,
+  IntegrityOutput,
 } from '../../types/agent-output';
 import { canvasSchemaService } from '../CanvasSchemaService';
 
@@ -58,10 +58,10 @@ describe('AgentSDUIAdapter', () => {
       expect(update.actions).toBeDefined();
     });
 
-    it('should process InterventionDesignerAgent output', async () => {
-      const output: InterventionDesignerOutput = {
+    it('should process TargetAgent output', async () => {
+      const output: TargetOutput = {
         agentId: 'intervention-designer-1',
-        agentType: 'InterventionDesignerAgent',
+        agentType: 'TargetAgent',
         timestamp: Date.now(),
         workspaceId: 'workspace-1',
         lifecycleStage: 'target',
@@ -89,10 +89,10 @@ describe('AgentSDUIAdapter', () => {
       expect(update.actions!.length).toBeGreaterThan(0);
     });
 
-    it('should process RealizationLoopAgent output', async () => {
-      const output: RealizationLoopOutput = {
+    it('should process RealizationAgent output', async () => {
+      const output: RealizationOutput = {
         agentId: 'realization-loop-1',
-        agentType: 'RealizationLoopAgent',
+        agentType: 'RealizationAgent',
         timestamp: Date.now(),
         workspaceId: 'workspace-1',
         lifecycleStage: 'realization',
@@ -120,10 +120,10 @@ describe('AgentSDUIAdapter', () => {
       expect(update.actions).toBeDefined();
     });
 
-    it('should process ValueEvalAgent output', async () => {
-      const output: ValueEvalOutput = {
+    it('should process IntegrityAgent output', async () => {
+      const output: IntegrityOutput = {
         agentId: 'value-eval-1',
-        agentType: 'ValueEvalAgent',
+        agentType: 'IntegrityAgent',
         timestamp: Date.now(),
         workspaceId: 'workspace-1',
         lifecycleStage: 'expansion',
@@ -207,10 +207,10 @@ describe('AgentSDUIAdapter', () => {
       expect(impacts.some((i) => i.componentType === 'LeveragePointsList')).toBe(true);
     });
 
-    it('should analyze InterventionDesignerAgent impact', () => {
-      const output: InterventionDesignerOutput = {
+    it('should analyze TargetAgent impact', () => {
+      const output: TargetOutput = {
         agentId: 'intervention-designer-1',
-        agentType: 'InterventionDesignerAgent',
+        agentType: 'TargetAgent',
         timestamp: Date.now(),
         workspaceId: 'workspace-1',
         lifecycleStage: 'target',
@@ -226,10 +226,10 @@ describe('AgentSDUIAdapter', () => {
       expect(impacts.some((i) => i.componentType === 'InterventionDesigner')).toBe(true);
     });
 
-    it('should analyze RealizationLoopAgent impact', () => {
-      const output: RealizationLoopOutput = {
+    it('should analyze RealizationAgent impact', () => {
+      const output: RealizationOutput = {
         agentId: 'realization-loop-1',
-        agentType: 'RealizationLoopAgent',
+        agentType: 'RealizationAgent',
         timestamp: Date.now(),
         workspaceId: 'workspace-1',
         lifecycleStage: 'realization',
@@ -247,10 +247,10 @@ describe('AgentSDUIAdapter', () => {
       expect(impacts.some((i) => i.componentType === 'RealizationDashboard')).toBe(true);
     });
 
-    it('should analyze ValueEvalAgent impact', () => {
-      const output: ValueEvalOutput = {
+    it('should analyze IntegrityAgent impact', () => {
+      const output: IntegrityOutput = {
         agentId: 'value-eval-1',
-        agentType: 'ValueEvalAgent',
+        agentType: 'IntegrityAgent',
         timestamp: Date.now(),
         workspaceId: 'workspace-1',
         lifecycleStage: 'expansion',
@@ -305,9 +305,9 @@ describe('AgentSDUIAdapter', () => {
     });
 
     it('should generate update actions for MetricBadge', () => {
-      const output: ValueEvalOutput = {
+      const output: IntegrityOutput = {
         agentId: 'value-eval-1',
-        agentType: 'ValueEvalAgent',
+        agentType: 'IntegrityAgent',
         timestamp: Date.now(),
         workspaceId: 'workspace-1',
         lifecycleStage: 'expansion',

@@ -1,10 +1,12 @@
 /**
  * SystemMapperAgent
  * 
- * Performs systems analysis using discovery data to create system maps
- * with leverage points. Outputs SDUI layouts for canvas and model views.
+ * @deprecated This agent's functionality has been integrated into CoordinatorAgent.
+ * Please use CoordinatorAgent for system mapping tasks.
+ * This file will be removed in a future release.
  * 
- * Part of the Systemic Outcome Framework (SOF).
+ * Legacy: Performs systems analysis using discovery data to create system maps
+ * with leverage points. Outputs SDUI layouts for canvas and model views.
  */
 
 import { logger } from '../lib/logger';

@@ -1,9 +1,9 @@
 /**
- * RealizationLoopAgent (SOF Upgrade)
+ * RealizationAgent
  * 
- * Tracks feedback loops and behavior changes during realization phase.
+ * Tracks feedback loops and behavior changes during value realization phase.
  * Monitors Realization → Behavior Change → System Update cycles.
- * Part of the Systemic Outcome Framework (SOF).
+ * Part of the ValueCanvas Framework.
  */
 
 import { logger } from '../lib/logger';
@@ -23,7 +23,7 @@ import type {
 /**
  * Agent input for realization loop tracking
  */
-export interface RealizationLoopInput {
+export interface RealizationInput {
   organizationId: string;
   systemMap: SystemMap;
   interventionPoint: InterventionPoint;
@@ -47,7 +47,7 @@ export interface RealizationLoopInput {
 /**
  * Agent output with feedback loops
  */
-export interface RealizationLoopOutput {
+export interface RealizationOutput {
   feedbackLoops: Array<Omit<FeedbackLoop, 'id' | 'created_at' | 'updated_at'>>;
   behaviorChanges: BehaviorChange[];
   systemUpdates: SystemUpdate[];
@@ -69,16 +69,16 @@ export interface RealizationLoopOutput {
 }
 
 /**
- * RealizationLoopAgent class
+ * RealizationAgent class
  */
-export class RealizationLoopAgent {
-  private agentId = 'realization-loop-v2';
-  private agentName = 'Realization Loop Agent';
+export class RealizationAgent {
+  private agentId = 'realization-v1';
+  private agentName = 'Realization Agent';
 
   /**
    * Track realization loops
    */
-  async track(input: RealizationLoopInput): Promise<RealizationLoopOutput> {
+  async track(input: RealizationInput): Promise<RealizationOutput> {
     logger.debug('Tracking realization loops...', { agent: this.agentName });
 
     // Identify feedback loops in the system
@@ -121,7 +121,7 @@ export class RealizationLoopAgent {
    * Identify feedback loops
    */
   private identifyFeedbackLoops(
-    input: RealizationLoopInput
+    input: RealizationInput
   ): Array<Omit<FeedbackLoop, 'id' | 'created_at' | 'updated_at'>> {
     const loops: Array<Omit<FeedbackLoop, 'id' | 'created_at' | 'updated_at'>> = [];
 
@@ -140,7 +140,7 @@ export class RealizationLoopAgent {
    * Create primary realization loop
    */
   private createPrimaryLoop(
-    input: RealizationLoopInput
+    input: RealizationInput
   ): Omit<FeedbackLoop, 'id' | 'created_at' | 'updated_at'> {
     // Build loop elements
     const loopElements: LoopElement[] = [
@@ -364,7 +364,7 @@ export class RealizationLoopAgent {
   /**
    * Assess loop strength
    */
-  private assessLoopStrength(input: RealizationLoopInput): FeedbackLoop['loop_strength'] {
+  private assessLoopStrength(input: RealizationInput): FeedbackLoop['loop_strength'] {
     const leverage = input.interventionPoint.leverage_level;
 
     if (leverage >= 8) return 'strong';
@@ -391,7 +391,7 @@ export class RealizationLoopAgent {
    * Map implementation status
    */
   private mapImplementationStatus(
-    status: RealizationLoopInput['realizationData']['implementationStatus']
+    status: RealizationInput['realizationData']['implementationStatus']
   ): FeedbackLoop['realization_stage'] {
     const map = {
       planning: 'designed' as const,
@@ -405,7 +405,7 @@ export class RealizationLoopAgent {
    * Extract behavior changes
    */
   private extractBehaviorChanges(
-    observedChanges: RealizationLoopInput['realizationData']['observedChanges']
+    observedChanges: RealizationInput['realizationData']['observedChanges']
   ): BehaviorChange[] {
     return observedChanges.map((change) => ({
       entity: change.entity,
@@ -420,7 +420,7 @@ export class RealizationLoopAgent {
    * Generate system updates
    */
   private generateSystemUpdates(
-    input: RealizationLoopInput,
+    input: RealizationInput,
     behaviorChanges: BehaviorChange[]
   ): SystemUpdate[] {
     const updates: SystemUpdate[] = [];
@@ -453,7 +453,7 @@ export class RealizationLoopAgent {
    */
   private updateLoopMetrics(
     feedbackLoops: Array<Omit<FeedbackLoop, 'id' | 'created_at' | 'updated_at'>>,
-    kpiMeasurements?: RealizationLoopInput['realizationData']['kpiMeasurements']
+    kpiMeasurements?: RealizationInput['realizationData']['kpiMeasurements']
   ): void {
     if (!kpiMeasurements || kpiMeasurements.length === 0) return;
 
@@ -591,7 +591,7 @@ export class RealizationLoopAgent {
     feedbackLoops: Array<Omit<FeedbackLoop, 'id' | 'created_at' | 'updated_at'>>,
     behaviorChanges: BehaviorChange[],
     systemUpdates: SystemUpdate[],
-    insights: RealizationLoopOutput['insights']
+    insights: RealizationOutput['insights']
   ) {
     return {
       type: 'RealizationLoopPage' as const,
@@ -646,7 +646,7 @@ export class RealizationLoopAgent {
    * Calculate confidence
    */
   private calculateConfidence(
-    input: RealizationLoopInput,
+    input: RealizationInput,
     feedbackLoops: Array<Omit<FeedbackLoop, 'id' | 'created_at' | 'updated_at'>>
   ): number {
     let confidence = 0.6; // Base confidence
@@ -673,4 +673,4 @@ export class RealizationLoopAgent {
 /**
  * Export singleton instance
  */
-export const realizationLoopAgent = new RealizationLoopAgent();
+export const realizationAgent = new RealizationAgent();

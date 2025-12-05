@@ -1,11 +1,12 @@
 /**
- * ValueEvalAgent - Artifact Quality Evaluation
+ * IntegrityAgent - Artifact Quality & Integrity Evaluation
  * 
  * Responsible for:
- * - Evaluating artifact quality
+ * - Evaluating artifact quality and integrity
  * - Scoring completeness, accuracy, usefulness
  * - Generating improvement recommendations
- * - Supporting reinforcement learning
+ * - Supporting reinforcement learning and validation
+ * Part of the ValueCanvas Framework.
  */
 
 import { logger } from '../lib/logger';
@@ -49,13 +50,13 @@ export interface EvaluationCriteria {
   custom_rules?: CustomRule[];
 }
 
-export class ValueEvalAgent {
+export class IntegrityAgent {
   private llmGateway: LLMGateway;
   private agentName: string;
 
   constructor() {
     this.llmGateway = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
-    this.agentName = 'ValueEvalAgent';
+    this.agentName = 'Integrity Agent';
   }
 
   /**
@@ -518,4 +519,5 @@ export class ValueEvalAgent {
   }
 }
 
-export default ValueEvalAgent;
+export default IntegrityAgent;
+export const integrityAgent = new IntegrityAgent();
