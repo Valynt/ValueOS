@@ -5,15 +5,18 @@ export interface WorkflowExecution {
   status: WorkflowStatus;
 }
 
-class WorkflowExecutionStore {
-  private executions: Map<string, WorkflowStatus> = new Map();
+import Redis from 'ioredis';
 
-  setStatus(id: string, status: WorkflowStatus): void {
-    this.executions.set(id, status);
+const redis = new Redis();
+
+class WorkflowExecutionStore {
+  async setStatus(id: string, status: WorkflowStatus): Promise<void> {
+    await redis.set(`workflow:${id}:status`, status);
   }
 
-  getStatus(id: string): WorkflowStatus {
-    return this.executions.get(id) || 'RUNNING';
+  async getStatus(id: string): Promise<WorkflowStatus> {
+    const status = await redis.get(`workflow:${id}:status`);
+    return (status as WorkflowStatus) || 'RUNNING';
   }
 }
 
