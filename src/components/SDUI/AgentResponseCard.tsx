@@ -82,10 +82,10 @@ export const AgentResponseCard: React.FC<AgentResponseCardProps> = ({
   };
 
   const statusColors = {
-    pending: '#FFB800',
-    approved: '#39FF14',
-    rejected: '#FF3B30',
-    modified: '#0A84FF',
+    pending: 'hsl(var(--status-warning))',
+    approved: 'hsl(var(--status-success))',
+    rejected: 'hsl(var(--status-error))',
+    modified: 'hsl(var(--status-info))',
   };
 
   const statusLabels = {
@@ -251,15 +251,15 @@ export const AgentResponseCard: React.FC<AgentResponseCardProps> = ({
 
       <style jsx>{`
         .sdui-agent-response-card {
-          background-color: #333333;
-          border: 1px solid #444444;
-          border-radius: 8px;
+          background-color: hsl(var(--card));
+          border: 1px solid hsl(var(--border));
+          border-radius: var(--radius);
           padding: 16px;
           transition: all 200ms;
         }
 
         .sdui-agent-response-card:hover {
-          border-color: #555555;
+          border-color: hsl(var(--ring));
         }
 
         .sdui-agent-response-header {
@@ -288,8 +288,8 @@ export const AgentResponseCard: React.FC<AgentResponseCardProps> = ({
           display: flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(135deg, #39FF14, #0A3A0A);
-          color: #121212;
+          background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary)));
+          color: hsl(var(--primary-foreground));
         }
 
         .sdui-agent-response-agent-info {
@@ -299,7 +299,7 @@ export const AgentResponseCard: React.FC<AgentResponseCardProps> = ({
         }
 
         .sdui-agent-response-agent-name {
-          color: #FFFFFF;
+          color: hsl(var(--foreground));
           font-size: 14px;
           font-weight: 600;
         }
@@ -308,7 +308,7 @@ export const AgentResponseCard: React.FC<AgentResponseCardProps> = ({
           display: flex;
           align-items: center;
           gap: 4px;
-          color: #808080;
+          color: hsl(var(--muted-foreground));
           font-size: 12px;
         }
 
@@ -328,7 +328,7 @@ export const AgentResponseCard: React.FC<AgentResponseCardProps> = ({
         }
 
         .sdui-agent-response-content {
-          color: #FFFFFF;
+          color: hsl(var(--foreground));
           font-size: 14px;
           line-height: 1.6;
           margin-bottom: 16px;
@@ -344,10 +344,10 @@ export const AgentResponseCard: React.FC<AgentResponseCardProps> = ({
           gap: 8px;
           width: 100%;
           padding: 12px;
-          background-color: rgba(57, 255, 20, 0.05);
-          border: 1px solid rgba(57, 255, 20, 0.2);
+          background-color: hsla(var(--status-success), 0.05);
+          border: 1px solid hsla(var(--status-success), 0.2);
+          color: hsl(var(--status-success));
           border-radius: 6px;
-          color: #39FF14;
           font-size: 13px;
           font-weight: 600;
           cursor: pointer;
@@ -355,7 +355,7 @@ export const AgentResponseCard: React.FC<AgentResponseCardProps> = ({
         }
 
         .sdui-agent-response-reasoning-toggle:hover {
-          background-color: rgba(57, 255, 20, 0.1);
+          background-color: hsla(var(--status-success), 0.1);
         }
 
         .sdui-agent-response-reasoning-steps {
@@ -366,8 +366,8 @@ export const AgentResponseCard: React.FC<AgentResponseCardProps> = ({
         }
 
         .sdui-agent-response-reasoning-step {
-          background-color: #1A1A1A;
-          border: 1px solid #444444;
+          background-color: hsl(var(--card));
+          border: 1px solid hsl(var(--border));
           border-radius: 6px;
           padding: 12px;
         }
@@ -384,8 +384,8 @@ export const AgentResponseCard: React.FC<AgentResponseCardProps> = ({
           justify-content: center;
           width: 24px;
           height: 24px;
-          background-color: #39FF14;
-          color: #121212;
+          background-color: hsl(var(--status-success));
+          color: hsl(var(--primary-foreground));
           border-radius: 50%;
           font-size: 12px;
           font-weight: 700;
@@ -400,7 +400,7 @@ export const AgentResponseCard: React.FC<AgentResponseCardProps> = ({
         }
 
         .sdui-agent-response-reasoning-step-description {
-          color: #FFFFFF;
+          color: hsl(var(--foreground));
           font-size: 13px;
           line-height: 1.5;
         }
@@ -414,25 +414,25 @@ export const AgentResponseCard: React.FC<AgentResponseCardProps> = ({
           background-color: transparent;
           border: none;
           border-radius: 4px;
-          color: #B3B3B3;
+          color: hsl(var(--muted-foreground));
           cursor: pointer;
           transition: all 150ms;
           flex-shrink: 0;
         }
 
         .sdui-agent-response-reasoning-step-toggle:hover {
-          background-color: #333333;
-          color: #39FF14;
+          background-color: hsl(var(--background));
+          color: hsl(var(--status-success));
         }
 
         .sdui-agent-response-reasoning-step-evidence {
           margin-top: 12px;
           padding-top: 12px;
-          border-top: 1px solid #444444;
+          border-top: 1px solid hsl(var(--border));
         }
 
         .sdui-agent-response-reasoning-step-evidence-label {
-          color: #B3B3B3;
+          color: hsl(var(--muted-foreground));
           font-size: 11px;
           font-weight: 600;
           text-transform: uppercase;
@@ -450,7 +450,7 @@ export const AgentResponseCard: React.FC<AgentResponseCardProps> = ({
         }
 
         .sdui-agent-response-reasoning-step-evidence-list li {
-          color: #B3B3B3;
+          color: hsl(var(--muted-foreground));
           font-size: 12px;
           line-height: 1.5;
           padding-left: 16px;
@@ -461,14 +461,14 @@ export const AgentResponseCard: React.FC<AgentResponseCardProps> = ({
           content: '•';
           position: absolute;
           left: 0;
-          color: #39FF14;
+          color: hsl(var(--status-success));
         }
 
         .sdui-agent-response-actions {
           display: flex;
           gap: 8px;
           padding-top: 16px;
-          border-top: 1px solid #444444;
+          border-top: 1px solid hsl(var(--border));
         }
 
         .sdui-agent-response-action-btn {
@@ -491,32 +491,32 @@ export const AgentResponseCard: React.FC<AgentResponseCardProps> = ({
 
         .sdui-agent-response-action-approve {
           background-color: transparent;
-          border-color: #39FF14;
-          color: #39FF14;
+          border-color: hsl(var(--status-success));
+          color: hsl(var(--status-success));
         }
 
         .sdui-agent-response-action-approve:hover:not(:disabled) {
-          background-color: rgba(57, 255, 20, 0.1);
+          background-color: hsla(var(--status-success), 0.1);
         }
 
         .sdui-agent-response-action-reject {
           background-color: transparent;
-          border-color: #FF3B30;
-          color: #FF3B30;
+          border-color: hsl(var(--status-error));
+          color: hsl(var(--status-error));
         }
 
         .sdui-agent-response-action-reject:hover:not(:disabled) {
-          background-color: rgba(255, 59, 48, 0.1);
+          background-color: hsla(var(--status-error), 0.1);
         }
 
         .sdui-agent-response-action-modify {
           background-color: transparent;
-          border-color: #0A84FF;
-          color: #0A84FF;
+          border-color: hsl(var(--status-info));
+          color: hsl(var(--status-info));
         }
 
         .sdui-agent-response-action-modify:hover:not(:disabled) {
-          background-color: rgba(10, 132, 255, 0.1);
+          background-color: hsla(var(--status-info), 0.1);
         }
       `}</style>
     </div>
