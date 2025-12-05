@@ -58,6 +58,7 @@ import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import { MemorySystem } from '../lib/agent-fabric/MemorySystem';
 import { AuditLogger } from '../lib/agent-fabric/AuditLogger';
 import { AgentConfig, LifecycleContext } from '../types/agent';
+import { workflowExecutionStore, WorkflowStatus } from './WorkflowExecutionStore';
 
 // ... (other imports remain the same) ...
 
@@ -87,6 +88,7 @@ export class ValueLifecycleOrchestrator {
     input: StageInput,
     context: LifecycleContext
   ): Promise<StageResult> {
+    this.ensureWorkflowActive(context);
     // ... (logic before agent creation remains the same) ...
 
       // Step 2: Execute stage-specific agent
@@ -197,6 +199,21 @@ import { z } from 'zod';
   private async deleteStageResults(resultId: string): Promise<void> {
     logger.info('Compensating: deleting stage results', { resultId });
     // Implementation would delete the persisted results
+  }
+
+  private ensureWorkflowActive(context: LifecycleContext): void {
+    const workflowId = context.sessionId || context.organizationId || context.userId;
+    if (!workflowId) {
+      return;
+    }
+
+    const status: WorkflowStatus = workflowExecutionStore.getStatus(workflowId);
+    if (status === 'PAUSED') {
+      throw new Error(`Workflow ${workflowId} is paused`);
+    }
+    if (status === 'HALTED') {
+      throw new Error(`Workflow ${workflowId} is halted`);
+    }
   }
 
   private async updateValueTree(

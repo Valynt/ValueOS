@@ -47,7 +47,8 @@
     "saml:certs": "cd test/saml/certs && ./generate-test-certs.sh",
     "test:chaos": "ts-node scripts/chaos-test.ts",
     "chaos:enable": "CHAOS_ENABLED=true npm run dev",
-    "chaos:pipeline": "bash scripts/run-chaos-pipeline.sh"
+    "chaos:pipeline": "bash scripts/run-chaos-pipeline.sh",
+    "ci:bias-probes": "node -r tsx/cjs scripts/run-bias-probes.ts"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
