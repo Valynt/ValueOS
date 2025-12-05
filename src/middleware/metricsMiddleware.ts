@@ -5,6 +5,7 @@ type MetricsLabels = {
   method: string;
   route: string;
   status_code: string;
+  tenant_id: string;
 };
 
 const registry = new Registry();
@@ -14,7 +15,7 @@ collectDefaultMetrics({ register: registry });
 const httpRequestDurationMs = new Histogram<MetricsLabels>({
   name: 'valuecanvas_http_request_duration_ms',
   help: 'Duration of HTTP requests in milliseconds',
-  labelNames: ['method', 'route', 'status_code'],
+  labelNames: ['method', 'route', 'status_code', 'tenant_id'],
   buckets: [10, 50, 100, 200, 500, 1000],
   registers: [registry],
 });
@@ -22,14 +23,14 @@ const httpRequestDurationMs = new Histogram<MetricsLabels>({
 const httpRequestsTotal = new Counter<MetricsLabels>({
   name: 'valuecanvas_http_requests_total',
   help: 'Total number of HTTP requests received',
-  labelNames: ['method', 'route', 'status_code'],
+  labelNames: ['method', 'route', 'status_code', 'tenant_id'],
   registers: [registry],
 });
 
 const httpRequestErrors = new Counter<MetricsLabels>({
   name: 'valuecanvas_http_request_errors_total',
   help: 'Total number of HTTP requests that resulted in 5xx responses',
-  labelNames: ['method', 'route', 'status_code'],
+  labelNames: ['method', 'route', 'status_code', 'tenant_id'],
   registers: [registry],
 });
 
@@ -52,10 +53,16 @@ export const metricsMiddleware = () =>
 
     res.on('finish', () => {
       const routeLabel = resolveRouteLabel(req);
+      const tenantId =
+        (req as any).tenantId ||
+        (req.headers['x-tenant-id'] as string) ||
+        'unknown';
+
       const labels: MetricsLabels = {
         method: req.method,
         route: routeLabel,
         status_code: String(res.statusCode),
+        tenant_id: tenantId,
       };
 
       httpRequestsTotal.labels(labels).inc();

@@ -1,0 +1,55 @@
+groups:
+  - name: backend-api-alerts
+    rules:
+      - alert: HighHttpErrorRate
+        expr: |
+          sum(rate(valuecanvas_http_requests_total{status_code=~"5.."}[5m]))
+          /
+          sum(rate(valuecanvas_http_requests_total[5m]))
+          > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High 5xx error rate"
+          description: "5xx error rate > 5% over the last 10 minutes."
+
+      - alert: HighP95Latency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(valuecanvas_http_request_duration_ms_bucket{route=~"/api/(llm|billing).*"}[5m])) by (le, route)
+          ) > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High p95 latency on critical APIs"
+          description: "p95 latency > 1s on /api/llm or /api/billing routes."
+
+      - alert: ApiScrapeDown
+        expr: up{job="valuecanvas-api"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "valuecanvas-api Prometheus target is down"
+          description: "No scrape data from valuecanvas-api for 5 minutes."
+
+      - alert: PostgresScrapeDown
+        expr: up{job="postgresql"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL Prometheus target is down"
+          description: "No scrape data from postgresql job for 5 minutes."
+
+      - alert: RedisScrapeDown
+        expr: up{job="redis"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis Prometheus target is down"
+          description: "No scrape data from redis job for 5 minutes."

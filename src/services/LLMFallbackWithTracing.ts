@@ -67,36 +67,42 @@ export class LLMFallbackServiceWithTracing extends LLMFallbackService {
           metrics.llmRequestsTotal.add(1, {
             provider: response.provider,
             model: response.model,
-            cached: response.cached.toString()
+            cached: response.cached.toString(),
+            tenant_id: request.tenantId || request.userId,
           });
 
           metrics.llmRequestDuration.record(response.latency, {
             provider: response.provider,
-            model: response.model
+            model: response.model,
+            tenant_id: request.tenantId || request.userId,
           });
 
           if (!response.cached) {
             metrics.llmCostTotal.add(response.cost, {
               provider: response.provider,
-              model: response.model
+              model: response.model,
+              tenant_id: request.tenantId || request.userId,
             });
 
             metrics.llmTokensTotal.add(response.totalTokens, {
               provider: response.provider,
               model: response.model,
-              type: 'total'
+              type: 'total',
+              tenant_id: request.tenantId || request.userId,
             });
 
             metrics.llmTokensTotal.add(response.promptTokens, {
               provider: response.provider,
               model: response.model,
-              type: 'prompt'
+              type: 'prompt',
+              tenant_id: request.tenantId || request.userId,
             });
 
             metrics.llmTokensTotal.add(response.completionTokens, {
               provider: response.provider,
               model: response.model,
-              type: 'completion'
+              type: 'completion',
+              tenant_id: request.tenantId || request.userId,
             });
           }
 
@@ -135,7 +141,8 @@ export class LLMFallbackServiceWithTracing extends LLMFallbackService {
           metrics.llmRequestsTotal.add(1, {
             provider: 'unknown',
             model: request.model,
-            status: 'failed'
+            status: 'failed',
+            tenant_id: request.tenantId || request.userId,
           });
 
           logger.error('LLM request failed', {
