@@ -500,8 +500,14 @@ export interface BenchmarkComparisonViewProps {
 // =====================================================
 
 export interface OpportunityAgentInput {
-  customerProfile: any;
+  /** Optional identifier to link generated artifacts back to a value case */
+  valueCaseId?: string;
+  /** Basic customer profile context for LLM prompts */
+  customerProfile?: Record<string, any>;
+  /** Discovery transcripts, notes, and supporting evidence */
   discoveryData: string[];
+  /** Additional structured context passed through orchestration */
+  additionalContext?: Record<string, any>;
 }
 
 export interface OpportunityAgentOutput {
@@ -518,11 +524,31 @@ export interface TargetAgentInput {
   capabilities: Capability[];
 }
 
+export interface TargetAgentKpiTarget {
+  kpi_name: string;
+  baseline_value?: number;
+  target_value: number;
+  unit: string;
+  deadline?: string;
+  confidence_level?: ConfidenceLevel;
+}
+
+export interface TargetBusinessCaseSummary {
+  summary: string;
+  nodes: ValueTreeNode[];
+  links: ValueTreeLink[];
+  calculations: ROIModelCalculation[];
+  kpi_targets: TargetAgentKpiTarget[];
+  reasoning: string;
+  confidence_level: ConfidenceLevel;
+}
+
 export interface TargetAgentOutput {
   valueTree: ValueTree;
   roiModel: ROIModel;
   valueCommit: ValueCommit;
-  businessCase: any;
+  kpiTargets: TargetAgentKpiTarget[];
+  businessCase: TargetBusinessCaseSummary;
 }
 
 export interface RealizationAgentInput {
