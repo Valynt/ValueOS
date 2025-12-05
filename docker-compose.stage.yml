@@ -1,0 +1,245 @@
+# ============================================================================
+# ValueCanvas Staging Docker Compose
+# ============================================================================
+# Staging environment with production-like configuration
+# Used for pre-production testing and validation
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # ============================================================================
+  # ValueCanvas Application (Staging)
+  # ============================================================================
+  app:
+    build:
+      context: .
+      dockerfile: docker/stage/Dockerfile
+    container_name: valuecanvas-stage
+    ports:
+      - "8001:8000"  # Staging port
+    environment:
+      - NODE_ENV=staging
+      - DATABASE_URL=${STAGE_DATABASE_URL}
+      - REDIS_URL=${STAGE_REDIS_URL}
+      - UV_THREADPOOL_SIZE=${UV_THREADPOOL_SIZE:-8}
+      - PG_POOL_MIN=${PG_POOL_MIN:-4}
+      - PG_POOL_MAX=${PG_POOL_MAX:-40}
+      - PG_POOL_IDLE_TIMEOUT_MS=${PG_POOL_IDLE_TIMEOUT_MS:-10000}
+      - PG_POOL_CONNECTION_TIMEOUT_MS=${PG_POOL_CONNECTION_TIMEOUT_MS:-2000}
+      # Supabase (use staging values)
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+      # LLM API
+      - VITE_LLM_API_KEY=${VITE_LLM_API_KEY}
+      - VITE_LLM_PROVIDER=${VITE_LLM_PROVIDER:-together}
+      # Security
+      - VITE_ENABLE_CIRCUIT_BREAKER=true
+      - VITE_ENABLE_RATE_LIMITING=true
+      - VITE_ENABLE_AUDIT_LOGGING=true
+    env_file:
+      - .env.stage
+    networks:
+      - valuecanvas-network
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Resource limits for staging environment
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ============================================================================
+  # PostgreSQL Database (Staging)
+  # ============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: valuecanvas-postgres-stage
+    ports:
+      - "5433:5432"  # Different port to avoid conflicts
+    env_file:
+      - .env.stage
+    environment:
+      - POSTGRES_DB=${STAGE_DB_NAME}
+      - POSTGRES_USER=${STAGE_DB_USER}
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
+    secrets:
+      - db_password
+    volumes:
+      - stage-postgres-data:/var/lib/postgresql/data
+      - ./supabase/migrations:/docker-entrypoint-initdb.d:ro
+    networks:
+      - valuecanvas-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${STAGE_DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1.5G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ============================================================================
+  # PostgreSQL Exporter (Staging)
+  # ============================================================================
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.16.0
+    container_name: valuecanvas-postgres-exporter-stage
+    env_file:
+      - .env.stage
+    environment:
+      DATA_SOURCE_NAME: postgresql://${STAGE_DB_USER}:${STAGE_DB_PASSWORD}@postgres:5432/${STAGE_DB_NAME}?sslmode=disable
+      PG_EXPORTER_EXTEND_QUERY_PATH: /etc/postgres_exporter/queries.yml
+    volumes:
+      - ./infrastructure/postgres-exporter-queries.yml:/etc/postgres_exporter/queries.yml:ro
+    networks:
+      - valuecanvas-network
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # ============================================================================
+  # Redis (Staging)
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: valuecanvas-redis-stage
+    ports:
+      - "6380:6379"  # Different port to avoid conflicts
+    env_file:
+      - .env.stage
+    volumes:
+      - stage-redis-data:/data
+    networks:
+      - valuecanvas-network
+    restart: unless-stopped
+    secrets:
+      - redis_password
+    healthcheck:
+      test: ["CMD", "sh", "-c", "redis-cli --no-auth-warning -a $(cat /run/secrets/redis_password) ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: >
+      sh -c 'redis-server
+      --appendonly yes
+      --requirepass $$(cat /run/secrets/redis_password)
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru'
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # ============================================================================
+  # Nginx Reverse Proxy (Staging)
+  # ============================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: valuecanvas-nginx-stage
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - ./infrastructure/nginx/nginx-staging.conf:/etc/nginx/nginx.conf:ro
+      - ./infrastructure/nginx/ssl-staging:/etc/nginx/ssl:ro
+      - nginx-cache-stage:/var/cache/nginx
+    networks:
+      - valuecanvas-network
+    depends_on:
+      - app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  valuecanvas-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16  # Different subnet for staging
+
+# ============================================================================
+# Volumes
+# ============================================================================
+volumes:
+  stage-postgres-data:
+    driver: local
+  stage-redis-data:
+    driver: local
+  nginx-cache-stage:
+    driver: local
+
+# ============================================================================
+# Secrets (Staging)
+# ============================================================================
+# Docker Secrets for staging - files stored in ./secrets/ (gitignored)
+secrets:
+  db_password:
+    file: ./secrets/staging_db_password.txt
+  redis_password:
+    file: ./secrets/staging_redis_password.txt

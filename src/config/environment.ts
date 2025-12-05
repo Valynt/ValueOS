@@ -147,6 +147,27 @@ function getEnv(key: string, defaultValue: string = ''): string {
 }
 
 /**
+ * Standardized NODE_ENV detection with fallbacks
+ * Priority: NODE_ENV > VITE_APP_ENV > development
+ */
+function getNodeEnvironment(): AppEnvironment {
+  // First try NODE_ENV (standard)
+  const nodeEnv = getEnv('NODE_ENV');
+  if (nodeEnv && ['development', 'staging', 'production', 'test'].includes(nodeEnv)) {
+    return nodeEnv as AppEnvironment;
+  }
+  
+  // Fallback to VITE_APP_ENV (Vite-specific)
+  const viteEnv = getEnv('VITE_APP_ENV');
+  if (viteEnv && ['development', 'staging', 'production', 'test'].includes(viteEnv)) {
+    return viteEnv as AppEnvironment;
+  }
+  
+  // Default to development
+  return 'development';
+}
+
+/**
  * Get boolean environment variable
  */
 function getBoolEnv(key: string, defaultValue: boolean = false): boolean {
@@ -176,7 +197,7 @@ function getArrayEnv(key: string, defaultValue: string[] = []): string[] {
  * Load and validate environment configuration
  */
 export function loadEnvironmentConfig(): EnvironmentConfig {
-  const env = getEnv('VITE_APP_ENV', 'development') as AppEnvironment;
+  const env = getNodeEnvironment();
 
   return {
     app: {
