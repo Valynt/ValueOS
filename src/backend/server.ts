@@ -12,6 +12,7 @@ import documentRouter from '../api/documents';
 import { createLogger } from '../lib/logger';
 import { createVersionedApiRouter } from './versioning';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
+import { latencyMetricsMiddleware, getLatencySnapshot } from '../middleware/latencyMetricsMiddleware';
 
 import { settings } from '../config/settings';
 
@@ -29,6 +30,7 @@ app.use(cors({
 app.use(express.json());
 app.use(express.raw({ type: 'application/json' })); // For Stripe webhooks
 app.use(requestAuditMiddleware());
+app.use(latencyMetricsMiddleware());
 
 // Health check
 app.get(
@@ -37,6 +39,14 @@ app.get(
     res.json({ status: 'ok', service: 'billing-api' });
   }
 );
+
+// Latency metrics snapshot for dashboards
+app.get('/metrics/latency', (_req, res) => {
+  res.json({
+    routes: getLatencySnapshot(),
+    timestamp: new Date().toISOString(),
+  });
+});
 
 // Mount billing routes with versioning support
 apiRouter.use('/billing', billingRouter);

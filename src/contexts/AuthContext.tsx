@@ -7,6 +7,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { User, Session } from '@supabase/supabase-js';
 import { AuthService, LoginCredentials, SignupData, AuthSession } from '../services/AuthService';
 import { createLogger } from '../lib/logger';
+import { analyticsClient } from '../lib/analyticsClient';
 
 const logger = createLogger({ component: 'AuthContext' });
 
@@ -37,6 +38,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (currentSession) {
           setSession(currentSession);
           setUser(currentSession.user);
+          analyticsClient.identify(currentSession.user.id, {
+            email: currentSession.user.email,
+            created_at: currentSession.user.created_at,
+          });
+          analyticsClient.track('user_session_started', {
+            workflow: 'activation',
+            created_at: currentSession.user.created_at,
+          });
         }
       } catch (error) {
         logger.error('Failed to initialize auth', error as Error);
@@ -73,6 +82,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(authSession.user);
       setSession(authSession.session);
       logger.info('User logged in', { email: credentials.email });
+      analyticsClient.identify(authSession.user.id, {
+        email: authSession.user.email,
+        created_at: authSession.user.created_at,
+      });
+      analyticsClient.track('user_login', { workflow: 'activation' });
     } catch (error) {
       logger.error('Login failed', error as Error);
       throw error;
@@ -85,6 +99,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(authSession.user);
       setSession(authSession.session);
       logger.info('User signed up', { email: data.email });
+      analyticsClient.identify(authSession.user.id, {
+        email: authSession.user.email,
+        created_at: authSession.user.created_at,
+      });
+      analyticsClient.track('user_created', {
+        workflow: 'activation',
+        created_at: authSession.user.created_at,
+      });
     } catch (error) {
       logger.error('Signup failed', error as Error);
       throw error;

@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { X, ChevronRight, ChevronLeft, Sparkles, FileText, Mail, MessageSquare, Check } from 'lucide-react';
+import { analyticsClient } from '../../lib/analyticsClient';
 
 interface WelcomeFlowProps {
   isOpen: boolean;
@@ -69,7 +70,16 @@ export const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ isOpen, onComplete, on
   const isLastStep = currentStep === onboardingSteps.length - 1;
 
   const handleNext = () => {
+    analyticsClient.trackWorkflowEvent('onboarding_step_completed', 'onboarding', {
+      step: step.title,
+      step_index: currentStep,
+      total_steps: onboardingSteps.length,
+    });
+
     if (isLastStep) {
+      analyticsClient.trackWorkflowEvent('onboarding_completed', 'onboarding', {
+        completed_steps: onboardingSteps.length,
+      });
       onComplete();
     } else {
       setCurrentStep(prev => prev + 1);
@@ -78,6 +88,14 @@ export const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ isOpen, onComplete, on
 
   const handlePrevious = () => {
     setCurrentStep(prev => Math.max(0, prev - 1));
+  };
+
+  const handleSkip = () => {
+    analyticsClient.trackWorkflowEvent('onboarding_skipped', 'onboarding', {
+      skipped_at_step: currentStep,
+      step: step.title,
+    });
+    onSkip();
   };
 
   return (
@@ -107,7 +125,7 @@ export const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ isOpen, onComplete, on
               ))}
             </div>
             <button
-              onClick={onSkip}
+              onClick={handleSkip}
               className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               aria-label="Skip onboarding"
             >
@@ -161,7 +179,7 @@ export const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ isOpen, onComplete, on
         {/* Footer */}
         <div className="flex items-center justify-between p-6 border-t border-gray-200">
           <button
-            onClick={onSkip}
+            onClick={handleSkip}
             className="px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
             disabled={isLastStep}
           >
