@@ -1,0 +1,10 @@
+# TLS Certificates - Never commit private keys!
+certs/*.pem
+certs/*.key
+certs/*.csr
+certs/*.srl
+certs/*.conf
+
+# Keep directory structure and README
+!certs/README.md
+!.gitignore
