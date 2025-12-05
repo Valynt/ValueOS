@@ -1,0 +1,68 @@
+{
+  "dashboard": {
+    "title": "Database Performance",
+    "tags": ["database", "postgres", "observability"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Slow Queries (>200ms mean execution)",
+        "type": "table",
+        "gridPos": { "x": 0, "y": 0, "w": 24, "h": 8 },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "topk(10, pg_stat_statements_total_exec_time{job=\"postgresql\"} and on(queryid,query) (pg_stat_statements_mean_exec_time{job=\"postgresql\"} > 200))",
+            "format": "table",
+            "datasource": { "type": "prometheus", "uid": "prometheus" }
+          }
+        ],
+        "transformations": [
+          {
+            "id": "labelsToFields",
+            "options": {
+              "valueLabel": "__value"
+            }
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms"
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 2,
+        "title": "Index vs Sequential Scans per Table",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 8, "w": 24, "h": 10 },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "rate(pg_stat_user_tables_idx_scan{job=\"postgresql\"}[5m])",
+            "legendFormat": "{{schemaname}}.{{relname}} idx scans/s",
+            "datasource": { "type": "prometheus", "uid": "prometheus" }
+          },
+          {
+            "refId": "B",
+            "expr": "rate(pg_stat_user_tables_seq_scan{job=\"postgresql\"}[5m])",
+            "legendFormat": "{{schemaname}}.{{relname}} seq scans/s",
+            "datasource": { "type": "prometheus", "uid": "prometheus" }
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops"
+          },
+          "overrides": []
+        }
+      }
+    ]
+  },
+  "folderId": 0,
+  "overwrite": true
+}

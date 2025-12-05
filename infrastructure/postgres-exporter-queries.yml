@@ -1,0 +1,60 @@
+pg_stat_statements:
+  query: |
+    SELECT
+      queryid,
+      regexp_replace(query, '\\s+', ' ', 'g') AS query,
+      calls,
+      total_exec_time,
+      mean_exec_time,
+      rows
+    FROM pg_stat_statements
+    WHERE calls > 0;
+  metrics:
+    - queryid:
+        usage: "LABEL"
+        description: "Normalized query identifier"
+    - query:
+        usage: "LABEL"
+        description: "Normalized query text"
+    - calls:
+        usage: "COUNTER"
+        description: "Number of times executed"
+    - total_exec_time:
+        usage: "COUNTER"
+        description: "Total execution time in milliseconds"
+    - mean_exec_time:
+        usage: "GAUGE"
+        description: "Mean execution time in milliseconds"
+    - rows:
+        usage: "COUNTER"
+        description: "Total rows retrieved"
+
+pg_stat_user_tables:
+  query: |
+    SELECT
+      schemaname,
+      relname,
+      seq_scan,
+      idx_scan,
+      n_live_tup,
+      n_dead_tup
+    FROM pg_stat_user_tables;
+  metrics:
+    - schemaname:
+        usage: "LABEL"
+        description: "Schema name"
+    - relname:
+        usage: "LABEL"
+        description: "Table name"
+    - seq_scan:
+        usage: "COUNTER"
+        description: "Sequential scans"
+    - idx_scan:
+        usage: "COUNTER"
+        description: "Index scans"
+    - n_live_tup:
+        usage: "GAUGE"
+        description: "Estimated live tuples"
+    - n_dead_tup:
+        usage: "GAUGE"
+        description: "Estimated dead tuples"
