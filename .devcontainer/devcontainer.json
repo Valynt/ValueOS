@@ -17,7 +17,7 @@
     }
   },
   "forwardPorts": [3000, 8000, 5432, 16686, 9090, 3001],
-  "postCreateCommand": "npm install && pip install -r requirements.txt && docker-compose -f docker-compose.dev.yml -f infrastructure/docker-compose.observability.yml up -d",
+  "postCreateCommand": "npm install && pip install -r requirements.txt && bash .devcontainer/setup-git-hooks.sh && docker-compose -f docker-compose.dev.yml -f infrastructure/docker-compose.observability.yml up -d",
   "remoteUser": "vscode",
   "containerEnv": {
     "NODE_OPTIONS": "--max-old-space-size=4096"

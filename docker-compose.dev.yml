@@ -51,6 +51,15 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    # Resource limits for 12-agent fabric support
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 6G
+        reservations:
+          cpus: '2.0'
+          memory: 4G
     # Security hardening (dev environment)
     security_opt:
       - no-new-privileges:true
@@ -92,6 +101,15 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
     # Security hardening (dev environment)
     security_opt:
       - no-new-privileges:true
@@ -131,6 +149,15 @@ services:
       --requirepass $$(cat /run/secrets/redis_password)
       --maxmemory 128mb
       --maxmemory-policy allkeys-lru'
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
     # Security hardening (dev environment)
     security_opt:
       - no-new-privileges:true
