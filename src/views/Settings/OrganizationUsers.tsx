@@ -5,6 +5,7 @@ import {
   CheckCircle, XCircle, Clock, Ban, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { OrganizationUser } from '../../types';
+import { analyticsClient } from '../../lib/analyticsClient';
 
 const MOCK_USERS: OrganizationUser[] = Array.from({ length: 50 }, (_, i) => ({
   id: `user-${i}`,
@@ -21,7 +22,7 @@ const MOCK_USERS: OrganizationUser[] = Array.from({ length: 50 }, (_, i) => ({
 const PAGE_SIZE = 10;
 
 export const OrganizationUsers: React.FC = () => {
-  const [users] = useState<OrganizationUser[]>(MOCK_USERS);
+  const [users, setUsers] = useState<OrganizationUser[]>(MOCK_USERS);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -30,6 +31,10 @@ export const OrganizationUsers: React.FC = () => {
   const [sortColumn, setSortColumn] = useState<keyof OrganizationUser>('fullName');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
+  const [isInviteModalOpen, setInviteModalOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<'Admin' | 'User' | 'Viewer'>('User');
+  const [inviteStatus, setInviteStatus] = useState<string | null>(null);
 
   const filteredAndSortedUsers = useMemo(() => {
     let result = users.filter(user => {
@@ -91,6 +96,31 @@ export const OrganizationUsers: React.FC = () => {
     }
   };
 
+  const handleInviteSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!inviteEmail) return;
+
+    const newUser: OrganizationUser = {
+      id: `invite-${Date.now()}`,
+      email: inviteEmail,
+      fullName: inviteEmail.split('@')[0],
+      role: inviteRole,
+      department: 'Beta Cohort',
+      status: 'invited',
+      createdAt: new Date().toISOString(),
+      groups: [],
+    };
+
+    setUsers([newUser, ...users]);
+    setInviteStatus(`Invitation sent to ${inviteEmail}`);
+    analyticsClient.trackWorkflowEvent('teammate_invited', 'team_invite', {
+      email: inviteEmail,
+      role: inviteRole,
+    });
+    setInviteModalOpen(false);
+    setInviteEmail('');
+  };
+
   const getStatusIcon = (status: OrganizationUser['status']) => {
     switch (status) {
       case 'active': return <CheckCircle className="h-4 w-4 text-green-600" />;
@@ -120,7 +150,14 @@ export const OrganizationUsers: React.FC = () => {
               <Download className="h-4 w-4 mr-2" />
               Export
             </button>
-            <button className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            <button
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={() => {
+                setInviteModalOpen(true);
+                setInviteStatus(null);
+                analyticsClient.trackWorkflowEvent('teammate_invite_opened', 'team_invite', {});
+              }}
+            >
               <UserPlus className="h-4 w-4 mr-2" />
               Invite User
             </button>
@@ -284,7 +321,74 @@ export const OrganizationUsers: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {inviteStatus && (
+          <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
+            {inviteStatus}
+          </div>
+        )}
       </SettingsSection>
+
+      {isInviteModalOpen && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 m-4">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-xs uppercase text-blue-600 font-semibold">Beta Cohort</p>
+                <h3 className="text-lg font-semibold text-gray-900">Invite a teammate</h3>
+              </div>
+              <button
+                onClick={() => setInviteModalOpen(false)}
+                className="p-2 rounded-lg hover:bg-gray-100"
+                aria-label="Close invite dialog"
+              >
+                <XCircle className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">Invites are auto-tagged with <span className="font-semibold">beta_cohort</span> for priority support.</p>
+            <form className="space-y-4" onSubmit={handleInviteSubmit}>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  required
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="teammate@company.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as typeof inviteRole)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="Admin">Admin</option>
+                  <option value="User">User</option>
+                  <option value="Viewer">Viewer</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setInviteModalOpen(false)}
+                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Send invite
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

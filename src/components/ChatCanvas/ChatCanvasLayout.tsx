@@ -44,6 +44,7 @@ import { WorkflowStateService } from '../../services/WorkflowStateService';
 import { supabase } from '../../lib/supabase';
 import { valueCaseService } from '../../services/ValueCaseService';
 import { logger } from '../../lib/logger';
+import { analyticsClient } from '../../lib/analyticsClient';
 import { v4 as uuidv4 } from 'uuid';
 import { sduiTelemetry, TelemetryEventType } from '../../lib/telemetry/SDUITelemetry';
 import { useCanvasStore } from '../../sdui/canvas/CanvasStore';
@@ -386,7 +387,32 @@ const formatRelativeTime = (date: Date): string => {
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
   return date.toLocaleDateString();
-}
+};
+
+const BETA_HUB_URL = import.meta.env.VITE_BETA_HUB_URL || 'https://docs.valuecanvas.app/beta-hub';
+
+const betaReleaseNotes = [
+  {
+    version: '0.9.0-beta',
+    date: '2024-12-18',
+    highlights: [
+      'New in-app feedback workflow with screenshot and console capture',
+      'Telemetry events for onboarding, invites, and API keys',
+      'Improved API latency monitoring with percentile tracking',
+    ],
+    link: `${BETA_HUB_URL}#release-0-9-0-beta`,
+  },
+  {
+    version: '0.8.5-beta',
+    date: '2024-12-10',
+    highlights: [
+      'Value case starter flows for uploads, CRM imports, and calls',
+      'Command bar reliability improvements',
+      'Performance instrumentation for SDUI rendering',
+    ],
+    link: `${BETA_HUB_URL}#release-0-8-5-beta`,
+  },
+];
 
 // ============================================================================
 // Main Component
@@ -429,6 +455,11 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
   // User/tenant for CRM import
   const [currentUserId, setCurrentUserId] = useState<string | undefined>();
   const [currentTenantId, setCurrentTenantId] = useState<string | undefined>();
+  const [userCreatedAt, setUserCreatedAt] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | undefined>();
+
+  // Beta hub + telemetry
+  const [isBetaHubOpen, setIsBetaHubOpen] = useState(false);
 
   // Workflow state service (initialized once)
   const workflowStateService = React.useMemo(
@@ -449,6 +480,29 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
   const selectedCase = cases.find(c => c.id === selectedCaseId);
   const inProgressCases = cases.filter(c => c.status === 'in-progress');
   const completedCases = cases.filter(c => c.status === 'completed');
+
+  const trackAssetCreated = useCallback(
+    (payload: { caseId: string; company: string; source: string; name: string }) => {
+      const timeToValueMs = userCreatedAt ? Date.now() - new Date(userCreatedAt).getTime() : undefined;
+
+      analyticsClient.trackWorkflowEvent('asset_created', 'asset_creation', {
+        case_id: payload.caseId,
+        company: payload.company,
+        source: payload.source,
+        name: payload.name,
+        user_email: userEmail,
+        time_to_first_value_ms: timeToValueMs,
+        time_to_first_value_minutes: timeToValueMs ? Math.round(timeToValueMs / 60000) : undefined,
+      });
+
+      analyticsClient.trackTimeToValue('time_to_first_value', userCreatedAt, {
+        workflow: 'asset_creation',
+        source: payload.source,
+        case_id: payload.caseId,
+      });
+    },
+    [userCreatedAt, userEmail]
+  );
 
   // Fetch cases from Supabase on mount
   useEffect(() => {
@@ -499,6 +553,12 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
         // Use user's default tenant or user ID as tenant
         // In a multi-tenant app, this would come from user metadata or a tenants table
         setCurrentTenantId(session.user.user_metadata?.tenant_id || session.user.id);
+        setUserCreatedAt(session.user.created_at);
+        setUserEmail(session.user.email || undefined);
+        analyticsClient.identify(session.user.id, {
+          email: session.user.email,
+          created_at: session.user.created_at,
+        });
       }
     };
     getSession();
@@ -843,6 +903,13 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
       },
     });
 
+    trackAssetCreated({
+      caseId: newCase.id,
+      company: companyName,
+      source: 'manual',
+      name: newCase.name,
+    });
+
     // Persist to Supabase if available
     valueCaseService.createValueCase({
       name: newCase.name,
@@ -856,6 +923,14 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
   // Open new case modal
   const openNewCaseModal = useCallback(() => {
     setIsNewCaseModalOpen(true);
+  }, []);
+
+  const openBetaHub = useCallback(() => {
+    setIsBetaHubOpen(true);
+    analyticsClient.track('beta_hub_opened', {
+      workflow: 'beta_enablement',
+      source: 'sidebar_footer',
+    });
   }, []);
 
   const closeUploadNotesModal = useCallback(() => {
@@ -924,6 +999,13 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
       },
     });
 
+    trackAssetCreated({
+      caseId: newCase.id,
+      company: companyName,
+      source: 'notes_upload',
+      name: newCase.name,
+    });
+
     // Auto-send the notes to the AI for deeper analysis
     setTimeout(async () => {
       const insights = notes.insights;
@@ -990,6 +1072,13 @@ Please analyze these notes and help me build a value hypothesis. What key value 
         emailThread: rawText,
         emailAnalysis: analysis,
       },
+    });
+
+    trackAssetCreated({
+      caseId: newCase.id,
+      company: companyName,
+      source: 'email_analysis',
+      name: newCase.name,
     });
 
     // Auto-send analysis to AI for next steps
@@ -1064,6 +1153,13 @@ Based on this email analysis, help me create a value hypothesis and action plan.
       },
     });
 
+    trackAssetCreated({
+      caseId: newCase.id,
+      company: mappedCase.company,
+      source: 'crm_import',
+      name: newCase.name,
+    });
+
     // Auto-send deal info to AI for analysis
     setTimeout(async () => {
       const stakeholderList = mappedCase.metadata.stakeholders?.map(s =>
@@ -1134,6 +1230,13 @@ Based on this deal information, help me:
         callTranscript: transcript,
         callAnalysis: analysis,
       },
+    });
+
+    trackAssetCreated({
+      caseId: newCase.id,
+      company: companyName,
+      source: 'sales_call',
+      name: newCase.name,
     });
 
     // Auto-send analysis to AI for next steps
@@ -1255,6 +1358,13 @@ Based on this call analysis, help me:
               <Settings className="w-4 h-4" />
             </button>
             <button
+              onClick={openBetaHub}
+              aria-label="Open beta hub"
+              className="px-3 py-1 text-xs bg-blue-900/50 text-blue-200 rounded-lg border border-blue-800 hover:bg-blue-800 hover:text-white transition-colors"
+            >
+              Beta Hub
+            </button>
+            <button
               onClick={onHelpClick}
               aria-label="Get help"
               className="p-2 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
@@ -1346,6 +1456,106 @@ Based on this call analysis, help me:
           'Build business case for CFO',
         ]}
       />
+
+      {isBetaHubOpen && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full mx-4">
+            <div className="flex items-start justify-between p-6 border-b border-gray-200">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-blue-600 font-semibold">Beta Hub</p>
+                <h3 className="text-2xl font-semibold text-gray-900">Knowledge Base & Release Notes</h3>
+                <p className="text-sm text-gray-500">Track what shipped this week and jump to the beta documentation.</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <a
+                  href={BETA_HUB_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                  onClick={() => analyticsClient.track('beta_hub_kb_opened', { workflow: 'beta_enablement' })}
+                >
+                  Open knowledge base
+                </a>
+                <button
+                  onClick={() => setIsBetaHubOpen(false)}
+                  className="p-2 rounded-lg hover:bg-gray-100"
+                  aria-label="Close beta hub"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-gray-700">Latest release notes</h4>
+                <div className="space-y-3">
+                  {betaReleaseNotes.map((entry) => (
+                    <div key={entry.version} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <p className="text-xs uppercase text-gray-500">{entry.date}</p>
+                          <p className="font-semibold text-gray-900">{entry.version}</p>
+                        </div>
+                        <a
+                          href={entry.link}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-sm text-blue-600 hover:text-blue-800"
+                          onClick={() => analyticsClient.track('beta_hub_release_note_opened', { version: entry.version })}
+                        >
+                          View
+                        </a>
+                      </div>
+                      <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                        {entry.highlights.map((note, idx) => (
+                          <li key={idx}>{note}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="text-sm font-semibold text-gray-700">How to get help</h4>
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <p className="text-sm text-gray-700 mb-3">For blockers, start a support ticket via the in-app feedback button or message our team in Intercom. Tickets from the beta cohort are auto-tagged for the priority queue.</p>
+                  <div className="space-y-2 text-sm text-gray-700">
+                    <div className="flex items-start gap-2">
+                      <span className="mt-1 h-2 w-2 rounded-full bg-green-500" aria-hidden />
+                      <p>Real-time chat: click <span className="font-semibold">Feedback</span> → submit ticket (includes screenshot & console logs).</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="mt-1 h-2 w-2 rounded-full bg-indigo-500" aria-hidden />
+                      <p>
+                        Documentation:{' '}
+                        <a
+                          href={BETA_HUB_URL}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          {BETA_HUB_URL}
+                        </a>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setIsBetaHubOpen(false);
+                    analyticsClient.track('beta_hub_closed', { workflow: 'beta_enablement' });
+                  }}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* New Case Modal */}
       {isNewCaseModalOpen && (

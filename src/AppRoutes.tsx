@@ -13,6 +13,7 @@ import SignupPage from './views/Auth/SignupPage';
 import ResetPasswordPage from './views/Auth/ResetPasswordPage';
 import App from './App';
 import { LaunchReadinessDashboard } from './views/LaunchReadinessDashboard';
+import { BetaFeedbackWidget } from './components/Feedback/BetaFeedbackWidget';
 
 export function AppRoutes() {
   return (
@@ -47,6 +48,7 @@ export function AppRoutes() {
           {/* Default redirect */}
           <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
+          <BetaFeedbackWidget />
         </ToastProvider>
       </AuthProvider>
     </BrowserRouter>
