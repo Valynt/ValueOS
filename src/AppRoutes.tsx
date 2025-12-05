@@ -12,6 +12,7 @@ import LoginPage from './views/Auth/LoginPage';
 import SignupPage from './views/Auth/SignupPage';
 import ResetPasswordPage from './views/Auth/ResetPasswordPage';
 import App from './App';
+import { LaunchReadinessDashboard } from './views/LaunchReadinessDashboard';
 
 export function AppRoutes() {
   return (
@@ -23,6 +24,15 @@ export function AppRoutes() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+          <Route
+            path="/launch-readiness"
+            element={
+              <ProtectedRoute>
+                <LaunchReadinessDashboard />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Protected App Routes */}
           <Route
