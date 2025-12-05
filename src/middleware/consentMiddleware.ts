@@ -4,11 +4,11 @@ export type ConsentRegistry = {
   hasConsent: (tenantId: string, scope: string) => Promise<boolean> | boolean;
 };
 
-const defaultRegistry: ConsentRegistry = {
-  hasConsent: async () => true
-};
 
-export function requireConsent(scope: string, registry: ConsentRegistry = defaultRegistry): RequestHandler {
+
+
+
+export function requireConsent(scope: string, registry: ConsentRegistry): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
     const tenantId = (req.headers['x-tenant-id'] as string) || (req as any).tenantId || 'default';
 
