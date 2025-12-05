@@ -148,9 +148,9 @@ const CaseItem: React.FC<{
       aria-label={`${isSelected ? 'Currently viewing' : 'Open'} ${case_.name} for ${case_.company}`}
       aria-current={isSelected ? 'page' : undefined}
       className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-        isSelected 
-          ? 'bg-gray-800 text-white' 
-          : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+        isSelected
+          ? 'bg-card text-foreground shadow-beautiful-sm'
+          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
       }`}
     >
       {case_.name}
@@ -212,8 +212,8 @@ const EmptyCanvas: React.FC<{
   
   return (
     <div 
-      className={`flex flex-col items-center justify-center h-full bg-gray-950 p-8 transition-all ${
-        isDragging ? 'ring-2 ring-indigo-500 ring-inset bg-gray-900' : ''
+      className={`flex flex-col items-center justify-center h-full bg-background p-8 transition-all ${
+        isDragging ? 'ring-2 ring-primary ring-inset bg-card' : ''
       }`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -222,10 +222,10 @@ const EmptyCanvas: React.FC<{
       <div className="max-w-3xl w-full">
         {/* Header */}
         <div className="text-center mb-10">
-          <h1 className="text-2xl font-semibold text-white mb-2">
+          <h1 className="text-2xl font-semibold text-foreground mb-2">
             Start Building Value
           </h1>
-          <p className="text-gray-400">
+          <p className="text-muted-foreground">
             Create a new case or import data to begin
           </p>
         </div>
@@ -278,7 +278,7 @@ const EmptyCanvas: React.FC<{
 
         {/* Drop Zone Hint */}
         <div className="text-center">
-          <p className="text-gray-600 text-sm flex items-center justify-center gap-2">
+          <p className="text-muted-foreground text-sm flex items-center justify-center gap-2">
             <Upload className="w-4 h-4" />
             Or drag & drop files anywhere
           </p>
@@ -291,7 +291,7 @@ const EmptyCanvas: React.FC<{
               type="text"
               placeholder="It all starts here..."
               aria-label="Create new case to get started"
-              className="w-full px-4 py-4 bg-gray-900 border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600"
+              className="w-full px-4 py-4 bg-card border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:border-ring shadow-beautiful-sm"
               onFocus={onNewCase}
             />
             <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600">
@@ -1286,14 +1286,14 @@ Based on this call analysis, help me:
   }, []);
 
   return (
-    <div className="flex h-screen bg-gray-950">
+    <div className="flex h-screen bg-background text-foreground">
       {/* Library Sidebar - Dark theme, condensed */}
-      <aside className="w-56 bg-gray-900 border-r border-gray-800 flex flex-col">
+      <aside className="w-56 bg-sidebar-background border-r border-sidebar-border flex flex-col">
         {/* Header */}
-        <div className="p-3 border-b border-gray-800">
+        <div className="p-3 border-b border-sidebar-border">
           <div className="flex items-center justify-between">
-            <span className="text-gray-300 text-sm font-medium">←</span>
-            <span className="text-gray-400 text-xs">ValueCanvas</span>
+            <span className="text-muted-foreground text-sm font-medium">←</span>
+            <span className="text-muted-foreground text-xs">ValueCanvas</span>
           </div>
         </div>
 
@@ -1302,7 +1302,7 @@ Based on this call analysis, help me:
           <button
             onClick={openNewCaseModal}
             aria-label="Create new case"
-            className="w-full flex items-center justify-between px-3 py-2 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors"
+            className="w-full flex items-center justify-between px-3 py-2 bg-sidebar-accent text-sidebar-foreground text-sm rounded-lg border border-sidebar-border hover:bg-accent hover:text-accent-foreground transition-colors shadow-beautiful-sm"
           >
             <span>New Chat</span>
             <Plus className="w-4 h-4" />
@@ -1314,7 +1314,7 @@ Based on this call analysis, help me:
           {/* Recent */}
           {inProgressCases.length > 0 && (
             <div className="mb-4">
-              <p className="px-3 py-1 text-xs text-gray-500 font-medium">Recent</p>
+              <p className="px-3 py-1 text-xs text-muted-foreground font-medium">Recent</p>
               <div className="space-y-0.5">
                 {inProgressCases.map(case_ => (
                   <CaseItem
@@ -1331,7 +1331,7 @@ Based on this call analysis, help me:
           {/* Completed */}
           {completedCases.length > 0 && (
             <div>
-              <p className="px-3 py-1 text-xs text-gray-500 font-medium">Previous 30 Days</p>
+              <p className="px-3 py-1 text-xs text-muted-foreground font-medium">Previous 30 Days</p>
               <div className="space-y-0.5">
                 {completedCases.map(case_ => (
                   <CaseItem
@@ -1347,12 +1347,12 @@ Based on this call analysis, help me:
         </div>
 
         {/* Footer */}
-        <div className="p-2 border-t border-gray-800">
+        <div className="p-2 border-t border-sidebar-border">
           <div className="flex items-center justify-between px-2">
             <button
               onClick={onSettingsClick}
               aria-label="Open settings"
-              className="p-2 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
+              className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
               title="Settings"
             >
               <Settings className="w-4 h-4" />
@@ -1360,19 +1360,19 @@ Based on this call analysis, help me:
             <button
               onClick={openBetaHub}
               aria-label="Open beta hub"
-              className="px-3 py-1 text-xs bg-blue-900/50 text-blue-200 rounded-lg border border-blue-800 hover:bg-blue-800 hover:text-white transition-colors"
+              className="px-3 py-1 text-xs bg-primary/10 text-primary rounded-lg border border-primary/40 hover:bg-primary hover:text-primary-foreground transition-colors shadow-beautiful-sm"
             >
               Beta Hub
             </button>
             <button
               onClick={onHelpClick}
               aria-label="Get help"
-              className="p-2 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
+              className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
               title="Help"
             >
               <HelpCircle className="w-4 h-4" />
             </button>
-            <div className="flex items-center gap-1 px-2 py-1 bg-gray-800 rounded text-xs text-gray-500">
+            <div className="flex items-center gap-1 px-2 py-1 bg-muted rounded text-xs text-muted-foreground">
               <span>⌘</span>
               <span>K</span>
             </div>
@@ -1381,25 +1381,25 @@ Based on this call analysis, help me:
       </aside>
 
       {/* Main Canvas Area */}
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col bg-background">
         {/* Canvas Header (when case selected) */}
         {selectedCase && (
-          <header className="bg-gray-900 border-b border-gray-800 px-6 py-4">
+          <header className="bg-card border-b border-border px-6 py-4 shadow-beautiful-sm">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-white">{selectedCase.name}</h2>
+                <h2 className="text-lg font-semibold text-foreground">{selectedCase.name}</h2>
                 <div className="flex items-center gap-3 mt-1">
                   <StageIndicator stage={selectedCase.stage} />
-                  <span className="text-sm text-gray-400">{selectedCase.company}</span>
+                  <span className="text-sm text-muted-foreground">{selectedCase.company}</span>
                 </div>
               </div>
               <button
                 onClick={() => setIsCommandBarOpen(true)}
                 aria-label="Ask AI a question (⌘K)"
-                className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm text-gray-300 transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-1.5 bg-secondary hover:bg-accent rounded-lg text-sm text-muted-foreground hover:text-accent-foreground border border-border transition-colors shadow-beautiful-sm"
               >
-                <Sparkles className="w-4 h-4" />
-                Ask AI
+                <Sparkles className="w-4 h-4 text-indigo-400" />
+                <span>Ask AI</span>
                 <kbd className="ml-2 px-1.5 py-0.5 bg-gray-700 rounded text-xs font-mono border border-gray-600">⌘K</kbd>
               </button>
             </div>
@@ -1425,17 +1425,17 @@ Based on this call analysis, help me:
 
         {/* Command Bar Input (always visible at bottom when case selected) */}
         {selectedCase && (
-          <div className="border-t border-gray-800 bg-gray-900 p-4">
+          <div className="border-t border-border bg-card p-4">
             <button
               onClick={() => setIsCommandBarOpen(true)}
-              className="w-full flex items-center gap-3 px-4 py-3 bg-gray-800 hover:bg-gray-750 rounded-lg border border-gray-700 transition-colors text-left"
+              className="w-full flex items-center gap-3 px-4 py-3 bg-card hover:bg-accent rounded-lg border border-border transition-colors text-left shadow-beautiful-sm"
               aria-label="Open command bar (⌘K)"
             >
               <Sparkles className="w-5 h-5 text-indigo-400" />
-              <span className="flex-1 text-gray-400">
+              <span className="flex-1 text-muted-foreground">
                 Ask AI anything about this value case...
               </span>
-              <kbd className="px-2 py-1 bg-gray-700 rounded border border-gray-600 text-xs font-mono text-gray-400">
+              <kbd className="px-2 py-1 bg-muted rounded border border-border text-xs font-mono text-muted-foreground">
                 ⌘K
               </kbd>
             </button>

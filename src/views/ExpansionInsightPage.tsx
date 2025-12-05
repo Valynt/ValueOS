@@ -74,15 +74,15 @@ export const ExpansionInsightPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background text-foreground">
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Expansion Insights</h1>
-              <p className="text-gray-600 mt-2">Identify upsell opportunities and optimize value realization</p>
+              <h1 className="text-3xl font-bold text-foreground">Expansion Insights</h1>
+              <p className="text-muted-foreground mt-2">Identify upsell opportunities and optimize value realization</p>
             </div>
-            <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm">
+            <button className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium shadow-light-blue-sm">
               Generate Proposal
             </button>
           </div>
@@ -117,28 +117,28 @@ export const ExpansionInsightPage: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+            <div className="bg-card rounded-xl p-6 border border-border shadow-beautiful-sm">
               <div className="flex items-center space-x-2 mb-6">
                 <AlertCircle className="h-5 w-5 text-amber-600" />
-                <h2 className="text-lg font-semibold text-gray-900">Value Gap Analysis</h2>
+                <h2 className="text-lg font-semibold text-foreground">Value Gap Analysis</h2>
               </div>
 
               <div className="grid grid-cols-2 gap-6 mb-6">
                 <div>
-                  <div className="text-sm text-gray-600 mb-2">Current Performance</div>
+                  <div className="text-sm text-muted-foreground mb-2">Current Performance</div>
                   <div className="flex items-baseline space-x-2">
-                    <span className="text-3xl font-bold text-gray-900">$180K</span>
-                    <span className="text-sm text-gray-500">of $245K</span>
+                    <span className="text-3xl font-bold text-foreground">$180K</span>
+                    <span className="text-sm text-muted-foreground">of $245K</span>
                   </div>
-                  <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="mt-2 h-2 bg-muted rounded-full overflow-hidden">
                     <div className="h-full bg-green-500" style={{ width: '73%' }}></div>
                   </div>
                 </div>
                 <div>
-                  <div className="text-sm text-gray-600 mb-2">Expansion Potential</div>
+                  <div className="text-sm text-muted-foreground mb-2">Expansion Potential</div>
                   <div className="flex items-baseline space-x-2">
                     <span className="text-3xl font-bold text-blue-900">$162K</span>
-                    <span className="text-sm text-gray-500">additional</span>
+                    <span className="text-sm text-muted-foreground">additional</span>
                   </div>
                   <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
                     <div className="h-full bg-blue-500" style={{ width: '87%' }}></div>
@@ -166,10 +166,10 @@ export const ExpansionInsightPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+            <div className="bg-card rounded-xl p-6 border border-border shadow-beautiful-sm">
               <div className="flex items-center space-x-2 mb-6">
                 <Zap className="h-5 w-5 text-blue-600" />
-                <h2 className="text-lg font-semibold text-gray-900">Expansion Opportunities</h2>
+                <h2 className="text-lg font-semibold text-foreground">Expansion Opportunities</h2>
               </div>
 
               <div className="space-y-4">
@@ -179,49 +179,49 @@ export const ExpansionInsightPage: React.FC = () => {
                     className={`p-5 rounded-lg border-2 transition-all cursor-pointer ${
                       selectedOpportunity === opp.id
                         ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300 bg-white'
+                        : 'border-border hover:border-border bg-card'
                     }`}
                     onClick={() => setSelectedOpportunity(opp.id)}
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-2">
-                          <h3 className="font-semibold text-gray-900">{opp.title}</h3>
+                          <h3 className="font-semibold text-foreground">{opp.title}</h3>
                           <span className={`text-xs px-2 py-1 rounded border ${getOpportunityTypeColor(opp.type)}`}>
                             {opp.type.replace('_', ' ')}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-600 mb-3">{opp.description}</p>
+                        <p className="text-sm text-muted-foreground mb-3">{opp.description}</p>
                         <div className="flex flex-wrap gap-2">
                           {opp.improvements.map((imp, idx) => (
-                            <span key={idx} className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded-full">
+                            <span key={idx} className="text-xs px-2 py-1 bg-muted text-muted-foreground rounded-full">
                               {imp}
                             </span>
                           ))}
                         </div>
                       </div>
                       <div className="ml-4 text-right">
-                        <div className="text-2xl font-bold text-gray-900">
+                        <div className="text-2xl font-bold text-foreground">
                           ${(opp.estimatedValue / 1000).toFixed(0)}K
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">Est. Value</div>
+                        <div className="text-xs text-muted-foreground mt-1">Est. Value</div>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-3 border-t border-gray-200">
+                    <div className="flex items-center justify-between pt-3 border-t border-border">
                       <div className="flex items-center space-x-4">
                         <div>
-                          <span className="text-xs text-gray-500">Score: </span>
-                          <span className="text-sm font-semibold text-gray-900">{opp.opportunityScore}/100</span>
+                          <span className="text-xs text-muted-foreground">Score: </span>
+                          <span className="text-sm font-semibold text-foreground">{opp.opportunityScore}/100</span>
                         </div>
                         <div>
-                          <span className="text-xs text-gray-500">Confidence: </span>
+                          <span className="text-xs text-muted-foreground">Confidence: </span>
                           <span className={`text-sm font-semibold ${getConfidenceColor(opp.confidence)}`}>
                             {opp.confidence}
                           </span>
                         </div>
                       </div>
-                      <button className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center space-x-1">
+                      <button className="text-sm text-primary hover:text-primary/90 font-medium flex items-center space-x-1">
                         <span>View Details</span>
                         <ArrowRight className="h-3 w-3" />
                       </button>
@@ -239,18 +239,18 @@ export const ExpansionInsightPage: React.FC = () => {
           </div>
 
           <div className="space-y-6">
-            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+            <div className="bg-card rounded-xl p-6 border border-border shadow-beautiful-sm">
               <div className="flex items-center space-x-2 mb-4">
                 <Target className="h-5 w-5 text-green-600" />
-                <h2 className="text-lg font-semibold text-gray-900">KPI Performance</h2>
+                <h2 className="text-lg font-semibold text-foreground">KPI Performance</h2>
               </div>
 
               <div className="space-y-4">
                 {kpiPerformance.map((q) => (
                   <div key={q.id} className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">{q.name}</span>
+                    <span className="text-sm font-medium text-foreground">{q.name}</span>
                     <div className="flex items-center space-x-2">
-                      <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
                         <div
                           className={`h-full ${q.actual >= q.target ? 'bg-green-500' : 'bg-amber-500'}`}
                           style={{ width: `${(q.actual / q.target) * 100}%` }}
@@ -264,18 +264,18 @@ export const ExpansionInsightPage: React.FC = () => {
                 ))}
               </div>
 
-              <div className="mt-6 pt-4 border-t border-gray-200">
+              <div className="mt-6 pt-4 border-t border-border">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">Avg Performance</span>
-                  <span className="font-semibold text-gray-900">94%</span>
+                  <span className="text-muted-foreground">Avg Performance</span>
+                  <span className="font-semibold text-foreground">94%</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+            <div className="bg-card rounded-xl p-6 border border-border shadow-beautiful-sm">
               <div className="flex items-center space-x-2 mb-4">
                 <Users className="h-5 w-5 text-blue-600" />
-                <h2 className="text-lg font-semibold text-gray-900">Adoption Metrics</h2>
+                <h2 className="text-lg font-semibold text-foreground">Adoption Metrics</h2>
               </div>
 
               <div className="space-y-3">

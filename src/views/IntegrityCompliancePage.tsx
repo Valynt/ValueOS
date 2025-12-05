@@ -212,10 +212,10 @@ export const IntegrityCompliancePage: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'compliant': return 'bg-green-100 text-green-700 border-green-200';
+      case 'compliant': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
       case 'at_risk': return 'bg-red-100 text-red-700 border-red-200';
       case 'warning': return 'bg-amber-100 text-amber-700 border-amber-200';
-      default: return 'bg-gray-100 text-gray-700 border-gray-200';
+      default: return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -226,15 +226,15 @@ export const IntegrityCompliancePage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background text-foreground">
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Integrity & Compliance</h1>
-              <p className="text-gray-600 mt-2">Manifesto compliance validation and artifact integrity checks</p>
+              <h1 className="text-3xl font-bold text-foreground">Integrity & Compliance</h1>
+              <p className="text-muted-foreground mt-2">Manifesto compliance validation and artifact integrity checks</p>
             </div>
-            <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm flex items-center space-x-2">
+            <button className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium shadow-light-blue-sm flex items-center space-x-2">
               <Search className="h-4 w-4" />
               <span>Run Compliance Scan</span>
             </button>

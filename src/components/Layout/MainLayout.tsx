@@ -307,26 +307,26 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onBack, caseId: propCase
     setDependencyLines(prev => prev.filter(l => l.id !== id));
   }, []);
   return (
-    <div className="h-screen bg-gray-50 flex flex-col">
+    <div className="h-screen bg-background text-foreground flex flex-col">
       <Toolbar onAddComponent={(comp) => addComponent(comp, false)} />
 
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 flex flex-col min-w-0">
-          <div className="bg-white border-b border-gray-200 px-6 py-4">
+          <div className="bg-card border-b border-border px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 {onBack && (
                   <button
                     onClick={onBack}
-                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    className="p-2 rounded-lg transition-colors text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                     title="Back to library"
                   >
-                    <ArrowLeft className="h-5 w-5 text-gray-600" />
+                    <ArrowLeft className="h-5 w-5" />
                   </button>
                 )}
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Acme Corp - SaaS ROI Analysis</h1>
-                  <p className="text-sm text-gray-500">Last modified: Today at 2:34 PM</p>
+                  <h1 className="text-2xl font-bold text-foreground">Acme Corp - SaaS ROI Analysis</h1>
+                  <p className="text-sm text-muted-foreground">Last modified: Today at 2:34 PM</p>
                 </div>
               </div>
               <div className="flex items-center space-x-4">
@@ -335,32 +335,39 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onBack, caseId: propCase
                     onClick={undo}
                     disabled={!canUndo}
                     className={`p-2 rounded-lg transition-colors ${
-                      canUndo ? 'text-gray-700 hover:bg-gray-100' : 'text-gray-300 cursor-not-allowed'
+                      canUndo
+                        ? 'text-foreground hover:bg-accent'
+                        : 'text-muted-foreground/40 cursor-not-allowed'
                     }`}
                     title={undoAction ? `Undo: ${undoAction}` : 'Nothing to undo'}
                   >
                     <Undo className="h-4 w-4" />
+
                   </button>
                   <button
                     onClick={redo}
                     disabled={!canRedo}
                     className={`p-2 rounded-lg transition-colors ${
-                      canRedo ? 'text-gray-700 hover:bg-gray-100' : 'text-gray-300 cursor-not-allowed'
+                      canRedo
+                        ? 'text-foreground hover:bg-accent'
+                        : 'text-muted-foreground/40 cursor-not-allowed'
                     }`}
                     title={redoAction ? `Redo: ${redoAction}` : 'Nothing to redo'}
+
                   >
                     <Redo className="h-4 w-4" />
                   </button>
                 </div>
 
-                <div className="h-6 border-l border-gray-300"></div>
+                <div className="h-6 border-l border-border/60"></div>
 
                 <SaveIndicator status={saveStatus} />
 
                 <button
                   onClick={() => setIsHistoryOpen(true)}
-                  className="flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="flex items-center px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground rounded-lg transition-colors"
                   title="View history"
+
                 >
                   <History className="h-4 w-4 mr-2" />
                   History
@@ -368,24 +375,26 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onBack, caseId: propCase
 
                 <button
                   onClick={() => setIsShortcutsPanelOpen(true)}
-                  className="p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Keyboard shortcuts (?))"
+                  className="p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground rounded-lg transition-colors"
+                  title="Keyboard shortcuts (?))
+
                 >
                   <HelpCircle className="h-4 w-4" />
                 </button>
 
-                <div className="h-6 border-l border-gray-300"></div>
+                <div className="h-6 border-l border-border/60"></div>
 
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-accent text-accent-foreground">
                   Draft
                 </span>
                 <button
                   onClick={() => setIsPresentationMode(true)}
                   disabled={canvasComponents.length === 0}
-                  className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  className="flex items-center bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-light-blue-sm hover:bg-primary/90 transition-colors text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <Presentation className="h-4 w-4 mr-2" />
                   Present
+
                 </button>
               </div>
             </div>
@@ -488,10 +497,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onBack, caseId: propCase
       <div className="fixed bottom-4 right-4 z-30">
         <button
           onClick={() => setIsCommandBarOpen(true)}
-          className="bg-blue-600 text-white px-4 py-3 rounded-full shadow-lg hover:bg-blue-700 transition-all hover:shadow-xl flex items-center space-x-2"
+          className="bg-primary text-primary-foreground px-4 py-3 rounded-full shadow-light-blue-sm hover:bg-primary/90 transition-all flex items-center space-x-2"
         >
           <span className="text-sm font-medium">Ask Agent</span>
-          <kbd className="px-2 py-0.5 bg-blue-500 rounded text-xs">⌘K</kbd>
+          <kbd className="px-2 py-0.5 bg-accent text-accent-foreground rounded text-xs">⌘K</kbd>
         </button>
       </div>
     </div>

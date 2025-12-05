@@ -118,8 +118,8 @@ const KPICard: React.FC<{
 
   return (
     <div
-      className={`p-4 border rounded-lg shadow-sm transition-all ${
-        onClick ? 'cursor-pointer hover:shadow-md' : ''
+      className={`p-4 border border-border rounded-lg bg-card text-card-foreground shadow-beautiful-sm transition-all ${
+        onClick ? 'cursor-pointer hover:shadow-beautiful-md' : ''
       }`}
       onClick={onClick}
       role={onClick ? 'button' : undefined}
@@ -129,9 +129,9 @@ const KPICard: React.FC<{
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
-          <h3 className="text-lg font-bold text-gray-900">{kpi.kpiName}</h3>
+          <h3 className="text-lg font-bold text-foreground">{kpi.kpiName}</h3>
           {kpi.lastUpdated && (
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Updated: {kpi.lastUpdated.toLocaleDateString()}
             </p>
           )}
@@ -169,11 +169,11 @@ const KPICard: React.FC<{
 
       {/* Progress Bar */}
       <div className="mb-3">
-        <div className="flex justify-between text-xs text-gray-600 mb-1">
+        <div className="flex justify-between text-xs text-muted-foreground mb-1">
           <span>Progress to Target</span>
           <span className="font-semibold">{Math.round(progress)}%</span>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
+        <div className="w-full bg-muted rounded-full h-2">
           <div
             className={`h-2 rounded-full transition-all ${
               status === 'achieved' || status === 'on-track'
@@ -189,17 +189,17 @@ const KPICard: React.FC<{
 
       {/* Details */}
       {showDetails && (
-        <div className="space-y-2 pt-3 border-t border-gray-200">
+        <div className="space-y-2 pt-3 border-t border-border">
           <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Improvement from Baseline:</span>
+            <span className="text-muted-foreground">Improvement from Baseline:</span>
             <span className={`font-semibold ${improvement >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {improvement >= 0 ? '+' : ''}
               {improvement.toFixed(1)}%
             </span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Gap to Target:</span>
-            <span className="font-semibold text-gray-900">
+            <span className="text-muted-foreground">Gap to Target:</span>
+            <span className="font-semibold text-foreground">
               {(kpi.target - kpi.actual).toFixed(1)} {kpi.unit}
             </span>
           </div>
@@ -208,7 +208,7 @@ const KPICard: React.FC<{
 
       {/* Trend Indicator */}
       {showTrends && (
-        <div className="mt-3 pt-3 border-t border-gray-200">
+        <div className="mt-3 pt-3 border-t border-border">
           <div className="flex items-center gap-2 text-sm">
             {improvement > 0 ? (
               <>
@@ -222,8 +222,8 @@ const KPICard: React.FC<{
               </>
             ) : (
               <>
-                <Minus className="h-4 w-4 text-gray-600" />
-                <span className="text-gray-600 font-medium">Stable</span>
+                <Minus className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground font-medium">Stable</span>
               </>
             )}
           </div>
@@ -277,8 +277,8 @@ export const RealizationDashboard: React.FC<RealizationDashboardProps> = ({
 
   if (kpiData.length === 0) {
     return (
-      <div className="p-8 border border-gray-200 rounded-lg bg-gray-50 text-center">
-        <p className="text-gray-600">No realization data available</p>
+      <div className="p-8 border border-border rounded-lg bg-muted text-center">
+        <p className="text-muted-foreground">No realization data available</p>
       </div>
     );
   }
@@ -311,9 +311,9 @@ export const RealizationDashboard: React.FC<RealizationDashboardProps> = ({
   return (
     <div className="space-y-6" data-testid="realization-dashboard">
       {/* Header */}
-      <div className="border-b border-gray-200 pb-4">
-        <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
-        <p className="text-sm text-gray-600 mt-1">
+      <div className="border-b border-border pb-4">
+        <h2 className="text-2xl font-bold text-foreground">{title}</h2>
+        <p className="text-sm text-muted-foreground mt-1">
           Tracking {totalKPIs} KPI{totalKPIs !== 1 ? 's' : ''} against committed targets
         </p>
       </div>
@@ -339,14 +339,14 @@ export const RealizationDashboard: React.FC<RealizationDashboardProps> = ({
       </div>
 
       {/* Overall Progress */}
-      <div className="p-4 bg-white border border-gray-200 rounded-lg">
+      <div className="p-4 bg-card border border-border rounded-lg">
         <div className="flex justify-between items-center mb-2">
-          <h3 className="text-lg font-semibold text-gray-900">Overall Progress</h3>
-          <span className="text-2xl font-bold text-gray-900">
+          <h3 className="text-lg font-semibold text-foreground">Overall Progress</h3>
+          <span className="text-2xl font-bold text-foreground">
             {Math.round(overallProgress)}%
           </span>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-3">
+        <div className="w-full bg-muted rounded-full h-3">
           <div
             className="h-3 rounded-full bg-gradient-to-r from-blue-500 to-green-500 transition-all"
             style={{ width: `${overallProgress}%` }}

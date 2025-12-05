@@ -18,33 +18,33 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 const variantClasses = {
   primary: `
-    bg-indigo-600 text-white
-    hover:bg-indigo-700
-    active:bg-indigo-800
-    disabled:bg-indigo-300 disabled:cursor-not-allowed
-    shadow-sm hover:shadow-md
+    bg-primary text-primary-foreground
+    hover:bg-primary/90
+    active:bg-primary
+    disabled:opacity-60 disabled:cursor-not-allowed
+    shadow-light-blue-sm
     transition-all duration-200
   `,
   secondary: `
-    bg-gray-600 text-white
-    hover:bg-gray-700
-    active:bg-gray-800
-    disabled:bg-gray-300 disabled:cursor-not-allowed
-    shadow-sm hover:shadow-md
+    bg-secondary text-secondary-foreground border border-border
+    hover:bg-secondary/90
+    active:bg-secondary
+    disabled:opacity-60 disabled:cursor-not-allowed
+    shadow-beautiful-sm
     transition-all duration-200
   `,
   outline: `
-    bg-transparent border-2 border-indigo-600 text-indigo-600
-    hover:bg-indigo-50
-    active:bg-indigo-100
-    disabled:border-gray-300 disabled:text-gray-300 disabled:cursor-not-allowed
+    bg-transparent border border-border text-foreground
+    hover:bg-accent hover:text-accent-foreground
+    active:bg-accent/80
+    disabled:opacity-50 disabled:cursor-not-allowed
     transition-all duration-200
   `,
   ghost: `
-    bg-transparent text-gray-700
-    hover:bg-gray-100
-    active:bg-gray-200
-    disabled:text-gray-300 disabled:cursor-not-allowed
+    bg-transparent text-muted-foreground
+    hover:bg-accent hover:text-accent-foreground
+    active:bg-accent/80
+    disabled:opacity-40 disabled:cursor-not-allowed
     transition-all duration-200
   `,
   danger: `
@@ -52,7 +52,7 @@ const variantClasses = {
     hover:bg-red-700
     active:bg-red-800
     disabled:bg-red-300 disabled:cursor-not-allowed
-    shadow-sm hover:shadow-md
+    shadow-beautiful-sm
     transition-all duration-200
   `,
 };
@@ -93,7 +93,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           inline-flex items-center justify-center gap-2
           font-medium
           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
-          focus-visible:ring-indigo-500
+          focus-visible:ring-primary
           ${variantClasses[variant]}
           ${sizeClasses[size]}
           ${fullWidth ? 'w-full' : ''}
@@ -175,7 +175,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
           inline-flex items-center justify-center
           rounded-lg
           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
-          focus-visible:ring-indigo-500
+          focus-visible:ring-primary
           ${variantClasses[variant]}
           ${sizeClasses[size]}
           ${className}

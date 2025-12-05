@@ -53,24 +53,24 @@ export const LibraryView: React.FC<LibraryViewProps> = ({ onOpenCase, onCreateNe
 
   const getStatusBadge = (status: Case['status']) => {
     const styles = {
-      draft: 'bg-gray-100 text-gray-700',
-      review: 'bg-yellow-100 text-yellow-800',
-      published: 'bg-green-100 text-green-800'
+      draft: 'bg-muted text-muted-foreground',
+      review: 'bg-amber-100 text-amber-800',
+      published: 'bg-emerald-100 text-emerald-800'
     };
     return styles[status];
   };
 
   return (
-    <div className="flex-1 bg-gray-50">
-      <div className="bg-white border-b border-gray-200 px-8 py-6">
+    <div className="flex-1 bg-background">
+      <div className="bg-card border-b border-border px-8 py-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Value Case Library</h1>
-            <p className="text-gray-600 mt-1">Manage and organize your business intelligence analyses</p>
+            <h1 className="text-3xl font-bold text-foreground">Value Case Library</h1>
+            <p className="text-muted-foreground mt-1">Manage and organize your business intelligence analyses</p>
           </div>
           <button
             onClick={onCreateNew}
-            className="flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium"
+            className="flex items-center space-x-2 bg-primary text-primary-foreground px-6 py-3 rounded-lg hover:bg-primary/90 transition-colors shadow-light-blue-sm font-medium"
           >
             <Plus className="h-5 w-5" />
             <span>New Analysis</span>
@@ -79,21 +79,21 @@ export const LibraryView: React.FC<LibraryViewProps> = ({ onOpenCase, onCreateNe
 
         <div className="flex items-center space-x-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search analyses by name, description, or tags..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2.5 border border-border rounded-lg bg-background focus:ring-2 focus:ring-primary focus:border-transparent"
             />
           </div>
 
-          <div className="flex items-center space-x-2 border border-gray-300 rounded-lg p-1 bg-white">
+          <div className="flex items-center space-x-2 border border-border rounded-lg p-1 bg-card">
             <button
               onClick={() => setFilterStatus('all')}
               className={`px-4 py-1.5 rounded text-sm font-medium transition-colors ${
-                filterStatus === 'all' ? 'bg-blue-100 text-blue-800' : 'text-gray-600 hover:bg-gray-100'
+                filterStatus === 'all' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent'
               }`}
             >
               All
@@ -101,7 +101,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({ onOpenCase, onCreateNe
             <button
               onClick={() => setFilterStatus('draft')}
               className={`px-4 py-1.5 rounded text-sm font-medium transition-colors ${
-                filterStatus === 'draft' ? 'bg-blue-100 text-blue-800' : 'text-gray-600 hover:bg-gray-100'
+                filterStatus === 'draft' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent'
               }`}
             >
               Draft
@@ -109,7 +109,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({ onOpenCase, onCreateNe
             <button
               onClick={() => setFilterStatus('review')}
               className={`px-4 py-1.5 rounded text-sm font-medium transition-colors ${
-                filterStatus === 'review' ? 'bg-blue-100 text-blue-800' : 'text-gray-600 hover:bg-gray-100'
+                filterStatus === 'review' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent'
               }`}
             >
               Review
@@ -117,7 +117,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({ onOpenCase, onCreateNe
             <button
               onClick={() => setFilterStatus('published')}
               className={`px-4 py-1.5 rounded text-sm font-medium transition-colors ${
-                filterStatus === 'published' ? 'bg-blue-100 text-blue-800' : 'text-gray-600 hover:bg-gray-100'
+                filterStatus === 'published' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent'
               }`}
             >
               Published
@@ -129,15 +129,15 @@ export const LibraryView: React.FC<LibraryViewProps> = ({ onOpenCase, onCreateNe
       <div className="p-8">
         {filteredCases.length === 0 ? (
           <div className="text-center py-16">
-            <FolderOpen className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No analyses found</h3>
-            <p className="text-gray-600 mb-6">
+            <FolderOpen className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">No analyses found</h3>
+            <p className="text-muted-foreground mb-6">
               {searchQuery ? 'Try adjusting your search terms' : 'Get started by creating your first analysis'}
             </p>
             {!searchQuery && (
               <button
                 onClick={onCreateNew}
-                className="inline-flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+                className="inline-flex items-center space-x-2 bg-primary text-primary-foreground px-6 py-3 rounded-lg hover:bg-primary/90 transition-colors shadow-light-blue-sm"
               >
                 <Plus className="h-5 w-5" />
                 <span>Create New Analysis</span>
@@ -150,32 +150,32 @@ export const LibraryView: React.FC<LibraryViewProps> = ({ onOpenCase, onCreateNe
               <div
                 key={case_.id}
                 onClick={() => onOpenCase(case_.id)}
-                className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all cursor-pointer group"
+                className="bg-card border border-border rounded-xl p-6 hover:shadow-beautiful-lg transition-all cursor-pointer group"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors mb-1">
+                    <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors mb-1">
                       {case_.name}
                     </h3>
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(case_.status)}`}>
                       {case_.status}
                     </span>
                   </div>
-                  <button className="p-1 hover:bg-gray-100 rounded transition-colors">
-                    <MoreVertical className="h-5 w-5 text-gray-400" />
+                  <button className="p-1 hover:bg-accent rounded transition-colors">
+                    <MoreVertical className="h-5 w-5 text-muted-foreground" />
                   </button>
                 </div>
 
-                <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
                   {case_.description}
                 </p>
 
                 <div className="space-y-2 mb-4">
-                  <div className="flex items-center text-xs text-gray-500">
+                  <div className="flex items-center text-xs text-muted-foreground">
                     <Calendar className="h-3.5 w-3.5 mr-1.5" />
                     Updated {case_.updated_at.toLocaleDateString()}
                   </div>
-                  <div className="flex items-center text-xs text-gray-500">
+                  <div className="flex items-center text-xs text-muted-foreground">
                     <FolderOpen className="h-3.5 w-3.5 mr-1.5" />
                     {case_.components_count} components
                   </div>
@@ -186,7 +186,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({ onOpenCase, onCreateNe
                     {case_.tags.map(tag => (
                       <span
                         key={tag}
-                        className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700"
+                        className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-muted text-muted-foreground"
                       >
                         <Tag className="h-3 w-3 mr-1" />
                         {tag}
