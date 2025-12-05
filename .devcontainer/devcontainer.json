@@ -16,11 +16,18 @@
       }
     }
   },
-  "forwardPorts": [3000, 8000, 5432],
-  "postCreateCommand": "npm install && pip install -r requirements.txt",
+  "forwardPorts": [3000, 8000, 5432, 16686, 9090, 3001],
+  "postCreateCommand": "npm install && pip install -r requirements.txt && docker-compose -f docker-compose.dev.yml -f infrastructure/docker-compose.observability.yml up -d",
   "remoteUser": "vscode",
+  "containerEnv": {
+    "NODE_OPTIONS": "--max-old-space-size=4096"
+  },
   "mounts": [
-    "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached"
+    "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
   ],
-  "runArgs": ["--name=dev-container"]
+  "runArgs": [
+    "--name=dev-container",
+    "--network=valuecanvas-network"
+  ]
 }
