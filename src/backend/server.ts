@@ -13,6 +13,7 @@ import { createLogger } from '../lib/logger';
 import { createVersionedApiRouter } from './versioning';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
 import { latencyMetricsMiddleware, getLatencySnapshot } from '../middleware/latencyMetricsMiddleware';
+import { getMetricsRegistry, metricsMiddleware } from '../middleware/metricsMiddleware';
 
 import { settings } from '../config/settings';
 
@@ -29,6 +30,7 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.raw({ type: 'application/json' })); // For Stripe webhooks
+app.use(metricsMiddleware());
 app.use(requestAuditMiddleware());
 app.use(latencyMetricsMiddleware());
 
@@ -39,6 +41,13 @@ app.get(
     res.json({ status: 'ok', service: 'billing-api' });
   }
 );
+
+// Prometheus metrics endpoint
+app.get('/metrics', async (_req: express.Request, res: express.Response) => {
+  const registry = getMetricsRegistry();
+  res.set('Content-Type', registry.contentType);
+  res.end(await registry.metrics());
+});
 
 // Latency metrics snapshot for dashboards
 app.get('/metrics/latency', (_req, res) => {
