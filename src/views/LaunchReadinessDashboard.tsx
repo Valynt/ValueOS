@@ -153,20 +153,20 @@ export const LaunchReadinessDashboard: React.FC = () => {
   const atRisk = useMemo(() => metrics.filter(metric => !meetsTarget(metric)), [metrics]);
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
+    <div className="min-h-screen bg-background text-foreground">
       <div className="max-w-6xl mx-auto px-6 py-10 space-y-8">
         <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-sm text-gray-500 uppercase tracking-wide">Sprint Epic 4 · Go/No-Go</p>
-            <h1 className="text-3xl font-bold text-gray-900">Launch Readiness Dashboard</h1>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-muted-foreground uppercase tracking-wide">Sprint Epic 4 · Go/No-Go</p>
+            <h1 className="text-3xl font-bold text-foreground">Launch Readiness Dashboard</h1>
+            <p className="text-sm text-muted-foreground mt-1">
               Red/green indicators against the decision gates: adoption, quality, sentiment, and performance.
             </p>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={loadMetrics}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-100"
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-light-blue-sm hover:bg-accent hover:text-accent-foreground"
             >
               <RefreshCcw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
               Refresh signals
@@ -210,17 +210,17 @@ export const LaunchReadinessDashboard: React.FC = () => {
             return (
               <div
                 key={metric.key}
-                className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+                className="rounded-xl border border-border bg-card p-4 shadow-beautiful-sm"
               >
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
-                    <p className="text-xs uppercase tracking-wide text-gray-500">{metric.label}</p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">{metric.label}</p>
                     <div className="flex items-baseline gap-2">
-                      <p className="text-3xl font-semibold text-gray-900">{formatValue(metric.value, metric.unit)}</p>
-                      <span className="text-xs text-gray-500">Target {formatValue(metric.target, metric.unit)}</span>
+                      <p className="text-3xl font-semibold text-foreground">{formatValue(metric.value, metric.unit)}</p>
+                      <span className="text-xs text-muted-foreground">Target {formatValue(metric.target, metric.unit)}</span>
                     </div>
                     {metric.secondary && (
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         {metric.secondary.label}: <span className="font-semibold">{formatValue(metric.secondary.value, metric.secondary.unit ?? '')}</span>
                         {metric.secondary.target ? ` (target ${formatValue(metric.secondary.target, metric.secondary.unit ?? '')})` : ''}
                       </p>
@@ -236,7 +236,7 @@ export const LaunchReadinessDashboard: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="mt-4 flex items-center justify-between text-xs text-gray-500">
+                <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
                   <div className="inline-flex items-center gap-1">
                     {isPositiveTrend ? (
                       <ArrowUpCircle className="h-4 w-4 text-emerald-500" />
@@ -247,24 +247,24 @@ export const LaunchReadinessDashboard: React.FC = () => {
                       {isPositiveTrend ? 'Improving' : 'Declining'} ({trendStart} → {trendEnd})
                     </span>
                   </div>
-                  <div className="inline-flex items-center gap-1 text-gray-400">
+                  <div className="inline-flex items-center gap-1 text-muted-foreground">
                     {metric.direction === 'above' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
                     <span>{metric.direction === 'above' ? 'Higher is better' : 'Lower is better'}</span>
                   </div>
                 </div>
 
-                <div className="mt-4 text-sm text-gray-600 leading-relaxed">{metric.description}</div>
+                <div className="mt-4 text-sm text-muted-foreground leading-relaxed">{metric.description}</div>
               </div>
             );
           })}
         </section>
 
         <section className="grid gap-4 lg:grid-cols-3">
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm lg:col-span-2">
+          <div className="rounded-xl border border-border bg-card p-5 shadow-beautiful-sm lg:col-span-2">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <p className="text-xs uppercase tracking-wide text-gray-500">Executive Summary</p>
-                <h2 className="text-xl font-semibold text-gray-900">Go/No-Go Decision Gates</h2>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Executive Summary</p>
+                <h2 className="text-xl font-semibold text-foreground">Go/No-Go Decision Gates</h2>
               </div>
               <span
                 className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold ${
@@ -279,11 +279,11 @@ export const LaunchReadinessDashboard: React.FC = () => {
               {metrics.map(metric => {
                 const isHealthy = meetsTarget(metric);
                 return (
-                  <div key={metric.key} className="rounded-lg border border-gray-200 p-3">
+                  <div key={metric.key} className="rounded-lg border border-border p-3 bg-card/60">
                     <div className="flex items-center justify-between text-sm">
                       <div className="space-y-1">
-                        <p className="text-gray-700 font-medium">{metric.label}</p>
-                        <p className="text-gray-500">
+                        <p className="text-foreground font-medium">{metric.label}</p>
+                        <p className="text-muted-foreground">
                           {formatValue(metric.value, metric.unit)} vs {formatValue(metric.target, metric.unit)} target
                         </p>
                       </div>
@@ -301,10 +301,10 @@ export const LaunchReadinessDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="rounded-xl border border-border bg-card p-5 shadow-beautiful-sm">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold text-gray-900">Risks & Mitigations</h3>
-              <span className="text-xs font-medium text-gray-500">Auto-generated from red metrics</span>
+              <h3 className="text-lg font-semibold text-foreground">Risks & Mitigations</h3>
+              <span className="text-xs font-medium text-muted-foreground">Auto-generated from red metrics</span>
             </div>
             {atRisk.length === 0 ? (
               <p className="text-sm text-emerald-700">All gates are green. No blocking risks detected.</p>

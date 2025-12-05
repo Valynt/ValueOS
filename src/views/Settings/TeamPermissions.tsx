@@ -110,7 +110,7 @@ export const TeamPermissions: React.FC = () => {
   const roles: Array<{ value: TeamMemberRole; label: string; icon: React.ReactNode; color: string }> = [
     { value: 'owner', label: 'Owner', icon: <Crown className="h-4 w-4" />, color: 'text-yellow-700' },
     { value: 'admin', label: 'Admin', icon: <Shield className="h-4 w-4" />, color: 'text-blue-700' },
-    { value: 'member', label: 'Member', icon: <Users className="h-4 w-4" />, color: 'text-gray-700' },
+    { value: 'member', label: 'Member', icon: <Users className="h-4 w-4" />, color: 'text-muted-foreground' },
     { value: 'guest', label: 'Guest', icon: <User className="h-4 w-4" />, color: 'text-green-700' },
   ];
 
@@ -163,13 +163,13 @@ export const TeamPermissions: React.FC = () => {
               <>
                 <button
                   onClick={resetToDefaults}
-                  className="text-sm px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="text-sm px-4 py-2 border border-border text-muted-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
                 >
                   Reset to Defaults
                 </button>
                 <button
                   onClick={saveChanges}
-                  className="text-sm px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="text-sm px-4 py-2 bg-primary text-primary-foreground rounded-lg shadow-light-blue-sm hover:bg-primary/90 transition-colors"
                 >
                   Save Changes
                 </button>
@@ -191,19 +191,19 @@ export const TeamPermissions: React.FC = () => {
             </div>
           </div>
 
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <div className="border border-border rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
+                <thead className="bg-muted border-b border-border">
                   <tr>
-                    <th className="sticky left-0 bg-gray-50 px-6 py-3 text-left text-sm font-semibold text-gray-900 w-80">
+                    <th className="sticky left-0 bg-muted px-6 py-3 text-left text-sm font-semibold text-foreground w-80">
                       Permission
                     </th>
                     {roles.map((role) => (
                       <th key={role.value} className="px-4 py-3 text-center min-w-[120px]">
                         <div className="flex flex-col items-center space-y-1">
                           <div className={role.color}>{role.icon}</div>
-                          <span className="text-sm font-semibold text-gray-900">{role.label}</span>
+                          <span className="text-sm font-semibold text-foreground">{role.label}</span>
                         </div>
                       </th>
                     ))}
@@ -212,19 +212,19 @@ export const TeamPermissions: React.FC = () => {
                 <tbody>
                   {categories.map((category) => (
                     <React.Fragment key={category.id}>
-                      <tr className="bg-gray-100">
+                      <tr className="bg-muted">
                         <td colSpan={5} className="sticky left-0 px-6 py-2">
-                          <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                             {category.label}
                           </span>
                         </td>
                       </tr>
                       {PERMISSIONS.filter(p => p.category === category.id).map((permission) => (
-                        <tr key={permission.id} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="sticky left-0 bg-white hover:bg-gray-50 px-6 py-3">
+                        <tr key={permission.id} className="border-b border-border hover:bg-accent/40">
+                          <td className="sticky left-0 bg-card hover:bg-accent/40 px-6 py-3">
                             <div>
-                              <p className="text-sm font-medium text-gray-900">{permission.name}</p>
-                              <p className="text-xs text-gray-500 mt-0.5">{permission.description}</p>
+                              <p className="text-sm font-medium text-foreground">{permission.name}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">{permission.description}</p>
                             </div>
                           </td>
                           {roles.map((role) => {
@@ -238,17 +238,17 @@ export const TeamPermissions: React.FC = () => {
                                   disabled={isOwner}
                                   className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-all ${
                                     isOwner
-                                      ? 'cursor-not-allowed bg-gray-100'
+                                      ? 'cursor-not-allowed bg-muted'
                                       : hasPermission
                                       ? 'bg-green-100 hover:bg-green-200'
-                                      : 'bg-gray-100 hover:bg-gray-200'
+                                      : 'bg-muted hover:bg-muted/80'
                                   }`}
                                   title={isOwner ? 'Owner permissions cannot be modified' : hasPermission ? 'Enabled' : 'Disabled'}
                                 >
                                   {hasPermission ? (
                                     <Check className="h-5 w-5 text-green-600" />
                                   ) : (
-                                    <X className="h-5 w-5 text-gray-400" />
+                                    <X className="h-5 w-5 text-muted-foreground" />
                                   )}
                                 </button>
                               </td>
@@ -275,7 +275,7 @@ export const TeamPermissions: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-sm text-gray-600">
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
                 <div className="w-4 h-4 bg-green-100 rounded flex items-center justify-center">
@@ -284,13 +284,13 @@ export const TeamPermissions: React.FC = () => {
                 <span>Enabled</span>
               </div>
               <div className="flex items-center space-x-2">
-                <div className="w-4 h-4 bg-gray-100 rounded flex items-center justify-center">
-                  <X className="h-3 w-3 text-gray-400" />
+                <div className="w-4 h-4 bg-muted rounded flex items-center justify-center">
+                  <X className="h-3 w-3 text-muted-foreground" />
                 </div>
                 <span>Disabled</span>
               </div>
             </div>
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-muted-foreground">
               {PERMISSIONS.length} permissions across {categories.length} categories
             </span>
           </div>

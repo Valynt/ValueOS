@@ -4,5 +4,7 @@
         "supabase/functions"
     ],
     "deno.lint": true,
-    "deno.unstable": false
+    "deno.unstable": false,
+    "telemetry.editStats.enabled": false,
+    "telemetry.feedback.enabled": false
 }

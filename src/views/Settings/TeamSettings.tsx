@@ -115,7 +115,7 @@ export const TeamSettings: React.FC = () => {
         description="Configure how workspace members receive notifications"
         actions={
           saveSuccess && (
-            <div className="flex items-center space-x-2 text-sm text-green-600">
+            <div className="flex items-center space-x-2 text-sm text-emerald-600">
               <Check className="h-4 w-4" />
               <span>Settings saved</span>
             </div>
@@ -124,12 +124,12 @@ export const TeamSettings: React.FC = () => {
       >
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex items-start justify-between p-4 border border-gray-200 rounded-lg">
+            <div className="flex items-start justify-between p-4 border border-border rounded-lg">
               <div className="flex items-start space-x-3">
-                <Bell className="h-5 w-5 text-gray-600 mt-0.5" />
+                <Bell className="h-5 w-5 text-muted-foreground mt-0.5" />
                 <div>
-                  <p className="font-medium text-gray-900">@Mentions</p>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p className="font-medium text-foreground">@Mentions</p>
+                  <p className="text-sm text-muted-foreground mt-1">
                     Notify members when they are mentioned
                   </p>
                 </div>
@@ -145,12 +145,12 @@ export const TeamSettings: React.FC = () => {
               </label>
             </div>
 
-            <div className="flex items-start justify-between p-4 border border-gray-200 rounded-lg">
+            <div className="flex items-start justify-between p-4 border border-border rounded-lg">
               <div className="flex items-start space-x-3">
-                <FileText className="h-5 w-5 text-gray-600 mt-0.5" />
+                <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
                 <div>
-                  <p className="font-medium text-gray-900">Task Assignments</p>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p className="font-medium text-foreground">Task Assignments</p>
+                  <p className="text-sm text-muted-foreground mt-1">
                     Notify when tasks are assigned
                   </p>
                 </div>
@@ -166,12 +166,12 @@ export const TeamSettings: React.FC = () => {
               </label>
             </div>
 
-            <div className="flex items-start justify-between p-4 border border-gray-200 rounded-lg">
+            <div className="flex items-start justify-between p-4 border border-border rounded-lg">
               <div className="flex items-start space-x-3">
-                <Mail className="h-5 w-5 text-gray-600 mt-0.5" />
+                <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
                 <div>
-                  <p className="font-medium text-gray-900">Weekly Digest</p>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p className="font-medium text-foreground">Weekly Digest</p>
+                  <p className="text-sm text-muted-foreground mt-1">
                     Send weekly activity summary
                   </p>
                 </div>
@@ -187,12 +187,12 @@ export const TeamSettings: React.FC = () => {
               </label>
             </div>
 
-            <div className="flex items-start justify-between p-4 border border-gray-200 rounded-lg">
+            <div className="flex items-start justify-between p-4 border border-border rounded-lg">
               <div className="flex items-start space-x-3">
-                <Workflow className="h-5 w-5 text-gray-600 mt-0.5" />
+                <Workflow className="h-5 w-5 text-muted-foreground mt-0.5" />
                 <div>
-                  <p className="font-medium text-gray-900">Project Updates</p>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p className="font-medium text-foreground">Project Updates</p>
+                  <p className="text-sm text-muted-foreground mt-1">
                     Notify on project status changes
                   </p>
                 </div>
@@ -209,13 +209,13 @@ export const TeamSettings: React.FC = () => {
             </div>
           </div>
 
-          <div className="pt-4 border-t border-gray-200">
-            <h4 className="text-sm font-medium text-gray-900 mb-3">Delivery Channels</h4>
+          <div className="pt-4 border-t border-border">
+            <h4 className="text-sm font-medium text-foreground mb-3">Delivery Channels</h4>
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                 <div className="flex items-center space-x-3">
-                  <Mail className="h-5 w-5 text-gray-600" />
-                  <span className="text-sm font-medium text-gray-900">Email Notifications</span>
+                  <Mail className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-sm font-medium text-foreground">Email Notifications</span>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -228,10 +228,10 @@ export const TeamSettings: React.FC = () => {
                 </label>
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                 <div className="flex items-center space-x-3">
-                  <MessageSquare className="h-5 w-5 text-gray-600" />
-                  <span className="text-sm font-medium text-gray-900">Slack Notifications</span>
+                  <MessageSquare className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-sm font-medium text-foreground">Slack Notifications</span>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -254,32 +254,32 @@ export const TeamSettings: React.FC = () => {
       >
         <div className="space-y-4 max-w-2xl">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Default Task Status
             </label>
             <select
               value={workflow.defaultTaskStatus}
               onChange={(e) => handleWorkflowChange('defaultTaskStatus', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="todo">To Do</option>
               <option value="in_progress">In Progress</option>
               <option value="review">Review</option>
               <option value="done">Done</option>
             </select>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               New tasks will be created with this status by default
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Default Assignee
             </label>
             <select
               value={workflow.defaultAssignee}
               onChange={(e) => handleWorkflowChange('defaultAssignee', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="unassigned">Unassigned</option>
               <option value="creator">Task Creator</option>
@@ -287,12 +287,12 @@ export const TeamSettings: React.FC = () => {
             </select>
           </div>
 
-          <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+          <div className="flex items-center justify-between p-4 border border-border rounded-lg">
             <div className="flex items-start space-x-3">
-              <Check className="h-5 w-5 text-gray-600 mt-0.5" />
+              <Check className="h-5 w-5 text-muted-foreground mt-0.5" />
               <div>
-                <p className="font-medium text-gray-900">Require Approval</p>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="font-medium text-foreground">Require Approval</p>
+                <p className="text-sm text-muted-foreground mt-1">
                   Tasks must be approved before marking as complete
                 </p>
               </div>
@@ -308,13 +308,13 @@ export const TeamSettings: React.FC = () => {
             </label>
           </div>
 
-          <div className="border border-gray-200 rounded-lg p-4">
+          <div className="border border-border rounded-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-start space-x-3">
-                <Archive className="h-5 w-5 text-gray-600 mt-0.5" />
+                <Archive className="h-5 w-5 text-muted-foreground mt-0.5" />
                 <div>
-                  <p className="font-medium text-gray-900">Auto-Archive Projects</p>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p className="font-medium text-foreground">Auto-Archive Projects</p>
+                  <p className="text-sm text-muted-foreground mt-1">
                     Automatically archive inactive projects
                   </p>
                 </div>
@@ -331,8 +331,8 @@ export const TeamSettings: React.FC = () => {
             </div>
 
             {workflow.autoArchive && (
-              <div className="ml-8 pt-3 border-t border-gray-200">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="ml-8 pt-3 border-t border-border">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Archive after (days)
                 </label>
                 <input
@@ -341,7 +341,7 @@ export const TeamSettings: React.FC = () => {
                   onChange={(e) => handleWorkflowChange('archiveDays', parseInt(e.target.value))}
                   min="30"
                   max="365"
-                  className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-32 px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
             )}
@@ -354,11 +354,11 @@ export const TeamSettings: React.FC = () => {
         description="Import or export workspace settings as templates"
       >
         <div className="space-y-4">
-          <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+          <div className="p-4 bg-muted border border-border rounded-lg">
             <div className="flex items-start space-x-3 mb-4">
-              <AlertCircle className="h-5 w-5 text-gray-600 mt-0.5" />
-              <div className="text-sm text-gray-700">
-                <p className="font-medium mb-1">Settings Templates</p>
+              <AlertCircle className="h-5 w-5 text-muted-foreground mt-0.5" />
+              <div className="text-sm text-muted-foreground">
+                <p className="font-medium text-foreground mb-1">Settings Templates</p>
                 <p>
                   Export your current workspace settings to share with other workspaces or use as a template.
                   Settings include notification preferences, workflow configurations, and default values.
@@ -370,13 +370,13 @@ export const TeamSettings: React.FC = () => {
               <button
                 onClick={handleExportSettings}
                 disabled={exporting}
-                className="flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-white transition-colors disabled:opacity-50"
+                className="flex items-center px-4 py-2 border border-border text-muted-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors disabled:opacity-50"
               >
                 {exporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
                 {exporting ? 'Exporting...' : 'Export Settings'}
               </button>
 
-              <label className="flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-white transition-colors cursor-pointer">
+              <label className="flex items-center px-4 py-2 border border-border text-muted-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer">
                 {importing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
                 {importing ? 'Importing...' : 'Import Settings'}
                 <input
@@ -395,7 +395,7 @@ export const TeamSettings: React.FC = () => {
       <div className="flex justify-end">
         <button
           onClick={handleSaveSettings}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="px-6 py-2 bg-primary text-primary-foreground rounded-lg shadow-light-blue-sm hover:bg-primary/90 transition-colors"
         >
           Save All Settings
         </button>

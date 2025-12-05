@@ -42,19 +42,19 @@ export const TargetROIWorkspace: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background text-foreground">
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Target ROI Modeling</h1>
-              <p className="text-gray-600 mt-2">Build value trees, ROI models, and value commitments</p>
+              <h1 className="text-3xl font-bold text-foreground">Target ROI Modeling</h1>
+              <p className="text-muted-foreground mt-2">Build value trees, ROI models, and value commitments</p>
             </div>
             <div className="flex items-center space-x-3">
-              <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
+              <button className="px-4 py-2 border border-border text-muted-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors font-medium">
                 Save Draft
               </button>
-              <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm flex items-center space-x-2">
+              <button className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium shadow-light-blue-sm flex items-center space-x-2">
                 <Play className="h-4 w-4" />
                 <span>Generate Value Commit</span>
               </button>
@@ -91,33 +91,33 @@ export const TargetROIWorkspace: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+            <div className="bg-card rounded-xl p-6 border border-border shadow-beautiful-sm">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-2">
                   <GitBranch className="h-5 w-5 text-green-600" />
-                  <h2 className="text-lg font-semibold text-gray-900">Value Tree</h2>
+                  <h2 className="text-lg font-semibold text-foreground">Value Tree</h2>
                 </div>
                 <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
                   Edit Tree
                 </button>
               </div>
 
-              <div className="relative bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-8 border border-gray-200 min-h-[300px]">
+              <div className="relative bg-gradient-to-br from-background to-muted rounded-lg p-8 border border-border min-h-[300px]">
                 <div className="flex items-center justify-around">
                   <div className="text-center">
                     <div className="w-24 h-24 bg-blue-100 border-2 border-blue-500 rounded-lg flex items-center justify-center mb-2">
                       <span className="text-xs font-semibold text-blue-700">Capability</span>
                     </div>
-                    <p className="text-xs text-gray-700 font-medium">Process<br/>Automation</p>
+                    <p className="text-xs text-muted-foreground font-medium">Process<br/>Automation</p>
                   </div>
 
-                  <div className="h-0.5 w-12 bg-gray-400"></div>
+                  <div className="h-0.5 w-12 bg-muted"></div>
 
                   <div className="text-center">
                     <div className="w-24 h-24 bg-green-100 border-2 border-green-500 rounded-lg flex items-center justify-center mb-2">
                       <span className="text-xs font-semibold text-green-700">Outcome</span>
                     </div>
-                    <p className="text-xs text-gray-700 font-medium">Reduce<br/>Manual Tasks</p>
+                    <p className="text-xs text-muted-foreground font-medium">Reduce<br/>Manual Tasks</p>
                   </div>
 
                   <div className="h-0.5 w-12 bg-gray-400"></div>
@@ -126,7 +126,7 @@ export const TargetROIWorkspace: React.FC = () => {
                     <div className="w-24 h-24 bg-amber-100 border-2 border-amber-500 rounded-lg flex items-center justify-center mb-2">
                       <span className="text-xs font-semibold text-amber-700">KPI</span>
                     </div>
-                    <p className="text-xs text-gray-700 font-medium">Time<br/>Savings</p>
+                    <p className="text-xs text-muted-foreground font-medium">Time<br/>Savings</p>
                   </div>
 
                   <div className="h-0.5 w-12 bg-gray-400"></div>
@@ -135,27 +135,27 @@ export const TargetROIWorkspace: React.FC = () => {
                     <div className="w-24 h-24 bg-red-100 border-2 border-red-500 rounded-lg flex items-center justify-center mb-2">
                       <span className="text-xs font-semibold text-red-700">Financial</span>
                     </div>
-                    <p className="text-xs text-gray-700 font-medium">Cost<br/>Reduction</p>
+                    <p className="text-xs text-muted-foreground font-medium">Cost<br/>Reduction</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+            <div className="bg-card rounded-xl p-6 border border-border shadow-beautiful-sm">
               <div className="flex items-center space-x-2 mb-6">
                 <Calculator className="h-5 w-5 text-blue-600" />
-                <h2 className="text-lg font-semibold text-gray-900">ROI Scenario Analysis</h2>
+                <h2 className="text-lg font-semibold text-foreground">ROI Scenario Analysis</h2>
               </div>
 
-              <div className="mb-4 flex space-x-2 p-1 bg-gray-100 rounded-lg">
+              <div className="mb-4 flex space-x-2 p-1 bg-muted rounded-lg">
                 {['pessimistic', 'expected', 'optimistic'].map((mode) => (
                   <button
                     key={mode}
                     onClick={() => setScenarioMode(mode as any)}
                     className={`flex-1 px-4 py-2 rounded-md font-medium text-sm transition-colors ${
                       scenarioMode === mode
-                        ? 'bg-white text-blue-700 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
+                        ? 'bg-background text-primary shadow-beautiful-sm'
+                        : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     {mode.charAt(0).toUpperCase() + mode.slice(1)}
@@ -189,10 +189,10 @@ export const TargetROIWorkspace: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+            <div className="bg-card rounded-xl p-6 border border-border shadow-beautiful-sm">
               <div className="flex items-center space-x-2 mb-4">
                 <AlertTriangle className="h-5 w-5 text-amber-600" />
-                <h2 className="text-lg font-semibold text-gray-900">Key Assumptions</h2>
+                <h2 className="text-lg font-semibold text-foreground">Key Assumptions</h2>
               </div>
               <DataTable
                 title=""
@@ -204,10 +204,10 @@ export const TargetROIWorkspace: React.FC = () => {
           </div>
 
           <div className="space-y-6">
-            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+            <div className="bg-card rounded-xl p-6 border border-border shadow-beautiful-sm">
               <div className="flex items-center space-x-2 mb-4">
                 <TrendingUp className="h-5 w-5 text-green-600" />
-                <h2 className="text-lg font-semibold text-gray-900">Benchmark Comparison</h2>
+                <h2 className="text-lg font-semibold text-foreground">Benchmark Comparison</h2>
               </div>
               <InteractiveChart
                 title="Adoption Rate vs Industry"
@@ -217,20 +217,20 @@ export const TargetROIWorkspace: React.FC = () => {
               />
               <div className="mt-4 space-y-2">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">Your Position</span>
+                  <span className="text-muted-foreground">Your Position</span>
                   <span className="font-semibold text-green-700">Above P75</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">Percentile Rank</span>
-                  <span className="font-semibold text-gray-900">82nd</span>
+                  <span className="text-muted-foreground">Percentile Rank</span>
+                  <span className="font-semibold text-foreground">82nd</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+            <div className="bg-card rounded-xl p-6 border border-border shadow-beautiful-sm">
               <div className="flex items-center space-x-2 mb-4">
                 <DollarSign className="h-5 w-5 text-blue-600" />
-                <h2 className="text-lg font-semibold text-gray-900">Financial Breakdown</h2>
+                <h2 className="text-lg font-semibold text-foreground">Financial Breakdown</h2>
               </div>
               <div className="space-y-3">
                 <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
@@ -255,10 +255,10 @@ export const TargetROIWorkspace: React.FC = () => {
                   <div className="text-xs text-purple-700">Error mitigation</div>
                 </div>
               </div>
-              <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="mt-4 pt-4 border-t border-border">
                 <div className="flex justify-between items-center">
-                  <span className="font-semibold text-gray-900">Total Value</span>
-                  <span className="text-2xl font-bold text-gray-900">$245K</span>
+                  <span className="font-semibold text-foreground">Total Value</span>
+                  <span className="text-2xl font-bold text-foreground">$245K</span>
                 </div>
               </div>
             </div>

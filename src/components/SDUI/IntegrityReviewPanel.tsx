@@ -112,9 +112,9 @@ const getSeverityClasses = (severity?: RuleSeverity) => {
     case 'low':
       return 'bg-blue-100 text-blue-800 border-blue-300';
     case 'info':
-      return 'bg-gray-100 text-gray-800 border-gray-300';
+      return 'bg-muted text-muted-foreground border-border';
     default:
-      return 'bg-gray-100 text-gray-800 border-gray-300';
+      return 'bg-muted text-muted-foreground border-border';
   }
 };
 
@@ -178,7 +178,7 @@ const RuleResultItem: React.FC<{
           {/* Content */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h4 className="font-semibold text-gray-900">{result.rule}</h4>
+              <h4 className="font-medium text-foreground">{result.rule}</h4>
               {result.severity && !result.passed && (
                 <span className="px-2 py-0.5 text-xs font-medium uppercase rounded-full bg-white border">
                   {result.severity}
@@ -199,16 +199,16 @@ const RuleResultItem: React.FC<{
 
             {/* Description (if expanded) */}
             {isExpanded && result.description && (
-              <p className="text-sm text-gray-600 mt-2 italic">{result.description}</p>
+              <p className="text-sm text-muted-foreground mt-2 italic">{result.description}</p>
             )}
 
             {/* Remediation (if expanded and available) */}
             {isExpanded && showRemediation && result.remediation && !result.passed && (
-              <div className="mt-3 p-3 bg-white rounded-md border border-current">
-                <p className="text-xs font-semibold text-gray-700 mb-1">
+              <div className="mt-3 p-3 bg-card rounded-md border border-current">
+                <p className="text-xs font-semibold text-muted-foreground mb-1">
                   Suggested Remediation:
                 </p>
-                <p className="text-sm text-gray-600">{result.remediation}</p>
+                <p className="text-sm text-muted-foreground">{result.remediation}</p>
               </div>
             )}
           </div>
@@ -221,7 +221,7 @@ const RuleResultItem: React.FC<{
               e.stopPropagation();
               setIsExpanded(!isExpanded);
             }}
-            className="flex-shrink-0 p-1 hover:bg-white rounded transition-colors"
+            className="flex-shrink-0 p-1 hover:bg-accent rounded transition-colors"
             aria-label={isExpanded ? 'Collapse' : 'Expand'}
           >
             {isExpanded ? (
@@ -296,13 +296,13 @@ export const IntegrityReviewPanel: React.FC<IntegrityReviewPanelProps> = ({
   return (
     <div className="space-y-6" data-testid="integrity-review-panel">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-gray-200 pb-4">
+      <div className="flex items-center gap-3 border-b border-border pb-4">
         <div className="p-2 bg-red-50 border border-red-200 rounded-lg">
           <Shield className="h-6 w-6 text-red-700" />
         </div>
         <div className="flex-1">
-          <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
-          <p className="text-sm text-gray-600 mt-1">
+          <h2 className="text-2xl font-bold text-foreground">{title}</h2>
+          <p className="text-sm text-muted-foreground mt-1">
             Manifesto compliance validation results
           </p>
         </div>
@@ -311,9 +311,9 @@ export const IntegrityReviewPanel: React.FC<IntegrityReviewPanelProps> = ({
       {/* Summary Statistics */}
       {showSummary && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="p-4 bg-white border border-gray-200 rounded-lg">
-            <p className="text-sm text-gray-600 font-medium">Total Rules</p>
-            <p className="text-3xl font-bold text-gray-900 mt-1">{totalRules}</p>
+          <div className="p-4 bg-card border border-border rounded-lg shadow-beautiful-sm">
+            <p className="text-sm text-muted-foreground font-medium">Total Rules</p>
+            <p className="text-3xl font-bold text-foreground mt-1">{totalRules}</p>
           </div>
           <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
             <p className="text-sm text-green-700 font-medium">Passed</p>
@@ -333,14 +333,14 @@ export const IntegrityReviewPanel: React.FC<IntegrityReviewPanelProps> = ({
       )}
 
       {/* Compliance Progress Bar */}
-      <div className="p-4 bg-white border border-gray-200 rounded-lg">
+      <div className="p-4 bg-card border border-border rounded-lg">
         <div className="flex justify-between items-center mb-2">
-          <h3 className="text-sm font-semibold text-gray-700">Compliance Rate</h3>
-          <span className="text-lg font-bold text-gray-900">
+          <h3 className="text-sm font-semibold text-foreground">Compliance Rate</h3>
+          <span className="text-lg font-bold text-foreground">
             {complianceRate.toFixed(1)}%
           </span>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-3">
+        <div className="w-full bg-muted rounded-full h-3">
           <div
             className={`h-3 rounded-full transition-all ${
               complianceRate >= 90
@@ -386,7 +386,7 @@ export const IntegrityReviewPanel: React.FC<IntegrityReviewPanelProps> = ({
           {/* Failed Rules */}
           {sortedFailedResults.length > 0 && (
             <div className="space-y-3">
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-lg font-semibold text-foreground">
                 Failed Rules ({failedRules})
               </h3>
               <div className="space-y-2">
@@ -406,7 +406,7 @@ export const IntegrityReviewPanel: React.FC<IntegrityReviewPanelProps> = ({
           {/* Passed Rules */}
           {passedResults.length > 0 && (
             <div className="space-y-3">
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-lg font-semibold text-foreground">
                 Passed Rules ({passedRules})
               </h3>
               <div className="space-y-2">
@@ -439,9 +439,9 @@ export const IntegrityReviewPanel: React.FC<IntegrityReviewPanelProps> = ({
 
       {/* Empty State */}
       {results.length === 0 && (
-        <div className="p-8 text-center bg-gray-50 border border-gray-200 rounded-lg">
-          <Shield className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-          <p className="text-gray-600">No integrity rules to review</p>
+        <div className="p-8 text-center bg-muted border border-border rounded-lg">
+          <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+          <p className="text-muted-foreground">No integrity rules to review</p>
         </div>
       )}
     </div>

@@ -201,14 +201,14 @@ export const ValueCommitForm: React.FC<ValueCommitFormProps> = ({
 
   return (
     <form
-      className="space-y-6 p-6 border border-gray-200 rounded-lg bg-white shadow-sm"
+      className="space-y-6 p-6 border border-border rounded-lg bg-card text-card-foreground shadow-beautiful-md"
       onSubmit={handleSubmit}
       data-testid="value-commit-form"
     >
       {/* Header */}
-      <div className="border-b border-gray-200 pb-4">
-        <h2 className="text-xl font-bold text-gray-900">Value Commitment</h2>
-        <p className="text-sm text-gray-600 mt-1">
+      <div className="border-b border-border pb-4">
+        <h2 className="text-xl font-bold text-foreground">Value Commitment</h2>
+        <p className="text-sm text-muted-foreground mt-1">
           Define baseline and target values for key performance indicators
         </p>
       </div>
@@ -238,12 +238,12 @@ export const ValueCommitForm: React.FC<ValueCommitFormProps> = ({
       )}
 
       {/* Add KPI Section */}
-      <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-        <h3 className="text-sm font-semibold text-gray-700">Add KPI</h3>
+      <div className="space-y-4 p-4 bg-muted rounded-lg border border-border">
+        <h3 className="text-sm font-semibold text-foreground">Add KPI</h3>
 
         {/* KPI Selection */}
         <div>
-          <label htmlFor="kpi-select" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="kpi-select" className="block text-sm font-medium text-foreground">
             KPI Name
           </label>
           <select
@@ -253,8 +253,10 @@ export const ValueCommitForm: React.FC<ValueCommitFormProps> = ({
               setCurrentKPI(e.target.value);
               setErrors((prev) => ({ ...prev, kpi: undefined }));
             }}
-            className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.kpi ? 'border-red-300' : 'border-gray-300'
+            className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 ${
+              errors.kpi
+                ? 'border-red-300 focus:ring-red-500'
+                : 'border-border focus:ring-primary'
             }`}
             disabled={disabled || loading}
           >
@@ -277,7 +279,7 @@ export const ValueCommitForm: React.FC<ValueCommitFormProps> = ({
         {/* Custom KPI Name */}
         {currentKPI === 'custom' && (
           <div>
-            <label htmlFor="custom-kpi" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="custom-kpi" className="block text-sm font-medium text-foreground">
               Custom KPI Name
             </label>
             <input
@@ -285,7 +287,7 @@ export const ValueCommitForm: React.FC<ValueCommitFormProps> = ({
               type="text"
               value={customKPIName}
               onChange={(e) => setCustomKPIName(sanitizeText(e.target.value, 120))}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="mt-1 block w-full px-3 py-2 border border-border rounded-md bg-background text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="Enter custom KPI name"
               disabled={disabled || loading}
             />
@@ -295,7 +297,7 @@ export const ValueCommitForm: React.FC<ValueCommitFormProps> = ({
         {/* Baseline and Target */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label htmlFor="kpi-baseline" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="kpi-baseline" className="block text-sm font-medium text-foreground">
               Baseline
             </label>
             <input
@@ -307,8 +309,10 @@ export const ValueCommitForm: React.FC<ValueCommitFormProps> = ({
                 setCurrentBaseline(e.target.value === '' ? '' : Number(e.target.value));
                 setErrors((prev) => ({ ...prev, baseline: undefined }));
               }}
-              className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.baseline ? 'border-red-300' : 'border-gray-300'
+              className={`mt-1 block w-full px-3 py-2 border rounded-md bg-background text-foreground shadow-sm focus:outline-none focus:ring-2 ${
+                errors.baseline
+                  ? 'border-red-300 focus:ring-red-500'
+                  : 'border-border focus:ring-primary'
               }`}
               placeholder="Current value"
               disabled={disabled || loading}
@@ -319,7 +323,7 @@ export const ValueCommitForm: React.FC<ValueCommitFormProps> = ({
           </div>
 
           <div>
-            <label htmlFor="kpi-target" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="kpi-target" className="block text-sm font-medium text-foreground">
               Target
             </label>
             <input
@@ -331,8 +335,10 @@ export const ValueCommitForm: React.FC<ValueCommitFormProps> = ({
                 setCurrentTarget(e.target.value === '' ? '' : Number(e.target.value));
                 setErrors((prev) => ({ ...prev, target: undefined }));
               }}
-              className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.target ? 'border-red-300' : 'border-gray-300'
+              className={`mt-1 block w-full px-3 py-2 border rounded-md bg-background text-foreground shadow-sm focus:outline-none focus:ring-2 ${
+                errors.target
+                  ? 'border-red-300 focus:ring-red-500'
+                  : 'border-border focus:ring-primary'
               }`}
               placeholder="Target value"
               disabled={disabled || loading}
@@ -345,7 +351,7 @@ export const ValueCommitForm: React.FC<ValueCommitFormProps> = ({
 
         {/* Unit */}
         <div>
-          <label htmlFor="kpi-unit" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="kpi-unit" className="block text-sm font-medium text-foreground">
             Unit (optional)
           </label>
           <input
@@ -353,7 +359,7 @@ export const ValueCommitForm: React.FC<ValueCommitFormProps> = ({
             type="text"
             value={currentUnit}
             onChange={(e) => setCurrentUnit(sanitizeText(e.target.value, 32))}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="mt-1 block w-full px-3 py-2 border border-border rounded-md bg-background text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
             placeholder="e.g., %, hours, USD"
             disabled={disabled || loading}
           />
@@ -364,7 +370,7 @@ export const ValueCommitForm: React.FC<ValueCommitFormProps> = ({
           type="button"
           onClick={handleAddKPI}
           disabled={disabled || loading}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md shadow-light-blue-sm hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           <Plus className="h-4 w-4" />
           Add KPI
@@ -374,7 +380,7 @@ export const ValueCommitForm: React.FC<ValueCommitFormProps> = ({
       {/* Committed KPIs List */}
       {committed.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-gray-700">
+          <h3 className="text-sm font-semibold text-foreground">
             Committed KPIs ({committed.length})
           </h3>
           <div className="space-y-2">
@@ -388,8 +394,8 @@ export const ValueCommitForm: React.FC<ValueCommitFormProps> = ({
                   className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-md"
                 >
                   <div className="flex-1">
-                    <p className="font-semibold text-gray-900">{kpi.kpiName}</p>
-                    <p className="text-sm text-gray-600">
+                    <p className="font-semibold text-foreground">{kpi.kpiName}</p>
+                    <p className="text-sm text-muted-foreground">
                       Baseline: {kpi.baseline}
                       {kpi.unit} → Target: {kpi.target}
                       {kpi.unit}
@@ -428,10 +434,10 @@ export const ValueCommitForm: React.FC<ValueCommitFormProps> = ({
 
       {/* Assumptions */}
       <div>
-        <label htmlFor="assumptions" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="assumptions" className="block text-sm font-medium text-foreground">
           Assumptions <span className="text-red-500">*</span>
         </label>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-muted-foreground mt-1">
           Document the key assumptions underlying these commitments
         </p>
         <textarea
@@ -441,8 +447,10 @@ export const ValueCommitForm: React.FC<ValueCommitFormProps> = ({
             setAssumptions(sanitizeText(e.target.value, 1500));
             setErrors((prev) => ({ ...prev, assumptions: undefined }));
           }}
-          className={`mt-2 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-            errors.assumptions ? 'border-red-300' : 'border-gray-300'
+          className={`mt-2 block w-full px-3 py-2 border rounded-md bg-background text-foreground shadow-sm focus:outline-none focus:ring-2 ${
+            errors.assumptions
+              ? 'border-red-300 focus:ring-red-500'
+              : 'border-border focus:ring-primary'
           }`}
           rows={4}
           placeholder="e.g., Assumes 20% increase in marketing spend, no major market disruptions, current team capacity maintained..."
@@ -458,11 +466,11 @@ export const ValueCommitForm: React.FC<ValueCommitFormProps> = ({
       </div>
 
       {/* Actions */}
-      <div className="flex gap-3 pt-4 border-t border-gray-200">
+      <div className="flex gap-3 pt-4 border-t border-border">
         <button
           type="submit"
           disabled={disabled || loading || committed.length === 0}
-          className="flex-1 px-6 py-3 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="flex-1 px-6 py-3 bg-primary text-primary-foreground font-semibold rounded-md shadow-light-blue-sm hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {loading ? 'Committing...' : 'Commit Value'}
         </button>
@@ -471,7 +479,7 @@ export const ValueCommitForm: React.FC<ValueCommitFormProps> = ({
             type="button"
             onClick={onCancel}
             disabled={loading}
-            className="px-6 py-3 border border-gray-300 text-gray-700 font-semibold rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-6 py-3 border border-border text-muted-foreground font-semibold rounded-md hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Cancel
           </button>

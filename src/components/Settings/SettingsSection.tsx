@@ -10,13 +10,13 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
   actions,
 }) => {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-200">
+    <div className="bg-card text-card-foreground rounded-lg border border-border shadow-beautiful-md overflow-hidden">
+      <div className="px-6 py-4 border-b border-border">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+            <h3 className="text-lg font-semibold text-foreground">{title}</h3>
             {description && (
-              <p className="text-sm text-gray-600 mt-1">{description}</p>
+              <p className="text-sm text-muted-foreground mt-1">{description}</p>
             )}
           </div>
           {actions && <div className="ml-4">{actions}</div>}
@@ -26,7 +26,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
       <div className="px-6 py-6">
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
+            <Loader2 className="h-8 w-8 text-primary animate-spin" />
           </div>
         ) : (
           children

@@ -147,14 +147,14 @@ export const KPIForm: React.FC<KPIFormProps> = ({
 
   return (
     <form
-      className="space-y-4 p-4 border border-gray-200 rounded-lg bg-white shadow-sm"
+      className="space-y-4 p-4 border border-border rounded-lg bg-card text-card-foreground shadow-beautiful-md"
       onSubmit={handleSubmit}
       data-testid="kpi-form"
     >
       {/* Header */}
-      <div className="border-b border-gray-200 pb-3">
-        <h3 className="text-lg font-bold text-gray-900">{safeKpiName}</h3>
-        {description && <p className="text-sm text-gray-600 mt-1">{description}</p>}
+      <div className="border-b border-border pb-3">
+        <h3 className="text-lg font-bold text-foreground">{safeKpiName}</h3>
+        {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
       </div>
 
       {/* Success Message */}
@@ -170,7 +170,7 @@ export const KPIForm: React.FC<KPIFormProps> = ({
 
       {/* Baseline Input */}
       <div>
-        <label htmlFor={`baseline-${kpiName}`} className="block text-sm font-medium text-gray-700">
+        <label htmlFor={`baseline-${kpiName}`} className="block text-sm font-medium text-foreground">
           Baseline {safeUnit && `(${safeUnit})`}
         </label>
         <input
@@ -179,10 +179,10 @@ export const KPIForm: React.FC<KPIFormProps> = ({
           step="any"
           value={baseline}
           onChange={(e) => handleBaselineChange(e.target.value)}
-          className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+          className={`mt-1 block w-full px-3 py-2 border rounded-md bg-background text-foreground shadow-sm focus:outline-none focus:ring-2 ${
             errors.baseline
-              ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-              : 'border-gray-300'
+              ? 'border-red-300 focus:ring-red-500'
+              : 'border-border focus:ring-primary'
           }`}
           placeholder="Enter current baseline value"
           disabled={disabled || loading}
@@ -203,7 +203,7 @@ export const KPIForm: React.FC<KPIFormProps> = ({
 
       {/* Target Input */}
       <div>
-        <label htmlFor={`target-${kpiName}`} className="block text-sm font-medium text-gray-700">
+        <label htmlFor={`target-${kpiName}`} className="block text-sm font-medium text-foreground">
           Target {safeUnit && `(${safeUnit})`}
         </label>
         <input
@@ -212,10 +212,10 @@ export const KPIForm: React.FC<KPIFormProps> = ({
           step="any"
           value={target}
           onChange={(e) => handleTargetChange(e.target.value)}
-          className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+          className={`mt-1 block w-full px-3 py-2 border rounded-md bg-background text-foreground shadow-sm focus:outline-none focus:ring-2 ${
             errors.target
-              ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-              : 'border-gray-300'
+              ? 'border-red-300 focus:ring-red-500'
+              : 'border-border focus:ring-primary'
           }`}
           placeholder="Enter target value"
           disabled={disabled || loading}
@@ -249,7 +249,7 @@ export const KPIForm: React.FC<KPIFormProps> = ({
         <button
           type="submit"
           disabled={disabled || loading}
-          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-md shadow-light-blue-sm hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {loading ? 'Saving...' : 'Save KPI'}
         </button>
@@ -258,7 +258,7 @@ export const KPIForm: React.FC<KPIFormProps> = ({
             type="button"
             onClick={onCancel}
             disabled={loading}
-            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 border border-border text-muted-foreground rounded-md hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Cancel
           </button>

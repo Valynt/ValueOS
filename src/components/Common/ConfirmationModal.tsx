@@ -96,10 +96,10 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     >
       <div
         ref={modalRef}
-        className="bg-white rounded-lg shadow-xl max-w-md w-full"
+        className="bg-card text-card-foreground rounded-lg shadow-beautiful-md border border-border max-w-md w-full"
         role="document"
       >
-        <div className="flex items-start justify-between p-6 border-b border-gray-200">
+        <div className="flex items-start justify-between p-6 border-b border-border">
           <div className="flex items-start space-x-3">
             {isDangerous && (
               <div className="flex-shrink-0 p-2 bg-red-100 rounded-lg">
@@ -108,7 +108,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             )}
             <h3
               id="modal-title"
-              className="text-lg font-semibold text-gray-900"
+              className="text-lg font-semibold text-foreground"
             >
               {title}
             </h3>
@@ -116,17 +116,17 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
           <button
             onClick={onClose}
             disabled={isProcessing}
-            className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-1 hover:bg-accent rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-muted-foreground hover:text-accent-foreground"
             aria-label="Close dialog"
           >
-            <X className="h-5 w-5 text-gray-500" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
         <div className="p-6 space-y-4">
           <p
             id="modal-description"
-            className="text-gray-600"
+            className="text-muted-foreground"
           >
             {message}
           </p>
@@ -135,9 +135,9 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             <div>
               <label
                 htmlFor="confirmation-input"
-                className="block text-sm font-medium text-gray-700 mb-2"
+                className="block text-sm font-medium text-foreground mb-2"
               >
-                Type <strong className={isDangerous ? 'text-red-600' : 'text-gray-900'}>
+                Type <strong className={isDangerous ? 'text-red-600' : 'text-foreground'}>
                   {confirmationPhrase}
                 </strong> to confirm
               </label>
@@ -147,10 +147,10 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                 type="text"
                 value={typedText}
                 onChange={(e) => setTypedText(e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                className={`w-full px-3 py-2 border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 ${
                   isDangerous
                     ? 'border-red-300 focus:ring-red-500'
-                    : 'border-gray-300 focus:ring-blue-500'
+                    : 'border-border focus:ring-primary'
                 }`}
                 placeholder={`Type ${confirmationPhrase}`}
                 disabled={isProcessing}
@@ -166,11 +166,11 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
           )}
         </div>
 
-        <div className="flex justify-end space-x-3 px-6 py-4 bg-gray-50 rounded-b-lg">
+        <div className="flex justify-end space-x-3 px-6 py-4 bg-muted rounded-b-lg">
           <button
             onClick={onClose}
             disabled={isProcessing}
-            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 border border-border text-muted-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancel
           </button>
@@ -179,8 +179,8 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             disabled={!canConfirm || isProcessing || loading}
             className={`flex items-center px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
               isDangerous
-                ? 'bg-red-600 hover:bg-red-700 text-white'
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
+                ? 'bg-red-600 hover:bg-red-700 text-white shadow-beautiful-sm'
+                : 'bg-primary hover:bg-primary/90 text-primary-foreground shadow-light-blue-sm'
             }`}
             aria-busy={isProcessing || loading}
           >

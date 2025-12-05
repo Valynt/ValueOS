@@ -158,7 +158,7 @@ export const TeamAuditLog: React.FC = () => {
     if (action.includes('remove') || action.includes('disable')) return 'text-red-600 bg-red-50';
     if (action.includes('invite') || action.includes('enable')) return 'text-green-600 bg-green-50';
     if (action.includes('change') || action.includes('update')) return 'text-blue-600 bg-blue-50';
-    return 'text-gray-600 bg-gray-50';
+    return 'text-muted-foreground bg-muted';
   };
 
   const formatAction = (action: string) => {
@@ -176,7 +176,7 @@ export const TeamAuditLog: React.FC = () => {
           <button
             onClick={handleExport}
             disabled={exporting || filteredLogs.length === 0}
-            className="flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center px-4 py-2 border border-border text-muted-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {exporting ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -190,20 +190,22 @@ export const TeamAuditLog: React.FC = () => {
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="relative">
-              <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+              <Search className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search logs..."
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                aria-label="Search logs"
+                className="w-full pl-10 pr-3 py-2 border border-border bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
 
             <select
               value={actionFilter}
               onChange={(e) => setActionFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Filter by action type"
+              className="px-3 py-2 border border-border bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
             >
               {ACTION_TYPES.map(type => (
                 <option key={type.value} value={type.value}>{type.label}</option>
@@ -213,7 +215,8 @@ export const TeamAuditLog: React.FC = () => {
             <select
               value={resourceFilter}
               onChange={(e) => setResourceFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Filter by resource type"
+              className="px-3 py-2 border border-border bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
             >
               {RESOURCE_TYPES.map(type => (
                 <option key={type.value} value={type.value}>{type.label}</option>
@@ -223,7 +226,8 @@ export const TeamAuditLog: React.FC = () => {
             <select
               value={selectedUser}
               onChange={(e) => setSelectedUser(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Filter by user"
+              className="px-3 py-2 border border-border bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="all">All Users</option>
               {uniqueUsers.map(user => (
@@ -234,21 +238,21 @@ export const TeamAuditLog: React.FC = () => {
 
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1">
-              <label className="block text-xs text-gray-600 mb-1">From Date</label>
+              <label className="block text-xs text-muted-foreground mb-1">From Date</label>
               <input
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <div className="flex-1">
-              <label className="block text-xs text-gray-600 mb-1">To Date</label>
+              <label className="block text-xs text-muted-foreground mb-1">To Date</label>
               <input
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             {(dateFrom || dateTo) && (
@@ -257,25 +261,25 @@ export const TeamAuditLog: React.FC = () => {
                   setDateFrom('');
                   setDateTo('');
                 }}
-                className="self-end px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="self-end px-4 py-2 text-sm border border-border text-muted-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
               >
                 Clear Dates
               </button>
             )}
           </div>
 
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <div className="border border-border rounded-lg overflow-hidden">
             <div className="max-h-[600px] overflow-y-auto">
               {filteredLogs.length === 0 && !loading ? (
                 <div className="text-center py-12">
-                  <Activity className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-600">No audit logs found</p>
-                  <p className="text-sm text-gray-500 mt-1">Try adjusting your filters</p>
+                  <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-muted-foreground">No audit logs found</p>
+                  <p className="text-sm text-muted-foreground mt-1">Try adjusting your filters</p>
                 </div>
               ) : (
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-border">
                   {filteredLogs.map((log) => (
-                    <div key={log.id} className="p-4 hover:bg-gray-50 transition-colors">
+                    <div key={log.id} className="p-4 hover:bg-accent/40 transition-colors">
                       <div className="flex items-start justify-between">
                         <div className="flex items-start space-x-3 flex-1 min-w-0">
                           <div className={`mt-0.5 p-2 rounded-lg ${getActionColor(log.action)}`}>
@@ -283,16 +287,16 @@ export const TeamAuditLog: React.FC = () => {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center space-x-2 mb-1">
-                              <span className="font-medium text-gray-900">{log.userName}</span>
-                              <span className="text-gray-400">•</span>
+                              <span className="font-medium text-foreground">{log.userName}</span>
+                              <span className="text-muted-foreground">•</span>
                               <span className={`text-sm px-2 py-0.5 rounded-full ${getActionColor(log.action)}`}>
                                 {formatAction(log.action)}
                               </span>
                             </div>
-                            <p className="text-sm text-gray-600 mb-2">
+                            <p className="text-sm text-muted-foreground mb-2">
                               {log.details.description || `Performed ${formatAction(log.action)} on ${log.resourceType}`}
                             </p>
-                            <div className="flex items-center space-x-4 text-xs text-gray-500">
+                            <div className="flex items-center space-x-4 text-xs text-muted-foreground">
                               <span className="flex items-center">
                                 <Calendar className="h-3 w-3 mr-1" />
                                 {new Date(log.timestamp).toLocaleString()}
@@ -312,8 +316,8 @@ export const TeamAuditLog: React.FC = () => {
 
               {loading && (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-blue-600 mr-2" />
-                  <span className="text-sm text-gray-600">Loading more logs...</span>
+                  <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+                  <span className="text-sm text-muted-foreground">Loading more logs...</span>
                 </div>
               )}
 
@@ -321,7 +325,7 @@ export const TeamAuditLog: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-sm text-gray-600">
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
             <span>
               Showing {filteredLogs.length} of {logs.length} logs
               {hasMore && ' (scroll to load more)'}
