@@ -1,0 +1,198 @@
+# Docker Compose - mTLS with Traefik
+# Local development environment with mutual TLS authentication
+# 
+# Simulates production-grade service-to-service encryption
+
+version: '3.8'
+
+services:
+  # ============================================================================
+  # Traefik - Reverse Proxy with mTLS
+  # ============================================================================
+  traefik:
+    image: traefik:v2.11
+    container_name: valuecanvas-traefik
+    command:
+      # API and dashboard
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      
+      # Docker provider
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=valuecanvas-network"
+      
+      # Entrypoints
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.websecure.http.tls=true"
+      
+      # mTLS Configuration
+      - "--entrypoints.websecure.http.tls.options=mintls@file"
+      
+      # File provider for TLS options
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
+      
+      # Logging
+      - "--log.level=INFO"
+      - "--accesslog=true"
+      
+      # Metrics
+      - "--metrics.prometheus=true"
+      - "--metrics.prometheus.entryPoint=metrics"
+      - "--entrypoints.metrics.address=:8082"
+    
+    ports:
+      - "80:80"       # HTTP
+      - "443:443"     # HTTPS
+      - "8080:8080"   # Traefik Dashboard
+      - "8082:8082"   # Metrics
+    
+    volumes:
+      # Docker socket for service discovery
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      
+      # TLS certificates
+      - ./tls/certs/ca-cert.pem:/certs/ca.pem:ro
+      - ./tls/certs/app-cert.pem:/certs/server-cert.pem:ro
+      - ./tls/certs/app-key.pem:/certs/server-key.pem:ro
+      
+      # Dynamic configuration
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+    
+    networks:
+      - valuecanvas-network
+    
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.dashboard.service=api@internal"
+    
+    restart: unless-stopped
+    
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ============================================================================
+  # ValueCanvas App with mTLS
+  # ============================================================================
+  app-mtls:
+    extends:
+      file: docker-compose.dev.yml
+      service: app
+    container_name: valuecanvas-app-mtls
+    
+    # Remove direct port exposure (use Traefik)
+    ports: []
+    
+    volumes:
+      # Add TLS certificates
+      - ./infrastructure/tls/certs/app-cert.pem:/app/certs/cert.pem:ro
+      - ./infrastructure/tls/certs/app-key.pem:/app/certs/key.pem:ro
+      - ./infrastructure/tls/certs/ca-cert.pem:/app/certs/ca.pem:ro
+    
+    environment:
+      # TLS configuration
+      - TLS_ENABLED=true
+      - TLS_CERT_PATH=/app/certs/cert.pem
+      - TLS_KEY_PATH=/app/certs/key.pem
+      - TLS_CA_PATH=/app/certs/ca.pem
+      - TLS_REQUIRE_CLIENT_CERT=true
+    
+    labels:
+      - "traefik.enable=true"
+      
+      # HTTP to HTTPS redirect
+      - "traefik.http.routers.app-http.rule=Host(`app.localhost`)"
+      - "traefik.http.routers.app-http.entrypoints=web"
+      - "traefik.http.routers.app-http.middlewares=https-redirect"
+      
+      # HTTPS with mTLS
+      - "traefik.http.routers.app-https.rule=Host(`app.localhost`)"
+      - "traefik.http.routers.app-https.entrypoints=websecure"
+      - "traefik.http.routers.app-https.tls=true"
+      - "traefik.http.routers.app-https.tls.options=mintls@file"
+      
+      # Service
+      - "traefik.http.services.app.loadbalancer.server.port=5173"
+      
+      # Middlewares
+      - "traefik.http.middlewares.https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.https-redirect.redirectscheme.permanent=true"
+
+  # ============================================================================
+  # PostgreSQL with TLS
+  # ============================================================================
+  postgres-mtls:
+    extends:
+      file: docker-compose.dev.yml
+      service: postgres
+    container_name: valuecanvas-postgres-mtls
+    
+    volumes:
+      # Add TLS certificates
+      - ./infrastructure/tls/certs/postgres-cert.pem:/var/lib/postgresql/server.crt:ro
+      - ./infrastructure/tls/certs/postgres-key.pem:/var/lib/postgresql/server.key:ro
+      - ./infrastructure/tls/certs/ca-cert.pem:/var/lib/postgresql/root.crt:ro
+    
+    command:
+      - "postgres"
+      - "-c"
+      - "ssl=on"
+      - "-c"
+      - "ssl_cert_file=/var/lib/postgresql/server.crt"
+      - "-c"
+      - "ssl_key_file=/var/lib/postgresql/server.key"
+      - "-c"
+      - "ssl_ca_file=/var/lib/postgresql/root.crt"
+    
+    environment:
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+
+  # ============================================================================
+  # Redis with TLS
+  # ============================================================================
+  redis-mtls:
+    extends:
+      file: docker-compose.dev.yml
+      service: redis
+    container_name: valuecanvas-redis-mtls
+    
+    volumes:
+      # Add TLS certificates
+      - ./infrastructure/tls/certs/redis-cert.pem:/tls/redis.crt:ro
+      - ./infrastructure/tls/certs/redis-key.pem:/tls/redis.key:ro
+      - ./infrastructure/tls/certs/ca-cert.pem:/tls/ca.crt:ro
+    
+    command: >
+      sh -c 'redis-server
+      --appendonly yes
+      --requirepass $$(cat /run/secrets/redis_password)
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+      --tls-port 6380
+      --port 0
+      --tls-cert-file /tls/redis.crt
+      --tls-key-file /tls/redis.key
+      --tls-ca-cert-file /tls/ca.crt
+      --tls-auth-clients yes'
+
+networks:
+  valuecanvas-network:
+    external: true
+
+volumes:
+  postgres-data:
+    external: true
+  redis-data:
+    external: true
+
+secrets:
+  db_password:
+    file: ./secrets/dev_db_password.txt
+  redis_password:
+    file: ./secrets/dev_redis_password.txt

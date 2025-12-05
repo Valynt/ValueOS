@@ -1,0 +1,114 @@
+# Traefik Dynamic Configuration - TLS Options
+# mTLS configuration for mutual authentication
+
+# TLS Options
+tls:
+  options:
+    # Minimum TLS configuration for development
+    mintls:
+      minVersion: VersionTLS12
+      
+      # Cipher suites (secure by default)
+      cipherSuites:
+        - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+        - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+      
+      # Client authentication (mTLS)
+      clientAuth:
+        # Require and verify client certificates
+        caFiles:
+          - /certs/ca.pem
+        clientAuthType: RequireAndVerifyClientCert
+      
+      # Curve preferences
+      curvePreferences:
+        - CurveP521
+        - CurveP384
+      
+      # ALPN protocols
+      alpnProtocols:
+        - h2
+        - http/1.1
+    
+    # Development TLS (less strict for testing)
+    devtls:
+      minVersion: VersionTLS12
+      
+      clientAuth:
+        caFiles:
+          - /certs/ca.pem
+        clientAuthType: VerifyClientCertIfGiven
+      
+      cipherSuites:
+        - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+
+  # Certificate stores
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /certs/server-cert.pem
+        keyFile: /certs/server-key.pem
+
+# HTTP Middlewares
+http:
+  middlewares:
+    # Security headers
+    security-headers:
+      headers:
+        frameDeny: true
+        sslRedirect: true
+        browserXssFilter: true
+        contentTypeNosniff: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+        customFrameOptionsValue: "SAMEORIGIN"
+        customResponseHeaders:
+          X-Robots-Tag: "noindex, nofollow"
+    
+    # Rate limiting
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 50
+        period: 1s
+    
+    # mTLS verification headers
+    mtls-headers:
+      headers:
+        customRequestHeaders:
+          X-Client-Cert: ""
+          X-Client-Cert-Subject: ""
+          X-Client-Cert-Issuer: ""
+    
+    # Compression
+    compress:
+      compress: {}
+    
+    # Circuit breaker
+    circuit-breaker:
+      circuitBreaker:
+        expression: "NetworkErrorRatio() > 0.5 || ResponseCodeRatio(500, 600, 0, 600) > 0.3"
+
+# TCP Services (for raw TLS passthrough if needed)
+tcp:
+  routers:
+    postgres-tls:
+      rule: "HostSNI(`postgres.localhost`)"
+      entryPoints:
+        - postgres
+      service: postgres-svc
+      tls:
+        passthrough: false
+        options: mintls
+  
+  services:
+    postgres-svc:
+      loadBalancer:
+        servers:
+          - address: "valuecanvas-postgres-mtls:5432"
