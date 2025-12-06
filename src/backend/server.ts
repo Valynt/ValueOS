@@ -14,6 +14,7 @@ import { createVersionedApiRouter } from './versioning';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
 import { latencyMetricsMiddleware, getLatencySnapshot } from '../middleware/latencyMetricsMiddleware';
 import { getMetricsRegistry, metricsMiddleware } from '../middleware/metricsMiddleware';
+import { createRateLimiter } from '../middleware/rateLimiter';
 
 import { settings } from '../config/settings';
 
@@ -22,6 +23,11 @@ const logger = createLogger({ component: 'BillingServer' });
 const app = express();
 const PORT = settings.API_PORT;
 const apiRouter = createVersionedApiRouter();
+const agentExecutionLimiter = createRateLimiter('strict', {
+  message: 'Too many agent calls. Please wait before trying again.',
+  // Allow read-only discovery endpoints (e.g., /:agentId/info) to use lighter limits
+  skip: (req) => req.method === 'GET',
+});
 
 // Middleware
 app.use(cors({
@@ -62,7 +68,7 @@ apiRouter.use('/billing', billingRouter);
 app.use('/api', apiRouter);
 
 // Agent transparency and workflow explainability
-app.use('/api/agents', agentsRouter);
+app.use('/api/agents', agentExecutionLimiter, agentsRouter);
 app.use('/api', workflowRouter);
 app.use('/api/documents', documentRouter);
 
