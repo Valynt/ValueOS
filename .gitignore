@@ -88,3 +88,24 @@ yarn-error.log*
 secrets/
 !secrets/README.md
 Brian_0x86524961_private.asc
+
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform/
+.terraform.lock.hcl
+terraform.tfplan
+tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform backups and outputs
+infrastructure/terraform/backups/
+infrastructure/terraform/environments/*/outputs.json
+infrastructure/terraform/environments/*/secrets.tfvars

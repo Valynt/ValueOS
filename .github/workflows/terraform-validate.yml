@@ -1,0 +1,81 @@
+name: Terraform Validation
+
+on:
+  pull_request:
+    paths:
+      - 'infrastructure/terraform/**'
+      - '.github/workflows/terraform-*.yml'
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'infrastructure/terraform/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  validate:
+    name: Validate Terraform
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform Format Check
+        id: fmt
+        run: terraform fmt -check -recursive
+        working-directory: infrastructure/terraform
+        continue-on-error: true
+
+      - name: Terraform Init (Staging)
+        id: init-staging
+        run: terraform init -backend=false
+        working-directory: infrastructure/terraform/environments/staging
+
+      - name: Terraform Validate (Staging)
+        id: validate-staging
+        run: terraform validate -no-color
+        working-directory: infrastructure/terraform/environments/staging
+
+      - name: Terraform Init (Production)
+        id: init-prod
+        run: terraform init -backend=false
+        working-directory: infrastructure/terraform/environments/production
+
+      - name: Terraform Validate (Production)
+        id: validate-prod
+        run: terraform validate -no-color
+        working-directory: infrastructure/terraform/environments/production
+
+      - name: Comment PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `#### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
+            #### Terraform Initialization (Staging) ⚙️\`${{ steps.init-staging.outcome }}\`
+            #### Terraform Validation (Staging) 🤖\`${{ steps.validate-staging.outcome }}\`
+            #### Terraform Initialization (Production) ⚙️\`${{ steps.init-prod.outcome }}\`
+            #### Terraform Validation (Production) 🤖\`${{ steps.validate-prod.outcome }}\`
+
+            *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+      - name: Fail if validation failed
+        if: steps.validate-staging.outcome == 'failure' || steps.validate-prod.outcome == 'failure'
+        run: exit 1
