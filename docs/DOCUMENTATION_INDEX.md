@@ -1,6 +1,6 @@
 # Documentation Index
 
-**Last Updated:** November 22, 2024  
+**Last Updated:** December 6, 2025  
 **Purpose:** Central navigation for all ValueCanvas documentation
 
 ---
@@ -69,6 +69,7 @@
 
 ### Production
 - **[PRODUCTION_READY_FINAL.md](./PRODUCTION_READY_FINAL.md)** - Production readiness checklist
+- **[PRODUCTION_POLISHING_GUIDE.md](./PRODUCTION_POLISHING_GUIDE.md)** - Comprehensive production deployment guide (includes automated deployment script)
 - **[RUNBOOK_OPERATIONS.md](./RUNBOOK_OPERATIONS.md)** - Day-to-day operations
 - **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)** - Common issues and solutions
 
@@ -137,9 +138,10 @@ See respective README files in archive directories for details.
 
 ### For DevOps
 1. DEPLOYMENT_ARCHITECTURE.md
-2. RUNBOOK_OPERATIONS.md
-3. TROUBLESHOOTING.md
-4. PRODUCTION_READY_FINAL.md
+2. PRODUCTION_POLISHING_GUIDE.md
+3. RUNBOOK_OPERATIONS.md
+4. TROUBLESHOOTING.md
+5. PRODUCTION_READY_FINAL.md
 
 ### For Security
 1. SECURITY.md
@@ -192,6 +194,7 @@ See respective README files in archive directories for details.
 **Operations:**
 - RUNBOOK_OPERATIONS.md
 - PRODUCTION_READY_FINAL.md
+- PRODUCTION_POLISHING_GUIDE.md
 - TROUBLESHOOTING.md
 
 **Security:**
@@ -269,6 +272,6 @@ See respective README files in archive directories for details.
 
 ---
 
-**Last Updated:** November 22, 2024  
+**Last Updated:** December 6, 2025  
 **Maintained by:** Development Team  
 **Version:** 1.0

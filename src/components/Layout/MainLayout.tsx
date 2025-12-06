@@ -376,7 +376,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onBack, caseId: propCase
                 <button
                   onClick={() => setIsShortcutsPanelOpen(true)}
                   className="p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground rounded-lg transition-colors"
-                  title="Keyboard shortcuts (?))
+                  title="Keyboard shortcuts (?)"
+
 
                 >
                   <HelpCircle className="h-4 w-4" />
