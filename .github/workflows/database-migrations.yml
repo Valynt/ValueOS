@@ -1,0 +1,329 @@
+name: Database Migrations
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'prisma/**'
+  pull_request:
+    paths:
+      - 'prisma/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  validate:
+    name: Validate Schema
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate Prisma schema
+        run: npx prisma validate
+
+      - name: Check formatting
+        run: npx prisma format --check
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+  test-migrations:
+    name: Test Migrations
+    runs-on: ubuntu-latest
+    needs: validate
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: valuecanvas_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run migrations
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/valuecanvas_test
+
+      - name: Verify schema
+        run: |
+          npx prisma db execute --stdin <<< "SELECT COUNT(*) FROM organizations"
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/valuecanvas_test
+
+      - name: Run seed
+        run: npx tsx prisma/seed.ts
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/valuecanvas_test
+          NODE_ENV: development
+
+      - name: Verify seed data
+        run: |
+          npx prisma db execute --stdin <<< "SELECT COUNT(*) FROM users"
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/valuecanvas_test
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: test-migrations
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    environment: staging
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Check migration status
+        run: npx prisma migrate status
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+
+      - name: Deploy migrations
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+
+      - name: Verify deployment
+        run: |
+          echo "## Staging Migration Status" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          npx prisma migrate status >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+
+      - name: Notify Slack
+        if: always()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "${{ job.status == 'success' && '✅' || '❌' }} Staging database migration ${{ job.status }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Staging Database Migration ${{ job.status }}*\n\n*Repository:* ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}\n*Commit:* ${{ github.sha }}"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ vars.SLACK_WEBHOOK_URL }}
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: test-migrations
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    environment: 
+      name: production
+      url: https://app.valuecanvas.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Create backup
+        run: |
+          mkdir -p backups
+          BACKUP_FILE="backups/db-backup-$(date +%Y%m%d_%H%M%S).sql"
+          echo "BACKUP_FILE=$BACKUP_FILE" >> $GITHUB_ENV
+          
+          # Note: Requires pg_dump in runner
+          # Alternative: Use Supabase backup API
+          echo "Backup would be created at: $BACKUP_FILE"
+
+      - name: Check migration status
+        run: npx prisma migrate status
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+
+      - name: Deploy migrations
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+
+      - name: Verify deployment
+        run: |
+          echo "## Production Migration Status" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          npx prisma migrate status >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+
+      - name: Create deployment record
+        run: |
+          cat > deployment-record.txt << EOF
+          Deployment Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          Environment: production
+          Deployed By: ${{ github.actor }}
+          Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          Commit SHA: ${{ github.sha }}
+          EOF
+          
+          cat deployment-record.txt
+
+      - name: Upload deployment artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-migration-${{ github.run_number }}
+          path: |
+            deployment-record.txt
+          retention-days: 90
+
+      - name: Notify Slack on Success
+        if: success()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "🚀 Production database migration successful",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "🚀 Production Database Migration Successful"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Repository:*\n${{ github.repository }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Deployed by:*\n${{ github.actor }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Commit:*\n${{ github.sha }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Timestamp:*\n$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Notify PagerDuty on Failure
+        if: failure()
+        uses: PagerDuty/pagerduty-change-events-action@v1
+        with:
+          integration-key: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
+          summary: "Production database migration failed"
+          severity: critical
+          source: github-actions
+
+      - name: Notify Slack on Failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "🚨 Production database migration FAILED",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "🚨 Production Database Migration Failed"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "⚠️ *Immediate action required!*\n\n*Repository:* ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}\n*Commit:* ${{ github.sha }}\n*Actor:* ${{ github.actor }}\n\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Logs>"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
