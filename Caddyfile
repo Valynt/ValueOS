@@ -10,8 +10,25 @@
     # Disable automatic HTTPS for localhost development
     auto_https off
     
-    # Enable admin API on localhost
+    # Enable admin API on localhost only (security)
     admin localhost:2019
+    
+    # Server configuration
+    servers {
+        # Hardening: Limit request body size (10MB default)
+        max_header_size 1MB
+        
+        # Connection timeouts
+        timeouts {
+            read_body 30s
+            read_header 10s
+            write 30s
+            idle 120s
+        }
+        
+        # Protocol configuration
+        protocols h1 h2 h2c
+    }
     
     # Logging
     log {
@@ -19,12 +36,29 @@
         format json
         level INFO
     }
+    
+    # Order of directives
+    order rate_limit before basicauth
 }
 
 # ============================================================================
 # Main Application
 # ============================================================================
 :80 {
+    # Rate limiting - 100 requests per minute per IP
+    rate_limit {
+        zone dynamic {
+            key {remote_host}
+            events 100
+            window 1m
+        }
+    }
+    
+    # Request body size limit (50MB for file uploads)
+    request_body {
+        max_size 50MB
+    }
+    
     # Reverse proxy to Vite dev server
     reverse_proxy app:3000 {
         # Health check configuration
@@ -35,26 +69,51 @@
         
         # Load balancing (for future scaling)
         lb_policy round_robin
+        lb_try_duration 2s
+        lb_try_interval 250ms
         
         # Fail timeout
         fail_duration 30s
         max_fails 3
         unhealthy_status 5xx
+        unhealthy_request_count 5
+        unhealthy_latency 3s
         
         # Headers to pass through
         header_up Host {host}
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-For {remote_host}
         header_up X-Forwarded-Proto {scheme}
+        header_up X-Request-ID {uuid}
+        
+        # Transport settings
+        transport http {
+            read_buffer 4096
+            write_buffer 4096
+            max_response_header 10MB
+            dial_timeout 10s
+            response_header_timeout 30s
+            expect_continue_timeout 3s
+        }
+        
+        # Flush interval for SSE/streaming
+        flush_interval -1
     }
     
     # Enable compression
     encode {
         gzip 6
         zstd
+        minimum_length 256
+        match {
+            header Content-Type text/*
+            header Content-Type application/json*
+            header Content-Type application/javascript*
+            header Content-Type application/xml*
+        }
     }
     
-    # Security headers
+    # Security headers - Hardened
     header {
         # XSS Protection
         X-XSS-Protection "1; mode=block"
@@ -65,17 +124,26 @@
         # Clickjacking protection
         X-Frame-Options "SAMEORIGIN"
         
-        # Content Security Policy (adjust as needed)
-        Content-Security-Policy "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: ws: wss:; img-src 'self' data: https:; font-src 'self' data:;"
+        # Content Security Policy - More restrictive
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' ws: wss:; frame-ancestors 'self'; base-uri 'self'; form-action 'self';"
         
         # Referrer Policy
         Referrer-Policy "strict-origin-when-cross-origin"
         
-        # Permissions Policy
-        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+        # Permissions Policy - More restrictive
+        Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()"
         
         # Remove server header
         -Server
+        
+        # Additional security headers
+        X-Permitted-Cross-Domain-Policies "none"
+        Cross-Origin-Embedder-Policy "require-corp"
+        Cross-Origin-Opener-Policy "same-origin"
+        Cross-Origin-Resource-Policy "same-origin"
+        
+        # Request ID for tracing
+        X-Request-ID {uuid}
     }
     
     # CORS headers for development
@@ -85,9 +153,10 @@
     handle @cors_preflight {
         header {
             Access-Control-Allow-Origin "*"
-            Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-            Access-Control-Allow-Headers "Content-Type, Authorization"
+            Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+            Access-Control-Allow-Headers "Content-Type, Authorization, X-Request-ID"
             Access-Control-Max-Age "3600"
+            Access-Control-Allow-Credentials "true"
         }
         respond 204
     }
@@ -98,7 +167,28 @@
         Access-Control-Allow-Credentials "true"
     }
     
-    # Logging for this site
+    # Error handling
+    handle_errors {
+        @5xx expression `{err.status_code} >= 500 && {err.status_code} < 600`
+        handle @5xx {
+            respond "Server Error" {err.status_code} {
+                close
+            }
+        }
+        
+        @4xx expression `{err.status_code} >= 400 && {err.status_code} < 500`
+        handle @4xx {
+            respond "Client Error" {err.status_code} {
+                close
+            }
+        }
+        
+        respond "Unknown Error" {err.status_code} {
+            close
+        }
+    }
+    
+    # Logging for this site with detailed access logs
     log {
         output stdout
         format json
