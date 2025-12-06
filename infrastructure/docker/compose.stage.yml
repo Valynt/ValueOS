@@ -148,3 +148,56 @@ services:
       - "6380:6379"  # Different port to avoid conflicts
     env_file:
       - .env.stage
+    volumes:
+      - stage-redis-data:/data
+    networks:
+      - valuecanvas-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+# ============================================================================
+# Secrets
+# ============================================================================
+secrets:
+  db_password:
+    file: ./.secrets/stage_db_password.txt
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  valuecanvas-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+
+# ============================================================================
+# Volumes
+# ============================================================================
+volumes:
+  stage-postgres-data:
+    driver: local
+  stage-redis-data:
+    driver: local
