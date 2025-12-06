@@ -82,4 +82,4 @@ storybook-static/
 .devcontainer/
 scripts/
 infrastructure/
-blueprint/
+!infrastructure/caddy/
