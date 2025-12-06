@@ -1,0 +1,133 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Dev: Start Development Server",
+      "type": "npm",
+      "script": "dev",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "runOptions": {
+        "runOn": "folderOpen"
+      }
+    },
+    {
+      "label": "Dev: Run Tests",
+      "type": "npm",
+      "script": "test",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Dev: Run Tests (Watch)",
+      "type": "npm",
+      "script": "test:watch",
+      "problemMatcher": [],
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Dev: Build Project",
+      "type": "npm",
+      "script": "build",
+      "problemMatcher": ["$tsc"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Dev: Lint Code",
+      "type": "npm",
+      "script": "lint",
+      "problemMatcher": ["$eslint-stylish"]
+    },
+    {
+      "label": "Dev: Lint and Fix",
+      "type": "npm",
+      "script": "lint:fix",
+      "problemMatcher": ["$eslint-stylish"]
+    },
+    {
+      "label": "Dev: Type Check",
+      "type": "npm",
+      "script": "typecheck",
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "DB: Push Schema",
+      "type": "npm",
+      "script": "db:push",
+      "problemMatcher": []
+    },
+    {
+      "label": "DB: Generate Types",
+      "type": "npm",
+      "script": "db:types",
+      "problemMatcher": []
+    },
+    {
+      "label": "DB: Reset Database",
+      "type": "npm",
+      "script": "db:reset",
+      "problemMatcher": []
+    },
+    {
+      "label": "Security: Scan Dependencies",
+      "type": "npm",
+      "script": "security:scan",
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker: Start Services",
+      "type": "shell",
+      "command": "docker-compose up -d",
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker: Stop Services",
+      "type": "shell",
+      "command": "docker-compose down",
+      "problemMatcher": []
+    },
+    {
+      "label": "Dev: Health Check",
+      "type": "shell",
+      "command": "bash scripts/dev-automation/dev-health-check.sh",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Dev: Auto Fix Issues",
+      "type": "shell",
+      "command": "bash scripts/dev-automation/auto-fix.sh",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Dev: Quick Setup",
+      "type": "shell",
+      "command": "bash scripts/dev-automation/quick-setup.sh",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    }
+  ]
+}

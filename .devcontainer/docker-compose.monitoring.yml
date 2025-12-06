@@ -1,0 +1,117 @@
+version: '3.8'
+
+# Development environment monitoring stack
+# Provides observability for local development
+
+services:
+  # Prometheus - Metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: valuecanvas-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - valuecanvas-dev
+    restart: unless-stopped
+
+  # Grafana - Metrics visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: valuecanvas-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - valuecanvas-dev
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  # Jaeger - Distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: valuecanvas-jaeger
+    ports:
+      - "16686:16686"  # UI
+      - "14268:14268"  # HTTP collector
+      - "14250:14250"  # gRPC collector
+      - "6831:6831/udp"  # UDP agent
+    environment:
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+    networks:
+      - valuecanvas-dev
+    restart: unless-stopped
+
+  # Redis - Caching and session storage
+  redis:
+    image: redis:7-alpine
+    container_name: valuecanvas-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - valuecanvas-dev
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # PostgreSQL - Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: valuecanvas-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=valuecanvas
+      - POSTGRES_PASSWORD=dev_password
+      - POSTGRES_DB=valuecanvas_dev
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - valuecanvas-dev
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U valuecanvas"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Mailhog - Email testing
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: valuecanvas-mailhog
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # UI
+    networks:
+      - valuecanvas-dev
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  grafana-data:
+  redis-data:
+  postgres-data:
+
+networks:
+  valuecanvas-dev:
+    driver: bridge
