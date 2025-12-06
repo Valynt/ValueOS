@@ -57,17 +57,15 @@ src/sdui/canvas/
 └── StreamingRenderer.tsx    (150 lines)
 ```
 
-**Documentation (6 files):**
+**Documentation (4 files):**
 ```
-├── BUGFIX_PLAN.md                    (400 lines)
 ├── INTEGRATED_ROADMAP.md             (650 lines)  
-├── IMPLEMENTATION_COMPLETE.md        (400 lines)
-├── SPRINT_0_COMPLETE.md              (200 lines)
 ├── docs/sdui/AGENTIC_CANVAS_ENHANCEMENT.md (550 lines)
-└── docs/sdui/README_AGENTIC.md       (350 lines)
+├── docs/sdui/README_AGENTIC.md       (350 lines)
+└── docs/overview/root-docs-rollup.md (consolidated legacy docs)
 ```
 
-**Total:** 13 files, ~2,900 lines of code & documentation
+**Total:** 12 files, ~2,900 lines of code & documentation
 
 ---
 
@@ -305,15 +303,14 @@ useEffect(() => {
 
 **For Quick Start:**
 1. `docs/sdui/README_AGENTIC.md` - Developer quick reference
-2. `IMPLEMENTATION_COMPLETE.md` - This file's detailed version
+2. `INTEGRATED_ROADMAP.md` - Full 5-week plan
 
 **For Deep Understanding:**
 3. `docs/sdui/AGENTIC_CANVAS_ENHANCEMENT.md` - Complete technical spec
-4. `INTEGRATED_ROADMAP.md` - Full 5-week plan
-5. `BUGFIX_PLAN.md` - Bug analysis and fixes
+4. `docs/overview/root-docs-rollup.md` - Historical project milestones
 
 **For Integration:**
-6. `docs/INTEGRATED_ROADMAP.md` → Sprint 5 section
+5. `docs/INTEGRATED_ROADMAP.md` → Sprint 5 section
 
 ---
 

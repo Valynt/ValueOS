@@ -7,7 +7,7 @@ on:
       - 'src/services/AuthService.ts'
       - 'test/saml/**'
       - 'test/playwright/saml-*.spec.ts'
-      - 'docker-compose.saml-test.yml'
+      - 'infrastructure/docker/compose.saml-test.yml'
   push:
     branches:
       - main
@@ -56,7 +56,7 @@ jobs:
 
       - name: Start Keycloak SAML IdP
         run: |
-          docker-compose -f docker-compose.saml-test.yml up -d keycloak
+          docker-compose -f infrastructure/docker/compose.saml-test.yml up -d keycloak
           echo "Waiting for Keycloak to be ready..."
           
       - name: Wait for Keycloak health check
@@ -74,7 +74,7 @@ jobs:
 
       - name: Start ValueCanvas test instance
         run: |
-          docker-compose -f docker-compose.saml-test.yml up -d app-saml-test
+          docker-compose -f infrastructure/docker/compose.saml-test.yml up -d app-saml-test
           echo "Waiting for application to start..."
 
       - name: Wait for application health check
@@ -115,14 +115,14 @@ jobs:
         if: failure()
         run: |
           echo "=== Keycloak Logs ==="
-          docker-compose -f docker-compose.saml-test.yml logs keycloak
+          docker-compose -f infrastructure/docker/compose.saml-test.yml logs keycloak
           echo "=== App Logs ==="
-          docker-compose -f docker-compose.saml-test.yml logs app-saml-test
+          docker-compose -f infrastructure/docker/compose.saml-test.yml logs app-saml-test
 
       - name: Cleanup Docker resources
         if: always()
         run: |
-          docker-compose -f docker-compose.saml-test.yml down -v
+          docker-compose -f infrastructure/docker/compose.saml-test.yml down -v
           docker system prune -f
 
   security-audit:
