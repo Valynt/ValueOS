@@ -1,0 +1,156 @@
+# ============================================================================
+# Caddyfile for ValueCanvas Development
+# ============================================================================
+# Caddy automatically handles HTTPS when a domain is configured
+# For localhost, it uses HTTP only
+# ============================================================================
+
+{
+    # Global options
+    # Disable automatic HTTPS for localhost development
+    auto_https off
+    
+    # Enable admin API on localhost
+    admin localhost:2019
+    
+    # Logging
+    log {
+        output stdout
+        format json
+        level INFO
+    }
+}
+
+# ============================================================================
+# Main Application
+# ============================================================================
+:80 {
+    # Reverse proxy to Vite dev server
+    reverse_proxy app:3000 {
+        # Health check configuration
+        health_uri /
+        health_interval 10s
+        health_timeout 5s
+        health_status 2xx
+        
+        # Load balancing (for future scaling)
+        lb_policy round_robin
+        
+        # Fail timeout
+        fail_duration 30s
+        max_fails 3
+        unhealthy_status 5xx
+        
+        # Headers to pass through
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+    
+    # Enable compression
+    encode {
+        gzip 6
+        zstd
+    }
+    
+    # Security headers
+    header {
+        # XSS Protection
+        X-XSS-Protection "1; mode=block"
+        
+        # Prevent MIME sniffing
+        X-Content-Type-Options "nosniff"
+        
+        # Clickjacking protection
+        X-Frame-Options "SAMEORIGIN"
+        
+        # Content Security Policy (adjust as needed)
+        Content-Security-Policy "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: ws: wss:; img-src 'self' data: https:; font-src 'self' data:;"
+        
+        # Referrer Policy
+        Referrer-Policy "strict-origin-when-cross-origin"
+        
+        # Permissions Policy
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+        
+        # Remove server header
+        -Server
+    }
+    
+    # CORS headers for development
+    @cors_preflight {
+        method OPTIONS
+    }
+    handle @cors_preflight {
+        header {
+            Access-Control-Allow-Origin "*"
+            Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+            Access-Control-Allow-Headers "Content-Type, Authorization"
+            Access-Control-Max-Age "3600"
+        }
+        respond 204
+    }
+    
+    # Add CORS headers to all responses
+    header {
+        Access-Control-Allow-Origin "*"
+        Access-Control-Allow-Credentials "true"
+    }
+    
+    # Logging for this site
+    log {
+        output stdout
+        format json
+        level INFO
+    }
+}
+
+# ============================================================================
+# Health Check Endpoint
+# ============================================================================
+:80/health {
+    respond "healthy" 200 {
+        close
+    }
+}
+
+# ============================================================================
+# API Routes (if you have a separate API server)
+# ============================================================================
+# Uncomment and configure if you have a separate API server
+# :80/api/* {
+#     reverse_proxy api:8000
+# }
+
+# ============================================================================
+# WebSocket Support (for HMR)
+# ============================================================================
+# WebSocket connections are automatically upgraded by Caddy
+# No special configuration needed for Vite HMR
+
+# ============================================================================
+# Static File Caching (optional)
+# ============================================================================
+@static {
+    path *.js *.css *.png *.jpg *.jpeg *.gif *.ico *.svg *.woff *.woff2 *.ttf *.eot
+}
+header @static {
+    Cache-Control "public, max-age=31536000, immutable"
+}
+
+# ============================================================================
+# Production Configuration (when using a domain)
+# ============================================================================
+# Uncomment and configure when deploying to production with a domain
+# 
+# yourdomain.com {
+#     # Automatic HTTPS is enabled by default
+#     
+#     reverse_proxy app:3000
+#     
+#     # All the same configurations as above
+#     encode gzip
+#     header { ... }
+#     log { ... }
+# }
