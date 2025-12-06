@@ -1,0 +1,139 @@
+# ============================================================================
+# ValueCanvas Production Docker Compose
+# ============================================================================
+# Production deployment with security hardening and monitoring
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # ============================================================================
+  # ValueCanvas Application (Production)
+  # ============================================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: valuecanvas:latest
+    container_name: valuecanvas-prod
+    ports:
+      - "5173:5173"
+    environment:
+      - NODE_ENV=production
+      # Supabase (use production values)
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+      # LLM API
+      - VITE_LLM_API_KEY=${VITE_LLM_API_KEY}
+      - VITE_LLM_PROVIDER=${VITE_LLM_PROVIDER:-together}
+      # Security
+      - VITE_ENABLE_CIRCUIT_BREAKER=true
+      - VITE_ENABLE_RATE_LIMITING=true
+      - VITE_ENABLE_AUDIT_LOGGING=true
+    networks:
+      - valuecanvas-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5173"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/.npm
+
+  # ============================================================================
+  # Nginx Reverse Proxy (Production)
+  # ============================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: valuecanvas-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infrastructure/nginx/ssl:/etc/nginx/ssl:ro
+      - nginx-cache:/var/cache/nginx
+    networks:
+      - valuecanvas-network
+    depends_on:
+      - app
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ============================================================================
+  # Redis (Production - for rate limiting and caching)
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: valuecanvas-redis-prod
+    volumes:
+      - redis-data:/data
+    networks:
+      - valuecanvas-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD}
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  valuecanvas-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# ============================================================================
+# Volumes
+# ============================================================================
+volumes:
+  redis-data:
+    driver: local
+  nginx-cache:
+    driver: local

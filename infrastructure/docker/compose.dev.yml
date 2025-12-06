@@ -1,0 +1,100 @@
+# ============================================================================
+# ValueCanvas Development Docker Compose
+# ============================================================================
+# Local development environment with hot-reloading
+# Security hardened while maintaining developer productivity
+# 
+# IMPORTANT: This uses WEAK PASSWORDS suitable only for LOCAL DEVELOPMENT.
+# Never use these configurations in production!
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # ============================================================================
+  # ValueCanvas Application (Development)
+  # ============================================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: valuecanvas-dev
+    ports:
+      - "5173:5173"  # Vite dev server
+      - "24678:24678"  # Vite HMR
+    volumes:
+      # Mount source code for hot-reloading
+      - ./src:/app/src:cached
+      - ./public:/app/public:cached
+      - ./index.html:/app/index.html:cached
+      - ./vite.config.ts:/app/vite.config.ts:cached
+      - ./tsconfig.json:/app/tsconfig.json:cached
+      - ./tsconfig.app.json:/app/tsconfig.app.json:cached
+      - ./tsconfig.node.json:/app/tsconfig.node.json:cached
+      - ./package.json:/app/package.json:cached
+      - ./package-lock.json:/app/package-lock.json:cached
+      # Exclude node_modules (use container's version)
+      - /app/node_modules
+    env_file:
+      - .env.local  # Load from .env.local (copy from .env.dev.example)
+    environment:
+      - NODE_ENV=development
+      - VITE_HOST=0.0.0.0
+      - VITE_PORT=5173
+      - VITE_HMR_PORT=24678
+    networks:
+      - valuecanvas-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5173"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Resource limits for 12-agent fabric support
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 6G
+        reservations:
+          cpus: '2.0'
+          memory: 4G
+    # Security hardening (dev environment)
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ============================================================================
+  # PostgreSQL Database (Optional - for local testing)
+  # ============================================================================
+  # WARNING: Uses weak password for LOCAL DEVELOPMENT only!
+  # Consider commenting out port mapping (5432:5432) to reduce attack surface
+  # Access DB via container network instead of exposing to host
+  postgres:
+    image: postgres:15-alpine
+    container_name: valuecanvas-postgres
+    # Port mapping - consider removing for better security
+    # Comment out the next 2 lines to prevent exposing PostgreSQL to host
+    ports:
+      - "5432:5432"
+    env_file:
+      - .env.local
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-valuecanvas}
+      - POSTGRES_USER=${POSTGRES_USER:-valuecanvas}
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
+    secrets:
+      - db_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./supabase/migrations:/docker-entrypoint-initdb.d:ro
+    networks:
+      - valuecanvas-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-valuecanvas}"]
