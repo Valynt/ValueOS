@@ -6,7 +6,9 @@
     "ghcr.io/devcontainers/features/node:1": {
       "version": "22"
     },
-    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "cache": false
+    },
     "ghcr.io/devcontainers/features/git:1": {},
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
@@ -23,7 +25,7 @@
   // 1. RUN HEAVY INSTALLS HERE
   // This runs during the prebuild. When you open the Codespace, 
   // node_modules will already be there.
-  "updateContentCommand": "npm install", 
+  "updateContentCommand": "npm install --no-cache", 
 
   // 2. RUN LIGHTWEIGHT TASKS HERE
   // This runs only when YOU start the container (e.g., db migrations).
