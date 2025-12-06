@@ -6,9 +6,9 @@
  */
 
 import { logger } from '../lib/logger';
-import { supabase } from '../lib/supabase';
 import type { LifecycleStage } from '../types/vos';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { TenantAwareService, type TenantContext } from './TenantAwareService';
 
 // ============================================================================
 // Types
@@ -51,17 +51,40 @@ export interface ValueCaseUpdate {
 // Service
 // ============================================================================
 
-class ValueCaseService {
+class ValueCaseService extends TenantAwareService {
   private realtimeChannel: RealtimeChannel | null = null;
   private listeners: Set<(cases: ValueCase[]) => void> = new Set();
+
+  constructor() {
+    super('ValueCaseService');
+  }
+
+  private async getTenantContextFromSession(): Promise<TenantContext> {
+    const { data, error } = await this.supabase.auth.getSession();
+
+    if (error) {
+      logger.error('Failed to fetch auth session for tenant validation', error);
+      throw error;
+    }
+
+    const userId = data.session?.user?.id;
+    if (!userId) {
+      logger.warn('Tenant validation failed: no authenticated user found');
+      throw new Error('Authentication required');
+    }
+
+    return this.getTenantContext(userId);
+  }
 
   /**
    * Fetch all value cases for the current user
    */
   async getValueCases(): Promise<ValueCase[]> {
     try {
-      // First try to get from value_cases table (agent fabric)
-      const { data: valueCases, error: vcError } = await (supabase as any)
+      const { userId, tenantId } = await this.getTenantContextFromSession();
+
+      // Enforce tenant boundary even if RLS is bypassed
+      const { data: valueCases, error: vcError } = await this.supabase
         .from('value_cases')
         .select(`
           id,
@@ -72,20 +95,23 @@ class ValueCaseService {
           created_at,
           updated_at,
           metadata,
+          tenant_id,
           company_profiles (
             company_name
           )
         `)
+        .eq('tenant_id', tenantId)
         .order('updated_at', { ascending: false });
 
       if (!vcError && valueCases && valueCases.length > 0) {
         return valueCases.map((vc: any) => this.mapValueCase(vc));
       }
 
-      // Fallback to business_cases table
-      const { data: businessCases, error: bcError } = await (supabase as any)
+      // Fallback to legacy business_cases table, but still restrict to owner
+      const { data: businessCases, error: bcError } = await this.supabase
         .from('business_cases')
         .select('*')
+        .eq('owner_id', userId)
         .order('updated_at', { ascending: false });
 
       if (bcError) {
@@ -105,7 +131,9 @@ class ValueCaseService {
    */
   async getValueCase(id: string): Promise<ValueCase | null> {
     try {
-      const { data, error } = await (supabase as any)
+      const { userId, tenantId } = await this.getTenantContextFromSession();
+
+      const { data, error } = await this.supabase
         .from('value_cases')
         .select(`
           id,
@@ -121,14 +149,16 @@ class ValueCaseService {
           )
         `)
         .eq('id', id)
+        .eq('tenant_id', tenantId)
         .single();
 
       if (error || !data) {
         // Try business_cases
-        const { data: bc, error: bcError } = await (supabase as any)
+        const { data: bc, error: bcError } = await this.supabase
           .from('business_cases')
           .select('*')
           .eq('id', id)
+          .eq('owner_id', userId)
           .single();
 
         if (bcError || !bc) return null;
@@ -147,26 +177,24 @@ class ValueCaseService {
    */
   async createValueCase(input: ValueCaseCreate): Promise<ValueCase | null> {
     try {
-      const { data: session } = await supabase.auth.getSession();
-      const userId = session?.session?.user?.id;
+      const { userId, tenantId } = await this.getTenantContextFromSession();
 
-      if (!userId) {
-        logger.warn('No authenticated user for creating value case');
-        // For demo, still create in business_cases
-      }
+      // Ensure user is allowed to create within this tenant
+      await this.validateTenantAccess(userId, tenantId);
 
       // Create in business_cases table (simpler, always works)
-      const { data, error } = await (supabase as any)
+      const { data, error } = await this.supabase
         .from('business_cases')
         .insert({
           name: input.name,
           client: input.company,
           status: 'draft',
-          owner_id: userId || '00000000-0000-0000-0000-000000000000',
+          owner_id: userId,
           metadata: {
             ...input.metadata,
             stage: input.stage || 'opportunity',
             description: input.description,
+            tenant_id: tenantId,
           },
         })
         .select()
@@ -189,8 +217,10 @@ class ValueCaseService {
    */
   async updateValueCase(id: string, update: ValueCaseUpdate): Promise<ValueCase | null> {
     try {
+      const { userId, tenantId } = await this.getTenantContextFromSession();
+
       // Try updating in business_cases first
-      const { data, error } = await (supabase as any)
+      const { data, error } = await this.supabase
         .from('business_cases')
         .update({
           name: update.name,
@@ -201,10 +231,12 @@ class ValueCaseService {
             description: update.description,
             quality_score: update.quality_score,
             ...update.metadata,
+            tenant_id: tenantId,
           },
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
+        .eq('owner_id', userId)
         .select()
         .single();
 
@@ -225,10 +257,13 @@ class ValueCaseService {
    */
   async deleteValueCase(id: string): Promise<boolean> {
     try {
-      const { error } = await (supabase as any)
+      const { userId } = await this.getTenantContextFromSession();
+
+      const { error } = await this.supabase
         .from('business_cases')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('owner_id', userId);
 
       if (error) {
         logger.error('Failed to delete value case', error);
@@ -250,27 +285,42 @@ class ValueCaseService {
 
     // Set up realtime subscription if not already done
     if (!this.realtimeChannel) {
-      this.realtimeChannel = supabase
-        .channel('value-cases-changes')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'business_cases' },
-          async () => {
-            const cases = await this.getValueCases();
-            this.notifyListeners(cases);
-          }
-        )
-        .subscribe();
+      this.initializeRealtimeChannel();
     }
 
     // Return unsubscribe function
     return () => {
       this.listeners.delete(callback);
       if (this.listeners.size === 0 && this.realtimeChannel) {
-        supabase.removeChannel(this.realtimeChannel);
+        this.supabase.removeChannel(this.realtimeChannel);
         this.realtimeChannel = null;
       }
     };
+  }
+
+  private async initializeRealtimeChannel(): Promise<void> {
+    try {
+      const { userId } = await this.getTenantContextFromSession();
+
+      this.realtimeChannel = this.supabase
+        .channel('value-cases-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'business_cases',
+            filter: `owner_id=eq.${userId}`
+          },
+          async () => {
+            const cases = await this.getValueCases();
+            this.notifyListeners(cases);
+          }
+        )
+        .subscribe();
+    } catch (error) {
+      logger.error('Failed to initialize tenant-scoped realtime channel', error as Error);
+    }
   }
 
   private notifyListeners(cases: ValueCase[]): void {
