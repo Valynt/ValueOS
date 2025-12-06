@@ -4,10 +4,12 @@ import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
 import { rateLimiters } from '../middleware/rateLimiter';
 import { logger } from '../lib/logger';
+import { requirePermission } from '../middleware/rbac';
 
 const router = Router();
 router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
+router.use(requirePermission('agents.execute'));
 
 router.get('/:agentId/info', rateLimiters.loose, (req: Request, res: Response) => {
   const { agentId } = req.params;
