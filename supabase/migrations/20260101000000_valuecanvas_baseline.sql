@@ -654,6 +654,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON public.audit_logs(create
 -- Enable RLS on all multi-tenant tables
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.organization_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
@@ -711,6 +712,12 @@ CREATE POLICY orgs_select_memberships ON public.organizations
 CREATE POLICY org_members_select_own ON public.organization_members
   FOR SELECT TO authenticated
   USING (user_id = auth.uid());
+
+-- Roles: tenants can only access roles within their organization (or global roles)
+CREATE POLICY roles_tenant_isolation ON public.roles
+  FOR ALL TO authenticated
+  USING (organization_id IS NULL OR public.is_org_member(organization_id))
+  WITH CHECK (organization_id IS NULL OR public.is_org_member(organization_id));
 
 -- Generic tenant isolation policy pattern for org-scoped tables
 -- (example applied to cases; similar semantics for others)
