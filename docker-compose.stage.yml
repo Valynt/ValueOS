@@ -185,28 +185,45 @@ services:
         max-file: "2"
 
   # ============================================================================
-  # Nginx Reverse Proxy (Staging)
+  # Caddy Reverse Proxy (Staging)
   # ============================================================================
-  nginx:
-    image: nginx:alpine
-    container_name: valuecanvas-nginx-stage
+  caddy:
+    build:
+      context: .
+      dockerfile: Dockerfile.caddy
+    container_name: valuecanvas-caddy-stage
     ports:
       - "8080:80"
       - "8443:443"
+      - "2019:2019"  # Admin API for debugging
     volumes:
-      - ./infrastructure/nginx/nginx-staging.conf:/etc/nginx/nginx.conf:ro
-      - ./infrastructure/nginx/ssl-staging:/etc/nginx/ssl:ro
-      - nginx-cache-stage:/var/cache/nginx
+      - ./Caddyfile.staging:/etc/caddy/Caddyfile:ro
+      - caddy-data-stage:/data
+      - caddy-config-stage:/config
+    environment:
+      - DOMAIN=${STAGE_DOMAIN:-staging.valuecanvas.com}
     networks:
       - valuecanvas-network
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    security_opt:
+      - no-new-privileges:true
     logging:
       driver: "json-file"
       options:
@@ -231,7 +248,9 @@ volumes:
     driver: local
   stage-redis-data:
     driver: local
-  nginx-cache-stage:
+  caddy-data-stage:
+    driver: local
+  caddy-config-stage:
     driver: local
 
 # ============================================================================
