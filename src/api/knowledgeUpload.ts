@@ -3,9 +3,11 @@ import { enforceLineage } from '../middleware/lineageValidationMiddleware';
 import { requireConsent } from '../middleware/consentMiddleware';
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
 import { logger } from '../utils/logger';
+import { requirePermission } from '../middleware/rbac';
 
 const router = Router();
 router.use(securityHeadersMiddleware);
+router.use(requirePermission('data.import'));
 
 router.post(
   '/upload',
