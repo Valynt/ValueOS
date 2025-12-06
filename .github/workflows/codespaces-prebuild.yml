@@ -1,0 +1,41 @@
+name: Codespaces Prebuild
+
+# Prebuilds Codespaces for instant startup
+# Triggered on changes to dev container or dependencies
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - '.devcontainer/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/codespaces-prebuild.yml'
+  workflow_dispatch:
+
+jobs:
+  prebuild:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      codespaces: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Trigger Codespaces prebuild
+        uses: github/codespaces-precreate@v1
+        with:
+          devcontainer_path: .devcontainer/devcontainer.optimized.json
+          ref: ${{ github.ref }}
+
+      - name: Report prebuild status
+        run: |
+          echo "## Codespaces Prebuild Triggered 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Codespaces created from this commit will start instantly!" >> $GITHUB_STEP_SUMMARY

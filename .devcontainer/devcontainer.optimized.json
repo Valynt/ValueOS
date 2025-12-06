@@ -1,0 +1,173 @@
+{
+  "name": "ValueCanvas - Optimized",
+  "build": {
+    "dockerfile": "Dockerfile.optimized",
+    "context": "..",
+    "args": {
+      "NODE_VERSION": "20",
+      "VARIANT": "ubuntu-22.04"
+    }
+  },
+
+  "features": {
+    // Docker-in-Docker for container operations
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "version": "latest",
+      "moby": true
+    },
+    // GitHub CLI for automation
+    "ghcr.io/devcontainers/features/github-cli:1": {
+      "version": "latest"
+    },
+    // Common utilities
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "installOhMyZsh": true,
+      "upgradePackages": false
+    }
+  },
+
+  "remoteUser": "vscode",
+
+  // Environment variables for development
+  "containerEnv": {
+    "NODE_ENV": "development",
+    "ENVIRONMENT": "development",
+    // Enable BuildKit for faster Docker builds
+    "DOCKER_BUILDKIT": "1",
+    "COMPOSE_DOCKER_CLI_BUILD": "1",
+    // Optimize npm
+    "NPM_CONFIG_UPDATE_NOTIFIER": "false",
+    "NPM_CONFIG_FUND": "false"
+  },
+
+  // Lifecycle scripts for automation
+  "onCreateCommand": "bash .devcontainer/scripts/on-create.sh",
+  "updateContentCommand": "bash .devcontainer/scripts/update-content.sh",
+  "postCreateCommand": "bash .devcontainer/scripts/post-create.sh",
+  "postStartCommand": "bash .devcontainer/scripts/post-start.sh",
+
+  // Port forwarding with labels
+  "forwardPorts": [3000, 8000, 5432, 16686, 9090, 3001, 6379],
+  "portsAttributes": {
+    "3000": {
+      "label": "Frontend (Vite)",
+      "onAutoForward": "notify"
+    },
+    "8000": {
+      "label": "Backend API",
+      "onAutoForward": "notify"
+    },
+    "5432": {
+      "label": "PostgreSQL",
+      "onAutoForward": "silent"
+    },
+    "16686": {
+      "label": "Jaeger UI",
+      "onAutoForward": "silent"
+    },
+    "9090": {
+      "label": "Prometheus",
+      "onAutoForward": "silent"
+    },
+    "3001": {
+      "label": "Storybook",
+      "onAutoForward": "silent"
+    },
+    "6379": {
+      "label": "Redis",
+      "onAutoForward": "silent"
+    }
+  },
+
+  // Optimized mounts for performance
+  "mounts": [
+    // Cache node_modules for faster installs
+    "source=valuecanvas-node-modules,target=${containerWorkspaceFolder}/node_modules,type=volume",
+    // Cache npm cache
+    "source=valuecanvas-npm-cache,target=/home/vscode/.npm,type=volume",
+    // Cache build artifacts
+    "source=valuecanvas-build-cache,target=${containerWorkspaceFolder}/.cache,type=volume",
+    // Cache playwright browsers
+    "source=valuecanvas-playwright,target=/home/vscode/.cache/ms-playwright,type=volume",
+    // Cache Docker layers
+    "source=valuecanvas-docker-cache,target=/var/lib/docker,type=volume"
+  },
+
+  // Container configuration for performance
+  "runArgs": [
+    "--name=valuecanvas-dev-optimized",
+    // Increase shared memory for browser testing
+    "--shm-size=2gb",
+    // Add labels for identification
+    "--label=project=valuecanvas",
+    "--label=environment=development"
+  ],
+
+  // Host requirements
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "8gb",
+    "storage": "32gb"
+  },
+
+  // Customizations for VS Code and extensions
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // Essential extensions only (loaded on-demand)
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "ms-azuretools.vscode-docker",
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "ms-playwright.playwright",
+        "Prisma.prisma",
+        "redhat.vscode-yaml"
+      ],
+      "settings": {
+        // Editor performance
+        "files.watcherExclude": {
+          "**/node_modules/**": true,
+          "**/.git/objects/**": true,
+          "**/.git/subtree-cache/**": true,
+          "**/dist/**": true,
+          "**/build/**": true,
+          "**/.cache/**": true
+        },
+        "search.exclude": {
+          "**/node_modules": true,
+          "**/dist": true,
+          "**/build": true,
+          "**/.cache": true
+        },
+        // Auto-save for faster feedback
+        "files.autoSave": "onFocusChange",
+        // Format on save
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        // ESLint auto-fix
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        // Terminal
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        // Git
+        "git.autofetch": true,
+        "git.enableSmartCommit": true,
+        // Docker
+        "docker.dockerPath": "docker",
+        // TypeScript
+        "typescript.tsdk": "node_modules/typescript/lib",
+        "typescript.enablePromptUseWorkspaceTsdk": true
+      }
+    }
+  },
+
+  // Wait for services to be ready
+  "waitFor": "onCreateCommand",
+
+  // Update remote user UID/GID to match host (for file permissions)
+  "updateRemoteUserUID": true
+}

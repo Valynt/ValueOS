@@ -1,0 +1,81 @@
+{
+  "name": "ValueCanvas - Codespaces",
+  "image": "ghcr.io/${{ github.repository }}/devcontainer:latest",
+
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {
+      "version": "latest"
+    }
+  },
+
+  "remoteUser": "vscode",
+
+  "containerEnv": {
+    "NODE_ENV": "development",
+    "ENVIRONMENT": "codespaces",
+    "DOCKER_BUILDKIT": "1",
+    "NPM_CONFIG_UPDATE_NOTIFIER": "false",
+    "NPM_CONFIG_FUND": "false"
+  },
+
+  // Optimized lifecycle for Codespaces
+  "onCreateCommand": "echo 'Codespace created'",
+  "updateContentCommand": "npm ci --prefer-offline --no-audit",
+  "postCreateCommand": "npm run build",
+  "postStartCommand": "echo 'Codespace ready'",
+
+  "forwardPorts": [3000, 8000, 5432, 16686, 9090, 3001, 6379],
+  
+  "portsAttributes": {
+    "3000": {
+      "label": "Frontend",
+      "onAutoForward": "notify",
+      "visibility": "public"
+    },
+    "8000": {
+      "label": "Backend API",
+      "onAutoForward": "notify",
+      "visibility": "public"
+    }
+  },
+
+  // Codespaces-specific mounts
+  "mounts": [
+    "source=valuecanvas-node-modules,target=${containerWorkspaceFolder}/node_modules,type=volume",
+    "source=valuecanvas-npm-cache,target=/home/vscode/.npm,type=volume"
+  ],
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "GitHub.copilot",
+        "GitHub.copilot-chat"
+      ],
+      "settings": {
+        "files.autoSave": "afterDelay",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    },
+    "codespaces": {
+      "openFiles": [
+        "README.md",
+        "package.json"
+      ]
+    }
+  },
+
+  // Codespaces prebuild configuration
+  "prebuild": {
+    "commands": [
+      "npm ci --prefer-offline",
+      "npm run build"
+    ]
+  }
+}
