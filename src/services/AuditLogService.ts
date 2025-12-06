@@ -54,6 +54,14 @@ export class AuditLogService extends BaseService {
   }
 
   /**
+   * Convenience wrapper used by middleware hooks
+   * Ensures all audit events persist through the immutable pipeline
+   */
+  async log(input: AuditLogCreateInput): Promise<AuditLogEntry> {
+    return this.createEntry(input);
+  }
+
+  /**
    * Create an audit log entry (immutable)
    * AUD-301: Logs are INSERT-only with cryptographic integrity
    */

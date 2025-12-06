@@ -141,7 +141,10 @@ export function auditBulkDelete(resourceType: string) {
   return async (req: Request, res: Response, next: NextFunction) => {
     const user = getUserInfo(req);
     const metadata = getRequestMetadata(req);
-    const recordIds = req.body.ids || req.body.records || [];
+    const recordIds =
+      (Array.isArray(req.body?.ids) && req.body.ids) ||
+      (Array.isArray(req.body?.records) && req.body.records) ||
+      (req.params?.id ? [req.params.id] : []);
 
     // Store original json function
     const originalJson = res.json;

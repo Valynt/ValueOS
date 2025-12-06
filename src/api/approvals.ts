@@ -8,6 +8,7 @@ import { Router, Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
 import { logger } from '../utils/logger';
+import { auditBulkDelete } from '../middleware/auditHooks';
 
 const router = Router();
 router.use(requestAuditMiddleware());
@@ -239,7 +240,7 @@ router.get('/:requestId', async (req: Request, res: Response) => {
  * DELETE /api/approvals/:requestId
  * Cancel a pending approval request
  */
-router.delete('/:requestId', async (req: Request, res: Response) => {
+router.delete('/:requestId', auditBulkDelete('approval_request'), async (req: Request, res: Response) => {
   try {
     const { requestId } = req.params;
 

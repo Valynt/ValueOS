@@ -6,6 +6,7 @@
 import express, { Request, Response } from 'express';
 import InvoiceService from '../../services/billing/InvoiceService';
 import { createLogger } from '../../lib/logger';
+import { auditDataExport } from '../../middleware/auditHooks';
 
 const router = express.Router();
 const logger = createLogger({ component: 'InvoicesAPI' });
@@ -84,7 +85,7 @@ router.get('/:id', async (req: Request, res: Response) => {
  * GET /api/billing/invoices/:id/pdf
  * Get invoice PDF URL
  */
-router.get('/:id/pdf', async (req: Request, res: Response) => {
+router.get('/:id/pdf', auditDataExport('invoice_pdf'), async (req: Request, res: Response) => {
   try {
     const invoiceId = req.params.id;
     
