@@ -366,12 +366,12 @@ const CanvasContent: React.FC<{
 const logTelemetrySummary = () => {
   if (typeof window !== 'undefined' && (window as any).__SDUI_DEBUG__) {
     const summary = sduiTelemetry.getPerformanceSummary();
-    console.group('[SDUI Telemetry Summary]');
-    console.log('Average Render Time:', summary.avgRenderTime.toFixed(2), 'ms');
-    console.log('Average Hydration Time:', summary.avgHydrationTime.toFixed(2), 'ms');
-    console.log('Error Rate:', (summary.errorRate * 100).toFixed(2), '%');
-    console.log('Total Events:', summary.totalEvents);
-    console.groupEnd();
+    logger.debug('SDUI telemetry summary', {
+      averageRenderMs: Number(summary.avgRenderTime.toFixed(2)),
+      averageHydrationMs: Number(summary.avgHydrationTime.toFixed(2)),
+      errorRate: Number((summary.errorRate * 100).toFixed(2)),
+      totalEvents: summary.totalEvents,
+    });
   }
 };
 

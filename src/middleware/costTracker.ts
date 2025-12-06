@@ -90,26 +90,8 @@ export function costTrackerMiddleware(req: Request, res: Response, next: NextFun
   // Attach cost tracking helper to request
   (req as any).trackLLMCost = (usage: TokenUsage) => {
     const estimate = calculateCost(usage);
-    
-    if (isDevelopment) {
-      // Console output for development visibility
-      console.log('\n' + '='.repeat(70));
-      console.log('💰 LLM COST ESTIMATE');
-      console.log('='.repeat(70));
-      console.log(`Model:          ${estimate.model}`);
-      if (usage.agentType) {
-        console.log(`Agent Type:     ${usage.agentType}`);
-      }
-      console.log(`Tokens:         ${estimate.tokens.input.toLocaleString()} in / ${estimate.tokens.output.toLocaleString()} out`);
-      console.log(`Total Tokens:   ${estimate.tokens.total.toLocaleString()}`);
-      console.log(`Input Cost:     $${estimate.inputCost.toFixed(6)}`);
-      console.log(`Output Cost:    $${estimate.outputCost.toFixed(6)}`);
-      console.log(`Total Cost:     $${estimate.totalCost.toFixed(6)}`);
-      console.log('='.repeat(70) + '\n');
-    }
-    
-    // Also log via structured logger for observability
-    logger.info('LLM cost estimate', {
+
+    const logContext = {
       requestId: req.headers['x-request-id'],
       tenantId: (req as any).tenantId,
       agentType: usage.agentType,
@@ -121,7 +103,14 @@ export function costTrackerMiddleware(req: Request, res: Response, next: NextFun
         total: estimate.totalCost,
         currency: estimate.currency,
       },
-    });
+    };
+
+    // Structured logging with PII sanitization
+    logger.info('LLM cost estimate', logContext);
+
+    if (isDevelopment) {
+      logger.debug('LLM cost estimate (development detail)', logContext);
+    }
     
     return estimate;
   };
