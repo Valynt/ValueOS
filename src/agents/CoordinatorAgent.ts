@@ -26,12 +26,19 @@ import { createAuditEvent } from '../lib/sof-governance';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import { llmConfig } from '../config/llm';
 import {
+  AgentCircuitBreaker,
+  DEFAULT_SAFETY_LIMITS,
+  SafetyLimits,
+  withCircuitBreaker,
+} from '../lib/agent-fabric/CircuitBreaker';
+import {
   getComponentToolDocumentation,
   validateComponentSelection,
   searchComponentTools,
 } from '../sdui/ComponentToolRegistry';
 import { getUIGenerationTracker } from '../services/UIGenerationTracker';
 import { getUIRefinementLoop } from '../services/UIRefinementLoop';
+import { getAutonomyConfig } from '../config/autonomy';
 
 export class CoordinatorAgent {
   private ontology: typeof planningOntology;
@@ -45,6 +52,7 @@ export class CoordinatorAgent {
     enableDynamicUI: boolean;
     enableUIRefinement: boolean;
   };
+  private safetyLimits: SafetyLimits;
 
   constructor() {
     this.ontology = planningOntology;
@@ -57,6 +65,41 @@ export class CoordinatorAgent {
       enableAuditLogging: true,
       enableDynamicUI: true,
       enableUIRefinement: true,
+    };
+    this.safetyLimits = this.resolveSafetyLimits();
+  }
+
+  /**
+   * Resolve safety limits using autonomy config with conservative defaults
+   */
+  private resolveSafetyLimits(): SafetyLimits {
+    const autonomy = getAutonomyConfig();
+    const coordinatorSettings = autonomy.agents?.CoordinatorAgent;
+
+    const configuredDuration =
+      typeof coordinatorSettings?.maxDuration === 'number'
+        ? coordinatorSettings.maxDuration
+        : autonomy.maxDurationMs;
+
+    const maxExecutionTime = Math.min(
+      configuredDuration && configuredDuration > 0
+        ? configuredDuration
+        : DEFAULT_SAFETY_LIMITS.maxExecutionTime,
+      DEFAULT_SAFETY_LIMITS.maxExecutionTime
+    );
+
+    const configuredLLMCalls = autonomy.agentMaxIterations?.CoordinatorAgent;
+    const maxLLMCalls = Math.min(
+      configuredLLMCalls && configuredLLMCalls > 0
+        ? configuredLLMCalls
+        : DEFAULT_SAFETY_LIMITS.maxLLMCalls,
+      DEFAULT_SAFETY_LIMITS.maxLLMCalls
+    );
+
+    return {
+      ...DEFAULT_SAFETY_LIMITS,
+      maxExecutionTime,
+      maxLLMCalls,
     };
   }
 
@@ -206,6 +249,33 @@ export class CoordinatorAgent {
    * Uses dynamic UI generation if enabled, falls back to static mapping
    */
   async produceSDUILayout(subgoal: Subgoal): Promise<SDUIPageDefinition> {
+    const { result: layout, metrics } = await withCircuitBreaker(
+      (breaker: AgentCircuitBreaker) => this.produceLayoutWithSafety(subgoal, breaker),
+      this.safetyLimits
+    );
+
+    if (this.config.enableAuditLogging) {
+      await this.logDecision(
+        'coordinator_safety_metrics',
+        {
+          subgoal_id: subgoal.id,
+          llm_calls: metrics.llmCallCount,
+          duration_ms: metrics.duration,
+          limit_violations: metrics.limitViolations,
+        },
+        {
+          safety_limits: this.safetyLimits,
+        }
+      );
+    }
+
+    return layout;
+  }
+
+  private async produceLayoutWithSafety(
+    subgoal: Subgoal,
+    breaker: AgentCircuitBreaker
+  ): Promise<SDUIPageDefinition> {
     if (!subgoal.output) {
       throw new Error('Subgoal has no output to render');
     }
@@ -213,7 +283,7 @@ export class CoordinatorAgent {
     // Use dynamic UI generation if enabled
     if (this.config.enableDynamicUI) {
       try {
-        return await this.generateDynamicUILayout(subgoal);
+        return await this.generateDynamicUILayout(subgoal, breaker);
       } catch (error) {
         logger.warn('Dynamic UI generation failed, using fallback', {
           subgoalType: subgoal.type,
@@ -230,7 +300,10 @@ export class CoordinatorAgent {
   /**
    * Generate UI layout dynamically using LLM
    */
-  private async generateDynamicUILayout(subgoal: Subgoal): Promise<SDUIPageDefinition> {
+  private async generateDynamicUILayout(
+    subgoal: Subgoal,
+    breaker: AgentCircuitBreaker
+  ): Promise<SDUIPageDefinition> {
     const startTime = Date.now();
     const tracker = getUIGenerationTracker();
 
@@ -303,7 +376,8 @@ Generate the optimal SDUI layout for this data.`,
       {
         task_type: 'ui_generation',
         complexity: this.estimateUIComplexity(subgoal),
-      }
+      },
+      breaker
     );
 
     // Parse response
@@ -359,7 +433,11 @@ Generate the optimal SDUI layout for this data.`,
     // Apply refinement loop if enabled
     if (this.config.enableUIRefinement) {
       const refinementLoop = getUIRefinementLoop();
-      const refinementResult = await refinementLoop.generateAndRefine(subgoal, layout);
+      const refinementResult = await refinementLoop.generateAndRefine(
+        subgoal,
+        layout,
+        breaker
+      );
 
       // Use refined layout if it improved
       if (refinementResult.final_score > validation.warnings.length === 0 ? 90 : 70) {
