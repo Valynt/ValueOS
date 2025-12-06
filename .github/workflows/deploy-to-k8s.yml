@@ -1,0 +1,301 @@
+name: Deploy to Kubernetes
+
+on:
+  workflow_run:
+    workflows: ["Build and Push Docker Images"]
+    types:
+      - completed
+    branches:
+      - develop
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      image_tag:
+        description: 'Image tag to deploy'
+        required: false
+        default: 'latest'
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'develop') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    environment: staging
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name valuecanvas-staging-cluster \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Install Kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Create namespace if not exists
+        run: |
+          kubectl create namespace valuecanvas-staging --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Create secrets
+        run: |
+          kubectl create secret generic valuecanvas-secrets \
+            --from-literal=database-url="${{ secrets.DATABASE_URL }}" \
+            --from-literal=supabase-url="${{ secrets.SUPABASE_URL }}" \
+            --from-literal=supabase-anon-key="${{ secrets.SUPABASE_ANON_KEY }}" \
+            --from-literal=supabase-service-key="${{ secrets.SUPABASE_SERVICE_KEY }}" \
+            --from-literal=together-api-key="${{ secrets.TOGETHER_API_KEY }}" \
+            --from-literal=openai-api-key="${{ secrets.OPENAI_API_KEY }}" \
+            --from-literal=jwt-secret="${{ secrets.JWT_SECRET }}" \
+            --namespace=valuecanvas-staging \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Update image tags in kustomization
+        run: |
+          cd k8s/overlays/staging
+          IMAGE_TAG=${{ github.event.inputs.image_tag || 'develop' }}
+          ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+          
+          kustomize edit set image \
+            REGISTRY_URL/valuecanvas-backend=${ECR_REGISTRY}/valuecanvas-backend:${IMAGE_TAG} \
+            REGISTRY_URL/valuecanvas-frontend=${ECR_REGISTRY}/valuecanvas-frontend:${IMAGE_TAG}
+
+      - name: Deploy to staging
+        run: |
+          cd k8s/overlays/staging
+          kustomize build . | kubectl apply -f -
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/backend-staging -n valuecanvas-staging --timeout=5m
+          kubectl rollout status deployment/frontend-staging -n valuecanvas-staging --timeout=5m
+
+      - name: Verify deployment
+        run: |
+          echo "## Staging Deployment Status" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          kubectl get pods -n valuecanvas-staging >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          kubectl get services -n valuecanvas-staging >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          kubectl get ingress -n valuecanvas-staging >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Run smoke tests
+        run: |
+          # Wait for ingress to be ready
+          sleep 30
+          
+          # Get ingress URL
+          INGRESS_URL=$(kubectl get ingress valuecanvas-staging -n valuecanvas-staging -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          
+          if [ -n "$INGRESS_URL" ]; then
+            echo "Testing health endpoints..."
+            curl -f http://${INGRESS_URL}/health || echo "Health check failed"
+            curl -f http://${INGRESS_URL}/api/health || echo "API health check failed"
+          fi
+
+      - name: Notify Slack
+        if: always()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "${{ job.status == 'success' && '✅' || '❌' }} Staging deployment ${{ job.status }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Staging Deployment ${{ job.status }}*\n\n*Repository:* ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}\n*Commit:* ${{ github.sha }}"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ vars.SLACK_WEBHOOK_URL }}
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    environment: 
+      name: production
+      url: https://app.valuecanvas.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_PROD }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name valuecanvas-production-cluster \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Install Kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Create namespace if not exists
+        run: |
+          kubectl create namespace valuecanvas-production --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Create secrets
+        run: |
+          kubectl create secret generic valuecanvas-secrets \
+            --from-literal=database-url="${{ secrets.PROD_DATABASE_URL }}" \
+            --from-literal=supabase-url="${{ secrets.PROD_SUPABASE_URL }}" \
+            --from-literal=supabase-anon-key="${{ secrets.PROD_SUPABASE_ANON_KEY }}" \
+            --from-literal=supabase-service-key="${{ secrets.PROD_SUPABASE_SERVICE_KEY }}" \
+            --from-literal=together-api-key="${{ secrets.PROD_TOGETHER_API_KEY }}" \
+            --from-literal=openai-api-key="${{ secrets.PROD_OPENAI_API_KEY }}" \
+            --from-literal=jwt-secret="${{ secrets.PROD_JWT_SECRET }}" \
+            --namespace=valuecanvas-production \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Update image tags in kustomization
+        run: |
+          cd k8s/overlays/production
+          IMAGE_TAG=${{ github.event.inputs.image_tag || 'latest' }}
+          ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+          
+          kustomize edit set image \
+            REGISTRY_URL/valuecanvas-backend=${ECR_REGISTRY}/valuecanvas-backend:${IMAGE_TAG} \
+            REGISTRY_URL/valuecanvas-frontend=${ECR_REGISTRY}/valuecanvas-frontend:${IMAGE_TAG}
+
+      - name: Deploy to production
+        run: |
+          cd k8s/overlays/production
+          kustomize build . | kubectl apply -f -
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/backend-production -n valuecanvas-production --timeout=10m
+          kubectl rollout status deployment/frontend-production -n valuecanvas-production --timeout=10m
+
+      - name: Verify deployment
+        run: |
+          echo "## Production Deployment Status" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          kubectl get pods -n valuecanvas-production >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          kubectl get services -n valuecanvas-production >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          kubectl get ingress -n valuecanvas-production >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Run smoke tests
+        run: |
+          sleep 30
+          INGRESS_URL=$(kubectl get ingress valuecanvas-production -n valuecanvas-production -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          
+          if [ -n "$INGRESS_URL" ]; then
+            echo "Testing production endpoints..."
+            curl -f https://${INGRESS_URL}/health || echo "Health check failed"
+            curl -f https://${INGRESS_URL}/api/health || echo "API health check failed"
+          fi
+
+      - name: Notify Slack
+        if: always()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "${{ job.status == 'success' && '🚀' || '🚨' }} Production deployment ${{ job.status }}",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "${{ job.status == 'success' && '🚀 Production Deployment Successful' || '🚨 Production Deployment Failed' }}"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Repository:*\n${{ github.repository }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Branch:*\n${{ github.ref_name }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Commit:*\n${{ github.sha }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Deployed by:*\n${{ github.actor }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Notify PagerDuty on Failure
+        if: failure()
+        uses: PagerDuty/pagerduty-change-events-action@v1
+        with:
+          integration-key: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
+          summary: "Production Kubernetes deployment failed"
+          severity: critical
+          source: github-actions
