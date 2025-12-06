@@ -8,20 +8,44 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
     trace: 'on-first-retry',
-    screenshot: 'on',
-    video: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+    // Increase timeouts for container environments
+    actionTimeout: 10000,
+    navigationTimeout: 30000,
   },
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { 
+        ...devices['Desktop Chrome'],
+        // Enable headless mode by default (can be overridden with --headed flag)
+        headless: process.env.CI ? true : false,
+      },
+    },
+    {
+      name: 'firefox',
+      use: { 
+        ...devices['Desktop Firefox'],
+        headless: process.env.CI ? true : false,
+      },
+    },
+    {
+      name: 'webkit',
+      use: { 
+        ...devices['Desktop Safari'],
+        headless: process.env.CI ? true : false,
+      },
     },
   ],
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: true,
+    url: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120000, // 2 minutes for server to start
+    stdout: 'pipe',
+    stderr: 'pipe',
   },
 });
