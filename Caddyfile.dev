@@ -1,0 +1,204 @@
+# ============================================================================
+# Caddyfile for ValueCanvas Development Environment
+# ============================================================================
+# Development-optimized configuration with hot reload support
+# ============================================================================
+
+{
+    # Global options for development
+    auto_https off
+    
+    # Enable admin API for runtime configuration
+    admin localhost:2019
+    
+    # Debug mode for development
+    debug
+    
+    # Server configuration
+    servers {
+        # Relaxed limits for development
+        max_header_size 5MB
+        
+        # Generous timeouts for debugging
+        timeouts {
+            read_body 60s
+            read_header 30s
+            write 60s
+            idle 300s
+        }
+        
+        # Enable all protocols for testing
+        protocols h1 h2 h2c
+    }
+    
+    # Logging - verbose for development
+    log {
+        output stdout
+        format console
+        level DEBUG
+    }
+}
+
+# ============================================================================
+# Main Development Server - Port 80
+# ============================================================================
+:80 {
+    # Development-friendly request size (100MB for testing file uploads)
+    request_body {
+        max_size 100MB
+    }
+    
+    # Root path - proxy to Vite dev server
+    handle /* {
+        reverse_proxy localhost:3000 {
+            # Health check
+            health_uri /
+            health_interval 10s
+            health_timeout 5s
+            health_status 2xx
+            
+            # Development headers
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Request-ID {uuid}
+            
+            # Transport settings optimized for dev
+            transport http {
+                read_buffer 8192
+                write_buffer 8192
+                max_response_header 10MB
+                dial_timeout 30s
+                response_header_timeout 60s
+                expect_continue_timeout 5s
+            }
+            
+            # Keep connection alive for HMR
+            flush_interval -1
+        }
+    }
+    
+    # Enable compression (lighter for dev)
+    encode {
+        gzip 4
+        minimum_length 512
+    }
+    
+    # Development security headers (relaxed)
+    header {
+        # Basic XSS protection
+        X-XSS-Protection "1; mode=block"
+        X-Content-Type-Options "nosniff"
+        
+        # Allow iframe for dev tools
+        X-Frame-Options "SAMEORIGIN"
+        
+        # Relaxed CSP for development
+        Content-Security-Policy "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: ws: wss: http: https:; img-src 'self' data: blob: https:; connect-src 'self' ws: wss: http: https:;"
+        
+        # Remove server header
+        -Server
+        
+        # Add request ID for debugging
+        X-Request-ID {uuid}
+        X-Dev-Mode "true"
+    }
+    
+    # CORS - wide open for development
+    @cors_preflight {
+        method OPTIONS
+    }
+    handle @cors_preflight {
+        header {
+            Access-Control-Allow-Origin "*"
+            Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD"
+            Access-Control-Allow-Headers "*"
+            Access-Control-Max-Age "86400"
+            Access-Control-Allow-Credentials "true"
+        }
+        respond 204
+    }
+    
+    # CORS for all responses
+    header {
+        Access-Control-Allow-Origin "*"
+        Access-Control-Allow-Credentials "true"
+    }
+    
+    # Development error handling with details
+    handle_errors {
+        respond "{err.status_code} {err.status_text} - {err.message}" {err.status_code} {
+            close
+        }
+    }
+    
+    # Verbose logging for debugging
+    log {
+        output stdout
+        format console
+        level DEBUG
+    }
+}
+
+# ============================================================================
+# Health Check Endpoint
+# ============================================================================
+:80/caddy-health {
+    respond "Caddy is healthy" 200 {
+        close
+    }
+}
+
+# ============================================================================
+# WebSocket Support for Vite HMR
+# ============================================================================
+# Caddy automatically upgrades WebSocket connections
+# Vite HMR should work out of the box on ws://localhost
+
+# ============================================================================
+# Static File Server (optional, for testing)
+# ============================================================================
+:8080 {
+    root * /app/dist
+    file_server browse
+    
+    # Cache control for static assets
+    @static {
+        path *.js *.css *.png *.jpg *.jpeg *.gif *.ico *.svg *.woff *.woff2 *.ttf *.eot
+    }
+    header @static {
+        Cache-Control "public, max-age=3600"
+    }
+    
+    # SPA fallback
+    try_files {path} /index.html
+    
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+}
+
+# ============================================================================
+# Admin API Documentation Endpoint
+# ============================================================================
+# Access admin API at http://localhost:2019
+# GET http://localhost:2019/config/ - View current config
+# POST http://localhost:2019/load - Reload configuration
+
+# ============================================================================
+# Development Tips
+# ============================================================================
+# 1. Access app at: http://localhost
+# 2. Vite dev server runs on: http://localhost:3000 (proxied)
+# 3. Static files served at: http://localhost:8080
+# 4. Admin API at: http://localhost:2019
+# 5. Health check at: http://localhost/caddy-health
+# 
+# Hot reload Caddy config:
+#   caddy reload --config Caddyfile.dev --adapter caddyfile
+# 
+# View current config:
+#   curl http://localhost:2019/config/

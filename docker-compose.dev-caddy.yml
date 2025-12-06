@@ -1,50 +1,45 @@
 # ============================================================================
 # ValueCanvas Development with Caddy Reverse Proxy
 # ============================================================================
-# Enhanced docker-compose with Caddy for automatic HTTPS and better routing
+# Development-optimized setup with hot reload and debugging support
 # ============================================================================
 
 version: '3.8'
 
 services:
   # ============================================================================
-  # Caddy Reverse Proxy
+  # Caddy Reverse Proxy (Development Mode)
   # ============================================================================
   caddy:
     image: caddy:2-alpine
-    container_name: valuecanvas-caddy
+    container_name: valuecanvas-caddy-dev
     ports:
-      - "80:80"          # HTTP
-      - "443:443"        # HTTPS (automatic)
-      - "2019:2019"      # Caddy Admin API
+      - "80:80"          # Main application
+      - "443:443"        # HTTPS (auto-disabled for dev)
+      - "2019:2019"      # Admin API
+      - "8080:8080"      # Static file server
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./Caddyfile.dev:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
-    environment:
-      - CADDY_ADMIN=0.0.0.0:2019
+      - ./dist:/app/dist:ro
     networks:
       - valuecanvas-network
     restart: unless-stopped
     depends_on:
       app:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/caddy-health"]
+      interval: 10s
+      timeout: 5s
       retries: 3
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 128M
-        reservations:
-          cpus: '0.1'
-          memory: 64M
-    security_opt:
-      - no-new-privileges:true
+      start_period: 5s
+    environment:
+      - CADDY_ADMIN=:2019
+    labels:
+      - "com.valuecanvas.service=caddy"
+      - "com.valuecanvas.environment=development"
     logging:
       driver: "json-file"
       options:
@@ -58,11 +53,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    container_name: valuecanvas-app
+    container_name: valuecanvas-dev
     expose:
-      - "3000"           # Expose to Caddy (not to host)
+      - "3000"           # Vite dev server (internal only)
     ports:
-      - "3000:3000"      # Also expose to host for direct access
+      - "3000:3000"      # Also expose for direct access
       - "24678:24678"    # Vite HMR
     volumes:
       - ./src:/app/src:cached
@@ -71,14 +66,18 @@ services:
       - ./vite.config.ts:/app/vite.config.ts:cached
       - ./tsconfig.json:/app/tsconfig.json:cached
       - ./package.json:/app/package.json:cached
+      - ./tailwind.config.js:/app/tailwind.config.js:cached
+      - ./postcss.config.js:/app/postcss.config.js:cached
       - /app/node_modules
     env_file:
-      - .env.local
+      - .env.dev
     environment:
       - NODE_ENV=development
       - VITE_HOST=0.0.0.0
       - VITE_PORT=3000
       - VITE_HMR_PORT=24678
+      - VITE_HMR_PROTOCOL=ws
+      - VITE_HMR_HOST=localhost
     networks:
       - valuecanvas-network
     restart: unless-stopped
@@ -88,16 +87,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    deploy:
-      resources:
-        limits:
-          cpus: '4.0'
-          memory: 6G
-        reservations:
-          cpus: '2.0'
-          memory: 4G
-    security_opt:
-      - no-new-privileges:true
+    labels:
+      - "com.valuecanvas.service=app"
+      - "com.valuecanvas.environment=development"
     logging:
       driver: "json-file"
       options:
@@ -109,17 +101,13 @@ services:
   # ============================================================================
   postgres:
     image: postgres:15-alpine
-    container_name: valuecanvas-postgres
+    container_name: valuecanvas-postgres-dev
     ports:
       - "5432:5432"
-    env_file:
-      - .env.local
     environment:
-      - POSTGRES_DB=${POSTGRES_DB:-valuecanvas}
+      - POSTGRES_DB=${POSTGRES_DB:-valuecanvas_dev}
       - POSTGRES_USER=${POSTGRES_USER:-valuecanvas}
-      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
-    secrets:
-      - db_password
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-dev_password_change_me}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./supabase/migrations:/docker-entrypoint-initdb.d:ro
@@ -131,16 +119,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 2G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
-    security_opt:
-      - no-new-privileges:true
+    labels:
+      - "com.valuecanvas.service=postgres"
+      - "com.valuecanvas.environment=development"
     logging:
       driver: "json-file"
       options:
@@ -152,7 +133,7 @@ services:
   # ============================================================================
   redis:
     image: redis:7-alpine
-    container_name: valuecanvas-redis
+    container_name: valuecanvas-redis-dev
     ports:
       - "6379:6379"
     volumes:
@@ -160,29 +141,15 @@ services:
     networks:
       - valuecanvas-network
     restart: unless-stopped
-    secrets:
-      - redis_password
+    command: redis-server --appendonly yes --requirepass dev_redis_password
     healthcheck:
-      test: ["CMD", "sh", "-c", "redis-cli --no-auth-warning -a $(cat /run/secrets/redis_password) ping"]
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "dev_redis_password", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-    command: >
-      sh -c 'redis-server
-      --appendonly yes
-      --requirepass $$(cat /run/secrets/redis_password)
-      --maxmemory 128mb
-      --maxmemory-policy allkeys-lru'
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 256M
-        reservations:
-          cpus: '0.25'
-          memory: 128M
-    security_opt:
-      - no-new-privileges:true
+    labels:
+      - "com.valuecanvas.service=redis"
+      - "com.valuecanvas.environment=development"
     logging:
       driver: "json-file"
       options:
@@ -195,6 +162,8 @@ services:
 networks:
   valuecanvas-network:
     driver: bridge
+    labels:
+      - "com.valuecanvas.environment=development"
 
 # ============================================================================
 # Volumes
@@ -202,18 +171,21 @@ networks:
 volumes:
   postgres-data:
     driver: local
+    labels:
+      - "com.valuecanvas.service=postgres"
+      - "com.valuecanvas.environment=development"
   redis-data:
     driver: local
+    labels:
+      - "com.valuecanvas.service=redis"
+      - "com.valuecanvas.environment=development"
   caddy-data:
     driver: local
+    labels:
+      - "com.valuecanvas.service=caddy"
+      - "com.valuecanvas.environment=development"
   caddy-config:
     driver: local
-
-# ============================================================================
-# Secrets
-# ============================================================================
-secrets:
-  db_password:
-    file: ./secrets/dev_db_password.txt
-  redis_password:
-    file: ./secrets/dev_redis_password.txt
+    labels:
+      - "com.valuecanvas.service=caddy"
+      - "com.valuecanvas.environment=development"
