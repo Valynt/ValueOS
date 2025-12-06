@@ -1,0 +1,193 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: webhook-retry
+  labels:
+    app: valuecanvas
+    component: billing
+    job-type: webhook-retry
+spec:
+  # Run every 5 minutes
+  schedule: "*/5 * * * *"
+  
+  # Keep history of last 3 successful and failed jobs
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  
+  # Don't run concurrent jobs
+  concurrencyPolicy: Forbid
+  
+  # Start deadline (if job doesn't start within 100s, skip it)
+  startingDeadlineSeconds: 100
+  
+  jobTemplate:
+    metadata:
+      labels:
+        app: valuecanvas
+        component: billing
+        job-type: webhook-retry
+    spec:
+      # Retry failed jobs once
+      backoffLimit: 1
+      
+      # Job timeout (5 minutes)
+      activeDeadlineSeconds: 300
+      
+      template:
+        metadata:
+          labels:
+            app: valuecanvas
+            component: billing
+            job-type: webhook-retry
+        spec:
+          restartPolicy: OnFailure
+          
+          containers:
+          - name: webhook-retry
+            image: valuecanvas/api:latest
+            imagePullPolicy: Always
+            
+            command:
+            - node
+            - scripts/jobs/webhook-retry.js
+            
+            env:
+            # Database connection
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: database-credentials
+                  key: url
+            
+            # Supabase configuration
+            - name: VITE_SUPABASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: supabase-url
+            
+            - name: SUPABASE_SERVICE_ROLE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-credentials
+                  key: service-role-key
+            
+            # Stripe configuration
+            - name: STRIPE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: stripe-credentials
+                  key: secret-key
+            
+            - name: STRIPE_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: stripe-credentials
+                  key: webhook-secret
+            
+            # Node environment
+            - name: NODE_ENV
+              value: "production"
+            
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "100m"
+              limits:
+                memory: "256Mi"
+                cpu: "200m"
+            
+            # Health check (optional)
+            livenessProbe:
+              exec:
+                command:
+                - /bin/sh
+                - -c
+                - "ps aux | grep -v grep | grep node"
+              initialDelaySeconds: 5
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 3
+          
+          # Image pull secrets (if using private registry)
+          # imagePullSecrets:
+          # - name: registry-credentials
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: grace-period-cleanup
+  labels:
+    app: valuecanvas
+    component: billing
+    job-type: grace-period-cleanup
+spec:
+  # Run daily at 3 AM
+  schedule: "0 3 * * *"
+  
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  
+  concurrencyPolicy: Forbid
+  
+  startingDeadlineSeconds: 300
+  
+  jobTemplate:
+    metadata:
+      labels:
+        app: valuecanvas
+        component: billing
+        job-type: grace-period-cleanup
+    spec:
+      backoffLimit: 1
+      
+      activeDeadlineSeconds: 600
+      
+      template:
+        metadata:
+          labels:
+            app: valuecanvas
+            component: billing
+            job-type: grace-period-cleanup
+        spec:
+          restartPolicy: OnFailure
+          
+          containers:
+          - name: grace-period-cleanup
+            image: valuecanvas/api:latest
+            imagePullPolicy: Always
+            
+            command:
+            - node
+            - scripts/jobs/grace-period-cleanup.js
+            - --days=30
+            
+            env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: database-credentials
+                  key: url
+            
+            - name: VITE_SUPABASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: supabase-url
+            
+            - name: SUPABASE_SERVICE_ROLE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-credentials
+                  key: service-role-key
+            
+            - name: NODE_ENV
+              value: "production"
+            
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "100m"
+              limits:
+                memory: "256Mi"
+                cpu: "200m"
