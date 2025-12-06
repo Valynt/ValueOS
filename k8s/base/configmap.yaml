@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: valuecanvas-config
+  namespace: valuecanvas
+  labels:
+    app.kubernetes.io/name: valuecanvas
+    app.kubernetes.io/part-of: valuecanvas
+data:
+  # Redis configuration
+  redis-url: "redis://redis:6379"
+  
+  # Application configuration
+  node-env: "production"
+  log-level: "info"
+  
+  # Feature flags
+  enable-circuit-breaker: "true"
+  enable-rate-limiting: "true"
+  enable-audit-logging: "true"
+  
+  # LLM configuration
+  llm-provider: "together"
+  
+  # Performance settings
+  max-request-size: "10mb"
+  request-timeout: "30000"
