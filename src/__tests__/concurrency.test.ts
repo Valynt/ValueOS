@@ -205,8 +205,6 @@ describeMaybe('Concurrency Safety', () => {
       // Performance check: should complete in reasonable time
       // Target: < 10s for 100 concurrent users
       expect(duration).toBeLessThan(10000);
-
-      console.log(`Load test: ${userCount} users in ${duration}ms`);
     });
 
     it('should handle burst traffic', async () => {
@@ -255,8 +253,6 @@ describeMaybe('Concurrency Safety', () => {
       sessionsByUser.forEach((sessions, userId) => {
         expect(sessions.size).toBe(1);
       });
-
-      console.log(`Burst test: ${userCount * queriesPerUser} requests in ${duration}ms`);
     });
   });
 

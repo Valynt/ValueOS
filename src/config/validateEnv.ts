@@ -9,6 +9,9 @@
 
 import { llmConfig } from './llm';
 import type { LLMProvider } from '../lib/agent-fabric/llm-types';
+import { createLogger } from '../lib/logger';
+
+const validationLogger = createLogger({ component: 'EnvValidation' });
 
 /**
  * Validation result
@@ -205,15 +208,19 @@ export function validateEnv(): ValidationResult {
  */
 export function logValidationResults(result: ValidationResult): void {
   if (result.errors.length > 0) {
-    console.error('[ENV Validation] Errors:', result.errors);
+    validationLogger.error('ENV validation errors', new Error('Invalid environment configuration'), {
+      errors: result.errors,
+    });
   }
 
   if (result.warnings.length > 0) {
-    console.warn('[ENV Validation] Warnings:', result.warnings);
+    validationLogger.warn('ENV validation warnings', {
+      warnings: result.warnings,
+    });
   }
 
   if (result.valid && result.errors.length === 0 && result.warnings.length === 0) {
-    console.info('[ENV Validation] ✓ All environment variables valid');
+    validationLogger.info('ENV validation passed');
   }
 }
 

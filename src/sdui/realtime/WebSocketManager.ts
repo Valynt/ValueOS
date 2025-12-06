@@ -6,6 +6,7 @@
  */
 
 import { TenantContext } from '../TenantContext';
+import { createLogger } from '../../lib/logger';
 
 /**
  * WebSocket connection state
@@ -68,6 +69,7 @@ export class WebSocketManager {
   private static instance: WebSocketManager;
   private ws: WebSocket | null = null;
   private config: Required<WebSocketConfig>;
+  private logger = createLogger({ component: 'WebSocketManager' });
   private state: ConnectionState = 'disconnected';
   private subscriptions: Map<string, Set<ChannelSubscription>> = new Map();
   private reconnectAttempts = 0;
@@ -482,7 +484,7 @@ export class WebSocketManager {
    */
   private log(...args: any[]): void {
     if (this.config.debug) {
-      console.log('[WebSocketManager]', ...args);
+      this.logger.debug('WebSocket manager debug', { args });
     }
   }
 

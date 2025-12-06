@@ -5,6 +5,8 @@
  * Automatically opens circuit after threshold failures and closes after recovery.
  */
 
+import { createLogger } from '../../lib/logger';
+
 /**
  * Circuit state
  */
@@ -74,6 +76,7 @@ export interface CircuitBreakerStats {
  */
 export class CircuitBreaker {
   private config: Required<CircuitBreakerConfig>;
+  private logger = createLogger({ component: 'CircuitBreaker' });
   private state: CircuitState = 'closed';
   private failures = 0;
   private successes = 0;
@@ -93,6 +96,11 @@ export class CircuitBreaker {
       onHalfOpen: () => {},
       ...config,
     };
+
+    this.logger = createLogger({
+      component: 'CircuitBreaker',
+      circuit: this.config.name,
+    });
   }
 
   /**
@@ -171,7 +179,10 @@ export class CircuitBreaker {
     this.openedAt = new Date();
     this.nextAttemptTime = new Date(Date.now() + this.config.timeout);
     this.config.onOpen();
-    console.warn(`[CircuitBreaker] Circuit '${this.config.name}' opened`);
+    this.logger.warn('Circuit opened', {
+      openedAt: this.openedAt.toISOString(),
+      nextAttemptTime: this.nextAttemptTime.toISOString(),
+    });
   }
 
   /**
@@ -186,7 +197,7 @@ export class CircuitBreaker {
     this.halfOpenedAt = null;
     this.nextAttemptTime = null;
     this.config.onClose();
-    console.log(`[CircuitBreaker] Circuit '${this.config.name}' closed`);
+    this.logger.info('Circuit closed');
   }
 
   /**
@@ -197,7 +208,9 @@ export class CircuitBreaker {
     this.halfOpenedAt = new Date();
     this.successes = 0;
     this.config.onHalfOpen();
-    console.log(`[CircuitBreaker] Circuit '${this.config.name}' half-opened`);
+    this.logger.info('Circuit half-opened', {
+      openedAt: this.halfOpenedAt.toISOString(),
+    });
   }
 
   /**

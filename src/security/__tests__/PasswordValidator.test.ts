@@ -172,7 +172,6 @@ describe('PasswordValidator', () => {
         expect(typeof isBreached).toBe('boolean');
       } catch (error) {
         // If API is unreachable, test should note it but not fail
-        console.log('Password breach API unreachable:', error);
         expect(error).toBeDefined();
       }
     });
@@ -205,7 +204,7 @@ describe('PasswordValidator', () => {
         
         if (fetchSpy.mock.calls.length > 0) {
           const callUrl = fetchSpy.mock.calls[0][0] as string;
-          
+
           // URL should be to pwnedpasswords API
           expect(callUrl).toContain('api.pwnedpasswords.com');
           expect(callUrl).toContain('/range/');
@@ -218,7 +217,7 @@ describe('PasswordValidator', () => {
         }
       } catch (error) {
         // API might be unreachable in test environment
-        console.log('Password breach check skipped:', error);
+        expect(error).toBeDefined();
       } finally {
         fetchSpy.mockRestore();
       }

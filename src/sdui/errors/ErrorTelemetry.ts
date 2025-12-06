@@ -6,6 +6,9 @@
  */
 
 import { TenantContext } from '../TenantContext';
+import { createLogger } from '../../lib/logger';
+
+const telemetryLogger = createLogger({ component: 'ErrorTelemetry' });
 
 /**
  * Error severity level
@@ -167,7 +170,9 @@ export class ErrorTelemetry {
     //   sampleRate: this.config.sampleRate,
     // });
 
-    console.log('[ErrorTelemetry] Initialized with Sentry DSN');
+    telemetryLogger.info('Initialized error telemetry with Sentry DSN', {
+      environment: this.config.environment,
+    });
   }
 
   /**
@@ -330,7 +335,7 @@ export class ErrorTelemetry {
     //   fingerprint: report.fingerprint,
     // });
 
-    console.log('[ErrorTelemetry] Would send to Sentry:', {
+    telemetryLogger.debug('Sending error telemetry to Sentry', {
       error: report.error.message,
       severity: report.severity,
       context: report.context,
@@ -341,9 +346,14 @@ export class ErrorTelemetry {
    * Log error locally
    */
   private logError(report: ErrorReport): void {
-    const logMethod = report.severity === 'fatal' || report.severity === 'error' ? 'error' : 'warn';
+    const level =
+      report.severity === 'fatal' || report.severity === 'error'
+        ? 'error'
+        : report.severity === 'warning'
+          ? 'warn'
+          : 'info';
 
-    console[logMethod]('[ErrorTelemetry]', {
+    telemetryLogger[level]('Error telemetry captured', {
       error: report.error,
       severity: report.severity,
       context: report.context,
@@ -372,7 +382,7 @@ export function captureError(
   if (telemetry) {
     telemetry.captureError(error, severity, context);
   } else {
-    console.error('[ErrorTelemetry] Not initialized:', error);
+    telemetryLogger.error('ErrorTelemetry not initialized', error, { context });
   }
 }
 
@@ -395,7 +405,7 @@ export function captureMessage(
   if (telemetry) {
     telemetry.captureMessage(message, severity, context);
   } else {
-    console.log('[ErrorTelemetry] Not initialized:', message);
+    telemetryLogger.warn('ErrorTelemetry not initialized', { message, context });
   }
 }
 

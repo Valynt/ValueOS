@@ -319,9 +319,7 @@ describe('StateManagement', () => {
 
   describe('Middleware', () => {
     it('should log actions', () => {
-      const logger = vi.fn((action) => {
-        console.log('Action:', action.type);
-      });
+      const logger = vi.fn((action) => action.type);
 
       const action = { type: 'ADD_COMPONENT' };
       logger(action);

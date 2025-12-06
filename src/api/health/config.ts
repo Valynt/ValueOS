@@ -11,6 +11,9 @@
 
 import { validateLLMConfig } from '../../config/validateEnv';
 import { getConfig } from '../../config/environment';
+import { createLogger } from '../../lib/logger';
+
+const healthLogger = createLogger({ component: 'ConfigHealth' });
 import type { HealthStatus, ComponentHealth, ConfigHealth } from '../../types/health';
 
 /**
@@ -192,22 +195,19 @@ export function getConfigHealth(): ConfigHealth {
 export function logConfigHealth(): void {
   const health = getConfigHealth();
 
-  console.group('[Config Health Check]');
-  console.log('Status:', health.status.toUpperCase());
-  console.log('Timestamp:', health.timestamp);
-  console.log('Components:');
-  console.table(
-    Object.entries(health.components).map(([name, component]) => ({
-      Component: name,
-      Status: component.status,
-      Available: component.available ? '✓' : '✗',
-      Message: component.message || '-',
-    }))
-  );
-  console.log(
-    `Validation: ${health.validation.errors} error(s), ${health.validation.warnings} warning(s)`
-  );
-  console.groupEnd();
+  const componentStatus = Object.entries(health.components).map(([name, component]) => ({
+    component: name,
+    status: component.status,
+    available: component.available,
+    message: component.message,
+  }));
+
+  healthLogger.info('Configuration health snapshot', {
+    status: health.status,
+    timestamp: health.timestamp,
+    components: componentStatus,
+    validation: health.validation,
+  });
 }
 
 /**

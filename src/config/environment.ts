@@ -8,6 +8,18 @@
  * Note: Cannot import logger here due to circular dependency
  */
 
+function writeStdout(message: string) {
+  if (typeof process !== 'undefined' && process.stdout) {
+    process.stdout.write(`${message}\n`);
+  }
+}
+
+function writeStderr(message: string) {
+  if (typeof process !== 'undefined' && process.stderr) {
+    process.stderr.write(`${message}\n`);
+  }
+}
+
 /**
  * Application environment type
  */
@@ -360,8 +372,8 @@ export function getConfig(): EnvironmentConfig {
     // Validate configuration
     const errors = validateEnvironmentConfig(configInstance);
     if (errors.length > 0) {
-      // Use console instead of logger to avoid circular dependency
-      console.error('[Environment] Configuration errors:', errors.length);
+      // Emit minimal detail to avoid leaking configuration values
+      writeStderr(`[Environment] Configuration errors detected: ${errors.length}`);
       if (configInstance.app.env === 'production') {
         throw new Error(`Invalid environment configuration: ${errors.length} errors found`);
       }
@@ -369,14 +381,7 @@ export function getConfig(): EnvironmentConfig {
 
     // Log minimal configuration in development only
     if (configInstance.app.env === 'development') {
-      console.info('[Environment] Configuration loaded:', {
-        env: configInstance.app.env,
-        featuresEnabled: Object.keys(configInstance.features).filter(
-          k => configInstance?.features[k as keyof typeof configInstance.features]
-        ).length,
-        agentCircuitBreakerEnabled: configInstance.agents.circuitBreaker.enabled,
-        // NEVER log: URLs, API keys, secrets, full config
-      });
+      writeStdout('[Environment] Configuration loaded for development (redacted)');
     }
   }
 

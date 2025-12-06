@@ -7,6 +7,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { CanvasLayout } from './types';
+import { createLogger } from '../../lib/logger';
+
+const logger = createLogger({ component: 'StreamingCanvas' });
 
 export interface StreamingCanvasProps {
   canvasId: string;
@@ -26,9 +29,9 @@ export const StreamingCanvas: React.FC<StreamingCanvasProps> = ({
   useEffect(() => {
     // Connect to WebSocket for streaming updates
     const ws = new WebSocket(`${wsUrl}/${canvasId}`);
-    
+
     ws.onopen = () => {
-      console.log('StreamingCanvas: WebSocket connected');
+      logger.info('Streaming canvas WebSocket connected', { canvasId, wsUrl });
     };
     
     ws.onmessage = (event) => {
@@ -46,21 +49,23 @@ export const StreamingCanvas: React.FC<StreamingCanvasProps> = ({
           setIsStreaming(false);
           setChunks([]);
         } else if (data.type === 'error') {
-          console.error('StreamingCanvas error:', data.error);
+          logger.error('Streaming canvas error message received', new Error(String(data.error)), {
+            canvasId,
+          });
           setIsStreaming(false);
         }
       } catch (error) {
-        console.error('StreamingCanvas: Failed to parse message', error);
+        logger.error('Streaming canvas failed to parse message', error as Error, { canvasId });
       }
     };
-    
+
     ws.onerror = (error) => {
-      console.error('StreamingCanvas: WebSocket error', error);
+      logger.error('Streaming canvas WebSocket error', error as Error, { canvasId });
       setIsStreaming(false);
     };
-    
+
     ws.onclose = () => {
-      console.log('StreamingCanvas: WebSocket disconnected');
+      logger.info('Streaming canvas WebSocket disconnected', { canvasId });
       setIsStreaming(false);
     };
     
