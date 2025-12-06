@@ -1,0 +1,182 @@
+name: Terraform Security Scan
+
+on:
+  pull_request:
+    paths:
+      - 'infrastructure/terraform/**'
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'infrastructure/terraform/**'
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  tfsec:
+    name: tfsec Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: infrastructure/terraform
+          soft_fail: false
+          format: sarif
+          additional_args: --minimum-severity MEDIUM
+
+      - name: Upload tfsec SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: tfsec.sarif
+          category: tfsec
+
+      - name: Generate tfsec Report
+        if: always()
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: infrastructure/terraform
+          soft_fail: true
+          format: markdown
+          additional_args: --minimum-severity LOW
+
+      - name: Comment PR with tfsec Results
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let report = '';
+            try {
+              report = fs.readFileSync('tfsec.md', 'utf8');
+            } catch (error) {
+              report = 'No security issues found or report generation failed.';
+            }
+            
+            const output = `### tfsec Security Scan Results 🔒
+            
+            ${report}
+            
+            *Scanned by: tfsec*
+            *Triggered by: @${{ github.actor }}*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+  checkov:
+    name: Checkov Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Checkov
+        id: checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: infrastructure/terraform
+          framework: terraform
+          output_format: sarif
+          output_file_path: checkov.sarif
+          soft_fail: false
+          skip_check: CKV_AWS_79,CKV_AWS_80  # Skip specific checks if needed
+
+      - name: Upload Checkov SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: checkov.sarif
+          category: checkov
+
+      - name: Generate Checkov Report
+        if: always()
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: infrastructure/terraform
+          framework: terraform
+          output_format: cli
+          soft_fail: true
+
+  trivy:
+    name: Trivy IaC Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: 'infrastructure/terraform'
+          format: 'sarif'
+          output: 'trivy.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Upload Trivy SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy.sarif
+          category: trivy
+
+  security-summary:
+    name: Security Scan Summary
+    runs-on: ubuntu-latest
+    needs: [tfsec, checkov, trivy]
+    if: always()
+    
+    steps:
+      - name: Create Summary
+        run: |
+          echo "## 🔒 Terraform Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Scanner | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| tfsec | ${{ needs.tfsec.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Checkov | ${{ needs.checkov.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Trivy | ${{ needs.trivy.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Scan Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify on Failure
+        if: |
+          needs.tfsec.result == 'failure' || 
+          needs.checkov.result == 'failure' || 
+          needs.trivy.result == 'failure'
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "⚠️ Terraform security scan found issues",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Security Scan Alert* ⚠️\n\nSecurity issues detected in Terraform configuration.\n\n*Repository:* ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}\n*Actor:* ${{ github.actor }}\n\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ vars.SLACK_WEBHOOK_URL }}

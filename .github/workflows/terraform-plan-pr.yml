@@ -1,0 +1,240 @@
+name: Terraform Plan on PR
+
+on:
+  pull_request:
+    paths:
+      - 'infrastructure/terraform/**'
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+env:
+  AWS_REGION: us-east-1
+  TERRAFORM_VERSION: 1.6.0
+
+jobs:
+  plan-staging:
+    name: Plan Staging Changes
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: infrastructure/terraform/environments/staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform plan \
+            -var-file=terraform.tfvars \
+            -var="db_password=${{ secrets.DB_PASSWORD }}" \
+            -var="supabase_url=${{ secrets.SUPABASE_URL }}" \
+            -var="supabase_anon_key=${{ secrets.SUPABASE_ANON_KEY }}" \
+            -var="supabase_service_key=${{ secrets.SUPABASE_SERVICE_KEY }}" \
+            -var="together_api_key=${{ secrets.TOGETHER_API_KEY }}" \
+            -var="openai_api_key=${{ secrets.OPENAI_API_KEY }}" \
+            -var="jwt_secret=${{ secrets.JWT_SECRET }}" \
+            -var="acm_certificate_arn=${{ secrets.ACM_CERTIFICATE_ARN }}" \
+            -no-color \
+            -out=tfplan
+        continue-on-error: true
+
+      - name: Generate Plan Summary
+        if: always()
+        run: |
+          terraform show -no-color tfplan > plan.txt 2>&1 || echo "Plan generation failed"
+
+      - name: Comment PR with Plan
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          script: |
+            const fs = require('fs');
+            let plan = '';
+            try {
+              plan = fs.readFileSync('infrastructure/terraform/environments/staging/plan.txt', 'utf8');
+            } catch (error) {
+              plan = 'Unable to read plan file';
+            }
+            
+            const truncatedPlan = plan.length > 60000 ? plan.substring(0, 60000) + '\n\n... (truncated)' : plan;
+            
+            const output = `### Terraform Plan - Staging Environment 📋
+            
+            #### Plan Status: \`${{ steps.plan.outcome }}\`
+            
+            <details><summary>Show Plan</summary>
+            
+            \`\`\`terraform
+            ${truncatedPlan}
+            \`\`\`
+            
+            </details>
+            
+            **Note:** This is a preview of changes that would be applied to the staging environment.
+            
+            *Triggered by: @${{ github.actor }}*
+            *PR: #${{ github.event.pull_request.number }}*`;
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('Terraform Plan - Staging Environment')
+            );
+            
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: output
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: output
+              });
+            }
+
+  plan-production:
+    name: Plan Production Changes
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: infrastructure/terraform/environments/production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_PROD }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform plan \
+            -var-file=terraform.tfvars \
+            -var="db_password=${{ secrets.PROD_DB_PASSWORD }}" \
+            -var="supabase_url=${{ secrets.PROD_SUPABASE_URL }}" \
+            -var="supabase_anon_key=${{ secrets.PROD_SUPABASE_ANON_KEY }}" \
+            -var="supabase_service_key=${{ secrets.PROD_SUPABASE_SERVICE_KEY }}" \
+            -var="together_api_key=${{ secrets.PROD_TOGETHER_API_KEY }}" \
+            -var="openai_api_key=${{ secrets.PROD_OPENAI_API_KEY }}" \
+            -var="jwt_secret=${{ secrets.PROD_JWT_SECRET }}" \
+            -var="acm_certificate_arn=${{ secrets.PROD_ACM_CERTIFICATE_ARN }}" \
+            -var="datadog_api_key=${{ secrets.DATADOG_API_KEY }}" \
+            -no-color \
+            -out=tfplan
+        continue-on-error: true
+
+      - name: Generate Plan Summary
+        if: always()
+        run: |
+          terraform show -no-color tfplan > plan.txt 2>&1 || echo "Plan generation failed"
+
+      - name: Comment PR with Plan
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          script: |
+            const fs = require('fs');
+            let plan = '';
+            try {
+              plan = fs.readFileSync('infrastructure/terraform/environments/production/plan.txt', 'utf8');
+            } catch (error) {
+              plan = 'Unable to read plan file';
+            }
+            
+            const truncatedPlan = plan.length > 60000 ? plan.substring(0, 60000) + '\n\n... (truncated)' : plan;
+            
+            const output = `### Terraform Plan - Production Environment 🚨
+            
+            #### Plan Status: \`${{ steps.plan.outcome }}\`
+            
+            ⚠️ **WARNING: This shows changes that would affect PRODUCTION**
+            
+            <details><summary>Show Plan</summary>
+            
+            \`\`\`terraform
+            ${truncatedPlan}
+            \`\`\`
+            
+            </details>
+            
+            **Note:** Production changes require manual approval via workflow dispatch.
+            
+            *Triggered by: @${{ github.actor }}*
+            *PR: #${{ github.event.pull_request.number }}*`;
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('Terraform Plan - Production Environment')
+            );
+            
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: output
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: output
+              });
+            }
