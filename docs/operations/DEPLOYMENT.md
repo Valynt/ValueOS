@@ -433,6 +433,24 @@ sudo ufw enable
 
 ## Monitoring & Maintenance
 
+### Deploy Observability Stack
+
+Ensure the application stack and observability services share the same Docker network (`valuecanvas-network`).
+
+```bash
+# Create the shared network once (noop if it already exists)
+docker network create valuecanvas-network || true
+
+# Start the production stack (uses valuecanvas-network)
+docker-compose -f docker/prod/docker-compose.yml up -d
+
+# Start monitoring (Prometheus, Grafana, Jaeger, OTEL collector)
+docker-compose -f infrastructure/docker-compose.observability.yml up -d
+
+# Verify services are reachable
+docker ps --filter "name=valuecanvas" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+```
+
 ### Health Checks
 
 ```bash
