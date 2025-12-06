@@ -23,6 +23,7 @@ import { getAllTools, createToolExecutor } from './MCPTools';
 import { mcpGroundTruthService } from './MCPGroundTruthService';
 import { checkStageTransition } from '../config/chatWorkflowConfig';
 import { generateChatSDUIPage, hasTemplateForStage } from '../sdui/templates/chat-templates';
+import { sanitizeAgentInput } from '../utils/security';
 
 // ============================================================================
 // Types
@@ -118,7 +119,7 @@ class AgentChatService {
    */
   async chat(request: ChatRequest): Promise<ChatResponse> {
     const traceId = uuidv4();
-    
+
     logger.info('Processing chat request', {
       traceId,
       caseId: request.caseId,
@@ -127,25 +128,39 @@ class AgentChatService {
     });
 
     try {
+      const { sanitized, safe, severity, violations } = sanitizeAgentInput(request.query);
+      const sanitizedQuery = typeof sanitized === 'string' ? sanitized : String(sanitized);
+
+      if (!safe) {
+        logger.warn('Blocked unsafe chat input due to potential prompt injection', {
+          traceId,
+          caseId: request.caseId,
+          severity,
+          violations,
+        });
+        throw new Error('Unsafe input detected');
+      }
+
       // Add user message to history
       await conversationHistoryService.addMessage(request.caseId, {
         role: 'user',
-        content: request.query,
+        content: sanitizedQuery,
       });
 
       // Get conversation context
       const recentMessages = await conversationHistoryService.getRecentMessages(request.caseId, 10);
-      
+
       // Build LLM messages with relevant examples for few-shot learning
       const llmMessages = [
-        { role: 'system' as const, content: this.buildSystemPrompt(request.workflowState, request.query) },
+        { role: 'system' as const, content: this.buildSystemPrompt(request.workflowState, sanitizedQuery) },
         ...conversationHistoryService.formatForLLM(recentMessages),
-        { role: 'user' as const, content: request.query },
+        { role: 'user' as const, content: sanitizedQuery },
       ];
 
       // Check if we should use tool calling
-      const needsFinancialData = mcpGroundTruthService.isAvailable() && this.queryNeedsFinancialData(request.query);
-      const needsCRMData = request.tenantId && this.queryNeedsCRMData(request.query);
+      const needsFinancialData =
+        mcpGroundTruthService.isAvailable() && this.queryNeedsFinancialData(sanitizedQuery);
+      const needsCRMData = request.tenantId && this.queryNeedsCRMData(sanitizedQuery);
       const useToolCalling = needsFinancialData || needsCRMData;
 
       let llmResponse;
@@ -195,7 +210,7 @@ class AgentChatService {
       // Update workflow state
       const nextState = this.updateWorkflowState(
         request.workflowState,
-        request.query,
+        sanitizedQuery,
         content,
         confidence
       );

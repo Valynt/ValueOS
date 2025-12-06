@@ -18,6 +18,7 @@ import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddlewa
 import { rateLimiters } from '../middleware/rateLimiter';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
 import { requireConsent } from '../middleware/consentMiddleware';
+import { sanitizeAgentInput } from '../utils/security';
 
 const router = Router();
 router.use(requestAuditMiddleware());
@@ -59,7 +60,23 @@ router.post(
         message: 'Model is required and must be a string'
       });
     }
-    
+
+    const { sanitized, safe, severity, violations } = sanitizeAgentInput(prompt);
+    const sanitizedPrompt = typeof sanitized === 'string' ? sanitized : String(sanitized);
+
+    if (!safe) {
+      logger.warn('Blocked unsafe LLM chat prompt', {
+        severity,
+        violations,
+        requestId: withRequestContext(req, res).requestId,
+      });
+
+      return res.status(400).json({
+        error: 'Invalid request',
+        message: 'Prompt rejected due to unsafe content',
+      });
+    }
+
     // Get user info from auth middleware (assumed to be set)
     const userId = (req as any).user?.id || 'anonymous';
     const sessionId = (req as any).sessionId;
@@ -70,13 +87,13 @@ router.post(
         userId,
         sessionId,
         model,
-        promptLength: prompt.length,
+        promptLength: sanitizedPrompt.length,
       })
     );
-    
+
     // Process request with fallback
     const response = await llmFallback.processRequest({
-      prompt,
+      prompt: sanitizedPrompt,
       model,
       maxTokens,
       temperature,
