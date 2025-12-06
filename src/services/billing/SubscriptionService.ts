@@ -387,6 +387,7 @@ class SubscriptionService {
 
     return data || [];
   }
+
 }
 
 export default new SubscriptionService();

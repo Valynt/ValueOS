@@ -139,8 +139,16 @@ router.post('/preview', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // TODO: Implement preview logic
-    res.json({ message: 'Preview not yet implemented' });
+    if (!planTier) {
+      return res.status(400).json({ error: 'planTier is required' });
+    }
+
+    const preview = await SubscriptionService.previewSubscriptionChange(
+      tenantId,
+      planTier as PlanTier
+    );
+
+    res.json(preview);
   } catch (error) {
     logger.error('Error previewing subscription', error as Error, withRequestContext(req, res));
     res.status(500).json({ error: 'Failed to preview subscription' });

@@ -5,6 +5,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import UsageCache from '../services/metering/UsageCache';
+import GracePeriodService from '../services/metering/GracePeriodService';
 import { BillingMetric, GRACE_PERIOD_MS, isHardCap } from '../config/billing';
 import { createLogger } from '../lib/logger';
 
@@ -66,13 +67,35 @@ export function createPlanEnforcement(config: EnforcementConfig) {
         }
 
         // Soft cap - check grace period
-        // TODO: Check grace period from database
+        const inGracePeriod = await GracePeriodService.isInGracePeriod(tenantId, metric);
         
-        // Allow with warning
+        if (!inGracePeriod) {
+          // Start grace period
+          await GracePeriodService.startGracePeriod(tenantId, metric, usage, quota);
+        }
+
+        const gracePeriodExpiration = await GracePeriodService.getGracePeriodExpiration(tenantId, metric);
+        const isExpired = gracePeriodExpiration && gracePeriodExpiration < new Date();
+
+        if (isExpired) {
+          // Grace period expired - enforce limit
+          return res.status(402).json({
+            error: 'Quota exceeded',
+            code: 'QUOTA_EXCEEDED_GRACE_EXPIRED',
+            metric,
+            usage,
+            quota,
+            gracePeriodExpired: gracePeriodExpiration?.toISOString(),
+            message: `Your grace period has expired. Please upgrade your plan to continue.`,
+          });
+        }
+        
+        // Still in grace period - allow with warning
         res.setHeader('X-Quota-Warning', 'true');
         res.setHeader('X-Quota-Metric', metric);
         res.setHeader('X-Quota-Usage', usage.toString());
         res.setHeader('X-Quota-Limit', quota.toString());
+        res.setHeader('X-Grace-Period-Expires', gracePeriodExpiration?.toISOString() || '');
       } else {
         // Within quota - add headers
         const remaining = quota - usage;
