@@ -237,10 +237,58 @@ header @static {
 # yourdomain.com {
 #     # Automatic HTTPS is enabled by default
 #     
-#     reverse_proxy app:3000
+#     # TLS Configuration
+#     tls {
+#         protocols tls1.2 tls1.3
+#         ciphers TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305 TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305 TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+#         curves x25519 secp384r1 secp521r1
+#     }
+#     
+#     # HSTS Header for production
+#     header {
+#         Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+#     }
+#     
+#     # Rate limiting - stricter for production
+#     rate_limit {
+#         zone production {
+#             key {remote_host}
+#             events 60
+#             window 1m
+#         }
+#     }
+#     
+#     reverse_proxy app:3000 {
+#         health_uri /health
+#         health_interval 30s
+#         health_timeout 10s
+#         health_status 2xx
+#         
+#         lb_policy least_conn
+#         fail_duration 60s
+#         max_fails 5
+#     }
 #     
 #     # All the same configurations as above
-#     encode gzip
-#     header { ... }
-#     log { ... }
+#     encode gzip zstd
+#     header { 
+#         # All security headers from development
+#         X-XSS-Protection "1; mode=block"
+#         X-Content-Type-Options "nosniff"
+#         X-Frame-Options "SAMEORIGIN"
+#         Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' wss:; frame-ancestors 'self'; base-uri 'self'; form-action 'self';"
+#         Referrer-Policy "strict-origin-when-cross-origin"
+#         Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
+#         -Server
+#     }
+#     
+#     log {
+#         output file /var/log/caddy/access.log {
+#             roll_size 100mb
+#             roll_keep 10
+#             roll_keep_for 720h
+#         }
+#         format json
+#         level WARN
+#     }
 # }
