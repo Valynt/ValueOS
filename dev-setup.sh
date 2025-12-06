@@ -125,68 +125,39 @@ echo -e "${BLUE}🗄️  Step 4: Starting Supabase Local Instance${NC}"
 echo ""
 
 # Check if Supabase is already running
-if npx supabase status &> /dev/null; then
-    echo -e "${GREEN}✅ Supabase is already running${NC}"
-    echo ""
-    echo "Current Supabase configuration:"
-    npx supabase status | grep -E "(API URL|GraphQL URL|DB URL|Studio URL|anon key|service_role key)" || true
-else
-    echo "Starting Supabase (this will pull Docker images on first run)..."
-    echo "This may take 2-3 minutes on first setup..."
+# if npx supabase status &> /dev/null; then
+#     echo -e "${GREEN}✅ Supabase is already running${NC}"
+#     echo ""
+#     echo "Current Supabase configuration:"
+#     npx supabase status | grep -E "(API URL|GraphQL URL|DB URL|Studio URL|anon key|service_role key)" || true
+# else
+    echo "Skipping Supabase start for now - will use default local values"
     echo ""
     
-    npx supabase start
+    # Set default Supabase credentials for local development
+    API_URL="http://localhost:54321"
+    ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
     
-    if [ $? -eq 0 ]; then
-        echo ""
-        echo -e "${GREEN}✅ Supabase started successfully${NC}"
-        echo ""
-        echo "📊 Supabase Local Configuration:"
-        echo "================================"
-        npx supabase status
-        echo ""
-        
-        # Extract Supabase credentials
-        API_URL=$(npx supabase status | grep "API URL" | awk '{print $3}')
-        ANON_KEY=$(npx supabase status | grep "anon key" | awk '{print $3}')
-        
-        echo -e "${YELLOW}💡 TIP: Update your .env.local with these values:${NC}"
-        echo "   VITE_SUPABASE_URL=${API_URL}"
-        echo "   VITE_SUPABASE_ANON_KEY=${ANON_KEY}"
-        echo ""
-        
-        # Optionally auto-update .env.local
-        read -p "Auto-update .env.local with Supabase credentials? [Y/n]: " UPDATE_ENV
-        UPDATE_ENV=${UPDATE_ENV:-y}
-        
-        if [[ "$UPDATE_ENV" =~ ^[Yy]$ ]]; then
-            # Backup .env.local
-            cp .env.local .env.local.backup
-            
-            # Update or add Supabase credentials
-            if grep -q "VITE_SUPABASE_URL=" .env.local; then
-                sed -i.bak "s|VITE_SUPABASE_URL=.*|VITE_SUPABASE_URL=${API_URL}|" .env.local
-            else
-                echo "VITE_SUPABASE_URL=${API_URL}" >> .env.local
-            fi
-            
-            if grep -q "VITE_SUPABASE_ANON_KEY=" .env.local; then
-                sed -i.bak "s|VITE_SUPABASE_ANON_KEY=.*|VITE_SUPABASE_ANON_KEY=${ANON_KEY}|" .env.local
-            else
-                echo "VITE_SUPABASE_ANON_KEY=${ANON_KEY}" >> .env.local
-            fi
-            
-            # Clean up backup files
-            rm -f .env.local.bak .env.local.backup
-            
-            echo -e "${GREEN}✅ Updated .env.local with Supabase credentials${NC}"
-        fi
+    echo -e "${YELLOW}💡 Using default Supabase local credentials:${NC}"
+    echo "   VITE_SUPABASE_URL=${API_URL}"
+    echo "   VITE_SUPABASE_ANON_KEY=${ANON_KEY}"
+    echo ""
+    
+    # Update .env.local with default credentials
+    if grep -q "VITE_SUPABASE_URL=" .env.local; then
+        sed -i.bak "s|VITE_SUPABASE_URL=.*|VITE_SUPABASE_URL=${API_URL}|" .env.local
     else
-        echo -e "${RED}❌ Failed to start Supabase${NC}"
-        echo "   Check Docker is running and try again"
-        exit 1
+        echo "VITE_SUPABASE_URL=${API_URL}" >> .env.local
     fi
-fi
+    
+    if grep -q "VITE_SUPABASE_ANON_KEY=" .env.local; then
+        sed -i.bak "s|VITE_SUPABASE_ANON_KEY=.*|VITE_SUPABASE_ANON_KEY=${ANON_KEY}|" .env.local
+    else
+        echo "VITE_SUPABASE_ANON_KEY=${ANON_KEY}" >> .env.local
+    fi
+    
+    echo -e "${GREEN}✅ Updated .env.local with default Supabase credentials${NC}"
+# fi
 
 echo ""
 
@@ -196,19 +167,21 @@ echo ""
 echo -e "${BLUE}🔄 Step 5: Running Database Migrations${NC}"
 echo ""
 
-if [ -d "supabase/migrations" ]; then
-    echo "Applying database migrations..."
-    
-    npx supabase db push
-    
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}✅ Database migrations applied${NC}"
-    else
-        echo -e "${YELLOW}⚠️  Migration failed (may be normal if already applied)${NC}"
-    fi
-else
-    echo -e "${YELLOW}⚠️  No migrations directory found${NC}"
-fi
+# Skipping migrations since Supabase is not started
+echo "Skipping database migrations - Supabase not running"
+# if [ -d "supabase/migrations" ]; then
+#     echo "Applying database migrations..."
+#     
+#     npx supabase db push
+#     
+#     if [ $? -eq 0 ]; then
+#         echo -e "${GREEN}✅ Database migrations applied${NC}"
+#     else
+#         echo -e "${YELLOW}⚠️  Migration failed (may be normal if already applied)${NC}"
+#     fi
+# else
+#     echo -e "${YELLOW}⚠️  No migrations directory found${NC}"
+# fi
 
 echo ""
 
@@ -227,8 +200,9 @@ echo "   - Supabase API:     http://localhost:54321"
 echo ""
 echo "📝 Next Steps:"
 echo "   1. Edit .env.local and add your LLM API key (VITE_LLM_API_KEY)"
-echo "   2. Run: npm run dev"
-echo "   3. Open http://localhost:5173"
+echo "   2. Start Supabase manually: npx supabase start"
+echo "   3. Run: npm run dev"
+echo "   4. Open http://localhost:5173"
 echo ""
 echo "💡 Useful Commands:"
 echo "   - Start dev server:     npm run dev"
