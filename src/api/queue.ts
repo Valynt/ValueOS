@@ -16,6 +16,7 @@ import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddlewa
 import { rateLimiters } from '../middleware/rateLimiter';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
 import { requireConsent } from '../middleware/consentMiddleware';
+import { sanitizeAgentInput } from '../utils/security';
 
 const router = Router();
 router.use(requestAuditMiddleware());
@@ -61,14 +62,33 @@ router.post(
     const userId = (req as any).user?.id || 'anonymous';
     const sessionId = (req as any).sessionId;
     
+    const promptSanitization = prompt ? sanitizeAgentInput(prompt) : null;
+    const variablesSanitization = promptVariables ? sanitizeAgentInput(promptVariables) : null;
+
+    if ((promptSanitization && !promptSanitization.safe) || (variablesSanitization && !variablesSanitization.safe)) {
+      logger.warn('Blocked unsafe queued LLM prompt', {
+        severity: promptSanitization?.severity || variablesSanitization?.severity,
+        violations: promptSanitization?.violations || variablesSanitization?.violations,
+        requestId: withRequestContext(req, res).requestId,
+      });
+
+      return res.status(400).json({
+        error: 'Invalid request',
+        message: 'Prompt rejected due to unsafe content'
+      });
+    }
+
+    const sanitizedPrompt = promptSanitization ? promptSanitization.sanitized : undefined;
+    const sanitizedPromptVariables = variablesSanitization ? variablesSanitization.sanitized : undefined;
+
     // Add job to queue
     const job = await llmQueue.addJob({
       type,
       userId,
       sessionId,
       promptKey,
-      promptVariables,
-      prompt,
+      promptVariables: sanitizedPromptVariables,
+      prompt: sanitizedPrompt,
       model,
       maxTokens,
       temperature,
@@ -258,9 +278,40 @@ router.post('/llm/batch', rateLimiters.strict, csrfProtectionMiddleware, session
     
     const userId = (req as any).user?.id || 'anonymous';
     const sessionId = (req as any).sessionId;
+
+    const sanitizedJobs = [] as any[];
+
+    for (const [index, jobData] of jobs.entries()) {
+      const promptSanitization = jobData.prompt ? sanitizeAgentInput(jobData.prompt) : null;
+      const variablesSanitization = jobData.promptVariables
+        ? sanitizeAgentInput(jobData.promptVariables)
+        : null;
+
+      if ((promptSanitization && !promptSanitization.safe) || (variablesSanitization && !variablesSanitization.safe)) {
+        logger.warn('Blocked unsafe queued batch prompt', {
+          index,
+          severity: promptSanitization?.severity || variablesSanitization?.severity,
+          violations: promptSanitization?.violations || variablesSanitization?.violations,
+          requestId: withRequestContext(req, res).requestId,
+        });
+
+        return res.status(400).json({
+          error: 'Invalid request',
+          message: `Prompt at index ${index} rejected due to unsafe content`
+        });
+      }
+
+      sanitizedJobs.push({
+        ...jobData,
+        prompt: promptSanitization ? promptSanitization.sanitized : jobData.prompt,
+        promptVariables: variablesSanitization
+          ? variablesSanitization.sanitized
+          : jobData.promptVariables,
+      });
+    }
     
     const submittedJobs = await Promise.all(
-      jobs.map(async (jobData, index) => {
+      sanitizedJobs.map(async (jobData, index) => {
         const job = await llmQueue.addJob({
           ...jobData,
           userId,
