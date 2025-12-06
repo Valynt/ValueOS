@@ -1,0 +1,194 @@
+# ============================================================================
+# Caddyfile for ValueCanvas Staging
+# ============================================================================
+# Staging environment with production-like configuration
+# ============================================================================
+
+{
+    # Global options - Enable automatic HTTPS
+    auto_https on
+    
+    # Email for Let's Encrypt staging
+    email staging@valuecanvas.com
+    
+    # Admin API - localhost only for debugging
+    admin localhost:2019
+    
+    # Server configuration
+    servers {
+        # Hardening: Limit request body size
+        max_header_size 1MB
+        
+        # Connection timeouts
+        timeouts {
+            read_body 30s
+            read_header 10s
+            write 30s
+            idle 120s
+        }
+        
+        # Protocol configuration
+        protocols h1 h2
+    }
+    
+    # Logging
+    log {
+        output stdout
+        format json
+        level INFO
+    }
+    
+    # Order of directives
+    order rate_limit before basicauth
+}
+
+# ============================================================================
+# Staging Application - staging.valuecanvas.com
+# ============================================================================
+staging.valuecanvas.com {
+    # TLS Configuration
+    tls {
+        protocols tls1.2 tls1.3
+    }
+    
+    # Rate limiting - Staging (100 req/min)
+    rate_limit {
+        zone staging {
+            key {remote_host}
+            events 100
+            window 1m
+        }
+    }
+    
+    # Request body size limit (50MB)
+    request_body {
+        max_size 50MB
+    }
+    
+    # Reverse proxy to staging app
+    reverse_proxy app:8000 {
+        # Health check configuration
+        health_uri /healthz
+        health_interval 30s
+        health_timeout 10s
+        health_status 2xx
+        
+        # Load balancing
+        lb_policy round_robin
+        lb_try_duration 5s
+        lb_try_interval 500ms
+        
+        # Fail timeout
+        fail_duration 30s
+        max_fails 3
+        unhealthy_status 5xx
+        
+        # Headers to pass through
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Request-ID {uuid}
+        header_up X-Environment "staging"
+        
+        # Transport settings
+        transport http {
+            read_buffer 4096
+            write_buffer 4096
+            dial_timeout 10s
+            response_header_timeout 60s
+        }
+    }
+    
+    # Enable compression
+    encode {
+        gzip 6
+        zstd
+        minimum_length 256
+    }
+    
+    # Security headers - Staging
+    header {
+        # HSTS - Shorter duration for staging
+        Strict-Transport-Security "max-age=86400; includeSubDomains"
+        
+        # XSS Protection
+        X-XSS-Protection "1; mode=block"
+        
+        # Prevent MIME sniffing
+        X-Content-Type-Options "nosniff"
+        
+        # Clickjacking protection
+        X-Frame-Options "SAMEORIGIN"
+        
+        # Content Security Policy - Staging (slightly more permissive)
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' wss://staging.valuecanvas.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self';"
+        
+        # Referrer Policy
+        Referrer-Policy "strict-origin-when-cross-origin"
+        
+        # Permissions Policy
+        Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
+        
+        # Remove server header
+        -Server
+        
+        # Environment header
+        X-Environment "staging"
+        
+        # Request ID for tracing
+        X-Request-ID {uuid}
+    }
+    
+    # Error handling
+    handle_errors {
+        @5xx expression `{err.status_code} >= 500 && {err.status_code} < 600`
+        handle @5xx {
+            respond "Server Error (Staging)" {err.status_code} {
+                close
+            }
+        }
+        
+        @4xx expression `{err.status_code} >= 400 && {err.status_code} < 500`
+        handle @4xx {
+            respond "Client Error" {err.status_code} {
+                close
+            }
+        }
+        
+        respond "Unknown Error" {err.status_code} {
+            close
+        }
+    }
+    
+    # Static file caching
+    @static {
+        path *.js *.css *.png *.jpg *.jpeg *.gif *.ico *.svg *.woff *.woff2 *.ttf *.eot
+    }
+    header @static {
+        Cache-Control "public, max-age=86400"
+    }
+    
+    # Logging for this site
+    log {
+        output stdout
+        format json
+        level INFO
+    }
+}
+
+# ============================================================================
+# Health Check Endpoint (accessible without domain)
+# ============================================================================
+:80/health {
+    respond "healthy" 200 {
+        close
+    }
+}
+
+# ============================================================================
+# HTTP to HTTPS Redirect
+# ============================================================================
+http://staging.valuecanvas.com {
+    redir https://staging.valuecanvas.com{uri} permanent
+}
