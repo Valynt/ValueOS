@@ -1,0 +1,217 @@
+# ============================================================================
+# ValueCanvas Development with Caddy Reverse Proxy
+# ============================================================================
+# Enhanced docker-compose with Caddy for automatic HTTPS and better routing
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # ============================================================================
+  # Caddy Reverse Proxy
+  # ============================================================================
+  caddy:
+    image: caddy:2-alpine
+    container_name: valuecanvas-caddy
+    ports:
+      - "80:80"          # HTTP
+      - "443:443"        # HTTPS (automatic)
+      - "2019:2019"      # Caddy Admin API
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - valuecanvas-network
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ============================================================================
+  # ValueCanvas Application (Development)
+  # ============================================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: valuecanvas-app
+    expose:
+      - "3000"           # Expose to Caddy (not to host)
+    ports:
+      - "3000:3000"      # Also expose to host for direct access
+      - "24678:24678"    # Vite HMR
+    volumes:
+      - ./src:/app/src:cached
+      - ./public:/app/public:cached
+      - ./index.html:/app/index.html:cached
+      - ./vite.config.ts:/app/vite.config.ts:cached
+      - ./tsconfig.json:/app/tsconfig.json:cached
+      - ./package.json:/app/package.json:cached
+      - /app/node_modules
+    env_file:
+      - .env.local
+    environment:
+      - NODE_ENV=development
+      - VITE_HOST=0.0.0.0
+      - VITE_PORT=3000
+      - VITE_HMR_PORT=24678
+    networks:
+      - valuecanvas-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 6G
+        reservations:
+          cpus: '2.0'
+          memory: 4G
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ============================================================================
+  # PostgreSQL Database
+  # ============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: valuecanvas-postgres
+    ports:
+      - "5432:5432"
+    env_file:
+      - .env.local
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-valuecanvas}
+      - POSTGRES_USER=${POSTGRES_USER:-valuecanvas}
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
+    secrets:
+      - db_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./supabase/migrations:/docker-entrypoint-initdb.d:ro
+    networks:
+      - valuecanvas-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-valuecanvas}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ============================================================================
+  # Redis Cache
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: valuecanvas-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - valuecanvas-network
+    restart: unless-stopped
+    secrets:
+      - redis_password
+    healthcheck:
+      test: ["CMD", "sh", "-c", "redis-cli --no-auth-warning -a $(cat /run/secrets/redis_password) ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: >
+      sh -c 'redis-server
+      --appendonly yes
+      --requirepass $$(cat /run/secrets/redis_password)
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru'
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  valuecanvas-network:
+    driver: bridge
+
+# ============================================================================
+# Volumes
+# ============================================================================
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  caddy-data:
+    driver: local
+  caddy-config:
+    driver: local
+
+# ============================================================================
+# Secrets
+# ============================================================================
+secrets:
+  db_password:
+    file: ./secrets/dev_db_password.txt
+  redis_password:
+    file: ./secrets/dev_redis_password.txt
