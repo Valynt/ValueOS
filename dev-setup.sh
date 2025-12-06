@@ -55,26 +55,13 @@ if ! docker info > /dev/null 2>&1; then
 fi
 echo -e "${GREEN}✅ Docker installed and running${NC}"
 
-# Check Supabase CLI
-if ! command -v supabase &> /dev/null; then
-    echo -e "${YELLOW}⚠️  Supabase CLI not installed${NC}"
-    echo ""
-    read -p "Install Supabase CLI now? [Y/n]: " INSTALL_SUPABASE
-    INSTALL_SUPABASE=${INSTALL_SUPABASE:-y}
-    
-    if [[ "$INSTALL_SUPABASE" =~ ^[Yy]$ ]]; then
-        echo "📦 Installing Supabase CLI..."
-        npm install -g supabase
-        echo -e "${GREEN}✅ Supabase CLI installed${NC}"
-    else
-        echo -e "${RED}❌ Supabase CLI required for local development${NC}"
-        echo "   Install manually: npm install -g supabase"
-        exit 1
-    fi
-else
-    SUPABASE_VERSION=$(supabase --version 2>&1 | head -n 1 || echo "unknown")
-    echo -e "${GREEN}✅ Supabase CLI ${SUPABASE_VERSION}${NC}"
+# Check Supabase CLI (using npx)
+if ! npx supabase --version &> /dev/null; then
+    echo -e "${RED}❌ Supabase CLI not available via npx${NC}"
+    exit 1
 fi
+SUPABASE_VERSION=$(npx supabase --version 2>&1 | head -n 1 || echo "unknown")
+echo -e "${GREEN}✅ Supabase CLI ${SUPABASE_VERSION}${NC}"
 
 echo ""
 
@@ -138,17 +125,17 @@ echo -e "${BLUE}🗄️  Step 4: Starting Supabase Local Instance${NC}"
 echo ""
 
 # Check if Supabase is already running
-if supabase status &> /dev/null; then
+if npx supabase status &> /dev/null; then
     echo -e "${GREEN}✅ Supabase is already running${NC}"
     echo ""
     echo "Current Supabase configuration:"
-    supabase status | grep -E "(API URL|GraphQL URL|DB URL|Studio URL|anon key|service_role key)" || true
+    npx supabase status | grep -E "(API URL|GraphQL URL|DB URL|Studio URL|anon key|service_role key)" || true
 else
     echo "Starting Supabase (this will pull Docker images on first run)..."
     echo "This may take 2-3 minutes on first setup..."
     echo ""
     
-    supabase start
+    npx supabase start
     
     if [ $? -eq 0 ]; then
         echo ""
@@ -156,12 +143,12 @@ else
         echo ""
         echo "📊 Supabase Local Configuration:"
         echo "================================"
-        supabase status
+        npx supabase status
         echo ""
         
         # Extract Supabase credentials
-        API_URL=$(supabase status | grep "API URL" | awk '{print $3}')
-        ANON_KEY=$(supabase status | grep "anon key" | awk '{print $3}')
+        API_URL=$(npx supabase status | grep "API URL" | awk '{print $3}')
+        ANON_KEY=$(npx supabase status | grep "anon key" | awk '{print $3}')
         
         echo -e "${YELLOW}💡 TIP: Update your .env.local with these values:${NC}"
         echo "   VITE_SUPABASE_URL=${API_URL}"
@@ -212,7 +199,7 @@ echo ""
 if [ -d "supabase/migrations" ]; then
     echo "Applying database migrations..."
     
-    supabase db push
+    npx supabase db push
     
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✅ Database migrations applied${NC}"
@@ -247,8 +234,8 @@ echo "💡 Useful Commands:"
 echo "   - Start dev server:     npm run dev"
 echo "   - Run tests:            npm test"
 echo "   - Supabase Studio:      open http://localhost:54323"
-echo "   - Stop Supabase:        supabase stop"
-echo "   - View Supabase logs:   supabase logs"
+echo "   - Stop Supabase:        npx supabase stop"
+echo "   - View Supabase logs:   npx supabase logs"
 echo ""
 
 # ============================================================================
