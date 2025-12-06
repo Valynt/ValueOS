@@ -2,6 +2,9 @@
  * Performance Monitoring and Optimization Utilities
  */
 
+import { logger } from '../lib/logger';
+import React from 'react';
+
 export interface PerformanceMetric {
   name: string;
   value: number;
@@ -21,6 +24,10 @@ export const PERFORMANCE_BENCHMARKS: Record<string, PerformanceBenchmark> = {
   'settings.section.load': { target: 100, warning: 150, critical: 250 },
   'settings.search': { target: 50, warning: 100, critical: 200 },
   'settings.save': { target: 300, warning: 500, critical: 1000 },
+  'web-vitals.inp': { target: 200, warning: 300, critical: 500 },
+  'web-vitals.tbt': { target: 200, warning: 400, critical: 600 },
+  'web-vitals.fcp': { target: 1800, warning: 2500, critical: 3000 },
+  'web-vitals.lcp': { target: 2500, warning: 3500, critical: 4000 },
 };
 
 class PerformanceMonitor {
@@ -181,6 +188,112 @@ class PerformanceMonitor {
     } catch (error) {
       logger.warn('CLS observation failed:', error);
     }
+
+    // Interaction to Next Paint (INP) - replaces FID
+    this.observeINP();
+
+    // First Contentful Paint (FCP)
+    this.observeFCP();
+
+    // Total Blocking Time (TBT)
+    this.observeTBT();
+  }
+
+  /**
+   * Observe Interaction to Next Paint (INP)
+   * Measures responsiveness throughout the page lifecycle
+   */
+  private observeINP(): void {
+    if (typeof window === 'undefined' || !('PerformanceObserver' in window)) {
+      return;
+    }
+
+    try {
+      const inpObserver = new PerformanceObserver((list) => {
+        const entries = list.getEntries();
+        entries.forEach((entry: any) => {
+          const duration = entry.processingEnd - entry.startTime;
+          
+          this.recordMetric({
+            name: 'web-vitals.inp',
+            value: duration,
+            unit: 'ms',
+            timestamp: Date.now(),
+            metadata: {
+              interactionType: entry.name,
+              target: entry.target,
+            },
+          });
+        });
+      });
+
+      inpObserver.observe({ type: 'event', buffered: true, durationThreshold: 16 });
+      this.observers.set('inp', inpObserver);
+    } catch (error) {
+      logger.warn('INP observation failed:', error);
+    }
+  }
+
+  /**
+   * Observe First Contentful Paint (FCP)
+   */
+  private observeFCP(): void {
+    if (typeof window === 'undefined' || !('PerformanceObserver' in window)) {
+      return;
+    }
+
+    try {
+      const fcpObserver = new PerformanceObserver((list) => {
+        const entries = list.getEntries();
+        entries.forEach((entry: any) => {
+          this.recordMetric({
+            name: 'web-vitals.fcp',
+            value: entry.startTime,
+            unit: 'ms',
+            timestamp: Date.now(),
+          });
+        });
+      });
+
+      fcpObserver.observe({ type: 'paint', buffered: true });
+      this.observers.set('fcp', fcpObserver);
+    } catch (error) {
+      logger.warn('FCP observation failed:', error);
+    }
+  }
+
+  /**
+   * Measure Total Blocking Time (TBT)
+   * Tracks long tasks that block the main thread
+   */
+  private observeTBT(): void {
+    if (typeof window === 'undefined' || !('PerformanceObserver' in window)) {
+      return;
+    }
+
+    try {
+      let tbtValue = 0;
+      const tbtObserver = new PerformanceObserver((list) => {
+        const entries = list.getEntries();
+        entries.forEach((entry: any) => {
+          if (entry.duration > 50) {
+            tbtValue += entry.duration - 50;
+          }
+        });
+
+        this.recordMetric({
+          name: 'web-vitals.tbt',
+          value: tbtValue,
+          unit: 'ms',
+          timestamp: Date.now(),
+        });
+      });
+
+      tbtObserver.observe({ type: 'longtask', buffered: true });
+      this.observers.set('tbt', tbtObserver);
+    } catch (error) {
+      logger.warn('TBT observation failed:', error);
+    }
   }
 
   /**
@@ -248,6 +361,120 @@ class PerformanceMonitor {
   disconnect(): void {
     this.observers.forEach((observer) => observer.disconnect());
     this.observers.clear();
+  }
+
+  /**
+   * Measure component throughput (actions per second)
+   */
+  measureThroughput(componentName: string, actionCount: number, duration: number): void {
+    const throughput = (actionCount / duration) * 1000;
+    
+    this.recordMetric({
+      name: `throughput.${componentName}`,
+      value: throughput,
+      unit: 'count',
+      timestamp: Date.now(),
+      metadata: {
+        actionCount,
+        duration,
+      },
+    });
+  }
+
+  /**
+   * Monitor animation frame rate
+   */
+  monitorFrameRate(duration: number = 1000): Promise<number> {
+    return new Promise((resolve) => {
+      if (typeof window === 'undefined' || !window.requestAnimationFrame) {
+        resolve(0);
+        return;
+      }
+
+      let frameCount = 0;
+      const startTime = performance.now();
+      let lastTime = startTime;
+
+      const countFrame = (currentTime: number) => {
+        frameCount++;
+        
+        if (currentTime - startTime < duration) {
+          lastTime = currentTime;
+          requestAnimationFrame(countFrame);
+        } else {
+          const actualDuration = currentTime - startTime;
+          const fps = (frameCount / actualDuration) * 1000;
+          
+          this.recordMetric({
+            name: 'animation.fps',
+            value: fps,
+            unit: 'count',
+            timestamp: Date.now(),
+            metadata: {
+              frameCount,
+              duration: actualDuration,
+            },
+          });
+          
+          resolve(fps);
+        }
+      };
+
+      requestAnimationFrame(countFrame);
+    });
+  }
+
+  /**
+   * Track memory usage (if available)
+   */
+  trackMemoryUsage(): void {
+    if (typeof window === 'undefined' || !(performance as any).memory) {
+      return;
+    }
+
+    const memory = (performance as any).memory;
+    
+    this.recordMetric({
+      name: 'memory.used',
+      value: memory.usedJSHeapSize / 1048576,
+      unit: 'bytes',
+      timestamp: Date.now(),
+      metadata: {
+        total: memory.totalJSHeapSize / 1048576,
+        limit: memory.jsHeapSizeLimit / 1048576,
+      },
+    });
+  }
+
+  /**
+   * Get error rate for a specific operation
+   */
+  calculateErrorRate(operationName: string, timeWindow: number = 60000): number {
+    const now = Date.now();
+    const recentMetrics = this.metrics.filter(
+      (m) => m.name === operationName && now - m.timestamp < timeWindow
+    );
+
+    if (recentMetrics.length === 0) return 0;
+
+    const errors = recentMetrics.filter((m) => m.metadata?.error === true).length;
+    return (errors / recentMetrics.length) * 100;
+  }
+
+  /**
+   * Record operation result (success or error)
+   */
+  recordOperation(name: string, success: boolean, duration?: number): void {
+    this.recordMetric({
+      name,
+      value: duration || 0,
+      unit: 'ms',
+      timestamp: Date.now(),
+      metadata: {
+        error: !success,
+        success,
+      },
+    });
   }
 }
 
@@ -400,6 +627,3 @@ export function debounce<T extends (...args: any[]) => any>(
 
   return debounced as any;
 }
-
-import { logger } from './lib/logger';
-import React from 'react';
