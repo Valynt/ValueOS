@@ -15,6 +15,7 @@ import { llmConfig } from '../config/llm';
 import { getUIGenerationTracker } from './UIGenerationTracker';
 import { validateComponentSelection } from '../sdui/ComponentToolRegistry';
 import { ComponentMutationService } from './ComponentMutationService';
+import { AgentCircuitBreaker } from '../lib/agent-fabric/CircuitBreaker';
 import {
   AtomicUIAction,
   createPropertyUpdate,
@@ -79,10 +80,11 @@ export class UIRefinementLoop {
    */
   async generateAndRefine(
     subgoal: Subgoal,
-    initialLayout: SDUIPageDefinition
+    initialLayout: SDUIPageDefinition,
+    circuitBreaker?: AgentCircuitBreaker
   ): Promise<RefinementResult> {
     let currentLayout = initialLayout;
-    let currentScore = await this.evaluateLayout(currentLayout, subgoal);
+    let currentScore = await this.evaluateLayout(currentLayout, subgoal, circuitBreaker);
     const improvementHistory: RefinementResult['improvement_history'] = [];
 
     let iteration = 0;
@@ -94,7 +96,7 @@ export class UIRefinementLoop {
       iteration++;
 
       // Evaluate current layout
-      const evaluation = await this.evaluateLayout(currentLayout, subgoal);
+      const evaluation = await this.evaluateLayout(currentLayout, subgoal, circuitBreaker);
 
       // Check if we should continue
       if (evaluation.score >= this.config.targetScore) {
@@ -114,7 +116,8 @@ export class UIRefinementLoop {
       const refinedLayout = await this.refineLayout(
         currentLayout,
         evaluation,
-        subgoal
+        subgoal,
+        circuitBreaker
       );
 
       // Track changes
@@ -131,7 +134,7 @@ export class UIRefinementLoop {
     }
 
     // Final evaluation
-    const finalEvaluation = await this.evaluateLayout(currentLayout, subgoal);
+    const finalEvaluation = await this.evaluateLayout(currentLayout, subgoal, circuitBreaker);
 
     return {
       layout: currentLayout,
@@ -146,7 +149,8 @@ export class UIRefinementLoop {
    */
   async evaluateLayout(
     layout: SDUIPageDefinition,
-    subgoal: Subgoal
+    subgoal: Subgoal,
+    circuitBreaker?: AgentCircuitBreaker
   ): Promise<UIEvaluationResult> {
     const messages = [
       {
@@ -189,7 +193,8 @@ Evaluate the layout's effectiveness for this task.`,
     const response = await this.llmGateway.complete(
       messages,
       { use_gating: true, temperature: 0.3 },
-      { task_type: 'ui_evaluation', complexity: 0.4 }
+      { task_type: 'ui_evaluation', complexity: 0.4 },
+      circuitBreaker
     );
 
     // Parse response
@@ -221,17 +226,18 @@ Evaluate the layout's effectiveness for this task.`,
   async refineLayout(
     currentLayout: SDUIPageDefinition,
     evaluation: UIEvaluationResult,
-    subgoal: Subgoal
+    subgoal: Subgoal,
+    circuitBreaker?: AgentCircuitBreaker
   ): Promise<SDUIPageDefinition> {
     // Check if we should use partial mutations
     if (this.config.usePartialMutations && this.shouldUsePartialMutation(evaluation)) {
       logger.info('Using partial mutation for refinement');
-      return this.refineWithPartialMutation(currentLayout, evaluation);
+      return this.refineWithPartialMutation(currentLayout, evaluation, circuitBreaker);
     }
 
     // Fall back to full regeneration
     logger.info('Using full regeneration for refinement');
-    return this.refineWithFullRegeneration(currentLayout, evaluation, subgoal);
+    return this.refineWithFullRegeneration(currentLayout, evaluation, subgoal, circuitBreaker);
   }
 
   /**
@@ -256,7 +262,8 @@ Evaluate the layout's effectiveness for this task.`,
    */
   private async refineWithPartialMutation(
     currentLayout: SDUIPageDefinition,
-    evaluation: UIEvaluationResult
+    evaluation: UIEvaluationResult,
+    circuitBreaker?: AgentCircuitBreaker
   ): Promise<SDUIPageDefinition> {
     const messages = [
       {
@@ -311,7 +318,8 @@ Generate minimal atomic actions to fix these specific issues.`,
     const response = await this.llmGateway.complete(
       messages,
       { use_gating: true, temperature: 0.3 },
-      { task_type: 'ui_mutation', complexity: 0.4 }
+      { task_type: 'ui_mutation', complexity: 0.4 },
+      circuitBreaker
     );
 
     // Parse actions
@@ -361,7 +369,8 @@ Generate minimal atomic actions to fix these specific issues.`,
   private async refineWithFullRegeneration(
     currentLayout: SDUIPageDefinition,
     evaluation: UIEvaluationResult,
-    subgoal: Subgoal
+    subgoal: Subgoal,
+    circuitBreaker?: AgentCircuitBreaker
   ): Promise<SDUIPageDefinition> {
     const messages = [
       {
@@ -407,7 +416,8 @@ Generate an improved layout that addresses these issues.`,
     const response = await this.llmGateway.complete(
       messages,
       { use_gating: true, temperature: 0.4 },
-      { task_type: 'ui_refinement', complexity: 0.6 }
+      { task_type: 'ui_refinement', complexity: 0.6 },
+      circuitBreaker
     );
 
     // Parse response
@@ -439,7 +449,8 @@ Generate an improved layout that addresses these issues.`,
    */
   async applyUserMutation(
     currentLayout: SDUIPageDefinition,
-    userRequest: string
+    userRequest: string,
+    circuitBreaker?: AgentCircuitBreaker
   ): Promise<{ layout: SDUIPageDefinition; changes: string[] }> {
     logger.info('Processing user mutation request', { request: userRequest });
 
@@ -483,7 +494,8 @@ Generate atomic actions to fulfill this request.`,
     const response = await this.llmGateway.complete(
       messages,
       { use_gating: true, temperature: 0.2 },
-      { task_type: 'ui_mutation', complexity: 0.3 }
+      { task_type: 'ui_mutation', complexity: 0.3 },
+      circuitBreaker
     );
 
     // Parse actions
