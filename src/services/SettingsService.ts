@@ -4,8 +4,8 @@
  */
 
 import { logger } from '../lib/logger';
-import { BaseService } from './BaseService';
-import { ValidationError, NotFoundError } from './errors';
+import { TenantAwareService } from './TenantAwareService';
+import { AuthorizationError, ValidationError, NotFoundError } from './errors';
 import { tenantCache } from './cache/TenantCache';
 
 export interface Setting {
@@ -37,9 +37,28 @@ export interface SettingsQueryOptions {
   keys?: string[];
 }
 
-export class SettingsService extends BaseService {
+export class SettingsService extends TenantAwareService {
   constructor() {
     super('SettingsService');
+  }
+
+  /**
+   * Enforce tenant isolation for organization-scoped settings
+   */
+  private async ensureTenantAccess(
+    scope: Setting['scope'],
+    scopeId: string,
+    userId?: string
+  ): Promise<void> {
+    if (scope !== 'organization') {
+      return;
+    }
+
+    if (!userId) {
+      throw new AuthorizationError('Tenant context required for organization settings');
+    }
+
+    await this.validateTenantAccess(userId, scopeId);
   }
 
   /**
@@ -52,9 +71,12 @@ export class SettingsService extends BaseService {
   async getSetting(
     key: string,
     scope: Setting['scope'],
-    scopeId: string
+    scopeId: string,
+    userId?: string
   ): Promise<any | null> {
     this.log('info', 'Getting setting', { key, scope, scopeId });
+
+    await this.ensureTenantAccess(scope, scopeId, userId);
 
     return this.executeRequest(
       async () => {
@@ -81,8 +103,12 @@ export class SettingsService extends BaseService {
    * @param options - Query options
    * @returns Array of settings
    */
-  async getSettings(options: SettingsQueryOptions = {}): Promise<Setting[]> {
+  async getSettings(options: SettingsQueryOptions = {}, userId?: string): Promise<Setting[]> {
     this.log('info', 'Getting settings', options);
+
+    if (options.scope && options.scopeId) {
+      await this.ensureTenantAccess(options.scope, options.scopeId, userId);
+    }
 
     return this.executeRequest(
       async () => {
@@ -118,7 +144,10 @@ export class SettingsService extends BaseService {
   /**
    * Get organization-level configuration with tenant-aware caching
    */
-  async getOrganizationConfig(tenantId: string): Promise<Record<string, any>> {
+  async getOrganizationConfig(
+    tenantId: string,
+    userId: string
+  ): Promise<Record<string, any>> {
     const cacheKey = tenantCache.buildOrgConfigKey(tenantId);
     const cached = await tenantCache.get<Record<string, any>>(cacheKey);
 
@@ -129,7 +158,7 @@ export class SettingsService extends BaseService {
     const settings = await this.getSettings({
       scope: 'organization',
       scopeId: tenantId,
-    });
+    }, userId);
 
     const config = settings.reduce<Record<string, any>>((acc, setting) => {
       acc[setting.key] = setting.value;
@@ -145,11 +174,13 @@ export class SettingsService extends BaseService {
    * @param input - Setting creation input
    * @returns Created setting
    */
-  async createSetting(input: SettingCreateInput): Promise<Setting> {
+  async createSetting(input: SettingCreateInput, userId?: string): Promise<Setting> {
     this.validateRequired(input, ['key', 'value', 'type', 'scope', 'scopeId']);
     this.validateSettingType(input.value, input.type);
 
     this.log('info', 'Creating setting', input);
+
+    await this.ensureTenantAccess(input.scope, input.scopeId, userId);
 
     return this.executeRequest(
       async () => {
@@ -212,11 +243,14 @@ export class SettingsService extends BaseService {
     key: string,
     scope: Setting['scope'],
     scopeId: string,
-    input: SettingUpdateInput
+    input: SettingUpdateInput,
+    userId?: string
   ): Promise<Setting> {
     this.validateRequired(input, ['value']);
 
     this.log('info', 'Updating setting', { key, scope, scopeId, input });
+
+    await this.ensureTenantAccess(scope, scopeId, userId);
 
     return this.executeRequest(
       async () => {
@@ -272,16 +306,22 @@ export class SettingsService extends BaseService {
    * @param input - Setting input
    * @returns Setting
    */
-  async upsertSetting(input: SettingCreateInput): Promise<Setting> {
+  async upsertSetting(input: SettingCreateInput, userId?: string): Promise<Setting> {
     try {
-      const existing = await this.getSetting(input.key, input.scope, input.scopeId);
+      const existing = await this.getSetting(input.key, input.scope, input.scopeId, userId);
 
       if (existing !== null) {
-        return this.updateSetting(input.key, input.scope, input.scopeId, {
-          value: input.value,
-        });
+        return this.updateSetting(
+          input.key,
+          input.scope,
+          input.scopeId,
+          {
+            value: input.value,
+          },
+          userId
+        );
       } else {
-        return this.createSetting(input);
+        return this.createSetting(input, userId);
       }
     } catch (error) {
       throw error;
@@ -297,9 +337,12 @@ export class SettingsService extends BaseService {
   async deleteSetting(
     key: string,
     scope: Setting['scope'],
-    scopeId: string
+    scopeId: string,
+    userId?: string
   ): Promise<void> {
     this.log('info', 'Deleting setting', { key, scope, scopeId });
+
+    await this.ensureTenantAccess(scope, scopeId, userId);
 
     return this.executeRequest(
       async () => {
@@ -335,18 +378,24 @@ export class SettingsService extends BaseService {
   async bulkUpdateSettings(
     scope: Setting['scope'],
     scopeId: string,
-    settings: Record<string, any>
+    settings: Record<string, any>,
+    userId?: string
   ): Promise<Setting[]> {
     this.log('info', 'Bulk updating settings', { scope, scopeId, count: Object.keys(settings).length });
 
+    await this.ensureTenantAccess(scope, scopeId, userId);
+
     const updates = Object.entries(settings).map(([key, value]) =>
-      this.upsertSetting({
-        key,
-        value,
-        type: this.inferType(value),
-        scope,
-        scopeId,
-      })
+      this.upsertSetting(
+        {
+          key,
+          value,
+          type: this.inferType(value),
+          scope,
+          scopeId,
+        },
+        userId
+      )
     );
 
     return Promise.all(updates);

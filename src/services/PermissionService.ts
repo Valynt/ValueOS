@@ -4,7 +4,7 @@
  */
 
 import { logger } from '../lib/logger';
-import { BaseService } from './BaseService';
+import { TenantAwareService } from './TenantAwareService';
 import { AuthorizationError, NotFoundError } from './errors';
 
 export type Permission =
@@ -33,11 +33,21 @@ export interface UserRole {
   scopeId: string;
 }
 
-export class PermissionService extends BaseService {
+export class PermissionService extends TenantAwareService {
   private roleCache: Map<string, Role> = new Map();
 
   constructor() {
     super('PermissionService');
+  }
+
+  private async ensureTenantScopeAccess(
+    scope: 'user' | 'team' | 'organization',
+    scopeId: string,
+    userId: string
+  ): Promise<void> {
+    if (scope === 'organization') {
+      await this.validateTenantAccess(userId, scopeId);
+    }
   }
 
   /**
@@ -50,6 +60,8 @@ export class PermissionService extends BaseService {
     scopeId: string
   ): Promise<boolean> {
     this.log('debug', 'Checking permission', { userId, permission, scope, scopeId });
+
+    await this.ensureTenantScopeAccess(scope, scopeId, userId);
 
     return this.executeRequest(
       async () => {
@@ -79,6 +91,8 @@ export class PermissionService extends BaseService {
     scope: 'user' | 'team' | 'organization',
     scopeId: string
   ): Promise<boolean> {
+    await this.ensureTenantScopeAccess(scope, scopeId, userId);
+
     const checks = await Promise.all(
       permissions.map((p) => this.hasPermission(userId, p, scope, scopeId))
     );
@@ -95,6 +109,8 @@ export class PermissionService extends BaseService {
     scope: 'user' | 'team' | 'organization',
     scopeId: string
   ): Promise<boolean> {
+    await this.ensureTenantScopeAccess(scope, scopeId, userId);
+
     const checks = await Promise.all(
       permissions.map((p) => this.hasPermission(userId, p, scope, scopeId))
     );
@@ -111,6 +127,8 @@ export class PermissionService extends BaseService {
     scope: 'user' | 'team' | 'organization',
     scopeId: string
   ): Promise<void> {
+    await this.ensureTenantScopeAccess(scope, scopeId, userId);
+
     const hasPermission = await this.hasPermission(userId, permission, scope, scopeId);
 
     if (!hasPermission) {
@@ -126,6 +144,10 @@ export class PermissionService extends BaseService {
     scope?: 'user' | 'team' | 'organization',
     scopeId?: string
   ): Promise<UserRole[]> {
+    if (scope && scopeId) {
+      await this.ensureTenantScopeAccess(scope, scopeId, userId);
+    }
+
     return this.executeRequest(
       async () => {
         let query = this.supabase
@@ -191,6 +213,8 @@ export class PermissionService extends BaseService {
   ): Promise<UserRole> {
     this.log('info', 'Assigning role', { userId, roleId, scope, scopeId });
 
+    await this.ensureTenantScopeAccess(scope, scopeId, userId);
+
     return this.executeRequest(
       async () => {
         const { data, error } = await this.supabase
@@ -225,6 +249,8 @@ export class PermissionService extends BaseService {
     scopeId: string
   ): Promise<void> {
     this.log('info', 'Removing role', { userId, roleId, scope, scopeId });
+
+    await this.ensureTenantScopeAccess(scope, scopeId, userId);
 
     return this.executeRequest(
       async () => {
