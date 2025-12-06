@@ -1,0 +1,22 @@
+{
+  "browsers": ["chrome:headless"],
+  "src": "test/testcafe/**/*.test.js",
+  "reporter": [
+    {
+      "name": "spec"
+    },
+    {
+      "name": "json",
+      "output": "test/testcafe/reports/report.json"
+    }
+  ],
+  "screenshots": {
+    "takeOnFails": true,
+    "path": "test/testcafe/screenshots/",
+    "pathPattern": "${DATE}_${TIME}/${TEST}/${FILE_INDEX}.png"
+  },
+  "quarantineMode": false,
+  "skipJsErrors": false,
+  "pageLoadTimeout": 10000,
+  "ajaxRequestTimeout": 10000
+}

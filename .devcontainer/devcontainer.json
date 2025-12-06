@@ -3,32 +3,56 @@
   "image": "mcr.microsoft.com/vscode/devcontainers/base:ubuntu",
 
   "features": {
-    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22"
+    },
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
   },
 
   "remoteUser": "vscode",
 
-  // REMOVE heavy memory override
-  "containerEnv": {},
+  "containerEnv": {
+    "ENVIRONMENT": "development",
+    "TOGETHER_API_KEY": "${localEnv:TOGETHER_API_KEY}",
+    "SUPABASE_PROJECT_ID": "${localEnv:SUPABASE_PROJECT_ID}",
+    "DATABASE_URL": "${localEnv:DATABASE_URL}"
+  },
 
-  // Disable heavy boot process
-  "postCreateCommand": "",
+  // 1. RUN HEAVY INSTALLS HERE
+  // This runs during the prebuild. When you open the Codespace, 
+  // node_modules will already be there.
+  "updateContentCommand": "npm install", 
 
-  // Port forwarding stays the same
-  "forwardPorts": [3000, 8000, 5432, 16686, 9090, 3001],
+  // 2. RUN LIGHTWEIGHT TASKS HERE
+  // This runs only when YOU start the container (e.g., db migrations).
+  "postCreateCommand": "curl --silent --location 'https://github.com/keploy/keploy/releases/latest/download/keploy_linux_amd64.tar.gz' | tar xz -C /tmp && sudo mv /tmp/keploy /usr/local/bin/keploy && echo 'Keploy installed and Ready to code!'",
 
-  // Remove conflicting docker mounts
+  "forwardPorts": [3000, 8000, 5432, 16686, 9090, 3001, 6789],
+
   "mounts": [],
 
-  // Avoid name conflicts
   "runArgs": [
-    "--name=valuecanvas-dev"
+    "--name=valuecanvas-dev",
+    "--privileged"
   ],
 
   "customizations": {
     "windsurf": {
-      // DO NOT install heavy extensions automatically
       "extensions": []
+    },
+    // Optional: Add VS Code extensions here so they are pre-installed
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-azuretools.vscode-docker",
+        "ms-vscode-remote.remote-containers",
+        "Supabase.supabase-vscode",
+        "snyk-security.snyk-vulnerability-scanner",
+        "romanresh.vscode-testcafe"
+      ]
     }
   }
 }
