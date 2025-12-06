@@ -13,6 +13,7 @@ import {
 } from '@aws-sdk/client-secrets-manager';
 import { logger } from '../lib/logger';
 import { StructuredSecretAuditLogger } from './secrets/SecretAuditLogger';
+import { auditLogService } from '../services/AuditLogService';
 
 interface SecretCache {
   value: any;
@@ -104,6 +105,16 @@ export class SecretsManager {
         result: 'SUCCESS',
         metadata: { source: 'cache' }
       });
+      await auditLogService.log({
+        userId: userId || 'system',
+        userName: userId ? 'authenticated-user' : 'system',
+        userEmail: `${userId || 'system'}@valuecanvas.io`,
+        action: 'api_key_access',
+        resourceType: 'secret',
+        resourceId: `${tenantId}:config`,
+        status: 'success',
+        details: { source: 'cache' },
+      });
       return cached.value;
     }
     
@@ -138,6 +149,17 @@ export class SecretsManager {
         metadata: { source: 'aws' }
       });
 
+      await auditLogService.log({
+        userId: userId || 'system',
+        userName: userId ? 'authenticated-user' : 'system',
+        userEmail: `${userId || 'system'}@valuecanvas.io`,
+        action: 'api_key_access',
+        resourceType: 'secret',
+        resourceId: `${tenantId}:config`,
+        status: 'success',
+        details: { source: 'aws' },
+      });
+
       return secrets;
     } catch (error) {
       await this.auditLogger.logDenied({
@@ -154,6 +176,20 @@ export class SecretsManager {
 
       // Fallback to environment variables
       logger.warn('Falling back to environment variables', { tenantId });
+
+      await auditLogService.log({
+        userId: userId || 'system',
+        userName: userId ? 'authenticated-user' : 'system',
+        userEmail: `${userId || 'system'}@valuecanvas.io`,
+        action: 'api_key_access',
+        resourceType: 'secret',
+        resourceId: `${tenantId}:config`,
+        status: 'failed',
+        details: {
+          reason: error instanceof Error ? error.message : String(error),
+          fallback: 'env',
+        },
+      });
       return this.getSecretsFromEnv();
     }
   }
