@@ -109,3 +109,6 @@ override.tf.json
 infrastructure/terraform/backups/
 infrastructure/terraform/environments/*/outputs.json
 infrastructure/terraform/environments/*/secrets.tfvars
+
+# Snyk Security Extension - AI Rules (auto-generated)
+.windsurf/rules/snyk_rules.md
