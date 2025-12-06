@@ -1,9 +1,9 @@
 # ValueCanvas Caddy Configuration
 # Reverse proxy to ValueCanvas application
 
-# Main site
-localhost {
-    # Health check endpoint
+# HTTP-only site for development/testing (accept any host on :80)
+:80 {
+    # Health check endpoint - no HTTPS redirect
     handle /health {
         respond "healthy" 200
     }
