@@ -1,10 +1,24 @@
 FROM caddy:2-alpine
 
+# Install additional tools for health checks
+RUN apk add --no-cache curl wget
+
 # Copy Caddyfile
-COPY infrastructure/caddy/Caddyfile /etc/caddy/Caddyfile
+COPY Caddyfile /etc/caddy/Caddyfile
+
+# Create log directory
+RUN mkdir -p /var/log/caddy && \
+    chown -R caddy:caddy /var/log/caddy
+
+# Security: Run as non-root user
+USER caddy
 
 # Expose ports
-EXPOSE 80 443
+EXPOSE 80 443 2019
 
-# Use default Caddy command
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost/health || exit 1
+
+# Use default Caddy command with validation
 CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
