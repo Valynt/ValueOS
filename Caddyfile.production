@@ -1,0 +1,301 @@
+# ============================================================================
+# Caddyfile for ValueCanvas Production
+# ============================================================================
+# Production deployment with automatic HTTPS and enhanced security
+# ============================================================================
+
+{
+    # Global options - Enable automatic HTTPS
+    auto_https on
+    
+    # Email for Let's Encrypt
+    email admin@valuecanvas.com
+    
+    # Admin API - Disable in production for security
+    admin off
+    
+    # Server configuration
+    servers {
+        # Hardening: Limit request body size
+        max_header_size 1MB
+        
+        # Connection timeouts
+        timeouts {
+            read_body 30s
+            read_header 10s
+            write 30s
+            idle 120s
+        }
+        
+        # Protocol configuration - TLS 1.2+ only
+        protocols h1 h2
+    }
+    
+    # Logging
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 100mb
+            roll_keep 10
+            roll_keep_for 720h
+        }
+        format json
+        level WARN
+    }
+    
+    # Order of directives
+    order rate_limit before basicauth
+}
+
+# ============================================================================
+# Main Application - app.valuecanvas.com
+# ============================================================================
+app.valuecanvas.com {
+    # TLS Configuration - Strict
+    tls {
+        protocols tls1.2 tls1.3
+        ciphers TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305 TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305 TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+        curves x25519 secp384r1 secp521r1
+    }
+    
+    # Rate limiting - Production (60 req/min per IP)
+    rate_limit {
+        zone production {
+            key {remote_host}
+            events 60
+            window 1m
+        }
+    }
+    
+    # Request body size limit (50MB for file uploads)
+    request_body {
+        max_size 50MB
+    }
+    
+    # Reverse proxy to production app
+    reverse_proxy app:5173 {
+        # Health check configuration
+        health_uri /health
+        health_interval 30s
+        health_timeout 10s
+        health_status 2xx
+        
+        # Load balancing
+        lb_policy least_conn
+        lb_try_duration 5s
+        lb_try_interval 500ms
+        
+        # Fail timeout
+        fail_duration 60s
+        max_fails 5
+        unhealthy_status 5xx
+        unhealthy_request_count 10
+        unhealthy_latency 5s
+        
+        # Headers to pass through
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Request-ID {uuid}
+        
+        # Transport settings
+        transport http {
+            read_buffer 4096
+            write_buffer 4096
+            max_response_header 10MB
+            dial_timeout 10s
+            response_header_timeout 60s
+            expect_continue_timeout 3s
+        }
+    }
+    
+    # Enable compression
+    encode {
+        gzip 6
+        zstd
+        minimum_length 256
+        match {
+            header Content-Type text/*
+            header Content-Type application/json*
+            header Content-Type application/javascript*
+            header Content-Type application/xml*
+        }
+    }
+    
+    # Security headers - Production Hardened
+    header {
+        # HSTS - Force HTTPS
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+        
+        # XSS Protection
+        X-XSS-Protection "1; mode=block"
+        
+        # Prevent MIME sniffing
+        X-Content-Type-Options "nosniff"
+        
+        # Clickjacking protection
+        X-Frame-Options "SAMEORIGIN"
+        
+        # Content Security Policy - Production
+        Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' wss://app.valuecanvas.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self';"
+        
+        # Referrer Policy
+        Referrer-Policy "strict-origin-when-cross-origin"
+        
+        # Permissions Policy
+        Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()"
+        
+        # Remove server header
+        -Server
+        
+        # Additional security headers
+        X-Permitted-Cross-Domain-Policies "none"
+        Cross-Origin-Embedder-Policy "require-corp"
+        Cross-Origin-Opener-Policy "same-origin"
+        Cross-Origin-Resource-Policy "same-origin"
+        
+        # Request ID for tracing
+        X-Request-ID {uuid}
+    }
+    
+    # Error handling
+    handle_errors {
+        @5xx expression `{err.status_code} >= 500 && {err.status_code} < 600`
+        handle @5xx {
+            respond "Server Error" {err.status_code} {
+                close
+            }
+        }
+        
+        @4xx expression `{err.status_code} >= 400 && {err.status_code} < 500`
+        handle @4xx {
+            respond "Client Error" {err.status_code} {
+                close
+            }
+        }
+        
+        respond "Unknown Error" {err.status_code} {
+            close
+        }
+    }
+    
+    # Static file caching
+    @static {
+        path *.js *.css *.png *.jpg *.jpeg *.gif *.ico *.svg *.woff *.woff2 *.ttf *.eot
+    }
+    header @static {
+        Cache-Control "public, max-age=31536000, immutable"
+    }
+    
+    # Logging for this site
+    log {
+        output file /var/log/caddy/app-access.log {
+            roll_size 100mb
+            roll_keep 10
+            roll_keep_for 720h
+        }
+        format json
+        level WARN
+    }
+}
+
+# ============================================================================
+# API - api.valuecanvas.com (if separate API server)
+# ============================================================================
+api.valuecanvas.com {
+    # TLS Configuration
+    tls {
+        protocols tls1.2 tls1.3
+        ciphers TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305 TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+        curves x25519 secp384r1
+    }
+    
+    # Stricter rate limiting for API (30 req/min)
+    rate_limit {
+        zone api {
+            key {remote_host}
+            events 30
+            window 1m
+        }
+    }
+    
+    # API reverse proxy
+    reverse_proxy api:8000 {
+        health_uri /healthz
+        health_interval 30s
+        health_timeout 10s
+        
+        lb_policy least_conn
+        fail_duration 60s
+        max_fails 5
+        
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Request-ID {uuid}
+    }
+    
+    # Compression
+    encode gzip zstd
+    
+    # CORS headers for API
+    header {
+        Access-Control-Allow-Origin "https://app.valuecanvas.com"
+        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+        Access-Control-Allow-Headers "Content-Type, Authorization, X-Request-ID"
+        Access-Control-Allow-Credentials "true"
+        Access-Control-Max-Age "3600"
+    }
+    
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        -Server
+    }
+    
+    # CORS preflight
+    @cors_preflight {
+        method OPTIONS
+    }
+    handle @cors_preflight {
+        header Access-Control-Allow-Origin "https://app.valuecanvas.com"
+        header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+        header Access-Control-Allow-Headers "Content-Type, Authorization, X-Request-ID"
+        header Access-Control-Max-Age "3600"
+        respond 204
+    }
+    
+    # Logging
+    log {
+        output file /var/log/caddy/api-access.log {
+            roll_size 100mb
+            roll_keep 10
+            roll_keep_for 720h
+        }
+        format json
+        level WARN
+    }
+}
+
+# ============================================================================
+# Health Check Endpoint (accessible without domain)
+# ============================================================================
+:80/health {
+    respond "healthy" 200 {
+        close
+    }
+}
+
+# ============================================================================
+# HTTP to HTTPS Redirect
+# ============================================================================
+http://app.valuecanvas.com {
+    redir https://app.valuecanvas.com{uri} permanent
+}
+
+http://api.valuecanvas.com {
+    redir https://api.valuecanvas.com{uri} permanent
+}
