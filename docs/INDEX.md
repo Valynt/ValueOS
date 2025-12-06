@@ -7,6 +7,7 @@
   - [[DOCUMENTATION_INDEX.md](cci:7://file:///workspaces/ValueCanvas/docs/DOCUMENTATION_INDEX.md:0:0-0:0)](./DOCUMENTATION_INDEX.md)
   - [[ACCESSING_DOCUMENTATION.md](cci:7://file:///workspaces/ValueCanvas/docs/ACCESSING_DOCUMENTATION.md:0:0-0:0)](./ACCESSING_DOCUMENTATION.md)
   - [[FAQ.md](cci:7://file:///workspaces/ValueCanvas/docs/FAQ.md:0:0-0:0)](./FAQ.md)
+  - [`overview/root-docs-rollup.md`](./overview/root-docs-rollup.md)
 
 - **Onboarding**
   - [[getting-started/](cci:7://file:///workspaces/ValueCanvas/docs/getting-started:0:0-0:0)](./getting-started/)
