@@ -114,6 +114,7 @@ services:
 
 networks:
   prod-network:
+    name: valuecanvas-network
     driver: bridge
 
 volumes:
