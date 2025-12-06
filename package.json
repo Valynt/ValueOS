@@ -66,7 +66,12 @@
     "staging:backend": "NODE_ENV=staging tsx watch src/backend/server.ts",
     "staging:test": "NODE_ENV=staging vitest run",
     "staging:deploy": "NODE_ENV=staging npm run build && docker-compose -f infrastructure/docker/compose.stage.yml up -d --build",
-    "staging:clean": "docker-compose -f infrastructure/docker/compose.stage.yml down -v --remove-orphans"
+    "staging:clean": "docker-compose -f infrastructure/docker/compose.stage.yml down -v --remove-orphans",
+    "deploy:validate": "bash scripts/validate-deployment.sh",
+    "deploy:pre-check": "bash scripts/pre-deployment-checklist.sh",
+    "db:backup": "bash scripts/backup-restore.sh backup",
+    "db:restore": "bash scripts/backup-restore.sh restore",
+    "db:backup:list": "bash scripts/backup-restore.sh list"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
