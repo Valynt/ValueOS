@@ -1,0 +1,43 @@
+{
+  "name": "@valuecanvas/domain-validator",
+  "version": "1.0.0",
+  "description": "Domain validation service for Caddy on-demand TLS",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "domain",
+    "validation",
+    "caddy",
+    "tls",
+    "ssl"
+  ],
+  "author": "ValueCanvas",
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
+    "express": "^4.18.2",
+    "winston": "^3.18.3"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.0",
+    "@vitest/coverage-v8": "^4.0.15",
+    "eslint": "^9.9.1",
+    "supertest": "^7.1.4",
+    "tsx": "^4.19.2",
+    "typescript": "^5.5.3",
+    "vitest": "^4.0.15"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
