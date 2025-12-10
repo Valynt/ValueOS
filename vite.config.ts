@@ -36,13 +36,13 @@ export default defineConfig({
           // React core
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           // UI libraries
-          'ui-vendor': ['lucide-react', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-tabs', '@radix-ui/react-tooltip'],
+          'ui-vendor': ['lucide-react'],
           // Data/state management
-          'data-vendor': ['zustand', '@tanstack/react-query', 'zod'],
-          // Visualization
-          'viz-vendor': ['reactflow', 'recharts'],
+          'data-vendor': ['zustand', 'zod'],
           // Supabase
           'supabase-vendor': ['@supabase/supabase-js'],
+          // Utilities
+          'utils-vendor': ['html2canvas', 'dompurify', 'lz-string'],
         },
       },
     },
