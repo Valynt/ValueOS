@@ -2,7 +2,6 @@
  * Centralized, environment-aware, and schema-validated configuration.
  */
 import { z } from 'zod';
-import { hydrateServerSecretsFromManager } from './secrets/SecretHydrator';
 
 // Define the schema for all environment variables
 const SettingsSchema = z.object({
@@ -26,7 +25,16 @@ const SettingsSchema = z.object({
 const isServer = typeof window === 'undefined';
 
 // Load managed secrets on the server before parsing the environment
-const managedSecrets = await hydrateServerSecretsFromManager();
+// Use dynamic import to avoid bundling Node.js-only code in the browser
+let managedSecrets: Record<string, string> = {};
+if (isServer) {
+  try {
+    const { hydrateServerSecretsFromManager } = await import('./secrets/SecretHydrator');
+    managedSecrets = await hydrateServerSecretsFromManager();
+  } catch {
+    // SecretHydrator not available in browser or failed to load
+  }
+}
 
 // We need to handle the case where the server might not have the VITE_ prefix.
 // This function helps merge the two possibilities.
