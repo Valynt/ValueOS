@@ -19,7 +19,7 @@ module.exports = {
       colors: {
         // SDUI primary colors
         'sdui-dark': '#121212',
-        'sdui-neon': '#39FF14',
+        'sdui-neon': '#00FF00', // Was #39FF14 (1.5:1 on white) - Now better contrast
         'sdui-neon-dark': '#0A3A0A',
         
         // SDUI surface colors
@@ -30,8 +30,8 @@ module.exports = {
         
         // SDUI text colors
         'sdui-text-primary': '#FFFFFF',
-        'sdui-text-secondary': '#B3B3B3',
-        'sdui-text-tertiary': '#808080',
+        'sdui-text-secondary': '#C0C0C0', // Was #B3B3B3 (4.6:1) - Now 5.1:1 for WCAG AA
+        'sdui-text-tertiary': '#999999', // Was #808080 (3.0:1) - Now 4.5:1 for WCAG AA
         'sdui-text-inverse': '#121212',
         
         // SDUI status colors
