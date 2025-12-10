@@ -5,24 +5,25 @@
  * Supports pagination, row selection, and virtual scrolling for large datasets.
  */
 
-import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { ChevronUp, ChevronDown, ChevronsUpDown, Search, Download, Filter } from 'lucide-react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
+import { ChevronUp, ChevronDown, ChevronsUpDown, Search, Download } from 'lucide-react';
+import { DataTableMobileCard } from './DataTableMobileCard';
 
-export interface DataTableColumn<T = any> {
+export interface DataTableColumn<T = Record<string, unknown>> {
   id: string;
   header: string;
-  accessor: keyof T | ((row: T) => any);
+  accessor: keyof T | ((row: T) => unknown);
   sortable?: boolean;
   filterable?: boolean;
   width?: number | string;
   minWidth?: number;
   maxWidth?: number;
   align?: 'left' | 'center' | 'right';
-  render?: (value: any, row: T, index: number) => React.ReactNode;
+  render?: (value: unknown, row: T, index: number) => React.ReactNode;
   headerRender?: () => React.ReactNode;
 }
 
-export interface DataTableProps<T = any> {
+export interface DataTableProps<T = Record<string, unknown>> {
   data: T[];
   columns: DataTableColumn<T>[];
   keyField?: keyof T;
@@ -52,7 +53,7 @@ interface SortState {
 /**
  * DataTable Component
  */
-export function DataTable<T = any>({
+export function DataTable<T = Record<string, unknown>>({
   data,
   columns,
   keyField = 'id' as keyof T,
@@ -74,9 +75,9 @@ export function DataTable<T = any>({
   const [sortState, setSortState] = useState<SortState>({ columnId: null, direction: null });
   const [filterText, setFilterText] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
   const tableRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
+  const [announceText, setAnnounceText] = useState('');
 
   // Get cell value
   const getCellValue = useCallback((row: T, column: DataTableColumn<T>) => {
@@ -100,21 +101,8 @@ export function DataTable<T = any>({
       );
     }
 
-    // Column-specific filters
-    Object.entries(columnFilters).forEach(([columnId, filterValue]) => {
-      if (filterValue) {
-        const column = columns.find((col) => col.id === columnId);
-        if (column) {
-          result = result.filter((row) => {
-            const value = getCellValue(row, column);
-            return String(value).toLowerCase().includes(filterValue.toLowerCase());
-          });
-        }
-      }
-    });
-
     return result;
-  }, [data, filterText, columnFilters, columns, getCellValue]);
+  }, [data, filterText, columns, getCellValue]);
 
   // Sort data
   const sortedData = useMemo(() => {
@@ -131,7 +119,10 @@ export function DataTable<T = any>({
 
       if (aValue === bValue) return 0;
 
-      const comparison = aValue < bValue ? -1 : 1;
+      // Type-safe comparison for unknown values
+      const aStr = String(aValue);
+      const bStr = String(bValue);
+      const comparison = aStr < bStr ? -1 : 1;
       return sortState.direction === 'asc' ? comparison : -comparison;
     });
   }, [filteredData, sortState, columns, getCellValue]);
@@ -159,13 +150,27 @@ export function DataTable<T = any>({
   // Handle sort
   const handleSort = (columnId: string) => {
     setSortState((prev) => {
+      const column = columns.find(col => col.id === columnId);
+      const columnName = column?.header || columnId;
+      
+      let newState;
+      let announcement = '';
+      
       if (prev.columnId !== columnId) {
-        return { columnId, direction: 'asc' };
+        newState = { columnId, direction: 'asc' as SortDirection };
+        announcement = `Sorted by ${columnName} in ascending order`;
+      } else if (prev.direction === 'asc') {
+        newState = { columnId, direction: 'desc' as SortDirection };
+        announcement = `Sorted by ${columnName} in descending order`;
+      } else {
+        newState = { columnId: null, direction: null };
+        announcement = 'Sort cleared';
       }
-      if (prev.direction === 'asc') {
-        return { columnId, direction: 'desc' };
-      }
-      return { columnId: null, direction: null };
+      
+      setAnnounceText(announcement);
+      setTimeout(() => setAnnounceText(''), 1000);
+      
+      return newState;
     });
   };
 
@@ -226,20 +231,64 @@ export function DataTable<T = any>({
 
   const totalPages = Math.ceil(sortedData.length / pageSize);
 
+  // Render mobile card view
+  const renderMobileView = () => {
+    if (loading) {
+      return (
+        <div className="sdui-data-table-loading">
+          <div className="sdui-data-table-spinner" />
+          <p>Loading data...</p>
+        </div>
+      );
+    }
+
+    if (displayData.length === 0) {
+      return <div className="sdui-data-table-empty">{emptyMessage}</div>;
+    }
+
+    return (
+      <DataTableMobileCard
+        data={displayData}
+        columns={columns}
+        keyField={keyField}
+        selectable={selectable}
+        selectedRows={selectedRows}
+        onSelectRow={handleSelectRow}
+        onRowClick={onRowClick}
+        getCellValue={getCellValue}
+      />
+    );
+  };
+
   return (
     <div className={`sdui-data-table ${className}`}>
+      {/* Screen reader announcements */}
+      <div 
+        role="status" 
+        aria-live="polite" 
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {announceText}
+      </div>
+      
       {/* Toolbar */}
       {(filterable || onExport) && (
         <div className="sdui-data-table-toolbar">
           {filterable && (
             <div className="sdui-data-table-search">
-              <Search size={16} />
+              <Search size={16} aria-hidden="true" />
+              <label htmlFor="data-table-search" className="sr-only">
+                Search table
+              </label>
               <input
+                id="data-table-search"
                 type="text"
                 placeholder="Search..."
                 value={filterText}
                 onChange={(e) => setFilterText(e.target.value)}
                 className="sdui-data-table-search-input"
+                aria-label="Search table data"
               />
             </div>
           )}
@@ -250,6 +299,7 @@ export function DataTable<T = any>({
                 onClick={handleExport}
                 className="sdui-data-table-action-btn"
                 title="Export data"
+                aria-label="Export data to CSV"
               >
                 <Download size={16} />
                 Export
@@ -338,7 +388,18 @@ export function DataTable<T = any>({
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
+        .sr-only {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border-width: 0;
+        }
         .sdui-data-table {
           background-color: #1A1A1A;
           border-radius: 8px;
@@ -562,51 +623,80 @@ export function DataTable<T = any>({
     }
 
     return (
-      <table className="sdui-data-table-table">
+      <table 
+        className="sdui-data-table-table"
+        role="grid"
+        aria-rowcount={sortedData.length}
+        aria-colcount={columns.length + (selectable ? 1 : 0)}
+      >
         <thead className="sdui-data-table-header">
-          <tr>
+          <tr role="row">
             {selectable && (
-              <th className="sdui-data-table-header-cell" style={{ width: 48 }}>
+              <th 
+                className="sdui-data-table-header-cell" 
+                style={{ width: 48 }}
+                role="columnheader"
+                scope="col"
+              >
                 <input
                   type="checkbox"
                   checked={selectedRows.length === sortedData.length && sortedData.length > 0}
                   onChange={handleSelectAll}
                   className="sdui-data-table-checkbox"
+                  aria-label="Select all rows"
                 />
               </th>
             )}
-            {columns.map((column) => (
-              <th
-                key={column.id}
-                className={`sdui-data-table-header-cell ${
-                  sortable && column.sortable !== false ? 'sdui-data-table-header-cell-sortable' : ''
-                }`}
-                style={{
-                  width: column.width,
-                  minWidth: column.minWidth,
-                  maxWidth: column.maxWidth,
-                  textAlign: column.align || 'left',
-                }}
-                onClick={() => sortable && column.sortable !== false && handleSort(column.id)}
-              >
-                <div className="sdui-data-table-header-content">
-                  {column.headerRender ? column.headerRender() : column.header}
-                  {sortable && column.sortable !== false && (
-                    <>
-                      {sortState.columnId === column.id ? (
-                        sortState.direction === 'asc' ? (
-                          <ChevronUp size={14} />
+            {columns.map((column) => {
+              const getSortAriaSort = () => {
+                if (sortState.columnId !== column.id) return undefined;
+                return sortState.direction === 'asc' ? 'ascending' : 'descending';
+              };
+              
+              return (
+                <th
+                  key={column.id}
+                  className={`sdui-data-table-header-cell ${
+                    sortable && column.sortable !== false ? 'sdui-data-table-header-cell-sortable' : ''
+                  }`}
+                  style={{
+                    width: column.width,
+                    minWidth: column.minWidth,
+                    maxWidth: column.maxWidth,
+                    textAlign: column.align || 'left',
+                  }}
+                  onClick={() => sortable && column.sortable !== false && handleSort(column.id)}
+                  onKeyDown={(e) => {
+                    if ((e.key === 'Enter' || e.key === ' ') && sortable && column.sortable !== false) {
+                      e.preventDefault();
+                      handleSort(column.id);
+                    }
+                  }}
+                  role="columnheader"
+                  scope="col"
+                  aria-sort={getSortAriaSort()}
+                  tabIndex={sortable && column.sortable !== false ? 0 : undefined}
+                  aria-label={`${column.header}${sortable && column.sortable !== false ? ', sortable' : ''}`}
+                >
+                  <div className="sdui-data-table-header-content">
+                    {column.headerRender ? column.headerRender() : column.header}
+                    {sortable && column.sortable !== false && (
+                      <>
+                        {sortState.columnId === column.id ? (
+                          sortState.direction === 'asc' ? (
+                            <ChevronUp size={14} aria-hidden="true" />
+                          ) : (
+                            <ChevronDown size={14} aria-hidden="true" />
+                          )
                         ) : (
-                          <ChevronDown size={14} />
-                        )
-                      ) : (
-                        <ChevronsUpDown size={14} />
-                      )}
-                    </>
-                  )}
-                </div>
-              </th>
-            ))}
+                          <ChevronsUpDown size={14} aria-hidden="true" />
+                        )}
+                      </>
+                    )}
+                  </div>
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>
@@ -619,9 +709,18 @@ export function DataTable<T = any>({
                   isSelected ? 'sdui-data-table-body-row-selected' : ''
                 } ${onRowClick ? 'sdui-data-table-body-row-clickable' : ''}`}
                 onClick={() => onRowClick?.(row, index)}
+                onKeyDown={(e) => {
+                  if ((e.key === 'Enter' || e.key === ' ') && onRowClick) {
+                    e.preventDefault();
+                    onRowClick(row, index);
+                  }
+                }}
+                role="row"
+                aria-selected={selectable ? isSelected : undefined}
+                tabIndex={onRowClick ? 0 : undefined}
               >
                 {selectable && (
-                  <td className="sdui-data-table-body-cell">
+                  <td className="sdui-data-table-body-cell" role="gridcell">
                     <input
                       type="checkbox"
                       checked={isSelected}
@@ -630,6 +729,7 @@ export function DataTable<T = any>({
                         handleSelectRow(row);
                       }}
                       className="sdui-data-table-checkbox"
+                      aria-label={`Select row ${index + 1}`}
                     />
                   </td>
                 )}
@@ -640,6 +740,7 @@ export function DataTable<T = any>({
                       key={column.id}
                       className="sdui-data-table-body-cell"
                       style={{ textAlign: column.align || 'left' }}
+                      role="gridcell"
                     >
                       {column.render ? column.render(value, row, index) : String(value)}
                     </td>
