@@ -2,6 +2,9 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { getEnvironmentHeaders } from './src/lib/security/headers';
 
+// Detect Codespaces environment
+const isCodespaces = process.env.CODESPACES === 'true';
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
@@ -13,7 +16,8 @@ export default defineConfig({
     // CORS configuration for cross-origin requests
     cors: true,
     // HMR configuration for hot module replacement
-    hmr: {
+    // In Codespaces, let Vite auto-detect the correct WebSocket URL
+    hmr: isCodespaces ? true : {
       clientPort: 3000,
       host: 'localhost',
     },

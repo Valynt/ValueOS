@@ -109,7 +109,9 @@ export {
 } from './RateLimiter';
 
 // Secure in-memory caching with zeroization
-export { SecureCache, secureCache, type SecureCacheOptions } from './SecureCache';
+// NOTE: SecureCache uses Node.js crypto and is server-only
+// Import directly from './SecureCache' when needed on the server
+// export { SecureCache, secureCache, type SecureCacheOptions } from './SecureCache';
 
 // Security Headers
 export {
