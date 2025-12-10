@@ -31,6 +31,20 @@ export default defineConfig({
   build: {
     rollupOptions: {
       external: ['fs', 'path', 'crypto', 'node-vault'],
+      output: {
+        manualChunks: {
+          // React core
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          // UI libraries
+          'ui-vendor': ['lucide-react', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-tabs', '@radix-ui/react-tooltip'],
+          // Data/state management
+          'data-vendor': ['zustand', '@tanstack/react-query', 'zod'],
+          // Visualization
+          'viz-vendor': ['reactflow', 'recharts'],
+          // Supabase
+          'supabase-vendor': ['@supabase/supabase-js'],
+        },
+      },
     },
   },
   optimizeDeps: {
