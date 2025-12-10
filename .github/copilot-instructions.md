@@ -54,37 +54,65 @@ await memorySystem.query(embedding, {
 
 ## Agent Fabric Architecture
 
-### Agent Development (`src/lib/agent-fabric/agents/**`, `src/agents/**`)
+### Agent Development (`src/lib/agent-fabric/agents/**`)
 
-All agents extend `BaseAgent` and follow strict patterns:
+**CRITICAL**: ALL production agents are in `src/lib/agent-fabric/agents/`. Legacy `src/agents/` was deleted (Dec 2024).
+
+All agents extend `BaseAgent` and follow strict security patterns:
 
 ```typescript
-// ✅ Agent structure
+// ✅ SECURE Agent structure
 export class MyAgent extends BaseAgent {
   public readonly lifecycleStage = 'discovery';
   public readonly version = '1.0.0';
   public readonly name = 'MyAgent';
 
-  async execute(input: Input): Promise<Output> {
-    // Use handlebars for prompts (NO string concatenation)
-    const prompt = Handlebars.compile(PROMPT_TEMPLATE)({ data: input });
-    
-    // ALWAYS use secureInvoke() for LLM calls
-    const result = await this.secureInvoke(prompt, {
-      trackPrediction: true,
-      confidenceThresholds: { low: 0.6, high: 0.85 }
+  async execute(sessionId: string, input: Input): Promise<Output> {
+    // 1. Define Zod schema with hallucination_check
+    const schema = z.object({
+      result_field: z.string(),
+      confidence_level: z.enum(['high', 'medium', 'low']),
+      reasoning: z.string(),
+      hallucination_check: z.boolean().optional() // REQUIRED
     });
+
+    // 2. ALWAYS use secureInvoke() - NEVER llmGateway.complete()
+    const secureResult = await this.secureInvoke(
+      sessionId,
+      prompt,
+      schema,
+      {
+        trackPrediction: true,
+        confidenceThresholds: { low: 0.6, high: 0.85 },
+        context: { agent: 'MyAgent' }
+      }
+    );
     
-    return result;
+    // 3. Store memory with organizationId (tenant isolation)
+    await this.memorySystem.storeSemanticMemory(
+      sessionId,
+      this.agentId,
+      'Knowledge to store',
+      { metadata: 'value' },
+      this.organizationId // REQUIRED - prevents cross-tenant leaks
+    );
+    
+    return secureResult.result;
   }
 }
 ```
 
-**Rules:**
-- Each agent = single file `[AgentName]Agent.ts`
-- LLM calls ONLY via `this.secureInvoke()` (includes safety limits, circuit breakers)
+**MANDATORY Rules:**
+- Each agent = single file `[AgentName]Agent.ts` in `src/lib/agent-fabric/agents/`
+- LLM calls ONLY via `this.secureInvoke()` (circuit breakers, hallucination detection, Zod validation)
+- ALL memory operations MUST include `this.organizationId` parameter (tenant isolation)
+- Confidence thresholds by risk: Financial=0.7-0.9, Commitments=0.6-0.85, Discovery=0.5-0.8
+  - **Financial agents** (0.7-0.9): ROI calculations, NPV, payback periods require highest accuracy to prevent financial misrepresentation
+  - **Commitment agents** (0.6-0.85): Target metrics, KPIs, business objectives need high confidence but allow reasonable estimates
+  - **Discovery agents** (0.5-0.8): Opportunity analysis, intelligence gathering permit exploratory insights with moderate confidence
 - 100% test coverage required (mock `LLMGateway` and `MemorySystem`)
-- NO direct agent-to-agent working memory access
+- NO direct `llmGateway.complete()` calls (100% security bypass)
+- NO direct agent-to-agent memory access
 
 ### Workflow Orchestration (`src/services/WorkflowOrchestrator.ts`)
 
@@ -243,6 +271,48 @@ npm run security:scan    # Dependency audit
 - `fileParallelism: false` (avoid race conditions on single container)
 - Mock Supabase with `createBoltClientMock()` from `test/mocks/mockSupabaseClient`
 - Timeout: 30s tests, 120s hooks
+- Agent security tests: `src/lib/agent-fabric/agents/__tests__/*.security.test.ts`
+- Run security suite: `bash scripts/test-agent-security.sh`
+
+**Test Environment (Node.js):**
+Backend/agent tests run in Node.js (no browser APIs). Guard browser-only code:
+
+```typescript
+// tests/setup.ts - Conditional browser API mocks
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'matchMedia', {
+    value: vi.fn().mockImplementation((query) => ({
+      matches: false,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    }))
+  });
+}
+```
+
+### Staging → Production Deployment Flow
+
+**Workflow:** Local tests → Staging deploy → 48hr observation → Production release
+
+1. **Staging Deployment:**
+   - Run security test suite: `bash scripts/test-agent-security.sh`
+   - Build staging: `npm run staging:build`
+   - Deploy and run smoke tests (OpportunityAgent, FinancialModelingAgent)
+   - Validate cross-tenant isolation (Org A cannot access Org B data)
+   - Monitor circuit breakers, hallucination detection rates, latency
+
+2. **Observation Period (48 hours):**
+   - Grafana metrics: agent confidence scores, error rates, memory usage
+   - Security audit: zero cross-tenant leaks, zero RLS violations
+   - Performance: latency increase < 10% baseline
+
+3. **Production Release:**
+   - Sign-off from Engineering, Security, DevOps
+   - Gradual rollout with feature flags
+   - Rollback plan ready (circuit breaker stuck open, hallucination rate > 20%)
+
+**Complete checklist:** `STAGING_DEPLOYMENT_CHECKLIST.md` (9-step guide with verification commands)
 
 ### Pre-Production Verification
 ```bash
@@ -263,7 +333,6 @@ SELECT * FROM security.health_check();
 - Enable service role operation monitoring
 - Deploy Edge Functions with secure secrets
 - Configure Storage RLS policies
-- Complete checklist: `docs/deployment/PRE_PRODUCTION_CHECKLIST.md`
 
 ### Path Aliases
 ```typescript
@@ -323,6 +392,28 @@ Examples:
 
 Only explain complex logic or architectural decisions, not obvious code changes.
 
+## Recent Security Improvements (Dec 2024)
+
+**Agent Security Overhaul**: All 8 production agents now use `secureInvoke()` with:
+- ✅ Circuit breaker protection (prevents runaway LLM costs)
+- ✅ Hallucination detection via `hallucination_check` flag in schemas
+- ✅ Structured output validation with Zod
+- ✅ Tenant isolation in all memory operations (organizationId required)
+- ✅ Confidence score tracking for accuracy metrics
+
+**Verification**: Zero agents bypass security (verified via `grep -r "llmGateway\.complete" src/lib/agent-fabric/agents/*.ts`)
+
+**⚠️ Legacy Code Warning**: The `src/agents/` directory was **deleted** in Dec 2024 (backup: `backup/legacy-agents-*/`). All production agents are now in `src/lib/agent-fabric/agents/`. If you find references to `src/agents/` in:
+- Import statements (e.g., `from '../../agents/OpportunityAgent'`)
+- Documentation or comments
+- Configuration files
+- Test files
+
+**Action required**: Update paths to `src/lib/agent-fabric/agents/` or remove obsolete references. Verify with:
+```bash
+grep -r "src/agents/" --include="*.ts" --include="*.tsx" --include="*.md"
+```
+
 ---
 
 ## Key Files Reference
@@ -331,18 +422,22 @@ Only explain complex logic or architectural decisions, not obvious code changes.
 |------|---------|
 | `src/services/WorkflowOrchestrator.ts` | Workflow DAG execution engine |
 | `src/services/MessageBus.ts` | CloudEvents message bus |
-| `src/lib/agent-fabric/agents/BaseAgent.ts` | Agent base class |
+| `src/lib/agent-fabric/agents/BaseAgent.ts` | Agent base class with secureInvoke() |
 | `src/lib/agent-fabric/MemorySystem.ts` | Vector memory (tenant-scoped) |
+| `src/lib/agent-fabric/SafeJSONParser.ts` | JSON error recovery (400+ lines) |
 | `src/lib/supabase.ts` | Supabase client singleton |
 | `config/ui-registry.json` | SDUI component mappings |
 | `supabase/tests/database/rls_policies.test.sql` | RLS test suite |
 | `docs/database/enterprise_saas_hardened_config_v2.sql` | Production database schema |
-| `docs/deployment/PRE_PRODUCTION_CHECKLIST.md` | Deployment verification guide |
-| `scripts/verify-production.sh` | Automated readiness checks |
+| `scripts/test-agent-security.sh` | Agent security test runner |
+| `scripts/cleanup-legacy-agents.sh` | Legacy code cleanup (with backup) |
+| `STAGING_DEPLOYMENT_CHECKLIST.md` | Deployment verification guide |
 | `.github/instructions/*.md` | Component-specific rules |
 
 **Detailed instructions:** See `.github/instructions/{agents,backend,frontend,orchestration,memory,communication,tools}.instructions.md` for domain-specific guidelines.
 
 ---
+
+**Last Updated:** 2025-12-10 (Agent security hardening complete)
 
 **Last Updated:** 2025-12-10
