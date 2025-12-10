@@ -305,17 +305,28 @@ export abstract class BaseAgent {
   }
 
   protected async extractJSON(content: string, schema?: z.ZodSchema): Promise<any> {
-    if (featureFlags.ENABLE_SAFE_JSON_PARSER && schema) {
-      // Use SafeJSON parser with schema validation
-      return await parseLLMOutputStrict(content, schema);
-    } else if (featureFlags.ENABLE_SAFE_JSON_PARSER) {
-      // Use SafeJSON parser without schema (permissive)
-      return await parseLLMOutputStrict(content, z.any());
-    } else {
-      // Legacy: Use regex-based parsing
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('No JSON found in LLM response');
-      return JSON.parse(jsonMatch[0]);
+    // Use new comprehensive SafeJSONParser with error handling
+    const { extractJSON: safeExtractJSON } = await import('../SafeJSONParser');
+    
+    try {
+      return await safeExtractJSON(content, schema, {
+        maxSize: 5 * 1024 * 1024, // 5 MB limit
+        allowPartial: !schema // Allow partial recovery if no schema validation
+      });
+    } catch (error: any) {
+      logger.error('JSON extraction failed in BaseAgent', {
+        agent: this.agentId,
+        error: error.message,
+        contentPreview: content.substring(0, 200)
+      });
+      
+      // Graceful degradation: return empty object for backward compatibility
+      // but log the failure for monitoring
+      if (schema) {
+        throw error; // Re-throw if schema validation was requested
+      }
+      
+      return {};
     }
   }
 

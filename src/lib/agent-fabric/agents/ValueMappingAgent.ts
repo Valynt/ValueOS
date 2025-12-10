@@ -44,21 +44,32 @@ Return ONLY valid JSON in this format:
   "reasoning": "<explanation of value chain logic>"
 }`;
 
-    const response = await this.llmGateway.complete([
-      {
-        role: 'system',
-        content: 'You are an expert at mapping product features to business value. Create clear, logical value chains.'
-      },
-      {
-        role: 'user',
-        content: prompt
-      }
-    ], {
-      temperature: 0.4,
-      max_tokens: 2000
+    // SECURITY FIX: Use secureInvoke() for hallucination detection and circuit breaker
+    const valueMappingSchema = z.object({
+      value_mapping: z.any(),
+      capability_impact: z.array(z.any()),
+      outcome_correlations: z.any(),
+      confidence_level: z.enum(['high', 'medium', 'low']),
+      reasoning: z.string(),
+      hallucination_check: z.boolean().optional()
     });
 
-    const parsed = this.extractJSON(response.content);
+    const secureResult = await this.secureInvoke(
+      sessionId,
+      prompt,
+      valueMappingSchema,
+      {
+        trackPrediction: true,
+        confidenceThresholds: { low: 0.6, high: 0.85 },
+        context: {
+          agent: 'ValueMappingAgent',
+          capabilities: input.capabilities?.length || 0
+        }
+      }
+    );
+
+    const parsed = secureResult.result;
+    const response = { content: JSON.stringify(parsed), tokens_used: 0, model: 'gpt-4' };
 
     const durationMs = Date.now() - startTime;
 
@@ -86,7 +97,8 @@ Return ONLY valid JSON in this format:
         sessionId,
         this.agentId,
         `${vm.feature} drives ${vm.business_outcome}`,
-        { value_map: vm }
+        { value_map: vm },
+        this.organizationId // SECURITY: Tenant isolation
       );
     }
 

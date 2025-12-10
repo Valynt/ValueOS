@@ -60,21 +60,33 @@ Return ONLY valid JSON in this exact format:
   "reasoning": "<why you chose this classification and confidence level>"
 }`;
 
-    const response = await this.llmGateway.complete([
-      {
-        role: 'system',
-        content: 'You are an expert company and industry analyst. Extract structured company intelligence from user descriptions.'
-      },
-      {
-        role: 'user',
-        content: prompt
-      }
-    ], {
-      temperature: 0.3,
-      max_tokens: 2000
+    // SECURITY FIX: Use secureInvoke() for hallucination detection and circuit breaker
+    const intelligenceSchema = z.object({
+      company_profile: z.any(),
+      key_stakeholders: z.array(z.any()),
+      strategic_priorities: z.array(z.any()),
+      decision_patterns: z.any(),
+      confidence_level: z.enum(['high', 'medium', 'low']),
+      reasoning: z.string(),
+      hallucination_check: z.boolean().optional()
     });
 
-    const parsed = this.extractJSON(response.content);
+    const secureResult = await this.secureInvoke(
+      sessionId,
+      prompt,
+      intelligenceSchema,
+      {
+        trackPrediction: true,
+        confidenceThresholds: { low: 0.5, high: 0.8 },
+        context: {
+          agent: 'CompanyIntelligenceAgent',
+          companyId: input.companyId
+        }
+      }
+    );
+
+    const parsed = secureResult.result;
+    const response = { content: JSON.stringify(parsed), tokens_used: 0, model: 'gpt-4' };
 
     const durationMs = Date.now() - startTime;
 
@@ -102,7 +114,8 @@ Return ONLY valid JSON in this exact format:
       sessionId,
       this.agentId,
       `Company: ${parsed.company_name} in ${parsed.industry} (${parsed.vertical})`,
-      { company_profile: parsed }
+      { company_profile: parsed },
+      this.organizationId // SECURITY: Tenant isolation
     );
 
     return {
