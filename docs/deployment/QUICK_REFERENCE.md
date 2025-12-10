@@ -3,6 +3,16 @@
 ## 🚀 Quick Start
 
 ```bash
+# 0. Reset staging database (FIRST TIME ONLY)
+psql $DATABASE_URL -f scripts/reset-staging-database.sql
+
+# 0b. Re-apply migrations after reset
+supabase db push
+
+# 0c. Delete storage files
+supabase storage rm documents --recursive
+supabase storage rm avatars --recursive
+
 # 1. Run automated verification
 ./scripts/verify-production.sh staging
 

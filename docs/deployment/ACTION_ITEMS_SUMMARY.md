@@ -121,38 +121,45 @@ Review these for implementation guidance:
 
 ### 🔴 MUST COMPLETE BEFORE PRODUCTION
 
-1. **Configure JWT Custom Claims** (30 minutes)
+1. **Clean Staging Database** (1 hour)
+   - Backup current database
+   - Run cleanup script to remove test data
+   - Delete storage bucket files
+   - Verify only system data remains
+   - **Impact:** Clean slate for production, accurate metrics
+
+2. **Configure JWT Custom Claims** (30 minutes)
    - Run SQL from Section 1.1 of checklist
    - Enable in Supabase Dashboard
    - Verify with test user login
    - **Impact:** 50-100x performance improvement for RLS
 
-2. **Run Verification Scripts** (15 minutes)
+3. **Run Verification Scripts** (15 minutes)
    ```bash
    ./scripts/verify-production.sh staging
    ```
    - **Must Pass:** All critical checks
    - **Action on Fail:** Fix issues and re-run
 
-3. **Test Cross-Tenant Isolation** (1 hour)
+4. **Test Cross-Tenant Isolation** (1 hour)
    - Follow Section 2 test scenarios
    - Verify 0 rows returned for cross-tenant queries
    - Test with actual user JWTs in staging
    - **Critical:** Data breach prevention
 
-4. **Configure Storage RLS** (30 minutes)
+5. **Configure Storage RLS** (30 minutes)
    - Apply policies from Section 5
    - Test upload/download with different org users
    - **Critical:** File access isolation
 
 ### 🟡 COMPLETE BEFORE LAUNCH
 
-5. **Service Role Monitoring** (2 hours)
+6. **Service Role Monitoring** (2 hours)
    - Set up Grafana dashboards (Section 3.2)
    - Configure PagerDuty alerts (Section 3.3)
    - **Impact:** Audit trail for compliance
 
-6. **Edge Function Security** (1 hour)
+7. **Edge Function Security** (1 hour)
    - Deploy secrets via Supabase CLI
    - Test each function with user JWTs
    - Verify tenant isolation in code
@@ -160,7 +167,7 @@ Review these for implementation guidance:
 
 ### 🟢 COMPLETE WITHIN FIRST WEEK
 
-7. **Documentation & Training** (4 hours)
+8. **Documentation & Training** (4 hours)
    - Review checklist with team
    - Document emergency procedures
    - Train on-call rotation
@@ -214,13 +221,14 @@ Before deploying to production, verify:
 
 | Task | Time | Owner |
 |------|------|-------|
+| Reset staging database | 1 hour | Database Admin |
 | JWT claims configuration | 30 min | Backend Lead |
 | Run verification scripts | 15 min | DevOps |
 | Cross-tenant testing | 1 hour | QA + Security |
 | Storage RLS deployment | 30 min | Backend Lead |
 | Service role monitoring | 2 hours | DevOps |
 | Edge Function security | 1 hour | Backend Lead |
-| **Total Critical Path** | **5 hours** | - |
+| **Total Critical Path** | **6.25 hours** | - |
 
 **Recommended:** Allocate 1 full day for thorough testing and verification before production deployment.
 
