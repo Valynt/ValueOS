@@ -1,4 +1,6 @@
 import type { LLMProvider } from '../lib/agent-fabric/llm-types';
+import type { LLMGatingConfig } from '../lib/llm-gating/types';
+import { DEFAULT_GATING_CONFIG } from '../lib/llm-gating/types';
 
 // Use a local helper to avoid relying on global ImportMeta typings
 const env = (import.meta as any)?.env ?? {};
@@ -8,6 +10,68 @@ const provider: LLMProvider = rawProvider === 'openai' ? 'openai' : 'together';
 
 const gatingEnabledEnv = env.VITE_LLM_GATING_ENABLED;
 const gatingEnabled = gatingEnabledEnv === 'false' ? false : true;
+
+// ============================================================================
+// LLM Gating Configuration (Based on Gated Attention Research)
+// ============================================================================
+
+/**
+ * Comprehensive LLM Gating Configuration
+ * 
+ * Applies findings from "Gated Attention for Large Language Models"
+ * - Architectural Gating: MoE/sparse attention model selection
+ * - Application Gating: Pre/post invocation security gates
+ */
+export const llmGatingConfig: LLMGatingConfig = {
+  // Master switch
+  enabled: gatingEnabled,
+
+  // Cost Gate (R5: Wallet Draining mitigation)
+  cost: {
+    enabled: env.VITE_LLM_COST_GATE_ENABLED !== 'false',
+    warningThreshold: parseFloat(env.VITE_LLM_COST_WARNING_THRESHOLD || '70'),
+    downgradeThreshold: parseFloat(env.VITE_LLM_COST_DOWNGRADE_THRESHOLD || '85'),
+    blockThreshold: parseFloat(env.VITE_LLM_COST_BLOCK_THRESHOLD || '95'),
+    perRequestLimit: parseFloat(env.VITE_LLM_COST_PER_REQUEST_LIMIT || '1.0'),
+    allowGracePeriod: env.VITE_LLM_ALLOW_GRACE_PERIOD !== 'false',
+  },
+
+  // Compliance Gate (R2: Cross-Tenant Data Leakage mitigation)
+  compliance: {
+    enablePIIDetection: env.VITE_LLM_PII_DETECTION_ENABLED !== 'false',
+    blockingPIITypes: ['ssn', 'credit_card', 'api_key', 'password'],
+    allowRedactedPII: env.VITE_LLM_ALLOW_REDACTED_PII !== 'false',
+    enableManifestoRules: env.VITE_LLM_MANIFESTO_RULES_ENABLED !== 'false',
+    enableTenantIsolation: env.VITE_LLM_TENANT_ISOLATION_ENABLED !== 'false',
+  },
+
+  // Confidence Gate (R4: LLM Hallucination mitigation)
+  confidence: {
+    minConfidenceScore: parseFloat(env.VITE_LLM_MIN_CONFIDENCE_SCORE || '0.6'),
+    enableReflection: env.VITE_LLM_REFLECTION_ENABLED !== 'false',
+    maxReflectionAttempts: parseInt(env.VITE_LLM_MAX_REFLECTION_ATTEMPTS || '2', 10),
+    enableKnowledgeFabricVerification: env.VITE_LLM_KNOWLEDGE_FABRIC_VERIFICATION !== 'false',
+  },
+
+  // Hallucination Gate (R4: LLM Hallucination mitigation)
+  hallucination: {
+    enabled: env.VITE_LLM_HALLUCINATION_GATE_ENABLED !== 'false',
+    maxRiskScore: parseFloat(env.VITE_LLM_MAX_HALLUCINATION_RISK || '0.4'),
+    enablePromptInjectionDetection: env.VITE_LLM_PROMPT_INJECTION_DETECTION !== 'false',
+    enableSystemOverrideDetection: env.VITE_LLM_SYSTEM_OVERRIDE_DETECTION !== 'false',
+    actionOnHallucination: (env.VITE_LLM_HALLUCINATION_ACTION || 'block') as 'warn' | 'block' | 'retry',
+  },
+
+  // Model Selection (Architectural Gating from research paper)
+  modelSelection: {
+    // Prefer MoE models (like Mixtral) for complex multi-step reasoning
+    preferMoEForComplexTasks: env.VITE_LLM_PREFER_MOE !== 'false',
+    // Prefer gated attention models for RAG (reduces attention sink issues)
+    preferGatedAttentionForRAG: env.VITE_LLM_PREFER_GATED_ATTENTION_RAG !== 'false',
+    // Automatically downgrade to cheaper model on budget pressure
+    enableAutomaticDowngrade: env.VITE_LLM_AUTO_DOWNGRADE !== 'false',
+  },
+};
 
 // ============================================================================
 // Semantic Memory Configuration
@@ -224,6 +288,7 @@ export const performanceConfig = {
 export const llmConfig = {
   provider,
   gatingEnabled,
+  gating: llmGatingConfig,
   semanticMemory: semanticMemoryConfig,
   confidence: agentConfidenceThresholds,
   hallucinationDetection: hallucinationDetectionConfig,

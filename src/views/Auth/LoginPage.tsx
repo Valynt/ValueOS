@@ -6,7 +6,10 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { Lock, Mail, AlertCircle, Key } from 'lucide-react';
+import { Lock, Mail, AlertCircle, Key, FlaskConical } from 'lucide-react';
+
+// Check if we're in development mode (demo bypass only available in dev)
+const isDevelopment = (import.meta as any)?.env?.VITE_APP_ENV !== 'production';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
@@ -15,8 +18,10 @@ export function LoginPage() {
   const [showMFA, setShowMFA] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showDemoConfirm, setShowDemoConfirm] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
 
-  const { login } = useAuth();
+  const { login, enterDemoMode } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -43,6 +48,31 @@ export function LoginPage() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  /**
+   * Handle demo mode activation
+   * Shows confirmation dialog first, then activates demo mode
+   */
+  const handleDemoMode = async () => {
+    if (!showDemoConfirm) {
+      setShowDemoConfirm(true);
+      return;
+    }
+
+    setDemoLoading(true);
+    setError('');
+
+    try {
+      await enterDemoMode();
+      navigate(from, { replace: true });
+    } catch (err: any) {
+      console.error('Demo mode error:', err);
+      setError(err.message || 'Failed to enter demo mode');
+      setShowDemoConfirm(false);
+    } finally {
+      setDemoLoading(false);
     }
   };
 
@@ -167,6 +197,64 @@ export function LoginPage() {
               </Link>
             </p>
           </div>
+
+          {/* Demo Mode Button (Development Only) */}
+          {isDevelopment && (
+            <div className="mt-6 pt-6 border-t border-dashed border-orange-300">
+              {showDemoConfirm ? (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <div className="flex items-start mb-3">
+                    <FlaskConical className="w-5 h-5 text-orange-600 mr-2 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-orange-800">
+                        Enter Demo Mode?
+                      </p>
+                      <p className="text-xs text-orange-700 mt-1">
+                        This will create a mock session for testing. No real data will be accessed.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleDemoMode}
+                      disabled={demoLoading}
+                      className={`
+                        flex-1 py-2 px-3 rounded-md text-sm font-medium text-white
+                        ${demoLoading
+                          ? 'bg-orange-400 cursor-not-allowed'
+                          : 'bg-orange-600 hover:bg-orange-700'
+                        }
+                        transition-colors duration-200
+                      `}
+                    >
+                      {demoLoading ? 'Activating...' : 'Confirm'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowDemoConfirm(false)}
+                      disabled={demoLoading}
+                      className="flex-1 py-2 px-3 rounded-md text-sm font-medium text-orange-700 bg-orange-100 hover:bg-orange-200 transition-colors duration-200"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleDemoMode}
+                  className="w-full py-2 px-4 rounded-lg font-medium text-orange-700 bg-orange-50 border-2 border-dashed border-orange-300 hover:bg-orange-100 hover:border-orange-400 transition-colors duration-200 flex items-center justify-center gap-2"
+                >
+                  <FlaskConical className="w-4 h-4" />
+                  <span>Enter Demo Mode</span>
+                  <span className="text-xs bg-orange-200 text-orange-800 px-2 py-0.5 rounded-full">
+                    DEV
+                  </span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer */}

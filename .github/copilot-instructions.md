@@ -1,420 +1,348 @@
 # GitHub Copilot Instructions for ValueCanvas
 
-This file provides context and guidelines for GitHub Copilot when working on the ValueCanvas project.
+AI agent workflow platform with multi-tenant architecture, agent fabric orchestration, and server-driven UI.
 
 ---
 
-## Project Overview
+## Architecture Overview
 
-ValueCanvas is a SaaS platform for value stream mapping and business process optimization. The application uses:
+**ValueCanvas** is a multi-tenant SaaS platform combining React (Vite), Supabase backend, and an AI agent orchestration system. Key characteristics:
 
-- **Frontend:** React + TypeScript + Vite + TailwindCSS
-- **Backend:** Node.js + Express + TypeScript
-- **Database:** PostgreSQL + Prisma ORM + Supabase
-- **Infrastructure:** Kubernetes + Terraform + AWS
-- **Testing:** Vitest + Playwright
-- **Monitoring:** Prometheus + Grafana + Jaeger
+- **Frontend:** React + TypeScript + Vite + TailwindCSS, Server-Driven UI (SDUI) system
+- **Backend:** Express (Node.js) for billing/webhooks, Supabase for data/auth/RLS
+- **Agent Fabric:** Orchestrated workflows via `WorkflowOrchestrator`, event-driven via `MessageBus`
+- **Database:** PostgreSQL with Row-Level Security (RLS), managed via Supabase
+- **Observability:** OpenTelemetry tracing, structured logging with `src/lib/logger.ts`
+- **Security:** Secrets manager (AWS/Vault), RLS policies, multi-tenant isolation
+- **Testing:** Vitest (unit/integration), Playwright (E2E), sequential execution (`fileParallelism: false`)
 
----
-
-## Code Style Guidelines
-
-### TypeScript
-- Use strict TypeScript with no implicit any
-- Prefer interfaces over types for object shapes
-- Use const assertions where appropriate
-- Always define return types for functions
-
-```typescript
-// ✅ Good
-interface User {
-  id: string;
-  email: string;
-  name: string;
-}
-
-function getUser(id: string): Promise<User> {
-  // implementation
-}
-
-// ❌ Bad
-type User = {
-  id: any;
-  email: any;
-}
-
-function getUser(id) {
-  // implementation
-}
-```
-
-### React Components
-- Use functional components with hooks
-- Prefer named exports over default exports
-- Use TypeScript for props
-- Keep components small and focused
-
-```typescript
-// ✅ Good
-interface ButtonProps {
-  label: string;
-  onClick: () => void;
-  variant?: 'primary' | 'secondary';
-}
-
-export function Button({ label, onClick, variant = 'primary' }: ButtonProps) {
-  return (
-    <button onClick={onClick} className={`btn-${variant}`}>
-      {label}
-    </button>
-  );
-}
-
-// ❌ Bad
-export default function Button(props: any) {
-  return <button onClick={props.onClick}>{props.label}</button>;
-}
-```
-
-### Error Handling
-- Always handle errors explicitly
-- Use try-catch for async operations
-- Log errors with context
-- Return meaningful error messages
-
-```typescript
-// ✅ Good
-try {
-  const user = await getUser(id);
-  return user;
-} catch (error) {
-  logger.error('Failed to get user', error, { userId: id });
-  throw new Error(`User not found: ${id}`);
-}
-
-// ❌ Bad
-const user = await getUser(id);
-return user;
-```
+**Service Boundaries:**
+- Frontend communicates via Supabase client (anon key)
+- Backend uses service_role key ONLY for `AuthService`, `TenantProvisioning`, `CronJobs`
+- Agents communicate asynchronously via `MessageBus` (CloudEvents protocol)
+- Workflows persist state to Supabase after every DAG node transition
 
 ---
 
-## Architecture Patterns
+## Critical Multi-Tenancy Rules
 
-### Multi-Tenancy
-- All database queries must be scoped to organization_id
-- Use Row Level Security (RLS) policies
-- Never expose data across tenants
+**ALL database operations MUST scope by `organization_id` or `tenant_id`:**
 
 ```typescript
-// ✅ Good
-const users = await prisma.user.findMany({
-  where: {
-    organizationId: req.user.organizationId,
-  },
+// ✅ CORRECT - Scoped query
+const data = await supabase
+  .from('workflows')
+  .select('*')
+  .eq('organization_id', user.organizationId);
+
+// ❌ WRONG - Missing tenant scope
+const data = await supabase.from('workflows').select('*');
+```
+
+**Memory/Vector Queries:**
+```typescript
+// ✅ CORRECT - Memory queries filter by tenant
+await memorySystem.query(embedding, {
+  metadata: { tenant_id: organizationId },
+  limit: 10
 });
-
-// ❌ Bad
-const users = await prisma.user.findMany();
 ```
 
-### API Design
-- Use RESTful conventions
-- Version APIs (/api/v1/...)
-- Return consistent error formats
-- Include request IDs for tracing
+**RLS Policies:** All tables enforce RLS. Run `npm run test:rls` to validate policies.
+
+---
+
+## Agent Fabric Architecture
+
+### Agent Development (`src/lib/agent-fabric/agents/**`, `src/agents/**`)
+
+All agents extend `BaseAgent` and follow strict patterns:
 
 ```typescript
-// ✅ Good
-router.get('/api/v1/users/:id', async (req, res) => {
-  try {
-    const user = await getUser(req.params.id, req.user.organizationId);
-    res.json({ data: user });
-  } catch (error) {
-    res.status(404).json({
-      error: 'User not found',
-      requestId: req.id,
+// ✅ Agent structure
+export class MyAgent extends BaseAgent {
+  public readonly lifecycleStage = 'discovery';
+  public readonly version = '1.0.0';
+  public readonly name = 'MyAgent';
+
+  async execute(input: Input): Promise<Output> {
+    // Use handlebars for prompts (NO string concatenation)
+    const prompt = Handlebars.compile(PROMPT_TEMPLATE)({ data: input });
+    
+    // ALWAYS use secureInvoke() for LLM calls
+    const result = await this.secureInvoke(prompt, {
+      trackPrediction: true,
+      confidenceThresholds: { low: 0.6, high: 0.85 }
     });
+    
+    return result;
   }
-});
+}
 ```
 
-### Database Access
-- Use Prisma for type-safe queries
-- Always use transactions for multi-step operations
-- Index frequently queried fields
-- Use prepared statements
+**Rules:**
+- Each agent = single file `[AgentName]Agent.ts`
+- LLM calls ONLY via `this.secureInvoke()` (includes safety limits, circuit breakers)
+- 100% test coverage required (mock `LLMGateway` and `MemorySystem`)
+- NO direct agent-to-agent working memory access
+
+### Workflow Orchestration (`src/services/WorkflowOrchestrator.ts`)
+
+Workflows are DAGs defined in `src/data/lifecycleWorkflows.ts`:
 
 ```typescript
-// ✅ Good
-await prisma.$transaction(async (tx) => {
-  const user = await tx.user.create({ data: userData });
-  await tx.auditLog.create({ data: { action: 'user_created', userId: user.id } });
+// Workflow = DAG with stages and transitions
+const workflow: WorkflowDAG = {
+  initial_stage: 'start',
+  stages: {
+    start: { agent: 'DiscoveryAgent', retry: { max: 3, delay: 1000 } },
+    analysis: { agent: 'AnalysisAgent', compensation: 'rollback_analysis' }
+  },
+  transitions: {
+    start: [{ to: 'analysis', condition: 'has_data' }]
+  }
+};
+```
+
+**Rules:**
+- Workflows MUST be acyclic (cycles forbidden)
+- Saga pattern: every state mutation needs a compensation function
+- Persist `WorkflowState` to Supabase after EVERY node transition
+- Use `WorkflowOrchestrator.executeWorkflow(definitionId, context)`
+
+### Inter-Agent Communication (`src/services/MessageBus.ts`)
+
+Agents communicate via CloudEvents-compliant messages:
+
+```typescript
+// ✅ Asynchronous event
+await messageBus.publish({
+  type: 'workflow.stage.completed',
+  source: 'DiscoveryAgent',
+  data: { findings: [...] },
+  trace_id: context.traceId // MUST propagate
 });
 
-// ❌ Bad
-const user = await prisma.user.create({ data: userData });
-await prisma.auditLog.create({ data: { action: 'user_created', userId: user.id } });
+// ❌ WRONG - NO synchronous agent calls (except Orchestrator)
+const result = await otherAgent.execute(data);
 ```
+
+**Rules:**
+- Default: asynchronous messaging
+- `trace_id` MUST propagate across all async boundaries
+- Use `MessageBus` for cross-agent communication
+- Share data via `SharedArtifacts` table, not direct memory access
 
 ---
 
-## Testing Guidelines
+## Service Layer Patterns (`src/services/**`)
 
-### Unit Tests
-- Test business logic in isolation
-- Mock external dependencies
-- Use descriptive test names
-- Aim for 80%+ coverage
+Backend services are stateless and tenant-aware:
 
 ```typescript
-// ✅ Good
-describe('UserService', () => {
-  it('should create user with hashed password', async () => {
-    const userData = { email: 'test@example.com', password: 'secret' };
-    const user = await userService.create(userData);
+export class MyService {
+  // ✅ Services must NOT hold state between requests
+  async processData(organizationId: string, data: any) {
+    // Always use supabase.auth.getUser() for context
+    const { data: { user } } = await supabase.auth.getUser();
     
-    expect(user.email).toBe(userData.email);
-    expect(user.password).not.toBe(userData.password);
-    expect(user.password).toMatch(/^\$2[aby]\$/); // bcrypt hash
-  });
-});
+    // Multi-table writes in SQL transactions
+    const { data: result } = await supabase.rpc('atomic_update', {
+      org_id: organizationId,
+      payload: data
+    });
+    
+    return result;
+  }
+}
 ```
 
-### Integration Tests
-- Test API endpoints end-to-end
-- Use test database
-- Clean up after tests
-- Test error cases
-
-```typescript
-// ✅ Good
-describe('POST /api/v1/users', () => {
-  beforeEach(async () => {
-    await cleanDatabase();
-  });
-
-  it('should create user and return 201', async () => {
-    const response = await request(app)
-      .post('/api/v1/users')
-      .send({ email: 'test@example.com', password: 'secret' })
-      .expect(201);
-    
-    expect(response.body.data.email).toBe('test@example.com');
-  });
-});
-```
+**Bypass RLS with service_role ONLY for:**
+- `AuthService` (user provisioning)
+- `TenantProvisioning` (org creation)
+- `CronJobs` (background tasks)
 
 ---
 
-## Security Best Practices
+## Server-Driven UI (SDUI) (`src/sdui/**`)
 
-### Authentication
-- Use JWT tokens with short expiration
-- Store tokens securely (httpOnly cookies)
-- Validate tokens on every request
-- Implement refresh token rotation
+Components must be registered in TWO places:
 
-### Authorization
-- Check permissions before data access
-- Use RBAC (Role-Based Access Control)
-- Validate organization membership
-- Log authorization failures
+1. `config/ui-registry.json` (intent mappings)
+2. `src/sdui/registry.tsx` (component exports)
 
-### Input Validation
-- Validate all user input
-- Sanitize HTML content
-- Use parameterized queries
-- Implement rate limiting
+```json
+// config/ui-registry.json
+{
+  "intentType": "visualize_graph",
+  "component": "SystemMapCanvas",
+  "fallback": "JsonViewer"
+}
+```
 
 ```typescript
-// ✅ Good
-const schema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-});
+// src/sdui/registry.tsx
+export const componentRegistry = {
+  SystemMapCanvas: lazy(() => import('./components/SystemMapCanvas'))
+};
+```
 
+**AI-Generated Content:**
+- Mark with `GhostPreview` wrapper or "AI Generated" badge
+- Use `useRealtimeUpdates` for WebSocket subscriptions
+
+---
+
+## Tool System (`src/tools/**`, `src/services/tools/**`)
+
+```typescript
+// ✅ Tool implementation
+export class MyTool implements Tool<Input, Output> {
+  async execute(input: Input, context: ToolContext): Promise<Output> {
+    // Check LocalRules before execution (LR-001)
+    await checkLocalRules(context.organizationId, 'tool.my_tool');
+    
+    // External APIs MUST use RateLimiter middleware
+    const result = await rateLimiter.execute(
+      () => externalApi.call(input),
+      { key: `tool:${context.organizationId}` }
+    );
+    
+    return result;
+  }
+}
+```
+
+**Rules:**
+- Implement `Tool<TInput, TOutput>` interface
+- Register in `ToolRegistry.ts` (dynamic creation FORBIDDEN)
+- External API tools require `RateLimiter` middleware
+
+---
+
+## Development Workflow
+
+### Start Development
+```bash
+npm run dev              # Frontend (Vite on 0.0.0.0:3000)
+npm run backend:dev      # Backend (Express on :8000)
+npm run db:setup         # Bootstrap Supabase locally
+npm run db:types         # Regenerate TypeScript types
+```
+
+### Testing
+```bash
+npm test                 # Unit + integration (sequential)
+npm run test:rls         # RLS policy validation
+npm run test:watch       # Watch mode
+npm run typecheck        # TypeScript validation
+npm run security:scan    # Dependency audit
+```
+
+**Test Configuration:**
+- `fileParallelism: false` (avoid race conditions on single container)
+- Mock Supabase with `createBoltClientMock()` from `test/mocks/mockSupabaseClient`
+- Timeout: 30s tests, 120s hooks
+
+### Pre-Production Verification
+```bash
+# Automated verification suite
+./scripts/verify-production.sh staging
+
+# SQL health checks
+psql $DATABASE_URL -f scripts/verify-production-readiness.sql
+
+# Critical queries
+SELECT * FROM security.verify_rls_enabled();
+SELECT * FROM security.health_check();
+```
+
+**Before Production Deploy:**
+- Configure JWT custom claims (`organization_id` in token)
+- Test cross-tenant access isolation in staging
+- Enable service role operation monitoring
+- Deploy Edge Functions with secure secrets
+- Configure Storage RLS policies
+- Complete checklist: `docs/deployment/PRE_PRODUCTION_CHECKLIST.md`
+
+### Path Aliases
+```typescript
+import { logger } from '@lib/logger';
+import { MyService } from '@services/MyService';
+import { Button } from '@components/ui/Button';
+```
+
+Configured in `vitest.config.ts` and `tsconfig.json`.
+
+---
+
+## Security & Compliance
+
+### Secrets Management
+- `SECRETS_MANAGER_ENABLED=true` (AWS or Vault)
+- `.env` for non-sensitive defaults only
+- NEVER commit `SUPABASE_SERVICE_KEY` or `STRIPE_SECRET_KEY`
+
+### Input Sanitization
+```typescript
+// ✅ Sanitize SDUI payloads
+import { SDUISanitizer } from '@lib/security/SDUISanitizer';
+const clean = SDUISanitizer.sanitize(userInput);
+
+// ✅ Validate with Zod
+const schema = z.object({ email: z.string().email() });
 const validated = schema.parse(req.body);
 ```
 
----
-
-## Performance Optimization
-
-### Database
-- Use indexes on foreign keys
-- Implement pagination for large datasets
-- Use select to limit returned fields
-- Cache frequently accessed data
-
-### Frontend
-- Lazy load components
-- Use React.memo for expensive renders
-- Implement virtual scrolling for lists
-- Optimize images and assets
-
-### API
-- Implement response caching
-- Use compression middleware
-- Batch database queries
-- Implement request debouncing
-
----
-
-## Monitoring & Observability
-
 ### Logging
-- Use structured logging
-- Include context (requestId, userId, etc.)
-- Log at appropriate levels
-- Never log sensitive data
-
 ```typescript
-// ✅ Good
-logger.info('User created', {
-  userId: user.id,
-  organizationId: user.organizationId,
-  requestId: req.id,
+// ✅ Structured logging (NO console.log)
+logger.info('Workflow started', {
+  workflowId,
+  organizationId,
+  trace_id: context.traceId
 });
 
-// ❌ Bad
-console.log('User created:', user.password);
+// ❌ NEVER log sensitive data
+logger.error('Auth failed', { password: user.password }); // WRONG
 ```
 
-### Metrics
-- Track key business metrics
-- Monitor API response times
-- Track error rates
-- Monitor resource usage
-
-### Tracing
-- Use OpenTelemetry for distributed tracing
-- Include trace IDs in logs
-- Track slow queries
-- Monitor external API calls
+Run `npm run lint:console` to detect console.log usage.
 
 ---
 
-## Common Patterns
+## Communication Style
 
-### Async/Await
-```typescript
-// ✅ Good
-async function processUser(id: string): Promise<User> {
-  const user = await getUser(id);
-  const enriched = await enrichUserData(user);
-  return enriched;
-}
+**Be concise. NO conversational filler.**
 
-// ❌ Bad
-function processUser(id: string) {
-  return getUser(id).then(user => {
-    return enrichUserData(user);
-  });
-}
-```
+Examples:
+- ❌ "Sure, I can help with that. Here's the code..."
+- ✅ *Just provide the code with filename*
+- ❌ "I've updated the file to add the feature."
+- ✅ *Perform the edit silently*
 
-### Error Boundaries
-```typescript
-// ✅ Good
-class ErrorBoundary extends React.Component {
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    logger.error('React error boundary caught error', error, errorInfo);
-  }
-  
-  render() {
-    if (this.state.hasError) {
-      return <ErrorFallback />;
-    }
-    return this.props.children;
-  }
-}
-```
-
-### Custom Hooks
-```typescript
-// ✅ Good
-function useUser(id: string) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  
-  useEffect(() => {
-    getUser(id)
-      .then(setUser)
-      .catch(setError)
-      .finally(() => setLoading(false));
-  }, [id]);
-  
-  return { user, loading, error };
-}
-```
+Only explain complex logic or architectural decisions, not obvious code changes.
 
 ---
 
-## File Organization
+## Key Files Reference
 
-```
-src/
-├── api/              # API routes
-├── components/       # React components
-├── hooks/            # Custom React hooks
-├── lib/              # Utility libraries
-├── services/         # Business logic
-├── types/            # TypeScript types
-├── utils/            # Helper functions
-└── config/           # Configuration
-```
+| Path | Purpose |
+|------|---------|
+| `src/services/WorkflowOrchestrator.ts` | Workflow DAG execution engine |
+| `src/services/MessageBus.ts` | CloudEvents message bus |
+| `src/lib/agent-fabric/agents/BaseAgent.ts` | Agent base class |
+| `src/lib/agent-fabric/MemorySystem.ts` | Vector memory (tenant-scoped) |
+| `src/lib/supabase.ts` | Supabase client singleton |
+| `config/ui-registry.json` | SDUI component mappings |
+| `supabase/tests/database/rls_policies.test.sql` | RLS test suite |
+| `docs/database/enterprise_saas_hardened_config_v2.sql` | Production database schema |
+| `docs/deployment/PRE_PRODUCTION_CHECKLIST.md` | Deployment verification guide |
+| `scripts/verify-production.sh` | Automated readiness checks |
+| `.github/instructions/*.md` | Component-specific rules |
 
----
-
-## Dependencies
-
-### When to Add Dependencies
-- Check if functionality exists in existing deps
-- Evaluate bundle size impact
-- Check maintenance status
-- Review security advisories
-
-### Preferred Libraries
-- **State Management:** Zustand or React Context
-- **Forms:** React Hook Form + Zod
-- **HTTP Client:** Axios
-- **Date/Time:** date-fns
-- **UI Components:** Radix UI + TailwindCSS
-- **Testing:** Vitest + Testing Library
+**Detailed instructions:** See `.github/instructions/{agents,backend,frontend,orchestration,memory,communication,tools}.instructions.md` for domain-specific guidelines.
 
 ---
 
-## Git Workflow
-
-### Commit Messages
-```
-feat: add user authentication
-fix: resolve memory leak in WebSocket connection
-docs: update API documentation
-test: add tests for billing service
-refactor: simplify error handling logic
-```
-
-### Branch Naming
-```
-feature/user-authentication
-bugfix/memory-leak-websocket
-hotfix/critical-security-issue
-```
-
----
-
-## Additional Context
-
-- **Multi-tenant:** All features must support multiple organizations
-- **Billing:** Stripe integration for subscription management
-- **Observability:** OpenTelemetry for distributed tracing
-- **Security:** OWASP Top 10 compliance required
-- **Performance:** Target <200ms API response time
-- **Accessibility:** WCAG 2.1 AA compliance
-
----
-
-**Last Updated:** 2025-12-06
+**Last Updated:** 2025-12-10

@@ -19,6 +19,7 @@ import { useAutoSave } from '../../hooks/useAutoSave';
 import { useUndoRedo } from '../../hooks/useUndoRedo';
 import { KeyboardShortcutsPanel } from './KeyboardShortcutsPanel';
 import { PresentationMode } from './PresentationMode';
+import { DemoModeIndicator } from '../Auth/DemoModeIndicator';
 import { CanvasComponent } from '../../types';
 import { History, Undo, Redo, HelpCircle, Presentation, ArrowLeft } from 'lucide-react';
 
@@ -308,6 +309,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onBack, caseId: propCase
   }, []);
   return (
     <div className="h-screen bg-background text-foreground flex flex-col">
+      {/* Demo Mode Indicator - shown when in demo mode */}
+      <DemoModeIndicator />
+      
       <Toolbar onAddComponent={(comp) => addComponent(comp, false)} />
 
       <div className="flex-1 flex overflow-hidden">
