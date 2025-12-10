@@ -12,6 +12,7 @@
 
 import { MemorySystem, AgentMemory } from '../MemorySystem';
 import { logger } from '../../logger';
+import { z } from 'zod';
 
 // =====================================================
 // RETRIEVAL CONTEXT TYPES
@@ -225,17 +226,15 @@ export class RetrievalEngine {
     config: Required<RetrievalConfig>
   ): Promise<RetrievalContext['semantic_snippets']> {
     try {
-      // Query memory system with tenant isolation
+      // SECURITY FIX: Query memory system with proper tenant isolation
       const memories = await this.memorySystem.searchSemanticMemory(
         sessionId,
         query,
-        config.max_snippets_per_type
+        config.max_snippets_per_type,
+        this.organizationId // Pass organizationId for database-level filtering
       );
 
-      // Note: Tenant isolation via organization_id filter needs to be added to searchSemanticMemory
-      // For now, we filter in-memory (NOT ideal, should be in DB query)
       return memories
-        .filter(m => m.metadata?.organization_id === this.organizationId)
         .map(m => ({
           content: m.content,
           relevance_score: 0.8, // searchSemanticMemory doesn't return relevance score yet
@@ -244,7 +243,7 @@ export class RetrievalEngine {
         }))
         .filter(m => m.relevance_score >= config.min_relevance_score);
     } catch (error) {
-      logger.error('Semantic retrieval failed', { error, sessionId });
+      logger.error('Semantic retrieval failed', { error, sessionId, organizationId: this.organizationId });
       return [];
     }
   }
@@ -257,23 +256,22 @@ export class RetrievalEngine {
     config: Required<RetrievalConfig>
   ): Promise<RetrievalContext['episodic_context']> {
     try {
+      // SECURITY FIX: Pass organizationId for database-level filtering
       const memories = await this.memorySystem.getEpisodicMemory(
         sessionId,
-        config.max_snippets_per_type
+        config.max_snippets_per_type,
+        this.organizationId
       );
 
-      // Filter by tenant (should be in DB query)
-      return memories
-        .filter(m => m.metadata?.organization_id === this.organizationId)
-        .map(m => ({
-          agent_id: m.agent_id,
-          execution_time: m.created_at || new Date().toISOString(),
-          input_summary: m.metadata?.input_summary || 'N/A',
-          output_summary: m.metadata?.output_summary || m.content.substring(0, 100),
-          success: m.metadata?.success ?? true
-        }));
+      return memories.map(m => ({
+        agent_id: m.agent_id,
+        execution_time: m.created_at || new Date().toISOString(),
+        input_summary: m.metadata?.input_summary || 'N/A',
+        output_summary: m.metadata?.output_summary || m.content.substring(0, 100),
+        success: m.metadata?.success ?? true
+      }));
     } catch (error) {
-      logger.error('Episodic retrieval failed', { error, sessionId });
+      logger.error('Episodic retrieval failed', { error, sessionId, organizationId: this.organizationId });
       return [];
     }
   }
@@ -493,22 +491,30 @@ export class RetrievalConditionedAgent extends BaseAgent {
       retrieved_context: formattedContext
     });
 
-    // STEP 5: LLM call with context-grounded prompt
-    const response = await this.llmGateway.complete([
-      {
-        role: 'system',
-        content: 'You are an expert analyst. Answer questions using ONLY the retrieved context provided. Never hallucinate or use external knowledge.'
-      },
-      {
-        role: 'user',
-        content: prompt
-      }
-    ], {
-      temperature: 0.1, // Very low to prevent hallucinations
-      max_tokens: 2000
+    // Define schema for structured output
+    const retrievalSchema = z.object({
+      answer: z.string(),
+      confidence: z.number().min(0).max(1),
+      sources_cited: z.array(z.number()).optional()
     });
 
-    const parsed = this.extractJSON(response.content);
+    // SECURITY FIX: Use secureInvoke() instead of direct llmGateway.complete()
+    const secureResult = await this.secureInvoke(
+      sessionId,
+      prompt,
+      retrievalSchema,
+      {
+        trackPrediction: true,
+        confidenceThresholds: { low: 0.5, high: 0.8 },
+        context: {
+          agent: 'RetrievalConditionedAgent',
+          contextTokens: this.retrievalEngine.estimateTokens(formattedContext),
+          semanticCount: truncatedContext.semantic_snippets.length
+        }
+      }
+    );
+
+    const parsed = secureResult.result;
 
     // STEP 6: Store result in episodic memory
     await this.memorySystem.storeEpisodicMemory(
@@ -524,7 +530,8 @@ export class RetrievalConditionedAgent extends BaseAgent {
           episodic_count: truncatedContext.episodic_context.length,
           benchmark_count: truncatedContext.benchmark_context.length
         }
-      }
+      },
+      this.organizationId // SECURITY: Tenant isolation
     );
 
     return {

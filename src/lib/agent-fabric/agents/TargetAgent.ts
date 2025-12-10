@@ -172,21 +172,33 @@ Return ONLY valid JSON in this exact format:
   "reasoning": "<your methodology and key decisions>"
 }`;
 
-    const response = await this.llmGateway.complete([
-      {
-        role: 'system',
-        content: 'You are a value engineering expert. You create rigorous, formula-driven business cases with clear cause-and-effect relationships between capabilities and financial outcomes.'
-      },
-      {
-        role: 'user',
-        content: prompt
-      }
-    ], {
-      temperature: 0.3,
-      max_tokens: 4000
+    // SECURITY FIX: Use secureInvoke() for hallucination detection and circuit breaker
+    const targetSchema = z.object({
+      target_metrics: z.array(z.any()),
+      financial_model: z.any(),
+      success_criteria: z.array(z.any()),
+      assumptions: z.array(z.any()),
+      confidence_level: z.enum(['high', 'medium', 'low']),
+      reasoning: z.string(),
+      hallucination_check: z.boolean().optional()
     });
 
-    const parsed = await this.extractJSON(response.content);
+    const secureResult = await this.secureInvoke(
+      sessionId,
+      prompt,
+      targetSchema,
+      {
+        trackPrediction: true,
+        confidenceThresholds: { low: 0.6, high: 0.85 },
+        context: {
+          agent: 'TargetAgent',
+          opportunityId: input.opportunityId
+        }
+      }
+    );
+
+    const parsed = secureResult.result;
+    const response = { content: JSON.stringify(parsed), tokens_used: 0, model: 'gpt-4' };
 
     const valueTree: Omit<ValueTree, 'id' | 'created_at' | 'updated_at'> = {
       value_case_id: input.valueCaseId,
@@ -254,7 +266,8 @@ Return ONLY valid JSON in this exact format:
         value_tree: valueTree,
         roi_model: roiModel,
         kpi_targets: parsed.kpi_targets
-      }
+      },
+      this.organizationId // SECURITY: Tenant isolation
     );
 
     return {

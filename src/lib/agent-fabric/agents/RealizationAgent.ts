@@ -15,6 +15,7 @@
  */
 
 import { BaseAgent } from './BaseAgent';
+import { z } from 'zod';
 import type {
   TelemetryEvent,
   RealizationReport,
@@ -128,21 +129,31 @@ Return ONLY valid JSON:
   "reasoning": "<your analytical process>"
 }`;
 
-    const response = await this.llmGateway.complete([
-      {
-        role: 'system',
-        content: 'You are a value realization analyst. You analyze telemetry data against commitments and provide actionable insights for driving value outcomes.'
-      },
-      {
-        role: 'user',
-        content: analysisPrompt
-      }
-    ], {
-      temperature: 0.4,
-      max_tokens: 2000
+    // SECURITY FIX: Use secureInvoke() for hallucination detection and circuit breaker
+    const analysisSchema = z.object({
+      kpi_results: z.any(),
+      recommendations: z.array(z.string()),
+      root_causes: z.record(z.string()),
+      confidence_level: z.enum(['high', 'medium', 'low']),
+      reasoning: z.string(),
+      hallucination_check: z.boolean().optional()
     });
 
-    const analysis = this.extractJSON(response.content);
+    const secureResult = await this.secureInvoke(
+      sessionId,
+      analysisPrompt,
+      analysisSchema,
+      {
+        trackPrediction: true,
+        confidenceThresholds: { low: 0.6, high: 0.85 },
+        context: {
+          agent: 'RealizationAgent',
+          telemetryPoints: input.telemetryData?.length || 0
+        }
+      }
+    );
+
+    const analysis = secureResult.result;
 
     const realizationReport: Omit<RealizationReport, 'id' | 'generated_at'> = {
       value_commit_id: input.valueCommitId,
@@ -197,7 +208,8 @@ Return ONLY valid JSON:
         overall_status: overallStatus,
         kpis_achieved: results.filter(r => r.status === 'achieved').length,
         kpis_at_risk: results.filter(r => r.status === 'at_risk').length
-      }
+      },
+      this.organizationId // SECURITY: Tenant isolation
     );
 
     return {

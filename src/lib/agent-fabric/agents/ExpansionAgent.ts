@@ -14,6 +14,7 @@
  */
 
 import { BaseAgent } from './BaseAgent';
+import { z } from 'zod';
 import { ValueFabricService } from '../../../services/ValueFabricService';
 import type {
   ExpansionModel,
@@ -113,21 +114,34 @@ Return ONLY valid JSON:
   "reasoning": "<your analytical process>"
 }`;
 
-    const response = await this.llmGateway.complete([
-      {
-        role: 'system',
-        content: 'You are an expansion opportunity expert. You analyze customer performance data to identify high-value upsell and cross-sell opportunities with quantified business cases.'
-      },
-      {
-        role: 'user',
-        content: prompt
-      }
-    ], {
-      temperature: 0.5,
-      max_tokens: 3000
+    // SECURITY FIX: Use secureInvoke() for hallucination detection and circuit breaker
+    const expansionSchema = z.object({
+      recommended_capabilities: z.array(z.object({
+        capability_name: z.string(),
+        value_proposition: z.string(),
+        implementation_effort: z.enum(['low', 'medium', 'high'])
+      })),
+      opportunity_score: z.number(),
+      confidence_level: z.enum(['high', 'medium', 'low']),
+      reasoning: z.string(),
+      hallucination_check: z.boolean().optional()
     });
 
-    const parsed = this.extractJSON(response.content);
+    const secureResult = await this.secureInvoke(
+      sessionId,
+      prompt,
+      expansionSchema,
+      {
+        trackPrediction: true,
+        confidenceThresholds: { low: 0.6, high: 0.85 },
+        context: {
+          agent: 'ExpansionAgent',
+          customerId: input.customerId
+        }
+      }
+    );
+
+    const parsed = secureResult.result;
 
     const expansionModel: Omit<ExpansionModel, 'id' | 'created_at' | 'updated_at'> = {
       value_case_id: input.valueCaseId,
@@ -189,7 +203,8 @@ Return ONLY valid JSON:
       {
         opportunity_type: parsed.expansion_model.opportunity_type,
         confidence_score: parsed.expansion_model.confidence_score
-      }
+      },
+      this.organizationId // SECURITY: Tenant isolation
     );
 
     return {

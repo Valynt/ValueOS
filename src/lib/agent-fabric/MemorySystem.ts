@@ -13,14 +13,21 @@ export class MemorySystem {
     sessionId: string,
     agentId: string,
     event: string,
-    metadata: Record<string, any> = {}
+    metadata: Record<string, any> = {},
+    organizationId?: string
   ): Promise<void> {
+    // SECURITY: Require organizationId for tenant isolation
+    if (!organizationId && !metadata.organization_id) {
+      throw new Error('organizationId is required for tenant isolation in memory operations');
+    }
+
     await this.supabase.from('agent_memory').insert({
       session_id: sessionId,
       agent_id: agentId,
       memory_type: 'episodic',
       content: event,
       metadata,
+      organization_id: organizationId || metadata.organization_id,
       importance_score: 0.5
     });
   }
@@ -29,8 +36,14 @@ export class MemorySystem {
     sessionId: string,
     agentId: string,
     knowledge: string,
-    metadata: Record<string, any> = {}
+    metadata: Record<string, any> = {},
+    organizationId?: string
   ): Promise<void> {
+    // SECURITY: Require organizationId for tenant isolation
+    if (!organizationId && !metadata.organization_id) {
+      throw new Error('organizationId is required for tenant isolation in memory operations');
+    }
+
     const embedding = await this.llmGateway.generateEmbedding(knowledge);
 
     await this.supabase.from('agent_memory').insert({
@@ -40,6 +53,7 @@ export class MemorySystem {
       content: knowledge,
       embedding: `[${embedding.join(',')}]`,
       metadata,
+      organization_id: organizationId || metadata.organization_id,
       importance_score: 0.7
     });
   }
@@ -48,14 +62,21 @@ export class MemorySystem {
     sessionId: string,
     agentId: string,
     taskState: string,
-    metadata: Record<string, any> = {}
+    metadata: Record<string, any> = {},
+    organizationId?: string
   ): Promise<void> {
+    // SECURITY: Require organizationId for tenant isolation
+    if (!organizationId && !metadata.organization_id) {
+      throw new Error('organizationId is required for tenant isolation in memory operations');
+    }
+
     await this.supabase.from('agent_memory').insert({
       session_id: sessionId,
       agent_id: agentId,
       memory_type: 'working',
       content: taskState,
       metadata,
+      organization_id: organizationId || metadata.organization_id,
       importance_score: 0.3
     });
   }
@@ -338,8 +359,13 @@ export class MemorySystem {
     });
   }
 
-  async getEpisodicMemory(sessionId: string, limit: number = 10): Promise<AgentMemory[]> {
-    const { data, error } = await this.supabase
+  async getEpisodicMemory(
+    sessionId: string,
+    limit: number = 10,
+    organizationId?: string
+  ): Promise<AgentMemory[]> {
+    // SECURITY: Enforce tenant isolation at database level
+    let query = this.supabase
       .from('agent_memory')
       .select('*')
       .eq('session_id', sessionId)
@@ -347,11 +373,26 @@ export class MemorySystem {
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    if (error) throw error;
+    // Add organization filter if provided (defense in depth alongside RLS)
+    if (organizationId) {
+      query = query.eq('organization_id', organizationId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      logger.error('Failed to retrieve episodic memory', { error, sessionId, organizationId });
+      throw error;
+    }
     return data || [];
   }
 
-  async getWorkingMemory(sessionId: string, agentId?: string): Promise<AgentMemory[]> {
+  async getWorkingMemory(
+    sessionId: string,
+    agentId?: string,
+    organizationId?: string
+  ): Promise<AgentMemory[]> {
+    // SECURITY: Enforce tenant isolation at database level
     let query = this.supabase
       .from('agent_memory')
       .select('*')
@@ -363,35 +404,59 @@ export class MemorySystem {
       query = query.eq('agent_id', agentId);
     }
 
+    // Add organization filter if provided (defense in depth alongside RLS)
+    if (organizationId) {
+      query = query.eq('organization_id', organizationId);
+    }
+
     const { data, error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      logger.error('Failed to retrieve working memory', { error, sessionId, organizationId });
+      throw error;
+    }
     return data || [];
   }
 
   async searchSemanticMemory(
     sessionId: string,
     query: string,
-    limit: number = 5
+    limit: number = 5,
+    organizationId?: string
   ): Promise<AgentMemory[]> {
     const queryEmbedding = await this.llmGateway.generateEmbedding(query);
 
+    // SECURITY: Add organizationId to RPC call for tenant isolation
     const { data, error } = await this.supabase.rpc('match_memory', {
       query_embedding: queryEmbedding,
       match_threshold: 0.7,
       match_count: limit,
-      p_session_id: sessionId
+      p_session_id: sessionId,
+      p_organization_id: organizationId || null
     });
 
     if (error) {
-      logger.warn('Semantic search failed, falling back to text search:', error);
-      const { data: fallbackData } = await this.supabase
+      logger.warn('Semantic search RPC failed, falling back to text search:', { error, sessionId });
+      
+      // SECURITY: Fallback also enforces tenant isolation
+      let fallbackQuery = this.supabase
         .from('agent_memory')
         .select('*')
         .eq('session_id', sessionId)
         .eq('memory_type', 'semantic')
         .ilike('content', `%${query}%`)
         .limit(limit);
+
+      if (organizationId) {
+        fallbackQuery = fallbackQuery.eq('organization_id', organizationId);
+      }
+
+      const { data: fallbackData, error: fallbackError } = await fallbackQuery;
+
+      if (fallbackError) {
+        logger.error('Semantic memory fallback search failed', { error: fallbackError, sessionId });
+        throw fallbackError;
+      }
 
       return fallbackData || [];
     }
