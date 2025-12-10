@@ -17,90 +17,136 @@ This checklist ensures all critical security, configuration, and monitoring requ
 
 ---
 
-## 0. Staging Database Cleanup
+## 0. Staging Database Reset
 
-### 🔴 CRITICAL: Clean Test Data Before Production
+### 🔴 CRITICAL: Reset to Clean Slate Before Production
 
-**Objective:** Remove all development/test data from staging database before production deployment.
+**Objective:** Reset staging database to clean state while preserving Supabase system schemas.
 
-**Why This Matters:**
-- Test organizations and users should not exist in production
-- Old test data can skew analytics and metrics
-- Reduces database size and improves performance
-- Ensures clean slate for production launch
+**Supabase Official Recommendation:**
+This follows Supabase's recommended reset strategy for projects that haven't gone live yet. It's faster and safer than selective deletion.
 
-#### 0.1 Identify What to Keep vs Delete
+**What Gets Preserved:**
+- ✅ **Supabase System Schemas:** `auth`, `storage`, `realtime`, `graphql`, `graphql_public`, `vault`, `extensions`, `supabase_migrations`
+- ✅ **Extensions:** `vector`, `uuid-ossp`, `pgcrypto`, `pg_stat_statements`
+- ✅ **System Infrastructure:** Authentication, storage buckets (files deleted separately), realtime subscriptions
 
-**KEEP (System/Configuration Data):**
-- `roles` - System role definitions
-- `feature_flags` - Feature flag configurations  
-- `billing_plans` - Product/pricing plans
-- `workflow_definitions` - Standard workflow templates (if production-ready)
-- RLS policies and database functions
+**What Gets Reset:**
+- 🔄 **User Schemas:** `public`, `internal`, `audit`, `security` - ALL objects dropped
+- ❌ **All Tables:** Including test organizations, users, workflows, billing data
+- ❌ **All Functions:** RLS helpers, custom functions, triggers
+- ❌ **All Views:** Monitoring views, materialized views
+- ❌ **All Types:** Enums, custom types
+- ❌ **All Sequences:** Auto-increment sequences
 
-**DELETE (User/Tenant Data):**
-- All test organizations
-- All test users and user_tenants
-- Workflow executions and agent activity
-- Semantic memory / vector embeddings
-- Billing usage events and invoices
-- Session and rate limit data
-- Storage bucket files (manual deletion required)
+**Advantages Over Selective Cleanup:**
+- Guaranteed clean slate (no orphaned data)
+- Faster execution (drops entire schemas)
+- Migrations rebuild everything correctly
+- No risk of missing dependent objects
 
-**OPTIONAL DELETE:**
-- `audit.activity_log` - Consider keeping last 90 days for compliance
-- `audit.backup_log` - Keep for historical reference
+#### 0.1 Backup Before Reset
 
-#### 0.2 Backup Before Cleanup
+**CRITICAL:** Always backup before destructive operations.
 
 ```bash
-# Create backup before any destructive operations
-supabase db dump -f backup-pre-cleanup-$(date +%Y%m%d).sql
+# Option 1: Supabase CLI (recommended)
+supabase db dump -f backup-pre-reset-$(date +%Y%m%d-%H%M%S).sql
 
-# Verify backup file exists and has content
-ls -lh backup-pre-cleanup-*.sql
+# Option 2: Direct pg_dump
+pg_dump $DATABASE_URL > backup-pre-reset-$(date +%Y%m%d-%H%M%S).sql
 
-# Store backup securely
-aws s3 cp backup-pre-cleanup-*.sql s3://your-backup-bucket/staging/
+# Verify backup exists and has content
+ls -lh backup-pre-reset-*.sql
+
+# Store backup securely (optional)
+aws s3 cp backup-pre-reset-*.sql s3://your-backup-bucket/staging/
+# OR
+# Upload to Google Drive, Dropbox, etc.
 ```
 
-#### 0.3 Run Cleanup Script
+**Expected:** Backup file should be 1MB+ (depending on data volume)
+
+#### 0.2 Run Supabase Reset Script
 
 ```bash
-# Review the cleanup script first
-cat scripts/cleanup-staging-database.sql
+# Review the reset script first (recommended)
+cat scripts/reset-staging-database.sql
 
-# Run cleanup (STAGING ONLY - includes safety checks)
-psql $DATABASE_URL -f scripts/cleanup-staging-database.sql
+# Run reset (STAGING ONLY - includes safety checks)
+psql $DATABASE_URL -f scripts/reset-staging-database.sql
 ```
 
 **Expected Output:**
 ```
 ==========================================
-Staging Database Cleanup
-WARNING: This will delete ALL data
+Supabase Staging Database Reset
+WARNING: This will drop ALL user objects
 ==========================================
 
-1. Verifying backup exists...
-  ✅ Latest backup: 2025-12-10 10:30:00 (2 hours ago)
+0. Running safety checks...
+  ✅ Database: your-staging-db (safe to reset)
 
-2. Analyzing current data...
-  Current row counts:
-    - public.users: 47 rows
-    - public.organizations: 12 rows
-    - public.workflow_executions: 234 rows
-    ...
-  Total rows to delete: 1,523
+1. Backup verification...
+  ⚠️  CRITICAL: Ensure you have a backup before proceeding
 
-3. Deleting test and development data...
-  ✅ SUCCESS: All user data deleted
+2. Analyzing current database state...
+  Current user schemas and object counts:
+    Schema: public - 23 tables
+    Schema: audit - 2 tables
+    Schema: security - 3 tables
+  Total user objects to drop: 28
 
-8. Storage bucket cleanup...
-  ⚠️  MANUAL ACTION REQUIRED: Delete storage files via Dashboard
+3. Dropping all user objects...
+  Processing schema: public
+    ✅ Cleaned schema: public
+  Processing schema: internal
+    ✅ Cleaned schema: internal
+  Total objects dropped: 87
+
+4. Recreating custom schemas...
+  ✅ Schemas recreated with proper permissions
+
+5. Reinstalling required extensions...
+  ✅ Extensions installed:
+    - vector (for semantic search)
+    - uuid-ossp (for UUID generation)
+    - pgcrypto (for encryption)
+
+7. Verifying reset...
+  ✅ SUCCESS: Database reset to clean slate
+    - User tables: 0
+    - User functions: 0
+
+==========================================
+Reset Complete - Next Steps
+==========================================
 ```
 
-#### 0.4 Manual Storage Cleanup
+#### 0.3 Re-apply Migrations and Security
 
+After reset, the database is a clean slate. Re-run migrations to rebuild schema:
+
+```bash
+# Apply all migrations from scratch
+supabase db push
+
+# OR use migration files directly
+psql $DATABASE_URL -f supabase/migrations/20231201000000_initial_schema.sql
+psql $DATABASE_URL -f supabase/migrations/20231202000000_rls_policies.sql
+# ... (apply in order)
+
+# Apply security hardening configuration
+psql $DATABASE_URL -f docs/database/enterprise_saas_hardened_config_v2.sql
+```
+
+**Expected:** All tables, functions, RLS policies, triggers recreated
+
+#### 0.4 Delete Storage Files (Manual)
+
+The reset script **does not** delete files in Supabase Storage. Must do manually:
+
+**Option 1: Supabase CLI (Recommended)**
 ```bash
 # List all buckets
 supabase storage list
@@ -115,54 +161,83 @@ supabase storage list documents
 # Expected: (empty)
 ```
 
-#### 0.5 Verify Cleanup
+**Option 2: SQL**
+```sql
+-- List all storage objects first
+SELECT bucket_id, name, COUNT(*) as file_count
+FROM storage.objects
+GROUP BY bucket_id, name;
+
+-- Delete all storage objects (STAGING ONLY)
+DELETE FROM storage.objects
+WHERE bucket_id IN ('avatars', 'documents', 'uploads');
+
+-- Verify
+SELECT bucket_id, COUNT(*) as remaining_files
+FROM storage.objects
+GROUP BY bucket_id;
+-- Expected: 0 rows
+```
+
+#### 0.5 Verify Clean State
 
 ```sql
--- Check remaining data
-SELECT schemaname, tablename, n_live_tup as row_count
-FROM pg_stat_user_tables
-WHERE schemaname = 'public'
-  AND n_live_tup > 0
+-- Check remaining data in user tables
+SELECT schemaname, tablename, 
+       (SELECT COUNT(*) FROM format('%I.%I', schemaname, tablename)::regclass) as row_count
+FROM pg_tables
+WHERE schemaname IN ('public', 'internal', 'audit', 'security')
   AND tablename NOT IN ('roles', 'feature_flags', 'billing_plans')
-ORDER BY n_live_tup DESC;
+```sql
+-- Check remaining data in user tables
+SELECT schemaname, tablename, 
+       (SELECT COUNT(*) FROM format('%I.%I', schemaname, tablename)::regclass) as row_count
+FROM pg_tables
+WHERE schemaname IN ('public', 'internal', 'audit', 'security')
+  AND tablename NOT IN ('roles', 'feature_flags', 'billing_plans')
+ORDER BY schemaname, tablename;
+-- Expected: All tables exist but row_count = 0
 
--- Expected: 0 rows or only system tables
+-- Verify RLS policies are enabled
+SELECT schemaname, tablename, rowsecurity
+FROM pg_tables
+WHERE schemaname IN ('public', 'internal')
+  AND rowsecurity = false;
+-- Expected: 0 rows (all tables have RLS enabled)
 
--- Verify RLS policies still exist
-SELECT * FROM security.verify_rls_enabled();
--- Expected: All tables show rls_enabled = t
+-- Verify extensions are installed
+SELECT extname, extversion
+FROM pg_extension
+WHERE extname IN ('vector', 'uuid-ossp', 'pgcrypto', 'pg_stat_statements');
+-- Expected: 4 rows showing all extensions
 
--- Verify functions still exist
-SELECT count(*) FROM pg_proc 
-WHERE pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'security');
--- Expected: >10 (security functions intact)
+-- Verify storage is empty
+SELECT bucket_id, COUNT(*) as file_count
+FROM storage.objects
+GROUP BY bucket_id;
+-- Expected: 0 rows (no files in any bucket)
 ```
 
-#### 0.6 Post-Cleanup Actions
+#### 0.6 Post-Reset Security Checklist
 
-```bash
-# Run migrations to ensure schema is current
-supabase db push
+After reset and migrations, verify security configuration:
 
-# Regenerate TypeScript types
-npm run db:types
+- [ ] **RLS enabled on all tables** (run: `SELECT * FROM security.verify_rls_enabled();`)
+- [ ] **Audit tables are immutable** (triggers prevent UPDATE/DELETE)
+- [ ] **Service role tracking active** (test: query `audit.service_role_operations`)
+- [ ] **JWT secret is set** (`auth.jwt_secret` in Dashboard → Settings → API)
+- [ ] **Storage policies applied** (test: upload file without auth = denied)
+- [ ] **Edge Functions deployed with secrets** (test: call function, verify secrets loaded)
 
-# Run verification queries
-psql $DATABASE_URL -c "SELECT * FROM security.health_check();"
-```
-
-**Common Issues:**
-
-**Issue:** "Backup is older than 24 hours"
-- **Solution:** Create fresh backup before proceeding
-
-**Issue:** Foreign key constraint violations during delete
-- **Solution:** Script handles cascade deletes, but if issues persist, check for circular references
-
-**Issue:** Storage files still exist after cleanup
-- **Solution:** Must delete via Supabase Dashboard Storage UI or CLI (`supabase storage rm`)
-
-**Sign-off:** ☐ Database Admin ☐ DevOps Lead
+**Timeline:** 1 hour  
+**Prerequisites:** Valid database backup, confirmed staging environment  
+**Success Criteria:** 
+- ✅ All user data deleted (tables exist but empty)
+- ✅ Storage buckets empty
+- ✅ Migrations re-applied successfully
+- ✅ RLS policies active
+- ✅ Extensions installed
+- ✅ No test/development artifacts remain
 
 ---
 
