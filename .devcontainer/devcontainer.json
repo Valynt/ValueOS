@@ -59,7 +59,9 @@
         "ms-vscode-remote.remote-containers",
         "Supabase.supabase-vscode",
         "snyk-security.snyk-vulnerability-scanner",
-        "romanresh.vscode-testcafe"
+        "romanresh.vscode-testcafe",
+        "GitHub.copilot",
+        "GitHub.copilot-chat"
       ]
     }
   }
