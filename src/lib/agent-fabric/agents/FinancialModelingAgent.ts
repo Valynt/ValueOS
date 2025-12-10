@@ -64,21 +64,32 @@ Return ONLY valid JSON:
   "reasoning": "<calculation methodology and key assumptions>"
 }`;
 
-    const response = await this.llmGateway.complete([
-      {
-        role: 'system',
-        content: 'You are a financial analyst. Perform accurate ROI, NPV, and payback calculations with clear assumptions.'
-      },
-      {
-        role: 'user',
-        content: prompt
-      }
-    ], {
-      temperature: 0.2,
-      max_tokens: 2000
+    // SECURITY FIX: Use secureInvoke() for hallucination detection and circuit breaker
+    const financialSchema = z.object({
+      financial_model: z.any(),
+      roi_analysis: z.any(),
+      sensitivity_scenarios: z.array(z.any()),
+      confidence_level: z.enum(['high', 'medium', 'low']),
+      reasoning: z.string(),
+      hallucination_check: z.boolean().optional()
     });
 
-    const parsed = this.extractJSON(response.content);
+    const secureResult = await this.secureInvoke(
+      sessionId,
+      prompt,
+      financialSchema,
+      {
+        trackPrediction: true,
+        confidenceThresholds: { low: 0.7, high: 0.9 },
+        context: {
+          agent: 'FinancialModelingAgent',
+          valueHypothesis: input.valueHypothesis
+        }
+      }
+    );
+
+    const parsed = secureResult.result;
+    const response = { content: JSON.stringify(parsed), tokens_used: 0, model: 'gpt-4' };
 
     const durationMs = Date.now() - startTime;
 
@@ -107,7 +118,8 @@ Return ONLY valid JSON:
       sessionId,
       this.agentId,
       `ROI: ${parsed.roi_percentage}%, NPV: $${(parsed.npv_amount / 1000000).toFixed(2)}M, Payback: ${parsed.payback_months} months`,
-      { financial_model: parsed }
+      { financial_model: parsed },
+      this.organizationId // SECURITY: Tenant isolation
     );
 
     return {

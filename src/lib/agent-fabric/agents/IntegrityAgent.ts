@@ -186,7 +186,8 @@ export class IntegrityAgent extends BaseAgent {
         sessionId,
         this.agentId,
         `COMPLIANCE FAILURE: ${input.artifact_type} ${input.artifact_id}`,
-        { blocking_issues: blockingIssues }
+        { blocking_issues: blockingIssues },
+        this.organizationId // SECURITY: Tenant isolation
       );
     }
 

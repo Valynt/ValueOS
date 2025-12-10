@@ -127,21 +127,33 @@ Return ONLY valid JSON in this exact format:
   "reasoning": "<your analysis reasoning>"
 }`;
 
-    const response = await this.llmGateway.complete([
-      {
-        role: 'system',
-        content: 'You are an expert value discovery agent. You analyze customer conversations and extract actionable business intelligence, pain points, and value opportunities. Always quantify impact where possible.'
-      },
-      {
-        role: 'user',
-        content: prompt
-      }
-    ], {
-      temperature: 0.4,
-      max_tokens: 3000
+    // SECURITY FIX: Use secureInvoke() for hallucination detection and circuit breaker
+    const opportunitySchema = z.object({
+      pain_points: z.array(z.any()).optional(),
+      business_objectives: z.array(z.any()).optional(),
+      value_hypothesis: z.any().optional(),
+      recommended_capability_tags: z.array(z.string()).optional(),
+      confidence_level: z.enum(['high', 'medium', 'low']),
+      reasoning: z.string(),
+      hallucination_check: z.boolean().optional() // Hallucination detection flag
     });
 
-    const parsed = await this.extractJSON(response.content);
+    const secureResult = await this.secureInvoke(
+      sessionId,
+      prompt,
+      opportunitySchema,
+      {
+        trackPrediction: true,
+        confidenceThresholds: { low: 0.5, high: 0.8 },
+        context: {
+          agent: 'OpportunityAgent',
+          discoveryDocuments: input.discoveryData.length
+        }
+      }
+    );
+
+    const parsed = secureResult.result;
+    const response = { content: JSON.stringify(parsed), tokens_used: 0, model: 'gpt-4' }; // Placeholder for metrics
 
     // Ensure required arrays exist with defaults
     const painPoints = parsed.pain_points || [];
@@ -189,7 +201,8 @@ Return ONLY valid JSON in this exact format:
         persona_fit: parsed.persona_fit,
         business_objectives: businessObjectives,
         pain_points: parsed.pain_points
-      }
+      },
+      this.organizationId // SECURITY: Tenant isolation
     );
 
     return {

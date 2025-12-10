@@ -14,6 +14,7 @@ import { AgentConfig } from '../../../types/agent';
 import { ValueDriver, ValueDriverValidationResult, ConfidenceScore } from '../../../types/valueDriverTaxonomy';
 import { logger } from '../../../lib/logger';
 import Handlebars from 'handlebars';
+import { z } from 'zod';
 
 // =====================================================
 // AGENT A: VALUE DRIVER EXTRACTION AGENT
@@ -114,21 +115,30 @@ export class ValueDriverExtractionAgent extends BaseAgent {
     const template = Handlebars.compile(EXTRACTION_PROMPT);
     const prompt = template(input);
 
-    const response = await this.llmGateway.complete([
-      {
-        role: 'system',
-        content: 'You are an expert value engineer. Extract structured, evidence-based value drivers from discovery sources. Be conservative in estimates and explicit about confidence levels.'
-      },
-      {
-        role: 'user',
-        content: prompt
-      }
-    ], {
-      temperature: 0.3, // Lower temp for factual extraction
-      max_tokens: 4000
+    // Define schema for structured output validation
+    const extractionSchema = z.object({
+      drivers: z.array(z.any()),
+      extraction_confidence: z.number().min(0).max(1),
+      reasoning: z.string()
     });
 
-    const parsed = this.extractJSON(response.content);
+    // SECURITY FIX: Use secureInvoke() instead of direct llmGateway.complete()
+    const secureResult = await this.secureInvoke(
+      sessionId,
+      prompt,
+      extractionSchema,
+      {
+        trackPrediction: true,
+        confidenceThresholds: { low: 0.6, high: 0.85 },
+        context: {
+          agent: 'ValueDriverExtractionAgent',
+          organizationId: input.organization_id,
+          sourcesCount: input.discovery_sources.length
+        }
+      }
+    );
+
+    const parsed = secureResult.result;
 
     // Enhance with metadata
     const drivers: ValueDriver[] = parsed.drivers.map((d: any) => ({
@@ -146,7 +156,8 @@ export class ValueDriverExtractionAgent extends BaseAgent {
       sessionId,
       this.agentId,
       `Extracted ${drivers.length} value drivers from ${input.discovery_sources.length} sources`,
-      { drivers, extraction_confidence: parsed.extraction_confidence }
+      { drivers, extraction_confidence: parsed.extraction_confidence },
+      input.organization_id // SECURITY: Tenant isolation
     );
 
     return {
@@ -247,27 +258,37 @@ export class AdversarialChallengeAgent extends BaseAgent {
     const template = Handlebars.compile(CHALLENGE_PROMPT);
     const prompt = template(input);
 
-    const response = await this.llmGateway.complete([
-      {
-        role: 'system',
-        content: 'You are a critical auditor and skeptical analyst. Your job is to find weaknesses, contradictions, and unsupported claims in value driver analysis. Be thorough and demanding of evidence.'
-      },
-      {
-        role: 'user',
-        content: prompt
-      }
-    ], {
-      temperature: 0.4, // Slightly higher for creative skepticism
-      max_tokens: 4000
+    // Define schema for validation output
+    const challengeSchema = z.object({
+      validations: z.array(z.any()),
+      overall_assessment: z.enum(['strong', 'moderate', 'weak']),
+      reasoning: z.string()
     });
 
-    const parsed = this.extractJSON(response.content);
+    // SECURITY FIX: Use secureInvoke() instead of direct llmGateway.complete()
+    const secureResult = await this.secureInvoke(
+      sessionId,
+      prompt,
+      challengeSchema,
+      {
+        trackPrediction: true,
+        confidenceThresholds: { low: 0.5, high: 0.8 },
+        context: {
+          agent: 'AdversarialChallengeAgent',
+          organizationId: input.organization_id,
+          driversToChallenge: input.drivers.length
+        }
+      }
+    );
+
+    const parsed = secureResult.result;
 
     await this.memorySystem.storeSemanticMemory(
       sessionId,
       this.agentId,
       `Challenged ${input.drivers.length} drivers, found ${parsed.validations.filter((v: any) => !v.is_valid).length} with issues`,
-      { validations: parsed.validations, overall_assessment: parsed.overall_assessment }
+      { validations: parsed.validations, overall_assessment: parsed.overall_assessment },
+      input.organization_id // SECURITY: Tenant isolation
     );
 
     return {
@@ -398,21 +419,36 @@ export class ReconciliationAgent extends BaseAgent {
     const template = Handlebars.compile(RECONCILIATION_PROMPT);
     const prompt = template(input);
 
-    const response = await this.llmGateway.complete([
-      {
-        role: 'system',
-        content: 'You are a senior value engineering consultant. Synthesize extraction and challenge findings into final, defensible value drivers. Be conservative and transparent about uncertainty.'
-      },
-      {
-        role: 'user',
-        content: prompt
-      }
-    ], {
-      temperature: 0.2, // Very low for consistent synthesis
-      max_tokens: 4000
+    // Define schema for reconciliation output
+    const reconciliationSchema = z.object({
+      final_drivers: z.array(z.any()),
+      reconciliation_summary: z.object({
+        drivers_accepted: z.number(),
+        drivers_modified: z.number(),
+        drivers_rejected: z.number(),
+        overall_confidence: z.number().min(0).max(1)
+      }),
+      audit_trail: z.array(z.any()),
+      reasoning: z.string()
     });
 
-    const parsed = this.extractJSON(response.content);
+    // SECURITY FIX: Use secureInvoke() instead of direct llmGateway.complete()
+    const secureResult = await this.secureInvoke(
+      sessionId,
+      prompt,
+      reconciliationSchema,
+      {
+        trackPrediction: true,
+        confidenceThresholds: { low: 0.6, high: 0.85 },
+        context: {
+          agent: 'ReconciliationAgent',
+          organizationId: input.organization_id,
+          originalDrivers: input.original_drivers.length
+        }
+      }
+    );
+
+    const parsed = secureResult.result;
 
     // Enrich final drivers with metadata
     const finalDrivers: ValueDriver[] = parsed.final_drivers.map((d: any) => {
@@ -433,7 +469,8 @@ export class ReconciliationAgent extends BaseAgent {
         final_drivers: finalDrivers, 
         reconciliation_summary: parsed.reconciliation_summary,
         audit_trail: parsed.audit_trail
-      }
+      },
+      input.organization_id // SECURITY: Tenant isolation
     );
 
     return {
