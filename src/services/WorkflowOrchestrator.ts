@@ -44,7 +44,13 @@ export class WorkflowOrchestrator {
   constructor() {
     this.llmGateway = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
     this.memorySystem = new MemorySystem(supabase, this.llmGateway);
-    this.integrityAgent = new IntegrityAgent();
+    this.integrityAgent = new IntegrityAgent({
+      llmGateway: this.llmGateway,
+      memorySystem: this.memorySystem,
+      supabase: supabase,
+      organizationId: 'system', // System-level integrity checks
+      agentId: 'integrity-agent',
+    });
   }
 
   async registerLifecycleDefinitions(): Promise<void> {

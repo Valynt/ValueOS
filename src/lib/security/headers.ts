@@ -65,6 +65,7 @@ export const SECURITY_HEADERS: SecurityHeadersConfig = {
   /**
    * Permissions-Policy
    * Restricts browser features
+   * Note: 'speaker' is deprecated, removed to prevent console warnings
    */
   permissionsPolicy: [
     'geolocation=()',
@@ -74,7 +75,6 @@ export const SECURITY_HEADERS: SecurityHeadersConfig = {
     'usb=()',
     'magnetometer=()',
     'gyroscope=()',
-    'speaker=()',
   ].join(', '),
 };
 
