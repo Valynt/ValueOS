@@ -9,7 +9,11 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom', // Use jsdom for React component tests
     setupFiles: ['./tests/setup.ts'], // Only basic setup, no database
-    include: ['src/sdui/__tests__/*.unit.test.tsx'],
+    include: [
+      'src/sdui/__tests__/*.unit.test.tsx',
+      'src/sdui/__tests__/*.benchmark.test.ts',
+      'src/sdui/__tests__/load.test.ts',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
