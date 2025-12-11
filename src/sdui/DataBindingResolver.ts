@@ -68,6 +68,19 @@ export class DataBindingResolver {
   private readonly REQUEST_TIMEOUT_MS = 10000; // 10 seconds
   private readonly RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
   private readonly RATE_LIMIT_MAX_REQUESTS = 100; // 100 requests per minute per org
+  
+  // Cache configuration with LRU eviction
+  private readonly MAX_CACHE_SIZE = 1000; // Maximum cache entries
+  private cacheAccessOrder: string[] = []; // Track access order for LRU
+  
+  // Performance metrics
+  private performanceMetrics = {
+    cacheHits: 0,
+    cacheMisses: 0,
+    totalResolveTime: 0,
+    resolveCount: 0,
+    evictionCount: 0,
+  };
 
   constructor(options?: {
     toolRegistry?: ToolRegistry;
@@ -394,10 +407,16 @@ export class DataBindingResolver {
       }
 
       const duration = Date.now() - startTime;
+      
+      // Track performance metrics
+      this.performanceMetrics.totalResolveTime += duration;
+      this.performanceMetrics.resolveCount++;
+      
       logger.debug('Resolved binding', {
         source: binding.$source,
         path: binding.$bind,
         duration,
+        avgResolveTime: (this.performanceMetrics.totalResolveTime / this.performanceMetrics.resolveCount).toFixed(2) + 'ms',
       });
 
       return {
@@ -408,6 +427,10 @@ export class DataBindingResolver {
         cached: false,
       };
     } catch (error) {
+      // Track failed resolution time
+      const duration = Date.now() - startTime;
+      this.performanceMetrics.totalResolveTime += duration;
+      this.performanceMetrics.resolveCount++;
       logger.error('Failed to resolve binding', {
         source: binding.$source,
         path: binding.$bind,
@@ -696,37 +719,117 @@ export class DataBindingResolver {
   }
 
   /**
-   * Get from cache
+   * Get from cache with LRU tracking
    */
   private getFromCache(key: string): any | null {
     const entry = this.cache.get(key);
-    if (!entry) return null;
+    if (!entry) {
+      this.performanceMetrics.cacheMisses++;
+      return null;
+    }
 
     const now = Date.now();
     if (now - entry.timestamp > entry.ttl) {
       this.cache.delete(key);
+      this.removeFromAccessOrder(key);
+      this.performanceMetrics.cacheMisses++;
       return null;
     }
 
+    // Update LRU access order (move to end = most recently used)
+    this.updateAccessOrder(key);
+    this.performanceMetrics.cacheHits++;
     return entry.value;
   }
 
   /**
-   * Set cache
+   * Set cache with LRU eviction
    */
   private setCache(key: string, value: any, ttl: number): void {
+    // Evict least recently used entry if at max size
+    if (this.cache.size >= this.MAX_CACHE_SIZE && !this.cache.has(key)) {
+      this.evictLRU();
+    }
+    
     this.cache.set(key, {
       value,
       timestamp: Date.now(),
       ttl,
     });
+    
+    // Update access order
+    this.updateAccessOrder(key);
   }
 
+  /**
+   * Update LRU access order (move key to end)
+   */
+  private updateAccessOrder(key: string): void {
+    // Remove from current position
+    const index = this.cacheAccessOrder.indexOf(key);
+    if (index > -1) {
+      this.cacheAccessOrder.splice(index, 1);
+    }
+    // Add to end (most recently used)
+    this.cacheAccessOrder.push(key);
+  }
+  
+  /**
+   * Remove key from access order tracking
+   */
+  private removeFromAccessOrder(key: string): void {
+    const index = this.cacheAccessOrder.indexOf(key);
+    if (index > -1) {
+      this.cacheAccessOrder.splice(index, 1);
+    }
+  }
+  
+  /**
+   * Evict least recently used cache entry
+   */
+  private evictLRU(): void {
+    if (this.cacheAccessOrder.length === 0) return;
+    
+    // First entry is least recently used
+    const lruKey = this.cacheAccessOrder[0];
+    this.cache.delete(lruKey);
+    this.cacheAccessOrder.shift();
+    this.performanceMetrics.evictionCount++;
+    
+    logger.debug('LRU cache eviction', {
+      evictedKey: lruKey,
+      cacheSize: this.cache.size,
+      totalEvictions: this.performanceMetrics.evictionCount,
+    });
+  }
+  
+  /**
+   * Get performance metrics
+   */
+  public getPerformanceMetrics() {
+    const hitRate = this.performanceMetrics.cacheHits + this.performanceMetrics.cacheMisses > 0
+      ? (this.performanceMetrics.cacheHits / (this.performanceMetrics.cacheHits + this.performanceMetrics.cacheMisses)) * 100
+      : 0;
+    
+    const avgResolveTime = this.performanceMetrics.resolveCount > 0
+      ? this.performanceMetrics.totalResolveTime / this.performanceMetrics.resolveCount
+      : 0;
+    
+    return {
+      ...this.performanceMetrics,
+      cacheSize: this.cache.size,
+      maxCacheSize: this.MAX_CACHE_SIZE,
+      hitRate: hitRate.toFixed(2) + '%',
+      avgResolveTime: avgResolveTime.toFixed(2) + 'ms',
+    };
+  }
+  
   /**
    * Clear cache
    */
   clearCache(): void {
     this.cache.clear();
+    this.cacheAccessOrder = [];
   }
 
   /**

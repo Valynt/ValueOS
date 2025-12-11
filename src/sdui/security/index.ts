@@ -6,3 +6,4 @@
 
 export * from './sanitization';
 export * from './metrics';
+export * from './sessionValidation';
