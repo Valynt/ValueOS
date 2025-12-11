@@ -105,6 +105,16 @@ export function sanitizeString(
     return value;
   }
   
+  // Block javascript: URLs explicitly (DOMPurify only blocks in HTML attributes)
+  if (value.toLowerCase().trim().startsWith('javascript:')) {
+    xssBlockCount++;
+    logger.warn('XSS attempt blocked: javascript: URL', {
+      original: value.substring(0, 100),
+      blocked: xssBlockCount,
+    });
+    return ''; // Return empty string instead of malicious URL
+  }
+  
   const config = SANITIZATION_CONFIGS[policy];
   const sanitized = DOMPurify.sanitize(value, config);
   
@@ -169,6 +179,10 @@ export function sanitizeProps(
         }
         return item;
       });
+    }
+    // Pass through Date objects (don't recursively sanitize)
+    else if (value instanceof Date) {
+      sanitized[key] = value;
     }
     // Recursively sanitize nested objects
     else if (typeof value === 'object') {
