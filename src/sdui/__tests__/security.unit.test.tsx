@@ -3,7 +3,7 @@
  * Tests XSS sanitization, rate limiting, and recursion guards WITHOUT database dependencies
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { sanitizeProps, XSS_TEST_VECTORS } from '../security/sanitization';
 import {
   incrementSecurityMetric,
@@ -103,7 +103,8 @@ describe('SDUI Security Unit Tests', () => {
     });
 
     it('should detect and prevent recursion loops', () => {
-      const circular: any = { name: 'Node' };
+      type CircularNode = { name: string; self?: CircularNode };
+      const circular: CircularNode = { name: 'Node' };
       circular.self = circular; // Create circular reference
 
       const result = sanitizeProps(circular, 'Tree');
