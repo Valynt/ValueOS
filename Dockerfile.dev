@@ -23,6 +23,9 @@ WORKDIR /app
 # Copy package files with proper ownership
 COPY --chown=nodeuser:nodejs package*.json ./
 
+# Ensure /app directory is owned by nodeuser before npm operations
+RUN chown -R nodeuser:nodejs /app
+
 # Switch to non-root user for npm install
 USER nodeuser
 

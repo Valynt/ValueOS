@@ -19,6 +19,8 @@ import { TenantContext, hasPermission } from './TenantContext';
 import { ToolRegistry } from '../services/ToolRegistry';
 import { SemanticMemoryService } from '../services/SemanticMemory';
 import { createClient } from '@supabase/supabase-js';
+import PQueue from 'p-queue';
+import { incrementSecurityMetric } from './security/metrics';
 
 /**
  * Data source resolver function
@@ -38,6 +40,14 @@ interface CacheEntry {
 }
 
 /**
+ * Rate limit tracking entry
+ */
+interface RateLimitEntry {
+  count: number;
+  resetTime: number;
+}
+
+/**
  * Data Binding Resolver Service
  */
 export class DataBindingResolver {
@@ -46,6 +56,18 @@ export class DataBindingResolver {
   private toolRegistry?: ToolRegistry;
   private semanticMemory?: SemanticMemoryService;
   private supabaseClient?: ReturnType<typeof createClient>;
+  
+  // SECURITY: Request queue and rate limiting
+  private requestQueue: PQueue;
+  private rateLimiter: Map<string, RateLimitEntry> = new Map();
+  private cacheCleanupInterval?: NodeJS.Timeout;
+  private rateLimitCleanupInterval?: NodeJS.Timeout;
+  
+  // Rate limit configuration
+  private readonly MAX_CONCURRENT_REQUESTS = 5;
+  private readonly REQUEST_TIMEOUT_MS = 10000; // 10 seconds
+  private readonly RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
+  private readonly RATE_LIMIT_MAX_REQUESTS = 100; // 100 requests per minute per org
 
   constructor(options?: {
     toolRegistry?: ToolRegistry;
@@ -60,7 +82,128 @@ export class DataBindingResolver {
       this.supabaseClient = createClient(options.supabaseUrl, options.supabaseKey);
     }
 
+    // Initialize request queue with concurrency limits
+    this.requestQueue = new PQueue({
+      concurrency: this.MAX_CONCURRENT_REQUESTS,
+      timeout: this.REQUEST_TIMEOUT_MS,
+      throwOnTimeout: true,
+    });
+
     this.initializeResolvers();
+    this.startCleanupIntervals();
+  }
+  
+  /**
+   * Start periodic cleanup of expired cache and rate limit entries
+   */
+  private startCleanupIntervals(): void {
+    // Cleanup cache every 5 minutes
+    this.cacheCleanupInterval = setInterval(() => {
+      this.cleanupExpiredCache();
+    }, 5 * 60 * 1000);
+    
+    // Cleanup rate limits every minute
+    this.rateLimitCleanupInterval = setInterval(() => {
+      this.cleanupExpiredRateLimits();
+    }, 60 * 1000);
+  }
+  
+  /**
+   * Cleanup expired cache entries
+   */
+  private cleanupExpiredCache(): void {
+    const now = Date.now();
+    let removedCount = 0;
+    
+    for (const [key, entry] of this.cache.entries()) {
+      if (now > entry.timestamp + entry.ttl) {
+        this.cache.delete(key);
+        removedCount++;
+      }
+    }
+    
+    if (removedCount > 0) {
+      logger.info('DataBindingResolver cache cleanup', {
+        removedCount,
+        remainingEntries: this.cache.size,
+      });
+    }
+  }
+  
+  /**
+   * Cleanup expired rate limit entries
+   */
+  private cleanupExpiredRateLimits(): void {
+    const now = Date.now();
+    let removedCount = 0;
+    
+    for (const [key, entry] of this.rateLimiter.entries()) {
+      if (now > entry.resetTime) {
+        this.rateLimiter.delete(key);
+        removedCount++;
+      }
+    }
+    
+    if (removedCount > 0) {
+      logger.debug('DataBindingResolver rate limit cleanup', {
+        removedCount,
+        activeOrgs: this.rateLimiter.size,
+      });
+    }
+  }
+  
+  /**
+   * Check and update rate limit for an organization
+   */
+  private checkRateLimit(organizationId: string, source: string): void {
+    const rateLimitKey = `${organizationId}:${source}`;
+    const now = Date.now();
+    
+    let entry = this.rateLimiter.get(rateLimitKey);
+    
+    if (!entry || now > entry.resetTime) {
+      // Create new rate limit window
+      entry = {
+        count: 0,
+        resetTime: now + this.RATE_LIMIT_WINDOW_MS,
+      };
+      this.rateLimiter.set(rateLimitKey, entry);
+    }
+    
+    // Increment count
+    entry.count++;
+    
+    // Check if limit exceeded
+    if (entry.count > this.RATE_LIMIT_MAX_REQUESTS) {
+      incrementSecurityMetric('rate_limit_hit', {
+        organizationId,
+        source,
+        count: entry.count,
+        limit: this.RATE_LIMIT_MAX_REQUESTS,
+      });
+      
+      throw new Error(
+        `Rate limit exceeded for data source: ${source}. ` +
+        `Maximum ${this.RATE_LIMIT_MAX_REQUESTS} requests per minute. ` +
+        `Try again in ${Math.ceil((entry.resetTime - now) / 1000)} seconds.`
+      );
+    }
+  }
+  
+  /**
+   * Destroy the resolver and cleanup resources
+   */
+  public destroy(): void {
+    if (this.cacheCleanupInterval) {
+      clearInterval(this.cacheCleanupInterval);
+    }
+    if (this.rateLimitCleanupInterval) {
+      clearInterval(this.rateLimitCleanupInterval);
+    }
+    this.cache.clear();
+    this.rateLimiter.clear();
+    
+    logger.info('DataBindingResolver destroyed and resources cleaned up');
   }
 
   /**
@@ -191,6 +334,10 @@ export class DataBindingResolver {
       // Validate binding
       const validation = validateDataBinding(binding);
       if (!validation.valid) {
+        incrementSecurityMetric('binding_error', {
+          errors: validation.errors,
+          source: binding.$source,
+        });
         return {
           value: binding.$fallback,
           success: false,
@@ -200,6 +347,9 @@ export class DataBindingResolver {
           cached: false,
         };
       }
+
+      // SECURITY: Check rate limit before processing
+      this.checkRateLimit(context.organizationId, binding.$source);
 
       // Check cache
       const cacheKey = this.getCacheKey(binding, context);
@@ -220,13 +370,14 @@ export class DataBindingResolver {
         };
       }
 
-      // Resolve from source
+      // Resolve from source using request queue
       const resolver = this.resolvers.get(binding.$source);
       if (!resolver) {
         throw new Error(`No resolver for source: ${binding.$source}`);
       }
 
-      let value = await resolver(binding, context);
+      // SECURITY: Queue the request with concurrency and timeout limits
+      let value = await this.requestQueue.add(() => resolver(binding, context));
 
       // Apply transform
       if (binding.$transform) {
