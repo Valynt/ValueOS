@@ -95,23 +95,38 @@ class UsageAggregator {
     const periodStart = events[0].timestamp;
     const periodEnd = events[events.length - 1].timestamp;
 
-    // Get subscription item
-    const { data: subscriptionItem } = await supabase
+    // Fetch active subscriptions for tenant
+    const { data: subscriptions, error: subsErr } = await supabase
+      .from('subscriptions')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .in('status', ['active', 'trialing']);
+
+    if (subsErr) throw subsErr;
+
+    if (!subscriptions || subscriptions.length === 0) {
+      logger.warn('No active subscriptions for tenant', { tenantId, metric });
+      // Mark events as processed
+      await this.markEventsProcessed(events.map(e => e.id));
+      return;
+    }
+
+    const subscriptionIds = subscriptions.map((s: any) => s.id);
+
+    // Find a subscription_item for these subscriptions and metric
+    const { data: subItems, error: subItemsErr } = await supabase
       .from('subscription_items')
       .select('id')
       .eq('metric', metric)
-      .in('subscription_id', 
-        supabase
-          .from('subscriptions')
-          .select('id')
-          .eq('tenant_id', tenantId)
-          .in('status', ['active', 'trialing'])
-      )
-      .single();
+      .in('subscription_id', subscriptionIds)
+      .limit(1);
+
+    if (subItemsErr) throw subItemsErr;
+
+    const subscriptionItem = subItems && subItems.length > 0 ? subItems[0] : null;
 
     if (!subscriptionItem) {
       logger.warn('No subscription item found', { tenantId, metric });
-      // Mark events as processed anyway
       await this.markEventsProcessed(events.map(e => e.id));
       return;
     }

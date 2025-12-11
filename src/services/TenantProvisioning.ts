@@ -505,10 +505,10 @@ export async function deprovisionTenant(
     try {
       await sendDeactivationEmail(organizationId, reason);
       logger.info('Notification sent');
-    } catch (error) {
-      // Non-critical, just log
-      logger.warn('Failed to send notification: ${error instanceof Error ? error.message : 'Unknown error'}');
-    }
+      } catch (error) {
+        // Non-critical, just log
+        logger.warn(`Failed to send notification: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
 
     return {
       success: errors.length === 0,

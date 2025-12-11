@@ -85,6 +85,7 @@ curl https://staging.valuecanvas.io/health
 Create dashboard with panels:
 
 **SDUI Performance**:
+
 ```json
 {
   "title": "SDUI Performance Metrics",
@@ -114,6 +115,7 @@ Create dashboard with panels:
 ```
 
 **SDUI Security**:
+
 ```json
 {
   "title": "SDUI Security Metrics",
@@ -221,18 +223,21 @@ curl https://staging.valuecanvas.io/api/sdui/metrics
 ### Day 1 Checklist
 
 **Hour 0-6**:
+
 - [ ] Monitor deployment for errors
 - [ ] Validate all smoke tests passing
 - [ ] Check Grafana dashboards loading correctly
 - [ ] Verify metrics flowing to monitoring
 
 **Hour 6-12**:
+
 - [ ] Review cache hit rates (target >70%)
 - [ ] Monitor XSS block counts (should be near zero for legitimate traffic)
 - [ ] Check session validation metrics
 - [ ] Verify no tenant isolation violations
 
 **Hour 12-24**:
+
 - [ ] Analyze performance under normal load
 - [ ] Review eviction patterns
 - [ ] Monitor rate limit hits
@@ -241,12 +246,14 @@ curl https://staging.valuecanvas.io/api/sdui/metrics
 ### Day 2 Checklist
 
 **Hour 24-36**:
+
 - [ ] Review aggregated metrics from Day 1
 - [ ] Identify any performance bottlenecks
 - [ ] Check for memory leaks (cache size should stabilize)
 - [ ] Validate session timeout UX
 
 **Hour 36-48**:
+
 - [ ] Final performance validation
 - [ ] Security audit review
 - [ ] Prepare production deployment plan
@@ -276,6 +283,7 @@ Immediate rollback if:
 5. **Data Loss**: Session validation causing widespread logouts
 
 **Rollback Command**:
+
 ```bash
 ./scripts/rollback-staging.sh --version=previous
 # Or use feature flag:
@@ -303,35 +311,35 @@ After successful 48-hour observation:
    - Monitoring and alerts functional
    - Resource usage acceptable
    - Deployment process validated
-
-### Production Deployment Plan
-
 Once approved:
 
-1. **Schedule**: Deploy during low-traffic window (e.g., Sunday 2-4 AM EST)
-2. **Strategy**: Gradual rollout with feature flag
+4. **Schedule**: Deploy during low-traffic window (e.g., Sunday 2-4 AM EST)
+5. **Strategy**: Gradual rollout with feature flag
    - 10% traffic for 1 hour
    - 25% traffic for 2 hours
    - 50% traffic for 4 hours
    - 100% traffic after validation
-3. **Monitoring**: Engineering on-call during rollout
-4. **Rollback**: Feature flag ready for instant disable
+6. **Monitoring**: Engineering on-call during rollout
+7. **Rollback**: Feature flag ready for instant disable
 
 ## Metrics to Track
 
 ### Performance Metrics
+
 - Cache hit rate (target >70%)
 - Average resolve time (target <100ms)
 - P99 resolve time (target <500ms)
 - Eviction count per hour (target <100)
 
 ### Security Metrics
+
 - XSS blocks per hour (should be low for legitimate traffic)
 - Rate limit hits per hour (should be rare)
 - Session invalid per hour (expect some from expired sessions)
 - Tenant violations (must be zero)
 
 ### System Metrics
+
 - Cache memory usage (should stabilize <10MB)
 - CPU usage (should not increase significantly)
 - Request latency (should remain stable)
@@ -340,7 +348,7 @@ Once approved:
 ## Support Contacts
 
 - **Engineering Lead**: @engineering-lead (Slack)
-- **Security Team**: @security (Slack), security@valuecanvas.io
+- **Security Team**: @security (Slack), <security@valuecanvas.io>
 - **DevOps On-Call**: PagerDuty integration
 - **Product Manager**: @product (Slack)
 

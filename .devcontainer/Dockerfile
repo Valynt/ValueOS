@@ -33,6 +33,9 @@ RUN apt-get update && apt-get install -y \
     && apt-get install -y docker-ce-cli docker-compose-plugin \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Supabase CLI
+RUN curl -fsSL https://raw.githubusercontent.com/supabase/cli/main/install.sh | sh
+
 WORKDIR /workspace
 
 # Install security scanning tools
