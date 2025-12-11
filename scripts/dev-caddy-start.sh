@@ -59,6 +59,11 @@ echo -e "${BLUE}→ Stopping existing containers...${NC}"
 docker-compose -f docker-compose.dev-caddy.yml down 2>/dev/null || true
 echo -e "${GREEN}✓ Cleaned up existing containers${NC}"
 
+# Force remove any leftover containers with fixed names
+echo -e "${BLUE}→ Removing any leftover containers...${NC}"
+docker rm -f valuecanvas-dev valuecanvas-caddy-dev valuecanvas-postgres-dev valuecanvas-redis-dev 2>/dev/null || true
+echo -e "${GREEN}✓ Removed leftover containers${NC}"
+
 # Start services
 echo ""
 echo -e "${BLUE}→ Starting development environment...${NC}"
@@ -81,7 +86,7 @@ else
 fi
 
 # Check Vite dev server
-if curl -s http://localhost:3000 > /dev/null 2>&1; then
+if curl -s http://localhost:5000 > /dev/null 2>&1; then
     echo -e "${GREEN}✓ Vite dev server is running${NC}"
 else
     echo -e "${YELLOW}⚠ Vite dev server starting...${NC}"
@@ -109,10 +114,10 @@ echo -e "${CYAN}╚════════════════════�
 echo ""
 echo -e "${GREEN}🚀 Access Points:${NC}"
 echo -e "   ${BLUE}Main Application:${NC}    http://localhost"
-echo -e "   ${BLUE}Vite Dev Server:${NC}     http://localhost:3000"
+echo -e "   ${BLUE}Vite Dev Server:${NC}     http://localhost:5000"
 echo -e "   ${BLUE}Static Files:${NC}        http://localhost:8080"
 echo -e "   ${BLUE}Caddy Admin API:${NC}    http://localhost:2019"
-echo -e "   ${BLUE}PostgreSQL:${NC}          localhost:5432"
+echo -e "   ${BLUE}PostgreSQL:${NC}          localhost:5433"
 echo -e "   ${BLUE}Redis:${NC}               localhost:6379"
 echo ""
 echo -e "${YELLOW}📋 Useful Commands:${NC}"
