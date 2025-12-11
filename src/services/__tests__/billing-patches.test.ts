@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 // Ensure environment variables required by module initialization are present

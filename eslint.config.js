@@ -25,6 +25,19 @@ export default tseslint.config(
       'scripts/**/*',  // Scripts can use console.log
       'blueprint/**/*', // Blueprint examples
       'docs/**/*',      // Documentation code
+      'backup/**/*',    // Backup files
+      'prisma/**/*',    // Prisma generated files and seeds
+      'services/**/*',  // External services
+      'migrations/**/*', // Database migrations
+      'supabase/**/*',  // Supabase files
+      'test-results/**/*', // Test results
+      'playwright-report/**/*', // Playwright reports
+      'reports/**/*',   // Generated reports
+      'grafana/**/*',   // Grafana configs
+      'infrastructure/**/*', // Infrastructure files
+      'k8s/**/*',       // Kubernetes files
+      'kubernetes/**/*', // Kubernetes files
+      'alembic/**/*',   // Alembic migrations
     ] 
   },
   {
