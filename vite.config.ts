@@ -9,17 +9,17 @@ const isCodespaces = process.env.CODESPACES === 'true';
 export default defineConfig({
   plugins: [react()],
   server: {
-    host: '0.0.0.0', // Listen on all interfaces for container/Codespace access
-    port: 3000,
-    strictPort: false, // Allow fallback to other ports if 3000 is busy
+    host: process.env.VITE_HOST || '0.0.0.0', // Listen on all interfaces for container/Codespace access
+    port: parseInt(process.env.VITE_PORT || '3000'),
+    strictPort: false, // Allow fallback to other ports if port is busy
     headers: getEnvironmentHeaders('development'),
     // CORS configuration for cross-origin requests
     cors: true,
     // HMR configuration for hot module replacement
     // In Codespaces, let Vite auto-detect the correct WebSocket URL
     hmr: isCodespaces ? true : {
-      clientPort: 3000,
-      host: 'localhost',
+      clientPort: parseInt(process.env.VITE_HMR_PORT || '24678'),
+      host: process.env.VITE_HMR_HOST || 'localhost',
     },
     // Optional: Enable HTTPS for local development
     // Uncomment the next line to use HTTPS (will use self-signed certificate)

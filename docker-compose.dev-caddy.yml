@@ -19,7 +19,6 @@ services:
       - "2019:2019"      # Admin API
       - "8080:8080"      # Static file server
     volumes:
-      - ./Caddyfile.dev:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
       - ./dist:/app/dist:ro
@@ -55,34 +54,22 @@ services:
       dockerfile: Dockerfile.dev
     container_name: valuecanvas-dev
     expose:
-      - "3000"           # Vite dev server (internal only)
+      - "5000"           # Vite dev server (internal only)
     ports:
-      - "3000:3000"      # Also expose for direct access
+      - "5000:5000"      # Also expose for direct access
       - "24678:24678"    # Vite HMR
     volumes:
-      - ./src:/app/src:cached
-      - ./public:/app/public:cached
-      - ./index.html:/app/index.html:cached
-      - ./vite.config.ts:/app/vite.config.ts:cached
-      - ./tsconfig.json:/app/tsconfig.json:cached
-      - ./package.json:/app/package.json:cached
-      - ./tailwind.config.js:/app/tailwind.config.js:cached
-      - ./postcss.config.js:/app/postcss.config.js:cached
+      - .:/app
       - /app/node_modules
     env_file:
-      - .env.dev
+      - .env
     environment:
       - NODE_ENV=development
-      - VITE_HOST=0.0.0.0
-      - VITE_PORT=3000
-      - VITE_HMR_PORT=24678
-      - VITE_HMR_PROTOCOL=ws
-      - VITE_HMR_HOST=localhost
     networks:
       - valuecanvas-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -103,7 +90,7 @@ services:
     image: postgres:15-alpine
     container_name: valuecanvas-postgres-dev
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-valuecanvas_dev}
       - POSTGRES_USER=${POSTGRES_USER:-valuecanvas}

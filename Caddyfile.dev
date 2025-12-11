@@ -50,7 +50,7 @@
     
     # Root path - proxy to Vite dev server
     handle /* {
-        reverse_proxy localhost:3000 {
+        reverse_proxy localhost:5000 {
             # Health check
             health_uri /
             health_interval 10s

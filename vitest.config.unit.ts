@@ -13,6 +13,7 @@ export default defineConfig({
       'src/sdui/__tests__/*.unit.test.tsx',
       'src/sdui/__tests__/*.benchmark.test.ts',
       'src/sdui/__tests__/load.test.ts',
+      'src/services/__tests__/*.test.ts', // Include service unit tests
     ],
     coverage: {
       provider: 'v8',
