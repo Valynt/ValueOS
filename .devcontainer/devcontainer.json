@@ -47,9 +47,6 @@
   ],
 
   "customizations": {
-    "windsurf": {
-      "extensions": []
-    },
     // Optional: Add VS Code extensions here so they are pre-installed
     "vscode": {
       "extensions": [

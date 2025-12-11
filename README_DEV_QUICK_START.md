@@ -38,7 +38,7 @@ That's it! 🎉
 | Vite Direct | http://localhost:3000 |
 | Static Files | http://localhost:8080 |
 | Caddy Admin | http://localhost:2019 |
-| Database | localhost:5432 |
+| Database | localhost:5433 |
 | Redis | localhost:6379 |
 
 ## Common Commands
