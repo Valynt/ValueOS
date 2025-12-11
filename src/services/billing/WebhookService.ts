@@ -149,13 +149,30 @@ class WebhookService {
    * Mark event as failed
    */
   private async markEventFailed(eventId: string, errorMessage: string): Promise<void> {
-    await supabase
-      .from('webhook_events')
-      .update({
-        error_message: errorMessage,
-        retry_count: supabase.rpc('increment', { x: 1 }),
-      })
-      .eq('stripe_event_id', eventId);
+    try {
+      const { data: existing, error: fetchErr } = await supabase
+        .from('webhook_events')
+        .select('retry_count')
+        .eq('stripe_event_id', eventId)
+        .single();
+
+      if (fetchErr && (fetchErr as any).code !== 'PGRST116') {
+        throw fetchErr;
+      }
+
+      const current = (existing && (existing as any).retry_count) || 0;
+      const newCount = Number(current) + 1;
+
+      await supabase
+        .from('webhook_events')
+        .update({
+          error_message: errorMessage,
+          retry_count: newCount,
+        })
+        .eq('stripe_event_id', eventId);
+    } catch (err) {
+      logger.error('Failed to mark webhook event failed', err as Error, { eventId });
+    }
   }
 
   /**

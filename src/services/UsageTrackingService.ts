@@ -6,6 +6,7 @@
  */
 
 import { logger } from '../lib/logger';
+import { createClient } from '@supabase/supabase-js';
 import { getConfig } from '../config/environment';
 import { TenantUsage, TenantLimits, isWithinLimits } from './TenantProvisioning';
 
@@ -267,26 +268,41 @@ export async function canPerformAction(
   return { allowed: true };
 }
 
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+);
+
 /**
- * Persist usage to database
+ * Persist usage to database (upsert into `tenant_usage` table)
  */
 async function persistUsage(usage: TenantUsage): Promise<void> {
-  // TODO: Implement database upsert
-  // await supabase
-  //   .from('tenant_usage')
-  //   .upsert({
-  //     organization_id: usage.organizationId,
-  //     period: usage.period,
-  //     users: usage.users,
-  //     teams: usage.teams,
-  //     projects: usage.projects,
-  //     storage: usage.storage,
-  //     api_calls: usage.apiCalls,
-  //     agent_calls: usage.agentCalls,
-  //     last_updated: usage.lastUpdated.toISOString(),
-  //   });
+  try {
+    const payload = {
+      organization_id: usage.organizationId,
+      period: usage.period,
+      users: usage.users,
+      teams: usage.teams,
+      projects: usage.projects,
+      storage: usage.storage,
+      api_calls: usage.apiCalls,
+      agent_calls: usage.agentCalls,
+      last_updated: usage.lastUpdated.toISOString(),
+    } as Record<string, any>;
 
-  logger.debug('Usage persisted for ${usage.organizationId}');
+    const { error } = await supabase
+      .from('tenant_usage')
+      .upsert(payload)
+      .select();
+
+    if (error) {
+      logger.error('Failed to persist usage', error);
+    } else {
+      logger.debug(`Usage persisted for ${usage.organizationId}`);
+    }
+  } catch (err) {
+    logger.error('Failed to persist usage', err instanceof Error ? err : undefined);
+  }
 }
 
 /**

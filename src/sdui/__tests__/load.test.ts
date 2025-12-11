@@ -9,6 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
+import { performance } from 'perf_hooks';
 import { sanitizeProps } from '../security/sanitization';
 import { validateSession, createSessionContext, type SessionContext } from '../security/sessionValidation';
 import { resetSecurityMetrics, getSecurityMetrics } from '../security/metrics';
