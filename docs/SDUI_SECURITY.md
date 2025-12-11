@@ -179,7 +179,9 @@ interface SecurityMetrics {
 **Test Suite**: `src/sdui/__tests__/security.unit.test.tsx`  
 **Configuration**: `vitest.config.unit.ts` (database-free unit tests)
 
-**Test Coverage** (21/21 passing):
+**Test Coverage** (44/44 passing):
+
+**Week 1 - Security Hardening** (21 tests):
 - **XSS Sanitization** (11 tests):
   - Script tag sanitization
   - Event handler removal
@@ -208,6 +210,37 @@ interface SecurityMetrics {
   - Combined attack vector handling
   - Valid data preservation with sanitization
 
+**Week 2 - Stability & Monitoring** (23 tests):
+- **Session Validation** (10 tests):
+  - Valid session acceptance
+  - Expiry detection
+  - Idle timeout detection
+  - Refresh threshold detection
+  - Structure validation (missing fields, wrong types)
+  - Activity timestamp updates
+  - Session creation
+  - Time remaining calculations
+  - Edge cases (null, undefined, empty, extra fields, negative timestamps)
+
+- **LRU Cache** (2 tests):
+  - Eviction when cache full
+  - Access order updates on cache hit
+
+- **Performance Metrics** (3 tests):
+  - Hit rate calculation
+  - Average resolve time
+  - Eviction count tracking
+
+- **Memory Leak Prevention** (2 tests):
+  - Maximum cache size enforcement
+  - Periodic cleanup of expired entries
+
+- **Security Edge Cases** (6 tests):
+  - Null/undefined session handling
+  - Invalid session structures
+  - Extra fields tolerance
+  - Timestamp edge cases
+
 **Running Tests**:
 ```bash
 # Run security unit tests (no database required)
@@ -228,27 +261,122 @@ npx vitest --config vitest.config.unit.ts
 | Rate Limit Queue Latency | <100ms (uncongested) | TBD | Pending benchmark |
 | Recursion Guard Check | <1ms | TBD | Pending benchmark |
 | Memory Overhead | <10MB for 1000 components | TBD | Pending benchmark |
+| Cache Hit Rate | >80% | Tracked | ✅ Metrics available |
+| Average Resolve Time | <100ms | Tracked | ✅ Metrics available |
+| LRU Eviction Rate | <10/min | Tracked | ✅ Metrics available |
+| Session Validation | <1ms | TBD | Pending benchmark |
 
 ## Deployment Checklist
 
 Before deploying to production:
 
-1. ✅ Security test suite passing (21/21 tests)
-2. ⏳ Performance benchmarks within targets
-3. ⏳ Staging deployment with 48-hour observation
-4. ⏳ Security audit of tenant isolation
-5. ⏳ Load testing of rate limiting
-6. ⏳ Monitoring alerts configured for:
+1. ✅ Security test suite passing (44/44 tests - Week 1 + Week 2)
+2. ✅ Memory leak prevention implemented (LRU cache with max 1000 entries)
+3. ✅ Performance metrics instrumentation complete
+4. ✅ Session validation implemented
+5. ⏳ Performance benchmarks within targets
+6. ⏳ Staging deployment with 48-hour observation
+7. ⏳ Security audit of tenant isolation
+8. ⏳ Load testing of rate limiting and cache eviction
+9. ⏳ Monitoring alerts configured for:
    - `tenantViolations > 0` (CRITICAL)
    - `xssBlocked > 100/hr` (WARNING)
    - `rateLimitHits > 1000/hr` (WARNING)
    - `recursionLimits > 10/hr` (WARNING)
+   - `cacheHitRate < 70%` (WARNING)
+   - `evictionCount > 100/hr` (WARNING)
+   - `sessionInvalid > 50/hr` (WARNING)
+
+### 5. Memory Management (Week 2)
+
+**Implementation**: `src/sdui/DataBindingResolver.ts`
+
+LRU cache eviction prevents unbounded memory growth:
+
+```typescript
+// Configuration
+private readonly MAX_CACHE_SIZE = 1000;
+private cacheAccessOrder: string[] = []; // Track LRU order
+
+// Automatic eviction when cache full
+if (this.cache.size >= this.MAX_CACHE_SIZE && !this.cache.has(key)) {
+  this.evictLRU(); // Remove least recently used
+}
+```
+
+**Features**:
+
+- **Maximum Size**: 1000 cache entries (prevents memory leaks)
+- **LRU Algorithm**: Tracks access order, evicts oldest first
+- **Access Tracking**: Cache hits move entries to "most recently used"
+- **Eviction Metrics**: `performanceMetrics.evictionCount` tracked
+
+**Performance Monitoring**:
+
+```typescript
+const metrics = resolver.getPerformanceMetrics();
+// Returns:
+// {
+//   cacheHits: 850,
+//   cacheMisses: 150,
+//   hitRate: '85.00%',
+//   avgResolveTime: '45.23ms',
+//   evictionCount: 12,
+//   cacheSize: 1000,
+//   maxCacheSize: 1000
+// }
+```
+
+### 6. Session Validation (Week 2)
+
+**Implementation**: `src/sdui/security/sessionValidation.ts`
+
+Validates session state before rendering:
+
+```typescript
+import { validateSession } from './security/sessionValidation';
+
+const validation = validateSession(sessionContext);
+if (!validation.valid) {
+  // Show login prompt
+  return <LoginRequired reason={validation.reason} />;
+}
+
+if (validation.shouldRefresh) {
+  // Refresh session in background
+  refreshSessionToken();
+}
+```
+
+**Validation Rules**:
+
+- **Max Age**: 24 hours absolute expiration
+- **Idle Timeout**: 2 hours of inactivity
+- **Refresh Threshold**: Warn at 15 minutes before expiry
+- **Structure Validation**: Required fields (sessionId, userId, organizationId, timestamps)
+- **Type Checking**: All fields must have correct types
+
+**Session Context**:
+
+```typescript
+interface SessionContext {
+  sessionId: string;
+  userId: string;
+  organizationId: string;
+  createdAt: number;
+  lastActivityAt: number;
+  expiresAt: number;
+  ipAddress?: string;
+  userAgent?: string;
+}
+```
 
 ## Known Limitations
 
-1. **Cache Unbounded Growth**: DataBindingResolver cache has no eviction policy (TODO: implement LRU with 1000 entry max)
+1. ✅ ~~**Cache Unbounded Growth**~~: **FIXED** - LRU cache with 1000 entry max implemented (Week 2)
 2. **CSP Headers**: May need refinement for specific SDUI components (test thoroughly in staging)
 3. **Rate Limit Persistence**: In-memory rate limiting resets on service restart (consider Redis for distributed systems)
+4. **Session Storage**: Sessions validated client-side; consider server-side session store for enhanced security
 
 ## Rollback Plan
 
@@ -267,5 +395,6 @@ If security issues discovered in production:
 ---
 
 **Last Updated**: 2025-12-11  
-**Implementation Status**: Week 1 Complete ✅  
-**Next**: LRU cache eviction, performance benchmarks, staging deployment
+**Implementation Status**: Week 1 ✅ | Week 2 ✅  
+**Completed**: XSS protection, rate limiting, recursion guards, LRU cache, performance metrics, session validation  
+**Next**: Performance benchmarking, load testing, staging deployment
