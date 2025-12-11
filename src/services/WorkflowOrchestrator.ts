@@ -20,6 +20,7 @@ import { MemorySystem } from '../lib/agent-fabric/MemorySystem';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import { llmConfig } from '../config/llm';
 import { IntegrityAgent } from '../lib/agent-fabric/agents/IntegrityAgent';
+import { AuditLogger } from '../lib/agent-fabric/AuditLogger';
 import { v4 as uuidv4 } from 'uuid';
 import { getAutonomyConfig } from '../config/autonomy';
 
@@ -38,15 +39,18 @@ export class WorkflowOrchestrator {
   private circuitBreakers = new CircuitBreakerManager();
   private memorySystem: MemorySystem;
   private llmGateway: LLMGateway;
+  private auditLogger: AuditLogger;
   private integrityAgent: IntegrityAgent;
   private readonly startedAt = new Map<string, number>();
 
   constructor() {
     this.llmGateway = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
     this.memorySystem = new MemorySystem(supabase, this.llmGateway);
+    this.auditLogger = new AuditLogger(supabase);
     this.integrityAgent = new IntegrityAgent({
       llmGateway: this.llmGateway,
       memorySystem: this.memorySystem,
+      auditLogger: this.auditLogger,
       supabase: supabase,
       organizationId: 'system', // System-level integrity checks
       agentId: 'integrity-agent',
