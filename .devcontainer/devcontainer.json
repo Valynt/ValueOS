@@ -1,4 +1,25 @@
 {
+  "name": "Supabase Dev Container",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "Supabase.vscode-supabase-extension",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  },
+  "runArgs": ["--privileged"],
+  "postCreateCommand": "supabase --version || true",
+  "remoteUser": "node",
+  "workspaceFolder": "/workspaces/ValueOS"
+}
+{
   "name": "ValueCanvas",
   "image": "mcr.microsoft.com/vscode/devcontainers/base:ubuntu",
 
