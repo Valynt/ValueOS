@@ -17,7 +17,7 @@ ValueCanvas uses Content Security Policy (CSP) to prevent XSS attacks and other 
            img-src 'self' data: https:; 
            style-src 'self' 'unsafe-inline'; 
            script-src 'self' 'unsafe-inline' 'unsafe-eval'; 
-           connect-src 'self' ws://localhost:* http://localhost:* https://*.supabase.co https://api.together.xyz; 
+           connect-src 'self' ws://localhost:* http://localhost:* https://*.supabase.co https://api.together.ai; 
            font-src 'self' data:; 
            object-src 'none'; 
            base-uri 'self'; 
@@ -48,7 +48,7 @@ add_header Content-Security-Policy "
   img-src 'self' data: https:;
   style-src 'self' 'sha256-HASH_OF_INLINE_STYLES';
   script-src 'self' 'sha256-HASH_OF_INLINE_SCRIPTS';
-  connect-src 'self' https://*.supabase.co https://api.together.xyz;
+  connect-src 'self' https://*.supabase.co https://api.together.ai;
   font-src 'self' data:;
   object-src 'none';
   base-uri 'self';
@@ -67,7 +67,7 @@ add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
 ### Apache Configuration
 
 ```apache
-Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'sha256-HASH'; script-src 'self' 'sha256-HASH'; connect-src 'self' https://*.supabase.co https://api.together.xyz; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests;"
+Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'sha256-HASH'; script-src 'self' 'sha256-HASH'; connect-src 'self' https://*.supabase.co https://api.together.ai; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests;"
 Header always set X-Frame-Options "DENY"
 Header always set X-Content-Type-Options "nosniff"
 Header always set X-XSS-Protection "1; mode=block"
@@ -86,7 +86,7 @@ async function handleRequest(request) {
   const newHeaders = new Headers(response.headers)
   
   newHeaders.set('Content-Security-Policy', 
-    "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'sha256-HASH'; script-src 'self' 'sha256-HASH'; connect-src 'self' https://*.supabase.co https://api.together.xyz; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests;"
+    "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'sha256-HASH'; script-src 'self' 'sha256-HASH'; connect-src 'self' https://*.supabase.co https://api.together.ai; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests;"
   )
   newHeaders.set('X-Frame-Options', 'DENY')
   newHeaders.set('X-Content-Type-Options', 'nosniff')
@@ -127,7 +127,7 @@ script-src 'self' 'sha256-Z2/iFzh9VMlVkEOar1f/oSHWwQk3ve1qk/C2WdsC4Xk='
 | `script-src` | JavaScript sources | `'self' 'unsafe-inline' 'unsafe-eval'` | `'self' 'sha256-...'` |
 | `style-src` | CSS sources | `'self' 'unsafe-inline'` | `'self' 'sha256-...'` |
 | `img-src` | Image sources | `'self' data: https:` | `'self' data: https:` |
-| `connect-src` | AJAX, WebSocket, EventSource | `'self' ws://localhost:* http://localhost:* https://*.supabase.co` | `'self' https://*.supabase.co https://api.together.xyz` |
+| `connect-src` | AJAX, WebSocket, EventSource | `'self' ws://localhost:* http://localhost:* https://*.supabase.co` | `'self' https://*.supabase.co https://api.together.ai` |
 | `font-src` | Font sources | `'self' data:` | `'self' data:` |
 | `object-src` | `<object>`, `<embed>`, `<applet>` | `'none'` | `'none'` |
 | `base-uri` | `<base>` tag | `'self'` | `'self'` |

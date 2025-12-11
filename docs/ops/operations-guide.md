@@ -126,7 +126,7 @@ VITE_LLM_PROVIDER=together  # or 'openai'
 VITE_LLM_GATING_ENABLED=true
 
 # API Keys (server-side ONLY - never prefix with VITE_)
-TOGETHER_API_KEY=your-key  # Get from https://api.together.xyz/settings/api-keys
+TOGETHER_API_KEY=your-key  # Get from https://api.together.ai/settings/api-keys
 OPENAI_API_KEY=your-key    # Get from https://platform.openai.com/api-keys
 ```
 
@@ -144,7 +144,7 @@ curl "$VITE_SUPABASE_URL/rest/v1/" \
   -H "apikey: $VITE_SUPABASE_ANON_KEY"
 
 # Test Together.ai
-curl https://api.together.xyz/v1/models \
+curl https://api.together.ai/v1/models \
   -H "Authorization: Bearer $TOGETHER_API_KEY"
 ```
 

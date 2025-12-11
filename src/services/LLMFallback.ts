@@ -131,7 +131,7 @@ export class LLMFallbackService {
     this.stats.togetherAI.calls++;
     
     try {
-      const response = await fetch('https://api.together.xyz/v1/chat/completions', {
+      const response = await fetch('https://api.together.ai/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${process.env.TOGETHER_API_KEY}`,

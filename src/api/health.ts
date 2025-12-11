@@ -59,7 +59,7 @@ async function checkTogetherAI(): Promise<DependencyStatus> {
   
   try {
     // Test with a minimal API call to check connectivity
-    const response = await fetch('https://api.together.xyz/v1/models', {
+    const response = await fetch('https://api.together.ai/v1/models', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${process.env.TOGETHER_API_KEY}`
