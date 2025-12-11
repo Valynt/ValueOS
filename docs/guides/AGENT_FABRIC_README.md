@@ -108,7 +108,7 @@ Keys are read exclusively by the proxy function and are never exposed to the cli
 #### LLM Provider Configuration
 
 **Together.ai (Default - Recommended)**
-- **Base URL**: `https://api.together.xyz/v1`
+- **Base URL**: `https://api.together.ai/v1`
 - **Default Model**: `meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo`
 - **Embedding Model**: `togethercomputer/m2-bert-80M-8k-retrieval`
 - **Benefits**:

@@ -105,7 +105,7 @@ supabase_url         = "https://xxxxx.supabase.co"
 supabase_anon_key    = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 supabase_service_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 
-# LLM Provider (get from https://api.together.xyz)
+# LLM Provider (get from https://api.together.ai)
 together_api_key = "your-together-api-key"
 
 # Optional: OpenAI fallback

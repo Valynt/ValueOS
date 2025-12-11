@@ -140,7 +140,7 @@ Purpose:
 - AuthorizationPolicy:
   - Default deny; explicit allow for frontend → API, API → DB.
 - ServiceEntry + Sidecar config:
-  - Allow egress only to approved external hosts: `api.together.xyz`, `api.openai.com`, etc.
+  - Allow egress only to approved external hosts: `api.together.ai`, `api.openai.com`, etc.
   - Use `outboundTrafficPolicy.mode: REGISTRY_ONLY`.
 
 **Verification:**

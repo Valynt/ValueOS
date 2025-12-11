@@ -68,7 +68,7 @@ async function callProvider({
     );
   }
 
-  const baseUrl = provider === 'together' ? 'https://api.together.xyz/v1' : 'https://api.openai.com/v1';
+  const baseUrl = provider === 'together' ? 'https://api.together.ai/v1' : 'https://api.openai.com/v1';
 
   const response = await fetch(`${baseUrl}${path}`, {
     method: 'POST',
