@@ -19,7 +19,7 @@ import { CircuitBreakerManager } from './CircuitBreaker';
 import { MemorySystem } from '../lib/agent-fabric/MemorySystem';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import { llmConfig } from '../config/llm';
-import { IntegrityAgent } from '../agents/IntegrityAgent';
+import { IntegrityAgent } from '../lib/agent-fabric/agents/IntegrityAgent';
 import { v4 as uuidv4 } from 'uuid';
 import { getAutonomyConfig } from '../config/autonomy';
 

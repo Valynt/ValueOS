@@ -7,6 +7,9 @@ import { RegistryPlaceholderComponent, resolveComponent } from './registry';
 import { DataBindingResolver } from './DataBindingResolver';
 import { DataSourceContext } from './DataBindingSchema';
 import { useDataBindings } from './useDataBinding';
+import { sanitizeProps } from './security/sanitization';
+import { incrementSecurityMetric } from './security/metrics';
+import { logger } from '../lib/logger';
 
 interface SDUIRendererProps {
   schema: unknown;
@@ -97,9 +100,12 @@ const ComponentWithBindings: React.FC<{
     );
   }
 
+  // Sanitize props before rendering
+  const sanitizedProps = sanitizeProps(resolvedProps, section.component);
+
   return (
     <>
-      <Component {...resolvedProps} />
+      <Component {...sanitizedProps} />
       {debugOverlay && (
         <HydrationTrace
           section={section}
@@ -111,20 +117,41 @@ const ComponentWithBindings: React.FC<{
   );
 };
 
+/**
+ * Maximum recursion depth for nested layouts
+ */
+const MAX_RENDER_DEPTH = 10;
+
 const renderSection = (
   section: any,
   index: number,
   debugOverlay?: boolean,
   resolver?: DataBindingResolver,
-  context?: DataSourceContext
+  context?: DataSourceContext,
+  depth: number = 0
 ): React.ReactNode => {
+  // SECURITY: Prevent stack overflow from deeply nested schemas
+  if (depth > MAX_RENDER_DEPTH) {
+    logger.error('Max render depth exceeded - possible malicious schema', new Error('Stack overflow'), {
+      depth,
+      component: section?.component || 'unknown',
+      type: section?.type || 'unknown'
+    });
+    incrementSecurityMetric('recursion_limit', { depth, section: section?.component });
+    return (
+      <div key={`depth-limit-${index}`} className="p-4 border border-red-500 bg-red-50 text-red-900">
+        <p className="font-semibold">Layout too deeply nested</p>
+        <p className="text-sm">Maximum nesting depth ({MAX_RENDER_DEPTH}) exceeded. This may indicate a malformed schema.</p>
+      </div>
+    );
+  }
   // Handle layout types (VerticalSplit, HorizontalSplit, Grid, DashboardPanel)
   if (section.type && ['VerticalSplit', 'HorizontalSplit', 'Grid', 'DashboardPanel'].includes(section.type)) {
     const key = `layout-${section.type}-${index}`;
     
-    // Recursively render children
+    // Recursively render children with depth tracking
     const childNodes = section.children?.map((child: any, i: number) => 
-      renderSection(child, i, debugOverlay, resolver, context)
+      renderSection(child, i, debugOverlay, resolver, context, depth + 1)
     ) || [];
     
     switch (section.type) {
@@ -180,6 +207,12 @@ const renderSection = (
   // Handle component types (original logic)
   const entry = resolveComponent(section as SDUIComponentSection);
   if (!entry) {
+    // Log missing component for monitoring
+    incrementSecurityMetric('component_not_found', {
+      component: section.component,
+      version: section.version
+    });
+    
     return (
       <div key={`${section.component}-${index}`}>
         <RegistryPlaceholderComponent componentName={section.component} />
@@ -222,6 +255,10 @@ export const SDUIRenderer: React.FC<SDUIRendererProps> = ({
   const validation = useMemo(() => validateSDUISchema(schema), [schema]);
 
   if (!validation.success) {
+    // Track invalid schemas for security monitoring
+    incrementSecurityMetric('invalid_schema', {
+      errors: validation.errors
+    });
     onValidationError?.(validation.errors);
     return <InvalidSchemaFallback errors={validation.errors} />;
   }
