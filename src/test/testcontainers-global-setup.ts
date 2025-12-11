@@ -28,6 +28,26 @@ export async function setup() {
   await client.connect();
 
   try {
+    // Create minimal auth schema for RLS policies that reference auth.uid()
+    console.log('   Setting up auth schema for tests...');
+    await client.query(`
+      CREATE SCHEMA IF NOT EXISTS auth;
+      CREATE TABLE IF NOT EXISTS auth.users (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        email TEXT
+      );
+      
+      -- Mock auth.uid() function for tests
+      CREATE OR REPLACE FUNCTION auth.uid() RETURNS UUID AS $$
+        SELECT '00000000-0000-0000-0000-000000000001'::UUID;
+      $$ LANGUAGE SQL;
+      
+      -- Mock auth.role() function
+      CREATE OR REPLACE FUNCTION auth.role() RETURNS TEXT AS $$
+        SELECT 'authenticated'::TEXT;
+      $$ LANGUAGE SQL;
+    `);
+
     const migrationsDir = path.resolve(__dirname, '../../supabase/migrations');
 
     if (fs.existsSync(migrationsDir)) {
