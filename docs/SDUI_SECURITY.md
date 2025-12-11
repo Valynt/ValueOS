@@ -19,6 +19,7 @@ const sanitizedProps = sanitizeProps(resolvedProps, section.component);
 ```
 
 **Features**:
+
 - **Component-Specific Policies**: Different sanitization levels based on component type
   - `strict`: Strips ALL HTML (MetricBadge, StatCard)
   - `standard`: Allows safe HTML (most components)
@@ -29,6 +30,7 @@ const sanitizedProps = sanitizeProps(resolvedProps, section.component);
 - **Date Object Preservation**: Maintains Date instances without conversion
 
 **XSS Test Vectors Blocked**:
+
 ```typescript
 '<script>alert(1)</script>'
 '<img src=x onerror=alert(1)>'
@@ -40,6 +42,7 @@ const sanitizedProps = sanitizeProps(resolvedProps, section.component);
 ```
 
 **Configuration**:
+
 ```typescript
 // Component policy mapping in sanitization.ts
 const COMPONENT_POLICIES: Record<string, keyof typeof SANITIZATION_CONFIGS> = {
@@ -72,12 +75,14 @@ const rateLimiter = new RateLimiterMemory({
 ```
 
 **Configuration**:
+
 - **Concurrency Limit**: 10 simultaneous data binding resolutions
 - **Time-Window Limit**: 10 requests per 60 seconds per organizationId
 - **Timeout**: 30 seconds per request
 - **Scope**: Per-tenant rate limiting (organizationId key)
 
 **Exceeded Limit Behavior**:
+
 - Requests queued when concurrency limit reached
 - `RateLimiterException` thrown when time-window limit exceeded
 - Security metric `rate_limit_hit` incremented
@@ -102,12 +107,14 @@ function renderSection(section: any, context: any, depth: number = 0) {
 ```
 
 **Features**:
+
 - Maximum depth: 10 levels
 - Depth tracking through all layout components (VerticalSplit, HorizontalSplit, Grid, DashboardPanel)
 - Prevents malicious deeply-nested payloads
 - Security metric `recursion_limit` tracked
 
 **Example Protected Scenario**:
+
 ```typescript
 // This would be blocked at depth 11:
 {
@@ -144,6 +151,7 @@ console.log(metrics.xssBlocked); // Count of XSS attempts blocked
 ```
 
 **Event Types**:
+
 - `xss_blocked`: XSS content sanitized
 - `rate_limit_hit`: Rate limit exceeded
 - `tenant_violation`: Cross-tenant access attempt
@@ -154,6 +162,7 @@ console.log(metrics.xssBlocked); // Count of XSS attempts blocked
 - `session_invalid`: Invalid session context
 
 **Metrics Structure**:
+
 ```typescript
 interface SecurityMetrics {
   xssBlocked: number;
@@ -169,6 +178,7 @@ interface SecurityMetrics {
 ```
 
 **Critical Event Logging**:
+
 - `tenant_violation`: ERROR level with stack trace
 - `xss_blocked`: WARN level with sanitized content sample
 - `rate_limit_hit`: WARN level with organizationId
@@ -182,6 +192,7 @@ interface SecurityMetrics {
 **Test Coverage** (44/44 passing):
 
 **Week 1 - Security Hardening** (21 tests):
+
 - **XSS Sanitization** (11 tests):
   - Script tag sanitization
   - Event handler removal
@@ -211,6 +222,7 @@ interface SecurityMetrics {
   - Valid data preservation with sanitization
 
 **Week 2 - Stability & Monitoring** (23 tests):
+
 - **Session Validation** (10 tests):
   - Valid session acceptance
   - Expiry detection
@@ -242,6 +254,7 @@ interface SecurityMetrics {
   - Timestamp edge cases
 
 **Running Tests**:
+
 ```bash
 # Run security unit tests (no database required)
 npx vitest run --config vitest.config.unit.ts
