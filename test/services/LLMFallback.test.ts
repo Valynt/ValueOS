@@ -102,7 +102,7 @@ describe('LLMFallbackService', () => {
       expect(result.content).toBe('Together.ai response');
       expect(result.cached).toBe(false);
       expect(global.fetch).toHaveBeenCalledWith(
-        'https://api.together.xyz/v1/chat/completions',
+        'https://api.together.ai/v1/chat/completions',
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({
@@ -121,7 +121,7 @@ describe('LLMFallbackService', () => {
         callCount++;
         
         // First call (Together.ai) fails
-        if (url.includes('together.xyz')) {
+        if (url.includes('together.ai') || url.includes('together.xyz')) {
           return Promise.resolve({
             ok: false,
             status: 500,
@@ -223,7 +223,7 @@ describe('LLMFallbackService', () => {
       let openAIModel = '';
       
       global.fetch = vi.fn().mockImplementation((url, options) => {
-        if (url.includes('together.xyz')) {
+        if (url.includes('together.ai') || url.includes('together.xyz')) {
           return Promise.resolve({
             ok: false,
             status: 500,
@@ -260,7 +260,7 @@ describe('LLMFallbackService', () => {
       vi.mocked(llmCache.get).mockResolvedValue(null);
 
       global.fetch = vi.fn().mockImplementation((url) => {
-        if (url.includes('together.xyz')) {
+        if (url.includes('together.ai') || url.includes('together.xyz')) {
           return Promise.resolve({
             ok: false,
             status: 500,

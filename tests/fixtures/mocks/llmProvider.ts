@@ -200,7 +200,7 @@ export function mockTogetherAI() {
   global.fetch = async (url: string | URL | Request, options?: RequestInit) => {
     const urlString = url.toString();
 
-    if (urlString.includes('together.xyz')) {
+    if (urlString.includes('together.ai') || urlString.includes('together.xyz')) {
       const body = JSON.parse(options?.body as string);
       const response = await mockLLMProvider.getNextResponse(
         body.messages[0].content,
