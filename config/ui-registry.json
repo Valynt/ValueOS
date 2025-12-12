@@ -157,47 +157,6 @@
         "assumptions": "data.assumptions",
         "commitments": "data.commitments"
       }
-    }
-  ],
-  
-  "tenantOverrides": {
-    "enterprise-demo": [
-      {
-        "intentType": "visualize_graph",
-        "component": "EnterpriseSystemMap",
-        "priority": 10
-      }
-    ]
-  },
-  
-  "agentMappings": {
-    "SystemMapperAgent": {
-      "primaryIntent": "visualize_graph",
-      "secondaryIntents": ["display_list"]
-    },
-    "InterventionDesignerAgent": {
-      "primaryIntent": "input_form",
-      "secondaryIntents": ["show_agent_response"]
-    },
-    "OutcomeEngineerAgent": {
-      "primaryIntent": "display_metrics_grid",
-      "secondaryIntents": ["show_confidence"]
-    },
-    "RealizationLoopAgent": {
-      "primaryIntent": "display_metrics_grid",
-      "secondaryIntents": ["visualize_timeline"]
-    },
-    "ValueEvalAgent": {
-      "primaryIntent": "display_metric",
-      "secondaryIntents": ["show_confidence"]
-    },
-    "CoordinatorAgent": {
-      "primaryIntent": "show_agent_progress",
-      "secondaryIntents": ["show_info"]
-    }
-  }
-}
-
     },
     {
       "intentType": "show_workflow_status",
@@ -274,11 +233,8 @@
       "secondaryIntents": ["show_confidence"]
     },
     "CoordinatorAgent": {
-      "primaryIntent": "show_workflow_status",
+      "primaryIntent": "show_agent_progress",
       "secondaryIntents": ["show_info"]
-    },
-    "WorkflowOrchestrator": {
-      "primaryIntent": "show_workflow_status",
-      "secondaryIntents": ["request_human_approval"]
     }
   }
+}

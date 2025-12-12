@@ -32,6 +32,11 @@ USER nodeuser
 # Install all dependencies (including devDependencies)
 RUN npm ci --legacy-peer-deps
 
+# Install Supabase CLI globally
+USER root
+RUN npm install -g supabase
+USER nodeuser
+
 # Copy source code (will be overridden by volume mount in docker-compose)
 # Using root temporarily for COPY, then switching back
 USER root
