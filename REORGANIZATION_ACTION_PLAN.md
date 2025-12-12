@@ -91,7 +91,7 @@ docs/STRATEGIC_VALIDATION_REPORT.md     → /docs/archive/validation-report-{dat
 ```
 docker-compose.dev.yml              (at root)
 docker-compose.prod.yml             (at root)
-docker-compose.stage.yml            (at root)
+docker-compose.staging.yml            (at root)
 docker-compose.saml-test.yml        (at root)
 infrastructure/docker-compose.*.yml (also at root)
 ```
@@ -122,7 +122,7 @@ infrastructure/docker/
 .env.dev.example            (at root)
 .env.prod                   (at root)
 .env.production copy.example (at root - malformed)
-.env.stage                  (at root)
+.env.staging                  (at root)
 ```
 
 **Target State:**

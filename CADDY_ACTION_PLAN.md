@@ -329,8 +329,8 @@ ValueCanvas has **production-ready Caddy infrastructure**. Focus on 3 strategic 
 
 ### Existing Infrastructure
 
-- **Caddyfile:** `Caddyfile`, `Caddyfile.production`, `Caddyfile.staging`
-- **Docker Compose:** `docker-compose.dev-caddy.yml`, `docker-compose.stage.yml`
+- **Caddyfile:** `Caddyfile`, `Caddyfile.prod`, `Caddyfile.staging`
+- **Docker Compose:** `docker-compose.dev-caddy.yml`, `docker-compose.staging.yml`
 - **Kubernetes:** `k8s/caddy/`
 
 ### References

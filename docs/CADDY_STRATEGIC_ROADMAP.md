@@ -22,8 +22,8 @@ ValueCanvas has a **production-ready Caddy deployment** with:
 - Docker Compose for all environments
 
 **Files:**
-- `Caddyfile`, `Caddyfile.production`, `Caddyfile.staging`
-- `docker-compose.dev-caddy.yml`, `docker-compose.stage.yml`, `docker-compose.prod.yml`
+- `Caddyfile`, `Caddyfile.prod`, `Caddyfile.staging`
+- `docker-compose.dev-caddy.yml`, `docker-compose.staging.yml`, `docker-compose.prod.yml`
 - `k8s/caddy/` - Complete Kubernetes deployment
 - `Dockerfile.caddy` - Container build
 
@@ -176,7 +176,7 @@ Internet → Caddy (80/443) → App (3000) → PostgreSQL/Redis
 - Database migration script
 - Domain validator service (Docker + K8s)
 - API endpoints with OpenAPI spec
-- Updated Caddyfile.production
+- Updated Caddyfile.prod
 - Frontend UI components
 - Test suite
 - Documentation (setup guide, troubleshooting)

@@ -48,10 +48,6 @@ export async function setup() {
       $$ LANGUAGE SQL;
     `);
 
-    // Commit the auth schema creation explicitly
-    await client.query('COMMIT;');
-    await client.query('BEGIN;');
-
     const migrationsDir = path.resolve(__dirname, '../../supabase/migrations');
 
     if (fs.existsSync(migrationsDir)) {
