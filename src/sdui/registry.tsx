@@ -29,7 +29,10 @@ import {
   Grid,
   DashboardPanel,
 } from '../components/SDUI/CanvasLayout';
-import { SDUIComponentSection } from './schema';
+import { WorkflowStatusBar } from '../components/Workflow/WorkflowStatusBar';
+import { HumanCheckpoint } from '../components/Workflow/HumanCheckpoint';
+import { ConfidenceDisplay } from '../components/Agent/ConfidenceDisplay';
+import { ComponentPreview } from '../components/SDUI/ComponentPreview';
 
 export interface RegistryEntry {
   component: React.ComponentType<any>;
@@ -193,6 +196,32 @@ const baseRegistry: Record<string, RegistryEntry> = {
     versions: [1],
     requiredProps: ['scenarios', 'onSelect'],
     description: 'Template/scenario selection interface with AI recommendations.',
+  },
+
+  // Workflow and agent UX components
+  WorkflowStatusBar: {
+    component: WorkflowStatusBar,
+    versions: [1],
+    requiredProps: [],
+    description: 'Real-time workflow progress bar showing current stage, agent, and confidence.',
+  },
+  HumanCheckpoint: {
+    component: HumanCheckpoint,
+    versions: [1],
+    requiredProps: ['stageId', 'agentName', 'action', 'riskLevel', 'onApprove', 'onReject'],
+    description: 'Human approval interface for high-risk workflow stages.',
+  },
+  ConfidenceDisplay: {
+    component: ConfidenceDisplay,
+    versions: [1],
+    requiredProps: [],
+    description: 'Displays agent confidence levels and hallucination status with regeneration options.',
+  },
+  ComponentPreview: {
+    component: ComponentPreview,
+    versions: [1],
+    requiredProps: ['intentType', 'componentName', 'registryEntry', 'organizationId'],
+    description: 'Developer preview tool for ui-registry.json entries with validation.',
   },
 };
 
