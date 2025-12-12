@@ -197,3 +197,88 @@
     }
   }
 }
+
+    },
+    {
+      "intentType": "show_workflow_status",
+      "component": "WorkflowStatusBar",
+      "fallback": "ProgressBar",
+      "description": "Display real-time workflow progress and current agent status",
+      "propMappings": {
+        "currentStage": "data.currentStage",
+        "lastAgentAction": "data.lastAgentAction",
+        "agentName": "data.agentName",
+        "confidence": "data.confidence",
+        "hallucinationCheck": "data.hallucinationCheck",
+        "isLoading": "data.isLoading",
+        "estimatedTimeRemaining": "data.estimatedTimeRemaining"
+      }
+    },
+    {
+      "intentType": "request_human_approval",
+      "component": "HumanCheckpoint",
+      "fallback": "ConfirmationDialog",
+      "description": "Display human approval interface for workflow checkpoints",
+      "propMappings": {
+        "stageId": "data.stageId",
+        "agentName": "data.agentName",
+        "action": "data.action",
+        "riskLevel": "data.riskLevel",
+        "confidence": "data.confidence",
+        "reasoning": "data.reasoning"
+      }
+    },
+    {
+      "intentType": "show_agent_confidence",
+      "component": "ConfidenceDisplay",
+      "fallback": "MetricBadge",
+      "description": "Display agent confidence and hallucination status",
+      "propMappings": {
+        "confidence": "data.confidence",
+        "hallucinationCheck": "data.hallucinationCheck",
+        "reasoning": "data.reasoning",
+        "agentName": "data.agentName"
+      }
+    }
+  ],
+  
+  "tenantOverrides": {
+    "enterprise-demo": [
+      {
+        "intentType": "visualize_graph",
+        "component": "EnterpriseSystemMap",
+        "priority": 10
+      }
+    ]
+  },
+  
+  "agentMappings": {
+    "SystemMapperAgent": {
+      "primaryIntent": "visualize_graph",
+      "secondaryIntents": ["display_list"]
+    },
+    "InterventionDesignerAgent": {
+      "primaryIntent": "input_form",
+      "secondaryIntents": ["show_agent_response"]
+    },
+    "OutcomeEngineerAgent": {
+      "primaryIntent": "display_metrics_grid",
+      "secondaryIntents": ["show_confidence"]
+    },
+    "RealizationLoopAgent": {
+      "primaryIntent": "display_metrics_grid",
+      "secondaryIntents": ["visualize_timeline"]
+    },
+    "ValueEvalAgent": {
+      "primaryIntent": "display_metric",
+      "secondaryIntents": ["show_confidence"]
+    },
+    "CoordinatorAgent": {
+      "primaryIntent": "show_workflow_status",
+      "secondaryIntents": ["show_info"]
+    },
+    "WorkflowOrchestrator": {
+      "primaryIntent": "show_workflow_status",
+      "secondaryIntents": ["request_human_approval"]
+    }
+  }
