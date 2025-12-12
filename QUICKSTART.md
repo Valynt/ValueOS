@@ -15,7 +15,7 @@ Get up and running in 5 minutes!
 npm install
 
 # 2. Set up environment
-cp .env.local .env
+cp .env.example .env
 # Edit .env and add your LLM API key
 
 # 3. Start everything

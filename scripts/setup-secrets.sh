@@ -9,8 +9,8 @@
 echo "DEV_DB_PASSWORD=$(openssl rand -base64 32)" >> .env.local
 echo "DEV_REDIS_PASSWORD=$(openssl rand -base64 32)" >> .env.local
 
-echo "STAGE_DB_PASSWORD=$(openssl rand -base64 32)" >> .env.stage
-echo "STAGE_REDIS_PASSWORD=$(openssl rand -base64 32)" >> .env.stage
+echo "STAGE_DB_PASSWORD=$(openssl rand -base64 32)" >> .env.staging
+echo "STAGE_REDIS_PASSWORD=$(openssl rand -base64 32)" >> .env.staging
 
 echo "PROD_DB_PASSWORD=$(openssl rand -base64 32)" >> .env.prod
 echo "PROD_REDIS_PASSWORD=$(openssl rand -base64 32)" >> .env.prod

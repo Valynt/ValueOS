@@ -52,13 +52,13 @@ code .
 
 ```bash
 # Build and start
-docker-compose -f docker/stage/docker-compose.yml up -d --build
+docker-compose -f docker/staging/docker-compose.yml up -d --build
 
 # View logs
-docker-compose -f docker/stage/docker-compose.yml logs -f
+docker-compose -f docker/staging/docker-compose.yml logs -f
 
 # Stop
-docker-compose -f docker/stage/docker-compose.yml down
+docker-compose -f docker/staging/docker-compose.yml down
 ```
 
 ## Production Environment
@@ -76,7 +76,7 @@ docker-compose -f docker/prod/docker-compose.yml logs -f app
 
 ## Environment Variables
 
-Copy `.env.example` to `.env.dev`, `.env.stage`, and `.env.prod` and update values.
+Copy `.env.example` to `.env.dev`, `.env.staging`, and `.env.prod` and update values.
 
 ## Health Endpoints
 

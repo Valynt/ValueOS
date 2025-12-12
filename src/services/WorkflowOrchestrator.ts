@@ -226,6 +226,16 @@ export class WorkflowOrchestrator {
 
       await this.updateExecutionStatus(executionId, 'in_progress', currentStageId);
 
+      // Emit progress update: starting stage
+      await this.emitProgressUpdate(executionId, {
+        current_stage: currentStageId,
+        last_action: `Starting ${currentStageId}`,
+        agent_name: route.selected_agent.id,
+        status: 'in_progress',
+        progress: Math.round((visitedStages.size / (dag.stages ? Object.keys(dag.stages).length : 1)) * 100),
+        eta_ms: this.calculateETA(executionId, startedAt, visitedStages.size, Object.keys(dag.stages || {}).length),
+      });
+
       await this.logAudit(executionId, 'stage_routing', {
         stage_id: stage.id,
         lifecycle_stage: route.lifecycle_stage,
@@ -247,6 +257,19 @@ export class WorkflowOrchestrator {
       if (stageResult.status === 'failed') {
         throw new Error(`Stage ${currentStageId} failed: ${stageResult.error_message}`);
       }
+
+      // Emit progress update: stage completed
+      await this.emitProgressUpdate(executionId, {
+        current_stage: currentStageId,
+        last_action: `Completed ${currentStageId}`,
+        agent_name: route.selected_agent.id,
+        confidence: stageResult.output_data?.confidence_level === 'high' ? 0.85 : 
+                   stageResult.output_data?.confidence_level === 'medium' ? 0.65 : 0.45,
+        hallucination_check: stageResult.output_data?.hallucination_check,
+        status: 'in_progress',
+        progress: Math.round(((visitedStages.size + 1) / (dag.stages ? Object.keys(dag.stages).length : 1)) * 100),
+        eta_ms: this.calculateETA(executionId, startedAt, visitedStages.size + 1, Object.keys(dag.stages || {}).length),
+      });
 
       executionContext = this.mergeExecutionContext(executionContext, stage, stageResult?.output_data || {}, executedSteps);
       executedSteps = executionContext.executed_steps || executedSteps;
@@ -1028,6 +1051,61 @@ export class WorkflowOrchestrator {
           ? 'medium'
           : 'low',
     };
+  }
+
+  /**
+   * Emit real-time progress update for UI
+   */
+  private async emitProgressUpdate(
+    executionId: string,
+    update: {
+      current_stage?: string;
+      last_action?: string;
+      agent_name?: string;
+      confidence?: number;
+      hallucination_check?: boolean;
+      status?: string;
+      progress?: number;
+      eta_ms?: number;
+    }
+  ): Promise<void> {
+    try {
+      await supabase
+        .from('workflow_executions')
+        .update({
+          current_stage: update.current_stage,
+          context: {
+            last_action: update.last_action,
+            agent_name: update.agent_name,
+            confidence: update.confidence,
+            hallucination_check: update.hallucination_check,
+            progress: update.progress,
+            eta_ms: update.eta_ms,
+          },
+          status: update.status,
+        })
+        .eq('id', executionId);
+    } catch (error) {
+      logger.warn('Failed to emit progress update', { executionId, error });
+    }
+  }
+
+  /**
+   * Calculate estimated time remaining based on progress
+   */
+  private calculateETA(
+    executionId: string,
+    startedAt: number,
+    completedStages: number,
+    totalStages: number
+  ): number {
+    if (completedStages === 0) return 30000; // 30s default
+
+    const elapsed = Date.now() - startedAt;
+    const avgTimePerStage = elapsed / completedStages;
+    const remainingStages = totalStages - completedStages;
+
+    return Math.max(5000, avgTimePerStage * remainingStages); // Min 5s
   }
 }
 
