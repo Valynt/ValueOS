@@ -12,7 +12,7 @@ CREATE EXTENSION IF NOT EXISTS "vector"; -- For pgvector
 -- ============================================
 
 -- Organizations (tenants)
-CREATE TABLE organizations (
+CREATE TABLE IF NOT EXISTS organizations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     slug VARCHAR(255) UNIQUE NOT NULL,
@@ -26,13 +26,11 @@ CREATE TABLE organizations (
     metadata JSONB DEFAULT '{}'::JSONB, -- Custom metadata
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP WITH TIME ZONE, -- Soft delete for GDPR
-    
-    CONSTRAINT valid_slug CHECK (slug ~ '^[a-z0-9_-]+$')
+    deleted_at TIMESTAMP WITH TIME ZONE -- Soft delete for GDPR
 );
 
 -- Users (scoped to organization)
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     email VARCHAR(255) NOT NULL,
@@ -45,13 +43,12 @@ CREATE TABLE users (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP WITH TIME ZONE,
-    
-    UNIQUE(organization_id, email),
-    CONSTRAINT valid_email CHECK (email ~ '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}$')
+
+    UNIQUE(organization_id, email)
 );
 
 -- API Keys (for service-to-service auth)
-CREATE TABLE api_keys (
+CREATE TABLE IF NOT EXISTS api_keys (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -66,7 +63,7 @@ CREATE TABLE api_keys (
 );
 
 -- Audit Log (multi-tenant aware)
-CREATE TABLE audit_logs (
+CREATE TABLE IF NOT EXISTS audit_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -76,10 +73,68 @@ CREATE TABLE audit_logs (
     changes JSONB, -- { before: {}, after: {} }
     ip_address INET,
     user_agent TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Cases (Agent interaction sessions)
+CREATE TABLE IF NOT EXISTS cases (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title VARCHAR(500) NOT NULL,
+    description TEXT,
+    status VARCHAR(50) NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'resolved', 'closed')),
+    priority VARCHAR(20) DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+    tags TEXT[], -- Array of tags for categorization
+    metadata JSONB DEFAULT '{}',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    
-    INDEX idx_audit_org_time (organization_id, created_at DESC),
-    INDEX idx_audit_resource (organization_id, resource_type, resource_id)
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    closed_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Workflows (Agent orchestration DAGs)
+CREATE TABLE IF NOT EXISTS workflows (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    definition JSONB NOT NULL, -- DAG definition with stages and transitions
+    version INT DEFAULT 1,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(organization_id, name, version)
+);
+
+-- Workflow States (Execution state persistence)
+CREATE TABLE IF NOT EXISTS workflow_states (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    workflow_id UUID NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
+    case_id UUID REFERENCES cases(id) ON DELETE CASCADE,
+    current_stage VARCHAR(255) NOT NULL,
+    state_data JSONB NOT NULL DEFAULT '{}',
+    status VARCHAR(50) NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'completed', 'failed', 'cancelled')),
+    started_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    error_message TEXT,
+
+    UNIQUE(workflow_id, case_id)
+);
+
+-- Shared Artifacts (Cross-agent data sharing)
+CREATE TABLE IF NOT EXISTS shared_artifacts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    case_id UUID REFERENCES cases(id) ON DELETE CASCADE,
+    artifact_type VARCHAR(100) NOT NULL, -- 'document', 'analysis', 'model_output', etc.
+    name VARCHAR(255) NOT NULL,
+    content JSONB NOT NULL,
+    metadata JSONB DEFAULT '{}',
+    created_by UUID NOT NULL REFERENCES users(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ============================================
@@ -87,7 +142,7 @@ CREATE TABLE audit_logs (
 -- ============================================
 
 -- Agents (LangGraph/LangChain orchestrated)
-CREATE TABLE agents (
+CREATE TABLE IF NOT EXISTS agents (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
@@ -98,13 +153,12 @@ CREATE TABLE agents (
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    
-    UNIQUE(organization_id, name),
-    INDEX idx_agent_org_type (organization_id, agent_type)
+
+    UNIQUE(organization_id, name)
 );
 
 -- Agent Runs (execution history)
-CREATE TABLE agent_runs (
+CREATE TABLE IF NOT EXISTS agent_runs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
@@ -117,14 +171,11 @@ CREATE TABLE agent_runs (
     tokens_used JSONB DEFAULT '{"input": 0, "output": 0}'::JSONB,
     cost NUMERIC(10, 6),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    completed_at TIMESTAMP WITH TIME ZONE,
-    
-    INDEX idx_run_org_agent (organization_id, agent_id, created_at DESC),
-    INDEX idx_run_user (organization_id, user_id, created_at DESC)
+    completed_at TIMESTAMP WITH TIME ZONE
 );
 
 -- Agent Memory (semantic storage for RAG)
-CREATE TABLE agent_memory (
+CREATE TABLE IF NOT EXISTS agent_memory (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
@@ -132,10 +183,7 @@ CREATE TABLE agent_memory (
     embedding vector(1536), -- pgvector for semantic search
     metadata JSONB DEFAULT '{}',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    
-    INDEX idx_memory_org_agent (organization_id, agent_id),
-    INDEX idx_memory_embedding ON agent_memory USING ivfflat (embedding vector_l2_ops) WITH (lists = 100)
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ============================================
@@ -155,9 +203,8 @@ CREATE TABLE models (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP WITH TIME ZONE,
-    
-    UNIQUE(organization_id, name),
-    INDEX idx_model_org_status (organization_id, status, created_at DESC)
+
+    UNIQUE(organization_id, name)
 );
 
 -- KPI Definitions
@@ -173,12 +220,11 @@ CREATE TABLE kpis (
     unit VARCHAR(50),
     metadata JSONB DEFAULT '{}',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    
-    UNIQUE(organization_id, model_id, name),
-    INDEX idx_kpi_model (organization_id, model_id, category)
+
+    UNIQUE(organization_id, model_id, name)
 );
 
--- =c==========================================
+-- ============================================
 -- Row-Level Security (RLS) Policies
 -- ============================================
 
@@ -192,6 +238,10 @@ ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_memory ENABLE ROW LEVEL SECURITY;
 ALTER TABLE kpis ENABLE ROW LEVEL SECURITY;
 ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cases ENABLE ROW LEVEL SECURITY;
+ALTER TABLE workflows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE workflow_states ENABLE ROW LEVEL SECURITY;
+ALTER TABLE shared_artifacts ENABLE ROW LEVEL SECURITY;
 
 
 -- Helper function to get current org_id from JWT
@@ -205,34 +255,158 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql STABLE;
 
--- Policy: Organizations can only see themselves
-CREATE POLICY org_isolation ON organizations
+-- Helper function to get current user_id from JWT
+CREATE OR REPLACE FUNCTION auth.get_current_user_id()
+RETURNS UUID AS $$
+BEGIN
+  RETURN (current_setting('request.jwt.claims', true)::jsonb ->> 'sub')::UUID;
+EXCEPTION
+  WHEN others THEN
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+-- Restrict function execution to authenticated users
+REVOKE ALL ON FUNCTION auth.get_current_org_id() FROM PUBLIC;
+REVOKE ALL ON FUNCTION auth.get_current_user_id() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION auth.get_current_org_id() TO authenticated;
+GRANT EXECUTE ON FUNCTION auth.get_current_user_id() TO authenticated;
+
+-- Organizations: read-only for members
+CREATE POLICY org_select ON organizations
+  FOR SELECT TO authenticated
   USING (id = auth.get_current_org_id());
 
--- Policy: Users can only see their own organization's data
-CREATE POLICY org_isolation_users ON users
-    USING (organization_id = auth.get_current_org_id());
-
-CREATE POLICY org_isolation_agents ON agents
-    USING (organization_id = auth.get_current_org_id());
-
-CREATE POLICY org_isolation_models ON models
-    USING (organization_id = auth.get_current_org_id());
-
-CREATE POLICY org_isolation_agent_runs ON agent_runs
+-- Users: allow read and update within same org
+CREATE POLICY users_select ON users
+  FOR SELECT TO authenticated
   USING (organization_id = auth.get_current_org_id());
 
-CREATE POLICY org_isolation_audit_logs ON audit_logs
+CREATE POLICY users_update ON users
+  FOR UPDATE TO authenticated
+  USING (organization_id = auth.get_current_org_id())
+  WITH CHECK (organization_id = auth.get_current_org_id());
+
+-- Agents: allow read and write within org
+CREATE POLICY agents_select ON agents
+  FOR SELECT TO authenticated
   USING (organization_id = auth.get_current_org_id());
 
-CREATE POLICY org_isolation_agent_memory ON agent_memory
+CREATE POLICY agents_write ON agents
+  FOR INSERT TO authenticated
+  WITH CHECK (organization_id = auth.get_current_org_id());
+
+CREATE POLICY agents_update ON agents
+  FOR UPDATE TO authenticated
+  USING (organization_id = auth.get_current_org_id())
+  WITH CHECK (organization_id = auth.get_current_org_id());
+
+-- Models: allow read and write within org
+CREATE POLICY models_select ON models
+  FOR SELECT TO authenticated
   USING (organization_id = auth.get_current_org_id());
 
-CREATE POLICY org_isolation_kpis ON kpis
+CREATE POLICY models_insert ON models
+  FOR INSERT TO authenticated
+  WITH CHECK (organization_id = auth.get_current_org_id());
+
+CREATE POLICY models_update ON models
+  FOR UPDATE TO authenticated
+  USING (organization_id = auth.get_current_org_id())
+  WITH CHECK (organization_id = auth.get_current_org_id());
+
+-- Agent runs: allow read and write within org
+CREATE POLICY runs_select ON agent_runs
+  FOR SELECT TO authenticated
   USING (organization_id = auth.get_current_org_id());
 
-CREATE POLICY org_isolation_api_keys ON api_keys
+CREATE POLICY runs_insert ON agent_runs
+  FOR INSERT TO authenticated
+  WITH CHECK (organization_id = auth.get_current_org_id());
+
+-- Audit logs: read-only by default
+CREATE POLICY audit_select ON audit_logs
+  FOR SELECT TO authenticated
   USING (organization_id = auth.get_current_org_id());
+
+-- Agent memory: allow read and write within org
+CREATE POLICY memory_select ON agent_memory
+  FOR SELECT TO authenticated
+  USING (organization_id = auth.get_current_org_id());
+
+CREATE POLICY memory_write ON agent_memory
+  FOR INSERT TO authenticated
+  WITH CHECK (organization_id = auth.get_current_org_id());
+
+-- KPIs: allow read and write within org
+CREATE POLICY kpis_select ON kpis
+  FOR SELECT TO authenticated
+  USING (organization_id = auth.get_current_org_id());
+
+CREATE POLICY kpis_write ON kpis
+  FOR INSERT TO authenticated
+  WITH CHECK (organization_id = auth.get_current_org_id());
+
+-- API keys: tightly restrict to org
+CREATE POLICY api_keys_select ON api_keys
+  FOR SELECT TO authenticated
+  USING (organization_id = auth.get_current_org_id());
+
+-- Cases: allow read and write within org
+CREATE POLICY cases_select ON cases
+  FOR SELECT TO authenticated
+  USING (organization_id = auth.get_current_org_id());
+
+CREATE POLICY cases_insert ON cases
+  FOR INSERT TO authenticated
+  WITH CHECK (organization_id = auth.get_current_org_id());
+
+CREATE POLICY cases_update ON cases
+  FOR UPDATE TO authenticated
+  USING (organization_id = auth.get_current_org_id())
+  WITH CHECK (organization_id = auth.get_current_org_id());
+
+-- Workflows: allow read and write within org
+CREATE POLICY workflows_select ON workflows
+  FOR SELECT TO authenticated
+  USING (organization_id = auth.get_current_org_id());
+
+CREATE POLICY workflows_insert ON workflows
+  FOR INSERT TO authenticated
+  WITH CHECK (organization_id = auth.get_current_org_id());
+
+CREATE POLICY workflows_update ON workflows
+  FOR UPDATE TO authenticated
+  USING (organization_id = auth.get_current_org_id())
+  WITH CHECK (organization_id = auth.get_current_org_id());
+
+-- Workflow States: allow read and write within org
+CREATE POLICY workflow_states_select ON workflow_states
+  FOR SELECT TO authenticated
+  USING (organization_id = auth.get_current_org_id());
+
+CREATE POLICY workflow_states_insert ON workflow_states
+  FOR INSERT TO authenticated
+  WITH CHECK (organization_id = auth.get_current_org_id());
+
+CREATE POLICY workflow_states_update ON workflow_states
+  FOR UPDATE TO authenticated
+  USING (organization_id = auth.get_current_org_id())
+  WITH CHECK (organization_id = auth.get_current_org_id());
+
+-- Shared Artifacts: allow read and write within org
+CREATE POLICY shared_artifacts_select ON shared_artifacts
+  FOR SELECT TO authenticated
+  USING (organization_id = auth.get_current_org_id());
+
+CREATE POLICY shared_artifacts_insert ON shared_artifacts
+  FOR INSERT TO authenticated
+  WITH CHECK (organization_id = auth.get_current_org_id());
+
+CREATE POLICY shared_artifacts_update ON shared_artifacts
+  FOR UPDATE TO authenticated
+  USING (organization_id = auth.get_current_org_id())
+  WITH CHECK (organization_id = auth.get_current_org_id());
 
 
 -- ============================================
@@ -244,9 +418,50 @@ CREATE INDEX idx_agents_org_active ON agents(organization_id, is_active);
 CREATE INDEX idx_agent_runs_status_time ON agent_runs(organization_id, status, created_at DESC);
 CREATE INDEX idx_models_org_created ON models(organization_id, created_at DESC);
 
+-- Moved from inline definitions:
+CREATE INDEX idx_audit_org_time ON audit_logs (organization_id, created_at DESC);
+CREATE INDEX idx_audit_resource ON audit_logs (organization_id, resource_type, resource_id);
+
+CREATE INDEX idx_agent_org_type ON agents (organization_id, agent_type);
+
+CREATE INDEX idx_run_org_agent ON agent_runs (organization_id, agent_id, created_at DESC);
+CREATE INDEX idx_run_user ON agent_runs (organization_id, user_id, created_at DESC);
+
+CREATE INDEX idx_memory_org_agent ON agent_memory (organization_id, agent_id);
+CREATE INDEX idx_memory_embedding ON agent_memory USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
+
+CREATE INDEX idx_model_org_status ON models (organization_id, status, created_at DESC);
+
+CREATE INDEX idx_kpi_model ON kpis (organization_id, model_id, category);
+
+CREATE INDEX idx_cases_org_status ON cases (organization_id, status, created_at DESC);
+CREATE INDEX idx_cases_user ON cases (organization_id, user_id, created_at DESC);
+
+CREATE INDEX idx_workflows_org_active ON workflows (organization_id, is_active, created_at DESC);
+CREATE INDEX idx_workflows_name_version ON workflows (organization_id, name, version);
+
+CREATE INDEX idx_workflow_states_org_status ON workflow_states (organization_id, status, started_at DESC);
+CREATE INDEX idx_workflow_states_workflow ON workflow_states (organization_id, workflow_id);
+CREATE INDEX idx_workflow_states_case ON workflow_states (organization_id, case_id);
+
+CREATE INDEX idx_shared_artifacts_org_type ON shared_artifacts (organization_id, artifact_type, created_at DESC);
+CREATE INDEX idx_shared_artifacts_case ON shared_artifacts (organization_id, case_id);
+CREATE INDEX idx_shared_artifacts_creator ON shared_artifacts (organization_id, created_by, created_at DESC);
+
+-- Additional indexes for RLS performance
+CREATE INDEX idx_orgs_id ON organizations(id);
+CREATE INDEX idx_audit_org ON audit_logs(organization_id);
+
 -- ============================================
 -- Triggers for Audit & Maintenance
 -- ============================================
+
+-- Email validation and normalization
+ALTER TABLE users
+  ADD CONSTRAINT email_lowercase CHECK (email = lower(email)),
+  ADD CONSTRAINT users_valid_email CHECK (
+    email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
+  );
 
 -- Update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_timestamp()
@@ -266,26 +481,17 @@ CREATE TRIGGER update_agents_timestamp BEFORE UPDATE ON agents
 CREATE TRIGGER update_models_timestamp BEFORE UPDATE ON models
     FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
--- Helper function to get current user_id from JWT
-CREATE OR REPLACE FUNCTION auth.get_current_user_id()
-RETURNS UUID AS $$
-BEGIN
-  RETURN (current_setting('request.jwt.claims', true)::jsonb ->> 'sub')::UUID;
-EXCEPTION
-  WHEN others THEN
-    RETURN NULL;
-END;
-$$ LANGUAGE plpgsql STABLE;
-
-
--- Audit trigger (logs all changes)
+-- Audit trigger (logs all changes) - SECURITY DEFINER for RLS bypass
 CREATE OR REPLACE FUNCTION audit_trigger()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 DECLARE
     org_id UUID;
     user_id UUID;
 BEGIN
-    -- Extract organization_id and user_id from context
     org_id := auth.get_current_org_id();
     user_id := auth.get_current_user_id();
 
@@ -305,7 +511,10 @@ BEGIN
     
     RETURN COALESCE(NEW, OLD);
 END;
-$$ LANGUAGE plpgsql;
+$$;
+
+-- Lock down execute permissions on audit trigger
+REVOKE ALL ON FUNCTION audit_trigger() FROM PUBLIC;
 
 CREATE TRIGGER audit_users AFTER INSERT OR UPDATE OR DELETE ON users
     FOR EACH ROW EXECUTE FUNCTION audit_trigger();
@@ -314,4 +523,16 @@ CREATE TRIGGER audit_agents AFTER INSERT OR UPDATE OR DELETE ON agents
     FOR EACH ROW EXECUTE FUNCTION audit_trigger();
 
 CREATE TRIGGER audit_models AFTER INSERT OR UPDATE OR DELETE ON models
+    FOR EACH ROW EXECUTE FUNCTION audit_trigger();
+
+CREATE TRIGGER audit_cases AFTER INSERT OR UPDATE OR DELETE ON cases
+    FOR EACH ROW EXECUTE FUNCTION audit_trigger();
+
+CREATE TRIGGER audit_workflows AFTER INSERT OR UPDATE OR DELETE ON workflows
+    FOR EACH ROW EXECUTE FUNCTION audit_trigger();
+
+CREATE TRIGGER audit_workflow_states AFTER INSERT OR UPDATE OR DELETE ON workflow_states
+    FOR EACH ROW EXECUTE FUNCTION audit_trigger();
+
+CREATE TRIGGER audit_shared_artifacts AFTER INSERT OR UPDATE OR DELETE ON shared_artifacts
     FOR EACH ROW EXECUTE FUNCTION audit_trigger();
