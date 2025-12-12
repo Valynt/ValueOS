@@ -684,10 +684,23 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
 
   // Handle command submission
   const handleCommand = useEvent(async (query: string) => {
-    if (!workflowState || !selectedCaseId) {
+    if (!selectedCaseId) {
       // No case selected, prompt user to create one first
       setIsNewCaseModalOpen(true);
       return;
+    }
+
+    // Initialize workflow state if not set
+    if (!workflowState && selectedCase) {
+      setWorkflowState({
+        currentStage: selectedCase.stage,
+        status: 'in_progress',
+        completedStages: [],
+        context: {
+          caseId: selectedCase.id,
+          company: selectedCase.company,
+        },
+      });
     }
 
     setIsLoading(true);
