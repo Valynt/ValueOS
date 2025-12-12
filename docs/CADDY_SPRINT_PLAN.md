@@ -164,7 +164,7 @@
 **Assignee:** DevOps
 
 **Subtasks:**
-- [ ] Add on-demand TLS block to Caddyfile.production
+- [ ] Add on-demand TLS block to Caddyfile.prod
 - [ ] Configure domain validator endpoint
 - [ ] Set rate limits for certificate requests
 - [ ] Test configuration locally
@@ -180,7 +180,7 @@
 - Zero downtime during deployment
 
 **Files to Modify:**
-- `Caddyfile.production`
+- `Caddyfile.prod`
 - `Caddyfile.staging`
 
 ---
@@ -402,7 +402,7 @@
 - Reserved subdomains blocked (www, api, admin)
 
 **Files to Modify:**
-- `Caddyfile.production`
+- `Caddyfile.prod`
 - `Caddyfile.staging`
 
 ---
@@ -685,7 +685,7 @@
 - Configuration documented
 
 **Files to Modify:**
-- `Caddyfile.production`
+- `Caddyfile.prod`
 
 ---
 
@@ -730,7 +730,7 @@
 - No performance impact
 
 **Files to Modify:**
-- `Caddyfile.production`
+- `Caddyfile.prod`
 - `infrastructure/prometheus/prometheus.yml`
 
 ---

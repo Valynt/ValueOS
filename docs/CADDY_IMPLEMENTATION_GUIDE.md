@@ -25,7 +25,7 @@ Caddy has been fully implemented across all ValueCanvas environments (developmen
 |------|-------------|------|--------|
 | `Caddyfile` | Development | 80 | localhost |
 | `Caddyfile.staging` | Staging | 8080/8443 | staging.valuecanvas.com |
-| `Caddyfile.production` | Production | 80/443 | app.valuecanvas.com |
+| `Caddyfile.prod` | Production | 80/443 | app.valuecanvas.com |
 
 ### Docker Configurations
 
@@ -33,7 +33,7 @@ Caddy has been fully implemented across all ValueCanvas environments (developmen
 |------|---------|---------------|
 | `docker-compose.caddy.yml` | Development with Caddy | ✅ Yes |
 | `docker-compose.dev.yml` | Development (original) | ❌ No |
-| `docker-compose.stage.yml` | Staging | ✅ Yes (replaced nginx) |
+| `docker-compose.staging.yml` | Staging | ✅ Yes (replaced nginx) |
 | `docker-compose.prod.yml` | Production | ✅ Yes (updated) |
 
 ### Scripts
@@ -104,7 +104,7 @@ http://localhost/health
 **Usage:**
 ```bash
 # Deploy staging
-docker-compose -f docker-compose.stage.yml up -d
+docker-compose -f docker-compose.staging.yml up -d
 
 # Access
 https://staging.valuecanvas.com
@@ -118,7 +118,7 @@ staging.valuecanvas.com → <server-ip>
 
 ### Production
 
-**File:** `Caddyfile.production`
+**File:** `Caddyfile.prod`
 
 **Features:**
 - Automatic HTTPS via Let's Encrypt
@@ -324,7 +324,7 @@ docker-compose -f docker-compose.prod.yml restart caddy
 docker-compose -f docker-compose.caddy.yml logs -f caddy
 
 # Staging
-docker-compose -f docker-compose.stage.yml logs -f caddy
+docker-compose -f docker-compose.staging.yml logs -f caddy
 
 # Production
 docker-compose -f docker-compose.prod.yml logs -f caddy

@@ -14,7 +14,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: docker/stage/Dockerfile
+      dockerfile: docker/staging/Dockerfile
     container_name: valuecanvas-stage
     ports:
       - "8001:8000"  # Staging port
@@ -38,7 +38,7 @@ services:
       - VITE_ENABLE_RATE_LIMITING=true
       - VITE_ENABLE_AUDIT_LOGGING=true
     env_file:
-      - .env.stage
+      - .env.staging
     networks:
       - valuecanvas-network
     depends_on:
@@ -78,7 +78,7 @@ services:
     ports:
       - "5433:5432"  # Different port to avoid conflicts
     env_file:
-      - .env.stage
+      - .env.staging
     environment:
       - POSTGRES_DB=${STAGE_DB_NAME}
       - POSTGRES_USER=${STAGE_DB_USER}
@@ -121,7 +121,7 @@ services:
     image: quay.io/prometheuscommunity/postgres-exporter:v0.16.0
     container_name: valuecanvas-postgres-exporter-stage
     env_file:
-      - .env.stage
+      - .env.staging
     environment:
       DATA_SOURCE_NAME: postgresql://${STAGE_DB_USER}:${STAGE_DB_PASSWORD}@postgres:5432/${STAGE_DB_NAME}?sslmode=disable
       PG_EXPORTER_EXTEND_QUERY_PATH: /etc/postgres_exporter/queries.yml
@@ -147,7 +147,7 @@ services:
     ports:
       - "6380:6379"  # Different port to avoid conflicts
     env_file:
-      - .env.stage
+      - .env.staging
     volumes:
       - stage-redis-data:/data
     networks:

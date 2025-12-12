@@ -16,8 +16,8 @@ case $ENVIRONMENT in
         ;;
     stage)
         echo "🚀 Deploying to staging..."
-        docker-compose -f docker/stage/docker-compose.yml down
-        docker-compose -f docker/stage/docker-compose.yml up -d --build
+        docker-compose -f docker/staging/docker-compose.yml down
+        docker-compose -f docker/staging/docker-compose.yml up -d --build
         ;;
     prod)
         echo "🚀 Deploying to production..."

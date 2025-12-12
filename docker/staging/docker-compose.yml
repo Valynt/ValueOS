@@ -4,7 +4,7 @@ services:
   app:
     build:
       context: ../../
-      dockerfile: docker/stage/Dockerfile
+      dockerfile: docker/staging/Dockerfile
     container_name: stage-app
     ports:
       - "8001:8000"
@@ -18,7 +18,7 @@ services:
       - PG_POOL_IDLE_TIMEOUT_MS=${PG_POOL_IDLE_TIMEOUT_MS:-10000}
       - PG_POOL_CONNECTION_TIMEOUT_MS=${PG_POOL_CONNECTION_TIMEOUT_MS:-2000}
     env_file:
-      - ../../.env.stage
+      - ../../.env.staging
     networks:
       - stage-network
     depends_on:
@@ -49,7 +49,7 @@ services:
     image: quay.io/prometheuscommunity/postgres-exporter:v0.16.0
     container_name: stage-postgres-exporter
     env_file:
-      - ../../.env.stage
+      - ../../.env.staging
     environment:
       DATA_SOURCE_NAME: postgresql://${STAGE_DB_USER}:${STAGE_DB_PASSWORD}@postgres:5432/${STAGE_DB_NAME}?sslmode=disable
       PG_EXPORTER_EXTEND_QUERY_PATH: /etc/postgres_exporter/queries.yml
