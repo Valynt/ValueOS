@@ -1,0 +1,3 @@
+#!/bin/sh
+# Enforce conventional commits aligned with semantic-release
+npx commitlint --edit "$1"

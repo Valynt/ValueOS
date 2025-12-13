@@ -1,0 +1,3 @@
+#!/bin/sh
+# Fast checks only - heavy validation in CI
+npx lint-staged
