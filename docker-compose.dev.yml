@@ -3,12 +3,12 @@
 # ============================================================================
 # Local development environment with hot-reloading
 # Security hardened while maintaining developer productivity
-# 
+#
 # IMPORTANT: This uses WEAK PASSWORDS suitable only for LOCAL DEVELOPMENT.
 # Never use these configurations in production!
 # ============================================================================
 
-version: '3.8'
+version: "3.8"
 
 services:
   # ============================================================================
@@ -20,8 +20,8 @@ services:
       dockerfile: Dockerfile.dev
     container_name: valuecanvas-dev
     ports:
-      - "5173:5173"  # Vite dev server
-      - "24678:24678"  # Vite HMR
+      - "5173:5173" # Vite dev server
+      - "24678:24678" # Vite HMR
     volumes:
       # Mount source code for hot-reloading
       - ./src:/app/src:cached
@@ -36,7 +36,7 @@ services:
       # Exclude node_modules (use container's version)
       - /app/node_modules
     env_file:
-      - .env.local  # Load from .env.local (copy from .env.dev.example)
+      - .env.local # Load from .env.local (copy from .env.dev.example)
     environment:
       - NODE_ENV=development
       - VITE_HOST=0.0.0.0
@@ -55,10 +55,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '4.0'
+          cpus: "4.0"
           memory: 6G
         reservations:
-          cpus: '2.0'
+          cpus: "2.0"
           memory: 4G
     # Security hardening (dev environment)
     security_opt:
@@ -105,10 +105,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.0'
+          cpus: "2.0"
           memory: 2G
         reservations:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 512M
     # Security hardening (dev environment)
     security_opt:
@@ -139,7 +139,13 @@ services:
     secrets:
       - redis_password
     healthcheck:
-      test: ["CMD", "sh", "-c", "redis-cli --no-auth-warning -a $(cat /run/secrets/redis_password) ping"]
+      test:
+        [
+          "CMD",
+          "sh",
+          "-c",
+          "redis-cli --no-auth-warning -a $(cat /run/secrets/redis_password) ping",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -153,10 +159,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
+          cpus: "1.0"
           memory: 256M
         reservations:
-          cpus: '0.25'
+          cpus: "0.25"
           memory: 128M
     # Security hardening (dev environment)
     security_opt:
