@@ -241,9 +241,11 @@ describe('ActionRouter', () => {
       expect(result.success).toBe(true);
       expect(result.data).toBeDefined();
       expect(mockAgentAPI.invokeAgent).toHaveBeenCalledWith(
-        'agent-1',
-        { query: 'test' },
-        expect.objectContaining({ workspaceId: 'workspace-1' })
+        expect.objectContaining({
+          agent: 'agent-1',
+          query: { query: 'test' },
+          context: expect.objectContaining({ workspaceId: 'workspace-1' })
+        })
       );
     });
 
@@ -320,7 +322,7 @@ describe('ActionRouter', () => {
       };
 
       // Configure mock to reject
-      (mockAgentOrchestrator.invokeAgent as any).mockRejectedValue(
+      (mockAgentAPI.invokeAgent as any).mockRejectedValue(
         new Error('Test error')
       );
 
