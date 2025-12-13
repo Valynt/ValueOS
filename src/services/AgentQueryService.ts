@@ -5,7 +5,7 @@
  * 
  * This service orchestrates:
  * 1. Session management (via WorkflowStateRepository)
- * 2. Query processing (via StatelessAgentOrchestrator)
+ * 2. Query processing (via UnifiedAgentOrchestrator)
  * 3. State persistence
  * 4. Trace ID generation for observability
  * 
@@ -18,7 +18,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../lib/logger';
 import { WorkflowStateRepository } from '../repositories/WorkflowStateRepository';
-import { StatelessAgentOrchestrator, AgentResponse } from './StatelessAgentOrchestrator';
+import { getUnifiedOrchestrator, UnifiedAgentOrchestrator, AgentResponse } from './UnifiedAgentOrchestrator';
 import { sanitizeInput } from '../security/InputSanitizer';
 
 export interface QueryResult {
@@ -46,11 +46,11 @@ export interface QueryOptions {
  */
 export class AgentQueryService {
   private stateRepo: WorkflowStateRepository;
-  private orchestrator: StatelessAgentOrchestrator;
+  private orchestrator: UnifiedAgentOrchestrator;
 
   constructor(private supabase: SupabaseClient) {
     this.stateRepo = new WorkflowStateRepository(supabase);
-    this.orchestrator = new StatelessAgentOrchestrator();
+    this.orchestrator = getUnifiedOrchestrator();
   }
 
   /**
