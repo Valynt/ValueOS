@@ -6,14 +6,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ActionRouter } from '../ActionRouter';
 import { CanonicalAction, ActionContext } from '../../types/sdui-integration';
 import { AuditLogService } from '../AuditLogService';
-import { AgentOrchestrator } from '../AgentOrchestrator';
-import { WorkflowOrchestrator } from '../WorkflowOrchestrator';
+import { UnifiedAgentOrchestrator } from '../UnifiedAgentOrchestrator';
+import { AgentAPI } from '../AgentAPI';
 import { ComponentMutationService } from '../ComponentMutationService';
 
 // Mock dependencies
 vi.mock('../AuditLogService');
-vi.mock('../AgentOrchestrator');
-vi.mock('../WorkflowOrchestrator');
+vi.mock('../UnifiedAgentOrchestrator');
+vi.mock('../AgentAPI');
 vi.mock('../ComponentMutationService');
 vi.mock('../../lib/logger');
 vi.mock('../ManifestoEnforcer', () => ({
@@ -29,8 +29,9 @@ vi.mock('../ManifestoEnforcer', () => ({
 describe('ActionRouter', () => {
   let router: ActionRouter;
   let mockAuditLogService: any;
-  let mockAgentOrchestrator: any;
-  let mockWorkflowOrchestrator: any;
+  let mockOrchestrator: any;
+  let mockAgentAPI: any;
+  
   let mockComponentMutationService: any;
 
   const context: ActionContext = {
@@ -46,12 +47,12 @@ describe('ActionRouter', () => {
       logAction: vi.fn().mockResolvedValue(undefined),
     } as any;
 
-    mockAgentOrchestrator = {
-      invokeAgent: vi.fn().mockResolvedValue({ result: 'success' }),
+    mockOrchestrator = {
+      executeWorkflow: vi.fn().mockResolvedValue({ executionId: 'exec-1', status: 'completed' }),
     } as any;
 
-    mockWorkflowOrchestrator = {
-      executeWorkflow: vi.fn().mockResolvedValue({ status: 'completed' }),
+    mockAgentAPI = {
+      invokeAgent: vi.fn().mockResolvedValue({ result: 'success' }),
     } as any;
 
     mockComponentMutationService = {
@@ -60,8 +61,8 @@ describe('ActionRouter', () => {
 
     router = new ActionRouter(
       mockAuditLogService,
-      mockAgentOrchestrator,
-      mockWorkflowOrchestrator,
+      mockOrchestrator,
+      mockAgentAPI,
       mockComponentMutationService
     );
   });
@@ -233,13 +234,13 @@ describe('ActionRouter', () => {
       };
 
       // Mock is already configured in beforeEach
-      (mockAgentOrchestrator.invokeAgent as any).mockResolvedValue({ result: 'test result' });
+      (mockAgentAPI.invokeAgent as any).mockResolvedValue({ result: 'test result' });
 
       const result = await router.routeAction(action, context);
 
       expect(result.success).toBe(true);
       expect(result.data).toBeDefined();
-      expect(mockAgentOrchestrator.invokeAgent).toHaveBeenCalledWith(
+      expect(mockAgentAPI.invokeAgent).toHaveBeenCalledWith(
         'agent-1',
         { query: 'test' },
         expect.objectContaining({ workspaceId: 'workspace-1' })
