@@ -82,6 +82,14 @@ const baseConfig = {
     "jsx-a11y/no-autofocus": "warn",
     "jsx-a11y/tabindex-no-positive": "error",
     "@typescript-eslint/no-explicit-any": "warn",
+    "no-unused-vars": [
+      "warn",
+      {
+        argsIgnorePattern: "^_",
+        varsIgnorePattern: "^_",
+        caughtErrorsIgnorePattern: "^_",
+      },
+    ],
     "@typescript-eslint/no-unused-vars": [
       "warn",
       {
