@@ -115,3 +115,7 @@ infrastructure/terraform/environments/*/secrets.tfvars
 
 # Snyk Security Extension - AI Rules (auto-generated)
 .github/instructions/snyk_rules.instructions.md
+
+# Temporary reports and analysis files
+lint-report.txt
+TEST_TRIAGE.md
