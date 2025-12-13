@@ -13,10 +13,16 @@ import { llmFallbackWithTracing } from './LLMFallbackWithTracing';
 import { promptVersionControl } from './PromptVersionControl';
 import { createClient } from '@supabase/supabase-js';
 
-// Redis connection
-const redisConnection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
-  maxRetriesPerRequest: null,
-});
+// Lazy Redis connection – create when first used to allow test harness to set REDIS_URL
+let redisConnection: Redis | null = null;
+function getRedisConnection(): Redis {
+  if (!redisConnection) {
+    redisConnection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+      maxRetriesPerRequest: null,
+    });
+  }
+  return redisConnection;
+}
 
 // Job types
 export interface LLMJobData {
@@ -74,7 +80,7 @@ export class LLMQueueService {
 
     // Create queue
     this.queue = new Queue<LLMJobData, LLMJobResult>('llm-processing', {
-      connection: redisConnection,
+      connection: getRedisConnection(),
       defaultJobOptions: {
         attempts: 3,
         backoff: {
@@ -96,7 +102,7 @@ export class LLMQueueService {
       'llm-processing',
       this.processJob.bind(this),
       {
-        connection: redisConnection,
+        connection: getRedisConnection(),
         concurrency: 10, // Process 10 jobs concurrently
         limiter: {
           max: 100, // Max 100 jobs
@@ -107,7 +113,7 @@ export class LLMQueueService {
 
     // Create event listener
     this.events = new QueueEvents('llm-processing', {
-      connection: redisConnection,
+      connection: getRedisConnection(),
     });
 
     this.setupEventListeners();
