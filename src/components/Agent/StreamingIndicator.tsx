@@ -1,6 +1,6 @@
 import React from 'react';
 import { Loader2, Sparkles } from 'lucide-react';
-import { StreamingUpdate } from '../../services/AgentOrchestrator';
+import { StreamingUpdate } from '../../services/UnifiedAgentOrchestrator';
 
 interface StreamingIndicatorProps {
   update: StreamingUpdate;

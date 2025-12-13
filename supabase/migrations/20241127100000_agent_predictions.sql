@@ -99,7 +99,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 -- Trigger for agent_predictions
-DROP TRIGGER IF EXISTS update_agent_predictions_updated_at
+DROP TRIGGER IF EXISTS update_agent_predictions_updated_at ON agent_predictions;
+CREATE TRIGGER update_agent_predictions_updated_at
   BEFORE UPDATE ON agent_predictions
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();

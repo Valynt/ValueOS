@@ -16,8 +16,8 @@ import {
   ActionHandler,
 } from '../types/sdui-integration';
 import { AuditLogService } from './AuditLogService';
-import { AgentOrchestrator } from './AgentOrchestrator';
-import { WorkflowOrchestrator } from './WorkflowOrchestrator';
+import { getUnifiedOrchestrator, UnifiedAgentOrchestrator } from './UnifiedAgentOrchestrator';
+import { getAgentAPI, AgentAPI } from './AgentAPI';
 import { ComponentMutationService } from './ComponentMutationService';
 import { manifestoEnforcer } from './ManifestoEnforcer';
 import { atomicActionExecutor } from './AtomicActionExecutor';
@@ -29,20 +29,21 @@ import { canvasSchemaService } from './CanvasSchemaService';
 export class ActionRouter {
   private handlers: Map<string, ActionHandler>;
   private auditLogService: AuditLogService;
-  private agentOrchestrator: AgentOrchestrator;
-  private workflowOrchestrator: WorkflowOrchestrator;
+  private orchestrator: UnifiedAgentOrchestrator;
+  private agentAPI: AgentAPI;
+  
   private componentMutationService: ComponentMutationService;
 
   constructor(
     auditLogService?: AuditLogService,
-    agentOrchestrator?: AgentOrchestrator,
-    workflowOrchestrator?: WorkflowOrchestrator,
+    orchestrator?: UnifiedAgentOrchestrator,
+    agentAPI?: AgentAPI,
     componentMutationService?: ComponentMutationService
   ) {
     this.handlers = new Map();
     this.auditLogService = auditLogService || new AuditLogService();
-    this.agentOrchestrator = agentOrchestrator || new AgentOrchestrator();
-    this.workflowOrchestrator = workflowOrchestrator || new WorkflowOrchestrator();
+    this.orchestrator = orchestrator || getUnifiedOrchestrator();
+    this.agentAPI = agentAPI || getAgentAPI();
     this.componentMutationService = componentMutationService || new ComponentMutationService();
 
     // Register default handlers
@@ -312,12 +313,12 @@ export class ActionRouter {
       }
 
       try {
-        // Route to agent orchestrator
-        const result = await this.agentOrchestrator.invokeAgent(
-          action.agentId,
-          action.input,
-          { ...context, ...action.context }
-        );
+        // Route to agent API
+        const result = await this.agentAPI.invokeAgent({
+          agent: action.agentId,
+          query: action.input,
+          context: { ...context, ...action.context }
+        });
 
         return {
           success: true,
@@ -339,9 +340,10 @@ export class ActionRouter {
 
       try {
         // Route to workflow orchestrator
-        const result = await this.workflowOrchestrator.executeWorkflow(
+        const result = await this.orchestrator.executeWorkflow(
           action.workflowId,
-          { ...action.input, ...context }
+          { ...action.input, ...context },
+          context.userId
         );
 
         return {
