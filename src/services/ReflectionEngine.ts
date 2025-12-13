@@ -7,7 +7,7 @@
  * Based on the Agent Fabric documentation's reflection and refinement system.
  */
 
-import { logger } from '../lib/logger';
+// import { logger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
 import { getAgentAPI } from './AgentAPI';
 
@@ -21,7 +21,7 @@ export interface RubricCriterion {
   category: 'clarity' | 'accuracy' | 'completeness' | 'relevance' | 'actionability' | 'compliance';
   description: string;
   weight: number;
-  evaluator: (output: any, context: any) => Promise<{
+  evaluator: (output: any, _context: any) => Promise<{
     score: number; // 0-10
     feedback: string;
     suggestions: string[];
@@ -521,7 +521,7 @@ export class ReflectionEngine {
   /**
    * Evaluate output against the 18-point rubric
    */
-  async evaluate(output: any, context: any): Promise<ReflectionResult> {
+  async evaluate(output: any, _context: any): Promise<ReflectionResult> {
     const criteriaResults: Array<{
       criterion: string;
       score: number;
