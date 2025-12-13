@@ -191,7 +191,7 @@ CREATE TABLE IF NOT EXISTS agent_memory (
 -- ============================================
 
 -- Value Models
-CREATE TABLE models (
+CREATE TABLE IF NOT EXISTS models (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     created_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -208,7 +208,7 @@ CREATE TABLE models (
 );
 
 -- KPI Definitions
-CREATE TABLE kpis (
+CREATE TABLE IF NOT EXISTS kpis (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     model_id UUID NOT NULL REFERENCES models(id) ON DELETE CASCADE,
@@ -223,6 +223,30 @@ CREATE TABLE kpis (
 
     UNIQUE(organization_id, model_id, name)
 );
+
+-- ============================================
+-- Ensure tenant column and foreign keys exist (defensive idempotent checks)
+-- ============================================
+
+DO $$
+DECLARE
+    t text;
+    fk_exists boolean;
+BEGIN
+    FOREACH t IN ARRAY['users','models','agents','agent_runs','agent_memory','api_keys','kpis','cases','workflows','workflow_states','shared_artifacts','audit_logs'] LOOP
+        EXECUTE format('ALTER TABLE public.%I ADD COLUMN IF NOT EXISTS organization_id uuid', t);
+        SELECT EXISTS (
+          SELECT 1 FROM information_schema.table_constraints tc
+          JOIN information_schema.key_column_usage kcu
+            ON tc.constraint_name = kcu.constraint_name
+          WHERE tc.table_schema = 'public' AND tc.table_name = t AND tc.constraint_type = 'FOREIGN KEY' AND kcu.column_name = 'organization_id')
+        INTO fk_exists;
+        IF NOT fk_exists THEN
+            EXECUTE format('ALTER TABLE public.%I ADD CONSTRAINT %I_org_fk FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE', t, t);
+        END IF;
+    END LOOP;
+END;
+$$;
 
 -- ============================================
 -- Row-Level Security (RLS) Policies
@@ -244,169 +268,165 @@ ALTER TABLE workflow_states ENABLE ROW LEVEL SECURITY;
 ALTER TABLE shared_artifacts ENABLE ROW LEVEL SECURITY;
 
 
--- Helper function to get current org_id from JWT
-CREATE OR REPLACE FUNCTION auth.get_current_org_id()
-RETURNS UUID AS $$
-BEGIN
-  RETURN (current_setting('request.jwt.claims', true)::jsonb ->> 'org_id')::UUID;
-EXCEPTION
-  WHEN others THEN
-    RETURN NULL;
-END;
-$$ LANGUAGE plpgsql STABLE;
+-- Helper function to get current org_id from JWT (SQL form for stability)
+CREATE OR REPLACE FUNCTION public.get_current_org_id()
+RETURNS UUID
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT NULLIF((current_setting('request.jwt.claims', true)::jsonb ->> 'org_id'), '')::uuid
+$$;
 
--- Helper function to get current user_id from JWT
-CREATE OR REPLACE FUNCTION auth.get_current_user_id()
-RETURNS UUID AS $$
-BEGIN
-  RETURN (current_setting('request.jwt.claims', true)::jsonb ->> 'sub')::UUID;
-EXCEPTION
-  WHEN others THEN
-    RETURN NULL;
-END;
-$$ LANGUAGE plpgsql STABLE;
+-- Helper function to get current user_id from JWT (SQL form for stability)
+CREATE OR REPLACE FUNCTION public.get_current_user_id()
+RETURNS UUID
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT NULLIF((current_setting('request.jwt.claims', true)::jsonb ->> 'sub'), '')::uuid
+$$;
 
 -- Restrict function execution to authenticated users
-REVOKE ALL ON FUNCTION auth.get_current_org_id() FROM PUBLIC;
-REVOKE ALL ON FUNCTION auth.get_current_user_id() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION auth.get_current_org_id() TO authenticated;
-GRANT EXECUTE ON FUNCTION auth.get_current_user_id() TO authenticated;
+REVOKE ALL ON FUNCTION public.get_current_org_id() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.get_current_user_id() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_current_org_id() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_current_user_id() TO authenticated;
 
 -- Organizations: read-only for members
 CREATE POLICY org_select ON organizations
   FOR SELECT TO authenticated
-  USING (id = auth.get_current_org_id());
+  USING (id = (SELECT public.get_current_org_id()));
 
 -- Users: allow read and update within same org
 CREATE POLICY users_select ON users
   FOR SELECT TO authenticated
-  USING (organization_id = auth.get_current_org_id());
+  USING (organization_id = (SELECT public.get_current_org_id()));
 
 CREATE POLICY users_update ON users
   FOR UPDATE TO authenticated
-  USING (organization_id = auth.get_current_org_id())
-  WITH CHECK (organization_id = auth.get_current_org_id());
+  USING (organization_id = (SELECT public.get_current_org_id()))
+  WITH CHECK (organization_id = (SELECT public.get_current_org_id()));
 
 -- Agents: allow read and write within org
 CREATE POLICY agents_select ON agents
   FOR SELECT TO authenticated
-  USING (organization_id = auth.get_current_org_id());
+  USING (organization_id = (SELECT public.get_current_org_id()));
 
 CREATE POLICY agents_write ON agents
   FOR INSERT TO authenticated
-  WITH CHECK (organization_id = auth.get_current_org_id());
+  WITH CHECK (organization_id = (SELECT public.get_current_org_id()));
 
 CREATE POLICY agents_update ON agents
   FOR UPDATE TO authenticated
-  USING (organization_id = auth.get_current_org_id())
-  WITH CHECK (organization_id = auth.get_current_org_id());
+  USING (organization_id = (SELECT public.get_current_org_id()))
+  WITH CHECK (organization_id = (SELECT public.get_current_org_id()));
 
 -- Models: allow read and write within org
 CREATE POLICY models_select ON models
   FOR SELECT TO authenticated
-  USING (organization_id = auth.get_current_org_id());
+  USING (organization_id = (SELECT public.get_current_org_id()));
 
 CREATE POLICY models_insert ON models
   FOR INSERT TO authenticated
-  WITH CHECK (organization_id = auth.get_current_org_id());
+  WITH CHECK (organization_id = (SELECT public.get_current_org_id()));
 
 CREATE POLICY models_update ON models
   FOR UPDATE TO authenticated
-  USING (organization_id = auth.get_current_org_id())
-  WITH CHECK (organization_id = auth.get_current_org_id());
+  USING (organization_id = (SELECT public.get_current_org_id()))
+  WITH CHECK (organization_id = (SELECT public.get_current_org_id()));
 
 -- Agent runs: allow read and write within org
 CREATE POLICY runs_select ON agent_runs
   FOR SELECT TO authenticated
-  USING (organization_id = auth.get_current_org_id());
+  USING (organization_id = (SELECT public.get_current_org_id()));
 
 CREATE POLICY runs_insert ON agent_runs
   FOR INSERT TO authenticated
-  WITH CHECK (organization_id = auth.get_current_org_id());
+  WITH CHECK (organization_id = (SELECT public.get_current_org_id()));
 
 -- Audit logs: read-only by default
 CREATE POLICY audit_select ON audit_logs
   FOR SELECT TO authenticated
-  USING (organization_id = auth.get_current_org_id());
+  USING (organization_id = (SELECT public.get_current_org_id()));
 
 -- Agent memory: allow read and write within org
 CREATE POLICY memory_select ON agent_memory
   FOR SELECT TO authenticated
-  USING (organization_id = auth.get_current_org_id());
+  USING (organization_id = (SELECT public.get_current_org_id()));
 
 CREATE POLICY memory_write ON agent_memory
   FOR INSERT TO authenticated
-  WITH CHECK (organization_id = auth.get_current_org_id());
+  WITH CHECK (organization_id = (SELECT public.get_current_org_id()));
 
 -- KPIs: allow read and write within org
 CREATE POLICY kpis_select ON kpis
   FOR SELECT TO authenticated
-  USING (organization_id = auth.get_current_org_id());
+  USING (organization_id = (SELECT public.get_current_org_id()));
 
 CREATE POLICY kpis_write ON kpis
   FOR INSERT TO authenticated
-  WITH CHECK (organization_id = auth.get_current_org_id());
+  WITH CHECK (organization_id = (SELECT public.get_current_org_id()));
 
 -- API keys: tightly restrict to org
 CREATE POLICY api_keys_select ON api_keys
   FOR SELECT TO authenticated
-  USING (organization_id = auth.get_current_org_id());
+  USING (organization_id = (SELECT public.get_current_org_id()));
 
 -- Cases: allow read and write within org
 CREATE POLICY cases_select ON cases
   FOR SELECT TO authenticated
-  USING (organization_id = auth.get_current_org_id());
+  USING (organization_id = (SELECT public.get_current_org_id()));
 
 CREATE POLICY cases_insert ON cases
   FOR INSERT TO authenticated
-  WITH CHECK (organization_id = auth.get_current_org_id());
+  WITH CHECK (organization_id = (SELECT public.get_current_org_id()));
 
 CREATE POLICY cases_update ON cases
   FOR UPDATE TO authenticated
-  USING (organization_id = auth.get_current_org_id())
-  WITH CHECK (organization_id = auth.get_current_org_id());
+  USING (organization_id = (SELECT public.get_current_org_id()))
+  WITH CHECK (organization_id = (SELECT public.get_current_org_id()));
 
 -- Workflows: allow read and write within org
 CREATE POLICY workflows_select ON workflows
   FOR SELECT TO authenticated
-  USING (organization_id = auth.get_current_org_id());
+  USING (organization_id = (SELECT public.get_current_org_id()));
 
 CREATE POLICY workflows_insert ON workflows
   FOR INSERT TO authenticated
-  WITH CHECK (organization_id = auth.get_current_org_id());
+  WITH CHECK (organization_id = (SELECT public.get_current_org_id()));
 
 CREATE POLICY workflows_update ON workflows
   FOR UPDATE TO authenticated
-  USING (organization_id = auth.get_current_org_id())
-  WITH CHECK (organization_id = auth.get_current_org_id());
+  USING (organization_id = (SELECT public.get_current_org_id()))
+  WITH CHECK (organization_id = (SELECT public.get_current_org_id()));
 
 -- Workflow States: allow read and write within org
 CREATE POLICY workflow_states_select ON workflow_states
   FOR SELECT TO authenticated
-  USING (organization_id = auth.get_current_org_id());
+  USING (organization_id = (SELECT public.get_current_org_id()));
 
 CREATE POLICY workflow_states_insert ON workflow_states
   FOR INSERT TO authenticated
-  WITH CHECK (organization_id = auth.get_current_org_id());
+  WITH CHECK (organization_id = (SELECT public.get_current_org_id()));
 
 CREATE POLICY workflow_states_update ON workflow_states
   FOR UPDATE TO authenticated
-  USING (organization_id = auth.get_current_org_id())
-  WITH CHECK (organization_id = auth.get_current_org_id());
+  USING (organization_id = (SELECT public.get_current_org_id()))
+  WITH CHECK (organization_id = (SELECT public.get_current_org_id()));
 
 -- Shared Artifacts: allow read and write within org
 CREATE POLICY shared_artifacts_select ON shared_artifacts
   FOR SELECT TO authenticated
-  USING (organization_id = auth.get_current_org_id());
+  USING (organization_id = (SELECT public.get_current_org_id()));
 
 CREATE POLICY shared_artifacts_insert ON shared_artifacts
   FOR INSERT TO authenticated
-  WITH CHECK (organization_id = auth.get_current_org_id());
+  WITH CHECK (organization_id = (SELECT public.get_current_org_id()));
 
 CREATE POLICY shared_artifacts_update ON shared_artifacts
   FOR UPDATE TO authenticated
-  USING (organization_id = auth.get_current_org_id())
-  WITH CHECK (organization_id = auth.get_current_org_id());
+  USING (organization_id = (SELECT public.get_current_org_id()))
+  WITH CHECK (organization_id = (SELECT public.get_current_org_id()));
 
 
 -- ============================================
@@ -491,22 +511,36 @@ AS $$
 DECLARE
     org_id UUID;
     user_id UUID;
+    has_org BOOLEAN;
 BEGIN
-    org_id := auth.get_current_org_id();
-    user_id := auth.get_current_user_id();
+    -- Detect whether the table has organization_id column
+    SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = TG_TABLE_SCHEMA
+          AND table_name = TG_TABLE_NAME
+          AND column_name = 'organization_id') INTO has_org;
+
+    IF has_org THEN
+        IF TG_OP = 'DELETE' THEN
+            org_id := OLD.organization_id;
+        ELSE
+            org_id := NEW.organization_id;
+        END IF;
+    ELSE
+        org_id := (SELECT public.get_current_org_id());
+    END IF;
+
+    user_id := (SELECT public.get_current_user_id());
 
     IF TG_OP = 'DELETE' THEN
         INSERT INTO audit_logs (organization_id, user_id, action, resource_type, resource_id, changes)
-        VALUES (OLD.organization_id, user_id, 'delete', TG_TABLE_NAME, OLD.id, 
-                jsonb_build_object('before', row_to_json(OLD)));
+        VALUES (org_id, user_id, 'delete', TG_TABLE_NAME, OLD.id, jsonb_build_object('before', row_to_json(OLD)));
     ELSIF TG_OP = 'UPDATE' THEN
         INSERT INTO audit_logs (organization_id, user_id, action, resource_type, resource_id, changes)
-        VALUES (NEW.organization_id, user_id, 'update', TG_TABLE_NAME, NEW.id,
-                jsonb_build_object('before', row_to_json(OLD), 'after', row_to_json(NEW)));
-    ELSIF TG_OP = 'INSERT' THEN
+        VALUES (org_id, user_id, 'update', TG_TABLE_NAME, NEW.id, jsonb_build_object('before', row_to_json(OLD), 'after', row_to_json(NEW)));
+    ELSE
         INSERT INTO audit_logs (organization_id, user_id, action, resource_type, resource_id, changes)
-        VALUES (NEW.organization_id, user_id, 'create', TG_TABLE_NAME, NEW.id,
-                jsonb_build_object('after', row_to_json(NEW)));
+        VALUES (org_id, user_id, 'create', TG_TABLE_NAME, NEW.id, jsonb_build_object('after', row_to_json(NEW)));
     END IF;
     
     RETURN COALESCE(NEW, OLD);

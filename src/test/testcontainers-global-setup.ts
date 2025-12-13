@@ -27,26 +27,31 @@ export async function setup() {
   const client = new Client({ connectionString: dbUrl });
   await client.connect();
 
-  try {
-    // Create minimal auth schema for RLS policies that reference auth.uid()
-    console.log('   Setting up auth schema for tests...');
-    await client.query(`
-      CREATE SCHEMA IF NOT EXISTS auth;
-      CREATE TABLE IF NOT EXISTS auth.users (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        email TEXT
-      );
-      
-      -- Mock auth.uid() function for tests
-      CREATE OR REPLACE FUNCTION auth.uid() RETURNS UUID AS $$
-        SELECT '00000000-0000-0000-0000-000000000001'::UUID;
-      $$ LANGUAGE SQL;
-      
-      -- Mock auth.role() function
-      CREATE OR REPLACE FUNCTION auth.role() RETURNS TEXT AS $$
-        SELECT 'authenticated'::TEXT;
-      $$ LANGUAGE SQL;
-    `);
+    try {
+      // Create extensions and minimal auth schema for RLS policies that reference auth.uid()
+      console.log('   Setting up auth schema for tests...');
+      await client.query(`
+        CREATE EXTENSION IF NOT EXISTS pgcrypto;
+        CREATE SCHEMA IF NOT EXISTS auth;
+        CREATE TABLE IF NOT EXISTS auth.users (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          email TEXT
+        );
+        
+        -- Mock auth.uid() function for tests
+        CREATE OR REPLACE FUNCTION auth.uid() RETURNS UUID AS $$
+        BEGIN
+          RETURN '00000000-0000-0000-0000-000000000001'::UUID;
+        END;
+        $$ LANGUAGE plpgsql;
+        
+        -- Mock auth.role() function
+        CREATE OR REPLACE FUNCTION auth.role() RETURNS TEXT AS $$
+        BEGIN
+          RETURN 'authenticated'::TEXT;
+        END;
+        $$ LANGUAGE plpgsql;
+      `);
 
     const migrationsDir = path.resolve(__dirname, '../../supabase/migrations');
 
