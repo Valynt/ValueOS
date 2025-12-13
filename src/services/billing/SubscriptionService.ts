@@ -33,7 +33,7 @@ class SubscriptionService {
       logger.info('Creating subscription', { tenantId, planTier });
 
       // Get or create customer
-      let customer = await CustomerService.getCustomerByTenantId(tenantId);
+      const customer = await CustomerService.getCustomerByTenantId(tenantId);
       if (!customer) {
         throw new Error('Customer not found. Create customer first.');
       }
