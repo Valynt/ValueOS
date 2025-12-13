@@ -1,10 +1,12 @@
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import { GenericContainer, StartedTestContainer } from 'testcontainers';
 import { Client } from 'pg';
 import fs from 'fs';
 import path from 'path';
 
 // Store container instance globally to stop it later
 let container: StartedPostgreSqlContainer;
+let redisContainer: StartedTestContainer | undefined;
 
 export async function setup() {
   console.log('🐳 Starting Postgres Testcontainer...');
@@ -22,6 +24,21 @@ export async function setup() {
 
   // 2. Set env var for tests to pick up
   process.env.DATABASE_URL = dbUrl;
+
+  // Start Redis testcontainer and set REDIS_URL for tests
+  try {
+    console.log('🐳 Starting Redis Testcontainer...');
+    redisContainer = await new GenericContainer('redis:7.0')
+      .withExposedPorts(6379)
+      .start();
+    const redisHost = redisContainer.getHost();
+    const redisPort = redisContainer.getMappedPort(6379);
+    const redisUrl = `redis://${redisHost}:${redisPort}`;
+    process.env.REDIS_URL = redisUrl;
+    console.log(`✅ Redis started at ${redisUrl}`);
+  } catch (err) {
+    console.warn('⚠️ Failed to start Redis testcontainer, continuing without it:', err);
+  }
 
   // 3. Connect to apply migrations
   const client = new Client({ connectionString: dbUrl });
@@ -118,5 +135,9 @@ export async function teardown() {
   if (container) {
     console.log('🛑 Stopping Postgres Testcontainer...');
     await container.stop();
+  }
+  if (redisContainer) {
+    console.log('🛑 Stopping Redis Testcontainer...');
+    await redisContainer.stop();
   }
 }
