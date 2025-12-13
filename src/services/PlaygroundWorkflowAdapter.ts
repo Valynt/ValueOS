@@ -1,13 +1,13 @@
 /**
  * Playground Workflow Adapter
  * 
- * Integrates Playground sessions with WorkflowOrchestrator.
+ * Integrates Playground sessions with UnifiedAgentOrchestrator.
  * Enables draft mode where rapid experimentation happens in Redis,
  * and only committed changes are persisted to Postgres.
  */
 
 import { logger } from '../lib/logger';
-import { WorkflowOrchestrator } from './WorkflowOrchestrator';
+import { UnifiedAgentOrchestrator, getUnifiedOrchestrator } from './UnifiedAgentOrchestrator';
 import { PlaygroundSessionService } from './PlaygroundSessionService';
 import { PlaygroundAutoSaveWorker, getAutoSaveWorker } from './PlaygroundAutoSave';
 import { SDUIPageDefinition } from '../sdui/schema';
@@ -25,13 +25,13 @@ export type ExecutionMode =
  * Playground workflow adapter
  */
 export class PlaygroundWorkflowAdapter {
-  private orchestrator: WorkflowOrchestrator;
+  private orchestrator: UnifiedAgentOrchestrator;
   private sessionService: PlaygroundSessionService;
   private mutationService: ComponentMutationService;
   private autoSaveWorker: PlaygroundAutoSaveWorker;
 
   constructor(
-    orchestrator: WorkflowOrchestrator,
+    orchestrator: UnifiedAgentOrchestrator,
     sessionService: PlaygroundSessionService
   ) {
     this.orchestrator = orchestrator;
@@ -369,7 +369,7 @@ export class PlaygroundWorkflowAdapter {
 let adapterInstance: PlaygroundWorkflowAdapter | null = null;
 
 export function getPlaygroundWorkflowAdapter(
-  orchestrator: WorkflowOrchestrator,
+  orchestrator: UnifiedAgentOrchestrator,
   sessionService: PlaygroundSessionService
 ): PlaygroundWorkflowAdapter {
   if (!adapterInstance) {
