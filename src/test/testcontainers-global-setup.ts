@@ -25,6 +25,13 @@ export async function setup() {
   // 2. Set env var for tests to pick up
   process.env.DATABASE_URL = dbUrl;
 
+  // Ensure coverage folders exist (vitest coverage reporter writes here)
+  try {
+    fs.mkdirSync(path.resolve(__dirname, '../../coverage/.tmp'), { recursive: true });
+  } catch (err) {
+    // ignore
+  }
+
   // Start Redis testcontainer and set REDIS_URL for tests
   try {
     console.log('🐳 Starting Redis Testcontainer...');
