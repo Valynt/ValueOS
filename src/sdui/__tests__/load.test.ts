@@ -172,7 +172,7 @@ describe('Load Testing', () => {
           ? `key-${i % 1000}` // Access existing
           : `key-new-${i}`; // New keys
         
-        let value = getCached(key);
+        const value = getCached(key);
         if (!value) {
           setCached(key, { value: `value-${i}` });
         }

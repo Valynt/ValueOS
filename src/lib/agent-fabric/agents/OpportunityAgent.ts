@@ -221,7 +221,7 @@ Return ONLY valid JSON in this exact format:
     tags: string[],
     contextText: string
   ): Promise<Capability[]> {
-    let capabilities: Capability[] = [];
+    const capabilities: Capability[] = [];
 
     if (tags.length > 0) {
       const byTags = await this.valueFabricService.getCapabilities({ tags });

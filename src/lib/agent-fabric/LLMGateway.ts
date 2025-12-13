@@ -106,7 +106,7 @@ export class LLMGateway {
     config: LLMConfig = {},
     maxIterations: number = 5
   ): Promise<LLMResponse> {
-    let currentMessages = [...messages];
+    const currentMessages = [...messages];
     let iterations = 0;
     let finalResponse: LLMResponse | null = null;
 

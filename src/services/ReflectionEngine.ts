@@ -208,7 +208,7 @@ const RUBRIC_CRITERIA: RubricCriterion[] = [
     description: 'No contradictions or inconsistencies within the output',
     weight: 1.0,
     evaluator: async (output, context) => {
-      let score = 10;
+      const score = 10;
       const suggestions: string[] = [];
 
       // Check for consistent terminology
@@ -327,7 +327,7 @@ const RUBRIC_CRITERIA: RubricCriterion[] = [
     description: 'Stays focused on the main topic without unnecessary tangents',
     weight: 1.0,
     evaluator: async (output, context) => {
-      let score = 10;
+      const score = 10;
       const suggestions: string[] = [];
 
       // This is a simplified check

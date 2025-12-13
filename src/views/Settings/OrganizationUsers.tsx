@@ -37,7 +37,7 @@ export const OrganizationUsers: React.FC = () => {
   const [inviteStatus, setInviteStatus] = useState<string | null>(null);
 
   const filteredAndSortedUsers = useMemo(() => {
-    let result = users.filter(user => {
+    const result = users.filter(user => {
       const matchesSearch = !searchQuery ||
         user.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.email.toLowerCase().includes(searchQuery.toLowerCase());
