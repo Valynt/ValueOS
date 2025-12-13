@@ -6,8 +6,9 @@ DO $$
 DECLARE
   t TEXT;
   fk_exists BOOLEAN;
+  tables TEXT[] := ARRAY['users','models','agents','agent_runs','agent_memory','api_keys','kpis','cases','workflows','workflow_states','shared_artifacts','audit_logs'];
 BEGIN
-  FOREACH t IN ARRAY['users','models','agents','agent_runs','agent_memory','api_keys','kpis','cases','workflows','workflow_states','shared_artifacts','audit_logs'] LOOP
+  FOREACH t IN ARRAY tables LOOP
     -- Ensure column exists
     EXECUTE format('ALTER TABLE IF EXISTS public.%I ADD COLUMN IF NOT EXISTS organization_id uuid', t);
 
@@ -100,13 +101,25 @@ DO $$
 DECLARE
   t name;
   trg text;
+  audit_tables name[] := ARRAY['users','agents','models','cases','workflows','workflow_states','shared_artifacts'];
 BEGIN
-  FOREACH t IN ARRAY['users','agents','models','cases','workflows','workflow_states','shared_artifacts'] LOOP
+  FOREACH t IN ARRAY audit_tables LOOP
     trg := format('audit_%s', t);
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name = t) AND NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname = trg) THEN
       EXECUTE format('CREATE TRIGGER %I AFTER INSERT OR UPDATE OR DELETE ON public.%I FOR EACH ROW EXECUTE FUNCTION public.audit_trigger()', trg, t);
     END IF;
   END LOOP;
+END;
+$$;
+
+-- Create update_timestamp function if it doesn't exist
+CREATE OR REPLACE FUNCTION public.update_timestamp()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
 END;
 $$;
 

@@ -35,7 +35,10 @@ export async function setup() {
         CREATE SCHEMA IF NOT EXISTS auth;
         CREATE TABLE IF NOT EXISTS auth.users (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          email TEXT
+          email TEXT,
+          raw_user_meta_data JSONB DEFAULT '{}'::jsonb,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
         );
         
         -- Mock auth.uid() function for tests
@@ -66,6 +69,9 @@ export async function setup() {
           END IF;
           IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
             CREATE ROLE service_role;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+            CREATE ROLE anon;
           END IF;
         END $$;
       `);
