@@ -49,7 +49,7 @@ export class ROIFormulaInterpreter {
       const intermediateSteps: FormulaStep[] = [];
       const startedAt = Date.now();
 
-      let processedFormula = this.preprocessFormula(formula, context);
+      const processedFormula = this.preprocessFormula(formula, context);
 
       if (trackSteps) {
         intermediateSteps.push({

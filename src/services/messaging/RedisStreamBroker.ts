@@ -88,7 +88,7 @@ export class RedisStreamBroker {
   ): Promise<void> {
     await this.initialize();
 
-    // eslint-disable-next-line no-constant-condition
+     
     while (true) {
       const response = await this.redis.xreadgroup(
         'GROUP',

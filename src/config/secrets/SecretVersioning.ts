@@ -89,7 +89,7 @@ export class SecretVersioning {
     const versionId = this.generateVersionId();
 
     // Get existing versions
-    let versions = this.versionStore.get(versionKey) || [];
+    const versions = this.versionStore.get(versionKey) || [];
 
     // Create new version entry
     const newVersion: SecretVersion = {

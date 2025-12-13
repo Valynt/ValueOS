@@ -4,8 +4,8 @@
 
 import { performance } from 'perf_hooks';
 import { renderPage } from '../../src/sdui/engine/renderPage';
-import { agentMemory } from '../../src/lib/agent-fabric/AgentMemory';
 import { sduiSanitizer } from '../../src/lib/security/SDUISanitizer';
+import { logger } from '../../src/lib/logger';
 
 interface BenchmarkResult {
   name: string;
@@ -57,18 +57,18 @@ class PerformanceBenchmark {
   }
 
   printResults(results: BenchmarkResult[]): void {
-    console.log('\n=== Performance Benchmark Results ===\n');
+    logger.info('\n=== Performance Benchmark Results ===\n');
     
     results.forEach((result) => {
-      console.log(`${result.name}:`);
-      console.log(`  Iterations: ${result.iterations}`);
-      console.log(`  Avg: ${result.avgTime.toFixed(2)}ms`);
-      console.log(`  Min: ${result.minTime.toFixed(2)}ms`);
-      console.log(`  Max: ${result.maxTime.toFixed(2)}ms`);
-      console.log(`  P95: ${result.p95Time.toFixed(2)}ms`);
-      console.log(`  P99: ${result.p99Time.toFixed(2)}ms`);
-      console.log(`  Ops/sec: ${result.opsPerSecond.toFixed(0)}`);
-      console.log('');
+      logger.info(`${result.name}:`);
+      logger.info(`  Iterations: ${result.iterations}`);
+      logger.info(`  Avg: ${result.avgTime.toFixed(2)}ms`);
+      logger.info(`  Min: ${result.minTime.toFixed(2)}ms`);
+      logger.info(`  Max: ${result.maxTime.toFixed(2)}ms`);
+      logger.info(`  P95: ${result.p95Time.toFixed(2)}ms`);
+      logger.info(`  P99: ${result.p99Time.toFixed(2)}ms`);
+      logger.info(`  Ops/sec: ${result.opsPerSecond.toFixed(0)}`);
+      logger.info('');
     });
   }
 }

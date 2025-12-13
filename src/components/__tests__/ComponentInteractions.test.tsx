@@ -461,7 +461,7 @@ describe('ComponentInteractions', () => {
 
     it('should throttle expensive operations', () => {
       const throttleDelay = 100;
-      let operationCount = 0;
+      const operationCount = 0;
 
       expect(throttleDelay).toBe(100);
     });
