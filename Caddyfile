@@ -60,7 +60,7 @@
     }
     
     # Reverse proxy to Vite dev server
-    reverse_proxy app:3000 {
+    reverse_proxy app:5173 {
         # Health check configuration
         health_uri /
         health_interval 10s
@@ -258,7 +258,7 @@ header @static {
 #         }
 #     }
 #     
-#     reverse_proxy app:3000 {
+#     reverse_proxy app:5173 {
 #         health_uri /health
 #         health_interval 30s
 #         health_timeout 10s

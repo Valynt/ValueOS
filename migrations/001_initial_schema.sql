@@ -47,6 +47,19 @@ CREATE TABLE IF NOT EXISTS users (
     UNIQUE(organization_id, email)
 );
 
+-- Defensive: ensure organization_id exists & FK on users
+ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id UUID;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_schema = 'public' AND table_name = 'users' AND constraint_name = 'users_org_fk'
+  ) THEN
+    ALTER TABLE users ADD CONSTRAINT users_org_fk FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+  END IF;
+END;
+$$;
+
 -- API Keys (for service-to-service auth)
 CREATE TABLE IF NOT EXISTS api_keys (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -62,6 +75,19 @@ CREATE TABLE IF NOT EXISTS api_keys (
     deleted_at TIMESTAMP WITH TIME ZONE
 );
 
+-- Defensive: ensure organization_id exists & FK on api_keys
+ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS organization_id UUID;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_schema = 'public' AND table_name = 'api_keys' AND constraint_name = 'api_keys_org_fk'
+  ) THEN
+    ALTER TABLE api_keys ADD CONSTRAINT api_keys_org_fk FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+  END IF;
+END;
+$$;
+
 -- Audit Log (multi-tenant aware)
 CREATE TABLE IF NOT EXISTS audit_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -75,6 +101,19 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     user_agent TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Defensive: ensure organization_id exists & FK on audit_logs
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS organization_id UUID;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_schema = 'public' AND table_name = 'audit_logs' AND constraint_name = 'audit_logs_org_fk'
+  ) THEN
+    ALTER TABLE audit_logs ADD CONSTRAINT audit_logs_org_fk FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+  END IF;
+END;
+$$;
 
 -- Cases (Agent interaction sessions)
 CREATE TABLE IF NOT EXISTS cases (
@@ -92,6 +131,19 @@ CREATE TABLE IF NOT EXISTS cases (
     closed_at TIMESTAMP WITH TIME ZONE
 );
 
+-- Defensive: ensure organization_id exists & FK on cases
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS organization_id UUID;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_schema = 'public' AND table_name = 'cases' AND constraint_name = 'cases_org_fk'
+  ) THEN
+    ALTER TABLE cases ADD CONSTRAINT cases_org_fk FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+  END IF;
+END;
+$$;
+
 -- Workflows (Agent orchestration DAGs)
 CREATE TABLE IF NOT EXISTS workflows (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -106,6 +158,19 @@ CREATE TABLE IF NOT EXISTS workflows (
 
     UNIQUE(organization_id, name, version)
 );
+
+-- Defensive: ensure organization_id exists & FK on workflows
+ALTER TABLE workflows ADD COLUMN IF NOT EXISTS organization_id UUID;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_schema = 'public' AND table_name = 'workflows' AND constraint_name = 'workflows_org_fk'
+  ) THEN
+    ALTER TABLE workflows ADD CONSTRAINT workflows_org_fk FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+  END IF;
+END;
+$$;
 
 -- Workflow States (Execution state persistence)
 CREATE TABLE IF NOT EXISTS workflow_states (
@@ -123,6 +188,19 @@ CREATE TABLE IF NOT EXISTS workflow_states (
     UNIQUE(workflow_id, case_id)
 );
 
+-- Defensive: ensure organization_id exists & FK on workflow_states
+ALTER TABLE workflow_states ADD COLUMN IF NOT EXISTS organization_id UUID;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_schema = 'public' AND table_name = 'workflow_states' AND constraint_name = 'workflow_states_org_fk'
+  ) THEN
+    ALTER TABLE workflow_states ADD CONSTRAINT workflow_states_org_fk FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+  END IF;
+END;
+$$;
+
 -- Shared Artifacts (Cross-agent data sharing)
 CREATE TABLE IF NOT EXISTS shared_artifacts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -136,6 +214,19 @@ CREATE TABLE IF NOT EXISTS shared_artifacts (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Defensive: ensure organization_id exists & FK on shared_artifacts
+ALTER TABLE shared_artifacts ADD COLUMN IF NOT EXISTS organization_id UUID;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_schema = 'public' AND table_name = 'shared_artifacts' AND constraint_name = 'shared_artifacts_org_fk'
+  ) THEN
+    ALTER TABLE shared_artifacts ADD CONSTRAINT shared_artifacts_org_fk FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+  END IF;
+END;
+$$;
 
 -- ============================================
 -- Agent Fabric & Orchestration Tables
@@ -157,6 +248,19 @@ CREATE TABLE IF NOT EXISTS agents (
     UNIQUE(organization_id, name)
 );
 
+-- Defensive: ensure organization_id exists & FK on agents
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS organization_id UUID;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_schema = 'public' AND table_name = 'agents' AND constraint_name = 'agents_org_fk'
+  ) THEN
+    ALTER TABLE agents ADD CONSTRAINT agents_org_fk FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+  END IF;
+END;
+$$;
+
 -- Agent Runs (execution history)
 CREATE TABLE IF NOT EXISTS agent_runs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -174,6 +278,19 @@ CREATE TABLE IF NOT EXISTS agent_runs (
     completed_at TIMESTAMP WITH TIME ZONE
 );
 
+-- Defensive: ensure organization_id exists & FK on agent_runs
+ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS organization_id UUID;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_schema = 'public' AND table_name = 'agent_runs' AND constraint_name = 'agent_runs_org_fk'
+  ) THEN
+    ALTER TABLE agent_runs ADD CONSTRAINT agent_runs_org_fk FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+  END IF;
+END;
+$$;
+
 -- Agent Memory (semantic storage for RAG)
 CREATE TABLE IF NOT EXISTS agent_memory (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -185,6 +302,19 @@ CREATE TABLE IF NOT EXISTS agent_memory (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Defensive: ensure organization_id exists & FK on agent_memory
+ALTER TABLE agent_memory ADD COLUMN IF NOT EXISTS organization_id UUID;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_schema = 'public' AND table_name = 'agent_memory' AND constraint_name = 'agent_memory_org_fk'
+  ) THEN
+    ALTER TABLE agent_memory ADD CONSTRAINT agent_memory_org_fk FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+  END IF;
+END;
+$$;
 
 -- ============================================
 -- Business Logic Tables (Value Modeling)
@@ -206,6 +336,19 @@ CREATE TABLE IF NOT EXISTS models (
 
     UNIQUE(organization_id, name)
 );
+
+-- Defensive: ensure organization_id exists & FK on models
+ALTER TABLE models ADD COLUMN IF NOT EXISTS organization_id UUID;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_schema = 'public' AND table_name = 'models' AND constraint_name = 'models_org_fk'
+  ) THEN
+    ALTER TABLE models ADD CONSTRAINT models_org_fk FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+  END IF;
+END;
+$$;
 
 -- KPI Definitions
 CREATE TABLE IF NOT EXISTS kpis (
@@ -245,6 +388,19 @@ BEGIN
             EXECUTE format('ALTER TABLE public.%I ADD CONSTRAINT %I_org_fk FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE', t, t);
         END IF;
     END LOOP;
+END;
+$$;
+
+-- Defensive: ensure organization_id exists & FK on kpis
+ALTER TABLE kpis ADD COLUMN IF NOT EXISTS organization_id UUID;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_schema = 'public' AND table_name = 'kpis' AND constraint_name = 'kpis_org_fk'
+  ) THEN
+    ALTER TABLE kpis ADD CONSTRAINT kpis_org_fk FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+  END IF;
 END;
 $$;
 
@@ -501,6 +657,35 @@ CREATE TRIGGER update_agents_timestamp BEFORE UPDATE ON agents
 CREATE TRIGGER update_models_timestamp BEFORE UPDATE ON models
     FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
+-- Additional update_timestamp triggers only if updated_at column exists
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'cases' AND column_name = 'updated_at') AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_cases_timestamp') THEN
+    CREATE TRIGGER update_cases_timestamp BEFORE UPDATE ON cases FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'workflows' AND column_name = 'updated_at') AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_workflows_timestamp') THEN
+    CREATE TRIGGER update_workflows_timestamp BEFORE UPDATE ON workflows FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'workflow_states' AND column_name = 'updated_at') AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_workflow_states_timestamp') THEN
+    CREATE TRIGGER update_workflow_states_timestamp BEFORE UPDATE ON workflow_states FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'shared_artifacts' AND column_name = 'updated_at') AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_shared_artifacts_timestamp') THEN
+    CREATE TRIGGER update_shared_artifacts_timestamp BEFORE UPDATE ON shared_artifacts FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'agent_runs' AND column_name = 'updated_at') AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_agent_runs_timestamp') THEN
+    CREATE TRIGGER update_agent_runs_timestamp BEFORE UPDATE ON agent_runs FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'agent_memory' AND column_name = 'updated_at') AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_agent_memory_timestamp') THEN
+    CREATE TRIGGER update_agent_memory_timestamp BEFORE UPDATE ON agent_memory FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+  END IF;
+END;
+$$;
+
 -- Audit trigger (logs all changes) - SECURITY DEFINER for RLS bypass
 CREATE OR REPLACE FUNCTION audit_trigger()
 RETURNS TRIGGER
@@ -550,23 +735,58 @@ $$;
 -- Lock down execute permissions on audit trigger
 REVOKE ALL ON FUNCTION audit_trigger() FROM PUBLIC;
 
-CREATE TRIGGER audit_users AFTER INSERT OR UPDATE OR DELETE ON users
-    FOR EACH ROW EXECUTE FUNCTION audit_trigger();
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users') AND NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname = 'audit_users') THEN
+    CREATE TRIGGER audit_users AFTER INSERT OR UPDATE OR DELETE ON users FOR EACH ROW EXECUTE FUNCTION audit_trigger();
+  END IF;
+END;
+$$;
 
-CREATE TRIGGER audit_agents AFTER INSERT OR UPDATE OR DELETE ON agents
-    FOR EACH ROW EXECUTE FUNCTION audit_trigger();
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'agents') AND NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname = 'audit_agents') THEN
+    CREATE TRIGGER audit_agents AFTER INSERT OR UPDATE OR DELETE ON agents FOR EACH ROW EXECUTE FUNCTION audit_trigger();
+  END IF;
+END;
+$$;
 
-CREATE TRIGGER audit_models AFTER INSERT OR UPDATE OR DELETE ON models
-    FOR EACH ROW EXECUTE FUNCTION audit_trigger();
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'models') AND NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname = 'audit_models') THEN
+    CREATE TRIGGER audit_models AFTER INSERT OR UPDATE OR DELETE ON models FOR EACH ROW EXECUTE FUNCTION audit_trigger();
+  END IF;
+END;
+$$;
 
-CREATE TRIGGER audit_cases AFTER INSERT OR UPDATE OR DELETE ON cases
-    FOR EACH ROW EXECUTE FUNCTION audit_trigger();
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'cases') AND NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname = 'audit_cases') THEN
+    CREATE TRIGGER audit_cases AFTER INSERT OR UPDATE OR DELETE ON cases FOR EACH ROW EXECUTE FUNCTION audit_trigger();
+  END IF;
+END;
+$$;
 
-CREATE TRIGGER audit_workflows AFTER INSERT OR UPDATE OR DELETE ON workflows
-    FOR EACH ROW EXECUTE FUNCTION audit_trigger();
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'workflows') AND NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname = 'audit_workflows') THEN
+    CREATE TRIGGER audit_workflows AFTER INSERT OR UPDATE OR DELETE ON workflows FOR EACH ROW EXECUTE FUNCTION audit_trigger();
+  END IF;
+END;
+$$;
 
-CREATE TRIGGER audit_workflow_states AFTER INSERT OR UPDATE OR DELETE ON workflow_states
-    FOR EACH ROW EXECUTE FUNCTION audit_trigger();
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'workflow_states') AND NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname = 'audit_workflow_states') THEN
+    CREATE TRIGGER audit_workflow_states AFTER INSERT OR UPDATE OR DELETE ON workflow_states FOR EACH ROW EXECUTE FUNCTION audit_trigger();
+  END IF;
+END;
+$$;
 
-CREATE TRIGGER audit_shared_artifacts AFTER INSERT OR UPDATE OR DELETE ON shared_artifacts
-    FOR EACH ROW EXECUTE FUNCTION audit_trigger();
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'shared_artifacts') AND NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname = 'audit_shared_artifacts') THEN
+    CREATE TRIGGER audit_shared_artifacts AFTER INSERT OR UPDATE OR DELETE ON shared_artifacts FOR EACH ROW EXECUTE FUNCTION audit_trigger();
+  END IF;
+END;
+$$;
