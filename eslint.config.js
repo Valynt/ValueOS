@@ -46,7 +46,11 @@ const baseConfig = {
   files: ["**/*.{ts,tsx,js,jsx}"],
   languageOptions: {
     ecmaVersion: 2020,
-    globals: globals.browser,
+    globals: {
+      ...globals.browser,
+      ...globals.node,
+      NodeJS: "readonly",
+    },
     parser: tseslint.parser,
     parserOptions: {
       ecmaVersion: "latest",
@@ -110,6 +114,21 @@ const testOverrides = {
     "tests/**",
     "test/**",
   ],
+  languageOptions: {
+    globals: {
+      ...globals.node,
+      describe: "readonly",
+      it: "readonly",
+      test: "readonly",
+      expect: "readonly",
+      beforeEach: "readonly",
+      afterEach: "readonly",
+      beforeAll: "readonly",
+      afterAll: "readonly",
+      vi: "readonly",
+      vitest: "readonly",
+    },
+  },
   rules: {
     "@typescript-eslint/no-explicit-any": "off",
     "@typescript-eslint/no-unsafe-function-type": "off",
