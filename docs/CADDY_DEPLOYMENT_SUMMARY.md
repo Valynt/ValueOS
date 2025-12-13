@@ -43,7 +43,7 @@ Based on your message, you've successfully deployed:
 **File:** `Caddyfile`
 
 **Features:**
-- Reverse proxy to app:3000
+- Reverse proxy to app:5173
 - Automatic compression (gzip, zstd)
 - Security headers (XSS, CSP, CORS)
 - Health check endpoint
@@ -312,7 +312,7 @@ If you had nginx before:
 1. **Add domain** to Caddyfile:
    ```caddyfile
    yourdomain.com {
-       reverse_proxy app:3000
+       reverse_proxy app:5173
        # Automatic HTTPS!
    }
    ```

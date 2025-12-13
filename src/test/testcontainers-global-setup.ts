@@ -51,6 +51,23 @@ export async function setup() {
           RETURN 'authenticated'::TEXT;
         END;
         $$ LANGUAGE plpgsql;
+
+        -- Mock auth.jwt() function returns JSON with role and organization
+        CREATE OR REPLACE FUNCTION auth.jwt() RETURNS jsonb AS $$
+        BEGIN
+          RETURN jsonb_build_object('role', 'service_role', 'organization_id', 'org-0001');
+        END;
+        $$ LANGUAGE plpgsql;
+
+        -- Ensure commonly used roles exist in vanilla Postgres test container
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+            CREATE ROLE authenticated;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+            CREATE ROLE service_role;
+          END IF;
+        END $$;
       `);
 
     const migrationsDir = path.resolve(__dirname, '../../supabase/migrations');
@@ -67,7 +84,18 @@ export async function setup() {
         const filePath = path.join(migrationsDir, file);
         const sql = fs.readFileSync(filePath, 'utf8');
         console.log(`   Running ${file}...`);
-        await client.query(sql);
+        try {
+          await client.query(sql);
+        } catch (err: any) {
+          // If extensions like pgvector are unavailable when running against a vanilla Postgres,
+          // log and continue. This keeps tests from failing due to optional extensions not present.
+          if (err && (err.code === '0A000' || err.message?.includes('extension') || err.message?.includes('vector.control'))) {
+            console.warn(`   ⚠️ Skipping ${file} due to missing DB extension: ${err.message}`);
+            continue;
+          }
+          console.error('❌ Failed to apply migrations:', err);
+          throw err;
+        }
       }
     } else {
       console.warn('⚠️ No migrations directory found at', migrationsDir);

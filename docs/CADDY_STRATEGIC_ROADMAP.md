@@ -144,7 +144,7 @@ Internet → Caddy (80/443) → App (3000) → PostgreSQL/Redis
            interval 5m
            burst 10
        }
-       reverse_proxy app:3000 {
+       reverse_proxy app:5173 {
            header_up X-Custom-Domain {host}
        }
    }
@@ -207,7 +207,7 @@ Internet → Caddy (80/443) → App (3000) → PostgreSQL/Redis
        
        handle @tenant {
            header X-Tenant-ID {labels.2}
-           reverse_proxy app:3000 {
+           reverse_proxy app:5173 {
                header_up X-Tenant-ID {labels.2}
            }
        }
