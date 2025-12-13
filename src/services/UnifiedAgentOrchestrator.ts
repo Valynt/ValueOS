@@ -26,6 +26,10 @@ import { AgentRegistry, AgentRecord } from './AgentRegistry';
 import { AgentRoutingLayer, StageRoute } from './AgentRoutingLayer';
 import { CircuitBreakerManager } from './CircuitBreaker';
 import { supabase } from '../lib/supabase';
+import { getAutonomyConfig } from '../config/autonomy';
+import { MemorySystem } from '../lib/agent-fabric/MemorySystem';
+import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
+import { llmConfig } from '../config/llm';
 
 // ============================================================================
 // Types
@@ -76,6 +80,18 @@ export interface SubgoalDefinition {
   estimatedComplexity: number;
 }
 
+
+export interface SimulationResult {
+  simulation_id: string;
+  workflow_definition_id: string;
+  predicted_outcome: Record<string, unknown>;
+  confidence_score: number;
+  risk_assessment: Record<string, unknown>;
+  steps_simulated: Record<string, unknown>[];
+  duration_estimate_seconds: number;
+  success_probability: number;
+}
+
 export interface OrchestratorConfig {
   /** Enable workflow DAG execution */
   enableWorkflows: boolean;
@@ -116,12 +132,17 @@ export class UnifiedAgentOrchestrator {
   private routingLayer: AgentRoutingLayer;
   private circuitBreakers: CircuitBreakerManager;
   private config: OrchestratorConfig;
+  private memorySystem: MemorySystem;
+  private llmGateway: LLMGateway;
+  private executionStartTimes: Map<string, number> = new Map();
 
   constructor(config: Partial<OrchestratorConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.registry = new AgentRegistry();
     this.routingLayer = new AgentRoutingLayer(this.registry);
     this.circuitBreakers = new CircuitBreakerManager();
+    this.llmGateway = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
+    this.memorySystem = new MemorySystem(supabase, this.llmGateway);
   }
 
   // ==========================================================================
