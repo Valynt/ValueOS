@@ -1,22 +1,16 @@
 {
   "name": "ValueCanvas",
-  "image": "mcr.microsoft.com/devcontainers/typescript-node:20",
-
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  
   "features": {
-    "ghcr.io/devcontainers/features/github-cli:1": {},
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {
-      "version": "latest",
-      "moby": true,
-      "dockerDashComposeVersion": "v2"
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
     },
-    "ghcr.io/devcontainers/features/common-utils:2": {
-      "installZsh": true,
-      "installOhMyZsh": true,
-      "upgradePackages": true
-    }
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
   },
 
-  "remoteUser": "node",
+  "remoteUser": "vscode",
 
   "containerEnv": {
     "ENVIRONMENT": "development",
@@ -33,38 +27,17 @@
   "portsAttributes": {
     "5173": {
       "label": "Frontend (Vite)",
-      "onAutoForward": "notify",
-      "protocol": "https"
+      "onAutoForward": "notify"
     },
     "3001": {
       "label": "Backend API",
-      "onAutoForward": "silent",
-      "protocol": "https"
+      "onAutoForward": "silent"
     },
     "54321": {
       "label": "Supabase Studio",
-      "onAutoForward": "silent",
-      "protocol": "https"
-    },
-    "8000": {
-      "label": "API Gateway",
       "onAutoForward": "silent"
-    },
-    "16686": {
-      "label": "Jaeger UI",
-      "onAutoForward": "silent",
-      "protocol": "https"
-    },
-    "9090": {
-      "label": "Prometheus",
-      "onAutoForward": "silent",
-      "protocol": "https"
     }
   },
-
-  "mounts": [
-    "source=valuecanvas-node-modules,target=${containerWorkspaceFolder}/node_modules,type=volume"
-  ],
 
   "customizations": {
     "vscode": {
@@ -73,43 +46,15 @@
         "esbenp.prettier-vscode",
         "bradlc.vscode-tailwindcss",
         "ms-azuretools.vscode-docker",
-        "GitHub.copilot",
-        "GitHub.copilot-chat",
-        "ms-vscode.vscode-typescript-next",
-        "Prisma.prisma",
-        "redhat.vscode-yaml"
+        "Prisma.prisma"
       ],
       "settings": {
         "editor.formatOnSave": true,
         "editor.defaultFormatter": "esbenp.prettier-vscode",
         "editor.codeActionsOnSave": {
-          "source.fixAll.eslint": "explicit",
-          "source.organizeImports": "explicit"
+          "source.fixAll.eslint": "explicit"
         },
-        "editor.rulers": [80, 120],
-        "editor.tabSize": 2,
-        "files.eol": "\n",
-        "files.trimTrailingWhitespace": true,
-        "files.insertFinalNewline": true,
-        "eslint.validate": [
-          "javascript",
-          "javascriptreact",
-          "typescript",
-          "typescriptreact"
-        ],
-        "typescript.tsdk": "node_modules/typescript/lib",
-        "typescript.enablePromptUseWorkspaceTsdk": true,
-        "search.exclude": {
-          "**/node_modules": true,
-          "**/dist": true,
-          "**/coverage": true,
-          "**/.next": true
-        },
-        "files.watcherExclude": {
-          "**/node_modules/**": true,
-          "**/dist/**": true,
-          "**/coverage/**": true
-        }
+        "typescript.tsdk": "node_modules/typescript/lib"
       }
     }
   }
