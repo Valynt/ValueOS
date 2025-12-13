@@ -37,10 +37,20 @@ export default defineConfig({
       'test/performance/**',
     ],
     // ⚠️ Important: Run sequentially to avoid race conditions on the single container
-    fileParallelism: false,
-    // Increase test timeout for db operations
-    testTimeout: 30000,
-    hookTimeout: 120000, // Increased for Docker operations
+    // Enable parallel execution with pooling
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: false,
+        maxForks: 4,
+        minForks: 1,
+      },
+    },
+    // Reduce timeouts for faster feedback
+    testTimeout: 15000,
+    hookTimeout: 60000,
+    // Isolate tests to prevent cross-contamination
+    isolate: true,
   },
   resolve: {
     alias: {
