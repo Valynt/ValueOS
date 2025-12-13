@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AlertCircle, ChevronDown, ChevronRight, Clock, XCircle, RotateCcw, Activity } from 'lucide-react';
-import { workflowOrchestrator } from '../../services/WorkflowOrchestrator';
+import { getUnifiedOrchestrator } from '../../services/UnifiedAgentOrchestrator';
 import { workflowCompensation } from '../../services/WorkflowCompensation';
 import { WorkflowExecution, WorkflowExecutionLog } from '../../types/workflow';
 
@@ -26,8 +26,8 @@ export function WorkflowErrorPanel({ executionId, onRetry, onRollback, onClose }
     try {
       setLoading(true);
       const [execData, logsData, rollbackAllowed] = await Promise.all([
-        workflowOrchestrator.getExecutionStatus(executionId),
-        workflowOrchestrator.getExecutionLogs(executionId),
+        getUnifiedOrchestrator().getExecutionStatus(executionId),
+        getUnifiedOrchestrator().getExecutionLogs(executionId),
         workflowCompensation.canRollback(executionId)
       ]);
 
