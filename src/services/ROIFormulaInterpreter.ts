@@ -15,7 +15,7 @@
  * - "NPV(0.10, cash_flow_1, cash_flow_2, cash_flow_3)"
  */
 
-import { logger } from '../lib/logger';
+// import { logger } from '../lib/logger';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type {
   FormulaVariable,
@@ -309,16 +309,18 @@ export class ROIFormulaInterpreter {
         if (args.length !== 3) throw new Error('IF requires 3 arguments');
         return args[0] !== 0 ? args[1] : args[2];
 
-      case 'ROUND':
+      case 'ROUND': {
         if (args.length < 1 || args.length > 2) throw new Error('ROUND requires 1 or 2 arguments');
         const decimals = args[1] !== undefined ? args[1] : 0;
         return Math.round(args[0] * Math.pow(10, decimals)) / Math.pow(10, decimals);
+      }
 
-      case 'NPV':
+      case 'NPV': {
         if (args.length < 2) throw new Error('NPV requires at least 2 arguments (rate, cashflow1, ...)');
         const rate = args[0];
         const cashflows = args.slice(1);
         return cashflows.reduce((npv, cf, index) => npv + cf / Math.pow(1 + rate, index + 1), 0);
+      }
 
       case 'ABS':
         return Math.abs(args[0]);

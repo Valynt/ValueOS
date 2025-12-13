@@ -12,7 +12,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { performance } from 'perf_hooks';
 import { sanitizeProps } from '../security/sanitization';
 import { validateSession, createSessionContext, type SessionContext } from '../security/sessionValidation';
-import { resetSecurityMetrics, getSecurityMetrics } from '../security/metrics';
+import { resetSecurityMetrics//, getSecurityMetrics } from '../security/metrics';
 
 describe('Load Testing', () => {
   beforeEach(() => {
@@ -188,7 +188,7 @@ describe('Load Testing', () => {
   describe('Rate Limiting Under Load', () => {
     it('should enforce rate limits under burst traffic', () => {
       const rateLimiter = new Map<string, { count: number; resetTime: number }>();
-      const RATE_LIMIT = 100;
+      const _RATE_LIMIT = 100;
       const WINDOW_MS = 60000;
       let blocked = 0;
 
@@ -222,7 +222,7 @@ describe('Load Testing', () => {
 
     it('should handle multiple organizations concurrently', () => {
       const rateLimiter = new Map<string, { count: number; resetTime: number }>();
-      const RATE_LIMIT = 100;
+      const _RATE_LIMIT = 100;
       const WINDOW_MS = 60000;
       const orgIds = Array(100).fill(0).map((_, i) => `org-${i}`);
 
