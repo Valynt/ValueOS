@@ -26,7 +26,7 @@ export const OrganizationUsers: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [deptFilter, setDeptFilter] = useState('all');
+  const [deptFilter, _setDeptFilter] = useState('all');
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [sortColumn, setSortColumn] = useState<keyof OrganizationUser>('fullName');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -173,6 +173,7 @@ export const OrganizationUsers: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by name or email..."
+                aria-label="Search users by name or email"
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>

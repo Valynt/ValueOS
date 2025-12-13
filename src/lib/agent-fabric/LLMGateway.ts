@@ -6,7 +6,7 @@ import { sanitizeLLMContent } from '../../utils/security';
 import { securityLogger } from '../../services/SecurityLogger';
 import { llmProxyClient } from '../../services/LlmProxyClient';
 import { AgentCircuitBreaker } from './CircuitBreaker';
-import { logger } from '../logger';
+// import { logger } from '../logger';
 
 export class LLMGateway {
   private provider: LLMProvider;

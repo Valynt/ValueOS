@@ -67,7 +67,7 @@ describe('ComponentInteractions', () => {
     });
 
     it('should apply tool action to selected component', () => {
-      const component = { id: 'comp-1', type: 'chart' };
+      const _component = { id: 'comp-1', type: 'chart' };
       const tool = 'delete';
 
       mockComponents.canvas.selectedComponent = component;
@@ -79,7 +79,7 @@ describe('ComponentInteractions', () => {
 
   describe('Canvas-Sidebar Interaction', () => {
     it('should show component properties in sidebar', () => {
-      const component = {
+      const _component = {
         id: 'comp-1',
         type: 'chart',
         props: { title: 'Revenue', type: 'line' }
@@ -93,7 +93,7 @@ describe('ComponentInteractions', () => {
     });
 
     it('should update component from sidebar changes', () => {
-      const component = { id: 'comp-1', props: { title: 'Revenue' } };
+      const _component = { id: 'comp-1', props: { title: 'Revenue' } };
       const updates = { title: 'Updated Revenue' };
 
       mockHandlers.onDataUpdate(component.id, updates);
@@ -109,7 +109,7 @@ describe('ComponentInteractions', () => {
     });
 
     it('should sync sidebar state with canvas selection', () => {
-      const component = { id: 'comp-1', type: 'chart' };
+      const _component = { id: 'comp-1', type: 'chart' };
       
       mockHandlers.onComponentSelect(component);
       mockComponents.canvas.selectedComponent = component;
@@ -328,7 +328,7 @@ describe('ComponentInteractions', () => {
     });
 
     it('should handle component updates', () => {
-      const component = {
+      const _component = {
         id: 'comp-1',
         props: { value: 100 },
         shouldUpdate: true
@@ -403,7 +403,7 @@ describe('ComponentInteractions', () => {
 
     it('should execute context menu action', () => {
       const action = 'delete';
-      const component = { id: 'comp-1' };
+      const _component = { id: 'comp-1' };
 
       mockHandlers.onToolSelect(action);
 
@@ -430,7 +430,7 @@ describe('ComponentInteractions', () => {
     });
 
     it('should handle component-specific shortcuts', () => {
-      const component = { id: 'comp-1', type: 'chart' };
+      const _component = { id: 'comp-1', type: 'chart' };
       const shortcut = 'Ctrl+E'; // Edit chart
 
       expect(shortcut).toBe('Ctrl+E');
@@ -454,20 +454,20 @@ describe('ComponentInteractions', () => {
       let updateCount = 0;
 
       // Simulate debounced updates
-      const update = () => updateCount++;
+      const _update = () => updateCount++;
 
       expect(debounceDelay).toBe(300);
     });
 
     it('should throttle expensive operations', () => {
       const throttleDelay = 100;
-      const operationCount = 0;
+      const _operationCount = 0;
 
       expect(throttleDelay).toBe(100);
     });
 
     it('should memoize component renders', () => {
-      const component = {
+      const _component = {
         id: 'comp-1',
         props: { value: 100 },
         memoized: true

@@ -133,7 +133,7 @@ export class SecretVersioning {
   async getVersions(
     tenantId: string,
     secretKey: string,
-    userId?: string
+    _userId?: string
   ): Promise<SecretVersion[]> {
     const versionKey = this.getVersionKey(tenantId, secretKey);
     const versions = this.versionStore.get(versionKey) || [];
@@ -158,7 +158,7 @@ export class SecretVersioning {
     tenantId: string,
     secretKey: string,
     versionId: string,
-    userId?: string
+    _userId?: string
   ): Promise<SecretVersion | null> {
     const versionKey = this.getVersionKey(tenantId, secretKey);
     const versions = this.versionStore.get(versionKey) || [];
