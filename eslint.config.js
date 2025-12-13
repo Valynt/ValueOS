@@ -50,6 +50,10 @@ const baseConfig = {
       ...globals.browser,
       ...globals.node,
       NodeJS: "readonly",
+      RequestInit: "readonly",
+      RequestInfo: "readonly",
+      HeadersInit: "readonly",
+      BufferSource: "readonly",
     },
     parser: tseslint.parser,
     parserOptions: {
@@ -127,6 +131,7 @@ const testOverrides = {
       afterAll: "readonly",
       vi: "readonly",
       vitest: "readonly",
+      jest: "readonly",
     },
   },
   rules: {
@@ -145,4 +150,20 @@ const testOverrides = {
   },
 };
 
-export default [ignoresConfig, baseConfig, testOverrides];
+// k6 load test overrides
+const k6Overrides = {
+  files: ["**/*.k6.js", "**/load-test*.js", "**/performance-test*.js"],
+  languageOptions: {
+    globals: {
+      ...globals.node,
+      __ENV: "readonly",
+      __VU: "readonly",
+      __ITER: "readonly",
+    },
+  },
+  rules: {
+    "no-console": "off",
+  },
+};
+
+export default [ignoresConfig, baseConfig, testOverrides, k6Overrides];
