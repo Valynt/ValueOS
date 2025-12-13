@@ -414,6 +414,183 @@ export class UnifiedAgentOrchestrator {
   /**
    * Execute DAG stages asynchronously
    */
+
+  /**
+   * Simulate workflow execution without actually running it
+   * Uses LLM to predict outcomes based on similar past episodes
+   */
+  async simulateWorkflow(
+    workflowDefinitionId: string,
+    context: Record<string, any> = {},
+    options?: {
+      maxSteps?: number;
+      stopOnFailure?: boolean;
+    }
+  ): Promise<SimulationResult> {
+    if (!this.config.enableSimulation) {
+      throw new Error('Simulation is disabled');
+    }
+
+    const simulationId = uuidv4();
+    const startTime = Date.now();
+
+    logger.info('Starting workflow simulation', {
+      simulationId,
+      workflowDefinitionId,
+    });
+
+    // Get workflow definition
+    const { data: definition, error: defError } = await supabase
+      .from('workflow_definitions')
+      .select('*')
+      .eq('id', workflowDefinitionId)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (defError || !definition) {
+      throw new Error(`Workflow definition not found: ${workflowDefinitionId}`);
+    }
+
+    const dag: WorkflowDAG = definition.dag_schema as WorkflowDAG;
+
+    // Retrieve similar past episodes for prediction
+    const similarEpisodes = await this.memorySystem.retrieveSimilarEpisodes(
+      context,
+      5
+    );
+
+    // Simulate each stage
+    const stepsSimulated: any[] = [];
+    let currentStageId = dag.initial_stage;
+    let simulationContext = { ...context };
+    let stepNumber = 0;
+    const maxSteps = options?.maxSteps || 50;
+    let totalConfidence = 0;
+    let successProbability = 1.0;
+
+    while (currentStageId && stepNumber < maxSteps) {
+      const stage = dag.stages.find((s) => s.id === currentStageId);
+      if (!stage) break;
+
+      stepNumber++;
+
+      // Predict stage outcome using LLM
+      const prediction = await this.predictStageOutcome(
+        stage,
+        simulationContext,
+        similarEpisodes
+      );
+
+      stepsSimulated.push({
+        stage_id: currentStageId,
+        stage_name: stage.name,
+        predicted_outcome: prediction.outcome,
+        confidence: prediction.confidence,
+        estimated_duration_seconds: prediction.estimatedDuration,
+      });
+
+      totalConfidence += prediction.confidence;
+      successProbability *= prediction.confidence;
+
+      // Update context with predicted outcome
+      simulationContext = {
+        ...simulationContext,
+        ...prediction.outcome,
+      };
+
+      // Find next stage
+      const transition = stage.transitions?.find((t) => {
+        if (t.condition) {
+          // Evaluate condition (simplified)
+          return prediction.outcome.success !== false;
+        }
+        return true;
+      });
+
+      currentStageId = transition?.to_stage || null;
+
+      if (dag.final_stages.includes(currentStageId || '')) {
+        break;
+      }
+    }
+
+    const duration = Date.now() - startTime;
+    const avgConfidence = stepsSimulated.length > 0 ? totalConfidence / stepsSimulated.length : 0;
+
+    // Assess risks
+    const riskAssessment = {
+      low_confidence_steps: stepsSimulated.filter(s => s.confidence < 0.7).length,
+      estimated_cost_usd: stepsSimulated.length * 0.01,
+      requires_approval: stepsSimulated.some(s => s.stage_name.includes('delete') || s.stage_name.includes('remove')),
+    };
+
+    const result: SimulationResult = {
+      simulation_id: simulationId,
+      workflow_definition_id: workflowDefinitionId,
+      predicted_outcome: simulationContext,
+      confidence_score: avgConfidence,
+      risk_assessment: riskAssessment,
+      steps_simulated: stepsSimulated,
+      duration_estimate_seconds: stepsSimulated.reduce((sum, s) => sum + s.estimated_duration_seconds, 0),
+      success_probability: successProbability,
+    };
+
+    logger.info('Workflow simulation complete', {
+      simulationId,
+      stepsSimulated: stepsSimulated.length,
+      confidence: avgConfidence,
+      successProbability,
+    });
+
+    return result;
+  }
+
+  /**
+   * Predict outcome of a single workflow stage
+   */
+  private async predictStageOutcome(
+    stage: WorkflowStage,
+    context: Record<string, any>,
+    similarEpisodes: any[]
+  ): Promise<{
+    outcome: Record<string, any>;
+    confidence: number;
+    estimatedDuration: number;
+  }> {
+    const prompt = `Predict the outcome of workflow stage: ${stage.name}
+Description: ${stage.description || 'N/A'}
+Context: ${JSON.stringify(context, null, 2)}
+Similar past episodes: ${similarEpisodes.length}
+
+Provide a JSON response with:
+- outcome: predicted result object
+- confidence: 0-1 score
+- estimatedDuration: seconds`;
+
+    try {
+      const response = await this.llmGateway.chat([
+        { role: 'user', content: prompt }
+      ], {
+        maxTokens: 500,
+        temperature: 0.3,
+      });
+
+      const parsed = JSON.parse(response.content);
+      return {
+        outcome: parsed.outcome || { success: true },
+        confidence: parsed.confidence || 0.7,
+        estimatedDuration: parsed.estimatedDuration || 5,
+      };
+    } catch (error) {
+      logger.warn('Failed to predict stage outcome, using defaults', { error });
+      return {
+        outcome: { success: true },
+        confidence: 0.5,
+        estimatedDuration: 10,
+      };
+    }
+  }
+
   private async executeDAGAsync(
     executionId: string,
     dag: WorkflowDAG,
@@ -900,6 +1077,79 @@ export class UnifiedAgentOrchestrator {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+
+  /**
+   * Check autonomy guardrails before executing stage
+   */
+  private async checkAutonomyGuardrails(
+    executionId: string,
+    stageId: string,
+    context: Record<string, any>,
+    startTime: number
+  ): Promise<void> {
+    const autonomy = getAutonomyConfig();
+
+    // Check kill switch
+    if (autonomy.killSwitchEnabled) {
+      throw new Error('Autonomy kill switch is enabled');
+    }
+
+    // Check duration limit
+    const elapsed = Date.now() - startTime;
+    if (elapsed > autonomy.maxDurationMs) {
+      await this.handleWorkflowFailure(executionId, 'Autonomy guard: max duration exceeded');
+      throw new Error('Autonomy guard: max duration exceeded');
+    }
+
+    // Check cost limit
+    const cost = context.cost_accumulated_usd || 0;
+    if (cost > autonomy.maxCostUsd) {
+      await this.handleWorkflowFailure(executionId, 'Autonomy guard: max cost exceeded');
+      throw new Error('Autonomy guard: max cost exceeded');
+    }
+
+    // Check destructive action approval
+    if (autonomy.requireApprovalForDestructive) {
+      const approvalState = context.approvals || {};
+      const destructivePending = context.destructive_actions_pending as string[] | undefined;
+      if (destructivePending && destructivePending.length > 0 && !approvalState[executionId]) {
+        await this.handleWorkflowFailure(executionId, 'Approval required for destructive actions');
+        throw new Error('Approval required for destructive actions');
+      }
+    }
+
+    // Check per-agent autonomy level
+    const agentLevels = autonomy.agentAutonomyLevels || {};
+    const stageAgentId = context.current_agent_id;
+    const level = stageAgentId ? agentLevels[stageAgentId] : undefined;
+    if (level === 'observe') {
+      await this.handleWorkflowFailure(executionId, `Agent ${stageAgentId} restricted to observe-only`);
+      throw new Error('Autonomy guard: observe-only agent attempted action');
+    }
+
+    // Check agent kill switches
+    const agentKillSwitches = autonomy.agentKillSwitches || {};
+    if (stageAgentId && agentKillSwitches[stageAgentId]) {
+      await this.handleWorkflowFailure(executionId, `Agent ${stageAgentId} is disabled by kill switch`);
+      throw new Error('Autonomy guard: agent disabled');
+    }
+
+    // Check iteration limits
+    const agentMaxIterations = autonomy.agentMaxIterations || {};
+    const maxIterations = stageAgentId ? agentMaxIterations[stageAgentId] : undefined;
+    if (maxIterations !== undefined) {
+      const executed = (context.executed_steps || []).filter(
+        (s: any) => s.agent_id === stageAgentId
+      ).length;
+      if (executed >= maxIterations) {
+        await this.handleWorkflowFailure(executionId, `Agent ${stageAgentId} exceeded iteration limit`);
+        throw new Error('Autonomy guard: iteration limit exceeded');
+      }
+    }
+
+    logger.debug('Autonomy guardrails passed', { executionId, stageId });
+  }
+
   private async updateExecutionStatus(
     executionId: string,
     status: WorkflowStatus,
@@ -919,6 +1169,41 @@ export class UnifiedAgentOrchestrator {
       .from('workflow_executions')
       .update(update)
       .eq('id', executionId);
+  }
+
+
+  /**
+   * Get workflow execution status
+   */
+  async getExecutionStatus(executionId: string): Promise<any> {
+    const { data, error } = await supabase
+      .from('workflow_executions')
+      .select('*')
+      .eq('id', executionId)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Failed to get execution status: ${error.message}`);
+    }
+
+    return data;
+  }
+
+  /**
+   * Get workflow execution logs
+   */
+  async getExecutionLogs(executionId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('workflow_execution_logs')
+      .select('*')
+      .eq('execution_id', executionId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      throw new Error(`Failed to get execution logs: ${error.message}`);
+    }
+
+    return data || [];
   }
 
   private async handleWorkflowFailure(executionId: string, errorMessage: string): Promise<void> {
