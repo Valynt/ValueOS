@@ -274,9 +274,5 @@ export function validateSecurityHeaders(response: Response): {
 export function logSecurityHeaders(): void {
   const headers = getSecurityHeaders();
 
-  console.group('Security Headers');
-  for (const [key, value] of Object.entries(headers)) {
-    logger.debug(`${key}: ${value}`);
-  }
-  console.groupEnd();
+  logger.debug('Security Headers:', headers);
 }
