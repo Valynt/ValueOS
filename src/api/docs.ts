@@ -8,7 +8,7 @@ import { Router } from 'express';
 import swaggerUi from 'swagger-ui-express';
 import YAML from 'yamljs';
 import path from 'path';
-import { logger } from '../utils/logger';
+// import { logger } from '../utils/logger';
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';

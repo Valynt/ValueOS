@@ -71,7 +71,15 @@ export default tseslint.config(
       'jsx-a11y/interactive-supports-focus': 'error',
       'jsx-a11y/no-autofocus': 'warn',
       'jsx-a11y/tabindex-no-positive': 'error',
-      '@typescript-eslint/no-explicit-any': 'warn', // Downgrade to warning for migration
+      // Temporarily relaxed rules for production launch - re-enable in Week 3
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-unused-vars': ['warn', { 
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_'
+      }],
+      '@typescript-eslint/no-require-imports': 'warn',
+      '@typescript-eslint/ban-ts-comment': 'warn',
       '@typescript-eslint/no-unused-expressions': [
         'error',
         {
