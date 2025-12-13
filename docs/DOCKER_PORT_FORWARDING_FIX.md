@@ -76,7 +76,7 @@ volumes:
 # Main site
 :80 {
     # Reverse proxy to Vite dev server
-    reverse_proxy app:3000 {
+    reverse_proxy app:5173 {
         # Health check
         health_uri /health
         health_interval 10s
@@ -261,7 +261,7 @@ cat > Caddyfile << 'EOF'
 }
 
 :80 {
-    reverse_proxy app:3000
+    reverse_proxy app:5173
     encode gzip
     header {
         X-XSS-Protection "1; mode=block"

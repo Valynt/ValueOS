@@ -10,7 +10,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: process.env.VITE_HOST || '0.0.0.0', // Listen on all interfaces for container/Codespace access
-    port: parseInt(process.env.VITE_PORT || '3000'),
+    port: parseInt(process.env.VITE_PORT || '5173'),
     strictPort: false, // Allow fallback to other ports if port is busy
     headers: getEnvironmentHeaders('development'),
     // CORS configuration for cross-origin requests

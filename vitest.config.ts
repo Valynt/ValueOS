@@ -9,6 +9,8 @@ export default defineConfig({
     globals: true,
     environment: 'node', // Use node env for backend/repo tests
     setupFiles: ['./tests/setup.ts', './src/test/setup-integration.ts'],
+    globalSetup: './src/test/vitest-global-setup.ts',
+    globalTeardown: './src/test/vitest-global-teardown.ts',
     include: ['src/**/*.{test,spec}.{ts,tsx}', 'tests/**/*.{test,spec}.{ts,tsx}'],
     coverage: {
       provider: 'v8',

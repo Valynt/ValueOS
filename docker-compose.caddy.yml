@@ -60,9 +60,9 @@ services:
       dockerfile: Dockerfile.dev
     container_name: valuecanvas-app
     expose:
-      - "3000"           # Expose to Caddy (not to host)
+      - "5173"           # Expose to Caddy (not to host)
     ports:
-      - "3000:3000"      # Also expose to host for direct access
+      - "5173:5173"      # Also expose to host for direct access
       - "24678:24678"    # Vite HMR
     volumes:
       - ./src:/app/src:cached
@@ -77,13 +77,13 @@ services:
     environment:
       - NODE_ENV=development
       - VITE_HOST=0.0.0.0
-      - VITE_PORT=3000
+      - VITE_PORT=5173
       - VITE_HMR_PORT=24678
     networks:
       - valuecanvas-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5173"]
       interval: 30s
       timeout: 10s
       retries: 3
