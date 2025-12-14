@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 
 describe("RLS - Organization Isolation (integration)", () => {
   let dbClient: Client;
-  const sessionId = `session-${uuidv4()}`;
+  const sessionId = uuidv4();
   const userId = "00000000-0000-0000-0000-000000000001";
 
   beforeAll(async () => {

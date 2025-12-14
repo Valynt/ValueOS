@@ -1,6 +1,6 @@
 /**
- * Dev Container Configuration Tests (Dec 1, 2025 Fix)
- * Tests Docker Compose networking setup
+ * Dev Container Configuration Tests
+ * Tests Gitpod-compatible Dev Container setup
  */
 
 import { describe, it, expect } from 'vitest';
@@ -16,123 +16,92 @@ describe('Dev Container Configuration', () => {
       expect(fs.existsSync(devcontainerPath)).toBe(true);
       
       const content = fs.readFileSync(devcontainerPath, 'utf-8');
-      const config = JSON.parse(content.replace(/\/\/.*/g, '').replace(/\/\*[\s\S]*?\*\//g, ''));
+      const config = JSON.parse(content);
       
       expect(config).toBeDefined();
     });
 
-    it('should use Docker Compose configuration', () => {
+    it('should use image-based configuration (Gitpod-compatible)', () => {
       const content = fs.readFileSync(devcontainerPath, 'utf-8');
+      const config = JSON.parse(content);
       
-      expect(content).toContain('dockerComposeFile');
-      expect(content).toContain('docker-compose.dev.yml');
+      // Gitpod uses image-based config, not docker-compose
+      expect(config.image).toBeDefined();
+      expect(config.image).toContain('devcontainers');
     });
 
-    it('should specify app service', () => {
+    it('should specify remote user', () => {
       const content = fs.readFileSync(devcontainerPath, 'utf-8');
-      const config = JSON.parse(content.replace(/\/\/.*/g, '').replace(/\/\*[\s\S]*?\*\//g, ''));
+      const config = JSON.parse(content);
       
-      expect(config.service).toBe('app');
+      expect(config.remoteUser).toBe('vscode');
     });
 
-    it('should set workspace to /workspace', () => {
+    it('should configure Node.js feature', () => {
       const content = fs.readFileSync(devcontainerPath, 'utf-8');
-      const config = JSON.parse(content.replace(/\/\/.*/g, '').replace(/\/\*[\s\S]*?\*\//g, ''));
+      const config = JSON.parse(content);
       
-      expect(config.workspaceFolder).toBe('/workspace');
+      expect(config.features).toBeDefined();
+      expect(config.features['ghcr.io/devcontainers/features/node:1']).toBeDefined();
     });
 
     it('should forward essential ports', () => {
       const content = fs.readFileSync(devcontainerPath, 'utf-8');
-      const config = JSON.parse(content.replace(/\/\/.*/g, '').replace(/\/\*[\s\S]*?\*\//g, ''));
+      const config = JSON.parse(content);
       
       expect(config.forwardPorts).toContain(5173); // Vite
-      expect(config.forwardPorts).toContain(5432); // PostgreSQL
-      expect(config.forwardPorts).toContain(6379); // Redis
+      expect(config.forwardPorts).toContain(3001); // Backend API
     });
 
-    it('should use vscode remote user', () => {
+    it('should configure VSCode extensions', () => {
       const content = fs.readFileSync(devcontainerPath, 'utf-8');
-      const config = JSON.parse(content.replace(/\/\/.*/g, '').replace(/\/\*[\s\S]*?\*\//g, ''));
+      const config = JSON.parse(content);
       
-      expect(config.remoteUser).toBe('vscode');
-    });
-  });
-
-  describe('docker-compose.dev.yml', () => {
-    const composePath = path.join(process.cwd(), 'docker-compose.dev.yml');
-    
-    it('should exist', () => {
-      expect(fs.existsSync(composePath)).toBe(true);
+      expect(config.customizations).toBeDefined();
+      expect(config.customizations.vscode).toBeDefined();
+      expect(config.customizations.vscode.extensions).toBeDefined();
+      expect(config.customizations.vscode.extensions).toContain('dbaeumer.vscode-eslint');
+      expect(config.customizations.vscode.extensions).toContain('esbenp.prettier-vscode');
     });
 
-    it('should define app service', () => {
-      const content = fs.readFileSync(composePath, 'utf-8');
+    it('should configure environment variables', () => {
+      const content = fs.readFileSync(devcontainerPath, 'utf-8');
+      const config = JSON.parse(content);
       
-      expect(content).toContain('services:');
-      expect(content).toContain('app:');
+      expect(config.containerEnv).toBeDefined();
+      expect(config.containerEnv.NODE_ENV).toBe('development');
+      expect(config.containerEnv.ENVIRONMENT).toBe('development');
     });
 
-    it('should configure valuecanvas-network', () => {
-      const content = fs.readFileSync(composePath, 'utf-8');
+    it('should have postCreateCommand for setup', () => {
+      const content = fs.readFileSync(devcontainerPath, 'utf-8');
+      const config = JSON.parse(content);
       
-      expect(content).toContain('networks:');
-      expect(content).toContain('valuecanvas-network');
+      expect(config.postCreateCommand).toBeDefined();
+      expect(config.postCreateCommand).toContain('npm install');
     });
 
-    it('should mount workspace correctly', () => {
-      const content = fs.readFileSync(composePath, 'utf-8');
+    it('should configure Docker feature', () => {
+      const content = fs.readFileSync(devcontainerPath, 'utf-8');
+      const config = JSON.parse(content);
       
-      expect(content).toContain('.:/workspace');
+      expect(config.features['ghcr.io/devcontainers/features/docker-outside-of-docker:1']).toBeDefined();
     });
 
-    it('should set working_dir to /workspace', () => {
-      const content = fs.readFileSync(composePath, 'utf-8');
+    it('should configure GitHub CLI feature', () => {
+      const content = fs.readFileSync(devcontainerPath, 'utf-8');
+      const config = JSON.parse(content);
       
-      expect(content).toContain('working_dir: /workspace');
+      expect(config.features['ghcr.io/devcontainers/features/github-cli:1']).toBeDefined();
     });
 
-    it('should define postgres on same network', () => {
-      const content = fs.readFileSync(composePath, 'utf-8');
+    it('should configure port attributes', () => {
+      const content = fs.readFileSync(devcontainerPath, 'utf-8');
+      const config = JSON.parse(content);
       
-      expect(content).toContain('postgres:');
-      expect(content).toMatch(/postgres:[\s\S]*valuecanvas-network/);
-    });
-
-    it('should define redis on same network', () => {
-      const content = fs.readFileSync(composePath, 'utf-8');
-      
-      expect(content).toContain('redis:');
-      expect(content).toMatch(/redis:[\s\S]*valuecanvas-network/);
-    });
-  });
-
-  describe('Dockerfile.dev', () => {
-    const dockerfilePath = path.join(process.cwd(), 'Dockerfile.dev');
-    
-    it('should exist', () => {
-      expect(fs.existsSync(dockerfilePath)).toBe(true);
-    });
-
-    it('should create vscode user', () => {
-      const content = fs.readFileSync(dockerfilePath, 'utf-8');
-      
-      expect(content).toContain('vscode');
-      expect(content).toMatch(/adduser.*vscode/);
-    });
-
-    it('should set WORKDIR to /workspace', () => {
-      const content = fs.readFileSync(dockerfilePath, 'utf-8');
-      
-      expect(content).toContain('WORKDIR /workspace');
-    });
-
-    it('should install required tools', () => {
-      const content = fs.readFileSync(dockerfilePath, 'utf-8');
-      
-      expect(content).toContain('git');
-      expect(content).toContain('curl');
-      expect(content).toContain('bash');
+      expect(config.portsAttributes).toBeDefined();
+      expect(config.portsAttributes['5173']).toBeDefined();
+      expect(config.portsAttributes['5173'].label).toBe('Frontend (Vite)');
     });
   });
 });
