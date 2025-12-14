@@ -20,7 +20,7 @@ export interface SchemaMigration {
   fromVersion: number;
   toVersion: number;
   description: string;
-  migrate: (schema: SDUIPageDefinition) => SDUIPageDefinition;
+  migrate: (_schema: SDUIPageDefinition) => SDUIPageDefinition;
 }
 
 /**
