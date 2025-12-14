@@ -6,6 +6,8 @@ import { AgentConfig, ConfidenceLevel } from '../../../types/agent';
 import { getTracer } from '../../observability';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { AgentCircuitBreaker, SafetyLimits, withCircuitBreaker } from '../CircuitBreaker';
+import { enforceRules } from '../../rules';
+import { logger } from '../../../lib/logger';
 
 export interface SecureInvocationOptions {
   /** Custom confidence thresholds */
@@ -66,6 +68,12 @@ export abstract class BaseAgent {
     // CRITICAL FIX: Wrap execution in circuit breaker
     const { result: output, metrics } = await withCircuitBreaker(
       async (breaker: AgentCircuitBreaker) => {
+        // GOVERNANCE ENFORCEMENT: Check GR/LR rules before LLM execution
+        const governanceCheck = await this.checkGovernanceRules(sessionId, input, options);
+        if (!governanceCheck.allowed) {
+          throw new Error(`Governance violation: ${governanceCheck.violations.map(v => v.message).join(', ')}`);
+        }
+
         // Sanitize input
         const sanitizedInput = this.sanitizeInput(input);
 
@@ -85,13 +93,22 @@ export abstract class BaseAgent {
         ];
 
         // Invoke LLM with structured output + circuit breaker
+        const taskContext = {
+          sessionId,
+          organizationId: this.organizationId,
+          userId: this.userId,
+          agentId: this.agentId,
+          estimatedPromptTokens: 0,
+          estimatedCompletionTokens: 0
+        };
+
         const response = await this.llmGateway.complete(
           messages,
           {
             temperature: 0.7,
             max_tokens: 4000
           },
-          undefined, // taskContext
+          taskContext, // pass structured task context for tracing and metering
           breaker    // CRITICAL: Pass circuit breaker
         );
 
@@ -158,6 +175,87 @@ export abstract class BaseAgent {
     });
 
     return output;
+  }
+
+  /**
+   * Check Governance Rules (GR/LR) before LLM execution
+   * CRITICAL: Policy-as-Code enforcement - fail-closed on violations
+   */
+  private async checkGovernanceRules(
+    sessionId: string,
+    input: any,
+    options: SecureInvocationOptions
+  ): Promise<{ allowed: boolean; violations: string[] }> {
+    try {
+      // Map agent type for governance rules
+      const agentType = this.mapAgentToType();
+
+      const governanceResult = await enforceRules({
+        agentId: this.agentId,
+        agentType,
+        userId: this.userId || 'system',
+        tenantId: this.organizationId || 'default',
+        sessionId,
+        action: 'llm_invoke',
+        payload: {
+          input,
+          agent: this.name,
+          lifecycleStage: this.lifecycleStage,
+          context: options.context,
+        },
+        environment: process.env.NODE_ENV as 'development' | 'staging' | 'production' || 'development',
+      });
+
+      if (!governanceResult.allowed) {
+        logger.error('GOVERNANCE VIOLATION - LLM EXECUTION BLOCKED', {
+          agent: this.agentId,
+          sessionId,
+          violations: governanceResult.violations.map(v => `${v.ruleId}: ${v.message}`),
+        });
+
+        return {
+          allowed: false,
+          violations: governanceResult.violations.map(v => v.message),
+        };
+      }
+
+      logger.debug('Governance rules passed for LLM execution', {
+        agent: this.agentId,
+        globalRulesChecked: governanceResult.metadata.globalRulesChecked,
+        localRulesChecked: governanceResult.metadata.localRulesChecked,
+      });
+
+      return { allowed: true, violations: [] };
+    } catch (error) {
+      logger.error('CRITICAL: Governance check failed - BLOCKING LLM EXECUTION', {
+        agent: this.agentId,
+        sessionId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      // FAIL-CLOSED: Block execution on governance system failure
+      return {
+        allowed: false,
+        violations: ['Governance system error - execution blocked for safety'],
+      };
+    }
+  }
+
+  /**
+   * Map agent name to governance agent type
+   */
+  private mapAgentToType(): 'coordinator' | 'system_mapper' | 'intervention_designer' | 'outcome_engineer' | 'realization_loop' | 'value_eval' | 'communicator' {
+    const name = this.name.toLowerCase();
+    
+    if (name.includes('coordinator') || name.includes('orchestrator')) return 'coordinator';
+    if (name.includes('system') || name.includes('mapper')) return 'system_mapper';
+    if (name.includes('intervention') || name.includes('design')) return 'intervention_designer';
+    if (name.includes('outcome') || name.includes('engineer')) return 'outcome_engineer';
+    if (name.includes('realization') || name.includes('loop')) return 'realization_loop';
+    if (name.includes('value') || name.includes('eval')) return 'value_eval';
+    if (name.includes('communicator') || name.includes('message')) return 'communicator';
+    
+    return 'coordinator'; // Default
   }
 
   /**
@@ -276,7 +374,9 @@ export abstract class BaseAgent {
       sessionId,
       this.agentId,
       `${action}: ${reasoning}`,
-      { input: inputData, output: outputData }
+      { input: inputData, output: outputData },
+      this.organizationId,
+      { source: 'agent_execution', trace_id: sessionId }
     );
   }
 

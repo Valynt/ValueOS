@@ -81,10 +81,11 @@ export class UIRefinementLoop {
   async generateAndRefine(
     subgoal: Subgoal,
     initialLayout: SDUIPageDefinition,
-    circuitBreaker?: AgentCircuitBreaker
+    circuitBreaker?: AgentCircuitBreaker,
+    taskContext?: import('../lib/agent-fabric/TaskContext').TaskContext
   ): Promise<RefinementResult> {
     let currentLayout = initialLayout;
-    let currentScore = await this.evaluateLayout(currentLayout, subgoal, circuitBreaker);
+    let currentScore = await this.evaluateLayout(currentLayout, subgoal, circuitBreaker, taskContext);
     const improvementHistory: RefinementResult['improvement_history'] = [];
 
     let iteration = 0;
@@ -96,7 +97,7 @@ export class UIRefinementLoop {
       iteration++;
 
       // Evaluate current layout
-      const evaluation = await this.evaluateLayout(currentLayout, subgoal, circuitBreaker);
+      const evaluation = await this.evaluateLayout(currentLayout, subgoal, circuitBreaker, taskContext);
 
       // Check if we should continue
       if (evaluation.score >= this.config.targetScore) {
@@ -117,7 +118,8 @@ export class UIRefinementLoop {
         currentLayout,
         evaluation,
         subgoal,
-        circuitBreaker
+        circuitBreaker,
+        taskContext
       );
 
       // Track changes
@@ -134,7 +136,7 @@ export class UIRefinementLoop {
     }
 
     // Final evaluation
-    const finalEvaluation = await this.evaluateLayout(currentLayout, subgoal, circuitBreaker);
+    const finalEvaluation = await this.evaluateLayout(currentLayout, subgoal, circuitBreaker, taskContext);
 
     return {
       layout: currentLayout,
@@ -263,7 +265,8 @@ Evaluate the layout's effectiveness for this task.`,
   private async refineWithPartialMutation(
     currentLayout: SDUIPageDefinition,
     evaluation: UIEvaluationResult,
-    circuitBreaker?: AgentCircuitBreaker
+    circuitBreaker?: AgentCircuitBreaker,
+    taskContext?: import('../lib/agent-fabric/TaskContext').TaskContext
   ): Promise<SDUIPageDefinition> {
     const messages = [
       {
@@ -319,6 +322,7 @@ Generate minimal atomic actions to fix these specific issues.`,
       messages,
       { use_gating: true, temperature: 0.3 },
       { task_type: 'ui_mutation', complexity: 0.4 },
+      taskContext,
       circuitBreaker
     );
 
@@ -370,7 +374,8 @@ Generate minimal atomic actions to fix these specific issues.`,
     currentLayout: SDUIPageDefinition,
     evaluation: UIEvaluationResult,
     subgoal: Subgoal,
-    circuitBreaker?: AgentCircuitBreaker
+    circuitBreaker?: AgentCircuitBreaker,
+    taskContext?: import('../lib/agent-fabric/TaskContext').TaskContext
   ): Promise<SDUIPageDefinition> {
     const messages = [
       {
@@ -417,6 +422,7 @@ Generate an improved layout that addresses these issues.`,
       messages,
       { use_gating: true, temperature: 0.4 },
       { task_type: 'ui_refinement', complexity: 0.6 },
+      taskContext,
       circuitBreaker
     );
 
@@ -450,8 +456,10 @@ Generate an improved layout that addresses these issues.`,
   async applyUserMutation(
     currentLayout: SDUIPageDefinition,
     userRequest: string,
-    circuitBreaker?: AgentCircuitBreaker
+    circuitBreaker?: AgentCircuitBreaker,
+    taskContext?: import('../lib/agent-fabric/TaskContext').TaskContext
   ): Promise<{ layout: SDUIPageDefinition; changes: string[] }> {
+    // Allow optional context object via last arg if passed in as object in future
     logger.info('Processing user mutation request', { request: userRequest });
 
     const messages = [
@@ -495,6 +503,7 @@ Generate atomic actions to fulfill this request.`,
       messages,
       { use_gating: true, temperature: 0.2 },
       { task_type: 'ui_mutation', complexity: 0.3 },
+      taskContext,
       circuitBreaker
     );
 

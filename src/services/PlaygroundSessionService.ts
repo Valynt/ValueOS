@@ -138,10 +138,22 @@ export class PlaygroundSessionService {
   /**
    * Load session from Redis
    */
-  async loadSession(sessionId: string): Promise<PlaygroundSession | null> {
+  async loadSession(sessionId: string, organizationId?: string): Promise<PlaygroundSession | null> {
     await this.ensureConnected();
 
-    const key = REDIS_KEYS.session(sessionId);
+      let orgId = organizationId;
+      if (!orgId) {
+        try {
+          const { data, error } = await supabase.from('agent_sessions').select('organization_id').eq('id', sessionId).single();
+          if (!error && data) {
+            orgId = (data as any).organization_id;
+          }
+        } catch (err) {
+          logger.warn('Unable to fetch session organizationId when loading session', { sessionId, error: err instanceof Error ? err.message : String(err) });
+        }
+      }
+
+      const key = REDIS_KEYS.session(sessionId, orgId);
     const data = await this.client.get(key);
 
     if (!data) {
@@ -188,7 +200,7 @@ export class PlaygroundSessionService {
   async saveSession(session: PlaygroundSession): Promise<void> {
     await this.ensureConnected();
 
-    const key = REDIS_KEYS.session(session.sessionId);
+      const key = REDIS_KEYS.session(session.sessionId, session.organizationId);
     const data = JSON.stringify(session);
 
     // Calculate TTL
@@ -575,7 +587,8 @@ export class PlaygroundSessionService {
   async listUserSessions(userId: string): Promise<string[]> {
     await this.ensureConnected();
 
-    const key = REDIS_KEYS.userSessions(userId);
+    // orgId not known here; use public namespace if none
+    const key = REDIS_KEYS.userSessions(userId, undefined);
     return this.client.sMembers(key);
   }
 
@@ -596,14 +609,14 @@ export class PlaygroundSessionService {
     const pipeline = this.client.multi();
 
     // User sessions index
-    pipeline.sAdd(REDIS_KEYS.userSessions(session.userId), session.sessionId);
+    pipeline.sAdd(REDIS_KEYS.userSessions(session.userId, session.organizationId), session.sessionId);
 
     // Organization sessions index
     pipeline.sAdd(REDIS_KEYS.orgSessions(session.organizationId), session.sessionId);
 
     // Artifact sessions index
     if (session.artifactId) {
-      pipeline.sAdd(REDIS_KEYS.artifactSessions(session.artifactId), session.sessionId);
+      pipeline.sAdd(REDIS_KEYS.artifactSessions(session.artifactId, session.organizationId), session.sessionId);
     }
 
     await pipeline.exec();
@@ -615,11 +628,11 @@ export class PlaygroundSessionService {
   private async removeFromIndexes(session: PlaygroundSession): Promise<void> {
     const pipeline = this.client.multi();
 
-    pipeline.sRem(REDIS_KEYS.userSessions(session.userId), session.sessionId);
+    pipeline.sRem(REDIS_KEYS.userSessions(session.userId, session.organizationId), session.sessionId);
     pipeline.sRem(REDIS_KEYS.orgSessions(session.organizationId), session.sessionId);
 
     if (session.artifactId) {
-      pipeline.sRem(REDIS_KEYS.artifactSessions(session.artifactId), session.sessionId);
+      pipeline.sRem(REDIS_KEYS.artifactSessions(session.artifactId, session.organizationId), session.sessionId);
     }
 
     await pipeline.exec();

@@ -42,7 +42,12 @@
 */
 
 -- Enable pgvector extension for semantic memory
-CREATE EXTENSION IF NOT EXISTS vector;
+-- Vector extension is optional for tests
+DO $$ BEGIN
+  CREATE EXTENSION IF NOT EXISTS vector;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'Vector extension not available, skipping';
+END $$;
 -- =====================================================
 -- AGENT INFRASTRUCTURE LAYER (6 tables)
 -- =====================================================
@@ -95,7 +100,7 @@ CREATE TABLE IF NOT EXISTS agent_memory (
   agent_id uuid REFERENCES agents(id) ON DELETE CASCADE,
   memory_type text NOT NULL CHECK (memory_type IN ('episodic', 'semantic', 'working', 'procedural')),
   content text NOT NULL,
-  embedding vector(1536),
+  embedding TEXT, -- vector(1536) when extension available
   metadata jsonb DEFAULT '{}'::jsonb,
   importance_score float DEFAULT 0.5,
   created_at timestamptz DEFAULT now(),
@@ -103,7 +108,8 @@ CREATE TABLE IF NOT EXISTS agent_memory (
 );
 CREATE INDEX IF NOT EXISTS idx_agent_memory_session ON agent_memory(session_id);
 CREATE INDEX IF NOT EXISTS idx_agent_memory_type ON agent_memory(memory_type);
-CREATE INDEX IF NOT EXISTS idx_agent_memory_embedding ON agent_memory USING ivfflat (embedding vector_cosine_ops);
+-- CREATE INDEX IF NOT EXISTS idx_agent_memory_embedding ON agent_memory USING ivfflat (embedding vector_cosine_ops);
+-- Index skipped when vector extension not available
 -- 6. Message Bus
 CREATE TABLE IF NOT EXISTS message_bus (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

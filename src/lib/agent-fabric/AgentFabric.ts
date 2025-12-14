@@ -75,6 +75,7 @@ export class AgentFabric {
     }
 
     const sessionId = await this.createSession(userId || 'anonymous-user');
+    const sessionOrg = await this.getSessionOrganization(sessionId);
 
     const executionId = await this.createExecution(sessionId);
 
@@ -90,6 +91,8 @@ export class AgentFabric {
         this.agents.get('orchestrator')!.id,
         `Starting iteration ${currentIteration}`,
         { iteration: currentIteration }
+      ,
+        sessionOrg
       );
 
       valueCaseData = await this.executeWorkflow(sessionId, executionId, userInput, valueCaseData);
@@ -97,7 +100,12 @@ export class AgentFabric {
       const assessment = await this.reflectionEngine.evaluateQuality(
         valueCaseData,
         this.workflow.dag_definition.quality_check.rubric,
-        this.workflow.dag_definition.quality_check.threshold
+        this.workflow.dag_definition.quality_check.threshold,
+        {
+          sessionId,
+          organizationId: sessionOrg,
+          userId
+        }
       );
 
       qualityScore = assessment.total_score;
@@ -121,6 +129,8 @@ export class AgentFabric {
           this.agents.get('orchestrator')!.id,
           `Refinement needed. Score: ${qualityScore}/${assessment.max_score}. ${assessment.feedback}`,
           { assessment }
+          ,
+          sessionOrg
         );
       }
     }
@@ -285,10 +295,11 @@ Return JSON:
   ]
 }`;
 
+    const sessionOrgId = await this.getSessionOrganization(sessionId);
     const response = await this.llmGateway.complete([
       { role: 'system', content: 'You are a KPI specialist.' },
       { role: 'user', content: prompt }
-    ]);
+    ], {}, { sessionId, organizationId: sessionOrgId });
 
     const parsed = featureFlags.ENABLE_SAFE_JSON_PARSER
       ? await parseLLMOutputStrict(response.content, CommonSchemas.kpiSchema)
@@ -322,10 +333,11 @@ Return JSON:
   "support": <annual_cost>
 }`;
 
+    const sessionOrgIdForCost = await this.getSessionOrganization(sessionId);
     const response = await this.llmGateway.complete([
       { role: 'system', content: 'You are a cost analyst.' },
       { role: 'user', content: prompt }
-    ]);
+    ], {}, { sessionId, organizationId: sessionOrgIdForCost });
 
     return featureFlags.ENABLE_SAFE_JSON_PARSER
       ? await parseLLMOutputStrict(response.content, z.any())
@@ -333,12 +345,30 @@ Return JSON:
   }
 
   private async createSession(userId: string): Promise<string> {
+    // Attempt to read organization/tenant from auth.users (raw_user_meta_data)
+    let organizationId: string | undefined;
+    try {
+      const { data: userData } = await this.supabase
+        .from('auth.users')
+        .select('raw_user_meta_data')
+        .eq('id', userId)
+        .single();
+      const rawMeta = (userData as any)?.raw_user_meta_data;
+      if (rawMeta) {
+        organizationId = rawMeta.tenant_id || rawMeta.organization_id || rawMeta.orgId || undefined;
+      }
+    } catch (e) {
+      // Best effort: do not fail session creation if metadata lookup fails
+      logger.warn('Unable to load user organization id when creating session', { userId, error: e instanceof Error ? e.message : String(e) });
+    }
+
     const { data, error } = await this.supabase
       .from('agent_sessions')
       .insert({
         user_id: userId,
         session_token: crypto.randomUUID(),
-        status: 'active'
+        status: 'active',
+        metadata: organizationId ? { organization_id: organizationId } : undefined
       })
       .select()
       .single();
@@ -360,5 +390,24 @@ Return JSON:
 
     if (error) throw error;
     return data.id;
+  }
+
+  /**
+   * Retrieve organizationId from a session's metadata (best-effort)
+   */
+  private async getSessionOrganization(sessionId: string): Promise<string | undefined> {
+    try {
+      const { data, error } = await this.supabase
+        .from('agent_sessions')
+        .select('metadata')
+        .eq('id', sessionId)
+        .single();
+      if (error || !data) return undefined;
+      const meta = (data as any).metadata || {};
+      return meta.organization_id || meta.tenant_id || undefined;
+    } catch (e) {
+      logger.warn('Unable to read session metadata for organization', { sessionId, error: e instanceof Error ? e.message : String(e) });
+      return undefined;
+    }
   }
 }

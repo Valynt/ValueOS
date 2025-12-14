@@ -22,6 +22,7 @@ import { ComponentMutationService } from './ComponentMutationService';
 import { manifestoEnforcer } from './ManifestoEnforcer';
 import { atomicActionExecutor } from './AtomicActionExecutor';
 import { canvasSchemaService } from './CanvasSchemaService';
+import { enforceRules, EnforcementResult } from '../lib/rules';
 
 /**
  * Action Router
@@ -80,7 +81,25 @@ export class ActionRouter {
         };
       }
 
-      // Check Manifesto rules
+      // CRITICAL: Check Governance Rules (GR/LR) first - Policy-as-Code enforcement
+      const governanceCheck = await this.checkGovernanceRules(action, context);
+      if (!governanceCheck.allowed) {
+        logger.error('Governance rules violated - BLOCKING ACTION', {
+          actionType: action.type,
+          violations: governanceCheck.violations.map(v => `${v.ruleId}: ${v.message}`),
+        });
+
+        return {
+          success: false,
+          error: `Governance rules violated: ${governanceCheck.violations.map(v => v.message).join(', ')}`,
+          metadata: {
+            violations: governanceCheck.violations,
+            warnings: governanceCheck.warnings,
+          },
+        };
+      }
+
+      // Check Manifesto rules (business value principles)
       const manifestoCheck = await this.checkManifestoRules(action, context);
       if (!manifestoCheck.allowed) {
         logger.warn('Manifesto rules violated', {
@@ -259,6 +278,100 @@ export class ActionRouter {
         }],
       };
     }
+  }
+
+  /**
+   * Check Governance Rules (GR/LR) - Policy-as-Code enforcement
+   * CRITICAL: This must run before any action execution
+   */
+  async checkGovernanceRules(
+    action: CanonicalAction,
+    context: ActionContext
+  ): Promise<EnforcementResult> {
+    try {
+      // Build governance rule context from action
+      const governanceResult = await enforceRules({
+        agentId: `action-router-${action.type}`,
+        agentType: this.mapActionToAgentType(action.type),
+        userId: context.userId,
+        tenantId: context.workspaceId, // Use workspaceId as tenantId
+        sessionId: context.sessionId || `session-${Date.now()}`,
+        action: action.type,
+        payload: action,
+        environment: process.env.NODE_ENV as 'development' | 'staging' | 'production' || 'development',
+      });
+
+      // Log governance enforcement result
+      if (!governanceResult.allowed) {
+        logger.error('GOVERNANCE VIOLATION - ACTION BLOCKED', {
+          actionType: action.type,
+          userId: context.userId,
+          tenantId: context.workspaceId,
+          violations: governanceResult.violations.map(v => `${v.ruleId}: ${v.message}`),
+          globalRulesChecked: governanceResult.metadata.globalRulesChecked,
+          localRulesChecked: governanceResult.metadata.localRulesChecked,
+        });
+      } else {
+        logger.debug('Governance rules passed', {
+          actionType: action.type,
+          globalRulesChecked: governanceResult.metadata.globalRulesChecked,
+          localRulesChecked: governanceResult.metadata.localRulesChecked,
+          warnings: governanceResult.warnings.length,
+        });
+      }
+
+      return governanceResult;
+    } catch (error) {
+      logger.error('CRITICAL: Governance rules check failed - FAILING SAFE', {
+        actionType: action.type,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      // CRITICAL: On governance failure, BLOCK action (fail-closed)
+      return {
+        allowed: false,
+        globalResults: [],
+        localResults: [],
+        violations: [{
+          ruleId: 'SYSTEM',
+          ruleName: 'Governance System Error',
+          category: 'systemic_safety',
+          severity: 'critical',
+          message: 'Governance rules enforcement failed - action blocked for safety',
+          details: { error: error instanceof Error ? error.message : String(error) },
+        }],
+        warnings: [],
+        fallbackActions: [],
+        userMessages: ['System safety check failed. Action cannot proceed.'],
+        executionTimeMs: 0,
+        metadata: {
+          globalRulesChecked: 0,
+          localRulesChecked: 0,
+          timestamp: Date.now(),
+          requestId: `error-${Date.now()}`,
+        },
+      };
+    }
+  }
+
+  /**
+   * Map action type to agent type for governance rules
+   */
+  private mapActionToAgentType(actionType: string): 'coordinator' | 'system_mapper' | 'intervention_designer' | 'outcome_engineer' | 'realization_loop' | 'value_eval' | 'communicator' {
+    // Map action types to agent types for governance rules
+    const actionToAgentMap: Record<string, 'coordinator' | 'system_mapper' | 'intervention_designer' | 'outcome_engineer' | 'realization_loop' | 'value_eval' | 'communicator'> = {
+      'invokeAgent': 'coordinator',
+      'updateValueTree': 'outcome_engineer',
+      'exportArtifact': 'communicator',
+      'navigateToStage': 'coordinator',
+      'createSystemMap': 'system_mapper',
+      'designIntervention': 'intervention_designer',
+      'trackMetrics': 'realization_loop',
+      'evaluateValue': 'value_eval',
+      'sendMessage': 'communicator',
+    };
+
+    return actionToAgentMap[actionType] || 'coordinator'; // Default to coordinator
   }
 
   /**

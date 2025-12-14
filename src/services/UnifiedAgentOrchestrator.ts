@@ -454,9 +454,11 @@ export class UnifiedAgentOrchestrator {
     const dag: WorkflowDAG = definition.dag_schema as WorkflowDAG;
 
     // Retrieve similar past episodes for prediction
+    const orgId = (context as any)?.organizationId || (context as any)?.tenantId;
     const similarEpisodes = await this.memorySystem.retrieveSimilarEpisodes(
       context,
-      5
+      5,
+      orgId
     );
 
     // Simulate each stage
