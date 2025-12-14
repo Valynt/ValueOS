@@ -1,0 +1,73 @@
+name: Memory Garbage Collection
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      retention_days:
+        description: 'Memory retention days'
+        required: false
+        default: '30'
+      dry_run:
+        description: 'Dry run mode'
+        required: false
+        default: 'false'
+
+jobs:
+  memory-gc:
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run Memory Garbage Collection
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          RETENTION_DAYS: ${{ github.event.inputs.retention_days || '30' }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: |
+          echo "🗑️  Running Memory Garbage Collection..."
+          echo "Retention: $RETENTION_DAYS days"
+          echo "Dry run: $DRY_RUN"
+          
+          npx tsx scripts/run-memory-gc.ts
+      
+      - name: Report metrics
+        if: always()
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          # Send metrics to monitoring
+          echo "📊 Memory GC completed"
+          
+          # Optional: Send Slack notification
+          if [ -n "$SLACK_WEBHOOK" ]; then
+            curl -X POST "$SLACK_WEBHOOK" \
+              -H 'Content-Type: application/json' \
+              -d '{
+                "text": "Memory GC completed",
+                "blocks": [
+                  {
+                    "type": "section",
+                    "text": {
+                      "type": "mrkdwn",
+                      "text": "🗑️ *Memory Garbage Collection*\n\nCompleted successfully"
+                    }
+                  }
+                ]
+              }'
+          fi

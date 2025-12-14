@@ -75,6 +75,15 @@ class EmailAnalysisService {
     const thread = this.parseEmailThread(rawEmailText);
     
     // Then analyze with LLM
+    if (!taskContext) {
+      const { data: { session } } = await supabase.auth.getSession();
+      taskContext = session ? {
+        sessionId: (session as any).id,
+        userId: (session as any).user.id,
+        organizationId: (session as any).user.raw_user_meta_data?.tenant_id || (session as any).user.raw_user_meta_data?.organization_id
+      } : undefined;
+    }
+
     const analysis = await this.llmAnalyze(rawEmailText, thread, taskContext);
     
     // Calculate days since last contact

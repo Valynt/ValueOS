@@ -164,6 +164,12 @@ class AgentChatService {
       const useToolCalling = needsFinancialData || needsCRMData;
 
       let llmResponse;
+      const taskContext = {
+        sessionId: request.sessionId,
+        organizationId: request.tenantId,
+        userId: request.userId,
+        agentId: this.getAgentName(request.workflowState.currentStage)
+      };
       if (useToolCalling) {
         // Get available tools (MCP + CRM if connected)
         const tools = await getAllTools(request.tenantId, request.userId);
@@ -175,6 +181,7 @@ class AgentChatService {
           tools,
           toolExecutor,
           { temperature: 0.7, max_tokens: 2048 },
+          taskContext,
           3 // max iterations
         );
       } else {
@@ -182,7 +189,7 @@ class AgentChatService {
         llmResponse = await this.llm.complete(llmMessages, {
           temperature: 0.7,
           max_tokens: 2048,
-        });
+        }, taskContext);
       }
 
       // Extract confidence and reasoning from response
