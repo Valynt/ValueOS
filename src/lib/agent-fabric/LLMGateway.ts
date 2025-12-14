@@ -7,6 +7,7 @@ import { securityLogger } from '../../services/SecurityLogger';
 import { llmProxyClient } from '../../services/LlmProxyClient';
 import { AgentCircuitBreaker } from './CircuitBreaker';
 import { traceLLMOperation, addSpanAttributes, addSpanEvent, metrics, getTraceContextForLogging, getCurrentTraceContext } from '../../config/telemetry';
+import type TaskContext from './TaskContext';
 import { llmCostTracker } from '../../services/LLMCostTracker';
 import { trackUsage } from '../../services/UsageTrackingService';
 import { logger } from '../../lib/logger';
@@ -36,7 +37,7 @@ export class LLMGateway {
   async complete(
     messages: LLMMessage[],
     config: LLMConfig = {},
-    taskContext?: any,
+    taskContext?: TaskContext,
     circuitBreaker?: AgentCircuitBreaker
   ): Promise<LLMResponse> {
     // Require tenant/session context for traceability. If strict tracing is enabled, abort without a trace

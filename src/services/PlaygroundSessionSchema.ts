@@ -8,6 +8,7 @@
 import { z } from 'zod';
 import { SDUIPageDefinition } from '../sdui/schema';
 import { AtomicUIAction } from '../sdui/AtomicUIActions';
+import { ns } from '../lib/redisKeys';
 
 /**
  * Session status
@@ -509,32 +510,32 @@ export const REDIS_KEYS = {
   /**
    * Session data key
    */
-  session: (sessionId: string) => `playground:session:${sessionId}`,
+  session: (sessionId: string, organizationId?: string) => ns(organizationId, `playground:session:${sessionId}`),
 
   /**
    * User sessions index
    */
-  userSessions: (userId: string) => `playground:user:${userId}:sessions`,
+  userSessions: (userId: string, organizationId?: string) => ns(organizationId, `playground:user:${userId}:sessions`),
 
   /**
    * Organization sessions index
    */
-  orgSessions: (orgId: string) => `playground:org:${orgId}:sessions`,
+  orgSessions: (orgId: string) => ns(orgId, `playground:org:${orgId}:sessions`),
 
   /**
    * Artifact sessions index
    */
-  artifactSessions: (artifactId: string) => `playground:artifact:${artifactId}:sessions`,
+  artifactSessions: (artifactId: string, organizationId?: string) => ns(organizationId, `playground:artifact:${artifactId}:sessions`),
 
   /**
    * Session lock (for concurrent access)
    */
-  sessionLock: (sessionId: string) => `playground:lock:${sessionId}`,
+  sessionLock: (sessionId: string, organizationId?: string) => ns(organizationId, `playground:lock:${sessionId}`),
 
   /**
    * Auto-save queue
    */
-  autoSaveQueue: () => `playground:autosave:queue`,
+  autoSaveQueue: (organizationId?: string) => ns(organizationId, `playground:autosave:queue`),
 };
 
 export default PlaygroundSessionSchema;

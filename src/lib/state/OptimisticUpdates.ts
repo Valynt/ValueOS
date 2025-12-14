@@ -53,14 +53,14 @@ export interface OptimisticUpdateOptions {
  * Manages optimistic UI updates with automatic rollback on failure
  */
 export class OptimisticUpdateManager {
-  private updates: Map<string, OptimisticUpdate<any>>;
+  private updates: Map<string, OptimisticUpdate<unknown>>;
   private timeouts: Map<string, NodeJS.Timeout>;
-  private stateGetter: (key: string) => any;
-  private stateSetter: (key: string, value: any) => void;
+  private stateGetter: (key: string) => unknown;
+  private stateSetter: (key: string, value: unknown) => void;
 
   constructor(
-    stateGetter: (key: string) => any,
-    stateSetter: (key: string, value: any) => void
+    stateGetter: (key: string) => unknown,
+    stateSetter: (key: string, value: unknown) => void
   ) {
     this.updates = new Map();
     this.timeouts = new Map();
@@ -255,7 +255,7 @@ export class OptimisticUpdateManager {
   /**
    * Get pending updates for a key
    */
-  getPendingUpdates(key: string): OptimisticUpdate<any>[] {
+  getPendingUpdates(key: string): OptimisticUpdate<unknown>[] {
     return Array.from(this.updates.values())
       .filter(u => u.key === key && u.status === 'pending');
   }
@@ -270,7 +270,7 @@ export class OptimisticUpdateManager {
   /**
    * Get all pending updates
    */
-  getAllPendingUpdates(): OptimisticUpdate<any>[] {
+  getAllPendingUpdates(): OptimisticUpdate<unknown>[] {
     return Array.from(this.updates.values())
       .filter(u => u.status === 'pending');
   }

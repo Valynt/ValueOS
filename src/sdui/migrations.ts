@@ -140,7 +140,7 @@ function migrateV1ToV2(schema: SDUIPageDefinition): SDUIPageDefinition {
           version: 2,
           props: {
             ...component.props,
-            actions: component.props.actions.map((action: any) => {
+            actions: component.props.actions.map((action: Record<string, unknown>) => {
               // Old format: { type: 'click', handler: 'doSomething' }
               // New format: { type: 'EXECUTE_TOOL', tool_id: 'doSomething' }
               if (action.handler) {

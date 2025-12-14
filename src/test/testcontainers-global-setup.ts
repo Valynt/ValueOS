@@ -119,8 +119,12 @@ export async function setup() {
           console.warn(`   Running ${file}...`);
           try {
             await client.query(sql);
+<<<<<<< HEAD
           } catch (migrationErr: unknown) {
             const err = migrationErr as { code?: string; message?: string };
+=======
+          } catch (_err: any) {
+>>>>>>> origin/main
             // If extensions like pgvector are unavailable when running against a vanilla Postgres,
             // log and continue. This keeps tests from failing due to optional extensions not present.
             if (err && (err.code === '0A000' || err.message?.includes('extension') || err.message?.includes('vector.control'))) {
@@ -134,7 +138,11 @@ export async function setup() {
         }
         migrationsSucceeded = true;
         console.warn('✅ All migrations applied successfully');
+<<<<<<< HEAD
       } catch (_err) {
+=======
+      } catch (err) {
+>>>>>>> origin/main
         console.warn('⚠️ Migrations failed, using minimal test schema instead');
         migrationsSucceeded = false;
       }

@@ -374,7 +374,9 @@ export abstract class BaseAgent {
       sessionId,
       this.agentId,
       `${action}: ${reasoning}`,
-      { input: inputData, output: outputData }
+      { input: inputData, output: outputData },
+      this.organizationId,
+      { source: 'agent_execution', trace_id: sessionId }
     );
   }
 

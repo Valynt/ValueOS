@@ -75,7 +75,10 @@
     "deploy:pre-check": "bash scripts/pre-deployment-checklist.sh",
     "db:backup": "bash scripts/backup-restore.sh backup",
     "db:restore": "bash scripts/backup-restore.sh restore",
-    "db:backup:list": "bash scripts/backup-restore.sh list"
+    "db:backup:list": "bash scripts/backup-restore.sh list",
+    "verify:llm-instrumentation": "node -r tsx/cjs scripts/verify-llm-instrumentation.ts",
+    "verify:trace-reconstruction": "node -r tsx/cjs scripts/verify/trace_reconstruction.ts",
+    "memory:gc": "tsx scripts/run-memory-gc.ts"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",

@@ -210,7 +210,7 @@ function parseVersion(versionHeader: string | undefined): number | null {
  * 
  * TODO: Implement actual schema generation based on workspace state
  */
-async function generateSchemaForWorkspace(workspaceId: string): Promise<any> {
+async function generateSchemaForWorkspace(workspaceId: string): Promise<Record<string, unknown>> {
   logger.info('Generating schema for workspace', { workspaceId });
 
   // Placeholder implementation
@@ -237,7 +237,7 @@ async function generateSchemaForWorkspace(workspaceId: string): Promise<any> {
  * 
  * TODO: Implement actual schema generation based on agent state
  */
-async function generateSchemaForAgent(agentId: string): Promise<any> {
+async function generateSchemaForAgent(agentId: string): Promise<Record<string, unknown>> {
   logger.info('Generating schema for agent', { agentId });
 
   // Placeholder implementation
