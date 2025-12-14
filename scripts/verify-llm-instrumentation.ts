@@ -14,17 +14,18 @@ function scanFile(filePath: string): string[] {
   const issues: string[] = [];
   if (isIgnored(filePath)) return issues;
   const content = fs.readFileSync(filePath, { encoding: 'utf8' });
-  const regex = /\.complete\s*\(/g;
-  let match;
-  while ((match = regex.exec(content)) !== null) {
-    const start = match.index;
-    // Find closing parenthesis for the call (naive)
-    const substr = content.substring(start, start + 400);
-    // If there's a third argument with a taskContext object or an explicit variable name
-    if (!/\,\s*\{[^}]*organizationId|,\s*taskContext|,\s*\w+\s*[:,]/.test(substr)) {
-      issues.push(`${filePath}:${Math.floor((content.substring(0, start).match(/\n/g) || []).length) + 1}`);
+  const regexes = [/\.complete\s*\(/g, /\.completeWithTools\s*\(/g, /\.chat\s*\(/g];
+  for (const regex of regexes) {
+    let match;
+    while ((match = regex.exec(content)) !== null) {
+      const start = match.index;
+      const substr = content.substring(start, start + 400);
+      if (!/\,\s*\{[^}]*organizationId|,\s*taskContext|,\s*\w+\s*[:,]/.test(substr)) {
+        issues.push(`${filePath}:${Math.floor((content.substring(0, start).match(/\n/g) || []).length) + 1}`);
+      }
     }
   }
+  
   return issues;
 }
 

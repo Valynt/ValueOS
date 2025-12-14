@@ -40,7 +40,8 @@ export class LLMGateway {
     taskContext?: TaskContext,
     circuitBreaker?: AgentCircuitBreaker
   ): Promise<LLMResponse> {
-    // Require tenant/session context for traceability. If strict tracing is enabled, abort without a trace
+    , taskContext?: import('./TaskContext').TaskContext,
+      circuitBreaker?: AgentCircuitBreaker
     const strictTracing = (process.env.VITE_STRICT_TRACING_ENFORCE || 'false') === 'true';
     const currentTrace = getCurrentTraceContext();
     if (strictTracing && !currentTrace) {
