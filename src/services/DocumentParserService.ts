@@ -8,6 +8,7 @@
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
+import type TaskContext from '../lib/agent-fabric/TaskContext';
 import { llmConfig } from '../config/llm';
 
 // ============================================================================
@@ -113,7 +114,7 @@ class DocumentParserService {
   /**
    * Extract insights from document text using LLM
    */
-  async extractInsights(text: string, fileName?: string): Promise<ExtractedInsights> {
+  async extractInsights(text: string, fileName?: string, taskContext?: TaskContext): Promise<ExtractedInsights> {
     const prompt = this.buildExtractionPrompt(text, fileName);
 
     try {
@@ -123,7 +124,7 @@ class DocumentParserService {
       ], {
         temperature: 0.3,
         max_tokens: 2048,
-      });
+      }, taskContext);
 
       return this.parseInsightsResponse(response.content);
     } catch (error) {
@@ -142,7 +143,14 @@ class DocumentParserService {
     insights: ExtractedInsights;
   }> {
     const document = await this.parseDocument(file);
-    const insights = await this.extractInsights(document.text, document.metadata.fileName);
+    const { data: { session } } = await supabase.auth.getSession();
+    const taskContext: TaskContext | undefined = session ? {
+      sessionId: (session as any).id,
+      userId: (session as any).user.id,
+      organizationId: (session as any).user.raw_user_meta_data?.tenant_id || (session as any).user.raw_user_meta_data?.organization_id
+    } : undefined;
+
+    const insights = await this.extractInsights(document.text, document.metadata.fileName, taskContext);
     
     return { document, insights };
   }

@@ -6,6 +6,7 @@
  */
 
 import { logger } from '../lib/logger';
+import type TaskContext from '../lib/agent-fabric/TaskContext';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import { llmConfig } from '../config/llm';
 
@@ -69,12 +70,12 @@ class EmailAnalysisService {
   /**
    * Analyze an email thread
    */
-  async analyzeThread(rawEmailText: string): Promise<EmailAnalysis> {
+  async analyzeThread(rawEmailText: string, taskContext?: TaskContext): Promise<EmailAnalysis> {
     // First, parse the raw email text into structured messages
     const thread = this.parseEmailThread(rawEmailText);
     
     // Then analyze with LLM
-    const analysis = await this.llmAnalyze(rawEmailText, thread);
+    const analysis = await this.llmAnalyze(rawEmailText, thread, taskContext);
     
     // Calculate days since last contact
     if (analysis.lastContactDate) {
@@ -170,7 +171,7 @@ class EmailAnalysisService {
   /**
    * Analyze email thread with LLM
    */
-  private async llmAnalyze(rawText: string, thread: EmailThread): Promise<EmailAnalysis> {
+  private async llmAnalyze(rawText: string, thread: EmailThread, taskContext?: TaskContext): Promise<EmailAnalysis> {
     // Truncate if too long
     const truncatedText = rawText.length > 10000
       ? rawText.slice(0, 10000) + '\n\n[Thread truncated...]'
@@ -189,7 +190,7 @@ Provide your analysis as JSON.`;
       ], {
         temperature: 0.3,
         max_tokens: 2048,
-      });
+      }, taskContext);
 
       return this.parseAnalysisResponse(response.content, thread);
     } catch (error) {
