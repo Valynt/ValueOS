@@ -18,4 +18,4 @@ if ! npm exec -- supabase --help >/dev/null 2>&1; then
 fi
 
 echo "Running validation SQL against remote DB (requires SUPABASE_ACCESS_TOKEN)"
-npm exec -- supabase db query --file "$SQL_FILE"
+npm exec -- supabase db execute --sql "$(cat $SQL_FILE)"
