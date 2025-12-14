@@ -318,13 +318,15 @@ export class ValueFabricService {
 
   async semanticSearchCapabilities(
     queryText: string,
-    limit: number = 10
+    limit: number = 10,
+    organizationId?: string
   ): Promise<SemanticSearchResult<Capability>[]> {
     const embedding = await this.generateEmbedding(queryText);
 
     const { data, error } = await this.supabase.rpc('search_capabilities_by_embedding', {
       query_embedding: embedding,
       match_count: limit,
+      p_organization_id: organizationId || null
     });
 
     if (error) {

@@ -6,7 +6,11 @@ import { sanitizeLLMContent } from '../../utils/security';
 import { securityLogger } from '../../services/SecurityLogger';
 import { llmProxyClient } from '../../services/LlmProxyClient';
 import { AgentCircuitBreaker } from './CircuitBreaker';
-// import { logger } from '../logger';
+import { traceLLMOperation, addSpanAttributes, addSpanEvent, metrics, getTraceContextForLogging, getCurrentTraceContext } from '../../config/telemetry';
+import type TaskContext from './TaskContext';
+import { llmCostTracker } from '../../services/LLMCostTracker';
+import { trackUsage } from '../../services/UsageTrackingService';
+import { logger } from '../../lib/logger';
 
 export class LLMGateway {
   private provider: LLMProvider;
@@ -33,9 +37,17 @@ export class LLMGateway {
   async complete(
     messages: LLMMessage[],
     config: LLMConfig = {},
-    taskContext?: any,
+    taskContext?: TaskContext,
     circuitBreaker?: AgentCircuitBreaker
   ): Promise<LLMResponse> {
+    // Require tenant/session context for traceability. If strict tracing is enabled, abort without a trace
+    const strictTracing = (process.env.VITE_STRICT_TRACING_ENFORCE || 'false') === 'true';
+    const currentTrace = getCurrentTraceContext();
+    if (strictTracing && !currentTrace) {
+      logger.error('LLMGateway complete aborted - missing trace context (strict tracing enforcement enabled)', { taskContext });
+      throw new Error('LLM call aborted: missing trace/span context');
+    }
+
     // Track LLM call in circuit breaker
     if (circuitBreaker) {
       circuitBreaker.recordLLMCall();
@@ -64,7 +76,19 @@ export class LLMGateway {
       }
     }
 
-    const response = await llmProxyClient.complete({
+    // Run operation in a tracing span to capture metrics and trace context
+    const spanResult = await traceLLMOperation(
+      'complete',
+      {
+        provider: this.provider === 'together' ? 'together_ai' : 'openai',
+        model: selectedModel,
+        userId: taskContext?.userId,
+        promptLength: JSON.stringify(messages).length
+      },
+      async (span) => {
+        addSpanEvent('llm.request.started', { model: selectedModel, sessionId: taskContext?.sessionId, tenantId: taskContext?.organizationId });
+
+        const response = await llmProxyClient.complete({
       messages,
       config: {
         model: selectedModel,
@@ -74,6 +98,61 @@ export class LLMGateway {
       },
       provider: this.provider,
     });
+
+        addSpanAttributes({
+          'llm.tokens_used': response.tokens_used || 0,
+          'llm.latency_ms': response.latency_ms || 0,
+          'llm.model': response.model
+        });
+
+        addSpanEvent('llm.request.completed', { cost_estimate: 0 });
+
+        // Metrics
+        metrics.llmRequestsTotal.add(1, { provider: this.provider, model: selectedModel, tenant_id: taskContext?.organizationId || taskContext?.userId || 'unknown' });
+        metrics.llmRequestDuration.record(response.latency_ms || 0, { provider: this.provider, model: selectedModel, tenant_id: taskContext?.organizationId || taskContext?.userId || 'unknown' });
+
+        // Estimate prompt / completion tokens if we only have total
+        const totalTokens = response.tokens_used || 0;
+        const promptTokens = taskContext?.estimatedPromptTokens ?? Math.round(totalTokens * 0.4);
+        const completionTokens = taskContext?.estimatedCompletionTokens ?? (totalTokens - promptTokens);
+
+        if (totalTokens > 0) {
+          metrics.llmTokensTotal.add(totalTokens, { provider: this.provider, model: selectedModel, type: 'total', tenant_id: taskContext?.organizationId || taskContext?.userId || 'unknown' });
+          metrics.llmTokensTotal.add(promptTokens, { provider: this.provider, model: selectedModel, type: 'prompt', tenant_id: taskContext?.organizationId || taskContext?.userId || 'unknown' });
+          metrics.llmTokensTotal.add(completionTokens, { provider: this.provider, model: selectedModel, type: 'completion', tenant_id: taskContext?.organizationId || taskContext?.userId || 'unknown' });
+        }
+
+        // Calculate and track cost (estimate) and persist a usage event for tenant billing
+        try {
+          const estimatedCost = llmCostTracker.calculateCost(response.model, promptTokens, completionTokens);
+
+          metrics.llmCostTotal.add(estimatedCost, { provider: this.provider, model: response.model, tenant_id: taskContext?.organizationId || taskContext?.userId || 'unknown' });
+
+          // Track as usage event per-tenant
+          if (taskContext?.organizationId) {
+            await trackUsage({
+              organizationId: taskContext.organizationId,
+              type: 'agent_call',
+              amount: estimatedCost,
+              metadata: {
+                provider: this.provider,
+                model: response.model,
+                promptTokens,
+                completionTokens,
+                sessionId: taskContext.sessionId || null
+              },
+              timestamp: new Date()
+            });
+          }
+        } catch (err) {
+          logger.error('Failed to track LLM cost/usage', { err: err instanceof Error ? err.message : err });
+        }
+
+        return response;
+      }
+    );
+
+    const response = spanResult;
 
     const rawContent = response.content;
     const sanitizedContent = sanitizeLLMContent(rawContent);
@@ -105,6 +184,7 @@ export class LLMGateway {
     executeToolFn: (name: string, args: Record<string, any>) => Promise<string>,
     config: LLMConfig = {},
     maxIterations: number = 5
+  , taskContext?: any
   ): Promise<LLMResponse> {
     const currentMessages = [...messages];
     let iterations = 0;
@@ -114,7 +194,17 @@ export class LLMGateway {
       iterations++;
 
       // Call LLM with tools
-      const response = await llmProxyClient.completeWithTools({
+      const spanResult = await traceLLMOperation(
+        'complete_with_tools',
+        {
+          provider: this.provider === 'together' ? 'together_ai' : 'openai',
+          model: config.model || this.defaultModel,
+          promptLength: JSON.stringify(currentMessages).length
+        },
+        async (span) => {
+          addSpanEvent('llm.request.started', { model: config.model || this.defaultModel });
+
+          const response = await llmProxyClient.completeWithTools({
         messages: currentMessages,
         tools,
         config: {
@@ -124,6 +214,50 @@ export class LLMGateway {
         },
         provider: this.provider,
       });
+
+          addSpanAttributes({ 'llm.tokens_used': response.tokens_used || 0, 'llm.latency_ms': response.latency_ms || 0 });
+          addSpanEvent('llm.request.completed', { tool_calls: (response.tool_calls || []).length });
+
+          // Metrics
+          metrics.llmRequestsTotal.add(1, { provider: this.provider, model: config.model || this.defaultModel, tenant_id: taskContext?.organizationId || taskContext?.userId || 'unknown' });
+          metrics.llmRequestDuration.record(response.latency_ms || 0, { provider: this.provider, model: config.model || this.defaultModel, tenant_id: taskContext?.organizationId || taskContext?.userId || 'unknown' });
+
+          // Track cost as in `complete()`
+          const totalTokens = response.tokens_used || 0;
+          const promptTokens = taskContext?.estimatedPromptTokens ?? Math.round(totalTokens * 0.4);
+          const completionTokens = taskContext?.estimatedCompletionTokens ?? (totalTokens - promptTokens);
+          if (totalTokens > 0) {
+            metrics.llmTokensTotal.add(totalTokens, { provider: this.provider, model: config.model || this.defaultModel, type: 'total', tenant_id: taskContext?.organizationId || taskContext?.userId || 'unknown' });
+            metrics.llmTokensTotal.add(promptTokens, { provider: this.provider, model: config.model || this.defaultModel, type: 'prompt', tenant_id: taskContext?.organizationId || taskContext?.userId || 'unknown' });
+            metrics.llmTokensTotal.add(completionTokens, { provider: this.provider, model: config.model || this.defaultModel, type: 'completion', tenant_id: taskContext?.organizationId || taskContext?.userId || 'unknown' });
+          }
+
+          try {
+            const estimatedCost = llmCostTracker.calculateCost(response.model, promptTokens, completionTokens);
+            metrics.llmCostTotal.add(estimatedCost, { provider: this.provider, model: response.model, tenant_id: taskContext?.organizationId || taskContext?.userId || 'unknown' });
+            if (taskContext?.organizationId) {
+              await trackUsage({
+                organizationId: taskContext.organizationId,
+                type: 'agent_call',
+                amount: estimatedCost,
+                metadata: {
+                  provider: this.provider,
+                  model: response.model,
+                  promptTokens,
+                  completionTokens
+                },
+                timestamp: new Date()
+              });
+            }
+          } catch (err) {
+            logger.error('Failed to track LLM cost/usage', { err: err instanceof Error ? err.message : err });
+          }
+
+          return response;
+        }
+      );
+
+      const response = spanResult;
 
       // If no tool calls, we're done
       if (!response.tool_calls || response.tool_calls.length === 0) {
