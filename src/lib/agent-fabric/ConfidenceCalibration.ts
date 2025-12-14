@@ -190,10 +190,11 @@ export class ConfidenceCalibrationService {
       .order('created_at', { ascending: false })
       .limit(1000);
 
-    if (error || !predictions || predictions.length < 10) {
+    if (error || !predictions || predictions.length < 50) {
       logger.warn('Insufficient historical data for calibration, using default model', {
         agentId,
-        sampleSize: predictions?.length || 0
+        sampleSize: predictions?.length || 0,
+        minimumRequired: 50
       });
       return this.getDefaultCalibrationModel(agentId);
     }
