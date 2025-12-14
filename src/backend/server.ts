@@ -9,6 +9,7 @@ import billingRouter from '../api/billing';
 import agentsRouter from '../api/agents';
 import workflowRouter from '../api/workflow';
 import documentRouter from '../api/documents';
+import healthRouter from '../api/health';
 import { createLogger } from '../lib/logger';
 import { createVersionedApiRouter } from './versioning';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
@@ -40,13 +41,8 @@ app.use(metricsMiddleware());
 app.use(requestAuditMiddleware());
 app.use(latencyMetricsMiddleware());
 
-// Health check
-app.get(
-  '/health',
-  (req: express.Request, res: express.Response): void => {
-    res.json({ status: 'ok', service: 'billing-api' });
-  }
-);
+// Health check endpoints (comprehensive)
+app.use(healthRouter);
 
 // Prometheus metrics endpoint
 app.get('/metrics', async (_req: express.Request, res: express.Response) => {

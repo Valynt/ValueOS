@@ -18,6 +18,7 @@
  */
 
 import { isDevelopment, isProduction, isTest } from '../config/environment';
+import { getTraceContextForLogging } from '../config/telemetry';
 import { 
   sanitizeForLogging, 
   sanitizeUser, 
@@ -257,12 +258,25 @@ export const secureLog = {
 export function setupMonitoring() {
   // Example: Send errors to Sentry
   if (isProduction()) {
-    logger.addListener((entry) => {
-      if (entry.level === 'error' && entry.error) {
-        // Send to Sentry or other monitoring service
-        // Sentry.captureException(entry.error, { extra: entry.context });
-      }
-    });
+    // Add Sentry integration if available
+    try {
+      // Dynamically import Sentry to avoid dependency errors in minimal builds
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const Sentry = require('@sentry/node');
+
+      logger.addListener((entry) => {
+        if (entry.level === 'error' && entry.error) {
+          const trace = getTraceContextForLogging();
+          Sentry.withScope((scope: any) => {
+            scope.setExtras({ ...entry.context, ...trace });
+            scope.setTag('component', entry.context?.component || 'unknown');
+            Sentry.captureException(entry.error);
+          });
+        }
+      });
+    } catch (err) {
+      logger.warn('Sentry not installed; skipping error forwarding', { error: err instanceof Error ? err.message : String(err) });
+    }
   }
 }
 

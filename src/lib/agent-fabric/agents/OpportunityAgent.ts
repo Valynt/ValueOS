@@ -232,7 +232,8 @@ Return ONLY valid JSON in this exact format:
       try {
         const semanticResults = await this.valueFabricService.semanticSearchCapabilities(
           contextText,
-          5
+          5,
+          this.organizationId
         );
         const semanticCapabilities = semanticResults.map(r => r.item);
 

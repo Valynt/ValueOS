@@ -6,6 +6,7 @@
  */
 
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
+import type TaskContext from '../lib/agent-fabric/TaskContext';
 import { logger } from '../lib/logger';
 import { llmConfig } from '../config/llm';
 import { QuizQuestion, LabSuccessCriterion } from '../types/academy';
@@ -83,7 +84,7 @@ class IntegrityAgentService {
   /**
    * Check a Value Commit document against governance standards
    */
-  async checkValueCommit(valueCommitContent: string): Promise<IntegrityCheck> {
+  async checkValueCommit(valueCommitContent: string, taskContext?: TaskContext): Promise<IntegrityCheck> {
     try {
       const prompt = this.buildValueCommitCheckPrompt(valueCommitContent);
       
@@ -114,7 +115,7 @@ Respond with a JSON object containing:
         model: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
         temperature: 0.3,
         max_tokens: 1500,
-      });
+      }, taskContext);
 
       const content = response.content || '{}';
       const result = this.parseJSONResponse(content) as {
@@ -248,7 +249,7 @@ Respond with JSON:
         model: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
         temperature: 0.3,
         max_tokens: 2000,
-      });
+      }, taskContext);
 
       const content = response.content || '{}';
       const result = this.parseJSONResponse(content) as {
@@ -457,7 +458,7 @@ Provide your assessment.`;
         model: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
         temperature: 0.5,
         max_tokens: 200,
-      });
+      }, taskContext);
 
       return response.content || 'Review the explanations and try again.';
     } catch {

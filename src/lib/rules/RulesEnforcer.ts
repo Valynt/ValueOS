@@ -172,19 +172,21 @@ export class RulesEnforcer {
       return result;
 
     } catch (error) {
-      logger.error('Rules enforcement failed', error instanceof Error ? error : undefined, {
+      logger.error('CRITICAL: Rules enforcement failed - FAILING CLOSED', error instanceof Error ? error : undefined, {
         errorMessage: error instanceof Error ? undefined : String(error),
         requestId,
+        environment: this.config.environment,
       });
 
-      // On enforcement error, fail safe (deny in production, allow in dev)
-      result.allowed = this.config.environment === 'development';
+      // CRITICAL: Always fail-closed - governance is a runtime invariant
+      // If governance layer is offline, the system is offline
+      result.allowed = false;
       result.violations.push({
         ruleId: 'SYSTEM',
-        ruleName: 'Enforcement Error',
+        ruleName: 'Governance System Failure',
         category: 'systemic_safety',
         severity: 'critical',
-        message: 'Rules enforcement system error',
+        message: 'Rules enforcement system error - action blocked for safety',
         details: { error: error instanceof Error ? error.message : String(error) },
       });
 

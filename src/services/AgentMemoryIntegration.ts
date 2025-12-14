@@ -72,9 +72,10 @@ export class AgentMemoryIntegration {
       // Step 1: Retrieve similar episodes if memory enabled
       if (useMemory) {
         similarEpisodes = await this.retrieveSimilarEpisodes(
-          request,
-          memoryLimit
-        );
+            request,
+            memoryLimit,
+            request.context?.organizationId
+          );
 
         // Step 2: Enhance context with memory
         if (similarEpisodes.length > 0) {
@@ -141,7 +142,8 @@ export class AgentMemoryIntegration {
    */
   private async retrieveSimilarEpisodes(
     request: MemoryEnhancedRequest,
-    limit: number
+    limit: number,
+    organizationId?: string
   ): Promise<any[]> {
     try {
       const context = {
@@ -152,7 +154,8 @@ export class AgentMemoryIntegration {
 
       const episodes = await this.memorySystem.retrieveSimilarEpisodes(
         context,
-        limit
+        limit,
+        organizationId
       );
 
       return episodes;
@@ -216,6 +219,7 @@ export class AgentMemoryIntegration {
       });
 
       // Store episodic memory for quick retrieval
+      const orgId = (request.context as any)?.organizationId;
       await this.memorySystem.storeEpisodicMemory(
         sessionId,
         request.agent,
@@ -223,7 +227,9 @@ export class AgentMemoryIntegration {
         {
           success: response.success,
           responsePreview: JSON.stringify(response.data).substring(0, 200),
-        }
+        },
+        orgId,
+        { source: 'agent_api', requestId: request.requestId || null }
       );
 
       return episodeId;

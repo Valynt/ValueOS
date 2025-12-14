@@ -389,6 +389,12 @@ export class VectorSearchService {
       conditions.push("COALESCE(metadata->>'data_sensitivity_level', 'unknown') <> 'unknown'");
     }
 
+    // Organization / tenant filter - treat specially
+    if ((filters as any).organization_id) {
+      conditions.push(`organization_id = '${(filters as any).organization_id}'`);
+      delete (filters as any).organization_id;
+    }
+
     // Metadata filters
     Object.entries(filters).forEach(([key, value]) => {
       if (value === null || value === undefined) return;
