@@ -14,22 +14,29 @@ export class MemorySystem {
     agentId: string,
     event: string,
     metadata: Record<string, any> = {},
-    organizationId?: string
+    organizationId?: string,
+    provenance?: Record<string, any>,
+    expiresAt?: Date
   ): Promise<void> {
     // SECURITY: Require organizationId for tenant isolation
     if (!organizationId && !metadata.organization_id) {
       throw new Error('organizationId is required for tenant isolation in memory operations');
     }
 
-    await this.supabase.from('agent_memory').insert({
+    const payload: Record<string, any> = {
       session_id: sessionId,
       agent_id: agentId,
       memory_type: 'episodic',
       content: event,
       metadata,
       organization_id: organizationId || metadata.organization_id,
-      importance_score: 0.5
-    });
+      importance_score: 0.5,
+      provenance: provenance || {}
+    };
+
+    if (expiresAt) payload.expires_at = expiresAt.toISOString();
+
+    await this.supabase.from('agent_memory').insert(payload);
   }
 
   async storeSemanticMemory(
@@ -37,7 +44,9 @@ export class MemorySystem {
     agentId: string,
     knowledge: string,
     metadata: Record<string, any> = {},
-    organizationId?: string
+    organizationId?: string,
+    provenance?: Record<string, any>,
+    ttlSeconds?: number
   ): Promise<void> {
     // SECURITY: Require organizationId for tenant isolation
     if (!organizationId && !metadata.organization_id) {
@@ -46,7 +55,7 @@ export class MemorySystem {
 
     const embedding = await this.llmGateway.generateEmbedding(knowledge);
 
-    await this.supabase.from('agent_memory').insert({
+    const payload: Record<string, any> = {
       session_id: sessionId,
       agent_id: agentId,
       memory_type: 'semantic',
@@ -54,8 +63,13 @@ export class MemorySystem {
       embedding: `[${embedding.join(',')}]`,
       metadata,
       organization_id: organizationId || metadata.organization_id,
-      importance_score: 0.7
-    });
+      importance_score: 0.7,
+      provenance: provenance || {}
+    };
+
+    if (typeof ttlSeconds === 'number') payload.expires_at = new Date(Date.now() + ttlSeconds * 1000).toISOString();
+
+    await this.supabase.from('agent_memory').insert(payload);
   }
 
   async storeWorkingMemory(
@@ -63,22 +77,29 @@ export class MemorySystem {
     agentId: string,
     taskState: string,
     metadata: Record<string, any> = {},
-    organizationId?: string
+    organizationId?: string,
+    provenance?: Record<string, any>,
+    ttlSeconds?: number
   ): Promise<void> {
     // SECURITY: Require organizationId for tenant isolation
     if (!organizationId && !metadata.organization_id) {
       throw new Error('organizationId is required for tenant isolation in memory operations');
     }
 
-    await this.supabase.from('agent_memory').insert({
+    const payload: Record<string, any> = {
       session_id: sessionId,
       agent_id: agentId,
       memory_type: 'working',
       content: taskState,
       metadata,
       organization_id: organizationId || metadata.organization_id,
-      importance_score: 0.3
-    });
+      importance_score: 0.3,
+      provenance: provenance || {}
+    };
+
+    if (typeof ttlSeconds === 'number') payload.expires_at = new Date(Date.now() + ttlSeconds * 1000).toISOString();
+
+    await this.supabase.from('agent_memory').insert(payload);
   }
 
   // ============================================================================
@@ -347,16 +368,23 @@ export class MemorySystem {
     sessionId: string,
     agentId: string,
     pattern: string,
-    metadata: Record<string, any> = {}
+    metadata: Record<string, any> = {},
+    provenance?: Record<string, any>,
+    ttlSeconds?: number
   ): Promise<void> {
-    await this.supabase.from('agent_memory').insert({
+    const payload: Record<string, any> = {
       session_id: sessionId,
       agent_id: agentId,
       memory_type: 'procedural',
       content: pattern,
       metadata,
-      importance_score: 0.8
-    });
+      importance_score: 0.8,
+      provenance: provenance || {}
+    };
+
+    if (typeof ttlSeconds === 'number') payload.expires_at = new Date(Date.now() + ttlSeconds * 1000).toISOString();
+
+    await this.supabase.from('agent_memory').insert(payload);
   }
 
   async getEpisodicMemory(
@@ -477,5 +505,29 @@ export class MemorySystem {
       .delete()
       .eq('session_id', sessionId)
       .eq('memory_type', 'working');
+  }
+
+  /**
+   * Prune expired memories for non-episodic memory types.
+   */
+  async pruneExpiredMemories(limit: number = 1000): Promise<number> {
+    const { data, error } = await this.supabase.rpc('prune_expired_agent_memories', { p_limit: limit });
+    if (error) {
+      logger.error('Failed to prune expired memories', { error, limit });
+      throw error;
+    }
+    if (!data || !data.length) return 0;
+    return data[0].deleted_count || 0;
+  }
+
+  /**
+   * Set TTL for an existing memory record
+   */
+  async setMemoryTTL(memoryId: string, expiresAt: Date): Promise<void> {
+    const { error } = await this.supabase.rpc('set_memory_ttl', { p_id: memoryId, p_expires_at: expiresAt });
+    if (error) {
+      logger.error('Failed to set memory TTL', { error, memoryId, expiresAt });
+      throw error;
+    }
   }
 }
