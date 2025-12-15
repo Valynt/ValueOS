@@ -54,7 +54,7 @@ class BrowserEventEmitter {
  */
 export interface UpdateSubscription {
   workspaceId: string;
-  callback: (update: SDUIUpdate) => void;
+  callback: (_update: SDUIUpdate) => void;
   unsubscribe: () => void;
 }
 
@@ -184,7 +184,7 @@ export class RealtimeUpdateService extends BrowserEventEmitter {
   /**
    * Subscribe to updates
    */
-  onUpdate(callback: (update: SDUIUpdate) => void): Unsubscribe {
+  onUpdate(_callback: (update: SDUIUpdate) => void): Unsubscribe {
     if (!this.workspaceId) {
       throw new Error('Not connected to any workspace');
     }
@@ -216,10 +216,10 @@ export class RealtimeUpdateService extends BrowserEventEmitter {
    * Resolve conflict between local and remote changes
    */
   async resolveConflict(
-    localVersion: number,
-    remoteVersion: number,
-    localChanges: any,
-    remoteChanges: any
+    _localVersion: number,
+    _remoteVersion: number,
+    localChanges: Record<string, unknown>,
+    remoteChanges: Record<string, unknown>
   ): Promise<ConflictResolution> {
     logger.info('Resolving conflict', {
       localVersion,
@@ -283,7 +283,7 @@ export class RealtimeUpdateService extends BrowserEventEmitter {
   /**
    * Set conflict resolution strategy
    */
-  setConflictResolutionStrategy(strategy: ConflictResolutionStrategy): void {
+  setConflictResolutionStrategy(_strategy: ConflictResolutionStrategy): void {
     this.conflictResolutionStrategy = strategy;
     logger.info('Conflict resolution strategy set', { strategy });
   }
@@ -325,7 +325,7 @@ export class RealtimeUpdateService extends BrowserEventEmitter {
   /**
    * Handle incoming update
    */
-  private async handleIncomingUpdate(payload: any): Promise<void> {
+  private async handleIncomingUpdate(_payload: any): Promise<void> {
     const { workspaceId, update } = payload;
 
     logger.info('Received update', {
@@ -380,7 +380,7 @@ export class RealtimeUpdateService extends BrowserEventEmitter {
   /**
    * Detect conflict
    */
-  private detectConflict(currentState: any, update: SDUIUpdate): boolean {
+  private detectConflict(_currentState: any, _update: SDUIUpdate): boolean {
     // Simple version-based conflict detection
     // In production, this would be more sophisticated
     return false;
@@ -389,7 +389,7 @@ export class RealtimeUpdateService extends BrowserEventEmitter {
   /**
    * Merge changes intelligently
    */
-  private mergeChanges(localChanges: any, remoteChanges: any): any {
+  private mergeChanges(localChanges: Record<string, unknown>, remoteChanges: Record<string, unknown>): Record<string, unknown> {
     // Simple merge - in production, this would be more sophisticated
     const merged = { ...localChanges };
 
