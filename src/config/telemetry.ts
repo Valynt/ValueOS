@@ -3,32 +3,88 @@
  * 
  * Provides distributed tracing and metrics for LLM calls,
  * database queries, and API requests.
+ * 
+ * Automatically detects browser vs Node.js environment and provides
+ * appropriate implementations.
  */
 
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
-import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
-import * as resources from '@opentelemetry/resources';
-import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
-import { trace, context, SpanStatusCode, Span } from '@opentelemetry/api';
-import { logger } from '../lib/logger';
+// Detect if we're in a browser environment
+const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
+
+// Browser imports - use dynamic imports to avoid bundling issues
+let trace, context, SpanStatusCode, Span;
+
+async function initializeTelemetryImports() {
+  if (isBrowser) {
+    // Browser environment - use OpenTelemetry API only
+    const api = await import('@opentelemetry/api');
+    trace = api.trace;
+    context = api.context;
+    SpanStatusCode = api.SpanStatusCode;
+    Span = api.Span;
+  } else {
+    // Node.js environment - use full SDK
+    trace = (await import('@opentelemetry/api')).trace;
+    context = (await import('@opentelemetry/api')).context;
+    SpanStatusCode = (await import('@opentelemetry/api')).SpanStatusCode;
+    Span = (await import('@opentelemetry/api')).Span;
+  }
+}
+
+// Initialize imports immediately
+initializeTelemetryImports();
 
 // Service configuration
-const SERVICE_NAME = process.env.OTEL_SERVICE_NAME || 'valuecanvas-api';
-const SERVICE_VERSION = process.env.npm_package_version || '1.0.0';
-const ENVIRONMENT = process.env.NODE_ENV || 'development';
+const SERVICE_NAME = isBrowser ? 'valuecanvas-frontend' : (process.env.OTEL_SERVICE_NAME || 'valuecanvas-api');
+const SERVICE_VERSION = isBrowser ? '1.0.0' : (process.env.npm_package_version || '1.0.0');
+const ENVIRONMENT = isBrowser ? 'browser' : (process.env.NODE_ENV || 'development');
 
-// Exporter endpoints
-const OTLP_ENDPOINT = process.env.OTLP_ENDPOINT || 'http://localhost:4318';
-const TRACES_ENDPOINT = `${OTLP_ENDPOINT}/v1/traces`;
-const METRICS_ENDPOINT = `${OTLP_ENDPOINT}/v1/metrics`;
+// No-op implementations for browser environment
+const noopSpan = {
+  setAttributes: () => {},
+  setStatus: () => {},
+  recordException: () => {},
+  addEvent: () => {},
+  end: () => {},
+  spanContext: () => ({ traceId: '', spanId: '' })
+};
+
+const noopTracer = {
+  startSpan: () => noopSpan,
+  startActiveSpan: (name: string, options: any, fn: (span: Span) => any) => fn(noopSpan)
+};
+
+// Exporter endpoints (Node.js only)
+let OTLP_ENDPOINT, TRACES_ENDPOINT, METRICS_ENDPOINT;
+if (!isBrowser) {
+  OTLP_ENDPOINT = process.env.OTLP_ENDPOINT || 'http://localhost:4318';
+  TRACES_ENDPOINT = `${OTLP_ENDPOINT}/v1/traces`;
+  METRICS_ENDPOINT = `${OTLP_ENDPOINT}/v1/metrics`;
+}
 
 /**
  * Initialize OpenTelemetry SDK
  */
-export function initializeTelemetry(): NodeSDK {
+export async function initializeTelemetry(): Promise<any> {
+  if (isBrowser) {
+    // Browser environment - no-op initialization
+    console.log('OpenTelemetry initialized for browser environment');
+    return null;
+  }
+
+  // Wait for imports to be available
+  await initializeTelemetryImports();
+
+  // Node.js environment - full SDK initialization
+  const { NodeSDK } = await import('@opentelemetry/sdk-node');
+  const { getNodeAutoInstrumentations } = await import('@opentelemetry/auto-instrumentations-node');
+  const { OTLPTraceExporter } = await import('@opentelemetry/exporter-trace-otlp-http');
+  const { OTLPMetricExporter } = await import('@opentelemetry/exporter-metrics-otlp-http');
+  const { PeriodicExportingMetricReader } = await import('@opentelemetry/sdk-metrics');
+  const resources = await import('@opentelemetry/resources');
+  const { SemanticResourceAttributes } = await import('@opentelemetry/semantic-conventions');
+  const { logger } = await import('../lib/logger');
+
   const sdk = new NodeSDK({
     resource: new resources.Resource({
       [SemanticResourceAttributes.SERVICE_NAME]: SERVICE_NAME,
@@ -95,6 +151,10 @@ export function initializeTelemetry(): NodeSDK {
  * Get tracer instance
  */
 export function getTracer() {
+  if (isBrowser || !trace) {
+    return noopTracer;
+  }
+  
   return trace.getTracer(SERVICE_NAME, SERVICE_VERSION);
 }
 
@@ -312,8 +372,15 @@ export function getTraceContextForLogging(): Record<string, string> {
 /**
  * Create custom metric counter
  */
-export function createCounter(name: string, description: string) {
-  const { metrics } = require('@opentelemetry/api');
+export async function createCounter(name: string, description: string) {
+  if (isBrowser) {
+    return {
+      add: () => {},
+      record: () => {}
+    };
+  }
+  
+  const { metrics } = await import('@opentelemetry/api');
   const meter = metrics.getMeter(SERVICE_NAME);
   return meter.createCounter(name, { description });
 }
@@ -321,8 +388,14 @@ export function createCounter(name: string, description: string) {
 /**
  * Create custom metric histogram
  */
-export function createHistogram(name: string, description: string) {
-  const { metrics } = require('@opentelemetry/api');
+export async function createHistogram(name: string, description: string) {
+  if (isBrowser) {
+    return {
+      record: () => {}
+    };
+  }
+  
+  const { metrics } = await import('@opentelemetry/api');
   const meter = metrics.getMeter(SERVICE_NAME);
   return meter.createHistogram(name, { description });
 }
@@ -330,12 +403,18 @@ export function createHistogram(name: string, description: string) {
 /**
  * Create custom metric gauge
  */
-export function createObservableGauge(
+export async function createObservableGauge(
   name: string,
   description: string,
   callback: () => number
 ) {
-  const { metrics } = require('@opentelemetry/api');
+  if (isBrowser) {
+    return {
+      observe: () => {}
+    };
+  }
+  
+  const { metrics } = await import('@opentelemetry/api');
   const meter = metrics.getMeter(SERVICE_NAME);
   return meter.createObservableGauge(name, {
     description
@@ -344,40 +423,21 @@ export function createObservableGauge(
   });
 }
 
-// Pre-defined metrics
+// Pre-defined metrics (async initialization)
 export const metrics = {
-  llmRequestsTotal: createCounter(
-    'llm.requests.total',
-    'Total number of LLM requests'
-  ),
-  llmRequestDuration: createHistogram(
-    'llm.request.duration',
-    'Duration of LLM requests in milliseconds'
-  ),
-  llmCostTotal: createCounter(
-    'llm.cost.total',
-    'Total cost of LLM requests in USD'
-  ),
-  llmTokensTotal: createCounter(
-    'llm.tokens.total',
-    'Total number of tokens processed'
-  ),
-  cacheHitsTotal: createCounter(
-    'cache.hits.total',
-    'Total number of cache hits'
-  ),
-  cacheMissesTotal: createCounter(
-    'cache.misses.total',
-    'Total number of cache misses'
-  ),
-  circuitBreakerState: createObservableGauge(
-    'circuit_breaker.state',
-    'Circuit breaker state (0=closed, 1=open, 2=half-open)',
-    () => {
-      // This will be updated by circuit breaker
-      return 0;
-    }
-  )
+  get llmRequestsTotal() { return createCounter('llm.requests.total', 'Total number of LLM requests'); },
+  get llmRequestDuration() { return createHistogram('llm.request.duration', 'Duration of LLM requests in milliseconds'); },
+  get llmCostTotal() { return createCounter('llm.cost.total', 'Total cost of LLM requests in USD'); },
+  get llmTokensTotal() { return createCounter('llm.tokens.total', 'Total number of tokens processed'); },
+  get cacheHitsTotal() { return createCounter('cache.hits.total', 'Total number of cache hits'); },
+  get cacheMissesTotal() { return createCounter('cache.misses.total', 'Total number of cache misses'); },
+  get circuitBreakerState() { 
+    return createObservableGauge(
+      'circuit_breaker.state',
+      'Circuit breaker state (0=closed, 1=open, 2=half-open)',
+      () => 0
+    ); 
+  }
 };
 
 /**

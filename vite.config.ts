@@ -8,7 +8,10 @@ const isCodespaces = process.env.CODESPACES === 'true';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  server: {
+  define: {
+    global: 'globalThis',
+  },
+    server: {
     host: process.env.VITE_HOST || '0.0.0.0', // Listen on all interfaces for container/Codespace access
     port: parseInt(process.env.VITE_PORT || '5173'),
     strictPort: false, // Allow fallback to other ports if port is busy
@@ -16,10 +19,8 @@ export default defineConfig({
     // CORS configuration for cross-origin requests
     cors: true,
     // HMR configuration for hot module replacement
-    // In Codespaces, let Vite auto-detect the correct WebSocket URL
-    hmr: isCodespaces ? true : {
-      clientPort: parseInt(process.env.VITE_HMR_PORT || '24678'),
-      host: process.env.VITE_HMR_HOST || 'localhost',
+    hmr: {
+      port: 24678,
     },
     // Optional: Enable HTTPS for local development
     // Uncomment the next line to use HTTPS (will use self-signed certificate)
@@ -34,7 +35,44 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      external: ['fs', 'path', 'crypto', 'node-vault'],
+      external: [
+        'fs', 'path', 'crypto', 'node-vault', 'zlib', 'stream', 'buffer', 'util', 'url', 'os', 'child_process',
+        // Aggressively exclude all Node.js OpenTelemetry modules
+        '@opentelemetry/sdk-node',
+        '@opentelemetry/auto-instrumentations-node',
+        '@opentelemetry/instrumentation-fs',
+        '@opentelemetry/instrumentation-http',
+        '@opentelemetry/instrumentation-express',
+        '@opentelemetry/instrumentation-pg',
+        '@opentelemetry/instrumentation-redis',
+        '@opentelemetry/instrumentation-net',
+        '@opentelemetry/resource-detector-aws',
+        '@opentelemetry/resource-detector-azure',
+        '@opentelemetry/resource-detector-alibaba-cloud',
+        '@opentelemetry/resource-detector-container',
+        '@opentelemetry/otlp-exporter-base',
+        '@opentelemetry/exporter-jaeger',
+        '@opentelemetry/exporter-prometheus',
+        '@opentelemetry/exporter-zipkin',
+        '@opentelemetry/otlp-grpc-exporter-base',
+        '@opentelemetry/otlp-proto-exporter-base',
+        '@opentelemetry/otlp-transformer',
+        '@opentelemetry/sdk-logs',
+        '@opentelemetry/sdk-trace-base',
+        '@opentelemetry/sdk-trace-node',
+        '@opentelemetry/sdk-metrics-base',
+        '@opentelemetry/instrumentation',
+        '@opentelemetry/context-async-hooks',
+        '@opentelemetry/core',
+        '@opentelemetry/semantic-conventions',
+        '@opentelemetry/resources',
+        '@opentelemetry/propagator-b3',
+        '@opentelemetry/propagator-jaeger',
+        '@opentelemetry/propagator-xtrace',
+        'google-logging-utils',
+        '@grpc/grpc-js',
+        '@opentelemetry/otlp-exporter-base'
+      ],
       output: {
         manualChunks: {
           // React core
@@ -53,7 +91,43 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ['lucide-react'],
-    exclude: ['node-vault'],
+    exclude: [
+      'node-vault',
+      // Exclude all Node.js OpenTelemetry modules from pre-bundling
+      '@opentelemetry/sdk-node',
+      '@opentelemetry/auto-instrumentations-node',
+      '@opentelemetry/instrumentation-fs',
+      '@opentelemetry/instrumentation-http',
+      '@opentelemetry/instrumentation-express',
+      '@opentelemetry/instrumentation-pg',
+      '@opentelemetry/instrumentation-redis',
+      '@opentelemetry/instrumentation-net',
+      '@opentelemetry/resource-detector-aws',
+      '@opentelemetry/resource-detector-azure',
+      '@opentelemetry/resource-detector-alibaba-cloud',
+      '@opentelemetry/resource-detector-container',
+      '@opentelemetry/otlp-exporter-base',
+      '@opentelemetry/exporter-jaeger',
+      '@opentelemetry/exporter-prometheus',
+      '@opentelemetry/exporter-zipkin',
+      '@opentelemetry/otlp-grpc-exporter-base',
+      '@opentelemetry/otlp-proto-exporter-base',
+      '@opentelemetry/otlp-transformer',
+      '@opentelemetry/sdk-logs',
+      '@opentelemetry/sdk-trace-base',
+      '@opentelemetry/sdk-trace-node',
+      '@opentelemetry/sdk-metrics-base',
+      '@opentelemetry/instrumentation',
+      '@opentelemetry/context-async-hooks',
+      '@opentelemetry/core',
+      '@opentelemetry/semantic-conventions',
+      '@opentelemetry/resources',
+      '@opentelemetry/propagator-b3',
+      '@opentelemetry/propagator-jaeger',
+      '@opentelemetry/propagator-xtrace',
+      'google-logging-utils',
+      '@grpc/grpc-js'
+    ],
   },
   test: {
     environment: 'jsdom',

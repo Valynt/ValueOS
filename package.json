@@ -170,10 +170,10 @@
   },
   "lint-staged": {
     "*.{ts,tsx}": [
-      "eslint --fix"
+      "node ./node_modules/eslint/bin/eslint.js --fix"
     ],
     "*.{json,md,yml,yaml}": [
-      "prettier --write"
+      "node ./node_modules/prettier/bin/prettier.cjs --write"
     ]
   }
 }
