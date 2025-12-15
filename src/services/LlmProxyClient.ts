@@ -1,4 +1,4 @@
-import { logger } from '../lib/logger';
+// import { logger } from '../lib/logger'; // Not used in this file
 import { supabase } from '../lib/supabase';
 import { securityLogger } from './SecurityLogger';
 import { sanitizeLLMContent } from '../utils/security';

@@ -25,7 +25,7 @@ export interface LLMTool {
   function: {
     name: string;
     description: string;
-    parameters: Record<string, any>; // JSON Schema
+    parameters: Record<string, unknown>; // JSON Schema
   };
 }
 
@@ -57,4 +57,4 @@ export interface LLMStreamChunk {
   finish_reason?: 'stop' | 'tool_calls' | 'length';
 }
 
-export type LLMStreamCallback = (chunk: LLMStreamChunk) => void;
+export type LLMStreamCallback = (_chunk: LLMStreamChunk) => void;
