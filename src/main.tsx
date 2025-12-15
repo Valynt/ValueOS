@@ -10,6 +10,7 @@ import { bootstrap } from './bootstrap';
 import { isProduction, isDevelopment } from './config/environment';
 import { startConsoleCapture } from './utils/consoleRecorder';
 import { analyticsClient } from './lib/analyticsClient';
+import { initHMRFallback } from './lib/vite-hmr-fallback';
 
 /**
  * Application entry point with production-ready bootstrap
@@ -43,6 +44,11 @@ async function main() {
   `;
 
   try {
+    // Initialize HMR fallback for reliable development experience
+    if (isDevelopment()) {
+      initHMRFallback();
+    }
+
     // Initialize telemetry helpers
     startConsoleCapture();
     analyticsClient.initialize({ betaCohort: true });

@@ -6,7 +6,50 @@
  */
 
 import { logger } from '../lib/logger';
-import { EventEmitter } from 'events';
+
+/**
+ * Browser-compatible EventEmitter
+ */
+class BrowserEventEmitter {
+  private listeners: Map<string, Function[]> = new Map();
+
+  on(event: string, listener: Function): void {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, []);
+    }
+    this.listeners.get(event)!.push(listener);
+  }
+
+  off(event: string, listener: Function): void {
+    const eventListeners = this.listeners.get(event);
+    if (eventListeners) {
+      const index = eventListeners.indexOf(listener);
+      if (index > -1) {
+        eventListeners.splice(index, 1);
+      }
+    }
+  }
+
+  // Alias for EventEmitter compatibility
+  removeListener(event: string, listener: Function): void {
+    this.off(event, listener);
+  }
+
+  emit(event: string, ...args: any[]): void {
+    const eventListeners = this.listeners.get(event);
+    if (eventListeners) {
+      eventListeners.forEach(listener => listener(...args));
+    }
+  }
+
+  removeAllListeners(event?: string): void {
+    if (event) {
+      this.listeners.delete(event);
+    } else {
+      this.listeners.clear();
+    }
+  }
+}
 
 /**
  * WebSocket connection state
@@ -44,13 +87,13 @@ export interface ConnectionOptions {
 /**
  * WebSocket Manager
  */
-export class WebSocketManager extends EventEmitter {
+export class WebSocketManager extends BrowserEventEmitter {
   private ws: WebSocket | null = null;
   private state: ConnectionState = 'disconnected';
   private options: ConnectionOptions | null = null;
   private reconnectAttempts = 0;
-  private reconnectTimer: NodeJS.Timeout | null = null;
-  private heartbeatTimer: NodeJS.Timeout | null = null;
+  private reconnectTimer: number | null = null; // Browser-compatible timer type
+  private heartbeatTimer: number | null = null; // Browser-compatible timer type
   private messageQueue: WebSocketMessage[] = [];
   private readonly MAX_QUEUE_SIZE = 100;
 
@@ -166,10 +209,10 @@ export class WebSocketManager extends EventEmitter {
           this.handleMessage(event);
         };
 
-        this.ws.onerror = (error) => {
-          logger.error('WebSocket error', { error });
+        this.ws.onerror = (event) => {
+          logger.error('WebSocket error event occurred', { event });
           this.setState('error');
-          reject(error);
+          reject(new Error('WebSocket connection failed'));
         };
 
         this.ws.onclose = () => {
@@ -229,7 +272,7 @@ export class WebSocketManager extends EventEmitter {
       interval: this.options.reconnectInterval,
     });
 
-    this.reconnectTimer = setTimeout(() => {
+    this.reconnectTimer = window.setTimeout(() => {
       this.connect(this.options!);
     }, this.options.reconnectInterval);
   }
@@ -240,7 +283,7 @@ export class WebSocketManager extends EventEmitter {
   private startHeartbeat(): void {
     if (!this.options?.heartbeatInterval) return;
 
-    this.heartbeatTimer = setInterval(() => {
+    this.heartbeatTimer = window.setInterval(() => {
       if (this.state === 'connected') {
         this.send({
           type: 'heartbeat',
@@ -256,12 +299,12 @@ export class WebSocketManager extends EventEmitter {
    * Clear timers
    */
   private clearTimers(): void {
-    if (this.reconnectTimer) {
+    if (this.reconnectTimer !== null) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
 
-    if (this.heartbeatTimer) {
+    if (this.heartbeatTimer !== null) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = null;
     }
