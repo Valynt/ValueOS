@@ -84,7 +84,7 @@ export class LLMGateway {
         userId: taskContext?.userId,
         promptLength: JSON.stringify(messages).length
       },
-      async (span) => {
+      async (_span) => {
         addSpanEvent('llm.request.started', { model: selectedModel, sessionId: taskContext?.sessionId, tenantId: taskContext?.organizationId });
 
         const response = await llmProxyClient.complete({
@@ -180,10 +180,10 @@ export class LLMGateway {
   async completeWithTools(
     messages: LLMMessage[],
     tools: LLMTool[],
-    executeToolFn: (name: string, args: Record<string, any>) => Promise<string>,
+    executeToolFn: (_name: string, _args: Record<string, unknown>) => Promise<string>,
     config: LLMConfig = {},
-    maxIterations: number = 5
-  , taskContext?: any
+    maxIterations: number = 5,
+    taskContext?: Record<string, unknown>
   ): Promise<LLMResponse> {
     const currentMessages = [...messages];
     let iterations = 0;
@@ -200,7 +200,7 @@ export class LLMGateway {
           model: config.model || this.defaultModel,
           promptLength: JSON.stringify(currentMessages).length
         },
-        async (span) => {
+        async (_span) => {
           addSpanEvent('llm.request.started', { model: config.model || this.defaultModel });
 
           const response = await llmProxyClient.completeWithTools({
@@ -324,7 +324,7 @@ export class LLMGateway {
    */
   async shouldInvoke(
     model: string,
-    taskContext?: any
+    taskContext?: Record<string, unknown>
   ): Promise<{
     invoke: boolean;
     useHeuristic: boolean;
@@ -371,7 +371,7 @@ export class LLMGateway {
   /**
    * Estimate task complexity (0-1 scale)
    */
-  estimateComplexity(taskContext: any): number {
+  estimateComplexity(taskContext: Record<string, unknown>): number {
     let complexity = 0.5; // Base complexity
 
     // Factor in input size
@@ -391,7 +391,7 @@ export class LLMGateway {
     }
 
     // Factor in number of entities/relationships
-    if (taskContext.entities) {
+    if (taskContext.entities && Array.isArray(taskContext.entities)) {
       complexity += Math.min(taskContext.entities.length / 50, 0.2);
     }
 
@@ -401,7 +401,7 @@ export class LLMGateway {
   /**
    * Estimate confidence in existing knowledge (0-1 scale)
    */
-  estimateConfidence(taskContext: any): number {
+  estimateConfidence(taskContext: Record<string, unknown>): number {
     let confidence = 0.5; // Base confidence
 
     // Higher confidence if we have similar past episodes
@@ -426,7 +426,7 @@ export class LLMGateway {
   /**
    * Select model based on gating logic
    */
-  selectModelBasedOnGating(taskContext?: any): string {
+  selectModelBasedOnGating(taskContext?: Record<string, unknown>): string {
     if (!this.gatingEnabled || !taskContext) {
       return this.defaultModel;
     }
@@ -445,7 +445,7 @@ export class LLMGateway {
   /**
    * Apply heuristic for simple tasks
    */
-  private applyHeuristic(taskContext: any): string {
+  private applyHeuristic(taskContext: Record<string, unknown>): string {
     // Simple pattern matching for common tasks
     if (taskContext.task_type === 'status_check') {
       return JSON.stringify({ status: 'ok', timestamp: new Date().toISOString() });
@@ -500,7 +500,6 @@ export class LLMGateway {
       ];
     }
   }
-}
 
   async completeStream(
     messages: LLMMessage[],
@@ -547,7 +546,7 @@ export class LLMGateway {
         userId: taskContext?.userId,
         promptLength: JSON.stringify(messages).length
       },
-      async (span) => {
+      async (_span) => {
         addSpanEvent('llm.stream.request.started', { model: selectedModel, sessionId: taskContext?.sessionId, tenantId: taskContext?.organizationId });
 
         let totalTokens = 0;
@@ -581,44 +580,54 @@ export class LLMGateway {
               'llm.model': selectedModel
             });
 
-            addSpanEvent('llm.stream.request.completed', { cost_estimate: 0 });
-
-            // Metrics
-            metrics.llmRequestsTotal.add(1, { provider: this.provider, model: selectedModel, tenant_id: taskContext?.organizationId || taskContext?.userId || 'unknown' });
-            metrics.llmRequestDuration.record(latency, { provider: this.provider, model: selectedModel, tenant_id: taskContext?.organizationId || taskContext?.userId || 'unknown' });
-
             // Estimate prompt / completion tokens
-            const promptTokens = taskContext?.estimatedPromptTokens ?? Math.round(totalTokens * 0.4);
-            const completionTokens = taskContext?.estimatedCompletionTokens ?? (totalTokens - promptTokens);
-
-            if (totalTokens > 0) {
-              metrics.llmTokensTotal.add(totalTokens, { provider: this.provider, model: selectedModel, type: 'total', tenant_id: taskContext?.organizationId || taskContext?.userId || 'unknown' });
-              metrics.llmTokensTotal.add(promptTokens, { provider: this.provider, model: selectedModel, type: 'prompt', tenant_id: taskContext?.organizationId || taskContext?.userId || 'unknown' });
-              metrics.llmTokensTotal.add(completionTokens, { provider: this.provider, model: selectedModel, type: 'completion', tenant_id: taskContext?.organizationId || taskContext?.userId || 'unknown' });
-            }
+            const promptTokens = typeof taskContext?.estimatedPromptTokens === 'number' 
+              ? taskContext.estimatedPromptTokens 
+              : Math.round(totalTokens * 0.4);
+            const completionTokens = typeof taskContext?.estimatedCompletionTokens === 'number'
+              ? taskContext.estimatedCompletionTokens
+              : (totalTokens - promptTokens);
 
             // Calculate and track cost
-            try {
-              const estimatedCost = llmCostTracker.calculateCost(selectedModel, promptTokens, completionTokens);
-              metrics.llmCostTotal.add(estimatedCost, { provider: this.provider, model: selectedModel, tenant_id: taskContext?.organizationId || taskContext?.userId || 'unknown' });
+            const estimatedCost = llmCostTracker.calculateCost(selectedModel, promptTokens, completionTokens);
 
-              if (taskContext?.organizationId) {
-                await trackUsage({
-                  organizationId: taskContext.organizationId,
-                  type: 'agent_call',
-                  amount: estimatedCost,
-                  metadata: {
-                    provider: this.provider,
-                    model: selectedModel,
-                    promptTokens,
-                    completionTokens,
-                    sessionId: taskContext.sessionId || null
-                  },
-                  timestamp: new Date()
-                });
-              }
-            } catch (err) {
-              logger.error('Failed to track LLM cost/usage', { err: err instanceof Error ? err.message : err });
+            addSpanEvent('llm.stream.request.completed', { cost_estimate: estimatedCost });
+
+            // Metrics
+            if (totalTokens > 0) {
+              // Note: metrics are async but we're in callback context
+              // For streaming, metrics are recorded per chunk
+              Promise.all([
+                metrics.llmRequestsTotal.then(m => m.add(1, { provider: this.provider, model: selectedModel, tenant_id: taskContext?.organizationId || taskContext?.userId || 'unknown' })),
+                metrics.llmRequestDuration.then(m => m.record(latency, { provider: this.provider, model: selectedModel, tenant_id: taskContext?.organizationId || taskContext?.userId || 'unknown' })),
+                metrics.llmTokensTotal.then(m => m.add(totalTokens, { provider: this.provider, model: selectedModel, type: 'total', tenant_id: taskContext?.organizationId || taskContext?.userId || 'unknown' })),
+                metrics.llmTokensTotal.then(m => m.add(promptTokens, { provider: this.provider, model: selectedModel, type: 'prompt', tenant_id: taskContext?.organizationId || taskContext?.userId || 'unknown' })),
+                metrics.llmTokensTotal.then(m => m.add(completionTokens, { provider: this.provider, model: selectedModel, type: 'completion', tenant_id: taskContext?.organizationId || taskContext?.userId || 'unknown' })),
+                metrics.llmCostTotal.then(m => m.add(estimatedCost, { provider: this.provider, model: selectedModel, tenant_id: taskContext?.organizationId || taskContext?.userId || 'unknown' }))
+              ]).catch(err => {
+                logger.error('Failed to record metrics', { err: err instanceof Error ? err.message : err });
+              });
+            }
+
+            // Track usage
+            if (taskContext?.organizationId) {
+              // Note: trackUsage is async but we're in a callback context
+              // For streaming, cost tracking happens per chunk, not at completion
+              trackUsage({
+                organizationId: taskContext.organizationId,
+                type: 'agent_call',
+                amount: estimatedCost,
+                metadata: {
+                  provider: this.provider,
+                  model: selectedModel,
+                  promptTokens,
+                  completionTokens,
+                  sessionId: taskContext.sessionId || null
+                },
+                timestamp: new Date()
+              }).catch((err) => {
+                logger.error('Failed to track LLM cost/usage', { err: err instanceof Error ? err.message : err });
+              });
             }
           }
         };
@@ -636,3 +645,4 @@ export class LLMGateway {
       }
     );
   }
+}
