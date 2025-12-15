@@ -50,3 +50,11 @@ export interface LLMConfig {
 }
 
 export type LLMProvider = 'together' | 'openai';
+
+export interface LLMStreamChunk {
+  content: string;
+  tokens_used?: number;
+  finish_reason?: 'stop' | 'tool_calls' | 'length';
+}
+
+export type LLMStreamCallback = (chunk: LLMStreamChunk) => void;

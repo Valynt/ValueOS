@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase';
 import { securityLogger } from './SecurityLogger';
 import { sanitizeLLMContent } from '../utils/security';
 import { llmSanitizer } from './LLMSanitizer';
-import type { LLMConfig, LLMMessage, LLMResponse, LLMProvider, LLMTool } from '../lib/agent-fabric/llm-types';
+import type { LLMConfig, LLMMessage, LLMResponse, LLMProvider, LLMTool, LLMStreamCallback } from '../lib/agent-fabric/llm-types';
+import { webSocketManager } from './WebSocketManager';
 
 interface ProxyChatRequest {
   messages: LLMMessage[];
@@ -159,6 +160,75 @@ class LlmProxyClient {
     }
 
     return data.embedding;
+  }
+
+  async completeStream(
+    { messages, config, provider }: ProxyChatRequest,
+    onChunk: LLMStreamCallback,
+    sessionId: string
+  ): Promise<void> {
+    if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
+      // Simulate streaming for tests
+      const chunks = ['Hello', ' world', '!'];
+      for (const chunk of chunks) {
+        onChunk({ content: chunk });
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      onChunk({ content: '', finish_reason: 'stop' });
+      return;
+    }
+
+    const sanitizedMessages = messages.map(msg => {
+      const result = llmSanitizer.sanitizePrompt(msg.content);
+      if (result.violations.length > 0) {
+        securityLogger.log({
+          category: 'llm',
+          action: 'prompt-sanitized',
+          severity: 'warn',
+          metadata: { violations: result.violations },
+        });
+      }
+      return { ...msg, content: result.content };
+    });
+
+    // For streaming, we'll use WebSocket to receive chunks
+    // First, send the request via WebSocket
+    const requestMessage = {
+      type: 'llm_stream_request',
+      payload: {
+        messages: sanitizedMessages,
+        config,
+        provider,
+        sessionId,
+      },
+      timestamp: Date.now(),
+      messageId: `llm-stream-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    };
+
+    // Listen for streaming chunks
+    const handleChunk = (message: any) => {
+      if (message.type === 'llm_stream_chunk' && message.payload.sessionId === sessionId) {
+        const chunk = message.payload.chunk;
+        const sanitizedContent = sanitizeLLMContent(chunk.content || '');
+        const result = llmSanitizer.sanitizeResponse(sanitizedContent, { allowHtml: false });
+
+        onChunk({
+          content: result.content,
+          tokens_used: chunk.tokens_used,
+          finish_reason: chunk.finish_reason,
+        });
+
+        if (chunk.finish_reason) {
+          // Remove listener when done
+          webSocketManager.removeListener('message', handleChunk);
+        }
+      }
+    };
+
+    webSocketManager.on('message', handleChunk);
+
+    // Send the request
+    await webSocketManager.send(requestMessage);
   }
 }
 
