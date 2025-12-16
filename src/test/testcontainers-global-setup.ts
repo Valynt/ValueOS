@@ -3,6 +3,10 @@ import { GenericContainer, StartedTestContainer } from 'testcontainers';
 import { Client } from 'pg';
 import fs from 'fs';
 import path from 'path';
+import { __setEnvSourceForTests } from '../lib/env';
+
+const POSTGRES_PORT = 5432;
+const REDIS_PORT = 6379;
 
 // Store container instance globally to stop it later
 let container: StartedPostgreSqlContainer;
@@ -23,7 +27,7 @@ export async function setup() {
   console.warn(`✅ Postgres started at ${dbUrl}`);
 
   // 2. Set env var for tests to pick up
-  process.env.DATABASE_URL = dbUrl;
+  __setEnvSourceForTests({ DATABASE_URL: dbUrl });
 
   // Ensure coverage folders exist (vitest coverage reporter writes here)
   try {
@@ -41,7 +45,7 @@ export async function setup() {
     const redisHost = redisContainer.getHost();
     const redisPort = redisContainer.getMappedPort(6379);
     const redisUrl = `redis://${redisHost}:${redisPort}`;
-    process.env.REDIS_URL = redisUrl;
+    __setEnvSourceForTests({ REDIS_URL: redisUrl });
     console.warn(`✅ Redis started at ${redisUrl}`);
   } catch (err) {
     console.warn('⚠️ Failed to start Redis testcontainer, continuing without it:', err);
@@ -119,30 +123,21 @@ export async function setup() {
           console.warn(`   Running ${file}...`);
           try {
             await client.query(sql);
-<<<<<<< HEAD
-          } catch (migrationErr: unknown) {
-            const err = migrationErr as { code?: string; message?: string };
-=======
           } catch (_err: any) {
->>>>>>> origin/main
             // If extensions like pgvector are unavailable when running against a vanilla Postgres,
             // log and continue. This keeps tests from failing due to optional extensions not present.
-            if (err && (err.code === '0A000' || err.message?.includes('extension') || err.message?.includes('vector.control'))) {
-              console.warn(`   ⚠️ Skipping ${file} due to missing DB extension: ${err.message}`);
+            if (_err && (_err.code === '0A000' || _err.message?.includes('extension') || _err.message?.includes('vector.control'))) {
+              console.warn(`   ⚠️ Skipping ${file} due to missing DB extension: ${_err.message}`);
               continue;
             }
             // For other errors, log but don't throw - we'll use fallback schema
-            console.warn(`   ⚠️ Migration ${file} failed: ${err.message}`);
-            throw err; // Trigger fallback
+            console.warn(`   ⚠️ Migration ${file} failed: ${_err.message}`);
+            throw _err; // Trigger fallback
           }
         }
         migrationsSucceeded = true;
         console.warn('✅ All migrations applied successfully');
-<<<<<<< HEAD
-      } catch (_err) {
-=======
       } catch (err) {
->>>>>>> origin/main
         console.warn('⚠️ Migrations failed, using minimal test schema instead');
         migrationsSucceeded = false;
       }

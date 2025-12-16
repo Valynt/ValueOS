@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { logger } from '../../lib/logger';
+import { env } from '../../lib/env';
 
 interface Props {
   children: ReactNode;
@@ -67,7 +68,7 @@ export class ErrorBoundary extends Component<Props, State> {
               We encountered an unexpected error. Please try refreshing the page.
             </p>
 
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {env.isDevelopment && this.state.error && (
               <details className="text-left mb-6 p-4 bg-gray-50 rounded-lg">
                 <summary className="cursor-pointer text-sm font-medium text-gray-700 mb-2">
                   Error Details

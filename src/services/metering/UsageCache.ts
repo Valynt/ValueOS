@@ -3,16 +3,21 @@
  * Redis-backed cache for real-time usage quota checks
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { BillingMetric, USAGE_CACHE_TTL } from '../../config/billing';
 import { createLogger } from '../../lib/logger';
+import { getEnvVar, getSupabaseConfig } from '../../lib/env';
+import Redis, { type RedisClientType } from 'redis';
+
+// Constants
+const PERCENTAGE_MULTIPLIER = 100;
+const MILLISECONDS_MULTIPLIER = 1000;
 
 const logger = createLogger({ component: 'UsageCache' });
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const { url: supabaseUrl, serviceRoleKey: supabaseServiceRoleKey } = getSupabaseConfig();
 
-let supabase: any = null;
+let supabase: SupabaseClient | null = null;
 
 if (supabaseUrl && supabaseServiceRoleKey) {
   supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
@@ -21,22 +26,26 @@ if (supabaseUrl && supabaseServiceRoleKey) {
 }
 
 // Redis client (optional - will use in-memory fallback if not available)
-let redisClient: any = null;
+let redisClient: RedisClientType | null = null;
 
 try {
-  // Try to import redis
-  const redis = require('redis');
-  redisClient = redis.createClient({
-    url: process.env.REDIS_URL || 'redis://localhost:6379',
+  // Try to initialize Redis
+  redisClient = Redis.createClient({
+    url: getEnvVar('REDIS_URL') ?? 'redis://localhost:6379',
   });
   redisClient.connect();
   logger.info('Redis connected for usage cache');
-} catch (error) {
+} catch (_error) {
   logger.warn('Redis not available, using in-memory cache');
 }
 
+interface CacheEntry {
+  value: number;
+  expiresAt: number;
+}
+
 // In-memory fallback
-const memoryCache = new Map<string, { value: any; expiresAt: number }>();
+const memoryCache = new Map<string, CacheEntry>();
 
 class UsageCache {
   /**
@@ -133,7 +142,7 @@ class UsageCache {
       ]);
 
       if (quota === 0) return 0;
-      return Math.round((usage / quota) * 100);
+      return Math.round((usage / quota) * PERCENTAGE_MULTIPLIER);
     } catch (error) {
       logger.error('Error calculating usage percentage', error as Error);
       return 0;
@@ -178,7 +187,7 @@ class UsageCache {
         // In-memory cache
         memoryCache.set(key, {
           value,
-          expiresAt: Date.now() + USAGE_CACHE_TTL * 1000,
+          expiresAt: Date.now() + USAGE_CACHE_TTL * MILLISECONDS_MULTIPLIER,
         });
       }
     } catch (error) {

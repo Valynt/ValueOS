@@ -6,6 +6,7 @@
 # ============================================================================
 
 FROM node:20-alpine
+ARG SUPABASE_CLI_VERSION=1.185.8
 
 # Install security updates and development tools
 RUN apk update && apk upgrade && apk add --no-cache \
@@ -32,9 +33,12 @@ USER nodeuser
 # Install all dependencies (including devDependencies)
 RUN npm ci --legacy-peer-deps
 
-# Install Supabase CLI globally
+# Install Supabase CLI via official release binary
 USER root
-RUN npm install -g supabase
+RUN curl -fsSL "https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_${SUPABASE_CLI_VERSION}_linux_amd64.tar.gz" \
+    | tar -xz supabase && \
+    mv supabase /usr/local/bin/supabase && \
+    chmod +x /usr/local/bin/supabase
 USER nodeuser
 
 # Copy source code (will be overridden by volume mount in docker-compose)
