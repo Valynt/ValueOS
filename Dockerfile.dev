@@ -33,12 +33,17 @@ USER nodeuser
 # Install all dependencies (including devDependencies)
 RUN npm ci --legacy-peer-deps
 
-# Install Supabase CLI via official release binary
+# Install Supabase CLI: try official binary, fallback to npm global install
 USER root
-RUN curl -fsSL "https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_${SUPABASE_CLI_VERSION}_linux_amd64.tar.gz" \
-    | tar -xz supabase && \
-    mv supabase /usr/local/bin/supabase && \
-    chmod +x /usr/local/bin/supabase
+RUN set -eux; \
+        URL="https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_${SUPABASE_CLI_VERSION}_linux_amd64.tar.gz"; \
+        echo "Attempting to download supabase CLI from $URL"; \
+        if curl -fsSL "$URL" | tar -xz supabase 2>/dev/null; then \
+            mv supabase /usr/local/bin/supabase && chmod +x /usr/local/bin/supabase; \
+        else \
+            echo "Binary download failed, attempting npm fallback install"; \
+            npm install -g supabase || echo "npm install fallback failed — continuing without supabase CLI"; \
+        fi
 USER nodeuser
 
 # Copy source code (will be overridden by volume mount in docker-compose)

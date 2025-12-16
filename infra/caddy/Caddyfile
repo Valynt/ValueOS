@@ -1,0 +1,14 @@
+{
+  # Base Caddyfile patterns and shared snippets
+}
+
+# NOTE: This base file is a convenience reference. Use env-specific files:
+# - Caddyfile.dev (development, Vite proxy)
+# - Caddyfile.stage (staging, automatic HTTPS)
+# - Caddyfile.prod (production, automatic HTTPS)
+
+# Shared security headers
+@security_headers {
+}
+
+# Shared logging

@@ -19,8 +19,10 @@ export default defineConfig({
     // CORS configuration for cross-origin requests
     cors: true,
     // HMR configuration for hot module replacement
-    hmr: {
-      port: 24678,
+    hmr: isCodespaces ? true : {
+      clientPort: parseInt(process.env.VITE_HMR_PORT || '24678'),
+      host: process.env.VITE_HMR_HOST || undefined,
+      protocol: process.env.VITE_HMR_PROTOCOL || 'ws'
     },
     // Optional: Enable HTTPS for local development
     // Uncomment the next line to use HTTPS (will use self-signed certificate)

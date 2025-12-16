@@ -214,8 +214,10 @@ export function loadEnvironmentConfig(): EnvironmentConfig {
   return {
     app: {
       env,
-      url: getEnv('VITE_APP_URL', 'http://localhost:5173'),
-      apiBaseUrl: getEnv('VITE_API_BASE_URL', 'http://localhost:3000'),
+      // Default unified dev origin via Caddy: http://localhost:8080
+      url: getEnv('VITE_APP_URL', 'http://localhost:8080'),
+      // Prefer relative API path to avoid client-side CORS assumptions
+      apiBaseUrl: getEnv('VITE_API_BASE_URL', '/api'),
     },
 
     agents: {
