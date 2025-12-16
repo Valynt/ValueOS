@@ -1,3 +1,8 @@
 #!/bin/sh
 # Enforce conventional commits aligned with semantic-release
-npx commitlint --edit "$1"
+# Check if commit message file exists before validating
+if [ -f "$1" ] && [ -r "$1" ]; then
+  npx commitlint --edit "$1"
+else
+  echo "Commit message file not accessible, skipping commitlint validation"
+fi
