@@ -1,41 +1,45 @@
+import ./Caddyfile
+
 {
-  # Staging Caddyfile - automatic HTTPS via ACME (public DNS required)
+    email {$ACME_EMAIL:ops@example.com}
+    admin off
 }
 
-# Replace `staging.example.com` with your staging domain
-staging.example.com {
-  encode gzip zstd
-
-  # Serve built frontend (from image or bind mount)
-  root * /srv/frontend
-  file_server
-
-  # SPA fallback
-  try_files {path} /index.html
-
-  # Proxy API
-  handle_path /api/* {
-    reverse_proxy http://backend:8000 {
-      header_up X-Forwarded-Host {host}
-      header_up X-Forwarded-Proto {scheme}
-      header_up X-Forwarded-Port {server_port}
-      header_up X-Real-IP {remote_host}
-      flush_interval -1
+{$APP_DOMAIN:staging.localhost} {
+    tls {$ACME_EMAIL:ops@example.com} {
+        # Set ACME_CA to the Let's Encrypt staging directory to avoid rate limits in stage
+        ca {$ACME_CA:https://acme-staging-v02.api.letsencrypt.org/directory}
     }
-  }
 
-  # Security headers
-  header {
-    -Server
-    X-Content-Type-Options "nosniff"
-    X-Frame-Options "SAMEORIGIN"
-    Referrer-Policy "strict-origin-when-cross-origin"
-    X-Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https: wss:; img-src 'self' data:;"
-  }
+    # If TLS is terminated by an upstream load balancer, replace the tls block above with:
+    # tls internal
+    # and ensure the LB forwards X-Forwarded-Proto/Host.
 
-  log {
-    output file /var/log/caddy/access.log
-    format json
-    level INFO
-  }
+    import common_observability
+    import common_security_headers
+    import tls_security_headers
+    import common_compression
+    import health_route
+
+    header {
+        X-Environment staging
+    }
+
+    handle_path /api/* {
+        import api_proxy
+    }
+
+    handle_path /ws/* {
+        import api_proxy
+    }
+
+    handle {
+        import spa_static
+    }
+
+    import common_error_responses
+}
+
+http://{$APP_DOMAIN:staging.localhost} {
+    redir https://{$APP_DOMAIN:staging.localhost}{uri} permanent
 }

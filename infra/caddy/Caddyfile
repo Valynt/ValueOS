@@ -1,14 +1,131 @@
 {
-  # Base Caddyfile patterns and shared snippets
+    # Base options used across all environments. Specific environments can override
+    # admin/listen ports in their own files.
+    order handle_path before respond
+
+    servers {
+        protocols h1 h2
+        max_header_size 1MB
+        timeouts {
+            read_body 30s
+            read_header 10s
+            write 30s
+            idle 120s
+        }
+    }
+
+    log {
+        output stdout
+        format json
+        level INFO
+    }
 }
 
-# NOTE: This base file is a convenience reference. Use env-specific files:
-# - Caddyfile.dev (development, Vite proxy)
-# - Caddyfile.stage (staging, automatic HTTPS)
-# - Caddyfile.prod (production, automatic HTTPS)
-
-# Shared security headers
-@security_headers {
+# -----------------------------------------------------------------------------
+# Shared snippets
+# -----------------------------------------------------------------------------
+(common_security_headers) {
+    header {
+        Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'self'; base-uri 'self'; form-action 'self';"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(), usb=(), accelerometer=(), gyroscope=(), magnetometer=()"
+        Cross-Origin-Opener-Policy "same-origin"
+        Cross-Origin-Embedder-Policy "require-corp"
+        Cross-Origin-Resource-Policy "same-origin"
+        X-Permitted-Cross-Domain-Policies "none"
+        -Server
+        X-Request-ID {http.request.id}
+    }
 }
 
-# Shared logging
+(tls_security_headers) {
+    header {
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+    }
+}
+
+(common_observability) {
+    log {
+        output stdout
+        format json
+        level INFO
+    }
+}
+
+(common_compression) {
+    encode {
+        zstd
+        gzip
+        minimum_length 256
+        match {
+            header Content-Type text/*
+            header Content-Type application/json*
+            header Content-Type application/javascript*
+            header Content-Type application/xml*
+        }
+    }
+}
+
+(spa_static) {
+    root * {$STATIC_ROOT:/srv/www}
+    @static {
+        path *.js *.css *.png *.jpg *.jpeg *.gif *.ico *.svg *.woff *.woff2 *.ttf *.eot
+    }
+    header @static {
+        Cache-Control "public, max-age=31536000, immutable"
+    }
+
+    @html {
+        path /index.html
+    }
+    header @html {
+        Cache-Control "no-store"
+    }
+
+    try_files {path} /index.html
+    file_server
+}
+
+(api_proxy) {
+    reverse_proxy {$API_UPSTREAM:http://backend:8000} {
+        flush_interval -1
+        health_uri /health
+        header_up Host {host}
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Host {host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Request-ID {http.request.id}
+        header_down -Server
+    }
+}
+
+(dev_frontend_proxy) {
+    reverse_proxy {$FRONTEND_UPSTREAM:http://frontend:5173} {
+        flush_interval -1
+        health_uri /
+        header_up Host {host}
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Host {host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Request-ID {http.request.id}
+        header_down -Server
+    }
+}
+
+(common_error_responses) {
+    handle_errors {
+        @maintenance expression `{http.error.status_code} >= 500`
+        handle @maintenance {
+            respond "server unavailable" 503
+        }
+    }
+}
+
+(health_route) {
+    @health path /healthz
+    respond @health "ok" 200
+}
