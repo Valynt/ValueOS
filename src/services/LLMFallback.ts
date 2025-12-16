@@ -7,6 +7,7 @@
 
 import CircuitBreaker from 'opossum';
 import { logger } from '../utils/logger';
+import { getEnvVar } from '../lib/env';
 import { llmCache } from './LLMCache';
 import { llmCostTracker } from './LLMCostTracker';
 
@@ -131,10 +132,13 @@ export class LLMFallbackService {
     this.stats.togetherAI.calls++;
     
     try {
+      const togetherApiKey = getEnvVar('TOGETHER_API_KEY');
+      if (!togetherApiKey) throw new Error('Together.ai API key not configured');
+
       const response = await fetch('https://api.together.ai/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.TOGETHER_API_KEY}`,
+          'Authorization': `Bearer ${togetherApiKey}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -228,7 +232,8 @@ export class LLMFallbackService {
     const startTime = Date.now();
     this.stats.openAI.calls++;
     
-    if (!process.env.OPENAI_API_KEY) {
+    const openAIKey = getEnvVar('OPENAI_API_KEY');
+    if (!openAIKey) {
       throw new Error('OpenAI API key not configured - no fallback available');
     }
     
@@ -239,7 +244,7 @@ export class LLMFallbackService {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Authorization': `Bearer ${openAIKey}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({

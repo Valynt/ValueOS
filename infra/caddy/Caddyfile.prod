@@ -1,0 +1,38 @@
+{
+  # Production Caddyfile - automatic HTTPS via ACME (public DNS required)
+}
+
+# Replace `app.example.com` with your production domain
+app.example.com {
+  encode gzip zstd
+
+  root * /srv/frontend
+  file_server
+  try_files {path} /index.html
+
+  handle_path /api/* {
+    reverse_proxy http://backend:8000 {
+      header_up X-Forwarded-Host {host}
+      header_up X-Forwarded-Proto {scheme}
+      header_up X-Forwarded-Port {server_port}
+      header_up X-Real-IP {remote_host}
+      flush_interval -1
+    }
+  }
+
+  # Hardened security headers - tuned for production
+  header {
+    -Server
+    Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+    Referrer-Policy "strict-origin"
+    Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https: wss:; img-src 'self' data:;"
+  }
+
+  log {
+    output file /var/log/caddy/access.log
+    format json
+    level INFO
+  }
+}

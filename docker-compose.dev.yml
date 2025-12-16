@@ -41,6 +41,7 @@ services:
       - NODE_ENV=development
       - VITE_HOST=0.0.0.0
       - VITE_PORT=5173
+      - VITE_HMR_HOST=0.0.0.0
       - VITE_HMR_PORT=24678
     networks:
       - valuecanvas-network

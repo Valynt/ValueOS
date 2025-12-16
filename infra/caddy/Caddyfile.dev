@@ -1,0 +1,60 @@
+{
+  # Development Caddyfile for local dev with Vite and backend running locally
+  # Exposes a unified origin on :80 inside container (mapped to host 8080 in compose)
+}
+
+# Unified origin for local development
+:80 {
+  # Health check
+  @health {
+    path /health
+  }
+  handle @health {
+    respond "ok" 200
+  }
+
+  # API proxy - forward to developer backend (host or container)
+  handle_path /api/* {
+    reverse_proxy http://host.docker.internal:8000 {
+      header_up X-Forwarded-Host {host}
+      header_up X-Forwarded-Proto {scheme}
+      header_up X-Forwarded-Port {server_port}
+      header_up X-Real-IP {remote_host}
+      transport http {
+        # allow websocket upgrades and streaming
+        versions h2c 1.1
+      }
+      flush_interval -1
+    }
+  }
+
+  # Proxy to Vite dev server for all other routes (HMR compatible)
+  handle {
+    @vite {
+      path *
+    }
+
+    reverse_proxy http://app:5173 {
+      header_up Host {host}
+      header_up X-Forwarded-Proto {scheme}
+      header_up X-Real-IP {remote_host}
+      header_up X-Request-ID {uuid}
+      flush_interval -1
+    }
+  }
+
+  # Security headers (development: conservative)
+  header {
+    -Server
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "SAMEORIGIN"
+    Referrer-Policy "no-referrer-when-downgrade"
+  }
+
+  # Access log
+  log {
+    output stdout
+    format json
+    level INFO
+  }
+}

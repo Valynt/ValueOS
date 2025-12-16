@@ -4,7 +4,7 @@
 # Development-optimized setup with hot reload and debugging support
 # ============================================================================
 
-version: '3.8'
+version: "3.8"
 
 services:
   # ============================================================================
@@ -14,14 +14,14 @@ services:
     image: caddy:2-alpine
     container_name: valuecanvas-caddy-dev
     ports:
-      - "80:80"          # Main application
-      - "443:443"        # HTTPS (auto-disabled for dev)
-      - "2019:2019"      # Admin API
-      - "8080:8080"      # Static file server
+      - "80:80" # Main application
+      - "443:443" # HTTPS (auto-disabled for dev)
+      - "2019:2019" # Admin API
+      - "8080:8080" # Static file server
     volumes:
-      - ./Caddyfile.dev:/etc/caddy/Caddyfile:ro
+      - ./caddy-config:/etc/caddy:ro
       - caddy-data:/data
-      - caddy-config:/config
+      - caddy-config-data:/config
       - ./dist:/app/dist:ro
     networks:
       - valuecanvas-network
@@ -30,7 +30,15 @@ services:
       app:
         condition: service_started
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/caddy-health"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost/caddy-health",
+        ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -55,10 +63,10 @@ services:
       dockerfile: Dockerfile.dev
     container_name: valuecanvas-dev
     expose:
-      - "5000"           # Vite dev server (internal only)
+      - "5000" # Vite dev server (internal only)
     ports:
-      - "5000:5000"      # Also expose for direct access
-      - "24678:24678"    # Vite HMR
+      - "5000:5000" # Also expose for direct access
+      - "24678:24678" # Vite HMR
     volumes:
       - .:/app
       - /app/node_modules
@@ -70,7 +78,15 @@ services:
       - valuecanvas-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:5000",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -131,7 +147,15 @@ services:
     restart: unless-stopped
     command: redis-server --appendonly yes --requirepass dev_redis_password
     healthcheck:
-      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "dev_redis_password", "ping"]
+      test:
+        [
+          "CMD",
+          "redis-cli",
+          "--no-auth-warning",
+          "-a",
+          "dev_redis_password",
+          "ping",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -172,7 +196,7 @@ volumes:
     labels:
       - "com.valuecanvas.service=caddy"
       - "com.valuecanvas.environment=development"
-  caddy-config:
+  caddy-config-data:
     driver: local
     labels:
       - "com.valuecanvas.service=caddy"
