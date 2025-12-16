@@ -184,7 +184,7 @@ export class ActionRouter {
       case 'invokeAgent':
         if (!action.agentId) errors.push('agentId is required');
         if (!action.input) errors.push('input is required');
-        if (!action.execution) errors.push('execution request is required');
+        // execution is validated via context, not action
         break;
 
       case 'runWorkflowStep':
