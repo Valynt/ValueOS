@@ -35,6 +35,14 @@ vi.mock('../../lib/logger', () => ({
 
 describe('UnifiedAgentOrchestrator - Guardrail Tests', () => {
   let orchestrator: UnifiedAgentOrchestrator;
+  const envelope = {
+    intent: 'guardrail-test',
+    actor: { id: 'user-1' },
+    organizationId: 'org-1',
+    entryPoint: 'unit-test',
+    reason: 'safety-check',
+    timestamps: { requestedAt: new Date().toISOString() },
+  } as const;
 
   beforeEach(() => {
     orchestrator = new UnifiedAgentOrchestrator();
@@ -61,7 +69,7 @@ describe('UnifiedAgentOrchestrator - Guardrail Tests', () => {
       });
 
       await expect(
-        orchestrator.executeWorkflow('workflow-123', {})
+        orchestrator.executeWorkflow(envelope, 'workflow-123', {})
       ).rejects.toThrow('Autonomy kill-switch enabled: workflow execution blocked');
     });
 
@@ -97,7 +105,7 @@ describe('UnifiedAgentOrchestrator - Guardrail Tests', () => {
               initial_stage: 'start',
               stages: [{ id: 'start', agent_type: 'test' }],
               transitions: [],
-              final_stages: ['end'],
+              final_stages: ['start'],
             },
           },
           error: null,
@@ -113,7 +121,7 @@ describe('UnifiedAgentOrchestrator - Guardrail Tests', () => {
         }),
       }));
 
-      const executionId = await orchestrator.executeWorkflow('workflow-123', {});
+      const executionId = await orchestrator.executeWorkflow(envelope, 'workflow-123', {});
       expect(executionId).toBe('exec-123');
     });
 
@@ -135,7 +143,7 @@ describe('UnifiedAgentOrchestrator - Guardrail Tests', () => {
 
       // First call - kill switch off
       try {
-        await orchestrator.executeWorkflow('workflow-123', {});
+        await orchestrator.executeWorkflow(envelope, 'workflow-123', {});
       } catch {
         // Ignore other errors
       }
@@ -145,7 +153,7 @@ describe('UnifiedAgentOrchestrator - Guardrail Tests', () => {
 
       // Second call - should block
       await expect(
-        orchestrator.executeWorkflow('workflow-123', {})
+        orchestrator.executeWorkflow(envelope, 'workflow-123', {})
       ).rejects.toThrow('Autonomy kill-switch enabled');
 
       expect(spy).toHaveBeenCalledTimes(2);
@@ -227,7 +235,7 @@ describe('UnifiedAgentOrchestrator - Guardrail Tests', () => {
         };
       });
 
-      const executionId = await orchestrator.executeWorkflow('workflow-123', {
+      const executionId = await orchestrator.executeWorkflow(envelope, 'workflow-123', {
         approvals: {}, // No approval
       });
 
@@ -295,7 +303,7 @@ describe('UnifiedAgentOrchestrator - Guardrail Tests', () => {
         };
       });
 
-      const executionId = await orchestrator.executeWorkflow('workflow-123', {
+      const executionId = await orchestrator.executeWorkflow(envelope, 'workflow-123', {
         approvals: {
           'exec-456': true, // Pre-approved
         },
@@ -369,7 +377,7 @@ describe('UnifiedAgentOrchestrator - Guardrail Tests', () => {
                   transitions: [
                     { from_stage: 'loop-stage', to_stage: 'loop-stage' },
                   ],
-                  final_stages: [],
+                  final_stages: ['loop-stage'],
                 },
               },
               error: null,
@@ -408,7 +416,7 @@ describe('UnifiedAgentOrchestrator - Guardrail Tests', () => {
         };
       });
 
-      const executionId = await orchestrator.executeWorkflow('workflow-123', {
+      const executionId = await orchestrator.executeWorkflow(envelope, 'workflow-123', {
         executed_steps: [
           { agent_id: 'agent-1' },
           { agent_id: 'agent-1' },
@@ -699,7 +707,7 @@ describe('UnifiedAgentOrchestrator - Guardrail Tests', () => {
 
       // Kill switch should block before any other checks
       await expect(
-        orchestrator.executeWorkflow('workflow-123', {})
+        orchestrator.executeWorkflow(envelope, 'workflow-123', {})
       ).rejects.toThrow('Autonomy kill-switch enabled');
     });
 
@@ -736,7 +744,7 @@ describe('UnifiedAgentOrchestrator - Guardrail Tests', () => {
       });
 
       try {
-        await orchestrator.executeWorkflow('workflow-123', {});
+        await orchestrator.executeWorkflow(envelope, 'workflow-123', {});
       } catch {
         // Expected to fail
       }

@@ -18,6 +18,15 @@ import {
 } from '../UnifiedAgentOrchestrator';
 import { WorkflowState } from '../../repositories/WorkflowStateRepository';
 
+const testEnvelope = {
+  intent: 'unit-test',
+  actor: { id: 'user-123' },
+  organizationId: 'org-1',
+  entryPoint: 'unit-test',
+  reason: 'unit-testing',
+  timestamps: { requestedAt: new Date().toISOString() },
+};
+
 // Mock dependencies
 vi.mock('../AgentAPI', () => ({
   getAgentAPI: () => ({
@@ -177,7 +186,7 @@ describe('UnifiedAgentOrchestrator', () => {
   describe('Query Processing', () => {
     it('should process query and return result', async () => {
       const state = orchestrator.createInitialState('discovery');
-      const result = await orchestrator.processQuery(
+      const result = await orchestrator.processQuery(testEnvelope, 
         'Analyze this company',
         state,
         'user-123',
@@ -193,7 +202,7 @@ describe('UnifiedAgentOrchestrator', () => {
 
     it('should update conversation history after query', async () => {
       const state = orchestrator.createInitialState('discovery');
-      const result = await orchestrator.processQuery(
+      const result = await orchestrator.processQuery(testEnvelope, 
         'Test query',
         state,
         'user-123',
@@ -215,7 +224,7 @@ describe('UnifiedAgentOrchestrator', () => {
       });
 
       const state = orchestrator.createInitialState('discovery');
-      const result = await errorOrchestrator.processQuery(
+      const result = await errorOrchestrator.processQuery(testEnvelope, 
         'Test query',
         state,
         'user-123',
@@ -228,7 +237,7 @@ describe('UnifiedAgentOrchestrator', () => {
 
     it('should generate trace ID if not provided', async () => {
       const state = orchestrator.createInitialState('discovery');
-      const result = await orchestrator.processQuery(
+      const result = await orchestrator.processQuery(testEnvelope, 
         'Test query',
         state,
         'user-123',
