@@ -16,15 +16,18 @@ import authRouter from '../api/auth';
 import { createLogger } from '../lib/logger';
 import { createVersionedApiRouter } from './versioning';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
-import { latencyMetricsMiddleware, getLatencySnapshot } from '../middleware/latencyMetricsMiddleware';
+import { getLatencySnapshot, latencyMetricsMiddleware } from '../middleware/latencyMetricsMiddleware';
 import { getMetricsRegistry, metricsMiddleware } from '../middleware/metricsMiddleware';
 import { createRateLimiter } from '../middleware/rateLimiter';
 
 import { settings } from '../config/settings';
 
 const logger = createLogger({ component: 'BillingServer' });
+const INTERNAL_ERROR_STATUS = 500;
 
 const app = express();
+app.set('trust proxy', true);
+
 const server = createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws/sdui' });
 const PORT = settings.API_PORT;
@@ -140,7 +143,7 @@ app.use(
     });
     const message =
       settings.NODE_ENV === 'development' && err instanceof Error ? err.message : undefined;
-    res.status(500).json({
+    res.status(INTERNAL_ERROR_STATUS).json({
       error: 'Internal server error',
       message,
     });
