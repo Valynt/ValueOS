@@ -377,7 +377,7 @@ export class UnifiedAgentOrchestrator {
 
       const dag: WorkflowDAG = definition.dag_schema as WorkflowDAG;
 
-      const normalizedExecution = normalizeExecutionRequest('action-router', execution);
+      // execution is already normalized by the caller (ActionRouter or PlaygroundWorkflowAdapter)
 
       // Create execution record
       const { data: executionRecord, error: execError } = await supabase
