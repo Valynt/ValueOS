@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { getEnvironmentHeaders } from './src/lib/security/headers';
+import { getEnvironmentHeaders } from './src/lib/security/headers.ts';
 
 // Detect Codespaces environment
 const isCodespaces = process.env.CODESPACES === 'true';

@@ -18,7 +18,7 @@ services:
       - "8443:443" # HTTPS (automatic mapped to host 8443 for local TLS testing)
       - "2019:2019" # Caddy Admin API
     volumes:
-      - ./infra/caddy/Caddyfile.dev:/etc/caddy/Caddyfile:ro
+      - ./infra/caddy:/etc/caddy:ro
       - caddy-data:/data
       - caddy-config:/config
     environment:
@@ -75,6 +75,7 @@ services:
     volumes:
       - ./src:/app/src:cached
       - ./public:/app/public:cached
+      - ./vite.config.ts:/app/vite.config.ts:cached
       # index.html is served by Vite or the built static assets - avoid mounting host file to prevent mount type conflicts
       - /app/node_modules
     env_file:
