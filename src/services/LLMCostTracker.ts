@@ -7,12 +7,25 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '../lib/logger';
+import { getLLMCostTrackerConfig } from '../lib/env';
+
+const TOKENS_PER_MILLION = 1_000_000;
+const SECONDS_PER_MINUTE = 60;
+const MINUTES_PER_HOUR = 60;
+const HOURS_PER_DAY = 24;
+const DAYS_PER_MONTH = 30;
+const MILLIS_PER_SECOND = 1_000;
+const ONE_HOUR_MS = MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MILLIS_PER_SECOND;
+const ONE_DAY_MS = HOURS_PER_DAY * ONE_HOUR_MS;
+const ONE_MONTH_MS = DAYS_PER_MONTH * ONE_DAY_MS;
+
+type PricingRate = { input: number; output: number };
 
 /**
  * Together.ai pricing (as of 2024)
  * Prices are per 1M tokens
  */
-const TOGETHER_AI_PRICING = {
+const TOGETHER_AI_PRICING: Record<string, PricingRate> = {
   // Meta Llama models
   'meta-llama/Llama-3-70b-chat-hf': {
     input: 0.90,  // $0.90 per 1M input tokens
@@ -32,6 +45,16 @@ const TOGETHER_AI_PRICING = {
     input: 1.00,
     output: 1.00
   }
+};
+
+const DEFAULT_PRICING_KEY = 'default';
+
+const resolvePricing = (model: string): PricingRate => {
+  const pricing = TOGETHER_AI_PRICING[model];
+  if (pricing) {
+    return pricing;
+  }
+  return TOGETHER_AI_PRICING[DEFAULT_PRICING_KEY];
 };
 
 /**
@@ -82,23 +105,26 @@ export interface CostAlert {
 
 export class LLMCostTracker {
   private supabase: SupabaseClient;
-  private alertsSent: Set<string> = new Set();
+  private alertsSent: Set<string> = new Set(); // TODO: Remove after migration
   
   constructor() {
-    this.supabase = createClient(
-      process.env.VITE_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const { supabaseUrl, supabaseServiceRoleKey } = getLLMCostTrackerConfig();
+
+    if (!supabaseUrl || !supabaseServiceRoleKey) {
+      throw new Error('LLMCostTracker requires Supabase URL and service key');
+    }
+
+    this.supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
   }
   
   /**
    * Calculate cost for a Together.ai API call
    */
   calculateCost(model: string, promptTokens: number, completionTokens: number): number {
-    const pricing = TOGETHER_AI_PRICING[model] || TOGETHER_AI_PRICING['default'];
+    const pricing = resolvePricing(model);
     
-    const inputCost = (promptTokens / 1_000_000) * pricing.input;
-    const outputCost = (completionTokens / 1_000_000) * pricing.output;
+    const inputCost = (promptTokens / TOKENS_PER_MILLION) * pricing.input;
+    const outputCost = (completionTokens / TOKENS_PER_MILLION) * pricing.output;
     
     return inputCost + outputCost;
   }
@@ -186,8 +212,8 @@ export class LLMCostTracker {
    */
   async getHourlyCost(): Promise<number> {
     const now = new Date();
-    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-    return await this.getCostForPeriod(oneHourAgo, now);
+    const oneHourAgo = new Date(now.getTime() - ONE_HOUR_MS);
+    return this.getCostForPeriod(oneHourAgo, now);
   }
   
   /**
@@ -195,8 +221,8 @@ export class LLMCostTracker {
    */
   async getDailyCost(userId?: string): Promise<number> {
     const now = new Date();
-    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    return await this.getCostForPeriod(oneDayAgo, now, userId);
+    const oneDayAgo = new Date(now.getTime() - ONE_DAY_MS);
+    return this.getCostForPeriod(oneDayAgo, now, userId);
   }
   
   /**
@@ -204,8 +230,8 @@ export class LLMCostTracker {
    */
   async getMonthlyCost(): Promise<number> {
     const now = new Date();
-    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    return await this.getCostForPeriod(oneMonthAgo, now);
+    const oneMonthAgo = new Date(now.getTime() - ONE_MONTH_MS);
+    return this.getCostForPeriod(oneMonthAgo, now);
   }
   
   /**
@@ -286,16 +312,29 @@ export class LLMCostTracker {
    * Send cost alert
    */
   private async sendAlert(alert: CostAlert): Promise<void> {
-    // Prevent duplicate alerts within 1 hour
+    // Check for duplicate alerts within 1 hour using database
     const alertKey = `${alert.period}-${alert.level}`;
-    if (this.alertsSent.has(alertKey)) {
+    const oneHourAgo = new Date(Date.now() - ONE_HOUR_MS).toISOString();
+    
+    const { data: existingAlerts, error: checkError } = await this.supabase
+      .from('cost_alerts')
+      .select('id')
+      .eq('level', alert.level)
+      .eq('period', alert.period)
+      .gte('created_at', oneHourAgo)
+      .limit(1);
+    
+    if (checkError) {
+      logger.error('Failed to check for duplicate alerts', checkError);
+      // Continue with sending alert despite check failure
+    } else if ((existingAlerts?.length ?? 0) > 0 || this.alertsSent.has(alertKey)) {
       return;
     }
     
     this.alertsSent.add(alertKey);
-    setTimeout(() => this.alertsSent.delete(alertKey), 60 * 60 * 1000);
+    setTimeout(() => this.alertsSent.delete(alertKey), ONE_HOUR_MS);
     
-    logger.warn('LLM COST ALERT', alert as any);
+    logger.warn('LLM COST ALERT', { alert });
     
     // Store alert in database
     await this.supabase.from('cost_alerts').insert({
@@ -308,12 +347,14 @@ export class LLMCostTracker {
     });
     
     // Send to monitoring service (e.g., Slack, PagerDuty)
-    if (process.env.SLACK_WEBHOOK_URL) {
+    const { slackWebhookUrl, alertEmail } = getLLMCostTrackerConfig();
+
+    if (slackWebhookUrl) {
       await this.sendSlackAlert(alert);
     }
     
     // For critical alerts, also send email
-    if (alert.level === 'critical' && process.env.ALERT_EMAIL) {
+    if (alert.level === 'critical' && alertEmail) {
       await this.sendEmailAlert(alert);
     }
   }
@@ -326,7 +367,12 @@ export class LLMCostTracker {
       const color = alert.level === 'critical' ? 'danger' : 'warning';
       const emoji = alert.level === 'critical' ? '🚨' : '⚠️';
       
-      await fetch(process.env.SLACK_WEBHOOK_URL!, {
+      const { slackWebhookUrl } = getLLMCostTrackerConfig();
+      if (!slackWebhookUrl) {
+        throw new Error('Slack webhook URL is not configured');
+      }
+
+      await fetch(slackWebhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -357,7 +403,7 @@ export class LLMCostTracker {
               }
             ],
             footer: 'ValueCanvas LLM Cost Tracker',
-            ts: Math.floor(Date.now() / 1000)
+            ts: Math.floor(Date.now() / MILLIS_PER_SECOND)
           }]
         })
       });
@@ -371,7 +417,7 @@ export class LLMCostTracker {
    */
   private async sendEmailAlert(alert: CostAlert): Promise<void> {
     // Implement email sending (e.g., using SendGrid, AWS SES)
-    logger.info('Email alert would be sent', alert as any);
+    logger.info('Email alert would be sent', { alert });
   }
   
   /**
@@ -440,7 +486,7 @@ export class LLMCostTracker {
     const { data, error } = await this.supabase
       .from('llm_usage')
       .select('user_id, estimated_cost')
-      .gte('timestamp', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+      .gte('timestamp', new Date(Date.now() - ONE_DAY_MS).toISOString());
     
     if (error || !data) {
       return [];
@@ -467,5 +513,5 @@ export class LLMCostTracker {
   }
 }
 
-// Export singleton instance
-export const llmCostTracker = new LLMCostTracker();
+// Remove singleton export - instantiate locally where needed
+// export const llmCostTracker = new LLMCostTracker();

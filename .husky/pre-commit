@@ -1,4 +1,4 @@
 #!/bin/sh
 # Fast checks only - heavy validation in CI
-# Use npx for better compatibility
-npx lint-staged
+# Use direct path to avoid npx installation issues
+./node_modules/.bin/lint-staged

@@ -158,6 +158,7 @@ const testOverrides = {
     "**/*.spec.{ts,tsx}",
     "tests/**",
     "test/**",
+    "src/test/**/*",
   ],
   languageOptions: {
     globals: {
@@ -188,6 +189,7 @@ const testOverrides = {
       },
     ],
     "no-console": "off",
+    "no-restricted-syntax": "off",
   },
 };
 
@@ -207,4 +209,34 @@ const k6Overrides = {
   },
 };
 
-export default [ignoresConfig, baseConfig, testOverrides, k6Overrides];
+// Frontend overrides - NO process.env access in client code
+const frontendOverrides = {
+  files: ["src/components/**/*.{ts,tsx}", "src/sdui/**/*.{ts,tsx}"],
+  rules: {
+    "no-restricted-globals": ["error", "process"],
+  },
+};
+
+// src overrides: forbid process.env access except in env adapter
+const srcOverrides = {
+  files: ["src/**/*"],
+  rules: {
+    "no-restricted-syntax": [
+      "error",
+      {
+        selector: "MemberExpression[object.name='process'][property.name='env']",
+        message: "Direct access to process.env is forbidden in src/, use src/lib/env.ts instead"
+      }
+    ]
+  },
+};
+
+// Allow process.env in env.ts
+const envOverrides = {
+  files: ["src/lib/env.ts"],
+  rules: {
+    "no-restricted-syntax": "off"
+  },
+};
+
+export default [ignoresConfig, baseConfig, testOverrides, k6Overrides, frontendOverrides, srcOverrides, envOverrides];
