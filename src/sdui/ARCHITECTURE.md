@@ -556,6 +556,14 @@ Time →
 │  - Abort controllers                                            │
 └─────────────────────────────────────────────────────────────────┘
 
+4. Environment Access
+┌─────────────────────────────────────────────────────────────────┐
+│  - Unified env adapter (`src/lib/env.ts`)                        │
+│  - Browser code never accesses `process.env` or `import.meta.env`│
+│  - Server secrets never leak to client bundles                   │
+│  - ESLint guards prevent regressions                            │
+└─────────────────────────────────────────────────────────────────┘
+
 4. XSS Prevention
 ┌─────────────────────────────────────────────────────────────────┐
 │  - React's built-in XSS protection                              │
