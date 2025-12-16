@@ -68,7 +68,6 @@ services:
       - ./src:/app/src:cached
       - ./public:/app/public:cached
       # index.html is served by Vite or the built static assets - avoid mounting host file to prevent mount type conflicts
-      - ./vite.config.ts:/app/vite.config.ts:cached
       - ./tsconfig.json:/app/tsconfig.json:cached
       - ./package.json:/app/package.json:cached
       - /app/node_modules
