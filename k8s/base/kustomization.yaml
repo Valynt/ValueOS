@@ -8,6 +8,7 @@ resources:
   - serviceaccount.yaml
   - configmap.yaml
   - secrets.yaml
+  - network-policies.yaml
   - backend-deployment.yaml
   - backend-service.yaml
   - frontend-deployment.yaml

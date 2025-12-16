@@ -5,6 +5,7 @@ import { sanitizeLLMContent } from '../utils/security';
 import { llmSanitizer } from './LLMSanitizer';
 import type { LLMConfig, LLMMessage, LLMResponse, LLMProvider, LLMTool, LLMStreamCallback } from '../lib/agent-fabric/llm-types';
 import { webSocketManager } from './WebSocketManager';
+import type { WebSocketMessage } from './WebSocketManager';
 
 interface ProxyChatRequest {
   messages: LLMMessage[];
@@ -206,7 +207,7 @@ class LlmProxyClient {
     };
 
     // Listen for streaming chunks
-    const handleChunk = (message: any) => {
+    const handleChunk = (message: WebSocketMessage) => {
       if (message.type === 'llm_stream_chunk' && message.payload.sessionId === sessionId) {
         const chunk = message.payload.chunk;
         const sanitizedContent = sanitizeLLMContent(chunk.content || '');

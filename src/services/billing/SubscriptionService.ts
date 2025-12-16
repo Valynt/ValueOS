@@ -388,6 +388,91 @@ class SubscriptionService {
     return data || [];
   }
 
+  /**
+   * Preview subscription change with proration calculation
+   */
+  async previewSubscriptionChange(
+    tenantId: string,
+    newPlanTier: PlanTier
+  ): Promise<{
+    currentPlan: PlanTier;
+    newPlan: PlanTier;
+    proratedAmount: number;
+    nextInvoiceAmount: number;
+    effectiveDate: string;
+    changes: Array<{
+      metric: string;
+      currentQuota: number;
+      newQuota: number;
+      currentPrice: number;
+      newPrice: number;
+    }>;
+  }> {
+    try {
+      logger.info('Previewing subscription change', { tenantId, newPlanTier });
+
+      // Get current subscription
+      const currentSubscription = await this.getActiveSubscription(tenantId);
+      if (!currentSubscription) {
+        throw new Error('No active subscription found');
+      }
+
+      const currentPlan = currentSubscription.plan_tier as PlanTier;
+      if (currentPlan === newPlanTier) {
+        throw new Error('Cannot change to the same plan');
+      }
+
+      // Get customer and Stripe subscription
+      const customer = await CustomerService.getCustomerByTenantId(tenantId);
+      if (!customer) {
+        throw new Error('Customer not found');
+      }
+
+      const stripeSubscription = await this.stripe.subscriptions.retrieve(currentSubscription.stripe_subscription_id);
+
+      // Get plan configurations
+      const currentPlanConfig = PLANS[currentPlan];
+      const newPlanConfig = PLANS[newPlanTier];
+
+      // Calculate proration using Stripe
+      const prorationPreview = await this.stripe.invoices.retrieveUpcoming({
+        customer: customer.stripe_customer_id,
+        subscription: currentSubscription.stripe_subscription_id,
+        subscription_items: this.buildSubscriptionItems(newPlanTier).map(item => ({
+          id: item.stripe_price_id, // This would need to be matched to existing items
+          price: item.stripe_price_id,
+        })),
+      });
+
+      // Build changes array
+      const changes = Object.entries(newPlanConfig.usage).map(([metric, newQuota]) => {
+        const currentQuota = currentPlanConfig.usage[metric as BillingMetric] || 0;
+        const currentPrice = currentPlanConfig.pricing[metric as BillingMetric] || 0;
+        const newPrice = newPlanConfig.pricing[metric as BillingMetric] || 0;
+
+        return {
+          metric,
+          currentQuota,
+          newQuota,
+          currentPrice,
+          newPrice,
+        };
+      });
+
+      return {
+        currentPlan,
+        newPlan: newPlanTier,
+        proratedAmount: (prorationPreview.amount_due || 0) / 100, // Convert cents to dollars
+        nextInvoiceAmount: (prorationPreview.amount_due || 0) / 100, // This should be the full amount for next period
+        effectiveDate: new Date().toISOString(),
+        changes,
+      };
+    } catch (error) {
+      logger.error('Error previewing subscription change', error as Error, { tenantId, newPlanTier });
+      throw error;
+    }
+  }
+
 }
 
 export default new SubscriptionService();

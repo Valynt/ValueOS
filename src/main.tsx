@@ -44,6 +44,9 @@ async function main() {
   `;
 
   try {
+    // Initialize rate limiting
+    setupDefaultRateLimits();
+
     // Initialize HMR fallback for reliable development experience
     if (isDevelopment()) {
       initHMRFallback();
