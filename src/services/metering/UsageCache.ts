@@ -4,16 +4,21 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { BillingMetric } from '../../config/billing';
-import { USAGE_CACHE_TTL } from '../../config/billing';
+import { BillingMetric, USAGE_CACHE_TTL } from '../../config/billing';
 import { createLogger } from '../../lib/logger';
 
 const logger = createLogger({ component: 'UsageCache' });
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+let supabase: any = null;
+
+if (supabaseUrl && supabaseServiceRoleKey) {
+  supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+} else {
+  logger.warn('Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing');
+}
 
 // Redis client (optional - will use in-memory fallback if not available)
 let redisClient: any = null;
@@ -185,6 +190,9 @@ class UsageCache {
    * Fetch current usage from database
    */
   private async fetchUsageFromDB(tenantId: string, metric: BillingMetric): Promise<number> {
+    if (!supabase) {
+      throw new Error('Billing service not configured');
+    }
     const now = new Date();
     const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -207,6 +215,9 @@ class UsageCache {
    * Fetch quota from database
    */
   private async fetchQuotaFromDB(tenantId: string, metric: BillingMetric): Promise<number> {
+    if (!supabase) {
+      throw new Error('Billing service not configured');
+    }
     const { data, error } = await supabase
       .from('usage_quotas')
       .select('quota_amount')

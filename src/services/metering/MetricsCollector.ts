@@ -10,16 +10,25 @@ import { createLogger } from '../../lib/logger';
 
 const logger = createLogger({ component: 'MetricsCollector' });
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+let supabase: any = null;
+
+if (supabaseUrl && supabaseServiceRoleKey) {
+  supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+} else {
+  logger.warn('Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing');
+}
 
 class MetricsCollector {
   /**
    * Get usage summary for tenant
    */
   async getUsageSummary(tenantId: string): Promise<UsageSummary> {
+    if (!supabase) {
+      throw new Error('Billing service not configured');
+    }
     const now = new Date();
     const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);

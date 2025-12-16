@@ -3,23 +3,46 @@
  * Manages subscription creation, updates, and cancellation
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import Stripe from 'stripe';
 import StripeService from './StripeService';
 import CustomerService from './CustomerService';
+import { BillingMetric, PLANS, PlanTier } from '../../config/billing';
 import { Subscription, SubscriptionItem } from '../../types/billing';
-import { PlanTier, PLANS, BillingMetric } from '../../config/billing';
 import { createLogger } from '../../lib/logger';
 
 const logger = createLogger({ component: 'SubscriptionService' });
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+// Constants for Stripe API (amounts are in cents)
+const STRIPE_CENTS_PER_DOLLAR = 100;
+const UNIX_TIMESTAMP_MULTIPLIER = 1000;
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+let supabase: SupabaseClient | null = null;
+
+if (supabaseUrl && supabaseServiceRoleKey) {
+  supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+} else {
+  logger.warn('Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing');
+}
 
 class SubscriptionService {
-  private stripe = StripeService.getInstance().getClient();
-  private stripeService = StripeService.getInstance();
+  private stripeService: StripeService | null = null;
+  private stripe: Stripe | null = null;
+
+  constructor() {
+    // Initialize Stripe service only if billing is configured
+    try {
+      this.stripeService = StripeService.getInstance();
+      this.stripe = this.stripeService.getClient();
+    } catch (_error) {
+      logger.warn('Stripe service not available, billing features disabled');
+      this.stripe = null;
+      this.stripeService = null;
+    }
+  }
 
   /**
    * Create subscription for tenant
@@ -29,6 +52,9 @@ class SubscriptionService {
     planTier: PlanTier,
     trialDays?: number
   ): Promise<Subscription> {
+    if (!this.stripe || !supabase) {
+      throw new Error('Billing service not configured');
+    }
     try {
       logger.info('Creating subscription', { tenantId, planTier });
 
@@ -71,13 +97,13 @@ class SubscriptionService {
           plan_tier: planTier,
           billing_period: plan.billingPeriod,
           status: stripeSubscription.status,
-          current_period_start: new Date(stripeSubscription.current_period_start * 1000).toISOString(),
-          current_period_end: new Date(stripeSubscription.current_period_end * 1000).toISOString(),
+          current_period_start: new Date(stripeSubscription.current_period_start * UNIX_TIMESTAMP_MULTIPLIER).toISOString(),
+          current_period_end: new Date(stripeSubscription.current_period_end * UNIX_TIMESTAMP_MULTIPLIER).toISOString(),
           trial_start: stripeSubscription.trial_start 
-            ? new Date(stripeSubscription.trial_start * 1000).toISOString() 
+            ? new Date(stripeSubscription.trial_start * UNIX_TIMESTAMP_MULTIPLIER).toISOString() 
             : null,
           trial_end: stripeSubscription.trial_end 
-            ? new Date(stripeSubscription.trial_end * 1000).toISOString() 
+            ? new Date(stripeSubscription.trial_end * UNIX_TIMESTAMP_MULTIPLIER).toISOString() 
             : null,
           amount: plan.price,
           currency: 'usd',
@@ -107,9 +133,9 @@ class SubscriptionService {
   /**
    * Build subscription items for Stripe
    */
-  private buildSubscriptionItems(planTier: PlanTier): any[] {
+  private buildSubscriptionItems(planTier: PlanTier): Stripe.SubscriptionCreateParams.Item[] {
     const plan = PLANS[planTier];
-    const items: any[] = [];
+    const items: Stripe.SubscriptionCreateParams.Item[] = [];
 
     const metrics: BillingMetric[] = [
       'llm_tokens',
@@ -134,7 +160,7 @@ class SubscriptionService {
    */
   private async storeSubscriptionItems(
     subscriptionId: string,
-    stripeItems: any[],
+    stripeItems: Stripe.SubscriptionItem[],
     planTier: PlanTier
   ): Promise<void> {
     const plan = PLANS[planTier];
@@ -262,7 +288,7 @@ class SubscriptionService {
 
       // Update each item to new price
       const newPlan = PLANS[newPlanTier];
-      const updatePromises = items?.map(async (item) => {
+      const updatePromises = items?.map(async (item: { metric: string; stripe_subscription_item_id: string }) => {
         const newPriceId = newPlan.stripePriceIds?.[item.metric];
         if (newPriceId) {
           await this.stripe.subscriptionItems.update(item.stripe_subscription_item_id, {
@@ -341,7 +367,7 @@ class SubscriptionService {
       logger.info('Canceling subscription', { tenantId, immediately });
 
       // Cancel in Stripe
-      const stripeSubscription = immediately
+      const _stripeSubscription = immediately
         ? await this.stripe.subscriptions.cancel(subscription.stripe_subscription_id)
         : await this.stripe.subscriptions.update(subscription.stripe_subscription_id, {
             cancel_at_period_end: true,
@@ -351,12 +377,12 @@ class SubscriptionService {
       const { data, error } = await supabase
         .from('subscriptions')
         .update({
-          status: stripeSubscription.status,
-          canceled_at: stripeSubscription.canceled_at 
-            ? new Date(stripeSubscription.canceled_at * 1000).toISOString()
+          status: _stripeSubscription.status,
+          canceled_at: _stripeSubscription.canceled_at 
+            ? new Date(_stripeSubscription.canceled_at * UNIX_TIMESTAMP_MULTIPLIER).toISOString()
             : null,
-          ended_at: stripeSubscription.ended_at 
-            ? new Date(stripeSubscription.ended_at * 1000).toISOString()
+          ended_at: _stripeSubscription.ended_at 
+            ? new Date(_stripeSubscription.ended_at * UNIX_TIMESTAMP_MULTIPLIER).toISOString()
             : null,
           updated_at: new Date().toISOString(),
         })
@@ -422,13 +448,11 @@ class SubscriptionService {
         throw new Error('Cannot change to the same plan');
       }
 
-      // Get customer and Stripe subscription
+      // Get customer
       const customer = await CustomerService.getCustomerByTenantId(tenantId);
       if (!customer) {
         throw new Error('Customer not found');
       }
-
-      const stripeSubscription = await this.stripe.subscriptions.retrieve(currentSubscription.stripe_subscription_id);
 
       // Get plan configurations
       const currentPlanConfig = PLANS[currentPlan];
@@ -439,21 +463,21 @@ class SubscriptionService {
         customer: customer.stripe_customer_id,
         subscription: currentSubscription.stripe_subscription_id,
         subscription_items: this.buildSubscriptionItems(newPlanTier).map(item => ({
-          id: item.stripe_price_id, // This would need to be matched to existing items
-          price: item.stripe_price_id,
+          id: item.price, // Use the price ID for matching existing items
+          price: item.price,
         })),
       });
 
       // Build changes array
-      const changes = Object.entries(newPlanConfig.usage).map(([metric, newQuota]) => {
-        const currentQuota = currentPlanConfig.usage[metric as BillingMetric] || 0;
-        const currentPrice = currentPlanConfig.pricing[metric as BillingMetric] || 0;
-        const newPrice = newPlanConfig.pricing[metric as BillingMetric] || 0;
+      const changes = Object.entries(newPlanConfig.quotas).map(([metric, newQuota]) => {
+        const currentQuota = currentPlanConfig.quotas[metric as BillingMetric] || 0;
+        const currentPrice = currentPlanConfig.overageRates[metric as BillingMetric] || 0;
+        const newPrice = newPlanConfig.overageRates[metric as BillingMetric] || 0;
 
         return {
           metric,
           currentQuota,
-          newQuota,
+          newQuota: newQuota as number,
           currentPrice,
           newPrice,
         };
@@ -462,8 +486,8 @@ class SubscriptionService {
       return {
         currentPlan,
         newPlan: newPlanTier,
-        proratedAmount: (prorationPreview.amount_due || 0) / 100, // Convert cents to dollars
-        nextInvoiceAmount: (prorationPreview.amount_due || 0) / 100, // This should be the full amount for next period
+        proratedAmount: (prorationPreview.amount_due || 0) / STRIPE_CENTS_PER_DOLLAR, // Convert cents to dollars
+        nextInvoiceAmount: (prorationPreview.amount_due || 0) / STRIPE_CENTS_PER_DOLLAR, // This should be the full amount for next period
         effectiveDate: new Date().toISOString(),
         changes,
       };

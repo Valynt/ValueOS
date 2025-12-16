@@ -78,7 +78,8 @@
     "db:backup:list": "bash scripts/backup-restore.sh list",
     "verify:llm-instrumentation": "node -r tsx/cjs scripts/verify-llm-instrumentation.ts",
     "verify:trace-reconstruction": "node -r tsx/cjs scripts/verify/trace_reconstruction.ts",
-    "memory:gc": "tsx scripts/run-memory-gc.ts"
+    "memory:gc": "tsx scripts/run-memory-gc.ts",
+    "agent:dev": "tsx scripts/agentic-dev/run-agent-team.ts"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
@@ -112,6 +113,7 @@
     "uuid": "^9.0.1",
     "winston": "^3.18.3",
     "winston-cloudwatch": "^6.3.0",
+    "ws": "^8.18.3",
     "zod": "^3.23.8",
     "zustand": "^5.0.9"
   },
