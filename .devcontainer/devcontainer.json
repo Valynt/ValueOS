@@ -46,7 +46,9 @@
         "esbenp.prettier-vscode",
         "bradlc.vscode-tailwindcss",
         "ms-azuretools.vscode-docker",
-        "Prisma.prisma"
+        "Prisma.prisma",
+        "Google.geminicodeassist",
+        "google.geminicodeassist"
       ],
       "settings": {
         "editor.formatOnSave": true,

@@ -116,7 +116,7 @@ export const EmailAnalysisModal: React.FC<EmailAnalysisModalProps> = ({
     >
       <div className="bg-popover rounded-lg w-full max-w-4xl m-4 border border-border max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-800 flex-shrink-0">
+        <div className="flex items-center justify-between p-vc-3 border-b border-gray-800 flex-shrink-0">
           <div className="flex items-center gap-vc-2">
             <div className="w-vc-3 h-vc-3 bg-accent rounded-lg flex items-center justify-center">
               <Mail className="w-5 h-5 text-accent-foreground" />
@@ -146,7 +146,7 @@ export const EmailAnalysisModal: React.FC<EmailAnalysisModalProps> = ({
           {analysisState === "idle" || analysisState === "error" ? (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-muted-foreground mb-2">
                   Email Thread
                 </label>
                 <textarea
@@ -164,17 +164,17 @@ Email body text..."
                   className="w-full h-64 px-vc-3 py-vc-2 bg-card border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary resize-none font-mono text-sm"
                 />
                 <div className="flex justify-between mt-2">
-                  <p className="text-gray-500 text-xs">
+                  <p className="text-muted-foreground text-xs">
                     {emailText.length} characters
                   </p>
-                  <p className="text-gray-500 text-xs">
+                  <p className="text-muted-foreground text-xs">
                     Tip: Include email headers for better analysis
                   </p>
                 </div>
               </div>
 
               {error && (
-                <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/10 p-vc-2 rounded-lg">
+                <div className="flex items-center gap-vc-2 text-destructive text-sm bg-destructive/10 p-vc-2 rounded-lg">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
                   {error}
                 </div>
@@ -210,7 +210,7 @@ Email body text..."
               </button>
               <button
                 onClick={handleUseAnalysis}
-                className="px-vc-4 py-vc-1 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
+                className="px-vc-4 py-vc-1 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-vc-2"
               >
                 Use This Analysis
                 <ArrowRight className="w-4 h-4" />
@@ -231,7 +231,7 @@ Email body text..."
                 <button
                   onClick={handleAnalyze}
                   disabled={analysisState === "analyzing" || !emailText.trim()}
-                  className="px-vc-4 py-vc-1 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                  className="px-vc-4 py-vc-1 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-vc-2"
                 >
                   {analysisState === "analyzing" ? (
                     <>
@@ -308,8 +308,8 @@ const AnalysisResults: React.FC<{ analysis: EmailAnalysis }> = ({
       {/* Metrics Row */}
       <div className="grid grid-cols-3 gap-vc-3">
         {/* Sentiment */}
-        <div className={`rounded-xl p-4 ${getSentimentColor()}`}>
-          <div className="flex items-center gap-2 mb-1">
+        <div className={`rounded-lg p-vc-3 ${getSentimentColor()}`}>
+          <div className="flex items-center gap-vc-2 mb-1">
             {getSentimentIcon()}
             <span className="font-medium">{getSentimentLabel()}</span>
           </div>
@@ -345,21 +345,21 @@ const AnalysisResults: React.FC<{ analysis: EmailAnalysis }> = ({
 
       {/* Participants */}
       {analysis.participants.length > 0 && (
-        <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700">
-          <div className="flex items-center gap-2 mb-3">
-            <Users className="w-5 h-5 text-gray-400" />
-            <h3 className="text-white font-medium">Participants</h3>
+        <div className="bg-card/50 rounded-lg p-vc-3 border border-border">
+          <div className="flex items-center gap-vc-2 mb-3">
+            <Users className="w-5 h-5 text-muted-foreground" />
+            <h3 className="text-foreground font-medium">Participants</h3>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-vc-2">
             {analysis.participants.map((p, i) => (
               <div
                 key={i}
-                className={`px-3 py-1.5 rounded-full text-sm ${
+                className={`px-vc-3 py-vc-1.5 rounded-full text-sm ${
                   p.sentiment === "positive"
-                    ? "bg-green-500/20 text-green-400"
+                    ? "bg-success/10 text-success"
                     : p.sentiment === "negative"
-                      ? "bg-red-500/20 text-red-400"
-                      : "bg-gray-700 text-gray-300"
+                      ? "bg-destructive/10 text-destructive"
+                      : "bg-card text-muted-foreground"
                 }`}
               >
                 {p.name}
@@ -371,18 +371,18 @@ const AnalysisResults: React.FC<{ analysis: EmailAnalysis }> = ({
       )}
 
       {/* Two Column Layout */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-vc-3">
         {/* Key Asks */}
         {analysis.keyAsks.length > 0 && (
-          <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700">
-            <h3 className="text-white font-medium mb-3">Key Asks</h3>
+          <div className="bg-card/50 rounded-lg p-vc-3 border border-border">
+            <h3 className="text-foreground font-medium mb-3">Key Asks</h3>
             <ul className="space-y-2">
               {analysis.keyAsks.map((ask, i) => (
                 <li
                   key={i}
-                  className="flex items-start gap-2 text-gray-300 text-sm"
+                  className="flex items-start gap-vc-2 text-muted-foreground text-sm"
                 >
-                  <span className="text-purple-400 mt-0.5">•</span>
+                  <span className="text-info mt-0.5">•</span>
                   {ask}
                 </li>
               ))}
@@ -392,15 +392,15 @@ const AnalysisResults: React.FC<{ analysis: EmailAnalysis }> = ({
 
         {/* Objections */}
         {analysis.objections.length > 0 && (
-          <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700">
-            <h3 className="text-white font-medium mb-3">Objections/Concerns</h3>
+          <div className="bg-card/50 rounded-lg p-vc-3 border border-border">
+            <h3 className="text-foreground font-medium mb-3">Objections/Concerns</h3>
             <ul className="space-y-2">
               {analysis.objections.map((obj, i) => (
                 <li
                   key={i}
-                  className="flex items-start gap-2 text-gray-300 text-sm"
+                  className="flex items-start gap-vc-2 text-muted-foreground text-sm"
                 >
-                  <span className="text-orange-400 mt-0.5">•</span>
+                  <span className="text-warning mt-0.5">•</span>
                   {obj}
                 </li>
               ))}
@@ -412,10 +412,10 @@ const AnalysisResults: React.FC<{ analysis: EmailAnalysis }> = ({
       {/* Deal Signals */}
       {(analysis.dealSignals.positive.length > 0 ||
         analysis.dealSignals.negative.length > 0) && (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-vc-3">
           {analysis.dealSignals.positive.length > 0 && (
-            <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/20">
-              <h3 className="text-green-400 font-medium mb-3 flex items-center gap-2">
+            <div className="bg-success/10 rounded-lg p-vc-3 border border-success/20">
+              <h3 className="text-success font-medium mb-3 flex items-center gap-vc-2">
                 <TrendingUp className="w-4 h-4" />
                 Positive Signals
               </h3>
@@ -423,7 +423,7 @@ const AnalysisResults: React.FC<{ analysis: EmailAnalysis }> = ({
                 {analysis.dealSignals.positive.map((signal, i) => (
                   <li
                     key={i}
-                    className="flex items-start gap-2 text-green-300 text-sm"
+                    className="flex items-start gap-vc-2 text-success text-sm"
                   >
                     <CheckCircle className="w-3 h-3 mt-1 flex-shrink-0" />
                     {signal}
@@ -434,8 +434,8 @@ const AnalysisResults: React.FC<{ analysis: EmailAnalysis }> = ({
           )}
 
           {analysis.dealSignals.negative.length > 0 && (
-            <div className="bg-red-500/10 rounded-xl p-4 border border-red-500/20">
-              <h3 className="text-red-400 font-medium mb-3 flex items-center gap-2">
+            <div className="bg-destructive/10 rounded-lg p-vc-3 border border-destructive/20">
+              <h3 className="text-destructive font-medium mb-3 flex items-center gap-vc-2">
                 <TrendingDown className="w-4 h-4" />
                 Warning Signs
               </h3>
@@ -443,7 +443,7 @@ const AnalysisResults: React.FC<{ analysis: EmailAnalysis }> = ({
                 {analysis.dealSignals.negative.map((signal, i) => (
                   <li
                     key={i}
-                    className="flex items-start gap-2 text-red-300 text-sm"
+                    className="flex items-start gap-vc-2 text-destructive text-sm"
                   >
                     <AlertCircle className="w-3 h-3 mt-1 flex-shrink-0" />
                     {signal}
@@ -456,12 +456,12 @@ const AnalysisResults: React.FC<{ analysis: EmailAnalysis }> = ({
       )}
 
       {/* Suggested Next Step */}
-      <div className="bg-purple-500/10 rounded-xl p-4 border border-purple-500/20">
-        <h3 className="text-purple-400 font-medium mb-2 flex items-center gap-2">
+      <div className="bg-card/50 rounded-lg p-vc-3 border border-border">
+        <h3 className="text-info font-medium mb-2 flex items-center gap-vc-2">
           <ArrowRight className="w-4 h-4" />
           Suggested Next Step
         </h3>
-        <p className="text-white">{analysis.suggestedNextStep}</p>
+        <p className="text-foreground">{analysis.suggestedNextStep}</p>
       </div>
     </div>
   );
