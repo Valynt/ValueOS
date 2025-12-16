@@ -5,6 +5,8 @@
 
 import express from 'express';
 import cors from 'cors';
+import { createServer } from 'http';
+import { WebSocket, WebSocketServer } from 'ws';
 import billingRouter from '../api/billing';
 import agentsRouter from '../api/agents';
 import workflowRouter from '../api/workflow';
@@ -23,12 +25,64 @@ import { settings } from '../config/settings';
 const logger = createLogger({ component: 'BillingServer' });
 
 const app = express();
+const server = createServer(app);
+const wss = new WebSocketServer({ server, path: '/ws/sdui' });
 const PORT = settings.API_PORT;
 const apiRouter = createVersionedApiRouter();
 const agentExecutionLimiter = createRateLimiter('strict', {
   message: 'Too many agent calls. Please wait before trying again.',
   // Allow read-only discovery endpoints (e.g., /:agentId/info) to use lighter limits
   skip: (req) => req.method === 'GET',
+});
+
+// WebSocket connection handling
+wss.on('connection', (ws: WebSocket, req) => {
+  const clientIp = req.socket.remoteAddress;
+  logger.info('WebSocket client connected', { clientIp });
+
+  ws.on('message', (data: Buffer) => {
+    try {
+      const message = JSON.parse(data.toString());
+      logger.debug('WebSocket message received', { type: message.type, messageId: message.messageId });
+
+      // Handle different message types
+      switch (message.type) {
+        case 'sdui_update':
+          // Broadcast SDUI updates to all connected clients
+          wss.clients.forEach((client) => {
+            if (client !== ws && client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({
+                type: 'sdui_update',
+                data: message.payload,
+                timestamp: new Date().toISOString(),
+              }));
+            }
+          });
+          break;
+
+        case 'ping':
+          // Handle heartbeat
+          ws.send(JSON.stringify({
+            type: 'pong',
+            timestamp: new Date().toISOString(),
+          }));
+          break;
+
+        default:
+          logger.warn('Unknown WebSocket message type', { type: message.type });
+      }
+    } catch (error) {
+      logger.error('Error handling WebSocket message', error instanceof Error ? error : undefined);
+    }
+  });
+
+  ws.on('close', () => {
+    logger.info('WebSocket client disconnected', { clientIp });
+  });
+
+  ws.on('error', (error) => {
+    logger.error('WebSocket error', error instanceof Error ? error : undefined);
+  });
 });
 
 // Middleware
@@ -93,10 +147,11 @@ app.use(
 );
 
 // Start server
-if (require.main === module) {
-  app.listen(PORT, () => {
-    logger.info(`Billing API server running on port ${PORT}`, {
+if (import.meta.url === `file://${process.argv[1]}` || settings.NODE_ENV === 'development') {
+  server.listen(PORT, () => {
+    logger.info(`Billing API server with WebSocket support running on port ${PORT}`, {
       url: `http://localhost:${PORT}`,
+      webSocketUrl: `ws://localhost:${PORT}/ws/sdui`,
       healthCheck: `http://localhost:${PORT}/health`,
     });
   });

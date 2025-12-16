@@ -22,8 +22,20 @@ if (supabaseUrl && supabaseServiceRoleKey) {
 }
 
 class CustomerService {
-  private stripe = StripeService.getInstance().getClient();
-  private stripeService = StripeService.getInstance();
+  private stripe: Stripe;
+  private stripeService: StripeService;
+
+  constructor() {
+    // Initialize Stripe service only if billing is configured
+    try {
+      this.stripeService = StripeService.getInstance();
+      this.stripe = this.stripeService.getClient();
+    } catch (error) {
+      logger.warn('Stripe service not available, billing features disabled');
+      this.stripe = null as any;
+      this.stripeService = null as any;
+    }
+  }
 
   /**
    * Create Stripe customer and store mapping
@@ -34,6 +46,9 @@ class CustomerService {
     email: string,
     metadata?: Record<string, any>
   ): Promise<BillingCustomer> {
+    if (!this.stripe || !supabase) {
+      throw new Error('Billing service not configured');
+    }
     try {
       if (!supabase) {
         throw new Error('Billing storage is not configured (Supabase env vars missing)');

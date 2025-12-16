@@ -10,19 +10,40 @@ import { createLogger } from '../../lib/logger';
 
 const logger = createLogger({ component: 'InvoiceService' });
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+let supabase: any = null;
+
+if (supabaseUrl && supabaseServiceRoleKey) {
+  supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+} else {
+  logger.warn('Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing');
+}
 
 class InvoiceService {
-  private stripe = StripeService.getInstance().getClient();
-  private stripeService = StripeService.getInstance();
+  private stripe: any;
+  private stripeService: any;
+
+  constructor() {
+    // Initialize Stripe service only if billing is configured
+    try {
+      this.stripeService = StripeService.getInstance();
+      this.stripe = this.stripeService.getClient();
+    } catch (error) {
+      logger.warn('Stripe service not available, billing features disabled');
+      this.stripe = null;
+      this.stripeService = null;
+    }
+  }
 
   /**
    * Store invoice from Stripe
    */
   async storeInvoice(stripeInvoice: any): Promise<Invoice> {
+    if (!this.stripe || !supabase) {
+      throw new Error('Billing service not configured');
+    }
     try {
       logger.info('Storing invoice', { invoiceId: stripeInvoice.id });
 
@@ -100,7 +121,7 @@ class InvoiceService {
 
       return data;
     } catch (error) {
-      logger.error('Error storing invoice', error);
+      logger.error('Error storing invoice', error instanceof Error ? error : undefined);
       throw error;
     }
   }

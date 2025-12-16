@@ -12,13 +12,29 @@ import { recordStripeWebhook, recordInvoiceEvent, recordBillingJobFailure } from
 
 const logger = createLogger({ component: 'WebhookService' });
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+let supabase: any = null;
+
+if (supabaseUrl && supabaseServiceRoleKey) {
+  supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+} else {
+  logger.warn('Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing');
+}
 
 class WebhookService {
-  private stripe = StripeService.getInstance().getClient();
+  private stripe: any;
+
+  constructor() {
+    // Initialize Stripe service only if billing is configured
+    try {
+      this.stripe = StripeService.getInstance().getClient();
+    } catch (error) {
+      logger.warn('Stripe service not available, billing features disabled');
+      this.stripe = null;
+    }
+  }
 
   /**
    * Verify webhook signature
@@ -107,7 +123,7 @@ class WebhookService {
       await this.markEventProcessed(event.id);
       recordStripeWebhook(event.type, 'processed');
     } catch (error) {
-      logger.error('Error processing webhook event', error, { eventId: event.id });
+      logger.error('Error processing webhook event', error instanceof Error ? error : undefined, { eventId: event.id });
       recordStripeWebhook(event.type, 'failed');
       recordBillingJobFailure('stripe_webhook', (error as Error).message);
       await this.markEventFailed(event.id, (error as Error).message);

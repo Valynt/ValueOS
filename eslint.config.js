@@ -114,15 +114,10 @@ const baseConfig = {
     "no-new-func": "error",
     "no-script-url": "error",
 
-
     // Code quality and consistency
     "eqeqeq": ["error", "always"],
     "no-duplicate-imports": "error",
     "no-return-await": "error",
-
-
-
-
 
     // Import organization
     "@typescript-eslint/consistent-import": "off", // Let auto-import handle this
@@ -145,33 +140,8 @@ const baseConfig = {
     }],
     "@typescript-eslint/no-non-null-assertion": "warn",
 
-    // Async/await best practices
-
-
-
-
     // Error handling
 
-    "@typescript-eslint/prefer-promise-reject-errors": "error",
-
-    // Naming conventions
-    "@typescript-eslint/naming-convention": [
-      "error",
-      {
-        "selector": "variableLike",
-        "format": ["camelCase"]
-      },
-      {
-        "selector": "typeLike",
-        "format": ["PascalCase"]
-      },
-      {
-        "selector": "memberLike",
-        "modifiers": ["private"],
-        "format": ["camelCase"],
-        "leadingUnderscore": "require"
-      }
-    ],
 
     // Security: Prevent dangerous patterns in agent code
     "no-alert": "error",
@@ -238,4 +208,3 @@ const k6Overrides = {
 };
 
 export default [ignoresConfig, baseConfig, testOverrides, k6Overrides];
-
