@@ -1,38 +1,42 @@
+import ./Caddyfile
+
 {
-  # Production Caddyfile - automatic HTTPS via ACME (public DNS required)
+    email {$ACME_EMAIL:security@example.com}
+    admin off
 }
 
-# Replace `app.example.com` with your production domain
-app.example.com {
-  encode gzip zstd
+{$APP_DOMAIN:app.example.com} {
+    tls {$ACME_EMAIL:security@example.com}
 
-  root * /srv/frontend
-  file_server
-  try_files {path} /index.html
+    # If TLS is terminated upstream (e.g., cloud LB), replace the tls block above with:
+    # tls internal
+    # and rely on forwarded headers for scheme/host.
 
-  handle_path /api/* {
-    reverse_proxy http://backend:8000 {
-      header_up X-Forwarded-Host {host}
-      header_up X-Forwarded-Proto {scheme}
-      header_up X-Forwarded-Port {server_port}
-      header_up X-Real-IP {remote_host}
-      flush_interval -1
+    import common_observability
+    import common_security_headers
+    import tls_security_headers
+    import common_compression
+    import health_route
+
+    header {
+        X-Environment production
     }
-  }
 
-  # Hardened security headers - tuned for production
-  header {
-    -Server
-    Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-    X-Content-Type-Options "nosniff"
-    X-Frame-Options "DENY"
-    Referrer-Policy "strict-origin"
-    Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https: wss:; img-src 'self' data:;"
-  }
+    handle_path /api/* {
+        import api_proxy
+    }
 
-  log {
-    output file /var/log/caddy/access.log
-    format json
-    level INFO
-  }
+    handle_path /ws/* {
+        import api_proxy
+    }
+
+    handle {
+        import spa_static
+    }
+
+    import common_error_responses
+}
+
+http://{$APP_DOMAIN:app.example.com} {
+    redir https://{$APP_DOMAIN:app.example.com}{uri} permanent
 }
