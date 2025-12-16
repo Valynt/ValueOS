@@ -678,10 +678,10 @@ const DealPreview: React.FC<DealPreviewProps> = ({
                 className="flex items-center justify-between py-2 border-b border-gray-700 last:border-0"
               >
                 <div>
-                  <p className="text-white">
+                  <p className="text-foreground">
                     {contact.firstName} {contact.lastName}
                   </p>
-                  <p className="text-gray-400 text-sm">
+                  <p className="text-muted-foreground text-sm">
                     {contact.title || contact.email}
                   </p>
                 </div>
@@ -702,20 +702,20 @@ const DealPreview: React.FC<DealPreviewProps> = ({
       )}
 
       {/* Mapping Preview */}
-      <div className="bg-blue-500/10 rounded-xl p-4 border border-blue-500/20">
-        <h4 className="text-blue-400 font-medium mb-2">Value Case Preview</h4>
+      <div className="bg-card/50 rounded-lg p-vc-3 border border-border">
+        <h4 className="text-foreground font-medium mb-vc-2">Value Case Preview</h4>
         <div className="text-sm space-y-1">
-          <p className="text-gray-300">
-            <span className="text-gray-500">Name:</span> {mappedCase.name}
+          <p className="text-muted-foreground">
+            <span className="text-muted-foreground font-medium">Name:</span> {mappedCase.name}
           </p>
-          <p className="text-gray-300">
-            <span className="text-gray-500">Company:</span> {mappedCase.company}
+          <p className="text-muted-foreground">
+            <span className="text-muted-foreground font-medium">Company:</span> {mappedCase.company}
           </p>
-          <p className="text-gray-300">
-            <span className="text-gray-500">Stage:</span> {mappedCase.stage}
+          <p className="text-muted-foreground">
+            <span className="text-muted-foreground font-medium">Stage:</span> {mappedCase.stage}
           </p>
-          <p className="text-gray-300">
-            <span className="text-gray-500">Status:</span> {mappedCase.status}
+          <p className="text-muted-foreground">
+            <span className="text-muted-foreground font-medium">Status:</span> {mappedCase.status}
           </p>
         </div>
       </div>
