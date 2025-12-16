@@ -32,7 +32,7 @@ services:
       - VITE_ENABLE_RATE_LIMITING=true
       - VITE_ENABLE_AUDIT_LOGGING=true
     networks:
-      - valuecanvas-network
+      - frontend-network
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5173"]
@@ -74,7 +74,8 @@ services:
       - ./infrastructure/nginx/ssl:/etc/nginx/ssl:ro
       - nginx-cache:/var/cache/nginx
     networks:
-      - valuecanvas-network
+      - frontend-network
+      - backend-network
     depends_on:
       - app
     restart: always
@@ -90,6 +91,44 @@ services:
         max-file: "3"
 
   # ============================================================================
+  # Backend API Service (Production)
+  # ============================================================================
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+      target: production
+    image: valuecanvas-backend:latest
+    container_name: valuecanvas-backend-prod
+    ports:
+      - "8000:8000"
+    environment:
+      - NODE_ENV=production
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - REDIS_URL=redis://redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+    networks:
+      - backend-network
+      - database-network
+    depends_on:
+      - redis
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+
+  # ============================================================================
   # Redis (Production - for rate limiting and caching)
   # ============================================================================
   redis:
@@ -98,7 +137,7 @@ services:
     volumes:
       - redis-data:/data
     networks:
-      - valuecanvas-network
+      - database-network
     restart: always
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -119,21 +158,69 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  # ============================================================================
+  # PostgreSQL Database (Production)
+  # ============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: valuecanvas-postgres-prod
+    environment:
+      - POSTGRES_DB=valuecanvas
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - database-network
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d valuecanvas"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+
 # ============================================================================
 # Networks
 # ============================================================================
 networks:
-  valuecanvas-network:
+  # Frontend network - for external access and reverse proxy
+  frontend-network:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.20.0.0/16
+        - subnet: 172.20.0.0/24
+    internal: false
+
+  # Backend network - for internal API communication
+  backend-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.1.0/24
+    internal: true
+
+  # Database network - for database and caching services
+  database-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.2.0/24
+    internal: true
 
 # ============================================================================
 # Volumes
 # ============================================================================
 volumes:
   redis-data:
+    driver: local
+  postgres-data:
     driver: local
   nginx-cache:
     driver: local

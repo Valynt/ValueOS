@@ -11,6 +11,7 @@ import type TaskContext from './TaskContext';
 import { llmCostTracker } from '../../services/LLMCostTracker';
 import { trackUsage } from '../../services/UsageTrackingService';
 import { logger } from '../../lib/logger';
+import { clientRateLimit } from '../../services/ClientRateLimit';
 
 export class LLMGateway {
   private provider: LLMProvider;
@@ -45,6 +46,12 @@ export class LLMGateway {
     if (strictTracing && !currentTrace) {
       logger.error('LLMGateway complete aborted - missing trace context (strict tracing enforcement enabled)', { taskContext });
       throw new Error('LLM call aborted: missing trace/span context');
+    }
+
+    // Apply rate limiting to prevent LLM API abuse
+    const rateLimitAllowed = await clientRateLimit.checkLimit('llm-calls');
+    if (!rateLimitAllowed) {
+      throw new Error('LLM rate limit exceeded. Please try again later.');
     }
 
     // Track LLM call in circuit breaker
@@ -165,12 +172,38 @@ export class LLMGateway {
       });
     }
 
-    return {
+    // Calculate and record cost if circuit breaker provided
+    const finalResponse = {
       content: sanitizedContent,
       tokens_used: response.tokens_used,
       latency_ms: response.latency_ms,
       model: response.model
     };
+
+    if (circuitBreaker && response.tokens_used && response.model) {
+      // Estimate prompt/completion tokens from total tokens (following existing pattern)
+      const totalTokens = response.tokens_used;
+      const promptTokens = taskContext?.estimatedPromptTokens ?? Math.round(totalTokens * 0.4);
+      const completionTokens = taskContext?.estimatedCompletionTokens ?? (totalTokens - promptTokens);
+      
+      const cost = llmCostTracker.calculateCost(response.model, promptTokens, completionTokens);
+      circuitBreaker.recordCost(cost);
+
+      // Track usage in cost tracker for monitoring
+      await llmCostTracker.trackUsage({
+        userId: taskContext?.userId || 'system',
+        sessionId: taskContext?.sessionId,
+        provider: this.provider === 'together' ? 'together_ai' : 'openai',
+        model: response.model,
+        promptTokens,
+        completionTokens,
+        endpoint: 'llm-gateway',
+        success: true,
+        latencyMs: response.latency_ms || 0,
+      });
+    }
+
+    return finalResponse;
   }
 
   /**
@@ -632,7 +665,7 @@ export class LLMGateway {
           }
         };
 
-        await llmProxyClient.completeStream({
+        const response = await llmProxyClient.completeStream({
           messages,
           config: {
             model: selectedModel,
@@ -642,6 +675,8 @@ export class LLMGateway {
           },
           provider: this.provider,
         }, wrappedOnChunk, sessionId || 'unknown');
+
+        // Note: completeStream returns void, cost recording is handled in the callback above
       }
     );
   }

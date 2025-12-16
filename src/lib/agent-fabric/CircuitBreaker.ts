@@ -16,6 +16,7 @@
  */
 
 import { logger } from '../logger';
+import { llmCostTracker } from '../../services/LLMCostTracker';
 
 /**
  * Safety limits configuration
@@ -35,6 +36,15 @@ export interface SafetyLimits {
   
   /** Enable detailed tracking (performance impact) */
   enableDetailedTracking: boolean;
+
+  /** Maximum cost per execution in USD (default: 5.00) */
+  maxExecutionCost: number;
+
+  /** Maximum hourly cost in USD (default: 10.00) */
+  maxHourlyCost: number;
+
+  /** Cost check interval in milliseconds (default: 5000ms = 5s) */
+  costCheckIntervalMs: number;
 }
 
 /**
@@ -46,6 +56,9 @@ export const DEFAULT_SAFETY_LIMITS: SafetyLimits = {
   maxRecursionDepth: 5,
   maxMemoryBytes: 100 * 1024 * 1024, // 100MB
   enableDetailedTracking: false,
+  maxExecutionCost: 5.00, // $5.00 per execution
+  maxHourlyCost: 10.00, // $10.00 per hour
+  costCheckIntervalMs: 5000, // Check every 5 seconds
 };
 
 /**
@@ -60,6 +73,8 @@ export interface ExecutionMetrics {
   memoryUsed: number;
   limitViolations: string[];
   completed: boolean;
+  executionCost: number;
+  lastCostCheck: number;
 }
 
 /**
@@ -86,6 +101,7 @@ export class AgentCircuitBreaker {
   private metrics: ExecutionMetrics;
   private abortController: AbortController;
   private timeoutId?: NodeJS.Timeout;
+  private costCheckInterval?: NodeJS.Timeout;
 
   constructor(limits: Partial<SafetyLimits> = {}) {
     this.limits = { ...DEFAULT_SAFETY_LIMITS, ...limits };
@@ -96,6 +112,8 @@ export class AgentCircuitBreaker {
       memoryUsed: 0,
       limitViolations: [],
       completed: false,
+      executionCost: 0,
+      lastCostCheck: Date.now(),
     };
     this.abortController = new AbortController();
   }
@@ -111,6 +129,13 @@ export class AgentCircuitBreaker {
       this.abort('maxExecutionTime', Date.now() - this.metrics.startTime, this.limits.maxExecutionTime);
     }, this.limits.maxExecutionTime);
 
+    // Set up cost checking interval
+    if (this.limits.maxExecutionCost > 0 || this.limits.maxHourlyCost > 0) {
+      this.costCheckInterval = setInterval(() => {
+        this.checkCostLimits();
+      }, this.limits.costCheckIntervalMs);
+    }
+
     logger.debug('Circuit breaker started', {
       limits: this.limits,
     });
@@ -125,6 +150,9 @@ export class AgentCircuitBreaker {
     if (this.metrics.llmCallCount > this.limits.maxLLMCalls) {
       this.abort('maxLLMCalls', this.metrics.llmCallCount, this.limits.maxLLMCalls);
     }
+
+    // Check cost limits on each LLM call
+    this.checkCostLimits();
 
     if (this.limits.enableDetailedTracking) {
       logger.debug('LLM call recorded', {
@@ -171,6 +199,47 @@ export class AgentCircuitBreaker {
         this.abort('maxMemoryBytes', this.metrics.memoryUsed, this.limits.maxMemoryBytes);
       }
     }
+
+    // Also check cost limits on memory checks
+    this.checkCostLimits();
+  }
+
+  /**
+   * Check cost limits and abort if exceeded
+   */
+  private async checkCostLimits(): Promise<void> {
+    try {
+      // Check execution cost limit
+      if (this.limits.maxExecutionCost > 0 && this.metrics.executionCost > this.limits.maxExecutionCost) {
+        this.abort('maxExecutionCost', this.metrics.executionCost, this.limits.maxExecutionCost);
+      }
+
+      // Check hourly cost limit (only if enough time has passed since last check)
+      if (this.limits.maxHourlyCost > 0 && Date.now() - this.metrics.lastCostCheck >= 60000) { // Check every minute
+        const hourlyCost = await llmCostTracker.getHourlyCost();
+        if (hourlyCost > this.limits.maxHourlyCost) {
+          this.abort('maxHourlyCost', hourlyCost, this.limits.maxHourlyCost);
+        }
+        this.metrics.lastCostCheck = Date.now();
+      }
+    } catch (error) {
+      logger.error('Failed to check cost limits', error instanceof Error ? error : new Error(String(error)));
+      // Don't abort on cost check failures - log and continue
+    }
+  }
+
+  /**
+   * Record cost incurred by an LLM call
+   */
+  recordCost(cost: number): void {
+    this.metrics.executionCost += cost;
+
+    if (this.limits.enableDetailedTracking) {
+      logger.debug('Cost recorded', {
+        executionCost: this.metrics.executionCost,
+        limit: this.limits.maxExecutionCost,
+      });
+    }
   }
 
   /**
@@ -199,10 +268,15 @@ export class AgentCircuitBreaker {
       clearTimeout(this.timeoutId);
     }
 
+    if (this.costCheckInterval) {
+      clearInterval(this.costCheckInterval);
+    }
+
     logger.info('Agent execution completed', {
       duration: this.metrics.duration,
       llmCalls: this.metrics.llmCallCount,
       maxDepth: this.metrics.recursionDepth,
+      executionCost: this.metrics.executionCost,
     });
 
     return { ...this.metrics };

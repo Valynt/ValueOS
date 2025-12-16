@@ -1,0 +1,177 @@
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default-strict-mtls
+  namespace: valueos
+spec:
+  mtls:
+    mode: STRICT
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: permissive-for-legacy
+  namespace: valueos
+spec:
+  selector:
+    matchLabels:
+      security.istio.io/tlsMode: permissive
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all-by-default
+  namespace: valueos
+spec:
+  {}
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-tenant-gateway-access
+  namespace: valueos
+spec:
+  selector:
+    matchLabels:
+      valueos/component: tenant-gateway
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/valueos/sa/istio-ingressgateway-service-account"]
+    to:
+    - operation:
+        methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
+        paths: ["/api/*"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: tenant-service-isolation
+  namespace: valueos
+spec:
+  selector:
+    matchLabels:
+      valueos/multi-tenant: "true"
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/valueos/sa/tenant-gateway"]
+        requestPrincipals: ["cluster.local/ns/valueos/sa/tenant-gateway"]
+    to:
+    - operation:
+        methods: ["*"]
+  - from:
+    - source:
+        principals: ["cluster.local/ns/valueos/sa/auth-service"]
+        requestPrincipals: ["cluster.local/ns/valueos/sa/auth-service"]
+    to:
+    - operation:
+        methods: ["GET", "POST"]
+        paths: ["/validate", "/refresh"]
+  - from:
+    - source:
+        principals: ["cluster.local/ns/valueos/sa/audit-service"]
+        requestPrincipals: ["cluster.local/ns/valueos/sa/audit-service"]
+    to:
+    - operation:
+        methods: ["POST"]
+        paths: ["/audit"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: database-access-control
+  namespace: valueos
+spec:
+  selector:
+    matchLabels:
+      valueos/component: database
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals:
+        - "cluster.local/ns/valueos/sa/api-gateway"
+        - "cluster.local/ns/valueos/sa/auth-service"
+        - "cluster.local/ns/valueos/sa/tenant-provisioning"
+        requestPrincipals:
+        - "cluster.local/ns/valueos/sa/api-gateway"
+        - "cluster.local/ns/valueos/sa/auth-service"
+        - "cluster.local/ns/valueos/sa/tenant-provisioning"
+    to:
+    - operation:
+        ports: ["5432"]
+  - from:
+    - source:
+        principals: ["cluster.local/ns/valueos/sa/monitoring"]
+        requestPrincipals: ["cluster.local/ns/valueos/sa/monitoring"]
+    to:
+    - operation:
+        methods: ["SELECT"]
+        ports: ["5432"]
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: mutual-tls-for-all
+  namespace: valueos
+spec:
+  host: "*.valueos.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: load-balancing-policy
+  namespace: valueos
+spec:
+  host: "*.valueos.svc.cluster.local"
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+    outlierDetection:
+      consecutive5xxErrors: 3
+      interval: 10s
+      baseEjectionTime: 30s
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: api-gateway-routing
+  namespace: valueos
+spec:
+  hosts:
+  - "api.valueos.com"
+  gateways:
+  - valueos-gateway
+  http:
+  - match:
+    - uri:
+        prefix: "/api/v1/auth"
+    route:
+    - destination:
+        host: auth-service.valueos.svc.cluster.local
+        port:
+          number: 8080
+  - match:
+    - uri:
+        prefix: "/api/v1/users"
+    route:
+    - destination:
+        host: user-service.valueos.svc.cluster.local
+        port:
+          number: 8080
+  - match:
+    - uri:
+        prefix: "/api/v1/tenants"
+    route:
+    - destination:
+        host: tenant-service.valueos.svc.cluster.local
+        port:
+          number: 8080
