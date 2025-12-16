@@ -4,7 +4,7 @@
 # Enhanced docker-compose with Caddy for automatic HTTPS and better routing
 # ============================================================================
 
-version: '3.8'
+version: "3.8"
 
 services:
   # ============================================================================
@@ -14,9 +14,9 @@ services:
     image: caddy:2-alpine
     container_name: valuecanvas-caddy
     ports:
-      - "8080:80"          # HTTP (mapped to host 8080 for local dev)
-      - "8443:443"        # HTTPS (automatic mapped to host 8443 for local TLS testing)
-      - "2019:2019"      # Caddy Admin API
+      - "8080:80" # HTTP (mapped to host 8080 for local dev)
+      - "8443:443" # HTTPS (automatic mapped to host 8443 for local TLS testing)
+      - "2019:2019" # Caddy Admin API
     volumes:
       - ./infra/caddy/Caddyfile.dev:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
@@ -30,7 +30,15 @@ services:
       app:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost/health",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -38,10 +46,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 128M
         reservations:
-          cpus: '0.1'
+          cpus: "0.1"
           memory: 64M
     security_opt:
       - no-new-privileges:true
@@ -60,16 +68,14 @@ services:
       dockerfile: Dockerfile.dev
     container_name: valuecanvas-app
     expose:
-      - "5173"           # Expose to Caddy (not to host)
+      - "5173" # Expose to Caddy (not to host)
     ports:
-      - "5173:5173"      # Also expose to host for direct access
-      - "24678:24678"    # Vite HMR
+      - "5173:5173" # Also expose to host for direct access
+      - "24678:24678" # Vite HMR
     volumes:
       - ./src:/app/src:cached
       - ./public:/app/public:cached
       # index.html is served by Vite or the built static assets - avoid mounting host file to prevent mount type conflicts
-      - ./tsconfig.json:/app/tsconfig.json:cached
-      - ./package.json:/app/package.json:cached
       - /app/node_modules
     env_file:
       - .env.local
@@ -83,7 +89,15 @@ services:
       - valuecanvas-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5173"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:5173",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -91,10 +105,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
+          cpus: "1.0"
           memory: 2G
         reservations:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 1G
     security_opt:
       - no-new-privileges:true
@@ -117,9 +131,10 @@ services:
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-valuecanvas}
       - POSTGRES_USER=${POSTGRES_USER:-valuecanvas}
-      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
-    secrets:
-      - db_password
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-valuecanvas_dev_password}
+    # For local development, use environment variables instead of secrets
+    # secrets:
+    #   - db_password
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./supabase/migrations:/docker-entrypoint-initdb.d:ro
@@ -134,10 +149,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.0'
+          cpus: "2.0"
           memory: 2G
         reservations:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 512M
     security_opt:
       - no-new-privileges:true
@@ -160,26 +175,34 @@ services:
     networks:
       - valuecanvas-network
     restart: unless-stopped
-    secrets:
-      - redis_password
+    env_file:
+      - .env.local
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_dev_password}
     healthcheck:
-      test: ["CMD", "sh", "-c", "redis-cli --no-auth-warning -a $(cat /run/secrets/redis_password) ping"]
+      test:
+        [
+          "CMD",
+          "sh",
+          "-c",
+          "redis-cli --no-auth-warning -a ${REDIS_PASSWORD} ping",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
     command: >
       sh -c 'redis-server
       --appendonly yes
-      --requirepass $$(cat /run/secrets/redis_password)
+      --requirepass ${REDIS_PASSWORD}
       --maxmemory 128mb
       --maxmemory-policy allkeys-lru'
     deploy:
       resources:
         limits:
-          cpus: '1.0'
+          cpus: "1.0"
           memory: 256M
         reservations:
-          cpus: '0.25'
+          cpus: "0.25"
           memory: 128M
     security_opt:
       - no-new-privileges:true
@@ -214,6 +237,6 @@ volumes:
 # ============================================================================
 secrets:
   db_password:
-    file: ./secrets/dev_db_password.txt
+    file: /workspaces/ValueOS/secrets/dev_db_password.txt
   redis_password:
-    file: ./secrets/dev_redis_password.txt
+    file: /workspaces/ValueOS/secrets/dev_redis_password.txt

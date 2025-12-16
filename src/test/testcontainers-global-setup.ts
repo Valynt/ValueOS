@@ -13,6 +13,12 @@ let container: StartedPostgreSqlContainer;
 let redisContainer: StartedTestContainer | undefined;
 
 export async function setup() {
+  // Allow skipping heavy testcontainers setup for fast local unit tests
+  if (process.env.SKIP_TESTCONTAINERS === '1') {
+    console.warn('⚠️ SKIP_TESTCONTAINERS set — skipping Postgres/Redis testcontainers setup');
+    return;
+  }
+
   console.warn('🐳 Starting Postgres Testcontainer...');
 
   // 1. Start the container (matching Supabase's Postgres version approx)
