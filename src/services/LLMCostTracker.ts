@@ -7,7 +7,7 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '../lib/logger';
-import { getLLMCostTrackerConfig } from '../lib/env';
+import { getEnvVar, getLLMCostTrackerConfig } from '../lib/env';
 
 const TOKENS_PER_MILLION = 1_000_000;
 const SECONDS_PER_MINUTE = 60;
@@ -50,32 +50,29 @@ const TOGETHER_AI_PRICING: Record<string, PricingRate> = {
 const DEFAULT_PRICING_KEY = 'default';
 
 const resolvePricing = (model: string): PricingRate => {
-  const pricing = TOGETHER_AI_PRICING[model];
-  if (pricing) {
-    return pricing;
-  }
-  return TOGETHER_AI_PRICING[DEFAULT_PRICING_KEY];
+  return (TOGETHER_AI_PRICING[model] ?? TOGETHER_AI_PRICING[DEFAULT_PRICING_KEY]) as PricingRate;
 };
 
 /**
  * Cost thresholds for alerts
  */
+// Cost thresholds for alerts (configurable via environment variables)
 const COST_THRESHOLDS = {
   hourly: {
-    warning: 10,   // $10/hour
-    critical: 50   // $50/hour
+    warning: parseFloat(getEnvVar('LLM_COST_HOURLY_WARNING', { defaultValue: '10' }) || '10'),
+    critical: parseFloat(getEnvVar('LLM_COST_HOURLY_CRITICAL', { defaultValue: '50' }) || '50')
   },
   daily: {
-    warning: 100,  // $100/day
-    critical: 500  // $500/day
+    warning: parseFloat(getEnvVar('LLM_COST_DAILY_WARNING', { defaultValue: '100' }) || '100'),
+    critical: parseFloat(getEnvVar('LLM_COST_DAILY_CRITICAL', { defaultValue: '500' }) || '500')
   },
   monthly: {
-    warning: 1000,  // $1000/month
-    critical: 5000  // $5000/month
+    warning: parseFloat(getEnvVar('LLM_COST_MONTHLY_WARNING', { defaultValue: '1000' }) || '1000'),
+    critical: parseFloat(getEnvVar('LLM_COST_MONTHLY_CRITICAL', { defaultValue: '5000' }) || '5000')
   },
   perUser: {
-    daily: 10,     // $10/day per user
-    monthly: 100   // $100/month per user
+    daily: parseFloat(getEnvVar('LLM_COST_PER_USER_DAILY', { defaultValue: '10' }) || '10'),
+    monthly: parseFloat(getEnvVar('LLM_COST_PER_USER_MONTHLY', { defaultValue: '100' }) || '100')
   }
 };
 
@@ -506,5 +503,5 @@ export class LLMCostTracker {
   }
 }
 
-// Remove singleton export - instantiate locally where needed
-// export const llmCostTracker = new LLMCostTracker();
+// Export a singleton for convenience and for modules/tests that expect a shared instance
+export const llmCostTracker = new LLMCostTracker();

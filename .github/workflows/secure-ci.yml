@@ -49,6 +49,8 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run lint
+      - name: Validate Tailwind config
+        run: npm run check:tw-config
 
   typecheck:
     needs: lint
@@ -142,4 +144,6 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci
+      - name: Validate Tailwind config
+        run: npm run check:tw-config
       - run: npm run build

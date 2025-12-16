@@ -115,33 +115,48 @@ const baseConfig = {
     "no-script-url": "error",
 
     // Code quality and consistency
-    "eqeqeq": ["error", "always"],
+    eqeqeq: ["error", "always"],
     "no-duplicate-imports": "error",
     "no-return-await": "error",
 
     // Import organization
     "@typescript-eslint/consistent-import": "off", // Let auto-import handle this
-    "sort-imports": ["error", {
-      "ignoreCase": true,
-      "ignoreDeclarationSort": true,
-      "ignoreMemberSort": false,
-      "memberSyntaxSortOrder": ["none", "all", "multiple", "single"],
-      "allowSeparatedGroups": true
-    }],
+    "sort-imports": [
+      "error",
+      {
+        ignoreCase: true,
+        ignoreDeclarationSort: true,
+        ignoreMemberSort: false,
+        memberSyntaxSortOrder: ["none", "all", "multiple", "single"],
+        allowSeparatedGroups: true,
+      },
+    ],
+
+    // Disallow JSX inline styles
+    "no-restricted-syntax": [
+      "error",
+      {
+        selector: "JSXAttribute[name.name='style']",
+        message:
+          'Inline styles in JSX (style={{...}} or style="...") are forbidden. Use design tokens and utility classes instead.',
+      },
+    ],
 
     // Agent-specific rules
-    "@typescript-eslint/no-magic-numbers": ["warn", {
-      "ignore": [0, 1, -1, 2],
-      "ignoreArrayIndexes": true,
-      "ignoreDefaultValues": true,
-      "ignoreEnums": true,
-      "ignoreNumericLiteralTypes": true,
-      "ignoreReadonlyClassProperties": true
-    }],
+    "@typescript-eslint/no-magic-numbers": [
+      "warn",
+      {
+        ignore: [0, 1, -1, 2],
+        ignoreArrayIndexes: true,
+        ignoreDefaultValues: true,
+        ignoreEnums: true,
+        ignoreNumericLiteralTypes: true,
+        ignoreReadonlyClassProperties: true,
+      },
+    ],
     "@typescript-eslint/no-non-null-assertion": "warn",
 
     // Error handling
-
 
     // Security: Prevent dangerous patterns in agent code
     "no-alert": "error",
@@ -224,10 +239,12 @@ const srcOverrides = {
     "no-restricted-syntax": [
       "error",
       {
-        selector: "MemberExpression[object.name='process'][property.name='env']",
-        message: "Direct access to process.env is forbidden in src/, use src/lib/env.ts instead"
-      }
-    ]
+        selector:
+          "MemberExpression[object.name='process'][property.name='env']",
+        message:
+          "Direct access to process.env is forbidden in src/, use src/lib/env.ts instead",
+      },
+    ],
   },
 };
 
@@ -235,8 +252,16 @@ const srcOverrides = {
 const envOverrides = {
   files: ["src/lib/env.ts"],
   rules: {
-    "no-restricted-syntax": "off"
+    "no-restricted-syntax": "off",
   },
 };
 
-export default [ignoresConfig, baseConfig, testOverrides, k6Overrides, frontendOverrides, srcOverrides, envOverrides];
+export default [
+  ignoresConfig,
+  baseConfig,
+  testOverrides,
+  k6Overrides,
+  frontendOverrides,
+  srcOverrides,
+  envOverrides,
+];

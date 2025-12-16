@@ -3,12 +3,12 @@
  * Provides consistent button styling with proper states, loading, and accessibility
  */
 
-import React from 'react';
-import { Loader2 } from 'lucide-react';
+import React from "react";
+import { Loader2 } from "lucide-react";
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
-  size?: 'xs' | 'sm' | 'md' | 'lg';
+  variant?: "primary" | "secondary" | "outline" | "ghost" | "danger";
+  size?: "xs" | "sm" | "md" | "lg";
   loading?: boolean;
   loadingText?: string;
   leftIcon?: React.ReactNode;
@@ -22,7 +22,6 @@ const variantClasses = {
     hover:bg-primary/90
     active:bg-primary
     disabled:opacity-60 disabled:cursor-not-allowed
-    shadow-light-blue-sm
     transition-all duration-200
   `,
   secondary: `
@@ -30,45 +29,43 @@ const variantClasses = {
     hover:bg-secondary/90
     active:bg-secondary
     disabled:opacity-60 disabled:cursor-not-allowed
-    shadow-beautiful-sm
     transition-all duration-200
   `,
   outline: `
     bg-transparent border border-border text-foreground
-    hover:bg-accent hover:text-accent-foreground
-    active:bg-accent/80
+    hover:bg-muted hover:text-muted-foreground
+    active:bg-muted/80
     disabled:opacity-50 disabled:cursor-not-allowed
     transition-all duration-200
   `,
   ghost: `
     bg-transparent text-muted-foreground
-    hover:bg-accent hover:text-accent-foreground
-    active:bg-accent/80
+    hover:bg-muted/90
+    active:bg-muted/80
     disabled:opacity-40 disabled:cursor-not-allowed
     transition-all duration-200
   `,
   danger: `
-    bg-red-600 text-white
-    hover:bg-red-700
-    active:bg-red-800
-    disabled:bg-red-300 disabled:cursor-not-allowed
-    shadow-beautiful-sm
+    bg-destructive text-destructive-foreground
+    hover:bg-destructive/90
+    active:bg-destructive
+    disabled:opacity-60 disabled:cursor-not-allowed
     transition-all duration-200
   `,
 };
 
 const sizeClasses = {
-  xs: 'px-2.5 py-1 text-xs rounded',
-  sm: 'px-3 py-1.5 text-sm rounded-md',
-  md: 'px-4 py-2 text-sm rounded-lg',
-  lg: 'px-6 py-3 text-base rounded-lg',
+  xs: "px-vc-1 py-vc-1 text-xs rounded-md",
+  sm: "px-vc-2 py-vc-1 text-sm rounded-md",
+  md: "px-vc-3 py-vc-2 text-sm rounded-lg",
+  lg: "px-vc-4 py-vc-2 text-base rounded-lg",
 };
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {
-      variant = 'primary',
-      size = 'md',
+      variant = "primary",
+      size = "md",
       loading = false,
       loadingText,
       leftIcon,
@@ -76,7 +73,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       fullWidth = false,
       children,
       disabled,
-      className = '',
+      className = "",
       ...props
     },
     ref
@@ -93,10 +90,10 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           inline-flex items-center justify-center gap-2
           font-medium
           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
-          focus-visible:ring-primary
+          focus-visible:ring-ring
           ${variantClasses[variant]}
           ${sizeClasses[size]}
-          ${fullWidth ? 'w-full' : ''}
+          ${fullWidth ? "w-full" : ""}
           ${className}
         `}
         {...props}
@@ -105,10 +102,10 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           <>
             <Loader2
               className={`
-                ${size === 'xs' ? 'w-3 h-3' : ''}
-                ${size === 'sm' ? 'w-4 h-4' : ''}
-                ${size === 'md' ? 'w-4 h-4' : ''}
-                ${size === 'lg' ? 'w-5 h-5' : ''}
+                ${size === "xs" ? "w-3 h-3" : ""}
+                ${size === "sm" ? "w-4 h-4" : ""}
+                ${size === "md" ? "w-4 h-4" : ""}
+                ${size === "lg" ? "w-5 h-5" : ""}
                 animate-spin
               `}
               aria-hidden="true"
@@ -127,7 +124,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   }
 );
 
-Button.displayName = 'Button';
+Button.displayName = "Button";
 
 /**
  * Icon Button
@@ -135,8 +132,8 @@ Button.displayName = 'Button';
  */
 interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   icon: React.ReactNode;
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
-  size?: 'xs' | 'sm' | 'md' | 'lg';
+  variant?: "primary" | "secondary" | "ghost" | "danger";
+  size?: "xs" | "sm" | "md" | "lg";
   loading?: boolean;
   label: string; // Required for accessibility
 }
@@ -145,21 +142,21 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
   (
     {
       icon,
-      variant = 'ghost',
-      size = 'md',
+      variant = "ghost",
+      size = "md",
       loading = false,
       label,
       disabled,
-      className = '',
+      className = "",
       ...props
     },
     ref
   ) => {
     const sizeClasses = {
-      xs: 'p-1 text-xs',
-      sm: 'p-1.5 text-sm',
-      md: 'p-2 text-base',
-      lg: 'p-3 text-lg',
+      xs: "p-1 text-xs",
+      sm: "p-1.5 text-sm",
+      md: "p-2 text-base",
+      lg: "p-3 text-lg",
     };
 
     const isDisabled = disabled || loading;
@@ -175,7 +172,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
           inline-flex items-center justify-center
           rounded-lg
           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
-          focus-visible:ring-primary
+          focus-visible:ring-ring
           ${variantClasses[variant]}
           ${sizeClasses[size]}
           ${className}
@@ -185,10 +182,10 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
         {loading ? (
           <Loader2
             className={`
-              ${size === 'xs' ? 'w-3 h-3' : ''}
-              ${size === 'sm' ? 'w-4 h-4' : ''}
-              ${size === 'md' ? 'w-5 h-5' : ''}
-              ${size === 'lg' ? 'w-6 h-6' : ''}
+              ${size === "xs" ? "w-3 h-3" : ""}
+              ${size === "sm" ? "w-4 h-4" : ""}
+              ${size === "md" ? "w-5 h-5" : ""}
+              ${size === "lg" ? "w-6 h-6" : ""}
               animate-spin
             `}
             aria-hidden="true"
@@ -202,7 +199,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
   }
 );
 
-IconButton.displayName = 'IconButton';
+IconButton.displayName = "IconButton";
 
 /**
  * Button Group
@@ -210,20 +207,20 @@ IconButton.displayName = 'IconButton';
  */
 interface ButtonGroupProps {
   children: React.ReactNode;
-  orientation?: 'horizontal' | 'vertical';
+  orientation?: "horizontal" | "vertical";
   className?: string;
 }
 
 export const ButtonGroup: React.FC<ButtonGroupProps> = ({
   children,
-  orientation = 'horizontal',
-  className = '',
+  orientation = "horizontal",
+  className = "",
 }) => {
   return (
     <div
       className={`
         inline-flex
-        ${orientation === 'horizontal' ? 'flex-row' : 'flex-col'}
+        ${orientation === "horizontal" ? "flex-row" : "flex-col"}
         ${className}
       `}
       role="group"

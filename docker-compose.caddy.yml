@@ -14,11 +14,11 @@ services:
     image: caddy:2-alpine
     container_name: valuecanvas-caddy
     ports:
-      - "80:80"          # HTTP
-      - "443:443"        # HTTPS (automatic)
+      - "8080:80"          # HTTP (mapped to host 8080 for local dev)
+      - "8443:443"        # HTTPS (automatic mapped to host 8443 for local TLS testing)
       - "2019:2019"      # Caddy Admin API
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./infra/caddy/Caddyfile.dev:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
     environment:
@@ -67,7 +67,7 @@ services:
     volumes:
       - ./src:/app/src:cached
       - ./public:/app/public:cached
-      - ./index.html:/app/index.html:cached
+      # index.html is served by Vite or the built static assets - avoid mounting host file to prevent mount type conflicts
       - ./vite.config.ts:/app/vite.config.ts:cached
       - ./tsconfig.json:/app/tsconfig.json:cached
       - ./package.json:/app/package.json:cached
@@ -78,6 +78,7 @@ services:
       - NODE_ENV=development
       - VITE_HOST=0.0.0.0
       - VITE_PORT=5173
+      - VITE_HMR_HOST=0.0.0.0
       - VITE_HMR_PORT=24678
     networks:
       - valuecanvas-network
@@ -91,11 +92,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '4.0'
-          memory: 6G
+          cpus: '1.0'
+          memory: 2G
         reservations:
-          cpus: '2.0'
-          memory: 4G
+          cpus: '0.5'
+          memory: 1G
     security_opt:
       - no-new-privileges:true
     logging:

@@ -86,8 +86,9 @@ wss.on('connection', (ws: WebSocket, req) => {
 });
 
 // Middleware
+// Configure CORS from allowed origins in config. By default, same-origin relative API usage avoids CORS needs.
 app.use(cors({
-  origin: settings.VITE_APP_URL || 'http://localhost:5173',
+  origin: settings.security.corsOrigins,
   credentials: true,
 }));
 app.use(express.json());
