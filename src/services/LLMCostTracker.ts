@@ -170,13 +170,11 @@ export class LLMCostTracker {
     const { error } = await this.supabase
       .from('llm_usage')
       .insert(record);
-    
     if (error) {
       logger.error('Failed to track LLM usage', error);
     }
-    
-    // Check for cost threshold violations
-    await this.checkCostThresholds();
+    // Fire and forget, do not await
+    void this.checkCostThresholds();
   }
   
   /**
@@ -198,13 +196,11 @@ export class LLMCostTracker {
     }
     
     const { data, error } = await query;
-    
     if (error) {
       logger.error('Failed to get cost for period', error);
       return 0;
     }
-    
-    return data?.reduce((sum, record) => sum + record.estimated_cost, 0) || 0;
+    return (data?.reduce((sum: number, record: { estimated_cost: number }) => sum + record.estimated_cost, 0)) || 0;
   }
   
   /**
@@ -348,14 +344,12 @@ export class LLMCostTracker {
     
     // Send to monitoring service (e.g., Slack, PagerDuty)
     const { slackWebhookUrl, alertEmail } = getLLMCostTrackerConfig();
-
     if (slackWebhookUrl) {
-      await this.sendSlackAlert(alert);
+      void this.sendSlackAlert(alert);
     }
-    
     // For critical alerts, also send email
     if (alert.level === 'critical' && alertEmail) {
-      await this.sendEmailAlert(alert);
+      void this.sendEmailAlert(alert);
     }
   }
   
@@ -371,7 +365,6 @@ export class LLMCostTracker {
       if (!slackWebhookUrl) {
         throw new Error('Slack webhook URL is not configured');
       }
-
       await fetch(slackWebhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
