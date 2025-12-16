@@ -114,6 +114,47 @@ const DEFAULT_CONFIG: UnifiedAPIConfig = {
   enableAuditLogging: true,
 };
 
+/**
+ * Sanitize user input for LLM prompts to prevent injection attacks
+ */
+function sanitizeForPrompt(input: string): string {
+  if (!input || typeof input !== 'string') {
+    return '';
+  }
+
+  return input
+    .replace(/<system>/gi, '[SYSTEM]')
+    .replace(/<\/system>/gi, '[/SYSTEM]')
+    .replace(/<user_input>/gi, '[USER_INPUT]')
+    .replace(/<\/user_input>/gi, '[/USER_INPUT]')
+    .replace(/<instruction>/gi, '[INSTRUCTION]')
+    .replace(/<\/instruction>/gi, '[/INSTRUCTION]')
+    .replace(/ignore previous/gi, '[FILTERED]')
+    .replace(/system prompt/gi, '[FILTERED]')
+    .substring(0, 2000); // Hard limit on input length
+}
+
+/**
+ * Validate and sanitize agent request
+ */
+function validateAndSanitizeRequest(request: UnifiedAgentRequest): UnifiedAgentRequest {
+  if (!request.query || typeof request.query !== 'string' || request.query.trim().length === 0) {
+    throw new Error('Query is required and must be a non-empty string');
+  }
+
+  if (request.query.length > 2000) {
+    throw new Error('Query exceeds maximum length of 2000 characters');
+  }
+
+  // Sanitize the query
+  const sanitizedQuery = sanitizeForPrompt(request.query);
+
+  return {
+    ...request,
+    query: sanitizedQuery,
+  };
+}
+
 // ============================================================================
 // Unified Agent API Class
 // ============================================================================
@@ -160,6 +201,27 @@ export class UnifiedAgentAPI {
       sessionId: request.sessionId,
     });
 
+    // Validate and sanitize the request
+    let sanitizedRequest: UnifiedAgentRequest;
+    try {
+      sanitizedRequest = validateAndSanitizeRequest(request);
+    } catch (error) {
+      logger.warn('Request validation failed', error instanceof Error ? error : undefined, {
+        traceId,
+        agent: request.agent,
+      });
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Invalid request',
+        metadata: {
+          agent: request.agent,
+          duration: 0,
+          timestamp: new Date().toISOString(),
+          traceId,
+        },
+      };
+    }
+
     try {
       // Get circuit breaker for this agent
       const circuitBreakerKey = `agent-${request.agent}`;
@@ -167,7 +229,7 @@ export class UnifiedAgentAPI {
       // Execute with circuit breaker protection
       const response = await this.circuitBreakers.execute(
         circuitBreakerKey,
-        () => this.executeAgentRequest(request, traceId),
+        () => this.executeAgentRequest(sanitizedRequest, traceId),
         {
           timeoutMs: this.config.timeout,
           // Convert failure threshold count to rate (e.g., 5 failures = 0.5 rate)

@@ -10,6 +10,7 @@ import agentsRouter from '../api/agents';
 import workflowRouter from '../api/workflow';
 import documentRouter from '../api/documents';
 import healthRouter from '../api/health';
+import authRouter from '../api/auth';
 import { createLogger } from '../lib/logger';
 import { createVersionedApiRouter } from './versioning';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
@@ -62,6 +63,9 @@ app.get('/metrics/latency', (_req, res) => {
 // Mount billing routes with versioning support
 apiRouter.use('/billing', billingRouter);
 app.use('/api', apiRouter);
+
+// Auth routes (higher priority, no versioning needed for auth)
+app.use('/api/auth', authRouter);
 
 // Agent transparency and workflow explainability
 app.use('/api/agents', agentExecutionLimiter, agentsRouter);

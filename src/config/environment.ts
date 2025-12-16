@@ -227,7 +227,9 @@ export function loadEnvironmentConfig(): EnvironmentConfig {
         cooldown: getNumberEnv('VITE_AGENT_CIRCUIT_BREAKER_COOLDOWN', 60000),
       },
       logging: getBoolEnv('VITE_AGENT_LOGGING_ENABLED', false),
-      websocketUrl: getEnv('VITE_AGENT_WEBSOCKET_URL', 'ws://localhost:8000/ws/agents'),
+      websocketUrl: getEnv('VITE_AGENT_WEBSOCKET_URL', env === 'production' 
+        ? 'wss://api.valuecanvas.com/ws/agents' 
+        : 'ws://localhost:8000/ws/agents'),
     },
 
     database: {

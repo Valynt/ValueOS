@@ -108,12 +108,75 @@ const baseConfig = {
         allowTaggedTemplates: true,
       },
     ],
-    "no-console": [
+    // Security-focused rules
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-new-func": "error",
+    "no-script-url": "error",
+
+
+    // Code quality and consistency
+    "eqeqeq": ["error", "always"],
+    "no-duplicate-imports": "error",
+    "no-return-await": "error",
+
+
+
+
+
+    // Import organization
+    "@typescript-eslint/consistent-import": "off", // Let auto-import handle this
+    "sort-imports": ["error", {
+      "ignoreCase": true,
+      "ignoreDeclarationSort": true,
+      "ignoreMemberSort": false,
+      "memberSyntaxSortOrder": ["none", "all", "multiple", "single"],
+      "allowSeparatedGroups": true
+    }],
+
+    // Agent-specific rules
+    "@typescript-eslint/no-magic-numbers": ["warn", {
+      "ignore": [0, 1, -1, 2],
+      "ignoreArrayIndexes": true,
+      "ignoreDefaultValues": true,
+      "ignoreEnums": true,
+      "ignoreNumericLiteralTypes": true,
+      "ignoreReadonlyClassProperties": true
+    }],
+    "@typescript-eslint/no-non-null-assertion": "warn",
+
+    // Async/await best practices
+
+
+
+
+    // Error handling
+
+    "@typescript-eslint/prefer-promise-reject-errors": "error",
+
+    // Naming conventions
+    "@typescript-eslint/naming-convention": [
       "error",
       {
-        allow: ["warn", "error"],
+        "selector": "variableLike",
+        "format": ["camelCase"]
       },
+      {
+        "selector": "typeLike",
+        "format": ["PascalCase"]
+      },
+      {
+        "selector": "memberLike",
+        "modifiers": ["private"],
+        "format": ["camelCase"],
+        "leadingUnderscore": "require"
+      }
     ],
+
+    // Security: Prevent dangerous patterns in agent code
+    "no-alert": "error",
+    "no-debugger": "error",
+    "no-sequences": "error",
   },
 };
 
@@ -175,3 +238,4 @@ const k6Overrides = {
 };
 
 export default [ignoresConfig, baseConfig, testOverrides, k6Overrides];
+

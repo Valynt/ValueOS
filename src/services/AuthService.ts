@@ -12,6 +12,7 @@ import { securityLogger } from './SecurityLogger';
 import { getConfig } from '../config/environment';
 import { checkPasswordBreach } from '../security';
 import { consumeAuthRateLimit, resetRateLimit, RateLimitExceededError } from '../security';
+import { clientRateLimit } from './ClientRateLimit';
 
 export interface LoginCredentials {
   email: string;
@@ -123,6 +124,12 @@ export class AuthService extends BaseService {
     const config = getConfig();
     if (config.auth.mfaEnabled && !credentials.otpCode) {
       throw new ValidationError('MFA code required for login');
+    }
+
+    // Apply client-side rate limiting
+    const rateLimitAllowed = await clientRateLimit.checkLimit('auth-attempts');
+    if (!rateLimitAllowed) {
+      throw new RateLimitError('Too many authentication attempts. Please try again later.', 900);
     }
 
     this.enforceAuthRateLimit(credentials.email, 'login');
