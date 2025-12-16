@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ActionRouter } from '../ActionRouter';
 import { CanonicalAction, ActionContext } from '../../types/sdui-integration';
+import { ExecutionRequest } from '../../types/execution';
 import { AuditLogService } from '../AuditLogService';
 import { UnifiedAgentOrchestrator } from '../UnifiedAgentOrchestrator';
 import { AgentAPI } from '../AgentAPI';
@@ -34,11 +35,13 @@ describe('ActionRouter', () => {
   
   let mockComponentMutationService: any;
 
+  const execution: ExecutionRequest = { intent: 'FullValueAnalysis', environment: 'production' };
   const context: ActionContext = {
     workspaceId: 'workspace-1',
     userId: 'user-1',
     sessionId: 'session-1',
     timestamp: Date.now(),
+    execution,
   };
 
   beforeEach(() => {
@@ -73,7 +76,7 @@ describe('ActionRouter', () => {
         type: 'invokeAgent',
         agentId: 'agent-1',
         input: { query: 'test' },
-        context: {},
+        execution,
       };
 
       const result = router.validateAction(action);
@@ -86,7 +89,7 @@ describe('ActionRouter', () => {
       const action: any = {
         type: 'invokeAgent',
         input: { query: 'test' },
-        context: {},
+        execution,
       };
 
       const result = router.validateAction(action);
@@ -230,7 +233,7 @@ describe('ActionRouter', () => {
         type: 'invokeAgent',
         agentId: 'agent-1',
         input: { query: 'test' },
-        context: {},
+        execution,
       };
 
       // Mock is already configured in beforeEach
@@ -244,7 +247,7 @@ describe('ActionRouter', () => {
         expect.objectContaining({
           agent: 'agent-1',
           query: { query: 'test' },
-          context: expect.objectContaining({ workspaceId: 'workspace-1' })
+          context: expect.objectContaining({ intent: execution.intent, environment: execution.environment })
         })
       );
     });
@@ -318,7 +321,7 @@ describe('ActionRouter', () => {
         type: 'invokeAgent',
         agentId: 'agent-1',
         input: { query: 'test' },
-        context: {},
+        execution,
       };
 
       // Configure mock to reject

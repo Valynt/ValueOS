@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { PlaygroundWorkflowAdapter } from '../PlaygroundWorkflowAdapter';
+import { ExecutionRequest } from '../../types/execution';
 
 vi.mock('../PlaygroundAutoSave', () => {
   return {
@@ -17,7 +18,8 @@ describe('PlaygroundWorkflowAdapter', () => {
 
     const adapter = new PlaygroundWorkflowAdapter(orchestrator as any, sessionService as any);
 
-    const res = await adapter.startDraftWorkflow('wf-def', 'user-1', 'org-1', { components: [] }, { foo: 'bar' });
+    const execution: ExecutionRequest = { intent: 'WhatIfScenario', environment: 'sandbox', parameters: { foo: 'bar' } };
+    const res = await adapter.startDraftWorkflow('wf-def', 'user-1', 'org-1', { components: [] }, execution);
 
     expect(res.sessionId).toBe('session-1');
     expect(res.workflowExecutionId).toBeDefined();

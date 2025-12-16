@@ -56,6 +56,8 @@ export class WorkflowLifecycleIntegration {
   private compensation: WorkflowCompensation;
   private stateRepository: WorkflowStateRepository;
   private executions: Map<string, WorkflowExecution> = new Map();
+  private readonly replayableStages = new Set<LifecycleStage>(['opportunity', 'target', 'expansion']);
+  private readonly destructiveStages = new Set<LifecycleStage>(['integrity', 'realization']);
 
   constructor(private supabase: SupabaseClient) {
     this.orchestrator = new ValueLifecycleOrchestrator(supabase);
@@ -109,6 +111,15 @@ export class WorkflowLifecycleIntegration {
       // Execute each stage in sequence
       for (const stage of stages) {
         execution.currentStage = stage;
+        const previousResult = execution.results[stage];
+        const stageContext: LifecycleContext = {
+          ...context,
+          metadata: {
+            ...context.metadata,
+            previousResult,
+            previousStageExecutionId: previousResult?.stageExecutionId,
+          },
+        };
 
         logger.info('Executing lifecycle stage', {
           executionId,
@@ -117,14 +128,11 @@ export class WorkflowLifecycleIntegration {
         });
 
         // Execute stage with orchestrator
-        const result = await this.orchestrator.executeLifecycleStage(
-          stage,
-          stageInput,
-          context
-        );
+        const result = await this.orchestrator.executeLifecycleStage(stage, stageInput, stageContext);
+        const mergedResult = this.mergeStageResult(stage, previousResult, result);
 
         // Store result
-        execution.results[stage] = result;
+        execution.results[stage] = mergedResult;
         execution.completedStages.push(stage);
 
         // Update workflow state
@@ -139,7 +147,7 @@ export class WorkflowLifecycleIntegration {
         });
 
         // Use output as input for next stage
-        stageInput = result.data;
+        stageInput = mergedResult.data;
 
         logger.info('Lifecycle stage completed', {
           executionId,
@@ -222,6 +230,42 @@ export class WorkflowLifecycleIntegration {
 
       throw error;
     }
+  }
+
+  private isReplayableStage(stage: LifecycleStage): boolean {
+    return this.replayableStages.has(stage);
+  }
+
+  private isDestructiveStage(stage: LifecycleStage): boolean {
+    return this.destructiveStages.has(stage);
+  }
+
+  private mergeStageResult(
+    stage: LifecycleStage,
+    previous: StageResult | undefined,
+    current: StageResult
+  ): StageResult {
+    const beforeState = previous?.data ?? null;
+
+    if (!previous || this.isDestructiveStage(stage)) {
+      return {
+        ...current,
+        delta: { before: beforeState, after: current.data },
+      };
+    }
+
+    const mergedData = { ...(previous.data || {}), ...(current.data || {}) };
+
+    return {
+      ...current,
+      data: mergedData,
+      lineage: current.lineage || {
+        stage,
+        parentExecutionId: previous.stageExecutionId,
+        replayed: this.isReplayableStage(stage),
+      },
+      delta: { before: beforeState, after: mergedData },
+    };
   }
 
   /**
