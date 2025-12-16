@@ -1,49 +1,51 @@
-# Caddy + App Verification Checklist
+# Caddy + Application Verification Checklist
 
-## Local Dev (Caddy + Vite)
+## Local development (`infra/compose/compose.dev.yml`)
 
-1. Start stack (dev):
-
-```bash
-# Ensure infra/caddy/Caddyfile.dev exists
-docker-compose -f docker-compose.caddy.yml up -d
-```
-
-2. Confirm Caddy is running and serving app:
+1. Start the stack (builds Vite + backend + Caddy):
 
 ```bash
-curl -v http://localhost:8080/ -I
-# Expect HTTP 200 or 302 to /index.html
+docker compose -f infra/compose/compose.dev.yml up --build
 ```
 
-3. Check API proxying
+2. Confirm Caddy is answering and proxying:
 
 ```bash
-curl -v http://localhost:8080/api/health
-# If backend on host:8000 is running, expect its health response
+curl -i http://localhost:8080/healthz
+curl -i http://localhost:8080/api/health
 ```
 
-4. HMR WebSocket check
+3. Check SPA + HMR pathing from the browser devtools: requests should target `http://localhost:8080` and WebSockets should upgrade to `ws://localhost:8080/ws/sdui`.
+
+## Staging (`infra/compose/compose.stage.yml`)
+
+1. Build the SPA locally: `npm run build` (ensures `dist/` is mounted into Caddy).
+2. Start services:
 
 ```bash
-# From browser developer console observe WebSocket connection to ws://localhost:24678
-# Or use websocket client
-wscat -c ws://localhost:24678
+APP_DOMAIN=staging.example.com ACME_EMAIL=ops@example.com docker compose -f infra/compose/compose.stage.yml up -d
 ```
 
-## Stage/Prod
-
-- Validate TLS (HTTPS) and ACME challenge logs in Caddy
-- Test `/api/*` routes and WebSocket endpoints
-
-## Headers
+3. Verify endpoints and headers:
 
 ```bash
-curl -I https://staging.example.com/ | jq .
-# Expect security headers (HSTS, CSP, X-Frame-Options, etc.)
+curl -Ik https://staging.example.com/healthz
+curl -Ik https://staging.example.com/api/health
+curl -I https://staging.example.com/ | grep -E "strict-transport-security|content-security-policy|x-request-id"
 ```
 
-## Rollback: If Caddy config fails to start
+4. WebSocket check (from a host with `wscat`):
 
-- `docker-compose -f docker-compose.caddy.yml logs valuecanvas-caddy` to see Caddy parsing errors
-- Use a working Caddyfile from `infra/caddy/Caddyfile.dev` and mount it explicitly
+```bash
+wscat -c wss://staging.example.com/ws/sdui
+```
+
+## Production (`infra/compose/compose.prod.yml`)
+
+Run the same sequence with `APP_DOMAIN` set to the production hostname. Confirm HSTS is present and CSP matches the expected origins.
+
+## Rollback & troubleshooting
+
+- Stop services: `docker compose -f infra/compose/compose.*.yml down`.
+- Inspect Caddy logs: `docker compose -f infra/compose/compose.dev.yml logs caddy` (swap file per env).
+- If ACME fails, set `ACME_CA` to the staging directory or use `tls internal` in the env-specific Caddyfile when running behind a TLS-terminating load balancer.

@@ -1,40 +1,75 @@
-# Caddy Reverse Proxy — Overview
+# Caddy Reverse Proxy — Architecture & Runbook
 
-## Architecture Summary
+This document explains how the new Caddy layer is wired for dev/stage/prod, the DNS/TLS posture, and what code/config to align so the Vite + React SPA and Express API work behind the proxy.
 
-- Purpose: Provide a secure, performant reverse proxy for the ValueCanvas frontend and backend, supporting SPA routing, API reverse-proxying, WebSockets/SSE, and automatic HTTPS for stage/prod.
-- Components:
-  - Caddy (TLS, routing, compression, header injection, logging)
-  - Vite dev server (frontend) in development
-  - Backend API server (HTTP + WebSockets)
-  - Optional static frontend served by Caddy in stage/prod
+## Assumptions
 
-## Topology
+- Frontend: Vite + React/TS (SPA) with SDUI fallbacks.
+- Backend: Express + WebSockets at `/ws/sdui` (HTTP on `:8000`).
+- API prefix: `/api/*` (same-origin preferred).
+- Dev origin: `http://localhost:8080` via Caddy → Vite `:5173` and API `:8000`.
+- Stage/Prod: public DNS on `APP_DOMAIN` with Caddy terminating TLS by default.
 
-- Dev:
-  - Caddy runs in Docker container and proxies:
-    - `/` → Vite dev server (`app:5173`) for SPA and HMR
-    - `/api/*` → backend (`host.docker.internal:8000` by default) or container `backend:8000` if present
-  - Unified origin: http://localhost:8080 (Caddy listens on container port 80; mapped to host 8080)
+## Topology by environment
 
-- Stage/Prod:
-  - Caddy runs at edge (container or VM) and terminates TLS (default)
-  - Caddy serves built frontend from `root /srv/frontend` and proxies `/api/*` to `backend:8000`
-  - Automatic HTTPS (ACME) used by default unless TLS is terminated upstream
+- **Dev (`infra/compose/compose.dev.yml`)**
+  - Caddy on port 8080 → `/` proxied to Vite dev server (`frontend:5173`), `/api/*` + `/ws/*` → API (`backend:8000`).
+  - HTTP only; admin API exposed on `:2019` for live reloads.
+  - HMR stays same-origin via Caddy to avoid CORS.
 
-## DNS & TLS Strategy
+- **Stage (`infra/compose/compose.stage.yml`)**
+  - Caddy terminates TLS (ACME staging CA by default) and serves static assets from `dist` mounted at `/srv/www`.
+  - `/api/*` and `/ws/*` proxied to `backend:8000` inside the compose network.
+  - HTTP → HTTPS redirect; health at `/healthz` answered by Caddy.
+  - To run behind a cloud LB, switch `tls` to `tls internal` in `infra/caddy/Caddyfile.stage` and rely on forwarded headers.
 
-- Dev: self-signed or HTTP only (default) - use `localhost:8080` to avoid privileged ports. Local TLS is optional (see notes).
-- Stage/Prod: Automatic HTTPS via ACME (Caddy performs ACME); if you have an external LB, set Caddy to operate behind the LB and disable ACME in Caddy (`tls internal` or `tls off`).
+- **Prod (`infra/compose/compose.prod.yml`)**
+  - Same routing as stage with ACME production CA and stricter headers (HSTS).
+  - Caddy serves static assets from `/srv/www` and proxies `/api/*` + `/ws/*` to `backend:8000`.
+  - HTTP → HTTPS redirect; Caddy health at `/healthz`.
 
-## Separation of Concerns
+## DNS & TLS strategy
 
-- Proxy: Caddy handles routing and TLS termination.
-- Headers: Caddy injects security and forwarded headers; backend trusts `X-Forwarded-*` headers.
-- Caching/Compression: Caddy applies `gzip`/`zstd` for static assets; `Cache-Control` for immutable assets.
-- Logging: Structured JSON logs are written to stdout and optionally to files in stage/prod with redaction for sensitive fields.
+- **Default:** Caddy terminates TLS using ACME. Configure `APP_DOMAIN` and `ACME_EMAIL` env vars in compose; `ACME_CA` defaults to the appropriate Let’s Encrypt directory.
+- **Behind external LB:** Replace the `tls` blocks in stage/prod Caddyfiles with `tls internal` and ensure the LB forwards `X-Forwarded-Proto`/`Host`. HSTS remains enforced by Caddy.
+- **Local dev:** HTTP only (no ACME). Local TLS can be enabled by mapping 8443 and updating the dev Caddyfile, but defaults avoid privileged ports.
 
-## Operational Notes
+## Routing contract
 
-- Avoid exposing backend directly to browser; prefer same-origin `/api` paths.
-- For HMR/WebSocket to work in containers, set `VITE_HMR_HOST` to `0.0.0.0` and `VITE_HMR_PROTOCOL` to `ws` (already applied in repo).
+- SPA: fallback to `/index.html` via `spa_static` snippet in `infra/caddy/Caddyfile`.
+- API: `handle_path /api/*` → `reverse_proxy {$API_UPSTREAM:http://backend:8000}` with streaming-friendly `flush_interval -1` for SSE/WebSockets.
+- WebSockets/SSE: `/ws/*` shares the API upstream block; headers pass `X-Forwarded-*` and `X-Request-ID`.
+- Caching: immutable caching for hashed assets; HTML is `no-store` to prevent stale shells. Compression via `zstd` + `gzip` with safe MIME filters.
+- Security headers: CSP defaults to same-origin (`connect-src 'self' https: wss:`), COOP/COEP, and permissions-policy. HSTS added for TLS sites.
+
+## Caddyfiles
+
+- Base snippets: `infra/caddy/Caddyfile` defines shared headers, compression, SPA/file-server rules, API proxy, and health responder. `STATIC_ROOT` defaults to `/srv/www`.
+- Environment overlays:
+  - `infra/caddy/Caddyfile.dev`: HTTP, admin API enabled, proxies to Vite + backend.
+  - `infra/caddy/Caddyfile.stage`: ACME staging CA, HTTPS redirect, static serving, comment for LB offload.
+  - `infra/caddy/Caddyfile.prod`: ACME production CA, HSTS, static serving, comment for LB offload.
+
+## Docker Compose integration
+
+- **Dev:** `docker compose -f infra/compose/compose.dev.yml up --build` → browse `http://localhost:8080`. Caddy upstreams are auto-wired to `frontend:5173` and `backend:8000`.
+- **Stage/Prod:** build the SPA (`npm run build` to populate `dist/`), then:
+  - Stage: `APP_DOMAIN=staging.example.com ACME_EMAIL=ops@example.com docker compose -f infra/compose/compose.stage.yml up -d`
+  - Prod: `APP_DOMAIN=app.example.com ACME_EMAIL=security@example.com docker compose -f infra/compose/compose.prod.yml up -d`
+    Static assets mount from `dist` into Caddy at `/srv/www`; backend runs from source via `npm run backend:dev` (swap to a compiled server image if desired).
+
+## Codebase refactors & validation checklist
+
+- Backend now trusts proxy headers (`app.set('trust proxy', true)`) and derives CORS from `settings.security.corsOrigins`.
+- `src/config/settings.ts` now exposes `security.corsOrigins` (defaults include `http://localhost:8080`) and coerces `API_PORT` to a number.
+- Frontend defaults already use relative `/api` (`src/config/environment.ts`); avoid `process.env` in browser bundles.
+- Verify WebSocket clients use relative paths (`/ws/sdui`) to stay same-origin through Caddy.
+- If adding new API origins, update `CORS_ALLOWED_ORIGINS` env and keep CSP `connect-src` aligned.
+
+## Operational checklist
+
+- Build artifacts (stage/prod): `npm run build` → ensure `dist/` exists before starting Caddy.
+- Start services with the compose files above.
+- Verify routing: `curl -i https://$APP_DOMAIN/healthz` (Caddy), `curl -i https://$APP_DOMAIN/api/health` (backend), WebSockets via `wscat -c wss://$APP_DOMAIN/ws/sdui`.
+- Verify headers: check CSP, HSTS (prod), `X-Request-ID`, and absence of `Server` header.
+- Rollback: `docker compose ... down` and restore prior Caddyfile/compose versions; ACME data persists in `caddy-data` volume.
