@@ -31,7 +31,7 @@ let redisClient: RedisClientType | null = null;
 try {
   // Try to initialize Redis
   redisClient = Redis.createClient({
-    url: getEnvVar('REDIS_URL') ?? 'redis://localhost:6379',
+    url: getEnvVar('REDIS_URL', 'redis://localhost:6379'),
   });
   redisClient.connect();
   logger.info('Redis connected for usage cache');
@@ -57,19 +57,37 @@ class UsageCache {
     try {
       // Try Redis first
       if (redisClient && redisClient.isReady) {
-        const cached = await redisClient.get(key);
-        if (cached !== null) {
-          return parseFloat(cached);
+        logger.debug('Checking Redis cache', { tenantId, metric, key });
+        try {
+          const cached = await redisClient.get(key);
+          if (cached !== null) {
+            const parsedValue = parseFloat(cached);
+            if (!isNaN(parsedValue)) {
+              logger.debug('Redis cache hit', { tenantId, metric, value: parsedValue });
+              return parsedValue;
+            } else {
+              logger.warn('Invalid cached value in Redis, treating as miss', { tenantId, metric, cachedValue: cached });
+            }
+          } else {
+            logger.debug('Redis cache miss', { tenantId, metric });
+          }
+        } catch (redisError) {
+          logger.warn('Redis operation failed, falling back to memory cache', { tenantId, metric, error: redisError.message });
         }
       } else {
+        logger.debug('Redis not available, using memory cache', { tenantId, metric });
         // Check in-memory cache
         const cached = memoryCache.get(key);
         if (cached && cached.expiresAt > Date.now()) {
+          logger.debug('Memory cache hit', { tenantId, metric, value: cached.value });
           return cached.value;
+        } else {
+          logger.debug('Memory cache miss', { tenantId, metric });
         }
       }
 
       // Cache miss - fetch from database
+      logger.debug('Fetching usage from database', { tenantId, metric });
       const usage = await this.fetchUsageFromDB(tenantId, metric);
       await this.set(key, usage);
 
