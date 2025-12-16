@@ -1,30 +1,39 @@
 import { createClient, type SupabaseClientOptions } from '@supabase/supabase-js';
 import { settings } from '../config/settings';
 
+import { createClient, type SupabaseClientOptions } from '@supabase/supabase-js';
+import { settings } from '../config/settings';
+
 // Client-side configuration - only uses anon key
 const supabaseUrl = settings.VITE_SUPABASE_URL;
 const supabaseAnonKey = settings.VITE_SUPABASE_ANON_KEY;
 
 // Validate required client-side configuration
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Supabase client configuration is missing. Required: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY');
+let supabase: any = null;
+if (supabaseUrl && supabaseAnonKey) {
+  const supabaseOptions: SupabaseClientOptions<'public'> = {
+    db: {
+      schema: 'public',
+    },
+    auth: {
+      autoRefreshToken: true,
+      persistSession: false, // Disable localStorage persistence for security
+      detectSessionInUrl: true,
+    },
+  };
+
+  // Client-side Supabase client - safe for browser
+  supabase = createClient(supabaseUrl, supabaseAnonKey, supabaseOptions);
+} else {
+  console.warn('Supabase client configuration is missing. Billing features will be disabled.');
 }
 
-const supabaseOptions: SupabaseClientOptions<'public'> = {
-  db: {
-    schema: 'public',
-  },
-  auth: {
-    autoRefreshToken: true,
-    persistSession: false, // Disable localStorage persistence for security
-    detectSessionInUrl: true,
-  },
-};
-
-// Client-side Supabase client - safe for browser
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, supabaseOptions);
+export { supabase };
 
 export function getSupabaseClient() {
+  if (!supabase) {
+    throw new Error('Supabase client not configured. Billing features are disabled.');
+  }
   return supabase;
 }
 

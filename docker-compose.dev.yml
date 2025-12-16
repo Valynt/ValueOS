@@ -81,7 +81,7 @@ services:
     # Port mapping - consider removing for better security
     # Comment out the next 2 lines to prevent exposing PostgreSQL to host
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     env_file:
       - .env.local
     environment:
@@ -128,7 +128,7 @@ services:
     container_name: valuecanvas-redis
     # Port mapping - consider removing for better security
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     env_file:
       - .env.local
     volumes:

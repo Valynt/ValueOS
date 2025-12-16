@@ -6,8 +6,8 @@ import { z } from 'zod';
 // Define the schema for all environment variables
 const SettingsSchema = z.object({
   // Vite/Frontend variables (must be prefixed with VITE_)
-  VITE_SUPABASE_URL: z.string().url("A valid Supabase URL is required."),
-  VITE_SUPABASE_ANON_KEY: z.string().min(1, "A Supabase anon key is required."),
+  VITE_SUPABASE_URL: z.string().url().optional(),
+  VITE_SUPABASE_ANON_KEY: z.string().min(1).optional(),
   VITE_APP_URL: z.string().url().optional(),
   
   // Backend/Server-side variables

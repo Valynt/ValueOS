@@ -1,12 +1,12 @@
 // Re-export types from shared file to maintain backwards compatibility
 export type { LLMMessage, LLMResponse, LLMConfig, LLMProvider, LLMTool, LLMToolCall } from './llm-types';
-import type { LLMMessage, LLMResponse, LLMConfig, LLMProvider, LLMTool, LLMStreamCallback } from './llm-types';
+import type { LLMConfig, LLMMessage, LLMProvider, LLMResponse, LLMStreamCallback, LLMTool } from './llm-types';
 
 import { sanitizeLLMContent } from '../../utils/security';
 import { securityLogger } from '../../services/SecurityLogger';
 import { llmProxyClient } from '../../services/LlmProxyClient';
 import { AgentCircuitBreaker } from './CircuitBreaker';
-import { traceLLMOperation, addSpanAttributes, addSpanEvent, metrics, getCurrentTraceContext } from '../../config/telemetry';
+import { addSpanAttributes, addSpanEvent, getCurrentTraceContext, metrics, traceLLMOperation } from '../../config/telemetry';
 import type TaskContext from './TaskContext';
 import { llmCostTracker } from '../../services/LLMCostTracker';
 import { trackUsage } from '../../services/UsageTrackingService';

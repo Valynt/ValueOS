@@ -414,10 +414,11 @@ export class RealtimeUpdateService extends BrowserEventEmitter {
    * Get WebSocket URL
    */
   private getWebSocketUrl(): string {
-    // In production, this would come from configuration
+    // Connect to backend WebSocket server
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.host;
-    return `${protocol}//${host}/ws/sdui`;
+    const backendUrl = new URL(window.location.protocol + '//' + window.location.host);
+    backendUrl.port = '3001'; // Backend port
+    return `${protocol}//${backendUrl.host}/ws/sdui`;
   }
 
   /**
