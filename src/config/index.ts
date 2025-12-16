@@ -21,6 +21,16 @@ export {
 } from './validateEnv';
 export type { ValidationResult, LLMValidationResult } from './validateEnv';
 
+// Governance and entrypoint configuration
+export {
+  entrypointConfig,
+  getEntryPointConfig,
+  getIntentBinding,
+  assertEntryPointAccess,
+  EntryPointViolationError,
+} from './entrypoints';
+export type { EntryPoint, KernelIntent, EntryPointConfig, IntentBinding } from './entrypoints';
+
 // Health check types (safe for client-side, moved to avoid importing server code)
 export type { ConfigHealth, ComponentHealth, HealthStatus } from '../types/health';
 
