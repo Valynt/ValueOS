@@ -13,6 +13,7 @@ import { PlaygroundAutoSaveWorker, getAutoSaveWorker } from './PlaygroundAutoSav
 import { SDUIPageDefinition } from '../sdui/schema';
 import { AtomicUIAction } from '../sdui/AtomicUIActions';
 import { ComponentMutationService } from './ComponentMutationService';
+import { ExecutionRequest, normalizeExecutionRequest } from '../types/execution';
 
 /**
  * Workflow execution mode
@@ -53,8 +54,17 @@ export class PlaygroundWorkflowAdapter {
     sessionId: string;
     workflowExecutionId: string;
   }> {
+    const envelope = {
+      intent: 'playground-workflow-start',
+      actor: { id: userId },
+      organizationId,
+      entryPoint: 'playground',
+      reason: 'draft-session',
+      timestamps: { requestedAt: new Date().toISOString() },
+    } as const;
     // Start workflow execution (writes to database)
     const workflowExecutionId = await this.orchestrator.executeWorkflow(
+      envelope,
       workflowDefinitionId,
       {
         ...context,

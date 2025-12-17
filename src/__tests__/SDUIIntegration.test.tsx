@@ -137,6 +137,7 @@ describe('SDUI Integration - Phase 1', () => {
         workspaceId: 'test-workspace',
         userId: 'test-user',
         timestamp: Date.now(),
+        execution: { intent: 'FullValueAnalysis', environment: 'production', parameters: {} },
       });
 
       expect(result.success).toBe(true);
@@ -215,6 +216,7 @@ describe('SDUI Integration - Phase 1', () => {
         workspaceId: 'test-workspace',
         userId: 'test-user',
         timestamp: Date.now(),
+        execution: { intent: 'FullValueAnalysis', environment: 'production', parameters: {} },
       });
 
       // Re-render with new stage
@@ -317,6 +319,7 @@ describe('SDUI Integration - Phase 1', () => {
         workspaceId: 'test-workspace',
         userId: 'test-user',
         timestamp: Date.now(),
+        execution: { intent: 'FullValueAnalysis', environment: 'production', parameters: {} },
       });
 
       expect(result.success).toBe(false);
@@ -338,6 +341,7 @@ describe('SDUI Integration - Phase 1', () => {
         workspaceId: 'test-workspace',
         userId: 'test-user',
         timestamp: Date.now(),
+        execution: { intent: 'FullValueAnalysis', environment: 'production', parameters: {} },
       });
 
       expect(result.success).toBe(false);
@@ -356,6 +360,7 @@ describe('SDUI Integration - Phase 1', () => {
         workspaceId: 'test-workspace',
         userId: 'test-user',
         timestamp: Date.now(),
+        execution: { intent: 'FullValueAnalysis', environment: 'production', parameters: {} },
       });
 
       expect((actionRouter as any).logAction).toHaveBeenCalled();

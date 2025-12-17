@@ -14,6 +14,7 @@ import { BaseAgent } from '../lib/agent-fabric/agents/BaseAgent';
 import { CircuitBreaker } from '../lib/resilience/CircuitBreaker';
 import { logger } from '../lib/logger';
 import { createClient } from '@supabase/supabase-js';
+import { v4 as uuidv4 } from 'uuid';
 
 export type LifecycleStage = 'opportunity' | 'target' | 'expansion' | 'integrity' | 'realization';
 
@@ -34,6 +35,20 @@ export interface StageResult {
   confidence?: string;
   assumptions?: any[];
   error?: string;
+  stageExecutionId?: string;
+  lineage?: StageLineage;
+  delta?: StageDelta;
+}
+
+export interface StageLineage {
+  stage: LifecycleStage;
+  parentExecutionId?: string;
+  replayed?: boolean;
+}
+
+export interface StageDelta {
+  before: any;
+  after: any;
 }
 
 export class LifecycleError extends Error {
@@ -57,10 +72,13 @@ export class ValidationError extends Error {
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import { MemorySystem } from '../lib/agent-fabric/MemorySystem';
 import { AuditLogger } from '../lib/agent-fabric/AuditLogger';
-import { AgentConfig, LifecycleContext } from '../types/agent';
+import { AgentConfig } from '../types/agent';
 import { workflowExecutionStore, WorkflowStatus } from './WorkflowExecutionStore';
 
 // ... (other imports remain the same) ...
+
+const REPLAYABLE_STAGES = new Set<LifecycleStage>(['opportunity', 'target', 'expansion']);
+const DESTRUCTIVE_STAGES = new Set<LifecycleStage>(['integrity', 'realization']);
 
 export class ValueLifecycleOrchestrator {
   private circuitBreaker: CircuitBreaker;
@@ -99,6 +117,22 @@ export class ValueLifecycleOrchestrator {
         }
         return await agent.execute(context.sessionId, input);
       });
+
+      const previousResult = (context.metadata as any)?.previousResult as StageResult | undefined;
+      const stageExecutionId = uuidv4();
+      const enrichedResult: StageResult = {
+        ...result,
+        stageExecutionId,
+        lineage: {
+          stage,
+          parentExecutionId: previousResult?.stageExecutionId,
+          replayed: this.isReplayableStage(stage) && !!previousResult,
+        },
+        delta: this.captureDelta(previousResult?.data, result.data),
+      };
+
+      await this.persistStageResults(stage, enrichedResult, context);
+      return enrichedResult;
 
     // ... (rest of the logic remains the same) ...
   }
@@ -214,6 +248,18 @@ import { z } from 'zod';
     if (status === 'HALTED') {
       throw new Error(`Workflow ${workflowId} is halted`);
     }
+  }
+
+  private isReplayableStage(stage: LifecycleStage): boolean {
+    return REPLAYABLE_STAGES.has(stage);
+  }
+
+  private isDestructiveStage(stage: LifecycleStage): boolean {
+    return DESTRUCTIVE_STAGES.has(stage);
+  }
+
+  private captureDelta(before: any, after: any): StageDelta {
+    return { before: before ?? null, after };
   }
 
   private async updateValueTree(
