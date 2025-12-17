@@ -440,14 +440,19 @@ export class UnifiedAgentOrchestrator {
    */
   createInitialState(
     initialStage: string,
-    context: Record<string, any> = {}
+    execution: ExecutionRequest = { intent: 'FullValueAnalysis', environment: 'production' }
   ): WorkflowState {
+    const normalizedExecution = normalizeExecutionRequest('agent-query', execution);
+
     return {
       currentStage: initialStage,
       status: 'initiated',
       completedStages: [],
       context: {
-        ...context,
+        ...normalizedExecution.parameters,
+        intent: normalizedExecution.intent,
+        environment: normalizedExecution.environment,
+        metadata: normalizedExecution.metadata,
         conversationHistory: [],
       },
       metadata: {
