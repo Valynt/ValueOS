@@ -1,17 +1,10 @@
 /** @type {import('tailwindcss').Config} */
-import * as sduiModule from "./src/sdui/theme/tailwind.sdui.config.js";
-const sduiTheme = sduiModule.default ?? sduiModule;
-
-const sduiExtend = sduiTheme.theme?.extend ?? {};
-
 const config = {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   darkMode: "class",
   theme: {
     extend: {
-      ...sduiExtend,
       fontFamily: {
-        ...(sduiExtend.fontFamily ?? {}),
         sans: [
           "Inter",
           "system-ui",
@@ -21,29 +14,44 @@ const config = {
           "Roboto",
           "sans-serif",
         ],
+        mono: [
+          "JetBrains Mono",
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "Monaco",
+          '"Roboto Mono"',
+          '"Courier New"',
+          "monospace",
+        ],
       },
       colors: {
-        ...(sduiExtend.colors ?? {}),
+        "vc-surface-1": "hsl(var(--vc-surface-1))",
+        "vc-surface-2": "hsl(var(--vc-surface-2))",
+        "vc-surface-3": "hsl(var(--vc-surface-3))",
+        "vc-accent-teal-500": "hsl(var(--vc-accent-teal-500))",
+        "vc-accent-teal-400": "hsl(var(--vc-accent-teal-400))",
+        "vc-accent-grey-500": "hsl(var(--vc-accent-grey-500))",
+        "vc-border-default": "hsl(var(--vc-border-default))",
+        "vc-border-strong": "hsl(var(--vc-border-strong))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: "hsl(var(--card))",
-        "card-foreground": "hsl(var(--card-foreground))",
+        "card-foreground": "hsl(var(--foreground))",
         popover: "hsl(var(--popover))",
-        "popover-foreground": "hsl(var(--popover-foreground))",
+        "popover-foreground": "hsl(var(--foreground))",
         primary: "hsl(var(--primary))",
         "primary-foreground": "hsl(var(--primary-foreground))",
-        secondary: "hsl(var(--secondary))",
-        "secondary-foreground": "hsl(var(--secondary-foreground))",
-        muted: "hsl(var(--muted))",
-        "muted-foreground": "hsl(var(--muted-foreground))",
         accent: "hsl(var(--accent))",
         "accent-foreground": "hsl(var(--accent-foreground))",
-        destructive: "hsl(var(--destructive))",
-        "destructive-foreground": "hsl(var(--destructive-foreground))",
+        muted: "hsl(var(--muted))",
+        "muted-foreground": "hsl(var(--muted-foreground))",
         success: "hsl(var(--status-success))",
         "success-foreground": "hsl(var(--foreground))",
         warning: "hsl(var(--status-warning))",
         "warning-foreground": "hsl(var(--foreground))",
+        error: "hsl(var(--status-error))",
+        "error-foreground": "hsl(var(--foreground))",
         info: "hsl(var(--status-info))",
         "info-foreground": "hsl(var(--foreground))",
         border: "hsl(var(--border))",
@@ -76,26 +84,25 @@ const config = {
         "5xl": "var(--font-5xl)",
         "6xl": "var(--font-6xl)",
       },
+      letterSpacing: {
+        "vc-hero": "var(--font-tracking-hero)",
+        "vc-micro": "var(--font-tracking-micro)",
+      },
       borderRadius: {
-        ...(sduiExtend.borderRadius ?? {}),
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        lg: "var(--vc-radius-card)",
+        md: "var(--vc-radius-card)",
+        sm: "calc(var(--vc-radius-card) - 0.25rem)",
+        xl: "var(--vc-radius-modal)",
+        "vc-card": "var(--vc-radius-card)",
+        "vc-modal": "var(--vc-radius-modal)",
+        "vc-pill": "9999px",
       },
       boxShadow: {
-        ...(sduiExtend.boxShadow ?? {}),
-        "beautiful-sm":
-          "0px 2px 3px -1px rgba(0,0,0,0.1),0px 1px 0px 0px rgba(25,28,33,0.02),0px 0px 0px 1px rgba(25,28,33,0.08)",
-        "beautiful-md":
-          "0px 0px 0px 1px rgba(0,0,0,0.06),0px 1px 1px -0.5px rgba(0,0,0,0.06),0px 3px 3px -1.5px rgba(0,0,0,0.06),0px 6px 6px -3px rgba(0,0,0,0.06),0px 12px 12px -6px rgba(0,0,0,0.06),0px 24px 24px -12px rgba(0,0,0,0.06)",
-        "beautiful-lg":
-          "0 2.8px 2.2px rgba(0,0,0,0.034),0 6.7px 5.3px rgba(0,0,0,0.048),0 12.5px 10px rgba(0,0,0,0.06),0 22.3px 17.9px rgba(0,0,0,0.072),0 41.8px 33.4px rgba(0,0,0,0.086),0 100px 80px rgba(0,0,0,0.12)",
-        "light-blue-sm":
-          "0px 0px 0px 1px rgba(14,63,126,0.04),0px 1px 1px -0.5px rgba(42,51,69,0.04),0px 3px 3px -1.5px rgba(42,51,70,0.04),0px 6px 6px -3px rgba(42,51,70,0.04),0px 12px 12px -6px rgba(14,63,126,0.04),0px 24px 24px -12px rgba(14,63,126,0.04)",
+        "vc-glow-teal": "var(--vc-glow-teal)",
       },
     },
   },
-  plugins: [...(sduiTheme.plugins ?? [])],
+  plugins: [],
 };
 
 export default config;

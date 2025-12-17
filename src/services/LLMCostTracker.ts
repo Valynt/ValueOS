@@ -101,17 +101,28 @@ export interface CostAlert {
 }
 
 export class LLMCostTracker {
-  private supabase: SupabaseClient;
+  private supabase?: SupabaseClient;
   private alertsSent: Set<string> = new Set(); // TODO: Remove after migration
+  private enabled = false;
+  private static warnedMissingConfig = false;
   
   constructor() {
     const { supabaseUrl, supabaseServiceRoleKey } = getLLMCostTrackerConfig();
 
     if (!supabaseUrl || !supabaseServiceRoleKey) {
-      throw new Error('LLMCostTracker requires Supabase URL and service key');
+      if (!LLMCostTracker.warnedMissingConfig) {
+        logger.warn('LLMCostTracker disabled: missing Supabase configuration');
+        LLMCostTracker.warnedMissingConfig = true;
+      }
+      return;
     }
 
     this.supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+    this.enabled = true;
+  }
+
+  private isEnabled(): boolean {
+    return this.enabled && Boolean(this.supabase);
   }
   
   /**
@@ -141,6 +152,8 @@ export class LLMCostTracker {
     errorMessage?: string;
     latencyMs: number;
   }): Promise<void> {
+    if (!this.isEnabled() || !this.supabase) return;
+
     const cost = this.calculateCost(
       params.model,
       params.promptTokens,
@@ -182,6 +195,8 @@ export class LLMCostTracker {
     endTime: Date,
     userId?: string
   ): Promise<number> {
+    if (!this.isEnabled() || !this.supabase) return 0;
+
     let query = this.supabase
       .from('llm_usage')
       .select('estimated_cost')
@@ -231,6 +246,8 @@ export class LLMCostTracker {
    * Check if cost thresholds are exceeded
    */
   async checkCostThresholds(): Promise<CostAlert[]> {
+    if (!this.isEnabled()) return [];
+
     const alerts: CostAlert[] = [];
     
     // Check hourly threshold
@@ -305,6 +322,8 @@ export class LLMCostTracker {
    * Send cost alert
    */
   private async sendAlert(alert: CostAlert): Promise<void> {
+    if (!this.isEnabled() || !this.supabase) return;
+
     // Check for duplicate alerts within 1 hour using database
     const alertKey = `${alert.period}-${alert.level}`;
     const oneHourAgo = new Date(Date.now() - ONE_HOUR_MS).toISOString();
@@ -422,6 +441,18 @@ export class LLMCostTracker {
     averageCostPerRequest: number;
     requestCount: number;
   }> {
+    if (!this.isEnabled() || !this.supabase) {
+      return {
+        totalCost: 0,
+        costByModel: {},
+        costByUser: {},
+        costByEndpoint: {},
+        totalTokens: 0,
+        averageCostPerRequest: 0,
+        requestCount: 0
+      };
+    }
+
     const { data, error } = await this.supabase
       .from('llm_usage')
       .select('*')
@@ -473,6 +504,10 @@ export class LLMCostTracker {
     totalCost: number;
     requestCount: number;
   }>> {
+    if (!this.isEnabled() || !this.supabase) {
+      return [];
+    }
+
     const { data, error } = await this.supabase
       .from('llm_usage')
       .select('user_id, estimated_cost')
