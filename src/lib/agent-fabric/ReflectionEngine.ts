@@ -1,4 +1,5 @@
 import { LLMGateway } from './LLMGateway';
+import type TaskContext from './TaskContext';
 import { QualityRubric } from './types';
 import { parseLLMOutputStrict } from '../../utils/safeJsonParser';
 import { featureFlags } from '../../config/featureFlags';
@@ -26,7 +27,8 @@ export class ReflectionEngine {
   async evaluateQuality(
     valueCaseData: any,
     rubric: QualityRubric,
-    threshold: number
+    threshold: number,
+    taskContext?: TaskContext
   ): Promise<QualityAssessment> {
     const evaluationPrompt = this.buildEvaluationPrompt(valueCaseData, rubric);
 
@@ -44,7 +46,7 @@ Return ONLY valid JSON with no additional text or formatting.`
     ], {
       temperature: 0.3,
       max_tokens: 1500
-    });
+    }, taskContext);
 
     let assessment: QualityAssessment;
     if (featureFlags.ENABLE_SAFE_JSON_PARSER) {
@@ -139,6 +141,8 @@ Return your assessment in this exact JSON format:
   async generateRefinementInstructions(
     assessment: QualityAssessment,
     previousData: any
+    ,
+    taskContext?: TaskContext
   ): Promise<string> {
     const response = await this.llmGateway.complete([
       {
@@ -165,7 +169,7 @@ Generate specific, actionable refinement instructions focusing on the weakest di
     ], {
       temperature: 0.5,
       max_tokens: 800
-    });
+    }, taskContext);
 
     return response.content;
   }

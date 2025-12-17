@@ -16,7 +16,9 @@ export class MemorySystem {
     metadata: Record<string, any> = {},
     organizationId?: string,
     provenance?: Record<string, any>,
-    expiresAt?: Date
+    expiresAt?: Date,
+    source?: string,
+    sourceId?: string
   ): Promise<void> {
     // SECURITY: Require organizationId for tenant isolation
     if (!organizationId && !metadata.organization_id) {
@@ -31,10 +33,12 @@ export class MemorySystem {
       metadata,
       organization_id: organizationId || metadata.organization_id,
       importance_score: 0.5,
-      provenance: provenance || {}
+      provenance: provenance || { agent_id: agentId, created_at: new Date().toISOString() }
     };
 
     if (expiresAt) payload.expires_at = expiresAt.toISOString();
+    if (source) payload.source = source;
+    if (sourceId) payload.source_id = sourceId;
 
     await this.supabase.from('agent_memory').insert(payload);
   }
@@ -47,6 +51,9 @@ export class MemorySystem {
     organizationId?: string,
     provenance?: Record<string, any>,
     ttlSeconds?: number
+    ,
+    source?: string,
+    sourceId?: string
   ): Promise<void> {
     // SECURITY: Require organizationId for tenant isolation
     if (!organizationId && !metadata.organization_id) {
@@ -64,10 +71,12 @@ export class MemorySystem {
       metadata,
       organization_id: organizationId || metadata.organization_id,
       importance_score: 0.7,
-      provenance: provenance || {}
+      provenance: provenance || { agent_id: agentId, created_at: new Date().toISOString() }
     };
 
     if (typeof ttlSeconds === 'number') payload.expires_at = new Date(Date.now() + ttlSeconds * 1000).toISOString();
+    if (source) payload.source = source;
+    if (sourceId) payload.source_id = sourceId;
 
     await this.supabase.from('agent_memory').insert(payload);
   }
@@ -80,6 +89,9 @@ export class MemorySystem {
     organizationId?: string,
     provenance?: Record<string, any>,
     ttlSeconds?: number
+    ,
+    source?: string,
+    sourceId?: string
   ): Promise<void> {
     // SECURITY: Require organizationId for tenant isolation
     if (!organizationId && !metadata.organization_id) {
@@ -94,10 +106,12 @@ export class MemorySystem {
       metadata,
       organization_id: organizationId || metadata.organization_id,
       importance_score: 0.3,
-      provenance: provenance || {}
+      provenance: provenance || { agent_id: agentId, created_at: new Date().toISOString() }
     };
 
     if (typeof ttlSeconds === 'number') payload.expires_at = new Date(Date.now() + ttlSeconds * 1000).toISOString();
+    if (source) payload.source = source;
+    if (sourceId) payload.source_id = sourceId;
 
     await this.supabase.from('agent_memory').insert(payload);
   }
@@ -177,12 +191,14 @@ export class MemorySystem {
    */
   async retrieveSimilarEpisodes(
     context: Record<string, any>,
-    limit: number = 10
+    limit: number = 10,
+    organizationId?: string
   ): Promise<any[]> {
     const { data, error } = await this.supabase
       .rpc('retrieve_similar_episodes', {
         p_context: context,
         p_limit: limit,
+        p_organization_id: organizationId || null
       });
 
     if (error) throw error;
@@ -371,6 +387,9 @@ export class MemorySystem {
     metadata: Record<string, any> = {},
     provenance?: Record<string, any>,
     ttlSeconds?: number
+    ,
+    source?: string,
+    sourceId?: string
   ): Promise<void> {
     const payload: Record<string, any> = {
       session_id: sessionId,
@@ -379,10 +398,12 @@ export class MemorySystem {
       content: pattern,
       metadata,
       importance_score: 0.8,
-      provenance: provenance || {}
+      provenance: provenance || { agent_id: agentId, created_at: new Date().toISOString() }
     };
 
     if (typeof ttlSeconds === 'number') payload.expires_at = new Date(Date.now() + ttlSeconds * 1000).toISOString();
+    if (source) payload.source = source;
+    if (sourceId) payload.source_id = sourceId;
 
     await this.supabase.from('agent_memory').insert(payload);
   }
@@ -529,5 +550,37 @@ export class MemorySystem {
       logger.error('Failed to set memory TTL', { error, memoryId, expiresAt });
       throw error;
     }
+  }
+
+  /**
+   * Insert a tenant-scoped canary token for cross-tenant leakage tests
+   */
+  async storeCanaryToken(organizationId: string, token: string, metadata: Record<string, any> = {}, ttlSeconds?: number): Promise<string> {
+    const payload: Record<string, any> = {
+      session_id: null,
+      agent_id: 'canary-installer',
+      memory_type: 'semantic',
+      content: token,
+      metadata: { ...metadata, canary: true },
+      organization_id: organizationId,
+      importance_score: 1.0,
+      provenance: { injectedBy: 'canary' }
+    };
+
+    if (typeof ttlSeconds === 'number') payload.expires_at = new Date(Date.now() + ttlSeconds * 1000).toISOString();
+
+    const { data, error } = await this.supabase.from('agent_memory').insert(payload).select().single();
+    if (error) throw error;
+    return data.id;
+  }
+
+  async addMemoryProvenance(memoryId: string, sourceTable: string, sourceId: string | null, evidence: Record<string, any> = {}): Promise<void> {
+    const { error } = await this.supabase.from('memory_provenance').insert({
+      memory_id: memoryId,
+      source_table: sourceTable,
+      source_id: sourceId,
+      evidence
+    });
+    if (error) throw error;
   }
 }

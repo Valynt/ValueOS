@@ -182,7 +182,7 @@ export class ConfidenceCalibrationService {
    */
   private async computeCalibrationModel(agentId: string): Promise<CalibrationModel> {
     // Fetch historical predictions with outcomes
-    const { data: predictions, error } = await this.supabase
+    const { data: predictions, error: _error } = await this.supabase
       .from('agent_predictions')
       .select('id, agent_id, confidence_score, actual_outcome, variance_percentage, created_at')
       .eq('agent_id', agentId)
@@ -190,10 +190,11 @@ export class ConfidenceCalibrationService {
       .order('created_at', { ascending: false })
       .limit(1000);
 
-    if (error || !predictions || predictions.length < 10) {
+    if (_error || !predictions || predictions.length < 50) {
       logger.warn('Insufficient historical data for calibration, using default model', {
         agentId,
-        sampleSize: predictions?.length || 0
+        sampleSize: predictions?.length || 0,
+        minimumRequired: 50
       });
       return this.getDefaultCalibrationModel(agentId);
     }
@@ -212,7 +213,7 @@ export class ConfidenceCalibrationService {
     const { parameterA, parameterB, calibrationError } = this.fitPlattScaling(historicalPredictions);
 
     // Get agent type
-    const { data: agentData } = await this.supabase
+    const { data: agentData, error: _agentError } = await this.supabase
       .from('agents')
       .select('type')
       .eq('id', agentId)

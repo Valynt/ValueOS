@@ -8,7 +8,7 @@
 import { getConfig, validateEnvironmentConfig, isProduction, isDevelopment } from './config/environment';
 import { initializeAgents, SystemHealth } from './services/AgentInitializer';
 import { initializeSecurity, validateSecurity } from './security';
-import { createLogger, logger as globalLogger } from './lib/logger';
+import { createLogger, logger as globalLogger, setupMonitoring } from './lib/logger';
 
 /**
  * Bootstrap result
@@ -228,6 +228,9 @@ export async function bootstrap(
   } else {
     logger.info('\n📊 Step 5: Error tracking disabled');
   }
+
+  // Initialize monitoring listeners (Sentry, cloud integrations)
+  setupMonitoring();
 
   // Step 6: Initialize Agent Fabric (with timeout to prevent blocking)
   let agentHealth: SystemHealth | undefined;

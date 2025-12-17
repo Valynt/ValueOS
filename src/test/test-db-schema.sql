@@ -41,12 +41,18 @@ CREATE TABLE IF NOT EXISTS user_roles (
 -- Agent Sessions
 CREATE TABLE IF NOT EXISTS agent_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+<<<<<<< HEAD
   user_id UUID NOT NULL,
   session_token TEXT UNIQUE NOT NULL DEFAULT gen_random_uuid()::TEXT,
   context JSONB DEFAULT '{}'::jsonb,
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'completed', 'failed', 'cancelled')),
   started_at TIMESTAMPTZ DEFAULT NOW(),
   ended_at TIMESTAMPTZ,
+=======
+  tenant_id UUID NOT NULL,
+  agent_id TEXT NOT NULL,
+  status TEXT DEFAULT 'active',
+>>>>>>> origin/main
   metadata JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -55,6 +61,7 @@ CREATE TABLE IF NOT EXISTS agent_sessions (
 -- Agent Predictions
 CREATE TABLE IF NOT EXISTS agent_predictions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+<<<<<<< HEAD
   session_id TEXT NOT NULL,
   agent_id TEXT NOT NULL,
   agent_type TEXT NOT NULL,
@@ -73,13 +80,24 @@ CREATE TABLE IF NOT EXISTS agent_predictions (
   actual_recorded_at TIMESTAMPTZ,
   variance_percentage DECIMAL(5,2),
   variance_absolute DECIMAL(15,2),
+=======
+  tenant_id UUID NOT NULL,
+  session_id UUID,
+  agent_id TEXT NOT NULL,
+  prediction_data JSONB DEFAULT '{}'::jsonb,
+  confidence DECIMAL(3,2),
+>>>>>>> origin/main
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Workflow Executions
 CREATE TABLE IF NOT EXISTS workflow_executions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+<<<<<<< HEAD
   organization_id UUID,
+=======
+  tenant_id UUID NOT NULL,
+>>>>>>> origin/main
   workflow_id TEXT NOT NULL,
   status TEXT DEFAULT 'pending',
   result JSONB,
@@ -90,7 +108,11 @@ CREATE TABLE IF NOT EXISTS workflow_executions (
 -- Canvas Data
 CREATE TABLE IF NOT EXISTS canvas_data (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+<<<<<<< HEAD
   organization_id UUID,
+=======
+  tenant_id UUID NOT NULL,
+>>>>>>> origin/main
   canvas_id TEXT NOT NULL,
   data JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -100,7 +122,11 @@ CREATE TABLE IF NOT EXISTS canvas_data (
 -- Value Trees
 CREATE TABLE IF NOT EXISTS value_trees (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+<<<<<<< HEAD
   organization_id UUID,
+=======
+  tenant_id UUID NOT NULL,
+>>>>>>> origin/main
   tree_data JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -111,7 +137,11 @@ CREATE TABLE IF NOT EXISTS security_audit_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_type TEXT NOT NULL,
   user_id UUID,
+<<<<<<< HEAD
   organization_id UUID,
+=======
+  tenant_id UUID,
+>>>>>>> origin/main
   details JSONB,
   severity TEXT CHECK (severity IN ('info', 'warning', 'error', 'critical')),
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -128,6 +158,83 @@ CREATE TABLE IF NOT EXISTS health_check (
 INSERT INTO health_check (status) VALUES ('healthy') ON CONFLICT DO NOTHING;
 
 -- ============================================================================
+<<<<<<< HEAD
+=======
+-- Enable RLS on All Tables
+-- ============================================================================
+
+ALTER TABLE agent_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agent_predictions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE workflow_executions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE canvas_data ENABLE ROW LEVEL SECURITY;
+ALTER TABLE value_trees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE security_audit_log ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================================
+-- Basic RLS Policies for Tests
+-- ============================================================================
+
+-- Agent Sessions Policies
+CREATE POLICY "test_tenant_isolation_select" ON agent_sessions
+  FOR SELECT
+  USING (
+    tenant_id = (auth.jwt() ->> 'organization_id')::UUID
+    OR auth.role() = 'service_role'
+  );
+
+CREATE POLICY "test_tenant_isolation_insert" ON agent_sessions
+  FOR INSERT
+  WITH CHECK (
+    tenant_id = (auth.jwt() ->> 'organization_id')::UUID
+    OR auth.role() = 'service_role'
+  );
+
+-- Agent Predictions Policies
+CREATE POLICY "test_tenant_isolation_select" ON agent_predictions
+  FOR SELECT
+  USING (
+    tenant_id = (auth.jwt() ->> 'organization_id')::UUID
+    OR auth.role() = 'service_role'
+  );
+
+CREATE POLICY "test_tenant_isolation_insert" ON agent_predictions
+  FOR INSERT
+  WITH CHECK (
+    tenant_id = (auth.jwt() ->> 'organization_id')::UUID
+    OR auth.role() = 'service_role'
+  );
+
+-- Workflow Executions Policies
+CREATE POLICY "test_tenant_isolation_select" ON workflow_executions
+  FOR SELECT
+  USING (
+    tenant_id = (auth.jwt() ->> 'organization_id')::UUID
+    OR auth.role() = 'service_role'
+  );
+
+-- Canvas Data Policies
+CREATE POLICY "test_tenant_isolation_select" ON canvas_data
+  FOR SELECT
+  USING (
+    tenant_id = (auth.jwt() ->> 'organization_id')::UUID
+    OR auth.role() = 'service_role'
+  );
+
+-- Value Trees Policies
+CREATE POLICY "test_tenant_isolation_select" ON value_trees
+  FOR SELECT
+  USING (
+    tenant_id = (auth.jwt() ->> 'organization_id')::UUID
+    OR auth.role() = 'service_role'
+  );
+
+-- Security Audit Log - Admin only
+CREATE POLICY "admin_only_select" ON security_audit_log
+  FOR SELECT
+  USING (auth.role() = 'service_role');
+
+-- ============================================================================
+>>>>>>> origin/main
 -- Test Data
 -- ============================================================================
 
@@ -150,14 +257,24 @@ ON CONFLICT (user_id, tenant_id) DO NOTHING;
 CREATE OR REPLACE FUNCTION verify_test_schema()
 RETURNS TABLE (
   table_name TEXT,
+<<<<<<< HEAD
   table_exists BOOLEAN,
+=======
+  exists BOOLEAN,
+>>>>>>> origin/main
   rls_enabled BOOLEAN
 ) AS $$
 BEGIN
   RETURN QUERY
+<<<<<<< HEAD
   SELECT
     t.tablename::TEXT,
     TRUE,
+=======
+  SELECT 
+    t.tablename::TEXT,
+    true,
+>>>>>>> origin/main
     t.rowsecurity
   FROM pg_tables t
   WHERE t.schemaname = 'public'
@@ -171,3 +288,9 @@ BEGIN
     );
 END;
 $$ LANGUAGE plpgsql;
+<<<<<<< HEAD
+=======
+
+-- Run verification
+SELECT * FROM verify_test_schema();
+>>>>>>> origin/main

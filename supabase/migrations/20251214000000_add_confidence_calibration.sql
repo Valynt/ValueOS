@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS agent_calibration_models (
   
   -- Platt scaling parameters
   -- Transforms raw confidence C_raw to calibrated C_cal:
-  -- C_cal = 1 / (1 + exp(parameter_a * C_raw + parameter_b))
+  -- C_cal = 1 / (1 + exp(-(parameter_a * C_raw + parameter_b)))
   parameter_a DECIMAL(10, 6) NOT NULL,
   parameter_b DECIMAL(10, 6) NOT NULL,
   
@@ -278,7 +278,7 @@ BEGIN
     RETURN p_raw_confidence;
   END IF;
   
-  -- Apply Platt scaling: C_cal = 1 / (1 + exp(A * C_raw + B))
+  -- Apply Platt scaling: C_cal = 1 / (1 + exp(-(A * C_raw + B)))
   v_z := v_model.parameter_a * p_raw_confidence + v_model.parameter_b;
   v_calibrated := 1.0 / (1.0 + EXP(-v_z));
   
