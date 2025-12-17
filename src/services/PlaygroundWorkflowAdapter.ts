@@ -13,6 +13,7 @@ import { PlaygroundAutoSaveWorker, getAutoSaveWorker } from './PlaygroundAutoSav
 import { SDUIPageDefinition } from '../sdui/schema';
 import { AtomicUIAction } from '../sdui/AtomicUIActions';
 import { ComponentMutationService } from './ComponentMutationService';
+import { ExecutionRequest, normalizeExecutionRequest } from '../types/execution';
 
 /**
  * Workflow execution mode
@@ -48,20 +49,27 @@ export class PlaygroundWorkflowAdapter {
     userId: string,
     organizationId: string,
     initialLayout: SDUIPageDefinition,
-    context: Record<string, any> = {}
+    execution: ExecutionRequest
   ): Promise<{
     sessionId: string;
     workflowExecutionId: string;
   }> {
+    const normalizedExecution = normalizeExecutionRequest('playground', execution);
+    const executionParameters = {
+      ...normalizedExecution.parameters,
+      mode: 'draft',
+      userId,
+      organizationId,
+    };
+
     // Start workflow execution (writes to database)
     const workflowExecutionId = await this.orchestrator.executeWorkflow(
       workflowDefinitionId,
       {
-        ...context,
-        mode: 'draft',
-        userId,
-        organizationId,
-      }
+        ...normalizedExecution,
+        parameters: executionParameters,
+      },
+      userId
     );
 
     // Create playground session (Redis)
@@ -71,8 +79,13 @@ export class PlaygroundWorkflowAdapter {
       initialLayout,
       workflowExecutionId,
       context: {
-        ...context,
-        workflowDefinitionId,
+        execution: {
+          ...normalizedExecution,
+          parameters: {
+            ...executionParameters,
+            workflowDefinitionId,
+          },
+        },
       },
     });
 

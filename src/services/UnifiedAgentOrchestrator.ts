@@ -30,6 +30,7 @@ import { getAutonomyConfig } from '../config/autonomy';
 import { MemorySystem } from '../lib/agent-fabric/MemorySystem';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import { llmConfig } from '../config/llm';
+import { ExecutionRequest, normalizeExecutionRequest } from '../types/execution';
 
 // ============================================================================
 // Types
@@ -293,14 +294,19 @@ export class UnifiedAgentOrchestrator {
    */
   createInitialState(
     initialStage: string,
-    context: Record<string, any> = {}
+    execution: ExecutionRequest = { intent: 'FullValueAnalysis', environment: 'production' }
   ): WorkflowState {
+    const normalizedExecution = normalizeExecutionRequest('agent-query', execution);
+
     return {
       currentStage: initialStage,
       status: 'initiated',
       completedStages: [],
       context: {
-        ...context,
+        ...normalizedExecution.parameters,
+        intent: normalizedExecution.intent,
+        environment: normalizedExecution.environment,
+        metadata: normalizedExecution.metadata,
         conversationHistory: [],
       },
       metadata: {
@@ -343,8 +349,8 @@ export class UnifiedAgentOrchestrator {
    */
   async executeWorkflow(
     workflowDefinitionId: string,
-    context: Record<string, any> = {},
-    userId: string
+    execution: ExecutionRequest = { intent: 'FullValueAnalysis', environment: 'production' },
+    userId: string = 'system'
   ): Promise<WorkflowExecutionResult> {
     if (!this.config.enableWorkflows) {
       throw new Error('Workflow execution is disabled');
@@ -372,32 +378,46 @@ export class UnifiedAgentOrchestrator {
 
       const dag: WorkflowDAG = definition.dag_schema as WorkflowDAG;
 
+      const normalizedExecution = normalizeExecutionRequest('action-router', execution);
+
       // Create execution record
-      const { data: execution, error: execError } = await supabase
+      const { data: executionRecord, error: execError } = await supabase
         .from('workflow_executions')
         .insert({
           workflow_definition_id: workflowDefinitionId,
           workflow_version: definition.version,
           status: 'initiated',
           current_stage: dag.initial_stage,
-          context,
+          context: {
+            intent: normalizedExecution.intent,
+            environment: normalizedExecution.environment,
+            parameters: normalizedExecution.parameters,
+            metadata: normalizedExecution.metadata,
+          },
           audit_context: { workflow: definition.name, version: definition.version, traceId },
           circuit_breaker_state: {}
         })
         .select()
         .single();
 
-      if (execError || !execution) {
+      if (execError || !executionRecord) {
         throw new Error('Failed to create workflow execution');
       }
 
       // Execute DAG asynchronously
-      this.executeDAGAsync(execution.id, dag, context, traceId).catch(async (error) => {
-        await this.handleWorkflowFailure(execution.id, error.message);
+      const executionContext = {
+        intent: normalizedExecution.intent,
+        environment: normalizedExecution.environment,
+        metadata: normalizedExecution.metadata,
+        ...normalizedExecution.parameters,
+      };
+
+      this.executeDAGAsync(executionRecord.id, dag, executionContext, traceId).catch(async (error) => {
+        await this.handleWorkflowFailure(executionRecord.id, error.message);
       });
 
       return {
-        executionId: execution.id,
+        executionId: executionRecord.id,
         status: 'initiated',
         currentStage: dag.initial_stage,
         completedStages: [],

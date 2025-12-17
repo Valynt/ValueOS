@@ -4,7 +4,7 @@
  * CRITICAL: Tests health check endpoints that load balancers depend on
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 import healthRouter from '../health';
@@ -14,17 +14,12 @@ describe('Health Check API', () => {
 
   beforeAll(() => {
     app = express();
-<<<<<<< HEAD
     app.use(healthRouter);
-=======
-    app.use('/health', healthRouter);
->>>>>>> origin/main
   });
 
   describe('GET /health', () => {
     it('should return 200 when all dependencies are healthy', async () => {
       const response = await request(app)
-<<<<<<< HEAD
         .get('/health');
 
       expect([200, 503]).toContain(response.status);
@@ -32,20 +27,10 @@ describe('Health Check API', () => {
       expect(response.body.status).toMatch(/healthy|degraded|unhealthy/);
       expect(response.body).toHaveProperty('timestamp');
       expect(response.body).toHaveProperty('dependencies');
-=======
-        .get('/health')
-        .expect(200);
-
-      expect(response.body).toHaveProperty('status');
-      expect(response.body.status).toMatch(/healthy|degraded/);
-      expect(response.body).toHaveProperty('timestamp');
-      expect(response.body).toHaveProperty('checks');
->>>>>>> origin/main
     });
 
     it('should include all dependency checks', async () => {
       const response = await request(app)
-<<<<<<< HEAD
         .get('/health');
 
       expect([200, 503]).toContain(response.status);
@@ -54,24 +39,15 @@ describe('Health Check API', () => {
       // Verify all critical dependencies are checked
       expect(dependencies).toHaveProperty('database');
       expect(dependencies).toHaveProperty('supabase');
+      expect(dependencies).toHaveProperty('togetherAI');
+      expect(dependencies).toHaveProperty('openAI');
+      expect(dependencies).toHaveProperty('redis');
       
-      // Each check should have status and latency
-      expect(dependencies.database).toHaveProperty('status');
-      expect(dependencies.database).toHaveProperty('lastChecked');
-=======
-        .get('/health')
-        .expect(200);
-
-      const { checks } = response.body;
-      
-      // Verify all critical dependencies are checked
-      expect(checks).toHaveProperty('database');
-      expect(checks).toHaveProperty('supabase');
-      
-      // Each check should have status and responseTime
-      expect(checks.database).toHaveProperty('status');
-      expect(checks.database).toHaveProperty('responseTime');
->>>>>>> origin/main
+      // Each check should have status and timing metadata
+      Object.values(dependencies).forEach((dependency: any) => {
+        expect(dependency).toHaveProperty('status');
+        expect(dependency).toHaveProperty('lastChecked');
+      });
     });
 
     it('should return 503 when critical dependency is down', async () => {
@@ -99,11 +75,7 @@ describe('Health Check API', () => {
         .get('/health/live')
         .expect(200);
 
-<<<<<<< HEAD
       expect(response.body).toHaveProperty('status', 'alive');
-=======
-      expect(response.body).toHaveProperty('status', 'ok');
->>>>>>> origin/main
     });
 
     it('should respond quickly for K8s liveness', async () => {
@@ -119,48 +91,29 @@ describe('Health Check API', () => {
   describe('GET /health/ready', () => {
     it('should return 200 when ready to serve traffic', async () => {
       const response = await request(app)
-<<<<<<< HEAD
         .get('/health/ready');
 
       expect([200, 503]).toContain(response.status);
-=======
-        .get('/health/ready')
-        .expect(200);
-
->>>>>>> origin/main
       expect(response.body).toHaveProperty('status');
     });
 
     it('should check database connectivity', async () => {
       const response = await request(app)
-<<<<<<< HEAD
         .get('/health/ready');
 
       expect([200, 503]).toContain(response.status);
-      if (response.body.dependencies) {
-        expect(response.body.dependencies).toHaveProperty('database');
-      }
-=======
-        .get('/health/ready')
-        .expect(200);
-
-      expect(response.body).toHaveProperty('database');
->>>>>>> origin/main
+      expect(response.body).toHaveProperty('dependencies');
+      expect(response.body.dependencies).toHaveProperty('database');
+      expect(response.body.dependencies).toHaveProperty('togetherAI');
     });
   });
 
   describe('GET /health/startup', () => {
     it('should return 200 when startup is complete', async () => {
       const response = await request(app)
-<<<<<<< HEAD
         .get('/health/startup');
 
       expect([200, 503]).toContain(response.status);
-=======
-        .get('/health/startup')
-        .expect(200);
-
->>>>>>> origin/main
       expect(response.body).toHaveProperty('status');
     });
   });
@@ -172,13 +125,12 @@ describe('Health Check API', () => {
         .expect(200);
 
       expect(response.body).toHaveProperty('dependencies');
-<<<<<<< HEAD
       expect(typeof response.body.dependencies).toBe('object');
       expect(response.body.dependencies).toHaveProperty('database');
       expect(response.body.dependencies).toHaveProperty('supabase');
-=======
-      expect(Array.isArray(response.body.dependencies)).toBe(true);
->>>>>>> origin/main
+      expect(response.body.dependencies).toHaveProperty('togetherAI');
+      expect(response.body.dependencies).toHaveProperty('openAI');
+      expect(response.body.dependencies).toHaveProperty('redis');
     });
 
     it('should include latency for each dependency', async () => {
@@ -188,18 +140,11 @@ describe('Health Check API', () => {
 
       const { dependencies } = response.body;
       
-<<<<<<< HEAD
       // Check each dependency has required properties
       Object.values(dependencies).forEach((dep: any) => {
         expect(dep).toHaveProperty('status');
         expect(dep).toHaveProperty('lastChecked');
         // latency is optional (only present when check succeeds)
-=======
-      dependencies.forEach((dep: any) => {
-        expect(dep).toHaveProperty('name');
-        expect(dep).toHaveProperty('status');
-        expect(dep).toHaveProperty('latency');
->>>>>>> origin/main
       });
     });
   });

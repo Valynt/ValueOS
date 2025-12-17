@@ -17,6 +17,7 @@ import {
 } from '../types/sdui-integration';
 import { LifecycleStage } from '../types/workflow';
 import { logger } from '../lib/logger';
+import { ExecutionRequest } from '../types/execution';
 
 /**
  * SDUI App Props
@@ -80,6 +81,11 @@ export const SDUIApp: React.FC<SDUIAppProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentStage, setCurrentStage] = useState<LifecycleStage>(initialStage);
+  const executionRequest: ExecutionRequest = {
+    intent: 'FullValueAnalysis',
+    environment: 'production',
+    parameters: { source: 'sdui-app' },
+  };
 
   /**
    * Load schema for workspace
@@ -122,15 +128,21 @@ export const SDUIApp: React.FC<SDUIAppProps> = ({
       try {
         logger.info('Handling action', { actionType: action.type, workspaceId });
 
+        const actionWithExecution =
+          action.type === 'invokeAgent' && !action.execution
+            ? { ...action, execution: executionRequest }
+            : action;
+
         const context: ActionContext = {
           workspaceId,
           userId,
           sessionId,
           timestamp: Date.now(),
+          execution: executionRequest,
         };
 
         // Route action through ActionRouter
-        const result = await actionRouter.routeAction(action, context);
+        const result = await actionRouter.routeAction(actionWithExecution, context);
 
         if (!result.success) {
           logger.error('Action failed', {

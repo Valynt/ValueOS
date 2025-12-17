@@ -15,6 +15,7 @@ import {
   ManifestoViolation,
   ActionHandler,
 } from '../types/sdui-integration';
+import { ExecutionRequest, normalizeExecutionRequest } from '../types/execution';
 import { AuditLogService } from './AuditLogService';
 import { getUnifiedOrchestrator, UnifiedAgentOrchestrator } from './UnifiedAgentOrchestrator';
 import { getAgentAPI, AgentAPI } from './AgentAPI';
@@ -183,6 +184,7 @@ export class ActionRouter {
       case 'invokeAgent':
         if (!action.agentId) errors.push('agentId is required');
         if (!action.input) errors.push('input is required');
+        if (!action.execution) errors.push('execution request is required');
         break;
 
       case 'runWorkflowStep':
@@ -426,11 +428,27 @@ export class ActionRouter {
       }
 
       try {
+        const execution = normalizeExecutionRequest('action-router', action.execution || context.execution);
+        const agentContext = {
+          ...execution.parameters,
+          ...action.payload,
+          intent: execution.intent,
+          environment: execution.environment,
+          workspaceId: context.workspaceId,
+          userId: context.userId,
+          sessionId: context.sessionId,
+          timestamp: context.timestamp,
+          metadata: {
+            ...execution.metadata,
+            ...context.metadata,
+          },
+        };
+
         // Route to agent API
         const result = await this.agentAPI.invokeAgent({
           agent: action.agentId,
           query: action.input,
-          context: { ...context, ...action.context }
+          context: agentContext,
         });
 
         return {
@@ -452,10 +470,29 @@ export class ActionRouter {
       }
 
       try {
+        const execution = normalizeExecutionRequest('action-router', context.execution);
+        const executionWithStep: ExecutionRequest = {
+          ...execution,
+          metadata: {
+            ...execution.metadata,
+            ...context.metadata,
+          },
+          parameters: {
+            ...execution.parameters,
+            ...action.input,
+            stepId: action.stepId,
+            workflowId: action.workflowId,
+            workspaceId: context.workspaceId,
+            userId: context.userId,
+            sessionId: context.sessionId,
+            timestamp: context.timestamp,
+          },
+        };
+
         // Route to workflow orchestrator
         const result = await this.orchestrator.executeWorkflow(
           action.workflowId,
-          { ...action.input, ...context },
+          executionWithStep,
           context.userId
         );
 
