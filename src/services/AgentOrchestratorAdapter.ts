@@ -17,17 +17,19 @@
  */
 
 import { featureFlags } from '../config/featureFlags';
-import { 
-  UnifiedAgentOrchestrator, 
+import {
+  UnifiedAgentOrchestrator,
   getUnifiedOrchestrator,
-  StreamingUpdate, 
-  AgentResponse 
+  StreamingUpdate,
+  AgentResponse,
+  ExecutionEnvelope,
 } from './UnifiedAgentOrchestrator';
 import { AgentQueryService } from './AgentQueryService';
 import { getSupabaseClient } from '../lib/supabase';
 import { logger } from '../lib/logger';
 import { WorkflowState } from '../repositories/WorkflowStateRepository';
 import { v4 as uuidv4 } from 'uuid';
+import { ExecutionRequest, normalizeExecutionRequest } from '../types/execution';
 
 /**
  * Adapter class that provides backward compatibility for the unified orchestrator
@@ -37,6 +39,17 @@ class AgentOrchestratorAdapter {
   private queryService: AgentQueryService | null = null;
   private streamingCallbacks: Array<(update: StreamingUpdate) => void> = [];
   private currentState: WorkflowState | null = null;
+
+  private buildExecutionEnvelope(userId: string, context?: Record<string, any>): ExecutionEnvelope {
+    return {
+      intent: 'agent-orchestrator-adapter',
+      actor: { id: userId },
+      organizationId: context?.organizationId || 'unknown',
+      entryPoint: 'agent-orchestrator-adapter',
+      reason: 'adapter-request',
+      timestamps: { requestedAt: new Date().toISOString() },
+    };
+  }
 
   constructor() {
     // Always use unified orchestrator now
@@ -56,9 +69,13 @@ class AgentOrchestratorAdapter {
    */
   initializeWorkflow(
     initialStage: string,
-    context?: Record<string, any>
+    execution?: ExecutionRequest
   ): void {
-    this.currentState = this.unifiedOrchestrator.createInitialState(initialStage, context);
+    const normalizedExecution = normalizeExecutionRequest(
+      'agent-query',
+      execution || { intent: 'FullValueAnalysis', environment: 'production' }
+    );
+    this.currentState = this.unifiedOrchestrator.createInitialState(initialStage, normalizedExecution);
     logger.debug('Workflow initialized via unified orchestrator', { initialStage });
   }
 
@@ -71,7 +88,7 @@ class AgentOrchestratorAdapter {
     options?: {
       userId?: string;
       sessionId?: string;
-      context?: Record<string, any>;
+      context?: ExecutionRequest;
     }
   ): Promise<AgentResponse | null> {
     try {
@@ -79,22 +96,22 @@ class AgentOrchestratorAdapter {
       const sessionId = options?.sessionId || uuidv4();
       const traceId = uuidv4();
 
+      const normalizedExecution = normalizeExecutionRequest(
+        'agent-query',
+        options?.context || { intent: 'FullValueAnalysis', environment: 'production' }
+      );
+
       // Initialize state if not already done
       if (!this.currentState) {
         this.currentState = this.unifiedOrchestrator.createInitialState(
           'discovery',
-          options?.context || {}
+          normalizedExecution
         );
       }
 
       // Process query through unified orchestrator
-      const result = await this.unifiedOrchestrator.processQuery(
-        query,
-        this.currentState,
-        userId,
-        sessionId,
-        traceId
-      );
+      const envelope = this.buildExecutionEnvelope(userId, options?.context);
+      const result = await this.unifiedOrchestrator.processQuery(envelope, query, this.currentState, userId, sessionId, traceId);
 
       // Update internal state
       this.currentState = result.nextState;
@@ -183,7 +200,8 @@ class AgentOrchestratorAdapter {
     context: Record<string, any>,
     userId: string
   ) {
-    return this.unifiedOrchestrator.executeWorkflow(workflowDefinitionId, context, userId);
+    const envelope = this.buildExecutionEnvelope(userId, context);
+    return this.unifiedOrchestrator.executeWorkflow(envelope, workflowDefinitionId, context, userId);
   }
 
   /**
@@ -195,10 +213,11 @@ class AgentOrchestratorAdapter {
     query: string,
     context?: Parameters<UnifiedAgentOrchestrator['generateSDUIPage']>[2]
   ) {
-    const callback = this.streamingCallbacks.length > 0 
-      ? this.streamingCallbacks[0] 
+    const callback = this.streamingCallbacks.length > 0
+      ? this.streamingCallbacks[0]
       : undefined;
-    return this.unifiedOrchestrator.generateSDUIPage(agent, query, context, callback);
+    const envelope = this.buildExecutionEnvelope(context?.userId || 'anonymous', context);
+    return this.unifiedOrchestrator.generateSDUIPage(envelope, agent, query, context, callback);
   }
 
   /**

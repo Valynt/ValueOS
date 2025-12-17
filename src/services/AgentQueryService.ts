@@ -20,6 +20,7 @@ import { logger } from '../lib/logger';
 import { WorkflowStateRepository } from '../repositories/WorkflowStateRepository';
 import { getUnifiedOrchestrator, UnifiedAgentOrchestrator, AgentResponse } from './UnifiedAgentOrchestrator';
 import { sanitizeInput } from '../security/InputSanitizer';
+import { ExecutionRequest, normalizeExecutionRequest } from '../types/execution';
 
 export interface QueryResult {
   sessionId: string;
@@ -31,12 +32,12 @@ export interface QueryResult {
 export interface QueryOptions {
   /** Skip input sanitization (use with caution) */
   skipSanitization?: boolean;
-  
+
   /** Initial workflow stage for new sessions */
   initialStage?: string;
-  
-  /** Initial context for new sessions */
-  initialContext?: Record<string, any>;
+
+  /** Initial execution request for new sessions */
+  execution?: ExecutionRequest;
 }
 
 /**
@@ -109,11 +110,17 @@ export class AgentQueryService {
         }
       }
 
+      const executionRequest: ExecutionRequest = options.execution || {
+        intent: 'FullValueAnalysis',
+        environment: 'production',
+      };
+      const normalizedExecution = normalizeExecutionRequest('agent-query', executionRequest);
+
       if (!currentSessionId) {
         // Create new session
         const initialState = this.orchestrator.createInitialState(
           options.initialStage || 'discovery',
-          options.initialContext || {}
+          normalizedExecution
         );
 
         currentSessionId = await this.stateRepo.createSession(userId, initialState);
@@ -127,7 +134,16 @@ export class AgentQueryService {
       }
 
       // 3. Process query (stateless)
+      const envelope = {
+        intent: 'agent-query',
+        actor: { id: userId },
+        organizationId: options.initialContext?.organizationId || 'unknown',
+        entryPoint: 'agent-query-service',
+        reason: 'interactive-query',
+        timestamps: { requestedAt: new Date().toISOString() },
+      } as const;
       const result = await this.orchestrator.processQuery(
+        envelope,
         sanitizedQuery,
         currentState!,
         userId,

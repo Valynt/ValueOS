@@ -21,7 +21,7 @@ import { WorkflowState } from '../repositories/WorkflowStateRepository';
 import { getAgentAPI, AgentType, AgentContext, AgentResponse as APIAgentResponse } from './AgentAPI';
 import { SDUIPageDefinition } from '../sdui/schema';
 import { renderPage, RenderPageOptions } from '../sdui/renderPage';
-import { WorkflowDAG, WorkflowStage } from '../types/workflow';
+import { WorkflowDAG, WorkflowEvent, WorkflowStage } from '../types/workflow';
 import { AgentRegistry, AgentRecord } from './AgentRegistry';
 import { AgentRoutingLayer, StageRoute } from './AgentRoutingLayer';
 import { CircuitBreakerManager } from './CircuitBreaker';
@@ -30,6 +30,7 @@ import { getAutonomyConfig } from '../config/autonomy';
 import { MemorySystem } from '../lib/agent-fabric/MemorySystem';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import { llmConfig } from '../config/llm';
+import { z } from 'zod';
 
 // ============================================================================
 // Types
@@ -92,6 +93,29 @@ export interface SimulationResult {
   success_probability: number;
 }
 
+export interface ExecutionIntentActor {
+  id: string;
+  type?: string;
+  roles?: string[];
+}
+
+export interface ExecutionIntentTimestamps {
+  requestedAt: string;
+  approvedAt?: string;
+  expiresAt?: string;
+}
+
+export interface ExecutionIntent {
+  intent: string;
+  actor: ExecutionIntentActor;
+  organizationId: string;
+  entryPoint: string;
+  reason: string;
+  timestamps: ExecutionIntentTimestamps;
+}
+
+export interface ExecutionEnvelope extends ExecutionIntent {}
+
 export interface OrchestratorConfig {
   /** Enable workflow DAG execution */
   enableWorkflows: boolean;
@@ -115,6 +139,67 @@ const DEFAULT_CONFIG: OrchestratorConfig = {
   defaultTimeoutMs: 30000,
   maxRetryAttempts: 3,
 };
+
+const executionIntentSchema = z.object({
+  intent: z.string().min(1),
+  actor: z.object({
+    id: z.string().min(1),
+    type: z.string().optional(),
+    roles: z.array(z.string()).optional(),
+  }),
+  organizationId: z.string().min(1),
+  entryPoint: z.string().min(1),
+  reason: z.string().min(1),
+  timestamps: z.object({
+    requestedAt: z.string().min(1),
+    approvedAt: z.string().optional(),
+    expiresAt: z.string().optional(),
+  }),
+});
+
+const retryConfigSchema = z.object({
+  max_attempts: z.number().int().positive(),
+  initial_delay_ms: z.number().int().nonnegative(),
+  max_delay_ms: z.number().int().nonnegative(),
+  multiplier: z.number().positive(),
+  jitter: z.boolean(),
+});
+
+const workflowStageSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().optional(),
+    agent_type: z.string().min(1),
+    required_capabilities: z.array(z.string()).optional(),
+    timeout_seconds: z.number().int().nonnegative().optional(),
+    retry_config: retryConfigSchema.optional(),
+    compensation_handler: z.string().optional(),
+    description: z.string().optional(),
+  })
+  .passthrough();
+
+const workflowTransitionSchema = z
+  .object({
+    from_stage: z.string().min(1),
+    to_stage: z.string().min(1),
+    condition: z.string().optional(),
+  })
+  .passthrough();
+
+const workflowDAGSchema = z
+  .object({
+    id: z.string().optional(),
+    name: z.string().optional(),
+    description: z.string().optional(),
+    version: z.number().optional(),
+    stages: z.array(workflowStageSchema).nonempty(),
+    transitions: z.array(workflowTransitionSchema),
+    initial_stage: z.string().min(1),
+    final_stages: z.array(z.string().min(1)).nonempty(),
+    created_at: z.string().optional(),
+    updated_at: z.string().optional(),
+  })
+  .passthrough();
 
 // ============================================================================
 // Unified Agent Orchestrator
@@ -145,13 +230,69 @@ export class UnifiedAgentOrchestrator {
     this.memorySystem = new MemorySystem(supabase, this.llmGateway);
   }
 
+  private deriveFiscalQuarter(date: Date): string {
+    const quarter = Math.floor(date.getUTCMonth() / 3) + 1;
+    return `Q${quarter}`;
+  }
+
+  private buildExecutionRecord(
+    workflowDefinitionId: string,
+    workflowVersion: number,
+    context: Record<string, any>,
+    userId: string,
+    traceId: string
+  ): WorkflowExecutionRecord {
+    const persona = context.persona || context.buyer_persona?.role || context.role;
+    const industry = context.industry || context.companyProfile?.industry;
+    const fiscalQuarter =
+      context.fiscal_quarter ||
+      context.quarter ||
+      this.deriveFiscalQuarter(new Date());
+
+    return {
+      workflowDefinitionId,
+      workflowVersion,
+      persona,
+      industry,
+      fiscalQuarter,
+      intent: {
+        description: context.intent || context.goal || 'Workflow execution',
+        objective: context.objective,
+        successCriteria: context.successCriteria,
+        hypothesis: context.hypothesis,
+      },
+      entryPoint: {
+        trigger: context.entry_point || 'orchestrator',
+        requestedBy: userId,
+        sessionId: context.sessionId,
+        channel: context.channel,
+      },
+      lifecycle: [],
+      io: {
+        inputs: context.inputs || context,
+        assumptions: context.assumptions || [],
+        outputs: {},
+      },
+      economicDeltas: context.economic_deltas || [],
+      auditEnvelope: {
+        traceId,
+        userId,
+        createdAt: new Date().toISOString(),
+        approvals: context.approvals ? Object.keys(context.approvals) : [],
+        complianceTags: context.compliance_tags,
+        notes: context.audit_notes,
+      },
+      outputs: [],
+    };
+  }
+
   // ==========================================================================
   // Query Processing (from StatelessAgentOrchestrator)
   // ==========================================================================
 
   /**
    * Process a user query with given workflow state
-   * 
+   *
    * @param query User query
    * @param currentState Current workflow state
    * @param userId User identifier
@@ -160,12 +301,18 @@ export class UnifiedAgentOrchestrator {
    * @returns Result with response and next state
    */
   async processQuery(
+    envelope: ExecutionEnvelope,
     query: string,
     currentState: WorkflowState,
     userId: string,
     sessionId: string,
     traceId: string = uuidv4()
   ): Promise<ProcessQueryResult> {
+    this.validateExecutionIntent(envelope);
+
+    if (currentState.context?.organizationId && currentState.context.organizationId !== envelope.organizationId) {
+      throw new Error('Execution envelope organization does not match workflow state');
+    }
     logger.info('Processing query', {
       traceId,
       sessionId,
@@ -193,7 +340,7 @@ export class UnifiedAgentOrchestrator {
 
       // Build agent context
       const agentContext: AgentContext = {
-        userId,
+        userId: envelope.actor.id || userId,
         sessionId,
         conversationHistory: currentState.context.conversationHistory || [],
         companyProfile: currentState.context.companyProfile,
@@ -293,14 +440,19 @@ export class UnifiedAgentOrchestrator {
    */
   createInitialState(
     initialStage: string,
-    context: Record<string, any> = {}
+    execution: ExecutionRequest = { intent: 'FullValueAnalysis', environment: 'production' }
   ): WorkflowState {
+    const normalizedExecution = normalizeExecutionRequest('agent-query', execution);
+
     return {
       currentStage: initialStage,
       status: 'initiated',
       completedStages: [],
       context: {
-        ...context,
+        ...normalizedExecution.parameters,
+        intent: normalizedExecution.intent,
+        environment: normalizedExecution.environment,
+        metadata: normalizedExecution.metadata,
         conversationHistory: [],
       },
       metadata: {
@@ -342,10 +494,12 @@ export class UnifiedAgentOrchestrator {
    * Execute a workflow DAG
    */
   async executeWorkflow(
+    envelope: ExecutionEnvelope,
     workflowDefinitionId: string,
     context: Record<string, any> = {},
-    userId: string
+    userId?: string
   ): Promise<WorkflowExecutionResult> {
+    this.validateExecutionIntent(envelope);
     if (!this.config.enableWorkflows) {
       throw new Error('Workflow execution is disabled');
     }
@@ -370,18 +524,30 @@ export class UnifiedAgentOrchestrator {
         throw new Error(`Workflow definition not found: ${workflowDefinitionId}`);
       }
 
-      const dag: WorkflowDAG = definition.dag_schema as WorkflowDAG;
+      if (definition.organization_id && definition.organization_id !== envelope.organizationId) {
+        throw new Error('Workflow not authorized for this organization');
+      }
+
+      const dag = this.validateWorkflowDAG(definition.dag_schema);
+
+      const executionId = uuidv4();
+      const initialStageExecutionId = uuidv4();
 
       // Create execution record
       const { data: execution, error: execError } = await supabase
         .from('workflow_executions')
         .insert({
+          id: executionId,
           workflow_definition_id: workflowDefinitionId,
           workflow_version: definition.version,
           status: 'initiated',
           current_stage: dag.initial_stage,
-          context,
-          audit_context: { workflow: definition.name, version: definition.version, traceId },
+          context: {
+            ...context,
+            executionIntent: envelope,
+            currentStageExecutionId: initialStageExecutionId,
+          },
+          audit_context: { workflow: definition.name, version: definition.version, traceId, envelope },
           circuit_breaker_state: {}
         })
         .select()
@@ -391,8 +557,13 @@ export class UnifiedAgentOrchestrator {
         throw new Error('Failed to create workflow execution');
       }
 
+      await this.recordWorkflowEvent(executionId, 'workflow_initiated', dag.initial_stage, {
+        envelope,
+        stageExecutionId: initialStageExecutionId,
+      });
+
       // Execute DAG asynchronously
-      this.executeDAGAsync(execution.id, dag, context, traceId).catch(async (error) => {
+      this.executeDAGAsync(execution.id, dag, { ...context, executionIntent: envelope }, traceId).catch(async (error) => {
         await this.handleWorkflowFailure(execution.id, error.message);
       });
 
@@ -597,10 +768,12 @@ Provide a JSON response with:
     executionId: string,
     dag: WorkflowDAG,
     initialContext: Record<string, any>,
-    traceId: string
+    traceId: string,
+    executionRecord: WorkflowExecutionRecord
   ): Promise<void> {
     let currentStageId = dag.initial_stage;
     let executionContext = { ...initialContext };
+    let recordSnapshot: WorkflowExecutionRecord = { ...executionRecord, lifecycle: [...executionRecord.lifecycle], outputs: [...executionRecord.outputs] };
     const visitedStages = new Set<string>();
 
     while (currentStageId && !dag.final_stages.includes(currentStageId)) {
@@ -614,7 +787,9 @@ Provide a JSON response with:
       const stage = route.stage;
 
       // Update execution status
-      await this.updateExecutionStatus(executionId, 'in_progress', currentStageId);
+      await this.updateExecutionStatus(executionId, 'in_progress', currentStageId, recordSnapshot);
+
+      const stageStart = new Date();
 
       // Execute stage with retry
       const stageResult = await this.executeStageWithRetry(
@@ -635,13 +810,55 @@ Provide a JSON response with:
         ...stageResult.output,
       };
 
+      const stageCompleted = new Date();
+      const lifecycleRecord: StageLifecycleRecord = {
+        stageId: stage.id,
+        lifecycleStage: stage.agent_type,
+        status: 'completed',
+        startedAt: stageStart.toISOString(),
+        completedAt: stageCompleted.toISOString(),
+        summary: stage.description,
+      };
+
+      recordSnapshot = {
+        ...recordSnapshot,
+        lifecycle: [...recordSnapshot.lifecycle, lifecycleRecord],
+        outputs: [
+          ...recordSnapshot.outputs,
+          {
+            stageId: stage.id,
+            payload: stageResult.output || {},
+            completedAt: stageCompleted.toISOString(),
+          },
+        ],
+        io: {
+          ...recordSnapshot.io,
+          outputs: {
+            ...recordSnapshot.io.outputs,
+            [stage.id]: stageResult.output || {},
+          },
+        },
+        economicDeltas: stageResult.output?.economic_deltas || recordSnapshot.economicDeltas,
+      };
+
+      await this.recordStageRun(
+        executionId,
+        stage,
+        recordSnapshot,
+        stageStart,
+        stageCompleted,
+        stageResult.output
+      );
+
+      await this.persistExecutionRecord(executionId, recordSnapshot);
+
       // Move to next stage
       const nextTransition = dag.transitions.find(t => t.from_stage === currentStageId);
       if (!nextTransition) break;
       currentStageId = nextTransition.to_stage;
     }
 
-    await this.updateExecutionStatus(executionId, 'completed', null);
+    await this.updateExecutionStatus(executionId, 'completed', null, recordSnapshot);
   }
 
   /**
@@ -743,11 +960,13 @@ Provide a JSON response with:
    * Generate SDUI page using AgentAPI
    */
   async generateSDUIPage(
+    envelope: ExecutionEnvelope,
     agent: AgentType,
     query: string,
     context?: AgentContext,
     streamingCallback?: (update: StreamingUpdate) => void
   ): Promise<AgentResponse> {
+    this.validateExecutionIntent(envelope);
     if (!this.config.enableSDUI) {
       throw new Error('SDUI generation is disabled');
     }
@@ -812,6 +1031,7 @@ Provide a JSON response with:
    * Generate and render SDUI page
    */
   async generateAndRenderPage(
+    envelope: ExecutionEnvelope,
     agent: AgentType,
     query: string,
     context?: AgentContext,
@@ -820,7 +1040,7 @@ Provide a JSON response with:
     response: AgentResponse;
     rendered: ReturnType<typeof renderPage>;
   }> {
-    const response = await this.generateSDUIPage(agent, query, context);
+    const response = await this.generateSDUIPage(envelope, agent, query, context);
 
     if (response.sduiPage) {
       const rendered = renderPage(response.sduiPage, renderOptions);
@@ -1056,6 +1276,76 @@ Provide a JSON response with:
   // Helper Methods
   // ==========================================================================
 
+  private validateExecutionIntent(envelope: ExecutionEnvelope): ExecutionEnvelope {
+    const parsed = executionIntentSchema.safeParse(envelope);
+    if (!parsed.success) {
+      throw new Error(`Invalid execution envelope: ${parsed.error.message}`);
+    }
+    return parsed.data;
+  }
+
+  private validateWorkflowDAG(rawDag: unknown): WorkflowDAG {
+    const parsed = workflowDAGSchema.safeParse(rawDag);
+    if (!parsed.success) {
+      throw new Error(`Invalid workflow DAG schema: ${parsed.error.message}`);
+    }
+
+    const stageIds = new Set(parsed.data.stages.map((stage) => stage.id));
+    if (!stageIds.has(parsed.data.initial_stage)) {
+      throw new Error('Workflow DAG initial_stage must reference an existing stage');
+    }
+
+    const missingFinals = parsed.data.final_stages.filter((stage) => !stageIds.has(stage));
+    if (missingFinals.length > 0) {
+      throw new Error(`Workflow DAG final_stages reference missing stages: ${missingFinals.join(', ')}`);
+    }
+
+    const invalidTransitions = parsed.data.transitions.filter(
+      (transition) => !stageIds.has(transition.from_stage) || !stageIds.has(transition.to_stage)
+    );
+    if (invalidTransitions.length > 0) {
+      throw new Error('Workflow DAG transitions reference missing stages');
+    }
+
+    return parsed.data as WorkflowDAG;
+  }
+
+  private async getNextEventSequence(executionId: string): Promise<number> {
+    const { data, error } = await supabase
+      .from('workflow_events')
+      .select('sequence')
+      .eq('execution_id', executionId)
+      .order('sequence', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      throw new Error(`Failed to fetch workflow event sequence: ${error.message}`);
+    }
+
+    const lastSequence = data?.[0]?.sequence ?? 0;
+    return lastSequence + 1;
+  }
+
+  private async recordWorkflowEvent(
+    executionId: string,
+    eventType: WorkflowEvent['event_type'] | 'workflow_initiated',
+    stageId: string | null,
+    metadata: Record<string, any>
+  ): Promise<void> {
+    const sequence = await this.getNextEventSequence(executionId);
+    const { error } = await supabase.from('workflow_events').insert({
+      execution_id: executionId,
+      event_type: eventType,
+      stage_id: stageId,
+      metadata,
+      sequence,
+    });
+
+    if (error) {
+      throw new Error(`Failed to record workflow event: ${error.message}`);
+    }
+  }
+
   private calculateRetryDelay(
     attempt: number,
     initialDelay: number,
@@ -1152,16 +1442,60 @@ Provide a JSON response with:
     logger.debug('Autonomy guardrails passed', { executionId, stageId });
   }
 
+  private async persistExecutionRecord(
+    executionId: string,
+    executionRecord: WorkflowExecutionRecord
+  ): Promise<void> {
+    await supabase
+      .from('workflow_executions')
+      .update({ execution_record: executionRecord })
+      .eq('id', executionId);
+  }
+
+  private async recordStageRun(
+    executionId: string,
+    stage: WorkflowStage,
+    executionRecord: WorkflowExecutionRecord,
+    startedAt: Date,
+    completedAt: Date,
+    output?: Record<string, any>
+  ): Promise<void> {
+    await supabase.from('workflow_stage_runs').insert({
+      execution_id: executionId,
+      stage_id: stage.id,
+      stage_name: stage.name || stage.id,
+      lifecycle_stage: stage.agent_type,
+      status: 'completed',
+      inputs: executionRecord.io.inputs,
+      assumptions: executionRecord.io.assumptions,
+      outputs: output || {},
+      economic_deltas: output?.economic_deltas || executionRecord.economicDeltas,
+      persona: executionRecord.persona,
+      industry: executionRecord.industry,
+      fiscal_quarter: executionRecord.fiscalQuarter,
+      started_at: startedAt.toISOString(),
+      completed_at: completedAt.toISOString(),
+    });
+  }
+
   private async updateExecutionStatus(
     executionId: string,
     status: WorkflowStatus,
-    currentStage: string | null
+    currentStage: string | null,
+    executionRecord?: WorkflowExecutionRecord
   ): Promise<void> {
     const update: any = {
       status,
       current_stage: currentStage,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     };
+
+    if (executionRecord) {
+      update.execution_record = executionRecord;
+      update.persona = executionRecord.persona;
+      update.industry = executionRecord.industry;
+      update.fiscal_quarter = executionRecord.fiscalQuarter;
+    }
 
     if (status === 'completed' || status === 'failed' || status === 'rolled_back') {
       update.completed_at = new Date().toISOString();
