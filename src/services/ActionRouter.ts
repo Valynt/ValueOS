@@ -470,29 +470,19 @@ export class ActionRouter {
       }
 
       try {
-        const execution = normalizeExecutionRequest('action-router', context.execution);
-        const executionWithStep: ExecutionRequest = {
-          ...execution,
-          metadata: {
-            ...execution.metadata,
-            ...context.metadata,
-          },
-          parameters: {
-            ...execution.parameters,
-            ...action.input,
-            stepId: action.stepId,
-            workflowId: action.workflowId,
-            workspaceId: context.workspaceId,
-            userId: context.userId,
-            sessionId: context.sessionId,
-            timestamp: context.timestamp,
-          },
-        };
-
         // Route to workflow orchestrator
+        const envelope = {
+          intent: 'run-workflow-step',
+          actor: { id: context.userId },
+          organizationId: context.organizationId || 'unknown',
+          entryPoint: 'action-router',
+          reason: action.reason || 'workflow-step',
+          timestamps: { requestedAt: new Date().toISOString() },
+        } as const;
         const result = await this.orchestrator.executeWorkflow(
+          envelope,
           action.workflowId,
-          executionWithStep,
+          { ...action.input, ...context },
           context.userId
         );
 

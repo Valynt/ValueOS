@@ -17,11 +17,12 @@
  */
 
 import { featureFlags } from '../config/featureFlags';
-import { 
-  UnifiedAgentOrchestrator, 
+import {
+  UnifiedAgentOrchestrator,
   getUnifiedOrchestrator,
-  StreamingUpdate, 
-  AgentResponse 
+  StreamingUpdate,
+  AgentResponse,
+  ExecutionEnvelope,
 } from './UnifiedAgentOrchestrator';
 import { AgentQueryService } from './AgentQueryService';
 import { getSupabaseClient } from '../lib/supabase';
@@ -38,6 +39,17 @@ class AgentOrchestratorAdapter {
   private queryService: AgentQueryService | null = null;
   private streamingCallbacks: Array<(update: StreamingUpdate) => void> = [];
   private currentState: WorkflowState | null = null;
+
+  private buildExecutionEnvelope(userId: string, context?: Record<string, any>): ExecutionEnvelope {
+    return {
+      intent: 'agent-orchestrator-adapter',
+      actor: { id: userId },
+      organizationId: context?.organizationId || 'unknown',
+      entryPoint: 'agent-orchestrator-adapter',
+      reason: 'adapter-request',
+      timestamps: { requestedAt: new Date().toISOString() },
+    };
+  }
 
   constructor() {
     // Always use unified orchestrator now
@@ -98,13 +110,8 @@ class AgentOrchestratorAdapter {
       }
 
       // Process query through unified orchestrator
-      const result = await this.unifiedOrchestrator.processQuery(
-        query,
-        this.currentState,
-        userId,
-        sessionId,
-        traceId
-      );
+      const envelope = this.buildExecutionEnvelope(userId, options?.context);
+      const result = await this.unifiedOrchestrator.processQuery(envelope, query, this.currentState, userId, sessionId, traceId);
 
       // Update internal state
       this.currentState = result.nextState;
@@ -193,7 +200,8 @@ class AgentOrchestratorAdapter {
     context: Record<string, any>,
     userId: string
   ) {
-    return this.unifiedOrchestrator.executeWorkflow(workflowDefinitionId, context, userId);
+    const envelope = this.buildExecutionEnvelope(userId, context);
+    return this.unifiedOrchestrator.executeWorkflow(envelope, workflowDefinitionId, context, userId);
   }
 
   /**
@@ -205,10 +213,11 @@ class AgentOrchestratorAdapter {
     query: string,
     context?: Parameters<UnifiedAgentOrchestrator['generateSDUIPage']>[2]
   ) {
-    const callback = this.streamingCallbacks.length > 0 
-      ? this.streamingCallbacks[0] 
+    const callback = this.streamingCallbacks.length > 0
+      ? this.streamingCallbacks[0]
       : undefined;
-    return this.unifiedOrchestrator.generateSDUIPage(agent, query, context, callback);
+    const envelope = this.buildExecutionEnvelope(context?.userId || 'anonymous', context);
+    return this.unifiedOrchestrator.generateSDUIPage(envelope, agent, query, context, callback);
   }
 
   /**

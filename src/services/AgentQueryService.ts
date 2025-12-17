@@ -134,7 +134,16 @@ export class AgentQueryService {
       }
 
       // 3. Process query (stateless)
+      const envelope = {
+        intent: 'agent-query',
+        actor: { id: userId },
+        organizationId: options.initialContext?.organizationId || 'unknown',
+        entryPoint: 'agent-query-service',
+        reason: 'interactive-query',
+        timestamps: { requestedAt: new Date().toISOString() },
+      } as const;
       const result = await this.orchestrator.processQuery(
+        envelope,
         sanitizedQuery,
         currentState!,
         userId,

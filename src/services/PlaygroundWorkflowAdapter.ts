@@ -49,27 +49,29 @@ export class PlaygroundWorkflowAdapter {
     userId: string,
     organizationId: string,
     initialLayout: SDUIPageDefinition,
-    execution: ExecutionRequest
+    context: Record<string, any> = {}
   ): Promise<{
     sessionId: string;
     workflowExecutionId: string;
   }> {
-    const normalizedExecution = normalizeExecutionRequest('playground', execution);
-    const executionParameters = {
-      ...normalizedExecution.parameters,
-      mode: 'draft',
-      userId,
+    const envelope = {
+      intent: 'playground-workflow-start',
+      actor: { id: userId },
       organizationId,
-    };
-
+      entryPoint: 'playground',
+      reason: 'draft-session',
+      timestamps: { requestedAt: new Date().toISOString() },
+    } as const;
     // Start workflow execution (writes to database)
     const workflowExecutionId = await this.orchestrator.executeWorkflow(
+      envelope,
       workflowDefinitionId,
       {
-        ...normalizedExecution,
-        parameters: executionParameters,
-      },
-      userId
+        ...context,
+        mode: 'draft',
+        userId,
+        organizationId,
+      }
     );
 
     // Create playground session (Redis)
@@ -79,13 +81,8 @@ export class PlaygroundWorkflowAdapter {
       initialLayout,
       workflowExecutionId,
       context: {
-        execution: {
-          ...normalizedExecution,
-          parameters: {
-            ...executionParameters,
-            workflowDefinitionId,
-          },
-        },
+        ...context,
+        workflowDefinitionId,
       },
     });
 
