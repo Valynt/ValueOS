@@ -67,9 +67,41 @@ CREATE TABLE IF NOT EXISTS workflow_executions (
   workflow_id TEXT NOT NULL,
   status TEXT DEFAULT 'pending',
   result JSONB,
+  persona TEXT,
+  industry TEXT,
+  fiscal_quarter TEXT,
+  execution_record JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS idx_test_workflow_executions_persona ON workflow_executions(persona);
+CREATE INDEX IF NOT EXISTS idx_test_workflow_executions_industry ON workflow_executions(industry);
+CREATE INDEX IF NOT EXISTS idx_test_workflow_executions_quarter ON workflow_executions(fiscal_quarter);
+
+CREATE TABLE IF NOT EXISTS workflow_stage_runs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  execution_id UUID REFERENCES workflow_executions(id) ON DELETE CASCADE,
+  stage_id TEXT NOT NULL,
+  stage_name TEXT,
+  lifecycle_stage TEXT,
+  status TEXT,
+  inputs JSONB DEFAULT '{}'::jsonb,
+  assumptions JSONB DEFAULT '[]'::jsonb,
+  outputs JSONB DEFAULT '{}'::jsonb,
+  economic_deltas JSONB DEFAULT '[]'::jsonb,
+  persona TEXT,
+  industry TEXT,
+  fiscal_quarter TEXT,
+  started_at TIMESTAMPTZ DEFAULT NOW(),
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_test_stage_runs_execution ON workflow_stage_runs(execution_id);
+CREATE INDEX IF NOT EXISTS idx_test_stage_runs_persona ON workflow_stage_runs(persona);
+CREATE INDEX IF NOT EXISTS idx_test_stage_runs_industry ON workflow_stage_runs(industry);
+CREATE INDEX IF NOT EXISTS idx_test_stage_runs_quarter ON workflow_stage_runs(fiscal_quarter);
 
 -- Canvas Data
 CREATE TABLE IF NOT EXISTS canvas_data (
@@ -118,6 +150,7 @@ INSERT INTO health_check (status) VALUES ('healthy') ON CONFLICT DO NOTHING;
 ALTER TABLE agent_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_predictions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workflow_executions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE workflow_stage_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE canvas_data ENABLE ROW LEVEL SECURITY;
 ALTER TABLE value_trees ENABLE ROW LEVEL SECURITY;
 ALTER TABLE security_audit_log ENABLE ROW LEVEL SECURITY;
@@ -163,6 +196,12 @@ CREATE POLICY "test_tenant_isolation_select" ON workflow_executions
     tenant_id = (auth.jwt() ->> 'organization_id')::UUID
     OR auth.role() = 'service_role'
   );
+
+-- Workflow Stage Runs Policies (test harness only)
+CREATE POLICY "test_allow_stage_runs_all" ON workflow_stage_runs
+  FOR ALL
+  USING (true)
+  WITH CHECK (true);
 
 -- Canvas Data Policies
 CREATE POLICY "test_tenant_isolation_select" ON canvas_data

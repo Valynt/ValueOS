@@ -36,6 +36,7 @@ vi.mock('../../lib/supabase', () => {
         }
 
         return {
+          insert: () => Promise.resolve({ data: null, error: null }),
           select: () => ({ eq: () => ({}) }),
         };
       },
@@ -93,7 +94,7 @@ describe('UnifiedAgentOrchestrator.executeWorkflow', () => {
         };
       }
 
-      return { select: () => ({}) };
+      return { insert: vi.fn(), select: () => ({}) };
     };
 
     const orchestrator = new UnifiedAgentOrchestrator();
