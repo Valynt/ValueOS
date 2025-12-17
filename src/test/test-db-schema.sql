@@ -64,15 +64,22 @@ CREATE TABLE IF NOT EXISTS agent_predictions (
 CREATE TABLE IF NOT EXISTS workflow_executions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL,
-  workflow_id TEXT NOT NULL,
+  workflow_definition_id TEXT NOT NULL,
+  workflow_version INTEGER,
   status TEXT DEFAULT 'pending',
+  current_stage TEXT,
+  context JSONB DEFAULT '{}'::jsonb,
+  audit_context JSONB DEFAULT '{}'::jsonb,
+  circuit_breaker_state JSONB DEFAULT '{}'::jsonb,
   result JSONB,
   persona TEXT,
   industry TEXT,
   fiscal_quarter TEXT,
   execution_record JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  completed_at TIMESTAMPTZ
+);
 );
 
 CREATE INDEX IF NOT EXISTS idx_test_workflow_executions_persona ON workflow_executions(persona);
