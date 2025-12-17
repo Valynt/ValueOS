@@ -11,6 +11,7 @@ import { isProduction, isDevelopment } from "./config/environment";
 import { startConsoleCapture } from "./utils/consoleRecorder";
 import { analyticsClient } from "./lib/analyticsClient";
 import { initHMRFallback } from "./lib/vite-hmr-fallback";
+import * as ClientRateLimit from "./services/ClientRateLimit";
 
 /**
  * Application entry point with production-ready bootstrap
@@ -26,8 +27,8 @@ async function main() {
   rootElement.innerHTML = `
     <div class="vc-loading-root">
       <div class="vc-loading-inner">
-        <div class="vc-loading-title">ValueCanvas</div>
-        <div class="vc-loading-subtitle">Initializing application...</div>
+        <div class="vc-loading-title">VALYNT</div>
+        <div class="vc-loading-subtitle">Initializing the value operating system...</div>
         <div class="vc-loading-bar" aria-hidden="true">
           <div class="vc-loading-fill"></div>
         </div>
@@ -36,8 +37,8 @@ async function main() {
   `;
 
   try {
-    // Initialize rate limiting
-    setupDefaultRateLimits();
+    // Initialize rate limiting (use namespace to avoid ESLint no-undef false-positive)
+    ClientRateLimit.setupDefaultRateLimits?.();
 
     // Initialize HMR fallback for reliable development experience
     if (isDevelopment()) {
@@ -75,9 +76,9 @@ async function main() {
             <div class="vc-error-title">Application Initialization Failed</div>
             <div class="vc-error-message">The application could not be initialized. Please contact support if this problem persists.</div>
             <div class="vc-error-details">
-              <summary style="font-weight:600;">Error Details</summary>
-              <ul style="margin: 0; padding-left: 20px;">
-                ${result.errors.map((error) => `<li style="margin: 4px 0;">${error}</li>`).join("")}
+              <div class="vc-error-summary">Error Details</div>
+              <ul class="vc-error-list">
+                ${result.errors.map((error) => `<li class="vc-error-list-item">${error}</li>`).join("")}
               </ul>
             </div>
           </div>
@@ -121,8 +122,8 @@ async function main() {
             isDevelopment()
               ? `
             <div class="vc-error-details">
-              <summary style="font-weight:600;">Stack Trace</summary>
-              <pre style="margin: 0; white-space: pre-wrap; word-break: break-word;">${error instanceof Error ? error.stack : ""}</pre>
+              <div class="vc-error-summary">Stack Trace</div>
+              <pre class="vc-error-stack">${error instanceof Error ? error.stack : ""}</pre>
             </div>
           `
               : ""
