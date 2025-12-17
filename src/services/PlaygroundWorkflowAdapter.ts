@@ -13,6 +13,7 @@ import { PlaygroundAutoSaveWorker, getAutoSaveWorker } from './PlaygroundAutoSav
 import { SDUIPageDefinition } from '../sdui/schema';
 import { AtomicUIAction } from '../sdui/AtomicUIActions';
 import { ComponentMutationService } from './ComponentMutationService';
+import { ExecutionRequest, normalizeExecutionRequest } from '../types/execution';
 
 /**
  * Workflow execution mode
