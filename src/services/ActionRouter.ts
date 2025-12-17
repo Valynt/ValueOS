@@ -453,7 +453,16 @@ export class ActionRouter {
 
       try {
         // Route to workflow orchestrator
+        const envelope = {
+          intent: 'run-workflow-step',
+          actor: { id: context.userId },
+          organizationId: context.organizationId || 'unknown',
+          entryPoint: 'action-router',
+          reason: action.reason || 'workflow-step',
+          timestamps: { requestedAt: new Date().toISOString() },
+        } as const;
         const result = await this.orchestrator.executeWorkflow(
+          envelope,
           action.workflowId,
           { ...action.input, ...context },
           context.userId
