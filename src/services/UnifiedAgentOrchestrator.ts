@@ -718,7 +718,7 @@ Provide a JSON response with:
         status: 'completed',
         startedAt: stageStart.toISOString(),
         completedAt: stageCompleted.toISOString(),
-        summary: stage.description,
+        summary: stage.name,
       };
 
       recordSnapshot = {
