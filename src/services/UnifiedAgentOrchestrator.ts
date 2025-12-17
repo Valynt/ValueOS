@@ -18,11 +18,11 @@ import { logger } from '../lib/logger';
 import { v4 as uuidv4 } from 'uuid';
 import { WorkflowStatus } from '../types';
 import { WorkflowState } from '../repositories/WorkflowStateRepository';
-import { getAgentAPI, AgentType, AgentContext, AgentResponse as APIAgentResponse } from './AgentAPI';
+import { AgentContext, AgentType, AgentResponse as APIAgentResponse, getAgentAPI } from './AgentAPI';
 import { SDUIPageDefinition } from '../sdui/schema';
 import { renderPage, RenderPageOptions } from '../sdui/renderPage';
 import { WorkflowDAG, WorkflowStage } from '../types/workflow';
-import { AgentRegistry, AgentRecord } from './AgentRegistry';
+import { AgentRecord, AgentRegistry } from './AgentRegistry';
 import { AgentRoutingLayer, StageRoute } from './AgentRoutingLayer';
 import { CircuitBreakerManager } from './CircuitBreaker';
 import { supabase } from '../lib/supabase';
@@ -30,6 +30,7 @@ import { getAutonomyConfig } from '../config/autonomy';
 import { MemorySystem } from '../lib/agent-fabric/MemorySystem';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import { llmConfig } from '../config/llm';
+import { StageLifecycleRecord, WorkflowExecutionRecord } from '../types/workflowExecution';
 
 // ============================================================================
 // Types
@@ -143,6 +144,62 @@ export class UnifiedAgentOrchestrator {
     this.circuitBreakers = new CircuitBreakerManager();
     this.llmGateway = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
     this.memorySystem = new MemorySystem(supabase, this.llmGateway);
+  }
+
+  private deriveFiscalQuarter(date: Date): string {
+    const quarter = Math.floor(date.getUTCMonth() / 3) + 1;
+    return `Q${quarter}`;
+  }
+
+  private buildExecutionRecord(
+    workflowDefinitionId: string,
+    workflowVersion: number,
+    context: Record<string, any>,
+    userId: string,
+    traceId: string
+  ): WorkflowExecutionRecord {
+    const persona = context.persona || context.buyer_persona?.role || context.role;
+    const industry = context.industry || context.companyProfile?.industry;
+    const fiscalQuarter =
+      context.fiscal_quarter ||
+      context.quarter ||
+      this.deriveFiscalQuarter(new Date());
+
+    return {
+      workflowDefinitionId,
+      workflowVersion,
+      persona,
+      industry,
+      fiscalQuarter,
+      intent: {
+        description: context.intent || context.goal || 'Workflow execution',
+        objective: context.objective,
+        successCriteria: context.successCriteria,
+        hypothesis: context.hypothesis,
+      },
+      entryPoint: {
+        trigger: context.entry_point || 'orchestrator',
+        requestedBy: userId,
+        sessionId: context.sessionId,
+        channel: context.channel,
+      },
+      lifecycle: [],
+      io: {
+        inputs: context.inputs || context,
+        assumptions: context.assumptions || [],
+        outputs: {},
+      },
+      economicDeltas: context.economic_deltas || [],
+      auditEnvelope: {
+        traceId,
+        userId,
+        createdAt: new Date().toISOString(),
+        approvals: context.approvals ? Object.keys(context.approvals) : [],
+        complianceTags: context.compliance_tags,
+        notes: context.audit_notes,
+      },
+      outputs: [],
+    };
   }
 
   // ==========================================================================
@@ -372,17 +429,32 @@ export class UnifiedAgentOrchestrator {
 
       const dag: WorkflowDAG = definition.dag_schema as WorkflowDAG;
 
+      const executionId = uuidv4();
+      const executionRecord = this.buildExecutionRecord(
+        workflowDefinitionId,
+        definition.version,
+        context,
+        userId,
+        traceId
+      );
+      executionRecord.id = executionId;
+
       // Create execution record
       const { data: execution, error: execError } = await supabase
         .from('workflow_executions')
         .insert({
+          id: executionId,
           workflow_definition_id: workflowDefinitionId,
           workflow_version: definition.version,
           status: 'initiated',
           current_stage: dag.initial_stage,
           context,
           audit_context: { workflow: definition.name, version: definition.version, traceId },
-          circuit_breaker_state: {}
+          circuit_breaker_state: {},
+          persona: executionRecord.persona,
+          industry: executionRecord.industry,
+          fiscal_quarter: executionRecord.fiscalQuarter,
+          execution_record: executionRecord,
         })
         .select()
         .single();
@@ -392,7 +464,7 @@ export class UnifiedAgentOrchestrator {
       }
 
       // Execute DAG asynchronously
-      this.executeDAGAsync(execution.id, dag, context, traceId).catch(async (error) => {
+      this.executeDAGAsync(execution.id, dag, context, traceId, executionRecord).catch(async (error) => {
         await this.handleWorkflowFailure(execution.id, error.message);
       });
 
@@ -597,10 +669,12 @@ Provide a JSON response with:
     executionId: string,
     dag: WorkflowDAG,
     initialContext: Record<string, any>,
-    traceId: string
+    traceId: string,
+    executionRecord: WorkflowExecutionRecord
   ): Promise<void> {
     let currentStageId = dag.initial_stage;
     let executionContext = { ...initialContext };
+    let recordSnapshot: WorkflowExecutionRecord = { ...executionRecord, lifecycle: [...executionRecord.lifecycle], outputs: [...executionRecord.outputs] };
     const visitedStages = new Set<string>();
 
     while (currentStageId && !dag.final_stages.includes(currentStageId)) {
@@ -614,7 +688,9 @@ Provide a JSON response with:
       const stage = route.stage;
 
       // Update execution status
-      await this.updateExecutionStatus(executionId, 'in_progress', currentStageId);
+      await this.updateExecutionStatus(executionId, 'in_progress', currentStageId, recordSnapshot);
+
+      const stageStart = new Date();
 
       // Execute stage with retry
       const stageResult = await this.executeStageWithRetry(
@@ -635,13 +711,55 @@ Provide a JSON response with:
         ...stageResult.output,
       };
 
+      const stageCompleted = new Date();
+      const lifecycleRecord: StageLifecycleRecord = {
+        stageId: stage.id,
+        lifecycleStage: stage.agent_type,
+        status: 'completed',
+        startedAt: stageStart.toISOString(),
+        completedAt: stageCompleted.toISOString(),
+        summary: stage.description,
+      };
+
+      recordSnapshot = {
+        ...recordSnapshot,
+        lifecycle: [...recordSnapshot.lifecycle, lifecycleRecord],
+        outputs: [
+          ...recordSnapshot.outputs,
+          {
+            stageId: stage.id,
+            payload: stageResult.output || {},
+            completedAt: stageCompleted.toISOString(),
+          },
+        ],
+        io: {
+          ...recordSnapshot.io,
+          outputs: {
+            ...recordSnapshot.io.outputs,
+            [stage.id]: stageResult.output || {},
+          },
+        },
+        economicDeltas: stageResult.output?.economic_deltas || recordSnapshot.economicDeltas,
+      };
+
+      await this.recordStageRun(
+        executionId,
+        stage,
+        recordSnapshot,
+        stageStart,
+        stageCompleted,
+        stageResult.output
+      );
+
+      await this.persistExecutionRecord(executionId, recordSnapshot);
+
       // Move to next stage
       const nextTransition = dag.transitions.find(t => t.from_stage === currentStageId);
       if (!nextTransition) break;
       currentStageId = nextTransition.to_stage;
     }
 
-    await this.updateExecutionStatus(executionId, 'completed', null);
+    await this.updateExecutionStatus(executionId, 'completed', null, recordSnapshot);
   }
 
   /**
@@ -1152,16 +1270,60 @@ Provide a JSON response with:
     logger.debug('Autonomy guardrails passed', { executionId, stageId });
   }
 
+  private async persistExecutionRecord(
+    executionId: string,
+    executionRecord: WorkflowExecutionRecord
+  ): Promise<void> {
+    await supabase
+      .from('workflow_executions')
+      .update({ execution_record: executionRecord })
+      .eq('id', executionId);
+  }
+
+  private async recordStageRun(
+    executionId: string,
+    stage: WorkflowStage,
+    executionRecord: WorkflowExecutionRecord,
+    startedAt: Date,
+    completedAt: Date,
+    output?: Record<string, any>
+  ): Promise<void> {
+    await supabase.from('workflow_stage_runs').insert({
+      execution_id: executionId,
+      stage_id: stage.id,
+      stage_name: stage.name || stage.id,
+      lifecycle_stage: stage.agent_type,
+      status: 'completed',
+      inputs: executionRecord.io.inputs,
+      assumptions: executionRecord.io.assumptions,
+      outputs: output || {},
+      economic_deltas: output?.economic_deltas || executionRecord.economicDeltas,
+      persona: executionRecord.persona,
+      industry: executionRecord.industry,
+      fiscal_quarter: executionRecord.fiscalQuarter,
+      started_at: startedAt.toISOString(),
+      completed_at: completedAt.toISOString(),
+    });
+  }
+
   private async updateExecutionStatus(
     executionId: string,
     status: WorkflowStatus,
-    currentStage: string | null
+    currentStage: string | null,
+    executionRecord?: WorkflowExecutionRecord
   ): Promise<void> {
     const update: any = {
       status,
       current_stage: currentStage,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     };
+
+    if (executionRecord) {
+      update.execution_record = executionRecord;
+      update.persona = executionRecord.persona;
+      update.industry = executionRecord.industry;
+      update.fiscal_quarter = executionRecord.fiscalQuarter;
+    }
 
     if (status === 'completed' || status === 'failed' || status === 'rolled_back') {
       update.completed_at = new Date().toISOString();
