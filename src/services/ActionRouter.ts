@@ -15,6 +15,7 @@ import {
   ManifestoViolation,
   ActionHandler,
 } from '../types/sdui-integration';
+import { ExecutionRequest, normalizeExecutionRequest } from '../types/execution';
 import { AuditLogService } from './AuditLogService';
 import { getUnifiedOrchestrator, UnifiedAgentOrchestrator } from './UnifiedAgentOrchestrator';
 import { getAgentAPI, AgentAPI } from './AgentAPI';
@@ -183,6 +184,7 @@ export class ActionRouter {
       case 'invokeAgent':
         if (!action.agentId) errors.push('agentId is required');
         if (!action.input) errors.push('input is required');
+        // execution can come from action or context
         break;
 
       case 'runWorkflowStep':
@@ -426,11 +428,27 @@ export class ActionRouter {
       }
 
       try {
+        const execution = normalizeExecutionRequest('action-router', action.execution || context.execution);
+        const agentContext = {
+          ...execution.parameters,
+          ...action.payload,
+          intent: execution.intent,
+          environment: execution.environment,
+          workspaceId: context.workspaceId,
+          userId: context.userId,
+          sessionId: context.sessionId,
+          timestamp: context.timestamp,
+          metadata: {
+            ...execution.metadata,
+            ...context.metadata,
+          },
+        };
+
         // Route to agent API
         const result = await this.agentAPI.invokeAgent({
           agent: action.agentId,
           query: action.input,
-          context: { ...context, ...action.context }
+          context: agentContext,
         });
 
         return {
@@ -453,7 +471,16 @@ export class ActionRouter {
 
       try {
         // Route to workflow orchestrator
+        const envelope = {
+          intent: 'run-workflow-step',
+          actor: { id: context.userId },
+          organizationId: context.organizationId || 'unknown',
+          entryPoint: 'action-router',
+          reason: action.reason || 'workflow-step',
+          timestamps: { requestedAt: new Date().toISOString() },
+        } as const;
         const result = await this.orchestrator.executeWorkflow(
+          envelope,
           action.workflowId,
           { ...action.input, ...context },
           context.userId

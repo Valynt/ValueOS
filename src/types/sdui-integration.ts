@@ -5,6 +5,7 @@
 import { SDUIPageDefinition } from '../sdui/schema';
 import { LifecycleStage } from './workflow';
 import { AtomicUIAction, ActionResult as AtomicActionResult } from '../sdui/AtomicUIActions';
+import { ExecutionRequest } from './execution';
 
 /**
  * Workspace context for schema generation
@@ -21,7 +22,7 @@ export interface WorkspaceContext {
  * Canonical action types for UI interactions
  */
 export type CanonicalAction =
-  | { type: 'invokeAgent'; agentId: string; input: any; context: any }
+  | { type: 'invokeAgent'; agentId: string; input: any; execution: ExecutionRequest; payload?: Record<string, unknown> }
   | { type: 'runWorkflowStep'; workflowId: string; stepId: string; input: any }
   | { type: 'updateValueTree'; treeId: string; updates: any }
   | { type: 'updateAssumption'; assumptionId: string; updates: any }
@@ -40,6 +41,7 @@ export interface ActionContext {
   userId: string;
   sessionId?: string;
   timestamp: number;
+  execution: ExecutionRequest;
   metadata?: Record<string, any>;
 }
 
