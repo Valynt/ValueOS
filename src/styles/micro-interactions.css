@@ -1,15 +1,10 @@
 /**
- * Micro-Interactions & Animations
- * Subtle animations that enhance UX without being distracting
+ * VALYNT micro-interactions & motion utilities
+ * Uses semantic tokens, dark-first surfaces, and approved timings.
  */
 
-/* ============================================================================
- * Hover Transitions
- * ============================================================================ */
-
-/* Scale on hover - for cards and clickable items */
 .hover-scale {
-  transition: transform 0.2s ease-out;
+  transition: transform var(--motion-standard) ease-out;
 }
 
 .hover-scale:hover {
@@ -20,37 +15,34 @@
   transform: scale(0.98);
 }
 
-/* Lift on hover - elevation effect */
 .hover-lift {
-  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+  transition:
+    transform var(--motion-standard) ease-out,
+    background-color var(--motion-standard) ease-out,
+    border-color var(--motion-standard) ease-out;
 }
 
 .hover-lift:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1),
-              0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  transform: translateY(calc(var(--spacing-1) / -4));
+  background: hsl(var(--card));
+  border-color: hsl(var(--border));
 }
 
 .hover-lift:active {
   transform: translateY(0);
 }
 
-/* Glow on hover - for buttons */
 .hover-glow {
-  transition: box-shadow 0.2s ease-out;
+  transition: box-shadow var(--motion-standard) ease-out;
 }
 
 .hover-glow:hover {
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+  box-shadow: var(--vc-glow-teal);
 }
 
-/* ============================================================================
- * Loading States
- * ============================================================================ */
-
-/* Pulse animation */
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
@@ -59,37 +51,31 @@
 }
 
 .animate-pulse-slow {
-  animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  animation: pulse var(--motion-page) cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-/* Shimmer effect for loading */
 @keyframes shimmer {
   0% {
-    background-position: -1000px 0;
+    background-position: -62.5rem 0;
   }
   100% {
-    background-position: 1000px 0;
+    background-position: 62.5rem 0;
   }
 }
 
 .shimmer {
   background: linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.2) 20%,
-    rgba(255, 255, 255, 0.5) 60%,
-    rgba(255, 255, 255, 0) 100%
+    hsla(var(--foreground), 0) 0%,
+    hsla(var(--foreground), 0.12) 20%,
+    hsla(var(--foreground), 0.2) 60%,
+    hsla(var(--foreground), 0) 100%
   );
-  background-size: 1000px 100%;
-  animation: shimmer 2s infinite;
+  background-size: 62.5rem 100%;
+  animation: shimmer var(--motion-page) ease-in-out infinite;
 }
 
-/* ============================================================================
- * Entrance Animations
- * ============================================================================ */
-
-/* Fade in */
-@keyframes fadeIn {
+@keyframes fade-in {
   from {
     opacity: 0;
   }
@@ -99,13 +85,12 @@
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.3s ease-out;
+  animation: fade-in var(--motion-standard) ease-out;
 }
 
-/* Slide in from bottom */
-@keyframes slideInBottom {
+@keyframes slide-in-bottom {
   from {
-    transform: translateY(20px);
+    transform: translateY(var(--spacing-2));
     opacity: 0;
   }
   to {
@@ -115,13 +100,12 @@
 }
 
 .animate-slide-in-bottom {
-  animation: slideInBottom 0.3s ease-out;
+  animation: slide-in-bottom var(--motion-standard) ease-out;
 }
 
-/* Slide in from right */
-@keyframes slideInRight {
+@keyframes slide-in-right {
   from {
-    transform: translateX(20px);
+    transform: translateX(var(--spacing-2));
     opacity: 0;
   }
   to {
@@ -131,13 +115,12 @@
 }
 
 .animate-slide-in-right {
-  animation: slideInRight 0.3s ease-out;
+  animation: slide-in-right var(--motion-standard) ease-out;
 }
 
-/* Scale in */
-@keyframes scaleIn {
+@keyframes scale-in {
   from {
-    transform: scale(0.95);
+    transform: scale(0.96);
     opacity: 0;
   }
   to {
@@ -147,69 +130,62 @@
 }
 
 .animate-scale-in {
-  animation: scaleIn 0.2s ease-out;
+  animation: scale-in var(--motion-standard) ease-out;
 }
 
-/* ============================================================================
- * Success/Error Animations
- * ============================================================================ */
-
-/* Success bounce */
-@keyframes successBounce {
-  0%, 100% {
+@keyframes success-bounce {
+  0%,
+  100% {
     transform: scale(1);
   }
   25% {
-    transform: scale(1.1);
+    transform: scale(1.08);
   }
   50% {
-    transform: scale(0.95);
+    transform: scale(0.97);
   }
   75% {
-    transform: scale(1.05);
+    transform: scale(1.03);
   }
 }
 
 .animate-success {
-  animation: successBounce 0.5s ease-out;
+  animation: success-bounce var(--motion-page) ease-out;
 }
 
-/* Error shake */
 @keyframes shake {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateX(0);
   }
-  10%, 30%, 50%, 70%, 90% {
-    transform: translateX(-5px);
+  25%,
+  75% {
+    transform: translateX(calc(var(--spacing-1) / -4));
   }
-  20%, 40%, 60%, 80% {
-    transform: translateX(5px);
+  50% {
+    transform: translateX(calc(var(--spacing-1) / 4));
   }
 }
 
 .animate-shake {
-  animation: shake 0.5s ease-out;
+  animation: shake var(--motion-standard) ease-out;
 }
 
-/* ============================================================================
- * Attention Getters
- * ============================================================================ */
-
-/* Ping animation - for notifications */
 @keyframes ping {
-  75%, 100% {
-    transform: scale(2);
+  75%,
+  100% {
+    transform: scale(1.6);
     opacity: 0;
   }
 }
 
 .animate-ping {
-  animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+  animation: ping var(--motion-page) cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
-/* Wiggle - for CTAs */
 @keyframes wiggle {
-  0%, 100% {
+  0%,
+  100% {
     transform: rotate(0deg);
   }
   25% {
@@ -221,51 +197,37 @@
 }
 
 .animate-wiggle {
-  animation: wiggle 0.5s ease-in-out;
+  animation: wiggle var(--motion-standard) ease-in-out;
 }
 
-/* ============================================================================
- * State Transitions
- * ============================================================================ */
-
-/* Smooth color transitions */
 .transition-colors {
-  transition: background-color 0.2s ease-out,
-              border-color 0.2s ease-out,
-              color 0.2s ease-out;
+  transition: background-color var(--motion-standard) ease-out,
+              border-color var(--motion-standard) ease-out,
+              color var(--motion-standard) ease-out;
 }
 
-/* Smooth all transitions */
 .transition-all {
-  transition: all 0.2s ease-out;
+  transition: all var(--motion-standard) ease-out;
 }
 
-/* Quick transitions */
 .transition-quick {
-  transition: all 0.1s ease-out;
+  transition: all var(--motion-micro) ease-out;
 }
 
-/* Slow transitions */
 .transition-slow {
-  transition: all 0.4s ease-out;
+  transition: all var(--motion-page) ease-out;
 }
 
-/* ============================================================================
- * Progress Indicators
- * ============================================================================ */
-
-/* Progress bar fill animation */
-@keyframes progressFill {
+@keyframes progress-fill {
   from {
     width: 0%;
   }
 }
 
 .animate-progress {
-  animation: progressFill 0.5s ease-out;
+  animation: progress-fill var(--motion-page) ease-out;
 }
 
-/* Spinning loader */
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -276,11 +238,6 @@
   animation: spin 3s linear infinite;
 }
 
-/* ============================================================================
- * Interactive Feedback
- * ============================================================================ */
-
-/* Ripple effect (pseudo-element required) */
 .ripple-effect {
   position: relative;
   overflow: hidden;
@@ -294,25 +251,20 @@
   width: 0;
   height: 0;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.5);
+  background: hsla(var(--accent), 0.35);
   transform: translate(-50%, -50%);
-  transition: width 0.6s, height 0.6s;
+  transition: width var(--motion-page), height var(--motion-page);
 }
 
 .ripple-effect:active::after {
-  width: 200px;
-  height: 200px;
+  width: 12.5rem;
+  height: 12.5rem;
 }
 
-/* Click feedback */
 .click-feedback:active {
   transform: scale(0.95);
-  transition: transform 0.1s ease-out;
+  transition: transform var(--motion-micro) ease-out;
 }
-
-/* ============================================================================
- * Reduced Motion Support
- * ============================================================================ */
 
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -322,54 +274,45 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-  
+
   .hover-scale:hover,
   .hover-lift:hover {
     transform: none;
   }
 }
 
-/* ============================================================================
- * Utility Classes
- * ============================================================================ */
-
-/* Smooth height transitions */
 .transition-height {
-  transition: height 0.3s ease-out;
+  transition: height var(--motion-page) ease-out;
 }
 
-/* Smooth width transitions */
 .transition-width {
-  transition: width 0.3s ease-out;
+  transition: width var(--motion-page) ease-out;
 }
 
-/* Smooth opacity */
 .transition-opacity {
-  transition: opacity 0.3s ease-out;
+  transition: opacity var(--motion-standard) ease-out;
 }
 
-/* Delay classes */
 .delay-100 {
-  animation-delay: 100ms;
+  animation-delay: var(--motion-micro);
 }
 
 .delay-200 {
-  animation-delay: 200ms;
+  animation-delay: var(--motion-standard);
 }
 
 .delay-300 {
-  animation-delay: 300ms;
+  animation-delay: calc(var(--motion-standard) + var(--motion-micro));
 }
 
-/* Duration classes */
 .duration-fast {
-  animation-duration: 150ms;
+  animation-duration: var(--motion-micro);
 }
 
 .duration-normal {
-  animation-duration: 300ms;
+  animation-duration: var(--motion-standard);
 }
 
 .duration-slow {
-  animation-duration: 500ms;
+  animation-duration: var(--motion-page);
 }

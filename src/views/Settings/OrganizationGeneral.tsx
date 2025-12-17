@@ -1,15 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { SettingsSection } from '../../components/Settings/SettingsSection';
 import { Upload, Building2, Check, AlertCircle, Loader2, X } from 'lucide-react';
-import { applyBrandTheme } from '../../styles/brandTheme';
+import {
+  VALYNT_BRAND_PRIMARY,
+  VALYNT_BRAND_SECONDARY,
+  applyBrandTheme,
+} from '../../styles/brandTheme';
 
 export const OrganizationGeneral: React.FC = () => {
   const [orgName, setOrgName] = useState('Acme Corporation');
   const [domain, setDomain] = useState('acme.com');
   const [industry, setIndustry] = useState('technology');
   const [orgSize, setOrgSize] = useState('51-200');
-  const [primaryColor, setPrimaryColor] = useState('#00FF9D');
-  const [secondaryColor, setSecondaryColor] = useState('#00AEEF');
+  const [primaryColor, setPrimaryColor] = useState(VALYNT_BRAND_PRIMARY);
+  const [secondaryColor, setSecondaryColor] = useState(VALYNT_BRAND_SECONDARY);
   const [logo, setLogo] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -89,16 +93,16 @@ export const OrganizationGeneral: React.FC = () => {
             <div>
               <div className="relative group">
                 {logo ? (
-                  <img src={logo} alt="Organization logo" className="w-24 h-24 rounded-lg object-cover border-2 border-gray-200" />
+                  <img src={logo} alt="Organization logo" className="w-24 h-24 rounded-lg object-cover border-2 border-border" />
                 ) : (
-                  <div className="w-24 h-24 bg-blue-100 rounded-lg flex items-center justify-center border-2 border-gray-200">
-                    <Building2 className="h-12 w-12 text-blue-600" />
+                  <div className="w-24 h-24 bg-card rounded-lg flex items-center justify-center border-2 border-border">
+                    <Building2 className="h-12 w-12 text-primary" />
                   </div>
                 )}
                 {logo && (
                   <button
                     onClick={() => { setLogo(null); setIsDirty(true); }}
-                    className="absolute -top-2 -right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shadow-lg"
+                    className="absolute -top-2 -right-2 p-1.5 bg-error text-error-foreground rounded-full hover:bg-error/80 transition-colors"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -107,54 +111,54 @@ export const OrganizationGeneral: React.FC = () => {
               <input ref={fileInputRef} type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="mt-3 flex items-center text-sm text-blue-600 hover:text-blue-700 transition-colors"
+                className="mt-3 flex items-center text-sm text-primary hover:text-accent transition-colors"
               >
                 <Upload className="h-4 w-4 mr-1" />
                 {logo ? 'Change Logo' : 'Upload Logo'}
               </button>
-              <p className="text-xs text-gray-500 mt-1">Max 5MB (PNG, JPG, SVG)</p>
-              {errors.logo && <p className="text-xs text-red-600 mt-1">{errors.logo}</p>}
+              <p className="text-xs text-muted-foreground mt-1">Max 5MB (PNG, JPG, SVG)</p>
+              {errors.logo && <p className="text-xs text-error mt-1">{errors.logo}</p>}
             </div>
 
             <div className="flex-1 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Organization Name <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Organization Name <span className="text-error">*</span>
                 </label>
                 <input
                   type="text"
                   value={orgName}
                   onChange={(e) => { setOrgName(e.target.value); setIsDirty(true); }}
                   className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                    errors.orgName ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
-                  }`}
+                    errors.orgName ? 'border-error focus:ring-error' : 'border-border focus:ring-primary'
+                  } bg-background text-foreground`}
                 />
-                {errors.orgName && <p className="text-sm text-red-600 mt-1">{errors.orgName}</p>}
+                {errors.orgName && <p className="text-sm text-error mt-1">{errors.orgName}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Primary Domain <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Primary Domain <span className="text-error">*</span>
                 </label>
                 <input
                   type="text"
                   value={domain}
                   onChange={(e) => { setDomain(e.target.value); setIsDirty(true); }}
                   className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                    errors.domain ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
-                  }`}
+                    errors.domain ? 'border-error focus:ring-error' : 'border-border focus:ring-primary'
+                  } bg-background text-foreground`}
                   placeholder="example.com"
                 />
-                {errors.domain && <p className="text-sm text-red-600 mt-1">{errors.domain}</p>}
+                {errors.domain && <p className="text-sm text-error mt-1">{errors.domain}</p>}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Industry</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">Industry</label>
                   <select
                     value={industry}
                     onChange={(e) => { setIndustry(e.target.value); setIsDirty(true); }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-border bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="technology">Technology</option>
                     <option value="healthcare">Healthcare</option>
@@ -166,11 +170,11 @@ export const OrganizationGeneral: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Organization Size</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">Organization Size</label>
                   <select
                     value={orgSize}
                     onChange={(e) => { setOrgSize(e.target.value); setIsDirty(true); }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-border bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="1-10">1-10 employees</option>
                     <option value="11-50">11-50 employees</option>
@@ -185,52 +189,60 @@ export const OrganizationGeneral: React.FC = () => {
         </div>
       </SettingsSection>
 
-      <SettingsSection title="Branding Colors" description="Customize your organization's color scheme">
+      <SettingsSection title="Branding Colors" description="VALYNT colors are fixed to economic intelligence semantics.">
         <div className="grid grid-cols-2 gap-6 max-w-2xl">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Primary Color</label>
+            <label className="block text-sm font-medium text-foreground mb-2">Primary Color</label>
             <div className="flex items-center space-x-3">
               <input
                 type="color"
                 value={primaryColor}
-                onChange={(e) => { setPrimaryColor(e.target.value); setIsDirty(true); }}
-                className="w-16 h-10 border border-gray-300 rounded cursor-pointer"
+                disabled
+                aria-disabled="true"
+                className="w-16 h-10 border border-border rounded bg-card cursor-not-allowed opacity-60"
               />
               <input
                 type="text"
                 value={primaryColor}
-                onChange={(e) => { setPrimaryColor(e.target.value); setIsDirty(true); }}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                readOnly
+                disabled
+                aria-disabled="true"
+                className="flex-1 px-3 py-2 border border-border bg-background text-foreground rounded-lg font-mono text-sm opacity-60 cursor-not-allowed"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Secondary Color</label>
+            <label className="block text-sm font-medium text-foreground mb-2">Secondary Color</label>
             <div className="flex items-center space-x-3">
               <input
                 type="color"
                 value={secondaryColor}
-                onChange={(e) => { setSecondaryColor(e.target.value); setIsDirty(true); }}
-                className="w-16 h-10 border border-gray-300 rounded cursor-pointer"
+                disabled
+                aria-disabled="true"
+                className="w-16 h-10 border border-border rounded bg-card cursor-not-allowed opacity-60"
               />
               <input
                 type="text"
                 value={secondaryColor}
-                onChange={(e) => { setSecondaryColor(e.target.value); setIsDirty(true); }}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                readOnly
+                disabled
+                aria-disabled="true"
+                className="flex-1 px-3 py-2 border border-border bg-background text-foreground rounded-lg font-mono text-sm opacity-60 cursor-not-allowed"
               />
             </div>
           </div>
         </div>
 
-        <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <p className="text-sm font-medium text-gray-700 mb-3">Preview</p>
+        <p className="text-xs text-muted-foreground mt-2">Brand colors are locked to VALYNT system tokens.</p>
+
+        <div className="mt-6 p-4 bg-card rounded-lg border border-border">
+          <p className="text-sm font-medium text-foreground mb-3">Preview</p>
           <div className="flex space-x-3">
-            <button style={{ backgroundColor: primaryColor }} className="px-4 py-2 text-white rounded-lg">
+            <button className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-accent transition-colors">
               Primary Button
             </button>
-            <button style={{ backgroundColor: secondaryColor }} className="px-4 py-2 text-white rounded-lg">
+            <button className="px-4 py-2 rounded-lg bg-info text-info-foreground hover:bg-primary transition-colors">
               Secondary Button
             </button>
           </div>
@@ -238,18 +250,18 @@ export const OrganizationGeneral: React.FC = () => {
       </SettingsSection>
 
       {isDirty && (
-        <div className="flex justify-end space-x-3 p-4 bg-white border-t border-gray-200 sticky bottom-0">
+        <div className="flex justify-end space-x-3 p-4 bg-card border-t border-border sticky bottom-0">
           <button
             onClick={() => setIsDirty(false)}
             disabled={saving}
-            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 border border-border text-foreground rounded-lg hover:bg-card transition-colors disabled:opacity-60"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+            className="flex items-center px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-accent transition-colors disabled:opacity-60"
           >
             {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {saving ? 'Saving...' : 'Save Changes'}

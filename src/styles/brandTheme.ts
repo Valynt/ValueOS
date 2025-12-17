@@ -3,6 +3,12 @@ export type BrandThemeOptions = {
   secondary?: string;
 };
 
+export const VALYNT_BRAND_PRIMARY = "#18C3A5";
+export const VALYNT_BRAND_SECONDARY = "#27E1C1";
+
+const BRAND_PRIMARY = VALYNT_BRAND_PRIMARY;
+const BRAND_SECONDARY = VALYNT_BRAND_SECONDARY;
+
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   const normalized = hex.trim().replace('#', '');
   if (normalized.length !== 6) return null;
@@ -61,38 +67,58 @@ function hexToHslString(hex: string): string | null {
   return `${h} ${s}% ${l}%`;
 }
 
-export function applyBrandTheme(options: BrandThemeOptions): void {
+function normalizeHex(hex: string): string | null {
+  const normalized = hex.trim().toUpperCase();
+  if (!/^#?[0-9A-F]{6}$/.test(normalized)) return null;
+  return normalized.startsWith("#") ? normalized : `#${normalized}`;
+}
+
+function enforceBrandToken(
+  value: string | undefined,
+  fallback: string,
+  role: "primary" | "secondary"
+): string {
+  const normalized = value ? normalizeHex(value) : null;
+  if (!normalized) return fallback;
+  if (normalized !== fallback) {
+    // Brand overrides are blocked by policy; enforce VALYNT palette.
+    console.warn(
+      `[VALYNT] ${role} color overrides are not allowed. Using system token instead.`
+    );
+    return fallback;
+  }
+  return normalized;
+}
+
+export function applyBrandTheme(options: BrandThemeOptions = {}): void {
   if (typeof document === 'undefined') return;
 
   const root = document.documentElement;
 
-  if (options.primary) {
-    const primaryHsl = hexToHslString(options.primary);
-    if (primaryHsl) {
-      root.style.setProperty('--primary', primaryHsl);
-      root.style.setProperty('--ring', primaryHsl);
+  const primary = enforceBrandToken(options.primary, BRAND_PRIMARY, "primary");
+  const secondary = enforceBrandToken(
+    options.secondary,
+    BRAND_SECONDARY,
+    "secondary"
+  );
 
-      // Derive readable foreground based on lightness
-      const rgb = hexToRgb(options.primary);
-      if (rgb) {
-        const { l } = rgbToHsl(rgb);
-        const foreground = l > 60 ? '0 0% 4%' : '0 0% 100%';
-        root.style.setProperty('--primary-foreground', foreground);
-      }
-    }
+  const primaryHsl = hexToHslString(primary);
+  const secondaryHsl = hexToHslString(secondary);
+
+  if (primaryHsl) {
+    root.style.setProperty('--primary', primaryHsl);
+    root.style.setProperty('--ring', primaryHsl);
+    root.style.setProperty('--status-success', primaryHsl);
   }
 
-  if (options.secondary) {
-    const secondaryHsl = hexToHslString(options.secondary);
-    if (secondaryHsl) {
-      root.style.setProperty('--accent', secondaryHsl);
-
-      const rgb = hexToRgb(options.secondary);
-      if (rgb) {
-        const { l } = rgbToHsl(rgb);
-        const foreground = l > 60 ? '0 0% 4%' : '0 0% 100%';
-        root.style.setProperty('--accent-foreground', foreground);
-      }
-    }
+  if (secondaryHsl) {
+    root.style.setProperty('--accent', secondaryHsl);
+    root.style.setProperty('--status-info', secondaryHsl);
   }
+
+  root.style.setProperty('--primary-foreground', '0 0% 100%');
+  root.style.setProperty('--accent-foreground', '0 0% 100%');
+
+  // Enforce dark-first rendering
+  root.classList.add('dark');
 }
