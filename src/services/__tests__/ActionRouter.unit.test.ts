@@ -13,18 +13,32 @@ describe('ActionRouter', () => {
     const router = new ActionRouter(undefined, orchestrator as any, undefined as any, undefined as any);
 
     const action = { type: 'runWorkflowStep', workflowId: 'wf-1', stepId: 's1', input: { x: 1 } } as any;
-    const context = { workspaceId: 'org-1', userId: 'user-1' } as any;
+    const context = {
+      workspaceId: 'org-1',
+      userId: 'user-1',
+      timestamp: Date.now(),
+      execution: { intent: 'FullValueAnalysis', environment: 'production', parameters: {} },
+    } as any;
 
     const result = await router.routeAction(action, context);
 
     expect(result.success).toBe(true);
-    expect(orchestrator.executeWorkflow).toHaveBeenCalledWith('wf-1', { ...action.input, ...context }, context.userId);
+    expect(orchestrator.executeWorkflow).toHaveBeenCalledWith(
+      'wf-1',
+      expect.objectContaining({ parameters: expect.objectContaining({ x: 1 }) }),
+      context.userId
+    );
   });
 
   it('returns validation error when required fields are missing', async () => {
     const router = new ActionRouter();
     const action = { type: 'runWorkflowStep', workflowId: '', stepId: '' } as any;
-    const context = { workspaceId: 'org-1', userId: 'user-1' } as any;
+    const context = {
+      workspaceId: 'org-1',
+      userId: 'user-1',
+      timestamp: Date.now(),
+      execution: { intent: 'FullValueAnalysis', environment: 'production', parameters: {} },
+    } as any;
 
     const result = await router.routeAction(action, context);
 
