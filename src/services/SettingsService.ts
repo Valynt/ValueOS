@@ -5,7 +5,7 @@
 
 import { logger } from '../lib/logger';
 import { TenantAwareService } from './TenantAwareService';
-import { AuthorizationError, ValidationError, NotFoundError } from './errors';
+import { AuthorizationError, NotFoundError, ValidationError } from './errors';
 import { tenantCache } from './cache/TenantCache';
 
 export interface Setting {

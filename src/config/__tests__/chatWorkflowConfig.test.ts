@@ -3,13 +3,13 @@
  * Phase 2: Workflow State Persistence
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  checkStageTransition,
-  getStageDisplayName,
-  getPossibleNextStages,
-  isValidStage,
   CHAT_WORKFLOW_STAGES,
+  checkStageTransition,
+  getPossibleNextStages,
+  getStageDisplayName,
+  isValidStage,
 } from '../chatWorkflowConfig';
 
 describe('Phase 2: Chat Workflow Configuration', () => {

@@ -5,9 +5,9 @@
  * Handles agent invocation, schema validation, and state management.
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { SDUIPageDefinition, validateSDUISchema, SDUIValidationError } from '../sdui/schema';
-import { getAgentAPI, AgentType, AgentContext, SDUIPageResponse } from '../services/AgentAPI';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { SDUIPageDefinition, SDUIValidationError, validateSDUISchema } from '../sdui/schema';
+import { AgentContext, AgentType, getAgentAPI, SDUIPageResponse } from '../services/AgentAPI';
 import { renderPage, RenderPageOptions, RenderPageResult } from '../sdui/renderPage';
 
 /**

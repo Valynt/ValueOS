@@ -3,9 +3,9 @@
  * Tests agent-sent JSON layouts with various component combinations
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderPage } from '../renderPage';
 import { SDUIPageDefinition, SDUIValidationError } from '../schema';
 

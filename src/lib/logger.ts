@@ -20,10 +20,10 @@
 import { isDevelopment, isProduction, isTest } from '../config/environment';
 import { getTraceContextForLogging } from '../config/telemetry';
 import { 
+  sanitizeError, 
   sanitizeForLogging, 
-  sanitizeUser, 
   sanitizeRequest, 
-  sanitizeError,
+  sanitizeUser,
   validateLogMessage 
 } from './piiFilter';
 
@@ -173,11 +173,11 @@ class Logger {
      
     switch (entry.level) {
       case 'debug':
-        // eslint-disable-next-line no-console
+         
         console.debug(fullMessage);
         break;
       case 'info':
-        // eslint-disable-next-line no-console
+         
         console.info(fullMessage);
         break;
       case 'warn':
@@ -261,7 +261,7 @@ export function setupMonitoring() {
     // Add Sentry integration if available
     try {
       // Dynamically import Sentry to avoid dependency errors in minimal builds
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
+       
       const Sentry = require('@sentry/node');
 
       logger.addListener((entry) => {

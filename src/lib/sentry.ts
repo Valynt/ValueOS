@@ -6,7 +6,7 @@
  */
 
 import { logger } from './lib/logger';
-import { isProduction, isDevelopment, getConfig } from '../config/environment';
+import { getConfig, isDevelopment, isProduction } from '../config/environment';
 
 // Type-safe Sentry interface (will be replaced with actual SDK)
 interface SentryConfig {

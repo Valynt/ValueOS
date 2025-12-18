@@ -2,7 +2,7 @@
  * Usage Emitter Tests
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 describe('UsageEmitter', () => {
   it('should emit LLM token usage', async () => {

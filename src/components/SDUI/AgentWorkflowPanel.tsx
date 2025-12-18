@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from 'react';
-import { Brain, MessageSquare, Activity, Clock, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { Activity, AlertCircle, Brain, CheckCircle, Clock, Loader, MessageSquare } from 'lucide-react';
 
 export interface AgentStatus {
   id: string;

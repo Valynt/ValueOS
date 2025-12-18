@@ -5,7 +5,7 @@
  * to ensure complete data isolation between tenants.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TenantAwareService } from '../../services/TenantAwareService';
 
 // Mock Supabase

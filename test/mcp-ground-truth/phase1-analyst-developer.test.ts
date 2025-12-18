@@ -5,7 +5,7 @@
  * with MCP Financial Ground Truth Server integration.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDevServer, MCPFinancialGroundTruthServer } from '../../src/mcp-ground-truth';
 
 describe('Phase 1: Analyst/Developer Feature Set', () => {

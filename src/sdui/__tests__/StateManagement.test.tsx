@@ -7,12 +7,12 @@
 
 import React from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DataBindingResolver } from '../../sdui/DataBindingResolver';
 import {
-  useDataHydration,
   clearAllHydrationCache,
   getHydrationCacheStats,
+  useDataHydration,
 } from '../../sdui/hooks/useDataHydration';
 import { useDataBindings } from '../../sdui/useDataBinding';
 import { DataBinding, DataSourceContext } from '../../sdui/DataBindingSchema';

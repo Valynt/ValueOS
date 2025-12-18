@@ -2,7 +2,7 @@
  * Stripe Service Tests
  */
 
-import { describe, it, expect, beforeAll, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 // Mock the billing config before importing StripeService
 vi.mock('../../../config/billing', () => ({

@@ -8,7 +8,7 @@
  */
 
 import { logger } from '../lib/logger';
-import { UIIntent, createIntent } from '../types/intent';
+import { createIntent, UIIntent } from '../types/intent';
 
 /**
  * Generic agent output - any object with agentType

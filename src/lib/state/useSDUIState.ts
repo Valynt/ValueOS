@@ -4,7 +4,7 @@
  * Provides React hooks for accessing and subscribing to SDUI state.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getSDUIStateManager, StateChangeEvent } from './SDUIStateManager';
 
 /**

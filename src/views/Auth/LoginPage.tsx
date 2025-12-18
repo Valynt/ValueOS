@@ -4,9 +4,9 @@
  */
 
 import React, { useState } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { Lock, Mail, AlertCircle, Key, FlaskConical } from 'lucide-react';
+import { AlertCircle, FlaskConical, Key, Lock, Mail } from 'lucide-react';
 
 // Check if we're in development mode (demo bypass only available in dev)
 const isDevelopment = (import.meta as any)?.env?.VITE_APP_ENV !== 'production';

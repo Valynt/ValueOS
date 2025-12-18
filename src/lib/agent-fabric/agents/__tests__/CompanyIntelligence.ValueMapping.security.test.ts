@@ -2,7 +2,7 @@
  * CompanyIntelligenceAgent and ValueMappingAgent Security Tests
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CompanyIntelligenceAgent } from '../CompanyIntelligenceAgent';
 import { ValueMappingAgent } from '../ValueMappingAgent';
 

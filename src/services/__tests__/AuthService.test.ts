@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthService } from '../AuthService';
-import { ValidationError, RateLimitError } from '../errors';
+import { RateLimitError, ValidationError } from '../errors';
 
 const mockSupabaseAuth = {
   signInWithPassword: vi.fn(),

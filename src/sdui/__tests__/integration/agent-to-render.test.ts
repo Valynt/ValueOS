@@ -8,7 +8,7 @@
  * 4. Error handling → Graceful degradation
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderPage } from '../../engine/renderPage';
 import { useCanvasStore } from '../../canvas/CanvasStore';
 import { SDUIPageDefinition } from '../../schema';

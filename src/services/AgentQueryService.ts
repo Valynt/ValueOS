@@ -18,7 +18,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../lib/logger';
 import { WorkflowStateRepository } from '../repositories/WorkflowStateRepository';
-import { getUnifiedOrchestrator, UnifiedAgentOrchestrator, AgentResponse } from './UnifiedAgentOrchestrator';
+import { AgentResponse, getUnifiedOrchestrator, UnifiedAgentOrchestrator } from './UnifiedAgentOrchestrator';
 import { sanitizeInput } from '../security/InputSanitizer';
 import { ExecutionRequest, normalizeExecutionRequest } from '../types/execution';
 

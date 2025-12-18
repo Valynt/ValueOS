@@ -10,7 +10,7 @@
  * - Security headers
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import express, { Express } from 'express';
 

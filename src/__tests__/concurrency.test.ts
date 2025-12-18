@@ -7,7 +7,7 @@
  * cross-contamination between concurrent user sessions.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { AgentQueryService } from '../services/AgentQueryService';
 import { createBoltClientMock } from '../../test/mocks/mockSupabaseClient';
 

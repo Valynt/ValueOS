@@ -12,7 +12,7 @@
 import React from 'react';
 import { SettingsSection } from '../../components/Settings/SettingsSection';
 import { useSettingsGroup } from '../../lib/settingsRegistry';
-import { Bell, Mail, Smartphone, MessageSquare, Moon, Loader2 } from 'lucide-react';
+import { Bell, Loader2, Mail, MessageSquare, Moon, Smartphone } from 'lucide-react';
 
 interface UserNotificationsProps {
   userId: string;

@@ -8,11 +8,11 @@
 import { describe, expect, it } from 'vitest';
 import { llmSanitizer } from '../../services/LLMSanitizer';
 import {
-  sanitizeAgentInput,
   applyXmlSandbox,
+  containsCredentials,
   detectPromptInjection,
   redactSensitive,
-  containsCredentials
+  sanitizeAgentInput
 } from '../../utils/security';
 
 describe('InputSanitization - Prompt Injection Detection', () => {

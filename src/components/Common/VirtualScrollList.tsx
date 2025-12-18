@@ -3,7 +3,7 @@
  * Optimized for large lists (100+ items)
  */
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 interface VirtualScrollListProps<T> {
   items: T[];

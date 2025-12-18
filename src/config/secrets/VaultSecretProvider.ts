@@ -10,11 +10,11 @@
 
 import { logger } from '../../lib/logger';
 import type {
-  ISecretProvider,
-  SecretValue,
-  SecretMetadata,
   AuditAction,
-  AuditResult
+  AuditResult,
+  ISecretProvider,
+  SecretMetadata,
+  SecretValue
 } from './ISecretProvider';
 import { promises as fs } from 'fs';
 

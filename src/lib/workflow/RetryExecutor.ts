@@ -1,5 +1,5 @@
 import { calculateBackoffDelay, isRetryableError, sleep } from '../retry/backoff';
-import { RetryPolicy, RetryPolicyInput, parseRetryPolicy } from '../retry/policies';
+import { parseRetryPolicy, RetryPolicy, RetryPolicyInput } from '../retry/policies';
 
 export class RetryableError extends Error {
   constructor(message: string) {

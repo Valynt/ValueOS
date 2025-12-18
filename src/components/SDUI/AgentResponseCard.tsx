@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Check, X, Edit, Clock, Brain } from 'lucide-react';
+import { Brain, Check, ChevronDown, ChevronUp, Clock, Edit, X } from 'lucide-react';
 import { ConfidenceIndicator } from './ConfidenceIndicator';
 
 export interface ReasoningStep {

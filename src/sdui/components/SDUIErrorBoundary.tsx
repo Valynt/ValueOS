@@ -1,8 +1,8 @@
 /**
  * SDUI Error Boundary - Production-Grade Error Handling
- * 
+ *
  * CRITICAL: Prevents single component failures from crashing entire page
- * 
+ *
  * Features:
  * - Catches React component errors
  * - Logs to monitoring (Sentry/Datadog)
@@ -12,10 +12,10 @@
  * - Prevents error propagation
  */
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { logger } from '../../lib/logger';
-import { getTracer } from '../../lib/observability';
-import { SpanStatusCode } from '@opentelemetry/api';
+import React, { Component, ErrorInfo, ReactNode } from "react";
+import { logger } from "../../lib/logger";
+import { getTracer } from "../../lib/observability";
+import { SpanStatusCode } from "@opentelemetry/api";
 
 interface Props {
   /** Unique identifier for this component instance */
@@ -40,7 +40,7 @@ interface State {
 }
 
 export class SDUIErrorBoundary extends Component<Props, State> {
-  private tracer = getTracer('SDUIErrorBoundary');
+  private tracer = getTracer("SDUIErrorBoundary");
 
   constructor(props: Props) {
     super(props);
@@ -61,22 +61,22 @@ export class SDUIErrorBoundary extends Component<Props, State> {
     const { componentId, componentType, onError } = this.props;
 
     // Create span for error tracking
-    this.tracer.startActiveSpan('sdui_component_error', (span) => {
+    this.tracer.startActiveSpan("sdui_component_error", (span) => {
       span.setStatus({
         code: SpanStatusCode.ERROR,
         message: error.message,
       });
 
       span.setAttributes({
-        'component.id': componentId || 'unknown',
-        'component.type': componentType || 'unknown',
-        'error.message': error.message,
-        'error.stack': error.stack || '',
-        'retry.count': this.state.retryCount,
+        "component.id": componentId || "unknown",
+        "component.type": componentType || "unknown",
+        "error.message": error.message,
+        "error.stack": error.stack || "",
+        "retry.count": this.state.retryCount,
       });
 
       // Log error with full context
-      logger.error('SDUI Component Error', {
+      logger.error("SDUI Component Error", {
         componentId,
         componentType,
         error: error.message,
@@ -91,15 +91,15 @@ export class SDUIErrorBoundary extends Component<Props, State> {
         try {
           onError(error, errorInfo);
         } catch (callbackError) {
-          logger.error('Error in SDUIErrorBoundary callback', {
+          logger.error("Error in SDUIErrorBoundary callback", {
             error: callbackError,
           });
         }
       }
 
       // Track in analytics
-      if (typeof window !== 'undefined' && window.analytics) {
-        window.analytics.track('sdui_component_error', {
+      if (typeof window !== "undefined" && window.analytics) {
+        window.analytics.track("sdui_component_error", {
           component_id: componentId,
           component_type: componentType,
           error_message: error.message,
@@ -120,14 +120,14 @@ export class SDUIErrorBoundary extends Component<Props, State> {
     const { componentId } = this.props;
     const { retryCount } = this.state;
 
-    logger.info('SDUI Component Retry', {
+    logger.info("SDUI Component Retry", {
       componentId,
       retryCount: retryCount + 1,
     });
 
     // Track retry attempt
-    if (typeof window !== 'undefined' && window.analytics) {
-      window.analytics.track('sdui_component_retry', {
+    if (typeof window !== "undefined" && window.analytics) {
+      window.analytics.track("sdui_component_retry", {
         component_id: componentId,
         retry_count: retryCount + 1,
       });
@@ -144,7 +144,13 @@ export class SDUIErrorBoundary extends Component<Props, State> {
 
   render(): ReactNode {
     const { hasError, error, retryCount } = this.state;
-    const { children, fallback, allowRetry = true, componentId, componentType } = this.props;
+    const {
+      children,
+      fallback,
+      allowRetry = true,
+      componentId,
+      componentType,
+    } = this.props;
 
     if (hasError) {
       // Use custom fallback if provided
@@ -180,19 +186,18 @@ export class SDUIErrorBoundary extends Component<Props, State> {
             </div>
 
             <div className="sdui-error-boundary__content">
-              <h3 className="sdui-error-boundary__title">
-                Component Error
-              </h3>
+              <h3 className="sdui-error-boundary__title">Component Error</h3>
               <p className="sdui-error-boundary__message">
-                This component failed to load. {allowRetry && 'You can try again or refresh the page.'}
+                This component failed to load.{" "}
+                {allowRetry && "You can try again or refresh the page."}
               </p>
 
-              {process.env.NODE_ENV === 'development' && error && (
+              {process.env.NODE_ENV === "development" && error && (
                 <details className="sdui-error-boundary__details">
                   <summary>Error Details (Development Only)</summary>
                   <pre className="sdui-error-boundary__stack">
                     {error.message}
-                    {'\n\n'}
+                    {"\n\n"}
                     {error.stack}
                   </pre>
                 </details>
@@ -228,7 +233,7 @@ export class SDUIErrorBoundary extends Component<Props, State> {
  */
 export function withErrorBoundary<P extends object>(
   Component: React.ComponentType<P>,
-  errorBoundaryProps?: Omit<Props, 'children'>
+  errorBoundaryProps?: Omit<Props, "children">
 ): React.FC<P> {
   return function WithErrorBoundary(props: P) {
     return (

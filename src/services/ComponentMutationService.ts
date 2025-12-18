@@ -6,18 +6,18 @@
  */
 
 import { logger } from '../lib/logger';
-import { SDUIPageDefinition, SDUIComponentSection } from '../sdui/schema';
+import { SDUIComponentSection, SDUIPageDefinition } from '../sdui/schema';
 import {
-  AtomicUIAction,
-  MutateComponentAction,
+  ActionResult,
   AddComponentAction,
+  AtomicUIAction,
+  BatchAction,
+  ComponentSelector,
+  MutateComponentAction,
+  PropertyMutation,
   RemoveComponentAction,
   ReorderComponentsAction,
   UpdateLayoutAction,
-  BatchAction,
-  ComponentSelector,
-  PropertyMutation,
-  ActionResult,
   validateAtomicAction,
 } from '../sdui/AtomicUIActions';
 

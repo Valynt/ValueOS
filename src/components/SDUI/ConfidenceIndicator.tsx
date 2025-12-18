@@ -5,7 +5,7 @@
  * Color-coded with animation and tooltip explanation.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Info } from 'lucide-react';
 
 export interface ConfidenceIndicatorProps {

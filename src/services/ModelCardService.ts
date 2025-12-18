@@ -1,5 +1,5 @@
 import { logger } from '../lib/logger';
-import { ModelCard, ModelCardSchema, MODEL_CARD_SCHEMA_VERSION } from '../types/modelCard';
+import { MODEL_CARD_SCHEMA_VERSION, ModelCard, ModelCardSchema } from '../types/modelCard';
 
 const MODEL_CARDS: Record<string, ModelCard> = {
   opportunity: {

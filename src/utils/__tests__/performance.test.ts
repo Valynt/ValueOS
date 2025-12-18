@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { performanceMonitor, PERFORMANCE_BENCHMARKS, debounce } from '../performance';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { debounce, PERFORMANCE_BENCHMARKS, performanceMonitor } from '../performance';
 
 describe('PerformanceMonitor', () => {
   beforeEach(() => {

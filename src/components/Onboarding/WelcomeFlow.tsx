@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { X, ChevronRight, ChevronLeft, Sparkles, FileText, Mail, MessageSquare, Check } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, FileText, Mail, MessageSquare, Sparkles, X } from 'lucide-react';
 import { analyticsClient } from '../../lib/analyticsClient';
 
 interface WelcomeFlowProps {

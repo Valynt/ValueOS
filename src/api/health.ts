@@ -5,7 +5,7 @@
  * Together.ai connectivity, database, and other critical services.
  */
 
-import { Router, Request, Response } from 'express';
+import { Request, Response, Router } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';

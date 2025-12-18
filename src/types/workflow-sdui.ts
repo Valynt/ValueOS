@@ -2,7 +2,7 @@
  * Workflow SDUI Integration Types
  */
 
-import { LifecycleStage, WorkflowStatus, StageStatus } from './workflow';
+import { LifecycleStage, StageStatus, WorkflowStatus } from './workflow';
 import { AtomicUIAction } from '../sdui/AtomicUIActions';
 import { SDUIPageDefinition } from '../sdui/schema';
 

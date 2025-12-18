@@ -17,11 +17,11 @@
 import { BaseAgent } from './BaseAgent';
 import { ModelService } from '../../../services/ModelService';
 import type {
-  ValueTree,
   ROIModel,
-  ValueCommit,
   TargetAgentInput,
-  TargetAgentOutput
+  TargetAgentOutput,
+  ValueCommit,
+  ValueTree
 } from '../../../types/vos';
 
 import { AgentConfig } from '../../../types/agent';

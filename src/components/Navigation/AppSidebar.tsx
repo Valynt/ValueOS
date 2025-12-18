@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, Home, Layers, Sparkles, Settings, Zap, Book } from 'lucide-react';
+import { Activity, Book, Home, Layers, Settings, Sparkles, Zap } from 'lucide-react';
 import { ViewMode } from '../../types';
 
 interface AppSidebarProps {

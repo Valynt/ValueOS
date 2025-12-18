@@ -1,17 +1,20 @@
-import { logger } from '../lib/logger';
-import React, { ReactElement } from 'react';
-import { ErrorBoundary } from '../components/Common/ErrorBoundary';
-import { SectionErrorFallback, UnknownComponentFallback } from '../components/SDUI';
+import { logger } from "../lib/logger";
+import React, { ReactElement } from "react";
+import { ErrorBoundary } from "../components/Common/ErrorBoundary";
+import {
+  SectionErrorFallback,
+  UnknownComponentFallback,
+} from "../components/SDUI";
 import {
   SDUIComponentSection,
   SDUIPageDefinition,
-  validateSDUISchema,
   SDUIValidationError,
-} from './schema';
-import { resolveComponent, RegistryPlaceholderComponent } from './registry';
-import { useDataHydration } from './hooks/useDataHydration';
-import { ComponentErrorBoundary } from './components/ComponentErrorBoundary';
-import { LoadingFallback } from './components/LoadingFallback';
+  validateSDUISchema,
+} from "./schema";
+import { RegistryPlaceholderComponent, resolveComponent } from "./registry";
+import { useDataHydration } from "./hooks/useDataHydration";
+import { ComponentErrorBoundary } from "./components/ComponentErrorBoundary";
+import { LoadingFallback } from "./components/LoadingFallback";
 
 /**
  * Options for configuring the renderPage function behavior
@@ -145,21 +148,21 @@ interface PageRendererProps {
  */
 const DebugOverlay: React.FC<{
   section: SDUIComponentSection;
-  status: 'rendered' | 'loading' | 'error' | 'unknown';
+  status: "rendered" | "loading" | "error" | "unknown";
   message?: string;
 }> = ({ section, status, message }) => {
   const statusColors = {
-    rendered: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    loading: 'bg-blue-50 text-blue-700 border-blue-200',
-    error: 'bg-red-50 text-red-700 border-red-200',
-    unknown: 'bg-amber-50 text-amber-700 border-amber-200',
+    rendered: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    loading: "bg-blue-50 text-blue-700 border-blue-200",
+    error: "bg-red-50 text-red-700 border-red-200",
+    unknown: "bg-amber-50 text-amber-700 border-amber-200",
   };
 
   const statusIcons = {
-    rendered: '✓',
-    loading: '⟳',
-    error: '✗',
-    unknown: '?',
+    rendered: "✓",
+    loading: "⟳",
+    error: "✗",
+    unknown: "?",
   };
 
   return (
@@ -175,12 +178,14 @@ const DebugOverlay: React.FC<{
             v{section.version}
           </span>
         </div>
-        <span className="text-[10px] uppercase tracking-wide opacity-70">{status}</span>
+        <span className="text-[10px] uppercase tracking-wide opacity-70">
+          {status}
+        </span>
       </div>
       {message && <p className="mt-1 text-[11px] opacity-80">{message}</p>}
       {section.hydrateWith && section.hydrateWith.length > 0 && (
         <p className="mt-1 text-[11px] opacity-80">
-          Hydration: {section.hydrateWith.join(', ')}
+          Hydration: {section.hydrateWith.join(", ")}
         </p>
       )}
     </div>
@@ -266,7 +271,10 @@ const SectionRenderer: React.FC<{
   if (hydrationError && !section.fallback) {
     return (
       <div key={`${section.component}-${index}`} className="space-y-2">
-        <ErrorFallback componentName={section.component} error={hydrationError} />
+        <ErrorFallback
+          componentName={section.component}
+          error={hydrationError}
+        />
         {debug && (
           <DebugOverlay
             section={section}
@@ -282,7 +290,7 @@ const SectionRenderer: React.FC<{
   if (hydrationError && section.fallback) {
     const FallbackComponent = section.fallback.component
       ? resolveComponent({
-          type: 'component',
+          type: "component",
           component: section.fallback.component,
           version: 1,
           props: section.fallback.props || {},
@@ -294,8 +302,12 @@ const SectionRenderer: React.FC<{
         <div key={`${section.component}-${index}`} className="space-y-2">
           <ComponentErrorBoundary
             componentName={section.fallback.component!}
-            onError={(error) => onRenderError?.(error, section.fallback!.component!)}
-            fallback={<ErrorFallback componentName={section.fallback.component!} />}
+            onError={(error) =>
+              onRenderError?.(error, section.fallback!.component!)
+            }
+            fallback={
+              <ErrorFallback componentName={section.fallback.component!} />
+            }
           >
             <FallbackComponent {...(section.fallback.props || {})} />
           </ComponentErrorBoundary>
@@ -303,7 +315,7 @@ const SectionRenderer: React.FC<{
             <DebugOverlay
               section={section}
               status="error"
-              message={`Using fallback: ${section.fallback.message || 'Hydration failed'}`}
+              message={`Using fallback: ${section.fallback.message || "Hydration failed"}`}
             />
           )}
         </div>
@@ -314,7 +326,9 @@ const SectionRenderer: React.FC<{
     return (
       <div key={`${section.component}-${index}`} className="space-y-2">
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900">
-          <p className="text-sm">{section.fallback.message || 'Component unavailable'}</p>
+          <p className="text-sm">
+            {section.fallback.message || "Component unavailable"}
+          </p>
         </div>
         {debug && (
           <DebugOverlay
@@ -351,7 +365,7 @@ const SectionRenderer: React.FC<{
         <DebugOverlay
           section={section}
           status="rendered"
-          message={entry.description || 'Rendered successfully'}
+          message={entry.description || "Rendered successfully"}
         />
       )}
     </div>
@@ -361,7 +375,11 @@ const SectionRenderer: React.FC<{
 /**
  * Internal component that renders the page structure
  */
-const PageRenderer: React.FC<PageRendererProps> = ({ page, options, warnings }) => {
+const PageRenderer: React.FC<PageRendererProps> = ({
+  page,
+  options,
+  warnings,
+}) => {
   const { debug = false, onWarning } = options;
 
   // Log warnings if handler provided
@@ -436,13 +454,13 @@ export function renderPage(
     options.onValidationError?.(errors);
 
     // Log errors in development
-    if (process.env.NODE_ENV === 'development') {
-      logger.error('SDUI Schema Validation Failed:', errors);
+    if (process.env.NODE_ENV === "development") {
+      logger.error("SDUI Schema Validation Failed:", errors);
     }
 
     // Throw validation error for caller to handle
     throw new SDUIValidationError(
-      `Page definition failed validation: ${errors.join(', ')}`,
+      `Page definition failed validation: ${errors.join(", ")}`,
       errors
     );
   }
@@ -472,11 +490,15 @@ export function renderPage(
   const element = (
     <ErrorBoundary
       onError={(error) => {
-        logger.error('Fatal error rendering SDUI page:', error);
-        options.onRenderError?.(error, 'PageRenderer');
+        logger.error("Fatal error rendering SDUI page:", error);
+        options.onRenderError?.(error, "PageRenderer");
       }}
     >
-      <PageRenderer page={page} options={effectiveOptions} warnings={warnings} />
+      <PageRenderer
+        page={page}
+        options={effectiveOptions}
+        warnings={warnings}
+      />
     </ErrorBoundary>
   );
 

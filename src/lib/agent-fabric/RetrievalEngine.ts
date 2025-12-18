@@ -10,7 +10,7 @@
  * Prevents hallucinations by grounding LLM responses in retrieved data.
  */
 
-import { MemorySystem, AgentMemory } from '../MemorySystem';
+import { AgentMemory, MemorySystem } from '../MemorySystem';
 import { logger } from '../../logger';
 import { z } from 'zod';
 

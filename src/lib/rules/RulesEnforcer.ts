@@ -9,19 +9,19 @@
 
 import { logger } from '../logger';
 import { 
-  RuleContext, 
-  RuleCheckResult,
+  getEnabledRules as getEnabledGlobalRules, 
   GLOBAL_RULES,
-  getEnabledRules as getEnabledGlobalRules,
   RuleCategory,
+  RuleCheckResult,
+  RuleContext,
   RuleSeverity,
 } from './GlobalRules';
 import {
-  LocalRuleContext,
-  LocalRuleCheckResult,
-  LOCAL_RULES,
-  getRulesForAgent,
   AgentType,
+  getRulesForAgent,
+  LOCAL_RULES,
+  LocalRuleCheckResult,
+  LocalRuleContext,
 } from './LocalRules';
 
 // =============================================================================

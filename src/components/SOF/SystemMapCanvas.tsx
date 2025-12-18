@@ -5,8 +5,8 @@
  * leverage points, and constraints. Part of the SOF SDUI system.
  */
 
-import React, { useRef, useEffect, useState } from 'react';
-import type { SystemEntity, SystemRelationship, LeveragePoint, SystemConstraint } from '../../types/sof';
+import React, { useEffect, useRef, useState } from 'react';
+import type { LeveragePoint, SystemConstraint, SystemEntity, SystemRelationship } from '../../types/sof';
 
 export interface SystemMapCanvasProps {
   entities: SystemEntity[];

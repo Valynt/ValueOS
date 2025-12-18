@@ -2,17 +2,17 @@
  * Input Sanitizer Tests
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   encodeHtml,
+  sanitizeFilePath,
   sanitizeHtml,
+  sanitizeJson,
   sanitizeString,
   sanitizeUrl,
-  sanitizeFilePath,
   validateEmail,
-  validatePhoneNumber,
-  sanitizeJson,
   validateFileUpload,
+  validatePhoneNumber,
 } from '../InputSanitizer';
 
 describe('InputSanitizer', () => {

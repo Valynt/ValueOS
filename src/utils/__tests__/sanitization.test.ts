@@ -3,14 +3,14 @@
  * Tests the consolidated sanitization logic extracted from across the codebase
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  sanitizeLLMContent,
-  sanitizeUserInput,
-  sanitizeLLMMessage,
-  sanitizeBatch,
   containsDangerousContent,
   DEFAULT_SANITIZATION_OPTIONS,
+  sanitizeBatch,
+  sanitizeLLMContent,
+  sanitizeLLMMessage,
+  sanitizeUserInput,
 } from '../../utils/sanitization';
 
 describe('Sanitization Utilities', () => {

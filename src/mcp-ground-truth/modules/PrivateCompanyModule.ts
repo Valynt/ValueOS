@@ -15,13 +15,13 @@
 
 import { BaseModule } from '../core/BaseModule';
 import {
+  ErrorCodes,
+  FinancialMetric,
+  GroundTruthError,
+  GrowthSignals,
   ModuleRequest,
   ModuleResponse,
-  FinancialMetric,
   PrivateCompanyProfile,
-  GrowthSignals,
-  GroundTruthError,
-  ErrorCodes,
 } from '../types';
 import { logger } from '../../lib/logger';
 

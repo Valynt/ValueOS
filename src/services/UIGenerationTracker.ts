@@ -8,11 +8,11 @@ import { logger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 import type {
+  ComponentUsageStats,
+  UIGenerationFeedback,
+  UIGenerationMetrics,
   UIGenerationTrajectory,
   UIInteractionEvent,
-  UIGenerationMetrics,
-  UIGenerationFeedback,
-  ComponentUsageStats,
 } from '../types/UIGenerationMetrics';
 
 export class UIGenerationTracker {

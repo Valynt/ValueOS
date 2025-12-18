@@ -4,7 +4,7 @@
  * Tests agent integration, workflow integration, and state management.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { agentSDUIAdapter } from '../services/AgentSDUIAdapter';
 import { workflowSDUIAdapter } from '../services/WorkflowSDUIAdapter';
 import { workspaceStateService } from '../services/WorkspaceStateService';

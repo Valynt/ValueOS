@@ -15,7 +15,7 @@
 
 import { logger } from '../lib/logger';
 import { getSecurityConfig, validateSecurityConfig } from './SecurityConfig';
-import { initializeCSRFProtection, attachCSRFFetchInterceptor } from './CSRFProtection';
+import { attachCSRFFetchInterceptor, initializeCSRFProtection } from './CSRFProtection';
 
 // Configuration
 export {

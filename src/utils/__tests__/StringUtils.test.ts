@@ -5,7 +5,7 @@
  * following MCP patterns for utility testing
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('StringUtils', () => {
   describe('String Formatting', () => {

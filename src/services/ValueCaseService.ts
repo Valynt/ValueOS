@@ -9,6 +9,10 @@ import { logger } from '../lib/logger';
 import type { LifecycleStage } from '../types/vos';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { TenantAwareService, type TenantContext } from './TenantAwareService';
+import { secureTokenManager } from '../lib/auth/SecureTokenManager';
+import { createLogger } from '../lib/logger';
+
+const debugLogger = createLogger({ component: 'ValueCaseService' });
 
 // ============================================================================
 // Types
@@ -60,20 +64,33 @@ class ValueCaseService extends TenantAwareService {
   }
 
   private async getTenantContextFromSession(): Promise<TenantContext> {
-    const { data, error } = await this.supabase.auth.getSession();
+    try {
+      // Prefer secure token manager (may include demo session fallback)
+      const tokenSession = await secureTokenManager.getCurrentSession();
+      if (tokenSession && tokenSession.user?.id) {
+        debugLogger.debug('Using session from SecureTokenManager for tenant context', { userId: tokenSession.user.id });
+        return this.getTenantContext(tokenSession.user.id);
+      }
 
-    if (error) {
-      logger.error('Failed to fetch auth session for tenant validation', error);
-      throw error;
+      // Fallback to Supabase client session
+      const { data, error } = await this.supabase.auth.getSession();
+
+      if (error) {
+        logger.error('Failed to fetch auth session for tenant validation', error);
+        throw error;
+      }
+
+      const userId = data.session?.user?.id;
+      if (!userId) {
+        logger.warn('Tenant validation failed: no authenticated user found');
+        throw new Error('Authentication required');
+      }
+
+      return this.getTenantContext(userId);
+    } catch (err) {
+      logger.error('Error in getTenantContextFromSession', err as Error);
+      throw err;
     }
-
-    const userId = data.session?.user?.id;
-    if (!userId) {
-      logger.warn('Tenant validation failed: no authenticated user found');
-      throw new Error('Authentication required');
-    }
-
-    return this.getTenantContext(userId);
   }
 
   /**

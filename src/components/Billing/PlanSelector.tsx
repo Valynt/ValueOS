@@ -4,8 +4,8 @@
  */
 
 import React, { useState } from 'react';
-import { Check, Zap, TrendingUp } from 'lucide-react';
-import { PlanTier, PLANS, formatMetricName, formatUsageAmount } from '../../config/billing';
+import { Check, TrendingUp, Zap } from 'lucide-react';
+import { formatMetricName, formatUsageAmount, PLANS, PlanTier } from '../../config/billing';
 
 interface PlanSelectorProps {
   currentPlan?: PlanTier;

@@ -5,7 +5,7 @@
  * Supports fuzzy matching, natural language descriptions, and semantic search.
  */
 
-import { SDUIPageDefinition, SDUIComponentSection } from './schema';
+import { SDUIComponentSection, SDUIPageDefinition } from './schema';
 import { ComponentSelector } from './AtomicUIActions';
 import { logger } from '../lib/logger';
 

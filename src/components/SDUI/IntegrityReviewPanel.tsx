@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import {
-  CheckCircle,
-  XCircle,
   AlertTriangle,
-  Info,
+  CheckCircle,
   ChevronDown,
   ChevronUp,
+  Info,
   Shield,
+  XCircle,
 } from 'lucide-react';
 
 /**

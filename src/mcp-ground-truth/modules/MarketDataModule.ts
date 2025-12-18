@@ -12,13 +12,13 @@
 
 import { BaseModule } from '../core/BaseModule';
 import {
+  ErrorCodes,
+  FinancialMetric,
+  GroundTruthError,
+  MarketFundamentals,
+  MarketQuote,
   ModuleRequest,
   ModuleResponse,
-  FinancialMetric,
-  MarketQuote,
-  MarketFundamentals,
-  GroundTruthError,
-  ErrorCodes,
 } from '../types';
 import { logger } from '../../lib/logger';
 

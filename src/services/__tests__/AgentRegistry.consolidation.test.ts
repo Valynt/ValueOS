@@ -4,19 +4,19 @@
  * Tests for the updated AgentRegistry that uses canonical agent types
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  AgentRegistry,
-  AgentRegistration,
   AgentRecord,
+  AgentRegistration,
+  AgentRegistry,
   AgentState,
   fromCanonicalRegistration,
-  toCanonicalRecord,
   RoutingContext,
+  toCanonicalRecord,
 } from '../AgentRegistry';
 import {
-  AgentRegistration as CanonicalAgentRegistration,
   AgentRecord as CanonicalAgentRecord,
+  AgentRegistration as CanonicalAgentRegistration,
 } from '../../types/agent';
 
 describe('AgentRegistry', () => {

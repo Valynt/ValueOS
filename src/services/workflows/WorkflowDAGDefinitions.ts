@@ -14,7 +14,7 @@
  */
 
 import { logger } from '../../lib/logger';
-import { WorkflowDAG, WorkflowStage, RetryConfig, LifecycleStage } from '../../types/workflow';
+import { LifecycleStage, RetryConfig, WorkflowDAG, WorkflowStage } from '../../types/workflow';
 
 // ============================================================================
 // Retry Configurations

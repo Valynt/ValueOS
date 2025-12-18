@@ -4,7 +4,7 @@
  * Tests for audit logging with provenance tracking following MCP patterns
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('AuditLogService', () => {
   let mockDB: any;

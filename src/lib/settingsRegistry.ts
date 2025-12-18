@@ -1,6 +1,6 @@
-import { SettingsRoute, SettingsSearchResult, SettingsPermission } from '../types';
+import { SettingsPermission, SettingsRoute, SettingsSearchResult } from '../types';
 import { supabase } from './supabase';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 // ============================================================================
 // Types

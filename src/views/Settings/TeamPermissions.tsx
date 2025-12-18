@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SettingsSection } from '../../components/Settings/SettingsSection';
-import { Shield, Check, X, AlertCircle, Info, Crown, Users, User } from 'lucide-react';
+import { AlertCircle, Check, Crown, Info, Shield, User, Users, X } from 'lucide-react';
 import { TeamMemberRole } from '../../types';
 
 interface Permission {

@@ -77,13 +77,13 @@ const sdk = new NodeSDK({
 export function initTelemetry(): void {
   try {
     sdk.start();
-    // eslint-disable-next-line no-console
+     
     console.log('OpenTelemetry initialized successfully');
-    // eslint-disable-next-line no-console
+     
     console.log(`Service: ${serviceName}`);
-    // eslint-disable-next-line no-console
+     
     console.log(`Environment: ${environment}`);
-    // eslint-disable-next-line no-console
+     
     console.log(`Jaeger endpoint: ${jaegerEndpoint}`);
   } catch (error) {
     console.error('Error initializing OpenTelemetry:', error);
@@ -94,7 +94,7 @@ export function initTelemetry(): void {
 export async function shutdownTelemetry(): Promise<void> {
   try {
     await sdk.shutdown();
-    // eslint-disable-next-line no-console
+     
     console.log('OpenTelemetry shut down successfully');
   } catch (error) {
     console.error('Error shutting down OpenTelemetry:', error);

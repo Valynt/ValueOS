@@ -2,7 +2,7 @@
  * Unit tests for WorkspaceStateService
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkspaceStateService } from '../WorkspaceStateService';
 import { WorkspaceState } from '../../types/sdui-integration';
 import { CacheService } from '../CacheService';

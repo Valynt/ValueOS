@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { CanvasComponent, AgentMessage } from '../../types';
-import { Bot, TrendingUp, FileText, Activity, Lightbulb, ChevronRight, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { AgentMessage, CanvasComponent } from '../../types';
+import { Activity, Bot, ChevronRight, FileText, Lightbulb, TrendingUp, X } from 'lucide-react';
 
 interface AgentInsightPanelProps {
   onAddComponent: (component: Omit<CanvasComponent, 'id'>) => void;

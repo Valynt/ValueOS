@@ -7,7 +7,7 @@
  * Database: Real Supabase instance (no mocks)
  */
 
-import { describe, test, expect, beforeAll, afterAll } from 'vitest';
+import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { supabase } from '@/lib/supabase';
 import { SemanticMemoryService } from '@/services/SemanticMemory';
 

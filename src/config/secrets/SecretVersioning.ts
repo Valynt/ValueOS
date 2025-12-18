@@ -9,7 +9,7 @@
  */
 
 import { logger } from '../../lib/logger';
-import type { ISecretProvider, SecretValue, SecretMetadata } from './ISecretProvider';
+import type { ISecretProvider, SecretMetadata, SecretValue } from './ISecretProvider';
 
 /**
  * Secret version entry

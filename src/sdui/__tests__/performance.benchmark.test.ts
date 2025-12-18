@@ -5,9 +5,9 @@
  * Targets: XSS <5ms, Resolve <100ms, Session validation <1ms
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { sanitizeProps } from '../security/sanitization';
-import { validateSession, createSessionContext } from '../security/sessionValidation';
+import { createSessionContext, validateSession } from '../security/sessionValidation';
 import { DataBindingResolver } from '../DataBindingResolver';
 
 describe('Performance Benchmarks', () => {

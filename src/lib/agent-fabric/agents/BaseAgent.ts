@@ -2,6 +2,8 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { LLMGateway, LLMMessage } from '../LLMGateway';
 import { MemorySystem } from '../MemorySystem';
 import { AuditLogger } from '../AuditLogger';
+import secureLLMInvoke from '../../llm/secureLLMInvoke';
+import { z } from 'zod';
 import { AgentConfig, ConfidenceLevel } from '../../../types/agent';
 import { getTracer } from '../../observability';
 import { SpanStatusCode } from '@opentelemetry/api';
@@ -102,18 +104,28 @@ export abstract class BaseAgent {
           estimatedCompletionTokens: 0
         };
 
-        const response = await this.llmGateway.complete(
-          messages,
-          {
-            temperature: 0.7,
-            max_tokens: 4000
-          },
-          taskContext, // pass structured task context for tracing and metering
-          breaker    // CRITICAL: Pass circuit breaker
-        );
+        // Use secureLLMInvoke to ensure sanitization, schema validation, provenance and telemetry
+        const promptStr = messages.map(m => `${m.role}:\n${m.content}`).join('\n\n');
 
-        // Parse and validate response
-        const parsed = await this.extractJSON(response.content, fullSchema);
+        const secureResult = await secureLLMInvoke(promptStr, {
+          tenantId: this.organizationId || 'unknown',
+          traceId: taskContext?.traceId,
+          requestId: taskContext?.requestId,
+          model: undefined,
+          temperature: 0.7,
+          maxTokens: 4000,
+          schema: fullSchema,
+          deterministicParse: true,
+          executor: this.llmGateway as any,
+        });
+
+        if (!secureResult.ok) {
+          // Log and surface validation failures; fail-closed semantics
+          logger.error('secureLLMInvoke failed', { agent: this.agentId, sessionId, reason: secureResult.reason, details: secureResult.details });
+          throw new Error(`secureLLMInvoke failed: ${secureResult.reason}`);
+        }
+
+        const parsed = secureResult.data as any;
         const validation = validateAgentOutput(parsed, thresholds);
 
         // Log warnings

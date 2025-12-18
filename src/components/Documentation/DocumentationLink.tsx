@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from 'react';
-import { HelpCircle, ExternalLink, X } from 'lucide-react';
+import { ExternalLink, HelpCircle, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { sanitizeHtml } from '../../utils/sanitizeHtml';
 

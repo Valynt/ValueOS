@@ -10,7 +10,7 @@
  * 4. Fallback queries also enforce tenant isolation
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemorySystem } from '../../../src/lib/agent-fabric/MemorySystem';
 import { createBoltClientMock } from '../../mocks/mockSupabaseClient';
 import { LLMGateway } from '../../../src/lib/agent-fabric/LLMGateway';

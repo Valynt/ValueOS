@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { SettingsSection } from '../../components/Settings/SettingsSection';
 import {
-  Shield, Lock, Clock, Users, Globe, Plus, Trash2, Check, AlertCircle, Key
+  AlertCircle, Check, Clock, Globe, Key, Lock, Plus, Shield, Trash2, Users
 } from 'lucide-react';
-import { AuthPolicy, AllowedDomain } from '../../types';
+import { AllowedDomain, AuthPolicy } from '../../types';
 import { analyticsClient } from '../../lib/analyticsClient';
 
 export const OrganizationSecurity: React.FC = () => {

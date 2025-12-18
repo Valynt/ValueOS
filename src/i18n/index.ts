@@ -1,4 +1,4 @@
-import { DEFAULT_LOCALE, LocaleCode, SUPPORTED_LOCALES, localeMetadata } from './config';
+import { DEFAULT_LOCALE, LocaleCode, localeMetadata, SUPPORTED_LOCALES } from './config';
 import enCommon from './locales/en/common.json';
 import esCommon from './locales/es/common.json';
 

@@ -1,6 +1,6 @@
 import React from "react";
 import { MetricCardProps } from "../../types";
-import { TrendingUp, TrendingDown, Minus, Info } from "lucide-react";
+import { Info, Minus, TrendingDown, TrendingUp } from "lucide-react";
 
 export const MetricCard: React.FC<MetricCardProps> = ({
   title,
@@ -59,8 +59,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
                   : trend === "down"
                     ? "bg-destructive"
                     : "bg-muted-foreground"
-              }`}
-              className="w-3/4"
+              } w-3/4`}
             />
           </div>
         </div>

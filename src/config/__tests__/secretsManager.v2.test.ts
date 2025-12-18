@@ -7,7 +7,7 @@
  * Sprint 1: Critical Security Fixes
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MultiTenantSecretsManager } from '../secretsManager.v2';
 
 // Mock AWS SDK

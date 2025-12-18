@@ -6,7 +6,7 @@
  */
 
 import { DataBinding, DataSourceContext, ResolvedBinding } from './DataBindingSchema';
-import { TenantContext, hasPermission, TenantContextError } from './TenantContext';
+import { hasPermission, TenantContext, TenantContextError } from './TenantContext';
 
 /**
  * Permission requirements for data sources

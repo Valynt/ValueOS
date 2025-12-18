@@ -27,10 +27,10 @@ import { ValueFabricService } from '../../../services/ValueFabricService';
 import { ROIFormulaInterpreter } from '../../../services/ROIFormulaInterpreter';
 import { manifestoValidator } from '../../manifesto/ManifestoRules';
 import type {
-  ManifestoValidationResult,
   ManifestoComplianceReport,
-  ValueTree,
-  ROIModel
+  ManifestoValidationResult,
+  ROIModel,
+  ValueTree
 } from '../../../types/vos';
 
 export interface IntegrityCheckInput {

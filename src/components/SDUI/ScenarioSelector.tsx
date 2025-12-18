@@ -5,25 +5,25 @@
  * Features preview images, complexity badges, and AI recommendations.
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { 
+  BarChart3, 
+  Building2, 
   Check, 
-  ChevronRight, 
-  Sparkles, 
-  TrendingUp,
-  Building2,
-  Layers,
-  Star,
+  ChevronRight,
   Clock,
-  Zap,
-  Target,
-  BarChart3,
-  Users,
-  Shield,
-  Search,
+  ExternalLink,
   Grid,
+  Layers,
   List,
-  ExternalLink
+  Search,
+  Shield,
+  Sparkles,
+  Star,
+  Target,
+  TrendingUp,
+  Users,
+  Zap
 } from 'lucide-react';
 
 // ============================================================================

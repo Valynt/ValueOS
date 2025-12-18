@@ -2,12 +2,12 @@
  * Password Validator Tests
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  validatePassword,
-  generateStrongPassword,
   calculatePasswordEntropy,
   estimateCrackTime,
+  generateStrongPassword,
+  validatePassword,
 } from '../PasswordValidator';
 
 describe('PasswordValidator', () => {

@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { AlertCircle, RefreshCw, Trash2, Download, HelpCircle } from 'lucide-react';
+import { AlertCircle, Download, HelpCircle, RefreshCw, Trash2 } from 'lucide-react';
 
 export interface ErrorRecoveryProps {
   error: {

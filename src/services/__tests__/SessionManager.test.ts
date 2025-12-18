@@ -3,7 +3,7 @@
  * Tests for session management including memory leak prevention
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SessionManager } from '../../services/SessionManager';
 import { authService } from '../../services/AuthService';
 

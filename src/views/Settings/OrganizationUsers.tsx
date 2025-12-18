@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { SettingsSection } from '../../components/Settings/SettingsSection';
 import {
-  Search, UserPlus, MoreVertical, Filter, Download, Mail,
-  CheckCircle, XCircle, Clock, Ban, ChevronLeft, ChevronRight
+  Ban, CheckCircle, ChevronLeft, ChevronRight, Clock, Download,
+  Filter, Mail, MoreVertical, Search, UserPlus, XCircle
 } from 'lucide-react';
 import { OrganizationUser } from '../../types';
 import { analyticsClient } from '../../lib/analyticsClient';

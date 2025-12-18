@@ -7,7 +7,7 @@
  * - Database failover simulation
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CircuitBreaker, CircuitState } from '../../lib/resilience/CircuitBreaker';
 import { getWorkflowLifecycleIntegration, resetWorkflowLifecycleIntegration } from '../../services/WorkflowLifecycleIntegration';
 import { createClient } from '@supabase/supabase-js';

@@ -4,14 +4,14 @@
  * SAF-401: Verify agent safety controls work correctly
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
   AgentCircuitBreaker,
+  DEFAULT_SAFETY_LIMITS,
   SafetyError,
-  withCircuitBreaker,
   trackLLMCall,
   trackRecursion,
-  DEFAULT_SAFETY_LIMITS,
+  withCircuitBreaker,
 } from '../CircuitBreaker';
 
 describe('AgentCircuitBreaker', () => {

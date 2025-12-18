@@ -9,10 +9,10 @@
 import { logger } from '../lib/logger';
 import { WorkflowStage } from '../types/workflow';
 import { 
-  LifecycleStage, 
-  AgentHealthStatus,
+  AgentHealthStatus, 
+  AgentRecord as CanonicalAgentRecord,
   AgentRegistration as CanonicalAgentRegistration,
-  AgentRecord as CanonicalAgentRecord 
+  LifecycleStage 
 } from '../types/agent';
 
 // Re-export canonical types for backward compatibility

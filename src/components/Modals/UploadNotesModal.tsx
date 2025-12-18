@@ -5,14 +5,14 @@
  * Extracts content and creates a value case with AI-generated insights.
  */
 
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  X,
-  Upload,
+  AlertCircle,
+  CheckCircle,
   FileText,
   Loader2,
-  CheckCircle,
-  AlertCircle,
+  Upload,
+  X,
 } from "lucide-react";
 import {
   documentParserService,

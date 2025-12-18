@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Menu, X, Home, FileText, Settings, HelpCircle, User, LogOut } from 'lucide-react';
+import { FileText, HelpCircle, Home, LogOut, Menu, Settings, User, X } from 'lucide-react';
 
 interface MobileNavProps {
   currentPage?: string;

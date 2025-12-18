@@ -1,5 +1,5 @@
 import React from 'react';
-import { TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import { MetricBadge } from './MetricBadge';
 
 /**

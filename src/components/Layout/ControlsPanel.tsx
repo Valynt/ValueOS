@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CanvasComponent } from '../../types';
-import { Settings, Sliders, Database, ChevronDown, ChevronRight, Palette, Layout } from 'lucide-react';
+import { ChevronDown, ChevronRight, Database, Layout, Palette, Settings, Sliders } from 'lucide-react';
 import { ExpandablePanel } from './ExpandablePanel';
 
 interface ControlsPanelProps {

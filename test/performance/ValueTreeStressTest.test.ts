@@ -4,7 +4,7 @@
  * Tests value tree operations under high load and complex scenarios
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { performanceMonitor } from '../../utils/performance';
 
 const runIntegration = process.env.RUN_INTEGRATION_TESTS === 'true';

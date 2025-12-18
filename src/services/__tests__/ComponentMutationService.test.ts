@@ -5,11 +5,11 @@
 import { ComponentMutationService } from '../ComponentMutationService';
 import { SDUIPageDefinition } from '../../sdui/schema';
 import {
-  createPropertyUpdate,
-  createMutateAction,
   createAddAction,
-  createRemoveAction,
   createBatchAction,
+  createMutateAction,
+  createPropertyUpdate,
+  createRemoveAction,
   validateAtomicAction,
 } from '../../sdui/AtomicUIActions';
 

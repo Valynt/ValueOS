@@ -14,7 +14,7 @@ import { getConfig } from '../../config/environment';
 import { createLogger } from '../../lib/logger';
 
 const healthLogger = createLogger({ component: 'ConfigHealth' });
-import type { HealthStatus, ComponentHealth, ConfigHealth } from '../../types/health';
+import type { ComponentHealth, ConfigHealth, HealthStatus } from '../../types/health';
 
 /**
  * Get environment variable safely (without exposing value)

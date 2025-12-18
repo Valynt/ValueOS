@@ -14,7 +14,7 @@ import type { LifecycleStage } from '../../types/vos';
 import { generateOpportunityPage, type OpportunityTemplateContext } from './chat-opportunity-template';
 import { generateTargetPage, type TargetTemplateContext } from './chat-target-template';
 import { generateRealizationPage, type RealizationTemplateContext } from './chat-realization-template';
-import { generateExpansionPage, type ExpansionTemplateContext } from './chat-expansion-template';
+import { type ExpansionTemplateContext, generateExpansionPage } from './chat-expansion-template';
 
 /**
  * Common template context for all stages

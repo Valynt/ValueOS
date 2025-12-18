@@ -3,7 +3,7 @@
  * Tests that LLM calls are blocked when cost thresholds are exceeded
  */
 
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { AgentCircuitBreaker, SafetyLimits } from '../../lib/agent-fabric/CircuitBreaker';
 import { llmCostTracker } from '../../services/LLMCostTracker';
 

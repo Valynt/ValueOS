@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
-import { useDirtyState, useBeforeUnload } from './useDirtyState';
+import { useBeforeUnload, useDirtyState } from './useDirtyState';
 
 describe('useDirtyState', () => {
   const initialState = { name: 'Alice', age: 30 };

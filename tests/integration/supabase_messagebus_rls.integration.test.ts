@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client } from "pg";
 import { LLMQueueService } from "../../src/services/MessageQueue";
 import { v4 as uuidv4 } from "uuid";

@@ -5,8 +5,8 @@
  * and policy_rules tables. Shows complete audit trail for compliance.
  */
 
-import React, { useState, useEffect } from 'react';
-import { Clock, User, FileText, CheckCircle, XCircle, AlertTriangle, ChevronRight, Filter, Download } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { AlertTriangle, CheckCircle, ChevronRight, Clock, Download, FileText, Filter, User, XCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 export interface AuditEntry {

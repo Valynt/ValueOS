@@ -5,7 +5,7 @@
  * Provides agent invocation, session management, and circuit breaker monitoring
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { logger } from '../../lib/logger';
 import { getAgentAPI } from '../../services/AgentAPI';
@@ -17,13 +17,13 @@ import { AgentStatusIndicator } from './AgentStatusIndicator';
 import { BusinessMetricsPanel } from './BusinessMetricsPanel';
 import { StageContent } from './StageContent';
 import { 
-  AlertCircle, Save, Clock, Users
+  AlertCircle, Clock, Save, Users
 } from 'lucide-react';
-import type { AgentType, AgentContext } from '../../services/agent-types';
+import type { AgentContext, AgentType } from '../../services/agent-types';
 import type { 
-  WorkflowStage, 
+  AgentHealthStatus, 
   BusinessWorkflowState, 
-  AgentHealthStatus 
+  WorkflowStage 
 } from './types';
 import { BUSINESS_WORKFLOW_STAGES } from './config';
 

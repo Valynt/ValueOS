@@ -5,7 +5,7 @@ import { ConfirmationModal } from '../Common/ConfirmationModal';
 import { HelpTooltip } from '../Common/Tooltip';
 import { SkeletonForm } from '../Common/SkeletonLoader';
 import { EmptyState } from '../Common/EmptyState';
-import { useDirtyState, useBeforeUnload } from '../../hooks/useDirtyState';
+import { useBeforeUnload, useDirtyState } from '../../hooks/useDirtyState';
 import { useOptimisticUpdate } from '../../hooks/useOptimisticUpdate';
 import { announceToScreenReader } from '../../utils/accessibility';
 import { Trash2, Users } from 'lucide-react';

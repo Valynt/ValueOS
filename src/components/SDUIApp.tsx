@@ -5,15 +5,15 @@
  * Replaces traditional React routing with server-driven UI composition.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { renderPage } from '../sdui/renderPage';
 import { SDUIPageDefinition } from '../sdui/schema';
 import { canvasSchemaService } from '../services/CanvasSchemaService';
 import { actionRouter } from '../services/ActionRouter';
 import {
-  WorkspaceContext,
-  CanonicalAction,
   ActionContext,
+  CanonicalAction,
+  WorkspaceContext,
 } from '../types/sdui-integration';
 import { LifecycleStage } from '../types/workflow';
 import { logger } from '../lib/logger';

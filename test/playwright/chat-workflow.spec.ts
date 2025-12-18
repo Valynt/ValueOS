@@ -5,7 +5,7 @@
  * Covers: navigation, message sending, response handling, and error states.
  */
 
-import { test, expect, Page } from '@playwright/test';
+import { expect, Page, test } from '@playwright/test';
 
 // Test configuration
 const TIMEOUT = {

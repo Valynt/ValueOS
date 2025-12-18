@@ -9,7 +9,7 @@
 
 import { logger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
-import { ServiceError, NetworkError, TimeoutError, handleServiceError } from './errors';
+import { handleServiceError, NetworkError, ServiceError, TimeoutError } from './errors';
 
 export interface RetryConfig {
   maxRetries: number;

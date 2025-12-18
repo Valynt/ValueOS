@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, CheckCircle2, AlertTriangle, XCircle, Info } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Info, Shield, XCircle } from 'lucide-react';
 import type { ManifestoComplianceReport } from '../../types/vos';
 
 interface ComplianceStampBadgeProps {

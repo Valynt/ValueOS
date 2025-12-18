@@ -1,10 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { SettingsSection } from '../../components/Settings/SettingsSection';
-import { Upload, Building2, Check, AlertCircle, Loader2, X } from 'lucide-react';
+import { AlertCircle, Building2, Check, Loader2, Upload, X } from 'lucide-react';
 import {
+  applyBrandTheme,
   VALYNT_BRAND_PRIMARY,
   VALYNT_BRAND_SECONDARY,
-  applyBrandTheme,
 } from '../../styles/brandTheme';
 
 export const OrganizationGeneral: React.FC = () => {

@@ -6,14 +6,14 @@
 
 import { supabase } from './supabase';
 import type {
-  SOFGovernanceControl,
-  CreateGovernanceControl,
-  SOFAuditEvent,
-  CreateAuditEvent,
-  GovernanceComplianceResult,
   AuditTrailEntry,
+  CreateAuditEvent,
+  CreateGovernanceControl,
   CreateLifecycleArtifactLink,
+  GovernanceComplianceResult,
   LifecycleArtifactLink,
+  SOFAuditEvent,
+  SOFGovernanceControl,
 } from '../types/sof-governance';
 
 // ============================================================================

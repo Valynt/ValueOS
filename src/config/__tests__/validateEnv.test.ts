@@ -3,8 +3,8 @@
  * Phase 1: Environment & Configuration
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { validateLLMConfig, validateEnv } from '../validateEnv';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { validateEnv, validateLLMConfig } from '../validateEnv';
 
 describe('Phase 1: Environment Validation', () => {
   describe('validateLLMConfig', () => {

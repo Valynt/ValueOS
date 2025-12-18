@@ -1,6 +1,6 @@
 import { logger } from '../lib/logger';
 import { CanvasComponent } from '../types';
-import { createCurrencyBinding, createPercentageBinding, createMetricBinding } from '../sdui/DataBindingSchema';
+import { createCurrencyBinding, createMetricBinding, createPercentageBinding } from '../sdui/DataBindingSchema';
 
 export interface ComponentTemplate {
   id: string;

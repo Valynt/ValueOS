@@ -4,7 +4,7 @@
  * Async processing for LLM requests using BullMQ and Redis
  */
 
-import { Queue, Worker, Job, QueueEvents } from 'bullmq';
+import { Job, Queue, QueueEvents, Worker } from 'bullmq';
 import Redis from 'ioredis';
 import http from 'http';
 import { collectDefaultMetrics, Gauge, Registry } from 'prom-client';
