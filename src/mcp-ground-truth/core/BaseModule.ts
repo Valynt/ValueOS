@@ -6,14 +6,14 @@
  */
 
 import {
+  ConfidenceTier,
+  ErrorCodes,
+  FinancialMetric,
+  GroundTruthError,
   GroundTruthModule,
   ModuleRequest,
   ModuleResponse,
-  ConfidenceTier,
-  FinancialMetric,
   ProvenanceInfo,
-  GroundTruthError,
-  ErrorCodes,
 } from '../types';
 import { logger } from '../../lib/logger';
 

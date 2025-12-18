@@ -107,12 +107,12 @@ export {
 // =============================================================================
 
 import { 
-  getRulesEnforcer as _getRulesEnforcer, 
   buildGlobalRuleContext as _buildGlobalRuleContext, 
-  buildLocalRuleContext as _buildLocalRuleContext 
+  buildLocalRuleContext as _buildLocalRuleContext, 
+  getRulesEnforcer as _getRulesEnforcer 
 } from './RulesEnforcer';
 import { GLOBAL_RULES as _GLOBAL_RULES } from './GlobalRules';
-import { LOCAL_RULES as _LOCAL_RULES, type AgentType as _AgentType } from './LocalRules';
+import { type AgentType as _AgentType, LOCAL_RULES as _LOCAL_RULES } from './LocalRules';
 
 /**
  * Quick enforcement check for common use cases

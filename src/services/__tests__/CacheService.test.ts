@@ -4,7 +4,7 @@
  * Tests for caching with TTL management following MCP patterns
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('CacheService', () => {
   let mockCache: Map<string, any>;

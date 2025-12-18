@@ -5,18 +5,18 @@
  * Enables agents to modify specific components without full page regeneration.
  */
 
-import { Tool, ToolResult, ExecutionContext } from '../services/ToolRegistry';
+import { ExecutionContext, Tool, ToolResult } from '../services/ToolRegistry';
 import { ComponentMutationService } from '../services/ComponentMutationService';
 import { SDUIPageDefinition } from '../sdui/schema';
 import {
   AtomicUIAction,
   ComponentSelector,
-  PropertyMutation,
+  createAddAction,
+  createBatchAction,
   createMutateAction,
   createPropertyUpdate,
-  createAddAction,
   createRemoveAction,
-  createBatchAction,
+  PropertyMutation,
   validateAtomicAction,
 } from '../sdui/AtomicUIActions';
 import { logger } from '../lib/logger';

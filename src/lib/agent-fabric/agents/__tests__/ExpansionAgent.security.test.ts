@@ -3,7 +3,7 @@
  * Validates secureInvoke() usage, tenant isolation, and Zod schema enforcement
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ExpansionAgent } from '../ExpansionAgent';
 
 describe('ExpansionAgent - Security Fixes', () => {

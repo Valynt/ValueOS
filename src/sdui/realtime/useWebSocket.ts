@@ -5,8 +5,8 @@
  * channel subscriptions, and state management.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { WebSocketManager, ConnectionState, WebSocketMessage } from './WebSocketManager';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ConnectionState, WebSocketManager, WebSocketMessage } from './WebSocketManager';
 
 /**
  * WebSocket hook options

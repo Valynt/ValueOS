@@ -10,7 +10,7 @@
  * - Backward compatibility via version downgrading
  */
 
-import { Router, Request, Response } from 'express';
+import { Request, Response, Router } from 'express';
 import { logger } from '../../lib/logger';
 import { validateSDUISchema } from '../../sdui/schema';
 import { migrateSchema } from '../../sdui/migrations';

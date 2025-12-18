@@ -5,7 +5,7 @@
 
 import { supabase } from '../supabase';
 import { createLogger } from '../logger';
-import { User, Session } from '@supabase/supabase-js';
+import { Session, User } from '@supabase/supabase-js';
 
 const logger = createLogger({ component: 'SecureTokenManager' });
 
@@ -60,7 +60,7 @@ export class SecureTokenManager {
 
       if (error) {
         logger.error('Error getting current session', error);
-        return null;
+        // continue to fallback to any stored demo session
       }
 
       if (session) {
@@ -72,9 +72,41 @@ export class SecureTokenManager {
           }
           return null;
         }
+        return session;
       }
 
-      return session;
+      // Fallback: check for a developer/demo session stored by the AuthContext SecureSessionManager
+      try {
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+          const raw = sessionStorage.getItem('vc_session_v2');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            // The stored object may include metadata (storedAt/rotatedAt); extract the session shape
+            const candidate = parsed as any;
+            if (candidate && candidate.user && candidate.access_token) {
+              // Normalize to Supabase Session shape
+              const demoSession: Session = {
+                access_token: candidate.access_token,
+                refresh_token: candidate.refresh_token,
+                expires_in: candidate.expires_in,
+                expires_at: candidate.expires_at,
+                token_type: candidate.token_type,
+                user: candidate.user,
+              } as Session;
+
+              const validation = this.validateToken(demoSession);
+              if (validation.isValid) {
+                logger.info('Using demo session from sessionStorage');
+                return demoSession;
+              }
+            }
+          }
+        }
+      } catch (err) {
+        logger.debug('No demo session found in sessionStorage', err as Error);
+      }
+
+      return null;
     } catch (error) {
       logger.error('Failed to get current session', error as Error);
       return null;

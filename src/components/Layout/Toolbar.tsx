@@ -1,6 +1,6 @@
 import React from 'react';
 import { CanvasComponent } from '../../types';
-import { Plus, Save, Share, BarChart3, FileText, Table, Zap } from 'lucide-react';
+import { BarChart3, FileText, Plus, Save, Share, Table, Zap } from 'lucide-react';
 
 interface ToolbarProps {
   onAddComponent: (component: Omit<CanvasComponent, 'id'>) => void;

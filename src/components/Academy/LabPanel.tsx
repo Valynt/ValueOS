@@ -6,20 +6,20 @@
  * Right side: Interactive agent chat for simulations
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  Play,
-  Pause,
-  RotateCcw,
   CheckCircle,
-  Clock,
-  Target,
-  MessageSquare,
-  Lightbulb,
   ChevronDown,
   ChevronUp,
-  Send,
+  Clock,
+  Lightbulb,
   Loader2,
+  MessageSquare,
+  Pause,
+  Play,
+  RotateCcw,
+  Send,
+  Target,
 } from 'lucide-react';
 import { LabConfiguration, LabSuccessCriterion } from '../../types/academy';
 

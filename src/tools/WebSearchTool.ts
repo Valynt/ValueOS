@@ -5,7 +5,7 @@
  * Example of third-party tool integration.
  */
 
-import { BaseTool, ToolResult, ToolExecutionContext } from '../services/ToolRegistry';
+import { BaseTool, ToolExecutionContext, ToolResult } from '../services/ToolRegistry';
 import { logger } from '../utils/logger';
 
 export class WebSearchTool extends BaseTool {

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AgentChatService } from '../AgentChatService';
 import { WorkflowStateRepository } from '../../repositories/WorkflowStateRepository';
 

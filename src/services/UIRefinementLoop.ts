@@ -18,8 +18,8 @@ import { ComponentMutationService } from './ComponentMutationService';
 import { AgentCircuitBreaker } from '../lib/agent-fabric/CircuitBreaker';
 import {
   AtomicUIAction,
-  createPropertyUpdate,
   createMutateAction,
+  createPropertyUpdate,
   validateAtomicAction,
 } from '../sdui/AtomicUIActions';
 import type { SDUIPageDefinition } from '../sdui/types';

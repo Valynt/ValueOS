@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { DataTableProps } from '../../types';
-import { CreditCard as Edit3, Check, X } from 'lucide-react';
+import { Check, CreditCard as Edit3, X } from 'lucide-react';
 
 export const DataTable: React.FC<DataTableProps> = ({
   title,

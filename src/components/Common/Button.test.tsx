@@ -1,7 +1,7 @@
 import React from 'react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders, screen } from '../../test/test-utils';
-import { Button, IconButton, ButtonGroup } from './Button';
+import { Button, ButtonGroup, IconButton } from './Button';
 
 const user = userEvent.setup();
 

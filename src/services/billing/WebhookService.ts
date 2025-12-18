@@ -8,7 +8,7 @@ import StripeService from './StripeService';
 import InvoiceService from './InvoiceService';
 import { STRIPE_CONFIG } from '../../config/billing';
 import { createLogger } from '../../lib/logger';
-import { recordStripeWebhook, recordInvoiceEvent, recordBillingJobFailure } from '../../metrics/billingMetrics';
+import { recordBillingJobFailure, recordInvoiceEvent, recordStripeWebhook } from '../../metrics/billingMetrics';
 
 const logger = createLogger({ component: 'WebhookService' });
 

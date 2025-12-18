@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { SDUIRenderer } from './renderer';
-import { OpportunityTemplate, TargetTemplate, ExpansionTemplate, IntegrityTemplate } from './templates';
+import { ExpansionTemplate, IntegrityTemplate, OpportunityTemplate, TargetTemplate } from './templates';
 
 const meta: Meta<typeof SDUIRenderer> = {
   title: 'SDUI/Renderer',

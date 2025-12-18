@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LLMGateway } from './LLMGateway';
 import { llmProxyClient } from '../../services/LlmProxyClient';
 import { trackUsage } from '../../services/UsageTrackingService';

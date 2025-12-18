@@ -5,7 +5,7 @@
  * Ensures all systems are ready before rendering the UI.
  */
 
-import { getConfig, validateEnvironmentConfig, isProduction, isDevelopment } from './config/environment';
+import { getConfig, isDevelopment, isProduction, validateEnvironmentConfig } from './config/environment';
 import { initializeAgents, SystemHealth } from './services/AgentInitializer';
 import { initializeSecurity, validateSecurity } from './security';
 import { createLogger, logger as globalLogger, setupMonitoring } from './lib/logger';

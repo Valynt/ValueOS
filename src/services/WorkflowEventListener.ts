@@ -10,11 +10,11 @@ import { EventEmitter } from 'events';
 import { workflowSDUIAdapter } from './WorkflowSDUIAdapter';
 import { canvasSchemaService } from './CanvasSchemaService';
 import {
-  WorkflowProgress,
-  StageTransitionEvent,
   StageCompletionEvent,
+  StageTransitionEvent,
+  WorkflowProgress,
 } from '../types/workflow-sdui';
-import { WorkflowStatus, StageStatus } from '../types/workflow';
+import { StageStatus, WorkflowStatus } from '../types/workflow';
 
 /**
  * Workflow event types

@@ -1,13 +1,18 @@
 /**
  * React Hook for Data Binding Resolution
- * 
+ *
  * Resolves data bindings in SDUI components with automatic refresh.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { DataBinding, isDataBinding, ResolvedBinding, DataSourceContext } from './DataBindingSchema';
-import { DataBindingResolver } from './DataBindingResolver';
-import { logger } from '../lib/logger';
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  DataBinding,
+  DataSourceContext,
+  isDataBinding,
+  ResolvedBinding,
+} from "./DataBindingSchema";
+import { DataBindingResolver } from "./DataBindingResolver";
+import { logger } from "../lib/logger";
 
 /**
  * Hook options
@@ -116,7 +121,7 @@ export function useDataBinding<T = any>(
         timestamp: result.timestamp,
       });
     } catch (error) {
-      logger.error('Failed to resolve data binding', {
+      logger.error("Failed to resolve data binding", {
         binding: binding.$bind,
         source: binding.$source,
         error: error instanceof Error ? error.message : String(error),
@@ -199,7 +204,7 @@ export function useDataBindings<T extends Record<string, any>>(
         errors: {},
       });
     } catch (error) {
-      logger.error('Failed to resolve data bindings', {
+      logger.error("Failed to resolve data bindings", {
         error: error instanceof Error ? error.message : String(error),
       });
 
@@ -234,7 +239,11 @@ export function withDataBindings<P extends Record<string, any>>(
   context: DataSourceContext
 ): React.FC<P> {
   return (props: P) => {
-    const { props: resolvedProps, loading, errors } = useDataBindings(props, {
+    const {
+      props: resolvedProps,
+      loading,
+      errors,
+    } = useDataBindings(props, {
       resolver,
       context,
     });
@@ -251,7 +260,7 @@ export function withDataBindings<P extends Record<string, any>>(
     if (Object.keys(errors).length > 0) {
       return (
         <div className="text-red-600 text-sm">
-          Failed to load data: {errors._global || 'Unknown error'}
+          Failed to load data: {errors._global || "Unknown error"}
         </div>
       );
     }

@@ -5,7 +5,7 @@
  * Shows skeleton loaders for progressive loading UX
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CanvasLayout } from './types';
 import { createLogger } from '../../lib/logger';
 

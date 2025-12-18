@@ -5,7 +5,7 @@
  * Validates agent output before rendering
  */
 
-import { ALLOWED_CANVAS_COMPONENTS, AgentFunctionSchema, AgentOutputValidation, CanvasLayout } from './types';
+import { AgentFunctionSchema, AgentOutputValidation, ALLOWED_CANVAS_COMPONENTS, CanvasLayout } from './types';
 
 /**
  * Generate OpenAI function calling schema for canvas updates

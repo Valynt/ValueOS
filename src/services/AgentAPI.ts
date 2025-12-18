@@ -7,7 +7,7 @@
 
 // Re-export types from shared file to maintain backwards compatibility
 export type { AgentType, AgentContext } from './agent-types';
-import type { AgentType, AgentContext } from './agent-types';
+import type { AgentContext, AgentType } from './agent-types';
 
 import { logger } from '../lib/logger';
 import { CircuitBreaker } from './CircuitBreaker';

@@ -3,11 +3,11 @@
  * Tests XSS sanitization, rate limiting, and recursion guards WITHOUT database dependencies
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { sanitizeProps, XSS_TEST_VECTORS } from '../security/sanitization';
 import {
-  incrementSecurityMetric,
   getSecurityMetrics,
+  incrementSecurityMetric,
   resetSecurityMetrics,
 } from '../security/metrics';
 

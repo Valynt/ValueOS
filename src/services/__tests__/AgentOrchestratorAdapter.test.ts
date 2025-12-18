@@ -4,7 +4,7 @@
  * Tests for the backward-compatible adapter that wraps UnifiedAgentOrchestrator
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock dependencies before importing the module
 vi.mock('../UnifiedAgentOrchestrator', () => ({

@@ -7,7 +7,7 @@
 
 import { logger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
-import { ComplianceRule, ComplianceMetadata } from '../components/Compliance/ComplianceStamp';
+import { ComplianceMetadata, ComplianceRule } from '../components/Compliance/ComplianceStamp';
 
 export interface ValidationContext {
   reportId: string;

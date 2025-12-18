@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calculator, TrendingUp, GitBranch, DollarSign, AlertTriangle, CheckCircle, Play } from 'lucide-react';
+import { AlertTriangle, Calculator, CheckCircle, DollarSign, GitBranch, Play, TrendingUp } from 'lucide-react';
 import { MetricCard } from '../components/Components/MetricCard';
 import { InteractiveChart } from '../components/Components/InteractiveChart';
 import { DataTable } from '../components/Components/DataTable';

@@ -8,12 +8,12 @@
 import { logger } from '../lib/logger';
 import { SDUIPageDefinition } from '../sdui/schema';
 import {
-  WorkspaceContext,
-  WorkspaceState,
-  CanonicalAction,
   ActionResult,
+  CanonicalAction,
   SchemaCacheEntry,
   TemplateSelectionCriteria,
+  WorkspaceContext,
+  WorkspaceState,
 } from '../types/sdui-integration';
 import { LifecycleStage } from '../types/workflow';
 import { CacheService } from './CacheService';

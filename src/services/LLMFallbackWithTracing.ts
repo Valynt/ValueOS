@@ -6,11 +6,11 @@
 
 import { LLMFallbackService, LLMRequest, LLMResponse } from './LLMFallback';
 import {
-  traceLLMOperation,
   addSpanAttributes,
   addSpanEvent,
+  getTraceContextForLogging,
   metrics,
-  getTraceContextForLogging
+  traceLLMOperation
 } from '../config/telemetry';
 import { logger } from '../utils/logger';
 

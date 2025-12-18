@@ -8,10 +8,10 @@
 import { logger } from '../lib/logger';
 import { v4 as uuidv4 } from 'uuid';
 import type {
+  ChannelConfig,
   CommunicationEvent,
   CreateCommunicationEvent,
   MessageHandler,
-  ChannelConfig,
   MessageStats,
 } from '../types/CommunicationEvent';
 import { compress, decompress } from 'lz-string';

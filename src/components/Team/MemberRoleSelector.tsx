@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Crown, Shield, User, Users, ChevronDown, Info, AlertTriangle } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Crown, Info, Shield, User, Users } from 'lucide-react';
 import { TeamMemberRole } from '../../types';
 
 interface RoleOption {

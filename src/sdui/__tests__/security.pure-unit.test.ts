@@ -5,7 +5,7 @@
  * Run with: node --import tsx/esm src/sdui/__tests__/security.pure-unit.test.ts
  */
 
-/* eslint-disable no-console */
+ 
 
 // Simple test framework
 type TestResult = { name: string; passed: boolean; error?: string };
@@ -66,19 +66,19 @@ function expect(actual: unknown) {
 
 // Import security modules
 import {
+  getXSSStats,
+  resetXSSStats,
+  runSanitizationSelfTest,
   sanitizeProps,
   sanitizeString,
   XSS_TEST_VECTORS,
-  runSanitizationSelfTest,
-  getXSSStats,
-  resetXSSStats,
 } from '../security/sanitization.js';
 import {
-  getSecurityMetrics,
-  resetSecurityMetrics,
-  incrementSecurityMetric,
-  getMetricSummary,
   checkCriticalThresholds,
+  getMetricSummary,
+  getSecurityMetrics,
+  incrementSecurityMetric,
+  resetSecurityMetrics,
 } from '../security/metrics.js';
 
 // Test Suite

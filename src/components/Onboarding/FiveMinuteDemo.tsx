@@ -5,8 +5,8 @@
  * in under 5 minutes.
  */
 
-import React, { useState, useEffect } from 'react';
-import { Sparkles, CheckCircle2, ArrowRight, Play, Clock } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ArrowRight, CheckCircle2, Clock, Play, Sparkles } from 'lucide-react';
 import { analyticsClient } from '../../lib/analyticsClient';
 
 interface DemoStep {

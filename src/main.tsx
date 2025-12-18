@@ -7,7 +7,7 @@ import "./styles/focus-visible.css";
 import "./styles/micro-interactions.css";
 import "./styles/responsive.css";
 import { bootstrap } from "./bootstrap";
-import { isProduction, isDevelopment } from "./config/environment";
+import { isDevelopment, isProduction } from "./config/environment";
 import { startConsoleCapture } from "./utils/consoleRecorder";
 import { analyticsClient } from "./lib/analyticsClient";
 import { initHMRFallback } from "./lib/vite-hmr-fallback";

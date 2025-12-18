@@ -132,13 +132,19 @@ const baseConfig = {
       },
     ],
 
-    // Disallow JSX inline styles
+    // Disallow JSX inline styles and direct llmGateway.complete calls
     "no-restricted-syntax": [
       "error",
       {
         selector: "JSXAttribute[name.name='style']",
         message:
           'Inline styles in JSX (style={{...}} or style="...") are forbidden. Use design tokens and utility classes instead.',
+      },
+      {
+        selector:
+          "CallExpression[callee.object.name='llmGateway'][callee.property.name='complete']",
+        message:
+          "Direct calls to llmGateway.complete are forbidden; use secureLLMInvoke instead.",
       },
     ],
 

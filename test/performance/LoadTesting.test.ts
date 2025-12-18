@@ -5,7 +5,7 @@
  * validates scalability, and identifies performance bottlenecks.
  */
 
-import { describe, expect, it, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { OpportunityAgent } from '../../lib/agent-fabric/agents/OpportunityAgent';
 import { TargetAgent } from '../../lib/agent-fabric/agents/TargetAgent';
 import { ExpansionAgent } from '../../lib/agent-fabric/agents/ExpansionAgent';

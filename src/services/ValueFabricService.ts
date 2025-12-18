@@ -17,10 +17,10 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../lib/supabase';
 import { llmProxyClient } from './LlmProxyClient';
 import type {
+  Benchmark,
   Capability,
   UseCase,
   UseCaseCapability,
-  Benchmark,
   ValueFabricQuery,
   ValueFabricSnapshot
 } from '../types/vos';

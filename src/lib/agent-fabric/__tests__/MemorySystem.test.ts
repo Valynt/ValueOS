@@ -3,7 +3,7 @@
  * Tests memory storage, retrieval, and tenant isolation
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemorySystem } from '../MemorySystem';
 import { createClient } from '@supabase/supabase-js';
 

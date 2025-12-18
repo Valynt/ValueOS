@@ -1,30 +1,30 @@
 /**
  * Agent Audit Log View
- * 
+ *
  * UI for viewing and analyzing agent interaction logs
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from "react";
 import {
-  Search,
-  Filter,
-  Download,
-  RefreshCw,
-  CheckCircle,
-  XCircle,
-  Clock,
-  TrendingUp,
   AlertTriangle,
+  CheckCircle,
+  Clock,
+  Download,
+  Filter,
+  RefreshCw,
+  Search,
   Shield,
-} from 'lucide-react';
+  TrendingUp,
+  XCircle,
+} from "lucide-react";
 import {
-  getAuditLogger,
   AgentAuditLog,
   AuditLogFilters,
   AuditLogStats,
-} from '../../services/AgentAuditLogger';
-import { AgentType } from '../../services/AgentAPI';
-import { ModelInfoModal } from '../../components/Settings/ModelInfoModal';
+  getAuditLogger,
+} from "../../services/AgentAuditLogger";
+import { AgentType } from "../../services/AgentAPI";
+import { ModelInfoModal } from "../../components/Settings/ModelInfoModal";
 
 /**
  * Agent Audit Log View Component
@@ -35,12 +35,12 @@ export const AgentAuditLogView: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<AuditLogFilters>({
     limit: 50,
-    sortOrder: 'desc',
+    sortOrder: "desc",
   });
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedLog, setSelectedLog] = useState<AgentAuditLog | null>(null);
   const [isModelInfoOpen, setIsModelInfoOpen] = useState(false);
-  const [modelAgentId, setModelAgentId] = useState('opportunity');
+  const [modelAgentId, setModelAgentId] = useState("opportunity");
 
   const logger = getAuditLogger();
 
@@ -53,7 +53,7 @@ export const AgentAuditLogView: React.FC = () => {
       const data = await logger.query(filters);
       setLogs(data);
     } catch (error) {
-      logger.error('Failed to load logs:', error);
+      logger.error("Failed to load logs:", error);
     } finally {
       setLoading(false);
     }
@@ -67,7 +67,7 @@ export const AgentAuditLogView: React.FC = () => {
       const data = await logger.getStats(filters);
       setStats(data);
     } catch (error) {
-      logger.error('Failed to load stats:', error);
+      logger.error("Failed to load stats:", error);
     }
   };
 
@@ -97,29 +97,29 @@ export const AgentAuditLogView: React.FC = () => {
    */
   const exportToCSV = () => {
     const headers = [
-      'Timestamp',
-      'Agent',
-      'Query',
-      'Success',
-      'Duration (ms)',
-      'Confidence',
-      'Error',
+      "Timestamp",
+      "Agent",
+      "Query",
+      "Success",
+      "Duration (ms)",
+      "Confidence",
+      "Error",
     ];
 
     const rows = filteredLogs.map((log) => [
-      log.timestamp || '',
+      log.timestamp || "",
       log.agent_name,
       log.input_query,
-      log.success ? 'Yes' : 'No',
-      log.response_metadata?.duration || '',
-      log.response_metadata?.confidence || '',
-      log.error_message || '',
+      log.success ? "Yes" : "No",
+      log.response_metadata?.duration || "",
+      log.response_metadata?.confidence || "",
+      log.error_message || "",
     ]);
 
-    const csv = [headers, ...rows].map((row) => row.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const csv = [headers, ...rows].map((row) => row.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `agent-audit-logs-${new Date().toISOString()}.csv`;
     a.click();
@@ -149,7 +149,7 @@ export const AgentAuditLogView: React.FC = () => {
             disabled={loading}
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </button>
           <button
@@ -170,7 +170,9 @@ export const AgentAuditLogView: React.FC = () => {
               <Clock className="h-4 w-4" />
               Total Requests
             </div>
-            <p className="text-2xl font-bold text-gray-900">{stats.totalRequests}</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {stats.totalRequests}
+            </p>
           </div>
 
           <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -178,7 +180,9 @@ export const AgentAuditLogView: React.FC = () => {
               <CheckCircle className="h-4 w-4" />
               Successful
             </div>
-            <p className="text-2xl font-bold text-green-900">{stats.successfulRequests}</p>
+            <p className="text-2xl font-bold text-green-900">
+              {stats.successfulRequests}
+            </p>
           </div>
 
           <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -186,7 +190,9 @@ export const AgentAuditLogView: React.FC = () => {
               <XCircle className="h-4 w-4" />
               Failed
             </div>
-            <p className="text-2xl font-bold text-red-900">{stats.failedRequests}</p>
+            <p className="text-2xl font-bold text-red-900">
+              {stats.failedRequests}
+            </p>
           </div>
 
           <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -220,7 +226,7 @@ export const AgentAuditLogView: React.FC = () => {
 
           {/* Agent Filter */}
           <select
-            value={filters.agent || ''}
+            value={filters.agent || ""}
             onChange={(e) =>
               setFilters({
                 ...filters,
@@ -244,18 +250,18 @@ export const AgentAuditLogView: React.FC = () => {
           <select
             value={
               filters.success === undefined
-                ? ''
+                ? ""
                 : filters.success
-                ? 'success'
-                : 'failure'
+                  ? "success"
+                  : "failure"
             }
             onChange={(e) =>
               setFilters({
                 ...filters,
                 success:
-                  e.target.value === ''
+                  e.target.value === ""
                     ? undefined
-                    : e.target.value === 'success',
+                    : e.target.value === "success",
               })
             }
             className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -310,14 +316,20 @@ export const AgentAuditLogView: React.FC = () => {
             <tbody className="divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                  <td
+                    colSpan={6}
+                    className="px-4 py-8 text-center text-gray-500"
+                  >
                     <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
                     Loading logs...
                   </td>
                 </tr>
               ) : filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                  <td
+                    colSpan={6}
+                    className="px-4 py-8 text-center text-gray-500"
+                  >
                     No logs found
                   </td>
                 </tr>
@@ -326,12 +338,19 @@ export const AgentAuditLogView: React.FC = () => {
                   <tr
                     key={log.id}
                     onClick={() => setSelectedLog(log)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelectedLog(log);
+                      }
+                    }}
+                    tabIndex={0}
                     className="hover:bg-gray-50 cursor-pointer"
                   >
                     <td className="px-4 py-3 text-sm text-gray-900">
                       {log.timestamp
                         ? new Date(log.timestamp).toLocaleString()
-                        : '-'}
+                        : "-"}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
@@ -357,12 +376,12 @@ export const AgentAuditLogView: React.FC = () => {
                     <td className="px-4 py-3 text-sm text-gray-900">
                       {log.response_metadata?.duration
                         ? `${log.response_metadata.duration}ms`
-                        : '-'}
+                        : "-"}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900">
                       {log.response_metadata?.confidence
                         ? `${(log.response_metadata.confidence * 100).toFixed(0)}%`
-                        : '-'}
+                        : "-"}
                     </td>
                   </tr>
                 ))
@@ -399,20 +418,22 @@ export const AgentAuditLogView: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm font-medium text-gray-500">Agent</p>
-                  <p className="text-sm text-gray-900 mt-1">{selectedLog.agent_name}</p>
+                  <p className="text-sm text-gray-900 mt-1">
+                    {selectedLog.agent_name}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500">Timestamp</p>
                   <p className="text-sm text-gray-900 mt-1">
                     {selectedLog.timestamp
                       ? new Date(selectedLog.timestamp).toLocaleString()
-                      : '-'}
+                      : "-"}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500">Status</p>
                   <p className="text-sm text-gray-900 mt-1">
-                    {selectedLog.success ? 'Success' : 'Failed'}
+                    {selectedLog.success ? "Success" : "Failed"}
                   </p>
                 </div>
                 <div>
@@ -420,14 +441,16 @@ export const AgentAuditLogView: React.FC = () => {
                   <p className="text-sm text-gray-900 mt-1">
                     {selectedLog.response_metadata?.duration
                       ? `${selectedLog.response_metadata.duration}ms`
-                      : '-'}
+                      : "-"}
                   </p>
                 </div>
               </div>
 
               {/* Query */}
               <div>
-                <p className="text-sm font-medium text-gray-500 mb-2">Input Query</p>
+                <p className="text-sm font-medium text-gray-500 mb-2">
+                  Input Query
+                </p>
                 <pre className="bg-gray-50 p-3 rounded-md text-sm text-gray-900 overflow-x-auto">
                   {selectedLog.input_query}
                 </pre>
@@ -436,7 +459,9 @@ export const AgentAuditLogView: React.FC = () => {
               {/* Error */}
               {selectedLog.error_message && (
                 <div>
-                  <p className="text-sm font-medium text-red-700 mb-2">Error Message</p>
+                  <p className="text-sm font-medium text-red-700 mb-2">
+                    Error Message
+                  </p>
                   <pre className="bg-red-50 p-3 rounded-md text-sm text-red-900 overflow-x-auto">
                     {selectedLog.error_message}
                   </pre>
@@ -446,7 +471,9 @@ export const AgentAuditLogView: React.FC = () => {
               {/* Response Data */}
               {selectedLog.response_data && (
                 <div>
-                  <p className="text-sm font-medium text-gray-500 mb-2">Response Data</p>
+                  <p className="text-sm font-medium text-gray-500 mb-2">
+                    Response Data
+                  </p>
                   <pre className="bg-gray-50 p-3 rounded-md text-sm text-gray-900 overflow-x-auto max-h-96">
                     {JSON.stringify(selectedLog.response_data, null, 2)}
                   </pre>
@@ -456,7 +483,9 @@ export const AgentAuditLogView: React.FC = () => {
               {/* Metadata */}
               {selectedLog.response_metadata && (
                 <div>
-                  <p className="text-sm font-medium text-gray-500 mb-2">Metadata</p>
+                  <p className="text-sm font-medium text-gray-500 mb-2">
+                    Metadata
+                  </p>
                   <pre className="bg-gray-50 p-3 rounded-md text-sm text-gray-900 overflow-x-auto">
                     {JSON.stringify(selectedLog.response_metadata, null, 2)}
                   </pre>

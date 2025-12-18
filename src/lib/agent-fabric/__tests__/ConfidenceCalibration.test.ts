@@ -4,7 +4,7 @@
  * P0 BLOCKER FIX: Validates confidence calibration against historical performance
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConfidenceCalibrationService } from '../ConfidenceCalibration';
 
 describe('ConfidenceCalibrationService', () => {

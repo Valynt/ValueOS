@@ -5,7 +5,7 @@
  */
 
 import { LifecycleStage } from './workflow';
-import { SystemMap, InterventionPoint, OutcomeHypothesis, FeedbackLoop } from './sof';
+import { FeedbackLoop, InterventionPoint, OutcomeHypothesis, SystemMap } from './sof';
 
 /**
  * Base agent output interface

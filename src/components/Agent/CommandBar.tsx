@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Search, Sparkles, X } from 'lucide-react';
 import { sanitizeUserInput } from '../../utils/security';
 

@@ -4,7 +4,7 @@
  * Express middleware for controlled failure injection
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { chaosEngineering } from '../services/ChaosEngineering';
 import { logger } from '../utils/logger';
 

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Search, Command } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Command, Search } from 'lucide-react';
 import { useSettings } from '../../contexts/SettingsContext';
 import { settingsRegistry } from '../../lib/settingsRegistry';
 import { SettingsSearchResult } from '../../types';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RateLimiter, sanitizeLLMContent, sanitizeUserInput, validatePassword, defaultPasswordPolicy } from '../../utils/security';
+import { defaultPasswordPolicy, RateLimiter, sanitizeLLMContent, sanitizeUserInput, validatePassword } from '../../utils/security';
 
 describe('sanitizeUserInput', () => {
   it('strips html and script tags', () => {

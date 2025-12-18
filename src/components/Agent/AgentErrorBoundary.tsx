@@ -6,7 +6,7 @@
  */
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw, XCircle, Shield } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Shield, XCircle } from 'lucide-react';
 import { AgentType } from '../../services/AgentAPI';
 
 /**

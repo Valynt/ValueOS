@@ -5,24 +5,24 @@
  * Extracts sentiment, stakeholders, key asks, and suggests next steps.
  */
 
-import React, { useState, useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import {
-  X,
-  Mail,
-  Loader2,
-  CheckCircle,
   AlertCircle,
   AlertTriangle,
-  TrendingUp,
-  TrendingDown,
-  Users,
-  MessageSquare,
-  Clock,
   ArrowRight,
+  CheckCircle,
+  Clock,
+  Loader2,
+  Mail,
+  MessageSquare,
+  TrendingDown,
+  TrendingUp,
+  Users,
+  X,
 } from "lucide-react";
 import {
-  emailAnalysisService,
   EmailAnalysis,
+  emailAnalysisService,
 } from "../../services/EmailAnalysisService";
 
 // ============================================================================

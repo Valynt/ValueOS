@@ -11,12 +11,12 @@
  * Requirements: Session security, proper cleanup
  */
 
-import { test, expect, Page, BrowserContext } from '@playwright/test';
+import { BrowserContext, expect, Page, test } from '@playwright/test';
 import {
-  SAML_ENDPOINTS,
-  TEST_USERS,
   LOGOUT_REQUEST,
   LOGOUT_RESPONSE,
+  SAML_ENDPOINTS,
+  TEST_USERS,
 } from '../saml/fixtures/saml-responses';
 
 // Correlation ID for debugging

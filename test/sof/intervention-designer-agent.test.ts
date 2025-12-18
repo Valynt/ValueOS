@@ -5,9 +5,9 @@
  * based on system maps and leverage points.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { InterventionDesignerAgent } from '../../src/agents/sof/InterventionDesignerAgent';
-import type { SystemMap, InterventionPoint } from '../../src/types/sof';
+import type { InterventionPoint, SystemMap } from '../../src/types/sof';
 
 describe('InterventionDesignerAgent', () => {
   let agent: InterventionDesignerAgent;

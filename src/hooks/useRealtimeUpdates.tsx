@@ -5,7 +5,7 @@
  * Handles connection management, update handling, and reconnection.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { SDUIUpdate } from '../types/sdui-integration';
 import { realtimeUpdateService } from '../services/RealtimeUpdateService';
 import { logger } from '../lib/logger';

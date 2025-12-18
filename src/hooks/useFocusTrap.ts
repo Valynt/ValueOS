@@ -8,7 +8,7 @@
  * const modalRef = useFocusTrap<HTMLDivElement>(isOpen);
  */
 
-import { useEffect, useRef, RefObject } from 'react';
+import { RefObject, useEffect, useRef } from 'react';
 
 interface UseFocusTrapOptions {
   /** Allow Escape key to release focus trap */

@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { securityAuditService } from '../services/SecurityAuditService';
 import { logger } from '../lib/logger';
 

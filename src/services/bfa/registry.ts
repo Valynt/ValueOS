@@ -5,7 +5,7 @@
  * Provides permission checking and tool discovery capabilities.
  */
 
-import { SemanticTool, ToolRegistry, AgentContext } from './types';
+import { AgentContext, SemanticTool, ToolRegistry } from './types';
 
 /**
  * In-memory implementation of the tool registry

@@ -5,7 +5,7 @@
 
 import { logger } from '../lib/logger';
 import { BaseService } from './BaseService';
-import { NotFoundError, AuthorizationError } from './errors';
+import { AuthorizationError, NotFoundError } from './errors';
 
 export interface ApprovalWorkflow {
   id: string;

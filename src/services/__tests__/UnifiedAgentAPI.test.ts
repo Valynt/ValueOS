@@ -7,11 +7,11 @@
  * - AgentQueryService (query handling)
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  UnifiedAgentAPI,
   getUnifiedAgentAPI,
   resetUnifiedAgentAPI,
+  UnifiedAgentAPI,
   UnifiedAgentRequest,
   UnifiedAgentResponse,
 } from '../UnifiedAgentAPI';

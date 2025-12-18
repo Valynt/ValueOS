@@ -8,16 +8,16 @@
 
 import { logger } from '../../lib/logger';
 import {
-  GateResult,
-  PostInvocationContext,
-  IPostInvocationGate,
   ConfidenceGateConfig,
-  HallucinationGateConfig,
-  IntegrityCheckResult,
-  HallucinationDetectionResult,
-  HallucinationIndicator,
   DEFAULT_GATING_CONFIG,
+  GateResult,
+  HallucinationDetectionResult,
+  HallucinationGateConfig,
+  HallucinationIndicator,
+  IntegrityCheckResult,
+  IPostInvocationGate,
   PolicyViolationError,
+  PostInvocationContext,
 } from './types';
 
 // ============================================================================

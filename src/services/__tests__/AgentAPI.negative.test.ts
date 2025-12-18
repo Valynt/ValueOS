@@ -5,7 +5,7 @@
  * to ensure proper error handling and security enforcement.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AgentAPI, AgentRequest } from '../AgentAPI';
 
 // Mock dependencies

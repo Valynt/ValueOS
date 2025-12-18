@@ -5,8 +5,8 @@
  * Supports pagination, row selection, and virtual scrolling for large datasets.
  */
 
-import React, { useState, useMemo, useCallback, useRef } from 'react';
-import { ChevronUp, ChevronDown, ChevronsUpDown, Search, Download } from 'lucide-react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { ChevronDown, ChevronsUpDown, ChevronUp, Download, Search } from 'lucide-react';
 import { DataTableMobileCard } from './DataTableMobileCard';
 
 export interface DataTableColumn<T = Record<string, unknown>> {

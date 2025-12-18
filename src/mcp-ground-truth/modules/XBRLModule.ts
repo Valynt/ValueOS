@@ -11,14 +11,14 @@
 
 import { BaseModule } from '../core/BaseModule';
 import {
+  ErrorCodes,
+  FinancialMetric,
+  GroundTruthError,
   ModuleRequest,
   ModuleResponse,
-  FinancialMetric,
-  XBRLFactRequest,
   XBRLFact,
+  XBRLFactRequest,
   XBRLTrendData,
-  GroundTruthError,
-  ErrorCodes,
 } from '../types';
 import { logger } from '../../lib/logger';
 

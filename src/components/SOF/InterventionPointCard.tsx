@@ -4,7 +4,7 @@
  * Displays intervention point details with risks, pathways, and actions.
  */
 
-import React, { useMemo, useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import type { InterventionPoint } from '../../types/sof';
 
 export interface InterventionPointCardProps {

@@ -7,7 +7,7 @@
  * - Token validation
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
 
 // Session configuration

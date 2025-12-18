@@ -3,14 +3,14 @@
  * Tests LRU cache, performance metrics, and session validation
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  validateSession,
-  updateSessionActivity,
   createSessionContext,
-  shouldRefreshSession,
   getSessionTimeRemaining,
   type SessionContext,
+  shouldRefreshSession,
+  updateSessionActivity,
+  validateSession,
 } from '../security/sessionValidation';
 import { getSecurityMetrics, resetSecurityMetrics } from '../security/metrics';
 

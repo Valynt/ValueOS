@@ -28,14 +28,14 @@ import { SDUIPageDefinition } from '../sdui/schema';
 import { SDUIUpdate } from '../types/sdui-integration';
 import {
   AgentOutput,
-  ComponentImpact,
   AgentSDUIUpdate,
-  SystemMapperOutput,
-  TargetOutput,
+  ComponentImpact,
+  CoordinatorOutput,
+  IntegrityOutput,
   OpportunityOutput,
   RealizationOutput,
-  IntegrityOutput,
-  CoordinatorOutput,
+  SystemMapperOutput,
+  TargetOutput,
 } from '../types/agent-output';
 import {
   AtomicUIAction,
@@ -44,7 +44,7 @@ import {
   createRemoveAction,
 } from '../sdui/AtomicUIActions';
 import { canvasSchemaService } from './CanvasSchemaService';
-import { UIIntent, IntentResolution } from '../types/intent';
+import { IntentResolution, UIIntent } from '../types/intent';
 import { intentRegistry } from './IntentRegistry';
 import { agentIntentConverter } from './AgentIntentConverter';
 

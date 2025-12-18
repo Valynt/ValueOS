@@ -4,7 +4,7 @@
  * Mocks and configuration for SDUI tests
  */
 
-import { vi, beforeEach } from "vitest";
+import { beforeEach, vi } from "vitest";
 
 // Mock DOMPurify for security tests
 vi.mock("dompurify", () => {

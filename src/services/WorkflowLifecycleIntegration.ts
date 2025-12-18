@@ -5,7 +5,7 @@
  * Provides saga pattern integration with compensation
  */
 
-import { ValueLifecycleOrchestrator, LifecycleStage, LifecycleContext, StageResult } from './ValueLifecycleOrchestrator';
+import { LifecycleContext, LifecycleStage, StageResult, ValueLifecycleOrchestrator } from './ValueLifecycleOrchestrator';
 import { WorkflowCompensation } from './WorkflowCompensation';
 import { WorkflowStateRepository } from '../repositories/WorkflowStateRepository';
 import { logger } from '../lib/logger';

@@ -5,7 +5,7 @@
  * following MCP patterns for utility testing
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('DateUtils', () => {
   describe('Date Formatting', () => {

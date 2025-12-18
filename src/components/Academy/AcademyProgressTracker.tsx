@@ -5,22 +5,22 @@
  * Displays completion status, locked/available state, and estimated time.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  TrendingUp,
-  Search,
-  Calculator,
-  FileCheck,
   BarChart3,
-  Rocket,
-  Settings,
-  Lock,
+  Calculator,
   CheckCircle,
-  Clock,
   ChevronRight,
+  Clock,
+  FileCheck,
+  Lock,
+  Rocket,
+  Search,
+  Settings,
+  TrendingUp,
 } from 'lucide-react';
 import { academyService } from '../../services/AcademyService';
-import { PillarProgress, PILLARS, AcademyPillar } from '../../types/academy';
+import { AcademyPillar, PillarProgress, PILLARS } from '../../types/academy';
 
 // ============================================================================
 // Types

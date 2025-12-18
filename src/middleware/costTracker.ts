@@ -4,7 +4,7 @@
  * Logs estimated costs to console for visibility during development
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { createLogger } from '../lib/logger';
 
 const logger = createLogger({ component: 'CostTracker' });

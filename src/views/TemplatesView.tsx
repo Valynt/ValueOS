@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Search, Sparkles, BarChart3, Table, PieChart, FileText } from 'lucide-react';
-import { templateLibrary, ComponentTemplate } from '../services/TemplateLibrary';
+import { BarChart3, FileText, PieChart, Search, Sparkles, Table } from 'lucide-react';
+import { ComponentTemplate, templateLibrary } from '../services/TemplateLibrary';
 
 interface TemplatesViewProps {
   onUseTemplate: (templateId: string) => void;

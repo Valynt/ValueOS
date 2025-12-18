@@ -5,7 +5,7 @@
  * Improves initial load time by loading components on demand.
  */
 
-import React, { Suspense, lazy, ComponentType } from 'react';
+import React, { ComponentType, lazy, Suspense } from 'react';
 import { LoadingFallback } from '../components/LoadingFallback';
 
 /**

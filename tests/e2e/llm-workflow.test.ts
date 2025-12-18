@@ -5,10 +5,10 @@
  * with mocked LLM responses for deterministic testing.
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { mockLLMProvider } from '../fixtures/mocks/llmProvider';
-import { setupTestDatabase, cleanupTestDatabase } from '../fixtures/helpers/database';
+import { cleanupTestDatabase, setupTestDatabase } from '../fixtures/helpers/database';
 import { createTestUser, getAuthToken } from '../fixtures/helpers/auth';
 
 const runIntegration = process.env.RUN_INTEGRATION_TESTS === 'true';

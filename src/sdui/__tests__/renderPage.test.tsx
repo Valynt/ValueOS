@@ -2,7 +2,7 @@
  * Tests for renderPage() function
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderPage, RenderPageOptions } from '../renderPage';
 import { SDUIPageDefinition, SDUIValidationError } from '../schema';
 import { clearAllHydrationCache } from '../hooks/useDataHydration';

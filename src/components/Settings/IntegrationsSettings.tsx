@@ -5,22 +5,22 @@
  * Only admins can connect/disconnect; all members can view status.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Link2,
-  Unlink,
-  RefreshCw,
-  CheckCircle2,
-  XCircle,
   AlertCircle,
-  Loader2,
+  CheckCircle2,
   ExternalLink,
+  Link2,
+  Loader2,
+  RefreshCw,
+  Unlink,
+  XCircle,
 } from 'lucide-react';
 import {
+  CRMConnectionStatus,
+  CRMIntegrationsStatus,
   crmOAuthService,
   CRMProvider,
-  CRMIntegrationsStatus,
-  CRMConnectionStatus,
 } from '../../services/CRMOAuthService';
 
 // ============================================================================

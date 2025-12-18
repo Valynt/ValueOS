@@ -5,7 +5,7 @@
  * visualization interactivity, and automated workflows with MCP Ground Truth.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDevServer, MCPFinancialGroundTruthServer } from '../../src/mcp-ground-truth';
 
 describe('Phase 2: AI Query Generation and Self-Service', () => {

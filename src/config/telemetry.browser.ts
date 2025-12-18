@@ -5,7 +5,7 @@
  * Falls back to no-op implementations when OpenTelemetry is not available.
  */
 
-import { trace, context, SpanStatusCode, Span } from '@opentelemetry/api';
+import { context, Span, SpanStatusCode, trace } from '@opentelemetry/api';
 
 // Service configuration
 const SERVICE_NAME = 'valuecanvas-frontend';

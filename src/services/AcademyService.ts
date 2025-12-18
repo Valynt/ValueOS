@@ -8,16 +8,16 @@
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
 import {
-  AcademyPillar,
-  AcademyModule,
   AcademyLesson,
-  UserProgress,
-  PillarProgress,
-  CertificationProgress,
+  AcademyModule,
+  AcademyPillar,
   CertificationLevel,
+  CertificationProgress,
   LeaderboardEntry,
-  ResourceArtifact,
+  PillarProgress,
   PILLARS,
+  ResourceArtifact,
+  UserProgress,
 } from '../types/academy';
 
 // ============================================================================

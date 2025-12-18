@@ -2,13 +2,13 @@
  * Unit tests for AgentSDUIAdapter
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AgentSDUIAdapter } from '../AgentSDUIAdapter';
 import {
+  IntegrityOutput,
+  RealizationOutput,
   SystemMapperOutput,
   TargetOutput,
-  RealizationOutput,
-  IntegrityOutput,
 } from '../../types/agent-output';
 import { canvasSchemaService } from '../CanvasSchemaService';
 

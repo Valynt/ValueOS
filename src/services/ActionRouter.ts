@@ -7,23 +7,23 @@
 
 import { logger } from '../lib/logger';
 import {
-  CanonicalAction,
   ActionContext,
+  ActionHandler,
   ActionResult,
-  ValidationResult,
+  CanonicalAction,
   ManifestoCheckResult,
   ManifestoViolation,
-  ActionHandler,
+  ValidationResult,
 } from '../types/sdui-integration';
 import { ExecutionRequest, normalizeExecutionRequest } from '../types/execution';
 import { AuditLogService } from './AuditLogService';
 import { getUnifiedOrchestrator, UnifiedAgentOrchestrator } from './UnifiedAgentOrchestrator';
-import { getAgentAPI, AgentAPI } from './AgentAPI';
+import { AgentAPI, getAgentAPI } from './AgentAPI';
 import { ComponentMutationService } from './ComponentMutationService';
 import { manifestoEnforcer } from './ManifestoEnforcer';
 import { atomicActionExecutor } from './AtomicActionExecutor';
 import { canvasSchemaService } from './CanvasSchemaService';
-import { enforceRules, EnforcementResult } from '../lib/rules';
+import { EnforcementResult, enforceRules } from '../lib/rules';
 
 /**
  * Action Router

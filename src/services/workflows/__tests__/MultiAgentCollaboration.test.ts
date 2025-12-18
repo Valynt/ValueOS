@@ -5,7 +5,7 @@
  * following MCP patterns for integration testing
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('MultiAgentCollaboration', () => {
   let mockMemorySystem: any;

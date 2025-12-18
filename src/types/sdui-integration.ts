@@ -4,7 +4,7 @@
 
 import { SDUIPageDefinition } from '../sdui/schema';
 import { LifecycleStage } from './workflow';
-import { AtomicUIAction, ActionResult as AtomicActionResult } from '../sdui/AtomicUIActions';
+import { ActionResult as AtomicActionResult, AtomicUIAction } from '../sdui/AtomicUIActions';
 import { ExecutionRequest } from './execution';
 
 /**

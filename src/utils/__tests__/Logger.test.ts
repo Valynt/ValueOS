@@ -5,7 +5,7 @@
  * following MCP patterns for utility testing
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('Logger', () => {
   let mockTransport: any;

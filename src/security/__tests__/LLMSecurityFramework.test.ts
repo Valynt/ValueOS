@@ -5,17 +5,17 @@
  * and prediction tracking.
  */
 
-import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import {
-  SecureAgentOutputSchema,
-  createSecureAgentSchema,
-  validateAgentOutput,
-  validateConfidence,
   calculateConfidenceScore,
-  scoreToLevel,
+  createSecureAgentSchema,
+  DEFAULT_CONFIDENCE_THRESHOLDS,
   getSecureAgentSystemPrompt,
-  DEFAULT_CONFIDENCE_THRESHOLDS
+  scoreToLevel,
+  SecureAgentOutputSchema,
+  validateAgentOutput,
+  validateConfidence
 } from '../../lib/agent-fabric/schemas/SecureAgentOutput';
 
 describe('SecureAgentOutput - Schema Validation', () => {

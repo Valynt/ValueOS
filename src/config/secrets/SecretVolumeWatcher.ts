@@ -8,7 +8,7 @@
  * Created: 2024-11-29
  */
 
-import { promises as fs, watch, FSWatcher } from 'fs';
+import { promises as fs, FSWatcher, watch } from 'fs';
 import { join } from 'path';
 import { logger } from '../../lib/logger';
 import { EventEmitter } from 'events';

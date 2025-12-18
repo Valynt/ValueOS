@@ -10,14 +10,14 @@
 
 import { BaseModule } from '../core/BaseModule';
 import {
+  EDGARExtraction,
+  EDGARFiling,
+  EDGARSearchParams,
+  ErrorCodes,
+  FinancialMetric,
+  GroundTruthError,
   ModuleRequest,
   ModuleResponse,
-  FinancialMetric,
-  EDGARSearchParams,
-  EDGARFiling,
-  EDGARExtraction,
-  GroundTruthError,
-  ErrorCodes,
 } from '../types';
 import { logger } from '../../lib/logger';
 

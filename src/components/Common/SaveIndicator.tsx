@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Check, Loader2, AlertCircle, Cloud } from 'lucide-react';
+import { AlertCircle, Check, Cloud, Loader2 } from 'lucide-react';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 

@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { SettingsContextType, UserPermissions, SettingsPermission } from '../types';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { SettingsContextType, SettingsPermission, UserPermissions } from '../types';
 import { settingsRegistry } from '../lib/settingsRegistry';
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);

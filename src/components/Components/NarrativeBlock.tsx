@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NarrativeBlockProps } from '../../types';
-import { FileText, CreditCard as Edit3, Check, X } from 'lucide-react';
+import { Check, CreditCard as Edit3, FileText, X } from 'lucide-react';
 import { sanitizeHtml } from '../../utils/sanitizeHtml';
 
 export const NarrativeBlock: React.FC<NarrativeBlockProps> = ({

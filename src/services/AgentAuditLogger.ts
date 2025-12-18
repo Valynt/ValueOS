@@ -7,7 +7,7 @@
 
 import { logger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
-import { AgentType, AgentContext } from './agent-types';
+import { AgentContext, AgentType } from './agent-types';
 
 /**
  * Audit log entry

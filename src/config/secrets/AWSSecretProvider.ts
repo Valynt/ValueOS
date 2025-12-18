@@ -9,22 +9,22 @@
  */
 
 import {
-  SecretsManagerClient,
-  GetSecretValueCommand,
-  PutSecretValueCommand,
-  UpdateSecretCommand,
   DeleteSecretCommand,
-  ListSecretsCommand,
   DescribeSecretCommand,
-  RotateSecretCommand
+  GetSecretValueCommand,
+  ListSecretsCommand,
+  PutSecretValueCommand,
+  RotateSecretCommand,
+  SecretsManagerClient,
+  UpdateSecretCommand
 } from '@aws-sdk/client-secrets-manager';
 import { logger } from '../../lib/logger';
 import type {
-  ISecretProvider,
-  SecretValue,
-  SecretMetadata,
   AuditAction,
-  AuditResult
+  AuditResult,
+  ISecretProvider,
+  SecretMetadata,
+  SecretValue
 } from './ISecretProvider';
 
 /**

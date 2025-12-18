@@ -4,7 +4,7 @@
  * Displays a list of pending approval requests for approvers.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import ApprovalRequest, { ApprovalRequestData } from './ApprovalRequest';
 
 interface ApprovalsListProps {

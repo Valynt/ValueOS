@@ -3,7 +3,7 @@
  * CRITICAL: Financial calculations require highest confidence thresholds (0.7-0.9)
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FinancialModelingAgent } from '../FinancialModelingAgent';
 
 describe('FinancialModelingAgent - Security Fixes', () => {

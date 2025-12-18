@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Download, ExternalLink, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { CheckCircle, Clock, Download, ExternalLink, XCircle } from 'lucide-react';
 import { Invoice } from '../../types/billing';
 
 interface InvoiceListProps {
