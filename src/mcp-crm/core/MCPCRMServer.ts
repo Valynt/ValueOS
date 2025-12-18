@@ -10,12 +10,12 @@ import { supabase } from '../../lib/supabase';
 import { HubSpotModule } from '../modules/HubSpotModule';
 import { SalesforceModule } from '../modules/SalesforceModule';
 import {
-  CRMProvider,
   CRMConnection,
   CRMModule,
+  CRMProvider,
+  DealSearchParams,
   MCPCRMConfig,
   MCPCRMToolResult,
-  DealSearchParams,
 } from '../types';
 
 // ============================================================================

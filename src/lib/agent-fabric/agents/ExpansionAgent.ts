@@ -17,13 +17,13 @@ import { BaseAgent } from './BaseAgent';
 import { z } from 'zod';
 import { ValueFabricService } from '../../../services/ValueFabricService';
 import type {
-  ExpansionModel,
-  ExpansionImprovement,
-  ValueTree,
-  RealizationReport,
   Capability,
   ExpansionAgentInput,
-  ExpansionAgentOutput
+  ExpansionAgentOutput,
+  ExpansionImprovement,
+  ExpansionModel,
+  RealizationReport,
+  ValueTree
 } from '../../../types/vos';
 
 import { AgentConfig } from '../../../types/agent';

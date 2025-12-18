@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 const TIMEOUTS = { navigation: 20000, ui: 6000 };
 

@@ -1,14 +1,14 @@
 import React, { useEffect, useRef } from 'react';
 import {
-  Copy,
-  Trash2,
-  AlignLeft,
   AlignCenter,
+  AlignLeft,
   AlignRight,
-  Move,
-  Maximize2,
+  Copy,
   Edit3,
-  Sparkles
+  Maximize2,
+  Move,
+  Sparkles,
+  Trash2
 } from 'lucide-react';
 
 export interface ContextMenuAction {

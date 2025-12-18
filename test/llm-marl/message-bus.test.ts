@@ -2,7 +2,7 @@
  * MessageBus Tests
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MessageBus } from '../../src/services/MessageBus';
 import type { CommunicationEvent } from '../../src/types/CommunicationEvent';
 

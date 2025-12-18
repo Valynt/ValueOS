@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Eye, Code, AlertTriangle, CheckCircle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { AlertTriangle, CheckCircle, Code, Eye } from 'lucide-react';
 import { sduiSandboxService } from '../../services/SDUISandboxService';
 
 interface ComponentPreviewProps {

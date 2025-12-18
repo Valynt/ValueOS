@@ -2,9 +2,9 @@
  * Unit tests for ActionRouter
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ActionRouter } from '../ActionRouter';
-import { CanonicalAction, ActionContext } from '../../types/sdui-integration';
+import { ActionContext, CanonicalAction } from '../../types/sdui-integration';
 import { ExecutionRequest } from '../../types/execution';
 import { AuditLogService } from '../AuditLogService';
 import { UnifiedAgentOrchestrator } from '../UnifiedAgentOrchestrator';

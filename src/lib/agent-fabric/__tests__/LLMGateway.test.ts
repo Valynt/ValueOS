@@ -3,7 +3,7 @@
  * Tests LLM gateway functionality, sanitization, and cost tracking integration
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LLMGateway } from '../LLMGateway';
 import { createClient } from '@supabase/supabase-js';
 import { llmCostTracker } from '../../../services/LLMCostTracker';

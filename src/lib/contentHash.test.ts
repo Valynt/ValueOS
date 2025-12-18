@@ -1,4 +1,4 @@
-import { sha256, hashObject, shortHash, isValidHash, casKey, parseCasKey } from './contentHash';
+import { casKey, hashObject, isValidHash, parseCasKey, sha256, shortHash } from './contentHash';
 
 const mockDigest = async (data: BufferSource) => {
   const byteLength = (data as ArrayBuffer).byteLength ?? 0;

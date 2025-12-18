@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { agentOrchestrator, StreamingUpdate } from '../../services/AgentOrchestratorAdapter';
 import { persistenceService } from '../../services/PersistenceService';
 import { suggestionEngine } from '../../services/SuggestionEngine';
@@ -9,7 +9,7 @@ import { Toolbar } from './Toolbar';
 import { SaveIndicator } from '../Common/SaveIndicator';
 import { CommandBar } from '../Agent/CommandBar';
 import { GhostPreview } from '../Agent/GhostPreview';
-import { SuggestionCard, Suggestion } from '../Agent/SuggestionCard';
+import { Suggestion, SuggestionCard } from '../Agent/SuggestionCard';
 import { StreamingIndicator } from '../Agent/StreamingIndicator';
 import { HistoryPanel } from '../History/HistoryPanel';
 import { RippleEffect } from '../Canvas/RippleEffect';
@@ -21,7 +21,7 @@ import { KeyboardShortcutsPanel } from './KeyboardShortcutsPanel';
 import { PresentationMode } from './PresentationMode';
 import { DemoModeIndicator } from '../Auth/DemoModeIndicator';
 import { CanvasComponent } from '../../types';
-import { History, Undo, Redo, HelpCircle, Presentation, ArrowLeft } from 'lucide-react';
+import { ArrowLeft, HelpCircle, History, Presentation, Redo, Undo } from 'lucide-react';
 
 interface MainLayoutProps {
   onBack?: () => void;

@@ -3,7 +3,7 @@
  * Tests cross-tenant isolation, circuit breaker coordination, and workflow security
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createBoltClientMock } from '../../../../test/mocks/mockSupabaseClient';
 import { OpportunityAgent } from '../OpportunityAgent';
 import { TargetAgent } from '../TargetAgent';

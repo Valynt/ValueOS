@@ -5,7 +5,7 @@
  * and resource utilization under normal operating conditions.
  */
 
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { OpportunityAgent } from '../../lib/agent-fabric/agents/OpportunityAgent';
 import { TargetAgent } from '../../lib/agent-fabric/agents/TargetAgent';
 import { ExpansionAgent } from '../../lib/agent-fabric/agents/ExpansionAgent';

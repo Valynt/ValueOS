@@ -4,7 +4,7 @@
  * React hooks for canvas components to interact with the event bus
  */
 
-import { useCallback, useContext, createContext } from 'react';
+import { createContext, useCallback, useContext } from 'react';
 import { CanvasEvent } from './types';
 import { CanvasEventBus, getGlobalEventBus } from './CanvasEventBus';
 

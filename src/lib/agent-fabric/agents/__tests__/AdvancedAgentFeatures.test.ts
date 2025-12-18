@@ -7,20 +7,20 @@
  * 3. Retrieval-conditioned agents
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  ValueDriverExtractionAgent,
   AdversarialChallengeAgent,
-  ReconciliationAgent,
   AdversarialReasoningOrchestrator,
-  ExtractionInput,
   ChallengeInput,
-  ReconciliationInput
+  ExtractionInput,
+  ReconciliationAgent,
+  ReconciliationInput,
+  ValueDriverExtractionAgent
 } from '../../../src/lib/agent-fabric/agents/AdversarialReasoningAgents';
 import {
   RetrievalConditionedAgent,
-  RetrievalEngine,
-  RetrievalConfig
+  RetrievalConfig,
+  RetrievalEngine
 } from '../../../src/lib/agent-fabric/RetrievalEngine';
 import { ValueDriver } from '../../../src/types/valueDriverTaxonomy';
 import { createBoltClientMock } from '../../mocks/mockSupabaseClient';

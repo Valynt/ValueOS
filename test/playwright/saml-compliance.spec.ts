@@ -11,11 +11,11 @@
  * Requirements: GR-020 (PII Protection), GR-010 (Tenant Isolation)
  */
 
-import { test, expect, Page } from '@playwright/test';
+import { expect, Page, test } from '@playwright/test';
 import {
+  CLOCK_SKEW_TOLERANCE_SECONDS,
   SAML_ENDPOINTS,
   TEST_USERS,
-  CLOCK_SKEW_TOLERANCE_SECONDS,
 } from '../saml/fixtures/saml-responses';
 
 // Correlation ID helper for debugging

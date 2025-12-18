@@ -3,7 +3,7 @@
  * Tests for autonomy kill switch, destructive action blocking, and iteration limits
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { UnifiedAgentOrchestrator } from '../UnifiedAgentOrchestrator';
 import * as autonomyModule from '../../config/autonomy';
 

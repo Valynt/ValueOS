@@ -2,7 +2,7 @@
  * Unit tests for CanvasSchemaService
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CanvasSchemaService } from '../CanvasSchemaService';
 import { WorkspaceContext } from '../../types/sdui-integration';
 import { CacheService } from '../CacheService';

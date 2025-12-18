@@ -3,7 +3,7 @@
  * Tests business case generation with value trees and ROI models
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TargetAgent } from '../TargetAgent';
 import type { TargetAgentInput } from '../../../../types/vos';
 import type { LLMGateway } from '../../LLMGateway';

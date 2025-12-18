@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertTriangle, CheckCircle, XCircle, Clock, Eye } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, Eye, XCircle } from 'lucide-react';
 
 interface HumanCheckpointProps {
   stageId: string;

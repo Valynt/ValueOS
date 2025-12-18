@@ -9,25 +9,25 @@
  * This is the simplified UI following the chat + canvas pattern.
  */
 
-import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
-  Plus,
-  Sparkles,
-  Settings,
-  HelpCircle,
-  Loader2,
-  X,
   Building2,
-  Globe,
   FileText,
-  Mic,
+  Globe,
+  HelpCircle,
   Link2,
+  Loader2,
   Mail,
+  Mic,
+  Plus,
   Search,
-  Upload
+  Settings,
+  Sparkles,
+  Upload,
+  X
 } from 'lucide-react';
 import { CommandBar } from '../Agent/CommandBar';
-import { UploadNotesModal, ExtractedNotes } from '../Modals';
+import { ExtractedNotes, UploadNotesModal } from '../Modals';
 import { EmailAnalysisModal } from '../Modals/EmailAnalysisModal';
 import { EmailAnalysis } from '../../services/EmailAnalysisService';
 import { CRMImportModal } from '../Modals/CRMImportModal';

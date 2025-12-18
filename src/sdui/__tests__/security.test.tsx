@@ -5,12 +5,12 @@
  * recursion depth, and other security measures.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import { SDUIRenderer } from '../renderer';
 import { DataBindingResolver } from '../DataBindingResolver';
-import { sanitizeProps, sanitizeString, XSS_TEST_VECTORS, runSanitizationSelfTest } from '../security/sanitization';
-import { getSecurityMetrics, resetSecurityMetrics, incrementSecurityMetric } from '../security/metrics';
+import { runSanitizationSelfTest, sanitizeProps, sanitizeString, XSS_TEST_VECTORS } from '../security/sanitization';
+import { getSecurityMetrics, incrementSecurityMetric, resetSecurityMetrics } from '../security/metrics';
 import { TenantContext } from '../TenantContext';
 import { DataSourceContext } from '../DataBindingSchema';
 

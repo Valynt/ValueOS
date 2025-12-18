@@ -1,11 +1,11 @@
 import React from 'react';
 import {
+  ChevronRight,
   Lightbulb,
-  Target,
-  TrendingUp,
   Rocket,
   ShieldCheck,
-  ChevronRight,
+  Target,
+  TrendingUp,
 } from 'lucide-react';
 
 /**

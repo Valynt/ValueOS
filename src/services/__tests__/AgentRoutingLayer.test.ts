@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { AgentRegistry } from '../../services/AgentRegistry';
 import { AgentRoutingLayer } from '../../services/AgentRoutingLayer';
 import { AgentRoutingScorer } from '../../services/AgentRoutingScorer';

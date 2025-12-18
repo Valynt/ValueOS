@@ -5,7 +5,7 @@
  * and error handling following MCP Ground Truth patterns.
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AgentAPI } from '../../services/AgentAPI';
 import type { AgentRequest, AgentResponse, AgentType } from '../../services/AgentAPI';
 

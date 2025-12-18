@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, User, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, Loader, User } from 'lucide-react';
 
 interface WorkflowStatusBarProps {
   currentStage?: string;

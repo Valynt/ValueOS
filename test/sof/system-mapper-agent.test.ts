@@ -5,9 +5,9 @@
  * and creates system maps.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SystemMapperAgent } from '../../src/agents/sof/SystemMapperAgent';
-import type { SystemMap, Entity, Relationship } from '../../src/types/sof';
+import type { Entity, Relationship, SystemMap } from '../../src/types/sof';
 
 describe('SystemMapperAgent', () => {
   let agent: SystemMapperAgent;

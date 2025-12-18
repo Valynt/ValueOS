@@ -6,7 +6,7 @@
 
 import { logger } from '../../lib/logger';
 import React from 'react';
-import type { SDUIPageDefinition, SDUISection, SDUILayoutDirective } from '../schema';
+import type { SDUILayoutDirective, SDUIPageDefinition, SDUISection } from '../schema';
 
 export interface RenderContext {
   userId?: string;

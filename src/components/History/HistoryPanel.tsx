@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { History, Clock, User, Bot, X } from 'lucide-react';
-import { persistenceService, HistoryEntry } from '../../services/PersistenceService';
+import React, { useEffect, useState } from 'react';
+import { Bot, Clock, History, User, X } from 'lucide-react';
+import { HistoryEntry, persistenceService } from '../../services/PersistenceService';
 
 interface HistoryPanelProps {
   isOpen: boolean;

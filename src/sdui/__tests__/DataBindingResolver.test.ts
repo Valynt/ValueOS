@@ -4,14 +4,14 @@
 
 import { DataBindingResolver } from '../DataBindingResolver';
 import {
+  createBinding,
+  createCurrencyBinding,
+  createMetricBinding,
+  createPercentageBinding,
   DataBinding,
   DataSourceContext,
   isDataBinding,
   validateDataBinding,
-  createBinding,
-  createMetricBinding,
-  createCurrencyBinding,
-  createPercentageBinding,
 } from '../DataBindingSchema';
 
 describe('DataBindingSchema', () => {

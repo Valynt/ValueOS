@@ -18,13 +18,13 @@
 // import { logger } from '../lib/logger';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type {
-  FormulaVariable,
   FormulaContext,
   FormulaResult,
   FormulaStep,
+  FormulaVariable,
+  ROIModelCalculation,
   SensitivityAnalysis,
-  SensitivityScenario,
-  ROIModelCalculation
+  SensitivityScenario
 } from '../types/vos';
 import { securityLogger } from './SecurityLogger';
 

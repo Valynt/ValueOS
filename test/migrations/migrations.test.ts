@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 
@@ -7,7 +7,7 @@ const shouldRun = process.env.RUN_MIGRATION_TESTS === 'true';
 const loadModule = async (name: string) => {
   try {
     // Use dynamic import indirection to avoid type resolution when module is absent
-    return await (Function('m', 'return import(m)')(name) as Promise<any>);
+    return await eval(`import("${name}")`);
   } catch {
     return null;
   }

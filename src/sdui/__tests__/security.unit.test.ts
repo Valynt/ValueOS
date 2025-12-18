@@ -5,21 +5,21 @@
  * without requiring database integration.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  getXSSStats,
+  resetXSSStats,
+  runSanitizationSelfTest,
   sanitizeProps,
   sanitizeString,
   XSS_TEST_VECTORS,
-  runSanitizationSelfTest,
-  getXSSStats,
-  resetXSSStats,
 } from '../security/sanitization';
 import {
-  getSecurityMetrics,
-  resetSecurityMetrics,
-  incrementSecurityMetric,
-  getMetricSummary,
   checkCriticalThresholds,
+  getMetricSummary,
+  getSecurityMetrics,
+  incrementSecurityMetric,
+  resetSecurityMetrics,
 } from '../security/metrics';
 
 describe('XSS Sanitization', () => {

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, Maximize, Grid3x3 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ChevronLeft, ChevronRight, Grid3x3, Maximize, X } from 'lucide-react';
 import { CanvasComponent } from '../../types';
 import { MetricCard } from '../Components/MetricCard';
 import { InteractiveChart } from '../Components/InteractiveChart';

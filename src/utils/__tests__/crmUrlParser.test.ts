@@ -2,8 +2,8 @@
  * CRM URL Parser Tests
  */
 
-import { describe, it, expect } from "vitest";
-import { parseCRMUrl, isCRMUrl } from "../crmUrlParser";
+import { describe, expect, it } from "vitest";
+import { isCRMUrl, parseCRMUrl } from "../crmUrlParser";
 
 describe("parseCRMUrl", () => {
   describe("HubSpot URLs", () => {

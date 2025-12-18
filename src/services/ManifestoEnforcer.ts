@@ -8,8 +8,8 @@
 import { logger } from '../lib/logger';
 import { MANIFESTO_RULES, ManifestoRule, ValidationRule } from '../lib/manifesto/ManifestoRules';
 import {
-  CanonicalAction,
   ActionContext,
+  CanonicalAction,
   ManifestoCheckResult,
   ManifestoViolation,
   ManifestoWarning,

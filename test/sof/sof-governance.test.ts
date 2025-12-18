@@ -4,21 +4,21 @@
  * Tests for governance controls and audit event management.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-  createGovernanceControl,
-  getGovernanceControls,
-  updateControlCompliance,
   checkGovernanceCompliance,
   createAuditEvent,
-  getAuditEvents,
-  getEntityAuditTrail,
+  createGovernanceControl,
   createLifecycleLink,
   getArtifactLinks,
+  getAuditEvents,
+  getEntityAuditTrail,
+  getGovernanceControls,
+  updateControlCompliance,
 } from '../../src/lib/sof-governance';
 import type {
-  CreateGovernanceControl,
   CreateAuditEvent,
+  CreateGovernanceControl,
   CreateLifecycleArtifactLink,
 } from '../../src/types/sof-governance';
 

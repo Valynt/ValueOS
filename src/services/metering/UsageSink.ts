@@ -9,10 +9,13 @@ import { createLogger } from '../../lib/logger';
 
 const logger = createLogger({ component: 'UsageSink' });
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+// Server-only Supabase client
+const supabase = (typeof window === 'undefined')
+  ? createClient(
+      import.meta.env?.VITE_SUPABASE_URL || '',
+      import.meta.env?.SUPABASE_SERVICE_ROLE_KEY || ''
+    )
+  : (null as any);
 
 class UsageSink {
   /**

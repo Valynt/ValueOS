@@ -2,7 +2,7 @@
  * CoordinatorAgent Tests
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CoordinatorAgent } from '../../src/agents/CoordinatorAgent';
 import type { CreateTaskIntent } from '../../src/types/Subgoal';
 

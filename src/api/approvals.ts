@@ -4,7 +4,7 @@
  * Handles approval workflow for agent actions requiring human oversight.
  */
 
-import { Router, Request, Response } from 'express';
+import { Request, Response, Router } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
 import { logger } from '../utils/logger';

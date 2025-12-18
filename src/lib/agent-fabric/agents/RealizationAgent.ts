@@ -17,13 +17,13 @@
 import { BaseAgent } from './BaseAgent';
 import { z } from 'zod';
 import type {
-  TelemetryEvent,
-  RealizationReport,
-  RealizationResult,
   KPITarget,
   RealizationAgentInput,
   RealizationAgentOutput,
-  ResultStatus
+  RealizationReport,
+  RealizationResult,
+  ResultStatus,
+  TelemetryEvent
 } from '../../../types/vos';
 
 import { AgentConfig } from '../../../types/agent';

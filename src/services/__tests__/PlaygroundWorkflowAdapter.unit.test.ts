@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { PlaygroundWorkflowAdapter } from '../PlaygroundWorkflowAdapter';
 import { ExecutionRequest } from '../../types/execution';
 

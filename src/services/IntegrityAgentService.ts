@@ -9,7 +9,7 @@ import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import type TaskContext from '../lib/agent-fabric/TaskContext';
 import { logger } from '../lib/logger';
 import { llmConfig } from '../config/llm';
-import { QuizQuestion, LabSuccessCriterion } from '../types/academy';
+import { LabSuccessCriterion, QuizQuestion } from '../types/academy';
 
 // Lab message type (also defined in LabPanel)
 interface LabMessage {

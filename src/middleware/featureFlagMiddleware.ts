@@ -4,7 +4,7 @@
  * Express middleware for feature flag evaluation and enforcement
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { featureFlags } from '../services/FeatureFlags';
 import { logger } from '../utils/logger';
 

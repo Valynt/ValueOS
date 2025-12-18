@@ -5,7 +5,7 @@
  */
 
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { VerticalSplit } from '../VerticalSplit';
 import { HorizontalSplit } from '../HorizontalSplit';
 import { Grid } from '../Grid';

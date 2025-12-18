@@ -2,20 +2,20 @@
  * Tests for Workflow DAG Definitions
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  OPPORTUNITY_WORKFLOW,
-  TARGET_WORKFLOW,
-  REALIZATION_WORKFLOW,
-  EXPANSION_WORKFLOW,
-  INTEGRITY_WORKFLOW,
-  COMPLETE_LIFECYCLE_WORKFLOW,
-  PARALLEL_LIFECYCLE_WORKFLOW,
   ALL_WORKFLOW_DEFINITIONS,
+  COMPLETE_LIFECYCLE_WORKFLOW,
+  EXPANSION_WORKFLOW,
+  getStageById,
   getWorkflowById,
   getWorkflowByName,
   getWorkflowsByStage,
-  getStageById,
+  INTEGRITY_WORKFLOW,
+  OPPORTUNITY_WORKFLOW,
+  PARALLEL_LIFECYCLE_WORKFLOW,
+  REALIZATION_WORKFLOW,
+  TARGET_WORKFLOW,
   validateWorkflowDAG,
 } from '../WorkflowDAGDefinitions';
 

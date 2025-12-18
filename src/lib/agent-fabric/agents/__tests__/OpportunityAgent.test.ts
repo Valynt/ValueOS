@@ -3,7 +3,7 @@
  * Tests discovery analysis and business objective extraction
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OpportunityAgent } from '../OpportunityAgent';
 import type { OpportunityAgentInput } from '../../../../types/vos';
 import type { LLMGateway } from '../../LLMGateway';

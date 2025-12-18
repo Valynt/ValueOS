@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from 'react';
-import { Edit, Check, X, Sparkles, Brain, ChevronDown, ChevronUp } from 'lucide-react';
+import { Brain, Check, ChevronDown, ChevronUp, Edit, Sparkles, X } from 'lucide-react';
 
 export interface NarrativeBlockProps {
   title: string;

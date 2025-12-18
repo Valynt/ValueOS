@@ -1,4 +1,4 @@
-import { beforeAll, afterAll } from 'vitest';
+import { afterAll, beforeAll } from 'vitest';
 import { setup, teardown } from './testcontainers-global-setup';
 import { Client } from 'pg';
 

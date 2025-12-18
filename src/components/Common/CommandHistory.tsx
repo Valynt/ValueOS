@@ -3,7 +3,7 @@
  * Shows recent commands and allows re-running them
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Clock, RotateCcw, Search, Trash2 } from 'lucide-react';
 
 export interface CommandHistoryItem {

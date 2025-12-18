@@ -8,7 +8,7 @@
  * Created: 2024-11-29
  */
 
-import { Register, Counter, Histogram, Gauge } from 'prom-client';
+import { Counter, Gauge, Histogram, Register } from 'prom-client';
 import { logger } from '../../lib/logger';
 
 /**

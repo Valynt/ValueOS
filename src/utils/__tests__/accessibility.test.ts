@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { getContrastRatio, isColorContrastCompliant, generateA11yId } from '../accessibility';
+import { describe, expect, it } from 'vitest';
+import { generateA11yId, getContrastRatio, isColorContrastCompliant } from '../accessibility';
 
 describe('getContrastRatio', () => {
   it('calculates contrast ratio between black and white correctly', () => {

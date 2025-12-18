@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Command } from 'lucide-react';
+import { Command, X } from 'lucide-react';
 
 interface KeyboardShortcutsPanelProps {
   isOpen: boolean;

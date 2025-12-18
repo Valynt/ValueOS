@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Request, Response, Router } from 'express';
 import { enforceLineage } from '../middleware/lineageValidationMiddleware';
 import { requireConsent } from '../middleware/consentMiddleware';
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware';

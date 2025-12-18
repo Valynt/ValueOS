@@ -1,6 +1,6 @@
 import { logger } from '../../lib/logger';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { MemoryType, AgentMemory } from './types';
+import { AgentMemory, MemoryType } from './types';
 import { LLMGateway } from './LLMGateway';
 
 export class MemorySystem {

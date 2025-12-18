@@ -4,21 +4,21 @@
  * Tests for the IAgent interface, type definitions, and Zod schemas
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  AgentType,
-  LifecycleStage,
-  ConfidenceLevel,
+  AGENT_CAPABILITIES,
   AgentHealthStatus,
   AgentInput,
-  AgentOutput,
-  SecureAgentOutput,
-  IAgent,
-  AgentRegistration,
-  AgentRecord,
-  AGENT_CAPABILITIES,
   AgentInputSchema,
+  AgentOutput,
   AgentOutputSchema,
+  AgentRecord,
+  AgentRegistration,
+  AgentType,
+  ConfidenceLevel,
+  IAgent,
+  LifecycleStage,
+  SecureAgentOutput,
 } from '../agent';
 
 describe('Agent Type Definitions', () => {

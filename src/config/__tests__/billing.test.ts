@@ -2,15 +2,15 @@
  * Billing Configuration Tests
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  PLANS,
-  getPlan,
-  getQuota,
-  calculateOverageCost,
   calculateMonthlyCost,
+  calculateOverageCost,
   formatMetricName,
   formatUsageAmount,
+  getPlan,
+  getQuota,
+  PLANS,
 } from '../billing';
 
 describe('Billing Configuration', () => {

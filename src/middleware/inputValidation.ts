@@ -3,7 +3,7 @@
  * Provides comprehensive input sanitization and validation for API endpoints
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { createLogger } from '../lib/logger';
 import { sanitizeForLogging } from '../lib/piiFilter';
 

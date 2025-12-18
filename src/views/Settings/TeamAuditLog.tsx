@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SettingsSection } from '../../components/Settings/SettingsSection';
 import {
-  Search, Filter, Download, Calendar, User, Activity,
-  Shield, FileText, Users, Settings, Loader2, ChevronDown
+  Activity, Calendar, ChevronDown, Download, FileText, Filter,
+  Loader2, Search, Settings, Shield, User, Users
 } from 'lucide-react';
 import { TeamAuditLog as AuditLogType } from '../../types';
 

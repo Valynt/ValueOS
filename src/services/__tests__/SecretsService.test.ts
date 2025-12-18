@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { ISecretProvider, SecretMetadata, SecretValue } from '../../config/secrets/ISecretProvider';
 import { SecretsService } from '../SecretsService';
 import { RbacService, RbacUser } from '../RbacService';

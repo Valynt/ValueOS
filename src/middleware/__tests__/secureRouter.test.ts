@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createSecureRouter } from '../secureRouter';
 
 function hasMiddleware(router: any, name: string): boolean {

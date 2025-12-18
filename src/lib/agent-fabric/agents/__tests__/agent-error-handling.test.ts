@@ -11,7 +11,7 @@
  * - Graceful degradation
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BaseAgent } from '../BaseAgent';
 import { z } from 'zod';
 

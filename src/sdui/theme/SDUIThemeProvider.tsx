@@ -7,7 +7,7 @@
 
 import React, { createContext, useContext, useMemo } from 'react';
 import { ThemeConfig } from '../TenantContext';
-import { SDUIColors, SDUITypography, SDUISpacing } from './SDUITheme';
+import { SDUIColors, SDUISpacing, SDUITypography } from './SDUITheme';
 
 /**
  * Theme context value

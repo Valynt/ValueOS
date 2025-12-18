@@ -3,7 +3,7 @@
  * Verifies user sessions using Supabase auth
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { authService } from '../services/AuthService';
 import { AuthenticationError } from '../services/errors';
 import { createLogger } from '../lib/logger';

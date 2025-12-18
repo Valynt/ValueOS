@@ -2,8 +2,8 @@
  * ScenarioSelector Component Tests
  */
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { ScenarioSelector, Scenario } from '../ScenarioSelector';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { Scenario, ScenarioSelector } from '../ScenarioSelector';
 
 describe('ScenarioSelector', () => {
   const mockOnSelect = vi.fn();

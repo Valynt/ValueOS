@@ -7,12 +7,12 @@
 
 import { logger } from '../../lib/logger';
 import {
-  CRMModule,
-  CRMConnection,
-  CRMDeal,
-  CRMContact,
-  CRMCompany,
   CRMActivity,
+  CRMCompany,
+  CRMConnection,
+  CRMContact,
+  CRMDeal,
+  CRMModule,
   DealSearchParams,
   DealSearchResult,
 } from '../types';

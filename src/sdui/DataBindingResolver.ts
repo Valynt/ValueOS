@@ -8,14 +8,14 @@
 import { logger } from '../lib/logger';
 import {
   DataBinding,
-  DataSourceType,
   DataSourceContext,
+  DataSourceType,
+  isDataBinding,
   ResolvedBinding,
   TransformFunction,
-  isDataBinding,
   validateDataBinding,
 } from './DataBindingSchema';
-import { TenantContext, hasPermission } from './TenantContext';
+import { hasPermission, TenantContext } from './TenantContext';
 import { ToolRegistry } from '../services/ToolRegistry';
 import { SemanticMemoryService } from '../services/SemanticMemory';
 import { createClient } from '@supabase/supabase-js';

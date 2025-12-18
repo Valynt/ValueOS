@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 const shouldRun = process.env.RUN_CONTRACT_TESTS === 'true';
 
 const loadModule = async (name: string) => {
   try {
-    return await (Function('m', 'return import(m)')(name) as Promise<any>);
+    return await eval(`import("${name}")`);
   } catch {
     return null;
   }

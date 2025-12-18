@@ -5,7 +5,7 @@
  * following MCP patterns for UI component testing
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('Dashboard Component', () => {
   let mockWidgets: any[];

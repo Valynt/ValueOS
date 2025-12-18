@@ -11,7 +11,7 @@
  */
 
 import { MCPFinancialGroundTruthServer } from '../core/MCPServer';
-import { BaseTool, ToolResult, ToolExecutionContext } from '../../services/ToolRegistry';
+import { BaseTool, ToolExecutionContext, ToolResult } from '../../services/ToolRegistry';
 import { logger } from '../../lib/logger';
 
 /**

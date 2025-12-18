@@ -5,29 +5,29 @@
  * Supports URL paste, search, and field mapping preview.
  */
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
-  X,
-  Link2,
-  Search,
-  Loader2,
-  CheckCircle,
   AlertCircle,
   Building2,
-  DollarSign,
   Calendar,
-  Users,
+  CheckCircle,
+  DollarSign,
   ExternalLink,
+  Link2,
+  Loader2,
   RefreshCw,
+  Search,
+  Users,
+  X,
 } from "lucide-react";
 import {
-  parseCRMUrl,
   getCRMProviderName,
+  parseCRMUrl,
   ParsedCRMUrl,
 } from "../../utils/crmUrlParser";
 import { crmFieldMapper, MappedValueCase } from "../../services/CRMFieldMapper";
 import { getMCPCRMServer } from "../../mcp-crm";
-import { CRMDeal, CRMContact, CRMProvider } from "../../mcp-crm/types";
+import { CRMContact, CRMDeal, CRMProvider } from "../../mcp-crm/types";
 import { crmOAuthService } from "../../services/CRMOAuthService";
 import { logger } from "../../lib/logger";
 

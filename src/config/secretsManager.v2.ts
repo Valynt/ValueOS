@@ -16,10 +16,10 @@
  */
 
 import { 
-  SecretsManagerClient, 
-  GetSecretValueCommand,
-  UpdateSecretCommand,
-  RotateSecretCommand
+  GetSecretValueCommand, 
+  RotateSecretCommand,
+  SecretsManagerClient,
+  UpdateSecretCommand
 } from '@aws-sdk/client-secrets-manager';
 import { logger } from '../lib/logger';
 

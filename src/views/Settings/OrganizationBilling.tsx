@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { SettingsSection } from '../../components/Settings/SettingsSection';
 import {
-  CreditCard, Check, TrendingUp, Users, Database, Zap, Download, Calendar
+  Calendar, Check, CreditCard, Database, Download, TrendingUp, Users, Zap
 } from 'lucide-react';
 import { BillingPlan, BillingUsage } from '../../types';
 

@@ -14,13 +14,13 @@
 
 import { logger } from '../lib/logger';
 import {
+  IntentCondition,
+  IntentRegistryConfig,
+  IntentRegistryEntry,
+  IntentResolution,
+  PropTransform,
   UIIntent,
   UIIntentType,
-  IntentResolution,
-  IntentRegistryEntry,
-  IntentRegistryConfig,
-  PropTransform,
-  IntentCondition,
 } from '../types/intent';
 
 /**

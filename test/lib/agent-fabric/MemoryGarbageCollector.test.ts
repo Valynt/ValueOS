@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemorySystem } from '../../../src/lib/agent-fabric/MemorySystem';
 import { MemoryGarbageCollector } from '../../../src/lib/agent-fabric/MemoryGarbageCollector';
 import { createBoltClientMock } from '../../mocks/mockSupabaseClient';

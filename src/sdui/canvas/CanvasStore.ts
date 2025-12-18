@@ -6,7 +6,7 @@
 
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
-import { CanvasLayout, CanvasDelta } from './types';
+import { CanvasDelta, CanvasLayout } from './types';
 import { CanvasPatcher } from './CanvasPatcher';
 
 interface CanvasState {

@@ -5,7 +5,7 @@
  * when SessionManager is terminated, preventing memory leaks.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SessionManager } from '../../services/SessionManager';
 
 vi.mock('../../services/AuthService', () => ({

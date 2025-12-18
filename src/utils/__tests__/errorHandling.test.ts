@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { toUserFriendlyError, ErrorType, AppError } from '../errorHandling';
+import { describe, expect, it } from 'vitest';
+import { AppError, ErrorType, toUserFriendlyError } from '../errorHandling';
 
 describe('toUserFriendlyError', () => {
   it('converts network fetch errors to user-friendly format', () => {

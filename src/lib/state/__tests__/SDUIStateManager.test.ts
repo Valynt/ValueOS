@@ -4,8 +4,8 @@
  * Tests for centralized state management
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { SDUIStateManager, resetSDUIStateManager } from '../../lib/state/SDUIStateManager';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetSDUIStateManager, SDUIStateManager } from '../../lib/state/SDUIStateManager';
 
 describe('SDUIStateManager', () => {
   let stateManager: SDUIStateManager;

@@ -12,7 +12,7 @@
  * - Tenant provisioning
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { auditLogService } from '../services/AuditLogService';
 import { logger } from '../lib/logger';
 

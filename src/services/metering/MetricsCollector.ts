@@ -10,14 +10,14 @@ import { createLogger } from '../../lib/logger';
 
 const logger = createLogger({ component: 'MetricsCollector' });
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL;
+const supabaseServiceRoleKey = import.meta.env?.SUPABASE_SERVICE_ROLE_KEY;
 
+// Only initialize server-side
 let supabase: any = null;
-
-if (supabaseUrl && supabaseServiceRoleKey) {
+if (typeof window === 'undefined' && supabaseUrl && supabaseServiceRoleKey) {
   supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-} else {
+} else if (typeof window === 'undefined') {
   logger.warn('Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing');
 }
 

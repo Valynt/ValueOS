@@ -3,12 +3,12 @@
  * Phase 3: SDUI Template Refactoring
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  generateChatSDUIPage,
-  hasTemplateForStage,
-  getAvailableStages,
   CHAT_TEMPLATES,
+  generateChatSDUIPage,
+  getAvailableStages,
+  hasTemplateForStage,
 } from '../chat-templates';
 import type { WorkflowState } from '../../../repositories/WorkflowStateRepository';
 

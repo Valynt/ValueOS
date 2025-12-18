@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Search, Command, ArrowRight, X } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ArrowRight, Command, Search, X } from 'lucide-react';
 import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
 import { settingsRegistry } from '../../lib/settingsRegistry';
 import { SettingsSearchResult } from '../../types';

@@ -4,7 +4,7 @@
  * Tests system behavior with 100 concurrent users performing various operations
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { getWorkflowLifecycleIntegration } from '../../services/WorkflowLifecycleIntegration';
 import { getSDUIStateManager } from '../../lib/state';

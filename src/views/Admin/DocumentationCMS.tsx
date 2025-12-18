@@ -1,6 +1,6 @@
 /**
  * Documentation CMS (Content Management System)
- * 
+ *
  * Admin interface for managing documentation pages:
  * - Create/edit/delete pages
  * - Version history
@@ -9,21 +9,21 @@
  * - Media uploads
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from "react";
 import {
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  Edit,
   FileText,
   Plus,
-  Edit,
-  Trash2,
   Save,
-  X,
-  Clock,
-  CheckCircle,
-  AlertCircle,
   Search,
-} from 'lucide-react';
-import { supabase } from '../../lib/supabase';
-import { sanitizeHtml } from '../../utils/sanitizeHtml';
+  Trash2,
+  X,
+} from "lucide-react";
+import { supabase } from "../../lib/supabase";
+import { sanitizeHtml } from "../../utils/sanitizeHtml";
 
 interface DocPage {
   id: string;
@@ -32,7 +32,7 @@ interface DocPage {
   description: string;
   content: string;
   category_id: string;
-  status: 'draft' | 'published' | 'archived';
+  status: "draft" | "published" | "archived";
   version: string;
   featured: boolean;
   tags: string[];
@@ -53,8 +53,8 @@ export const DocumentationCMS: React.FC = () => {
   const [categories, setCategories] = useState<DocCategory[]>([]);
   const [selectedPage, setSelectedPage] = useState<DocPage | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -66,16 +66,18 @@ export const DocumentationCMS: React.FC = () => {
     setLoading(true);
 
     let query = (supabase as any)
-      .from('doc_pages')
-      .select('*')
-      .order('updated_at', { ascending: false });
+      .from("doc_pages")
+      .select("*")
+      .order("updated_at", { ascending: false });
 
-    if (filterStatus !== 'all') {
-      query = query.eq('status', filterStatus);
+    if (filterStatus !== "all") {
+      query = query.eq("status", filterStatus);
     }
 
     if (searchQuery) {
-      query = query.or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
+      query = query.or(
+        `title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`
+      );
     }
 
     const { data, error } = await query;
@@ -89,9 +91,9 @@ export const DocumentationCMS: React.FC = () => {
 
   const loadCategories = async () => {
     const { data } = await (supabase as any)
-      .from('doc_categories')
-      .select('*')
-      .order('display_order');
+      .from("doc_categories")
+      .select("*")
+      .order("display_order");
 
     if (data) {
       setCategories(data);
@@ -100,14 +102,14 @@ export const DocumentationCMS: React.FC = () => {
 
   const createNewPage = () => {
     const newPage: DocPage = {
-      id: '',
-      slug: '',
-      title: '',
-      description: '',
-      content: '',
-      category_id: categories[0]?.id || '',
-      status: 'draft',
-      version: '1.0.0',
+      id: "",
+      slug: "",
+      title: "",
+      description: "",
+      content: "",
+      category_id: categories[0]?.id || "",
+      status: "draft",
+      version: "1.0.0",
       featured: false,
       tags: [],
       created_at: new Date().toISOString(),
@@ -125,8 +127,8 @@ export const DocumentationCMS: React.FC = () => {
     if (!selectedPage.slug) {
       selectedPage.slug = selectedPage.title
         .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '');
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
     }
 
     const pageData = {
@@ -137,25 +139,25 @@ export const DocumentationCMS: React.FC = () => {
     if (selectedPage.id) {
       // Update existing page
       const { error } = await (supabase as any)
-        .from('doc_pages')
+        .from("doc_pages")
         .update(pageData)
-        .eq('id', selectedPage.id);
+        .eq("id", selectedPage.id);
 
       if (!error) {
         // Create version history entry
-        await (supabase as any).from('doc_versions').insert({
+        await (supabase as any).from("doc_versions").insert({
           page_id: selectedPage.id,
           version: selectedPage.version,
           title: selectedPage.title,
           content: selectedPage.content,
-          content_type: 'markdown',
-          change_summary: 'Updated via CMS',
+          content_type: "markdown",
+          change_summary: "Updated via CMS",
         });
       }
     } else {
       // Create new page
       const { data, error } = await (supabase as any)
-        .from('doc_pages')
+        .from("doc_pages")
         .insert(pageData)
         .select()
         .single();
@@ -170,45 +172,57 @@ export const DocumentationCMS: React.FC = () => {
   };
 
   const deletePage = async (pageId: string) => {
-    if (!confirm('Are you sure you want to delete this page?')) return;
+    if (!confirm("Are you sure you want to delete this page?")) return;
 
-    await (supabase as any).from('doc_pages').delete().eq('id', pageId);
+    await (supabase as any).from("doc_pages").delete().eq("id", pageId);
     loadPages();
     setSelectedPage(null);
   };
 
   const publishPage = async (pageId: string) => {
     await (supabase as any)
-      .from('doc_pages')
+      .from("doc_pages")
       .update({
-        status: 'published',
+        status: "published",
         published_at: new Date().toISOString(),
       })
-      .eq('id', pageId);
+      .eq("id", pageId);
 
     loadPages();
   };
 
   const unpublishPage = async (pageId: string) => {
     await (supabase as any)
-      .from('doc_pages')
-      .update({ status: 'draft' })
-      .eq('id', pageId);
+      .from("doc_pages")
+      .update({ status: "draft" })
+      .eq("id", pageId);
 
     loadPages();
   };
 
   const getStatusBadge = (status: string) => {
     const config = {
-      draft: { color: 'bg-gray-100 text-gray-800', icon: <Edit className="w-3 h-3" /> },
-      published: { color: 'bg-green-100 text-green-800', icon: <CheckCircle className="w-3 h-3" /> },
-      archived: { color: 'bg-red-100 text-red-800', icon: <AlertCircle className="w-3 h-3" /> },
+      draft: {
+        color: "bg-gray-100 text-gray-800",
+        icon: <Edit className="w-3 h-3" />,
+      },
+      published: {
+        color: "bg-green-100 text-green-800",
+        icon: <CheckCircle className="w-3 h-3" />,
+      },
+      archived: {
+        color: "bg-red-100 text-red-800",
+        icon: <AlertCircle className="w-3 h-3" />,
+      },
     };
 
-    const { color, icon } = config[status as keyof typeof config] || config.draft;
+    const { color, icon } =
+      config[status as keyof typeof config] || config.draft;
 
     return (
-      <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded ${color}`}>
+      <span
+        className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded ${color}`}
+      >
         {icon}
         {status}
       </span>
@@ -222,7 +236,9 @@ export const DocumentationCMS: React.FC = () => {
         {/* Header */}
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Documentation CMS</h2>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Documentation CMS
+            </h2>
             <button
               onClick={createNewPage}
               className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
@@ -270,17 +286,23 @@ export const DocumentationCMS: React.FC = () => {
                   key={page.id}
                   onClick={() => setSelectedPage(page)}
                   className={`w-full p-4 text-left hover:bg-gray-50 transition-colors ${
-                    selectedPage?.id === page.id ? 'bg-blue-50' : ''
+                    selectedPage?.id === page.id ? "bg-blue-50" : ""
                   }`}
                 >
                   <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-medium text-gray-900 line-clamp-1">{page.title}</h3>
+                    <h3 className="font-medium text-gray-900 line-clamp-1">
+                      {page.title}
+                    </h3>
                     {getStatusBadge(page.status)}
                   </div>
-                  <p className="text-sm text-gray-600 line-clamp-2 mb-2">{page.description}</p>
+                  <p className="text-sm text-gray-600 line-clamp-2 mb-2">
+                    {page.description}
+                  </p>
                   <div className="flex items-center gap-2 text-xs text-gray-500">
                     <Clock className="w-3 h-3" />
-                    <span>{new Date(page.updated_at).toLocaleDateString()}</span>
+                    <span>
+                      {new Date(page.updated_at).toLocaleDateString()}
+                    </span>
                   </div>
                 </button>
               ))}
@@ -305,7 +327,7 @@ export const DocumentationCMS: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <h2 className="text-xl font-semibold text-gray-900">
-                    {isEditing ? 'Edit Page' : 'View Page'}
+                    {isEditing ? "Edit Page" : "View Page"}
                   </h2>
                   {getStatusBadge(selectedPage.status)}
                 </div>
@@ -321,7 +343,7 @@ export const DocumentationCMS: React.FC = () => {
                         <span>Edit</span>
                       </button>
 
-                      {selectedPage.status === 'draft' && (
+                      {selectedPage.status === "draft" && (
                         <button
                           onClick={() => publishPage(selectedPage.id)}
                           className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
@@ -331,7 +353,7 @@ export const DocumentationCMS: React.FC = () => {
                         </button>
                       )}
 
-                      {selectedPage.status === 'published' && (
+                      {selectedPage.status === "published" && (
                         <button
                           onClick={() => unpublishPage(selectedPage.id)}
                           className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
@@ -390,7 +412,10 @@ export const DocumentationCMS: React.FC = () => {
                       type="text"
                       value={selectedPage.title}
                       onChange={(e) =>
-                        setSelectedPage({ ...selectedPage, title: e.target.value })
+                        setSelectedPage({
+                          ...selectedPage,
+                          title: e.target.value,
+                        })
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Page title"
@@ -406,7 +431,10 @@ export const DocumentationCMS: React.FC = () => {
                       type="text"
                       value={selectedPage.slug}
                       onChange={(e) =>
-                        setSelectedPage({ ...selectedPage, slug: e.target.value })
+                        setSelectedPage({
+                          ...selectedPage,
+                          slug: e.target.value,
+                        })
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="page-slug (auto-generated if empty)"
@@ -421,7 +449,10 @@ export const DocumentationCMS: React.FC = () => {
                     <textarea
                       value={selectedPage.description}
                       onChange={(e) =>
-                        setSelectedPage({ ...selectedPage, description: e.target.value })
+                        setSelectedPage({
+                          ...selectedPage,
+                          description: e.target.value,
+                        })
                       }
                       rows={3}
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -437,7 +468,10 @@ export const DocumentationCMS: React.FC = () => {
                     <select
                       value={selectedPage.category_id}
                       onChange={(e) =>
-                        setSelectedPage({ ...selectedPage, category_id: e.target.value })
+                        setSelectedPage({
+                          ...selectedPage,
+                          category_id: e.target.value,
+                        })
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
@@ -457,7 +491,10 @@ export const DocumentationCMS: React.FC = () => {
                     <textarea
                       value={selectedPage.content}
                       onChange={(e) =>
-                        setSelectedPage({ ...selectedPage, content: e.target.value })
+                        setSelectedPage({
+                          ...selectedPage,
+                          content: e.target.value,
+                        })
                       }
                       rows={20}
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
@@ -472,11 +509,11 @@ export const DocumentationCMS: React.FC = () => {
                     </label>
                     <input
                       type="text"
-                      value={selectedPage.tags.join(', ')}
+                      value={selectedPage.tags.join(", ")}
                       onChange={(e) =>
                         setSelectedPage({
                           ...selectedPage,
-                          tags: e.target.value.split(',').map((t) => t.trim()),
+                          tags: e.target.value.split(",").map((t) => t.trim()),
                         })
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -491,11 +528,17 @@ export const DocumentationCMS: React.FC = () => {
                       id="featured"
                       checked={selectedPage.featured}
                       onChange={(e) =>
-                        setSelectedPage({ ...selectedPage, featured: e.target.checked })
+                        setSelectedPage({
+                          ...selectedPage,
+                          featured: e.target.checked,
+                        })
                       }
                       className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
-                    <label htmlFor="featured" className="text-sm font-medium text-gray-700">
+                    <label
+                      htmlFor="featured"
+                      className="text-sm font-medium text-gray-700"
+                    >
                       Featured page
                     </label>
                   </div>
@@ -504,8 +547,14 @@ export const DocumentationCMS: React.FC = () => {
                 <div className="max-w-4xl mx-auto">
                   <article className="prose prose-blue max-w-none">
                     <h1>{selectedPage.title}</h1>
-                    {selectedPage.description && <p className="lead">{selectedPage.description}</p>}
-                    <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedPage.content) }} />
+                    {selectedPage.description && (
+                      <p className="lead">{selectedPage.description}</p>
+                    )}
+                    <div
+                      dangerouslySetInnerHTML={{
+                        __html: sanitizeHtml(selectedPage.content),
+                      }}
+                    />
                   </article>
                 </div>
               )}
@@ -516,7 +565,9 @@ export const DocumentationCMS: React.FC = () => {
             <div className="text-center">
               <FileText className="w-16 h-16 mx-auto mb-4 text-gray-400" />
               <p className="text-lg mb-2">No page selected</p>
-              <p className="text-sm">Select a page from the list or create a new one</p>
+              <p className="text-sm">
+                Select a page from the list or create a new one
+              </p>
             </div>
           </div>
         )}

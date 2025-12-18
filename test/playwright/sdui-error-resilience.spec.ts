@@ -5,7 +5,7 @@
  * Production Readiness: HIGH Priority
  */
 
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 test.describe('SDUI Error Boundaries', () => {
   test.beforeEach(async ({ page }) => {

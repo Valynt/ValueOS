@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, User, Users, Building2, X } from 'lucide-react';
+import { Building2, ChevronDown, ChevronRight, User, Users, X } from 'lucide-react';
 import { SettingsRoute } from '../../types';
 import { useSettings } from '../../contexts/SettingsContext';
 import { settingsRegistry } from '../../lib/settingsRegistry';

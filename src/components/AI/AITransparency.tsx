@@ -7,16 +7,16 @@
 
 import React, { useState } from 'react';
 import { 
-  Brain, 
-  ChevronDown, 
-  ChevronUp, 
   AlertCircle, 
-  CheckCircle2,
+  Brain, 
+  CheckCircle2, 
+  ChevronDown, 
+  ChevronUp,
   Info,
+  RefreshCw,
   Sparkles,
-  ThumbsUp,
   ThumbsDown,
-  RefreshCw
+  ThumbsUp
 } from 'lucide-react';
 
 // ============================================================================

@@ -8,7 +8,7 @@
 import { logger } from '../lib/logger';
 import { createClient } from '@supabase/supabase-js';
 import { getConfig } from '../config/environment';
-import { TenantUsage, TenantLimits, isWithinLimits } from './TenantProvisioning';
+import { isWithinLimits, TenantLimits, TenantUsage } from './TenantProvisioning';
 
 /**
  * Usage event type
@@ -268,15 +268,20 @@ export async function canPerformAction(
   return { allowed: true };
 }
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+const supabase = typeof window === 'undefined' ? createClient(
+  import.meta.env?.VITE_SUPABASE_URL || '',
+  import.meta.env?.SUPABASE_SERVICE_ROLE_KEY || ''
+) : null;
 
 /**
  * Persist usage to database (upsert into `tenant_usage` table)
  */
 async function persistUsage(usage: TenantUsage): Promise<void> {
+  if (!supabase) {
+    logger.warn('Supabase client not available (browser environment)');
+    return;
+  }
+  
   try {
     const payload = {
       organization_id: usage.organizationId,

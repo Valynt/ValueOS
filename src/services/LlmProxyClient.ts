@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { securityLogger } from './SecurityLogger';
 import { sanitizeLLMContent } from '../utils/security';
 import { llmSanitizer } from './LLMSanitizer';
-import type { LLMConfig, LLMMessage, LLMResponse, LLMProvider, LLMTool, LLMStreamCallback } from '../lib/agent-fabric/llm-types';
+import type { LLMConfig, LLMMessage, LLMProvider, LLMResponse, LLMStreamCallback, LLMTool } from '../lib/agent-fabric/llm-types';
 import { webSocketManager } from './WebSocketManager';
 import type { WebSocketMessage } from './WebSocketManager';
 

@@ -6,7 +6,7 @@
  * 2. Handle action → Route action → Update schema → Re-render
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { SDUIApp } from '../components/SDUIApp';
 import { canvasSchemaService } from '../services/CanvasSchemaService';

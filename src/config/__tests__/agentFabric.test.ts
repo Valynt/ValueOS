@@ -3,13 +3,13 @@
  * Tests the centralized configuration for agent safety limits and operational parameters
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  AgentFabricConfig,
   DEFAULT_AGENT_FABRIC_CONFIG,
+  getEnvironmentConfig,
   loadAgentFabricConfig,
   validateAgentFabricConfig,
-  getEnvironmentConfig,
-  AgentFabricConfig,
 } from '../../config/agentFabric';
 
 // Mock process.env

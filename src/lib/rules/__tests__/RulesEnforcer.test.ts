@@ -4,28 +4,28 @@
  * Tests for the Global and Local rules enforcement system.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-  RulesEnforcer,
   buildGlobalRuleContext,
   buildLocalRuleContext,
-  getRulesEnforcer,
-  resetRulesEnforcer,
   enforceRules,
-  isActionAllowed,
   getAllRuleIds,
+  getRulesEnforcer,
+  isActionAllowed,
+  resetRulesEnforcer,
+  RulesEnforcer,
 } from '../index';
 import {
   RULE_BLOCK_DANGEROUS_COMMANDS,
-  RULE_TENANT_ISOLATION,
-  RULE_PII_REDACTION,
   RULE_LOOP_STEP_LIMIT,
+  RULE_PII_REDACTION,
   RULE_SESSION_COST_LIMIT,
+  RULE_TENANT_ISOLATION,
 } from '../GlobalRules';
 import {
-  RULE_TOOL_ACCESS,
-  RULE_STAGE_TRANSITION,
   RULE_APPROVAL_WORKFLOW,
+  RULE_STAGE_TRANSITION,
+  RULE_TOOL_ACCESS,
 } from '../LocalRules';
 
 describe('GlobalRules', () => {

@@ -3,7 +3,7 @@
  * Phase 3: SDUI Template Refactoring
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { SDUITelemetry, TelemetryEventType } from '../SDUITelemetry';
 
 describe('Phase 3: SDUI Telemetry', () => {

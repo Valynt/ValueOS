@@ -6,12 +6,12 @@
 import { logger } from '../lib/logger';
 import { BaseService } from './BaseService';
 import { AuthenticationError, RateLimitError, ValidationError } from './errors';
-import { User, Session } from '@supabase/supabase-js';
+import { Session, User } from '@supabase/supabase-js';
 import { sanitizeErrorMessage, validatePassword } from '../utils/security';
 import { securityLogger } from './SecurityLogger';
 import { getConfig } from '../config/environment';
 import { checkPasswordBreach } from '../security';
-import { consumeAuthRateLimit, resetRateLimit, RateLimitExceededError } from '../security';
+import { consumeAuthRateLimit, RateLimitExceededError, resetRateLimit } from '../security';
 import { clientRateLimit } from './ClientRateLimit';
 
 export interface LoginCredentials {

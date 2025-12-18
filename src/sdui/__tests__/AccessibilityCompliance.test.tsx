@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, afterEach } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { axe, toHaveNoViolations } from 'jest-axe';
 import { SDUIRenderer } from '../../sdui/renderer';
 import { SDUIPageDefinition } from '../../sdui/schema';

@@ -3,20 +3,23 @@
  * Main billing page with usage, plans, and invoices
  */
 
-import React, { useState, useEffect } from 'react';
-import { CreditCard, TrendingUp, FileText, AlertCircle } from 'lucide-react';
-import { PlanSelector } from '../../components/Billing/PlanSelector';
-import { UsageMeter } from '../../components/Billing/UsageMeter';
-import { InvoiceList } from '../../components/Billing/InvoiceList';
-import { PlanTier, BillingMetric } from '../../config/billing';
-import { UsageSummary, Invoice, Subscription } from '../../types/billing';
+import React, { useEffect, useState } from "react";
+import { AlertCircle, CreditCard, FileText, TrendingUp } from "lucide-react";
+import { PlanSelector } from "../../components/Billing/PlanSelector";
+import { UsageMeter } from "../../components/Billing/UsageMeter";
+import { InvoiceList } from "../../components/Billing/InvoiceList";
+import { BillingMetric, PlanTier } from "../../config/billing";
+import { Invoice, Subscription, UsageSummary } from "../../types/billing";
 
 export const BillingDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'usage' | 'plans' | 'invoices'>('usage');
+  const [activeTab, setActiveTab] = useState<"usage" | "plans" | "invoices">(
+    "usage"
+  );
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchBillingData();
@@ -26,25 +29,25 @@ export const BillingDashboard: React.FC = () => {
     setLoading(true);
     try {
       // Fetch subscription
-      const subRes = await fetch('/api/billing/subscription');
+      const subRes = await fetch("/api/billing/subscription");
       if (subRes.ok) {
         setSubscription(await subRes.json());
       }
 
       // Fetch usage
-      const usageRes = await fetch('/api/billing/usage');
+      const usageRes = await fetch("/api/billing/usage");
       if (usageRes.ok) {
         setUsage(await usageRes.json());
       }
 
       // Fetch invoices
-      const invoicesRes = await fetch('/api/billing/invoices');
+      const invoicesRes = await fetch("/api/billing/invoices");
       if (invoicesRes.ok) {
         const data = await invoicesRes.json();
         setInvoices(data.invoices || []);
       }
     } catch (error) {
-      console.error('Failed to fetch billing data:', error);
+      console.error("Failed to fetch billing data:", error);
     } finally {
       setLoading(false);
     }
@@ -52,21 +55,21 @@ export const BillingDashboard: React.FC = () => {
 
   const handlePlanChange = async (newPlan: PlanTier) => {
     try {
-      const res = await fetch('/api/billing/subscription', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/billing/subscription", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ planTier: newPlan }),
       });
 
       if (res.ok) {
         await fetchBillingData();
-        setActiveTab('usage');
+        setActiveTab("usage");
       } else {
-        alert('Failed to update plan');
+        setError("Failed to update plan");
       }
     } catch (error) {
-      console.error('Failed to update plan:', error);
-      alert('Failed to update plan');
+      console.error("Failed to update plan:", error);
+      setError("Failed to update plan");
     }
   };
 
@@ -75,17 +78,17 @@ export const BillingDashboard: React.FC = () => {
       const res = await fetch(`/api/billing/invoices/${invoiceId}/pdf`);
       if (res.ok) {
         const { pdfUrl } = await res.json();
-        window.open(pdfUrl, '_blank');
+        window.open(pdfUrl, "_blank");
       }
     } catch (error) {
-      console.error('Failed to download invoice:', error);
+      console.error("Failed to download invoice:", error);
     }
   };
 
   const handleViewInvoice = (invoiceId: string) => {
-    const invoice = invoices.find(inv => inv.id === invoiceId);
+    const invoice = invoices.find((inv) => inv.id === invoiceId);
     if (invoice?.hosted_invoice_url) {
-      window.open(invoice.hosted_invoice_url, '_blank');
+      window.open(invoice.hosted_invoice_url, "_blank");
     }
   };
 
@@ -99,6 +102,15 @@ export const BillingDashboard: React.FC = () => {
         </p>
       </div>
 
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-center">
+            <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+            <span className="text-red-700">{error}</span>
+          </div>
+        </div>
+      )}
+
       {/* Current Plan Card */}
       {subscription && (
         <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg p-6 text-white mb-8">
@@ -106,7 +118,8 @@ export const BillingDashboard: React.FC = () => {
             <div>
               <div className="text-sm opacity-90">Current Plan</div>
               <div className="text-3xl font-bold mt-1">
-                {subscription.plan_tier.charAt(0).toUpperCase() + subscription.plan_tier.slice(1)}
+                {subscription.plan_tier.charAt(0).toUpperCase() +
+                  subscription.plan_tier.slice(1)}
               </div>
               <div className="text-sm opacity-90 mt-2">
                 ${subscription.amount}/month • {subscription.status}
@@ -121,12 +134,13 @@ export const BillingDashboard: React.FC = () => {
       <div className="border-b border-gray-200 mb-6">
         <nav className="flex space-x-8">
           <button
-            onClick={() => setActiveTab('usage')}
+            onClick={() => setActiveTab("usage")}
             className={`
               py-4 px-1 border-b-2 font-medium text-sm transition-colors
-              ${activeTab === 'usage'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ${
+                activeTab === "usage"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }
             `}
           >
@@ -137,12 +151,13 @@ export const BillingDashboard: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setActiveTab('plans')}
+            onClick={() => setActiveTab("plans")}
             className={`
               py-4 px-1 border-b-2 font-medium text-sm transition-colors
-              ${activeTab === 'plans'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ${
+                activeTab === "plans"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }
             `}
           >
@@ -153,12 +168,13 @@ export const BillingDashboard: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setActiveTab('invoices')}
+            onClick={() => setActiveTab("invoices")}
             className={`
               py-4 px-1 border-b-2 font-medium text-sm transition-colors
-              ${activeTab === 'invoices'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ${
+                activeTab === "invoices"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }
             `}
           >
@@ -172,7 +188,7 @@ export const BillingDashboard: React.FC = () => {
 
       {/* Tab Content */}
       <div className="mt-6">
-        {activeTab === 'usage' && (
+        {activeTab === "usage" && (
           <div>
             {loading ? (
               <div className="text-center py-12">Loading usage data...</div>
@@ -181,7 +197,10 @@ export const BillingDashboard: React.FC = () => {
                 {/* Usage Meters */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {Object.entries(usage.usage).map(([metric, amount]) => (
-                    <div key={metric} className="bg-white p-6 rounded-lg shadow">
+                    <div
+                      key={metric}
+                      className="bg-white p-6 rounded-lg shadow"
+                    >
                       <UsageMeter
                         metric={metric as BillingMetric}
                         usage={amount}
@@ -193,7 +212,9 @@ export const BillingDashboard: React.FC = () => {
 
                 {/* Upcoming Invoice Preview */}
                 <div className="bg-white p-6 rounded-lg shadow">
-                  <h3 className="text-lg font-semibold mb-4">Projected Invoice</h3>
+                  <h3 className="text-lg font-semibold mb-4">
+                    Projected Invoice
+                  </h3>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Base Plan</span>
                     <span className="font-semibold">${usage.costs.base}</span>
@@ -201,7 +222,10 @@ export const BillingDashboard: React.FC = () => {
                   <div className="flex justify-between items-center mt-2">
                     <span className="text-gray-600">Overage Charges</span>
                     <span className="font-semibold">
-                      ${Object.values(usage.costs.overage).reduce((sum, cost) => sum + cost, 0).toFixed(2)}
+                      $
+                      {Object.values(usage.costs.overage)
+                        .reduce((sum, cost) => sum + cost, 0)
+                        .toFixed(2)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center mt-4 pt-4 border-t">
@@ -213,14 +237,19 @@ export const BillingDashboard: React.FC = () => {
                 </div>
 
                 {/* Usage Alerts */}
-                {Object.entries(usage.percentages).some(([_, pct]) => pct >= 80) && (
+                {Object.entries(usage.percentages).some(
+                  ([_, pct]) => pct >= 80
+                ) && (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                     <div className="flex items-start">
                       <AlertCircle className="w-5 h-5 text-yellow-600 mr-3 mt-0.5" />
                       <div>
-                        <h4 className="font-semibold text-yellow-900">Usage Alert</h4>
+                        <h4 className="font-semibold text-yellow-900">
+                          Usage Alert
+                        </h4>
                         <p className="text-sm text-yellow-800 mt-1">
-                          You're approaching your quota limits on some metrics. Consider upgrading your plan.
+                          You're approaching your quota limits on some metrics.
+                          Consider upgrading your plan.
                         </p>
                       </div>
                     </div>
@@ -228,12 +257,14 @@ export const BillingDashboard: React.FC = () => {
                 )}
               </div>
             ) : (
-              <div className="text-center py-12 text-gray-600">No usage data available</div>
+              <div className="text-center py-12 text-gray-600">
+                No usage data available
+              </div>
             )}
           </div>
         )}
 
-        {activeTab === 'plans' && (
+        {activeTab === "plans" && (
           <div>
             <PlanSelector
               currentPlan={subscription?.plan_tier}
@@ -243,7 +274,7 @@ export const BillingDashboard: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'invoices' && (
+        {activeTab === "invoices" && (
           <div>
             <InvoiceList
               invoices={invoices}

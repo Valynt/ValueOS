@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckCircle, AlertTriangle, XCircle, RefreshCw, MessageSquare } from 'lucide-react';
+import { AlertTriangle, CheckCircle, MessageSquare, RefreshCw, XCircle } from 'lucide-react';
 
 interface ConfidenceDisplayProps {
   confidence?: number;

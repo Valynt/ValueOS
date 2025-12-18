@@ -1,6 +1,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { getEnvironmentHeaders } from './src/lib/security/headers.ts';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Detect Codespaces environment
 const isCodespaces = process.env.CODESPACES === 'true';
@@ -20,9 +24,10 @@ export default defineConfig({
     cors: true,
     // HMR configuration for hot module replacement
     hmr: isCodespaces ? true : {
-      clientPort: parseInt(process.env.VITE_HMR_PORT || '24678'),
       host: process.env.VITE_HMR_HOST || undefined,
-      protocol: process.env.VITE_HMR_PROTOCOL || 'ws'
+      protocol: process.env.VITE_HMR_PROTOCOL || 'ws',
+      timeout: 30000, // Increase timeout for slower connections
+      overlay: true, // Show error overlay
     },
     // Optional: Enable HTTPS for local development
     // Uncomment the next line to use HTTPS (will use self-signed certificate)
@@ -142,6 +147,18 @@ export default defineConfig({
       functions: 70,
       branches: 70,
       statements: 70,
+    },
+  },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      '@components': path.resolve(__dirname, './src/components'),
+      '@services': path.resolve(__dirname, './src/services'),
+      '@lib': path.resolve(__dirname, './src/lib'),
+      '@utils': path.resolve(__dirname, './src/utils'),
+      '@types': path.resolve(__dirname, './src/types'),
+      '@config': path.resolve(__dirname, './src/config'),
+      '@security': path.resolve(__dirname, './src/security'),
     },
   },
 });

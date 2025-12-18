@@ -10,7 +10,7 @@
  * - Tenant isolation
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '../lib/logger';
 import { getSupabaseClient } from '../lib/supabase';

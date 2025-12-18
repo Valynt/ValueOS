@@ -6,7 +6,7 @@
 
 import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { SDUIStateManager, getSDUIStateManager, SDUIStateManagerConfig } from './SDUIStateManager';
+import { getSDUIStateManager, SDUIStateManager, SDUIStateManagerConfig } from './SDUIStateManager';
 
 /**
  * Context for SDUI State Manager

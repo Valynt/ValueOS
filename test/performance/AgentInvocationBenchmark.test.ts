@@ -4,7 +4,7 @@
  * Performance benchmarks for agent invocations
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { performanceMonitor } from '../../utils/performance';
 
 const runIntegration = process.env.RUN_INTEGRATION_TESTS === 'true';
@@ -68,7 +68,7 @@ class MockOrchestrator {
       throw new Error(`Agent not found: ${name}`);
     }
     
-    return await agent.invoke(input);
+    return agent.invoke(input);
   }
 
   async invokeSequence(agentNames: string[], input: any): Promise<any> {
@@ -83,7 +83,7 @@ class MockOrchestrator {
 
   async invokeParallel(agentNames: string[], input: any): Promise<any[]> {
     const promises = agentNames.map(name => this.invokeAgent(name, input));
-    return await Promise.all(promises);
+    return Promise.all(promises);
   }
 }
 

@@ -13,24 +13,24 @@
 import { logger } from '../../lib/logger';
 import { supabase } from '../../lib/supabase';
 import {
-  WorkflowDAG,
-  WorkflowStage,
-  WorkflowExecution,
-  WorkflowStatus,
-  StageStatus,
+  CircuitBreakerState,
   ExecutedStep,
   RetryConfig,
-  CircuitBreakerState,
+  StageStatus,
+  WorkflowDAG,
+  WorkflowExecution,
+  WorkflowStage,
+  WorkflowStatus,
 } from '../../types/workflow';
 import {
   ALL_WORKFLOW_DEFINITIONS,
-  getWorkflowById,
   getStageById,
+  getWorkflowById,
   validateWorkflowDAG,
 } from './WorkflowDAGDefinitions';
 import { workflowCompensation } from '../WorkflowCompensation';
 import { CircuitBreakerManager } from '../CircuitBreaker';
-import { getAgentAPI, AgentType } from '../AgentAPI';
+import { AgentType, getAgentAPI } from '../AgentAPI';
 
 // ============================================================================
 // Types

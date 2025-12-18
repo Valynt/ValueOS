@@ -6,11 +6,11 @@
 
 import React from "react";
 import {
-  TrendingUp,
-  DollarSign,
   Activity,
-  Shield,
+  DollarSign,
   FileCheck,
+  Shield,
+  TrendingUp,
 } from "lucide-react";
 import type { WorkflowStageConfig } from "./types";
 

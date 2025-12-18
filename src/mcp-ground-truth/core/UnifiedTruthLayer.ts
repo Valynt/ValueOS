@@ -13,15 +13,15 @@
  */
 
 import {
+  ConfidenceTier,
+  ErrorCodes,
+  FinancialMetric,
+  GroundTruthError,
   GroundTruthModule,
   ModuleRequest,
   ModuleResponse,
-  FinancialMetric,
   TruthResolutionRequest,
   TruthResolutionResult,
-  ConfidenceTier,
-  GroundTruthError,
-  ErrorCodes,
 } from '../types';
 import { logger } from '../../lib/logger';
 

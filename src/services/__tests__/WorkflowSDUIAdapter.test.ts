@@ -2,11 +2,11 @@
  * Unit tests for WorkflowSDUIAdapter
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkflowSDUIAdapter } from '../WorkflowSDUIAdapter';
 import {
-  WorkflowProgress,
   StageCompletionEvent,
+  WorkflowProgress,
 } from '../../types/workflow-sdui';
 import { canvasSchemaService } from '../CanvasSchemaService';
 

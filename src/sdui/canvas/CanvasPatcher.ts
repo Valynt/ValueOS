@@ -17,7 +17,7 @@
  * ```
  */
 
-import { CanvasLayout, CanvasDelta } from './types';
+import { CanvasDelta, CanvasLayout } from './types';
 import { logger } from '../../lib/logger';
 
 export class CanvasPatcher {
@@ -266,7 +266,7 @@ export class CanvasPatcher {
         return node.filter((_, i) => i !== index);
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+       
       const { [head]: _, ...rest } = node;
       return rest;
     }

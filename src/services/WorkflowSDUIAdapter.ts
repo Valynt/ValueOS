@@ -10,15 +10,15 @@ import { SDUIPageDefinition } from '../sdui/schema';
 import { SDUIUpdate } from '../types/sdui-integration';
 import { LifecycleStage } from '../types/workflow';
 import {
-  WorkflowProgress,
-  StageTransitionEvent,
   StageCompletionEvent,
+  StageTransitionEvent,
+  WorkflowProgress,
   WorkflowSDUIUpdate,
 } from '../types/workflow-sdui';
 import {
   AtomicUIAction,
-  createMutateAction,
   createAddAction,
+  createMutateAction,
   createRemoveAction,
 } from '../sdui/AtomicUIActions';
 import { canvasSchemaService } from './CanvasSchemaService';

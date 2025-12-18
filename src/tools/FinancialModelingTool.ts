@@ -5,7 +5,7 @@
  * Enables agents to perform calculations that LLMs struggle with directly.
  */
 
-import { BaseTool, ToolResult, ToolExecutionContext } from '../services/ToolRegistry';
+import { BaseTool, ToolExecutionContext, ToolResult } from '../services/ToolRegistry';
 import { financialCalculator } from '../services/SandboxedExecutor';
 import { logger } from '../utils/logger';
 

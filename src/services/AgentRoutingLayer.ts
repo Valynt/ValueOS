@@ -1,6 +1,6 @@
 import { logger } from '../lib/logger';
-import { WorkflowDAG, WorkflowStage, LifecycleStage } from '../types/workflow';
-import { AgentRegistry, AgentRecord, RoutingContext } from './AgentRegistry';
+import { LifecycleStage, WorkflowDAG, WorkflowStage } from '../types/workflow';
+import { AgentRecord, AgentRegistry, RoutingContext } from './AgentRegistry';
 import { AgentRoutingScorer, AgentScoreBreakdown } from './AgentRoutingScorer';
 
 export interface StageRoute {

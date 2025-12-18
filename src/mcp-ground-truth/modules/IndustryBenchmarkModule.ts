@@ -14,13 +14,13 @@
 
 import { BaseModule } from '../core/BaseModule';
 import {
+  ErrorCodes,
+  FinancialMetric,
+  GroundTruthError,
+  IndustryBenchmark,
   ModuleRequest,
   ModuleResponse,
-  FinancialMetric,
-  IndustryBenchmark,
   WageData,
-  GroundTruthError,
-  ErrorCodes,
 } from '../types';
 import { logger } from '../../lib/logger';
 

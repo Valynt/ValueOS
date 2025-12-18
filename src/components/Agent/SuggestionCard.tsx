@@ -1,5 +1,5 @@
 import React from 'react';
-import { Lightbulb, X, Sparkles } from 'lucide-react';
+import { Lightbulb, Sparkles, X } from 'lucide-react';
 
 export interface Suggestion {
   id: string;

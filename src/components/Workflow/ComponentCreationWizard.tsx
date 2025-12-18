@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, ChevronRight, Sparkles } from 'lucide-react';
+import { ChevronRight, Sparkles, X } from 'lucide-react';
 import { CanvasComponent } from '../../types';
 
 interface ComponentCreationWizardProps {

@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from 'react';
-import { CheckCircle, XCircle, AlertTriangle, Shield, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import { AlertTriangle, CheckCircle, ChevronDown, ChevronUp, FileText, Shield, XCircle } from 'lucide-react';
 
 export interface ComplianceRule {
   id: string;

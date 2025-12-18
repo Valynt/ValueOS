@@ -3,8 +3,8 @@
  * Shows connection status and provides offline recovery
  */
 
-import React, { useState, useEffect } from 'react';
-import { Wifi, WifiOff, AlertCircle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { AlertCircle, Wifi, WifiOff } from 'lucide-react';
 
 interface NetworkStatusProps {
   onRetry?: () => void;

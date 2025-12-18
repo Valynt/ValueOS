@@ -3,7 +3,7 @@
  * Checks usage quotas before allowing requests
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import UsageCache from '../services/metering/UsageCache';
 import GracePeriodService from '../services/metering/GracePeriodService';
 import { BillingMetric, GRACE_PERIOD_MS, isHardCap } from '../config/billing';
