@@ -24,6 +24,191 @@ app.get('/health', (req, res) => {
 app.use('/webhooks', webhookRouter);
 app.use('/api', dashboardRouter);
 
+// Dashboard HTML page
+app.get('/dashboard', (req, res) => {
+  res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Code Optimizer Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 20px 0; }
+        .stat-card { background: #f8f9fa; padding: 15px; border-radius: 6px; text-align: center; }
+        .stat-number { font-size: 2em; font-weight: bold; color: #007acc; }
+        .stat-label { color: #666; }
+        .section { margin: 30px 0; }
+        .section h2 { color: #333; border-bottom: 2px solid #007acc; padding-bottom: 5px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #f8f9fa; font-weight: bold; }
+        .status-pending { color: #ffa500; }
+        .status-running { color: #007acc; }
+        .status-completed { color: green; }
+        .status-failed { color: red; }
+        .refresh-btn { background: #007acc; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 10px 0; }
+        .refresh-btn:hover { background: #005aa3; }
+        .optimization-card { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 6px; }
+        .optimization-title { font-weight: bold; margin-bottom: 5px; }
+        .optimization-description { color: #666; margin-bottom: 10px; }
+        .optimization-metrics { display: flex; gap: 20px; font-size: 0.9em; }
+        .metric { display: flex; flex-direction: column; }
+        .metric-label { font-weight: bold; }
+        .metric-value { color: #007acc; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 GitHub Code Optimizer Dashboard</h1>
+
+        <div class="stats" id="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="totalRepos">0</div>
+                <div class="stat-label">Repositories</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalOpts">0</div>
+                <div class="stat-label">Optimizations</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="activeJobs">0</div>
+                <div class="stat-label">Active Jobs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="completedJobs">0</div>
+                <div class="stat-label">Completed Jobs</div>
+            </div>
+        </div>
+
+        <button class="refresh-btn" onclick="refreshDashboard()">🔄 Refresh Dashboard</button>
+
+        <div class="section">
+            <h2>📊 Recent Jobs</h2>
+            <table id="jobsTable">
+                <thead>
+                    <tr>
+                        <th>Repository</th>
+                        <th>Status</th>
+                        <th>Started</th>
+                        <th>Duration</th>
+                    </tr>
+                </thead>
+                <tbody id="jobsBody">
+                    <tr><td colspan="4">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>⚡ Recent Optimizations</h2>
+            <div id="optimizationsContainer">
+                <p>Loading optimizations...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function fetchData(url) {
+            const response = await fetch(url);
+            return response.json();
+        }
+
+        async function refreshDashboard() {
+            try {
+                // Fetch overview stats
+                const stats = await fetchData('/api/overview');
+                document.getElementById('totalRepos').textContent = stats.totalRepositories;
+                document.getElementById('totalOpts').textContent = stats.totalOptimizations;
+                document.getElementById('activeJobs').textContent = stats.activeJobs;
+                document.getElementById('completedJobs').textContent = stats.completedJobs;
+
+                // Fetch jobs
+                const jobs = await fetchData('/api/jobs');
+                const jobsBody = document.getElementById('jobsBody');
+                jobsBody.innerHTML = '';
+
+                if (jobs.length === 0) {
+                    jobsBody.innerHTML = '<tr><td colspan="4">No jobs found</td></tr>';
+                } else {
+                    jobs.slice(0, 10).forEach(job => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = \`
+                            <td>\${job.repository.fullName}</td>
+                            <td class="status-\${job.status}">\${job.status.toUpperCase()}</td>
+                            <td>\${new Date(job.startedAt).toLocaleString()}</td>
+                            <td>\${job.completedAt ? Math.round((new Date(job.completedAt) - new Date(job.startedAt)) / 1000) + 's' : '-'}</td>
+                        \`;
+                        jobsBody.appendChild(row);
+                    });
+                }
+
+                // Fetch recent optimizations from all repositories
+                const repositories = await fetchData('/api/repositories');
+                const optimizationsContainer = document.getElementById('optimizationsContainer');
+                optimizationsContainer.innerHTML = '';
+
+                if (repositories.length === 0) {
+                    optimizationsContainer.innerHTML = '<p>No repositories configured</p>';
+                } else {
+                    let hasOptimizations = false;
+                    for (const repo of repositories) {
+                        try {
+                            const optimizations = await fetchData(\`/api/repositories/\${repo.owner.login}/\${repo.name}/optimizations\`);
+                            if (optimizations.length > 0) {
+                                hasOptimizations = true;
+                                optimizations.slice(0, 5).forEach(opt => {
+                                    const card = document.createElement('div');
+                                    card.className = 'optimization-card';
+                                    card.innerHTML = \`
+                                        <div class="optimization-title">\${opt.type}: \${opt.filePath}</div>
+                                        <div class="optimization-description">\${opt.description}</div>
+                                        <div class="optimization-metrics">
+                                            <div class="metric">
+                                                <span class="metric-label">Complexity</span>
+                                                <span class="metric-value">\${opt.beforeMetrics?.complexity || 'N/A'} → \${opt.afterMetrics?.complexity || 'N/A'}</span>
+                                            </div>
+                                            <div class="metric">
+                                                <span class="metric-label">Performance</span>
+                                                <span class="metric-value">\${opt.beforeMetrics?.performance || 'N/A'} → \${opt.afterMetrics?.performance || 'N/A'}</span>
+                                            </div>
+                                            <div class="metric">
+                                                <span class="metric-label">Confidence</span>
+                                                <span class="metric-value">\${Math.round(opt.confidence * 100)}%</span>
+                                            </div>
+                                        </div>
+                                    \`;
+                                    optimizationsContainer.appendChild(card);
+                                });
+                            }
+                        } catch (e) {
+                            console.log('No optimizations for', repo.fullName);
+                        }
+                    }
+                    if (!hasOptimizations) {
+                        optimizationsContainer.innerHTML = '<p>No optimizations found</p>';
+                    }
+                }
+            } catch (error) {
+                console.error('Error refreshing dashboard:', error);
+                alert('Error loading dashboard data');
+            }
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(refreshDashboard, 30000);
+
+        // Initial load
+        refreshDashboard();
+    </script>
+</body>
+</html>
+  `);
+});
+
 // Error handling
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error('Unhandled error:', err);
