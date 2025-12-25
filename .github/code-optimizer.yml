@@ -1,0 +1,23 @@
+enabled: true
+thresholds:
+  performanceGain: 0.1  # Minimum 10% performance improvement required
+  maxFiles: 100         # Maximum files to analyze per run
+  maxFileSize: 1048576  # Maximum file size (1MB)
+languages:
+  - javascript
+  - typescript
+  - python
+blacklist:
+  - 'node_modules/**'
+  - 'dist/**'
+  - 'build/**'
+  - '*.min.js'
+  - '*.min.css'
+  - 'coverage/**'
+  - '.nyc_output/**'
+  - 'test-results/**'
+  - 'playwright-report/**'
+  - 'services/github-code-optimizer/**'  # Don't analyze the bot itself
+ai:
+  model: 'openai/gpt-4o'
+  maxTokens: 4096
