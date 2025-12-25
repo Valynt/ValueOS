@@ -17,19 +17,21 @@ interface WebhookPayload {
 }
 
 // Simplified webhook handler for development
-router.post('/github', express.json(), async (req, res) => {
+router.post('/github', async (req, res) => {
   try {
-    const event: WebhookPayload = req.body;
     const eventName = req.headers['x-github-event'] as string;
+    logger.info('Received webhook', { eventName, bodyType: typeof req.body });
 
-    logger.info('Received webhook', { eventName, action: event.action });
-
-    if (webhookHandlers[eventName]) {
-      await webhookHandlers[eventName](event);
+    // For now, just acknowledge webhooks - full processing needs middleware fix
+    if (eventName === 'ping') {
+      logger.info('Ping webhook received - bot is reachable');
+      res.status(200).send('OK');
+    } else if (eventName === 'push') {
+      logger.info('Push webhook received - analysis would start here');
       res.status(200).send('OK');
     } else {
       logger.warn('Unhandled webhook event', { eventName });
-      res.status(200).send('Event ignored');
+      res.status(200).send('Event acknowledged');
     }
   } catch (error) {
     logger.error('Webhook processing error:', error);
