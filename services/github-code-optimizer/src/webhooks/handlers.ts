@@ -1,23 +1,44 @@
-import { WebhookEvent } from '@octokit/webhooks';
 import { logger, logAnalysisEvent } from '../utils/logger.js';
 import { Repository, GitHubEvent } from '../types/index.js';
 import { analyzeRepository } from '../services/analysisService.js';
 import { checkPermissions } from '../services/permissionService.js';
 import { loadRepositoryConfig } from '../services/configService.js';
 
-export const webhookHandlers = {
+interface WebhookPayload {
+  action?: string;
+  repository: any;
+  sender?: any;
+  installation?: any;
+  pull_request?: any;
+  repositories?: any[];
+  commits?: any[];
+  after?: string;
+  ref?: string;
+}
+
+export const webhookHandlers: Record<string, (event: WebhookPayload) => Promise<void>> = {
   push: handlePushEvent,
   pull_request: handlePullRequestEvent,
   installation: handleInstallationEvent,
   installation_repositories: handleInstallationRepositoriesEvent,
 };
 
-async function handlePushEvent(event: WebhookEvent) {
-  const payload = event.payload as any;
+async function handlePushEvent(event: WebhookPayload) {
+  const payload = event;
   const repository = extractRepository(payload.repository);
-  const sender = payload.sender.login;
+  const sender = payload.sender?.login;
   const ref = payload.ref;
   const commits = payload.commits || [];
+
+  if (!sender) {
+    logger.warn('Push event missing sender', { repository: repository.fullName });
+    return;
+  }
+
+  if (!ref) {
+    logger.warn('Push event missing ref', { repository: repository.fullName });
+    return;
+  }
 
   logger.info('Push event received', {
     repository: repository.fullName,
@@ -53,13 +74,19 @@ async function handlePushEvent(event: WebhookEvent) {
 
   // Start analysis
   try {
+    const commitSha = payload.after;
+    if (!commitSha) {
+      logger.warn('Push event missing commit SHA', { repository: repository.fullName });
+      return;
+    }
+
     logAnalysisEvent('analysis_started', {
       repository: repository.fullName,
       trigger: 'push',
-      commitSha: payload.after,
+      commitSha,
     });
 
-    await analyzeRepository(repository, payload.after, config);
+    await analyzeRepository(repository, commitSha, config);
   } catch (error) {
     logger.error('Analysis failed for push event', {
       repository: repository.fullName,
@@ -68,17 +95,27 @@ async function handlePushEvent(event: WebhookEvent) {
   }
 }
 
-async function handlePullRequestEvent(event: WebhookEvent) {
-  const payload = event.payload as any;
+async function handlePullRequestEvent(event: WebhookPayload) {
+  const payload = event;
   const repository = extractRepository(payload.repository);
   const action = payload.action;
-  const sender = payload.sender.login;
+  const sender = payload.sender?.login;
+
+  if (!sender) {
+    logger.warn('PR event missing sender', { repository: repository.fullName });
+    return;
+  }
+
+  if (!payload.pull_request) {
+    logger.warn('PR event missing pull_request data', { repository: repository.fullName });
+    return;
+  }
 
   logger.info('PR event received', {
     repository: repository.fullName,
     action,
     sender,
-    prNumber: payload.pull_request?.number,
+    prNumber: payload.pull_request.number,
   });
 
   // Only process opened PRs
@@ -102,14 +139,20 @@ async function handlePullRequestEvent(event: WebhookEvent) {
 
   // Start analysis
   try {
+    const commitSha = payload.pull_request.head?.sha;
+    if (!commitSha) {
+      logger.warn('PR event missing commit SHA', { repository: repository.fullName });
+      return;
+    }
+
     logAnalysisEvent('analysis_started', {
       repository: repository.fullName,
       trigger: 'pull_request',
       prNumber: payload.pull_request.number,
-      commitSha: payload.pull_request.head.sha,
+      commitSha,
     });
 
-    await analyzeRepository(repository, payload.pull_request.head.sha, config);
+    await analyzeRepository(repository, commitSha, config);
   } catch (error) {
     logger.error('Analysis failed for PR event', {
       repository: repository.fullName,
@@ -119,10 +162,15 @@ async function handlePullRequestEvent(event: WebhookEvent) {
   }
 }
 
-async function handleInstallationEvent(event: WebhookEvent) {
-  const payload = event.payload as any;
+async function handleInstallationEvent(event: WebhookPayload) {
+  const payload = event;
   const action = payload.action;
-  const installationId = payload.installation.id;
+  const installationId = payload.installation?.id;
+
+  if (!installationId) {
+    logger.warn('Installation event missing installation ID');
+    return;
+  }
 
   logger.info('Installation event received', { action, installationId });
 
@@ -135,10 +183,15 @@ async function handleInstallationEvent(event: WebhookEvent) {
   }
 }
 
-async function handleInstallationRepositoriesEvent(event: WebhookEvent) {
-  const payload = event.payload as any;
+async function handleInstallationRepositoriesEvent(event: WebhookPayload) {
+  const payload = event;
   const action = payload.action;
-  const installationId = payload.installation.id;
+  const installationId = payload.installation?.id;
+
+  if (!installationId) {
+    logger.warn('Installation repositories event missing installation ID');
+    return;
+  }
 
   logger.info('Installation repositories event received', {
     action,

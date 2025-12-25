@@ -43,6 +43,7 @@ export interface Optimization {
   suggestedCode: string;
   lineStart: number;
   lineEnd: number;
+  status?: 'approved' | 'rejected' | 'pending';
   aiAnalysis?: string;
   benchmarkResults?: BenchmarkResult;
   testCases?: TestCase[];
