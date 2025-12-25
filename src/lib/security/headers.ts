@@ -142,6 +142,7 @@ export function getEnvironmentHeaders(env: 'development' | 'production'): Record
       "style-src 'self' 'unsafe-inline'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Allow inline and eval for HMR
       "script-src-elem 'self' 'unsafe-inline'", // Allow inline script elements
+      "worker-src 'self' blob:", // Allow web workers from blob URLs
       "connect-src 'self' https://*.supabase.co https://api.pwnedpasswords.com ws://localhost:* http://localhost:*", // Allow dev server and password breach API
       "font-src 'self' data:",
       "object-src 'none'",

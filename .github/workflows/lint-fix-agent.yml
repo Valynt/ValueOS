@@ -1,0 +1,58 @@
+name: Lint Fix Agent
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+
+jobs:
+  lint-fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint with autofix
+        run: npx eslint 'src/**/*.{ts,tsx}' --fix || true
+
+      - name: Custom lint/code integrity fixes
+        run: |
+          npx ts-node .github/scripts/lint-custom-fix.ts || true
+
+      - name: Check for changes
+        id: git-diff
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git diff --quiet || echo "changed=1" >> $GITHUB_OUTPUT
+
+      - name: Commit and push fixes
+        if: steps.git-diff.outputs.changed == '1'
+        run: |
+          git add .
+          git commit -m "chore(lint): auto-fix lint errors and code integrity issues [bot]"
+          git push
+
+      - name: Log summary of changes
+        if: steps.git-diff.outputs.changed == '1'
+        run: |
+          echo "## Lint Fix Agent Summary" >> $GITHUB_STEP_SUMMARY
+          git diff HEAD~1 HEAD --stat >> $GITHUB_STEP_SUMMARY
+          git diff HEAD~1 HEAD >> $GITHUB_STEP_SUMMARY
+
+      - name: Update TODO list
+        if: steps.git-diff.outputs.changed == '1'
+        run: |
+          echo "- Lint/code integrity fixes applied by agent on $(date -u)" >> lint-fix-todo.log
