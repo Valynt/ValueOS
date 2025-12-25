@@ -55,14 +55,28 @@ EOF
     exit 0
 fi
 
+# Load environment variables from .env file
+if [ -f .env ]; then
+    while IFS='=' read -r key value; do
+        # Skip comments and empty lines
+        [[ $key =~ ^[[:space:]]*# ]] && continue
+        [[ -z $key ]] && continue
+
+        # Remove quotes from value if present
+        value=$(echo "$value" | sed 's/^"\(.*\)"$/\1/' | sed "s/^'\(.*\)'$/\1/")
+
+        export "$key=$value"
+    done < .env
+fi
+
 # Check if required environment variables are set
 echo "🔍 Checking configuration..."
 
 missing_vars=()
-if [ -z "$GITHUB_TOKEN" ] && ! grep -q "GITHUB_TOKEN=your_" .env; then
+if [ -z "$GITHUB_TOKEN" ] || [ "$GITHUB_TOKEN" = "your_github_token_here" ]; then
     missing_vars+=("GITHUB_TOKEN")
 fi
-if [ -z "$OPENROUTER_API_KEY" ] && ! grep -q "OPENROUTER_API_KEY=your_" .env; then
+if [ -z "$OPENROUTER_API_KEY" ] || [ "$OPENROUTER_API_KEY" = "your_openrouter_api_key_here" ]; then
     missing_vars+=("OPENROUTER_API_KEY")
 fi
 

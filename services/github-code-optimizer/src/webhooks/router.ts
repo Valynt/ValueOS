@@ -1,38 +1,41 @@
 import express from 'express';
-import { createNodeMiddleware } from '@octokit/webhooks';
 import { webhookHandlers } from './handlers.js';
 import { config } from '../config/index.js';
 import { logger } from '../utils/logger.js';
 
 const router = express.Router();
 
-// GitHub webhook middleware
-if (config.github.webhookSecret) {
-  const middleware = createNodeMiddleware(webhookHandlers, {
-    secret: config.github.webhookSecret,
-  });
-
-  router.post('/github', middleware);
-} else {
-  // Fallback for development/testing without webhook secret
-  logger.warn('GITHUB_WEBHOOK_SECRET not configured, webhook verification disabled');
-
-  router.post('/github', express.raw({ type: 'application/json' }), async (req, res) => {
-    try {
-      const event = JSON.parse(req.body.toString());
-      const eventName = req.headers['x-github-event'] as string;
-
-      if (webhookHandlers[eventName]) {
-        await webhookHandlers[eventName]({ id: 'test', name: eventName, payload: event });
-      }
-
-      res.status(200).send('OK');
-    } catch (error) {
-      logger.error('Webhook processing error:', error);
-      res.status(500).send('Internal server error');
-    }
-  });
+interface WebhookPayload {
+  action?: string;
+  repository: any;
+  sender: any;
+  installation?: any;
+  pull_request?: any;
+  commits?: any[];
+  after?: string;
+  ref?: string;
 }
+
+// Simplified webhook handler for development
+router.post('/github', express.json(), async (req, res) => {
+  try {
+    const event: WebhookPayload = req.body;
+    const eventName = req.headers['x-github-event'] as string;
+
+    logger.info('Received webhook', { eventName, action: event.action });
+
+    if (webhookHandlers[eventName]) {
+      await webhookHandlers[eventName](event);
+      res.status(200).send('OK');
+    } else {
+      logger.warn('Unhandled webhook event', { eventName });
+      res.status(200).send('Event ignored');
+    }
+  } catch (error) {
+    logger.error('Webhook processing error:', error);
+    res.status(500).send('Internal server error');
+  }
+});
 
 // Health check for webhook endpoint
 router.get('/health', (req, res) => {

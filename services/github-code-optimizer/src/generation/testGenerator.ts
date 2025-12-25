@@ -30,15 +30,15 @@ export async function generateTests(optimization: Optimization): Promise<string 
     }
 
     // Clean up the response (remove markdown if present)
-    const cleanTestCode = cleanTestCode(testCode, language);
+    const cleanedTestCode = cleanTestCode(testCode, language);
 
     logger.debug('Generated tests for optimization', {
       optimization: optimization.id,
       language,
-      testLength: cleanTestCode.length,
+      testLength: cleanedTestCode.length,
     });
 
-    return cleanTestCode;
+    return cleanedTestCode;
   } catch (error) {
     logger.error('Test generation failed', {
       optimization: optimization.id,
@@ -112,36 +112,36 @@ function getTestFramework(language: string): string {
 
 function cleanTestCode(testCode: string, language: string): string {
   // Remove markdown code blocks
-  let clean = testCode.replace(/```[\w]*\n?/g, '');
+  let cleanCode: string = testCode.replace(/```[\w]*\n?/g, '');
 
   // Remove common AI prefixes
-  clean = clean.replace(/^Here are the tests?:\s*/im, '');
-  clean = clean.replace(/^Here's how you can test:\s*/im, '');
+  cleanCode = cleanCode.replace(/^Here are the tests?:\s*/im, '');
+  cleanCode = cleanCode.replace(/^Here's how you can test:\s*/im, '');
 
   // Language-specific cleaning
   switch (language.toLowerCase()) {
     case 'javascript':
     case 'typescript':
       // Ensure Jest-style tests
-      if (!clean.includes('describe(') && !clean.includes('test(')) {
-        clean = `describe('Optimization Tests', () => {\n${clean}\n});`;
+      if (!cleanCode.includes('describe(') && !cleanCode.includes('test(')) {
+        cleanCode = `describe('Optimization Tests', () => {\n${cleanCode}\n});`;
       }
       break;
     case 'python':
       // Ensure pytest-style tests
-      if (!clean.includes('def test_')) {
-        clean = `import pytest\n\n${clean}`;
+      if (!cleanCode.includes('def test_')) {
+        cleanCode = `import pytest\n\n${cleanCode}`;
       }
       break;
     case 'java':
       // Basic Java test structure
-      if (!clean.includes('@Test')) {
-        clean = `import org.junit.Test;\nimport static org.junit.Assert.*;\n\npublic class OptimizationTest {\n${clean}\n}`;
+      if (!cleanCode.includes('@Test')) {
+        cleanCode = `import org.junit.Test;\nimport static org.junit.Assert.*;\n\npublic class OptimizationTest {\n${cleanCode}\n}`;
       }
       break;
   }
 
-  return clean.trim();
+  return cleanCode.trim();
 }
 
 export async function generateBenchmarkTests(optimization: Optimization): Promise<string | null> {

@@ -3,8 +3,8 @@ import { logger } from '../utils/logger.js';
 
 export async function queryAI(
   prompt: string,
-  model: string = config.openRouter.model || 'openai/gpt-4o',
-  maxTokens: number = config.openRouter.maxTokens || 4096
+  model: string = 'openai/gpt-4o',
+  maxTokens: number = 4096
 ): Promise<string | null> {
   try {
     if (!config.openRouter.apiKey) {
