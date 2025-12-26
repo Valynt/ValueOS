@@ -45,6 +45,7 @@
   100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.5;
   }
@@ -58,6 +59,7 @@
   0% {
     background-position: -62.5rem 0;
   }
+
   100% {
     background-position: 62.5rem 0;
   }
@@ -66,10 +68,10 @@
 .shimmer {
   background: linear-gradient(
     90deg,
-    hsla(var(--foreground), 0) 0%,
-    hsla(var(--foreground), 0.12) 20%,
-    hsla(var(--foreground), 0.2) 60%,
-    hsla(var(--foreground), 0) 100%
+    hsl(var(--foreground), 0) 0%,
+    hsl(var(--foreground), 0.12) 20%,
+    hsl(var(--foreground), 0.2) 60%,
+    hsl(var(--foreground), 0) 100%
   );
   background-size: 62.5rem 100%;
   animation: shimmer var(--motion-page) ease-in-out infinite;
@@ -79,6 +81,7 @@
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -93,6 +96,7 @@
     transform: translateY(var(--spacing-2));
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -108,6 +112,7 @@
     transform: translateX(var(--spacing-2));
     opacity: 0;
   }
+
   to {
     transform: translateX(0);
     opacity: 1;
@@ -123,6 +128,7 @@
     transform: scale(0.96);
     opacity: 0;
   }
+
   to {
     transform: scale(1);
     opacity: 1;
@@ -138,12 +144,15 @@
   100% {
     transform: scale(1);
   }
+
   25% {
     transform: scale(1.08);
   }
+
   50% {
     transform: scale(0.97);
   }
+
   75% {
     transform: scale(1.03);
   }
@@ -158,10 +167,12 @@
   100% {
     transform: translateX(0);
   }
+
   25%,
   75% {
     transform: translateX(calc(var(--spacing-1) / -4));
   }
+
   50% {
     transform: translateX(calc(var(--spacing-1) / 4));
   }
@@ -188,9 +199,11 @@
   100% {
     transform: rotate(0deg);
   }
+
   25% {
     transform: rotate(-3deg);
   }
+
   75% {
     transform: rotate(3deg);
   }
@@ -251,7 +264,7 @@
   width: 0;
   height: 0;
   border-radius: 50%;
-  background: hsla(var(--accent), 0.35);
+  background: hsl(var(--accent), 0.35);
   transform: translate(-50%, -50%);
   transition: width var(--motion-page), height var(--motion-page);
 }

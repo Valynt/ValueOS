@@ -41,7 +41,17 @@ const ignoresConfig = {
   ],
 };
 
-// Base config with all plugins registered ONCE
+// Plugin registration - applying to all files
+const pluginConfig = {
+  plugins: {
+    "@typescript-eslint": tseslint.plugin,
+    "react-hooks": reactHooks,
+    "react-refresh": reactRefresh,
+    "jsx-a11y": jsxA11y,
+  },
+};
+
+// Base config
 const baseConfig = {
   files: ["**/*.{ts,tsx,js,jsx}"],
   languageOptions: {
@@ -60,12 +70,6 @@ const baseConfig = {
       ecmaVersion: "latest",
       sourceType: "module",
     },
-  },
-  plugins: {
-    "@typescript-eslint": tseslint.plugin,
-    "react-hooks": reactHooks,
-    "react-refresh": reactRefresh,
-    "jsx-a11y": jsxA11y,
   },
   rules: {
     ...js.configs.recommended.rules,
@@ -262,12 +266,26 @@ const envOverrides = {
   },
 };
 
+// TestCafe overrides
+const testcafeOverrides = {
+  files: ["**/testcafe/**/*.js", "**/testcafe/**/*.ts"],
+  languageOptions: {
+    globals: {
+      ...globals.node,
+      fixture: "readonly",
+      test: "readonly",
+    },
+  },
+};
+
 export default [
   ignoresConfig,
+  pluginConfig,
   baseConfig,
   testOverrides,
   k6Overrides,
   frontendOverrides,
   srcOverrides,
   envOverrides,
+  testcafeOverrides,
 ];
