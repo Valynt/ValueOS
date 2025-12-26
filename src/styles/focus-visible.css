@@ -25,7 +25,7 @@
 button:focus-visible,
 a:focus-visible,
 [role="button"]:focus-visible {
-  box-shadow: 0 0 0 0.25rem hsla(var(--ring), 0.2);
+  box-shadow: 0 0 0 0.25rem hsl(var(--ring), 0.2);
 }
 
 input:focus-visible,
@@ -34,7 +34,7 @@ select:focus-visible {
   outline: var(--vc-focus-outline);
   outline-offset: 0;
   border-color: hsl(var(--ring));
-  box-shadow: 0 0 0 0.25rem hsla(var(--ring), 0.16);
+  box-shadow: 0 0 0 0.25rem hsl(var(--ring), 0.16);
 }
 
 a:focus-visible {
@@ -48,19 +48,19 @@ a:focus-visible {
 .dark *:focus-visible,
 .dark button:focus-visible,
 .dark a:focus-visible {
-  box-shadow: 0 0 0 0.25rem hsla(var(--ring), 0.25);
+  box-shadow: 0 0 0 0.25rem hsl(var(--ring), 0.25);
 }
 
 .error:focus-visible,
 [aria-invalid="true"]:focus-visible {
   outline-color: hsl(var(--status-error));
   border-color: hsl(var(--status-error));
-  box-shadow: 0 0 0 0.25rem hsla(var(--status-error), 0.2);
+  box-shadow: 0 0 0 0.25rem hsl(var(--status-error), 0.2);
 }
 
 .success:focus-visible {
   outline-color: hsl(var(--status-success));
-  box-shadow: 0 0 0 0.25rem hsla(var(--status-success), 0.2);
+  box-shadow: 0 0 0 0.25rem hsl(var(--status-success), 0.2);
 }
 
 .focus-ring-none:focus-visible {
@@ -79,7 +79,7 @@ a:focus-visible {
   border-radius: var(--vc-radius-card);
   outline: var(--vc-focus-outline);
   outline-offset: var(--vc-focus-offset);
-  box-shadow: 0 0 0 0.25rem hsla(var(--ring), 0.16);
+  box-shadow: 0 0 0 0.25rem hsl(var(--ring), 0.16);
 }
 
 @media (prefers-contrast: high) {

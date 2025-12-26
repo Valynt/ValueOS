@@ -99,6 +99,16 @@ const config = {
       },
       boxShadow: {
         "vc-glow-teal": "var(--vc-glow-teal)",
+        "glow-teal": "0 0 15px rgba(16, 185, 129, 0.4)",
+        "glow-teal-lg": "0 0 25px rgba(16, 185, 129, 0.6)",
+        "glow-green": "0 0 10px rgba(16, 185, 129, 0.5)",
+        "inner-glow": "inset 0 1px 0 0 rgba(255, 255, 255, 0.05)",
+      },
+      backgroundImage: {
+        "gradient-value": "linear-gradient(to right, #10B981, #34D399)",
+        "gradient-radial": "radial-gradient(circle, var(--tw-gradient-stops))",
+        "canvas-grid":
+          "radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px)",
       },
     },
   },

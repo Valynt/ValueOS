@@ -11,13 +11,13 @@
   padding-right: var(--spacing-2);
 }
 
-@media (min-width: 40rem) {
+@media (width >= 40rem) {
   .container-responsive {
     max-width: 40rem;
   }
 }
 
-@media (min-width: 48rem) {
+@media (width >= 48rem) {
   .container-responsive {
     max-width: 48rem;
     padding-left: var(--spacing-3);
@@ -25,19 +25,19 @@
   }
 }
 
-@media (min-width: 64rem) {
+@media (width >= 64rem) {
   .container-responsive {
     max-width: 64rem;
   }
 }
 
-@media (min-width: 80rem) {
+@media (width >= 80rem) {
   .container-responsive {
     max-width: 80rem;
   }
 }
 
-@media (max-width: 48rem) {
+@media (width <= 48rem) {
   .hidden-mobile {
     display: none !important;
   }
@@ -47,13 +47,13 @@
   display: block;
 }
 
-@media (min-width: 48rem) {
+@media (width >= 48rem) {
   .show-mobile {
     display: none !important;
   }
 }
 
-@media (max-width: 48rem) {
+@media (width <= 48rem) {
   .tap-target {
     min-height: 2.75rem;
     min-width: 2.75rem;
@@ -85,7 +85,7 @@
   }
 }
 
-@media (max-width: 48rem) {
+@media (width <= 48rem) {
   .mobile-menu {
     position: fixed;
     inset: 0;
@@ -120,7 +120,7 @@
   font-size: 1.25rem;
 }
 
-@media (min-width: 48rem) {
+@media (width >= 48rem) {
   .text-responsive-xs {
     font-size: var(--font-sm);
   }
@@ -148,19 +148,19 @@
   gap: var(--spacing-2);
 }
 
-@media (min-width: 48rem) {
+@media (width >= 48rem) {
   .stack-mobile {
     flex-direction: row;
   }
 }
 
-@media (max-width: 48rem) {
+@media (width <= 48rem) {
   .full-width-mobile {
     width: 100% !important;
   }
 }
 
-@media (max-width: 48rem) {
+@media (width <= 48rem) {
   .spacing-responsive {
     padding: var(--spacing-2);
   }
@@ -170,7 +170,7 @@
   }
 }
 
-@media (min-width: 48rem) {
+@media (width >= 48rem) {
   .spacing-responsive {
     padding: var(--spacing-3);
   }
@@ -180,7 +180,7 @@
   }
 }
 
-@media (max-width: 48rem) {
+@media (width <= 48rem) {
   .modal-responsive {
     position: fixed !important;
     inset: 0 !important;
@@ -217,7 +217,7 @@
   }
 }
 
-@media (orientation: landscape) and (max-height: 31.25rem) {
+@media (orientation: landscape) and (height <= 31.25rem) {
   .landscape\:compact {
     padding-top: calc(var(--spacing-1) / 2);
     padding-bottom: calc(var(--spacing-1) / 2);
@@ -230,13 +230,13 @@
   gap: var(--spacing-2);
 }
 
-@media (min-width: 40rem) {
+@media (width >= 40rem) {
   .grid-responsive-2 {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (min-width: 64rem) {
+@media (width >= 64rem) {
   .grid-responsive-3 {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -251,7 +251,7 @@
   flex-direction: column;
 }
 
-@media (min-width: 48rem) {
+@media (width >= 48rem) {
   .flex-responsive {
     flex-direction: row;
   }
