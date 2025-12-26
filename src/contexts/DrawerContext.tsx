@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext, useState } from 'react';
+import { createContext, ReactNode, useContext, useState } from "react";
 
 interface DrawerContextType {
   isOpen: boolean;
@@ -13,7 +13,7 @@ const DrawerContext = createContext<DrawerContextType | undefined>(undefined);
 export function DrawerProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [content, setContent] = useState<ReactNode | null>(null);
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState("");
 
   const openDrawer = (newTitle: string, newContent: ReactNode) => {
     setTitle(newTitle);
@@ -26,7 +26,9 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <DrawerContext.Provider value={{ isOpen, content, title, openDrawer, closeDrawer }}>
+    <DrawerContext.Provider
+      value={{ isOpen, content, title, openDrawer, closeDrawer }}
+    >
       {children}
     </DrawerContext.Provider>
   );
@@ -35,7 +37,7 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
 export function useDrawer() {
   const context = useContext(DrawerContext);
   if (context === undefined) {
-    throw new Error('useDrawer must be used within a DrawerProvider');
+    throw new Error("useDrawer must be used within a DrawerProvider");
   }
   return context;
 }

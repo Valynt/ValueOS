@@ -1,46 +1,77 @@
-import { useState } from 'react';
-import { ArrowRight, CheckCircle2, FileText, FolderOpen, Globe, Link2, Loader2, Mail, Mic, Plus, Sparkles } from 'lucide-react';
-import Header from '../components/Layout/Header';
-import AgentBadge from '../components/Agents/AgentBadge';
-import Tooltip from '../components/UI/Tooltip';
-import EmptyState from '../components/UI/EmptyState';
+import { useState } from "react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  FileText,
+  FolderOpen,
+  Globe,
+  Link2,
+  Loader2,
+  Mail,
+  Mic,
+  Plus,
+  Sparkles,
+} from "lucide-react";
+import Header from "../components/Layout/Header";
+import AgentBadge from "../components/Agents/AgentBadge";
+import Tooltip from "../components/UI/Tooltip";
+import EmptyState from "../components/UI/EmptyState";
 
 const quickActions = [
-  { icon: Mic, label: 'Analyze Sales Call', description: 'Upload recording or transcript' },
-  { icon: Link2, label: 'Import from CRM', description: 'Salesforce, HubSpot, Dynamics' },
-  { icon: FileText, label: 'Upload Documents', description: 'PDF, Word, or text files' },
-  { icon: Mail, label: 'Email Thread', description: 'Paste conversation to analyze' },
+  {
+    icon: Mic,
+    label: "Analyze Sales Call",
+    description: "Upload recording or transcript",
+  },
+  {
+    icon: Link2,
+    label: "Import from CRM",
+    description: "Salesforce, HubSpot, Dynamics",
+  },
+  {
+    icon: FileText,
+    label: "Upload Documents",
+    description: "PDF, Word, or text files",
+  },
+  {
+    icon: Mail,
+    label: "Email Thread",
+    description: "Paste conversation to analyze",
+  },
 ];
 
 const hypotheses = [
   {
     id: 1,
-    title: 'Manufacturing Automation Gap',
-    description: 'Legacy systems causing 23% efficiency loss in production lines',
+    title: "Manufacturing Automation Gap",
+    description:
+      "Legacy systems causing 23% efficiency loss in production lines",
     confidence: 87,
-    source: 'Derived from 10-K filing analysis'
+    source: "Derived from 10-K filing analysis",
   },
   {
     id: 2,
-    title: 'Supply Chain Visibility',
-    description: 'Lack of real-time inventory tracking leading to stockouts',
+    title: "Supply Chain Visibility",
+    description: "Lack of real-time inventory tracking leading to stockouts",
     confidence: 74,
-    source: 'Competitor analysis and industry benchmarks'
+    source: "Competitor analysis and industry benchmarks",
   },
   {
     id: 3,
-    title: 'Workforce Productivity',
-    description: 'Manual data entry consuming 15 hours/week per team member',
+    title: "Workforce Productivity",
+    description: "Manual data entry consuming 15 hours/week per team member",
     confidence: 91,
-    source: 'Customer interview transcript'
-  }
+    source: "Customer interview transcript",
+  },
 ];
 
 export default function ValueCanvas() {
-  const [companyUrl, setCompanyUrl] = useState('');
+  const [companyUrl, setCompanyUrl] = useState("");
   const [isResearching, setIsResearching] = useState(false);
   const [researchComplete, setResearchComplete] = useState(false);
-  const [selectedHypothesis, setSelectedHypothesis] = useState<number | null>(null);
+  const [selectedHypothesis, setSelectedHypothesis] = useState<number | null>(
+    null
+  );
   const [showEmptyState, setShowEmptyState] = useState(false);
 
   const handleResearch = () => {
@@ -56,30 +87,39 @@ export default function ValueCanvas() {
     <div className="flex-1 flex flex-col overflow-hidden bg-background">
       <Header
         title="Phase 1: Value Discovery"
-        breadcrumbs={['Acme Corp', 'Discovery']}
+        breadcrumbs={["Acme Corp", "Discovery"]}
       />
 
       <div className="flex-1 overflow-auto">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
           <section className="mb-8" aria-labelledby="research-section">
             <div className="flex items-center gap-3 mb-3">
-              <AgentBadge agentId="company-intelligence" size="md" pulse={isResearching} />
+              <AgentBadge
+                agentId="company-intelligence"
+                size="md"
+                pulse={isResearching}
+              />
               <span className="text-sm text-foreground/70">
-                {isResearching ? 'Researching company...' : 'Ready to analyze'}
+                {isResearching ? "Researching company..." : "Ready to analyze"}
               </span>
             </div>
 
             <div className="card p-4 sm:p-5">
-              <label htmlFor="company-input" className="sr-only">Company URL or name</label>
+              <label htmlFor="company-input" className="sr-only">
+                Company URL or name
+              </label>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-4">
                 <div className="flex-1 flex items-center gap-3 bg-secondary/30 rounded-lg px-4 py-3">
-                  <Globe className="w-5 h-5 text-muted-foreground flex-shrink-0" aria-hidden="true" />
+                  <Globe
+                    className="w-5 h-5 text-muted-foreground flex-shrink-0"
+                    aria-hidden="true"
+                  />
                   <input
                     id="company-input"
                     type="text"
                     value={companyUrl}
                     onChange={(e) => setCompanyUrl(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleResearch()}
+                    onKeyDown={(e) => e.key === "Enter" && handleResearch()}
                     placeholder="Enter company URL, ticker, or name..."
                     className="flex-1 bg-transparent text-foreground placeholder-muted-foreground/70 focus:outline-none"
                     aria-describedby="research-help"
@@ -93,16 +133,23 @@ export default function ValueCanvas() {
                 >
                   {isResearching ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" aria-hidden="true" />
+                      <Loader2
+                        className="w-4 h-4 animate-spin mr-2"
+                        aria-hidden="true"
+                      />
                       Researching...
                     </>
                   ) : (
-                    'Research'
+                    "Research"
                   )}
                 </button>
               </div>
-              <p id="research-help" className="text-xs text-muted-foreground/60">
-                Our AI will analyze SEC filings, news, and industry reports to identify opportunities.
+              <p
+                id="research-help"
+                className="text-xs text-muted-foreground/60"
+              >
+                Our AI will analyze SEC filings, news, and industry reports to
+                identify opportunities.
               </p>
 
               {researchComplete && (
@@ -111,8 +158,14 @@ export default function ValueCanvas() {
                   role="status"
                   aria-live="polite"
                 >
-                  <CheckCircle2 className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                  <span>Company Intelligence found 12 data points from SEC filings, news, and industry reports</span>
+                  <CheckCircle2
+                    className="w-4 h-4 flex-shrink-0"
+                    aria-hidden="true"
+                  />
+                  <span>
+                    Company Intelligence found 12 data points from SEC filings,
+                    news, and industry reports
+                  </span>
                 </div>
               )}
             </div>
@@ -122,7 +175,10 @@ export default function ValueCanvas() {
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-5">
               <div className="flex items-center gap-3">
                 <AgentBadge agentId="opportunity" size="md" />
-                <h2 id="hypotheses-section" className="text-sm font-semibold text-foreground flex items-center gap-1">
+                <h2
+                  id="hypotheses-section"
+                  className="text-sm font-semibold text-foreground flex items-center gap-1"
+                >
                   Suggested Hypotheses
                   <Tooltip content="Hypotheses are potential value opportunities identified by analyzing company data. Click one to explore it further with the Value Mapping Agent." />
                 </h2>
@@ -150,8 +206,8 @@ export default function ValueCanvas() {
                     onClick={() => setSelectedHypothesis(hypothesis.id)}
                     className={`card-interactive p-5 text-left ${
                       selectedHypothesis === hypothesis.id
-                        ? 'ring-2 ring-emerald-500 bg-emerald-500/5 border-emerald-500/30'
-                        : ''
+                        ? "ring-2 ring-emerald-500 bg-emerald-500/5 border-emerald-500/30"
+                        : ""
                     }`}
                     style={{ animationDelay: `${index * 100}ms` }}
                     aria-pressed={selectedHypothesis === hypothesis.id}
@@ -160,15 +216,28 @@ export default function ValueCanvas() {
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
-                          <Sparkles className="w-4 h-4 text-emerald-500 flex-shrink-0" aria-hidden="true" />
-                          <span className="font-semibold text-foreground">{hypothesis.title}</span>
+                          <Sparkles
+                            className="w-4 h-4 text-emerald-500 flex-shrink-0"
+                            aria-hidden="true"
+                          />
+                          <span className="font-semibold text-foreground">
+                            {hypothesis.title}
+                          </span>
                         </div>
-                        <p className="text-sm text-foreground/70 mb-3 leading-relaxed">{hypothesis.description}</p>
-                        <p className="text-xs text-foreground/50">{hypothesis.source}</p>
+                        <p className="text-sm text-foreground/70 mb-3 leading-relaxed">
+                          {hypothesis.description}
+                        </p>
+                        <p className="text-xs text-foreground/50">
+                          {hypothesis.source}
+                        </p>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <div className="text-2xl font-bold text-foreground">{hypothesis.confidence}%</div>
-                        <div className="text-[10px] text-foreground/50 uppercase tracking-wider">confidence</div>
+                        <div className="text-2xl font-bold text-foreground">
+                          {hypothesis.confidence}%
+                        </div>
+                        <div className="text-[10px] text-foreground/50 uppercase tracking-wider">
+                          confidence
+                        </div>
                       </div>
                     </div>
                   </button>
@@ -179,9 +248,14 @@ export default function ValueCanvas() {
 
           <section className="mb-8" aria-labelledby="manual-input">
             <div className="card p-5 bg-secondary/20 border-dashed">
-              <label htmlFor="manual-hypothesis" className="sr-only">Manual hypothesis input</label>
+              <label htmlFor="manual-hypothesis" className="sr-only">
+                Manual hypothesis input
+              </label>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <Sparkles className="w-5 h-5 text-muted-foreground flex-shrink-0 hidden sm:block" aria-hidden="true" />
+                <Sparkles
+                  className="w-5 h-5 text-muted-foreground flex-shrink-0 hidden sm:block"
+                  aria-hidden="true"
+                />
                 <input
                   id="manual-hypothesis"
                   type="text"
@@ -200,7 +274,10 @@ export default function ValueCanvas() {
           </section>
 
           <section aria-labelledby="input-sources">
-            <h2 id="input-sources" className="text-xs font-semibold text-foreground/60 uppercase tracking-wider mb-4">
+            <h2
+              id="input-sources"
+              className="text-xs font-semibold text-foreground/60 uppercase tracking-wider mb-4"
+            >
               Additional Input Sources
             </h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -212,11 +289,18 @@ export default function ValueCanvas() {
                 >
                   <div className="flex flex-col items-center gap-3">
                     <div className="p-3 bg-secondary rounded-lg group-hover:bg-foreground/10 transition-colors">
-                      <action.icon className="w-5 h-5 text-foreground" aria-hidden="true" />
+                      <action.icon
+                        className="w-5 h-5 text-foreground"
+                        aria-hidden="true"
+                      />
                     </div>
                     <div>
-                      <div className="text-xs font-medium text-foreground mb-0.5">{action.label}</div>
-                      <div className="text-[10px] text-muted-foreground hidden sm:block">{action.description}</div>
+                      <div className="text-xs font-medium text-foreground mb-0.5">
+                        {action.label}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground hidden sm:block">
+                        {action.description}
+                      </div>
                     </div>
                   </div>
                 </button>

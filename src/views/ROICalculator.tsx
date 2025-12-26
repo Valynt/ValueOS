@@ -1,9 +1,18 @@
-import { useState } from 'react';
-import { DollarSign, Loader2, RefreshCw, Settings2, Sparkles, Target, TrendingUp, Zap } from 'lucide-react';
-import { useDrawer } from '../context/DrawerContext';
-import AgentBadge from '../components/Agents/AgentBadge';
-import ConfidenceIndicator from '../components/Agents/ConfidenceIndicator';
-import Tooltip from '../components/UI/Tooltip';
+import { useState } from "react";
+import {
+  DollarSign,
+  Loader2,
+  RefreshCw,
+  Settings2,
+  Sparkles,
+  Target,
+  TrendingUp,
+  Zap,
+} from "lucide-react";
+import { useDrawer } from "../contexts/DrawerContext";
+import AgentBadge from "../components/Agents/AgentBadge";
+import ConfidenceIndicator from "../components/Agents/ConfidenceIndicator";
+import Tooltip from "../components/UI/Tooltip";
 
 export default function ROICalculator() {
   const { openDrawer } = useDrawer();
@@ -12,24 +21,28 @@ export default function ROICalculator() {
   const [buildCost, setBuildCost] = useState(250);
   const [efficiencyTarget, setEfficiencyTarget] = useState(20);
   const [isOptimizing, setIsOptimizing] = useState(false);
-  const [optimizationGoal, setOptimizationGoal] = useState<'roi' | 'npv' | 'payback'>('roi');
+  const [optimizationGoal, setOptimizationGoal] = useState<
+    "roi" | "npv" | "payback"
+  >("roi");
   const [budgetConstraint, setBudgetConstraint] = useState(500);
 
-  const devProductivity = Math.round(engHeadcount * engSalary * (efficiencyTarget / 100));
+  const devProductivity = Math.round(
+    engHeadcount * engSalary * (efficiencyTarget / 100)
+  );
   const maintenanceAvoidance = 250;
   const totalBenefits = devProductivity + maintenanceAvoidance;
   const netBenefit = totalBenefits - buildCost;
   const roi = Math.round((netBenefit / buildCost) * 100);
   const payback = (buildCost / (totalBenefits / 12)).toFixed(1);
-  const npv = (netBenefit * 2.8 / 1000).toFixed(2);
+  const npv = ((netBenefit * 2.8) / 1000).toFixed(2);
 
   const handleSmartSolve = () => {
     setIsOptimizing(true);
     setTimeout(() => {
-      if (optimizationGoal === 'roi') {
+      if (optimizationGoal === "roi") {
         setEfficiencyTarget(35);
         setBuildCost(180);
-      } else if (optimizationGoal === 'npv') {
+      } else if (optimizationGoal === "npv") {
         setEngHeadcount(35);
         setEfficiencyTarget(25);
       } else {
@@ -47,13 +60,16 @@ export default function ROICalculator() {
       "Cost Inputs",
       <div className="space-y-6">
         <p className="text-sm text-neutral-400">
-          Enter the baseline costs for your project. These values are used to calculate ROI and payback period.
+          Enter the baseline costs for your project. These values are used to
+          calculate ROI and payback period.
         </p>
         <div className="space-y-5">
           <div>
             <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider flex items-center justify-between mb-3">
               <span>Engineering Headcount</span>
-              <span className="text-white font-semibold text-sm">{engHeadcount}</span>
+              <span className="text-white font-semibold text-sm">
+                {engHeadcount}
+              </span>
             </label>
             <input
               type="range"
@@ -61,13 +77,15 @@ export default function ROICalculator() {
               min="1"
               max="50"
               value={engHeadcount}
-              onChange={e => setEngHeadcount(Number(e.target.value))}
+              onChange={(e) => setEngHeadcount(Number(e.target.value))}
             />
           </div>
           <div>
             <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider flex items-center justify-between mb-3">
               <span>Avg Salary</span>
-              <span className="text-white font-semibold text-sm">${engSalary}k</span>
+              <span className="text-white font-semibold text-sm">
+                ${engSalary}k
+              </span>
             </label>
             <input
               type="range"
@@ -75,13 +93,15 @@ export default function ROICalculator() {
               min="80"
               max="200"
               value={engSalary}
-              onChange={e => setEngSalary(Number(e.target.value))}
+              onChange={(e) => setEngSalary(Number(e.target.value))}
             />
           </div>
           <div>
             <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider flex items-center justify-between mb-3">
               <span>Build Cost</span>
-              <span className="text-white font-semibold text-sm">${buildCost}k</span>
+              <span className="text-white font-semibold text-sm">
+                ${buildCost}k
+              </span>
             </label>
             <input
               type="range"
@@ -89,7 +109,7 @@ export default function ROICalculator() {
               min="50"
               max="500"
               value={buildCost}
-              onChange={e => setBuildCost(Number(e.target.value))}
+              onChange={(e) => setBuildCost(Number(e.target.value))}
             />
           </div>
         </div>
@@ -102,13 +122,16 @@ export default function ROICalculator() {
       "Assumptions",
       <div className="space-y-6">
         <p className="text-sm text-neutral-400">
-          These assumptions affect the projected benefits. The Adversarial Agent may challenge aggressive assumptions.
+          These assumptions affect the projected benefits. The Adversarial Agent
+          may challenge aggressive assumptions.
         </p>
         <div className="space-y-5">
           <div>
             <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider flex items-center justify-between mb-3">
               <span>Efficiency Gain</span>
-              <span className="text-white font-semibold text-sm">{efficiencyTarget}%</span>
+              <span className="text-white font-semibold text-sm">
+                {efficiencyTarget}%
+              </span>
             </label>
             <input
               type="range"
@@ -116,11 +139,12 @@ export default function ROICalculator() {
               min="5"
               max="50"
               value={efficiencyTarget}
-              onChange={e => setEfficiencyTarget(Number(e.target.value))}
+              onChange={(e) => setEfficiencyTarget(Number(e.target.value))}
             />
             <div className="mt-4 p-3 bg-neutral-800/50 border border-neutral-700 rounded-xl">
               <p className="text-xs text-neutral-400">
-                Industry benchmarks suggest 12-15% is realistic for brownfield deployments.
+                Industry benchmarks suggest 12-15% is realistic for brownfield
+                deployments.
               </p>
             </div>
           </div>
@@ -139,27 +163,34 @@ export default function ROICalculator() {
       <div className="space-y-6">
         <div className="flex items-center gap-2">
           <AgentBadge agentId="financial-modeling" size="sm" />
-          <span className="text-xs text-neutral-500">Financial Modeling Agent</span>
+          <span className="text-xs text-neutral-500">
+            Financial Modeling Agent
+          </span>
         </div>
         <p className="text-sm text-neutral-400">
-          Let the agent automatically adjust parameters to optimize for your selected goal while respecting your budget constraint.
+          Let the agent automatically adjust parameters to optimize for your
+          selected goal while respecting your budget constraint.
         </p>
         <div className="space-y-5">
           <fieldset>
-            <legend className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-3">Optimize For</legend>
+            <legend className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-3">
+              Optimize For
+            </legend>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { id: 'roi', label: 'Max ROI' },
-                { id: 'npv', label: 'Max NPV' },
-                { id: 'payback', label: 'Fast Payback' }
+                { id: "roi", label: "Max ROI" },
+                { id: "npv", label: "Max NPV" },
+                { id: "payback", label: "Fast Payback" },
               ].map((goal) => (
                 <button
                   key={goal.id}
-                  onClick={() => setOptimizationGoal(goal.id as 'roi' | 'npv' | 'payback')}
+                  onClick={() =>
+                    setOptimizationGoal(goal.id as "roi" | "npv" | "payback")
+                  }
                   className={`px-3 py-3 text-xs font-medium rounded-xl border transition-all ${
                     optimizationGoal === goal.id
-                      ? 'bg-primary/20 border-primary/50 text-primary shadow-glow-teal'
-                      : 'bg-white/5 border-white/10 text-neutral-400 hover:text-white hover:border-white/20'
+                      ? "bg-primary/20 border-primary/50 text-primary shadow-glow-teal"
+                      : "bg-white/5 border-white/10 text-neutral-400 hover:text-white hover:border-white/20"
                   }`}
                 >
                   {goal.label}
@@ -170,7 +201,9 @@ export default function ROICalculator() {
           <div>
             <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider flex items-center justify-between mb-3">
               <span>Budget Constraint</span>
-              <span className="text-white font-semibold text-sm">${budgetConstraint}k</span>
+              <span className="text-white font-semibold text-sm">
+                ${budgetConstraint}k
+              </span>
             </label>
             <input
               type="range"
@@ -179,7 +212,7 @@ export default function ROICalculator() {
               max="1000"
               step="50"
               value={budgetConstraint}
-              onChange={e => setBudgetConstraint(Number(e.target.value))}
+              onChange={(e) => setBudgetConstraint(Number(e.target.value))}
             />
           </div>
         </div>
@@ -212,7 +245,11 @@ export default function ROICalculator() {
           <span className="text-sm text-neutral-500">Acme Corp</span>
         </div>
         <div className="flex items-center gap-2">
-          <AgentBadge agentId="financial-modeling" size="sm" pulse={isOptimizing} />
+          <AgentBadge
+            agentId="financial-modeling"
+            size="sm"
+            pulse={isOptimizing}
+          />
           <AgentBadge agentId="integrity" size="sm" />
         </div>
       </div>
@@ -228,12 +265,18 @@ export default function ROICalculator() {
                 <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
                   <DollarSign className="w-4 h-4 text-primary" />
                 </div>
-                <span className="text-[10px] font-semibold text-neutral-500 uppercase tracking-widest">Cost Inputs</span>
+                <span className="text-[10px] font-semibold text-neutral-500 uppercase tracking-widest">
+                  Cost Inputs
+                </span>
               </div>
               <Settings2 className="w-4 h-4 text-neutral-600 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
-            <div className="text-3xl font-bold text-white tracking-tight">${buildCost}k</div>
-            <div className="text-xs text-neutral-500 mt-1">{engHeadcount} engineers at ${engSalary}k avg</div>
+            <div className="text-3xl font-bold text-white tracking-tight">
+              ${buildCost}k
+            </div>
+            <div className="text-xs text-neutral-500 mt-1">
+              {engHeadcount} engineers at ${engSalary}k avg
+            </div>
           </button>
 
           <button
@@ -245,12 +288,18 @@ export default function ROICalculator() {
                 <div className="w-8 h-8 rounded-lg bg-neutral-700/50 flex items-center justify-center">
                   <TrendingUp className="w-4 h-4 text-neutral-400" />
                 </div>
-                <span className="text-[10px] font-semibold text-neutral-500 uppercase tracking-widest">Assumptions</span>
+                <span className="text-[10px] font-semibold text-neutral-500 uppercase tracking-widest">
+                  Assumptions
+                </span>
               </div>
               <Settings2 className="w-4 h-4 text-neutral-600 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
-            <div className="text-3xl font-bold text-white tracking-tight">{efficiencyTarget}%</div>
-            <div className="text-xs text-neutral-500 mt-1">Efficiency gain target</div>
+            <div className="text-3xl font-bold text-white tracking-tight">
+              {efficiencyTarget}%
+            </div>
+            <div className="text-xs text-neutral-500 mt-1">
+              Efficiency gain target
+            </div>
           </button>
 
           <button
@@ -262,12 +311,18 @@ export default function ROICalculator() {
                 <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
                   <Zap className="w-4 h-4 text-primary" />
                 </div>
-                <span className="text-[10px] font-semibold text-primary/80 uppercase tracking-widest">Smart Solver</span>
+                <span className="text-[10px] font-semibold text-primary/80 uppercase tracking-widest">
+                  Smart Solver
+                </span>
               </div>
               <Settings2 className="w-4 h-4 text-primary/50 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
-            <div className="text-xl font-semibold text-white">Auto-Optimize</div>
-            <div className="text-xs text-neutral-500 mt-1">Let AI find the best parameters</div>
+            <div className="text-xl font-semibold text-white">
+              Auto-Optimize
+            </div>
+            <div className="text-xs text-neutral-500 mt-1">
+              Let AI find the best parameters
+            </div>
           </button>
         </div>
 
@@ -276,7 +331,10 @@ export default function ROICalculator() {
             <div className="flex items-center justify-between mb-4">
               <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-semibold flex items-center gap-1">
                 3-Year ROI
-                <Tooltip content="Return on Investment calculated over a 3-year period." showIcon={false}>
+                <Tooltip
+                  content="Return on Investment calculated over a 3-year period."
+                  showIcon={false}
+                >
                   <span className="sr-only">More info</span>
                 </Tooltip>
               </div>
@@ -292,7 +350,10 @@ export default function ROICalculator() {
           <div className="bento-card">
             <div className="text-[10px] text-neutral-500 uppercase tracking-widest mb-4 font-semibold flex items-center gap-1">
               Net Present Value
-              <Tooltip content="The present value of all future cash flows, discounted at the cost of capital." showIcon={false}>
+              <Tooltip
+                content="The present value of all future cash flows, discounted at the cost of capital."
+                showIcon={false}
+              >
                 <span className="sr-only">More info</span>
               </Tooltip>
             </div>
@@ -306,7 +367,10 @@ export default function ROICalculator() {
           <div className="bento-card">
             <div className="text-[10px] text-neutral-500 uppercase tracking-widest mb-4 font-semibold flex items-center gap-1">
               Payback Period
-              <Tooltip content="Time required to recover the initial investment." showIcon={false}>
+              <Tooltip
+                content="Time required to recover the initial investment."
+                showIcon={false}
+              >
                 <span className="sr-only">More info</span>
               </Tooltip>
             </div>
@@ -321,37 +385,60 @@ export default function ROICalculator() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div className="bento-card">
-            <h3 className="text-sm font-semibold text-white mb-6">3-Year Trajectory</h3>
+            <h3 className="text-sm font-semibold text-white mb-6">
+              3-Year Trajectory
+            </h3>
             <div className="h-48 flex items-end justify-around gap-6">
               {[
-                { h: 70, y: 'Y1', val: `$${netBenefit}K` },
-                { h: 110, y: 'Y2', val: `$${Math.round(netBenefit * 1.5)}K` },
-                { h: 130, y: 'Y3', val: `$${Math.round(netBenefit * 2)}K` }
+                { h: 70, y: "Y1", val: `$${netBenefit}K` },
+                { h: 110, y: "Y2", val: `$${Math.round(netBenefit * 1.5)}K` },
+                { h: 130, y: "Y3", val: `$${Math.round(netBenefit * 2)}K` },
               ].map((bar, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center group">
-                  <div className="text-xs text-neutral-500 mb-2 group-hover:text-white transition-colors font-mono">{bar.val}</div>
+                <div
+                  key={i}
+                  className="flex-1 flex flex-col items-center group"
+                >
+                  <div className="text-xs text-neutral-500 mb-2 group-hover:text-white transition-colors font-mono">
+                    {bar.val}
+                  </div>
                   <div
                     className="w-full bg-primary rounded-t-lg transition-all group-hover:shadow-glow-teal"
                     style={{ height: `${bar.h}px` }}
                   />
-                  <div className="text-xs text-neutral-500 mt-3 font-semibold">{bar.y}</div>
+                  <div className="text-xs text-neutral-500 mt-3 font-semibold">
+                    {bar.y}
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
           <div className="bento-card">
-            <h3 className="text-sm font-semibold text-white mb-6">Value Breakdown</h3>
+            <h3 className="text-sm font-semibold text-white mb-6">
+              Value Breakdown
+            </h3>
             <div className="space-y-5">
               {[
-                { label: 'Dev Productivity', value: `$${devProductivity}K`, pct: (devProductivity / totalBenefits) * 100, conf: 91 },
-                { label: 'Maintenance Avoidance', value: `$${maintenanceAvoidance}K`, pct: (maintenanceAvoidance / totalBenefits) * 100, conf: 96 },
+                {
+                  label: "Dev Productivity",
+                  value: `$${devProductivity}K`,
+                  pct: (devProductivity / totalBenefits) * 100,
+                  conf: 91,
+                },
+                {
+                  label: "Maintenance Avoidance",
+                  value: `$${maintenanceAvoidance}K`,
+                  pct: (maintenanceAvoidance / totalBenefits) * 100,
+                  conf: 96,
+                },
               ].map((item, i) => (
                 <div key={i}>
                   <div className="flex items-center justify-between text-sm mb-2">
                     <span className="text-neutral-400">{item.label}</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-white font-semibold font-mono">{item.value}</span>
+                      <span className="text-white font-semibold font-mono">
+                        {item.value}
+                      </span>
                       <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-primary/20 text-primary">
                         {item.conf}%
                       </span>
@@ -373,17 +460,27 @@ export default function ROICalculator() {
           <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-primary" />
             Strategic Insights
-            <AgentBadge agentId="financial-modeling" size="sm" showName={false} />
+            <AgentBadge
+              agentId="financial-modeling"
+              size="sm"
+              showName={false}
+            />
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
             <div className="p-4 bg-white/5 rounded-xl border border-white/5 text-neutral-400">
-              Ship products <span className="text-white font-semibold">2x faster</span>
+              Ship products{" "}
+              <span className="text-white font-semibold">2x faster</span>
             </div>
             <div className="p-4 bg-white/5 rounded-xl border border-white/5 text-neutral-400">
-              Scale with <span className="text-white font-semibold">{efficiencyTarget}%</span> capacity boost
+              Scale with{" "}
+              <span className="text-white font-semibold">
+                {efficiencyTarget}%
+              </span>{" "}
+              capacity boost
             </div>
             <div className="p-4 bg-white/5 rounded-xl border border-white/5 text-neutral-400">
-              Reduce onboarding by <span className="text-white font-semibold">50%</span>
+              Reduce onboarding by{" "}
+              <span className="text-white font-semibold">50%</span>
             </div>
           </div>
         </div>
