@@ -1,0 +1,242 @@
+<svg viewBox="0 0 1400 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <pattern id="grid7" width="20" height="20" patternUnits="userSpaceOnUse">
+      <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#2d2d44" stroke-width="0.3"/>
+    </pattern>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1400" height="900" fill="#1a1a2e"/>
+  
+  <!-- Title -->
+  <text x="700" y="30" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#fff" text-anchor="middle">WIREFRAME 7: Conversational AI Interface - Multi-Agent System</text>
+  
+  <!-- Sidebar -->
+  <rect x="20" y="50" width="280" height="830" rx="8" fill="#0d0d1a"/>
+  
+  <!-- Logo -->
+  <rect x="35" y="65" width="40" height="40" rx="8" fill="#00d9ff"/>
+  <text x="55" y="90" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#1a1a2e" text-anchor="middle">V</text>
+  <text x="90" y="82" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white">VALUEVERSE</text>
+  <text x="90" y="96" font-family="Arial, sans-serif" font-size="8" fill="#888">// OS</text>
+  
+  <!-- Persona Selector -->
+  <text x="35" y="135" font-family="Arial, sans-serif" font-size="9" fill="#666" font-weight="bold">SELECT PERSONA</text>
+  
+  <rect x="35" y="150" width="245" height="55" rx="6" fill="#2d2d44" stroke="#3d3d5c" stroke-width="1"/>
+  <text x="55" y="175" font-family="Arial, sans-serif" font-size="11" fill="#aaa">The Strategist</text>
+  <text x="55" y="192" font-family="Arial, sans-serif" font-size="8" fill="#666">Value Consultant / Pre-Sales</text>
+  
+  <rect x="35" y="215" width="245" height="55" rx="6" fill="#00d9ff20" stroke="#00d9ff" stroke-width="2"/>
+  <text x="55" y="240" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#00d9ff">The Closer</text>
+  <text x="55" y="257" font-family="Arial, sans-serif" font-size="8" fill="#00d9ff">Account Executive</text>
+  <circle cx="265" cy="237" r="6" fill="#00d9ff"/>
+  
+  <rect x="35" y="280" width="245" height="55" rx="6" fill="#2d2d44" stroke="#3d3d5c" stroke-width="1"/>
+  <text x="55" y="305" font-family="Arial, sans-serif" font-size="11" fill="#aaa">The Grower</text>
+  <text x="55" y="322" font-family="Arial, sans-serif" font-size="8" fill="#666">Customer Success</text>
+  
+  <!-- Active Agents -->
+  <text x="35" y="365" font-family="Arial, sans-serif" font-size="9" fill="#666" font-weight="bold">ACTIVE AGENTS</text>
+  
+  <rect x="35" y="380" width="245" height="45" rx="6" fill="#2d2d44"/>
+  <circle cx="55" cy="402" r="10" fill="#845ef730"/>
+  <text x="55" y="407" font-family="Arial, sans-serif" font-size="8" fill="#845ef7" text-anchor="middle">VA</text>
+  <text x="75" y="398" font-family="Arial, sans-serif" font-size="10" fill="white">Value Architect</text>
+  <circle cx="260" cy="397" r="5" fill="#00ff88"/>
+  <text x="75" y="412" font-family="Arial, sans-serif" font-size="8" fill="#666">Online • Discovery</text>
+  
+  <rect x="35" y="435" width="245" height="45" rx="6" fill="#2d2d44"/>
+  <circle cx="55" cy="457" r="10" fill="#20c99730"/>
+  <text x="55" y="462" font-family="Arial, sans-serif" font-size="8" fill="#20c997" text-anchor="middle">IA</text>
+  <text x="75" y="453" font-family="Arial, sans-serif" font-size="10" fill="white">Integrity Agent</text>
+  <circle cx="260" cy="452" r="5" fill="#00ff88"/>
+  <text x="75" y="467" font-family="Arial, sans-serif" font-size="8" fill="#666">Online • Validation</text>
+  
+  <rect x="35" y="490" width="245" height="45" rx="6" fill="#2d2d44"/>
+  <circle cx="55" cy="512" r="10" fill="#fcc41930"/>
+  <text x="55" y="517" font-family="Arial, sans-serif" font-size="8" fill="#fcc419" text-anchor="middle">EA</text>
+  <text x="75" y="508" font-family="Arial, sans-serif" font-size="10" fill="white">Expansion Agent</text>
+  <circle cx="260" cy="507" r="5" fill="#fcc419"/>
+  <text x="75" y="522" font-family="Arial, sans-serif" font-size="8" fill="#666">Standby • Monitoring</text>
+  
+  <!-- Recent Conversations -->
+  <text x="35" y="565" font-family="Arial, sans-serif" font-size="9" fill="#666" font-weight="bold">RECENT THREADS</text>
+  
+  <rect x="35" y="580" width="245" height="40" rx="4" fill="#1a1a2e"/>
+  <text x="50" y="600" font-family="Arial, sans-serif" font-size="9" fill="#aaa">Acme Corp - Discovery</text>
+  <text x="50" y="614" font-family="Arial, sans-serif" font-size="7" fill="#666">2 hours ago</text>
+  
+  <rect x="35" y="625" width="245" height="40" rx="4" fill="#1a1a2e"/>
+  <text x="50" y="645" font-family="Arial, sans-serif" font-size="9" fill="#aaa">TechStart - ROI Model</text>
+  <text x="50" y="659" font-family="Arial, sans-serif" font-size="7" fill="#666">Yesterday</text>
+  
+  <!-- Main Chat Area -->
+  <rect x="320" y="50" width="700" height="830" rx="8" fill="#1a1a2e"/>
+  
+  <!-- Chat Header -->
+  <rect x="320" y="50" width="700" height="50" fill="#0d0d1a" rx="8"/>
+  <text x="345" y="80" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white">CONVERSATIONAL STREAM</text>
+  <text x="530" y="80" font-family="Arial, sans-serif" font-size="9" fill="#888">Acme Corp // Discovery</text>
+  
+  <!-- Chat Messages -->
+  <!-- User Message 1 -->
+  <rect x="500" y="120" width="480" height="50" rx="12" fill="#845ef7"/>
+  <text x="520" y="140" font-family="Arial, sans-serif" font-size="9" fill="#845ef7" fill-opacity="0">YOU</text>
+  <text x="970" y="125" font-family="Arial, sans-serif" font-size="8" fill="#ccc" text-anchor="end">YOU</text>
+  <text x="520" y="148" font-family="Arial, sans-serif" font-size="10" fill="white">Build an initial value model for Acme Corp based on their latest 10-K.</text>
+  
+  <!-- Agent Response 1 -->
+  <rect x="345" y="185" width="520" height="130" rx="12" fill="#2d2d44"/>
+  <circle cx="365" cy="210" r="12" fill="#845ef730"/>
+  <text x="365" y="215" font-family="Arial, sans-serif" font-size="8" fill="#845ef7" text-anchor="middle">VA</text>
+  <text x="385" y="210" font-family="Arial, sans-serif" font-size="9" fill="#845ef7">Value Architect</text>
+  
+  <text x="365" y="240" font-family="Arial, sans-serif" font-size="10" fill="white">Scanning Acme Corp (Ticker: ACME)...</text>
+  <text x="365" y="258" font-family="Arial, sans-serif" font-size="9" fill="#888">REVENUE: $4.2B  |  YOY: +2%</text>
+  
+  <text x="365" y="285" font-family="Arial, sans-serif" font-size="10" fill="white">I've initialized the Living Value Graph based on similar</text>
+  <text x="365" y="300" font-family="Arial, sans-serif" font-size="10" fill="white">manufacturing profiles. I recommend focusing on:</text>
+  
+  <!-- Tags -->
+  <rect x="365" y="310" width="130" height="22" rx="11" fill="#845ef730"/>
+  <text x="430" y="325" font-family="Arial, sans-serif" font-size="9" fill="#845ef7" text-anchor="middle">Operational Efficiency</text>
+  
+  <rect x="505" y="310" width="110" height="22" rx="11" fill="#20c99730"/>
+  <text x="560" y="325" font-family="Arial, sans-serif" font-size="9" fill="#20c997" text-anchor="middle">Supply Chain Risk</text>
+  
+  <!-- Action Buttons -->
+  <rect x="345" y="345" width="180" height="32" rx="6" fill="#2d2d44" stroke="#845ef7" stroke-width="1"/>
+  <text x="435" y="365" font-family="Arial, sans-serif" font-size="9" fill="#845ef7" text-anchor="middle">+ Add "Inventory Turn" Driver</text>
+  
+  <rect x="535" y="345" width="180" height="32" rx="6" fill="#2d2d44" stroke="#845ef7" stroke-width="1"/>
+  <text x="625" y="365" font-family="Arial, sans-serif" font-size="9" fill="#845ef7" text-anchor="middle">Model 15% Efficiency Gain</text>
+  
+  <!-- User Message 2 -->
+  <rect x="580" y="400" width="400" height="40" rx="12" fill="#845ef7"/>
+  <text x="970" y="405" font-family="Arial, sans-serif" font-size="8" fill="#ccc" text-anchor="end">YOU</text>
+  <text x="600" y="425" font-family="Arial, sans-serif" font-size="10" fill="white">Let's model a 10% improvement in OpEx efficiency.</text>
+  
+  <!-- Agent Response 2 -->
+  <rect x="345" y="455" width="480" height="90" rx="12" fill="#2d2d44"/>
+  <circle cx="365" cy="480" r="12" fill="#845ef730"/>
+  <text x="365" y="485" font-family="Arial, sans-serif" font-size="8" fill="#845ef7" text-anchor="middle">VA</text>
+  <text x="385" y="480" font-family="Arial, sans-serif" font-size="9" fill="#845ef7">Value Architect</text>
+  
+  <text x="365" y="510" font-family="Arial, sans-serif" font-size="10" fill="white">Done. I've updated the 'OpEx Efficiency' driver.</text>
+  <text x="365" y="530" font-family="Arial, sans-serif" font-size="10" fill="#20c997">This adds $2.8M to the Net Profit projection.</text>
+  
+  <!-- Integrity Agent Validation -->
+  <rect x="345" y="560" width="480" height="70" rx="12" fill="#20c99720" stroke="#20c997" stroke-width="1"/>
+  <circle cx="365" cy="585" r="12" fill="#20c99730"/>
+  <text x="365" y="590" font-family="Arial, sans-serif" font-size="8" fill="#20c997" text-anchor="middle">IA</text>
+  <text x="385" y="585" font-family="Arial, sans-serif" font-size="9" fill="#20c997">Integrity Agent</text>
+  <text x="700" y="585" font-family="Arial, sans-serif" font-size="8" fill="#666">Auto-validation</text>
+  
+  <text x="365" y="610" font-family="Arial, sans-serif" font-size="10" fill="white">✓ Projection validated against industry benchmarks.</text>
+  <text x="365" y="625" font-family="Arial, sans-serif" font-size="9" fill="#888">Confidence: 92% | Similar profiles: 47 companies</text>
+  
+  <!-- Typing Indicator -->
+  <rect x="345" y="650" width="120" height="35" rx="12" fill="#2d2d44"/>
+  <circle cx="370" cy="667" r="4" fill="#888">
+    <animate attributeName="opacity" values="0.3;1;0.3" dur="1s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="385" cy="667" r="4" fill="#888">
+    <animate attributeName="opacity" values="0.3;1;0.3" dur="1s" repeatCount="indefinite" begin="0.2s"/>
+  </circle>
+  <circle cx="400" cy="667" r="4" fill="#888">
+    <animate attributeName="opacity" values="0.3;1;0.3" dur="1s" repeatCount="indefinite" begin="0.4s"/>
+  </circle>
+  
+  <!-- Chat Input -->
+  <rect x="340" y="815" width="660" height="50" rx="25" fill="#2d2d44" stroke="#3d3d5c" stroke-width="1"/>
+  <text x="375" y="845" font-family="Arial, sans-serif" font-size="11" fill="#666">Command the Value Agent...</text>
+  <rect x="940" y="825" width="50" height="30" rx="15" fill="#00d9ff"/>
+  <text x="965" y="844" font-family="Arial, sans-serif" font-size="12" fill="#1a1a2e" text-anchor="middle">↑</text>
+  
+  <!-- Right Panel: Live Model Preview -->
+  <rect x="1040" y="50" width="340" height="830" rx="8" fill="#0d0d1a"/>
+  
+  <!-- Panel Header -->
+  <text x="1065" y="85" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">Acme Corp // Discovery</text>
+  <rect x="1280" y="65" width="80" height="28" rx="6" fill="#845ef7"/>
+  <text x="1320" y="83" font-family="Arial, sans-serif" font-size="9" fill="white" text-anchor="middle">Present</text>
+  
+  <circle cx="1075" cy="110" r="5" fill="#00ff88"/>
+  <text x="1088" y="114" font-family="Arial, sans-serif" font-size="8" fill="#888">LIVE MODEL // V0.2</text>
+  
+  <!-- Mini Value Graph -->
+  <rect x="1060" y="130" width="300" height="200" rx="6" fill="#1a1a2e"/>
+  <text x="1080" y="155" font-family="Arial, sans-serif" font-size="9" fill="#666">LIVING VALUE GRAPH</text>
+  
+  <!-- Simple tree visualization -->
+  <circle cx="1210" cy="185" r="20" fill="#00d9ff30" stroke="#00d9ff" stroke-width="2"/>
+  <text x="1210" y="190" font-family="Arial, sans-serif" font-size="9" fill="#00d9ff" text-anchor="middle">$12.5M</text>
+  
+  <line x1="1195" y1="205" x2="1150" y2="250" stroke="#845ef7" stroke-width="1"/>
+  <line x1="1225" y1="205" x2="1270" y2="250" stroke="#20c997" stroke-width="1"/>
+  
+  <circle cx="1150" cy="265" r="15" fill="#845ef730"/>
+  <text x="1150" y="270" font-family="Arial, sans-serif" font-size="7" fill="#845ef7" text-anchor="middle">$8.2M</text>
+  
+  <circle cx="1270" cy="265" r="15" fill="#20c99730"/>
+  <text x="1270" y="270" font-family="Arial, sans-serif" font-size="7" fill="#20c997" text-anchor="middle">$4.3M</text>
+  
+  <text x="1150" y="300" font-family="Arial, sans-serif" font-size="7" fill="#888" text-anchor="middle">Revenue</text>
+  <text x="1270" y="300" font-family="Arial, sans-serif" font-size="7" fill="#888" text-anchor="middle">Cost Savings</text>
+  
+  <!-- Controls -->
+  <text x="1080" y="355" font-family="Arial, sans-serif" font-size="9" fill="#666">PARAMETERS</text>
+  
+  <text x="1080" y="380" font-family="Arial, sans-serif" font-size="8" fill="#888">Processing Time (Days)</text>
+  <rect x="1080" y="390" width="200" height="6" rx="3" fill="#3d3d5c"/>
+  <rect x="1080" y="390" width="120" height="6" rx="3" fill="#00d9ff"/>
+  <circle cx="1200" cy="393" r="6" fill="#00d9ff"/>
+  <text x="1300" y="398" font-family="Arial, sans-serif" font-size="10" fill="white" text-anchor="end">3.8</text>
+  
+  <text x="1080" y="425" font-family="Arial, sans-serif" font-size="8" fill="#888">Error Rate (%)</text>
+  <rect x="1080" y="435" width="200" height="6" rx="3" fill="#3d3d5c"/>
+  <rect x="1080" y="435" width="72" height="6" rx="3" fill="#00d9ff"/>
+  <circle cx="1152" cy="438" r="6" fill="#00d9ff"/>
+  <text x="1300" y="443" font-family="Arial, sans-serif" font-size="10" fill="white" text-anchor="end">1.8%</text>
+  
+  <!-- Projected Impact -->
+  <rect x="1060" y="470" width="300" height="80" rx="6" fill="#2d2d44"/>
+  <text x="1080" y="495" font-family="Arial, sans-serif" font-size="9" fill="#888">PROJECTED IMPACT</text>
+  <text x="1210" y="535" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white" text-anchor="middle">$4.2M</text>
+  <text x="1260" y="535" font-family="Arial, sans-serif" font-size="10" fill="#888">/ year</text>
+  
+  <!-- Actions -->
+  <rect x="1060" y="570" width="145" height="36" rx="6" fill="#2d2d44" stroke="#3d3d5c" stroke-width="1"/>
+  <text x="1132" y="593" font-family="Arial, sans-serif" font-size="9" fill="#888" text-anchor="middle">Share View</text>
+  
+  <rect x="1215" y="570" width="145" height="36" rx="6" fill="#00d9ff"/>
+  <text x="1287" y="593" font-family="Arial, sans-serif" font-size="9" fill="#1a1a2e" text-anchor="middle">Present Mode</text>
+  
+  <!-- System Status -->
+  <rect x="1060" y="820" width="300" height="45" rx="6" fill="#1a1a2e"/>
+  <circle cx="1085" cy="842" r="6" fill="#00ff88"/>
+  <text x="1100" y="847" font-family="Arial, sans-serif" font-size="9" fill="#888">SYSTEM HEALTH: 99.9%</text>
+  <circle cx="1310" cy="842" r="16" fill="#845ef7"/>
+  <text x="1310" y="847" font-family="Arial, sans-serif" font-size="9" fill="white" text-anchor="middle">MK</text>
+  
+  <!-- Annotations -->
+  <g font-family="Arial, sans-serif" font-size="9">
+    <circle cx="285" cy="237" r="12" fill="#ff6b6b"/>
+    <text x="285" y="241" fill="white" text-anchor="middle" font-weight="bold">1</text>
+    
+    <circle cx="850" cy="310" r="12" fill="#ff6b6b"/>
+    <text x="850" y="314" fill="white" text-anchor="middle" font-weight="bold">2</text>
+    
+    <circle cx="850" cy="590" r="12" fill="#ff6b6b"/>
+    <text x="850" y="594" fill="white" text-anchor="middle" font-weight="bold">3</text>
+    
+    <circle cx="1210" cy="235" r="12" fill="#ff6b6b"/>
+    <text x="1210" y="239" fill="white" text-anchor="middle" font-weight="bold">4</text>
+  </g>
+  
+  <!-- Legend -->
+  <rect x="20" y="878" width="1360" height="2" fill="#2d2d44"/>
+  <text x="40" y="893" font-family="Arial, sans-serif" font-size="8" fill="#ff6b6b" font-weight="bold">ANNOTATIONS:</text>
+  <text x="120" y="893" font-family="Arial, sans-serif" font-size="8" fill="#888">1 - Persona selector with role context | 2 - AI-suggested action buttons | 3 - Auto-validation by Integrity Agent | 4 - Live value graph preview</text>
+</svg>
