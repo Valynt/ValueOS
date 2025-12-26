@@ -1,9 +1,9 @@
 /**
  * Security Module
- * 
+ *
  * Centralized security implementation for the ValueCanvas application.
  * Implements OWASP Top 10 mitigations and security best practices.
- * 
+ *
  * Features:
  * - Password validation and hashing
  * - Input sanitization and validation
@@ -13,9 +13,14 @@
  * - Configuration management
  */
 
-import { logger } from '../lib/logger';
-import { getSecurityConfig, validateSecurityConfig } from './SecurityConfig';
-import { attachCSRFFetchInterceptor, initializeCSRFProtection } from './CSRFProtection';
+import { logger } from "../lib/logger";
+import { getConfig } from "../config/environment";
+import { getSecurityConfig, validateSecurityConfig } from "./SecurityConfig";
+import {
+  attachCSRFFetchInterceptor,
+  initializeCSRFProtection,
+} from "./CSRFProtection";
+import { createSecurityMetaTags, logSecurityHeaders } from "./SecurityHeaders";
 
 // Configuration
 export {
@@ -33,7 +38,7 @@ export {
   type EncryptionConfig,
   type SecurityHeadersConfig,
   type AuditConfig,
-} from './SecurityConfig';
+} from "./SecurityConfig";
 
 // Password Validation
 export {
@@ -45,7 +50,7 @@ export {
   calculatePasswordEntropy,
   estimateCrackTime,
   type PasswordValidationResult,
-} from './PasswordValidator';
+} from "./PasswordValidator";
 
 // Input Sanitization
 export {
@@ -64,7 +69,7 @@ export {
   sanitizeObject,
   type SanitizeOptions,
   type ValidationResult,
-} from './InputSanitizer';
+} from "./InputSanitizer";
 
 // CSRF Protection
 export {
@@ -87,7 +92,7 @@ export {
   useCSRFToken,
   type CSRFToken,
   type CSRFTokenConfig,
-} from './CSRFProtection';
+} from "./CSRFProtection";
 
 // Rate Limiting
 export {
@@ -106,7 +111,7 @@ export {
   useRateLimit,
   cleanupRateLimiters,
   type RateLimitResult,
-} from './RateLimiter';
+} from "./RateLimiter";
 
 // Secure in-memory caching with zeroization
 // NOTE: SecureCache uses Node.js crypto and is server-only
@@ -127,37 +132,41 @@ export {
   createSecurityMetaTags,
   validateSecurityHeaders,
   logSecurityHeaders,
-} from './SecurityHeaders';
+} from "./SecurityHeaders";
 
 /**
  * Initialize all security features
  */
 export function initializeSecurity(sessionId?: string): void {
-  logger.debug('Initializing security features...');
+  logger.debug("Initializing security features...");
 
   // Load configuration
-  const config = getSecurityConfig();
-  logger.debug('Security configuration loaded');
+  const securityConfig = getSecurityConfig();
+  const envConfig = getConfig();
+  logger.debug("Security configuration loaded");
 
   // Initialize CSRF protection
-  if (config.security.csrfEnabled) {
+  if (envConfig.security.csrfEnabled) {
     initializeCSRFProtection(sessionId);
     attachCSRFFetchInterceptor();
-    logger.debug('CSRF protection initialized');
+    logger.debug("CSRF protection initialized");
   }
 
   // Create security meta tags
-  if (config.csp.enabled || config.headers.referrerPolicy.enabled) {
+  if (
+    securityConfig.csp.enabled ||
+    securityConfig.headers.referrerPolicy.enabled
+  ) {
     createSecurityMetaTags();
-    logger.debug('Security meta tags created');
+    logger.debug("Security meta tags created");
   }
 
   // Log security headers in development
-  if (config.app.env === 'development') {
+  if (envConfig.app.env === "development") {
     logSecurityHeaders();
   }
 
-  logger.debug('Security initialization complete');
+  logger.debug("Security initialization complete");
 }
 
 /**
@@ -168,29 +177,36 @@ export function validateSecurity(): {
   errors: string[];
   warnings: string[];
 } {
-  const config = getSecurityConfig();
-  const errors = validateSecurityConfig(config);
+  const securityConfig = getSecurityConfig();
+  const envConfig = getConfig();
+  const errors = validateSecurityConfig(securityConfig);
   const warnings: string[] = [];
 
   // Check for weak configurations
-  if (config.passwordPolicy.minLength < 12) {
-    warnings.push('Password minimum length is less than recommended 12 characters');
+  const MIN_RECOMMENDED_PASSWORD_LENGTH = 12;
+  if (
+    securityConfig.passwordPolicy.minLength < MIN_RECOMMENDED_PASSWORD_LENGTH
+  ) {
+    warnings.push(
+      "Password minimum length is less than recommended 12 characters"
+    );
   }
 
-  if (!config.security.httpsOnly && config.app.env === 'production') {
-    warnings.push('HTTPS is not enforced in production');
+  if (!envConfig.security.httpsOnly && envConfig.app.env === "production") {
+    warnings.push("HTTPS is not enforced in production");
   }
 
-  if (!config.security.csrfEnabled) {
-    warnings.push('CSRF protection is disabled');
+  if (!envConfig.security.csrfEnabled) {
+    warnings.push("CSRF protection is disabled");
   }
 
-  if (!config.csp.enabled) {
-    warnings.push('Content Security Policy is disabled');
+  if (!securityConfig.csp.enabled) {
+    warnings.push("Content Security Policy is disabled");
   }
 
-  if (config.rateLimit.global.maxRequests > 1000) {
-    warnings.push('Global rate limit is very high');
+  const MAX_SAFE_RATE_LIMIT = 1000;
+  if (securityConfig.rateLimit.global.maxRequests > MAX_SAFE_RATE_LIMIT) {
+    warnings.push("Global rate limit is very high");
   }
 
   return {
@@ -215,18 +231,25 @@ export function getSecurityStatus(): {
   };
   warnings: string[];
 } {
-  const config = getSecurityConfig();
+  const securityConfig = getSecurityConfig();
+  const envConfig = getConfig();
   const validation = validateSecurity();
 
+  const MIN_PASSWORD_LENGTH = 8;
   return {
     configured: validation.valid,
     features: {
-      passwordPolicy: config.passwordPolicy.minLength >= 8,
-      inputValidation: config.inputValidation.sanitizeHtml,
-      csrfProtection: config.security.csrfEnabled,
-      rateLimiting: config.rateLimit.global.enabled,
-      securityHeaders: config.csp.enabled || config.headers.strictTransportSecurity.enabled,
-      encryption: config.encryption.atRestEnabled && config.encryption.inTransitEnabled,
+      passwordPolicy:
+        securityConfig.passwordPolicy.minLength >= MIN_PASSWORD_LENGTH,
+      inputValidation: securityConfig.inputValidation.sanitizeHtml,
+      csrfProtection: envConfig.security.csrfEnabled,
+      rateLimiting: securityConfig.rateLimit.global.enabled,
+      securityHeaders:
+        securityConfig.csp.enabled ||
+        securityConfig.headers.strictTransportSecurity.enabled,
+      encryption:
+        securityConfig.encryption.atRestEnabled &&
+        securityConfig.encryption.inTransitEnabled,
     },
     warnings: validation.warnings,
   };

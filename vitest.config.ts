@@ -64,6 +64,9 @@ export default defineConfig({
     hookTimeout: 60000,
     // Isolate tests to prevent cross-contamination
     isolate: true,
+    // Reliability options
+    retry: process.env.CI ? 2 : 0,
+    bail: process.env.CI ? 1 : 0,
   },
   resolve: {
     alias: {

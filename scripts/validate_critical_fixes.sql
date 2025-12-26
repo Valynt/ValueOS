@@ -473,6 +473,66 @@ END $$;
 
 \echo ''
 
+
+-- ============================================================================
+-- SECTION 9: PARTITIONING VALIDATION
+-- ============================================================================
+
+\echo '12. Validating Audit Log Partitioning...'
+\echo ''
+
+DO $$
+DECLARE
+  v_is_partitioned BOOLEAN;
+  v_partition_count INT;
+BEGIN
+  -- Check security_audit_log
+  SELECT (relkind = 'p') INTO v_is_partitioned
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public' AND c.relname = 'security_audit_log';
+
+  IF v_is_partitioned THEN
+    RAISE NOTICE '  ✅ PASS: security_audit_log is partitioned';
+    
+    -- Check partitions
+    SELECT COUNT(*) INTO v_partition_count
+    FROM pg_inherits i JOIN pg_class c ON i.inhparent = c.oid
+    WHERE c.relname = 'security_audit_log';
+    
+    IF v_partition_count >= 3 THEN
+       RAISE NOTICE '  ✅ PASS: security_audit_log has % partitions', v_partition_count;
+    ELSE
+       RAISE WARNING '  ⚠️  WARNING: security_audit_log has only % partitions (expected 3+)', v_partition_count;
+    END IF;
+  ELSE
+    RAISE WARNING '  ❌ FAIL: security_audit_log is NOT partitioned';
+  END IF;
+
+  -- Check secret_audit_logs
+  SELECT (relkind = 'p') INTO v_is_partitioned
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public' AND c.relname = 'secret_audit_logs';
+
+  IF v_is_partitioned THEN
+    RAISE NOTICE '  ✅ PASS: secret_audit_logs is partitioned';
+    
+    -- Check partitions
+    SELECT COUNT(*) INTO v_partition_count
+    FROM pg_inherits i JOIN pg_class c ON i.inhparent = c.oid
+    WHERE c.relname = 'secret_audit_logs';
+    
+    IF v_partition_count >= 3 THEN
+       RAISE NOTICE '  ✅ PASS: secret_audit_logs has % partitions', v_partition_count;
+    ELSE
+       RAISE WARNING '  ⚠️  WARNING: secret_audit_logs has only % partitions (expected 3+)', v_partition_count;
+    END IF;
+  ELSE
+    RAISE WARNING '  ❌ FAIL: secret_audit_logs is NOT partitioned';
+  END IF;
+END $$;
+
+\echo ''
+
 -- ============================================================================
 -- FINAL SUMMARY
 -- ============================================================================
