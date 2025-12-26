@@ -317,6 +317,62 @@ CREATE TRIGGER enforce_tenant_access_workflow_executions
   FOR EACH ROW
   EXECUTE FUNCTION audit_tenant_access();
 
+-- ----------------------------------------------------------------------------
+-- NEW: workflow_executions RLS policies
+-- ----------------------------------------------------------------------------
+
+-- Ensure RLS is enabled
+ALTER TABLE workflow_executions ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies that may be too permissive
+DROP POLICY IF EXISTS "workflow_executions_select" ON workflow_executions;
+DROP POLICY IF EXISTS "workflow_executions_insert" ON workflow_executions;
+DROP POLICY IF EXISTS "workflow_executions_update" ON workflow_executions;
+DROP POLICY IF EXISTS "workflow_executions_delete" ON workflow_executions;
+
+-- Create strict tenant-isolated policies
+CREATE POLICY "workflow_executions_tenant_select" ON workflow_executions
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM workflows w
+      WHERE w.id = workflow_executions.workflow_id
+      AND w.organization_id = (
+        SELECT organization_id FROM users WHERE id = auth.uid()
+      )
+    )
+  );
+
+CREATE POLICY "workflow_executions_tenant_insert" ON workflow_executions
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM workflows w
+      WHERE w.id = workflow_executions.workflow_id
+      AND w.organization_id = (
+        SELECT organization_id FROM users WHERE id = auth.uid()
+      )
+    )
+  );
+
+CREATE POLICY "workflow_executions_tenant_update" ON workflow_executions
+  FOR UPDATE TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM workflows w
+      WHERE w.id = workflow_executions.workflow_id
+      AND w.organization_id = (
+        SELECT organization_id FROM users WHERE id = auth.uid()
+      )
+    )
+  );
+
+-- Service role bypass for system operations
+CREATE POLICY "workflow_executions_service" ON workflow_executions
+  FOR ALL TO service_role
+  USING (true)
+  WITH CHECK (true);
+
 -- ============================================================================
 -- 5. CREATE: Monitoring View for Security Team
 -- ============================================================================

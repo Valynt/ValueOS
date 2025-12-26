@@ -12,6 +12,8 @@ import { ToastProvider } from "./components/Common/Toast";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { LoadingSpinner } from "./components/Common/LoadingSpinner";
 import { BetaFeedbackWidget } from "./components/Feedback/BetaFeedbackWidget";
+import { SDUIStateProvider } from "./lib/state/SDUIStateProvider";
+import { supabase } from "./lib/supabase";
 
 // Lazy load auth pages (public routes)
 const LoginPage = lazy(() => import("./views/Auth/LoginPage"));
@@ -41,120 +43,126 @@ export function AppRoutes() {
         <AuthProvider>
           <DrawerProvider>
             <ToastProvider>
-              <Suspense fallback={<LoadingSpinner />}>
-                <Routes>
-                  {/* Root redirect to home */}
-                  <Route path="/" element={<Navigate to="/home" replace />} />
+              <SDUIStateProvider
+                supabase={supabase}
+                persistence={true}
+                debug={true}
+              >
+                <Suspense fallback={<LoadingSpinner />}>
+                  <Routes>
+                    {/* Root redirect to home */}
+                    <Route path="/" element={<Navigate to="/home" replace />} />
 
-                  {/* Public Auth Routes */}
-                  <Route path="/login" element={<LoginPage />} />
-                  <Route path="/signup" element={<SignupPage />} />
-                  <Route
-                    path="/reset-password"
-                    element={<ResetPasswordPage />}
-                  />
+                    {/* Public Auth Routes */}
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/signup" element={<SignupPage />} />
+                    <Route
+                      path="/reset-password"
+                      element={<ResetPasswordPage />}
+                    />
 
-                  {/* OAuth Callback */}
-                  <Route
-                    path="/auth/callback"
-                    element={
-                      <div className="min-h-screen flex items-center justify-center">
-                        <LoadingSpinner />
-                      </div>
-                    }
-                  />
+                    {/* OAuth Callback */}
+                    <Route
+                      path="/auth/callback"
+                      element={
+                        <div className="min-h-screen flex items-center justify-center">
+                          <LoadingSpinner />
+                        </div>
+                      }
+                    />
 
-                  {/* Launch Readiness Dashboard */}
-                  <Route
-                    path="/launch-readiness"
-                    element={
-                      <ProtectedRoute>
-                        <LaunchReadinessDashboard />
-                      </ProtectedRoute>
-                    }
-                  />
+                    {/* Launch Readiness Dashboard */}
+                    <Route
+                      path="/launch-readiness"
+                      element={
+                        <ProtectedRoute>
+                          <LaunchReadinessDashboard />
+                        </ProtectedRoute>
+                      }
+                    />
 
-                  {/* VALUI Routes - Modern UI */}
-                  <Route
-                    path="/home"
-                    element={
-                      <ProtectedRoute>
-                        <MainLayout />
-                      </ProtectedRoute>
-                    }
-                  >
-                    <Route index element={<Home />} />
-                  </Route>
+                    {/* VALUI Routes - Modern UI */}
+                    <Route
+                      path="/home"
+                      element={
+                        <ProtectedRoute>
+                          <MainLayout />
+                        </ProtectedRoute>
+                      }
+                    >
+                      <Route index element={<Home />} />
+                    </Route>
 
-                  <Route
-                    path="/canvas"
-                    element={
-                      <ProtectedRoute>
-                        <MainLayout />
-                      </ProtectedRoute>
-                    }
-                  >
-                    <Route index element={<ValueCanvas />} />
-                  </Route>
+                    <Route
+                      path="/canvas"
+                      element={
+                        <ProtectedRoute>
+                          <MainLayout />
+                        </ProtectedRoute>
+                      }
+                    >
+                      <Route index element={<ValueCanvas />} />
+                    </Route>
 
-                  <Route
-                    path="/cascade"
-                    element={
-                      <ProtectedRoute>
-                        <MainLayout />
-                      </ProtectedRoute>
-                    }
-                  >
-                    <Route index element={<ImpactCascade />} />
-                  </Route>
+                    <Route
+                      path="/cascade"
+                      element={
+                        <ProtectedRoute>
+                          <MainLayout />
+                        </ProtectedRoute>
+                      }
+                    >
+                      <Route index element={<ImpactCascade />} />
+                    </Route>
 
-                  <Route
-                    path="/calculator"
-                    element={
-                      <ProtectedRoute>
-                        <MainLayout />
-                      </ProtectedRoute>
-                    }
-                  >
-                    <Route index element={<ROICalculator />} />
-                  </Route>
+                    <Route
+                      path="/calculator"
+                      element={
+                        <ProtectedRoute>
+                          <MainLayout />
+                        </ProtectedRoute>
+                      }
+                    >
+                      <Route index element={<ROICalculator />} />
+                    </Route>
 
-                  <Route
-                    path="/dashboard"
-                    element={
-                      <ProtectedRoute>
-                        <MainLayout />
-                      </ProtectedRoute>
-                    }
-                  >
-                    <Route index element={<AgentDashboard />} />
-                  </Route>
+                    <Route
+                      path="/dashboard"
+                      element={
+                        <ProtectedRoute>
+                          <MainLayout />
+                        </ProtectedRoute>
+                      }
+                    >
+                      <Route index element={<AgentDashboard />} />
+                    </Route>
 
-                  <Route
-                    path="/chat"
-                    element={
-                      <ProtectedRoute>
-                        <MainLayout />
-                      </ProtectedRoute>
-                    }
-                  >
-                    <Route index element={<ConversationalAI />} />
-                  </Route>
+                    <Route
+                      path="/chat"
+                      element={
+                        <ProtectedRoute>
+                          <MainLayout />
+                        </ProtectedRoute>
+                      }
+                    >
+                      <Route index element={<ConversationalAI />} />
+                    </Route>
 
-                  {/* Main App (Chat+Canvas) - Default protected route */}
-                  <Route
-                    path="/app/*"
-                    element={
-                      <ProtectedRoute>
-                        <App />
-                      </ProtectedRoute>
-                    }
-                  />
+                    {/* Main App (Chat+Canvas) - Default protected route */}
+                    <Route
+                      path="/app/*"
+                      element={
+                        <ProtectedRoute>
+                          <App />
+                        </ProtectedRoute>
+                      }
+                    />
 
-                  {/* 404 Not Found - Must be last */}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </Suspense>
+                    {/* 404 Not Found - Must be last */}
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </Suspense>
+              </SDUIStateProvider>
               <BetaFeedbackWidget />
             </ToastProvider>
           </DrawerProvider>

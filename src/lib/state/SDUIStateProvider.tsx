@@ -1,12 +1,16 @@
 /**
  * SDUI State Provider
- * 
+ *
  * React context provider for SDUI state management
  */
 
-import React, { createContext, useContext, useEffect, useRef } from 'react';
-import { SupabaseClient } from '@supabase/supabase-js';
-import { getSDUIStateManager, SDUIStateManager, SDUIStateManagerConfig } from './SDUIStateManager';
+import React, { createContext, useContext, useEffect, useRef } from "react";
+import { SupabaseClient } from "@supabase/supabase-js";
+import {
+  getSDUIStateManager,
+  SDUIStateManager,
+  SDUIStateManagerConfig,
+} from "./SDUIStateManager";
 
 /**
  * Context for SDUI State Manager
@@ -20,6 +24,7 @@ export interface SDUIStateProviderProps {
   children: React.ReactNode;
   supabase?: SupabaseClient;
   sessionId?: string;
+  tenantId?: string;
   persistence?: boolean;
   debug?: boolean;
   maxCacheSize?: number;
@@ -27,16 +32,17 @@ export interface SDUIStateProviderProps {
 
 /**
  * SDUI State Provider Component
- * 
+ *
  * Provides SDUI state management to child components
  */
 export const SDUIStateProvider: React.FC<SDUIStateProviderProps> = ({
   children,
   supabase,
   sessionId,
+  tenantId,
   persistence = false,
   debug = false,
-  maxCacheSize = 1000
+  maxCacheSize = 1000,
 }) => {
   const stateManagerRef = useRef<SDUIStateManager | null>(null);
 
@@ -46,10 +52,11 @@ export const SDUIStateProvider: React.FC<SDUIStateProviderProps> = ({
       supabase,
       persistence: {
         enabled: persistence,
-        sessionId
+        sessionId,
+        tenantId,
       },
       debug,
-      maxCacheSize
+      maxCacheSize,
     };
 
     stateManagerRef.current = getSDUIStateManager(config);
@@ -73,7 +80,7 @@ export const SDUIStateProvider: React.FC<SDUIStateProviderProps> = ({
 
 /**
  * Hook to access SDUI State Manager from context
- * 
+ *
  * @returns SDUIStateManager instance
  * @throws Error if used outside SDUIStateProvider
  */
@@ -81,7 +88,9 @@ export function useSDUIStateManager(): SDUIStateManager {
   const stateManager = useContext(SDUIStateContext);
 
   if (!stateManager) {
-    throw new Error('useSDUIStateManager must be used within SDUIStateProvider');
+    throw new Error(
+      "useSDUIStateManager must be used within SDUIStateProvider"
+    );
   }
 
   return stateManager;
@@ -89,7 +98,7 @@ export function useSDUIStateManager(): SDUIStateManager {
 
 /**
  * Hook to check if SDUIStateProvider is available
- * 
+ *
  * @returns boolean
  */
 export function useHasSDUIStateProvider(): boolean {

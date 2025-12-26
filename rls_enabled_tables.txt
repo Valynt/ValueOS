@@ -1,0 +1,106 @@
+ab_tests
+academy_certifications
+academy_lessons
+academy_modules
+academy_progress
+agent_accuracy_metrics
+agent_activities
+agent_audit_log
+agent_memory
+agent_metrics
+agent_ontologies
+agent_predictions
+agent_retraining_queue
+agents
+agent_sessions
+agent_tools
+approval_requests
+approvals
+approver_roles
+assumptions
+audit_log_access
+audit_logs
+audit_logs_archive
+automated_check_results
+automated_responses
+backup_logs
+billing_customers
+business_cases
+canvas_components
+company_profiles
+compensation_queue
+compliance_evidence
+compliance_reports
+component_history
+component_relationships
+confidence_violations
+contextual_triggers
+cost_alerts
+device_trust_history
+evaluation_runs
+expansion_results
+feature_flag_evaluations
+feature_flags
+feedback_loops
+financial_models
+golden_examples
+integrity_results
+invoices
+kpi_hypotheses
+llm_calls
+llm_job_results
+llm_usage
+message_bus
+opportunity_results
+policy_rules
+prompt_executions
+prompt_versions
+rate_limit_violations
+realization_results
+resource_artifacts
+roles
+secret_audit_logs
+security_audit_log
+security_events
+security_incidents
+security_metrics
+security_policies
+semantic_memory
+subscription_items
+subscriptions
+supabase/migrations/20241129000002_phase1_rls_policies.sql:ALTER TABLE IF EXISTS cases ENABLE ROW LEVEL SECURITY;
+supabase/migrations/20241129000002_phase1_rls_policies.sql:ALTER TABLE IF EXISTS messages ENABLE ROW LEVEL SECURITY;
+supabase/migrations/20241129000002_phase1_rls_policies.sql:ALTER TABLE IF EXISTS workflows ENABLE ROW LEVEL SECURITY;
+supabase/migrations/20241129120000_strict_rls_policies.sql:ALTER TABLE IF EXISTS agent_predictions ENABLE ROW LEVEL SECURITY;
+supabase/migrations/20241129120000_strict_rls_policies.sql:ALTER TABLE IF EXISTS billing_subscriptions ENABLE ROW LEVEL SECURITY;
+supabase/migrations/20241129120000_strict_rls_policies.sql:ALTER TABLE IF EXISTS billing_usage ENABLE ROW LEVEL SECURITY;
+supabase/migrations/20241129120000_strict_rls_policies.sql:ALTER TABLE IF EXISTS canvas_data ENABLE ROW LEVEL SECURITY;
+supabase/migrations/20241129120000_strict_rls_policies.sql:ALTER TABLE IF EXISTS user_tenants ENABLE ROW LEVEL SECURITY;
+supabase/migrations/20241129120000_strict_rls_policies.sql:ALTER TABLE IF EXISTS value_trees ENABLE ROW LEVEL SECURITY;
+supabase/migrations/20241129120000_strict_rls_policies.sql:ALTER TABLE IF EXISTS workflow_audit_logs ENABLE ROW LEVEL SECURITY;
+supabase/migrations/20241129120000_strict_rls_policies.sql:ALTER TABLE IF EXISTS workflow_events ENABLE ROW LEVEL SECURITY;
+supabase/migrations/20241129120000_strict_rls_policies.sql:ALTER TABLE IF EXISTS workflow_execution_logs ENABLE ROW LEVEL SECURITY;
+supabase/migrations/20241129120000_strict_rls_policies.sql:ALTER TABLE IF EXISTS workflow_executions ENABLE ROW LEVEL SECURITY;
+system_metrics
+target_results
+task_queue
+tenant_integrations
+tenants
+usage_aggregates
+usage_alerts
+usage_events
+usage_quotas
+user_behavior_analysis
+user_roles
+user_sessions
+user_tenants
+value_cases
+value_ledger
+value_maps
+value_prediction_accuracy
+value_tree_links
+value_tree_nodes
+value_trees
+workflow_executions
+workflows
+workflow_states

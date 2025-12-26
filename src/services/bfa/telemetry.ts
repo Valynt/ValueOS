@@ -1,12 +1,12 @@
 /**
  * Backend for Agents (BFA) Telemetry
- * 
+ *
  * Agent-specific metrics and monitoring for semantic tools.
  * Provides performance tracking, error monitoring, and usage analytics.
  */
 
-import { AgentContext, ToolExecutionResult } from './types';
-import { logger } from '../logging';
+import { AgentContext, ToolExecutionResult } from "./types";
+import { logger } from "../../lib/logger";
 
 /**
  * Telemetry metrics for tool execution
@@ -46,7 +46,7 @@ export class BfaTelemetry {
       tenantId: context.tenantId,
       executionTimeMs,
       success: !(result instanceof Error),
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
     if (result instanceof Error) {
@@ -64,12 +64,15 @@ export class BfaTelemetry {
   /**
    * Get performance metrics for a tool
    */
-  static getToolMetrics(toolId: string, timeRange?: { start: Date; end: Date }): ToolMetrics[] {
-    let metrics = this.metrics.filter(m => m.toolId === toolId);
-    
+  static getToolMetrics(
+    toolId: string,
+    timeRange?: { start: Date; end: Date }
+  ): ToolMetrics[] {
+    let metrics = this.metrics.filter((m) => m.toolId === toolId);
+
     if (timeRange) {
-      metrics = metrics.filter(m => 
-        m.timestamp >= timeRange.start && m.timestamp <= timeRange.end
+      metrics = metrics.filter(
+        (m) => m.timestamp >= timeRange.start && m.timestamp <= timeRange.end
       );
     }
 
@@ -87,25 +90,28 @@ export class BfaTelemetry {
     topErrors: Array<{ errorType: string; count: number }>;
   } {
     const metrics = this.getToolMetrics(toolId);
-    
+
     if (metrics.length === 0) {
       return {
         totalExecutions: 0,
         successRate: 0,
         avgExecutionTime: 0,
         errorRate: 0,
-        topErrors: []
+        topErrors: [],
       };
     }
 
-    const successful = metrics.filter(m => m.success);
-    const errors = metrics.filter(m => !m.success);
-    
-    const errorCounts = errors.reduce((acc, m) => {
-      const errorType = m.errorType || 'Unknown';
-      acc[errorType] = (acc[errorType] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const successful = metrics.filter((m) => m.success);
+    const errors = metrics.filter((m) => !m.success);
+
+    const errorCounts = errors.reduce(
+      (acc, m) => {
+        const errorType = m.errorType || "Unknown";
+        acc[errorType] = (acc[errorType] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
 
     const topErrors = Object.entries(errorCounts)
       .sort(([, a], [, b]) => b - a)
@@ -115,9 +121,10 @@ export class BfaTelemetry {
     return {
       totalExecutions: metrics.length,
       successRate: successful.length / metrics.length,
-      avgExecutionTime: metrics.reduce((sum, m) => sum + m.executionTimeMs, 0) / metrics.length,
+      avgExecutionTime:
+        metrics.reduce((sum, m) => sum + m.executionTimeMs, 0) / metrics.length,
       errorRate: errors.length / metrics.length,
-      topErrors
+      topErrors,
     };
   }
 
@@ -130,30 +137,35 @@ export class BfaTelemetry {
     avgExecutionTime: number;
     mostUsedTool: string;
   } {
-    const tenantMetrics = this.metrics.filter(m => m.tenantId === tenantId);
-    
+    const tenantMetrics = this.metrics.filter((m) => m.tenantId === tenantId);
+
     if (tenantMetrics.length === 0) {
       return {
         totalExecutions: 0,
         uniqueTools: 0,
         avgExecutionTime: 0,
-        mostUsedTool: ''
+        mostUsedTool: "",
       };
     }
 
-    const toolCounts = tenantMetrics.reduce((acc, m) => {
-      acc[m.toolId] = (acc[m.toolId] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const toolCounts = tenantMetrics.reduce(
+      (acc, m) => {
+        acc[m.toolId] = (acc[m.toolId] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
 
-    const mostUsedTool = Object.entries(toolCounts)
-      .sort(([, a], [, b]) => b - a)[0]?.[0] || '';
+    const mostUsedTool =
+      Object.entries(toolCounts).sort(([, a], [, b]) => b - a)[0]?.[0] || "";
 
     return {
       totalExecutions: tenantMetrics.length,
       uniqueTools: Object.keys(toolCounts).length,
-      avgExecutionTime: tenantMetrics.reduce((sum, m) => sum + m.executionTimeMs, 0) / tenantMetrics.length,
-      mostUsedTool
+      avgExecutionTime:
+        tenantMetrics.reduce((sum, m) => sum + m.executionTimeMs, 0) /
+        tenantMetrics.length,
+      mostUsedTool,
     };
   }
 
@@ -166,25 +178,28 @@ export class BfaTelemetry {
     unusualPattern: boolean;
   } {
     const metrics = this.getToolMetrics(toolId).slice(-50); // Last 50 executions
-    
+
     if (metrics.length < 10) {
       return {
         slowExecution: false,
         highErrorRate: false,
-        unusualPattern: false
+        unusualPattern: false,
       };
     }
 
     const stats = this.getToolStats(toolId);
     const recentMetrics = metrics.slice(-10);
-    
-    const recentErrorRate = recentMetrics.filter(m => !m.success).length / recentMetrics.length;
-    const recentAvgTime = recentMetrics.reduce((sum, m) => sum + m.executionTimeMs, 0) / recentMetrics.length;
-    
+
+    const recentErrorRate =
+      recentMetrics.filter((m) => !m.success).length / recentMetrics.length;
+    const recentAvgTime =
+      recentMetrics.reduce((sum, m) => sum + m.executionTimeMs, 0) /
+      recentMetrics.length;
+
     return {
       slowExecution: recentAvgTime > stats.avgExecutionTime * 2,
       highErrorRate: recentErrorRate > stats.errorRate * 2,
-      unusualPattern: this.detectUnusualPatterns(recentMetrics)
+      unusualPattern: this.detectUnusualPatterns(recentMetrics),
     };
   }
 
@@ -193,7 +208,7 @@ export class BfaTelemetry {
    */
   private static addMetric(metric: ToolMetrics): void {
     this.metrics.push(metric);
-    
+
     // Keep buffer size manageable
     if (this.metrics.length > this.maxBufferSize) {
       this.metrics = this.metrics.slice(-this.maxBufferSize);
@@ -204,14 +219,14 @@ export class BfaTelemetry {
    * Log metric for external monitoring
    */
   private static logMetric(metric: ToolMetrics): void {
-    logger.info('BFA tool execution', {
+    logger.info("BFA tool execution", {
       toolId: metric.toolId,
       userId: metric.userId,
       tenantId: metric.tenantId,
       executionTimeMs: metric.executionTimeMs,
       success: metric.success,
       errorType: metric.errorType,
-      timestamp: metric.timestamp.toISOString()
+      timestamp: metric.timestamp.toISOString(),
     });
   }
 
@@ -229,13 +244,14 @@ export class BfaTelemetry {
     if (metrics.length < 5) return false;
 
     // Simple anomaly detection: check for sudden spikes in execution time
-    const times = metrics.map(m => m.executionTimeMs);
+    const times = metrics.map((m) => m.executionTimeMs);
     const avg = times.reduce((sum, t) => sum + t, 0) / times.length;
-    const variance = times.reduce((sum, t) => sum + Math.pow(t - avg, 2), 0) / times.length;
+    const variance =
+      times.reduce((sum, t) => sum + Math.pow(t - avg, 2), 0) / times.length;
     const stdDev = Math.sqrt(variance);
 
     // Check if any execution is more than 2 standard deviations from mean
-    return times.some(t => Math.abs(t - avg) > 2 * stdDev);
+    return times.some((t) => Math.abs(t - avg) > 2 * stdDev);
   }
 
   /**

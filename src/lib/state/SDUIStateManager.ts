@@ -1,6 +1,6 @@
 /**
  * SDUI State Manager
- * 
+ *
  * Centralized state management for SDUI components with:
  * - In-memory cache for fast access
  * - Subscriber pattern for reactive updates
@@ -9,8 +9,8 @@
  * - Conflict resolution
  */
 
-import { logger } from '../logger';
-import { SupabaseClient } from '@supabase/supabase-js';
+import { logger } from "../logger";
+import { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * State change event
@@ -20,7 +20,7 @@ export interface StateChangeEvent<T = any> {
   oldValue: T | null;
   newValue: T;
   timestamp: number;
-  source: 'local' | 'remote' | 'initial';
+  source: "local" | "remote" | "initial";
 }
 
 /**
@@ -50,6 +50,8 @@ export interface PersistenceOptions {
   tableName: string;
   /** Session ID for scoping */
   sessionId?: string;
+  /** Tenant ID for strict isolation */
+  tenantId?: string;
 }
 
 /**
@@ -72,13 +74,14 @@ export interface SDUIStateManagerConfig {
 const DEFAULT_PERSISTENCE: PersistenceOptions = {
   enabled: false,
   debounceMs: 1000,
-  tableName: 'sdui_state',
-  sessionId: undefined
+  tableName: "sdui_state",
+  sessionId: undefined,
+  tenantId: undefined,
 };
 
 /**
  * SDUI State Manager
- * 
+ *
  * Manages state for SDUI components with caching, subscriptions, and persistence.
  */
 export class SDUIStateManager {
@@ -98,9 +101,9 @@ export class SDUIStateManager {
     this.maxCacheSize = config.maxCacheSize || 1000;
 
     if (this.debug) {
-      logger.debug('SDUIStateManager initialized', {
+      logger.debug("SDUIStateManager initialized", {
         persistence: this.persistence.enabled,
-        maxCacheSize: this.maxCacheSize
+        maxCacheSize: this.maxCacheSize,
       });
     }
   }
@@ -112,13 +115,13 @@ export class SDUIStateManager {
     const entry = this.cache.get(key);
     if (!entry) {
       if (this.debug) {
-        logger.debug('State cache miss', { key });
+        logger.debug("State cache miss", { key });
       }
       return null;
     }
 
     if (this.debug) {
-      logger.debug('State cache hit', { key, version: entry.version });
+      logger.debug("State cache hit", { key, version: entry.version });
     }
 
     return entry.value as T;
@@ -127,7 +130,11 @@ export class SDUIStateManager {
   /**
    * Set state value
    */
-  set<T>(key: string, value: T, options: { persist?: boolean; source?: 'local' | 'remote' } = {}): void {
+  set<T>(
+    key: string,
+    value: T,
+    options: { persist?: boolean; source?: "local" | "remote" } = {}
+  ): void {
     const oldEntry = this.cache.get(key);
     const oldValue = oldEntry?.value || null;
     const version = (oldEntry?.version || 0) + 1;
@@ -137,7 +144,7 @@ export class SDUIStateManager {
       value,
       version,
       updatedAt: Date.now(),
-      dirty: options.persist !== false
+      dirty: options.persist !== false,
     };
 
     // Update cache
@@ -154,7 +161,7 @@ export class SDUIStateManager {
       oldValue,
       newValue: value,
       timestamp: entry.updatedAt,
-      source: options.source || 'local'
+      source: options.source || "local",
     };
 
     // Notify subscribers
@@ -166,11 +173,11 @@ export class SDUIStateManager {
     }
 
     if (this.debug) {
-      logger.debug('State updated', {
+      logger.debug("State updated", {
         key,
         version,
         hasOldValue: oldValue !== null,
-        source: event.source
+        source: event.source,
       });
     }
   }
@@ -178,7 +185,10 @@ export class SDUIStateManager {
   /**
    * Update state value (merge with existing)
    */
-  update<T extends Record<string, any>>(key: string, partial: Partial<T>): void {
+  update<T extends Record<string, any>>(
+    key: string,
+    partial: Partial<T>
+  ): void {
     const current = this.get<T>(key);
     if (!current) {
       throw new Error(`Cannot update non-existent state: ${key}`);
@@ -218,12 +228,12 @@ export class SDUIStateManager {
       oldValue: entry.value,
       newValue: null as any,
       timestamp: Date.now(),
-      source: 'local'
+      source: "local",
     };
     this.notifySubscribers(key, event);
 
     if (this.debug) {
-      logger.debug('State deleted', { key });
+      logger.debug("State deleted", { key });
     }
 
     return true;
@@ -241,7 +251,7 @@ export class SDUIStateManager {
    */
   clear(): void {
     const keys = Array.from(this.cache.keys());
-    
+
     // Clear cache
     this.cache.clear();
 
@@ -258,13 +268,13 @@ export class SDUIStateManager {
         oldValue: null,
         newValue: null as any,
         timestamp: Date.now(),
-        source: 'local'
+        source: "local",
       };
       this.notifySubscribers(key, event);
     }
 
     if (this.debug) {
-      logger.debug('State cleared', { count: keys.length });
+      logger.debug("State cleared", { count: keys.length });
     }
   }
 
@@ -279,7 +289,10 @@ export class SDUIStateManager {
     this.subscribers.get(key)!.add(callback as StateSubscriber);
 
     if (this.debug) {
-      logger.debug('Subscriber added', { key, count: this.subscribers.get(key)!.size });
+      logger.debug("Subscriber added", {
+        key,
+        count: this.subscribers.get(key)!.size,
+      });
     }
 
     // Return unsubscribe function
@@ -293,7 +306,7 @@ export class SDUIStateManager {
       }
 
       if (this.debug) {
-        logger.debug('Subscriber removed', { key });
+        logger.debug("Subscriber removed", { key });
       }
     };
   }
@@ -305,7 +318,9 @@ export class SDUIStateManager {
     this.globalSubscribers.add(callback);
 
     if (this.debug) {
-      logger.debug('Global subscriber added', { count: this.globalSubscribers.size });
+      logger.debug("Global subscriber added", {
+        count: this.globalSubscribers.size,
+      });
     }
 
     // Return unsubscribe function
@@ -313,7 +328,7 @@ export class SDUIStateManager {
       this.globalSubscribers.delete(callback);
 
       if (this.debug) {
-        logger.debug('Global subscriber removed');
+        logger.debug("Global subscriber removed");
       }
     };
   }
@@ -335,7 +350,9 @@ export class SDUIStateManager {
   /**
    * Get state metadata
    */
-  getMetadata(key: string): { version: number; updatedAt: number; dirty: boolean } | null {
+  getMetadata(
+    key: string
+  ): { version: number; updatedAt: number; dirty: boolean } | null {
     const entry = this.cache.get(key);
     if (!entry) {
       return null;
@@ -344,7 +361,7 @@ export class SDUIStateManager {
     return {
       version: entry.version,
       updatedAt: entry.updatedAt,
-      dirty: entry.dirty
+      dirty: entry.dirty,
     };
   }
 
@@ -359,14 +376,18 @@ export class SDUIStateManager {
     try {
       const { data, error } = await this.supabase
         .from(this.persistence.tableName)
-        .select('value, version, updated_at')
-        .eq('key', key)
-        .eq('session_id', this.persistence.sessionId || '')
+        .select("value, version, updated_at")
+        .eq("key", key)
+        .eq("session_id", this.persistence.sessionId || "")
+        .eq("tenant_id", this.persistence.tenantId || "")
         .single();
 
       if (error || !data) {
         if (this.debug) {
-          logger.debug('State not found in database', { key, error: error?.message });
+          logger.debug("State not found in database", {
+            key,
+            error: error?.message,
+          });
         }
         return false;
       }
@@ -376,7 +397,7 @@ export class SDUIStateManager {
         value: data.value,
         version: data.version,
         updatedAt: new Date(data.updated_at).getTime(),
-        dirty: false
+        dirty: false,
       };
 
       this.cache.set(key, entry);
@@ -387,17 +408,22 @@ export class SDUIStateManager {
         oldValue: null,
         newValue: data.value,
         timestamp: entry.updatedAt,
-        source: 'remote'
+        source: "remote",
       };
       this.notifySubscribers(key, event);
 
       if (this.debug) {
-        logger.debug('State loaded from database', { key, version: entry.version });
+        logger.debug("State loaded from database", {
+          key,
+          version: entry.version,
+        });
       }
 
       return true;
     } catch (error) {
-      logger.error('Failed to load state from database', error as Error, { key });
+      logger.error("Failed to load state from database", error as Error, {
+        key,
+      });
       return false;
     }
   }
@@ -410,15 +436,16 @@ export class SDUIStateManager {
       return;
     }
 
-    const dirtyEntries = Array.from(this.cache.entries())
-      .filter(([_, entry]) => entry.dirty);
+    const dirtyEntries = Array.from(this.cache.entries()).filter(
+      ([_, entry]) => entry.dirty
+    );
 
     if (dirtyEntries.length === 0) {
       return;
     }
 
     if (this.debug) {
-      logger.debug('Flushing dirty state', { count: dirtyEntries.length });
+      logger.debug("Flushing dirty state", { count: dirtyEntries.length });
     }
 
     const promises = dirtyEntries.map(([key, entry]) =>
@@ -439,7 +466,7 @@ export class SDUIStateManager {
         try {
           callback(event);
         } catch (error) {
-          logger.error('Subscriber callback error', error as Error, { key });
+          logger.error("Subscriber callback error", error as Error, { key });
         }
       }
     }
@@ -449,7 +476,9 @@ export class SDUIStateManager {
       try {
         callback(event);
       } catch (error) {
-        logger.error('Global subscriber callback error', error as Error, { key });
+        logger.error("Global subscriber callback error", error as Error, {
+          key,
+        });
       }
     }
   }
@@ -479,7 +508,10 @@ export class SDUIStateManager {
   /**
    * Persist state to database
    */
-  private async persistToDatabase(key: string, entry: StateEntry): Promise<void> {
+  private async persistToDatabase(
+    key: string,
+    entry: StateEntry
+  ): Promise<void> {
     if (!this.supabase) {
       return;
     }
@@ -489,10 +521,11 @@ export class SDUIStateManager {
         .from(this.persistence.tableName)
         .upsert({
           key,
-          session_id: this.persistence.sessionId || '',
+          session_id: this.persistence.sessionId || "",
+          tenant_id: this.persistence.tenantId || "",
           value: entry.value,
           version: entry.version,
-          updated_at: new Date(entry.updatedAt).toISOString()
+          updated_at: new Date(entry.updatedAt).toISOString(),
         });
 
       if (error) {
@@ -503,10 +536,15 @@ export class SDUIStateManager {
       entry.dirty = false;
 
       if (this.debug) {
-        logger.debug('State persisted to database', { key, version: entry.version });
+        logger.debug("State persisted to database", {
+          key,
+          version: entry.version,
+        });
       }
     } catch (error) {
-      logger.error('Failed to persist state to database', error as Error, { key });
+      logger.error("Failed to persist state to database", error as Error, {
+        key,
+      });
     }
   }
 
@@ -522,18 +560,21 @@ export class SDUIStateManager {
       const { error } = await this.supabase
         .from(this.persistence.tableName)
         .delete()
-        .eq('key', key)
-        .eq('session_id', this.persistence.sessionId || '');
+        .eq("key", key)
+        .eq("session_id", this.persistence.sessionId || "")
+        .eq("tenant_id", this.persistence.tenantId || "");
 
       if (error) {
         throw error;
       }
 
       if (this.debug) {
-        logger.debug('State deleted from database', { key });
+        logger.debug("State deleted from database", { key });
       }
     } catch (error) {
-      logger.error('Failed to delete state from database', error as Error, { key });
+      logger.error("Failed to delete state from database", error as Error, {
+        key,
+      });
     }
   }
 
@@ -555,7 +596,7 @@ export class SDUIStateManager {
       this.delete(oldestKey);
 
       if (this.debug) {
-        logger.debug('Evicted oldest cache entry', { key: oldestKey });
+        logger.debug("Evicted oldest cache entry", { key: oldestKey });
       }
     }
   }
@@ -569,7 +610,9 @@ let stateManagerInstance: SDUIStateManager | null = null;
 /**
  * Get or create state manager instance
  */
-export function getSDUIStateManager(config?: SDUIStateManagerConfig): SDUIStateManager {
+export function getSDUIStateManager(
+  config?: SDUIStateManagerConfig
+): SDUIStateManager {
   if (!stateManagerInstance) {
     stateManagerInstance = new SDUIStateManager(config);
   }

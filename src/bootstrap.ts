@@ -1,14 +1,23 @@
 /**
  * Application Bootstrap
- * 
+ *
  * Production-ready initialization sequence for the ValueCanvas application.
  * Ensures all systems are ready before rendering the UI.
  */
 
-import { getConfig, isDevelopment, isProduction, validateEnvironmentConfig } from './config/environment';
-import { initializeAgents, SystemHealth } from './services/AgentInitializer';
-import { initializeSecurity, validateSecurity } from './security';
-import { createLogger, logger as globalLogger, setupMonitoring } from './lib/logger';
+import {
+  getConfig,
+  isDevelopment,
+  isProduction,
+  validateEnvironmentConfig,
+} from "./config/environment";
+import { initializeAgents, SystemHealth } from "./services/AgentInitializer";
+import { initializeSecurity, validateSecurity } from "./security";
+import {
+  createLogger,
+  logger as globalLogger,
+  setupMonitoring,
+} from "./lib/logger";
 
 /**
  * Bootstrap result
@@ -69,7 +78,7 @@ export async function bootstrap(
   const startTime = Date.now();
   const errors: string[] = [];
   const warnings: string[] = [];
-  const logger = createLogger({ component: 'Bootstrap' });
+  const logger = createLogger({ component: "Bootstrap" });
 
   const {
     // In development, skip agent checks by default for faster startup
@@ -82,29 +91,37 @@ export async function bootstrap(
     onError,
   } = options;
 
-  logger.info('🚀 Bootstrapping ValueCanvas Application', { action: 'bootstrap_start' });
+  logger.info("🚀 Bootstrapping ValueCanvas Application", {
+    action: "bootstrap_start",
+  });
 
   // Step 1: Load and validate environment configuration
-  onProgress?.('Loading environment configuration...');
-  logger.info('Step 1: Loading environment configuration', { action: 'load_config' });
+  onProgress?.("Loading environment configuration...");
+  logger.info("Step 1: Loading environment configuration", {
+    action: "load_config",
+  });
 
   let config: ReturnType<typeof getConfig>;
   try {
     config = getConfig();
-    logger.info('Configuration loaded', {
-      action: 'config_loaded',
+    logger.info("Configuration loaded", {
+      action: "config_loaded",
       environment: config.app.env,
       appUrl: config.app.url,
       apiUrl: config.app.apiBaseUrl,
       agentApi: config.agents.apiUrl,
     });
   } catch (error) {
-    const errorMsg = `Failed to load configuration: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    const errorMsg = `Failed to load configuration: ${error instanceof Error ? error.message : "Unknown error"}`;
     errors.push(errorMsg);
     onError?.(errorMsg);
-    logger.error('Failed to load configuration', error instanceof Error ? error : undefined, {
-      action: 'config_load_failed',
-    });
+    logger.error(
+      "Failed to load configuration",
+      error instanceof Error ? error : undefined,
+      {
+        action: "config_load_failed",
+      }
+    );
 
     return {
       success: false,
@@ -116,16 +133,18 @@ export async function bootstrap(
   }
 
   // Step 2: Validate configuration
-  onProgress?.('Validating configuration...');
-  logger.info('Step 2: Validating configuration', { action: 'validate_config' });
+  onProgress?.("Validating configuration...");
+  logger.info("Step 2: Validating configuration", {
+    action: "validate_config",
+  });
 
   const configErrors = validateEnvironmentConfig(config);
   if (configErrors.length > 0) {
     configErrors.forEach((error) => {
       errors.push(error);
       onError?.(error);
-      logger.error('Configuration validation error', undefined, {
-        action: 'config_validation_failed',
+      logger.error("Configuration validation error", undefined, {
+        action: "config_validation_failed",
         error,
       });
     });
@@ -140,23 +159,25 @@ export async function bootstrap(
       };
     }
   } else {
-    logger.info('Configuration valid', { action: 'config_validated' });
+    logger.info("Configuration valid", { action: "config_validated" });
   }
 
   // Step 3: Check feature flags
-  onProgress?.('Checking feature flags...');
-  logger.info('Step 3: Feature flags', { action: 'check_features' });
-  logger.info(`   SDUI Debug: ${config.features.sduiDebug ? '✅' : '❌'}`);
-  logger.info(`   Agent Fabric: ${config.features.agentFabric ? '✅' : '❌'}`);
-  logger.info(`   Workflow: ${config.features.workflow ? '✅' : '❌'}`);
-  logger.info(`   Compliance: ${config.features.compliance ? '✅' : '❌'}`);
-  logger.info(`   Multi-Tenant: ${config.features.multiTenant ? '✅' : '❌'}`);
-  logger.info(`   Usage Tracking: ${config.features.usageTracking ? '✅' : '❌'}`);
-  logger.info(`   Billing: ${config.features.billing ? '✅' : '❌'}`);
+  onProgress?.("Checking feature flags...");
+  logger.info("Step 3: Feature flags", { action: "check_features" });
+  logger.info(`   SDUI Debug: ${config.features.sduiDebug ? "✅" : "❌"}`);
+  logger.info(`   Agent Fabric: ${config.features.agentFabric ? "✅" : "❌"}`);
+  logger.info(`   Workflow: ${config.features.workflow ? "✅" : "❌"}`);
+  logger.info(`   Compliance: ${config.features.compliance ? "✅" : "❌"}`);
+  logger.info(`   Multi-Tenant: ${config.features.multiTenant ? "✅" : "❌"}`);
+  logger.info(
+    `   Usage Tracking: ${config.features.usageTracking ? "✅" : "❌"}`
+  );
+  logger.info(`   Billing: ${config.features.billing ? "✅" : "❌"}`);
 
   // Step 4: Initialize security
-  onProgress?.('Initializing security...');
-  logger.info('\n🔒 Step 4: Security initialization');
+  onProgress?.("Initializing security...");
+  logger.info("\n🔒 Step 4: Security initialization");
   try {
     // Validate security configuration
     const securityValidation = validateSecurity();
@@ -188,12 +209,14 @@ export async function bootstrap(
 
     // Initialize security features
     initializeSecurity();
-    logger.info('   ✅ Security features initialized');
-    logger.info(`   - CSRF protection: ${config.security.csrfEnabled ? '✅' : '❌'}`);
-    logger.info(`   - CSP: ${config.security.cspEnabled ? '✅' : '❌'}`);
-    logger.info(`   - HTTPS only: ${config.security.httpsOnly ? '✅' : '❌'}`);
+    logger.info("   ✅ Security features initialized");
+    logger.info(
+      `   - CSRF protection: ${config.security.csrfEnabled ? "✅" : "❌"}`
+    );
+    logger.info(`   - CSP: ${config.security.cspEnabled ? "✅" : "❌"}`);
+    logger.info(`   - HTTPS only: ${config.security.httpsOnly ? "✅" : "❌"}`);
   } catch (error) {
-    const errorMsg = `Failed to initialize security: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    const errorMsg = `Failed to initialize security: ${error instanceof Error ? error.message : "Unknown error"}`;
     errors.push(errorMsg);
     onError?.(errorMsg);
     logger.error(`   ❌ ${errorMsg}`);
@@ -211,22 +234,22 @@ export async function bootstrap(
 
   // Step 5: Initialize monitoring (if enabled)
   if (config.monitoring.sentry.enabled) {
-    onProgress?.('Initializing error tracking...');
-    logger.info('\n📊 Step 5: Initializing Sentry');
+    onProgress?.("Initializing error tracking...");
+    logger.info("\n📊 Step 5: Initializing Sentry");
     try {
       // TODO: Initialize Sentry
       // await initializeSentry(config.monitoring.sentry);
-      logger.info('   ⚠️  Sentry initialization not implemented yet');
-      warnings.push('Sentry initialization not implemented');
-      onWarning?.('Sentry initialization not implemented');
+      logger.info("   ⚠️  Sentry initialization not implemented yet");
+      warnings.push("Sentry initialization not implemented");
+      onWarning?.("Sentry initialization not implemented");
     } catch (error) {
-      const errorMsg = `Failed to initialize Sentry: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      const errorMsg = `Failed to initialize Sentry: ${error instanceof Error ? error.message : "Unknown error"}`;
       warnings.push(errorMsg);
       onWarning?.(errorMsg);
       logger.warn(`   ⚠️  ${errorMsg}`);
     }
   } else {
-    logger.info('\n📊 Step 5: Error tracking disabled');
+    logger.info("\n📊 Step 5: Error tracking disabled");
   }
 
   // Initialize monitoring listeners (Sentry, cloud integrations)
@@ -236,13 +259,15 @@ export async function bootstrap(
   let agentHealth: SystemHealth | undefined;
 
   if (config.features.agentFabric && !skipAgentCheck) {
-    onProgress?.('Checking agent health...');
-    logger.info('\n🤖 Step 6: Initializing Agent Fabric');
+    onProgress?.("Checking agent health...");
+    logger.info("\n🤖 Step 6: Initializing Agent Fabric");
 
     // Create a timeout promise
     const timeoutPromise = new Promise<SystemHealth>((_, reject) => {
       setTimeout(() => {
-        reject(new Error(`Agent health check timed out after ${agentCheckTimeout}ms`));
+        reject(
+          new Error(`Agent health check timed out after ${agentCheckTimeout}ms`)
+        );
       }, agentCheckTimeout);
     });
 
@@ -255,8 +280,10 @@ export async function bootstrap(
           retryAttempts: isDevelopment() ? 1 : 3, // Fewer retries in dev
           retryDelay: 500,
           onProgress: (status) => {
-            const icon = status.available ? '✅' : '❌';
-            const time = status.responseTime ? ` (${status.responseTime}ms)` : '';
+            const icon = status.available ? "✅" : "❌";
+            const time = status.responseTime
+              ? ` (${status.responseTime}ms)`
+              : "";
             logger.info(`   ${icon} ${status.agent}${time}`);
           },
         }),
@@ -264,13 +291,15 @@ export async function bootstrap(
       ]);
 
       if (!agentHealth.healthy) {
-        const warningMsg = `${agentHealth.unavailableAgents} of ${agentHealth.totalAgents} agents unavailable`;
+        const warningMsg = isDevelopment()
+          ? `${agentHealth.unavailableAgents} of ${agentHealth.totalAgents} agents unavailable (expected in dev if agent services not running)`
+          : `${agentHealth.unavailableAgents} of ${agentHealth.totalAgents} agents unavailable`;
         warnings.push(warningMsg);
         onWarning?.(warningMsg);
         logger.warn(`   ⚠️  ${warningMsg}`);
 
         if (failFast) {
-          errors.push('Agent Fabric not fully operational');
+          errors.push("Agent Fabric not fully operational");
           return {
             success: false,
             config,
@@ -281,10 +310,12 @@ export async function bootstrap(
           };
         }
       } else {
-        logger.info(`   ✅ All agents operational (avg ${agentHealth.averageResponseTime.toFixed(0)}ms)`);
+        logger.info(
+          `   ✅ All agents operational (avg ${agentHealth.averageResponseTime.toFixed(0)}ms)`
+        );
       }
     } catch (error) {
-      const errorMsg = `Agent initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      const errorMsg = `Agent initialization failed: ${error instanceof Error ? error.message : "Unknown error"}`;
       // In development, treat agent failures as warnings, not errors
       if (isDevelopment()) {
         warnings.push(errorMsg);
@@ -307,61 +338,64 @@ export async function bootstrap(
       }
     }
   } else {
-    logger.info('\n🤖 Step 6: Agent Fabric disabled or skipped');
+    const skipReason = isDevelopment()
+      ? "Agent Fabric health check skipped (fast startup in dev mode)"
+      : "Agent Fabric disabled or skipped";
+    logger.info(`\n🤖 Step 6: ${skipReason}`);
   }
 
   // Step 7: Database connection check
   if (config.database.url) {
-    onProgress?.('Checking database connection...');
-    logger.info('\n💾 Step 7: Database connection');
+    onProgress?.("Checking database connection...");
+    logger.info("\n💾 Step 7: Database connection");
     try {
       // TODO: Check database connection
       // await checkDatabaseConnection();
-      logger.info('   ⚠️  Database connection check not implemented yet');
-      warnings.push('Database connection check not implemented');
-      onWarning?.('Database connection check not implemented');
+      logger.info("   ⚠️  Database connection check not implemented yet");
+      warnings.push("Database connection check not implemented");
+      onWarning?.("Database connection check not implemented");
     } catch (error) {
-      const errorMsg = `Database connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      const errorMsg = `Database connection failed: ${error instanceof Error ? error.message : "Unknown error"}`;
       warnings.push(errorMsg);
       onWarning?.(errorMsg);
       logger.warn(`   ⚠️  ${errorMsg}`);
     }
   } else {
-    logger.info('\n💾 Step 7: Database not configured');
+    logger.info("\n💾 Step 7: Database not configured");
   }
 
   // Step 8: Cache initialization
   if (config.cache.enabled) {
-    onProgress?.('Initializing cache...');
-    logger.info('\n🗄️  Step 8: Cache initialization');
+    onProgress?.("Initializing cache...");
+    logger.info("\n🗄️  Step 8: Cache initialization");
     try {
       // TODO: Initialize Redis cache
       // await initializeCache(config.cache);
-      logger.info('   ⚠️  Cache initialization not implemented yet');
-      warnings.push('Cache initialization not implemented');
-      onWarning?.('Cache initialization not implemented');
+      logger.info("   ⚠️  Cache initialization not implemented yet");
+      warnings.push("Cache initialization not implemented");
+      onWarning?.("Cache initialization not implemented");
     } catch (error) {
-      const errorMsg = `Cache initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      const errorMsg = `Cache initialization failed: ${error instanceof Error ? error.message : "Unknown error"}`;
       warnings.push(errorMsg);
       onWarning?.(errorMsg);
       logger.warn(`   ⚠️  ${errorMsg}`);
     }
   } else {
-    logger.info('\n🗄️  Step 8: Cache disabled');
+    logger.info("\n🗄️  Step 8: Cache disabled");
   }
 
   // Calculate duration
   const duration = Date.now() - startTime;
 
   // Final summary
-  logger.debug('\n' + '='.repeat(50));
-  logger.info('🎉 Bootstrap Complete!');
-  logger.debug('='.repeat(50));
+  logger.debug("\n" + "=".repeat(50));
+  logger.info("🎉 Bootstrap Complete!");
+  logger.debug("=".repeat(50));
   logger.info(`Duration: ${duration}ms`);
   logger.info(`Errors: ${errors.length}`);
   logger.info(`Warnings: ${warnings.length}`);
-  logger.info(`Status: ${errors.length === 0 ? '✅ SUCCESS' : '❌ FAILED'}`);
-  logger.info('='.repeat(50) + '\n');
+  logger.info(`Status: ${errors.length === 0 ? "✅ SUCCESS" : "❌ FAILED"}`);
+  logger.info("=".repeat(50) + "\n");
 
   const success = errors.length === 0;
 
@@ -404,7 +438,7 @@ export async function bootstrapProduction(): Promise<BootstrapResult> {
  */
 export async function bootstrapDevelopment(): Promise<BootstrapResult> {
   return bootstrap({
-    skipAgentCheck: true,  // Skip agent checks in dev for fast startup
+    skipAgentCheck: true, // Skip agent checks in dev for fast startup
     failFast: false,
     onProgress: (message) => globalLogger.debug(`⏳ ${message}`),
     onWarning: (warning) => globalLogger.warn(`⚠️  ${warning}`),

@@ -72,17 +72,17 @@ RUN chmod +x start.sh
 USER valuecanvas
 
 # Expose port
-EXPOSE 5173
+EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:5173/ || exit 1
+    CMD curl -f http://localhost:3000/health || exit 1
 
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
 
 # Start application
-CMD ["npm", "run", "preview"]
+CMD ["npm", "run", "backend:start"]
 
 # ============================================================================
 # Metadata
