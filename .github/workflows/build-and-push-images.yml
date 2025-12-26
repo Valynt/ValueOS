@@ -6,23 +6,23 @@ on:
       - main
       - develop
     paths:
-      - 'src/**'
-      - 'infra/docker/**'
-      - 'package.json'
-      - 'Dockerfile'
+      - "src/**"
+      - "infra/docker/**"
+      - "package.json"
+      - "Dockerfile"
   pull_request:
     branches:
       - main
       - develop
     paths:
-      - 'src/**'
-      - 'infra/docker/**'
+      - "src/**"
+      - "infra/docker/**"
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Target environment'
+        description: "Target environment"
         required: true
-        default: 'staging'
+        default: "staging"
         type: choice
         options:
           - staging
@@ -39,13 +39,13 @@ jobs:
   build-frontend:
     name: Build Frontend Image
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: infra/docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v3
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -71,7 +71,7 @@ jobs:
           fi
 
       - name: Build and push Frontend image
-        uses: infra/docker/build-push-action@v5
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: ./infra/docker/frontend.Dockerfile
@@ -96,13 +96,13 @@ jobs:
   build-backend:
     name: Build Backend Image
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: infra/docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v3
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -128,7 +128,7 @@ jobs:
           fi
 
       - name: Build and push Backend image
-        uses: infra/docker/build-push-action@v5
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: ./infra/docker/backend.Dockerfile
@@ -149,11 +149,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-frontend, build-backend]
     if: github.event_name != 'pull_request'
-    
+
     strategy:
       matrix:
         component: [frontend, backend]
-    
+
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -180,15 +180,15 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ steps.login-ecr.outputs.registry }}/valuecanvas-${{ matrix.component }}:${{ steps.image-tag.outputs.tag }}
-          format: 'sarif'
-          output: 'trivy-results-${{ matrix.component }}.sarif'
-          severity: 'CRITICAL,HIGH'
+          format: "sarif"
+          output: "trivy-results-${{ matrix.component }}.sarif"
+          severity: "CRITICAL,HIGH"
 
       - name: Upload Trivy results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
-          sarif_file: 'trivy-results-${{ matrix.component }}.sarif'
+          sarif_file: "trivy-results-${{ matrix.component }}.sarif"
           category: trivy-${{ matrix.component }}
 
   notify:
@@ -196,7 +196,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-frontend, build-backend, scan-images]
     if: always() && github.event_name != 'pull_request'
-    
+
     steps:
       - name: Notify Slack on Success
         if: needs.build-frontend.result == 'success' && needs.build-backend.result == 'success'

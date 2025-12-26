@@ -19,23 +19,23 @@ jobs:
       - name: Set up Python/Node (language-specific)
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
-      
+          python-version: "3.11"
+
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
           pip install black flake8 pylint bandit
-      
+
       - name: Lint (Black)
         run: black --check --diff src/
-      
+
       - name: Code Analysis (Flake8)
         run: flake8 src/ --max-line-length=120 --extend-ignore=E203
-      
+
       - name: Security Scan (Bandit)
         run: bandit -r src/ -f json -o bandit-report.json
         continue-on-error: true
-      
+
       - name: SAST (Semgrep)
         uses: returntocorp/semgrep-action@v1
         with:
@@ -43,13 +43,13 @@ jobs:
             p/security-audit
             p/python
             p/owasp-top-ten
-      
+
       - name: Dependency Check (OWASP)
         run: |
           pip install safety
           safety check --json > dependency-report.json
         continue-on-error: true
-      
+
       - name: Upload security reports
         uses: actions/upload-artifact@v4
         if: always()
@@ -76,7 +76,7 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-      
+
       redis:
         image: redis:7-alpine
         options: >-
@@ -86,17 +86,17 @@ jobs:
           --health-retries 5
         ports:
           - 6379:6379
-    
+
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
-      
+          python-version: "3.11"
+
       - name: Install dependencies
         run: pip install -r requirements.txt pytest pytest-cov pytest-asyncio
-      
+
       - name: Run unit tests
         env:
           DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
@@ -108,7 +108,7 @@ jobs:
             --cov-report=html \
             --cov-fail-under=80 \
             -v
-      
+
       - name: Run integration tests
         env:
           DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
@@ -118,7 +118,7 @@ jobs:
             --cov=src/ \
             --cov-report=xml \
             -v
-      
+
       - name: Upload coverage
         uses: codecov/codecov-action@v3
         with:
@@ -134,20 +134,20 @@ jobs:
     permissions:
       contents: read
       packages: write
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
+
       - name: Log in to Container Registry
-        uses: infra/infra/docker/login-action@v3
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Extract metadata
         id: meta
         uses: infra/infra/docker/metadata-action@v4
@@ -157,7 +157,7 @@ jobs:
             type=ref,event=branch
             type=semver,pattern={{version}}
             type=sha,prefix={{branch}}-
-      
+
       - name: Build and push Docker image
         uses: infra/infra/docker/build-push-action@v4
         with:
@@ -174,18 +174,18 @@ jobs:
     if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     environment:
-      name: development
+      name: Development
       url: https://dev.app.example.com
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }}
           aws-region: us-east-1
-      
+
       - name: Deploy to ECS (Dev)
         run: |
           aws ecs update-service \
@@ -193,9 +193,9 @@ jobs:
             --service saas-app-service \
             --force-new-deployment \
             --region us-east-1
-      
+
       - name: Health check
-        run: | 
+        run: |
           bash infrastructure/scripts/health-check.sh dev
 
   # Stage 5: Deploy to Staging
@@ -206,27 +206,27 @@ jobs:
     environment:
       name: staging
       url: https://staging.app.example.com
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_STAGING }}
           aws-region: us-east-1
-      
+
       - name: Run schema migrations (Staging)
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         run: alembic upgrade head
-      
+
       - name: Run smoke tests (Staging)
         run: |
           pytest tests/smoke/ \
             --base-url https://staging.app.example.com \
             -v
-      
+
       - name: Deploy to ECS (Staging)
         run: |
           aws ecs update-service \
@@ -234,7 +234,7 @@ jobs:
             --service saas-app-service \
             --force-new-deployment \
             --region us-east-1
-      
+
       - name: Post-deployment validation
         run: bash infrastructure/scripts/health-check.sh staging
 
@@ -246,23 +246,23 @@ jobs:
     environment:
       name: production
       url: https://app.example.com
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_PROD }}
           aws-region: us-east-1
-      
+
       - name: Create production snapshot
         run: |
           aws rds create-db-snapshot \
             --db-instance-identifier saas-prod-db \
             --db-snapshot-identifier saas-prod-db-$(date +%s) \
             --region us-east-1
-      
+
       - name: Run schema migrations (Production, Blue-Green)
         env:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
@@ -270,7 +270,7 @@ jobs:
           # Deploy to green environment
           alembic upgrade head --sql > migration-plan.sql
           # Verify against production copy before actual migration
-      
+
       - name: Blue-Green Deployment
         run: |
           # Deploy new version to green (inactive) targets
@@ -280,22 +280,22 @@ jobs:
             --task-definition saas-app:${{ github.sha }} \
             --desired-count 3 \
             --region us-east-1
-          
+
           # Wait for health checks
           sleep 60
           bash infrastructure/scripts/health-check.sh prod-green
-          
+
           # Switch traffic (ALB target group swap)
           aws elbv2 modify-target-group \
             --target-group-arn ${{ secrets.PROD_ALB_TG_ARN }} \
             --matcher HttpCode=200-299
-      
+
       - name: Smoke tests (Production)
         run: |
           pytest tests/smoke/ \
             --base-url https://app.example.com \
             -v
-      
+
       - name: Rollback on failure
         if: failure()
         run: |
@@ -303,11 +303,11 @@ jobs:
           aws elbv2 modify-target-group \
             --target-group-arn ${{ secrets.PROD_ALB_TG_ARN }} \
             --matcher HttpCode=200-299
-          
+
           # Notify team
           curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
             -d '{"text": "Production deployment failed. Rollback executed."}'
-      
+
       - name: Notify deployment success
         if: success()
         run: |
@@ -319,7 +319,7 @@ jobs:
     needs: [deploy-dev, deploy-staging, deploy-production]
     if: always()
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Check CloudWatch alarms
         run: |
@@ -327,13 +327,13 @@ jobs:
             --alarm-name-prefix saas-prod \
             --state-value ALARM \
             --region us-east-1
-      
+
       - name: Generate deployment report
         run: |
           echo "Deployment completed for ${{ github.ref }}" >> deployment-report.md
           echo "Commit: ${{ github.sha }}" >> deployment-report.md
           echo "Time: $(date)" >> deployment-report.md
-      
+
       - name: Upload report
         uses: actions/upload-artifact@v4
         with:
