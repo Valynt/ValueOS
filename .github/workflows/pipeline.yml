@@ -150,7 +150,7 @@ jobs:
 
       - name: Extract metadata
         id: meta
-        uses: infra/infra/docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -159,7 +159,7 @@ jobs:
             type=sha,prefix={{branch}}-
 
       - name: Build and push Docker image
-        uses: infra/infra/docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: .
           push: true
@@ -174,7 +174,7 @@ jobs:
     if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     environment:
-      name: Development
+      name: development
       url: https://dev.app.example.com
 
     steps:
@@ -204,7 +204,7 @@ jobs:
     if: github.ref == 'refs/heads/staging'
     runs-on: ubuntu-latest
     environment:
-      name: staging
+      name: Staging
       url: https://staging.app.example.com
 
     steps:
