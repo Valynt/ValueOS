@@ -69,7 +69,7 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] text-white font-sans selection:bg-emerald-500/30">
+    <div className="min-h-screen flex items-center justify-center bg-vc-surface-1 text-white font-sans selection:bg-emerald-500/30">
       {/* Background Effects */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-500/10 rounded-full blur-[120px]" />
@@ -77,7 +77,7 @@ export function LoginPage() {
       </div>
 
       <div className="w-full max-w-[440px] z-10 p-6">
-        <div className="bg-[#111111] rounded-[32px] border border-white/5 shadow-2xl overflow-hidden relative">
+        <div className="bg-vc-surface-2 rounded-[32px] border border-white/5 shadow-2xl overflow-hidden relative">
           {/* Top/Bottom accents */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 h-[2px] w-24 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
           <div className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[2px] w-20 bg-gradient-to-r from-transparent via-white/5 to-transparent" />
@@ -85,7 +85,7 @@ export function LoginPage() {
           <div className="p-8 md:p-10">
             {/* Header Icon */}
             <div className="flex justify-center mb-8">
-              <div className="w-16 h-16 rounded-2xl bg-[#1a1a1a] border border-white/10 flex items-center justify-center shadow-inner relative group overflow-hidden">
+              <div className="w-16 h-16 rounded-2xl bg-vc-surface-3 border border-white/10 flex items-center justify-center shadow-inner relative group overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="text-emerald-500 relative z-10">
                   <svg
@@ -156,7 +156,7 @@ export function LoginPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-[#161616] border border-white/5 rounded-xl py-3.5 pl-11 pr-4 text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all shadow-inner"
+                    className="w-full bg-vc-surface-3 border border-white/5 rounded-xl py-3.5 pl-11 pr-4 text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all shadow-inner"
                     placeholder="you@studio.dev"
                     disabled={loading}
                   />
@@ -201,7 +201,7 @@ export function LoginPage() {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-[#161616] border border-white/5 rounded-xl py-3.5 pl-11 pr-12 text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all shadow-inner"
+                    className="w-full bg-vc-surface-3 border border-white/5 rounded-xl py-3.5 pl-11 pr-12 text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all shadow-inner"
                     placeholder="Enter your password"
                     disabled={loading}
                   />
@@ -245,7 +245,7 @@ export function LoginPage() {
                       required={showMFA}
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value)}
-                      className="w-full bg-[#161616] border border-white/5 rounded-xl py-3.5 pl-11 pr-4 text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all shadow-inner"
+                      className="w-full bg-vc-surface-3 border border-white/5 rounded-xl py-3.5 pl-11 pr-4 text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all shadow-inner"
                       placeholder="123456"
                       disabled={loading}
                       maxLength={6}
@@ -268,7 +268,7 @@ export function LoginPage() {
                 <div className="w-full border-t border-white/5"></div>
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-[#111111] px-2 text-gray-600">Or</span>
+                <span className="bg-vc-surface-2 px-2 text-gray-600">Or</span>
               </div>
             </div>
 
@@ -276,7 +276,7 @@ export function LoginPage() {
               <button
                 onClick={() => handleOAuthSignIn("google")}
                 disabled={loading || oauthLoading !== null}
-                className="flex items-center justify-center py-2.5 rounded-xl border border-white/10 bg-[#161616] hover:bg-[#1f1f1f] text-white transition-all hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center py-2.5 rounded-xl border border-white/10 bg-vc-surface-3 hover:bg-vc-surface-3/80 text-white transition-all hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {oauthLoading === "google" ? (
                   <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -294,7 +294,7 @@ export function LoginPage() {
               <button
                 onClick={() => handleOAuthSignIn("apple")}
                 disabled={loading || oauthLoading !== null}
-                className="flex items-center justify-center py-2.5 rounded-xl border border-white/10 bg-[#161616] hover:bg-[#1f1f1f] text-white transition-all hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center py-2.5 rounded-xl border border-white/10 bg-vc-surface-3 hover:bg-vc-surface-3/80 text-white transition-all hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {oauthLoading === "apple" ? (
                   <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -312,7 +312,7 @@ export function LoginPage() {
               <button
                 onClick={() => handleOAuthSignIn("github")}
                 disabled={loading || oauthLoading !== null}
-                className="flex items-center justify-center py-2.5 rounded-xl border border-white/10 bg-[#161616] hover:bg-[#1f1f1f] text-white transition-all hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center py-2.5 rounded-xl border border-white/10 bg-vc-surface-3 hover:bg-vc-surface-3/80 text-white transition-all hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {oauthLoading === "github" ? (
                   <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
