@@ -1,12 +1,11 @@
 {
   "name": "ValueCanvas",
-  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
 
   "features": {
     "ghcr.io/devcontainers/features/node:1": {
       "version": "20"
     },
-    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
 
@@ -22,7 +21,8 @@
 
   "postCreateCommand": "bash -c 'if ! command -v node &> /dev/null; then cd /tmp && curl -fsSL https://nodejs.org/dist/v20.19.6/node-v20.19.6-linux-x64.tar.gz -o node.tar.gz && tar -xzf node.tar.gz && sudo cp -r node-v20.19.6-linux-x64/* /usr/local/ && rm -rf node*; fi && npm install && npm run prepare'",
 
-  "forwardPorts": [5173, 3001, 54321, 8000, 16686, 9090],
+  "forwardPorts": [5173, 3001],
+  "mounts": ["type=secret,id=OPENAI_API_KEY"],
 
   "portsAttributes": {
     "5173": {
