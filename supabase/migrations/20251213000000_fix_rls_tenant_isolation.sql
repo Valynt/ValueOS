@@ -41,7 +41,7 @@ CREATE POLICY "tenant_isolation_select" ON agent_sessions
   USING (
     EXISTS (
       SELECT 1 FROM user_tenants
-      WHERE user_tenants.user_id = auth.uid()
+      WHERE user_tenants.user_id = (auth.uid())::text
         AND user_tenants.tenant_id = agent_sessions.tenant_id
     )
   );
@@ -52,7 +52,7 @@ CREATE POLICY "tenant_isolation_insert" ON agent_sessions
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM user_tenants
-      WHERE user_tenants.user_id = auth.uid()
+      WHERE user_tenants.user_id = (auth.uid())::text
         AND user_tenants.tenant_id = agent_sessions.tenant_id
     )
   );
@@ -63,14 +63,14 @@ CREATE POLICY "tenant_isolation_update" ON agent_sessions
   USING (
     EXISTS (
       SELECT 1 FROM user_tenants
-      WHERE user_tenants.user_id = auth.uid()
+      WHERE user_tenants.user_id = (auth.uid())::text
         AND user_tenants.tenant_id = agent_sessions.tenant_id
     )
   )
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM user_tenants
-      WHERE user_tenants.user_id = auth.uid()
+      WHERE user_tenants.user_id = (auth.uid())::text
         AND user_tenants.tenant_id = agent_sessions.tenant_id
     )
   );
@@ -81,7 +81,7 @@ CREATE POLICY "tenant_isolation_delete" ON agent_sessions
   USING (
     EXISTS (
       SELECT 1 FROM user_tenants
-      WHERE user_tenants.user_id = auth.uid()
+      WHERE user_tenants.user_id = (auth.uid())::text
         AND user_tenants.tenant_id = agent_sessions.tenant_id
     )
   );
@@ -102,7 +102,7 @@ CREATE POLICY "strict_tenant_isolation_select" ON agent_predictions
     tenant_id IS NOT NULL  -- Explicitly reject NULL
     AND EXISTS (
       SELECT 1 FROM user_tenants
-      WHERE user_tenants.user_id = auth.uid()
+      WHERE user_tenants.user_id = (auth.uid())::text
         AND user_tenants.tenant_id = agent_predictions.tenant_id
     )
   );
@@ -113,7 +113,7 @@ CREATE POLICY "strict_tenant_isolation_insert" ON agent_predictions
     tenant_id IS NOT NULL  -- Explicitly reject NULL
     AND EXISTS (
       SELECT 1 FROM user_tenants
-      WHERE user_tenants.user_id = auth.uid()
+      WHERE user_tenants.user_id = (auth.uid())::text
         AND user_tenants.tenant_id = agent_predictions.tenant_id
     )
   );
@@ -124,7 +124,7 @@ CREATE POLICY "strict_tenant_isolation_update" ON agent_predictions
     tenant_id IS NOT NULL
     AND EXISTS (
       SELECT 1 FROM user_tenants
-      WHERE user_tenants.user_id = auth.uid()
+      WHERE user_tenants.user_id = (auth.uid())::text
         AND user_tenants.tenant_id = agent_predictions.tenant_id
     )
   )
@@ -132,7 +132,7 @@ CREATE POLICY "strict_tenant_isolation_update" ON agent_predictions
     tenant_id IS NOT NULL
     AND EXISTS (
       SELECT 1 FROM user_tenants
-      WHERE user_tenants.user_id = auth.uid()
+      WHERE user_tenants.user_id = (auth.uid())::text
         AND user_tenants.tenant_id = agent_predictions.tenant_id
     )
   );
@@ -143,22 +143,68 @@ CREATE POLICY "strict_tenant_isolation_update" ON agent_predictions
 
 -- Add NOT NULL constraint to agent_predictions
 -- This prevents attackers from inserting NULL tenant_id to bypass RLS
-ALTER TABLE agent_predictions 
-  ALTER COLUMN tenant_id SET NOT NULL;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'agent_predictions'
+  ) THEN
+    ALTER TABLE agent_predictions ALTER COLUMN tenant_id SET NOT NULL;
+    RAISE NOTICE 'Set NOT NULL on agent_predictions.tenant_id';
+  END IF;
+END $$;
 
 -- Add NOT NULL constraint to agent_sessions
-ALTER TABLE agent_sessions
-  ALTER COLUMN tenant_id SET NOT NULL;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'agent_sessions'
+  ) THEN
+    ALTER TABLE agent_sessions ALTER COLUMN tenant_id SET NOT NULL;
+    RAISE NOTICE 'Set NOT NULL on agent_sessions.tenant_id';
+  END IF;
+END $$;
 
--- Add NOT NULL constraint to other critical tables
-ALTER TABLE workflow_executions
-  ALTER COLUMN tenant_id SET NOT NULL;
+-- Add NOT NULL constraint to workflow_executions
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'workflow_executions'
+  ) THEN
+    ALTER TABLE workflow_executions ALTER COLUMN tenant_id SET NOT NULL;
+    RAISE NOTICE 'Set NOT NULL on workflow_executions.tenant_id';
+  END IF;
+END $$;
 
-ALTER TABLE canvas_data
-  ALTER COLUMN tenant_id SET NOT NULL;
+-- Add NOT NULL constraint to canvas_data (if exists)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'canvas_data'
+  ) THEN
+    ALTER TABLE canvas_data ALTER COLUMN tenant_id SET NOT NULL;
+    RAISE NOTICE 'Set NOT NULL on canvas_data.tenant_id';
+  ELSE
+    RAISE NOTICE 'Table canvas_data does not exist - skipping NOT NULL constraint';
+  END IF;
+END $$;
 
-ALTER TABLE value_trees
-  ALTER COLUMN tenant_id SET NOT NULL;
+-- Add NOT NULL constraint to value_trees (if exists)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'value_trees'
+  ) THEN
+    ALTER TABLE value_trees ALTER COLUMN tenant_id SET NOT NULL;
+    RAISE NOTICE 'Set NOT NULL on value_trees.tenant_id';
+  ELSE
+    RAISE NOTICE 'Table value_trees does not exist - skipping NOT NULL constraint';
+  END IF;
+END $$;
 
 -- ============================================================================
 -- 4. CREATE: Security Audit Triggers
@@ -183,9 +229,10 @@ CREATE POLICY "admin_only_select" ON security_audit_log
   FOR SELECT
   USING (
     EXISTS (
-      SELECT 1 FROM user_roles
-      WHERE user_roles.user_id = auth.uid()
-        AND user_roles.role = 'admin'
+      SELECT 1 FROM user_roles ur
+      JOIN roles r ON ur.role_id = r.id
+      WHERE ur.user_id = (auth.uid())::text
+        AND r.name IN ('admin', 'security_admin', 'system_admin')
     )
   );
 
@@ -204,7 +251,7 @@ BEGIN
       severity
     ) VALUES (
       'tenant_id_null_violation',
-      auth.uid(),
+      (auth.uid())::text,
       NULL,
       jsonb_build_object(
         'table', TG_TABLE_NAME,
@@ -221,7 +268,7 @@ BEGIN
   -- Validate user has access to this tenant
   IF NOT EXISTS (
     SELECT 1 FROM user_tenants
-    WHERE user_tenants.user_id = auth.uid()
+    WHERE user_tenants.user_id = (auth.uid())::text
       AND user_tenants.tenant_id = NEW.tenant_id
   ) THEN
     -- Log unauthorized access attempt
@@ -233,7 +280,7 @@ BEGIN
       severity
     ) VALUES (
       'unauthorized_tenant_access',
-      auth.uid(),
+      (auth.uid())::text,
       NEW.tenant_id,
       jsonb_build_object(
         'table', TG_TABLE_NAME,
@@ -244,7 +291,7 @@ BEGIN
     );
     
     RAISE EXCEPTION 'SECURITY VIOLATION: User % does not have access to tenant %', 
-      auth.uid(), NEW.tenant_id;
+      (auth.uid())::text, NEW.tenant_id;
   END IF;
   
   RETURN NEW;
@@ -274,20 +321,25 @@ CREATE TRIGGER enforce_tenant_access_workflow_executions
 -- 5. CREATE: Monitoring View for Security Team
 -- ============================================================================
 
-CREATE OR REPLACE VIEW security_violations AS
-SELECT 
-  event_type,
-  user_id,
-  tenant_id,
-  details,
-  severity,
-  created_at
-FROM security_audit_log
-WHERE severity IN ('error', 'critical')
-ORDER BY created_at DESC;
+-- SKIPPED: security_violations view creation
+-- The security_audit_log table exists but has a different schema than expected
+-- This view can be created manually if needed based on the actual table schema
 
--- Grant access to security team
-GRANT SELECT ON security_violations TO authenticated;
+DO $$
+BEGIN
+  RAISE NOTICE 'Skipped security_violations view - schema mismatch with existing table';
+END $$;
+
+-- Grant access to security team (if view exists from another migration)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.views
+    WHERE table_schema = 'public' AND table_name = 'security_violations'
+  ) THEN
+    GRANT SELECT ON security_violations TO authenticated;
+  END IF;
+END $$;
 
 -- ============================================================================
 -- 6. VERIFICATION: Test RLS Policies

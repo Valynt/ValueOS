@@ -3,11 +3,15 @@
  * Provides rate limiting for client-side API calls and user actions
  */
 
-import { createLogger } from '../lib/logger';
+import { createLogger } from "../lib/logger";
+import { rateLimitService, RateLimitConfig } from "./RateLimitService";
 
-const logger = createLogger({ component: 'ClientRateLimit' });
+const logger = createLogger({ component: "ClientRateLimit" });
 
-export interface ClientRateLimitOptions extends Omit<RateLimitConfig, 'handler'> {
+export interface ClientRateLimitOptions extends Omit<
+  RateLimitConfig,
+  "handler"
+> {
   onLimitExceeded?: (key: string, result: any) => void;
   onLimitWarning?: (key: string, remaining: number) => void;
   warningThreshold?: number; // Warn when remaining requests <= this number
@@ -31,7 +35,7 @@ export class ClientRateLimit {
    */
   registerLimit(key: string, options: ClientRateLimitOptions): void {
     this.limits.set(key, options);
-    logger.debug('Rate limit registered', { key, options });
+    logger.debug("Rate limit registered", { key, options });
   }
 
   /**
@@ -46,7 +50,11 @@ export class ClientRateLimit {
     const result = rateLimitService.checkLimit(key, options);
 
     // Check for warnings
-    if (options.onLimitWarning && options.warningThreshold && result.remaining <= options.warningThreshold) {
+    if (
+      options.onLimitWarning &&
+      options.warningThreshold &&
+      result.remaining <= options.warningThreshold
+    ) {
       options.onLimitWarning(key, result.remaining);
     }
 
@@ -69,11 +77,11 @@ export class ClientRateLimit {
 
     if (!allowed) {
       if (fallback) {
-        logger.warn('Rate limit exceeded, using fallback', { key });
+        logger.warn("Rate limit exceeded, using fallback", { key });
         return fallback();
       }
 
-      logger.error('Rate limit exceeded, action blocked', { key });
+      logger.error("Rate limit exceeded, action blocked", { key });
       throw new Error(`Rate limit exceeded for action: ${key}`);
     }
 
@@ -95,7 +103,7 @@ export class ClientRateLimit {
    */
   resetLimit(key: string): void {
     rateLimitService.resetKey(key);
-    logger.debug('Rate limit reset', { key });
+    logger.debug("Rate limit reset", { key });
   }
 }
 
@@ -105,67 +113,76 @@ export const clientRateLimit = ClientRateLimit.getInstance();
 // Pre-configured client-side rate limiters
 export const setupDefaultRateLimits = (): void => {
   // API calls - 100 per 15 minutes
-  clientRateLimit.registerLimit('api-calls', {
+  clientRateLimit.registerLimit("api-calls", {
     windowMs: 15 * 60 * 1000, // 15 minutes
     maxRequests: 100,
     warningThreshold: 10,
     onLimitWarning: (key, remaining) => {
-      logger.warn(`API rate limit warning: ${remaining} requests remaining`, { key });
+      logger.warn(`API rate limit warning: ${remaining} requests remaining`, {
+        key,
+      });
       // Could trigger UI notification here
     },
     onLimitExceeded: (key) => {
-      logger.error('API rate limit exceeded', { key });
+      logger.error("API rate limit exceeded", { key });
       // Could trigger error modal or redirect
     },
   });
 
   // Authentication attempts - 5 per 15 minutes
-  clientRateLimit.registerLimit('auth-attempts', {
+  clientRateLimit.registerLimit("auth-attempts", {
     windowMs: 15 * 60 * 1000, // 15 minutes
     maxRequests: 5,
     warningThreshold: 1,
     onLimitWarning: (key, remaining) => {
-      logger.warn(`Auth rate limit warning: ${remaining} attempts remaining`, { key });
+      logger.warn(`Auth rate limit warning: ${remaining} attempts remaining`, {
+        key,
+      });
     },
     onLimitExceeded: (key) => {
-      logger.error('Auth rate limit exceeded', { key });
+      logger.error("Auth rate limit exceeded", { key });
     },
   });
 
   // LLM API calls - 50 per hour
-  clientRateLimit.registerLimit('llm-calls', {
+  clientRateLimit.registerLimit("llm-calls", {
     windowMs: 60 * 60 * 1000, // 1 hour
     maxRequests: 50,
     warningThreshold: 5,
     onLimitWarning: (key, remaining) => {
-      logger.warn(`LLM rate limit warning: ${remaining} calls remaining`, { key });
+      logger.warn(`LLM rate limit warning: ${remaining} calls remaining`, {
+        key,
+      });
     },
     onLimitExceeded: (key) => {
-      logger.error('LLM rate limit exceeded', { key });
+      logger.error("LLM rate limit exceeded", { key });
     },
   });
 
   // File uploads - 10 per hour
-  clientRateLimit.registerLimit('file-uploads', {
+  clientRateLimit.registerLimit("file-uploads", {
     windowMs: 60 * 60 * 1000, // 1 hour
     maxRequests: 10,
     warningThreshold: 2,
     onLimitWarning: (key, remaining) => {
-      logger.warn(`File upload rate limit warning: ${remaining} uploads remaining`, { key });
+      logger.warn(
+        `File upload rate limit warning: ${remaining} uploads remaining`,
+        { key }
+      );
     },
     onLimitExceeded: (key) => {
-      logger.error('File upload rate limit exceeded', { key });
+      logger.error("File upload rate limit exceeded", { key });
     },
   });
 
   // WebSocket connections - 20 per minute
-  clientRateLimit.registerLimit('websocket-connections', {
+  clientRateLimit.registerLimit("websocket-connections", {
     windowMs: 60 * 1000, // 1 minute
     maxRequests: 20,
     onLimitExceeded: (key) => {
-      logger.error('WebSocket connection rate limit exceeded', { key });
+      logger.error("WebSocket connection rate limit exceeded", { key });
     },
   });
 
-  logger.info('Default client-side rate limits configured');
+  logger.info("Default client-side rate limits configured");
 };
