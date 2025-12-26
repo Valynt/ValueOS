@@ -1,26 +1,52 @@
 /**
  * Agent Query Service
- * 
+ *
  * CRITICAL FIX: Stateless service layer for agent queries
- * 
+ *
  * This service orchestrates:
  * 1. Session management (via WorkflowStateRepository)
  * 2. Query processing (via UnifiedAgentOrchestrator)
  * 3. State persistence
  * 4. Trace ID generation for observability
- * 
+ *
  * Usage:
  *   const service = new AgentQueryService(supabase);
  *   const result = await service.handleQuery(query, userId, sessionId);
  */
 
-import { SupabaseClient } from '@supabase/supabase-js';
-import { v4 as uuidv4 } from 'uuid';
-import { logger } from '../lib/logger';
-import { WorkflowStateRepository } from '../repositories/WorkflowStateRepository';
-import { AgentResponse, getUnifiedOrchestrator, UnifiedAgentOrchestrator } from './UnifiedAgentOrchestrator';
-import { sanitizeInput } from '../security/InputSanitizer';
-import { ExecutionRequest, normalizeExecutionRequest } from '../types/execution';
+import { SupabaseClient } from "@supabase/supabase-js";
+import { v4 as uuidv4 } from "uuid";
+/**
+ * Agent Query Service
+ *
+ * CRITICAL FIX: Stateless service layer for agent queries
+ *
+ * This service orchestrates:
+ * 1. Session management (via WorkflowStateRepository)
+ * 2. Query processing (via UnifiedAgentOrchestrator)
+ * 3. State persistence
+ * 4. Trace ID generation for observability
+ *
+ * Usage:
+ *   const service = new AgentQueryService(supabase);
+ *   const result = await service.handleQuery(query, userId, sessionId);
+ */
+
+import { SupabaseClient } from "@supabase/supabase-js";
+import { v4 as uuidv4 } from "uuid";
+import { logger } from "../lib/logger";
+import { WorkflowStateRepository } from "../repositories/WorkflowStateRepository";
+import {
+  AgentResponse,
+  getUnifiedOrchestrator,
+  UnifiedAgentOrchestrator,
+} from "./UnifiedAgentOrchestrator";
+import { sanitizeInput } from "../security/InputSanitizer";
+import {
+  ExecutionRequest,
+  normalizeExecutionRequest,
+} from "../types/execution";
+import { CircuitBreakerError, TimeoutError } from "./errors";
 
 export interface QueryResult {
   sessionId: string;
@@ -40,9 +66,11 @@ export interface QueryOptions {
   execution?: ExecutionRequest;
 }
 
+import { agentQueryLatency } from "../lib/monitoring/metrics";
+
 /**
  * Agent Query Service
- * 
+ *
  * Provides stateless query handling with database-backed state persistence
  */
 export class AgentQueryService {
@@ -56,7 +84,7 @@ export class AgentQueryService {
 
   /**
    * Handle a user query
-   * 
+   *
    * @param query User query
    * @param userId User identifier
    * @param sessionId Optional session ID (creates new if not provided)
@@ -69,10 +97,11 @@ export class AgentQueryService {
     sessionId?: string,
     options: QueryOptions = {}
   ): Promise<QueryResult> {
+    const startTime = Date.now();
     // Generate trace ID for observability
     const traceId = uuidv4();
 
-    logger.info('Handling query', {
+    logger.info("Handling query", {
       traceId,
       userId,
       sessionId,
@@ -81,12 +110,12 @@ export class AgentQueryService {
 
     try {
       // 1. Sanitize input (unless explicitly skipped)
-      const sanitizedQuery = options.skipSanitization 
-        ? query 
+      const sanitizedQuery = options.skipSanitization
+        ? query
         : sanitizeInput(query);
 
       if (sanitizedQuery !== query) {
-        logger.warn('Input sanitized', {
+        logger.warn("Input sanitized", {
           traceId,
           originalLength: query.length,
           sanitizedLength: sanitizedQuery.length,
@@ -100,9 +129,9 @@ export class AgentQueryService {
       if (currentSessionId) {
         // Existing session
         currentState = await this.stateRepo.getState(currentSessionId);
-        
+
         if (!currentState) {
-          logger.warn('Session not found, creating new session', {
+          logger.warn("Session not found, creating new session", {
             traceId,
             requestedSessionId: currentSessionId,
           });
@@ -111,22 +140,28 @@ export class AgentQueryService {
       }
 
       const executionRequest: ExecutionRequest = options.execution || {
-        intent: 'FullValueAnalysis',
-        environment: 'production',
+        intent: "FullValueAnalysis",
+        environment: "production",
       };
-      const normalizedExecution = normalizeExecutionRequest('agent-query', executionRequest);
+      const normalizedExecution = normalizeExecutionRequest(
+        "agent-query",
+        executionRequest
+      );
 
       if (!currentSessionId) {
         // Create new session
         const initialState = this.orchestrator.createInitialState(
-          options.initialStage || 'discovery',
+          options.initialStage || "discovery",
           normalizedExecution
         );
 
-        currentSessionId = await this.stateRepo.createSession(userId, initialState);
+        currentSessionId = await this.stateRepo.createSession(
+          userId,
+          initialState
+        );
         currentState = initialState;
 
-        logger.info('New session created', {
+        logger.info("New session created", {
           traceId,
           sessionId: currentSessionId,
           initialStage: initialState.currentStage,
@@ -135,11 +170,11 @@ export class AgentQueryService {
 
       // 3. Process query (stateless)
       const envelope = {
-        intent: 'agent-query',
+        intent: "agent-query",
         actor: { id: userId },
-        organizationId: options.initialContext?.organizationId || 'unknown',
-        entryPoint: 'agent-query-service',
-        reason: 'interactive-query',
+        organizationId: options.initialContext?.organizationId || "unknown",
+        entryPoint: "agent-query-service",
+        reason: "interactive-query",
         timestamps: { requestedAt: new Date().toISOString() },
       } as const;
       const result = await this.orchestrator.processQuery(
@@ -158,18 +193,22 @@ export class AgentQueryService {
       if (this.orchestrator.isWorkflowComplete(result.nextState)) {
         await this.stateRepo.updateSessionStatus(
           currentSessionId,
-          result.nextState.status === 'error' ? 'error' : 'completed'
+          result.nextState.status === "error" ? "error" : "completed"
         );
       }
 
       // 6. Calculate progress
       const progress = this.orchestrator.getProgress(result.nextState);
 
-      logger.info('Query handled successfully', {
+      const durationSeconds = (Date.now() - startTime) / 1000;
+      agentQueryLatency.labels({ status: "success", model: "standard" }).observe(durationSeconds);
+
+      logger.info("Query handled successfully", {
         traceId,
         sessionId: currentSessionId,
         progress,
         nextStage: result.nextState.currentStage,
+        durationSeconds
       });
 
       return {
@@ -179,21 +218,33 @@ export class AgentQueryService {
         progress,
       };
     } catch (error) {
-      logger.error('Error handling query', error instanceof Error ? error : undefined, {
-        traceId,
-        userId,
-        sessionId,
-      });
+       const durationSeconds = (Date.now() - startTime) / 1000;
+       agentQueryLatency.labels({ status: "error", model: "standard" }).observe(durationSeconds);
+
+      logger.error(
+        "Error handling query",
+        error instanceof Error ? error : undefined,
+        {
+          traceId,
+          userId,
+          sessionId,
+          durationSeconds
+        }
+      );
 
       // Increment error count if session exists
       if (sessionId) {
         try {
           await this.stateRepo.incrementErrorCount(sessionId);
         } catch (err) {
-          logger.error('Failed to increment error count', err instanceof Error ? err : undefined, {
-            traceId,
-            sessionId,
-          });
+          logger.error(
+            "Failed to increment error count",
+            err instanceof Error ? err : undefined,
+            {
+              traceId,
+              sessionId,
+            }
+          );
         }
       }
 
@@ -203,7 +254,7 @@ export class AgentQueryService {
 
   /**
    * Get session information
-   * 
+   *
    * @param sessionId Session identifier
    * @returns Session data or null if not found
    */
@@ -213,7 +264,7 @@ export class AgentQueryService {
 
   /**
    * Get active sessions for a user
-   * 
+   *
    * @param userId User identifier
    * @param limit Maximum number of sessions
    * @returns Array of session data
@@ -224,21 +275,60 @@ export class AgentQueryService {
 
   /**
    * Abandon a session
-   * 
+   *
    * @param sessionId Session identifier
    */
   async abandonSession(sessionId: string): Promise<void> {
-    await this.stateRepo.updateSessionStatus(sessionId, 'abandoned');
-    logger.info('Session abandoned', { sessionId });
+    await this.stateRepo.updateSessionStatus(sessionId, "abandoned");
+    logger.info("Session abandoned", { sessionId });
   }
 
   /**
    * Cleanup old sessions
-   * 
+   *
    * @param olderThanDays Delete sessions older than this many days
    * @returns Number of sessions deleted
    */
   async cleanupOldSessions(olderThanDays: number = 30): Promise<number> {
     return await this.stateRepo.cleanupOldSessions(olderThanDays);
+  }
+}
+  /**
+   * Query an agent with timeout and abort logic
+   *
+   * @param prompt User prompt
+   * @param options Query options
+   * @returns Agent response
+   */
+  async queryAgent(prompt: string, options: any = {}): Promise<any> {
+    const controller = new AbortController();
+    const { signal } = controller;
+    const timeout = 30000;
+
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, timeout);
+
+    try {
+      const response = await fetch("/api/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, tenantId: options.tenantId }),
+        signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      if (error.name === "AbortError") {
+        throw new TimeoutError("The request timed out after 30 seconds.");
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 }

@@ -4,7 +4,7 @@
 # Production deployment with security hardening and monitoring
 # ============================================================================
 
-version: '3.8'
+version: "3.8"
 
 services:
   # ============================================================================
@@ -18,7 +18,8 @@ services:
     image: valuecanvas:latest
     container_name: valuecanvas-prod
     ports:
-      - "5173:5173"
+    expose:
+      - "3000"
     environment:
       - NODE_ENV=production
       # Supabase (use production values)
@@ -35,7 +36,7 @@ services:
       - valuecanvas-network
     restart: always
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5173"]
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -43,10 +44,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
+          cpus: "2"
           memory: 2G
         reservations:
-          cpus: '1'
+          cpus: "1"
           memory: 1G
     logging:
       driver: "json-file"
@@ -86,7 +87,15 @@ services:
         condition: service_healthy
     restart: always
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://localhost/health",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -94,10 +103,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
+          cpus: "1.0"
           memory: 512M
         reservations:
-          cpus: '0.25'
+          cpus: "0.25"
           memory: 128M
     security_opt:
       - no-new-privileges:true

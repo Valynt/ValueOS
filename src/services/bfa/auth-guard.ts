@@ -1,13 +1,13 @@
 /**
  * Backend for Agents (BFA) Authorization Guard
- * 
+ *
  * Centralized permission enforcement for semantic tools.
  * Provides RBAC checks and audit logging for all BFA operations.
  */
 
-import { AgentContext, AuthorizationError, AuthPolicy } from './types';
-import { toolRegistry } from './registry';
-import { logger } from '../logging';
+import { AgentContext, AuthorizationError, AuthPolicy } from "./types";
+import { toolRegistry } from "./registry";
+import { logger } from "../../lib/logger";
 
 /**
  * Authorization guard for enforcing access control
@@ -22,20 +22,17 @@ export class AuthGuard {
   ): Promise<void> {
     const tool = toolRegistry.get(toolId);
     if (!tool) {
-      throw new AuthorizationError(
-        `Tool '${toolId}' not found`,
-        []
-      );
+      throw new AuthorizationError(`Tool '${toolId}' not found`, []);
     }
 
     // Check basic permissions
     if (!toolRegistry.canUse(toolId, context)) {
-      logger.warn('Authorization denied for tool execution', {
+      logger.warn("Authorization denied for tool execution", {
         toolId,
         userId: context.userId,
         tenantId: context.tenantId,
         requiredPermissions: tool.policy.requiredPermissions || [],
-        userPermissions: context.permissions
+        userPermissions: context.permissions,
       });
 
       throw new AuthorizationError(
@@ -61,40 +58,41 @@ export class AuthGuard {
 
     const tool = toolRegistry.get<TInput, TOutput>(toolId);
     if (!tool) {
-      throw new AuthorizationError(
-        `Tool '${toolId}' not found`,
-        []
-      );
+      throw new AuthorizationError(`Tool '${toolId}' not found`, []);
     }
 
     // Log the execution attempt
-    logger.info('Executing semantic tool with authorization', {
+    logger.info("Executing semantic tool with authorization", {
       toolId,
       userId: context.userId,
       tenantId: context.tenantId,
       resource: tool.policy.resource,
-      action: tool.policy.action
+      action: tool.policy.action,
     });
 
     try {
       const result = await tool.execute(input, context);
-      
+
       // Log successful execution
-      logger.info('Semantic tool executed successfully', {
+      logger.info("Semantic tool executed successfully", {
         toolId,
         userId: context.userId,
         tenantId: context.tenantId,
-        executionTimeMs: Date.now() - context.requestTime.getTime()
+        executionTimeMs: Date.now() - context.requestTime.getTime(),
       });
 
       return result;
     } catch (error) {
       // Log execution failure
-      logger.error('Semantic tool execution failed', error instanceof Error ? error : undefined, {
-        toolId,
-        userId: context.userId,
-        tenantId: context.tenantId
-      });
+      logger.error(
+        "Semantic tool execution failed",
+        error instanceof Error ? error : undefined,
+        {
+          toolId,
+          userId: context.userId,
+          tenantId: context.tenantId,
+        }
+      );
 
       throw error;
     }
@@ -109,7 +107,6 @@ export class AuthGuard {
   ): Promise<void> {
     // Add tenant-specific checks here
     // For example: check if tenant is active, has sufficient quota, etc.
-    
     // Placeholder for future business logic validations
     // This could include:
     // - Tenant status checks
@@ -122,7 +119,9 @@ export class AuthGuard {
   /**
    * Get available tools for a user
    */
-  static getAvailableTools(context: AgentContext): Array<{ id: string; description: string }> {
+  static getAvailableTools(
+    context: AgentContext
+  ): Array<{ id: string; description: string }> {
     return toolRegistry.getAvailableTools(context);
   }
 
@@ -136,14 +135,24 @@ export class AuthGuard {
   /**
    * Check if user has any of the specified permissions
    */
-  static hasAnyPermission(permissions: string[], context: AgentContext): boolean {
-    return permissions.some(permission => context.permissions.includes(permission));
+  static hasAnyPermission(
+    permissions: string[],
+    context: AgentContext
+  ): boolean {
+    return permissions.some((permission) =>
+      context.permissions.includes(permission)
+    );
   }
 
   /**
    * Check if user has all specified permissions
    */
-  static hasAllPermissions(permissions: string[], context: AgentContext): boolean {
-    return permissions.every(permission => context.permissions.includes(permission));
+  static hasAllPermissions(
+    permissions: string[],
+    context: AgentContext
+  ): boolean {
+    return permissions.every((permission) =>
+      context.permissions.includes(permission)
+    );
   }
 }

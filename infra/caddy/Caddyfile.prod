@@ -71,8 +71,30 @@ app.valuecanvas.com {
         max_size 50MB
     }
     
-    # Reverse proxy to production app
-    reverse_proxy app:5173 {
+    # Backend API - Proxying to app:3000
+    handle /api/* {
+        reverse_proxy app:3000
+    }
+
+    # WebSocket Support for SDUI
+    handle /ws/* {
+        reverse_proxy app:3000 {
+            header_up Upgrade {>Upgrade}
+            header_up Connection {>Connection}
+        }
+    }
+
+    # Access Logging
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 10MB
+            roll_keep 3
+        }
+        format json
+    }
+    # Gzip Compression
+    encode gzip
+    reverse_proxy app:3000 {
         # Health check configuration
         health_uri /health
         health_interval 30s
@@ -136,8 +158,8 @@ app.valuecanvas.com {
         # Clickjacking protection
         X-Frame-Options "SAMEORIGIN"
         
-        # Content Security Policy - Production
-        Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' wss://app.valuecanvas.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self';"
+        # Content Security Policy - Production Hardened
+        Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' wss://app.valuecanvas.com https://*.supabase.co https://api.together.xyz https://api.openai.com https://api.pwnedpasswords.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self';"
         
         # Referrer Policy
         Referrer-Policy "strict-origin-when-cross-origin"
