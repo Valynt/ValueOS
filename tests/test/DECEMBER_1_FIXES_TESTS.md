@@ -116,7 +116,7 @@ npm run test:watch
 
 ### 4. CSP Update for Password Breach API
 - Added `https://api.pwnedpasswords.com` to CSP connect-src
-- Updated in `index.html` and `index.production.html`
+- Updated in `public/public/index.html` and `index.production.html`
 - Updated security configuration files
 - Maintained strict security while allowing breach checking
 
@@ -130,7 +130,7 @@ All tests should pass after the fixes. If any fail:
 
 2. **CSP tests fail?**
    - Hard refresh browser (`Ctrl+Shift+R`)
-   - Check `index.html` has updated CSP
+   - Check `public/public/index.html` has updated CSP
 
 3. **Dev container tests fail?**
    - Verify Docker Compose files exist

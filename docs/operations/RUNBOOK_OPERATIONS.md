@@ -11,7 +11,7 @@ This runbook provides day-2 operational guidance for the ValueCanvas platform, c
 1. **Pre-flight**: Ensure `.env` contains `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; LLM keys must be configured in the server/edge runtime (e.g., Supabase function `llm-proxy`).
 2. **Build**: `npm ci && npm run build` (artifacts emitted to `dist/`).
 3. **Smoke test**: `npm run preview -- --host 0.0.0.0 --port 4173` and validate `/documentation` renders.
-4. **Deploy**: Upload `dist/` to the CDN/edge host (e.g., Vercel/Netlify) with cache invalidation on `index.html` and `assets/*`.
+4. **Deploy**: Upload `dist/` to the CDN/edge host (e.g., Vercel/Netlify) with cache invalidation on `public/public/index.html` and `assets/*`.
 5. **Post-deploy**: Run synthetic check hitting `/` and `/documentation` to confirm UI hydration and documentation search bar load.
 
 ### Agent Fabric & Lifecycle Services

@@ -350,7 +350,7 @@ Secret: api_keys
 
 1. **Deploy to Staging**
    ```bash
-   kubectl apply -f kubernetes/secrets/ -n staging
+   kubectl apply -f infra/infra/k8s/secrets/ -n staging
    ```
 
 2. **Run Full Test Suite**

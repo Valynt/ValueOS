@@ -88,7 +88,7 @@ jobs:
 
       - name: Update image tags in kustomization
         run: |
-          cd k8s/overlays/staging
+          cd infra/infra/k8s/overlays/staging
           IMAGE_TAG=${{ github.event.inputs.image_tag || 'develop' }}
           ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
           
@@ -98,7 +98,7 @@ jobs:
 
       - name: Deploy to staging
         run: |
-          cd k8s/overlays/staging
+          cd infra/infra/k8s/overlays/staging
           kustomize build . | kubectl apply -f -
 
       - name: Wait for rollout
@@ -210,7 +210,7 @@ jobs:
 
       - name: Update image tags in kustomization
         run: |
-          cd k8s/overlays/production
+          cd infra/infra/k8s/overlays/production
           IMAGE_TAG=${{ github.event.inputs.image_tag || 'latest' }}
           ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
           
@@ -220,7 +220,7 @@ jobs:
 
       - name: Deploy to production
         run: |
-          cd k8s/overlays/production
+          cd infra/infra/k8s/overlays/production
           kustomize build . | kubectl apply -f -
 
       - name: Wait for rollout

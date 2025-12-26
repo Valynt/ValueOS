@@ -55,7 +55,7 @@ ValueCanvas supports multiple deployment strategies:
 
 ### Required Software
 
-- **Docker**: 24.0+ ([Install Docker](https://docs.docker.com/get-docker/))
+- **Docker**: 24.0+ ([Install Docker](https://docs.docker.com/get-infra/infra/docker/))
 - **Docker Compose**: 2.20+ (included with Docker Desktop)
 - **Node.js**: 20+ (for local development without Docker)
 - **Git**: Latest version
@@ -368,7 +368,7 @@ az container create \
 
 ### Kubernetes Deployment
 
-See [infrastructure/kubernetes/README.md](./infrastructure/kubernetes/README.md) for Kubernetes manifests.
+See [infrastructure/infra/infra/k8s/README.md](infra/infra/k8s/README.md) for Kubernetes manifests.
 
 ---
 
@@ -442,7 +442,7 @@ Ensure the application stack and observability services share the same Docker ne
 docker network create valuecanvas-network || true
 
 # Start the production stack (uses valuecanvas-network)
-docker-compose -f docker/prod/docker-compose.yml up -d
+docker-compose -f infra/infra/docker/prod/docker-compose.yml up -d
 
 # Start monitoring (Prometheus, Grafana, Jaeger, OTEL collector)
 docker-compose -f infrastructure/docker-compose.observability.yml up -d

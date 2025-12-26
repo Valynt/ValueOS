@@ -73,7 +73,7 @@ test_scenario() {
                     services+=("orchestrator")
                 fi
                 ;;
-            src/*|public/*|index.html|package.json|vite.config.ts|tsconfig.json)
+            src/*|public/*|public/public/index.html|package.json|vite.config.ts|tsconfig.json)
                 frontend=true
                 ;;
             infrastructure/*|.github/workflows/*)

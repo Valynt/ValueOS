@@ -149,10 +149,10 @@
 - Logs visible in monitoring
 
 **Files to Create:**
-- `infrastructure/docker/compose.domain-validator.yml`
-- `k8s/domain-validator/deployment.yaml`
-- `k8s/domain-validator/service.yaml`
-- `k8s/domain-validator/configmap.yaml`
+- `infra/infra/docker/compose.domain-validator.yml`
+- `infra/infra/k8s/domain-validator/deployment.yaml`
+- `infra/infra/k8s/domain-validator/service.yaml`
+- `infra/infra/k8s/domain-validator/configmap.yaml`
 
 ---
 

@@ -6,7 +6,7 @@
 
 ## Backup cadence
 - **Database**: `scripts/backup-database.sh` runs daily (recommended cron) to dump PostgreSQL, compress, checksum, and push to S3 with 90-day retention metadata.【F:scripts/backup-database.sh†L3-L154】
-- **Audit rotation**: `kubernetes/security-audit-retention-cronjob.yaml` calls `rotate_security_audit_logs(180)` every night to shift older audit rows into the archive table while keeping the primary log lean.【F:kubernetes/security-audit-retention-cronjob.yaml†L1-L22】【F:supabase/migrations/20250601110000_audit_request_retention.sql†L6-L83】
+- **Audit rotation**: `infra/infra/k8s/security-audit-retention-cronjob.yaml` calls `rotate_security_audit_logs(180)` every night to shift older audit rows into the archive table while keeping the primary log lean.【F:infra/infra/k8s/security-audit-retention-cronjob.yaml†L1-L22】【F:supabase/migrations/20250601110000_audit_request_retention.sql†L6-L83】
 - **Object storage**: enable S3 lifecycle policies on the `database-backups` prefix to expire backups after 90 days, matching the backup script defaults.【F:scripts/backup-database.sh†L11-L118】
 
 ## Restore runbook

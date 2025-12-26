@@ -455,7 +455,7 @@ node scripts/jobs/webhook-retry.js
 
 ### Kubernetes CronJob (Recommended)
 
-**File:** `k8s/cronjobs/webhook-retry.yaml`
+**File:** `infra/infra/k8s/cronjobs/webhook-retry.yaml`
 
 ```yaml
 apiVersion: batch/v1
@@ -508,10 +508,10 @@ spec:
 
 ```bash
 # Staging
-kubectl apply -f k8s/cronjobs/webhook-retry.yaml -n staging
+kubectl apply -f infra/infra/k8s/cronjobs/webhook-retry.yaml -n staging
 
 # Production
-kubectl apply -f k8s/cronjobs/webhook-retry.yaml -n production
+kubectl apply -f infra/infra/k8s/cronjobs/webhook-retry.yaml -n production
 
 # Verify CronJob created
 kubectl get cronjobs -n production
@@ -577,7 +577,7 @@ module.exports = { run };
 **Schedule:** Daily at 3 AM
 
 ```yaml
-# k8s/cronjobs/grace-period-cleanup.yaml
+# infra/infra/k8s/cronjobs/grace-period-cleanup.yaml
 schedule: "0 3 * * *"  # Daily at 3 AM
 ```
 

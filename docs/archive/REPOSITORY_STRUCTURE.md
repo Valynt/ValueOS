@@ -58,10 +58,10 @@ ValueCanvas/
 │   │   ├── modules/
 │   │   ├── environments/
 │   │   └── variables.tf
-│   ├── kubernetes/                   # K8s manifests
+│   ├── infra/infra/k8s/                   # K8s manifests
 │   │   ├── base/
 │   │   └── overlays/
-│   ├── docker/                       # Docker configurations
+│   ├── infra/infra/docker/                       # Docker configurations
 │   │   ├── Dockerfile.dev
 │   │   ├── Dockerfile.prod
 │   │   └── docker-compose.*.yml
@@ -107,7 +107,7 @@ ValueCanvas/
 │   └── tsconfig.json
 │
 ├── public/                           # 🎨 STATIC ASSETS
-│   ├── index.html
+│   ├── public/public/index.html
 │   ├── favicon.ico
 │   └── ...
 │
@@ -181,8 +181,8 @@ ValueCanvas/
 **Organization:**
 - `environments/` - Environment-specific configs (dev/staging/prod)
 - `terraform/` - Terraform modules and root configurations
-- `kubernetes/` - K8s manifests (base + overlays)
-- `docker/` - Docker build files
+- `infra/infra/k8s/` - K8s manifests (base + overlays)
+- `infra/infra/docker/` - Docker build files
 - `scripts/` - Deployment automation
 - `monitoring/` - Prometheus, Grafana, observability
 - `logging/` - Log aggregation, retention
@@ -398,7 +398,7 @@ Example: TESTING.md → /docs/getting-started/testing-guide.md
 
 ### Step 2: Configuration
 ```
-docker-compose.*.yml → /infrastructure/docker/
+docker-compose.*.yml → /infrastructure/infra/infra/docker/
 .env files → /infrastructure/environments/
 Config files → /config/
 ```

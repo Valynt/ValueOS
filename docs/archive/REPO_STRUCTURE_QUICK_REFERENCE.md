@@ -54,8 +54,8 @@ docs/
 ### Infrastructure
 ```
 infrastructure/
-├── docker/               Docker configs
-├── kubernetes/           K8s manifests
+├── infra/infra/docker/               Docker configs
+├── infra/infra/k8s/           K8s manifests
 ├── terraform/            Infrastructure as Code
 ├── environments/         Environment configs
 ├── monitoring/           Prometheus, Grafana

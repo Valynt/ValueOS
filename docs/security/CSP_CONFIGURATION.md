@@ -8,7 +8,7 @@ ValueCanvas uses Content Security Policy (CSP) to prevent XSS attacks and other 
 
 ## Development CSP (Current)
 
-**Location:** `index.html`
+**Location:** `public/public/index.html`
 
 ```html
 <meta
@@ -202,10 +202,10 @@ Test CSP without blocking:
 
 ### Option 1: Use Production HTML Template (Recommended)
 
-Replace `index.html` with the production template:
+Replace `public/public/index.html` with the production template:
 
 ```bash
-cp index.production.html index.html
+cp index.production.html public/public/index.html
 ```
 
 The production template has:
