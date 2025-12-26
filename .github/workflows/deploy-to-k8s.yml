@@ -11,17 +11,17 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Target environment'
+        description: "Target environment"
         required: true
-        default: 'staging'
+        default: "staging"
         type: choice
         options:
           - staging
           - production
       image_tag:
-        description: 'Image tag to deploy'
+        description: "Image tag to deploy"
         required: false
-        default: 'latest'
+        default: "latest"
 
 permissions:
   contents: read
@@ -38,7 +38,6 @@ jobs:
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'develop') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
     environment: staging
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -62,7 +61,7 @@ jobs:
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
         with:
-          version: 'v1.28.0'
+          version: "v1.28.0"
 
       - name: Install Kustomize
         run: |
@@ -91,7 +90,7 @@ jobs:
           cd infra/infra/k8s/overlays/staging
           IMAGE_TAG=${{ github.event.inputs.image_tag || 'develop' }}
           ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
-          
+
           kustomize edit set image \
             REGISTRY_URL/valuecanvas-backend=${ECR_REGISTRY}/valuecanvas-backend:${IMAGE_TAG} \
             REGISTRY_URL/valuecanvas-frontend=${ECR_REGISTRY}/valuecanvas-frontend:${IMAGE_TAG}
@@ -121,10 +120,10 @@ jobs:
         run: |
           # Wait for ingress to be ready
           sleep 30
-          
+
           # Get ingress URL
           INGRESS_URL=$(kubectl get ingress valuecanvas-staging -n valuecanvas-staging -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-          
+
           if [ -n "$INGRESS_URL" ]; then
             echo "Testing health endpoints..."
             curl -f http://${INGRESS_URL}/health || echo "Health check failed"
@@ -157,10 +156,10 @@ jobs:
     if: |
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
-    environment: 
+    environment:
       name: production
       url: https://app.valuecanvas.com
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -184,7 +183,7 @@ jobs:
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
         with:
-          version: 'v1.28.0'
+          version: "v1.28.0"
 
       - name: Install Kustomize
         run: |
@@ -213,7 +212,7 @@ jobs:
           cd infra/infra/k8s/overlays/production
           IMAGE_TAG=${{ github.event.inputs.image_tag || 'latest' }}
           ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
-          
+
           kustomize edit set image \
             REGISTRY_URL/valuecanvas-backend=${ECR_REGISTRY}/valuecanvas-backend:${IMAGE_TAG} \
             REGISTRY_URL/valuecanvas-frontend=${ECR_REGISTRY}/valuecanvas-frontend:${IMAGE_TAG}
@@ -243,7 +242,7 @@ jobs:
         run: |
           sleep 30
           INGRESS_URL=$(kubectl get ingress valuecanvas-production -n valuecanvas-production -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-          
+
           if [ -n "$INGRESS_URL" ]; then
             echo "Testing production endpoints..."
             curl -f https://${INGRESS_URL}/health || echo "Health check failed"
@@ -293,9 +292,7 @@ jobs:
 
       - name: Notify PagerDuty on Failure
         if: failure()
-        uses: PagerDuty/pagerduty-change-events-action@v1
+        uses: PagerDuty/pagerduty-change-events-action@master
         with:
-          integration-key: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
-          summary: "Production Kubernetes deployment failed"
-          severity: critical
-          source: github-actions
+          integration-key: ${{ secrets.PAGERDUTY_CHANGE_INTEGRATION_KEY }}
+          custom-event: "Production Kubernetes deployment failed"
