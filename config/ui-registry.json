@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Intent-based UI registry configuration for ValueCanvas",
   "defaultFallback": "JsonViewer",
-  
+
   "intents": [
     {
       "intentType": "visualize_graph",
@@ -137,6 +137,163 @@
       }
     },
     {
+      "intentType": "display_dashboard_panel",
+      "component": "DashboardPanel",
+      "fallback": "TextBlock",
+      "description": "Collapsible dashboard section panel",
+      "propMappings": {
+        "children": "data.children"
+      }
+    },
+    {
+      "intentType": "show_discovery_card",
+      "component": "DiscoveryCard",
+      "fallback": "TextBlock",
+      "description": "Discovery prompts for opportunity framing.",
+      "propMappings": {
+        "questions": "data.questions"
+      }
+    },
+    {
+      "intentType": "show_value_tree",
+      "component": "ValueTreeCard",
+      "fallback": "TextBlock",
+      "description": "Nested value drivers for target outcomes.",
+      "propMappings": {
+        "title": "data.title",
+        "nodes": "data.nodes"
+      }
+    },
+    {
+      "intentType": "show_expansion_block",
+      "component": "ExpansionBlock",
+      "fallback": "TextBlock",
+      "description": "ROI snapshot for expansion stage.",
+      "propMappings": {
+        "gaps": "data.gaps",
+        "roi": "data.roi"
+      }
+    },
+    {
+      "intentType": "show_kpi_form",
+      "component": "KPIForm",
+      "fallback": "TextBlock",
+      "description": "Form for entering baseline and target values for a KPI.",
+      "propMappings": {
+        "kpiName": "data.kpiName"
+      }
+    },
+    {
+      "intentType": "show_realization_dashboard",
+      "component": "RealizationDashboard",
+      "fallback": "TextBlock",
+      "description": "Displays baseline vs. target vs. actual results for realized value.",
+      "propMappings": {}
+    },
+    {
+      "intentType": "show_integrity_review",
+      "component": "IntegrityReviewPanel",
+      "fallback": "TextBlock",
+      "description": "Displays manifesto rule validation results.",
+      "propMappings": {
+        "results": "data.results"
+      }
+    },
+    {
+      "intentType": "show_side_navigation",
+      "component": "SideNavigation",
+      "fallback": "TextBlock",
+      "description": "Collapsible sidebar navigation with workflow stages.",
+      "propMappings": {
+        "items": "data.items"
+      }
+    },
+    {
+      "intentType": "show_tab_bar",
+      "component": "TabBar",
+      "fallback": "TextBlock",
+      "description": "Secondary navigation with neon green active indicator.",
+      "propMappings": {
+        "tabs": "data.tabs"
+      }
+    },
+    {
+      "intentType": "show_breadcrumbs",
+      "component": "Breadcrumbs",
+      "fallback": "TextBlock",
+      "description": "Path indicators with separators for navigation hierarchy.",
+      "propMappings": {
+        "items": "data.items"
+      }
+    },
+    {
+      "intentType": "show_confidence_indicator",
+      "component": "ConfidenceIndicator",
+      "fallback": "MetricBadge",
+      "description": "Visual confidence meter for AI outputs (0-100%).",
+      "propMappings": {
+        "value": "data.value"
+      }
+    },
+    {
+      "intentType": "show_agent_response",
+      "component": "AgentResponseCard",
+      "fallback": "TextBlock",
+      "description": "Displays agent outputs with reasoning transparency and actions.",
+      "propMappings": {
+        "response": "data.response"
+      }
+    },
+    {
+      "intentType": "show_agent_workflow_panel",
+      "component": "AgentWorkflowPanel",
+      "fallback": "TextBlock",
+      "description": "Shows active agents, collaboration status, and communication log.",
+      "propMappings": {
+        "agents": "data.agents"
+      }
+    },
+    {
+      "intentType": "show_narrative_block",
+      "component": "NarrativeBlock",
+      "fallback": "TextBlock",
+      "description": "Displays AI-generated narrative content with optional editing and transparency.",
+      "propMappings": {
+        "title": "data.title",
+        "content": "data.content"
+      }
+    },
+    {
+      "intentType": "show_sdui_form",
+      "component": "SDUIForm",
+      "fallback": "TextBlock",
+      "description": "Dynamic form generation from JSON schema with validation and AI suggestions.",
+      "propMappings": {
+        "id": "data.id"
+      }
+    },
+    {
+      "intentType": "show_scenario_selector",
+      "component": "ScenarioSelector",
+      "fallback": "TextBlock",
+      "description": "Template/scenario selection interface with AI recommendations.",
+      "propMappings": {
+        "scenarios": "data.scenarios"
+      }
+    },
+    {
+      "intentType": "show_component_preview",
+      "component": "ComponentPreview",
+      "fallback": "JsonViewer",
+      "description": "Developer preview tool for ui-registry.json entries with validation.",
+      "propMappings": {
+        "intentType": "data.intentType",
+        "componentName": "data.componentName",
+        "registryEntry": "data.registryEntry",
+        "organizationId": "data.organizationId"
+      }
+    },
+    {
       "intentType": "visualize_timeline",
       "component": "LifecyclePanel",
       "fallback": "DataTable",
@@ -200,7 +357,8 @@
       }
     }
   ],
-  
+
+  // Remove deprecated/unused mappings if any (none found in this context)
   "tenantOverrides": {
     "enterprise-demo": [
       {
@@ -210,7 +368,7 @@
       }
     ]
   },
-  
+
   "agentMappings": {
     "SystemMapperAgent": {
       "primaryIntent": "visualize_graph",
