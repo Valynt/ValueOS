@@ -1,132 +1,165 @@
 /**
  * App Routes with Authentication
- * Centralized routing configuration
+ * Centralized routing configuration with lazy loading and error boundaries
  */
 
-import React from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import React, { lazy, Suspense } from "react";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { DrawerProvider } from "./contexts/DrawerContext";
 import { ProtectedRoute } from "./components/Auth/ProtectedRoute";
 import { ToastProvider } from "./components/Common/Toast";
-import LoginPage from "./views/Auth/LoginPage";
-import SignupPage from "./views/Auth/SignupPage";
-import ResetPasswordPage from "./views/Auth/ResetPasswordPage";
-import App from "./App";
-import { LaunchReadinessDashboard } from "./views/LaunchReadinessDashboard";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { LoadingSpinner } from "./components/Common/LoadingSpinner";
 import { BetaFeedbackWidget } from "./components/Feedback/BetaFeedbackWidget";
 
-// VALUI Components
-import MainLayout from "./components/Layout/MainLayout";
-import Home from "./views/Home";
-import ValueCanvas from "./views/ValueCanvas";
-import ImpactCascade from "./views/ImpactCascade";
-import AgentDashboard from "./views/AgentDashboard";
-import ROICalculator from "./views/ROICalculator";
-import ConversationalAI from "./views/ConversationalAI";
+// Lazy load auth pages (public routes)
+const LoginPage = lazy(() => import("./views/Auth/LoginPage"));
+const SignupPage = lazy(() => import("./views/Auth/SignupPage"));
+const ResetPasswordPage = lazy(() => import("./views/Auth/ResetPasswordPage"));
+
+// Lazy load main app
+const App = lazy(() => import("./App"));
+
+// Lazy load VALUI components
+const MainLayout = lazy(() => import("./components/Layout/MainLayout"));
+const Home = lazy(() => import("./views/Home"));
+const ValueCanvas = lazy(() => import("./views/ValueCanvas"));
+const ImpactCascade = lazy(() => import("./views/ImpactCascade"));
+const AgentDashboard = lazy(() => import("./views/AgentDashboard"));
+const ROICalculator = lazy(() => import("./views/ROICalculator"));
+const ConversationalAI = lazy(() => import("./views/ConversationalAI"));
+const LaunchReadinessDashboard = lazy(
+  () => import("./views/LaunchReadinessDashboard")
+);
+const NotFound = lazy(() => import("./views/NotFound"));
 
 export function AppRoutes() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <DrawerProvider>
-          <ToastProvider>
-            <Routes>
-              {/* Public Auth Routes */}
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/signup" element={<SignupPage />} />
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <ErrorBoundary>
+        <AuthProvider>
+          <DrawerProvider>
+            <ToastProvider>
+              <Suspense fallback={<LoadingSpinner />}>
+                <Routes>
+                  {/* Root redirect to home */}
+                  <Route path="/" element={<Navigate to="/home" replace />} />
 
-              <Route
-                path="/launch-readiness"
-                element={
-                  <ProtectedRoute>
-                    <LaunchReadinessDashboard />
-                  </ProtectedRoute>
-                }
-              />
+                  {/* Public Auth Routes */}
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/signup" element={<SignupPage />} />
+                  <Route
+                    path="/reset-password"
+                    element={<ResetPasswordPage />}
+                  />
 
-              {/* VALUI Routes - New Modern UI (explicit paths) */}
-              <Route
-                path="/home"
-                element={
-                  <ProtectedRoute>
-                    <MainLayout />
-                  </ProtectedRoute>
-                }
-              >
-                <Route index element={<Home />} />
-              </Route>
+                  {/* OAuth Callback */}
+                  <Route
+                    path="/auth/callback"
+                    element={
+                      <div className="min-h-screen flex items-center justify-center">
+                        <LoadingSpinner />
+                      </div>
+                    }
+                  />
 
-              <Route
-                path="/canvas"
-                element={
-                  <ProtectedRoute>
-                    <MainLayout />
-                  </ProtectedRoute>
-                }
-              >
-                <Route index element={<ValueCanvas />} />
-              </Route>
+                  {/* Launch Readiness Dashboard */}
+                  <Route
+                    path="/launch-readiness"
+                    element={
+                      <ProtectedRoute>
+                        <LaunchReadinessDashboard />
+                      </ProtectedRoute>
+                    }
+                  />
 
-              <Route
-                path="/cascade"
-                element={
-                  <ProtectedRoute>
-                    <MainLayout />
-                  </ProtectedRoute>
-                }
-              >
-                <Route index element={<ImpactCascade />} />
-              </Route>
+                  {/* VALUI Routes - Modern UI */}
+                  <Route
+                    path="/home"
+                    element={
+                      <ProtectedRoute>
+                        <MainLayout />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <Route index element={<Home />} />
+                  </Route>
 
-              <Route
-                path="/calculator"
-                element={
-                  <ProtectedRoute>
-                    <MainLayout />
-                  </ProtectedRoute>
-                }
-              >
-                <Route index element={<ROICalculator />} />
-              </Route>
+                  <Route
+                    path="/canvas"
+                    element={
+                      <ProtectedRoute>
+                        <MainLayout />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <Route index element={<ValueCanvas />} />
+                  </Route>
 
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute>
-                    <MainLayout />
-                  </ProtectedRoute>
-                }
-              >
-                <Route index element={<AgentDashboard />} />
-              </Route>
+                  <Route
+                    path="/cascade"
+                    element={
+                      <ProtectedRoute>
+                        <MainLayout />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <Route index element={<ImpactCascade />} />
+                  </Route>
 
-              <Route
-                path="/chat"
-                element={
-                  <ProtectedRoute>
-                    <MainLayout />
-                  </ProtectedRoute>
-                }
-              >
-                <Route index element={<ConversationalAI />} />
-              </Route>
+                  <Route
+                    path="/calculator"
+                    element={
+                      <ProtectedRoute>
+                        <MainLayout />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <Route index element={<ROICalculator />} />
+                  </Route>
 
-              {/* Protected App Routes (Legacy) - catch all remaining */}
-              <Route
-                path="/*"
-                element={
-                  <ProtectedRoute>
-                    <App />
-                  </ProtectedRoute>
-                }
-              />
-            </Routes>
-            <BetaFeedbackWidget />
-          </ToastProvider>
-        </DrawerProvider>
-      </AuthProvider>
+                  <Route
+                    path="/dashboard"
+                    element={
+                      <ProtectedRoute>
+                        <MainLayout />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <Route index element={<AgentDashboard />} />
+                  </Route>
+
+                  <Route
+                    path="/chat"
+                    element={
+                      <ProtectedRoute>
+                        <MainLayout />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <Route index element={<ConversationalAI />} />
+                  </Route>
+
+                  {/* Main App (Chat+Canvas) - Default protected route */}
+                  <Route
+                    path="/app/*"
+                    element={
+                      <ProtectedRoute>
+                        <App />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* 404 Not Found - Must be last */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
+              <BetaFeedbackWidget />
+            </ToastProvider>
+          </DrawerProvider>
+        </AuthProvider>
+      </ErrorBoundary>
     </BrowserRouter>
   );
 }

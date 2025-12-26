@@ -253,30 +253,30 @@ ALTER TABLE system_metrics ENABLE ROW LEVEL SECURITY;
 -- User sessions: Users can only access their own sessions
 CREATE POLICY "user_sessions_tenant_isolation" ON user_sessions
   FOR ALL USING (
-    tenant_id = auth.uid()::text OR
+    tenant_id = ((auth.uid())::text)::text OR
     tenant_id IN (
       SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      WHERE user_id = ((auth.uid())::text)::text
     )
   );
 
 -- Device trust history: Users can only access their own device history
 CREATE POLICY "device_trust_tenant_isolation" ON device_trust_history
   FOR ALL USING (
-    tenant_id = auth.uid()::text OR
+    tenant_id = (auth.uid())::text::text OR
     tenant_id IN (
       SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      WHERE user_id = (auth.uid())::text
     )
   );
 
 -- Security events: Users can only see events from their tenants
 CREATE POLICY "security_events_tenant_isolation" ON security_events
   FOR ALL USING (
-    tenant_id = auth.uid()::text OR
+    tenant_id = (auth.uid())::text::text OR
     tenant_id IN (
       SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      WHERE user_id = (auth.uid())::text
     )
   );
 
@@ -285,7 +285,7 @@ CREATE POLICY "security_incidents_tenant_isolation" ON security_incidents
   FOR ALL USING (
     tenant_id IN (
       SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      WHERE user_id = (auth.uid())::text
     )
   );
 
@@ -294,7 +294,7 @@ CREATE POLICY "automated_responses_tenant_isolation" ON automated_responses
   FOR ALL USING (
     tenant_id IN (
       SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      WHERE user_id = (auth.uid())::text
     )
   );
 
@@ -303,7 +303,7 @@ CREATE POLICY "security_policies_tenant_isolation" ON security_policies
   FOR ALL USING (
     tenant_id IN (
       SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      WHERE user_id = (auth.uid())::text
     )
   );
 
@@ -312,7 +312,7 @@ CREATE POLICY "compliance_evidence_tenant_isolation" ON compliance_evidence
   FOR ALL USING (
     tenant_id IN (
       SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      WHERE user_id = (auth.uid())::text
     )
   );
 
@@ -321,7 +321,7 @@ CREATE POLICY "compliance_reports_tenant_isolation" ON compliance_reports
   FOR ALL USING (
     tenant_id IN (
       SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      WHERE user_id = (auth.uid())::text
     )
   );
 
@@ -331,7 +331,7 @@ CREATE POLICY "audit_log_access_admin_only" ON audit_log_access
     EXISTS (
       SELECT 1 FROM user_roles ur
       JOIN roles r ON ur.role_id = r.id
-      WHERE ur.user_id = auth.uid()
+      WHERE ur.user_id = (auth.uid())::text
       AND r.name IN ('security_admin', 'system_admin')
     )
   );

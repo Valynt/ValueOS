@@ -3,16 +3,20 @@
  * Handles session management and authentication operations
  */
 
-import { logger } from '../lib/logger';
-import { BaseService } from './BaseService';
-import { AuthenticationError, RateLimitError, ValidationError } from './errors';
-import { Session, User } from '@supabase/supabase-js';
-import { sanitizeErrorMessage, validatePassword } from '../utils/security';
-import { securityLogger } from './SecurityLogger';
-import { getConfig } from '../config/environment';
-import { checkPasswordBreach } from '../security';
-import { consumeAuthRateLimit, RateLimitExceededError, resetRateLimit } from '../security';
-import { clientRateLimit } from './ClientRateLimit';
+import { logger } from "../lib/logger";
+import { BaseService } from "./BaseService";
+import { AuthenticationError, RateLimitError, ValidationError } from "./errors";
+import { Session, User } from "@supabase/supabase-js";
+import { sanitizeErrorMessage, validatePassword } from "../utils/security";
+import { securityLogger } from "./SecurityLogger";
+import { getConfig } from "../config/environment";
+import { checkPasswordBreach } from "../security";
+import {
+  consumeAuthRateLimit,
+  RateLimitExceededError,
+  resetRateLimit,
+} from "../security";
+import { clientRateLimit } from "./ClientRateLimit";
 
 export interface LoginCredentials {
   email: string;
@@ -33,7 +37,7 @@ export interface AuthSession {
 
 export class AuthService extends BaseService {
   constructor() {
-    super('AuthService');
+    super("AuthService");
   }
 
   /**
@@ -45,12 +49,15 @@ export class AuthService extends BaseService {
     } catch (error) {
       if (error instanceof RateLimitExceededError) {
         securityLogger.log({
-          category: 'authentication',
+          category: "authentication",
           action: `${action}-rate-limit`,
-          severity: 'warn',
+          severity: "warn",
           metadata: { identifier, retryAfter: error.retryAfter },
         });
-        throw new RateLimitError('Too many authentication attempts. Please try again later.', error.retryAfter);
+        throw new RateLimitError(
+          "Too many authentication attempts. Please try again later.",
+          error.retryAfter
+        );
       }
       throw error;
     }
@@ -58,33 +65,35 @@ export class AuthService extends BaseService {
 
   /**
    * Sign up a new user
-  */
+   */
   async signup(data: SignupData): Promise<AuthSession> {
-    this.validateRequired(data, ['email', 'password', 'fullName']);
+    this.validateRequired(data, ["email", "password", "fullName"]);
 
     const passwordValidation = validatePassword(data.password);
     if (!passwordValidation.valid) {
-      throw new ValidationError(passwordValidation.errors.join('. '));
+      throw new ValidationError(passwordValidation.errors.join(". "));
     }
 
     const breached = await checkPasswordBreach(data.password);
     if (breached) {
-      throw new ValidationError('Password appears in breach corpus. Choose a different password.');
+      throw new ValidationError(
+        "Password appears in breach corpus. Choose a different password."
+      );
     }
 
     const config = getConfig();
     if (config.auth.mfaEnabled) {
       securityLogger.log({
-        category: 'authentication',
-        action: 'signup-mfa-hint',
-        severity: 'info',
+        category: "authentication",
+        action: "signup-mfa-hint",
+        severity: "info",
         metadata: { email: data.email },
       });
     }
 
-    this.enforceAuthRateLimit(data.email, 'signup');
+    this.enforceAuthRateLimit(data.email, "signup");
 
-    this.log('info', 'User signup', { email: data.email });
+    this.log("info", "User signup", { email: data.email });
 
     return this.executeRequest(
       async () => {
@@ -102,10 +111,10 @@ export class AuthService extends BaseService {
           throw new AuthenticationError(sanitizeErrorMessage(error));
         }
         if (!authData.user || !authData.session) {
-          throw new AuthenticationError('Signup failed');
+          throw new AuthenticationError("Signup failed");
         }
 
-        resetRateLimit('auth', data.email);
+        resetRateLimit("auth", data.email);
 
         return {
           user: authData.user,
@@ -120,21 +129,24 @@ export class AuthService extends BaseService {
    * Sign in with email and password
    */
   async login(credentials: LoginCredentials): Promise<AuthSession> {
-    this.validateRequired(credentials, ['email', 'password']);
+    this.validateRequired(credentials, ["email", "password"]);
     const config = getConfig();
     if (config.auth.mfaEnabled && !credentials.otpCode) {
-      throw new ValidationError('MFA code required for login');
+      throw new ValidationError("MFA code required for login");
     }
 
     // Apply client-side rate limiting
-    const rateLimitAllowed = await clientRateLimit.checkLimit('auth-attempts');
+    const rateLimitAllowed = await clientRateLimit.checkLimit("auth-attempts");
     if (!rateLimitAllowed) {
-      throw new RateLimitError('Too many authentication attempts. Please try again later.', 900);
+      throw new RateLimitError(
+        "Too many authentication attempts. Please try again later.",
+        900
+      );
     }
 
-    this.enforceAuthRateLimit(credentials.email, 'login');
+    this.enforceAuthRateLimit(credentials.email, "login");
 
-    this.log('info', 'User login', { email: credentials.email });
+    this.log("info", "User login", { email: credentials.email });
 
     return this.executeRequest(
       async () => {
@@ -148,27 +160,27 @@ export class AuthService extends BaseService {
 
         if (error) {
           securityLogger.log({
-            category: 'authentication',
-            action: 'login-failed',
-            severity: 'warn',
+            category: "authentication",
+            action: "login-failed",
+            severity: "warn",
             metadata: { email: credentials.email },
           });
-          throw new AuthenticationError('Invalid credentials');
+          throw new AuthenticationError("Invalid credentials");
         }
         if (!data.user || !data.session) {
           securityLogger.log({
-            category: 'authentication',
-            action: 'login-failed',
-            severity: 'warn',
-            metadata: { email: credentials.email, reason: 'missing-session' },
+            category: "authentication",
+            action: "login-failed",
+            severity: "warn",
+            metadata: { email: credentials.email, reason: "missing-session" },
           });
-          throw new AuthenticationError('Invalid credentials');
+          throw new AuthenticationError("Invalid credentials");
         }
 
-        resetRateLimit('auth', credentials.email);
+        resetRateLimit("auth", credentials.email);
         securityLogger.log({
-          category: 'authentication',
-          action: 'login-success',
+          category: "authentication",
+          action: "login-success",
           metadata: { email: credentials.email },
         });
 
@@ -185,7 +197,7 @@ export class AuthService extends BaseService {
    * Sign out current user
    */
   async logout(): Promise<void> {
-    this.log('info', 'User logout');
+    this.log("info", "User logout");
 
     return this.executeRequest(
       async () => {
@@ -208,7 +220,7 @@ export class AuthService extends BaseService {
         if (error) throw new AuthenticationError(sanitizeErrorMessage(error));
         return data.session;
       },
-      { deduplicationKey: 'current-session' }
+      { deduplicationKey: "current-session" }
     );
   }
 
@@ -222,7 +234,7 @@ export class AuthService extends BaseService {
         if (error) throw new AuthenticationError(sanitizeErrorMessage(error));
         return data.user;
       },
-      { deduplicationKey: 'current-user' }
+      { deduplicationKey: "current-user" }
     );
   }
 
@@ -230,18 +242,18 @@ export class AuthService extends BaseService {
    * Refresh session
    */
   async refreshSession(): Promise<AuthSession> {
-    this.log('info', 'Refreshing session');
+    this.log("info", "Refreshing session");
 
     return this.executeRequest(
       async () => {
         const { data, error } = await this.supabase.auth.refreshSession();
         if (error) throw new AuthenticationError(sanitizeErrorMessage(error));
         if (!data.user || !data.session) {
-          throw new AuthenticationError('Session refresh failed');
+          throw new AuthenticationError("Session refresh failed");
         }
 
-        this.clearCache('current-session');
-        this.clearCache('current-user');
+        this.clearCache("current-session");
+        this.clearCache("current-user");
 
         return {
           user: data.user,
@@ -256,9 +268,9 @@ export class AuthService extends BaseService {
    * Request password reset
    */
   async requestPasswordReset(email: string): Promise<void> {
-    this.enforceAuthRateLimit(email, 'password-reset');
+    this.enforceAuthRateLimit(email, "password-reset");
 
-    this.log('info', 'Password reset requested', { email });
+    this.log("info", "Password reset requested", { email });
 
     return this.executeRequest(
       async () => {
@@ -266,7 +278,7 @@ export class AuthService extends BaseService {
         if (error) {
           throw new AuthenticationError(sanitizeErrorMessage(error));
         }
-        resetRateLimit('auth', email);
+        resetRateLimit("auth", email);
       },
       { skipCache: true }
     );
@@ -278,24 +290,26 @@ export class AuthService extends BaseService {
   async updatePassword(newPassword: string): Promise<void> {
     const passwordValidation = validatePassword(newPassword);
     if (!passwordValidation.valid) {
-      throw new ValidationError(passwordValidation.errors.join('. '));
+      throw new ValidationError(passwordValidation.errors.join(". "));
     }
 
     const breached = await checkPasswordBreach(newPassword);
     if (breached) {
-      throw new ValidationError('Password appears in breach corpus. Choose a different password.');
+      throw new ValidationError(
+        "Password appears in breach corpus. Choose a different password."
+      );
     }
 
     const config = getConfig();
     if (config.auth.mfaEnabled) {
       securityLogger.log({
-        category: 'authentication',
-        action: 'password-update-mfa-required',
-        severity: 'info',
+        category: "authentication",
+        action: "password-update-mfa-required",
+        severity: "info",
       });
     }
 
-    this.log('info', 'Updating password');
+    this.log("info", "Updating password");
 
     return this.executeRequest(
       async () => {
@@ -303,6 +317,53 @@ export class AuthService extends BaseService {
           password: newPassword,
         });
         if (error) throw new AuthenticationError(sanitizeErrorMessage(error));
+      },
+      { skipCache: true }
+    );
+  }
+
+  /**
+   * Sign in with OAuth provider (Google, Apple, GitHub)
+   */
+  async signInWithProvider(
+    provider: "google" | "apple" | "github"
+  ): Promise<void> {
+    this.log("info", "OAuth sign in initiated", { provider });
+
+    return this.executeRequest(
+      async () => {
+        const { data: _data, error } = await this.supabase.auth.signInWithOAuth(
+          {
+            provider,
+            options: {
+              redirectTo: `${window.location.origin}/auth/callback`,
+              queryParams: {
+                access_type: "offline",
+                prompt: "consent",
+              },
+            },
+          }
+        );
+
+        if (error) {
+          securityLogger.log({
+            category: "authentication",
+            action: "oauth-failed",
+            severity: "warn",
+            metadata: { provider, error: sanitizeErrorMessage(error) },
+          });
+          throw new AuthenticationError(
+            `OAuth sign in failed: ${sanitizeErrorMessage(error)}`
+          );
+        }
+
+        securityLogger.log({
+          category: "authentication",
+          action: "oauth-initiated",
+          metadata: { provider },
+        });
+
+        // OAuth redirect happens automatically, no return needed
       },
       { skipCache: true }
     );
