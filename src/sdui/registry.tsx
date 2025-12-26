@@ -22,6 +22,11 @@ import {
   UnknownComponentFallback,
   ValueCommitForm,
   ValueTreeCard,
+  // Fallbacks
+  JsonViewer,
+  TextBlock,
+  ConfirmationDialog,
+  ProgressBar,
 } from '../components/SDUI';
 import {
   DashboardPanel,
@@ -60,6 +65,31 @@ const baseRegistry: Record<string, RegistryEntry> = {
     versions: [1],
     requiredProps: ['columns', 'children'],
     description: 'Responsive grid layout with configurable columns',
+  },
+  // Fallback components for SDUI intent mapping
+  JsonViewer: {
+    component: JsonViewer,
+    versions: [1],
+    requiredProps: ['data'],
+    description: 'Displays raw JSON data in a formatted viewer',
+  },
+  TextBlock: {
+    component: TextBlock,
+    versions: [1],
+    requiredProps: ['text'],
+    description: 'Displays plain or formatted text content',
+  },
+  ConfirmationDialog: {
+    component: ConfirmationDialog,
+    versions: [1],
+    requiredProps: ['message', 'onConfirm', 'onCancel'],
+    description: 'Dialog for user confirmation with actions',
+  },
+  ProgressBar: {
+    component: ProgressBar,
+    versions: [1],
+    requiredProps: ['progress'],
+    description: 'Linear progress bar for workflow or loading states',
   },
   DashboardPanel: {
     component: DashboardPanel,
