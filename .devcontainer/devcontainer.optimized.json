@@ -10,11 +10,6 @@
   },
 
   "features": {
-    // Docker-in-Docker for container operations
-    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
-      "version": "latest",
-      "moby": true
-    },
     // GitHub CLI for automation
     "ghcr.io/devcontainers/features/github-cli:1": {
       "version": "latest"
