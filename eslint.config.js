@@ -35,7 +35,7 @@ const ignoresConfig = {
     "reports/**/*",
     "grafana/**/*",
     "infrastructure/**/*",
-    "k8s/**/*",
+    "infra/k8s/**/*",
     "kubernetes/**/*",
     "alembic/**/*",
   ],
