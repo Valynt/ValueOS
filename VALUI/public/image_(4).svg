@@ -1,0 +1,270 @@
+<svg viewBox="0 0 1400 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="chartGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#00d9ff;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#00d9ff;stop-opacity:0" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1400" height="900" fill="#0d0d1a"/>
+  
+  <!-- Title -->
+  <text x="700" y="30" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#fff" text-anchor="middle">WIREFRAME 5: Value Agent Dashboard - Realization Monitoring</text>
+  
+  <!-- Sidebar -->
+  <rect x="20" y="50" width="60" height="830" rx="6" fill="#1a1a2e"/>
+  <rect x="30" y="65" width="40" height="40" rx="8" fill="#00d9ff"/>
+  <text x="50" y="90" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#1a1a2e" text-anchor="middle">V</text>
+  
+  <rect x="30" y="125" width="40" height="40" rx="6" fill="transparent"/>
+  <text x="50" y="150" font-family="Arial, sans-serif" font-size="14" fill="#666" text-anchor="middle">⌂</text>
+  
+  <rect x="30" y="175" width="40" height="40" rx="6" fill="transparent"/>
+  <text x="50" y="200" font-family="Arial, sans-serif" font-size="14" fill="#666" text-anchor="middle">◇</text>
+  
+  <rect x="30" y="225" width="40" height="40" rx="6" fill="transparent"/>
+  <text x="50" y="250" font-family="Arial, sans-serif" font-size="14" fill="#666" text-anchor="middle">⚡</text>
+  
+  <rect x="30" y="275" width="40" height="40" rx="6" fill="#00d9ff"/>
+  <text x="50" y="300" font-family="Arial, sans-serif" font-size="14" fill="#1a1a2e" text-anchor="middle">◎</text>
+  
+  <!-- Main Content -->
+  <rect x="100" y="50" width="1280" height="830" rx="8" fill="#1a1a2e"/>
+  
+  <!-- Top Header -->
+  <rect x="100" y="50" width="1280" height="56" fill="#0d0d1a" rx="8"/>
+  <text x="130" y="85" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">Value Agent Dashboard</text>
+  <text x="300" y="85" font-family="Arial, sans-serif" font-size="11" fill="#666">Real-time optimization and proactive alerts</text>
+  
+  <!-- Status Indicators -->
+  <circle cx="1100" cy="78" r="5" fill="#00ff88"/>
+  <text x="1112" y="82" font-family="Arial, sans-serif" font-size="9" fill="#888">Live Connection</text>
+  
+  <rect x="1200" y="62" width="80" height="30" rx="6" fill="#2d2d44"/>
+  <text x="1240" y="81" font-family="Arial, sans-serif" font-size="9" fill="#888" text-anchor="middle">Filters</text>
+  
+  <rect x="1290" y="62" width="70" height="30" rx="6" fill="#845ef7"/>
+  <text x="1325" y="81" font-family="Arial, sans-serif" font-size="9" fill="white" text-anchor="middle">Export</text>
+  
+  <!-- KPI Cards Row -->
+  <g>
+    <!-- Card 1: Realization Rate -->
+    <rect x="120" y="120" width="200" height="100" rx="8" fill="#2d2d44" stroke="#20c997" stroke-width="2"/>
+    <text x="140" y="148" font-family="Arial, sans-serif" font-size="9" fill="#888">REALIZATION RATE</text>
+    <text x="220" y="190" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="#20c997" text-anchor="middle">108%</text>
+    <text x="140" y="210" font-family="Arial, sans-serif" font-size="9" fill="#20c997">↑ 8% vs Plan</text>
+    
+    <!-- Card 2: Customer Health -->
+    <rect x="340" y="120" width="200" height="100" rx="8" fill="#2d2d44"/>
+    <text x="360" y="148" font-family="Arial, sans-serif" font-size="9" fill="#888">CUSTOMER HEALTH</text>
+    <text x="440" y="190" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="white" text-anchor="middle">88</text>
+    <text x="475" y="190" font-family="Arial, sans-serif" font-size="14" fill="#888">/100</text>
+    <rect x="360" y="200" width="160" height="6" rx="3" fill="#3d3d5c"/>
+    <rect x="360" y="200" width="140" height="6" rx="3" fill="#00d9ff"/>
+    
+    <!-- Card 3: Active Alerts -->
+    <rect x="560" y="120" width="200" height="100" rx="8" fill="#2d2d44" stroke="#fcc419" stroke-width="2"/>
+    <text x="580" y="148" font-family="Arial, sans-serif" font-size="9" fill="#888">ACTIVE ALERTS</text>
+    <text x="660" y="190" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="#fcc419" text-anchor="middle">3</text>
+    <text x="580" y="210" font-family="Arial, sans-serif" font-size="9" fill="#fcc419">1 urgent, 2 warnings</text>
+    
+    <!-- Card 4: Expansion Pipeline -->
+    <rect x="780" y="120" width="200" height="100" rx="8" fill="#2d2d44"/>
+    <text x="800" y="148" font-family="Arial, sans-serif" font-size="9" fill="#888">EXPANSION PIPELINE</text>
+    <text x="880" y="190" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="white" text-anchor="middle">$2.55M</text>
+    <text x="800" y="210" font-family="Arial, sans-serif" font-size="9" fill="#845ef7">2 opportunities detected</text>
+    
+    <!-- Card 5: Agent Status -->
+    <rect x="1000" y="120" width="200" height="100" rx="8" fill="#2d2d44"/>
+    <text x="1020" y="148" font-family="Arial, sans-serif" font-size="9" fill="#888">AGENT STATUS</text>
+    <circle cx="1100" cy="175" r="20" fill="#00ff8830"/>
+    <circle cx="1100" cy="175" r="12" fill="#00ff88"/>
+    <text x="1100" y="210" font-family="Arial, sans-serif" font-size="10" fill="#00ff88" text-anchor="middle">All Systems Online</text>
+  </g>
+  
+  <!-- Main Chart: Value Realization vs Plan -->
+  <rect x="120" y="240" width="660" height="280" rx="8" fill="#2d2d44"/>
+  <text x="140" y="270" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">Value Realization vs. Plan</text>
+  
+  <!-- Time Filter -->
+  <rect x="680" y="255" width="80" height="24" rx="12" fill="#3d3d5c"/>
+  <text x="720" y="271" font-family="Arial, sans-serif" font-size="8" fill="#888" text-anchor="middle">Last 6 Months ▾</text>
+  
+  <!-- Chart Area -->
+  <rect x="140" y="290" width="620" height="200" fill="#1a1a2e" rx="4"/>
+  
+  <!-- Grid Lines -->
+  <g stroke="#2d2d44" stroke-width="1">
+    <line x1="140" y1="310" x2="760" y2="310"/>
+    <line x1="140" y1="350" x2="760" y2="350"/>
+    <line x1="140" y1="390" x2="760" y2="390"/>
+    <line x1="140" y1="430" x2="760" y2="430"/>
+    <line x1="140" y1="470" x2="760" y2="470"/>
+  </g>
+  
+  <!-- Y-Axis Labels -->
+  <text x="135" y="315" font-family="Arial, sans-serif" font-size="8" fill="#666" text-anchor="end">100%</text>
+  <text x="135" y="355" font-family="Arial, sans-serif" font-size="8" fill="#666" text-anchor="end">75%</text>
+  <text x="135" y="395" font-family="Arial, sans-serif" font-size="8" fill="#666" text-anchor="end">50%</text>
+  <text x="135" y="435" font-family="Arial, sans-serif" font-size="8" fill="#666" text-anchor="end">25%</text>
+  <text x="135" y="475" font-family="Arial, sans-serif" font-size="8" fill="#666" text-anchor="end">0%</text>
+  
+  <!-- X-Axis Labels -->
+  <text x="200" y="500" font-family="Arial, sans-serif" font-size="8" fill="#666" text-anchor="middle">Jan</text>
+  <text x="300" y="500" font-family="Arial, sans-serif" font-size="8" fill="#666" text-anchor="middle">Feb</text>
+  <text x="400" y="500" font-family="Arial, sans-serif" font-size="8" fill="#666" text-anchor="middle">Mar</text>
+  <text x="500" y="500" font-family="Arial, sans-serif" font-size="8" fill="#666" text-anchor="middle">Apr</text>
+  <text x="600" y="500" font-family="Arial, sans-serif" font-size="8" fill="#666" text-anchor="middle">May</text>
+  <text x="700" y="500" font-family="Arial, sans-serif" font-size="8" fill="#666" text-anchor="middle">Jun</text>
+  
+  <!-- Plan Line (Dashed) -->
+  <path d="M200 440 L300 410 L400 380 L500 350 L600 320 L700 310" fill="none" stroke="#888" stroke-width="2" stroke-dasharray="6,4"/>
+  
+  <!-- Actual Line -->
+  <path d="M200 450 L300 400 L400 360 L500 320 L600 300 L700 290" fill="url(#chartGrad)" stroke="#00d9ff" stroke-width="3"/>
+  
+  <!-- Data Points -->
+  <circle cx="500" cy="320" r="6" fill="#00d9ff"/>
+  <circle cx="600" cy="300" r="6" fill="#00d9ff"/>
+  <circle cx="700" cy="290" r="6" fill="#00d9ff"/>
+  
+  <!-- +8% Label -->
+  <rect x="710" y="275" width="50" height="20" rx="4" fill="#00d9ff"/>
+  <text x="735" y="289" font-family="Arial, sans-serif" font-size="9" fill="#1a1a2e" text-anchor="middle">+8%</text>
+  
+  <!-- Legend -->
+  <g>
+    <line x1="550" y1="265" x2="570" y2="265" stroke="#888" stroke-width="2" stroke-dasharray="4,2"/>
+    <text x="580" y="269" font-family="Arial, sans-serif" font-size="8" fill="#888">Plan</text>
+    <line x1="620" y1="265" x2="640" y2="265" stroke="#00d9ff" stroke-width="2"/>
+    <text x="650" y="269" font-family="Arial, sans-serif" font-size="8" fill="#00d9ff">Actual</text>
+  </g>
+  
+  <!-- Alert Panel -->
+  <rect x="800" y="240" width="380" height="130" rx="8" fill="#2d2d44" stroke="#fcc419" stroke-width="1"/>
+  <rect x="800" y="240" width="380" height="32" rx="8" fill="#fcc41920"/>
+  <text x="820" y="262" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#fcc419">⚠ Proactive Alert</text>
+  <text x="1130" y="262" font-family="Arial, sans-serif" font-size="8" fill="#888">Just now</text>
+  
+  <text x="820" y="295" font-family="Arial, sans-serif" font-size="10" fill="white">Adoption Rate (28%) is below threshold</text>
+  <text x="820" y="312" font-family="Arial, sans-serif" font-size="10" fill="white">(30%) for Day 60.</text>
+  
+  <rect x="820" y="330" width="180" height="32" rx="6" fill="#fcc419"/>
+  <text x="910" y="351" font-family="Arial, sans-serif" font-size="10" fill="#1a1a2e" text-anchor="middle">▶ Trigger Onboarding Nudge</text>
+  
+  <rect x="1010" y="330" width="80" height="32" rx="6" fill="#3d3d5c"/>
+  <text x="1050" y="351" font-family="Arial, sans-serif" font-size="10" fill="#888" text-anchor="middle">Dismiss</text>
+  
+  <!-- Agent Activity Log -->
+  <rect x="800" y="385" width="380" height="135" rx="8" fill="#2d2d44"/>
+  <text x="820" y="410" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">AGENT ACTIVITY LOG</text>
+  <text x="1150" y="410" font-family="Arial, sans-serif" font-size="8" fill="#00d9ff">View all →</text>
+  
+  <g font-family="Arial, sans-serif" font-size="9">
+    <circle cx="832" cy="438" r="4" fill="#00ff88"/>
+    <text x="845" y="442" fill="#888">04:33:11 AM</text>
+    <text x="940" y="442" fill="#aaa">API Update: Time Saved +01S</text>
+    
+    <circle cx="832" cy="462" r="4" fill="#00d9ff"/>
+    <text x="845" y="466" fill="#888">03:25:44 AM</text>
+    <text x="940" y="466" fill="#aaa">System: Data sync complete</text>
+    
+    <circle cx="832" cy="486" r="4" fill="#845ef7"/>
+    <text x="845" y="490" fill="#888">Yesterday</text>
+    <text x="940" y="490" fill="#aaa">Milestone: V1.0 Achieved</text>
+    
+    <circle cx="832" cy="510" r="4" fill="#fcc419"/>
+    <text x="845" y="514" fill="#888">2 days ago</text>
+    <text x="940" y="514" fill="#aaa">Alert: Adoption below threshold</text>
+  </g>
+  
+  <!-- Expansion Opportunities -->
+  <rect x="120" y="540" width="440" height="160" rx="8" fill="#2d2d44"/>
+  <text x="140" y="568" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Expansion Opportunities</text>
+  <rect x="500" y="553" width="45" height="20" rx="10" fill="#845ef730"/>
+  <text x="522" y="567" font-family="Arial, sans-serif" font-size="8" fill="#845ef7" text-anchor="middle">NEW</text>
+  
+  <!-- Opportunity Card 1 -->
+  <rect x="140" y="585" width="200" height="100" rx="6" fill="#1a1a2e" stroke="#3d3d5c" stroke-width="1"/>
+  <circle cx="165" cy="612" r="14" fill="#00d9ff30"/>
+  <text x="165" y="617" font-family="Arial, sans-serif" font-size="10" fill="#00d9ff" text-anchor="middle">🌍</text>
+  <text x="190" y="612" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">EMEA Expansion</text>
+  <text x="155" y="635" font-family="Arial, sans-serif" font-size="8" fill="#888">Replicate manufacturing</text>
+  <text x="155" y="648" font-family="Arial, sans-serif" font-size="8" fill="#888">efficiency model in German facility</text>
+  <text x="155" y="675" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#20c997">$1.8M ARR</text>
+  
+  <!-- Opportunity Card 2 -->
+  <rect x="355" y="585" width="200" height="100" rx="6" fill="#1a1a2e" stroke="#3d3d5c" stroke-width="1"/>
+  <circle cx="380" cy="612" r="14" fill="#845ef730"/>
+  <text x="380" y="617" font-family="Arial, sans-serif" font-size="10" fill="#845ef7" text-anchor="middle">📦</text>
+  <text x="405" y="612" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Supply Chain Add-on</text>
+  <text x="370" y="635" font-family="Arial, sans-serif" font-size="8" fill="#888">Cross-sell advanced SKU using</text>
+  <text x="370" y="648" font-family="Arial, sans-serif" font-size="8" fill="#888">MRO inventory optimization</text>
+  <text x="370" y="675" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#20c997">$750K ARR</text>
+  
+  <!-- Customer Health Breakdown -->
+  <rect x="580" y="540" width="200" height="160" rx="8" fill="#2d2d44"/>
+  <text x="600" y="568" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Customer Health Score</text>
+  <text x="600" y="585" font-family="Arial, sans-serif" font-size="8" fill="#888">Composite metric of adoption + sentiment</text>
+  
+  <text x="680" y="640" font-family="Arial, sans-serif" font-size="36" font-weight="bold" fill="white" text-anchor="middle">88</text>
+  <text x="715" y="640" font-family="Arial, sans-serif" font-size="16" fill="#888">/100</text>
+  <text x="680" y="665" font-family="Arial, sans-serif" font-size="12" fill="#20c997" text-anchor="middle">HEALTHY</text>
+  
+  <rect x="600" y="680" width="160" height="8" rx="4" fill="#3d3d5c"/>
+  <rect x="600" y="680" width="140" height="8" rx="4" fill="linear-gradient(90deg, #00d9ff, #20c997)"/>
+  
+  <!-- QBR Prep -->
+  <rect x="800" y="540" width="380" height="160" rx="8" fill="#2d2d44"/>
+  <text x="820" y="568" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">QBR Preparation</text>
+  <rect x="1100" y="553" width="60" height="20" rx="10" fill="#20c99730"/>
+  <text x="1130" y="567" font-family="Arial, sans-serif" font-size="8" fill="#20c997" text-anchor="middle">Ready</text>
+  
+  <text x="820" y="600" font-family="Arial, sans-serif" font-size="9" fill="#888">Next QBR: Jan 15, 2025</text>
+  
+  <g font-family="Arial, sans-serif" font-size="9">
+    <rect x="820" y="615" width="160" height="30" rx="4" fill="#1a1a2e"/>
+    <text x="835" y="634" fill="#aaa">✓ Value Realization Deck</text>
+    
+    <rect x="990" y="615" width="160" height="30" rx="4" fill="#1a1a2e"/>
+    <text x="1005" y="634" fill="#aaa">✓ Expansion Proposal</text>
+    
+    <rect x="820" y="655" width="160" height="30" rx="4" fill="#1a1a2e"/>
+    <text x="835" y="674" fill="#aaa">✓ Health Score Report</text>
+    
+    <rect x="990" y="655" width="160" height="30" rx="4" fill="#1a1a2e" stroke="#fcc419" stroke-width="1"/>
+    <text x="1005" y="674" fill="#fcc419">◐ Risk Mitigation Plan</text>
+  </g>
+  
+  <!-- Footer Actions -->
+  <rect x="120" y="720" width="1060" height="50" rx="8" fill="#0d0d1a"/>
+  <rect x="140" y="732" width="140" height="28" rx="6" fill="#845ef7"/>
+  <text x="210" y="750" font-family="Arial, sans-serif" font-size="10" fill="white" text-anchor="middle">Generate QBR Deck</text>
+  
+  <rect x="295" y="732" width="120" height="28" rx="6" fill="#2d2d44" stroke="#444" stroke-width="1"/>
+  <text x="355" y="750" font-family="Arial, sans-serif" font-size="10" fill="#888" text-anchor="middle">Schedule Call</text>
+  
+  <rect x="430" y="732" width="140" height="28" rx="6" fill="#2d2d44" stroke="#444" stroke-width="1"/>
+  <text x="500" y="750" font-family="Arial, sans-serif" font-size="10" fill="#888" text-anchor="middle">Export Report</text>
+  
+  <!-- Annotations -->
+  <g font-family="Arial, sans-serif" font-size="9">
+    <circle cx="320" cy="170" r="12" fill="#ff6b6b"/>
+    <text x="320" y="174" fill="white" text-anchor="middle" font-weight="bold">1</text>
+    
+    <circle cx="1070" cy="285" r="12" fill="#ff6b6b"/>
+    <text x="1070" y="289" fill="white" text-anchor="middle" font-weight="bold">2</text>
+    
+    <circle cx="430" cy="395" r="12" fill="#ff6b6b"/>
+    <text x="430" y="399" fill="white" text-anchor="middle" font-weight="bold">3</text>
+    
+    <circle cx="880" cy="640" r="12" fill="#ff6b6b"/>
+    <text x="880" y="644" fill="white" text-anchor="middle" font-weight="bold">4</text>
+  </g>
+  
+  <!-- Legend -->
+  <rect x="100" y="878" width="1280" height="2" fill="#2d2d44"/>
+  <text x="120" y="893" font-family="Arial, sans-serif" font-size="8" fill="#ff6b6b" font-weight="bold">ANNOTATIONS:</text>
+  <text x="200" y="893" font-family="Arial, sans-serif" font-size="8" fill="#888">1 - Real-time KPI cards | 2 - Proactive alert with action button | 3 - Value realization trend chart | 4 - QBR preparation checklist</text>
+</svg>
