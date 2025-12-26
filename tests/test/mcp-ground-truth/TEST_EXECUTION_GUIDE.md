@@ -405,7 +405,7 @@ it('should handle mock data', () => {
 npm test test/mcp-ground-truth -- --coverage
 
 # Open coverage report
-open coverage/index.html
+open coverage/public/public/index.html
 ```
 
 ### Coverage Targets

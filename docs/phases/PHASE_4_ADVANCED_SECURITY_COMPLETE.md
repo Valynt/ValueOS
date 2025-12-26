@@ -49,7 +49,7 @@ Phase 4 Advanced Security has been successfully implemented, establishing a comp
 
 ## 🔧 INFRASTRUCTURE COMPONENTS
 
-### Kubernetes Security (`k8s/security/`)
+### Kubernetes Security (`infra/infra/k8s/security/`)
 - **Network Policies**: Zero-trust network segmentation
 - **Service Mesh**: Istio configuration for mutual TLS
 - **Authorization Policies**: Service-to-service access control
@@ -152,7 +152,7 @@ Phase 4 Advanced Security has been successfully implemented, establishing a comp
 4. **Certificate Management**: Configure mutual TLS certificates
 
 ### Configuration Steps:
-1. **Deploy Network Policies**: `kubectl apply -f k8s/security/`
+1. **Deploy Network Policies**: `kubectl apply -f infra/infra/k8s/security/`
 2. **Update Service Dependencies**: Add security services to DI container
 3. **Configure Alert Channels**: Setup Slack/email notifications
 4. **Initialize Compliance Baselines**: Run initial compliance assessment

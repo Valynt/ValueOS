@@ -45,8 +45,8 @@ npm run deploy:validate prod
 kubectl rollout undo deployment/valuecanvas-app -n production
 
 # Docker Compose
-docker-compose -f infrastructure/docker/compose.prod.yml down
-docker-compose -f infrastructure/docker/compose.prod.yml up -d
+docker-compose -f infra/infra/docker/compose.prod.yml down
+docker-compose -f infra/infra/docker/compose.prod.yml up -d
 ```
 
 ---

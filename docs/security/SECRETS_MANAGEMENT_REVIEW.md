@@ -270,7 +270,7 @@ class SecretManager {
 
 **Required:**
 ```yaml
-# kubernetes/secret-provider-class.yaml
+# infra/infra/k8s/secret-provider-class.yaml
 apiVersion: secrets-store.csi.x-k8s.io/v1
 kind: SecretProviderClass
 metadata:

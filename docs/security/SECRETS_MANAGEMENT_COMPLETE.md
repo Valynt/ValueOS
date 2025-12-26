@@ -86,13 +86,13 @@ All 4 sprints of the Enterprise Multi-Tenant Secrets Management implementation h
 - Prometheus alerts (10 rules)
 
 **Files Created:**
-- `kubernetes/secrets/secret-provider-class-vault.yaml`
-- `kubernetes/secrets/deployment-with-csi.yaml`
+- `infra/infra/k8s/secrets/secret-provider-class-vault.yaml`
+- `infra/infra/k8s/secrets/deployment-with-csi.yaml`
 - `src/config/secrets/SecretVolumeWatcher.ts`
 - `src/config/secrets/SecretRotationScheduler.ts`
 - `src/config/secrets/SecretMetrics.ts`
-- `kubernetes/monitoring/grafana-dashboard.json`
-- `kubernetes/monitoring/prometheus-alerts.yaml`
+- `infra/infra/k8s/monitoring/grafana-dashboard.json`
+- `infra/infra/k8s/monitoring/prometheus-alerts.yaml`
 
 **Risk:** 🟢 LOW → 🟢 MINIMAL
 
@@ -284,13 +284,13 @@ All 4 sprints of the Enterprise Multi-Tenant Secrets Management implementation h
 ### Infrastructure (8 files)
 
 **Kubernetes:**
-- `kubernetes/secrets/secret-provider-class-vault.yaml`
-- `kubernetes/secrets/secret-provider-class-aws.yaml`
-- `kubernetes/secrets/deployment-with-csi.yaml`
+- `infra/infra/k8s/secrets/secret-provider-class-vault.yaml`
+- `infra/infra/k8s/secrets/secret-provider-class-aws.yaml`
+- `infra/infra/k8s/secrets/deployment-with-csi.yaml`
 
 **Monitoring:**
-- `kubernetes/monitoring/grafana-dashboard.json`
-- `kubernetes/monitoring/prometheus-alerts.yaml`
+- `infra/infra/k8s/monitoring/grafana-dashboard.json`
+- `infra/infra/k8s/monitoring/prometheus-alerts.yaml`
 
 **Database:**
 - `supabase/migrations/20241129_secret_audit_logs.sql`

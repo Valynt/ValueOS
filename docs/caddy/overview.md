@@ -36,7 +36,7 @@ This document explains how the new Caddy layer is wired for dev/stage/prod, the 
 
 ## Routing contract
 
-- SPA: fallback to `/index.html` via `spa_static` snippet in `infra/caddy/Caddyfile`.
+- SPA: fallback to `/public/public/index.html` via `spa_static` snippet in `infra/caddy/Caddyfile`.
 - API: `handle_path /api/*` → `reverse_proxy {$API_UPSTREAM:http://backend:8000}` with streaming-friendly `flush_interval -1` for SSE/WebSockets.
 - WebSockets/SSE: `/ws/*` shares the API upstream block; headers pass `X-Forwarded-*` and `X-Request-ID`.
 - Caching: immutable caching for hashed assets; HTML is `no-store` to prevent stale shells. Compression via `zstd` + `gzip` with safe MIME filters.

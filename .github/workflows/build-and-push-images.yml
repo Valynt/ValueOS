@@ -7,7 +7,7 @@ on:
       - develop
     paths:
       - 'src/**'
-      - 'docker/**'
+      - 'infra/infra/docker/**'
       - 'package.json'
       - 'Dockerfile'
   pull_request:
@@ -16,7 +16,7 @@ on:
       - develop
     paths:
       - 'src/**'
-      - 'docker/**'
+      - 'infra/infra/docker/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -45,7 +45,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: infra/infra/docker/setup-buildx-action@v3
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -71,10 +71,10 @@ jobs:
           fi
 
       - name: Build and push Frontend image
-        uses: docker/build-push-action@v5
+        uses: infra/infra/docker/build-push-action@v5
         with:
           context: .
-          file: ./docker/frontend.Dockerfile
+          file: ./infra/infra/docker/frontend.Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ${{ steps.login-ecr.outputs.registry }}/valuecanvas-frontend:${{ steps.image-tag.outputs.tag }}
@@ -102,7 +102,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: infra/infra/docker/setup-buildx-action@v3
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -128,10 +128,10 @@ jobs:
           fi
 
       - name: Build and push Backend image
-        uses: docker/build-push-action@v5
+        uses: infra/infra/docker/build-push-action@v5
         with:
           context: .
-          file: ./docker/backend.Dockerfile
+          file: ./infra/infra/docker/backend.Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ${{ steps.login-ecr.outputs.registry }}/valuecanvas-backend:${{ steps.image-tag.outputs.tag }}

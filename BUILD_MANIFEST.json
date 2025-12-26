@@ -11,7 +11,7 @@
     "frontend": {
       "bundleSize": "450KB",
       "chunks": 12,
-      "entryPoint": "dist/index.html",
+      "entryPoint": "dist/public/public/index.html",
       "assets": "dist/assets/",
       "sourceMaps": true
     },

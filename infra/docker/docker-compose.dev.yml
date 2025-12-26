@@ -26,7 +26,7 @@ services:
       # Mount source code for hot-reloading
       - ./src:/app/src:cached
       - ./public:/app/public:cached
-      - ./index.html:/app/index.html:cached
+      - ./public/public/public/index.html:/app/public/public/index.html:cached
       - ./vite.config.ts:/app/vite.config.ts:cached
       - ./tsconfig.json:/app/tsconfig.json:cached
       - ./tsconfig.app.json:/app/tsconfig.app.json:cached

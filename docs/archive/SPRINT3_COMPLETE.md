@@ -24,10 +24,10 @@
 ### 1. Kubernetes CSI Driver Configuration
 
 **Files Created:**
-- `kubernetes/secrets/secret-provider-class-vault.yaml`
-- `kubernetes/secrets/deployment-with-csi.yaml`
-- `kubernetes/monitoring/prometheus-alerts.yaml`
-- `kubernetes/monitoring/grafana-dashboard.json`
+- `infra/infra/k8s/secrets/secret-provider-class-vault.yaml`
+- `infra/infra/k8s/secrets/deployment-with-csi.yaml`
+- `infra/infra/k8s/monitoring/prometheus-alerts.yaml`
+- `infra/infra/k8s/monitoring/grafana-dashboard.json`
 
 **Features:**
 - ✅ Vault SecretProviderClass for multi-tenant secrets
@@ -175,7 +175,7 @@ GET /metrics
 
 ### 5. Grafana Dashboard
 
-**File:** `kubernetes/monitoring/grafana-dashboard.json`
+**File:** `infra/infra/k8s/monitoring/grafana-dashboard.json`
 
 **Panels:**
 1. Secret Access Rate (requests/sec)
@@ -194,7 +194,7 @@ GET /metrics
 
 ### 6. Prometheus Alerts
 
-**File:** `kubernetes/monitoring/prometheus-alerts.yaml`
+**File:** `infra/infra/k8s/monitoring/prometheus-alerts.yaml`
 
 **Alerts Configured:**
 - `HighSecretAccessErrorRate` - Error rate > 0.1/sec
@@ -236,17 +236,17 @@ helm install prometheus prometheus-community/kube-prometheus-stack --namespace m
 
 ```bash
 # For Vault
-kubectl apply -f kubernetes/secrets/secret-provider-class-vault.yaml
+kubectl apply -f infra/infra/k8s/secrets/secret-provider-class-vault.yaml
 
 # For AWS
-kubectl apply -f kubernetes/secrets/secret-provider-class-aws.yaml
+kubectl apply -f infra/infra/k8s/secrets/secret-provider-class-aws.yaml
 ```
 
 ### Deploy Application with CSI
 
 ```bash
 # Apply deployment
-kubectl apply -f kubernetes/secrets/deployment-with-csi.yaml
+kubectl apply -f infra/infra/k8s/secrets/deployment-with-csi.yaml
 
 # Verify secrets mounted
 kubectl exec -it deployment/valuecanvas-api -- ls -la /mnt/secrets
@@ -263,12 +263,12 @@ kubectl exec -it deployment/valuecanvas-api -- ls -la /mnt/secrets
 
 ```bash
 # Apply Prometheus alerts
-kubectl apply -f kubernetes/monitoring/prometheus-alerts.yaml
+kubectl apply -f infra/infra/k8s/monitoring/prometheus-alerts.yaml
 
 # Import Grafana dashboard
 # 1. Open Grafana UI
 # 2. Go to Dashboards > Import
-# 3. Upload kubernetes/monitoring/grafana-dashboard.json
+# 3. Upload infra/infra/k8s/monitoring/grafana-dashboard.json
 ```
 
 ### Enable Secret Watcher

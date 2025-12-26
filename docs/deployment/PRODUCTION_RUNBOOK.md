@@ -98,7 +98,7 @@ kubectl get pods -n kube-system | grep vault-csi
 vault auth enable kubernetes
 
 # Configure Kubernetes auth
-vault write auth/kubernetes/config \
+vault write auth/infra/infra/k8s/config \
   kubernetes_host="https://$KUBERNETES_SERVICE_HOST:$KUBERNETES_SERVICE_PORT" \
   kubernetes_ca_cert=@/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
 
@@ -113,7 +113,7 @@ path "secret/metadata/production/tenants/*" {
 EOF
 
 # Create role
-vault write auth/kubernetes/role/valuecanvas-production \
+vault write auth/infra/infra/k8s/role/valuecanvas-production \
   bound_service_account_names=valuecanvas \
   bound_service_account_namespaces=production \
   policies=valuecanvas-production \
@@ -199,10 +199,10 @@ kubectl label namespace production \
 
 ```bash
 # Apply for Vault
-kubectl apply -f kubernetes/secrets/secret-provider-class-vault.yaml
+kubectl apply -f infra/infra/k8s/secrets/secret-provider-class-vault.yaml
 
 # OR for AWS
-kubectl apply -f kubernetes/secrets/secret-provider-class-aws.yaml
+kubectl apply -f infra/infra/k8s/secrets/secret-provider-class-aws.yaml
 
 # Verify
 kubectl get secretproviderclass -n production
@@ -212,7 +212,7 @@ kubectl get secretproviderclass -n production
 
 ```bash
 # Apply service account and RBAC
-kubectl apply -f kubernetes/secrets/deployment-with-csi.yaml
+kubectl apply -f infra/infra/k8s/secrets/deployment-with-csi.yaml
 
 # Verify service account
 kubectl get serviceaccount valuecanvas -n production
@@ -264,7 +264,7 @@ ls -la /mnt/secrets
 
 ```bash
 # Apply alert rules
-kubectl apply -f kubernetes/monitoring/prometheus-alerts.yaml
+kubectl apply -f infra/infra/k8s/monitoring/prometheus-alerts.yaml
 
 # Verify alerts loaded
 kubectl get prometheusrule -n monitoring
@@ -275,7 +275,7 @@ kubectl get prometheusrule -n monitoring
 ```bash
 # Open Grafana UI
 # Navigate to Dashboards > Import
-# Upload: kubernetes/monitoring/grafana-dashboard.json
+# Upload: infra/infra/k8s/monitoring/grafana-dashboard.json
 
 # Verify panels:
 # - Secret Access Rate

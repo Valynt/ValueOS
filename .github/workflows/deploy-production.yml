@@ -132,7 +132,7 @@ jobs:
             frontend:
               - 'src/**'
               - 'public/**'
-              - 'index.html'
+              - 'public/public/public/public/index.html'
               - 'package.json'
               - 'vite.config.ts'
               - 'tsconfig.json'
@@ -167,10 +167,10 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
       
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: infra/infra/docker/setup-buildx-action@v3
       
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: infra/infra/docker/build-push-action@v5
         with:
           context: ./blueprint/infra/backend/services/${{ matrix.service }}
           push: true
@@ -257,7 +257,7 @@ jobs:
       
       - name: Deploy changed services to Kubernetes
         run: |
-          cd infrastructure/k8s/overlays/production
+          cd infrastructure/infra/infra/k8s/overlays/production
           
           # Parse changed services from JSON array
           SERVICES='${{ needs.detect-changes.outputs.services }}'

@@ -99,7 +99,7 @@ npm run staging:start
 
 # Or step-by-step
 npm run staging:build
-docker-compose -f infrastructure/docker/compose.stage.yml up -d
+docker-compose -f infra/infra/docker/compose.stage.yml up -d
 ```
 
 ### Validation Checklist
@@ -266,10 +266,10 @@ docker build -t valuecanvas:latest .
 docker push your-registry/valuecanvas:latest
 
 # Deploy to Kubernetes
-kubectl apply -f k8s/production/
+kubectl apply -f infra/infra/k8s/production/
 
 # Or Docker Compose
-docker-compose -f docker/prod/docker-compose.yml up -d --build
+docker-compose -f infra/infra/docker/prod/docker-compose.yml up -d --build
 ```
 
 #### Step 3: Post-Deployment Verification
@@ -297,8 +297,8 @@ If deployment fails:
 kubectl rollout undo deployment/valuecanvas-app -n production
 
 # Or with Docker Compose
-docker-compose -f docker/prod/docker-compose.yml down
-docker-compose -f docker/prod/docker-compose.yml up -d --no-deps app
+docker-compose -f infra/infra/docker/prod/docker-compose.yml down
+docker-compose -f infra/infra/docker/prod/docker-compose.yml up -d --no-deps app
 ```
 
 ---
