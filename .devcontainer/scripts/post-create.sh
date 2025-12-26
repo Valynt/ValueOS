@@ -68,12 +68,6 @@ print_success "Node.js: $NODE_VERSION"
 NPM_VERSION=$(npm --version)
 print_success "npm: $NPM_VERSION"
 
-# Check Docker
-if command -v docker &> /dev/null; then
-    DOCKER_VERSION=$(docker --version | cut -d' ' -f3 | tr -d ',')
-    print_success "Docker: $DOCKER_VERSION"
-fi
-
 # Check kubectl
 if command -v kubectl &> /dev/null; then
     KUBECTL_VERSION=$(kubectl version --client --short 2>/dev/null | cut -d' ' -f3)

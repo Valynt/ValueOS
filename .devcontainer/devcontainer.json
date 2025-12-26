@@ -7,56 +7,5 @@
       "version": "20"
     },
     "ghcr.io/devcontainers/features/github-cli:1": {}
-  },
-
-  "remoteUser": "vscode",
-
-  "containerEnv": {
-    "ENVIRONMENT": "development",
-    "NODE_ENV": "development",
-    "TOGETHER_API_KEY": "${localEnv:TOGETHER_API_KEY}",
-    "SUPABASE_PROJECT_ID": "${localEnv:SUPABASE_PROJECT_ID}",
-    "DATABASE_URL": "${localEnv:DATABASE_URL}"
-  },
-
-  "postCreateCommand": "bash -c 'if ! command -v node &> /dev/null; then cd /tmp && curl -fsSL https://nodejs.org/dist/v20.19.6/node-v20.19.6-linux-x64.tar.gz -o node.tar.gz && tar -xzf node.tar.gz && sudo cp -r node-v20.19.6-linux-x64/* /usr/local/ && rm -rf node*; fi && npm install && npm run prepare && sudo usermod -aG docker vscode || true'",
-
-  "forwardPorts": [5173, 3001],
-
-  "portsAttributes": {
-    "5173": {
-      "label": "Frontend (Vite)",
-      "onAutoForward": "notify"
-    },
-    "3001": {
-      "label": "Backend API",
-      "onAutoForward": "silent"
-    },
-    "54321": {
-      "label": "Supabase Studio",
-      "onAutoForward": "silent"
-    }
-  },
-
-  "customizations": {
-    "vscode": {
-      "extensions": [
-        "dbaeumer.vscode-eslint",
-        "esbenp.prettier-vscode",
-        "bradlc.vscode-tailwindcss",
-        "ms-azuretools.vscode-docker",
-        "Prisma.prisma",
-        "Google.geminicodeassist",
-        "google.geminicodeassist"
-      ],
-      "settings": {
-        "editor.formatOnSave": true,
-        "editor.defaultFormatter": "esbenp.prettier-vscode",
-        "editor.codeActionsOnSave": {
-          "source.fixAll.eslint": "explicit"
-        },
-        "typescript.tsdk": "node_modules/typescript/lib"
-      }
-    }
   }
 }

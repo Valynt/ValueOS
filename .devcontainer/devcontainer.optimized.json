@@ -13,12 +13,6 @@
     // GitHub CLI for automation
     "ghcr.io/devcontainers/features/github-cli:1": {
       "version": "latest"
-    },
-    // Common utilities
-    "ghcr.io/devcontainers/features/common-utils:2": {
-      "installZsh": true,
-      "installOhMyZsh": true,
-      "upgradePackages": false
     }
   },
 
@@ -28,9 +22,6 @@
   "containerEnv": {
     "NODE_ENV": "development",
     "ENVIRONMENT": "development",
-    // Enable BuildKit for faster Docker builds
-    "DOCKER_BUILDKIT": "1",
-    "COMPOSE_DOCKER_CLI_BUILD": "1",
     // Optimize npm
     "NPM_CONFIG_UPDATE_NOTIFIER": "false",
     "NPM_CONFIG_FUND": "false"
@@ -84,9 +75,7 @@
     // Cache build artifacts
     "source=valuecanvas-build-cache,target=${containerWorkspaceFolder}/.cache,type=volume",
     // Cache playwright browsers
-    "source=valuecanvas-playwright,target=/home/vscode/.cache/ms-playwright,type=volume",
-    // Cache Docker layers
-    "source=valuecanvas-docker-cache,target=/var/lib/docker,type=volume"
+    "source=valuecanvas-playwright,target=/home/vscode/.cache/ms-playwright,type=volume"
   },
 
   // Container configuration for performance
