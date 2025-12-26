@@ -3,263 +3,357 @@
  * User authentication with email/password and optional MFA
  */
 
-import React, { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import { AlertCircle, FlaskConical, Key, Lock, Mail } from 'lucide-react';
-
-// Check if we're in development mode (demo bypass only available in dev)
-const isDevelopment = (import.meta as any)?.env?.VITE_APP_ENV !== 'production';
+import React, { useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
+// import { AlertCircle, Key, Lock, Mail } from "lucide-react"; // Replaced with custom styling/icons or kept if needed
 
 export function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [otpCode, setOtpCode] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [otpCode, setOtpCode] = useState("");
   const [showMFA, setShowMFA] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showDemoConfirm, setShowDemoConfirm] = useState(false);
-  const [demoLoading, setDemoLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<string | null>(null);
 
-  const { login, enterDemoMode } = useAuth();
+  const { login, signInWithProvider } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = (location.state as any)?.from?.pathname || '/';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const from = (location.state as any)?.from?.pathname || "/";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     try {
       await login({ email, password, otpCode: otpCode || undefined });
       navigate(from, { replace: true });
-    } catch (err: any) {
-      console.error('Login error:', err);
-      
-      if (err.message?.includes('MFA')) {
+    } catch (err: unknown) {
+      console.error("Login error:", err);
+      const errorMessage =
+        err instanceof Error ? err.message : "An error occurred";
+
+      if (errorMessage.includes("MFA")) {
         setShowMFA(true);
-        setError('Please enter your MFA code');
-      } else if (err.message?.includes('rate limit')) {
-        setError('Too many login attempts. Please try again later.');
+        setError("Please enter your MFA code");
+      } else if (errorMessage.includes("rate limit")) {
+        setError("Too many login attempts. Please try again later.");
       } else {
-        setError(err.message || 'Invalid email or password');
+        setError(errorMessage || "Invalid email or password");
       }
     } finally {
       setLoading(false);
     }
   };
 
-  /**
-   * Handle demo mode activation
-   * Shows confirmation dialog first, then activates demo mode
-   */
-  const handleDemoMode = async () => {
-    if (!showDemoConfirm) {
-      setShowDemoConfirm(true);
-      return;
-    }
-
-    setDemoLoading(true);
-    setError('');
+  const handleOAuthSignIn = async (provider: "google" | "apple" | "github") => {
+    setError("");
+    setOauthLoading(provider);
 
     try {
-      await enterDemoMode();
-      navigate(from, { replace: true });
-    } catch (err: any) {
-      console.error('Demo mode error:', err);
-      setError(err.message || 'Failed to enter demo mode');
-      setShowDemoConfirm(false);
+      await signInWithProvider(provider);
+      // Redirect happens automatically via Supabase
+    } catch (err: unknown) {
+      console.error("OAuth sign in error:", err);
+      const errorMessage =
+        err instanceof Error ? err.message : "OAuth sign in failed";
+      setError(errorMessage);
     } finally {
-      setDemoLoading(false);
+      setOauthLoading(null);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
-      <div className="max-w-md w-full">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">ValueCanvas</h1>
-          <p className="text-gray-600">Sign in to your account</p>
-        </div>
+    <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] text-white font-sans selection:bg-emerald-500/30">
+      {/* Background Effects */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-500/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-teal-500/10 rounded-full blur-[120px]" />
+      </div>
 
-        {/* Login Form */}
-        <div className="bg-white rounded-lg shadow-xl p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Error Alert */}
+      <div className="w-full max-w-[440px] z-10 p-6">
+        <div className="bg-[#111111] rounded-[32px] border border-white/5 shadow-2xl overflow-hidden relative">
+          {/* Top/Bottom accents */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 h-[2px] w-24 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[2px] w-20 bg-gradient-to-r from-transparent via-white/5 to-transparent" />
+
+          <div className="p-8 md:p-10">
+            {/* Header Icon */}
+            <div className="flex justify-center mb-8">
+              <div className="w-16 h-16 rounded-2xl bg-[#1a1a1a] border border-white/10 flex items-center justify-center shadow-inner relative group overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="text-emerald-500 relative z-10">
+                  <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-center mb-10">
+              <h1 className="text-2xl font-bold tracking-tight mb-2 text-white">
+                Sign in to VALYNT
+              </h1>
+              <p className="text-gray-400 text-sm">
+                New to the workspace?{" "}
+                <Link
+                  to="/signup"
+                  className="text-emerald-400 hover:text-emerald-300 transition-colors font-medium"
+                >
+                  Create an account
+                </Link>
+              </p>
+            </div>
+
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start">
-                <AlertCircle className="w-5 h-5 text-red-600 mr-3 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-red-800">{error}</div>
+              <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-center">
+                {error}
               </div>
             )}
 
-            {/* Email */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="you@example.com"
-                  disabled={loading}
-                />
-              </div>
-            </div>
-
-            {/* Password */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  id="password"
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="••••••••"
-                  disabled={loading}
-                />
-              </div>
-            </div>
-
-            {/* MFA Code (conditional) */}
-            {showMFA && (
-              <div>
-                <label htmlFor="otpCode" className="block text-sm font-medium text-gray-700 mb-2">
-                  MFA Code
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Work Email */}
+              <div className="space-y-2">
+                <label
+                  className="text-[11px] font-bold tracking-wider text-gray-500 uppercase"
+                  htmlFor="email"
+                >
+                  Work Email
                 </label>
-                <div className="relative">
-                  <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <div className="group relative">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-emerald-500 transition-colors">
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="2" y="4" width="20" height="16" rx="2" />
+                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                    </svg>
+                  </div>
                   <input
-                    id="otpCode"
-                    type="text"
+                    id="email"
+                    type="email"
                     required
-                    value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="123456"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full bg-[#161616] border border-white/5 rounded-xl py-3.5 pl-11 pr-4 text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all shadow-inner"
+                    placeholder="you@studio.dev"
                     disabled={loading}
-                    maxLength={6}
                   />
                 </div>
               </div>
-            )}
 
-            {/* Forgot Password Link */}
-            <div className="flex items-center justify-between">
-              <div className="text-sm">
-                <Link
-                  to="/reset-password"
-                  className="text-blue-600 hover:text-blue-700 font-medium"
-                >
-                  Forgot password?
-                </Link>
+              {/* Password */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label
+                    className="text-[11px] font-bold tracking-wider text-gray-500 uppercase"
+                    htmlFor="password"
+                  >
+                    Password
+                  </label>
+                  <Link
+                    to="/reset-password"
+                    className="text-[11px] font-medium text-gray-500 hover:text-emerald-400 transition-colors"
+                  >
+                    Forgot?
+                  </Link>
+                </div>
+                <div className="group relative">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-emerald-500 transition-colors">
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                  </div>
+                  <input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-[#161616] border border-white/5 rounded-xl py-3.5 pl-11 pr-12 text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all shadow-inner"
+                    placeholder="Enter your password"
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-medium text-gray-500 hover:text-white transition-colors"
+                  >
+                    {showPassword ? "Hide" : "Show"}
+                  </button>
+                </div>
+              </div>
+
+              {/* MFA Code */}
+              {showMFA && (
+                <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                  <label
+                    className="text-[11px] font-bold tracking-wider text-gray-500 uppercase"
+                    htmlFor="otpCode"
+                  >
+                    MFA Code
+                  </label>
+                  <div className="group relative">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-emerald-500 transition-colors">
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                      </svg>
+                    </div>
+                    <input
+                      id="otpCode"
+                      type="text"
+                      required={showMFA}
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value)}
+                      className="w-full bg-[#161616] border border-white/5 rounded-xl py-3.5 pl-11 pr-4 text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all shadow-inner"
+                      placeholder="123456"
+                      disabled={loading}
+                      maxLength={6}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-semibold py-3.5 rounded-xl transition-all duration-300 shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-[0.98]"
+              >
+                {loading ? "Signing in..." : "Continue to dashboard"}
+              </button>
+            </form>
+
+            <div className="relative my-8">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/5"></div>
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-[#111111] px-2 text-gray-600">Or</span>
               </div>
             </div>
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className={`
-                w-full py-3 px-4 rounded-lg font-semibold text-white
-                ${loading
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
-                }
-                transition-colors duration-200
-              `}
-            >
-              {loading ? 'Signing in...' : 'Sign In'}
-            </button>
-          </form>
-
-          {/* Sign Up Link */}
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
-              <Link to="/signup" className="text-blue-600 hover:text-blue-700 font-medium">
-                Sign up
-              </Link>
-            </p>
-          </div>
-
-          {/* Demo Mode Button (Development Only) */}
-          {isDevelopment && (
-            <div className="mt-6 pt-6 border-t border-dashed border-orange-300">
-              {showDemoConfirm ? (
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                  <div className="flex items-start mb-3">
-                    <FlaskConical className="w-5 h-5 text-orange-600 mr-2 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-medium text-orange-800">
-                        Enter Demo Mode?
-                      </p>
-                      <p className="text-xs text-orange-700 mt-1">
-                        This will create a mock session for testing. No real data will be accessed.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={handleDemoMode}
-                      disabled={demoLoading}
-                      className={`
-                        flex-1 py-2 px-3 rounded-md text-sm font-medium text-white
-                        ${demoLoading
-                          ? 'bg-orange-400 cursor-not-allowed'
-                          : 'bg-orange-600 hover:bg-orange-700'
-                        }
-                        transition-colors duration-200
-                      `}
-                    >
-                      {demoLoading ? 'Activating...' : 'Confirm'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowDemoConfirm(false)}
-                      disabled={demoLoading}
-                      className="flex-1 py-2 px-3 rounded-md text-sm font-medium text-orange-700 bg-orange-100 hover:bg-orange-200 transition-colors duration-200"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleDemoMode}
-                  className="w-full py-2 px-4 rounded-lg font-medium text-orange-700 bg-orange-50 border-2 border-dashed border-orange-300 hover:bg-orange-100 hover:border-orange-400 transition-colors duration-200 flex items-center justify-center gap-2"
-                >
-                  <FlaskConical className="w-4 h-4" />
-                  <span>Enter Demo Mode</span>
-                  <span className="text-xs bg-orange-200 text-orange-800 px-2 py-0.5 rounded-full">
-                    DEV
-                  </span>
-                </button>
-              )}
+            <div className="grid grid-cols-3 gap-3">
+              <button
+                onClick={() => handleOAuthSignIn("google")}
+                disabled={loading || oauthLoading !== null}
+                className="flex items-center justify-center py-2.5 rounded-xl border border-white/10 bg-[#161616] hover:bg-[#1f1f1f] text-white transition-all hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {oauthLoading === "google" ? (
+                  <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z" />
+                  </svg>
+                )}
+              </button>
+              <button
+                onClick={() => handleOAuthSignIn("apple")}
+                disabled={loading || oauthLoading !== null}
+                className="flex items-center justify-center py-2.5 rounded-xl border border-white/10 bg-[#161616] hover:bg-[#1f1f1f] text-white transition-all hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {oauthLoading === "apple" ? (
+                  <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M17.8 7.3C18.4 6.5 18.8 5.6 18.6 4.7 17.7 4.8 16.7 5.3 16 6.1 15.4 6.8 15 7.8 15.2 8.7 16.2 8.7 17.2 8.2 17.8 7.3zM19.7 12.8C20.4 15.1 18.6 18.2 16.9 20.6 16.1 21.8 15.2 23 13.7 23 12.3 22.9 11.9 22.1 10.2 22.2 8.5 22.1 8 23 6.6 23 5.1 23 4.1 21.7 3.3 20.6 1.7 18.2 1.3 14 2.9 11.6 3.7 10.4 5.3 9.6 6.5 9.6 7.8 9.5 8.9 10.4 9.6 10.4 10.4 10.4 11.4 9.5 12.7 9.5 14.3 9.4 15.6 10.3 16.4 10.6 14 12.1 14 14.7 14 16.9 15.7 18.5 17.9 18.5 18.7 18.5 19.3 18.1 19.7 17.8 17.3 18.9 15.6 19.7 12.8z" />
+                  </svg>
+                )}
+              </button>
+              <button
+                onClick={() => handleOAuthSignIn("github")}
+                disabled={loading || oauthLoading !== null}
+                className="flex items-center justify-center py-2.5 rounded-xl border border-white/10 bg-[#161616] hover:bg-[#1f1f1f] text-white transition-all hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {oauthLoading === "github" ? (
+                  <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      clipRule="evenodd"
+                      d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.04-.015-2.04-3.338.72-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"
+                    />
+                  </svg>
+                )}
+              </button>
             </div>
-          )}
-        </div>
 
-        {/* Footer */}
-        <div className="mt-8 text-center text-sm text-gray-600">
-          <p>Protected by advanced security features</p>
+            {/* Footer Text */}
+            <div className="mt-8 text-center">
+              <p className="text-[11px] text-gray-600">
+                By continuing, you agree to the VALYNT{" "}
+                <Link
+                  to="/terms"
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  Terms
+                </Link>{" "}
+                and{" "}
+                <Link
+                  to="/privacy"
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  Privacy Policy
+                </Link>
+                .
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
