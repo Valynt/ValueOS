@@ -67,9 +67,6 @@ print_status "Setting up shell completions..."
 if command -v kubectl &> /dev/null; then
     kubectl completion zsh > ~/.oh-my-zsh/completions/_kubectl 2>/dev/null || true
 fi
-if command -v docker &> /dev/null; then
-    docker completion zsh > ~/.oh-my-zsh/completions/_docker 2>/dev/null || true
-fi
 print_success "Shell completions configured"
 
 # 7. Create useful aliases
