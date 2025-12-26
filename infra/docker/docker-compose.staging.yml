@@ -14,7 +14,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: docker/staging/Dockerfile
+      dockerfile: infra/infra/docker/staging/Dockerfile
     container_name: valuecanvas-stage
     ports:
       - "8001:8000"  # Staging port

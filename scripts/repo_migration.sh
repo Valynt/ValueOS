@@ -24,8 +24,8 @@ mv *COMPLIANCE*.md *SECURITY*.md docs/compliance/ 2>/dev/null || true
 # Infra, Caddy, Docker
 mkdir -p infra/caddy infra/docker infra/k8s infra/monitoring
 mv Caddyfile* infra/caddy/ 2>/dev/null || true
-mv Dockerfile* infra/docker/ 2>/dev/null || true
-mv docker-compose*.yml infra/docker/ 2>/dev/null || true
+mv Dockerfile* infra/infra/infra/docker/ 2>/dev/null || true
+mv docker-compose*.yml infra/infra/infra/docker/ 2>/dev/null || true
 # Meeting notes, legacy, archive
 mv MEETING*.md docs/meeting-notes/ 2>/dev/null || true
 mv LEGACY*.md docs/legacy/ 2>/dev/null || true

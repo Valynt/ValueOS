@@ -527,7 +527,7 @@ aws route53 change-resource-record-sets \
 # 4. Rebuild from IaC
 cd infrastructure/terraform
 terraform init && terraform apply -auto-approve
-kubectl apply -f k8s/production/
+kubectl apply -f infra/infra/k8s/production/
 ```
 
 ---

@@ -33,7 +33,7 @@
      select version, inserted_at from schema_migrations order by inserted_at desc limit 5;
      ```
 3. **Application rollout**
-   - Deploy via Helm/Kustomize: `kubectl apply -k kubernetes/overlays/production`
+   - Deploy via Helm/Kustomize: `kubectl apply -k infra/infra/k8s/overlays/production`
    - Watch rollout status:
      ```bash
      kubectl rollout status deploy/api --timeout=5m

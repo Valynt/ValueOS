@@ -82,12 +82,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: infra/infra/docker/setup-buildx-action@v3
 
       - name: Start services with Chaos
         run: |
           echo "🐳 Starting services..."
-          docker-compose -f infrastructure/docker/compose.dev.yml up -d
+          docker-compose -f infra/infra/infra/docker/compose.dev.yml up -d
           sleep 10
 
       - name: Verify services are running
@@ -137,7 +137,7 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: docker-compose -f infrastructure/docker/compose.dev.yml down -v
+        run: docker-compose -f infra/infra/infra/docker/compose.dev.yml down -v
 
   chaos-report:
     name: Generate Chaos Report

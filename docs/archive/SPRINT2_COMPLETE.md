@@ -392,7 +392,7 @@ const secrets = await defaultProvider.getSecret('tenant1', 'config', undefined, 
 
 ```bash
 # 1. Deploy Vault
-kubectl apply -f kubernetes/vault-deployment.yaml
+kubectl apply -f infra/infra/k8s/vault-deployment.yaml
 
 # 2. Migrate secrets (script provided)
 npm run secrets:migrate -- --from=aws --to=vault

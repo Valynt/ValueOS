@@ -299,7 +299,7 @@ curl https://staging.valuecanvas.com/health
 psql $PRODUCTION_DATABASE_URL -f supabase/migrations/20241213000000_fix_rls_tenant_isolation.sql
 
 # 2. Deploy application
-kubectl apply -f k8s/production/
+kubectl apply -f infra/infra/k8s/production/
 
 # 3. Wait for rollout
 kubectl rollout status deployment/valuecanvas-api

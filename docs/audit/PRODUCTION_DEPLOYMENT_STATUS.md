@@ -224,7 +224,7 @@ curl http://localhost:3000/health
 npm run test:health -- --inject-failures
 
 # Load balancer integration
-kubectl apply -f k8s/health-check.yaml
+kubectl apply -f infra/infra/k8s/health-check.yaml
 ```
 
 **Risk**: 🟡 MEDIUM - App reports healthy while broken

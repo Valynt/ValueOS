@@ -249,8 +249,8 @@ curl -f https://yourdomain.com/health
 kubectl rollout undo deployment/valuecanvas-app -n production
 
 # Docker Compose
-docker-compose -f docker/prod/docker-compose.yml down
-docker-compose -f docker/prod/docker-compose.yml up -d --no-deps app
+docker-compose -f infra/infra/docker/prod/docker-compose.yml down
+docker-compose -f infra/infra/docker/prod/docker-compose.yml up -d --no-deps app
 ```
 
 ### Full Rollback (< 15 minutes)

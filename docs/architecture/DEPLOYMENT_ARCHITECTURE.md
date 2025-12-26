@@ -507,7 +507,7 @@ targetCPUUtilizationPercentage: 75
 ## References
 
 - [Terraform Configuration](./infrastructure/terraform/)
-- [Kubernetes Manifests](./infrastructure/k8s/)
+- [Kubernetes Manifests](./infra/k8s/)
 - [CI/CD Pipeline](./.github/workflows/)
 - [Monitoring Dashboard](https://monitoring.valuecanvas.com)
 - [Status Page](https://status.valuecanvas.com)
