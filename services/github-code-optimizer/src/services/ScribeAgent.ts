@@ -1,6 +1,6 @@
 import { BaseAgent } from "./BaseAgent";
 import { Octokit } from "@octokit/rest";
-import OpenAI from "openai";
+import OpenAI from "./openai";
 
 export class ScribeAgent extends BaseAgent {
   private openai: OpenAI;
