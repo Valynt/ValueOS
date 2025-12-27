@@ -19,6 +19,7 @@ import { supabase } from "./lib/supabase";
 const LoginPage = lazy(() => import("./views/Auth/LoginPage"));
 const SignupPage = lazy(() => import("./views/Auth/SignupPage"));
 const ResetPasswordPage = lazy(() => import("./views/Auth/ResetPasswordPage"));
+const AuthCallback = lazy(() => import("./views/Auth/AuthCallback"));
 
 // Lazy load main app
 const App = lazy(() => import("./App"));
@@ -35,6 +36,7 @@ const LaunchReadinessDashboard = lazy(
   () => import("./views/LaunchReadinessDashboard")
 );
 const NotFound = lazy(() => import("./views/NotFound"));
+const MissionControl = lazy(() => import("./views/MissionControl"));
 
 export function AppRoutes() {
   return (
@@ -62,12 +64,15 @@ export function AppRoutes() {
                     />
 
                     {/* OAuth Callback */}
+                    <Route path="/auth/callback" element={<AuthCallback />} />
+
+                    {/* Mission Control (Zero State) */}
                     <Route
-                      path="/auth/callback"
+                      path="/launch"
                       element={
-                        <div className="min-h-screen flex items-center justify-center">
-                          <LoadingSpinner />
-                        </div>
+                        <ProtectedRoute>
+                          <MissionControl />
+                        </ProtectedRoute>
                       }
                     />
 

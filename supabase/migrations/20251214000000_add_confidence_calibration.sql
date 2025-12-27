@@ -65,16 +65,35 @@ CREATE TABLE IF NOT EXISTS agent_retraining_queue (
 );
 
 -- Add priority column if it doesn't exist (for existing tables)
-DO $$
+DO $
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'agent_retraining_queue' AND column_name = 'priority'
   ) THEN
-    ALTER TABLE agent_retraining_queue 
+    ALTER TABLE agent_retraining_queue
     ADD COLUMN priority TEXT CHECK (priority IN ('low', 'medium', 'high', 'critical')) DEFAULT 'medium';
   END IF;
-END $$;
+END $;
+
+-- Add agent_id column if it doesn't exist (for existing tables created with different schema)
+DO $
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'agent_retraining_queue' AND column_name = 'agent_id'
+  ) THEN
+    ALTER TABLE agent_retraining_queue
+    ADD COLUMN agent_id TEXT;
+    -- If agent_type exists, copy its value to agent_id
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'agent_retraining_queue' AND column_name = 'agent_type'
+    ) THEN
+      UPDATE agent_retraining_queue SET agent_id = agent_type WHERE agent_id IS NULL;
+    END IF;
+  END IF;
+END $;
 
 -- Indexes for queue processing
 CREATE INDEX IF NOT EXISTS idx_retraining_queue_status 

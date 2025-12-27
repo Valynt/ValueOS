@@ -37,6 +37,7 @@ The Value Operating System is a manifesto-driven, AI-native platform for orchest
 ## Layer 0: Foundation & Governance
 
 ### Manifesto Rules Engine
+
 **Location**: `src/lib/manifesto/ManifestoRules.ts`
 
 Implements 12 core manifesto principles with automated validation:
@@ -55,6 +56,7 @@ Implements 12 core manifesto principles with automated validation:
 12. **Moral Contract** - Integrity and transparency
 
 ### Database Schema
+
 **Location**: `supabase/migrations/`
 
 Core tables implementing the value fabric:
@@ -65,6 +67,7 @@ Core tables implementing the value fabric:
 - **Agent System**: `agent_sessions`, `agent_memory`, `agent_audit_logs`
 
 All tables include:
+
 - Row-level security (RLS)
 - Audit timestamps
 - Version tracking
@@ -73,6 +76,7 @@ All tables include:
 ## Layer 1: Value Architecture
 
 ### Value Tree
+
 Canonical structure: **Capabilities → Outcomes → KPIs → Financial Impact**
 
 ```typescript
@@ -95,21 +99,23 @@ Canonical structure: **Capabilities → Outcomes → KPIs → Financial Impact**
               financial_impact: {
                 revenue: number,
                 cost: number,
-                risk: number
-              }
-            }
-          ]
-        }
-      ]
-    }
-  ]
+                risk: number,
+              },
+            },
+          ],
+        },
+      ],
+    },
+  ];
 }
 ```
 
 ### ROI Engine
+
 **Service**: `src/services/ROIFormulaInterpreter.ts`
 
 Features:
+
 - Formula parsing and execution
 - Assumption validation
 - Sensitivity analysis
@@ -117,9 +123,11 @@ Features:
 - Conservative estimates enforcement
 
 ### Value Fabric Service
+
 **Service**: `src/services/ValueFabricService.ts`
 
 Central repository for:
+
 - Value model storage
 - KPI definitions
 - Benchmark data
@@ -129,60 +137,71 @@ Central repository for:
 ## Layer 2: AI Orchestration & Agent Fabric
 
 ### Multi-Agent System
+
 **Location**: `src/lib/agent-fabric/`
 
 Five specialized agents implementing manifesto principles:
 
 #### 1. Opportunity Agent
+
 **File**: `agents/OpportunityAgent.ts`
 
 **Manifesto Rules**: Value defined by outcomes, Personalize at edge
 
 **Responsibilities**:
+
 - Persona research
 - Value discovery
 - Feature → Outcome mapping
 - Initial opportunity modeling
 
 #### 2. Target Agent
+
 **File**: `agents/TargetAgent.ts`
 
 **Manifesto Rules**: Quantify credibly, Align to objectives
 
 **Responsibilities**:
+
 - ROI modeling
 - Assumption validation
 - Business case generation
 - Executive validation prep
 
 #### 3. Realization Agent
+
 **File**: `agents/RealizationAgent.ts`
 
 **Manifesto Rules**: Continuously proven
 
 **Responsibilities**:
+
 - Telemetry ingestion
 - Actual vs. committed tracking
 - Value realization reports
 - Renewal risk detection
 
 #### 4. Expansion Agent
+
 **File**: `agents/ExpansionAgent.ts`
 
 **Manifesto Rules**: Value must compound
 
 **Responsibilities**:
+
 - Benchmark comparison
 - Gap analysis
 - Expansion ROI modeling
 - Upsell case building
 
 #### 5. Integrity Agent
+
 **File**: `agents/IntegrityAgent.ts`
 
 **Manifesto Rules**: ALL manifesto principles
 
 **Responsibilities**:
+
 - Manifesto compliance validation
 - Assumption normalization
 - Narrative alignment
@@ -194,6 +213,7 @@ Five specialized agents implementing manifesto principles:
 **Protocol**: Event-driven via Value Fabric
 
 **Event Topics**:
+
 - `value.opportunity.created`
 - `value.target.defined`
 - `value.realization.updated`
@@ -201,6 +221,7 @@ Five specialized agents implementing manifesto principles:
 - `manifesto.violation.detected`
 
 ### LLM Gateway
+
 **Service**: `src/lib/agent-fabric/LLMGateway.ts`
 
 - Model routing
@@ -210,6 +231,7 @@ Five specialized agents implementing manifesto principles:
 - Cost tracking
 
 ### Memory System
+
 **Service**: `src/lib/agent-fabric/MemorySystem.ts`
 
 - Short-term (session)
@@ -217,12 +239,27 @@ Five specialized agents implementing manifesto principles:
 - Semantic search
 - Context retrieval
 
+### Context Fabric
+
+**Service**: `src/lib/agent-fabric/ContextFabric.ts`
+
+Centralizes business context injection for all agents:
+
+- **User Context**: Role, permissions, historical preferences
+- **Entity Context**: Industry, segment, region, size
+- **Temporal Context**: Fiscal year, quarter, seasonal trends
+- **Intent Context**: Source of entry (e.g., "Research", "CRM Import")
+
+Ensures agents generate specific, tailored insights rather than generic advice.
+
 ## Layer 3: Lifecycle Execution
 
 ### Workflow Orchestration
+
 **Service**: `src/services/WorkflowOrchestrator.ts`
 
 **Features**:
+
 - DAG execution (sequential stages)
 - Retry logic (exponential backoff + jitter)
 - Circuit breakers (5-failure threshold, 60s cooldown)
@@ -230,40 +267,61 @@ Five specialized agents implementing manifesto principles:
 - Event logging
 
 **Stages**:
+
 1. **Opportunity Discovery** → Persona fit, value hypothesis
 2. **Target Commitment** → ROI model, business case
 3. **Realization Tracking** → Telemetry, proof reports
 4. **Expansion Planning** → Benchmarks, upsell ROI
 
 ### Workflow Compensation
+
 **Service**: `src/services/WorkflowCompensation.ts`
 
 **Saga Pattern Implementation**:
+
 - Reverse-order rollback
 - Stage-specific compensation handlers
 - Artifact cleanup
 - State reversion
 
 ### Error Handling
+
 **Component**: `src/components/Workflow/WorkflowErrorPanel.tsx`
 
-Visual display of:
-- Failed stages
-- Retry attempts
 - Error messages
 - Rollback options
 
-## Layer 4: Engagement Layer
+## Layer 4: Engagement & Action
+
+### Generative UI Protocol (SDUI)
+
+**Service**: `src/sdui/renderPage.tsx`
+
+Agents communicate with the frontend via a strict JSON schema, allowing dynamic UI generation:
+
+1. **Schema Definition**: JSON structure defining Layouts, Components, and Actions.
+2. **Component Registry**: Atomic React components (Charts, KPI Cards, Forms) mapped to schema types.
+3. **Streaming Updates**: Partial JSON patches allow the UI to "stream" into existence as the agent thinks.
+
+### Action Layer (Bi-Directional)
+
+VOS is not a read-only dashboard. It is a control plane:
+
+- **Write-Back**: Push "Verified Value" cases back to CRM (Salesforce Opportunity fields).
+- **Trigger**: Initiate downstream workflows (e.g., CSP customer success plans).
+- **Sync**: Two-way synchronization of stakeholder maps and deal stages.
 
 ### User Interfaces
 
 #### Lifecycle Workspaces
+
 - **OpportunityWorkspace** (`src/views/OpportunityWorkspace.tsx`)
 - **TargetROIWorkspace** (`src/views/TargetROIWorkspace.tsx`)
 - **ExpansionInsightPage** (`src/views/ExpansionInsightPage.tsx`)
 - **IntegrityCompliancePage** (`src/views/IntegrityCompliancePage.tsx`)
 
 #### Enterprise Settings
+
 - **SettingsView** (`src/views/Settings/SettingsView.tsx`)
 - Organization, Team, User tiers
 - RBAC and permissions
@@ -302,18 +360,21 @@ sequenceDiagram
 ## Security Architecture
 
 ### Authentication & Authorization
+
 - Supabase Auth (email/password)
 - Row-level security (RLS) on all tables
 - Role-based access control (RBAC)
 - Organization/Team/User hierarchy
 
 ### Data Protection
+
 - Encrypted at rest
 - TLS in transit
 - PII handling policies
 - Audit trail for all access
 
 ### Manifesto Enforcement
+
 - All outputs validated by IntegrityAgent
 - Non-compliant artifacts quarantined
 - Auto-remediation suggestions
@@ -322,12 +383,14 @@ sequenceDiagram
 ## Scalability Design
 
 ### Horizontal Scaling
+
 - Stateless agents
 - Event-driven communication
 - Distributed workflow execution
 - Caching at multiple levels
 
 ### Performance Optimization
+
 - Lazy loading
 - Optimistic updates
 - Virtual scrolling
@@ -336,18 +399,21 @@ sequenceDiagram
 ## Monitoring & Observability
 
 ### Metrics
+
 - Agent execution time
 - Workflow success rate
 - Manifesto compliance rate
 - Value realization accuracy
 
 ### Logging
+
 - Agent decision traces
 - Workflow events
 - Manifesto violations
 - User actions
 
 ### Dashboards
+
 - Value throughput
 - Realization performance
 - Agent health
@@ -356,6 +422,7 @@ sequenceDiagram
 ## Technology Stack
 
 ### Frontend
+
 - **Framework**: React 18 + TypeScript
 - **Build**: Vite
 - **Styling**: Tailwind CSS
@@ -363,12 +430,14 @@ sequenceDiagram
 - **State**: React Context
 
 ### Backend Services
+
 - **Database**: Supabase (PostgreSQL)
 - **Real-time**: Supabase Realtime
 - **Storage**: Supabase Storage
 - **Auth**: Supabase Auth
 
 ### AI/ML
+
 - **LLM Gateway**: Configurable (OpenAI, Anthropic, etc.)
 - **Vector Store**: Planned (Qdrant/Pinecone)
 - **Embeddings**: Planned
@@ -376,12 +445,14 @@ sequenceDiagram
 ## Deployment Architecture
 
 ### Infrastructure
+
 - **Frontend**: Static hosting (Vercel/Netlify)
 - **Database**: Supabase managed PostgreSQL
 - **Edge Functions**: Supabase Edge Functions
 - **CDN**: Cloudflare/CloudFront
 
 ### CI/CD
+
 - GitHub Actions
 - Automated testing
 - Database migrations
@@ -430,6 +501,7 @@ project/
 ## Future Enhancements
 
 ### Planned Features
+
 1. **Real-time collaboration** - Multi-user editing
 2. **Advanced analytics** - Predictive modeling
 3. **Industry value packs** - Pre-built templates
@@ -437,6 +509,7 @@ project/
 5. **Mobile apps** - iOS/Android clients
 
 ### Agent Extensions
+
 1. **Company Intelligence Agent** - Research automation
 2. **Financial Modeling Agent** - Advanced calculations
 3. **Value Mapping Agent** - Automated capability mapping

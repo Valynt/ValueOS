@@ -1,17 +1,17 @@
 /**
  * Environment Variable Validation
- * 
+ *
  * Validates LLM and critical environment variables at application startup.
  * Complements the existing environment.ts validation with LLM-specific checks.
- * 
+ *
  * Architecture: Strict typing, fail-fast in production, warnings in development
  */
 
-import { llmConfig } from './llm';
-import type { LLMProvider } from '../lib/agent-fabric/llm-types';
-import { createLogger } from '../lib/logger';
+import { llmConfig } from "./llm";
+import type { LLMProvider } from "../lib/agent-fabric/llm-types";
+import { createLogger } from "../lib/logger";
 
-const validationLogger = createLogger({ component: 'EnvValidation' });
+const validationLogger = createLogger({ component: "EnvValidation" });
 
 /**
  * Validation result
@@ -35,10 +35,10 @@ export interface LLMValidationResult extends ValidationResult {
  * Get environment variable safely
  */
 function getEnv(key: string): string | undefined {
-  if (typeof import.meta !== 'undefined' && (import.meta as any)?.env) {
+  if (typeof import.meta !== "undefined" && (import.meta as any)?.env) {
     return (import.meta as any).env[key];
   }
-  if (typeof process !== 'undefined' && process.env) {
+  if (typeof process !== "undefined" && process.env) {
     return process.env[key];
   }
   return undefined;
@@ -48,13 +48,13 @@ function getEnv(key: string): string | undefined {
  * Check if running in production
  */
 function isProduction(): boolean {
-  const env = getEnv('VITE_APP_ENV') || getEnv('NODE_ENV');
-  return env === 'production';
+  const env = getEnv("VITE_APP_ENV") || getEnv("NODE_ENV");
+  return env === "production";
 }
 
 /**
  * Validate LLM configuration
- * 
+ *
  * Checks:
  * - Provider is valid
  * - Required API keys are present (server-side)
@@ -67,51 +67,35 @@ export function validateLLMConfig(): LLMValidationResult {
   // Get current provider from llmConfig
   const { provider, gatingEnabled } = llmConfig;
 
-  // Validate provider configuration
-  if (!provider || (provider !== 'together' && provider !== 'openai')) {
+  // Validate provider configuration - Together AI is the only supported provider
+  if (!provider || provider !== "together") {
     errors.push(
-      `Invalid LLM provider: "${provider}". Must be "together" or "openai"`
+      `Invalid LLM provider: "${provider}". Must be "together" (Together AI is the only supported provider)`
     );
   }
 
   // Server-side validation (if in Node.js environment)
-  const isNodeEnv = typeof process !== 'undefined' && process.env;
+  const isNodeEnv = typeof process !== "undefined" && process.env;
   let providerAvailable = false;
 
   if (isNodeEnv) {
     const togetherKey = process.env.TOGETHER_API_KEY;
     const openaiKey = process.env.OPENAI_API_KEY;
     const leakedClientKeys = [
-      'VITE_TOGETHER_API_KEY',
-      'VITE_OPENAI_API_KEY',
-      'VITE_SUPABASE_SERVICE_ROLE_KEY',
+      "VITE_TOGETHER_API_KEY",
+      "VITE_SUPABASE_SERVICE_ROLE_KEY",
     ].filter((key) => Boolean(process.env[key]));
 
     if (leakedClientKeys.length > 0) {
       errors.push(
-        `SECURITY: API keys must not use VITE_ prefix or be present in client builds: ${leakedClientKeys.join(', ')}`
+        `SECURITY: API keys must not use VITE_ prefix or be present in client builds: ${leakedClientKeys.join(", ")}`
       );
     }
 
-    // Check provider-specific keys
-    if (provider === 'together') {
+    // Check Together AI API key
+    if (provider === "together") {
       if (!togetherKey) {
-        errors.push(
-          'TOGETHER_API_KEY is required when VITE_LLM_PROVIDER=together'
-        );
-      } else {
-        providerAvailable = true;
-      }
-
-      // Warn if OpenAI fallback unavailable
-      if (!openaiKey) {
-        warnings.push(
-          'OPENAI_API_KEY not set - fallback to OpenAI will not be available'
-        );
-      }
-    } else if (provider === 'openai') {
-      if (!openaiKey) {
-        errors.push('OPENAI_API_KEY is required when VITE_LLM_PROVIDER=openai');
+        errors.push("TOGETHER_API_KEY is required");
       } else {
         providerAvailable = true;
       }
@@ -119,11 +103,9 @@ export function validateLLMConfig(): LLMValidationResult {
 
     // Production-specific checks
     if (isProduction()) {
-      // In production, we must have at least one provider configured
-      if (!togetherKey && !openaiKey) {
-        errors.push(
-          'At least one LLM provider API key must be configured in production (TOGETHER_API_KEY or OPENAI_API_KEY)'
-        );
+      // In production, Together AI API key must be configured
+      if (!togetherKey) {
+        errors.push("TOGETHER_API_KEY must be configured in production");
       }
     }
   } else {
@@ -132,7 +114,7 @@ export function validateLLMConfig(): LLMValidationResult {
   }
 
   // Validate gating configuration
-  if (typeof gatingEnabled !== 'boolean') {
+  if (typeof gatingEnabled !== "boolean") {
     warnings.push(
       `Invalid VITE_LLM_GATING_ENABLED value. Expected "true" or "false", got: ${gatingEnabled}`
     );
@@ -150,7 +132,7 @@ export function validateLLMConfig(): LLMValidationResult {
 
 /**
  * Validate all critical environment variables
- * 
+ *
  * This is a comprehensive check that includes LLM + other critical vars
  */
 export function validateEnv(): ValidationResult {
@@ -163,35 +145,37 @@ export function validateEnv(): ValidationResult {
   warnings.push(...llmValidation.warnings);
 
   // 2. Validate Supabase configuration
-  const supabaseUrl = getEnv('VITE_SUPABASE_URL');
-  const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY');
+  const supabaseUrl = getEnv("VITE_SUPABASE_URL");
+  const supabaseAnonKey = getEnv("VITE_SUPABASE_ANON_KEY");
 
   if (!supabaseUrl) {
     if (isProduction()) {
-      errors.push('VITE_SUPABASE_URL is required in production');
+      errors.push("VITE_SUPABASE_URL is required in production");
     } else {
-      warnings.push('VITE_SUPABASE_URL not set - database features will be disabled');
+      warnings.push(
+        "VITE_SUPABASE_URL not set - database features will be disabled"
+      );
     }
   }
 
   if (!supabaseAnonKey) {
     if (isProduction()) {
-      errors.push('VITE_SUPABASE_ANON_KEY is required in production');
+      errors.push("VITE_SUPABASE_ANON_KEY is required in production");
     } else {
       warnings.push(
-        'VITE_SUPABASE_ANON_KEY not set - authentication will not work'
+        "VITE_SUPABASE_ANON_KEY not set - authentication will not work"
       );
     }
   }
 
   // 3. Validate URLs in production
   if (isProduction()) {
-    const appUrl = getEnv('VITE_APP_URL');
-    const httpsOnly = getEnv('VITE_HTTPS_ONLY');
+    const appUrl = getEnv("VITE_APP_URL");
+    const httpsOnly = getEnv("VITE_HTTPS_ONLY");
 
-    if (appUrl && !appUrl.startsWith('https://') && httpsOnly !== 'false') {
+    if (appUrl && !appUrl.startsWith("https://") && httpsOnly !== "false") {
       errors.push(
-        'VITE_APP_URL must use HTTPS in production (or set VITE_HTTPS_ONLY=false)'
+        "VITE_APP_URL must use HTTPS in production (or set VITE_HTTPS_ONLY=false)"
       );
     }
   }
@@ -208,19 +192,27 @@ export function validateEnv(): ValidationResult {
  */
 export function logValidationResults(result: ValidationResult): void {
   if (result.errors.length > 0) {
-    validationLogger.error('ENV validation errors', new Error('Invalid environment configuration'), {
-      errors: result.errors,
-    });
+    validationLogger.error(
+      "ENV validation errors",
+      new Error("Invalid environment configuration"),
+      {
+        errors: result.errors,
+      }
+    );
   }
 
   if (result.warnings.length > 0) {
-    validationLogger.warn('ENV validation warnings', {
+    validationLogger.warn("ENV validation warnings", {
       warnings: result.warnings,
     });
   }
 
-  if (result.valid && result.errors.length === 0 && result.warnings.length === 0) {
-    validationLogger.info('ENV validation passed');
+  if (
+    result.valid &&
+    result.errors.length === 0 &&
+    result.warnings.length === 0
+  ) {
+    validationLogger.info("ENV validation passed");
   }
 }
 

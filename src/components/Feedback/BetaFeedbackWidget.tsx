@@ -1,56 +1,63 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Camera, Loader2, MessageCircle, Send } from 'lucide-react';
-import { analyticsClient } from '../../lib/analyticsClient';
-import { getConsoleLogs } from '../../utils/consoleRecorder';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Camera, Loader2, MessageCircle, Send } from "lucide-react";
+import { analyticsClient } from "../../lib/analyticsClient";
+import { getConsoleLogs } from "../../utils/consoleRecorder";
 
-const DEFAULT_BETA_HUB_URL = import.meta.env.VITE_BETA_HUB_URL || 'https://docs.valuecanvas.app/beta-hub';
+const DEFAULT_BETA_HUB_URL =
+  import.meta.env.VITE_BETA_HUB_URL || "https://docs.valuecanvas.app/beta-hub";
 
-type CaptureStatus = 'idle' | 'capturing' | 'ready' | 'error';
+type CaptureStatus = "idle" | "capturing" | "ready" | "error";
 
 export const BetaFeedbackWidget: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [screenshot, setScreenshot] = useState<string | null>(null);
-  const [captureStatus, setCaptureStatus] = useState<CaptureStatus>('idle');
-  const [summary, setSummary] = useState('');
-  const [severity, setSeverity] = useState<'issue' | 'idea' | 'praise'>('issue');
+  const [captureStatus, setCaptureStatus] = useState<CaptureStatus>("idle");
+  const [summary, setSummary] = useState("");
+  const [severity, setSeverity] = useState<"issue" | "idea" | "praise">(
+    "issue"
+  );
   const [includeLogs, setIncludeLogs] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const browserInfo = useMemo(() => {
-    if (typeof navigator === 'undefined') return 'unknown';
+    if (typeof navigator === "undefined") return "unknown";
     return navigator.userAgent;
   }, []);
 
   const captureScreenshot = useCallback(async () => {
     try {
-      setCaptureStatus('capturing');
-      const html2canvas = (await import('html2canvas')).default;
-      const canvas = await html2canvas(document.body, { useCORS: true, logging: false, scale: 0.8 });
-      setScreenshot(canvas.toDataURL('image/png'));
-      setCaptureStatus('ready');
+      setCaptureStatus("capturing");
+      const html2canvas = (await import("html2canvas")).default;
+      const canvas = await html2canvas(document.body, {
+        useCORS: true,
+        logging: false,
+        scale: 0.8,
+      });
+      setScreenshot(canvas.toDataURL("image/png"));
+      setCaptureStatus("ready");
     } catch (error) {
-      console.error('Screenshot capture failed', error);
-      setCaptureStatus('error');
+      console.error("Screenshot capture failed", error);
+      setCaptureStatus("error");
     }
   }, []);
 
   useEffect(() => {
     if (isOpen) {
       captureScreenshot();
-      analyticsClient.track('feedback_widget_opened', {
-        workflow: 'beta_feedback',
+      analyticsClient.track("feedback_widget_opened", {
+        workflow: "beta_feedback",
         browser: browserInfo,
       });
     }
   }, [browserInfo, captureScreenshot, isOpen]);
 
   const resetForm = () => {
-    setSummary('');
-    setSeverity('issue');
+    setSummary("");
+    setSeverity("issue");
     setIncludeLogs(true);
     setScreenshot(null);
-    setCaptureStatus('idle');
+    setCaptureStatus("idle");
   };
 
   const submitFeedback = async () => {
@@ -62,16 +69,16 @@ export const BetaFeedbackWidget: React.FC = () => {
       screenshotIncluded: Boolean(screenshot),
     });
 
-    analyticsClient.track('support_ticket_queued', {
-      tags: ['beta_cohort', 'priority_high'],
+    analyticsClient.track("support_ticket_queued", {
+      tags: ["beta_cohort", "priority_high"],
       severity,
       console_log_count: includeLogs ? getConsoleLogs().length : 0,
       browser: browserInfo,
       has_screenshot: Boolean(screenshot),
-      workflow: 'beta_feedback',
+      workflow: "beta_feedback",
     });
 
-    setToast('Thanks! We routed this to the beta support queue.');
+    setToast("Thanks! We routed this to the beta support queue.");
     setIsSubmitting(false);
     setIsOpen(false);
     resetForm();
@@ -81,7 +88,10 @@ export const BetaFeedbackWidget: React.FC = () => {
     <>
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-24 right-4 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg z-50" role="alert">
+        <div
+          className="fixed bottom-24 right-4 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg z-50"
+          role="alert"
+        >
           <p className="text-sm">{toast}</p>
           <button
             onClick={() => setToast(null)}
@@ -113,9 +123,16 @@ export const BetaFeedbackWidget: React.FC = () => {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
               <div>
-                <p className="text-xs uppercase tracking-wide text-blue-600 font-semibold">Beta Support</p>
-                <h3 className="text-xl font-semibold text-gray-900">Submit in-app feedback</h3>
-                <p className="text-sm text-gray-500">We capture a screenshot, browser details, and console logs to speed up triage.</p>
+                <p className="text-xs uppercase tracking-wide text-blue-600 font-semibold">
+                  Beta Support
+                </p>
+                <h3 className="text-xl font-semibold text-gray-900">
+                  Submit in-app feedback
+                </h3>
+                <p className="text-sm text-gray-500">
+                  We capture a screenshot, browser details, and console logs to
+                  speed up triage.
+                </p>
               </div>
               <a
                 href={DEFAULT_BETA_HUB_URL}
@@ -130,7 +147,9 @@ export const BetaFeedbackWidget: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Summary</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Summary
+                  </label>
                   <textarea
                     value={summary}
                     onChange={(e) => setSummary(e.target.value)}
@@ -141,10 +160,14 @@ export const BetaFeedbackWidget: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <label className="block text-sm font-medium text-gray-700">Severity</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Severity
+                  </label>
                   <select
                     value={severity}
-                    onChange={(e) => setSeverity(e.target.value as typeof severity)}
+                    onChange={(e) =>
+                      setSeverity(e.target.value as typeof severity)
+                    }
                     className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
                     <option value="issue">Issue</option>
@@ -161,18 +184,27 @@ export const BetaFeedbackWidget: React.FC = () => {
                     onChange={(e) => setIncludeLogs(e.target.checked)}
                     className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                   />
-                  <label htmlFor="include-logs" className="text-sm text-gray-700">Attach console logs</label>
+                  <label
+                    htmlFor="include-logs"
+                    className="text-sm text-gray-700"
+                  >
+                    Attach console logs
+                  </label>
                 </div>
 
                 <div className="text-xs text-gray-500 space-y-1">
                   <p>Browser: {browserInfo}</p>
-                  <p>Console entries: {includeLogs ? getConsoleLogs().length : 0}</p>
+                  <p>
+                    Console entries: {includeLogs ? getConsoleLogs().length : 0}
+                  </p>
                 </div>
               </div>
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-gray-700">Screenshot</p>
+                  <p className="text-sm font-medium text-gray-700">
+                    Screenshot
+                  </p>
                   <button
                     onClick={captureScreenshot}
                     className="inline-flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
@@ -182,20 +214,31 @@ export const BetaFeedbackWidget: React.FC = () => {
                   </button>
                 </div>
                 <div className="border border-dashed border-gray-300 rounded-lg h-64 flex items-center justify-center bg-gray-50 overflow-hidden">
-                  {captureStatus === 'capturing' && (
+                  {captureStatus === "capturing" && (
                     <div className="flex flex-col items-center text-gray-500">
                       <Loader2 className="w-6 h-6 animate-spin mb-2" />
                       <p className="text-sm">Capturing current view...</p>
                     </div>
                   )}
-                  {captureStatus === 'ready' && screenshot && (
-                    <img src={screenshot} alt="Screenshot preview" className="object-contain h-full w-full" />
+                  {captureStatus === "ready" && screenshot && (
+                    <img
+                      src={screenshot}
+                      alt="Screenshot preview"
+                      className="object-contain h-full w-full"
+                      loading="lazy"
+                      decoding="async"
+                    />
                   )}
-                  {captureStatus === 'error' && (
-                    <p className="text-sm text-red-600 px-4 text-center">Unable to capture screenshot. Try again or include steps manually.</p>
+                  {captureStatus === "error" && (
+                    <p className="text-sm text-red-600 px-4 text-center">
+                      Unable to capture screenshot. Try again or include steps
+                      manually.
+                    </p>
                   )}
-                  {captureStatus === 'idle' && (
-                    <p className="text-sm text-gray-500">Preparing capture...</p>
+                  {captureStatus === "idle" && (
+                    <p className="text-sm text-gray-500">
+                      Preparing capture...
+                    </p>
                   )}
                 </div>
               </div>
@@ -203,11 +246,16 @@ export const BetaFeedbackWidget: React.FC = () => {
 
             <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
               <div className="text-xs text-gray-500">
-                Tagged for <span className="font-semibold text-gray-700">beta_cohort</span> with 24h SLA.
+                Tagged for{" "}
+                <span className="font-semibold text-gray-700">beta_cohort</span>{" "}
+                with 24h SLA.
               </div>
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => { setIsOpen(false); resetForm(); }}
+                  onClick={() => {
+                    setIsOpen(false);
+                    resetForm();
+                  }}
                   className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
                 >
                   Cancel
@@ -217,7 +265,11 @@ export const BetaFeedbackWidget: React.FC = () => {
                   disabled={isSubmitting || !summary.trim()}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  {isSubmitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
                   Submit
                 </button>
               </div>

@@ -33,6 +33,7 @@ export * from "./ConfidenceIndicator";
 export * from "./AgentResponseCard";
 export * from "./AgentWorkflowPanel";
 export * from "./NarrativeBlock";
+export * from "./ValueHypothesisCard";
 
 // Form and selection components
 export * from "./SDUIForm";

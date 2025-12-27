@@ -4,6 +4,7 @@
     "esbenp.prettier-vscode",
     "bradlc.vscode-tailwindcss",
     "ms-playwright.playwright",
-    "yoavbls.pretty-ts-errors"
+    "yoavbls.pretty-ts-errors",
+    "ms-azuretools.vscode-docker"
   ]
 }

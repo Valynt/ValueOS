@@ -1,0 +1,10 @@
+{
+  "scripts": {
+    "test:together-ai": "vitest run --testNamePattern='Together AI|together-ai'",
+    "test:together-integration": "vitest run src/__tests__/together-ai-integration.test.ts",
+    "test:llm-config": "vitest run src/config/__tests__/llm.together.test.ts",
+    "test:env-validation": "vitest run src/config/__tests__/validateEnv.together.test.ts",
+    "scan:openai": "tsx scripts/scan-openai-references.ts",
+    "validate:together-ai": "tsx scripts/validate-together-ai.ts"
+  }
+}

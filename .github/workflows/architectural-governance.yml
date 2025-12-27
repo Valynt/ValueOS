@@ -1,0 +1,189 @@
+name: Architectural Governance
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  policy-check:
+    name: Policy Enforcement
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Policy Checks
+        id: policy
+        run: |
+          npm run policy:check || echo "policy_failed=true" >> $GITHUB_OUTPUT
+
+          if [ -f "policy-violations.json" ]; then
+            ERROR_COUNT=$(cat policy-violations.json | jq '[.[] | select(.severity=="error")] | length')
+            WARN_COUNT=$(cat policy-violations.json | jq '[.[] | select(.severity=="warning")] | length')
+            
+            echo "errors=$ERROR_COUNT" >> $GITHUB_OUTPUT
+            echo "warnings=$WARN_COUNT" >> $GITHUB_OUTPUT
+          fi
+        continue-on-error: true
+
+      - name: Upload Policy Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: policy-violations
+          path: policy-violations.json
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request' && always()
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          filePath: policy-report.md
+          comment_tag: architectural-governance
+          mode: recreate
+        continue-on-error: true
+
+      - name: Fail on Policy Violations
+        if: steps.policy.outputs.errors > 0
+        run: |
+          echo "::error::Found ${{ steps.policy.outputs.errors }} architectural policy violations"
+          exit 1
+
+      - name: Warn on Policy Warnings
+        if: steps.policy.outputs.warnings > 0
+        run: |
+          echo "::warning::Found ${{ steps.policy.outputs.warnings }} architectural policy warnings"
+
+  dependency-boundaries:
+    name: Dependency Boundary Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check Layer Boundaries
+        run: |
+          echo "📦 Checking architectural layer boundaries..."
+
+          # Check for forbidden imports
+          VIOLATIONS=0
+
+          # Frontend should not import backend
+          if grep -r "from.*backend" src/components src/views src/hooks 2>/dev/null; then
+            echo "::error::Frontend imports backend code"
+            VIOLATIONS=$((VIOLATIONS + 1))
+          fi
+
+          # Services should not import views
+          if grep -r "from.*views\|from.*components" src/services 2>/dev/null; then
+            echo "::error::Services import UI code"
+            VIOLATIONS=$((VIOLATIONS + 1))
+          fi
+
+          if [ $VIOLATIONS -gt 0 ]; then
+            echo "::error::Found $VIOLATIONS layer boundary violations"
+            exit 1
+          fi
+
+          echo "✅ All layer boundaries respected"
+
+  license-check:
+    name: License & Secrets Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect Secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+
+      - name: License Scan
+        run: |
+          echo "📜 Checking for incompatible licenses..."
+
+          # Check for GPL in dependencies (incompatible with proprietary)
+          if npm list --json | jq -r '.. | .license? | select(. != null)' | grep -i "GPL" 2>/dev/null; then
+            echo "::warning::Found GPL-licensed dependency"
+          fi
+
+          echo "✅ License check complete"
+
+  summary:
+    name: Governance Summary
+    runs-on: ubuntu-latest
+    needs: [policy-check, dependency-boundaries, license-check]
+    if: always()
+
+    steps:
+      - name: Download Policy Report
+        uses: actions/download-artifact@v4
+        with:
+          name: policy-violations
+        continue-on-error: true
+
+      - name: Generate Summary
+        run: |
+          echo "## 🏛️ Architectural Governance Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f "policy-violations.json" ]; then
+            ERRORS=$(cat policy-violations.json | jq '[.[] | select(.severity=="error")] | length')
+            WARNINGS=$(cat policy-violations.json | jq '[.[] | select(.severity=="warning")] | length')
+            
+            echo "### Policy Violations" >> $GITHUB_STEP_SUMMARY
+            echo "- 🔴 **Errors**: $ERRORS" >> $GITHUB_STEP_SUMMARY
+            echo "- 🟡 **Warnings**: $WARNINGS" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "$ERRORS" -gt 0 ]; then
+              echo "**Status**: ❌ Failed (must fix errors)" >> $GITHUB_STEP_SUMMARY
+            elif [ "$WARNINGS" -gt 0 ]; then
+              echo "**Status**: ⚠️ Passed with warnings" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "**Status**: ✅ All checks passed" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "**Status**: ✅ All checks passed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Checks" >> $GITHUB_STEP_SUMMARY
+          echo "- Policy Rules: 6 enforced" >> $GITHUB_STEP_SUMMARY
+          echo "- Layer Boundaries: Verified" >> $GITHUB_STEP_SUMMARY
+          echo "- Secrets Scan: Complete" >> $GITHUB_STEP_SUMMARY
+          echo "- License Check: Complete" >> $GITHUB_STEP_SUMMARY

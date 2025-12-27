@@ -1,15 +1,15 @@
 /**
  * ScenarioSelector Component
- * 
+ *
  * Template/scenario selection interface for value cases.
  * Features preview images, complexity badges, and AI recommendations.
  */
 
-import React, { useMemo, useState } from 'react';
-import { 
-  BarChart3, 
-  Building2, 
-  Check, 
+import React, { useMemo, useState } from "react";
+import {
+  BarChart3,
+  Building2,
+  Check,
   ChevronRight,
   Clock,
   ExternalLink,
@@ -23,16 +23,25 @@ import {
   Target,
   TrendingUp,
   Users,
-  Zap
-} from 'lucide-react';
+  Zap,
+} from "lucide-react";
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export type ScenarioIcon = 'trending' | 'building' | 'layers' | 'star' | 'zap' | 'target' | 'chart' | 'users' | 'shield';
-export type Complexity = 'simple' | 'medium' | 'complex';
-export type ViewMode = 'grid' | 'list';
+export type ScenarioIcon =
+  | "trending"
+  | "building"
+  | "layers"
+  | "star"
+  | "zap"
+  | "target"
+  | "chart"
+  | "users"
+  | "shield";
+export type Complexity = "simple" | "medium" | "complex";
+export type ViewMode = "grid" | "list";
 
 export interface Scenario {
   id: string;
@@ -100,34 +109,38 @@ const IconMap: Record<ScenarioIcon, React.ElementType> = {
 // Complexity Badge
 // ============================================================================
 
-const ComplexityBadge: React.FC<{ complexity: Complexity }> = ({ complexity }) => {
+const ComplexityBadge: React.FC<{ complexity: Complexity }> = ({
+  complexity,
+}) => {
   const config = {
-    simple: { 
-      color: 'bg-green-500/10 text-green-400 border-green-500/20', 
-      label: 'Simple',
-      dots: 1
+    simple: {
+      color: "bg-green-500/10 text-green-400 border-green-500/20",
+      label: "Simple",
+      dots: 1,
     },
-    medium: { 
-      color: 'bg-amber-500/10 text-amber-400 border-amber-500/20', 
-      label: 'Medium',
-      dots: 2
+    medium: {
+      color: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+      label: "Medium",
+      dots: 2,
     },
-    complex: { 
-      color: 'bg-red-500/10 text-red-400 border-red-500/20', 
-      label: 'Complex',
-      dots: 3
+    complex: {
+      color: "bg-red-500/10 text-red-400 border-red-500/20",
+      label: "Complex",
+      dots: 3,
     },
   };
 
   const { color, label, dots } = config[complexity];
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium border ${color}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium border ${color}`}
+    >
       <span className="flex gap-0.5">
         {[...Array(3)].map((_, i) => (
-          <span 
-            key={i} 
-            className={`w-1.5 h-1.5 rounded-full ${i < dots ? 'bg-current' : 'bg-current/20'}`} 
+          <span
+            key={i}
+            className={`w-1.5 h-1.5 rounded-full ${i < dots ? "bg-current" : "bg-current/20"}`}
           />
         ))}
       </span>
@@ -140,7 +153,10 @@ const ComplexityBadge: React.FC<{ complexity: Complexity }> = ({ complexity }) =
 // AI Recommendation Badge
 // ============================================================================
 
-const AIRecommendationBadge: React.FC<{ confidence: number; reasoning?: string }> = ({ confidence, reasoning }) => (
+const AIRecommendationBadge: React.FC<{
+  confidence: number;
+  reasoning?: string;
+}> = ({ confidence, reasoning }) => (
   <div className="absolute -top-2 -right-2 z-10">
     <div className="group relative">
       <div className="flex items-center gap-1 px-2 py-0.5 bg-[#39FF14] rounded-full text-[#121212] text-[10px] font-bold shadow-lg shadow-[#39FF14]/20">
@@ -168,7 +184,13 @@ interface ScenarioCardProps {
   onPreview?: () => void;
 }
 
-const ScenarioCard: React.FC<ScenarioCardProps> = ({ scenario, selected, showAI, onSelect, onPreview }) => {
+const ScenarioCard: React.FC<ScenarioCardProps> = ({
+  scenario,
+  selected,
+  showAI,
+  onSelect,
+  onPreview,
+}) => {
   const Icon = scenario.icon ? IconMap[scenario.icon] : Layers;
 
   return (
@@ -177,22 +199,26 @@ const ScenarioCard: React.FC<ScenarioCardProps> = ({ scenario, selected, showAI,
       onClick={onSelect}
       className={`
         relative flex flex-col text-left rounded-lg border overflow-hidden transition-all group
-        ${selected 
-          ? 'bg-[#39FF14]/5 border-[#39FF14] shadow-[0_0_20px_rgba(57,255,20,0.1)]' 
-          : 'bg-[#1A1A1A] border-[#444444] hover:border-[#555555] hover:bg-[#252525]'
+        ${
+          selected
+            ? "bg-[#39FF14]/5 border-[#39FF14] shadow-[0_0_20px_rgba(57,255,20,0.1)]"
+            : "bg-[#1A1A1A] border-[#444444] hover:border-[#555555] hover:bg-[#252525]"
         }
       `}
     >
       {/* AI Badge */}
       {scenario.aiRecommended && showAI && scenario.aiConfidence && (
-        <AIRecommendationBadge confidence={scenario.aiConfidence} reasoning={scenario.aiReasoning} />
+        <AIRecommendationBadge
+          confidence={scenario.aiConfidence}
+          reasoning={scenario.aiReasoning}
+        />
       )}
 
       {/* Preview Image */}
       {scenario.previewImage && (
         <div className="relative h-32 bg-[#252525] overflow-hidden">
-          <img 
-            src={scenario.previewImage} 
+          <img
+            src={scenario.previewImage}
             alt={scenario.title}
             className="w-full h-full object-cover transition-transform group-hover:scale-105"
           />
@@ -200,7 +226,10 @@ const ScenarioCard: React.FC<ScenarioCardProps> = ({ scenario, selected, showAI,
           {onPreview && (
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); onPreview(); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onPreview();
+              }}
               className="absolute top-2 right-2 p-1.5 bg-black/50 rounded-md text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
             >
               <ExternalLink className="w-3.5 h-3.5" />
@@ -213,19 +242,25 @@ const ScenarioCard: React.FC<ScenarioCardProps> = ({ scenario, selected, showAI,
       <div className="flex-1 p-4">
         {/* Header */}
         <div className="flex items-start gap-3 mb-3">
-          <div className={`
+          <div
+            className={`
             flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center
-            ${selected ? 'bg-[#39FF14] text-[#121212]' : 'bg-[#333333] text-gray-400 group-hover:text-white'}
+            ${selected ? "bg-[#39FF14] text-[#121212]" : "bg-[#333333] text-gray-400 group-hover:text-white"}
             transition-colors
-          `}>
+          `}
+          >
             <Icon className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className={`font-semibold truncate transition-colors ${selected ? 'text-[#39FF14]' : 'text-white'}`}>
+            <h3
+              className={`font-semibold truncate transition-colors ${selected ? "text-[#39FF14]" : "text-white"}`}
+            >
               {scenario.title}
             </h3>
             {scenario.category && (
-              <p className="text-gray-500 text-xs truncate">{scenario.category}</p>
+              <p className="text-gray-500 text-xs truncate">
+                {scenario.category}
+              </p>
             )}
           </div>
           {selected && (
@@ -242,7 +277,9 @@ const ScenarioCard: React.FC<ScenarioCardProps> = ({ scenario, selected, showAI,
 
         {/* Meta Row */}
         <div className="flex items-center gap-2 flex-wrap">
-          {scenario.complexity && <ComplexityBadge complexity={scenario.complexity} />}
+          {scenario.complexity && (
+            <ComplexityBadge complexity={scenario.complexity} />
+          )}
           {scenario.estimatedTime && (
             <span className="inline-flex items-center gap-1 text-gray-500 text-[11px]">
               <Clock className="w-3 h-3" />
@@ -261,12 +298,17 @@ const ScenarioCard: React.FC<ScenarioCardProps> = ({ scenario, selected, showAI,
         {scenario.tags && scenario.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-3 pt-3 border-t border-[#333333]">
             {scenario.tags.slice(0, 3).map((tag, i) => (
-              <span key={i} className="px-2 py-0.5 bg-[#333333] rounded text-gray-500 text-[10px]">
+              <span
+                key={i}
+                className="px-2 py-0.5 bg-[#333333] rounded text-gray-500 text-[10px]"
+              >
                 {tag}
               </span>
             ))}
             {scenario.tags.length > 3 && (
-              <span className="text-gray-600 text-[10px]">+{scenario.tags.length - 3}</span>
+              <span className="text-gray-600 text-[10px]">
+                +{scenario.tags.length - 3}
+              </span>
             )}
           </div>
         )}
@@ -286,7 +328,13 @@ const ScenarioCard: React.FC<ScenarioCardProps> = ({ scenario, selected, showAI,
 // Scenario Row (List View)
 // ============================================================================
 
-const ScenarioRow: React.FC<ScenarioCardProps> = ({ scenario, selected, showAI, onSelect, onPreview: _onPreview }) => {
+const ScenarioRow: React.FC<ScenarioCardProps> = ({
+  scenario,
+  selected,
+  showAI,
+  onSelect,
+  onPreview: _onPreview,
+}) => {
   const Icon = scenario.icon ? IconMap[scenario.icon] : Layers;
 
   return (
@@ -295,19 +343,28 @@ const ScenarioRow: React.FC<ScenarioCardProps> = ({ scenario, selected, showAI, 
       onClick={onSelect}
       className={`
         relative flex items-center gap-4 p-4 rounded-lg border transition-all group w-full text-left
-        ${selected 
-          ? 'bg-[#39FF14]/5 border-[#39FF14]' 
-          : 'bg-[#1A1A1A] border-[#444444] hover:border-[#555555] hover:bg-[#252525]'
+        ${
+          selected
+            ? "bg-[#39FF14]/5 border-[#39FF14]"
+            : "bg-[#1A1A1A] border-[#444444] hover:border-[#555555] hover:bg-[#252525]"
         }
       `}
     >
       {/* Icon or Image */}
       {scenario.previewImage ? (
         <div className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden bg-[#252525]">
-          <img src={scenario.previewImage} alt={scenario.title} className="w-full h-full object-cover" />
+          <img
+            src={scenario.previewImage}
+            alt={scenario.title}
+            className="w-full h-full object-cover"
+            loading="lazy"
+            decoding="async"
+          />
         </div>
       ) : (
-        <div className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center ${selected ? 'bg-[#39FF14] text-[#121212]' : 'bg-[#333333] text-gray-400'}`}>
+        <div
+          className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center ${selected ? "bg-[#39FF14] text-[#121212]" : "bg-[#333333] text-gray-400"}`}
+        >
           <Icon className="w-6 h-6" />
         </div>
       )}
@@ -315,7 +372,9 @@ const ScenarioRow: React.FC<ScenarioCardProps> = ({ scenario, selected, showAI, 
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <h3 className={`font-semibold ${selected ? 'text-[#39FF14]' : 'text-white'}`}>
+          <h3
+            className={`font-semibold ${selected ? "text-[#39FF14]" : "text-white"}`}
+          >
             {scenario.title}
           </h3>
           {scenario.aiRecommended && showAI && (
@@ -327,10 +386,13 @@ const ScenarioRow: React.FC<ScenarioCardProps> = ({ scenario, selected, showAI, 
         </div>
         <p className="text-gray-400 text-sm truncate">{scenario.description}</p>
         <div className="flex items-center gap-3 mt-2">
-          {scenario.complexity && <ComplexityBadge complexity={scenario.complexity} />}
+          {scenario.complexity && (
+            <ComplexityBadge complexity={scenario.complexity} />
+          )}
           {scenario.estimatedTime && (
             <span className="text-gray-500 text-xs flex items-center gap-1">
-              <Clock className="w-3 h-3" />{scenario.estimatedTime}
+              <Clock className="w-3 h-3" />
+              {scenario.estimatedTime}
             </span>
           )}
           {scenario.category && (
@@ -369,15 +431,15 @@ export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({
   showSearch = true,
   showFilters = true,
   showViewToggle = true,
-  defaultView = 'grid',
+  defaultView = "grid",
   onSelect,
   onMultiSelect,
   onPreview,
   columns = 2,
   maxHeight,
-  className = '',
+  className = "",
 }) => {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(defaultView);
   const [internalSelectedIds, setInternalSelectedIds] = useState<Set<string>>(
@@ -391,16 +453,17 @@ export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(s => 
-        s.title.toLowerCase().includes(query) ||
-        s.description.toLowerCase().includes(query) ||
-        s.tags?.some(t => t.toLowerCase().includes(query))
+      result = result.filter(
+        (s) =>
+          s.title.toLowerCase().includes(query) ||
+          s.description.toLowerCase().includes(query) ||
+          s.tags?.some((t) => t.toLowerCase().includes(query))
       );
     }
 
     // Category filter
     if (selectedCategory) {
-      result = result.filter(s => s.category === selectedCategory);
+      result = result.filter((s) => s.category === selectedCategory);
     }
 
     // Sort: AI recommended first
@@ -419,12 +482,16 @@ export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({
   const derivedCategories = useMemo(() => {
     if (categories) return categories;
     const cats = new Map<string, number>();
-    scenarios.forEach(s => {
+    scenarios.forEach((s) => {
       if (s.category) {
         cats.set(s.category, (cats.get(s.category) || 0) + 1);
       }
     });
-    return Array.from(cats.entries()).map(([id, count]) => ({ id, label: id, count }));
+    return Array.from(cats.entries()).map(([id, count]) => ({
+      id,
+      label: id,
+      count,
+    }));
   }, [categories, scenarios]);
 
   // Handle selection
@@ -437,7 +504,7 @@ export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({
         newSelected.add(scenario.id);
       }
       setInternalSelectedIds(newSelected);
-      onMultiSelect?.(scenarios.filter(s => newSelected.has(s.id)));
+      onMultiSelect?.(scenarios.filter((s) => newSelected.has(s.id)));
     } else {
       setInternalSelectedIds(new Set([scenario.id]));
       onSelect(scenario);
@@ -447,20 +514,26 @@ export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({
   const isSelected = (id: string) => internalSelectedIds.has(id);
 
   const gridCols: Record<number, string> = {
-    1: 'grid-cols-1',
-    2: 'grid-cols-1 md:grid-cols-2',
-    3: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3',
-    4: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
+    1: "grid-cols-1",
+    2: "grid-cols-1 md:grid-cols-2",
+    3: "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+    4: "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
   };
 
   return (
-    <div className={`bg-[#333333] border border-[#444444] rounded-lg ${className}`}>
+    <div
+      className={`bg-[#333333] border border-[#444444] rounded-lg ${className}`}
+    >
       {/* Header */}
       <div className="p-6 border-b border-[#444444]">
         {(title || description) && (
           <div className="mb-4">
-            {title && <h2 className="text-white text-lg font-semibold mb-1">{title}</h2>}
-            {description && <p className="text-gray-400 text-sm">{description}</p>}
+            {title && (
+              <h2 className="text-white text-lg font-semibold mb-1">{title}</h2>
+            )}
+            {description && (
+              <p className="text-gray-400 text-sm">{description}</p>
+            )}
           </div>
         )}
 
@@ -482,12 +555,12 @@ export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({
           <div className="flex gap-2">
             {showFilters && derivedCategories.length > 0 && (
               <select
-                value={selectedCategory || ''}
+                value={selectedCategory || ""}
                 onChange={(e) => setSelectedCategory(e.target.value || null)}
                 className="px-3 py-2 bg-[#1A1A1A] border border-[#444444] rounded-md text-white text-sm focus:outline-none focus:border-[#39FF14]"
               >
                 <option value="">All Categories</option>
-                {derivedCategories.map(cat => (
+                {derivedCategories.map((cat) => (
                   <option key={cat.id} value={cat.id}>
                     {cat.label} {cat.count && `(${cat.count})`}
                   </option>
@@ -499,15 +572,15 @@ export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({
               <div className="flex border border-[#444444] rounded-md overflow-hidden">
                 <button
                   type="button"
-                  onClick={() => setViewMode('grid')}
-                  className={`p-2 ${viewMode === 'grid' ? 'bg-[#39FF14] text-[#121212]' : 'bg-[#1A1A1A] text-gray-400 hover:text-white'} transition-colors`}
+                  onClick={() => setViewMode("grid")}
+                  className={`p-2 ${viewMode === "grid" ? "bg-[#39FF14] text-[#121212]" : "bg-[#1A1A1A] text-gray-400 hover:text-white"} transition-colors`}
                 >
                   <Grid className="w-4 h-4" />
                 </button>
                 <button
                   type="button"
-                  onClick={() => setViewMode('list')}
-                  className={`p-2 ${viewMode === 'list' ? 'bg-[#39FF14] text-[#121212]' : 'bg-[#1A1A1A] text-gray-400 hover:text-white'} transition-colors`}
+                  onClick={() => setViewMode("list")}
+                  className={`p-2 ${viewMode === "list" ? "bg-[#39FF14] text-[#121212]" : "bg-[#1A1A1A] text-gray-400 hover:text-white"} transition-colors`}
                 >
                   <List className="w-4 h-4" />
                 </button>
@@ -518,9 +591,9 @@ export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({
       </div>
 
       {/* Scenarios */}
-      <div 
+      <div
         className="p-6 overflow-y-auto"
-        style={{ maxHeight: maxHeight || 'auto' }}
+        style={{ maxHeight: maxHeight || "auto" }}
       >
         {filteredScenarios.length === 0 ? (
           <div className="text-center py-12">
@@ -529,16 +602,16 @@ export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({
             {searchQuery && (
               <button
                 type="button"
-                onClick={() => setSearchQuery('')}
+                onClick={() => setSearchQuery("")}
                 className="mt-2 text-[#39FF14] text-sm hover:underline"
               >
                 Clear search
               </button>
             )}
           </div>
-        ) : viewMode === 'grid' ? (
+        ) : viewMode === "grid" ? (
           <div className={`grid gap-4 ${gridCols[columns]}`}>
-            {filteredScenarios.map(scenario => (
+            {filteredScenarios.map((scenario) => (
               <ScenarioCard
                 key={scenario.id}
                 scenario={scenario}
@@ -551,7 +624,7 @@ export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {filteredScenarios.map(scenario => (
+            {filteredScenarios.map((scenario) => (
               <ScenarioRow
                 key={scenario.id}
                 scenario={scenario}
@@ -569,7 +642,8 @@ export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({
       {multiSelect && internalSelectedIds.size > 0 && (
         <div className="p-4 border-t border-[#444444] flex items-center justify-between bg-[#1A1A1A]">
           <span className="text-gray-400 text-sm">
-            {internalSelectedIds.size} scenario{internalSelectedIds.size !== 1 ? 's' : ''} selected
+            {internalSelectedIds.size} scenario
+            {internalSelectedIds.size !== 1 ? "s" : ""} selected
           </span>
           <button
             type="button"

@@ -1,0 +1,106 @@
+# Grafana Datasource Provisioning Configuration
+# This file automatically provisions datasources when Grafana starts
+# Format: https://grafana.com/docs/grafana/latest/administration/provisioning/#datasources
+
+apiVersion: 1
+
+# Delete datasources that are not in this config
+deleteDatasources:
+  - name: Prometheus
+    orgId: 1
+  - name: Loki
+    orgId: 1
+  - name: Tempo
+    orgId: 1
+
+datasources:
+  # Prometheus - Metrics
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    # Set as default for metrics queries
+    isDefault: false
+    jsonData:
+      # Exemplars allow correlation between metrics and traces
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo
+      # HTTP method for queries
+      httpMethod: POST
+      # Prometheus-specific features
+      manageAlerts: false
+      prometheusType: Prometheus
+      prometheusVersion: 2.47.0
+    editable: true
+    version: 1
+
+  # Loki - Logs
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    isDefault: false
+    jsonData:
+      # Maximum number of lines to display
+      maxLines: 1000
+      # Derived fields extract values from logs for linking
+      derivedFields:
+        # Extract trace_id from logs and link to Tempo
+        - datasourceUid: tempo
+          matcherRegex: "trace_id[=:]\\s*([\\w-]+)"
+          name: TraceID
+          url: '$${__value.raw}'
+          # Use Tempo as the target datasource
+          datasourceUid: tempo
+        # Extract span_id for additional context
+        - matcherRegex: "span_id[=:]\\s*([\\w-]+)"
+          name: SpanID
+          url: ''
+    editable: true
+    version: 1
+
+  # Tempo - Traces
+  - name: Tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    # Set as default for tracing
+    isDefault: true
+    uid: tempo
+    jsonData:
+      # Link traces back to logs in Loki
+      tracesToLogs:
+        datasourceUid: loki
+        # Tags to use for log correlation
+        tags: ['job', 'instance', 'pod', 'namespace']
+        # Map trace span to log query
+        mappedTags: [{ key: 'service.name', value: 'service' }]
+        mapTagNamesEnabled: true
+        spanStartTimeShift: '-1m'
+        spanEndTimeShift: '1m'
+        filterByTraceID: true
+        filterBySpanID: false
+      # Link traces to metrics in Prometheus
+      tracesToMetrics:
+        datasourceUid: prometheus
+        tags: [{ key: 'service.name', value: 'service' }]
+        queries:
+          - name: 'Request rate'
+            query: 'sum(rate(traces_spanmetrics_latency_count{$$__tags}[5m]))'
+          - name: 'Request duration'
+            query: 'histogram_quantile(0.9, sum(rate(traces_spanmetrics_latency_bucket{$$__tags}[5m])) by (le))'
+      # Service graph visualization
+      serviceMap:
+        datasourceUid: prometheus
+      # Node graph visualization
+      nodeGraph:
+        enabled: true
+      # Search configuration
+      search:
+        hide: false
+      # Loki search integration
+      lokiSearch:
+        datasourceUid: loki
+    editable: true
+    version: 1

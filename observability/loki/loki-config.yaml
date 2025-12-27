@@ -1,0 +1,82 @@
+# Loki Configuration for Local Development
+# Loki is a horizontally scalable, highly available log aggregation system
+# This configuration runs Loki in single-instance mode for local dev
+
+auth_enabled: false # Disable multi-tenancy for local dev
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+  log_level: info
+
+# Ingester configuration - responsible for writing log data
+ingester:
+  lifecycler:
+    address: 127.0.0.1
+    ring:
+      kvstore:
+        store: inmemory # Use in-memory store for local dev
+      replication_factor: 1 # Single instance, no replication
+    final_sleep: 0s
+  # Chunk configuration
+  chunk_idle_period: 5m # Flush chunks after 5m of inactivity
+  max_chunk_age: 1h # Maximum age before flushing
+  chunk_retain_period: 30s # Keep chunks in memory for queries
+  chunk_encoding: snappy # Compression algorithm
+  wal:
+    enabled: true
+    dir: /loki/wal
+
+# Schema configuration - defines how data is stored
+schema_config:
+  configs:
+    - from: 2020-10-24
+      store: boltdb-shipper
+      object_store: filesystem
+      schema: v11
+      index:
+        prefix: index_
+        period: 24h
+
+# Storage configuration
+storage_config:
+  boltdb_shipper:
+    active_index_directory: /loki/boltdb-shipper-active
+    cache_location: /loki/boltdb-shipper-cache
+    cache_ttl: 24h
+    shared_store: filesystem
+  filesystem:
+    directory: /loki/chunks
+
+# Compactor configuration - reduces storage usage
+compactor:
+  working_directory: /loki/compactor
+  shared_store: filesystem
+  compaction_interval: 10m
+
+# Query limits - prevent resource exhaustion
+limits_config:
+  enforce_metric_name: false
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h # 1 week
+  ingestion_rate_mb: 10 # 10 MB/s per stream
+  ingestion_burst_size_mb: 20 # Burst up to 20 MB
+  max_query_series: 100000
+  max_query_lookback: 720h # 30 days
+
+# Query configuration
+query_range:
+  align_queries_with_step: true
+
+# Ruler configuration (disabled for local dev)
+ruler:
+  storage:
+    type: local
+    local:
+      directory: /loki/rules
+  rule_path: /loki/rules-temp
+  alertmanager_url: http://localhost:9093
+  ring:
+    kvstore:
+      store: inmemory
+  enable_api: true
