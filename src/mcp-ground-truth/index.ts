@@ -1,24 +1,25 @@
 /**
  * MCP Financial Ground Truth Server - Main Export
- * 
+ *
  * Central export point for the MCP Financial Ground Truth Server.
  * Provides easy access to all modules, types, and the main server class.
  */
 
 // Core exports
-export { MCPFinancialGroundTruthServer } from './core/MCPServer';
-export { UnifiedTruthLayer } from './core/UnifiedTruthLayer';
-export { BaseModule } from './core/BaseModule';
+export { MCPFinancialGroundTruthServer } from "./core/MCPServer";
+export { UnifiedTruthLayer } from "./core/UnifiedTruthLayer";
+export { BaseModule } from "./core/BaseModule";
 
 // Module exports
-export { EDGARModule } from './modules/EDGARModule';
-export { XBRLModule } from './modules/XBRLModule';
-export { MarketDataModule } from './modules/MarketDataModule';
-export { PrivateCompanyModule } from './modules/PrivateCompanyModule';
-export { IndustryBenchmarkModule } from './modules/IndustryBenchmarkModule';
+export { EDGARModule } from "./modules/EDGARModule";
+export { XBRLModule } from "./modules/XBRLModule";
+export { MarketDataModule } from "./modules/MarketDataModule";
+export { PrivateCompanyModule } from "./modules/PrivateCompanyModule";
+export { IndustryBenchmarkModule } from "./modules/IndustryBenchmarkModule";
+export { ESOModule } from "./modules/ESOModule";
 
 // Type exports
-export * from './types';
+export * from "./types";
 
 // Utility function to create a configured server instance
 export async function createMCPServer(config: {
@@ -31,7 +32,7 @@ export async function createMCPServer(config: {
     rateLimit?: number;
   };
   marketData?: {
-    provider: 'alphavantage' | 'polygon' | 'tiingo';
+    provider: "alphavantage" | "polygon" | "tiingo";
     apiKey: string;
     rateLimit?: number;
   };
@@ -58,21 +59,21 @@ export async function createMCPServer(config: {
     enableAuditLogging?: boolean;
   };
 }) {
-  const { MCPFinancialGroundTruthServer } = await import('./core/MCPServer');
-  
+  const { MCPFinancialGroundTruthServer } = await import("./core/MCPServer");
+
   // Set defaults
   const serverConfig = {
     edgar: config.edgar || {
-      userAgent: 'ValueCanvas contact@valuecanvas.com',
+      userAgent: "ValueCanvas contact@valuecanvas.com",
       rateLimit: 10,
     },
     xbrl: config.xbrl || {
-      userAgent: 'ValueCanvas contact@valuecanvas.com',
+      userAgent: "ValueCanvas contact@valuecanvas.com",
       rateLimit: 10,
     },
     marketData: config.marketData || {
-      provider: 'alphavantage' as const,
-      apiKey: process.env.ALPHA_VANTAGE_API_KEY || '',
+      provider: "alphavantage" as const,
+      apiKey: process.env.ALPHA_VANTAGE_API_KEY || "",
       rateLimit: 5,
     },
     privateCompany: config.privateCompany || {
@@ -96,7 +97,7 @@ export async function createMCPServer(config: {
 
   const server = new MCPFinancialGroundTruthServer(serverConfig);
   await server.initialize();
-  
+
   return server;
 }
 
@@ -106,14 +107,14 @@ export async function createMCPServer(config: {
 export async function createDevServer() {
   return createMCPServer({
     edgar: {
-      userAgent: 'ValueCanvas Development contact@valuecanvas.com',
+      userAgent: "ValueCanvas Development contact@valuecanvas.com",
     },
     xbrl: {
-      userAgent: 'ValueCanvas Development contact@valuecanvas.com',
+      userAgent: "ValueCanvas Development contact@valuecanvas.com",
     },
     marketData: {
-      provider: 'alphavantage',
-      apiKey: process.env.ALPHA_VANTAGE_API_KEY || 'demo',
+      provider: "alphavantage",
+      apiKey: process.env.ALPHA_VANTAGE_API_KEY || "demo",
     },
     industryBenchmark: {
       enableStaticData: true,
