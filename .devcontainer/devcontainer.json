@@ -110,6 +110,7 @@
         "esbenp.prettier-vscode",
         "bradlc.vscode-tailwindcss",
         "ms-azuretools.vscode-docker",
+        "ms-azuretools.vscode-containers",
         "GitHub.copilot",
         "GitHub.copilot-chat",
         "ms-playwright.playwright",

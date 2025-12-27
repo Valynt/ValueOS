@@ -5,6 +5,7 @@
     "bradlc.vscode-tailwindcss",
     "ms-playwright.playwright",
     "yoavbls.pretty-ts-errors",
-    "ms-azuretools.vscode-docker"
+    "ms-azuretools.vscode-docker",
+    "ms-vscode-remote.remote-containers"
   ]
 }

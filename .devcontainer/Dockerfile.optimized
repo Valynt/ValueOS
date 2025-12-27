@@ -110,7 +110,7 @@ RUN npm install -g snyk
 FROM security AS dbtools
 
 # Install Supabase CLI
-RUN npm install -g supabase
+RUN curl -fsSL https://raw.githubusercontent.com/supabase/cli/main/install.sh | sh
 
 # Install Prisma CLI
 RUN npm install -g prisma
