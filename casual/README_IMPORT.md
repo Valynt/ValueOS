@@ -15,7 +15,9 @@ This folder contains the core assets for the Causal Truth Reasoning Engine, stru
 ## 🚀 How to Import into your SaaS
 
 ### 1. Integration with Python Backend
+
 Add these to your `requirements.txt`:
+
 ```text
 pydantic>=2.0
 openai
@@ -23,6 +25,7 @@ python-dotenv
 ```
 
 Then, use the `EconomicLogicEngine` to simulate outcomes for your customers:
+
 ```python
 from core.miner import EconomicLogicEngine
 
@@ -37,15 +40,19 @@ print(f"Projected Gain: {simulation['expected_outcome']}")
 ```
 
 ### 2. UI Integration
+
 To use the explorer in your SaaS dashboard:
+
 1. Copy the `/explorer` content.
 2. Run `npm install` and `npm run build`.
 3. The generated `/dist` folder can be served by your SaaS to show the Causal Network.
 
 ## 💎 Knowledge Anchors Included
+
 - **ServiceNow ROI**: 3x platform adoption lift via VRF.
 - **McKinsey 2025**: 40% productivity gap driven by Agentic AI.
 - **Cognizant VRF**: 20% reduction in supply chain costs.
 
 ---
-*Built by Antigravity AI - Causal Truth Factory*
+
+_Built by Antigravity AI - Causal Truth Factory_
