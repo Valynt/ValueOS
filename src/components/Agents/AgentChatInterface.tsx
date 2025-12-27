@@ -115,7 +115,7 @@ const phaseAgentMap: Record<string, AgentType> = {
   "/dashboard": "realization",
 };
 
-export default function AgentChatInterface({
+function AgentChatInterface({
   compact = false,
   currentPath = "/",
 }: AgentChatInterfaceProps) {
@@ -372,3 +372,9 @@ export default function AgentChatInterface({
     </div>
   );
 }
+
+export default withAgentErrorBoundary(AgentChatInterface, { 
+  // We don't specify a static agent here since it changes dynamically, 
+  // but the boundary will catch errors from the interface itself.
+  showDetails: process.env.NODE_ENV === 'development'
+});

@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { ActivateCustomer } from "../activate-customer";
-import { AgentContext } from "../../types";
-import { supabase } from "../../../../lib/supabase";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ActivateCustomer } from "../../../../src/services/bfa/tools/onboarding/activate-customer";
+import { AgentContext } from "../../../../src/services/bfa/types";
+import { supabase } from "../../../../src/lib/supabase";
 
 // Mock dependencies
-vi.mock("../../../../lib/supabase", () => ({
+vi.mock("../../../../src/lib/supabase", () => ({
   supabase: {
     from: vi.fn(() => ({
       select: vi.fn().mockReturnThis(),

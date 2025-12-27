@@ -13,25 +13,6 @@
  *   const service = new AgentQueryService(supabase);
  *   const result = await service.handleQuery(query, userId, sessionId);
  */
-
-import { SupabaseClient } from "@supabase/supabase-js";
-import { v4 as uuidv4 } from "uuid";
-/**
- * Agent Query Service
- *
- * CRITICAL FIX: Stateless service layer for agent queries
- *
- * This service orchestrates:
- * 1. Session management (via WorkflowStateRepository)
- * 2. Query processing (via UnifiedAgentOrchestrator)
- * 3. State persistence
- * 4. Trace ID generation for observability
- *
- * Usage:
- *   const service = new AgentQueryService(supabase);
- *   const result = await service.handleQuery(query, userId, sessionId);
- */
-
 import { SupabaseClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
 import { logger } from "../lib/logger";
@@ -201,14 +182,16 @@ export class AgentQueryService {
       const progress = this.orchestrator.getProgress(result.nextState);
 
       const durationSeconds = (Date.now() - startTime) / 1000;
-      agentQueryLatency.labels({ status: "success", model: "standard" }).observe(durationSeconds);
+      agentQueryLatency
+        .labels({ status: "success", model: "standard" })
+        .observe(durationSeconds);
 
       logger.info("Query handled successfully", {
         traceId,
         sessionId: currentSessionId,
         progress,
         nextStage: result.nextState.currentStage,
-        durationSeconds
+        durationSeconds,
       });
 
       return {
@@ -218,8 +201,10 @@ export class AgentQueryService {
         progress,
       };
     } catch (error) {
-       const durationSeconds = (Date.now() - startTime) / 1000;
-       agentQueryLatency.labels({ status: "error", model: "standard" }).observe(durationSeconds);
+      const durationSeconds = (Date.now() - startTime) / 1000;
+      agentQueryLatency
+        .labels({ status: "error", model: "standard" })
+        .observe(durationSeconds);
 
       logger.error(
         "Error handling query",
@@ -228,7 +213,7 @@ export class AgentQueryService {
           traceId,
           userId,
           sessionId,
-          durationSeconds
+          durationSeconds,
         }
       );
 
@@ -292,7 +277,7 @@ export class AgentQueryService {
   async cleanupOldSessions(olderThanDays: number = 30): Promise<number> {
     return await this.stateRepo.cleanupOldSessions(olderThanDays);
   }
-}
+
   /**
    * Query an agent with timeout and abort logic
    *

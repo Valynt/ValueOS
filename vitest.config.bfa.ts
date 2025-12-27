@@ -8,9 +8,13 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
+    // Use forks to match project standard and ensure isolation
+    pool: "forks",
     // Skip global setup to avoid Docker/testcontainers dependency for unit tests
     // setupFiles: ["./tests/setup.ts"],
-    include: ["**/*.test.ts"],
+    include: ["src/services/bfa/**/*.test.ts"],
+    // Ensure we don't accidentally pick up the global setup which requires Docker
+    globalSetup: [],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
