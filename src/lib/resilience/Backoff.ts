@@ -2,10 +2,13 @@
  * Exponential Backoff Utility
  */
 
+import { RateLimitError } from "./errors";
+
 export interface RetryOptions {
   maxRetries?: number;
   initialDelayMs?: number;
   multiplier?: number;
+  shouldRetry?: (error: unknown) => boolean;
 }
 
 /**
@@ -30,17 +33,22 @@ export async function withRetry<T>(
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
 
-      // If we've reached max retries, or error is not retryable (RateLimitError is retryable)
-      // For this specific test suite, we only retry RateLimitError or generic errors that might be transient
-      // The test expects it to follow the sequence for RateLimitError
-
+      // Stop retrying if we reached max retries
       if (attempt === maxRetries) {
         break;
       }
 
-      // Check if error is retryable. In our case, RateLimitError and generic Errors are.
-      // TimeoutError or CircuitBreakerError might not be depending on context, but here we follow the test spec.
-      // The test spec shows it retrying RateLimitError.
+      // Check if error is retryable
+      // Only retry RateLimitError or likely network errors (fetch definition of network error is usually TypeError)
+      const isRetryable = options.shouldRetry
+        ? options.shouldRetry(error)
+        : error instanceof RateLimitError ||
+          (error instanceof Error && error.name === "TypeError") || // fetch network error
+          (error instanceof Error && error.message.includes("network"));
+
+      if (!isRetryable) {
+        break;
+      }
 
       const delay = initialDelayMs * Math.pow(multiplier, attempt);
       await new Promise((resolve) => setTimeout(resolve, delay));

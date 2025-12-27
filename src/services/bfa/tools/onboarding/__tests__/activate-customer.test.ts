@@ -1,11 +1,12 @@
+```typescript
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { ActivateCustomer } from "../activate-customer";
-import { AgentContext } from "../../types";
-import { supabase } from "../../../../lib/supabase";
-import { logger } from "../../../../lib/logger";
+import { AgentContext } from "../../../types";
+import { supabase } from "../../../../../lib/supabase";
+import { logger } from "../../../../../lib/logger";
 
 // Mock dependencies
-vi.mock("../../../../lib/supabase", () => ({
+vi.mock("../../../../../lib/supabase", () => ({
   supabase: {
     from: vi.fn(() => ({
       select: vi.fn().mockReturnThis(),

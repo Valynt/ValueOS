@@ -1,4 +1,4 @@
-import { test, expect, Page } from "@playwright/test";
+import { expect, Page, test } from "@playwright/test";
 
 /**
  * Fuzzing Utility: Injects malformed SDUI schemas into the response stream.
@@ -21,8 +21,8 @@ test.describe("SDUI Fuzzing & Schema Resilience", () => {
     { type: "value_tree_card", props: { labels: { $circular: true } } },
   ];
 
-  for (const payload of garbagePayloads) {
-    test(`Should handle garbage payload: ${JSON.stringify(payload).slice(0, 30)}...`, async ({
+  garbagePayloads.forEach((payload, index) => {
+    test(`[${index}] Should handle garbage payload: ${JSON.stringify(payload).slice(0, 30)}...`, async ({
       page,
     }) => {
       await injectSDUIFuzz(page, payload);
@@ -34,5 +34,5 @@ test.describe("SDUI Fuzzing & Schema Resilience", () => {
 
       await expect(fallbackUI.or(errorBoundaryUI)).toBeVisible();
     });
-  }
+  });
 });

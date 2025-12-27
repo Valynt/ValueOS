@@ -103,10 +103,17 @@ async function hammer() {
 
   // 1. Create a simulated client for Tenant A
   // We simulate the JWT claims that the RLS policy expects
+  // We use the ANON KEY as the base token to ensure it passes basic validation,
+  // assuming x-test-claims will mock the identity.
+  const BASE_JWT =
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    supabaseKey;
+
   const tenantAClient = createClient(supabaseUrl, supabaseKey, {
     global: {
       headers: {
-        Authorization: `Bearer simulation-jwt`, // In real E2E, this would be a real JWT
+        Authorization: `Bearer ${BASE_JWT}`,
         "x-test-claims": JSON.stringify({
           sub: "user-a-uuid",
           tenant_id: TENANT_A,
@@ -176,7 +183,7 @@ async function hammer() {
   };
 
   console.log("\n📊 Security Audit Summary:");
-  console.table(summary);
+  console.log(JSON.stringify(summary, null, 2));
 
   if (summary.status === "CRITICAL_FAILURE") {
     console.error("🚨 LEAKAGE DETECTED. Review audit logs immediately.");
