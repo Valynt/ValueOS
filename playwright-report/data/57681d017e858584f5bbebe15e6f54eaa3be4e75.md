@@ -1,0 +1,50 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e8]:
+    - img [ref=e13]
+    - generic [ref=e15]:
+      - heading "Sign in to VALYNT" [level=1] [ref=e16]
+      - paragraph [ref=e17]:
+        - text: New to the workspace?
+        - link "Create an account" [ref=e18] [cursor=pointer]:
+          - /url: /signup
+    - generic [ref=e19]:
+      - generic [ref=e20]:
+        - text: Work Email
+        - generic [ref=e21]:
+          - img [ref=e23]
+          - textbox "Work Email" [ref=e26]:
+            - /placeholder: you@studio.dev
+      - generic [ref=e27]:
+        - generic [ref=e28]:
+          - generic [ref=e29]: Password
+          - link "Forgot?" [ref=e30] [cursor=pointer]:
+            - /url: /reset-password
+        - generic [ref=e31]:
+          - img [ref=e33]
+          - textbox "Password" [ref=e36]:
+            - /placeholder: Enter your password
+          - button "Show" [ref=e37] [cursor=pointer]
+      - button "Continue to dashboard" [ref=e38] [cursor=pointer]
+    - generic [ref=e43]: Or
+    - generic [ref=e44]:
+      - button [ref=e45] [cursor=pointer]:
+        - img [ref=e46]
+      - button [ref=e48] [cursor=pointer]:
+        - img [ref=e49]
+      - button [ref=e51] [cursor=pointer]:
+        - img [ref=e52]
+    - paragraph [ref=e55]:
+      - text: By continuing, you agree to the VALYNT
+      - link "Terms" [ref=e56] [cursor=pointer]:
+        - /url: /terms
+      - text: and
+      - link "Privacy Policy" [ref=e57] [cursor=pointer]:
+        - /url: /privacy
+      - text: .
+  - button "Send beta feedback" [ref=e58] [cursor=pointer]:
+    - img [ref=e59]
+    - text: Feedback
+```

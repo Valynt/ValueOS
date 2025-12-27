@@ -2,8 +2,6 @@
 -- PostgreSQL database dump
 --
 
-\restrict 07Kk1krnzdXi5AK63jQXLB5d71oTM5bctC60MEcVuhsOXXmjAPC53v3uZBO85Jj
-
 -- Dumped from database version 15.15 (Debian 15.15-1.pgdg12+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-1.pgdg12+1)
 
@@ -11437,6 +11435,3 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES 
 --
 -- PostgreSQL database dump complete
 --
-
-\unrestrict 07Kk1krnzdXi5AK63jQXLB5d71oTM5bctC60MEcVuhsOXXmjAPC53v3uZBO85Jj
-

@@ -32,7 +32,7 @@
     "db:test:seed": "tsx scripts/test-db-seed.ts",
     "db:test:setup": "npm run db:test:init && npm run db:test:seed",
     "test:rls:leakage": "tsx scripts/test-rls-leakage.ts",
-    "test:perf": "k6 run test/performance/load-test.js",
+    "test:load": "k6 run test/performance/load-test.js",
     "test:a11y": "npx playwright test test/playwright/accessibility.spec.ts",
     "docker:build": "docker-compose build",
     "docker:up": "docker-compose up",
@@ -147,6 +147,7 @@
   "devDependencies": {
     "@apidevtools/swagger-parser": "^12.1.0",
     "@aws-sdk/client-secrets-manager": "^3.943.0",
+    "@axe-core/playwright": "^4.11.0",
     "@eslint/js": "^9.9.1",
     "@testcontainers/postgresql": "^11.10.0",
     "@testing-library/dom": "^10.4.1",
