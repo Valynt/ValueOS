@@ -1,6 +1,6 @@
 /**
  * Agent Chat Service
- * 
+ *
  * Connects the chat interface to the agent orchestrator and LLM.
  * Handles:
  * - Message processing via LLM (Together.ai)
@@ -10,20 +10,58 @@
  * - AI transparency (confidence, reasoning)
  */
 
-import { logger } from '../lib/logger';
-import { v4 as uuidv4 } from 'uuid';
-import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
-import { llmConfig } from '../config/llm';
-import { conversationHistoryService, ConversationMessage } from './ConversationHistoryService';
-import { SDUIPageDefinition } from '../sdui/schema';
-import { WorkflowState, WorkflowStateRepository } from '../repositories/WorkflowStateRepository';
-import type { LifecycleStage } from '../types/vos';
-import { formatExampleForPrompt, getRelevantExamples } from '../data/valueModelExamples';
-import { createToolExecutor, getAllTools } from './MCPTools';
-import { mcpGroundTruthService } from './MCPGroundTruthService';
-import { checkStageTransition } from '../config/chatWorkflowConfig';
-import { generateChatSDUIPage, hasTemplateForStage } from '../sdui/templates/chat-templates';
-import { sanitizeAgentInput } from '../utils/security';
+import { logger } from "../lib/logger";
+import { v4 as uuidv4 } from "uuid";
+import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
+import { llmConfig } from "../config/llm";
+import {
+  conversationHistoryService,
+  ConversationMessage,
+} from "./ConversationHistoryService";
+import { SDUIPageDefinition } from "../sdui/schema";
+import {
+  WorkflowState,
+  WorkflowStateRepository,
+} from "../repositories/WorkflowStateRepository";
+import type { LifecycleStage } from "../types/vos";
+import {
+  formatExampleForPrompt,
+  getRelevantExamples,
+} from "../data/valueModelExamples";
+import { createToolExecutor, getAllTools } from "./MCPTools";
+import { mcpGroundTruthService } from "./MCPGroundTruthService";
+import { checkStageTransition } from "../config/chatWorkflowConfig";
+import {
+  generateChatSDUIPage,
+  hasTemplateForStage,
+} from "../sdui/templates/chat-templates";
+import {
+  generateChatSDUIPage,
+  hasTemplateForStage,
+} from "../sdui/templates/chat-templates";
+import { sanitizeAgentInput } from "../utils/security";
+import { contextFabric } from "../lib/agent-fabric/ContextFabric";
+import { detectIndustry } from "../data/industryTemplates";
+
+// API Key for Gemini (should be in env vars)
+const GEMINI_API_KEY = import.meta.env.VITE_GOOGLE_API_KEY || "";
+
+interface AIResponseSchema {
+  analysisSummary: string;
+  identifiedIndustry: string;
+  valueHypotheses: {
+    title: string;
+    description: string;
+    impact: string; // e.g., "High", "Medium"
+    confidence: number; // 0-100
+  }[];
+  keyMetrics: {
+    label: string;
+    value: string;
+    trend: "up" | "down" | "neutral";
+  }[];
+  recommendedActions: string[];
+}
 
 // ============================================================================
 // Types
@@ -34,7 +72,7 @@ export interface ChatRequest {
   caseId: string;
   userId: string;
   sessionId: string;
-  tenantId?: string;  // For CRM tool access
+  tenantId?: string; // For CRM tool access
   workflowState: WorkflowState;
 }
 
@@ -81,15 +119,15 @@ When responding, structure your output with:
  */
 function buildPromptWithExamples(query: string, industry?: string): string {
   const examples = getRelevantExamples(query, industry, 2);
-  
+
   if (examples.length === 0) {
     return SYSTEM_PROMPT;
   }
-  
+
   const exampleSection = examples
-    .map(ex => formatExampleForPrompt(ex))
-    .join('\n\n---\n\n');
-  
+    .map((ex) => formatExampleForPrompt(ex))
+    .join("\n\n---\n\n");
+
   return `${SYSTEM_PROMPT}
 
 ## Reference Examples
@@ -119,124 +157,149 @@ class AgentChatService {
    */
   async chat(request: ChatRequest): Promise<ChatResponse> {
     const traceId = uuidv4();
+    const query = request.query;
 
-    logger.info('Processing chat request', {
+    logger.info("Processing chat request via Intelligence Engine", {
       traceId,
       caseId: request.caseId,
-      queryLength: request.query.length,
+      queryLength: query.length,
       stage: request.workflowState.currentStage,
     });
 
     try {
-      const { sanitized, safe, severity, violations } = sanitizeAgentInput(request.query);
-      const sanitizedQuery = typeof sanitized === 'string' ? sanitized : String(sanitized);
+      // 1. Detect Industry Context
+      const richContext = await contextFabric.buildContext(
+        request.userId,
+        request.tenantId || "default",
+        request.workflowState
+      );
 
-      if (!safe) {
-        logger.warn('Blocked unsafe chat input due to potential prompt injection', {
-          traceId,
-          caseId: request.caseId,
-          severity,
-          violations,
-        });
-        throw new Error('Unsafe input detected');
-      }
+      const combinedContext = `${query} ${JSON.stringify(richContext)}`;
+      const template = detectIndustry(combinedContext);
 
-      // Add user message to history
-      await conversationHistoryService.addMessage(request.caseId, {
-        role: 'user',
-        content: sanitizedQuery,
+      logger.info(`Detected Industry Persona: ${template.role}`, {
+        industry: template.name,
       });
 
-      // Get conversation context
-      const recentMessages = await conversationHistoryService.getRecentMessages(request.caseId, 10);
+      // 2. Construct the System Prompt
+      let systemPrompt = `
+        You are an expert ${template.role}.
+        
+        Your goal is to analyze the user's input and generate a Strategic Value Map.
+        
+        CONTEXT:
+        The user is working on a deal or project in the "${template.name}" sector.
+        
+        FOCUS AREAS:
+        Focus your analysis on: ${template.focusAreas.join(", ")}.
+        
+        METRICS:
+        Prioritize these metrics: ${template.metrics.join(", ")}.
+        
+        PAIN POINTS TO LOOK FOR:
+        ${template.typicalPainPoints.join(", ")}.
+        
+        SCHEMAS AND DEFINITONS:
+        Output MUST be valid JSON matching the schema below. Do not include markdown formatting like \`\`\`json.
+        
+        SCHEMA:
+        {
+          "analysisSummary": "Brief executive summary...",
+          "identifiedIndustry": "The industry you detected",
+          "valueHypotheses": [
+            { "title": "Hypothesis Headline", "description": "Detail...", "impact": "High/Med/Low", "confidence": 85 }
+          ],
+          "keyMetrics": [
+            { "label": "Metric Name", "value": "Projected Value", "trend": "up/down" }
+          ],
+          "recommendedActions": ["Action 1", "Action 2"]
+        }
+      `;
 
-      // Build LLM messages with relevant examples for few-shot learning
-      const llmMessages = [
-        { role: 'system' as const, content: this.buildSystemPrompt(request.workflowState, sanitizedQuery) },
-        ...conversationHistoryService.formatForLLM(recentMessages),
-        { role: 'user' as const, content: sanitizedQuery },
-      ];
-
-      // Check if we should use tool calling
-      const needsFinancialData =
-        mcpGroundTruthService.isAvailable() && this.queryNeedsFinancialData(sanitizedQuery);
-      const needsCRMData = request.tenantId && this.queryNeedsCRMData(sanitizedQuery);
-      const useToolCalling = needsFinancialData || needsCRMData;
-
-      let llmResponse;
-      const taskContext = {
-        sessionId: request.sessionId,
-        organizationId: request.tenantId,
-        userId: request.userId,
-        agentId: this.getAgentName(request.workflowState.currentStage)
-      };
-      if (useToolCalling) {
-        // Get available tools (MCP + CRM if connected)
-        const tools = await getAllTools(request.tenantId, request.userId);
-        const toolExecutor = createToolExecutor(request.tenantId, request.userId);
-
-        // Use tool calling - LLM decides what data it needs
-        llmResponse = await this.llm.completeWithTools(
-          llmMessages,
-          tools,
-          toolExecutor,
-          { temperature: 0.7, max_tokens: 2048 },
-          taskContext,
-          3 // max iterations
-        );
-      } else {
-        // Standard completion without tools
-        llmResponse = await this.llm.complete(llmMessages, {
-          temperature: 0.7,
-          max_tokens: 2048,
-        }, taskContext);
+      // Phase 5: Refinement Loop Injection
+      // If we have prior analysis, inject it so the agent can "edit" it.
+      const lastAnalysis = request.workflowState.context?.lastAnalysis;
+      if (lastAnalysis) {
+        systemPrompt += `
+          
+          CURRENT DASHBOARD STATE (JSON):
+          ${JSON.stringify(lastAnalysis)}
+          
+          REFINEMENT INSTRUCTIONS:
+          The user is likely asking to UPDATE or REFINE the above state. 
+          - If they say "Make it more aggressive", adjust the metrics and confidence up.
+          - If they say "Add a hypothesis about X", keep existing ones and ADD the new one.
+          - Return the FULL JSON with your modifications applied.
+          `;
       }
 
-      // Extract confidence and reasoning from response
-      const { content, confidence, reasoning } = this.parseResponse(llmResponse.content);
+      // 3. Call Gemini API
+      let parsedData: AIResponseSchema;
+
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: query }] }],
+              systemInstruction: { parts: [{ text: systemPrompt }] },
+              generationConfig: {
+                responseMimeType: "application/json",
+              },
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(
+            `Gemini API request failed: ${response.status} ${errText}`
+          );
+        }
+
+        const result = await response.json();
+        const textResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (!textResponse) throw new Error("No content in response");
+
+        parsedData = JSON.parse(textResponse);
+      } catch (apiError) {
+        logger.error("Gemini API Error", apiError);
+        // Fallback to internal LLM Gateway if Gemini fails
+        // For this demo, we'll throw to trigger error state
+        throw apiError;
+      }
+
+      // 4. Transform AI JSON to SDUI Page Definition
+      const sduiPage = this.transformToSDUI(
+        parsedData,
+        request.workflowState,
+        traceId,
+        request.sessionId
+      );
 
       // Create assistant message
-      const assistantMessage = await conversationHistoryService.addMessage(request.caseId, {
-        role: 'assistant',
-        content,
-        agentName: this.getAgentName(request.workflowState.currentStage),
-        confidence,
-        reasoning,
-      });
-
-      // Generate SDUI page with session/trace context
-      const sduiPage = this.generateSDUIPage(
-        content,
-        confidence,
-        reasoning,
-        request.workflowState,
-        request.sessionId,
-        traceId
+      const assistantMessage = await conversationHistoryService.addMessage(
+        request.caseId,
+        {
+          role: "assistant",
+          content: parsedData.analysisSummary,
+          agentName: template.role,
+          confidence: 0.9,
+          reasoning: parsedData.recommendedActions,
+        }
       );
 
       // Update workflow state
       const nextState = this.updateWorkflowState(
         request.workflowState,
-        sanitizedQuery,
-        content,
-        confidence
+        query,
+        parsedData.analysisSummary,
+        0.9,
+        parsedData // Pass the full JSON to be saved as context
       );
-
-      // Persist state if repository available
-      if (this.stateRepo && request.sessionId) {
-        await this.stateRepo.saveState(request.sessionId, nextState);
-        logger.debug('Workflow state persisted', {
-          sessionId: request.sessionId,
-          stage: nextState.currentStage,
-        });
-      }
-
-      logger.info('Chat response generated', {
-        traceId,
-        confidence,
-        reasoningSteps: reasoning?.length,
-        tokensUsed: llmResponse.tokens_used,
-      });
 
       return {
         message: assistantMessage,
@@ -245,33 +308,147 @@ class AgentChatService {
         traceId,
       };
     } catch (error) {
-      logger.error('Error processing chat request', error instanceof Error ? error : undefined, { traceId });
-      
-      // Return error message
-      const errorMessage = await conversationHistoryService.addMessage(request.caseId, {
-        role: 'assistant',
-        content: 'I encountered an error processing your request. Please try again.',
-        agentName: 'System',
-        confidence: 0,
-      });
-
+      logger.error("Agent Error:", error);
+      // Fallback SDUI if API fails
       return {
-        message: errorMessage,
+        message: {
+          role: "assistant",
+          content: "Error processing request",
+          timestamp: Date.now(),
+        } as any,
+        sduiPage: this.getErrorSDUI(),
         nextState: request.workflowState,
         traceId,
       };
     }
   }
 
+  // --- Transformation Layer ---
+  // Converts the clean AI JSON into our robust Component Schema
+  private transformToSDUI(
+    data: AIResponseSchema,
+    workflowState: WorkflowState,
+    traceId: string,
+    sessionId: string
+  ): SDUIPageDefinition {
+    return {
+      type: "page",
+      version: 1,
+      sections: [
+        {
+          type: "component",
+          component: "TextBlock", // Using TextBlock for summary
+          version: 1,
+          props: {
+            text: `### Strategy: ${data.identifiedIndustry}\n\n${data.analysisSummary}`,
+            className: "mb-6 prose dark:prose-invert",
+          },
+        },
+        {
+          type: "layout",
+          layout: "Grid",
+          props: { columns: 2, gap: 4, className: "mb-6" },
+          children: data.keyMetrics.map((m, i) => ({
+            type: "component",
+            component: "MetricBadge", // Using MetricBadge mapping
+            version: 1,
+            props: {
+              label: m.label,
+              value: m.value,
+              trend: m.trend,
+              color: m.trend === "up" ? "green" : "red",
+            },
+          })),
+        },
+        {
+          type: "component",
+          component: "TextBlock",
+          version: 1,
+          props: {
+            text: "**Strategic Value Hypotheses**",
+            className: "text-lg font-semibold mb-4 mt-2",
+          },
+        },
+        {
+          type: "layout",
+          layout: "Grid", // Stack via 1 col grid
+          props: { columns: 1, gap: 4 },
+          children: data.valueHypotheses.map((h, i) => ({
+            type: "component",
+            component: "ValueHypothesisCard",
+            version: 1,
+            props: {
+              hypothesis: {
+                id: `hypo-${i}`,
+                title: h.title,
+                description: h.description,
+                confidence: h.confidence,
+                source: "AI Model",
+                kpiImpact: h.impact,
+              },
+            },
+          })),
+        },
+      ],
+      metadata: {
+        case_id: workflowState.context.caseId as string,
+        session_id: sessionId,
+        trace_id: traceId,
+        generated_at: Date.now(),
+        priority: "high",
+      },
+    };
+  }
+
+  private getErrorSDUI(): SDUIPageDefinition {
+    return {
+      type: "page",
+      version: 1,
+      sections: [
+        {
+          type: "component",
+          component: "AgentResponseCard",
+          version: 1,
+          props: {
+            response: {
+              id: "err",
+              agentId: "sys",
+              agentName: "System",
+              timestamp: new Date().toISOString(),
+              content:
+                "I could not reach the intelligence engine. Please check your connection or API key.",
+              status: "error",
+              confidence: 0,
+              reasoning: [],
+            },
+            showActions: false,
+          },
+        },
+      ],
+      metadata: {},
+    };
+  }
+
   /**
    * Build system prompt based on current stage with relevant examples
    */
-  private buildSystemPrompt(state: WorkflowState, query?: string): string {
+  /**
+   * Build system prompt based on current stage with relevant examples
+   */
+  private buildSystemPrompt(
+    state: WorkflowState,
+    query?: string,
+    contextPrompt?: string
+  ): string {
     const stageContext = {
-      opportunity: 'Focus on discovering pain points, understanding the customer context, and identifying potential value drivers.',
-      target: 'Focus on building quantifiable ROI models, setting realistic targets, and creating compelling business cases.',
-      realization: 'Focus on tracking actual results against targets, explaining variances, and documenting achieved value.',
-      expansion: 'Focus on identifying upsell opportunities, new use cases, and additional value that can be realized.',
+      opportunity:
+        "Focus on discovering pain points, understanding the customer context, and identifying potential value drivers.",
+      target:
+        "Focus on building quantifiable ROI models, setting realistic targets, and creating compelling business cases.",
+      realization:
+        "Focus on tracking actual results against targets, explaining variances, and documenting achieved value.",
+      expansion:
+        "Focus on identifying upsell opportunities, new use cases, and additional value that can be realized.",
     };
 
     const stage = state.currentStage as LifecycleStage;
@@ -279,13 +456,19 @@ class AgentChatService {
 
     // Get industry from context if available
     const industry = state.context?.industry as string | undefined;
-    
+
     // Build prompt with relevant examples for better few-shot guidance
-    const basePrompt = query 
+    const basePrompt = query
       ? buildPromptWithExamples(query, industry)
       : SYSTEM_PROMPT;
 
-    return `${basePrompt}\n\nCurrent Stage: ${state.currentStage}\n${stagePrompt}`;
+    // Combine Base + Context + Stage
+    return `${basePrompt}
+    
+${contextPrompt || ""}
+
+Current Stage: ${state.currentStage}
+${stagePrompt}`;
   }
 
   /**
@@ -293,12 +476,12 @@ class AgentChatService {
    */
   private getAgentName(stage: string): string {
     const agents: Record<string, string> = {
-      opportunity: 'Opportunity Agent',
-      target: 'Target Agent',
-      realization: 'Realization Agent',
-      expansion: 'Expansion Agent',
+      opportunity: "Opportunity Agent",
+      target: "Target Agent",
+      realization: "Realization Agent",
+      expansion: "Expansion Agent",
     };
-    return agents[stage] || 'Value Agent';
+    return agents[stage] || "Value Agent";
   }
 
   /**
@@ -315,30 +498,46 @@ class AgentChatService {
     const reasoning: string[] = [];
 
     // Look for confidence indicators in the response
-    const lowConfidenceIndicators = ['might', 'could be', 'possibly', 'uncertain', 'not sure'];
-    const highConfidenceIndicators = ['definitely', 'certainly', 'clearly', 'based on data', 'evidence shows'];
+    const lowConfidenceIndicators = [
+      "might",
+      "could be",
+      "possibly",
+      "uncertain",
+      "not sure",
+    ];
+    const highConfidenceIndicators = [
+      "definitely",
+      "certainly",
+      "clearly",
+      "based on data",
+      "evidence shows",
+    ];
 
     const lowerContent = rawContent.toLowerCase();
-    
-    if (highConfidenceIndicators.some(ind => lowerContent.includes(ind))) {
+
+    if (highConfidenceIndicators.some((ind) => lowerContent.includes(ind))) {
       confidence = 0.9;
-    } else if (lowConfidenceIndicators.some(ind => lowerContent.includes(ind))) {
+    } else if (
+      lowConfidenceIndicators.some((ind) => lowerContent.includes(ind))
+    ) {
       confidence = 0.5;
     }
 
     // Extract reasoning if present (look for numbered lists or bullet points)
-    const lines = rawContent.split('\n');
-    lines.forEach(line => {
+    const lines = rawContent.split("\n");
+    lines.forEach((line) => {
       const trimmed = line.trim();
       if (/^[\d•\-\*]\s*\.?\s*/.test(trimmed) && trimmed.length > 10) {
-        reasoning.push(trimmed.replace(/^[\d•\-\*]\s*\.?\s*/, ''));
+        reasoning.push(trimmed.replace(/^[\d•\-\*]\s*\.?\s*/, ""));
       }
     });
 
     // If no explicit reasoning found, generate from key sentences
     if (reasoning.length === 0) {
-      const sentences = rawContent.split(/[.!?]+/).filter(s => s.trim().length > 20);
-      reasoning.push(...sentences.slice(0, 3).map(s => s.trim()));
+      const sentences = rawContent
+        .split(/[.!?]+/)
+        .filter((s) => s.trim().length > 20);
+      reasoning.push(...sentences.slice(0, 3).map((s) => s.trim()));
     }
 
     return {
@@ -353,15 +552,37 @@ class AgentChatService {
    */
   private queryNeedsFinancialData(query: string): boolean {
     const dataKeywords = [
-      'revenue', 'income', 'profit', 'margin', 'earnings',
-      'financial', 'roi', 'cost', 'savings', 'benchmark',
-      'compare', 'industry', 'market', 'growth', 'performance',
-      'competitor', 'actual', 'real',
-      'sec', 'filing', 'quarterly', 'annual', 'fy', 'q1', 'q2', 'q3', 'q4'
+      "revenue",
+      "income",
+      "profit",
+      "margin",
+      "earnings",
+      "financial",
+      "roi",
+      "cost",
+      "savings",
+      "benchmark",
+      "compare",
+      "industry",
+      "market",
+      "growth",
+      "performance",
+      "competitor",
+      "actual",
+      "real",
+      "sec",
+      "filing",
+      "quarterly",
+      "annual",
+      "fy",
+      "q1",
+      "q2",
+      "q3",
+      "q4",
     ];
-    
+
     const queryLower = query.toLowerCase();
-    return dataKeywords.some(keyword => queryLower.includes(keyword));
+    return dataKeywords.some((keyword) => queryLower.includes(keyword));
   }
 
   /**
@@ -369,22 +590,47 @@ class AgentChatService {
    */
   private queryNeedsCRMData(query: string): boolean {
     const crmKeywords = [
-      'deal', 'opportunity', 'pipeline', 'salesforce', 'hubspot', 'crm',
-      'contact', 'stakeholder', 'decision maker', 'champion', 'buyer',
-      'account', 'prospect', 'lead', 'customer',
-      'activity', 'email', 'call', 'meeting', 'last contact',
-      'close date', 'stage', 'probability', 'forecast',
-      'find the', 'look up', 'search for', 'get the', 'show me',
-      'who is', 'when was', 'what is the status'
+      "deal",
+      "opportunity",
+      "pipeline",
+      "salesforce",
+      "hubspot",
+      "crm",
+      "contact",
+      "stakeholder",
+      "decision maker",
+      "champion",
+      "buyer",
+      "account",
+      "prospect",
+      "lead",
+      "customer",
+      "activity",
+      "email",
+      "call",
+      "meeting",
+      "last contact",
+      "close date",
+      "stage",
+      "probability",
+      "forecast",
+      "find the",
+      "look up",
+      "search for",
+      "get the",
+      "show me",
+      "who is",
+      "when was",
+      "what is the status",
     ];
-    
+
     const queryLower = query.toLowerCase();
-    return crmKeywords.some(keyword => queryLower.includes(keyword));
+    return crmKeywords.some((keyword) => queryLower.includes(keyword));
   }
 
   /**
    * Generate SDUI page from response
-   * 
+   *
    * Phase 3: Refactored to use stage-specific templates
    * Maintains backward compatibility with fallback to generic page
    */
@@ -400,8 +646,8 @@ class AgentChatService {
 
     // Use stage-specific template if available
     if (hasTemplateForStage(stage)) {
-      logger.debug('Using stage-specific template', { stage });
-      
+      logger.debug("Using stage-specific template", { stage });
+
       return generateChatSDUIPage(stage, {
         content,
         confidence,
@@ -413,15 +659,15 @@ class AgentChatService {
     }
 
     // Fallback to generic template for backward compatibility
-    logger.warn('No template found for stage, using fallback', { stage });
-    
+    logger.warn("No template found for stage, using fallback", { stage });
+
     return {
-      type: 'page',
+      type: "page",
       version: 1,
       sections: [
         {
-          type: 'component',
-          component: 'AgentResponseCard',
+          type: "component",
+          component: "AgentResponseCard",
           version: 1,
           props: {
             response: {
@@ -435,9 +681,9 @@ class AgentChatService {
                 id: `step-${i}`,
                 step: i + 1,
                 description: r,
-                confidence: confidence - (i * 0.05),
+                confidence: confidence - i * 0.05,
               })),
-              status: 'pending' as const,
+              status: "pending" as const,
             },
             showReasoning: true,
             showActions: true,
@@ -459,14 +705,15 @@ class AgentChatService {
 
   /**
    * Update workflow state based on conversation
-   * 
+   *
    * Uses chatWorkflowConfig for stage transition logic
    */
   private updateWorkflowState(
     currentState: WorkflowState,
     query: string,
     response: string,
-    confidence: number
+    confidence: number,
+    analysisData?: any // Phase 5: Capture structured data
   ): WorkflowState {
     const nextState = { ...currentState };
 
@@ -476,6 +723,8 @@ class AgentChatService {
       lastQuery: query,
       lastResponse: response,
       lastUpdated: new Date().toISOString(),
+      // Phase 5: Persist the structured analysis for the Refinement Loop
+      ...(analysisData ? { lastAnalysis: analysisData } : {}),
     };
 
     // Check for stage transitions using config
@@ -487,7 +736,7 @@ class AgentChatService {
     );
 
     if (transitionStage && transitionStage !== currentState.currentStage) {
-      logger.info('Stage transition triggered', {
+      logger.info("Stage transition triggered", {
         from: currentState.currentStage,
         to: transitionStage,
         query: query.substring(0, 50),

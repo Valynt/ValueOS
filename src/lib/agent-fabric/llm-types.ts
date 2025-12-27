@@ -1,11 +1,11 @@
 /**
  * Shared LLM Types
- * 
+ *
  * Extracted to avoid circular dependencies between LLMGateway and LlmProxyClient
  */
 
 export interface LLMMessage {
-  role: 'system' | 'user' | 'assistant' | 'tool';
+  role: "system" | "user" | "assistant" | "tool";
   content: string;
   tool_call_id?: string;
   tool_calls?: LLMToolCall[];
@@ -13,7 +13,7 @@ export interface LLMMessage {
 
 export interface LLMToolCall {
   id: string;
-  type: 'function';
+  type: "function";
   function: {
     name: string;
     arguments: string; // JSON string
@@ -21,7 +21,7 @@ export interface LLMToolCall {
 }
 
 export interface LLMTool {
-  type: 'function';
+  type: "function";
   function: {
     name: string;
     description: string;
@@ -35,7 +35,7 @@ export interface LLMResponse {
   latency_ms: number;
   model: string;
   tool_calls?: LLMToolCall[];
-  finish_reason?: 'stop' | 'tool_calls' | 'length';
+  finish_reason?: "stop" | "tool_calls" | "length";
 }
 
 export interface LLMConfig {
@@ -49,12 +49,12 @@ export interface LLMConfig {
   force_model?: string;
 }
 
-export type LLMProvider = 'together' | 'openai';
+export type LLMProvider = "together" | "openai";
 
 export interface LLMStreamChunk {
   content: string;
   tokens_used?: number;
-  finish_reason?: 'stop' | 'tool_calls' | 'length';
+  finish_reason?: "stop" | "tool_calls" | "length";
 }
 
 export type LLMStreamCallback = (_chunk: LLMStreamChunk) => void;

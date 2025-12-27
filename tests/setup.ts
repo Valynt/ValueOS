@@ -1,132 +1,133 @@
 /**
- * Test Setup
- * 
- * Global test configuration and setup for Vitest.
- * This is the unified test setup for /tests/ directory structure.
+ * Global Test Setup
+ *
+ * This file runs before all tests to:
+ * 1. Load environment variables
+ * 2. Initialize test database connection
+ * 3. Set up global test utilities
+ * 4. Configure test timeout and retry logic
  */
 
-import { afterEach, expect, vi } from 'vitest';
-import { cleanup } from '@testing-library/react';
-import '@testing-library/jest-dom/vitest';
+import { config } from "dotenv";
+import { resolve } from "path";
+import { beforeAll, afterAll, beforeEach } from "vitest";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-// Cleanup after each test
-afterEach(() => {
-  cleanup();
-  vi.clearAllMocks();
-});
+// Load test environment variables
+config({ path: resolve(process.cwd(), ".env.test") });
 
-// Mock environment variables
-process.env.VITE_APP_ENV = 'test';
-process.env.VITE_APP_URL = 'http://localhost:5173';
-process.env.VITE_API_BASE_URL = 'http://localhost:3000';
-process.env.VITE_AGENT_API_URL = 'http://localhost:8000/api/agents';
-process.env.VITE_MOCK_AGENTS = 'true';
-process.env.TEST_MODE = 'true';
+// Ensure critical environment variables are set
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
-// Real Supabase credentials for integration tests
-// Tests will connect to actual database - no mocks!
-process.env.VITE_SUPABASE_URL = 'https://bxaiabnqalurloblfwua.supabase.co';
-process.env.VITE_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4YWlhYm5xYWx1cmxvYmxmd3VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzMwNjI3ODcsImV4cCI6MjA0ODYzODc4N30.gK3zXg3EqoBBRwHqKsEP5hCgxvtMQ-N0v-lCO_kYm88';
-
-// Mock fetch globally
-global.fetch = vi.fn();
-
-// Mock crypto.subtle for password hashing tests
-if (!global.crypto) {
-  global.crypto = {} as Crypto;
+if (!SUPABASE_URL) {
+  throw new Error("VITE_SUPABASE_URL or SUPABASE_URL must be set in .env.test");
 }
 
-if (!global.crypto.subtle) {
-  global.crypto.subtle = {
-    digest: vi.fn(),
-    importKey: vi.fn(),
-    deriveBits: vi.fn(),
-  } as any;
+if (!SUPABASE_ANON_KEY) {
+  console.warn("⚠️  VITE_SUPABASE_ANON_KEY not set - some tests may fail");
 }
 
-if (!global.crypto.getRandomValues) {
-  global.crypto.getRandomValues = vi.fn((arr: Uint8Array) => {
-    for (let i = 0; i < arr.length; i++) {
-      arr[i] = Math.floor(Math.random() * 256);
-    }
-    return arr;
+// Export test database clients
+export const testSupabaseClient = SUPABASE_ANON_KEY
+  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+  : null;
+
+export const testAdminClient = SUPABASE_SERVICE_KEY
+  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+  : null;
+
+/**
+ * Create a tenant-scoped Supabase client for testing
+ */
+export function createTenantClient(tenantId: string): SupabaseClient | null {
+  if (!SUPABASE_ANON_KEY) return null;
+
+  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: {
+      headers: {
+        "X-Tenant-ID": tenantId,
+      },
+    },
   });
 }
 
-// Mock window.matchMedia (only in browser/jsdom environment)
-if (typeof window !== 'undefined') {
-  Object.defineProperty(window, 'matchMedia', {
-    writable: true,
-    value: vi.fn().mockImplementation((query) => ({
-      matches: false,
-      media: query,
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
-  });
-}
+/**
+ * Test tenant IDs
+ */
+export const TEST_TENANT_A = "tenant-test-a";
+export const TEST_TENANT_B = "tenant-test-b";
+export const TEST_TENANT_C = "tenant-test-c";
 
-// Mock IntersectionObserver (only if needed)
-if (typeof global !== 'undefined' && !global.IntersectionObserver) {
-  global.IntersectionObserver = class IntersectionObserver {
-  constructor() {}
-  disconnect() {}
-  observe() {}
-  takeRecords() {
-    return [];
+/**
+ * Clean up test data after each test
+ */
+export async function cleanupTestData(prefix: string = "test-") {
+  if (!testAdminClient) {
+    console.warn("⚠️  Admin client not available - skipping cleanup");
+    return;
   }
-  unobserve() {}
-  } as any;
+
+  try {
+    // Clean up agent sessions
+    await testAdminClient
+      .from("agent_sessions")
+      .delete()
+      .like("id", `${prefix}%`);
+
+    // Clean up workflows
+    await testAdminClient.from("workflows").delete().like("id", `${prefix}%`);
+
+    // Clean up agent predictions
+    await testAdminClient
+      .from("agent_predictions")
+      .delete()
+      .like("id", `${prefix}%`);
+  } catch (err) {
+    // Ignore cleanup errors - table might not exist yet
+    console.warn("Cleanup warning:", err);
+  }
 }
 
-// Mock ResizeObserver (only if needed)
-if (typeof global !== 'undefined' && !global.ResizeObserver) {
-  global.ResizeObserver = class ResizeObserver {
-  constructor() {}
-  disconnect() {}
-  observe() {}
-  unobserve() {}
-  } as any;
-}
-
-// Extend expect with custom matchers
-expect.extend({
-  toBeWithinRange(received: number, floor: number, ceiling: number) {
-    const pass = received >= floor && received <= ceiling;
-    if (pass) {
-      return {
-        message: () =>
-          `expected ${received} not to be within range ${floor} - ${ceiling}`,
-        pass: true,
-      };
-    } else {
-      return {
-        message: () =>
-          `expected ${received} to be within range ${floor} - ${ceiling}`,
-        pass: false,
-      };
-    }
-  },
+/**
+ * Global setup - runs once before all tests
+ */
+beforeAll(async () => {
+  console.log("\n🧪 Test Environment Setup");
+  console.log(`   Database: ${SUPABASE_URL}`);
+  console.log(`   Admin Client: ${testAdminClient ? "✓" : "✗"}`);
+  console.log(`   Anon Client: ${testSupabaseClient ? "✓" : "✗"}\n`);
 });
 
-// Suppress console errors in tests (optional)
-const originalError = console.error;
-beforeAll(() => {
-  console.error = (...args: any[]) => {
-    if (
-      typeof args[0] === 'string' &&
-      args[0].includes('Warning: ReactDOM.render')
-    ) {
-      return;
-    }
-    originalError.call(console, ...args);
-  };
+/**
+ * Global teardown - runs once after all tests
+ */
+afterAll(async () => {
+  console.log("\n🧹 Cleaning up test environment...\n");
 });
 
-afterAll(() => {
-  console.error = originalError;
+/**
+ * Per-test cleanup - runs after each test
+ */
+beforeEach(async () => {
+  // Optional: Clean up before each test
+  // Uncomment if needed for strict test isolation
+  // await cleanupTestData();
 });
+
+// Export setup utilities
+export default {
+  testSupabaseClient,
+  testAdminClient,
+  createTenantClient,
+  cleanupTestData,
+  TEST_TENANT_A,
+  TEST_TENANT_B,
+  TEST_TENANT_C,
+};

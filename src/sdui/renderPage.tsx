@@ -98,6 +98,11 @@ export interface RenderPageOptions {
    * Callback when data hydration completes
    */
   onHydrationComplete?: (componentName: string, data: any) => void;
+
+  /**
+   * Callback for handling component actions (e.g. clicks, form submissions)
+   */
+  onAction?: (action: string, payload?: any) => void;
 }
 
 /**
@@ -346,6 +351,7 @@ const SectionRenderer: React.FC<{
   const mergedProps = {
     ...section.props,
     ...hydratedData,
+    onAction: options.onAction, // Inject standard action handler
   };
 
   // Notify that component is rendering

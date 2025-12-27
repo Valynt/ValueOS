@@ -1,12 +1,13 @@
 /**
  * CSRF Protection
- * 
+ *
  * Implements Cross-Site Request Forgery protection using the Synchronizer Token Pattern.
  * Generates and validates CSRF tokens for state-changing operations.
  */
 
-import { logger } from '../lib/logger';
-import { getSecurityConfig } from './SecurityConfig';
+import { logger } from "../lib/logger";
+import { getSecurityConfig } from "./SecurityConfig";
+import { getConfig } from "../config/environment";
 
 /**
  * CSRF token configuration
@@ -34,9 +35,9 @@ export interface CSRFToken {
 const DEFAULT_CSRF_CONFIG: CSRFTokenConfig = {
   tokenLength: 32,
   tokenLifetime: 3600000, // 1 hour
-  headerName: 'X-CSRF-Token',
-  cookieName: 'csrf_token',
-  paramName: '_csrf',
+  headerName: "X-CSRF-Token",
+  cookieName: "csrf_token",
+  paramName: "_csrf",
 };
 
 /**
@@ -105,7 +106,9 @@ const tokenStore = new CSRFTokenStore();
 function generateRandomToken(length: number): string {
   const array = new Uint8Array(length);
   crypto.getRandomValues(array);
-  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  return Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join(
+    ""
+  );
 }
 
 /**
@@ -127,7 +130,7 @@ export function generateCSRFToken(
   };
 
   // Store token
-  const key = sessionId || 'default';
+  const key = sessionId || "default";
   tokenStore.set(key, csrfToken);
 
   return csrfToken;
@@ -145,7 +148,7 @@ export function validateCSRFToken(
     return false;
   }
 
-  const key = sessionId || 'default';
+  const key = sessionId || "default";
   const storedToken = tokenStore.get(key);
 
   if (!storedToken) {
@@ -173,7 +176,7 @@ export function refreshCSRFToken(
   sessionId?: string,
   config: Partial<CSRFTokenConfig> = {}
 ): CSRFToken {
-  const key = sessionId || 'default';
+  const key = sessionId || "default";
   tokenStore.delete(key);
   return generateCSRFToken(sessionId, config);
 }
@@ -182,7 +185,7 @@ export function refreshCSRFToken(
  * Get current CSRF token
  */
 export function getCSRFToken(sessionId?: string): CSRFToken | undefined {
-  const key = sessionId || 'default';
+  const key = sessionId || "default";
   return tokenStore.get(key);
 }
 
@@ -190,7 +193,7 @@ export function getCSRFToken(sessionId?: string): CSRFToken | undefined {
  * Delete CSRF token
  */
 export function deleteCSRFToken(sessionId?: string): void {
-  const key = sessionId || 'default';
+  const key = sessionId || "default";
   tokenStore.delete(key);
 }
 
@@ -219,25 +222,23 @@ export function setCSRFCookie(
   ];
 
   if (securityConfig.session.secure) {
-    cookieOptions.push('Secure');
+    cookieOptions.push("Secure");
   }
 
-  if (securityConfig.session.httpOnly) {
-    cookieOptions.push('HttpOnly');
-  }
-
-  document.cookie = cookieOptions.join('; ');
+  document.cookie = cookieOptions.join("; ");
 }
 
 /**
  * Get CSRF token from cookie
  */
-export function getCSRFCookie(config: Partial<CSRFTokenConfig> = {}): string | null {
+export function getCSRFCookie(
+  config: Partial<CSRFTokenConfig> = {}
+): string | null {
   const cfg = { ...DEFAULT_CSRF_CONFIG, ...config };
-  const cookies = document.cookie.split(';');
+  const cookies = document.cookie.split(";");
 
   for (const cookie of cookies) {
-    const [name, value] = cookie.trim().split('=');
+    const [name, value] = cookie.trim().split("=");
     if (name === cfg.cookieName) {
       return value;
     }
@@ -266,7 +267,7 @@ export function addCSRFHeader(
   const csrfToken = token || getCSRFCookie(cfg);
 
   if (!csrfToken) {
-    logger.warn('No CSRF token available');
+    logger.warn("No CSRF token available");
     return headers;
   }
 
@@ -291,7 +292,7 @@ export function addCSRFToFormData(
   const csrfToken = token || getCSRFCookie(cfg);
 
   if (!csrfToken) {
-    logger.warn('No CSRF token available');
+    logger.warn("No CSRF token available");
     return formData;
   }
 
@@ -311,7 +312,7 @@ export function addCSRFToURL(
   const csrfToken = token || getCSRFCookie(cfg);
 
   if (!csrfToken) {
-    logger.warn('No CSRF token available');
+    logger.warn("No CSRF token available");
     return url;
   }
 
@@ -332,8 +333,8 @@ export async function fetchWithCSRF(
   const cfg = { ...DEFAULT_CSRF_CONFIG, ...config };
 
   // Only add CSRF token for state-changing methods
-  const method = (options.method || 'GET').toUpperCase();
-  const requiresCSRF = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+  const method = (options.method || "GET").toUpperCase();
+  const requiresCSRF = ["POST", "PUT", "PATCH", "DELETE"].includes(method);
 
   if (requiresCSRF) {
     // Get or generate token
@@ -360,10 +361,10 @@ export function initializeCSRFProtection(
   sessionId?: string,
   config: Partial<CSRFTokenConfig> = {}
 ): CSRFToken {
-  const securityConfig = getSecurityConfig();
+  const envConfig = getConfig();
 
-  if (!securityConfig.security.csrfEnabled) {
-    logger.warn('CSRF protection is disabled');
+  if (!envConfig.security.csrfEnabled) {
+    logger.warn("CSRF protection is disabled");
   }
 
   // Generate initial token
@@ -373,10 +374,12 @@ export function initializeCSRFProtection(
   setCSRFCookie(token.token, config);
 
   // Add meta tag for easy access
-  let metaTag = document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement;
+  let metaTag = document.querySelector(
+    'meta[name="csrf-token"]'
+  ) as HTMLMetaElement;
   if (!metaTag) {
-    metaTag = document.createElement('meta');
-    metaTag.name = 'csrf-token';
+    metaTag = document.createElement("meta");
+    metaTag.name = "csrf-token";
     document.head.appendChild(metaTag);
   }
   metaTag.content = token.token;
@@ -388,7 +391,9 @@ export function initializeCSRFProtection(
  * Get CSRF token from meta tag
  */
 export function getCSRFTokenFromMeta(): string | null {
-  const metaTag = document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement;
+  const metaTag = document.querySelector(
+    'meta[name="csrf-token"]'
+  ) as HTMLMetaElement;
   return metaTag ? metaTag.content : null;
 }
 
@@ -398,7 +403,9 @@ export function getCSRFTokenFromMeta(): string | null {
 export function useCSRFToken(sessionId?: string): {
   token: string | null;
   refresh: () => void;
-  addToHeaders: (headers: Headers | Record<string, string>) => Headers | Record<string, string>;
+  addToHeaders: (
+    headers: Headers | Record<string, string>
+  ) => Headers | Record<string, string>;
   addToFormData: (formData: FormData) => FormData;
 } {
   const [token, setToken] = React.useState<string | null>(null);
@@ -420,13 +427,19 @@ export function useCSRFToken(sessionId?: string): {
     setToken(newToken.token);
   }, [sessionId]);
 
-  const addToHeaders = React.useCallback((headers: Headers | Record<string, string>) => {
-    return addCSRFHeader(headers, token || undefined);
-  }, [token]);
+  const addToHeaders = React.useCallback(
+    (headers: Headers | Record<string, string>) => {
+      return addCSRFHeader(headers, token || undefined);
+    },
+    [token]
+  );
 
-  const addToFormData = React.useCallback((formData: FormData) => {
-    return addCSRFToFormData(formData, token || undefined);
-  }, [token]);
+  const addToFormData = React.useCallback(
+    (formData: FormData) => {
+      return addCSRFToFormData(formData, token || undefined);
+    },
+    [token]
+  );
 
   return {
     token,
@@ -437,7 +450,7 @@ export function useCSRFToken(sessionId?: string): {
 }
 
 // Import React for the hook
-import React from 'react';
+import React from "react";
 
 let csrfFetchInterceptorInstalled = false;
 let originalFetch: typeof fetch | null = null;
@@ -446,8 +459,10 @@ let originalFetch: typeof fetch | null = null;
  * Attach a global fetch interceptor that automatically injects CSRF tokens
  * on state-changing requests.
  */
-export function attachCSRFFetchInterceptor(config: Partial<CSRFTokenConfig> = {}): void {
-  if (csrfFetchInterceptorInstalled || typeof fetch === 'undefined') {
+export function attachCSRFFetchInterceptor(
+  config: Partial<CSRFTokenConfig> = {}
+): void {
+  if (csrfFetchInterceptorInstalled || typeof fetch === "undefined") {
     return;
   }
 
@@ -458,10 +473,12 @@ export function attachCSRFFetchInterceptor(config: Partial<CSRFTokenConfig> = {}
 
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const options = init || {};
-    const method = (options.method || 'GET').toUpperCase();
-    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+    const method = (options.method || "GET").toUpperCase();
+    if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
       return fetchWithCSRF(
-        typeof input === 'string' || input instanceof URL ? input.toString() : String(input),
+        typeof input === "string" || input instanceof URL
+          ? input.toString()
+          : String(input),
         options,
         config,
         baseFetch

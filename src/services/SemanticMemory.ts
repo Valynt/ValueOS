@@ -1,16 +1,21 @@
 /**
  * Semantic Memory Service
- * 
+ *
  * Long-term semantic memory using pgvector for RAG (Retrieval-Augmented Generation).
  * Enables agents to recall past successful patterns, decisions, and outcomes.
  */
 
-import { createClient } from '@supabase/supabase-js';
-import { logger } from '../utils/logger';
+import { createClient } from "@supabase/supabase-js";
+import { logger } from "../utils/logger";
 
 export interface MemoryEntry {
   id: string;
-  type: 'value_proposition' | 'target_definition' | 'opportunity' | 'integrity_check' | 'workflow_result';
+  type:
+    | "value_proposition"
+    | "target_definition"
+    | "opportunity"
+    | "integrity_check"
+    | "workflow_result";
   content: string;
   embedding: number[];
   metadata: {
@@ -33,26 +38,26 @@ export interface SemanticSearchResult {
 
 export class SemanticMemoryService {
   private supabase: ReturnType<typeof createClient>;
-  private embeddingModel = 'text-embedding-3-small'; // OpenAI embedding model
-  private embeddingDimension = 1536;
+  private embeddingModel = "togethercomputer/m2-bert-80M-8k-retrieval"; // Together AI embedding model
+  private embeddingDimension = 768;
 
   constructor() {
     this.supabase = createClient(
-      process.env.SUPABASE_URL || '',
-      process.env.SUPABASE_KEY || ''
+      process.env.SUPABASE_URL || "",
+      process.env.SUPABASE_KEY || ""
     );
   }
 
   /**
-   * Generate embedding for text using OpenAI
+   * Generate embedding for text using Together AI
    */
   private async generateEmbedding(text: string): Promise<number[]> {
     try {
-      const response = await fetch('https://api.openai.com/v1/embeddings', {
-        method: 'POST',
+      const response = await fetch("https://api.together.xyz/v1/embeddings", {
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${process.env.TOGETHER_API_KEY}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           model: this.embeddingModel,
@@ -61,13 +66,13 @@ export class SemanticMemoryService {
       });
 
       if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
+        throw new Error(`Together AI API error: ${response.status}`);
       }
 
       const data = await response.json();
       return data.data[0].embedding;
     } catch (error) {
-      logger.error('Failed to generate embedding', error as Error);
+      logger.error("Failed to generate embedding", error as Error);
       throw error;
     }
   }
@@ -75,26 +80,28 @@ export class SemanticMemoryService {
   /**
    * Store a memory entry
    */
-  async store(entry: Omit<MemoryEntry, 'id' | 'embedding' | 'createdAt'>): Promise<string> {
+  async store(
+    entry: Omit<MemoryEntry, "id" | "embedding" | "createdAt">
+  ): Promise<string> {
     try {
       // Generate embedding
       const embedding = await this.generateEmbedding(entry.content);
 
       // Store in database
       const { data, error } = await this.supabase
-        .from('semantic_memory')
+        .from("semantic_memory")
         .insert({
           type: entry.type,
           content: entry.content,
           embedding,
           metadata: entry.metadata,
         })
-        .select('id')
+        .select("id")
         .single();
 
       if (error) throw error;
 
-      logger.info('Memory stored', {
+      logger.info("Memory stored", {
         id: data.id,
         type: entry.type,
         agentType: entry.metadata.agentType,
@@ -102,7 +109,7 @@ export class SemanticMemoryService {
 
       return data.id;
     } catch (error) {
-      logger.error('Failed to store memory', error as Error);
+      logger.error("Failed to store memory", error as Error);
       throw error;
     }
   }
@@ -113,7 +120,7 @@ export class SemanticMemoryService {
   async search(
     query: string,
     options: {
-      type?: MemoryEntry['type'];
+      type?: MemoryEntry["type"];
       industry?: string;
       targetMarket?: string;
       minScore?: number;
@@ -127,23 +134,30 @@ export class SemanticMemoryService {
       // Build filter conditions
       const filters: string[] = [];
       if (options.type) filters.push(`type = '${options.type}'`);
-      if (options.industry) filters.push(`metadata->>'industry' = '${options.industry}'`);
-      if (options.targetMarket) filters.push(`metadata->>'targetMarket' = '${options.targetMarket}'`);
-      if (options.minScore) filters.push(`(metadata->>'score')::float >= ${options.minScore}`);
+      if (options.industry)
+        filters.push(`metadata->>'industry' = '${options.industry}'`);
+      if (options.targetMarket)
+        filters.push(`metadata->>'targetMarket' = '${options.targetMarket}'`);
+      if (options.minScore)
+        filters.push(`(metadata->>'score')::float >= ${options.minScore}`);
 
-      const whereClause = filters.length > 0 ? `WHERE ${filters.join(' AND ')}` : '';
+      const whereClause =
+        filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
 
       // Perform vector similarity search
-      const { data, error } = await this.supabase.rpc('search_semantic_memory', {
-        query_embedding: queryEmbedding,
-        match_threshold: 0.7, // Cosine similarity threshold
-        match_count: options.limit || 10,
-        filter_clause: whereClause,
-      });
+      const { data, error } = await this.supabase.rpc(
+        "search_semantic_memory",
+        {
+          query_embedding: queryEmbedding,
+          match_threshold: 0.7, // Cosine similarity threshold
+          match_count: options.limit || 10,
+          filter_clause: whereClause,
+        }
+      );
 
       if (error) throw error;
 
-      logger.info('Semantic search completed', {
+      logger.info("Semantic search completed", {
         query: query.substring(0, 50),
         resultsCount: data?.length || 0,
       });
@@ -160,7 +174,7 @@ export class SemanticMemoryService {
         similarity: row.similarity,
       }));
     } catch (error) {
-      logger.error('Semantic search failed', error as Error);
+      logger.error("Semantic search failed", error as Error);
       throw error;
     }
   }
@@ -177,17 +191,17 @@ export class SemanticMemoryService {
     workflowId: string;
   }): Promise<string> {
     return this.store({
-      type: 'value_proposition',
+      type: "value_proposition",
       content: data.content,
       metadata: {
-        agentType: 'OpportunityAgent',
+        agentType: "OpportunityAgent",
         industry: data.industry,
         targetMarket: data.targetMarket,
         score: data.score,
         timestamp: new Date(),
         userId: data.userId,
         workflowId: data.workflowId,
-        tags: ['successful', 'validated'],
+        tags: ["successful", "validated"],
       },
     });
   }
@@ -201,7 +215,7 @@ export class SemanticMemoryService {
     targetMarket: string
   ): Promise<SemanticSearchResult[]> {
     return this.search(businessContext, {
-      type: 'value_proposition',
+      type: "value_proposition",
       industry,
       targetMarket,
       minScore: 0.7, // Only retrieve high-quality examples
@@ -220,10 +234,10 @@ export class SemanticMemoryService {
     workflowId: string;
   }): Promise<string> {
     return this.store({
-      type: 'target_definition',
+      type: "target_definition",
       content: data.content,
       metadata: {
-        agentType: 'TargetAgent',
+        agentType: "TargetAgent",
         industry: data.industry,
         score: data.score,
         timestamp: new Date(),
@@ -241,7 +255,7 @@ export class SemanticMemoryService {
     industry: string
   ): Promise<SemanticSearchResult[]> {
     return this.search(businessContext, {
-      type: 'target_definition',
+      type: "target_definition",
       industry,
       minScore: 0.8, // High bar for target examples
       limit: 3,
@@ -259,15 +273,15 @@ export class SemanticMemoryService {
     workflowId: string;
   }): Promise<string> {
     return this.store({
-      type: 'integrity_check',
+      type: "integrity_check",
       content: JSON.stringify({ content: data.content, issues: data.issues }),
       metadata: {
-        agentType: 'IntegrityAgent',
+        agentType: "IntegrityAgent",
         score: data.passed ? 1.0 : 0.0,
         timestamp: new Date(),
         userId: data.userId,
         workflowId: data.workflowId,
-        tags: data.passed ? ['passed'] : ['failed', ...data.issues],
+        tags: data.passed ? ["passed"] : ["failed", ...data.issues],
       },
     });
   }
@@ -279,7 +293,7 @@ export class SemanticMemoryService {
     contentType: string
   ): Promise<SemanticSearchResult[]> {
     return this.search(contentType, {
-      type: 'integrity_check',
+      type: "integrity_check",
       minScore: 0.0, // Include failures
       limit: 10,
     });
@@ -305,10 +319,10 @@ export class SemanticMemoryService {
     });
 
     return this.store({
-      type: 'workflow_result',
+      type: "workflow_result",
       content,
       metadata: {
-        agentType: 'WorkflowOrchestrator',
+        agentType: "WorkflowOrchestrator",
         score: data.score,
         timestamp: new Date(),
         userId: data.userId,
@@ -326,7 +340,7 @@ export class SemanticMemoryService {
     inputContext: string
   ): Promise<SemanticSearchResult[]> {
     return this.search(inputContext, {
-      type: 'workflow_result',
+      type: "workflow_result",
       minScore: 0.7,
       limit: 5,
     });
@@ -338,7 +352,7 @@ export class SemanticMemoryService {
   async pruneMemories(options: {
     olderThanDays?: number;
     minScore?: number;
-    type?: MemoryEntry['type'];
+    type?: MemoryEntry["type"];
   }): Promise<number> {
     try {
       const conditions: string[] = [];
@@ -358,27 +372,27 @@ export class SemanticMemoryService {
       }
 
       if (conditions.length === 0) {
-        throw new Error('At least one pruning condition required');
+        throw new Error("At least one pruning condition required");
       }
 
       const { data, error } = await this.supabase
-        .from('semantic_memory')
+        .from("semantic_memory")
         .delete()
-        .filter('id', 'neq', '00000000-0000-0000-0000-000000000000') // Dummy filter
-        .select('id');
+        .filter("id", "neq", "00000000-0000-0000-0000-000000000000") // Dummy filter
+        .select("id");
 
       if (error) throw error;
 
       const deletedCount = data?.length || 0;
 
-      logger.info('Memories pruned', {
+      logger.info("Memories pruned", {
         deletedCount,
         conditions: options,
       });
 
       return deletedCount;
     } catch (error) {
-      logger.error('Failed to prune memories', error as Error);
+      logger.error("Failed to prune memories", error as Error);
       throw error;
     }
   }
@@ -395,8 +409,8 @@ export class SemanticMemoryService {
   }> {
     try {
       const { data, error } = await this.supabase
-        .from('semantic_memory')
-        .select('type, metadata, created_at');
+        .from("semantic_memory")
+        .select("type, metadata, created_at");
 
       if (error) throw error;
 
@@ -427,7 +441,7 @@ export class SemanticMemoryService {
         newestMemory: newestDate,
       };
     } catch (error) {
-      logger.error('Failed to get memory statistics', error as Error);
+      logger.error("Failed to get memory statistics", error as Error);
       throw error;
     }
   }

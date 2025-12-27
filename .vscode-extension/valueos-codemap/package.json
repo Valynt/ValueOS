@@ -1,0 +1,75 @@
+{
+  "name": "valueos-codemap",
+  "displayName": "ValueOS Codemap",
+  "description": "Context-aware IDE extension for ValueOS - provides dependency graphs, blast radius analysis, and hot path detection",
+  "version": "0.1.0",
+  "publisher": "valueos",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Visualization",
+    "Linters"
+  ],
+  "activationEvents": [
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "valueos-codemap.showDependencies",
+        "title": "ValueOS: Show Dependencies"
+      },
+      {
+        "command": "valueos-codemap.showBlastRadius",
+        "title": "ValueOS: Show Blast Radius"
+      },
+      {
+        "command": "valueos-codemap.analyzeImpact",
+        "title": "ValueOS: Analyze Impact"
+      }
+    ],
+    "configuration": {
+      "title": "ValueOS Codemap",
+      "properties": {
+        "valueos.codemap.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable ValueOS Codemap extension"
+        },
+        "valueos.codemap.showDependencies": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show dependency graph in editor"
+        },
+        "valueos.codemap.prometheusUrl": {
+          "type": "string",
+          "default": "http://localhost:9090",
+          "description": "Prometheus URL for production telemetry"
+        },
+        "valueos.codemap.hotPathThreshold": {
+          "type": "number",
+          "default": 1000000,
+          "description": "Requests/day threshold for hot path detection"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0",
+    "@vscode/vsce": "^2.22.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  }
+}

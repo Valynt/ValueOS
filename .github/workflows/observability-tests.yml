@@ -1,0 +1,98 @@
+name: Observability Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test-observability:
+    name: Test Observability Stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start observability stack
+        run: |
+          echo "🚀 Starting LGTM observability stack..."
+          docker-compose -f docker-compose.observability.yml up -d
+          echo "⏳ Waiting for services to be healthy..."
+          sleep 30
+
+      - name: Verify services are healthy
+        run: |
+          echo "Checking Loki..."
+          curl --retry 10 --retry-delay 3 --retry-connrefused http://localhost:3100/ready
+          echo "✅ Loki is ready"
+
+          echo "Checking Tempo..."
+          curl --retry 10 --retry-delay 3 --retry-connrefused http://localhost:3200/ready
+          echo "✅ Tempo is ready"
+
+          echo "Checking Prometheus..."
+          curl --retry 10 --retry-delay 3 --retry-connrefused http://localhost:9090/-/ready
+          echo "✅ Prometheus is ready"
+
+          echo "Checking Grafana..."
+          curl --retry 10 --retry-delay 3 --retry-connrefused http://localhost:3000/api/health
+          echo "✅ Grafana is ready"
+
+      - name: Display service status
+        run: docker-compose -f docker-compose.observability.yml ps
+
+      - name: Run unit tests
+        run: npm run test:observability:unit
+        env:
+          NODE_ENV: test
+
+      - name: Run integration tests
+        run: npm run test:observability:integration
+        env:
+          NODE_ENV: test
+
+      - name: Run E2E tests
+        run: npm run test:observability:e2e
+        env:
+          NODE_ENV: test
+
+      - name: Display service logs on failure
+        if: failure()
+        run: |
+          echo "=== Loki Logs ==="
+          docker-compose -f docker-compose.observability.yml logs --tail=100 loki
+          echo "=== Tempo Logs ==="
+          docker-compose -f docker-compose.observability.yml logs --tail=100 tempo
+          echo "=== Prometheus Logs ==="
+          docker-compose -f docker-compose.observability.yml logs --tail=100 prometheus
+          echo "=== Grafana Logs ==="
+          docker-compose -f docker-compose.observability.yml logs --tail=100 grafana
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: observability-test-results
+          path: |
+            coverage/
+            test-results/
+
+      - name: Stop observability stack
+        if: always()
+        run: docker-compose -f docker-compose.observability.yml down -v
+
+      - name: Cleanup Docker resources
+        if: always()
+        run: docker system prune -f

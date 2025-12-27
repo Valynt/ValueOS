@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   AgentResponseCard,
   AgentWorkflowPanel,
@@ -26,18 +26,19 @@ import {
   JsonViewer,
   TextBlock,
   ConfirmationDialog,
+  ValueHypothesisCard,
   ProgressBar,
-} from '../components/SDUI';
+} from "../components/SDUI";
 import {
   DashboardPanel,
   Grid,
   HorizontalSplit,
   VerticalSplit,
-} from '../components/SDUI/CanvasLayout';
-import { WorkflowStatusBar } from '../components/Workflow/WorkflowStatusBar';
-import { HumanCheckpoint } from '../components/Workflow/HumanCheckpoint';
-import { ConfidenceDisplay } from '../components/Agent/ConfidenceDisplay';
-import { ComponentPreview } from '../components/SDUI/ComponentPreview';
+} from "../components/SDUI/CanvasLayout";
+import { WorkflowStatusBar } from "../components/Workflow/WorkflowStatusBar";
+import { HumanCheckpoint } from "../components/Workflow/HumanCheckpoint";
+import { ConfidenceDisplay } from "../components/Agent/ConfidenceDisplay";
+import { ComponentPreview } from "../components/SDUI/ComponentPreview";
 
 export interface RegistryEntry {
   component: React.ComponentType<any>;
@@ -51,181 +52,195 @@ const baseRegistry: Record<string, RegistryEntry> = {
   VerticalSplit: {
     component: VerticalSplit,
     versions: [1],
-    requiredProps: ['ratios', 'children'],
-    description: 'Vertical split layout with configurable ratios',
+    requiredProps: ["ratios", "children"],
+    description: "Vertical split layout with configurable ratios",
   },
   HorizontalSplit: {
     component: HorizontalSplit,
     versions: [1],
-    requiredProps: ['ratios', 'children'],
-    description: 'Horizontal split layout with configurable ratios',
+    requiredProps: ["ratios", "children"],
+    description: "Horizontal split layout with configurable ratios",
   },
   Grid: {
     component: Grid,
     versions: [1],
-    requiredProps: ['columns', 'children'],
-    description: 'Responsive grid layout with configurable columns',
+    requiredProps: ["columns", "children"],
+    description: "Responsive grid layout with configurable columns",
   },
   // Fallback components for SDUI intent mapping
   JsonViewer: {
     component: JsonViewer,
     versions: [1],
-    requiredProps: ['data'],
-    description: 'Displays raw JSON data in a formatted viewer',
+    requiredProps: ["data"],
+    description: "Displays raw JSON data in a formatted viewer",
   },
   TextBlock: {
     component: TextBlock,
     versions: [1],
-    requiredProps: ['text'],
-    description: 'Displays plain or formatted text content',
+    requiredProps: ["text"],
+    description: "Displays plain or formatted text content",
   },
   ConfirmationDialog: {
     component: ConfirmationDialog,
     versions: [1],
-    requiredProps: ['message', 'onConfirm', 'onCancel'],
-    description: 'Dialog for user confirmation with actions',
+    requiredProps: ["message", "onConfirm", "onCancel"],
+    description: "Dialog for user confirmation with actions",
   },
   ProgressBar: {
     component: ProgressBar,
     versions: [1],
-    requiredProps: ['progress'],
-    description: 'Linear progress bar for workflow or loading states',
+    requiredProps: ["progress"],
+    description: "Linear progress bar for workflow or loading states",
   },
   DashboardPanel: {
     component: DashboardPanel,
     versions: [1],
-    requiredProps: ['children'],
-    description: 'Collapsible panel container for dashboard sections',
+    requiredProps: ["children"],
+    description: "Collapsible panel container for dashboard sections",
   },
-  
+
   // Existing components
   InfoBanner: {
     component: InfoBanner,
     versions: [1, 2],
-    requiredProps: ['title'],
-    description: 'High-level lifecycle banner for SDUI templates.',
+    requiredProps: ["title"],
+    description: "High-level lifecycle banner for SDUI templates.",
   },
   DiscoveryCard: {
     component: DiscoveryCard,
     versions: [1, 2],
-    requiredProps: ['questions'],
-    description: 'Discovery prompts for opportunity framing.',
+    requiredProps: ["questions"],
+    description: "Discovery prompts for opportunity framing.",
   },
   ValueTreeCard: {
     component: ValueTreeCard,
     versions: [1, 2],
-    requiredProps: ['title', 'nodes'],
-    description: 'Nested value drivers for target outcomes.',
+    requiredProps: ["title", "nodes"],
+    description: "Nested value drivers for target outcomes.",
+  },
+  ValueHypothesisCard: {
+    component: ValueHypothesisCard,
+    versions: [1],
+    requiredProps: ["hypothesis"],
+    description:
+      "Displays a specialized card for a value hypothesis with confidence/impact.",
   },
   ExpansionBlock: {
     component: ExpansionBlock,
     versions: [1, 2],
-    requiredProps: ['gaps', 'roi'],
-    description: 'ROI snapshot for expansion stage.',
+    requiredProps: ["gaps", "roi"],
+    description: "ROI snapshot for expansion stage.",
   },
 
   // New components
   MetricBadge: {
     component: MetricBadge,
     versions: [1],
-    requiredProps: ['label', 'value'],
-    description: 'Displays a KPI label with numeric or percentage value.',
+    requiredProps: ["label", "value"],
+    description: "Displays a KPI label with numeric or percentage value.",
   },
   KPIForm: {
     component: KPIForm,
     versions: [1],
-    requiredProps: ['kpiName', 'onSubmit'],
-    description: 'Form for entering baseline and target values for a KPI.',
+    requiredProps: ["kpiName", "onSubmit"],
+    description: "Form for entering baseline and target values for a KPI.",
   },
   ValueCommitForm: {
     component: ValueCommitForm,
     versions: [1],
-    requiredProps: ['kpis', 'onCommit'],
-    description: 'Extended form for multiple KPI entries with assumptions.',
+    requiredProps: ["kpis", "onCommit"],
+    description: "Extended form for multiple KPI entries with assumptions.",
   },
   RealizationDashboard: {
     component: RealizationDashboard,
     versions: [1],
     requiredProps: [],
-    description: 'Displays baseline vs. target vs. actual results for realized value.',
+    description:
+      "Displays baseline vs. target vs. actual results for realized value.",
   },
   LifecyclePanel: {
     component: LifecyclePanel,
     versions: [1],
-    requiredProps: ['stage', 'children'],
-    description: 'Generic panel container for each lifecycle stage.',
+    requiredProps: ["stage", "children"],
+    description: "Generic panel container for each lifecycle stage.",
   },
   IntegrityReviewPanel: {
     component: IntegrityReviewPanel,
     versions: [1],
-    requiredProps: ['results'],
-    description: 'Displays manifesto rule validation results.',
+    requiredProps: ["results"],
+    description: "Displays manifesto rule validation results.",
   },
 
   // Navigation components
   SideNavigation: {
     component: SideNavigation,
     versions: [1],
-    requiredProps: ['items'],
-    description: 'Collapsible sidebar navigation with workflow stages.',
+    requiredProps: ["items"],
+    description: "Collapsible sidebar navigation with workflow stages.",
   },
   TabBar: {
     component: TabBar,
     versions: [1],
-    requiredProps: ['tabs'],
-    description: 'Secondary navigation with neon green active indicator.',
+    requiredProps: ["tabs"],
+    description: "Secondary navigation with neon green active indicator.",
   },
   Breadcrumbs: {
     component: Breadcrumbs,
     versions: [1],
-    requiredProps: ['items'],
-    description: 'Path indicators with separators for navigation hierarchy.',
+    requiredProps: ["items"],
+    description: "Path indicators with separators for navigation hierarchy.",
   },
 
   // Data display components
   DataTable: {
     component: DataTable,
     versions: [1],
-    requiredProps: ['data', 'columns'],
-    description: 'Sortable, filterable data grid with pagination and virtual scrolling.',
+    requiredProps: ["data", "columns"],
+    description:
+      "Sortable, filterable data grid with pagination and virtual scrolling.",
   },
   ConfidenceIndicator: {
     component: ConfidenceIndicator,
     versions: [1],
-    requiredProps: ['value'],
-    description: 'Visual confidence meter for AI outputs (0-100%).',
+    requiredProps: ["value"],
+    description: "Visual confidence meter for AI outputs (0-100%).",
   },
 
   // Agent-specific components
   AgentResponseCard: {
     component: AgentResponseCard,
     versions: [1],
-    requiredProps: ['response'],
-    description: 'Displays agent outputs with reasoning transparency and actions.',
+    requiredProps: ["response"],
+    description:
+      "Displays agent outputs with reasoning transparency and actions.",
   },
   AgentWorkflowPanel: {
     component: AgentWorkflowPanel,
     versions: [1],
-    requiredProps: ['agents'],
-    description: 'Shows active agents, collaboration status, and communication log.',
+    requiredProps: ["agents"],
+    description:
+      "Shows active agents, collaboration status, and communication log.",
   },
   NarrativeBlock: {
     component: NarrativeBlock,
     versions: [1],
-    requiredProps: ['title', 'content'],
-    description: 'Displays AI-generated narrative content with optional editing and transparency.',
+    requiredProps: ["title", "content"],
+    description:
+      "Displays AI-generated narrative content with optional editing and transparency.",
   },
   SDUIForm: {
     component: SDUIForm,
     versions: [1],
-    requiredProps: ['id', 'onSubmit'],
-    description: 'Dynamic form generation from JSON schema with validation and AI suggestions.',
+    requiredProps: ["id", "onSubmit"],
+    description:
+      "Dynamic form generation from JSON schema with validation and AI suggestions.",
   },
   ScenarioSelector: {
     component: ScenarioSelector,
     versions: [1],
-    requiredProps: ['scenarios', 'onSelect'],
-    description: 'Template/scenario selection interface with AI recommendations.',
+    requiredProps: ["scenarios", "onSelect"],
+    description:
+      "Template/scenario selection interface with AI recommendations.",
   },
 
   // Workflow and agent UX components
@@ -233,25 +248,40 @@ const baseRegistry: Record<string, RegistryEntry> = {
     component: WorkflowStatusBar,
     versions: [1],
     requiredProps: [],
-    description: 'Real-time workflow progress bar showing current stage, agent, and confidence.',
+    description:
+      "Real-time workflow progress bar showing current stage, agent, and confidence.",
   },
   HumanCheckpoint: {
     component: HumanCheckpoint,
     versions: [1],
-    requiredProps: ['stageId', 'agentName', 'action', 'riskLevel', 'onApprove', 'onReject'],
-    description: 'Human approval interface for high-risk workflow stages.',
+    requiredProps: [
+      "stageId",
+      "agentName",
+      "action",
+      "riskLevel",
+      "onApprove",
+      "onReject",
+    ],
+    description: "Human approval interface for high-risk workflow stages.",
   },
   ConfidenceDisplay: {
     component: ConfidenceDisplay,
     versions: [1],
     requiredProps: [],
-    description: 'Displays agent confidence levels and hallucination status with regeneration options.',
+    description:
+      "Displays agent confidence levels and hallucination status with regeneration options.",
   },
   ComponentPreview: {
     component: ComponentPreview,
     versions: [1],
-    requiredProps: ['intentType', 'componentName', 'registryEntry', 'organizationId'],
-    description: 'Developer preview tool for ui-registry.json entries with validation.',
+    requiredProps: [
+      "intentType",
+      "componentName",
+      "registryEntry",
+      "organizationId",
+    ],
+    description:
+      "Developer preview tool for ui-registry.json entries with validation.",
   },
 };
 
@@ -273,10 +303,15 @@ export function registerComponent(name: string, entry: RegistryEntry): void {
 
 export function resetRegistry(): void {
   registry.clear();
-  Object.entries(baseRegistry).forEach(([name, entry]) => registry.set(name, entry));
+  Object.entries(baseRegistry).forEach(([name, entry]) =>
+    registry.set(name, entry)
+  );
 }
 
-export function hotSwapComponent(name: string, component: React.ComponentType<any>): RegistryEntry | undefined {
+export function hotSwapComponent(
+  name: string,
+  component: React.ComponentType<any>
+): RegistryEntry | undefined {
   const current = registry.get(name);
   if (!current) return undefined;
   const updated: RegistryEntry = { ...current, component };
@@ -284,19 +319,24 @@ export function hotSwapComponent(name: string, component: React.ComponentType<an
   return updated;
 }
 
-export function resolveComponent(section: SDUIComponentSection): RegistryEntry | undefined {
+export function resolveComponent(
+  section: SDUIComponentSection
+): RegistryEntry | undefined {
   const entry = registry.get(section.component);
   if (!entry) return undefined;
   if (!entry.versions.includes(section.version)) {
-    return { ...entry, description: `${entry.description ?? ''} (coerced version)` };
+    return {
+      ...entry,
+      description: `${entry.description ?? ""} (coerced version)`,
+    };
   }
   return entry;
 }
 
-export const SectionErrorWrapper: React.FC<{ componentName: string; children: React.ReactNode }> = ({
-  componentName,
-  children,
-}) => (
+export const SectionErrorWrapper: React.FC<{
+  componentName: string;
+  children: React.ReactNode;
+}> = ({ componentName, children }) => (
   <SectionErrorFallback componentName={componentName}>
     {children}
   </SectionErrorFallback>

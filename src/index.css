@@ -95,6 +95,41 @@
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: var(--vc-border-default);
     --sidebar-ring: var(--vc-accent-teal-500);
+
+    /* --- Design System 2.0 Standard Aliases --- */
+    /* Colors */
+    --color-surface-1: hsl(var(--vc-surface-1));
+    --color-surface-2: hsl(var(--vc-surface-2));
+    --color-surface-3: hsl(var(--vc-surface-3));
+
+    --color-teal-500: hsl(var(--vc-accent-teal-500));
+    --color-teal-400: hsl(var(--vc-accent-teal-400));
+    --color-grey-500: hsl(var(--vc-accent-grey-500));
+
+    --color-action: var(--color-teal-500);
+    --color-success: var(--color-teal-500);
+    --color-warning: hsl(var(--status-warning));
+    --color-error: hsl(var(--status-error));
+    --color-text-primary: hsl(var(--vc-foreground));
+    --color-text-muted: hsl(var(--muted-foreground));
+
+    --color-border-default: hsl(var(--vc-border-default));
+    --color-border-strong: hsl(var(--vc-border-strong));
+
+    /* Spacing */
+    --space-1: var(--spacing-1);
+    --space-2: var(--spacing-2);
+    --space-3: var(--spacing-3);
+    --space-4: var(--spacing-4);
+    --space-6: var(--spacing-6);
+    --space-8: var(--spacing-8);
+
+    /* Typography */
+    --text-xs: var(--font-xs);
+    --text-sm: var(--font-sm);
+    --text-base: var(--font-base);
+    --text-3xl: var(--font-3xl);
+    --text-5xl: var(--font-5xl);
   }
 
   .dark {
@@ -132,6 +167,36 @@
     --sidebar-border: var(--vc-border-default);
     --sidebar-ring: var(--vc-accent-teal-500);
   }
+
+  /* Font smoothing for better typography */
+  body {
+    font-family:
+      "Inter",
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  code,
+  pre {
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+  }
+}
+
+/* WCAG Accessibility: Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @layer utilities {
@@ -156,6 +221,24 @@
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border-width: 0;
+  }
+
+  /* Skip link for keyboard navigation */
+  .skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: hsl(var(--primary));
+    color: white;
+    padding: 8px 16px;
+    text-decoration: none;
+    border-radius: 0 0 4px 0;
+    z-index: 100;
+    font-weight: 600;
+  }
+
+  .skip-link:focus {
+    top: 0;
   }
 
   @keyframes pulse-border {

@@ -12,18 +12,18 @@
  * - Ontology versioning
  */
 
-import { logger } from '../lib/logger';
-import { SupabaseClient } from '@supabase/supabase-js';
-import { getSupabaseClient } from '../lib/supabase';
-import { llmProxyClient } from './LlmProxyClient';
+import { logger } from "../lib/logger";
+import { SupabaseClient } from "@supabase/supabase-js";
+import { getSupabaseClient } from "../lib/supabase";
+import { llmProxyClient } from "./LlmProxyClient";
 import type {
   Benchmark,
   Capability,
   UseCase,
   UseCaseCapability,
   ValueFabricQuery,
-  ValueFabricSnapshot
-} from '../types/vos';
+  ValueFabricSnapshot,
+} from "../types/vos";
 
 export interface SemanticSearchResult<T> {
   item: T;
@@ -68,51 +68,60 @@ export class ValueFabricService {
     const pageSize = filters?.pageSize ?? 50;
     const cacheKey = JSON.stringify({ ...filters, page, pageSize });
 
-    const cached = this.getCachedData(ValueFabricService.capabilityCache, cacheKey);
+    const cached = this.getCachedData(
+      ValueFabricService.capabilityCache,
+      cacheKey
+    );
     if (cached) return cached;
 
     let query = this.supabase
-      .from('capabilities')
-      .select('*')
-      .eq('is_active', true);
+      .from("capabilities")
+      .select("*")
+      .eq("is_active", true);
 
     if (filters?.category) {
-      query = query.eq('category', filters.category);
+      query = query.eq("category", filters.category);
     }
 
     if (filters?.tags && filters.tags.length > 0) {
-      query = query.contains('tags', filters.tags);
+      query = query.contains("tags", filters.tags);
     }
 
     if (filters?.search) {
-      query = query.ilike('name', `%${filters.search}%`);
+      query = query.ilike("name", `%${filters.search}%`);
     }
 
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    const { data, error } = await query.order('name').range(from, to);
+    const { data, error } = await query.order("name").range(from, to);
 
     if (error) throw error;
     const capabilities = data || [];
-    this.setCachedData(ValueFabricService.capabilityCache, cacheKey, capabilities);
+    this.setCachedData(
+      ValueFabricService.capabilityCache,
+      cacheKey,
+      capabilities
+    );
     return capabilities;
   }
 
   async getCapabilityById(id: string): Promise<Capability | null> {
     const { data, error } = await this.supabase
-      .from('capabilities')
-      .select('*')
-      .eq('id', id)
+      .from("capabilities")
+      .select("*")
+      .eq("id", id)
       .maybeSingle();
 
     if (error) throw error;
     return data;
   }
 
-  async createCapability(capability: Omit<Capability, 'id' | 'created_at' | 'updated_at'>): Promise<Capability> {
+  async createCapability(
+    capability: Omit<Capability, "id" | "created_at" | "updated_at">
+  ): Promise<Capability> {
     const { data, error } = await this.supabase
-      .from('capabilities')
+      .from("capabilities")
       .insert(capability)
       .select()
       .single();
@@ -122,11 +131,14 @@ export class ValueFabricService {
     return data;
   }
 
-  async updateCapability(id: string, updates: Partial<Capability>): Promise<Capability> {
+  async updateCapability(
+    id: string,
+    updates: Partial<Capability>
+  ): Promise<Capability> {
     const { data, error } = await this.supabase
-      .from('capabilities')
+      .from("capabilities")
       .update(updates)
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -150,27 +162,30 @@ export class ValueFabricService {
     const pageSize = filters?.pageSize ?? 50;
     const cacheKey = JSON.stringify({ ...filters, page, pageSize });
 
-    const cached = this.getCachedData(ValueFabricService.useCaseCache, cacheKey);
+    const cached = this.getCachedData(
+      ValueFabricService.useCaseCache,
+      cacheKey
+    );
     if (cached) return cached;
 
-    let query = this.supabase.from('use_cases').select('*');
+    let query = this.supabase.from("use_cases").select("*");
 
     if (filters?.persona) {
-      query = query.eq('persona', filters.persona);
+      query = query.eq("persona", filters.persona);
     }
 
     if (filters?.industry) {
-      query = query.eq('industry', filters.industry);
+      query = query.eq("industry", filters.industry);
     }
 
     if (filters?.is_template !== undefined) {
-      query = query.eq('is_template', filters.is_template);
+      query = query.eq("is_template", filters.is_template);
     }
 
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    const { data, error } = await query.order('name').range(from, to);
+    const { data, error } = await query.order("name").range(from, to);
 
     if (error) throw error;
     const useCases = data || [];
@@ -180,9 +195,9 @@ export class ValueFabricService {
 
   async getUseCaseById(id: string): Promise<UseCase | null> {
     const { data, error } = await this.supabase
-      .from('use_cases')
-      .select('*')
-      .eq('id', id)
+      .from("use_cases")
+      .select("*")
+      .eq("id", id)
       .maybeSingle();
 
     if (error) throw error;
@@ -194,30 +209,30 @@ export class ValueFabricService {
     capabilities: Capability[];
   }> {
     const { data: useCase, error: useCaseError } = await this.supabase
-      .from('use_cases')
-      .select('*')
-      .eq('id', useCaseId)
+      .from("use_cases")
+      .select("*")
+      .eq("id", useCaseId)
       .single();
 
     if (useCaseError) throw useCaseError;
 
     const { data: capabilityLinks, error: linksError } = await this.supabase
-      .from('use_case_capabilities')
-      .select('capability_id, relevance_score')
-      .eq('use_case_id', useCaseId);
+      .from("use_case_capabilities")
+      .select("capability_id, relevance_score")
+      .eq("use_case_id", useCaseId);
 
     if (linksError) throw linksError;
 
-    const capabilityIds = capabilityLinks?.map(l => l.capability_id) || [];
+    const capabilityIds = capabilityLinks?.map((l) => l.capability_id) || [];
 
     if (capabilityIds.length === 0) {
       return { useCase, capabilities: [] };
     }
 
     const { data: capabilities, error: capError } = await this.supabase
-      .from('capabilities')
-      .select('*')
-      .in('id', capabilityIds);
+      .from("capabilities")
+      .select("*")
+      .in("id", capabilityIds);
 
     if (capError) throw capError;
 
@@ -229,13 +244,11 @@ export class ValueFabricService {
     capabilityId: string,
     relevanceScore: number = 1.0
   ): Promise<void> {
-    const { error } = await this.supabase
-      .from('use_case_capabilities')
-      .insert({
-        use_case_id: useCaseId,
-        capability_id: capabilityId,
-        relevance_score: relevanceScore,
-      });
+    const { error } = await this.supabase.from("use_case_capabilities").insert({
+      use_case_id: useCaseId,
+      capability_id: capabilityId,
+      relevance_score: relevanceScore,
+    });
 
     if (error) throw error;
 
@@ -252,25 +265,27 @@ export class ValueFabricService {
     vertical?: string;
     company_size?: string;
   }): Promise<Benchmark[]> {
-    let query = this.supabase.from('benchmarks').select('*');
+    let query = this.supabase.from("benchmarks").select("*");
 
     if (filters.kpi_name) {
-      query = query.eq('kpi_name', filters.kpi_name);
+      query = query.eq("kpi_name", filters.kpi_name);
     }
 
     if (filters.industry) {
-      query = query.eq('industry', filters.industry);
+      query = query.eq("industry", filters.industry);
     }
 
     if (filters.vertical) {
-      query = query.eq('vertical', filters.vertical);
+      query = query.eq("vertical", filters.vertical);
     }
 
     if (filters.company_size) {
-      query = query.eq('company_size', filters.company_size);
+      query = query.eq("company_size", filters.company_size);
     }
 
-    const { data, error } = await query.order('data_date', { ascending: false });
+    const { data, error } = await query.order("data_date", {
+      ascending: false,
+    });
 
     if (error) throw error;
     return data || [];
@@ -281,29 +296,34 @@ export class ValueFabricService {
     industry: string
   ): Promise<{ p25: number; p50: number; p75: number; p90: number } | null> {
     const { data, error } = await this.supabase
-      .from('benchmarks')
-      .select('value, percentile')
-      .eq('kpi_name', kpiName)
-      .eq('industry', industry)
-      .in('percentile', [25, 50, 75, 90]);
+      .from("benchmarks")
+      .select("value, percentile")
+      .eq("kpi_name", kpiName)
+      .eq("industry", industry)
+      .in("percentile", [25, 50, 75, 90]);
 
     if (error) throw error;
     if (!data || data.length === 0) return null;
 
-    const percentiles = data.reduce((acc, row) => {
-      if (row.percentile === 25) acc.p25 = row.value;
-      if (row.percentile === 50) acc.p50 = row.value;
-      if (row.percentile === 75) acc.p75 = row.value;
-      if (row.percentile === 90) acc.p90 = row.value;
-      return acc;
-    }, { p25: 0, p50: 0, p75: 0, p90: 0 });
+    const percentiles = data.reduce(
+      (acc, row) => {
+        if (row.percentile === 25) acc.p25 = row.value;
+        if (row.percentile === 50) acc.p50 = row.value;
+        if (row.percentile === 75) acc.p75 = row.value;
+        if (row.percentile === 90) acc.p90 = row.value;
+        return acc;
+      },
+      { p25: 0, p50: 0, p75: 0, p90: 0 }
+    );
 
     return percentiles;
   }
 
-  async createBenchmark(benchmark: Omit<Benchmark, 'id' | 'created_at'>): Promise<Benchmark> {
+  async createBenchmark(
+    benchmark: Omit<Benchmark, "id" | "created_at">
+  ): Promise<Benchmark> {
     const { data, error } = await this.supabase
-      .from('benchmarks')
+      .from("benchmarks")
       .insert(benchmark)
       .select()
       .single();
@@ -323,14 +343,20 @@ export class ValueFabricService {
   ): Promise<SemanticSearchResult<Capability>[]> {
     const embedding = await this.generateEmbedding(queryText);
 
-    const { data, error } = await this.supabase.rpc('search_capabilities_by_embedding', {
-      query_embedding: embedding,
-      match_count: limit,
-      p_organization_id: organizationId || null
-    });
+    const { data, error } = await this.supabase.rpc(
+      "search_capabilities_by_embedding",
+      {
+        query_embedding: embedding,
+        match_count: limit,
+        p_organization_id: organizationId || null,
+      }
+    );
 
     if (error) {
-      logger.warn('Semantic search failed, falling back to text search:', error);
+      logger.warn(
+        "Semantic search failed, falling back to text search:",
+        error
+      );
       return this.fallbackTextSearch(queryText, limit);
     }
 
@@ -340,7 +366,9 @@ export class ValueFabricService {
       return semanticResults;
     }
 
-    const existingIds = new Set(semanticResults.map(result => result.item.id));
+    const existingIds = new Set(
+      semanticResults.map((result) => result.item.id)
+    );
     const fallbackResults = await this.fallbackTextSearch(queryText, limit);
 
     for (const result of fallbackResults) {
@@ -361,21 +389,26 @@ export class ValueFabricService {
   ): Promise<SemanticSearchResult<Capability>[]> {
     const capabilities = await this.getCapabilities({ search: queryText });
 
-    return capabilities.slice(0, limit).map(cap => ({
+    return capabilities.slice(0, limit).map((cap) => ({
       item: cap,
       similarity: 0.5,
     }));
   }
 
   private async generateEmbedding(text: string): Promise<number[]> {
-    return llmProxyClient.generateEmbedding({ input: text, provider: 'openai' });
+    return llmProxyClient.generateEmbedding({
+      input: text,
+      provider: "together",
+    });
   }
 
   // =====================================================
   // VALUE FABRIC SNAPSHOTS
   // =====================================================
 
-  async getValueFabricSnapshot(valueCaseId: string): Promise<ValueFabricSnapshot> {
+  async getValueFabricSnapshot(
+    valueCaseId: string
+  ): Promise<ValueFabricSnapshot> {
     const [
       businessObjectives,
       valueTrees,
@@ -427,25 +460,28 @@ export class ValueFabricService {
 
   private async getBusinessObjectives(valueCaseId: string) {
     const { data } = await this.supabase
-      .from('business_objectives')
-      .select('*')
-      .eq('value_case_id', valueCaseId);
+      .from("business_objectives")
+      .select("*")
+      .eq("value_case_id", valueCaseId);
     return data || [];
   }
 
   private async getValueTrees(valueCaseId: string) {
     const { data } = await this.supabase
-      .from('value_trees')
-      .select('*')
-      .eq('value_case_id', valueCaseId);
+      .from("value_trees")
+      .select("*")
+      .eq("value_case_id", valueCaseId);
     return data || [];
   }
 
   async getValueTreeHierarchy(valueTreeId: string, maxDepth: number = 5) {
-    const { data, error } = await this.supabase.rpc('get_value_tree_hierarchy', {
-      value_tree_uuid: valueTreeId,
-      max_depth: maxDepth,
-    });
+    const { data, error } = await this.supabase.rpc(
+      "get_value_tree_hierarchy",
+      {
+        value_tree_uuid: valueTreeId,
+        max_depth: maxDepth,
+      }
+    );
 
     if (error) throw error;
     return data || [];
@@ -453,27 +489,28 @@ export class ValueFabricService {
 
   private async getROIModels(valueCaseId: string) {
     const { data } = await this.supabase
-      .from('roi_models')
-      .select('*')
-      .eq('value_tree_id', valueCaseId);
+      .from("roi_models")
+      .select("*")
+      .eq("value_tree_id", valueCaseId);
     return data || [];
   }
 
   private async getValueCommits(valueCaseId: string) {
     const { data } = await this.supabase
-      .from('value_commits')
-      .select('*')
-      .eq('value_case_id', valueCaseId);
+      .from("value_commits")
+      .select("*")
+      .eq("value_case_id", valueCaseId);
     return data || [];
   }
 
   private async getTelemetryCount(valueCaseId: string) {
     const { data, count } = await this.supabase
-      .from('telemetry_events')
-      .select('kpi_hypothesis_id, event_timestamp', { count: 'exact' })
-      .eq('value_case_id', valueCaseId);
+      .from("telemetry_events")
+      .select("kpi_hypothesis_id, event_timestamp", { count: "exact" })
+      .eq("value_case_id", valueCaseId);
 
-    const uniqueKpis = new Set(data?.map(d => d.kpi_hypothesis_id) || []).size;
+    const uniqueKpis = new Set(data?.map((d) => d.kpi_hypothesis_id) || [])
+      .size;
     const lastTimestamp = data?.[0]?.event_timestamp;
 
     return {
@@ -486,17 +523,17 @@ export class ValueFabricService {
 
   private async getRealizationReports(valueCaseId: string) {
     const { data } = await this.supabase
-      .from('realization_reports')
-      .select('*')
-      .eq('value_case_id', valueCaseId);
+      .from("realization_reports")
+      .select("*")
+      .eq("value_case_id", valueCaseId);
     return data || [];
   }
 
   private async getExpansionModels(valueCaseId: string) {
     const { data } = await this.supabase
-      .from('expansion_models')
-      .select('*')
-      .eq('value_case_id', valueCaseId);
+      .from("expansion_models")
+      .select("*")
+      .eq("value_case_id", valueCaseId);
     return data || [];
   }
 
@@ -506,11 +543,11 @@ export class ValueFabricService {
     valueCommits: any[];
     realizationReports: any[];
     expansionModels: any[];
-  }): 'opportunity' | 'target' | 'realization' | 'expansion' {
-    if (data.expansionModels.length > 0) return 'expansion';
-    if (data.realizationReports.length > 0) return 'realization';
-    if (data.valueCommits.length > 0) return 'target';
-    return 'opportunity';
+  }): "opportunity" | "target" | "realization" | "expansion" {
+    if (data.expansionModels.length > 0) return "expansion";
+    if (data.realizationReports.length > 0) return "realization";
+    if (data.valueCommits.length > 0) return "target";
+    return "opportunity";
   }
 
   // =====================================================
@@ -519,12 +556,14 @@ export class ValueFabricService {
 
   async getOntologyStats(): Promise<OntologyStats> {
     const [capabilities, useCases, industries] = await Promise.all([
-      this.supabase.from('capabilities').select('id', { count: 'exact' }),
-      this.supabase.from('use_cases').select('id', { count: 'exact' }),
-      this.supabase.from('use_cases').select('industry'),
+      this.supabase.from("capabilities").select("id", { count: "exact" }),
+      this.supabase.from("use_cases").select("id", { count: "exact" }),
+      this.supabase.from("use_cases").select("industry"),
     ]);
 
-    const uniqueIndustries = [...new Set(industries.data?.map(u => u.industry).filter(Boolean))];
+    const uniqueIndustries = [
+      ...new Set(industries.data?.map((u) => u.industry).filter(Boolean)),
+    ];
 
     return {
       total_capabilities: capabilities.count || 0,
@@ -546,11 +585,11 @@ export class ValueFabricService {
     const template = await this.getUseCaseWithCapabilities(templateId);
 
     if (!template.useCase.is_template) {
-      throw new Error('Not a template use case');
+      throw new Error("Not a template use case");
     }
 
     const { data: newUseCase, error } = await this.supabase
-      .from('use_cases')
+      .from("use_cases")
       .insert({
         name: template.useCase.name,
         description: template.useCase.description,
@@ -575,7 +614,10 @@ export class ValueFabricService {
     };
   }
 
-  private getCachedData<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null {
+  private getCachedData<T>(
+    cache: Map<string, CacheEntry<T>>,
+    key: string
+  ): T | null {
     const entry = cache.get(key);
     if (!entry) return null;
 
@@ -587,8 +629,15 @@ export class ValueFabricService {
     return entry.data;
   }
 
-  private setCachedData<T>(cache: Map<string, CacheEntry<T>>, key: string, data: T): void {
-    cache.set(key, { data, expiresAt: Date.now() + ValueFabricService.CACHE_TTL_MS });
+  private setCachedData<T>(
+    cache: Map<string, CacheEntry<T>>,
+    key: string,
+    data: T
+  ): void {
+    cache.set(key, {
+      data,
+      expiresAt: Date.now() + ValueFabricService.CACHE_TTL_MS,
+    });
   }
 
   private static invalidateCache(cache: Map<string, CacheEntry<any>>): void {

@@ -77,7 +77,7 @@ vi.mock("../../../services/CallAnalysisService", () => ({
       coachingTips: ["Ask more open-ended questions"],
     }),
     formatDuration: vi.fn(
-      (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`,
+      (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`
     ),
   },
 }));
@@ -142,7 +142,7 @@ describe("UploadNotesModal", () => {
         isOpen={true}
         onClose={mockOnClose}
         onComplete={mockOnComplete}
-      />,
+      />
     );
 
     expect(screen.getByText(/Upload Notes/i)).toBeInTheDocument();
@@ -154,7 +154,7 @@ describe("UploadNotesModal", () => {
         isOpen={false}
         onClose={mockOnClose}
         onComplete={mockOnComplete}
-      />,
+      />
     );
 
     expect(screen.queryByText(/Upload Meeting Notes/i)).not.toBeInTheDocument();
@@ -168,7 +168,7 @@ describe("UploadNotesModal", () => {
         isOpen={true}
         onClose={mockOnClose}
         onComplete={mockOnComplete}
-      />,
+      />
     );
 
     // Find and click paste tab
@@ -180,7 +180,7 @@ describe("UploadNotesModal", () => {
     await user.type(textarea, "Meeting with Acme Corp about their pain points");
 
     expect(textarea).toHaveValue(
-      "Meeting with Acme Corp about their pain points",
+      "Meeting with Acme Corp about their pain points"
     );
   });
 
@@ -190,14 +190,17 @@ describe("UploadNotesModal", () => {
         isOpen={true}
         onClose={mockOnClose}
         onComplete={mockOnComplete}
-      />,
+      />
     );
 
     expect(screen.getByText(/Drop your file here/i)).toBeInTheDocument();
   });
 
   it("preselects an initial file when provided", async () => {
-    const file = new File(["hello"], "notes.txt", { type: "text/plain", lastModified: 0 });
+    const file = new File(["hello"], "notes.txt", {
+      type: "text/plain",
+      lastModified: 0,
+    });
 
     render(
       <UploadNotesModal
@@ -205,7 +208,7 @@ describe("UploadNotesModal", () => {
         onClose={mockOnClose}
         onComplete={mockOnComplete}
         initialFile={file}
-      />,
+      />
     );
 
     expect(await screen.findByText(/notes\.txt/i)).toBeInTheDocument();
@@ -219,13 +222,113 @@ describe("UploadNotesModal", () => {
         isOpen={true}
         onClose={mockOnClose}
         onComplete={mockOnComplete}
-      />,
+      />
     );
 
     const cancelButton = screen.getByText(/Cancel/i);
     await user.click(cancelButton);
 
     expect(mockOnClose).toHaveBeenCalled();
+  });
+
+  it("shows tab switching between Upload and Paste", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <UploadNotesModal
+        isOpen={true}
+        onClose={mockOnClose}
+        onComplete={mockOnComplete}
+      />
+    );
+
+    // Should start on Upload tab
+    expect(screen.getByText(/Drop your file here/i)).toBeInTheDocument();
+
+    // Click Paste Text tab
+    const pasteTab = screen.getByText(/Paste Text/i);
+    await user.click(pasteTab);
+
+    // Should show textarea
+    expect(
+      screen.getByPlaceholderText(/Paste your meeting notes/i)
+    ).toBeInTheDocument();
+
+    // Click Upload File tab
+    const uploadTab = screen.getByText(/Upload File/i);
+    await user.click(uploadTab);
+
+    // Should show upload zone again
+    expect(screen.getByText(/Drop your file here/i)).toBeInTheDocument();
+  });
+
+  it("handles drag and drop file upload", async () => {
+    render(
+      <UploadNotesModal
+        isOpen={true}
+        onClose={mockOnClose}
+        onComplete={mockOnComplete}
+      />
+    );
+
+    const file = new File(["test content"], "test.pdf", {
+      type: "application/pdf",
+    });
+    const dropZone = screen.getByText(/Drop your file here/i).closest("div");
+
+    if (dropZone) {
+      fireEvent.drop(dropZone, {
+        dataTransfer: {
+          files: [file],
+        },
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText(/test\.pdf/i)).toBeInTheDocument();
+      });
+    }
+  });
+
+  it("shows character count for pasted text", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <UploadNotesModal
+        isOpen={true}
+        onClose={mockOnClose}
+        onComplete={mockOnComplete}
+      />
+    );
+
+    // Switch to Paste tab
+    const pasteTab = screen.getByText(/Paste Text/i);
+    await user.click(pasteTab);
+
+    // Type some text
+    const textarea = screen.getByPlaceholderText(/Paste your meeting notes/i);
+    await user.type(textarea, "Test");
+
+    // Should show character count
+    expect(screen.getByText(/4 characters/i)).toBeInTheDocument();
+  });
+
+  it("displays file size when file is selected", async () => {
+    const file = new File(["a".repeat(1024)], "notes.txt", {
+      type: "text/plain",
+    });
+
+    render(
+      <UploadNotesModal
+        isOpen={true}
+        onClose={mockOnClose}
+        onComplete={mockOnComplete}
+        initialFile={file}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/1\.0 KB/i)).toBeInTheDocument();
+    });
   });
 });
 
@@ -247,7 +350,7 @@ describe("EmailAnalysisModal", () => {
         isOpen={true}
         onClose={mockOnClose}
         onComplete={mockOnComplete}
-      />,
+      />
     );
 
     expect(screen.getByText(/Analyze Email Thread/i)).toBeInTheDocument();
@@ -261,17 +364,17 @@ describe("EmailAnalysisModal", () => {
         isOpen={true}
         onClose={mockOnClose}
         onComplete={mockOnComplete}
-      />,
+      />
     );
 
     const textarea = screen.getByPlaceholderText(/Paste your email thread/i);
     await user.type(
       textarea,
-      "From: john@acme.com\nSubject: Pricing\n\nHi, interested in your product.",
+      "From: john@acme.com\nSubject: Pricing\n\nHi, interested in your product."
     );
 
     expect(textarea).toHaveValue(
-      "From: john@acme.com\nSubject: Pricing\n\nHi, interested in your product.",
+      "From: john@acme.com\nSubject: Pricing\n\nHi, interested in your product."
     );
   });
 
@@ -281,11 +384,11 @@ describe("EmailAnalysisModal", () => {
         isOpen={true}
         onClose={mockOnClose}
         onComplete={mockOnComplete}
-      />,
+      />
     );
 
     expect(
-      screen.getByRole("button", { name: /Analyze Thread/i }),
+      screen.getByRole("button", { name: /Analyze Thread/i })
     ).toBeInTheDocument();
   });
 });
@@ -310,7 +413,7 @@ describe("CRMImportModal", () => {
         onComplete={mockOnComplete}
         tenantId="tenant-123"
         userId="user-123"
-      />,
+      />
     );
 
     expect(screen.getByText(/Import from CRM/i)).toBeInTheDocument();
@@ -325,11 +428,11 @@ describe("CRMImportModal", () => {
         onComplete={mockOnComplete}
         tenantId="tenant-123"
         userId="user-123"
-      />,
+      />
     );
 
     const urlInput = await screen.findByPlaceholderText(
-      /hubspot\.com\/contacts\/.+deal/i,
+      /hubspot\.com\/contacts\/.+deal/i
     );
     expect(urlInput).toBeInTheDocument();
   });
@@ -344,11 +447,11 @@ describe("CRMImportModal", () => {
         onComplete={mockOnComplete}
         tenantId="tenant-123"
         userId="user-123"
-      />,
+      />
     );
 
     const input = await screen.findByPlaceholderText(
-      /hubspot\.com\/contacts\/.+deal/i,
+      /hubspot\.com\/contacts\/.+deal/i
     );
 
     await user.type(input, "https://app.hubspot.com/contacts/12345/deal/67890");
@@ -366,7 +469,7 @@ describe("CRMImportModal", () => {
         onComplete={mockOnComplete}
         tenantId="tenant-123"
         userId="user-123"
-      />,
+      />
     );
 
     await screen.findByText(/Connected: HubSpot/i);
@@ -393,7 +496,7 @@ describe("SalesCallModal", () => {
         isOpen={true}
         onClose={mockOnClose}
         onComplete={mockOnComplete}
-      />,
+      />
     );
 
     expect(screen.getByText(/Analyze Sales Call/i)).toBeInTheDocument();
@@ -405,7 +508,7 @@ describe("SalesCallModal", () => {
         isOpen={true}
         onClose={mockOnClose}
         onComplete={mockOnComplete}
-      />,
+      />
     );
 
     expect(screen.getByText(/Drop your recording here/i)).toBeInTheDocument();
@@ -417,7 +520,7 @@ describe("SalesCallModal", () => {
         isOpen={true}
         onClose={mockOnClose}
         onComplete={mockOnComplete}
-      />,
+      />
     );
 
     expect(screen.getByText(/MP3, MP4, M4A, WAV, WebM/i)).toBeInTheDocument();
@@ -429,7 +532,7 @@ describe("SalesCallModal", () => {
         isOpen={true}
         onClose={mockOnClose}
         onComplete={mockOnComplete}
-      />,
+      />
     );
 
     expect(screen.getByText(/Full transcript/i)).toBeInTheDocument();
@@ -443,7 +546,7 @@ describe("SalesCallModal", () => {
         isOpen={true}
         onClose={mockOnClose}
         onComplete={mockOnComplete}
-      />,
+      />
     );
 
     const analyzeButton = screen.getByText(/Analyze Call/i);

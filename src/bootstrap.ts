@@ -220,6 +220,9 @@ export async function bootstrap(
     errors.push(errorMsg);
     onError?.(errorMsg);
     logger.error(`   ❌ ${errorMsg}`);
+    if (error instanceof Error && error.stack) {
+      logger.error(error.stack);
+    }
 
     if (failFast) {
       return {
