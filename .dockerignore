@@ -79,7 +79,6 @@ storybook-static/
 
 # Misc
 .bolt/
-.devcontainer/
 scripts/
 infrastructure/
 !infrastructure/caddy/
