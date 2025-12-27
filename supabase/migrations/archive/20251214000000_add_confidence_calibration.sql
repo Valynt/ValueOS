@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS agent_calibration_models (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agent_id TEXT NOT NULL,
   agent_type TEXT NOT NULL,
+  tenant_id TEXT, -- Added for tenant isolation
   
   -- Platt scaling parameters
   -- Transforms raw confidence C_raw to calibrated C_cal:
@@ -54,6 +55,7 @@ CREATE TABLE IF NOT EXISTS agent_retraining_queue (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agent_id TEXT NOT NULL,
   reason TEXT NOT NULL,
+  tenant_id TEXT, -- Added for tenant isolation
   priority TEXT CHECK (priority IN ('low', 'medium', 'high', 'critical')) DEFAULT 'medium',
   status TEXT CHECK (status IN ('pending', 'in_progress', 'completed', 'failed')) DEFAULT 'pending',
   
@@ -109,6 +111,7 @@ CREATE INDEX IF NOT EXISTS idx_retraining_queue_agent_id
 CREATE TABLE IF NOT EXISTS agent_calibration_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agent_id TEXT NOT NULL,
+  tenant_id TEXT, -- Added for tenant isolation
   
   -- Calibration metrics
   parameter_a DECIMAL(10, 6) NOT NULL,

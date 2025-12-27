@@ -27,7 +27,7 @@ BEGIN
         org_filter := format('AND organization_id = %L', p_organization_id::text);
       END IF;
 
-      sql_query := format(''
+      sql_query := format('
         SELECT 
           id,
           type,
@@ -42,7 +42,7 @@ BEGIN
         %s
         ORDER BY embedding <=> $1
         LIMIT $2
-      '',
+      ',
       CASE WHEN filter_clause != '' THEN filter_clause ELSE '' END,
       CASE WHEN match_threshold > 0 THEN format('AND 1 - (embedding <=> $1) >= %s', match_threshold) ELSE '' END,
       org_filter
