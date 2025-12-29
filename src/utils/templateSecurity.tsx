@@ -3,7 +3,8 @@
  * Provides XSS prevention, input validation, and CSRF protection for UI templates
  */
 
-import DOMPurify from 'isomorphic-dompurify';
+import React from "react";
+import DOMPurify from "isomorphic-dompurify";
 
 // ============================================================================
 // XSS Prevention
@@ -14,13 +15,21 @@ import DOMPurify from 'isomorphic-dompurify';
  * Uses DOMPurify with strict configuration
  */
 export const sanitizeHTML = (input: string): string => {
-  if (!input || typeof input !== 'string') return '';
+  if (!input || typeof input !== "string") return "";
 
   return DOMPurify.sanitize(input, {
     ALLOWED_TAGS: [], // No HTML tags allowed by default
     ALLOWED_ATTR: [], // No attributes allowed
-    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'link', 'style'],
-    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onmouseout', 'onfocus', 'onblur'],
+    FORBID_TAGS: ["script", "iframe", "object", "embed", "link", "style"],
+    FORBID_ATTR: [
+      "onerror",
+      "onload",
+      "onclick",
+      "onmouseover",
+      "onmouseout",
+      "onfocus",
+      "onblur",
+    ],
     KEEP_CONTENT: false,
     RETURN_DOM: false,
     RETURN_DOM_FRAGMENT: false,
@@ -32,15 +41,15 @@ export const sanitizeHTML = (input: string): string => {
  * Removes dangerous content while preserving text
  */
 export const sanitizeUserInput = (input: any): string => {
-  if (input === null || input === undefined) return '';
-  if (typeof input !== 'string') return String(input);
+  if (input === null || input === undefined) return "";
+  if (typeof input !== "string") return String(input);
 
   // Remove script tags and dangerous patterns
   let sanitized = input
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/javascript:/gi, '')
-    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
-    .replace(/<[^>]*>/g, ''); // Remove all HTML tags
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/javascript:/gi, "")
+    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, "")
+    .replace(/<[^>]*>/g, ""); // Remove all HTML tags
 
   return sanitizeHTML(sanitized);
 };
@@ -48,19 +57,19 @@ export const sanitizeUserInput = (input: any): string => {
 /**
  * Sanitizes complex data objects (arrays, nested objects)
  */
-export const sanitizeDataObject = <T>(data: T): T => {
+export const sanitizeDataObject = <T,>(data: T): T => {
   if (data === null || data === undefined) return data;
-  
+
   if (Array.isArray(data)) {
-    return data.map(item => sanitizeDataObject(item)) as T;
+    return data.map((item) => sanitizeDataObject(item)) as T;
   }
-  
-  if (typeof data === 'object') {
+
+  if (typeof data === "object") {
     const sanitized: any = {};
     for (const [key, value] of Object.entries(data)) {
-      if (typeof value === 'string') {
+      if (typeof value === "string") {
         sanitized[key] = sanitizeUserInput(value);
-      } else if (typeof value === 'object') {
+      } else if (typeof value === "object") {
         sanitized[key] = sanitizeDataObject(value);
       } else {
         sanitized[key] = value;
@@ -68,11 +77,11 @@ export const sanitizeDataObject = <T>(data: T): T => {
     }
     return sanitized as T;
   }
-  
-  if (typeof data === 'string') {
+
+  if (typeof data === "string") {
     return sanitizeUserInput(data) as T;
   }
-  
+
   return data;
 };
 
@@ -83,25 +92,32 @@ export const sanitizeDataObject = <T>(data: T): T => {
 /**
  * Validates and sanitizes numeric inputs
  */
-export const validateNumber = (input: any, min?: number, max?: number): number => {
+export const validateNumber = (
+  input: any,
+  min?: number,
+  max?: number
+): number => {
   const num = Number(input);
   if (isNaN(num)) return 0;
-  
+
   if (min !== undefined && num < min) return min;
   if (max !== undefined && num > max) return max;
-  
+
   return num;
 };
 
 /**
  * Validates string inputs with length limits
  */
-export const validateString = (input: any, maxLength: number = 1000): string => {
-  if (input === null || input === undefined) return '';
-  
+export const validateString = (
+  input: any,
+  maxLength: number = 1000
+): string => {
+  if (input === null || input === undefined) return "";
+
   const str = String(input);
   const sanitized = sanitizeUserInput(str);
-  
+
   return sanitized.slice(0, maxLength);
 };
 
@@ -119,7 +135,7 @@ export const validateEmail = (email: string): boolean => {
 export const validateURL = (url: string): boolean => {
   try {
     const parsed = new URL(url);
-    return ['http:', 'https:'].includes(parsed.protocol);
+    return ["http:", "https:"].includes(parsed.protocol);
   } catch {
     return false;
   }
@@ -128,7 +144,7 @@ export const validateURL = (url: string): boolean => {
 /**
  * Validates array inputs
  */
-export const validateArray = <T>(input: any, maxLength: number = 100): T[] => {
+export const validateArray = <T,>(input: any, maxLength: number = 100): T[] => {
   if (!Array.isArray(input)) return [];
   return input.slice(0, maxLength) as T[];
 };
@@ -143,14 +159,16 @@ export const validateArray = <T>(input: any, maxLength: number = 100): T[] => {
 export const generateCSRFToken = (): string => {
   const array = new Uint8Array(32);
   crypto.getRandomValues(array);
-  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  return Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join(
+    ""
+  );
 };
 
 /**
  * Validates CSRF token
  */
 export const validateCSRFToken = (token: string): boolean => {
-  if (!token || typeof token !== 'string') return false;
+  if (!token || typeof token !== "string") return false;
   return token.length === 64 && /^[0-9a-f]+$/.test(token);
 };
 
@@ -159,7 +177,7 @@ export const validateCSRFToken = (token: string): boolean => {
  */
 export const storeCSRFToken = (token: string): void => {
   if (validateCSRFToken(token)) {
-    sessionStorage.setItem('csrf_token', token);
+    sessionStorage.setItem("csrf_token", token);
   }
 };
 
@@ -167,7 +185,7 @@ export const storeCSRFToken = (token: string): void => {
  * Retrieves and validates CSRF token
  */
 export const getCSRFToken = (): string | null => {
-  const token = sessionStorage.getItem('csrf_token');
+  const token = sessionStorage.getItem("csrf_token");
   return token && validateCSRFToken(token) ? token : null;
 };
 
@@ -180,13 +198,13 @@ export const getCSRFToken = (): string | null => {
  */
 export const validateContentSource = (source: string): boolean => {
   const allowedSources = [
-    'https://',
-    'http://localhost',
-    'data:image/',
-    'blob:',
+    "https://",
+    "http://localhost",
+    "data:image/",
+    "blob:",
   ];
-  
-  return allowedSources.some(allowed => source.startsWith(allowed));
+
+  return allowedSources.some((allowed) => source.startsWith(allowed));
 };
 
 /**
@@ -194,7 +212,7 @@ export const validateContentSource = (source: string): boolean => {
  */
 export const sanitizeImageSource = (src: string): string => {
   if (!validateContentSource(src)) {
-    return 'about:blank';
+    return "about:blank";
   }
   return src;
 };
@@ -206,26 +224,30 @@ export const sanitizeImageSource = (src: string): string => {
 /**
  * Masks sensitive data (e.g., credit cards, SSN)
  */
-export const maskSensitiveData = (data: string, visibleChars: number = 4): string => {
-  if (!data || typeof data !== 'string') return '';
-  
-  if (data.length <= visibleChars) return '*'.repeat(data.length);
-  
+export const maskSensitiveData = (
+  data: string,
+  visibleChars: number = 4
+): string => {
+  if (!data || typeof data !== "string") return "";
+
+  if (data.length <= visibleChars) return "*".repeat(data.length);
+
   const visible = data.slice(-visibleChars);
-  return '*'.repeat(data.length - visibleChars) + visible;
+  return "*".repeat(data.length - visibleChars) + visible;
 };
 
 /**
  * Masks email address
  */
 export const maskEmail = (email: string): string => {
-  if (!validateEmail(email)) return '';
-  
-  const [local, domain] = email.split('@');
-  const maskedLocal = local.length > 2 
-    ? local[0] + '*'.repeat(local.length - 2) + local[local.length - 1]
-    : '*'.repeat(local.length);
-  
+  if (!validateEmail(email)) return "";
+
+  const [local, domain] = email.split("@");
+  const maskedLocal =
+    local.length > 2
+      ? local[0] + "*".repeat(local.length - 2) + local[local.length - 1]
+      : "*".repeat(local.length);
+
   return `${maskedLocal}@${domain}`;
 };
 
@@ -273,7 +295,9 @@ export const validateScenarioData = (scenario: {
     id: validateString(scenario.id, 50),
     title: validateString(scenario.title, 200),
     description: validateString(scenario.description, 1000),
-    category: scenario.category ? validateString(scenario.category, 50) : undefined,
+    category: scenario.category
+      ? validateString(scenario.category, 50)
+      : undefined,
   };
 };
 
@@ -310,12 +334,12 @@ export const validatePersonaAnalysis = (analysis: {
  * Returns security headers for template responses
  */
 export const getSecurityHeaders = (): Record<string, string> => ({
-  'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'DENY',
-  'X-XSS-Protection': '1; mode=block',
-  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "X-XSS-Protection": "1; mode=block",
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
 });
 
 // ============================================================================
@@ -325,7 +349,10 @@ export const getSecurityHeaders = (): Record<string, string> => ({
 /**
  * Safely parses JSON with validation
  */
-export const safeJSONParse = <T>(jsonString: string, defaultValue: T | null = null): T | null => {
+export const safeJSONParse = <T,>(
+  jsonString: string,
+  defaultValue: T | null = null
+): T | null => {
   try {
     const parsed = JSON.parse(jsonString);
     return sanitizeDataObject(parsed);
@@ -337,18 +364,20 @@ export const safeJSONParse = <T>(jsonString: string, defaultValue: T | null = nu
 /**
  * Safely stringifies data with validation
  */
-export const safeJSONStringify = <T>(data: T): string | null => {
+export const safeJSONStringify = <T,>(data: T): string | null => {
   try {
     // Remove circular references
     const seen = new WeakSet();
-    const safeData = JSON.parse(JSON.stringify(data, (key, value) => {
-      if (typeof value === 'object' && value !== null) {
-        if (seen.has(value)) return '[Circular]';
-        seen.add(value);
-      }
-      return value;
-    }));
-    
+    const safeData = JSON.parse(
+      JSON.stringify(data, (key, value) => {
+        if (typeof value === "object" && value !== null) {
+          if (seen.has(value)) return "[Circular]";
+          seen.add(value);
+        }
+        return value;
+      })
+    );
+
     return JSON.stringify(sanitizeDataObject(safeData));
   } catch {
     return null;
@@ -406,7 +435,10 @@ export const clearRateLimit = (identifier: string): void => {
 /**
  * Complete sanitization pipeline for template inputs
  */
-export const sanitizeTemplateInput = <T>(input: T, schema?: Record<string, any>): T => {
+export const sanitizeTemplateInput = <T,>(
+  input: T,
+  schema?: Record<string, any>
+): T => {
   if (!input) return input;
 
   // Step 1: Sanitize data structure
@@ -431,7 +463,7 @@ export const sanitizeTemplateInput = <T>(input: T, schema?: Record<string, any>)
 // ============================================================================
 
 export interface SecurityEvent {
-  type: 'xss_attempt' | 'csrf_violation' | 'rate_limit' | 'invalid_input';
+  type: "xss_attempt" | "csrf_violation" | "rate_limit" | "invalid_input";
   timestamp: number;
   source: string;
   details: any;
@@ -442,7 +474,9 @@ const securityEvents: SecurityEvent[] = [];
 /**
  * Logs security events for monitoring
  */
-export const logSecurityEvent = (event: Omit<SecurityEvent, 'timestamp'>): void => {
+export const logSecurityEvent = (
+  event: Omit<SecurityEvent, "timestamp">
+): void => {
   const fullEvent: SecurityEvent = {
     ...event,
     timestamp: Date.now(),
@@ -456,8 +490,8 @@ export const logSecurityEvent = (event: Omit<SecurityEvent, 'timestamp'>): void 
   }
 
   // In production, send to security monitoring service
-  if (process.env.NODE_ENV === 'production') {
-    console.warn('SECURITY_EVENT:', JSON.stringify(fullEvent));
+  if (process.env.NODE_ENV === "production") {
+    console.warn("SECURITY_EVENT:", JSON.stringify(fullEvent));
   }
 };
 
@@ -484,7 +518,11 @@ export const withSecurity = <P extends object>(
   } = {}
 ) => {
   const WrappedComponent = (props: P) => {
-    const { sanitizeProps = true, validateInputs = false, requireCSRF = false } = securityConfig;
+    const {
+      sanitizeProps = true,
+      validateInputs = false,
+      requireCSRF = false,
+    } = securityConfig;
 
     let sanitizedProps = { ...props };
 
@@ -503,8 +541,8 @@ export const withSecurity = <P extends object>(
       const token = getCSRFToken();
       if (!token) {
         logSecurityEvent({
-          type: 'csrf_violation',
-          source: 'withSecurity',
+          type: "csrf_violation",
+          source: "withSecurity",
           details: { component: Component.name },
         });
         return null; // Or render error state
@@ -527,51 +565,51 @@ export default {
   sanitizeHTML,
   sanitizeUserInput,
   sanitizeDataObject,
-  
+
   // Input Validation
   validateNumber,
   validateString,
   validateEmail,
   validateURL,
   validateArray,
-  
+
   // CSRF Protection
   generateCSRFToken,
   validateCSRFToken,
   storeCSRFToken,
   getCSRFToken,
-  
+
   // Content Security
   validateContentSource,
   sanitizeImageSource,
-  
+
   // Data Masking
   maskSensitiveData,
   maskEmail,
-  
+
   // Template Validators
   validateROIInputs,
   validateScenarioData,
   validatePersonaAnalysis,
-  
+
   // Security Headers
   getSecurityHeaders,
-  
+
   // Safe JSON
   safeJSONParse,
   safeJSONStringify,
-  
+
   // Rate Limiting
   checkRateLimit,
   clearRateLimit,
-  
+
   // Pipeline
   sanitizeTemplateInput,
-  
+
   // Logging
   logSecurityEvent,
   getSecurityEvents,
-  
+
   // Wrapper
   withSecurity,
 };

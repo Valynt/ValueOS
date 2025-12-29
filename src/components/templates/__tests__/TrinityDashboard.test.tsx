@@ -1,411 +1,420 @@
 /**
- * Unit Tests for Trinity Dashboard Template
- * Tests pillar calculations, highlighting, interactions, and edge cases
+ * Trinity Dashboard Unit Tests
+ * Tests Truth Engine integration, verification states, and ROI calculations
  */
 
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect } from "vitest";
+import { render, screen } from "@testing-library/react";
 import { TrinityDashboard } from "../TrinityDashboard";
-import type { TemplateDataSource } from "../index";
+import type {
+  TrinityFinancials,
+  TrinityVerification,
+  TrinityOutcome,
+} from "../TrinityDashboard";
 
 describe("TrinityDashboard", () => {
-  const mockDataSource: TemplateDataSource = {
-    financials: {
-      totalValue: 1500000,
-      revenueImpact: 800000,
-      costSavings: 500000,
-      riskReduction: 200000,
-      roi: 250,
-      npv: 1200000,
-      paybackPeriod: "8 months",
-    },
-    outcomes: [
-      {
-        id: "1",
-        name: "Revenue Outcome 1",
-        category: "revenue",
-        impact: 400000,
-        description: "Increase sales",
-      },
-      {
-        id: "2",
-        name: "Revenue Outcome 2",
-        category: "revenue",
-        impact: 400000,
-        description: "New markets",
-      },
-      {
-        id: "3",
-        name: "Cost Outcome 1",
-        category: "cost",
-        impact: 300000,
-        description: "Reduce overhead",
-      },
-      {
-        id: "4",
-        name: "Cost Outcome 2",
-        category: "cost",
-        impact: 200000,
-        description: "Automation",
-      },
-      {
-        id: "5",
-        name: "Risk Outcome 1",
-        category: "risk",
-        impact: 150000,
-        description: "Compliance",
-      },
-      {
-        id: "6",
-        name: "Risk Outcome 2",
-        category: "risk",
-        impact: 50000,
-        description: "Security",
-      },
-    ],
-    metrics: [],
+  const mockFinancials: TrinityFinancials = {
+    totalValue: 2500000,
+    revenueImpact: 1200000,
+    costSavings: 800000,
+    riskReduction: 500000,
+    roi: 280,
+    npv: 2100000,
+    paybackPeriod: "7 months",
   };
 
-  describe("Pillar Calculations", () => {
-    it("should correctly calculate pillar values from data source", () => {
-      render(<TrinityDashboard dataSource={mockDataSource} />);
+  const mockVerification: TrinityVerification = {
+    overall: { passed: true, confidence: 87 },
+    revenue: {
+      passed: true,
+      confidence: 92,
+      citations: ["CRM-12345", "SFDC-OP-876"],
+    },
+    cost: { passed: true, confidence: 85, citations: ["DB-99999"] },
+    risk: { passed: true, confidence: 82, citations: ["API-54321"] },
+  };
 
-      // Revenue pillar
-      expect(screen.getByText("$800K")).toBeInTheDocument();
+  const mockOutcomes: TrinityOutcome[] = [
+    {
+      id: "1",
+      name: "New customer acquisition",
+      category: "revenue",
+      impact: 600000,
+    },
+    { id: "2", name: "Market expansion", category: "revenue", impact: 600000 },
+    { id: "3", name: "Process automation", category: "cost", impact: 500000 },
+    { id: "4", name: "Cloud optimization", category: "cost", impact: 300000 },
+    {
+      id: "5",
+      name: "Compliance automation",
+      category: "risk",
+      impact: 300000,
+    },
+    { id: "6", name: "Security enhancement", category: "risk", impact: 200000 },
+  ];
 
-      // Cost pillar
-      expect(screen.getByText("$500K")).toBeInTheDocument();
+  describe("Total Value Header", () => {
+    it("renders total value with verification", () => {
+      render(
+        <TrinityDashboard
+          financials={mockFinancials}
+          verification={mockVerification}
+        />
+      );
 
-      // Risk pillar
-      expect(screen.getByText("$200K")).toBeInTheDocument();
+      expect(screen.getByText("Total Value")).toBeInTheDocument();
+      expect(screen.getByText("$2.5M")).toBeInTheDocument();
     });
 
-    it("should show correct percentage of total for each pillar", () => {
-      render(<TrinityDashboard dataSource={mockDataSource} />);
+    it("displays financial metrics when provided", () => {
+      render(
+        <TrinityDashboard
+          financials={mockFinancials}
+          verification={mockVerification}
+        />
+      );
 
-      // Revenue: 800k/1500k = 53%
-      expect(screen.getByText("53% of total")).toBeInTheDocument();
-
-      // Cost: 500k/1500k = 33%
-      expect(screen.getByText("33% of total")).toBeInTheDocument();
-
-      // Risk: 200k/1500k = 13%
-      expect(screen.getByText("13% of total")).toBeInTheDocument();
+      expect(screen.getByText("280%")).toBeInTheDocument(); // ROI
+      expect(screen.getByText("$2.1M")).toBeInTheDocument(); // NPV
+      expect(screen.getByText("7 months")).toBeInTheDocument(); // Payback
     });
 
-    it("should display total value correctly", () => {
-      render(<TrinityDashboard dataSource={mockDataSource} />);
-
-      expect(screen.getByText("$1.5M")).toBeInTheDocument();
-    });
-
-    it("should handle zero values gracefully", () => {
-      const zeroDataSource: TemplateDataSource = {
-        financials: {
-          totalValue: 0,
-          revenueImpact: 0,
-          costSavings: 0,
-          riskReduction: 0,
-        },
-        outcomes: [],
-        metrics: [],
+    it("works without optional metrics", () => {
+      const minimalFinancials: TrinityFinancials = {
+        totalValue: 1000000,
+        revenueImpact: 600000,
+        costSavings: 300000,
+        riskReduction: 100000,
       };
 
-      render(<TrinityDashboard dataSource={zeroDataSource} />);
+      render(
+        <TrinityDashboard
+          financials={minimalFinancials}
+          verification={mockVerification}
+        />
+      );
 
-      expect(screen.getByText("$0")).toBeInTheDocument();
-      expect(screen.getByText("0% of total")).toBeInTheDocument();
+      expect(screen.getByText("$1.0M")).toBeInTheDocument();
+    });
+  });
+
+  describe("Three Pillars", () => {
+    it("renders all three pillars with correct labels", () => {
+      render(
+        <TrinityDashboard
+          financials={mockFinancials}
+          verification={mockVerification}
+        />
+      );
+
+      expect(screen.getByText("Revenue Impact")).toBeInTheDocument();
+      expect(screen.getByText("Cost Savings")).toBeInTheDocument();
+      expect(screen.getByText("Risk Reduction")).toBeInTheDocument();
+    });
+
+    it("displays pillar values correctly", () => {
+      render(
+        <TrinityDashboard
+          financials={mockFinancials}
+          verification={mockVerification}
+        />
+      );
+
+      expect(screen.getByText("$1.2M")).toBeInTheDocument(); // Revenue
+      expect(screen.getByText("$800K")).toBeInTheDocument(); // Cost
+      expect(screen.getByText("$500K")).toBeInTheDocument(); // Risk
+    });
+
+    it("shows percentage of total for each pillar", () => {
+      render(
+        <TrinityDashboard
+          financials={mockFinancials}
+          verification={mockVerification}
+        />
+      );
+
+      expect(screen.getByText("48% of total")).toBeInTheDocument(); // 1.2M / 2.5M
+      expect(screen.getByText("32% of total")).toBeInTheDocument(); // 800K / 2.5M
+      expect(screen.getByText("20% of total")).toBeInTheDocument(); // 500K / 2.5M
+    });
+  });
+
+  describe("Truth Engine Verification", () => {
+    it("displays verification status for each pillar", () => {
+      render(
+        <TrinityDashboard
+          financials={mockFinancials}
+          verification={mockVerification}
+        />
+      );
+
+      // Should show verification badges
+      const verifiedText = screen.getAllByText(/verified/i);
+      expect(verifiedText.length).toBeGreaterThan(0);
+    });
+
+    it("shows unverified state for failed verification", () => {
+      const failedVerification: TrinityVerification = {
+        overall: { passed: false, confidence: 65 },
+        revenue: { passed: true, confidence: 92, citations: ["CRM-12345"] },
+        cost: { passed: true, confidence: 85, citations: ["DB-99999"] },
+        risk: { passed: false, confidence: 55, citations: [] },
+      };
+
+      render(
+        <TrinityDashboard
+          financials={mockFinancials}
+          verification={failedVerification}
+        />
+      );
+
+      expect(screen.getByText(/pending review/i)).toBeInTheDocument();
+    });
+
+    it("displays confidence scores", () => {
+      render(
+        <TrinityDashboard
+          financials={mockFinancials}
+          verification={mockVerification}
+        />
+      );
+
+      expect(screen.getByText(/87% confidence/i)).toBeInTheDocument(); // Overall
+    });
+
+    it("shows citation sources", () => {
+      render(
+        <TrinityDashboard
+          financials={mockFinancials}
+          verification={mockVerification}
+          outcomes={mockOutcomes}
+        />
+      );
+
+      // Should display citations in the pillars
+      expect(screen.getByText(/sources/i)).toBeInTheDocument();
+    });
+  });
+
+  describe("Outcome Breakdown", () => {
+    it("displays outcomes when showBreakdown is true", () => {
+      render(
+        <TrinityDashboard
+          financials={mockFinancials}
+          verification={mockVerification}
+          outcomes={mockOutcomes}
+          showBreakdown={true}
+        />
+      );
+
+      expect(screen.getByText("New customer acquisition")).toBeInTheDocument();
+      expect(screen.getByText("Process automation")).toBeInTheDocument();
+    });
+
+    it("hides outcomes when showBreakdown is false", () => {
+      render(
+        <TrinityDashboard
+          financials={mockFinancials}
+          verification={mockVerification}
+          outcomes={mockOutcomes}
+          showBreakdown={false}
+        />
+      );
+
+      expect(
+        screen.queryByText("New customer acquisition")
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows "No outcomes defined" when empty', () => {
+      render(
+        <TrinityDashboard
+          financials={mockFinancials}
+          verification={mockVerification}
+          outcomes={[]}
+          showBreakdown={true}
+        />
+      );
+
+      const noOutcomesMessages = screen.getAllByText(/no outcomes defined/i);
+      expect(noOutcomesMessages.length).toBe(3); // One per pillar
+    });
+
+    it('limits display to 3 outcomes per pillar and shows "+N more"', () => {
+      const manyOutcomes: TrinityOutcome[] = [
+        { id: "1", name: "Revenue 1", category: "revenue", impact: 100000 },
+        { id: "2", name: "Revenue 2", category: "revenue", impact: 100000 },
+        { id: "3", name: "Revenue 3", category: "revenue", impact: 100000 },
+        { id: "4", name: "Revenue 4", category: "revenue", impact: 100000 },
+        { id: "5", name: "Revenue 5", category: "revenue", impact: 100000 },
+      ];
+
+      render(
+        <TrinityDashboard
+          financials={mockFinancials}
+          verification={mockVerification}
+          outcomes={manyOutcomes}
+          showBreakdown={true}
+        />
+      );
+
+      expect(screen.getByText("+2 more")).toBeInTheDocument();
     });
   });
 
   describe("Dominant Pillar Highlighting", () => {
-    it("should highlight the pillar with highest value when highlightDominant is true", () => {
+    it("highlights the pillar with highest value when enabled", () => {
       const { container } = render(
         <TrinityDashboard
-          dataSource={mockDataSource}
+          financials={mockFinancials}
+          verification={mockVerification}
           highlightDominant={true}
         />
       );
 
-      // Revenue pillar ($800K) should be highlighted
-      const revenuePillar = screen
-        .getByText("Revenue Impact")
-        .closest(".pillar-card");
-      expect(revenuePillar).toHaveClass("ring-2");
+      // Revenue (1.2M) should be highlighted with ring-2 class
+      const rings = container.querySelectorAll(".ring-2");
+      expect(rings.length).toBe(1);
     });
 
-    it("should not highlight any pillar when highlightDominant is false", () => {
+    it("does not highlight when disabled", () => {
       const { container } = render(
         <TrinityDashboard
-          dataSource={mockDataSource}
+          financials={mockFinancials}
+          verification={mockVerification}
           highlightDominant={false}
         />
       );
 
-      const pillars = container.querySelectorAll(".pillar-card");
-      pillars.forEach((pillar) => {
-        expect(pillar).not.toHaveClass("ring-2");
-      });
-    });
-  });
-
-  describe("Breakdown Display", () => {
-    it("should show outcome breakdown when showBreakdown is true", () => {
-      render(
-        <TrinityDashboard dataSource={mockDataSource} showBreakdown={true} />
-      );
-
-      expect(screen.getByText("Revenue Outcome 1")).toBeInTheDocument();
-      expect(screen.getByText("Cost Outcome 1")).toBeInTheDocument();
-    });
-
-    it("should hide outcome breakdown when showBreakdown is false", () => {
-      render(
-        <TrinityDashboard dataSource={mockDataSource} showBreakdown={false} />
-      );
-
-      expect(screen.queryByText("Revenue Outcome 1")).not.toBeInTheDocument();
-    });
-
-    it("should limit outcomes to first 3 per pillar", () => {
-      const manyOutcomes: TemplateDataSource = {
-        ...mockDataSource,
-        outcomes: [
-          ...mockDataSource.outcomes!,
-          {
-            id: "7",
-            name: "Revenue Outcome 3",
-            category: "revenue",
-            impact: 100000,
-            description: "",
-          },
-          {
-            id: "8",
-            name: "Revenue Outcome 4",
-            category: "revenue",
-            impact: 100000,
-            description: "",
-          },
-        ],
-      };
-
-      render(
-        <TrinityDashboard dataSource={manyOutcomes} showBreakdown={true} />
-      );
-
-      expect(screen.getByText("+1 more")).toBeInTheDocument();
-    });
-
-    it('should show "No outcomes defined" when pillar has no outcomes', () => {
-      const noOutcomes: TemplateDataSource = {
-        financials: mockDataSource.financials,
-        outcomes: [],
-        metrics: [],
-      };
-
-      render(<TrinityDashboard dataSource={noOutcomes} showBreakdown={true} />);
-
-      expect(screen.getAllByText("No outcomes defined")).toHaveLength(3);
-    });
-  });
-
-  describe("Compact Mode", () => {
-    it("should hide breakdown in compact mode", () => {
-      render(<TrinityDashboard dataSource={mockDataSource} compact={true} />);
-
-      expect(screen.queryByText("Revenue Outcome 1")).not.toBeInTheDocument();
-    });
-
-    it("should use appropriate grid classes in compact mode", () => {
-      const { container } = render(
-        <TrinityDashboard dataSource={mockDataSource} compact={true} />
-      );
-
-      const grid = container.querySelector(".grid");
-      expect(grid).toHaveClass("grid-cols-3");
-    });
-  });
-
-  describe("Interactivity", () => {
-    it("should call onOutcomeClick when outcome is clicked", () => {
-      const handleOutcomeClick = vi.fn();
-
-      render(
-        <TrinityDashboard
-          dataSource={mockDataSource}
-          onOutcomeClick={handleOutcomeClick}
-          interactive={true}
-        />
-      );
-
-      const outcome = screen.getByText("Revenue Outcome 1");
-      fireEvent.click(outcome);
-
-      expect(handleOutcomeClick).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: "1",
-          name: "Revenue Outcome 1",
-        })
-      );
-    });
-
-    it("should not call onOutcomeClick when interactive is false", () => {
-      const handleOutcomeClick = vi.fn();
-
-      render(
-        <TrinityDashboard
-          dataSource={mockDataSource}
-          onOutcomeClick={handleOutcomeClick}
-          interactive={false}
-        />
-      );
-
-      const outcome = screen.getByText("Revenue Outcome 1");
-      fireEvent.click(outcome);
-
-      expect(handleOutcomeClick).not.toHaveBeenCalled();
-    });
-
-    it("should not have cursor-pointer class when interactive is false", () => {
-      const { container } = render(
-        <TrinityDashboard dataSource={mockDataSource} interactive={false} />
-      );
-
-      const outcomes = container.querySelectorAll(".cursor-pointer");
-      expect(outcomes).toHaveLength(0);
-    });
-  });
-
-  describe("Financial Summary", () => {
-    it("should display ROI when provided", () => {
-      render(<TrinityDashboard dataSource={mockDataSource} />);
-
-      expect(screen.getByText("ROI")).toBeInTheDocument();
-      expect(screen.getByText("250%")).toBeInTheDocument();
-    });
-
-    it("should display NPV when provided", () => {
-      render(<TrinityDashboard dataSource={mockDataSource} />);
-
-      expect(screen.getByText("NPV")).toBeInTheDocument();
-      expect(screen.getByText("$1.2M")).toBeInTheDocument();
-    });
-
-    it("should display payback period when provided", () => {
-      render(<TrinityDashboard dataSource={mockDataSource} />);
-
-      expect(screen.getByText("Payback")).toBeInTheDocument();
-      expect(screen.getByText("8 months")).toBeInTheDocument();
-    });
-
-    it("should hide financial metrics when not provided", () => {
-      const minimalData: TemplateDataSource = {
-        financials: {
-          totalValue: 1000000,
-          revenueImpact: 600000,
-          costSavings: 400000,
-          riskReduction: 0,
-        },
-        outcomes: [],
-        metrics: [],
-      };
-
-      render(<TrinityDashboard dataSource={minimalData} />);
-
-      expect(screen.queryByText("ROI")).not.toBeInTheDocument();
-      expect(screen.queryByText("NPV")).not.toBeInTheDocument();
-      expect(screen.queryByText("Payback")).not.toBeInTheDocument();
-    });
-  });
-
-  describe("Edge Cases", () => {
-    it("should handle missing outcomes array", () => {
-      const noOutcomesData: TemplateDataSource = {
-        financials: mockDataSource.financials,
-        metrics: [],
-      };
-
-      expect(() => {
-        render(<TrinityDashboard dataSource={noOutcomesData} />);
-      }).not.toThrow();
-    });
-
-    it("should handle missing financials", () => {
-      const noFinancialsData: TemplateDataSource = {
-        outcomes: [],
-        metrics: [],
-      };
-
-      expect(() => {
-        render(<TrinityDashboard dataSource={noFinancialsData} />);
-      }).not.toThrow();
-
-      expect(screen.getByText("$0")).toBeInTheDocument();
-    });
-
-    it("should apply custom className", () => {
-      const { container } = render(
-        <TrinityDashboard
-          dataSource={mockDataSource}
-          className="custom-class"
-        />
-      );
-
-      expect(container.firstChild).toHaveClass("trinity-dashboard-template");
-      expect(container.firstChild).toHaveClass("custom-class");
+      const rings = container.querySelectorAll(".ring-2");
+      expect(rings.length).toBe(0);
     });
   });
 
   describe("Currency Formatting", () => {
-    it("should format millions correctly", () => {
-      const millionsData: TemplateDataSource = {
-        financials: {
-          totalValue: 5500000,
-          revenueImpact: 5500000,
-          costSavings: 0,
-          riskReduction: 0,
-        },
-        outcomes: [],
-        metrics: [],
-      };
+    it("formats millions correctly", () => {
+      render(
+        <TrinityDashboard
+          financials={mockFinancials}
+          verification={mockVerification}
+        />
+      );
 
-      render(<TrinityDashboard dataSource={millionsData} />);
-
-      expect(screen.getByText("$5.5M")).toBeInTheDocument();
+      expect(screen.getByText("$2.5M")).toBeInTheDocument();
+      expect(screen.getByText("$1.2M")).toBeInTheDocument();
     });
 
-    it("should format thousands correctly", () => {
-      const thousandsData: TemplateDataSource = {
-        financials: {
-          totalValue: 750000,
-          revenueImpact: 750000,
-          costSavings: 0,
-          riskReduction: 0,
-        },
-        outcomes: [],
-        metrics: [],
+    it("formats thousands correctly", () => {
+      const smallFinancials: TrinityFinancials = {
+        totalValue: 750000,
+        revenueImpact: 450000,
+        costSavings: 200000,
+        riskReduction: 100000,
       };
 
-      render(<TrinityDashboard dataSource={thousandsData} />);
+      render(
+        <TrinityDashboard
+          financials={smallFinancials}
+          verification={mockVerification}
+        />
+      );
 
       expect(screen.getByText("$750K")).toBeInTheDocument();
+      expect(screen.getByText("$450K")).toBeInTheDocument();
     });
 
-    it("should format small numbers correctly", () => {
-      const smallData: TemplateDataSource = {
-        financials: {
-          totalValue: 500,
-          revenueImpact: 500,
-          costSavings: 0,
-          riskReduction: 0,
-        },
-        outcomes: [],
-        metrics: [],
+    it("formats small numbers correctly", () => {
+      const tinyFinancials: TrinityFinancials = {
+        totalValue: 500,
+        revenueImpact: 300,
+        costSavings: 150,
+        riskReduction: 50,
       };
 
-      render(<TrinityDashboard dataSource={smallData} />);
+      render(
+        <TrinityDashboard
+          financials={tinyFinancials}
+          verification={mockVerification}
+        />
+      );
 
       expect(screen.getByText("$500")).toBeInTheDocument();
+    });
+  });
+
+  describe("Verification Summary", () => {
+    it("shows verified status when all pillars pass", () => {
+      render(
+        <TrinityDashboard
+          financials={mockFinancials}
+          verification={mockVerification}
+        />
+      );
+
+      expect(screen.getByText(/verified/i)).toBeInTheDocument();
+      expect(screen.getByText(/Truth Engine/i)).toBeInTheDocument();
+    });
+
+    it("shows pending status when verification fails", () => {
+      const pendingVerification: TrinityVerification = {
+        overall: { passed: false, confidence: 70 },
+        revenue: { passed: true, confidence: 85, citations: [] },
+        cost: { passed: false, confidence: 65, citations: [] },
+        risk: { passed: false, confidence: 60, citations: [] },
+      };
+
+      render(
+        <TrinityDashboard
+          financials={mockFinancials}
+          verification={pendingVerification}
+        />
+      );
+
+      expect(screen.getByText(/pending review/i)).toBeInTheDocument();
+    });
+  });
+
+  describe("Edge Cases", () => {
+    it("handles zero values gracefully", () => {
+      const zeroFinancials: TrinityFinancials = {
+        totalValue: 0,
+        revenueImpact: 0,
+        costSavings: 0,
+        riskReduction: 0,
+      };
+
+      render(
+        <TrinityDashboard
+          financials={zeroFinancials}
+          verification={mockVerification}
+        />
+      );
+
+      expect(screen.getByText("$0")).toBeInTheDocument();
+    });
+
+    it("applies custom className", () => {
+      const { container } = render(
+        <TrinityDashboard
+          financials={mockFinancials}
+          verification={mockVerification}
+          className="custom-test-class"
+        />
+      );
+
+      expect(container.firstChild).toHaveClass("trinity-dashboard");
+      expect(container.firstChild).toHaveClass("custom-test-class");
+    });
+
+    it("works with undefined outcomes", () => {
+      expect(() => {
+        render(
+          <TrinityDashboard
+            financials={mockFinancials}
+            verification={mockVerification}
+          />
+        );
+      }).not.toThrow();
     });
   });
 });
