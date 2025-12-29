@@ -208,6 +208,10 @@ export class AgentAPI {
         'company-intelligence',
         'financial-modeling',
         'value-mapping',
+        // New agents
+        'research',
+        'benchmark',
+        'narrative',
       ];
 
       agentTypes.forEach((agent) => {
@@ -579,6 +583,78 @@ export class AgentAPI {
   ): Promise<AgentResponse<any>> {
     return this.executeRequest('value-mapping', '/value/map-drivers', {
       query,
+      context,
+    });
+  }
+
+  /**
+   * Research company intelligence (Research Agent)
+   */
+  async executeResearch(
+    companyName: string,
+    options?: {
+      industry?: string;
+      companySize?: string;
+      targetPersona?: string;
+      researchQuestions?: string[];
+    },
+    context?: AgentContext
+  ): Promise<AgentResponse<any>> {
+    return this.executeRequest('research', '/research/execute', {
+      companyName,
+      ...options,
+      context,
+    });
+  }
+
+  /**
+   * Perform benchmark analysis (Benchmark Agent)
+   */
+  async executeBenchmark(
+    industry: string,
+    kpis: Array<{ name: string; currentValue: number; unit: string }>,
+    options?: {
+      companySize?: string;
+      region?: string;
+    },
+    context?: AgentContext
+  ): Promise<AgentResponse<any>> {
+    return this.executeRequest('benchmark', '/benchmark/execute', {
+      industry,
+      kpis,
+      ...options,
+      context,
+    });
+  }
+
+  /**
+   * Generate narrative (Narrative Agent)
+   */
+  async generateNarrative(
+    level: 'micro' | 'contextual' | 'document',
+    audience: 'executive' | 'technical' | 'financial' | 'general',
+    valueData: {
+      metrics?: Array<{ name: string; value: number; unit: string }>;
+      outcomes?: Array<{ name: string; description: string }>;
+      financialSummary?: {
+        totalValue: number;
+        revenueImpact?: number;
+        costSavings?: number;
+        riskReduction?: number;
+      };
+    },
+    options?: {
+      format?: 'text' | 'markdown' | 'html';
+      topic?: string;
+      customInstructions?: string;
+    },
+    context?: AgentContext
+  ): Promise<AgentResponse<any>> {
+    return this.executeRequest('narrative', '/narrative/generate', {
+      level,
+      audience,
+      valueData,
+      ...options,
       context,
     });
   }

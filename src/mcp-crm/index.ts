@@ -2,11 +2,11 @@
  * MCP CRM Server
  * 
  * Provides LLM tool access to CRM data via tenant-level OAuth connections.
- * Supports HubSpot and Salesforce.
+ * Supports HubSpot and Salesforce with bi-directional sync.
  * 
  * Usage:
  * ```typescript
- * import { getMCPCRMServer, CRM_TOOLS } from './mcp-crm';
+ * import { getMCPCRMServer, getContextInjectionBridge, CRM_TOOLS } from './mcp-crm';
  * 
  * // Get server instance for a tenant
  * const crmServer = await getMCPCRMServer(tenantId, userId);
@@ -21,11 +21,25 @@
  *     company_name: 'Acme Corp'
  *   });
  * }
+ * 
+ * // Context Injection - Connect CRM to Financial Templates
+ * const bridge = await getContextInjectionBridge(tenantId, userId);
+ * const templateData = await bridge.injectIntoTemplate(dealId);
+ * // templateData.dataSource is ready for Trinity Dashboard, Impact Cascade, etc.
  * ```
  */
 
 // Core
 export { MCPCRMServer, getMCPCRMServer, CRM_TOOLS } from './core/MCPCRMServer';
+
+// Context Injection Bridge (CRM → Ground Truth Engine → Templates)
+export { 
+  ContextInjectionBridge, 
+  getContextInjectionBridge,
+  type NormalizedDealContext,
+  type ContextInjectionOptions,
+  type InjectedTemplateData,
+} from './core/ContextInjectionBridge';
 
 // Modules
 export { HubSpotModule } from './modules/HubSpotModule';
@@ -45,3 +59,4 @@ export type {
   DealSearchParams,
   DealSearchResult,
 } from './types';
+

@@ -321,6 +321,24 @@ export const AGENT_CAPABILITIES = {
   TASK_PLANNING: 'task_planning',
   AGENT_ROUTING: 'agent_routing',
   SDUI_GENERATION: 'sdui_generation',
+  
+  // Research capabilities (new)
+  COMPANY_RESEARCH: 'company_research',
+  PERSONA_ANALYSIS: 'persona_analysis',
+  COMPETITOR_ANALYSIS: 'competitor_analysis',
+  VALUE_HYPOTHESIS: 'value_hypothesis',
+  
+  // Benchmark capabilities (new)
+  BENCHMARK_ANALYSIS: 'benchmark_analysis',
+  INDUSTRY_COMPARISON: 'industry_comparison',
+  KPI_VALIDATION: 'kpi_validation',
+  GAP_ANALYSIS: 'gap_analysis',
+  
+  // Narrative capabilities (new)
+  NARRATIVE_GENERATION: 'narrative_generation',
+  MICRO_NARRATIVE: 'micro_narrative',
+  CONTEXTUAL_NARRATIVE: 'contextual_narrative',
+  DOCUMENT_NARRATIVE: 'document_narrative',
 } as const;
 
 export type AgentCapability = typeof AGENT_CAPABILITIES[keyof typeof AGENT_CAPABILITIES];

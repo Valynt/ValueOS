@@ -12,10 +12,12 @@
  * 
  * Categories:
  * - VOS Lifecycle: opportunity, target, realization, expansion, integrity
- * - Analysis: system-mapper, value-mapping, company-intelligence
+ * - Research: research, benchmark, company-intelligence
+ * - Analysis: system-mapper, value-mapping
  * - Design: intervention-designer, outcome-engineer
  * - Financial: financial-modeling
- * - Coordination: coordinator, value-eval, communicator
+ * - Communication: communicator, narrative
+ * - Coordination: coordinator, value-eval
  */
 export type AgentType =
   | 'opportunity'
@@ -32,7 +34,11 @@ export type AgentType =
   | 'outcome-engineer'
   | 'coordinator'
   | 'value-eval'
-  | 'communicator';
+  | 'communicator'
+  // New agents (roadmap implementation)
+  | 'research'
+  | 'benchmark'
+  | 'narrative';
 
 /**
  * Agent request context

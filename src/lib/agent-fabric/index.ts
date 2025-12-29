@@ -35,3 +35,8 @@ export { TargetAgent } from './agents/TargetAgent';
 export { RealizationAgent } from './agents/RealizationAgent';
 export { ExpansionAgent } from './agents/ExpansionAgent';
 export { IntegrityAgent } from './agents/IntegrityAgent';
+
+// New Roadmap Agents
+export { ResearchAgent } from './agents/ResearchAgent';
+export { BenchmarkAgent } from './agents/BenchmarkAgent';
+export { NarrativeAgent } from './agents/NarrativeAgent';

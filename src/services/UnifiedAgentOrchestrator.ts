@@ -1197,17 +1197,38 @@ Provide a JSON response with:
     switch (state.currentStage) {
       case 'discovery':
         return 'company-intelligence';
+      case 'research':
+        return 'research';
       case 'analysis':
         return 'system-mapper';
+      case 'benchmarking':
+        return 'benchmark';
       case 'design':
         return 'intervention-designer';
       case 'modeling':
         return 'financial-modeling';
+      case 'narrative':
+        return 'narrative';
       default:
         break;
     }
 
-    // Intent-based routing
+    // Intent-based routing - Research Agent
+    if (lowerQuery.includes('research') || lowerQuery.includes('company intel') || lowerQuery.includes('persona')) {
+      return 'research';
+    }
+
+    // Intent-based routing - Benchmark Agent
+    if (lowerQuery.includes('benchmark') || lowerQuery.includes('industry') || lowerQuery.includes('compare')) {
+      return 'benchmark';
+    }
+
+    // Intent-based routing - Narrative Agent
+    if (lowerQuery.includes('narrative') || lowerQuery.includes('story') || lowerQuery.includes('present') || lowerQuery.includes('explain')) {
+      return 'narrative';
+    }
+
+    // Existing intent-based routing
     if (lowerQuery.includes('roi') || lowerQuery.includes('financial')) {
       return 'financial-modeling';
     }

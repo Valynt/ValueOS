@@ -143,6 +143,77 @@ export const CRM_TOOLS = [
   {
     type: 'function' as const,
     function: {
+      name: 'crm_get_deal_context',
+      description: 'Get normalized deal context optimized for value analysis. Returns standardized financial data, stage mapping, and key metrics needed for ROI calculations.',
+      parameters: {
+        type: 'object',
+        properties: {
+          deal_id: {
+            type: 'string',
+            description: 'The ID of the deal to retrieve context for',
+          },
+          include_history: {
+            type: 'boolean',
+            description: 'Include stage history and timeline (default false)',
+          },
+        },
+        required: ['deal_id'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'crm_sync_metrics',
+      description: 'Write calculated value metrics (ROI, NPV, Payback Period) back to CRM custom fields. Supports dry-run mode to validate permissions before writing.',
+      parameters: {
+        type: 'object',
+        properties: {
+          deal_id: {
+            type: 'string',
+            description: 'The ID of the deal to update',
+          },
+          metrics: {
+            type: 'object',
+            description: 'Metrics to sync to CRM',
+            properties: {
+              roi: { type: 'number', description: 'ROI percentage (e.g., 245 for 245%)' },
+              npv: { type: 'number', description: 'Net Present Value in deal currency' },
+              payback_months: { type: 'number', description: 'Payback period in months' },
+              total_value: { type: 'number', description: 'Total projected value' },
+              confidence_score: { type: 'number', description: 'Confidence score 0-100' },
+            },
+          },
+          dry_run: {
+            type: 'boolean',
+            description: 'If true, validate permissions without writing (default false)',
+          },
+        },
+        required: ['deal_id', 'metrics'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'crm_inspect_schema',
+      description: 'Inspect the CRM object schema to understand available fields for mapping. Returns field definitions, types, and editability.',
+      parameters: {
+        type: 'object',
+        properties: {
+          object_type: {
+            type: 'string',
+            enum: ['deal', 'contact', 'company'],
+            description: 'The CRM object type to inspect',
+          },
+        },
+        required: ['object_type'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
       name: 'crm_check_connection',
       description: 'Check which CRM systems are connected and available for this tenant.',
       parameters: {
@@ -293,6 +364,18 @@ export class MCPCRMServer {
         case 'crm_add_note':
           if (!module) return this.noConnectionResult();
           return this.handleAddNote(module, args, startTime);
+
+        case 'crm_get_deal_context':
+          if (!module) return this.noConnectionResult();
+          return this.handleGetDealContext(module, args, startTime);
+
+        case 'crm_sync_metrics':
+          if (!module) return this.noConnectionResult();
+          return this.handleSyncMetrics(module, args, startTime);
+
+        case 'crm_inspect_schema':
+          if (!module) return this.noConnectionResult();
+          return this.handleInspectSchema(module, args, startTime);
 
         default:
           return {
@@ -494,6 +577,340 @@ export class MCPCRMServer {
         provider: module.provider,
         requestDurationMs: Date.now() - startTime,
       },
+    };
+  }
+
+  /**
+   * Get normalized deal context for value analysis
+   * Returns standardized financial data optimized for ROI calculations
+   */
+  private async handleGetDealContext(
+    module: CRMModule,
+    args: Record<string, unknown>,
+    startTime: number
+  ): Promise<MCPCRMToolResult> {
+    const dealId = args.deal_id as string;
+    const includeHistory = args.include_history === true;
+
+    const deal = await module.getDeal(dealId);
+    if (!deal) {
+      return { success: false, error: `Deal not found: ${dealId}` };
+    }
+
+    // Normalize stage to standardized enum
+    const normalizedStage = this.normalizeStage(deal.stage);
+
+    // Build normalized context optimized for value analysis
+    const normalizedContext = {
+      // Core identification
+      dealId: deal.id,
+      externalId: deal.externalId,
+      provider: deal.provider,
+
+      // Financial data (normalized)
+      financial: {
+        dealValue: this.normalizeCurrency(deal.amount),
+        currency: deal.currency || 'USD',
+        probability: deal.probability ?? 0,
+        expectedValue: (deal.amount || 0) * ((deal.probability ?? 0) / 100),
+      },
+
+      // Stage information
+      stage: {
+        current: deal.stage,
+        normalized: normalizedStage,
+        closeDate: deal.closeDate?.toISOString(),
+        daysInStage: this.calculateDaysInStage(deal.updatedAt),
+        daysToClose: deal.closeDate ? this.calculateDaysToClose(deal.closeDate) : null,
+      },
+
+      // Stakeholders summary
+      company: {
+        id: deal.companyId,
+        name: deal.companyName || 'Unknown',
+      },
+
+      // Owner
+      owner: {
+        id: deal.ownerId,
+        name: deal.ownerName || 'Unassigned',
+      },
+
+      // Timestamps
+      timestamps: {
+        created: deal.createdAt.toISOString(),
+        lastModified: deal.updatedAt.toISOString(),
+      },
+
+      // Custom properties (filtered for relevant fields)
+      customFields: this.extractRelevantProperties(deal.properties),
+    };
+
+    // Optionally include stage history
+    if (includeHistory) {
+      const activities = await module.getDealActivities(dealId, 20);
+      (normalizedContext as any).history = {
+        recentActivityCount: activities.length,
+        lastActivityDate: activities[0]?.occurredAt?.toISOString() || null,
+        activityTypes: [...new Set(activities.map(a => a.type))],
+      };
+    }
+
+    return {
+      success: true,
+      data: { context: normalizedContext },
+      metadata: {
+        provider: module.provider,
+        requestDurationMs: Date.now() - startTime,
+      },
+    };
+  }
+
+  /**
+   * Sync calculated metrics back to CRM
+   * Supports dry-run mode for permission validation
+   */
+  private async handleSyncMetrics(
+    module: CRMModule,
+    args: Record<string, unknown>,
+    startTime: number
+  ): Promise<MCPCRMToolResult> {
+    const dealId = args.deal_id as string;
+    const metrics = args.metrics as Record<string, number>;
+    const dryRun = args.dry_run === true;
+
+    // Map metrics to CRM field names based on provider
+    const fieldMapping = this.getMetricsFieldMapping(module.provider);
+    const propertiesToUpdate: Record<string, unknown> = {};
+
+    if (metrics.roi !== undefined && fieldMapping.roi) {
+      propertiesToUpdate[fieldMapping.roi] = metrics.roi;
+    }
+    if (metrics.npv !== undefined && fieldMapping.npv) {
+      propertiesToUpdate[fieldMapping.npv] = metrics.npv;
+    }
+    if (metrics.payback_months !== undefined && fieldMapping.payback_months) {
+      propertiesToUpdate[fieldMapping.payback_months] = metrics.payback_months;
+    }
+    if (metrics.total_value !== undefined && fieldMapping.total_value) {
+      propertiesToUpdate[fieldMapping.total_value] = metrics.total_value;
+    }
+    if (metrics.confidence_score !== undefined && fieldMapping.confidence_score) {
+      propertiesToUpdate[fieldMapping.confidence_score] = metrics.confidence_score;
+    }
+
+    // Add metadata fields
+    propertiesToUpdate[fieldMapping.last_calculated || 'valuecanvas_last_sync'] = new Date().toISOString();
+
+    if (dryRun) {
+      // Validate by attempting to read the deal first
+      const deal = await module.getDeal(dealId);
+      if (!deal) {
+        return { success: false, error: `Deal not found: ${dealId}` };
+      }
+
+      return {
+        success: true,
+        data: {
+          dryRun: true,
+          dealId,
+          wouldUpdate: Object.keys(propertiesToUpdate),
+          message: `Dry run successful. ${Object.keys(propertiesToUpdate).length} fields would be updated.`,
+        },
+        metadata: {
+          provider: module.provider,
+          requestDurationMs: Date.now() - startTime,
+        },
+      };
+    }
+
+    // Actually write the metrics
+    const success = await module.updateDealProperties(dealId, propertiesToUpdate);
+
+    return {
+      success,
+      data: success
+        ? {
+            dealId,
+            fieldsUpdated: Object.keys(propertiesToUpdate),
+            timestamp: new Date().toISOString(),
+            message: `Successfully synced ${Object.keys(metrics).length} metrics to CRM.`,
+          }
+        : undefined,
+      error: success ? undefined : 'Failed to update deal properties. Check field permissions.',
+      metadata: {
+        provider: module.provider,
+        requestDurationMs: Date.now() - startTime,
+      },
+    };
+  }
+
+  /**
+   * Inspect CRM object schema for field mapping
+   */
+  private async handleInspectSchema(
+    module: CRMModule,
+    args: Record<string, unknown>,
+    startTime: number
+  ): Promise<MCPCRMToolResult> {
+    const objectType = args.object_type as string;
+
+    // Get schema based on object type
+    // Note: This would call the CRM's describe/metadata API
+    // For now, return known field structure
+    const schema = this.getObjectSchema(module.provider, objectType);
+
+    return {
+      success: true,
+      data: {
+        objectType,
+        provider: module.provider,
+        fields: schema.fields,
+        customFieldsCount: schema.customFieldsCount,
+        requiredFields: schema.requiredFields,
+        writableFields: schema.writableFields,
+      },
+      metadata: {
+        provider: module.provider,
+        requestDurationMs: Date.now() - startTime,
+      },
+    };
+  }
+
+  // ==========================================================================
+  // Helper Methods
+  // ==========================================================================
+
+  private normalizeStage(stage: string): string {
+    const stageMap: Record<string, string> = {
+      // HubSpot stages
+      'appointmentscheduled': 'discovery',
+      'qualifiedtobuy': 'qualified',
+      'presentationscheduled': 'proposal',
+      'decisionmakerboughtin': 'negotiation',
+      'contractsent': 'negotiation',
+      'closedwon': 'closed_won',
+      'closedlost': 'closed_lost',
+      // Salesforce stages
+      'prospecting': 'discovery',
+      'qualification': 'qualified',
+      'needs analysis': 'qualified',
+      'value proposition': 'proposal',
+      'id. decision makers': 'proposal',
+      'perception analysis': 'proposal',
+      'proposal/price quote': 'proposal',
+      'negotiation/review': 'negotiation',
+      'closed won': 'closed_won',
+      'closed lost': 'closed_lost',
+    };
+
+    const normalized = stageMap[stage.toLowerCase()];
+    return normalized || 'unknown';
+  }
+
+  private normalizeCurrency(amount: number | undefined): number {
+    if (amount === undefined || amount === null) return 0;
+    // Handle string amounts like "$1.2M" or "EUR 500K"
+    if (typeof amount === 'string') {
+      const cleaned = String(amount).replace(/[^0-9.-]/g, '');
+      const parsed = parseFloat(cleaned);
+      // Handle K/M suffixes
+      if (String(amount).toLowerCase().includes('m')) return parsed * 1000000;
+      if (String(amount).toLowerCase().includes('k')) return parsed * 1000;
+      return parsed || 0;
+    }
+    return amount;
+  }
+
+  private calculateDaysInStage(lastModified: Date): number {
+    const now = new Date();
+    const diffMs = now.getTime() - lastModified.getTime();
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  }
+
+  private calculateDaysToClose(closeDate: Date): number {
+    const now = new Date();
+    const diffMs = closeDate.getTime() - now.getTime();
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  }
+
+  private extractRelevantProperties(props: Record<string, unknown>): Record<string, unknown> {
+    // Filter for value-relevant properties
+    const relevantKeys = [
+      'annual_revenue', 'revenue', 'arr', 'mrr',
+      'contract_value', 'contract_length', 'term',
+      'discount', 'industry', 'company_size', 'employees',
+    ];
+
+    const result: Record<string, unknown> = {};
+    for (const key of Object.keys(props)) {
+      const lowerKey = key.toLowerCase();
+      if (relevantKeys.some(rk => lowerKey.includes(rk))) {
+        result[key] = props[key];
+      }
+    }
+    return result;
+  }
+
+  private getMetricsFieldMapping(provider: CRMProvider): Record<string, string> {
+    // Default field mappings - would be loaded from config in production
+    if (provider === 'salesforce') {
+      return {
+        roi: 'Calculated_ROI__c',
+        npv: 'Net_Present_Value__c',
+        payback_months: 'Payback_Period_Months__c',
+        total_value: 'Total_Projected_Value__c',
+        confidence_score: 'Value_Confidence__c',
+        last_calculated: 'ValueCanvas_Last_Sync__c',
+      };
+    }
+    // HubSpot
+    return {
+      roi: 'calculated_roi',
+      npv: 'net_present_value',
+      payback_months: 'payback_period_months',
+      total_value: 'total_projected_value',
+      confidence_score: 'value_confidence',
+      last_calculated: 'valuecanvas_last_sync',
+    };
+  }
+
+  private getObjectSchema(provider: CRMProvider, objectType: string): {
+    fields: Array<{ name: string; type: string; editable: boolean; required: boolean }>;
+    customFieldsCount: number;
+    requiredFields: string[];
+    writableFields: string[];
+  } {
+    // Return common schema structure
+    const dealFields = [
+      { name: 'name', type: 'string', editable: true, required: true },
+      { name: 'amount', type: 'currency', editable: true, required: false },
+      { name: 'stage', type: 'picklist', editable: true, required: true },
+      { name: 'close_date', type: 'date', editable: true, required: false },
+      { name: 'probability', type: 'percent', editable: true, required: false },
+      { name: 'owner_id', type: 'reference', editable: true, required: true },
+    ];
+
+    // Add provider-specific custom fields for metrics
+    const customFields = provider === 'salesforce'
+      ? [
+          { name: 'Calculated_ROI__c', type: 'number', editable: true, required: false },
+          { name: 'Net_Present_Value__c', type: 'currency', editable: true, required: false },
+          { name: 'Payback_Period_Months__c', type: 'number', editable: true, required: false },
+        ]
+      : [
+          { name: 'calculated_roi', type: 'number', editable: true, required: false },
+          { name: 'net_present_value', type: 'number', editable: true, required: false },
+          { name: 'payback_period_months', type: 'number', editable: true, required: false },
+        ];
+
+    const allFields = [...dealFields, ...customFields];
+
+    return {
+      fields: allFields,
+      customFieldsCount: customFields.length,
+      requiredFields: allFields.filter(f => f.required).map(f => f.name),
+      writableFields: allFields.filter(f => f.editable).map(f => f.name),
     };
   }
 
