@@ -1,42 +1,57 @@
 /**
  * Security Headers
- * 
+ *
  * Implements security headers to protect against common web vulnerabilities.
  * Includes CSP, HSTS, X-Frame-Options, and other security headers.
  */
 
-import { getSecurityConfig } from './SecurityConfig';
+import { getSecurityConfig } from "./SecurityConfig";
 
 /**
  * Generate Content Security Policy header value
+ *
+ * @param nonce - Optional cryptographic nonce for inline scripts/styles
  */
-export function generateCSPHeader(): string {
+export function generateCSPHeader(nonce?: string): string {
   const config = getSecurityConfig().csp;
 
   if (!config.enabled) {
-    return '';
+    return "";
   }
 
   const directives: string[] = [];
 
   // Add each directive
   for (const [key, value] of Object.entries(config.directives)) {
-    if (key === 'upgradeInsecureRequests') {
+    if (key === "upgradeInsecureRequests") {
       if (value) {
-        directives.push('upgrade-insecure-requests');
+        directives.push("upgrade-insecure-requests");
       }
       continue;
     }
 
-    const directiveName = key.replace(/([A-Z])/g, '-$1').toLowerCase();
-    const directiveValue = Array.isArray(value) ? value.join(' ') : value;
-    
-    if (directiveValue) {
-      directives.push(`${directiveName} ${directiveValue}`);
+    const directiveName = key.replace(/([A-Z])/g, "-$1").toLowerCase();
+    let directiveValue = Array.isArray(value) ? [...value] : value;
+
+    // Add nonce to script-src and style-src if provided
+    if (
+      nonce &&
+      (key === "scriptSrc" || key === "styleSrc") &&
+      Array.isArray(directiveValue)
+    ) {
+      directiveValue = [...directiveValue, `'nonce-${nonce}'`];
+    }
+
+    const finalValue = Array.isArray(directiveValue)
+      ? directiveValue.join(" ")
+      : directiveValue;
+
+    if (finalValue) {
+      directives.push(`${directiveName} ${finalValue}`);
     }
   }
 
-  return directives.join('; ');
+  return directives.join("; ");
 }
 
 /**
@@ -46,20 +61,20 @@ export function generateHSTSHeader(): string {
   const config = getSecurityConfig().headers.strictTransportSecurity;
 
   if (!config.enabled) {
-    return '';
+    return "";
   }
 
   const parts = [`max-age=${config.maxAge}`];
 
   if (config.includeSubDomains) {
-    parts.push('includeSubDomains');
+    parts.push("includeSubDomains");
   }
 
   if (config.preload) {
-    parts.push('preload');
+    parts.push("preload");
   }
 
-  return parts.join('; ');
+  return parts.join("; ");
 }
 
 /**
@@ -69,7 +84,7 @@ export function generateXFrameOptionsHeader(): string {
   const config = getSecurityConfig().headers.xFrameOptions;
 
   if (!config.enabled) {
-    return '';
+    return "";
   }
 
   return config.value;
@@ -82,10 +97,10 @@ export function generateXContentTypeOptionsHeader(): string {
   const config = getSecurityConfig().headers.xContentTypeOptions;
 
   if (!config.enabled) {
-    return '';
+    return "";
   }
 
-  return 'nosniff';
+  return "nosniff";
 }
 
 /**
@@ -95,10 +110,10 @@ export function generateXXSSProtectionHeader(): string {
   const config = getSecurityConfig().headers.xXssProtection;
 
   if (!config.enabled) {
-    return '';
+    return "";
   }
 
-  return config.mode === 'block' ? '1; mode=block' : '1';
+  return config.mode === "block" ? "1; mode=block" : "1";
 }
 
 /**
@@ -108,7 +123,7 @@ export function generateReferrerPolicyHeader(): string {
   const config = getSecurityConfig().headers.referrerPolicy;
 
   if (!config.enabled) {
-    return '';
+    return "";
   }
 
   return config.value;
@@ -121,18 +136,18 @@ export function generatePermissionsPolicyHeader(): string {
   const config = getSecurityConfig().headers.permissionsPolicy;
 
   if (!config.enabled) {
-    return '';
+    return "";
   }
 
   const directives: string[] = [];
 
   for (const [feature, origins] of Object.entries(config.directives)) {
-    const featureName = feature.replace(/([A-Z])/g, '-$1').toLowerCase();
-    const originsValue = origins.length === 0 ? '()' : `(${origins.join(' ')})`;
+    const featureName = feature.replace(/([A-Z])/g, "-$1").toLowerCase();
+    const originsValue = origins.length === 0 ? "()" : `(${origins.join(" ")})`;
     directives.push(`${featureName}=${originsValue}`);
   }
 
-  return directives.join(', ');
+  return directives.join(", ");
 }
 
 /**
@@ -145,44 +160,46 @@ export function getSecurityHeaders(): Record<string, string> {
   const csp = generateCSPHeader();
   if (csp) {
     const config = getSecurityConfig().csp;
-    const headerName = config.reportOnly ? 'Content-Security-Policy-Report-Only' : 'Content-Security-Policy';
+    const headerName = config.reportOnly
+      ? "Content-Security-Policy-Report-Only"
+      : "Content-Security-Policy";
     headers[headerName] = csp;
   }
 
   // Strict-Transport-Security
   const hsts = generateHSTSHeader();
   if (hsts) {
-    headers['Strict-Transport-Security'] = hsts;
+    headers["Strict-Transport-Security"] = hsts;
   }
 
   // X-Frame-Options
   const xFrameOptions = generateXFrameOptionsHeader();
   if (xFrameOptions) {
-    headers['X-Frame-Options'] = xFrameOptions;
+    headers["X-Frame-Options"] = xFrameOptions;
   }
 
   // X-Content-Type-Options
   const xContentTypeOptions = generateXContentTypeOptionsHeader();
   if (xContentTypeOptions) {
-    headers['X-Content-Type-Options'] = xContentTypeOptions;
+    headers["X-Content-Type-Options"] = xContentTypeOptions;
   }
 
   // X-XSS-Protection
   const xXSSProtection = generateXXSSProtectionHeader();
   if (xXSSProtection) {
-    headers['X-XSS-Protection'] = xXSSProtection;
+    headers["X-XSS-Protection"] = xXSSProtection;
   }
 
   // Referrer-Policy
   const referrerPolicy = generateReferrerPolicyHeader();
   if (referrerPolicy) {
-    headers['Referrer-Policy'] = referrerPolicy;
+    headers["Referrer-Policy"] = referrerPolicy;
   }
 
   // Permissions-Policy
   const permissionsPolicy = generatePermissionsPolicyHeader();
   if (permissionsPolicy) {
-    headers['Permissions-Policy'] = permissionsPolicy;
+    headers["Permissions-Policy"] = permissionsPolicy;
   }
 
   return headers;
@@ -217,10 +234,12 @@ export function createSecurityMetaTags(): void {
   if (config.csp.enabled) {
     const csp = generateCSPHeader();
     if (csp) {
-      let metaTag = document.querySelector('meta[http-equiv="Content-Security-Policy"]') as HTMLMetaElement;
+      let metaTag = document.querySelector(
+        'meta[http-equiv="Content-Security-Policy"]'
+      ) as HTMLMetaElement;
       if (!metaTag) {
-        metaTag = document.createElement('meta');
-        metaTag.httpEquiv = 'Content-Security-Policy';
+        metaTag = document.createElement("meta");
+        metaTag.httpEquiv = "Content-Security-Policy";
         document.head.appendChild(metaTag);
       }
       metaTag.content = csp;
@@ -229,10 +248,12 @@ export function createSecurityMetaTags(): void {
 
   // Referrer-Policy meta tag
   if (config.headers.referrerPolicy.enabled) {
-    let metaTag = document.querySelector('meta[name="referrer"]') as HTMLMetaElement;
+    let metaTag = document.querySelector(
+      'meta[name="referrer"]'
+    ) as HTMLMetaElement;
     if (!metaTag) {
-      metaTag = document.createElement('meta');
-      metaTag.name = 'referrer';
+      metaTag = document.createElement("meta");
+      metaTag.name = "referrer";
       document.head.appendChild(metaTag);
     }
     metaTag.content = config.headers.referrerPolicy.value;
@@ -274,5 +295,5 @@ export function validateSecurityHeaders(response: Response): {
 export function logSecurityHeaders(): void {
   const headers = getSecurityHeaders();
 
-  logger.debug('Security Headers:', headers);
+  logger.debug("Security Headers:", headers);
 }

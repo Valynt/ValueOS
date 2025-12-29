@@ -10,7 +10,7 @@ import { logger } from "@/lib/logger";
 import { auditLogService } from "../AuditLogService";
 
 export interface APIKeyRotationConfig {
-  provider: "openai" | "anthropic" | "supabase" | "aws-iam";
+  provider: "openai" | "anthropic" | "supabase" | "aws-iam" | "together_ai";
   currentKey: string;
   rotationIntervalDays: number;
   lastRotated?: Date;
@@ -99,6 +99,46 @@ export class APIKeyRotationService {
       };
     } catch (error) {
       logger.error("Failed to rotate Anthropic API key", error as Error);
+      throw error;
+    }
+  }
+
+  /**
+   * Rotate Together.ai API Key
+   * Primary LLM provider for ValueOS (100% of inference traffic)
+   */
+  async rotateTogetherAIKey(): Promise<RotationResult> {
+    logger.info("Starting Together.ai API key rotation");
+
+    try {
+      // 1. Generate new API key
+      const newKey = await this.generateNewTogetherAIKey();
+
+      // 2. Update in Supabase Vault
+      await this.updateSecretInVault("together_api_key", newKey);
+
+      // 3. Test new key
+      await this.testTogetherAIKey(newKey);
+
+      // 4. Retire old key (after grace period)
+      setTimeout(() => this.retireTogetherAIKey(), 2 * 60 * 60 * 1000); // 2 hour grace period
+
+      // 5. Log rotation event
+      await this.logRotationEvent("together_ai", newKey);
+
+      const now = new Date();
+      const nextRotation = new Date(now);
+      nextRotation.setDate(now.getDate() + 90); // 90 days
+
+      return {
+        provider: "together_ai",
+        newKey: this.maskKey(newKey),
+        oldKeyRetired: false, // Will be retired after grace period
+        rotatedAt: now,
+        nextRotation,
+      };
+    } catch (error) {
+      logger.error("Failed to rotate Together.ai API key", error as Error);
       throw error;
     }
   }
@@ -208,6 +248,9 @@ export class APIKeyRotationService {
             break;
           case "anthropic":
             await this.rotateAnthropicKey();
+            break;
+          case "together_ai":
+            await this.rotateTogetherAIKey();
             break;
           case "supabase":
             await this.rotateSupabaseKey();
@@ -393,6 +436,85 @@ export class APIKeyRotationService {
     // Delete old IAM access key via AWS SDK
   }
 
+  private async generateNewTogetherAIKey(): Promise<string> {
+    // Together.ai currently requires manual key generation via dashboard
+    // This is a semi-automated approach that notifies admins
+    
+    // Future: If Together.ai adds key management API, implement programmatic generation
+    // const response = await fetch('https://api.together.ai/v1/keys', {
+    //   method: 'POST',
+    //   headers: {
+    //     '
+
+Authorization': `Bearer ${process.env.TOGETHER_ADMIN_KEY}`,
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify({
+    //     name: `valueos-${Date.now()}`,
+    //     scopes: ['inference'],
+    //   }),
+    // });
+    
+    // For now: Notify admins to manually generate key
+    await this.notifyAdmins({
+      type: 'MANUAL_KEY_GENERATION_REQUIRED',
+      provider: 'together_ai',
+      message: 'Together.ai API key rotation required',
+      instructions: [
+        '1. Go to https://api.together.ai/settings/api-keys',
+        '2. Click "Create API Key"',
+        '3. Name: valueos-production-' + Date.now(),
+        '4. Copy the key',
+        '5. Update Supabase Vault secret "together_api_key"',
+        '6. Confirm completion in Slack #security',
+      ],
+      dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+    });
+    
+    // Return placeholder - actual key will be updated in vault manually
+    // The system will poll for the new key
+    throw new Error('Manual key generation required - admin notification sent');
+  }
+
+  private async testTogetherAIKey(key: string): Promise<void> {
+    const response = await fetch('https://api.together.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${key}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
+        messages: [{ role: 'user', content: 'Test connection' }],
+        max_tokens: 5, // Minimal tokens for cost efficiency
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`New Together.ai key failed validation: ${response.status}`);
+    }
+
+    logger.info('Together.ai key validated successfully');
+  }
+
+  private async retireTogetherAIKey(): Promise<void> {
+    logger.info('Retiring old Together.ai API key');
+    
+    // Together.ai requires manual key revocation
+    await this.notifyAdmins({
+      type: 'MANUAL_KEY_REVOCATION_REQUIRED',
+      provider: 'together_ai',
+      message: 'Grace period expired. Revoke old Together.ai key now.',
+      instructions: [
+        '1. Go to https://api.together.ai/settings/api-keys',
+        '2. Find the old key (check rotation logs for key prefix)',
+        '3. Click "Delete"',
+        '4. Confirm deletion',
+        '5. Verify in Slack #security',
+      ],
+    });
+  }
+
   private maskKey(key: string): string {
     if (key.length < 12) return "***";
     return `${key.substring(0, 4)}...${key.substring(key.length - 4)}`;
@@ -433,6 +555,14 @@ export const apiKeyRotationService = new APIKeyRotationService();
 // Initialize rotation schedules on service startup
 export function initializeAPIKeyRotation(): void {
   logger.info("Initializing API key rotation schedules");
+
+  // Schedule Together.ai rotation every 90 days (PRIMARY LLM PROVIDER)
+  apiKeyRotationService.scheduleRotation({
+    provider: "together_ai",
+    currentKey: process.env.TOGETHER_API_KEY || "",
+    rotationIntervalDays: 90,
+    autoRotate: true,
+  });
 
   // Schedule OpenAI rotation every 90 days
   apiKeyRotationService.scheduleRotation({

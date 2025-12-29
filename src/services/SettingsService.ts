@@ -7,6 +7,17 @@ import { logger } from '../lib/logger';
 import { TenantAwareService } from './TenantAwareService';
 import { AuthorizationError, NotFoundError, ValidationError } from './errors';
 import { tenantCache } from './cache/TenantCache';
+import { z } from 'zod';
+import { securityEvents } from '../security/securityLogger';
+
+// Schema definitions for secure deserialization
+const SecureSettingsSchemas = {
+  string: z.string(),
+  number: z.number(),
+  boolean: z.boolean(),
+  object: z.record(z.any()),
+  array: z.array(z.any()),
+} as const;
 
 export interface Setting {
   id: string;
@@ -421,25 +432,45 @@ export class SettingsService extends TenantAwareService {
   }
 
   /**
-   * Deserialize value from storage
+   * Deserialize value from storage with schema validation
    */
   private deserializeValue(value: string, type: Setting['type']): any {
-    switch (type) {
-      case 'string':
-        return value;
-      case 'number':
-        return Number(value);
-      case 'boolean':
-        return value === 'true';
-      case 'object':
-      case 'array':
-        try {
-          return JSON.parse(value);
-        } catch {
+
+    try {
+      switch (type) {
+        case 'string':
+          return SecureSettingsSchemas.string.parse(value);
+        case 'number':
+          return SecureSettingsSchemas.number.parse(Number(value));
+        case 'boolean':
+          return SecureSettingsSchemas.boolean.parse(value === 'true');
+        case 'object':
+        case 'array':
+          const parsed = JSON.parse(value);
+          const schema = type === 'object' ? SecureSettingsSchemas.object : SecureSettingsSchemas.array;
+          const validated = schema.parse(parsed);
+          console.log('JSON parsing and schema validation successful:', {
+            parsedType: typeof validated,
+            isArray: Array.isArray(validated)
+          });
+          return validated;
+        default:
           return value;
-        }
-      default:
-        return value;
+      }
+    } catch (error) {
+        type,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        valueLength: value.length
+      });
+
+      // Log security event for failed deserialization
+      logger.warn('Setting deserialization failed - potential security issue', {
+        type,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        valuePreview: value.substring(0, 100)
+      });
+
+      throw new ValidationError(`Invalid setting value for type ${type}`);
     }
   }
 

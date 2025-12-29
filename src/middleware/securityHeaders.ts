@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { securityEvents } from "../security/securityLogger";
 
 export interface CSPConfig {
   defaultSrc: string[];
@@ -12,29 +13,54 @@ export interface CSPConfig {
   frameSrc: string[];
   workerSrc: string[];
   reportUri?: string;
-}
-
+  frameAncestors?: string[];
+  baseUri?: string[];
+// Production CSP - Strict, nonce-based
 const productionCSP: CSPConfig = {
   defaultSrc: ["'self'"],
-  scriptSrc: [
-    "'self'",
-    // NO 'unsafe-inline' - blocks inline scripts
-    // Add specific hashes for legitimate inline scripts if needed
-  ],
-  styleSrc: [
-    "'self'",
-    "'unsafe-inline'", // Required for Tailwind, consider using hashes in future
-  ],
-  imgSrc: ["'self'", "data:", "https:", "blob:"],
+  scriptSrc: ["'self'"], // Nonces added dynamically
+  styleSrc: ["'self'"], // Nonces added dynamically
+  imgSrc: ["'self'", "data:", "https:"],
   connectSrc: [
     "'self'",
     process.env.VITE_SUPABASE_URL || "",
     "https://api.openai.com",
-    "wss://*.supabase.co", // WebSocket connections
+    "https://api.together.xyz",
+    "wss://*.supabase.co",
   ],
   fontSrc: ["'self'", "https://fonts.gstatic.com"],
   objectSrc: ["'none'"],
   mediaSrc: ["'self'"],
+  frameSrc: ["'none'"],
+  workerSrc: ["'self'", "blob:"],
+  frameAncestors: ["'none'"],
+  baseUri: ["'self'"],
+  formAction: ["'self'"],
+  upgradeInsecureRequests: true,
+  reportUri: "/api/csp-report",
+};
+
+// Development CSP - Relaxed for HMR and debugging
+const developmentCSP: CSPConfig = {
+  defaultSrc: ["'self'"],
+  scriptSrc: ["'self'", "'unsafe-eval'"], // Required for HMR
+  styleSrc: ["'self'", "'unsafe-inline'"], // Required for Tailwind HMR
+  imgSrc: ["'self'", "data:", "https:", "blob:"],
+  connectSrc: [
+    "'self'",
+    process.env.VITE_SUPABASE_URL || "",
+    "ws://localhost:*",
+    "http://localhost:*",
+    "https://api.openai.com",
+    "https://api.together.xyz",
+    "wss://*.supabase.co",
+  ],
+  fontSrc: ["'self'", "https://fonts.gstatic.com"],
+  objectSrc: ["'none'"],
+  mediaSrc: ["'self'"],
+  frameSrc: ["'none'"],
+  workerSrc: ["'self'", "blob:"],
+};
   frameSrc: ["'none'"],
   workerSrc: ["'self'", "blob:"],
   reportUri: "/api/csp-report",
@@ -54,6 +80,19 @@ function buildCSPString(config: CSPConfig): string {
   directives.push(`frame-src ${config.frameSrc.join(" ")}`);
   directives.push(`worker-src ${config.workerSrc.join(" ")}`);
 
+  if (config.frameAncestors) {
+    directives.push(`frame-ancestors ${config.frameAncestors.join(" ")}`);
+  }
+  if (config.baseUri) {
+    directives.push(`base-uri ${config.baseUri.join(" ")}`);
+  }
+  if (config.formAction) {
+    directives.push(`form-action ${config.formAction.join(" ")}`);
+  }
+  if (config.upgradeInsecureRequests) {
+    directives.push("upgrade-insecure-requests");
+  }
+
   if (config.reportUri) {
     directives.push(`report-uri ${config.reportUri}`);
   }
@@ -70,8 +109,34 @@ export function securityHeadersMiddleware(
   res: Response,
   next: NextFunction
 ): void {
-  // Content Security Policy
-  res.setHeader("Content-Security-Policy", buildCSPString(productionCSP));
+  // Select CSP based on environment
+  const isDevelopment = process.env.NODE_ENV === "development";
+  const baseCSP = isDevelopment ? developmentCSP : productionCSP;
+
+  // Generate cryptographic nonce for CSP (only in production)
+  let nonce: string | undefined;
+  if (!isDevelopment) {
+    nonce = crypto.randomBytes(16).toString('base64');
+  }
+
+  // Content Security Policy with nonce (production only)
+  let cspConfig = baseCSP;
+  if (nonce) {
+    cspConfig = {
+      ...baseCSP,
+      scriptSrc: [...baseCSP.scriptSrc, `'nonce-${nonce}'`],
+      styleSrc: [...baseCSP.styleSrc, `'nonce-${nonce}'`],
+    };
+  }
+
+  const cspValue = buildCSPString(cspConfig);
+  res.setHeader("Content-Security-Policy", cspValue);
+
+  // Make nonce available to templates/rendering (production only)
+  if (nonce) {
+    (res as any).locals = (res as any).locals || {};
+    (res as any).locals.cspNonce = nonce;
+  }
 
   // Strict Transport Security
   res.setHeader(
@@ -110,7 +175,7 @@ export function cspReportHandler(req: Request, res: Response): void {
   const report = req.body;
 
   // Log CSP violations for analysis
-  console.warn("CSP Violation detected:", JSON.stringify(report, null, 2));
+  securityEvents.cspViolation(report);
 
   // In production, this can be integrated with Sentry or other monitoring tools
   res.status(204).send();

@@ -5,7 +5,7 @@
 
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
-import * as XLSX from "xlsx";
+import * as ExcelJS from "exceljs";
 
 export interface ExportOptions {
   filename?: string;
@@ -172,6 +172,11 @@ export async function exportToPNG(
 
 /**
  * Export data to Excel
+ *
+ * SECURITY: Using exceljs (more secure than xlsx)
+ * - Input validation and sanitization
+ * - Size limits to prevent resource exhaustion
+ * - Object key sanitization to prevent prototype pollution
  */
 export async function exportToExcel(
   data: any[],
@@ -191,11 +196,43 @@ export async function exportToExcel(
       throw new Error("No data to export");
     }
 
+    // SECURITY: Limit data size to prevent resource exhaustion
+    const MAX_ROWS = 10000;
+    if (data.length > MAX_ROWS) {
+      throw new Error(
+        `Data exceeds maximum limit of ${MAX_ROWS} rows for export`
+      );
+    }
+
     onProgress?.({
       status: "generating",
       progress: 50,
       message: "Generating Excel file...",
     });
+
+    // SECURITY: Sanitize object keys to prevent prototype pollution
+    const sanitizeKey = (key: string): string => {
+      // Block dangerous keys
+      const dangerousKeys = ["__proto__", "constructor", "prototype"];
+      if (dangerousKeys.includes(key.toLowerCase())) {
+        return `_${key}`;
+      }
+      // Limit key length
+      return key.slice(0, 100);
+    };
+
+    const sanitizeValue = (value: any): any => {
+      if (value === null || value === undefined) return value;
+      if (typeof value === "string") {
+        // Limit string length to prevent issues
+        return value.slice(0, 32000); // Excel cell limit
+      }
+      if (typeof value === "object") {
+        // Prevent deeply nested objects
+        return JSON.stringify(value).slice(0, 32000);
+      }
+      return value;
+    };
 
     // Filter columns if specified
     let exportData = data;
@@ -203,34 +240,51 @@ export async function exportToExcel(
       exportData = data.map((row) => {
         const filtered: any = {};
         options.columns!.forEach((col) => {
+          const safeKey = sanitizeKey(col);
           if (row.hasOwnProperty(col)) {
-            filtered[col] = row[col];
+            filtered[safeKey] = sanitizeValue(row[col]);
           }
         });
         return filtered;
       });
+    } else {
+      // Sanitize all data
+      exportData = data.map((row) => {
+        const sanitized: any = {};
+        Object.keys(row).forEach((key) => {
+          const safeKey = sanitizeKey(key);
+          sanitized[safeKey] = sanitizeValue(row[key]);
+        });
+        return sanitized;
+      });
     }
 
-    // Create worksheet
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    // Create workbook and worksheet using ExcelJS (SECURE: no vulnerabilities)
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet(options.sheetName || "Data");
 
-    // Auto-size columns
-    const colWidths = Object.keys(exportData[0] || {}).map((key) => ({
-      wch:
-        Math.max(
-          key.length,
-          ...exportData.map((row) => String(row[key] || "").length)
-        ) + 2,
-    }));
-    worksheet["!cols"] = colWidths;
+    // Add headers
+    if (exportData.length > 0) {
+      const headers = Object.keys(exportData[0]);
+      worksheet.columns = headers.map((header) => ({
+        header,
+        key: header,
+        width: Math.min(Math.max(header.length + 2, 10), 50),
+      }));
 
-    // Create workbook
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(
-      workbook,
-      worksheet,
-      options.sheetName || "Data"
-    );
+      // Add rows
+      exportData.forEach((row) => {
+        worksheet.addRow(row);
+      });
+
+      // Style headers
+      worksheet.getRow(1).font = { bold: true };
+      worksheet.getRow(1).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFE0E0E0" },
+      };
+    }
 
     onProgress?.({
       status: "generating",
@@ -238,12 +292,9 @@ export async function exportToExcel(
       message: "Finalizing...",
     });
 
-    // Generate binary string
-    const excelBuffer = XLSX.write(workbook, {
-      bookType: "xlsx",
-      type: "array",
-    });
-    const blob = new Blob([excelBuffer], {
+    // Generate buffer
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
 
