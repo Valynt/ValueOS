@@ -1,25 +1,25 @@
 /**
  * Ground Truth Engine - 4-Layer Truth Architecture
- * 
+ *
  * Architectural enforcement to prevent agent misleading through:
  * - Layer 1: Adversarial Peer Review (IntegrityAgent)
  * - Layer 2: Deterministic Grounding (Citation Enforcement)
  * - Layer 3: Reasoning Chain Viewer (Transparent Logic)
  * - Layer 4: Immutable Audit Trails (SOC 2)
- * 
+ *
  * Every agent is treated as an UNTRUSTED actor until output is:
  * - Cryptographically signed
  * - Grounded in specific data sources
  * - Peer-reviewed by IntegrityAgent
- * 
+ *
  * @author Enterprise Agentic Architect
  * @version 1.0.0
  */
 
-import { createLogger } from '../logger';
-import { AgentIdentity, AgentRole } from '../auth/AgentIdentity';
+import { createLogger } from "../logger";
+import { AgentIdentity, AgentRole } from "../auth/AgentIdentity";
 
-const logger = createLogger({ component: 'GroundTruthEngine' });
+const logger = createLogger({ component: "GroundTruthEngine" });
 
 // ============================================================================
 // Types
@@ -28,14 +28,14 @@ const logger = createLogger({ component: 'GroundTruthEngine' });
 /**
  * Citation source types
  */
-export type SourceType = 
-  | 'VMRT'           // Value Management Reference Table
-  | 'CRM'            // CRM Record
-  | 'BENCHMARK'      // Benchmark Data
-  | 'FINANCIAL'      // Financial Statement
-  | 'USER_INPUT'     // User-provided data
-  | 'CALCULATION'    // Derived calculation
-  | 'EXTERNAL_API';  // External data source
+export type SourceType =
+  | "VMRT" // Value Management Reference Table
+  | "CRM" // CRM Record
+  | "BENCHMARK" // Benchmark Data
+  | "FINANCIAL" // Financial Statement
+  | "USER_INPUT" // User-provided data
+  | "CALCULATION" // Derived calculation
+  | "EXTERNAL_API"; // External data source
 
 /**
  * A verified citation for ground truth
@@ -72,7 +72,7 @@ export interface ReasoningStep {
   /** Verification status */
   verified: boolean;
   /** Verification method */
-  verificationMethod?: 'data_match' | 'calculation_check' | 'peer_review';
+  verificationMethod?: "data_match" | "calculation_check" | "peer_review";
 }
 
 /**
@@ -110,7 +110,7 @@ export interface IntegrityCheckRequest {
   /** Reasoning chain if available */
   reasoningChain?: ReasoningChain;
   /** Risk level of the task */
-  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  riskLevel: "low" | "medium" | "high" | "critical";
   /** Agent that produced the output */
   producingAgent: {
     id: string;
@@ -141,9 +141,15 @@ export interface IntegrityCheckResult {
  */
 export interface IntegrityIssue {
   /** Issue severity */
-  severity: 'warning' | 'error' | 'critical';
+  severity: "warning" | "error" | "critical";
   /** Issue category */
-  category: 'missing_citation' | 'invalid_source' | 'logical_fallacy' | 'calculation_error' | 'data_mismatch' | 'hallucination_risk';
+  category:
+    | "missing_citation"
+    | "invalid_source"
+    | "logical_fallacy"
+    | "calculation_error"
+    | "data_mismatch"
+    | "hallucination_risk";
   /** Issue description */
   message: string;
   /** Location in the output */
@@ -160,8 +166,11 @@ export class IntegrityError extends Error {
     public readonly issues: IntegrityIssue[],
     public readonly checkResult: IntegrityCheckResult
   ) {
-    super(`Integrity check failed: ${issues.map(i => i.message).join('; ')}`);
-    this.name = 'IntegrityError';
+    // Include category in error message for audit trail
+    super(
+      `Integrity check failed: ${issues.map((i) => `[${i.category}] ${i.message}`).join("; ")}`
+    );
+    this.name = "IntegrityError";
   }
 }
 
@@ -176,12 +185,14 @@ export class IntegrityError extends Error {
  * - [Source: CRM-DEAL-12345]
  * - [Source: BENCHMARK-SaaS-ARR]
  */
-const CITATION_PATTERN = /\[Source:\s*([A-Z_]+)-([A-Za-z0-9_-]+)(?::([A-Za-z0-9_-]+))?\]/g;
+const CITATION_PATTERN =
+  /\[Source:\s*([A-Z_]+)-([A-Za-z0-9_-]+)(?::([A-Za-z0-9_-]+))?\]/g;
 
 /**
  * Number pattern to detect uncited numerical claims
+ * Captures the full number including suffixes (%, $, K, M, B)
  */
-const UNCITED_NUMBER_PATTERN = /(?<!\[Source:[^\]]*)\b(\d{1,3}(?:,\d{3})*(?:\.\d+)?%?|\$\d{1,3}(?:,\d{3})*(?:\.\d+)?[KMB]?)\b(?![^\[]*\])/g;
+const NUMBER_PATTERN = /(\$?\d{1,3}(?:,\d{3})*(?:\.\d+)?%?[KMB]?)/g;
 
 /**
  * Parse citations from text
@@ -189,43 +200,86 @@ const UNCITED_NUMBER_PATTERN = /(?<!\[Source:[^\]]*)\b(\d{1,3}(?:,\d{3})*(?:\.\d
 export function parseCitations(text: string): Citation[] {
   const citations: Citation[] = [];
   let match;
-  
+
+  // Reset regex
+  CITATION_PATTERN.lastIndex = 0;
+
   while ((match = CITATION_PATTERN.exec(text)) !== null) {
     const [, type, id, field] = match;
     citations.push({
       id: `${type}-${id}`,
       type: type as SourceType,
       field,
-      value: '', // Will be populated during verification
+      value: "", // Will be populated during verification
       accessedAt: new Date().toISOString(),
     });
   }
-  
+
   return citations;
 }
 
 /**
+ * Check if a match is structurally inside a [Source: ...] block
+ * This prevents parts of IDs (like '123' in 'ID-123') from being flagged as uncited numbers
+ */
+function isInsideCitation(text: string, matchIndex: number): boolean {
+  // Find the last '[Source:' occurrence before our match
+  const lastOpen = text.lastIndexOf("[Source:", matchIndex);
+  if (lastOpen === -1) return false;
+
+  // Find the closing bracket that corresponds to it
+  const nextClose = text.indexOf("]", lastOpen);
+
+  // If the closing bracket is AFTER our match, then we are inside
+  return nextClose !== -1 && nextClose > matchIndex;
+}
+
+/**
+ * Check if a number is immediately followed by a citation
+ */
+function isNumberCited(text: string, numberMatch: RegExpExecArray): boolean {
+  const afterNumber = text.slice(numberMatch.index + numberMatch[0].length);
+  // Check if a citation follows within a reasonable distance (allows for punctuation/spaces)
+  const citationFollows = /^[\s.,]*\[Source:/.test(afterNumber);
+  return citationFollows;
+}
+
+/**
  * Find uncited numerical claims in text
+ * A number is considered cited if it's immediately followed by [Source: ...]
  */
 export function findUncitedClaims(text: string): string[] {
   const uncited: string[] = [];
   let match;
-  
+
   // Reset regex
-  UNCITED_NUMBER_PATTERN.lastIndex = 0;
-  
-  while ((match = UNCITED_NUMBER_PATTERN.exec(text)) !== null) {
-    uncited.push(match[1]);
+  NUMBER_PATTERN.lastIndex = 0;
+
+  while ((match = NUMBER_PATTERN.exec(text)) !== null) {
+    const num = match[1];
+
+    // Check if valid match is found within text
+    if (!match || match.index === undefined) continue;
+
+    // Check if this number is inside a citation tag (false positive prevention)
+    if (isInsideCitation(text, match.index)) continue;
+
+    // Check if this number is cited
+    if (!isNumberCited(text, match)) {
+      // Filter out common false positives
+      const value = parseFloat(num.replace(/[$,%KMB]/g, "").replace(/,/g, ""));
+
+      // Ignore years (1900-2100)
+      if (value >= 1900 && value <= 2100) continue;
+
+      // Ignore very small numbers unless they have % or $
+      if (value < 10 && !num.includes("%") && !num.includes("$")) continue;
+
+      uncited.push(num);
+    }
   }
-  
-  // Filter out common false positives (years, small numbers, etc.)
-  return uncited.filter(num => {
-    const value = parseFloat(num.replace(/[$,%KMB]/g, '').replace(/,/g, ''));
-    // Ignore years (1900-2100) and very small numbers
-    if (value >= 1900 && value <= 2100) return false;
-    if (value < 10 && !num.includes('%') && !num.includes('$')) return false;
-    return true;
-  });
+
+  return uncited;
 }
 
 /**
@@ -235,17 +289,17 @@ export function findUncitedClaims(text: string): string[] {
 export function verifyCitations(text: string): IntegrityIssue[] {
   const issues: IntegrityIssue[] = [];
   const uncitedClaims = findUncitedClaims(text);
-  
+
   for (const claim of uncitedClaims) {
     issues.push({
-      severity: 'error',
-      category: 'missing_citation',
+      severity: "error",
+      category: "missing_citation",
       message: `Uncited numerical claim: "${claim}" requires a source citation`,
       location: claim,
       suggestedFix: `Add citation in format: ${claim} [Source: VMRT-xxx] or ${claim} [Source: CRM-xxx]`,
     });
   }
-  
+
   return issues;
 }
 
@@ -257,32 +311,48 @@ export async function validateCitedSources(
   sourceValidator: (citation: Citation) => Promise<boolean>
 ): Promise<IntegrityIssue[]> {
   const issues: IntegrityIssue[] = [];
-  
+
   for (const citation of citations) {
     try {
+      // Validate regex first
+      const isValidFormat =
+        citation.id &&
+        citation.id.length >= 3 &&
+        /^[A-Z]+-[A-Za-z0-9_-]+$/.test(citation.id);
+
+      if (!isValidFormat) {
+        issues.push({
+          severity: "error",
+          category: "invalid_source",
+          message: `Invalid source ID format: ${citation.id}`,
+          location: citation.id,
+          suggestedFix: "Use format TYPE-ID (e.g., VMRT-001)",
+        });
+        continue;
+      }
+
       const valid = await sourceValidator(citation);
       if (!valid) {
         issues.push({
-          severity: 'error',
-          category: 'invalid_source',
+          severity: "error",
+          category: "invalid_source",
           message: `Citation ${citation.id} could not be verified`,
           location: citation.id,
-          suggestedFix: 'Verify the source ID exists and is accessible',
+          suggestedFix: "Verify the source ID exists and is accessible",
         });
       }
     } catch (error) {
       issues.push({
-        severity: 'warning',
-        category: 'invalid_source',
+        severity: "warning",
+        category: "invalid_source",
         message: `Failed to validate citation ${citation.id}: ${error}`,
         location: citation.id,
       });
     }
   }
-  
+
   return issues;
 }
-
 // ============================================================================
 // Reasoning Chain Builder (Layer 3)
 // ============================================================================
@@ -299,7 +369,7 @@ export function createReasoningChain(
     agentId,
     sessionId,
     steps: [],
-    conclusion: '',
+    conclusion: "",
     citations: [],
     verified: false,
     createdAt: new Date().toISOString(),
@@ -311,14 +381,11 @@ export function createReasoningChain(
  */
 export function addReasoningStep(
   chain: ReasoningChain,
-  step: Omit<ReasoningStep, 'order'>
+  step: Omit<ReasoningStep, "order">
 ): ReasoningChain {
   return {
     ...chain,
-    steps: [
-      ...chain.steps,
-      { ...step, order: chain.steps.length + 1 },
-    ],
+    steps: [...chain.steps, { ...step, order: chain.steps.length + 1 }],
     citations: [...chain.citations, ...step.citations],
   };
 }
@@ -334,7 +401,7 @@ export function finalizeReasoningChain(
   return {
     ...chain,
     conclusion,
-    verified: allStepsVerified && chain.steps.every(s => s.verified),
+    verified: allStepsVerified && chain.steps.every((s) => s.verified),
   };
 }
 
@@ -351,12 +418,12 @@ export interface IIntegrityAgent {
    * Perform an integrity audit on agent output
    */
   audit(request: IntegrityCheckRequest): Promise<IntegrityCheckResult>;
-  
+
   /**
    * Check for logical fallacies in reasoning
    */
   checkLogic(reasoningChain: ReasoningChain): Promise<IntegrityIssue[]>;
-  
+
   /**
    * Verify calculations are correct
    */
@@ -373,48 +440,86 @@ export interface IIntegrityAgent {
  */
 export class DefaultIntegrityAgent implements IIntegrityAgent {
   private agentId: string;
-  
+
   constructor() {
     this.agentId = `integrity:${Date.now()}`;
   }
-  
+
   async audit(request: IntegrityCheckRequest): Promise<IntegrityCheckResult> {
     const issues: IntegrityIssue[] = [];
-    
+
     // Layer 2: Citation verification
-    const outputText = JSON.stringify(request.agentOutput);
-    const citationIssues = verifyCitations(outputText);
+    // Determine which content to check (prioritize human-readable text)
+    // This prevents flagging raw JSON numbers (like internal IDs or metrics) as uncited claims
+    const displayFields = [
+      "formatted",
+      "text",
+      "message",
+      "content",
+      "summary",
+      "answer",
+      "response",
+    ];
+    const foundFields = displayFields.filter(
+      (f) => request.agentOutput && typeof request.agentOutput[f] === "string"
+    );
+
+    let textToCheck = "";
+    if (foundFields.length > 0) {
+      textToCheck = foundFields
+        .map((f) => request.agentOutput[f] as string)
+        .join("\n");
+    } else {
+      // Fallback: If no standard text field exists, check the entire JSON
+      textToCheck = JSON.stringify(request.agentOutput);
+    }
+
+    const citationIssues = verifyCitations(textToCheck);
     issues.push(...citationIssues);
-    
+
     // Verify cited sources exist
     // In production, this would check against VMRT/CRM databases
     for (const source of request.citedSources) {
-      if (!source.id || source.id.length < 3) {
+      // Strict validation: ID must be non-empty, at least 3 chars, and follow pattern
+      const isValidId =
+        source.id &&
+        source.id.length >= 3 &&
+        /^[A-Z]+-[A-Za-z0-9_-]+$/.test(source.id);
+
+      if (!isValidId) {
         issues.push({
-          severity: 'error',
-          category: 'invalid_source',
-          message: `Invalid source ID: ${source.id}`,
-          location: source.id,
+          severity: "error",
+          category: "invalid_source",
+          message: `Invalid source ID: "${source.id || "(empty)"}" - must match pattern TYPE-ID (e.g., VMRT-001)`,
+          location: source.id || "(empty)",
         });
       }
     }
-    
+
     // Layer 3: Check reasoning chain if provided
     if (request.reasoningChain) {
       const logicIssues = await this.checkLogic(request.reasoningChain);
       issues.push(...logicIssues);
     }
-    
+
     // Determine pass/fail
-    const criticalIssues = issues.filter(i => i.severity === 'critical');
-    const errorIssues = issues.filter(i => i.severity === 'error');
-    
-    const passed = criticalIssues.length === 0 && 
-                   (request.riskLevel !== 'critical' || errorIssues.length === 0);
-    
+    const criticalIssues = issues.filter((i) => i.severity === "critical");
+    const errorIssues = issues.filter((i) => i.severity === "error");
+
+    // Logic update: High/Critical risk fails on ANY error.
+    // Low/Medium risk fails only on Critical issues.
+    const passed =
+      criticalIssues.length === 0 &&
+      (request.riskLevel === "low" ||
+        request.riskLevel === "medium" ||
+        errorIssues.length === 0);
+
     // Calculate confidence
-    const confidence = Math.max(0, 1 - (issues.length * 0.1) - (criticalIssues.length * 0.3));
-    
+    const confidence = Math.max(
+      0,
+      1 - issues.length * 0.1 - criticalIssues.length * 0.3
+    );
+
     const result: IntegrityCheckResult = {
       passed,
       confidence,
@@ -423,115 +528,122 @@ export class DefaultIntegrityAgent implements IIntegrityAgent {
       checkedAt: new Date().toISOString(),
       checkedBy: this.agentId,
     };
-    
-    logger.info('Integrity audit completed', {
+
+    logger.info("Integrity audit completed", {
       producingAgent: request.producingAgent.id,
       riskLevel: request.riskLevel,
       passed,
       issueCount: issues.length,
       confidence,
     });
-    
+
     return result;
   }
-  
+
   async checkLogic(reasoningChain: ReasoningChain): Promise<IntegrityIssue[]> {
     const issues: IntegrityIssue[] = [];
-    
+
     // Check for empty reasoning
     if (reasoningChain.steps.length === 0) {
       issues.push({
-        severity: 'warning',
-        category: 'logical_fallacy',
-        message: 'No reasoning steps provided - conclusion may be unsupported',
+        severity: "warning",
+        category: "logical_fallacy",
+        message: "No reasoning steps provided - conclusion may be unsupported",
       });
     }
-    
+
     // Check for unverified steps
-    const unverifiedSteps = reasoningChain.steps.filter(s => !s.verified);
+    const unverifiedSteps = reasoningChain.steps.filter((s) => !s.verified);
     if (unverifiedSteps.length > 0) {
       issues.push({
-        severity: 'warning',
-        category: 'logical_fallacy',
+        severity: "warning",
+        category: "logical_fallacy",
         message: `${unverifiedSteps.length} reasoning step(s) are unverified`,
-        location: `Steps: ${unverifiedSteps.map(s => s.order).join(', ')}`,
+        location: `Steps: ${unverifiedSteps.map((s) => s.order).join(", ")}`,
       });
     }
-    
+
     // Check for steps without citations
-    const uncitedSteps = reasoningChain.steps.filter(s => s.citations.length === 0);
+    const uncitedSteps = reasoningChain.steps.filter(
+      (s) => s.citations.length === 0
+    );
     if (uncitedSteps.length > reasoningChain.steps.length * 0.5) {
       issues.push({
-        severity: 'warning',
-        category: 'missing_citation',
-        message: 'More than 50% of reasoning steps lack citations',
+        severity: "warning",
+        category: "missing_citation",
+        message: "More than 50% of reasoning steps lack citations",
       });
     }
-    
+
     return issues;
   }
-  
+
   async verifyCalculations(
     inputs: Record<string, number>,
     formula: string,
     result: number
   ): Promise<IntegrityIssue[]> {
     const issues: IntegrityIssue[] = [];
-    
+
     // Common ROI/NPV formulas
-    const formulas: Record<string, (inputs: Record<string, number>) => number> = {
-      'roi': (i) => ((i.revenue - i.cost) / i.cost) * 100,
-      'npv': (i) => i.cashFlow / Math.pow(1 + i.discountRate, i.years),
-      'payback': (i) => i.investment / i.annualSavings,
-    };
-    
+    const formulas: Record<string, (inputs: Record<string, number>) => number> =
+      {
+        roi: (i) => ((i.revenue - i.cost) / i.cost) * 100,
+        npv: (i) => i.cashFlow / Math.pow(1 + i.discountRate, i.years),
+        payback: (i) => i.investment / i.annualSavings,
+      };
+
     const formulaKey = formula.toLowerCase();
     if (formulas[formulaKey]) {
       try {
         const expected = formulas[formulaKey](inputs);
         const tolerance = Math.abs(expected * 0.01); // 1% tolerance
-        
+
         if (Math.abs(result - expected) > tolerance) {
           issues.push({
-            severity: 'error',
-            category: 'calculation_error',
+            severity: "error",
+            category: "calculation_error",
             message: `Calculation mismatch: expected ${expected.toFixed(2)}, got ${result}`,
             suggestedFix: `Verify inputs and formula: ${formula}`,
           });
         }
       } catch (error) {
         issues.push({
-          severity: 'warning',
-          category: 'calculation_error',
+          severity: "warning",
+          category: "calculation_error",
           message: `Could not verify calculation: ${error}`,
         });
       }
     }
-    
+
     return issues;
   }
-  
+
   private generateRecommendations(issues: IntegrityIssue[]): string[] {
     const recommendations: string[] = [];
-    
-    const categories = new Set(issues.map(i => i.category));
-    
-    if (categories.has('missing_citation')) {
-      recommendations.push('Add citations for all numerical claims using [Source: TYPE-ID] format');
+
+    const categories = new Set(issues.map((i) => i.category));
+
+    if (categories.has("missing_citation")) {
+      recommendations.push(
+        "Add citations for all numerical claims using [Source: TYPE-ID] format"
+      );
     }
-    if (categories.has('invalid_source')) {
-      recommendations.push('Verify all cited source IDs exist in VMRT or CRM');
+    if (categories.has("invalid_source")) {
+      recommendations.push("Verify all cited source IDs exist in VMRT or CRM");
     }
-    if (categories.has('logical_fallacy')) {
-      recommendations.push('Review reasoning chain for logical consistency');
+    if (categories.has("logical_fallacy")) {
+      recommendations.push("Review reasoning chain for logical consistency");
     }
-    if (categories.has('calculation_error')) {
-      recommendations.push('Double-check calculations with verified inputs');
+    if (categories.has("calculation_error")) {
+      recommendations.push("Double-check calculations with verified inputs");
     }
-    if (categories.has('hallucination_risk')) {
-      recommendations.push('Replace general knowledge claims with specific data sources');
+    if (categories.has("hallucination_risk")) {
+      recommendations.push(
+        "Replace general knowledge claims with specific data sources"
+      );
     }
-    
+
     return recommendations;
   }
 }
@@ -565,23 +677,23 @@ export function setIntegrityAgent(agent: IIntegrityAgent): void {
 
 export default {
   // Types are exported above
-  
+
   // Citation enforcement
   parseCitations,
   findUncitedClaims,
   verifyCitations,
   validateCitedSources,
-  
+
   // Reasoning chain
   createReasoningChain,
   addReasoningStep,
   finalizeReasoningChain,
-  
+
   // Integrity agent
   DefaultIntegrityAgent,
   getIntegrityAgent,
   setIntegrityAgent,
-  
+
   // Error
   IntegrityError,
 };
