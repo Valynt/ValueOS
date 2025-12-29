@@ -6,128 +6,60 @@ import "./index.css";
 import "./styles/focus-visible.css";
 import "./styles/micro-interactions.css";
 import "./styles/responsive.css";
-import { bootstrap } from "./bootstrap";
-import { isDevelopment, isProduction } from "./config/environment";
+import { isDevelopment } from "./config/environment";
 import { startConsoleCapture } from "./utils/consoleRecorder";
 import { analyticsClient } from "./lib/analyticsClient";
 import { initHMRFallback } from "./lib/vite-hmr-fallback";
 import * as ClientRateLimit from "./services/ClientRateLimit";
+import { BootstrapGuard } from "./components/Common/BootstrapGuard";
 
 /**
  * Application entry point with production-ready bootstrap
  */
-async function main() {
+function main() {
   const rootElement = document.getElementById("root");
 
   if (!rootElement) {
     throw new Error("Root element not found");
   }
 
-  // Show loading indicator (tokenized)
-  rootElement.innerHTML = `
-    <div class="vc-loading-root">
-      <div class="vc-loading-inner">
-        <div class="vc-loading-title">VALYNT</div>
-        <div class="vc-loading-subtitle">Initializing the value operating system...</div>
-        <div class="vc-loading-bar" aria-hidden="true">
-          <div class="vc-loading-fill"></div>
-        </div>
-      </div>
-    </div>
-  `;
-
   try {
-    // Initialize rate limiting (use namespace to avoid ESLint no-undef false-positive)
+    // 1. Initialize mission-critical telemetry and recovery systems first
+    // These are initialized before bootstrap to capture any issues during the sequence
     ClientRateLimit.setupDefaultRateLimits?.();
 
-    // Initialize HMR fallback for reliable development experience
     if (isDevelopment()) {
       initHMRFallback();
     }
 
-    // Initialize telemetry helpers
     startConsoleCapture();
     analyticsClient.initialize({ betaCohort: true });
 
-    // Bootstrap the application
-    logger.debug("Starting application bootstrap...");
-
-    const result = await bootstrap({
-      skipAgentCheck: false,
-      failFast: isProduction(),
-      onProgress: (message) => {
-        logger.debug(`⏳ ${message}`);
-      },
-      onWarning: (warning) => {
-        logger.warn(`⚠️  ${warning}`);
-      },
-      onError: (error) => {
-        logger.error(`❌ ${error}`);
-      },
-    });
-
-    // Check if bootstrap was successful
-    if (!result.success && isProduction()) {
-      // Show error screen in production
-      rootElement.innerHTML = `
-        <div class="vc-error-root">
-          <div class="vc-error-card">
-            <div class="vc-error-icon">⚠️</div>
-            <div class="vc-error-title">Application Initialization Failed</div>
-            <div class="vc-error-message">The application could not be initialized. Please contact support if this problem persists.</div>
-            <div class="vc-error-details">
-              <div class="vc-error-summary">Error Details</div>
-              <ul class="vc-error-list">
-                ${result.errors.map((error) => `<li class="vc-error-list-item">${error}</li>`).join("")}
-              </ul>
-            </div>
-          </div>
-        </div>
-      `;
-      return;
-    }
-
-    // Log warnings in development
-    if (isDevelopment() && result.warnings.length > 0) {
-      logger.warn("Bootstrap completed with warnings:");
-      result.warnings.forEach((warning) => logger.warn(`  - ${warning}`));
-    }
-
-    // Render the application
-    logger.debug("Rendering application...");
-
+    // 2. Render React Root with BootstrapGuard
+    // The Guard will handle the 8-step bootstrap sequence and UI states
     const root = createRoot(rootElement);
-    logger.debug("Root created, rendering React app...");
     root.render(
       <StrictMode>
-        <AppRoutes />
+        <BootstrapGuard>
+          <AppRoutes />
+        </BootstrapGuard>
       </StrictMode>
     );
 
-    logger.debug("✅ Application rendered successfully");
+    logger.debug("Application root rendered with BootstrapGuard");
   } catch (error) {
     logger.error(
       "Fatal error during application initialization",
       error instanceof Error ? error : new Error(String(error))
     );
 
-    // Show error screen
+    // High-fidelity fallback error UI
     rootElement.innerHTML = `
       <div class="vc-error-root">
         <div class="vc-error-card">
           <div class="vc-error-icon">❌</div>
-          <div class="vc-error-title">Fatal Error</div>
-          <div class="vc-error-message">${error instanceof Error ? error.message : "An unexpected error occurred"}</div>
-          ${
-            isDevelopment()
-              ? `
-            <div class="vc-error-details">
-              <div class="vc-error-summary">Stack Trace</div>
-              <pre class="vc-error-stack">${error instanceof Error ? error.stack : ""}</pre>
-            </div>
-          `
-              : ""
-          }
+          <div class="vc-error-title">Fatal Startup Error</div>
+          <div class="vc-error-message">${error instanceof Error ? error.message : "An unexpected error occurred during bootstrap initiation."}</div>
         </div>
       </div>
     `;
@@ -135,6 +67,4 @@ async function main() {
 }
 
 // Start the application
-main().catch((error) => {
-  logger.error("Unhandled error in main():", error);
-});
+main();

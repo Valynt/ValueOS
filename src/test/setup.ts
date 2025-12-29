@@ -1,12 +1,12 @@
-import '@testing-library/jest-dom/vitest';
-import { afterAll, afterEach, beforeAll, vi } from 'vitest';
-import { cleanup } from '@testing-library/react';
-import { setupServer } from 'msw/node';
+import "@testing-library/jest-dom/vitest";
+import { afterAll, afterEach, beforeAll, vi } from "vitest";
+import { cleanup } from "@testing-library/react";
+import { setupServer } from "msw/node";
 
 // Re-use existing global setup for env vars and polyfills
-import '../../test/setup';
+import "../../tests/setup";
 
-vi.mock('../config/featureFlags', () => ({
+vi.mock("../config/featureFlags", () => ({
   featureFlags: {
     ENABLE_UNIFIED_ORCHESTRATION: true,
     ENABLE_STATELESS_ORCHESTRATION: false,
@@ -15,18 +15,18 @@ vi.mock('../config/featureFlags', () => ({
     ENABLE_TRACE_LOGGING: true,
     ENABLE_CIRCUIT_BREAKER: true,
     ENABLE_RATE_LIMITING: true,
-    ENABLE_AUDIT_LOGGING: true
+    ENABLE_AUDIT_LOGGING: true,
   },
   isFeatureEnabled: () => false,
   getEnabledFeatures: () => [],
-  getDisabledFeatures: () => []
+  getDisabledFeatures: () => [],
 }));
 
 export const server = setupServer();
 
 beforeAll(() => {
-  vi.setSystemTime(new Date('2025-01-01T12:00:00-05:00'));
-  server.listen({ onUnhandledRequest: 'error' });
+  vi.setSystemTime(new Date("2025-01-01T12:00:00-05:00"));
+  server.listen({ onUnhandledRequest: "warn" });
 });
 
 afterEach(() => {

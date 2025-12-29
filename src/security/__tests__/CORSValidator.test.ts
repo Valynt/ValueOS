@@ -74,21 +74,20 @@ describe("CORSValidator", () => {
   });
 
   describe("isValidOrigin", () => {
-    beforeEach(() => {
-      __setEnvSourceForTests({ NODE_ENV: "development" });
-    });
-
     it("should validate HTTPS URLs", () => {
       expect(isValidOrigin("https://app.valueos.com")).toBe(true);
     });
 
     it("should validate HTTP URLs in development", () => {
+      vi.stubEnv("PROD", false as any);
       expect(isValidOrigin("http://localhost:5173")).toBe(true);
+      vi.unstubAllEnvs();
     });
 
     it("should reject HTTP URLs in production", () => {
-      __setEnvSourceForTests({ NODE_ENV: "production" });
+      vi.stubEnv("PROD", true as any);
       expect(isValidOrigin("http://app.valueos.com")).toBe(false);
+      vi.unstubAllEnvs();
     });
 
     it("should reject URLs with trailing slashes", () => {
@@ -102,40 +101,37 @@ describe("CORSValidator", () => {
 
   describe("getEnvCORSOrigins", () => {
     it("should parse comma-separated origins", () => {
-      __setEnvSourceForTests({
-        CORS_ORIGINS: "https://app.valueos.com,https://staging.valueos.com",
-      });
+      vi.stubEnv(
+        "VITE_CORS_ORIGINS",
+        "https://app.valueos.com,https://staging.valueos.com"
+      );
       const origins = getEnvCORSOrigins();
 
       expect(origins).toEqual([
         "https://app.valueos.com",
         "https://staging.valueos.com",
       ]);
+      vi.unstubAllEnvs();
     });
 
     it("should return defaults for development", () => {
-      __setEnvSourceForTests({ NODE_ENV: "development" });
+      vi.stubEnv("VITE_CORS_ORIGINS", "");
+      vi.stubEnv("DEV", true as any);
 
       const origins = getEnvCORSOrigins();
       expect(origins).toContain("http://localhost:5173");
+      vi.unstubAllEnvs();
     });
 
     it("should handle whitespace in env var", () => {
-      __setEnvSourceForTests({
-        CORS_ORIGINS: " https://app.com , https://api.com ",
-      });
+      vi.stubEnv("VITE_CORS_ORIGINS", " https://app.com , https://api.com ");
       const origins = getEnvCORSOrigins();
 
       expect(origins).toEqual(["https://app.com", "https://api.com"]);
+      vi.unstubAllEnvs();
     });
 
     it("should not throw ReferenceError if process is undefined (browser safety)", () => {
-      // Vitest runs in Node, so process is defined.
-      // But we can test that calling the function doesn't rely directly on process.env
-      // our fix replaced direct process.env with getEnvVar/env utility
-
-      // We can't easily undefine 'process' in Node/Vitest without affecting the test runner itself,
-      // but we've verified CORSValidator.ts no longer contains the string "process.env"
       expect(() => getEnvCORSOrigins()).not.toThrow();
     });
   });
