@@ -16,7 +16,7 @@ export default defineConfig({
   define: {
     global: "globalThis",
     "process.env": "{}",
-    process: "({ env: {} })",
+    process: { env: {} },
   },
   server: {
     host: process.env.VITE_HOST || "0.0.0.0", // Listen on all interfaces for container/Codespace access
