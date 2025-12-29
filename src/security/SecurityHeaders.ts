@@ -6,6 +6,7 @@
  */
 
 import { getSecurityConfig } from "./SecurityConfig";
+import { logger } from "../lib/logger";
 
 /**
  * Generate Content Security Policy header value
@@ -234,15 +235,24 @@ export function createSecurityMetaTags(): void {
   if (config.csp.enabled) {
     const csp = generateCSPHeader();
     if (csp) {
-      let metaTag = document.querySelector(
-        'meta[http-equiv="Content-Security-Policy"]'
-      ) as HTMLMetaElement;
-      if (!metaTag) {
-        metaTag = document.createElement("meta");
-        metaTag.httpEquiv = "Content-Security-Policy";
-        document.head.appendChild(metaTag);
+      // frame-ancestors is ignored in meta tags, so we filter it out if present
+      const metaCsp = csp
+        .split(";")
+        .map((d) => d.trim())
+        .filter((d) => !d.startsWith("frame-ancestors"))
+        .join("; ");
+
+      if (metaCsp) {
+        let metaTag = document.querySelector(
+          'meta[http-equiv="Content-Security-Policy"]'
+        ) as HTMLMetaElement;
+        if (!metaTag) {
+          metaTag = document.createElement("meta");
+          metaTag.httpEquiv = "Content-Security-Policy";
+          document.head.appendChild(metaTag);
+        }
+        metaTag.content = metaCsp;
       }
-      metaTag.content = csp;
     }
   }
 
@@ -293,7 +303,12 @@ export function validateSecurityHeaders(response: Response): {
  * Log security headers for debugging
  */
 export function logSecurityHeaders(): void {
-  const headers = getSecurityHeaders();
-
-  logger.debug("Security Headers:", headers);
+  try {
+    const headers = getSecurityHeaders();
+    // Use fallback to console if logger is not yet defined (circular dependency safety)
+    const logObj = typeof logger !== "undefined" ? logger : console;
+    logObj.debug("Security Headers:", headers);
+  } catch (err) {
+    console.error("Failed to log security headers:", err);
+  }
 }

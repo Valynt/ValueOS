@@ -264,7 +264,8 @@ export const ROLE_SESSION_TIMEOUTS: Record<string, RoleSessionConfig> = {
  * Get session timeout configuration for a role
  */
 export function getSessionTimeoutForRole(role: string): RoleSessionConfig {
-  return ROLE_SESSION_TIMEOUTS[role] || ROLE_SESSION_TIMEOUTS.member;
+  return (ROLE_SESSION_TIMEOUTS[role] ||
+    ROLE_SESSION_TIMEOUTS.member) as RoleSessionConfig;
 }
 
 /**
@@ -486,7 +487,7 @@ export function loadSecurityConfig(): SecurityConfig {
           envConfig.agents.apiUrl,
           envConfig.database.url,
           "https://api.pwnedpasswords.com", // Password breach checking
-        ].filter(Boolean),
+        ].filter((src) => src && !src.startsWith("/")),
         upgradeInsecureRequests: envConfig.security.httpsOnly,
       },
     },

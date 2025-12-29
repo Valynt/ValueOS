@@ -12,7 +12,6 @@
  */
 
 import { logger } from "../lib/logger";
-import { env, getEnvVar } from "../lib/env";
 
 export interface CORSConfig {
   enabled: boolean;
@@ -77,7 +76,7 @@ export function isValidOrigin(origin: string): boolean {
     const url = new URL(origin);
 
     // Must use HTTPS in production (except localhost for dev)
-    if (env.isProduction) {
+    if (import.meta.env?.PROD) {
       if (url.protocol !== "https:") {
         logger.warn(`Non-HTTPS origin in production: ${origin}`);
         return false;
@@ -102,12 +101,12 @@ export function isValidOrigin(origin: string): boolean {
  * Example: "https://app.valueos.com,https://staging.valueos.com"
  */
 export function getEnvCORSOrigins(): string[] {
-  const envOrigins =
-    getEnvVar("CORS_ORIGINS") || getEnvVar("VITE_CORS_ORIGINS") || "";
+  // Use import.meta.env directly for Vite compatibility in the browser
+  const envOrigins = (import.meta.env?.VITE_CORS_ORIGINS as string) || "";
 
   if (!envOrigins) {
     // Default origins for development
-    if (env.isDevelopment) {
+    if (import.meta.env?.DEV) {
       return [
         "http://localhost:5173", // Vite dev server
         "http://localhost:3000", // Alternative port

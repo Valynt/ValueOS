@@ -13,11 +13,11 @@ export default defineConfig({
     environment: "node", // Use node env for backend/repo tests
     setupFiles: [
       "./tests/setup.ts",
+      "./src/test/setup.ts",
       "./src/test/setup-integration.ts",
       "./src/sdui/__tests__/setup.ts",
     ],
     globalSetup: "./src/test/vitest-global-setup.ts",
-    globalTeardown: "./src/test/vitest-global-teardown.ts",
     include: [
       "src/**/*.{test,spec}.{ts,tsx}",
       "tests/**/*.{test,spec}.{ts,tsx}",
@@ -25,7 +25,6 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html", "lcov"],
-      all: true,
       include: ["src/**/*.{ts,tsx}"],
       exclude: [
         "node_modules/",
@@ -49,16 +48,6 @@ export default defineConfig({
       "test/performance/**",
       "src/sdui/__tests__/security.pure-unit.test.ts", // Standalone test, not for Vitest
     ],
-    // ⚠️ Important: Run sequentially to avoid race conditions on the single container
-    // Enable parallel execution with pooling
-    pool: "forks",
-    poolOptions: {
-      forks: {
-        singleFork: false,
-        maxForks: 4,
-        minForks: 1,
-      },
-    },
     // Reduce timeouts for faster feedback
     testTimeout: 15000,
     hookTimeout: 60000,
