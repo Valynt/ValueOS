@@ -33,7 +33,8 @@ export type LifecycleStage =
   | 'system-mapper'
   | 'intervention-designer'
   | 'outcome-engineer'
-  | 'coordinator';
+  | 'coordinator'
+  | 'communicator';
 
 /**
  * Agent type union - all supported agent types

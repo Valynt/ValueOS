@@ -1,0 +1,102 @@
+apiVersion: v1
+kind: AgentManifest
+metadata:
+  name: benchmark-agent
+  description: "Provides industry benchmarking, comparative analysis, and KPI validation with real-time status updates."
+  version: "1.0.0"
+spec:
+  schema:
+    input:
+      type: object
+      required:
+        - industry
+        - kpis
+      properties:
+        industry:
+          type: string
+          description: Industry vertical for benchmarks
+        companySize:
+          type: string
+          enum: [small, medium, large, enterprise]
+        region:
+          type: string
+          description: Geographic region for benchmarks
+        kpis:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              currentValue:
+                type: number
+              unit:
+                type: string
+              targetDirection:
+                type: string
+                enum: [increase, decrease]
+    output:
+      type: object
+      required:
+        - comparisons
+        - overallPosition
+        - confidenceLevel
+      properties:
+        comparisons:
+          type: array
+          description: KPI benchmark comparisons with gap analysis
+        industryInsights:
+          type: array
+          description: Relevant industry trends
+        overallPosition:
+          type: string
+          enum: [leader, competitive, lagging]
+        prioritizedImprovements:
+          type: array
+          description: Ranked improvement opportunities
+        executiveSummary:
+          type: string
+        confidenceLevel:
+          type: string
+          enum: [high, medium, low]
+  entrypoint:
+    module: src/lib/agent-fabric/agents/BenchmarkAgent.ts
+    class: BenchmarkAgent
+    method: execute
+    httpEndpoint: "/api/agents/benchmark/execute"
+  runtime:
+    language: typescript
+    memory: "512Mi"
+    cpu: "250m"
+    dependencies:
+      - name: zod
+        version: "^3.23.0"
+      - name: "@supabase/supabase-js"
+        version: "^2.57.0"
+  permissions:
+    roles:
+      - reader: ["valueFabric.benchmarks", "valueFabric.kpis"]
+      - publisher: ["events.benchmark.*"]
+    securityPolicies:
+      - enforceRoleSegregation: true
+      - throttleRequests: true
+  communication:
+    subscribe:
+      - topic: "events.target.created"
+    publish:
+      - topic: "events.benchmark.completed"
+      - topic: "events.benchmark.status"
+  health:
+    livenessProbe:
+      httpGet:
+        path: "/health/live"
+        port: 8087
+      intervalSeconds: 30
+    readinessProbe:
+      httpGet:
+        path: "/health/ready"
+        port: 8087
+      intervalSeconds: 30
+  monitoring:
+    metricsEndpoint: "/metrics"
+    logLevel: INFO
