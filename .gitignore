@@ -123,3 +123,10 @@ TEST_TRIAGE.md
 
 *storybook.log
 storybook-static
+
+# Playwright
+.playwright-browsers/
+test-results/
+playwright-report/
+blob-report/
+playwright-artifacts/
