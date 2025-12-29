@@ -1,0 +1,186 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CRM Integration Configuration",
+  "description": "Field mapping and configuration for CRM integration with ValueCanvas Ground Truth Engine",
+  
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Configuration version",
+      "default": "1.0.0"
+    },
+    
+    "provider": {
+      "type": "string",
+      "enum": ["salesforce", "hubspot", "dynamics"],
+      "description": "CRM provider this configuration applies to"
+    },
+    
+    "mappings": {
+      "type": "object",
+      "description": "Field mappings from CRM to Ground Truth Engine",
+      "properties": {
+        "revenue": {
+          "$ref": "#/definitions/fieldMapping",
+          "description": "Annual revenue or deal value field"
+        },
+        "closeDate": {
+          "$ref": "#/definitions/fieldMapping",
+          "description": "Expected close date field"
+        },
+        "stage": {
+          "$ref": "#/definitions/stageMapping",
+          "description": "Deal stage field with enum mapping"
+        },
+        "probability": {
+          "$ref": "#/definitions/fieldMapping",
+          "description": "Win probability percentage"
+        },
+        "companyName": {
+          "$ref": "#/definitions/fieldMapping",
+          "description": "Associated company name"
+        },
+        "industry": {
+          "$ref": "#/definitions/fieldMapping",
+          "description": "Company industry field"
+        },
+        "employees": {
+          "$ref": "#/definitions/fieldMapping",
+          "description": "Company employee count"
+        }
+      }
+    },
+    
+    "writeBack": {
+      "type": "object",
+      "description": "Fields for writing calculated metrics back to CRM",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable bi-directional sync"
+        },
+        "roiField": {
+          "type": "string",
+          "description": "Custom field for calculated ROI",
+          "examples": ["Calculated_ROI__c", "calculated_roi"]
+        },
+        "npvField": {
+          "type": "string",
+          "description": "Custom field for Net Present Value"
+        },
+        "paybackField": {
+          "type": "string",
+          "description": "Custom field for payback period in months"
+        },
+        "totalValueField": {
+          "type": "string",
+          "description": "Custom field for total projected value"
+        },
+        "confidenceField": {
+          "type": "string",
+          "description": "Custom field for value confidence score"
+        },
+        "lastSyncField": {
+          "type": "string",
+          "description": "Custom field for last sync timestamp"
+        }
+      }
+    },
+    
+    "contextInjection": {
+      "type": "object",
+      "description": "Configuration for live data injection into Ground Truth Engine",
+      "properties": {
+        "autoPopulateDashboards": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically populate financial templates with deal data"
+        },
+        "refreshIntervalSeconds": {
+          "type": "integer",
+          "default": 300,
+          "description": "How often to refresh deal context (5 min default)"
+        },
+        "templateBindings": {
+          "type": "object",
+          "description": "Map CRM fields to template data sources",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    
+    "security": {
+      "type": "object",
+      "properties": {
+        "piiRedaction": {
+          "type": "boolean",
+          "default": true,
+          "description": "Redact PII patterns before sending to LLM"
+        },
+        "fieldLevelSecurityCheck": {
+          "type": "boolean",
+          "default": true,
+          "description": "Verify write permissions before sync"
+        },
+        "dryRunDefault": {
+          "type": "boolean",
+          "default": false,
+          "description": "Default to dry-run mode for writes"
+        }
+      }
+    }
+  },
+  
+  "definitions": {
+    "fieldMapping": {
+      "type": "object",
+      "properties": {
+        "sourceField": {
+          "type": "string",
+          "description": "CRM field API name"
+        },
+        "required": {
+          "type": "boolean",
+          "default": false
+        },
+        "transform": {
+          "type": "string",
+          "enum": ["none", "currency", "percentage", "date", "number"],
+          "default": "none"
+        },
+        "defaultValue": {
+          "description": "Default value if field is empty"
+        }
+      },
+      "required": ["sourceField"]
+    },
+    
+    "stageMapping": {
+      "type": "object",
+      "properties": {
+        "sourceField": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean",
+          "default": true
+        },
+        "enumMap": {
+          "type": "object",
+          "description": "Map CRM stage values to normalized stages",
+          "additionalProperties": {
+            "type": "string",
+            "enum": ["discovery", "qualified", "proposal", "negotiation", "closed_won", "closed_lost"]
+          }
+        }
+      },
+      "required": ["sourceField", "enumMap"]
+    }
+  },
+  
+  "required": ["provider", "mappings"]
+}

@@ -1,0 +1,76 @@
+{
+  "$schema": "./crm-config.schema.json",
+  "version": "1.0.0",
+  "provider": "salesforce",
+  
+  "mappings": {
+    "revenue": { 
+      "sourceField": "Amount", 
+      "required": true,
+      "transform": "currency"
+    },
+    "closeDate": { 
+      "sourceField": "CloseDate", 
+      "required": true,
+      "transform": "date"
+    },
+    "stage": { 
+      "sourceField": "StageName",
+      "required": true,
+      "enumMap": {
+        "Prospecting": "discovery",
+        "Qualification": "qualified",
+        "Needs Analysis": "qualified",
+        "Value Proposition": "proposal",
+        "Id. Decision Makers": "proposal",
+        "Perception Analysis": "proposal",
+        "Proposal/Price Quote": "proposal",
+        "Negotiation/Review": "negotiation",
+        "Closed Won": "closed_won",
+        "Closed Lost": "closed_lost"
+      }
+    },
+    "probability": {
+      "sourceField": "Probability",
+      "transform": "percentage"
+    },
+    "companyName": {
+      "sourceField": "Account.Name"
+    },
+    "industry": {
+      "sourceField": "Account.Industry"
+    },
+    "employees": {
+      "sourceField": "Account.NumberOfEmployees",
+      "transform": "number"
+    }
+  },
+  
+  "writeBack": {
+    "enabled": true,
+    "roiField": "Calculated_ROI__c",
+    "npvField": "Net_Present_Value__c",
+    "paybackField": "Payback_Period_Months__c",
+    "totalValueField": "Total_Projected_Value__c",
+    "confidenceField": "Value_Confidence__c",
+    "lastSyncField": "ValueCanvas_Last_Sync__c"
+  },
+  
+  "contextInjection": {
+    "autoPopulateDashboards": true,
+    "refreshIntervalSeconds": 300,
+    "templateBindings": {
+      "dealValue": "financial.dealValue",
+      "expectedRevenue": "financial.expectedValue",
+      "daysToClose": "stage.daysToClose",
+      "companyName": "company.name",
+      "currentStage": "stage.normalized"
+    }
+  },
+  
+  "security": {
+    "piiRedaction": true,
+    "fieldLevelSecurityCheck": true,
+    "dryRunDefault": false
+  }
+}

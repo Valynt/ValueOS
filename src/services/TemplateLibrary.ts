@@ -2,14 +2,50 @@ import { logger } from '../lib/logger';
 import { CanvasComponent } from '../types';
 import { createCurrencyBinding, createMetricBinding, createPercentageBinding } from '../sdui/DataBindingSchema';
 
-export interface ComponentTemplate {
+// ============================================================================
+// Template Type Definitions (Discriminated Union)
+// ============================================================================
+
+/** Base template properties shared by all template types */
+interface BaseTemplate {
   id: string;
   name: string;
   description: string;
-  category: 'metrics' | 'charts' | 'tables' | 'narratives' | 'composite';
+  category: 'metrics' | 'charts' | 'tables' | 'narratives' | 'composite' | 'financial';
   thumbnail?: string;
-  components: Omit<CanvasComponent, 'id' | 'position'>[];
   tags: string[];
+}
+
+/** Canvas-based templates using SDUI primitives */
+interface CanvasTemplateDef extends BaseTemplate {
+  type: 'canvas';
+  components: Omit<CanvasComponent, 'id' | 'position'>[];
+}
+
+/** React component-based templates */
+interface ReactTemplateDef extends BaseTemplate {
+  type: 'react';
+  /** Key to lookup in TEMPLATE_COMPONENT_MAP */
+  componentKey: string;
+  /** Data requirements for rendering */
+  minDataRequirements?: {
+    metrics?: boolean;
+    outcomes?: boolean;
+    financials?: boolean;
+  };
+}
+
+/** Polymorphic template type - can be either canvas or react based */
+export type ComponentTemplate = CanvasTemplateDef | ReactTemplateDef;
+
+/** Type guard for canvas templates */
+export function isCanvasTemplate(template: ComponentTemplate): template is CanvasTemplateDef {
+  return template.type === 'canvas';
+}
+
+/** Type guard for react templates */
+export function isReactTemplate(template: ComponentTemplate): template is ReactTemplateDef {
+  return template.type === 'react';
 }
 
 class TemplateLibrary {
@@ -23,6 +59,7 @@ class TemplateLibrary {
     this.templates = [
       {
         id: 'roi-dashboard',
+        type: 'canvas',
         name: 'ROI Dashboard',
         description: 'Complete ROI analysis with metrics, breakdown, and timeline',
         category: 'composite',
@@ -67,6 +104,7 @@ class TemplateLibrary {
       },
       {
         id: 'realization-dashboard-live',
+        type: 'canvas',
         name: 'Realization Dashboard (Live)',
         description: 'Live realization metrics with dynamic data bindings - always shows latest data',
         category: 'composite',
@@ -145,6 +183,7 @@ class TemplateLibrary {
       },
       {
         id: 'cost-breakdown',
+        type: 'canvas',
         name: 'Cost Breakdown',
         description: 'Detailed cost analysis with pie chart and table',
         category: 'composite',
@@ -184,6 +223,7 @@ class TemplateLibrary {
       },
       {
         id: 'kpi-grid',
+        type: 'canvas',
         name: 'KPI Grid',
         description: 'Four key performance indicators in a grid layout',
         category: 'metrics',
@@ -233,6 +273,7 @@ class TemplateLibrary {
       },
       {
         id: 'scenario-comparison',
+        type: 'canvas',
         name: 'Scenario Comparison',
         description: 'Compare best, likely, and worst case scenarios',
         category: 'charts',
@@ -265,6 +306,7 @@ class TemplateLibrary {
       },
       {
         id: 'assumptions-table',
+        type: 'canvas',
         name: 'Assumptions Table',
         description: 'Key assumptions with sources and confidence levels',
         category: 'tables',
@@ -286,7 +328,62 @@ class TemplateLibrary {
             }
           }
         ]
-      }
+      },
+
+      // ========================================================================
+      // Financial Visualization Templates (React Components)
+      // ========================================================================
+
+      {
+        id: 'impact-cascade',
+        type: 'react',
+        componentKey: 'impact-cascade',
+        name: 'Impact Cascade',
+        description: 'Value driver waterfall showing capabilities → outcomes → KPIs → financial impact',
+        category: 'financial',
+        tags: ['cascade', 'waterfall', 'value-drivers', 'financial', 'impact', 'flow'],
+        minDataRequirements: { outcomes: true, financials: true },
+      },
+      {
+        id: 'trinity-dashboard',
+        type: 'react',
+        componentKey: 'trinity-dashboard',
+        name: 'Trinity Dashboard',
+        description: '3-pillar ROI view: Revenue Impact, Cost Savings, Risk Reduction',
+        category: 'financial',
+        tags: ['trinity', 'roi', 'revenue', 'cost', 'risk', 'pillars', 'dashboard'],
+        minDataRequirements: { financials: true },
+      },
+      {
+        id: 'story-arc',
+        type: 'react',
+        componentKey: 'story-arc',
+        name: 'Story Arc Canvas',
+        description: 'Narrative progression: Current State → Challenges → Solution → Implementation → Future',
+        category: 'financial',
+        tags: ['story', 'narrative', 'journey', 'presentation', 'arc', 'transformation'],
+        minDataRequirements: { outcomes: true },
+      },
+      {
+        id: 'scenario-matrix',
+        type: 'react',
+        componentKey: 'scenario-matrix',
+        name: 'Scenario Matrix',
+        description: 'What-if comparison: Conservative, Expected, and Optimistic scenarios side-by-side',
+        category: 'financial',
+        tags: ['scenario', 'what-if', 'comparison', 'conservative', 'optimistic', 'matrix'],
+        minDataRequirements: { financials: true },
+      },
+      {
+        id: 'quantum-view',
+        type: 'react',
+        componentKey: 'quantum-view',
+        name: 'Quantum View',
+        description: 'Multi-dimensional analysis across time, scope, certainty, and category dimensions',
+        category: 'financial',
+        tags: ['quantum', 'multi-dimensional', 'time', 'scope', 'certainty', 'analysis'],
+        minDataRequirements: { financials: true, outcomes: true },
+      },
     ];
   }
 
@@ -312,9 +409,20 @@ class TemplateLibrary {
     );
   }
 
+  /**
+   * Instantiate a canvas template at a given position.
+   * Only works for 'canvas' type templates. 
+   * For 'react' templates, use getTemplateById and render the component directly.
+   */
   instantiateTemplate(templateId: string, startPosition: { x: number; y: number }): CanvasComponent[] {
     const template = this.getTemplateById(templateId);
     if (!template) return [];
+
+    // React templates cannot be instantiated as canvas components
+    if (template.type === 'react') {
+      logger.warn(`Cannot instantiate React template '${templateId}' as canvas components. Use getTemplateById and render directly.`);
+      return [];
+    }
 
     let currentX = startPosition.x;
     let currentY = startPosition.y;
@@ -339,6 +447,20 @@ class TemplateLibrary {
 
       return component;
     });
+  }
+
+  /**
+   * Get all financial (react) templates
+   */
+  getFinancialTemplates(): ComponentTemplate[] {
+    return this.templates.filter(t => t.type === 'react');
+  }
+
+  /**
+   * Get all canvas templates
+   */
+  getCanvasTemplates(): ComponentTemplate[] {
+    return this.templates.filter(t => t.type === 'canvas');
   }
 }
 

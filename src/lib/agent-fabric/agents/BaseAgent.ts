@@ -10,6 +10,37 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import { AgentCircuitBreaker, SafetyLimits, withCircuitBreaker } from '../CircuitBreaker';
 import { enforceRules } from '../../rules';
 import { logger } from '../../../lib/logger';
+// VOS-SEC-001: Agent Identity System
+import {
+  AgentIdentity,
+  AgentRole,
+  Permission,
+  createAgentIdentity,
+  hasPermission,
+  requirePermission,
+  requiresHITL,
+  PermissionDeniedError,
+} from '../../auth/AgentIdentity';
+// VOS-SEC-002: Permission Middleware
+import { permissionMiddleware, withPermissionScope } from '../../auth/PermissionMiddleware';
+// VOS-HITL-001: HITL Framework
+import { hitlFramework, ApprovalRequest } from '../../hitl/HITLFramework';
+// 4-Layer Truth Architecture
+import {
+  IIntegrityAgent,
+  IntegrityCheckRequest,
+  IntegrityCheckResult,
+  IntegrityError,
+  IntegrityIssue,
+  Citation,
+  ReasoningChain,
+  getIntegrityAgent,
+  verifyCitations,
+  parseCitations,
+  createReasoningChain,
+  addReasoningStep,
+  finalizeReasoningChain,
+} from '../../truth/GroundTruthEngine';
 
 export interface SecureInvocationOptions {
   /** Custom confidence thresholds */
@@ -33,6 +64,15 @@ export abstract class BaseAgent {
   protected llmGateway: LLMGateway;
   protected memorySystem: MemorySystem;
   protected auditLogger: AuditLogger;
+  
+  /** VOS-SEC-001: Agent Identity for RBAC enforcement */
+  protected agentIdentity: AgentIdentity;
+  
+  /** 4-Layer Truth: Integrity Agent for adversarial peer review */
+  protected integrityAgent: IIntegrityAgent;
+  
+  /** 4-Layer Truth: Current reasoning chain for transparency */
+  protected currentReasoningChain: ReasoningChain | null = null;
 
   public abstract lifecycleStage: string;
   public abstract version: string;
@@ -50,6 +90,49 @@ export abstract class BaseAgent {
     this.llmGateway = config.llmGateway;
     this.memorySystem = config.memorySystem;
     this.auditLogger = config.auditLogger;
+    
+    // VOS-SEC-001: Initialize agent identity for RBAC
+    this.agentIdentity = createAgentIdentity({
+      role: this.mapNameToAgentRole(),
+      organizationId: config.organizationId || 'default',
+      parentSessionId: config.sessionId,
+      initiatingUserId: config.userId,
+      expirationSeconds: 7200, // 2 hours
+    });
+    
+    // 4-Layer Truth: Initialize integrity agent for adversarial peer review
+    this.integrityAgent = getIntegrityAgent();
+    
+    logger.info('Agent initialized with identity and integrity check', {
+      agentId: this.agentIdentity.id,
+      role: this.agentIdentity.role,
+      permissions: this.agentIdentity.permissions.length,
+      integrityEnabled: true,
+    });
+  }
+  
+  /**
+   * Map agent name to AgentRole enum (VOS-SEC-001)
+   */
+  private mapNameToAgentRole(): AgentRole {
+    const name = (this.constructor.name || '').toLowerCase();
+    
+    if (name.includes('coordinator') || name.includes('orchestrator')) return AgentRole.COORDINATOR;
+    if (name.includes('opportunity')) return AgentRole.OPPORTUNITY;
+    if (name.includes('target')) return AgentRole.TARGET;
+    if (name.includes('realization')) return AgentRole.REALIZATION;
+    if (name.includes('expansion')) return AgentRole.EXPANSION;
+    if (name.includes('integrity')) return AgentRole.INTEGRITY;
+    if (name.includes('communicator')) return AgentRole.COMMUNICATOR;
+    if (name.includes('benchmark')) return AgentRole.BENCHMARK;
+    if (name.includes('narrative')) return AgentRole.NARRATIVE;
+    if (name.includes('adversarial')) return AgentRole.ADVERSARIAL;
+    if (name.includes('financial')) return AgentRole.FINANCIAL_MODELING;
+    if (name.includes('company') || name.includes('intelligence')) return AgentRole.COMPANY_INTELLIGENCE;
+    if (name.includes('value') && name.includes('map')) return AgentRole.VALUE_MAPPING;
+    if (name.includes('research')) return AgentRole.RESEARCH;
+    
+    return AgentRole.SYSTEM; // Default for unknown agents
   }
 
   abstract execute(sessionId: string, input: any): Promise<any>;
@@ -529,5 +612,366 @@ export abstract class BaseAgent {
       output_snapshot: options.output_snapshot,
       metadata: options.metadata,
     });
+  }
+
+  // =========================================================================
+  // VOS-SEC-001/002: RBAC Enforcement Methods
+  // =========================================================================
+
+  /**
+   * Check if this agent has a specific permission
+   * Implements deny-by-default RBAC (VOS-SEC-002)
+   */
+  protected hasPermission(action: Permission): boolean {
+    return hasPermission(this.agentIdentity, action);
+  }
+
+  /**
+   * Require a permission, throwing PermissionDeniedError if not granted
+   * Implements deny-by-default RBAC (VOS-SEC-002)
+   */
+  protected requirePermission(action: Permission): void {
+    requirePermission(this.agentIdentity, action);
+  }
+
+  /**
+   * Execute an action with permission scope validation
+   * Uses middleware for caching and consistent enforcement (VOS-SEC-002)
+   */
+  protected async withPermissionScope<T>(
+    action: string,
+    executor: () => Promise<T>
+  ): Promise<T> {
+    return withPermissionScope(
+      this.agentIdentity,
+      { action, resource: 'agent_action', metadata: { agentId: this.agentId } },
+      executor
+    );
+  }
+
+  // =========================================================================
+  // VOS-HITL-001: Human-in-the-Loop Methods
+  // =========================================================================
+
+  /**
+   * Check if an action requires Human-in-the-Loop approval
+   */
+  protected requiresHITL(action: string): boolean {
+    return hitlFramework.requiresApproval(action);
+  }
+
+  /**
+   * Request HITL approval for a high-risk action
+   * Returns the approval request which can be awaited or handled asynchronously
+   */
+  protected async requestHITLApproval(
+    action: string,
+    details: {
+      description: string;
+      impact: string;
+      reversible: boolean;
+      affectedRecords: number;
+      preview?: Record<string, unknown>;
+    }
+  ): Promise<ApprovalRequest> {
+    return hitlFramework.requestApproval(
+      this.agentIdentity,
+      action,
+      {
+        description: details.description,
+        impact: details.impact,
+        reversible: details.reversible,
+      },
+      {
+        preview: details.preview || {},
+        affectedRecords: details.affectedRecords,
+      }
+    );
+  }
+
+  /**
+   * Execute an action that may require HITL approval
+   * Automatically handles the approval workflow
+   */
+  protected async executeWithHITL<T>(
+    action: string,
+    details: {
+      description: string;
+      impact: string;
+      reversible: boolean;
+      affectedRecords: number;
+      preview?: Record<string, unknown>;
+    },
+    executor: () => Promise<T>
+  ): Promise<T> {
+    // Check if HITL is required
+    if (!this.requiresHITL(action)) {
+      return executor();
+    }
+
+    // Request approval
+    const request = await this.requestHITLApproval(action, details);
+
+    // Check if auto-approved
+    if (request.status === 'auto_approved') {
+      logger.info('HITL auto-approved, executing action', {
+        requestId: request.id,
+        action,
+      });
+      return executor();
+    }
+
+    // For pending requests, throw to indicate async approval needed
+    throw new Error(
+      `HITL approval required. Request ID: ${request.id}. ` +
+      `Risk level: ${request.gate.riskLevel}. ` +
+      `Required approvers: ${request.gate.requiredApprovers}`
+    );
+  }
+
+  /**
+   * Get the agent's identity for audit purposes
+   */
+  public getAgentIdentity(): Readonly<AgentIdentity> {
+    return this.agentIdentity;
+  }
+
+  /**
+   * Get the agent's audit token for trace correlation
+   */
+  public getAuditToken(): string {
+    return this.agentIdentity.auditToken;
+  }
+
+  // =========================================================================
+  // 4-Layer Truth Architecture: Integrity Enforcement
+  // =========================================================================
+
+  /**
+   * Execute a task with mandatory integrity check (Layer 1)
+   * For high/critical risk tasks, IntegrityAgent performs adversarial review.
+   * NO AGENT CAN BYPASS THIS CHECK.
+   */
+  protected async executeWithIntegrityCheck<T>(
+    sessionId: string,
+    task: {
+      input: Record<string, unknown>;
+      riskLevel: 'low' | 'medium' | 'high' | 'critical';
+      requiresCitations: boolean;
+    },
+    executor: () => Promise<{ output: T; sources?: Citation[]; reasoning?: string }>
+  ): Promise<T> {
+    // Start reasoning chain for transparency (Layer 3)
+    this.currentReasoningChain = createReasoningChain(this.agentId, sessionId);
+    
+    // 1. Perform the primary work
+    const result = await executor();
+    
+    // 2. Verify citations if required (Layer 2)
+    if (task.requiresCitations) {
+      const outputText = typeof result.output === 'string' 
+        ? result.output 
+        : JSON.stringify(result.output);
+      
+      const citationIssues = this.verifySource(outputText);
+      
+      if (citationIssues.length > 0) {
+        logger.warn('Citation verification failed', {
+          agentId: this.agentId,
+          sessionId,
+          issues: citationIssues.length,
+        });
+        
+        // For high/critical risk, fail immediately on citation issues
+        if (task.riskLevel === 'high' || task.riskLevel === 'critical') {
+          throw new IntegrityError(citationIssues, {
+            passed: false,
+            confidence: 0,
+            issues: citationIssues,
+            recommendations: ['Add citations for all numerical claims'],
+            checkedAt: new Date().toISOString(),
+            checkedBy: 'citation_validator',
+          });
+        }
+      }
+    }
+    
+    // 3. For high/critical risk, invoke IntegrityAgent for peer review (Layer 1)
+    if (task.riskLevel === 'high' || task.riskLevel === 'critical') {
+      const integrityCheck = await this.requestPeerReview({
+        originalPrompt: JSON.stringify(task.input),
+        agentOutput: result.output as Record<string, unknown>,
+        citedSources: result.sources || [],
+        reasoningChain: this.currentReasoningChain,
+        riskLevel: task.riskLevel,
+        producingAgent: {
+          id: this.agentIdentity.id,
+          role: this.agentIdentity.role,
+        },
+      });
+      
+      // 4. Block if integrity check fails
+      if (!integrityCheck.passed) {
+        logger.error('Integrity check failed - blocking output', {
+          agentId: this.agentId,
+          sessionId,
+          issues: integrityCheck.issues.length,
+          confidence: integrityCheck.confidence,
+        });
+        
+        // Log to audit trail (Layer 4)
+        await this.auditLogger.logAction(sessionId, this.agentId, 'integrity_check_failed', {
+          reasoning: result.reasoning,
+          inputData: task.input,
+          outputData: result.output as Record<string, unknown>,
+          metadata: {
+            riskLevel: task.riskLevel,
+            issues: integrityCheck.issues,
+            checkedBy: integrityCheck.checkedBy,
+          },
+        });
+        
+        throw new IntegrityError(integrityCheck.issues, integrityCheck);
+      }
+      
+      // Log successful integrity check
+      await this.auditLogger.logAction(sessionId, this.agentId, 'integrity_check_passed', {
+        reasoning: result.reasoning,
+        metadata: {
+          riskLevel: task.riskLevel,
+          confidence: integrityCheck.confidence,
+          checkedBy: integrityCheck.checkedBy,
+        },
+      });
+    }
+    
+    // Finalize reasoning chain
+    if (this.currentReasoningChain) {
+      this.currentReasoningChain = finalizeReasoningChain(
+        this.currentReasoningChain,
+        typeof result.output === 'string' ? result.output : JSON.stringify(result.output),
+        true
+      );
+    }
+    
+    return result.output;
+  }
+
+  /**
+   * Verify that all numerical claims have source citations (Layer 2)
+   * Returns issues if uncited claims are found.
+   */
+  protected verifySource(text: string): IntegrityIssue[] {
+    return verifyCitations(text);
+  }
+
+  /**
+   * Parse citations from text
+   */
+  protected extractCitations(text: string): Citation[] {
+    return parseCitations(text);
+  }
+
+  /**
+   * Request peer review from IntegrityAgent (Layer 1)
+   */
+  protected async requestPeerReview(
+    request: IntegrityCheckRequest
+  ): Promise<IntegrityCheckResult> {
+    logger.info('Requesting peer review from IntegrityAgent', {
+      producingAgent: request.producingAgent.id,
+      riskLevel: request.riskLevel,
+      citationCount: request.citedSources.length,
+    });
+    
+    return this.integrityAgent.audit(request);
+  }
+
+  /**
+   * Add a step to the current reasoning chain (Layer 3)
+   * Makes agent logic visible for human review
+   */
+  protected addReasoningStep(
+    action: string,
+    input: Record<string, unknown>,
+    output: Record<string, unknown>,
+    citations: Citation[] = [],
+    verified: boolean = false
+  ): void {
+    if (this.currentReasoningChain) {
+      this.currentReasoningChain = addReasoningStep(this.currentReasoningChain, {
+        action,
+        input,
+        output,
+        citations,
+        verified,
+        verificationMethod: verified ? 'data_match' : undefined,
+      });
+    }
+  }
+
+  /**
+   * Get the current reasoning chain for transparency
+   */
+  public getReasoningChain(): Readonly<ReasoningChain> | null {
+    return this.currentReasoningChain;
+  }
+
+  /**
+   * Create a citation for a VMRT source
+   */
+  protected createVMRTCitation(
+    id: string,
+    field: string,
+    value: string | number
+  ): Citation {
+    return {
+      id: `VMRT-${id}`,
+      type: 'VMRT',
+      field,
+      value,
+      accessedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Create a citation for a CRM source
+   */
+  protected createCRMCitation(
+    recordId: string,
+    field: string,
+    value: string | number
+  ): Citation {
+    return {
+      id: `CRM-${recordId}`,
+      type: 'CRM',
+      field,
+      value,
+      accessedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Create a citation for a benchmark source
+   */
+  protected createBenchmarkCitation(
+    benchmarkId: string,
+    field: string,
+    value: string | number
+  ): Citation {
+    return {
+      id: `BENCHMARK-${benchmarkId}`,
+      type: 'BENCHMARK',
+      field,
+      value,
+      accessedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Format a value with its citation for output
+   */
+  protected formatWithCitation(value: string | number, citation: Citation): string {
+    return `${value} [Source: ${citation.id}${citation.field ? ':' + citation.field : ''}]`;
   }
 }
