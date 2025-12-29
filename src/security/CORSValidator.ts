@@ -12,6 +12,7 @@
  */
 
 import { logger } from "../lib/logger";
+import { env, getEnvVar } from "../lib/env";
 
 export interface CORSConfig {
   enabled: boolean;
@@ -76,7 +77,7 @@ export function isValidOrigin(origin: string): boolean {
     const url = new URL(origin);
 
     // Must use HTTPS in production (except localhost for dev)
-    if (process.env.NODE_ENV === "production") {
+    if (env.isProduction) {
       if (url.protocol !== "https:") {
         logger.warn(`Non-HTTPS origin in production: ${origin}`);
         return false;
@@ -102,11 +103,11 @@ export function isValidOrigin(origin: string): boolean {
  */
 export function getEnvCORSOrigins(): string[] {
   const envOrigins =
-    process.env.CORS_ORIGINS || process.env.VITE_CORS_ORIGINS || "";
+    getEnvVar("CORS_ORIGINS") || getEnvVar("VITE_CORS_ORIGINS") || "";
 
   if (!envOrigins) {
     // Default origins for development
-    if (process.env.NODE_ENV === "development") {
+    if (env.isDevelopment) {
       return [
         "http://localhost:5173", // Vite dev server
         "http://localhost:3000", // Alternative port
