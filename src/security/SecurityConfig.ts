@@ -1,11 +1,12 @@
 /**
  * Security Configuration
- * 
+ *
  * Centralized security configuration implementing OWASP Top 10 mitigations.
  * Provides security policies, validation rules, and enforcement mechanisms.
  */
 
-import { getConfig } from '../config/environment';
+import { getConfig } from "../config/environment";
+import { getEnvCORSOrigins, validateCORSConfig } from "./CORSValidator";
 
 /**
  * Password policy configuration
@@ -45,7 +46,7 @@ export interface SessionConfig {
   renewalThreshold: number; // milliseconds before expiry to renew
   secure: boolean;
   httpOnly: boolean;
-  sameSite: 'strict' | 'lax' | 'none';
+  sameSite: "strict" | "lax" | "none";
   domain?: string;
   path: string;
 }
@@ -125,14 +126,14 @@ export interface SecurityHeadersConfig {
   };
   xFrameOptions: {
     enabled: boolean;
-    value: 'DENY' | 'SAMEORIGIN';
+    value: "DENY" | "SAMEORIGIN";
   };
   xContentTypeOptions: {
     enabled: boolean;
   };
   xXssProtection: {
     enabled: boolean;
-    mode: 'block' | 'report';
+    mode: "block" | "report";
   };
   referrerPolicy: {
     enabled: boolean;
@@ -149,7 +150,7 @@ export interface SecurityHeadersConfig {
  */
 export interface AuditConfig {
   enabled: boolean;
-  logLevel: 'all' | 'security' | 'critical';
+  logLevel: "all" | "security" | "critical";
   includeRequestBody: boolean;
   includeResponseBody: boolean;
   maskSensitiveData: boolean;
@@ -187,7 +188,7 @@ const DEFAULT_PASSWORD_POLICY: PasswordPolicy = {
   requireLowercase: true,
   requireNumbers: true,
   requireSpecialChars: true,
-  specialChars: '!@#$%^&*()_+-=[]{}|;:,.<>?',
+  specialChars: "!@#$%^&*()_+-=[]{}|;:,.<>?",
   preventCommonPasswords: true,
   preventUserInfo: true,
   maxAge: 90, // 90 days
@@ -206,42 +207,113 @@ const DEFAULT_RATE_LIMIT: RateLimitConfig = {
 };
 
 /**
- * Default session configuration
+ * Role-based session timeout configuration
+ *
+ * AUTH-004: Shorter timeouts for privileged roles
+ */
+export interface RoleSessionConfig {
+  idleTimeout: number; // ms until session expires from inactivity
+  absoluteTimeout: number; // ms until forced re-auth
+  renewalThreshold: number; // ms before expiry to auto-renew
+  warningThreshold: number; // ms before expiry to show warning
+}
+
+/**
+ * Session timeout policies by role
+ */
+export const ROLE_SESSION_TIMEOUTS: Record<string, RoleSessionConfig> = {
+  super_admin: {
+    idleTimeout: 900000, // 15 minutes
+    absoluteTimeout: 1800000, // 30 minutes
+    renewalThreshold: 300000, // 5 minutes
+    warningThreshold: 120000, // 2 minutes
+  },
+  admin: {
+    idleTimeout: 900000, // 15 minutes
+    absoluteTimeout: 1800000, // 30 minutes
+    renewalThreshold: 300000,
+    warningThreshold: 120000,
+  },
+  manager: {
+    idleTimeout: 1200000, // 20 minutes
+    absoluteTimeout: 2700000, // 45 minutes
+    renewalThreshold: 300000,
+    warningThreshold: 180000, // 3 minutes
+  },
+  member: {
+    idleTimeout: 1800000, // 30 minutes
+    absoluteTimeout: 3600000, // 1 hour
+    renewalThreshold: 300000,
+    warningThreshold: 300000, // 5 minutes
+  },
+  viewer: {
+    idleTimeout: 1800000, // 30 minutes
+    absoluteTimeout: 3600000, // 1 hour
+    renewalThreshold: 300000,
+    warningThreshold: 300000,
+  },
+  guest: {
+    idleTimeout: 600000, // 10 minutes
+    absoluteTimeout: 1800000, // 30 minutes
+    renewalThreshold: 180000, // 3 minutes
+    warningThreshold: 60000, // 1 minute
+  },
+};
+
+/**
+ * Get session timeout configuration for a role
+ */
+export function getSessionTimeoutForRole(role: string): RoleSessionConfig {
+  return ROLE_SESSION_TIMEOUTS[role] || ROLE_SESSION_TIMEOUTS.member;
+}
+
+/**
+ * Default session configuration (backward compatibility)
  */
 const DEFAULT_SESSION_CONFIG: SessionConfig = {
-  timeout: 1800000, // 30 minutes idle timeout
+  timeout: 1800000, // 30 minutes idle timeout (default for member role)
   absoluteTimeout: 3600000, // 1 hour absolute
   renewalThreshold: 300000, // 5 minutes
   secure: true,
   httpOnly: true,
-  sameSite: 'strict',
-  path: '/',
+  sameSite: "strict",
+  path: "/",
 };
 
 /**
  * Default CORS configuration
+ *
+ * API-001: Environment-based origin whitelist with validation
  */
 const DEFAULT_CORS_CONFIG: CORSConfig = {
   enabled: true,
-  origins: [],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
+  origins: [], // Loaded from environment via getEnvCORSOrigins()
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-CSRF-Token",
+    "X-Tenant-ID",
+  ],
+  exposedHeaders: ["X-Total-Count", "X-Page-Count", "X-RateLimit-Remaining"],
   credentials: true,
   maxAge: 86400, // 24 hours
 };
 
 /**
  * Default CSP configuration
+ *
+ * SECURITY: INP-002 - Removed unsafe-inline to prevent XSS
+ * Use nonce-based CSP for inline scripts/styles
  */
 const DEFAULT_CSP_CONFIG: CSPConfig = {
   enabled: true,
   directives: {
     defaultSrc: ["'self'"],
-    scriptSrc: ["'self'", "'unsafe-inline'"], // TODO: Remove unsafe-inline in production
-    styleSrc: ["'self'", "'unsafe-inline'"],
-    imgSrc: ["'self'", 'data:', 'https:'],
-    fontSrc: ["'self'", 'data:'],
+    scriptSrc: ["'self'"], // Nonces added dynamically per-request
+    styleSrc: ["'self'"], // Nonces added dynamically per-request
+    imgSrc: ["'self'", "data:", "https:"],
+    fontSrc: ["'self'", "data:"],
     connectSrc: ["'self'"],
     frameSrc: ["'none'"],
     objectSrc: ["'none'"],
@@ -263,13 +335,13 @@ const DEFAULT_INPUT_VALIDATION: InputValidationConfig = {
   maxArrayLength: 1000,
   maxObjectDepth: 10,
   allowedFileTypes: [
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'image/webp',
-    'application/pdf',
-    'text/csv',
-    'application/json',
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+    "application/pdf",
+    "text/csv",
+    "application/json",
   ],
   maxFileSize: 10485760, // 10MB
   sanitizeHtml: true,
@@ -280,7 +352,7 @@ const DEFAULT_INPUT_VALIDATION: InputValidationConfig = {
  * Default encryption configuration
  */
 const DEFAULT_ENCRYPTION_CONFIG: EncryptionConfig = {
-  algorithm: 'aes-256-gcm',
+  algorithm: "aes-256-gcm",
   keyLength: 256,
   saltRounds: 12,
   atRestEnabled: true,
@@ -299,18 +371,18 @@ const DEFAULT_SECURITY_HEADERS: SecurityHeadersConfig = {
   },
   xFrameOptions: {
     enabled: true,
-    value: 'DENY',
+    value: "DENY",
   },
   xContentTypeOptions: {
     enabled: true,
   },
   xXssProtection: {
     enabled: true,
-    mode: 'block',
+    mode: "block",
   },
   referrerPolicy: {
     enabled: true,
-    value: 'strict-origin-when-cross-origin',
+    value: "strict-origin-when-cross-origin",
   },
   permissionsPolicy: {
     enabled: true,
@@ -329,18 +401,18 @@ const DEFAULT_SECURITY_HEADERS: SecurityHeadersConfig = {
  */
 const DEFAULT_AUDIT_CONFIG: AuditConfig = {
   enabled: true,
-  logLevel: 'security',
+  logLevel: "security",
   includeRequestBody: false,
   includeResponseBody: false,
   maskSensitiveData: true,
   sensitiveFields: [
-    'password',
-    'token',
-    'secret',
-    'apiKey',
-    'creditCard',
-    'ssn',
-    'email',
+    "password",
+    "token",
+    "secret",
+    "apiKey",
+    "creditCard",
+    "ssn",
+    "email",
   ],
   retentionDays: 90,
 };
@@ -382,11 +454,26 @@ export function loadSecurityConfig(): SecurityConfig {
       secure: envConfig.security.httpsOnly,
     },
 
-    cors: {
-      ...DEFAULT_CORS_CONFIG,
-      enabled: envConfig.security.corsOrigins.length > 0,
-      origins: envConfig.security.corsOrigins,
-    },
+    cors: (() => {
+      const corsConfig = {
+        ...DEFAULT_CORS_CONFIG,
+        origins: getEnvCORSOrigins(),
+      };
+
+      // Validate CORS configuration
+      try {
+        validateCORSConfig(corsConfig);
+      } catch (error) {
+        // Assuming a logger is available or using console.error
+        console.error(
+          "CORS configuration validation failed",
+          error instanceof Error ? error : undefined
+        );
+        throw error;
+      }
+
+      return corsConfig;
+    })(),
 
     csp: {
       ...DEFAULT_CSP_CONFIG,
@@ -398,7 +485,7 @@ export function loadSecurityConfig(): SecurityConfig {
           envConfig.app.apiBaseUrl,
           envConfig.agents.apiUrl,
           envConfig.database.url,
-          'https://api.pwnedpasswords.com', // Password breach checking
+          "https://api.pwnedpasswords.com", // Password breach checking
         ].filter(Boolean),
         upgradeInsecureRequests: envConfig.security.httpsOnly,
       },
@@ -441,22 +528,22 @@ export function validateSecurityConfig(config: SecurityConfig): string[] {
 
   // Password policy validation
   if (config.passwordPolicy.minLength < 12) {
-    errors.push('Password minimum length must be at least 12 characters');
+    errors.push("Password minimum length must be at least 12 characters");
   }
 
   // Rate limiting validation
   if (config.rateLimit.global.maxRequests < 1) {
-    errors.push('Rate limit must allow at least 1 request');
+    errors.push("Rate limit must allow at least 1 request");
   }
 
   // Session validation
   if (config.session.timeout < 60000) {
-    errors.push('Session timeout must be at least 1 minute');
+    errors.push("Session timeout must be at least 1 minute");
   }
 
   // CORS validation
   if (config.cors.enabled && config.cors.origins.length === 0) {
-    errors.push('CORS origins must be specified when CORS is enabled');
+    errors.push("CORS origins must be specified when CORS is enabled");
   }
 
   return errors;

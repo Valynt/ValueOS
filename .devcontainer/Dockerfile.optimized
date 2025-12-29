@@ -109,7 +109,8 @@ RUN npm install -g snyk
 # Stage 6: Database tools
 FROM security AS dbtools
 
-# Install Supabase CLI
+# Install Supabase CLI (always pulls latest version)
+# Note: npm package in package.json should also be kept up to date (npm install -D supabase@latest)
 RUN curl -fsSL https://raw.githubusercontent.com/supabase/cli/main/install.sh | sh
 
 # Install Prisma CLI

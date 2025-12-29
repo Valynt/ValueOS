@@ -545,13 +545,26 @@ Field-Level Encryption Keys
 
 ### Key Rotation Policy
 
-| Key Type         | Rotation Frequency | Auto-Rotation     |
-| ---------------- | ------------------ | ----------------- |
-| Master Keys      | Annual             | Yes (AWS KMS)     |
-| API Keys (LLM)   | 90 days            | Yes (VOS-SEC-005) |
-| Database Keys    | Annual             | Yes (Supabase)    |
-| JWT Signing Keys | 180 days           | Yes               |
-| User Passwords   | On compromise      | N/A               |
+| Key Type              | Rotation Frequency | Auto-Rotation         | Priority     |
+| --------------------- | ------------------ | --------------------- | ------------ |
+| **Together.ai API**   | **90 days**        | **Yes (VOS-SEC-005)** | **CRITICAL** |
+| OpenAI API            | 90 days            | Yes (VOS-SEC-005)     | High         |
+| Anthropic API         | 90 days            | Yes (VOS-SEC-005)     | High         |
+| AWS IAM Keys          | 90 days            | Yes (VOS-SEC-005)     | High         |
+| Master Keys           | Annual             | Yes (AWS KMS)         | Critical     |
+| Database Keys         | Annual             | Yes (Supabase)        | Critical     |
+| JWT Signing Keys      | 180 days           | Yes                   | Medium       |
+| Supabase Service Role | 180 days           | Manual notification   | Critical     |
+| User Passwords        | On compromise      | N/A                   | N/A          |
+
+**Note**: Together.ai is the primary LLM provider for ValueOS, handling 100% of AI inference traffic. Its API key rotation is prioritized as CRITICAL and automated via VOS-SEC-005.
+
+**Rotation Implementation**: All API key rotations include:
+
+- 2-hour grace period (zero-downtime rotation)
+- Pre-activation validation testing
+- Automatic audit logging
+- Admin notifications (for manual steps)
 
 ### Secure Key Storage
 

@@ -5,6 +5,8 @@
 
 import { createLogger } from '../logger';
 import { clientRateLimit } from '../services/ClientRateLimit';
+import { assertSafeUrl } from '../security/ssrfGuard';
+import { securityEvents } from '../security/securityLogger';
 
 const logger = createLogger({ component: 'NetworkSegmentation' });
 
@@ -205,39 +207,45 @@ export class NetworkSegmentationManager {
   /**
    * Validate network request against policy
    */
-  validateRequest(request: NetworkRequest): { allowed: boolean; reason?: string; policy?: NetworkPolicy } {
+  async validateRequest(request: NetworkRequest): Promise<{ allowed: boolean; reason?: string; policy?: NetworkPolicy }> {
     const policy = this.getPolicyForAgent(request.agentType);
 
     if (!policy) {
+      securityEvents.ssrfCheck(request.url, "blocked", `No policy for agent type: ${request.agentType}`);
       return {
         allowed: false,
         reason: `No network policy found for agent type: ${request.agentType}`
       };
     }
 
-    // Check domain access
-    const url = new URL(request.url);
-    const domainAllowed = this.isDomainAllowed(url.hostname, policy);
-    const portAllowed = policy.allowedPorts.includes(url.port ? parseInt(url.port) : (url.protocol === 'https:' ? 443 : 80));
-
-    if (!domainAllowed) {
+    // Use enterprise-grade SSRF guard
+    let safeUrl: URL;
+    try {
+      safeUrl = await assertSafeUrl(request.url);
+      securityEvents.ssrfCheck(request.url, "allowed");
+    } catch (error) {
+      securityEvents.ssrfCheck(request.url, "blocked", (error as Error).message);
       return {
         allowed: false,
-        reason: `Domain ${url.hostname} not allowed by policy ${policy.name}`,
+        reason: `SSRF protection: ${(error as Error).message}`,
         policy
       };
     }
 
+    // Additional policy checks
+    const port = safeUrl.port ? parseInt(safeUrl.port) : (safeUrl.protocol === 'https:' ? 443 : 80);
+    const portAllowed = policy.allowedPorts.includes(port);
+
     if (!portAllowed) {
       return {
         allowed: false,
-        reason: `Port ${url.port || (url.protocol === 'https:' ? 443 : 80)} not allowed by policy ${policy.name}`,
+        reason: `Port ${port} not allowed by policy ${policy.name}`,
         policy
       };
     }
 
     // Check encryption requirement
-    if (policy.encryptionRequired && url.protocol !== 'https:') {
+    if (policy.encryptionRequired && safeUrl.protocol !== 'https:') {
       return {
         allowed: false,
         reason: `HTTPS encryption required by policy ${policy.name}`,
@@ -252,7 +260,7 @@ export class NetworkSegmentationManager {
    * Execute network request with policy enforcement
    */
   async executeRequest(request: NetworkRequest): Promise<NetworkResponse> {
-    const validation = this.validateRequest(request);
+    const validation = await this.validateRequest(request);
 
     if (!validation.allowed) {
       throw new Error(`Network request blocked: ${validation.reason}`);
@@ -400,6 +408,11 @@ export class NetworkSegmentationManager {
    * Check if domain is allowed by policy
    */
   private isDomainAllowed(domain: string, policy: NetworkPolicy): boolean {
+      domain,
+      blockedDomains: policy.blockedDomains,
+      allowedDomains: policy.allowedDomains
+    });
+
     // Check blocked domains first (takes precedence)
     for (const blockedPattern of policy.blockedDomains) {
       if (this.matchesDomainPattern(domain, blockedPattern)) {
@@ -423,13 +436,81 @@ export class NetworkSegmentationManager {
   private matchesDomainPattern(domain: string, pattern: string): boolean {
     if (pattern === '*') return true;
 
-    // Convert wildcard pattern to regex
-    const regexPattern = pattern
-      .replace(/\./g, '\\.')
-      .replace(/\*/g, '.*');
+    // Improved pattern matching: use suffix matching for security
+    if (pattern.startsWith('*.')) {
+      const suffix = pattern.substring(2); // Remove '*.'
+      // Ensure exact suffix match with dot boundary
+      return domain.endsWith('.' + suffix) && domain !== suffix;
+    }
 
-    const regex = new RegExp(`^${regexPattern}$`, 'i');
-    return regex.test(domain);
+    // Exact match for non-wildcard patterns
+    return domain === pattern;
+  }
+
+  /**
+   * Check if IP address is private/internal
+   */
+  private isPrivateIP(ip: string): boolean {
+    // IPv4 private ranges
+    const ipv4PrivateRanges = [
+      /^10\./,                    // 10.0.0.0/8
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./, // 172.16.0.0/12
+      /^192\.168\./,             // 192.168.0.0/16
+      /^127\./,                  // 127.0.0.0/8 (loopback)
+      /^169\.254\./,             // 169.254.0.0/16 (link-local)
+    ];
+
+    // IPv6 private ranges
+    const ipv6PrivateRanges = [
+      /^fc00:/,  // Unique local address
+      /^fe80:/,  // Link-local
+      /^::1$/,   // Loopback
+    ];
+
+    // Check IPv4
+    if (ip.includes('.')) {
+      return ipv4PrivateRanges.some(range => range.test(ip));
+    }
+
+    // Check IPv6
+    if (ip.includes(':')) {
+      return ipv6PrivateRanges.some(range => range.test(ip));
+    }
+
+    return false;
+  }
+
+  /**
+   * Resolve domain to IP and check if it's private
+   */
+  private async resolveAndCheckIP(domain: string): Promise<{ allowed: boolean; ip?: string }> {
+    try {
+      // Use DNS resolution to get IP
+      const dns = require('dns');
+      const addresses = await new Promise<string[]>((resolve, reject) => {
+        dns.resolve4(domain, (err: any, addresses: string[]) => {
+          if (err) reject(err);
+          else resolve(addresses);
+        });
+      });
+
+      if (addresses.length === 0) {
+        return { allowed: false };
+      }
+
+      // Check if any resolved IP is private
+      const privateIPs = addresses.filter(ip => this.isPrivateIP(ip));
+      if (privateIPs.length > 0) {
+        logger.warn('Blocked request to private IP', { domain, privateIPs });
+        return { allowed: false, ip: privateIPs[0] };
+      }
+
+      return { allowed: true, ip: addresses[0] };
+    } catch (error) {
+      logger.warn('DNS resolution failed, allowing request', { domain, error: (error as Error).message });
+      // If DNS fails, allow the request (fail open for availability)
+      return { allowed: true };
+    }
   }
 
   /**

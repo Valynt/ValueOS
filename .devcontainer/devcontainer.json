@@ -40,7 +40,9 @@
   "postStartCommand": "bash .devcontainer/scripts/post-start.sh",
 
   // Port forwarding with labels
-  "forwardPorts": [3000, 8000, 5432, 16686, 9090, 3001, 6379],
+  "forwardPorts": [
+    3000, 8000, 5432, 16686, 9090, 3001, 6379, 54321, 54322, 54323, 54324
+  ],
   "portsAttributes": {
     "3000": {
       "label": "Frontend (Vite)",
@@ -68,6 +70,22 @@
     },
     "6379": {
       "label": "Redis",
+      "onAutoForward": "silent"
+    },
+    "54321": {
+      "label": "Supabase API",
+      "onAutoForward": "notify"
+    },
+    "54322": {
+      "label": "Supabase DB",
+      "onAutoForward": "silent"
+    },
+    "54323": {
+      "label": "Supabase Studio",
+      "onAutoForward": "notify"
+    },
+    "54324": {
+      "label": "Supabase Mailpit",
       "onAutoForward": "silent"
     }
   },

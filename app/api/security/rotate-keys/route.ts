@@ -34,7 +34,11 @@ export async function POST(request: NextRequest) {
 
     const { provider } = await request.json();
 
-    if (!["openai", "anthropic", "supabase", "aws-iam"].includes(provider)) {
+    if (
+      !["openai", "anthropic", "supabase", "aws-iam", "together_ai"].includes(
+        provider
+      )
+    ) {
       return NextResponse.json({ error: "Invalid provider" }, { status: 400 });
     }
 
@@ -46,6 +50,9 @@ export async function POST(request: NextRequest) {
         break;
       case "anthropic":
         result = await apiKeyRotationService.rotateAnthropicKey();
+        break;
+      case "together_ai":
+        result = await apiKeyRotationService.rotateTogetherAIKey();
         break;
       case "supabase":
         result = await apiKeyRotationService.rotateSupabaseKey();
@@ -104,6 +111,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       rotations: rotations || [],
       scheduledRotations: {
+        together_ai: { intervalDays: 90, autoRotate: true }, // PRIMARY LLM PROVIDER
         openai: { intervalDays: 90, autoRotate: true },
         anthropic: { intervalDays: 90, autoRotate: true },
         "aws-iam": { intervalDays: 90, autoRotate: true },

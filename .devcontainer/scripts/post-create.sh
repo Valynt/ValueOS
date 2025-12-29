@@ -74,6 +74,12 @@ if command -v kubectl &> /dev/null; then
     print_success "kubectl: $KUBECTL_VERSION"
 fi
 
+# Check Supabase CLI
+if command -v supabase &> /dev/null || npx supabase --version &> /dev/null 2>&1; then
+    SUPABASE_VERSION=$(npx supabase --version 2>/dev/null || echo "unknown")
+    print_success "Supabase CLI: $SUPABASE_VERSION"
+fi
+
 # 6. Display helpful information
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

@@ -17,6 +17,7 @@ import {
   resetRateLimit,
 } from "../security";
 import { clientRateLimit } from "./ClientRateLimit";
+import { mfaService } from "./MFAService";
 
 export interface LoginCredentials {
   email: string;
@@ -127,13 +128,11 @@ export class AuthService extends BaseService {
 
   /**
    * Sign in with email and password
+   *
+   * AUTH-001: Enforces MFA for privileged roles (super_admin, admin, manager)
    */
   async login(credentials: LoginCredentials): Promise<AuthSession> {
     this.validateRequired(credentials, ["email", "password"]);
-    const config = getConfig();
-    if (config.auth.mfaEnabled && !credentials.otpCode) {
-      throw new ValidationError("MFA code required for login");
-    }
 
     // Apply client-side rate limiting
     const rateLimitAllowed = await clientRateLimit.checkLimit("auth-attempts");
@@ -150,12 +149,10 @@ export class AuthService extends BaseService {
 
     return this.executeRequest(
       async () => {
+        // First, authenticate with Supabase
         const { data, error } = await this.supabase.auth.signInWithPassword({
           email: credentials.email,
           password: credentials.password,
-          options: {
-            captchaToken: credentials.otpCode, // reuse field for MFA/OTP when required by backend
-          },
         });
 
         if (error) {
@@ -177,11 +174,60 @@ export class AuthService extends BaseService {
           throw new AuthenticationError("Invalid credentials");
         }
 
+        // AUTH-001: Check if user's role requires MFA
+        const userRole = data.user.user_metadata?.role as string;
+        const mfaRequired = mfaService.isMFARRequiredForRole(userRole);
+
+        if (mfaRequired) {
+          // Check if user has MFA enabled
+          const mfaEnabled = await mfaService.hasMFAEnabled(data.user.id);
+
+          if (!mfaEnabled) {
+            // User needs to enroll in MFA
+            securityLogger.log({
+              category: "authentication",
+              action: "mfa-enrollment-required",
+              severity: "warn",
+              metadata: { userId: data.user.id, role: userRole },
+            });
+
+            throw new AuthenticationError(
+              "MFA_ENROLLMENT_REQUIRED: Your role requires multi-factor authentication. Please complete MFA setup."
+            );
+          }
+
+          // Verify MFA token
+          if (!credentials.otpCode) {
+            throw new ValidationError("MFA code required for your role");
+          }
+
+          const mfaResult = await mfaService.verifyMFAToken(
+            data.user.id,
+            credentials.otpCode
+          );
+
+          if (!mfaResult.verified) {
+            securityLogger.log({
+              category: "authentication",
+              action: "mfa-verification-failed",
+              severity: "warn",
+              metadata: { userId: data.user.id },
+            });
+            throw new AuthenticationError("Invalid MFA code");
+          }
+
+          if (mfaResult.usedBackupCode) {
+            logger.warn("User logged in with backup code", {
+              userId: data.user.id,
+            });
+          }
+        }
+
         resetRateLimit("auth", credentials.email);
         securityLogger.log({
           category: "authentication",
           action: "login-success",
-          metadata: { email: credentials.email },
+          metadata: { email: credentials.email, mfaUsed: mfaRequired },
         });
 
         return {

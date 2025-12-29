@@ -57,26 +57,6 @@ export function csrfProtectionMiddleware(req: Request, res: Response, next: Next
  * Session timeout enforcement (idle + absolute).
  * Requires a session object on the request with createdAt and lastActivityAt timestamps.
  */
-export function sessionTimeoutMiddleware(req: Request, res: Response, next: NextFunction): void {
-  const sessionConfig = getSecurityConfig().session;
-  const session = (req as any).session as { createdAt?: number; lastActivityAt?: number };
-
-  if (!session || !session.createdAt || !session.lastActivityAt) {
-    return res.status(401).json({ error: 'Session missing or invalid' });
-  }
-
-  const now = Date.now();
-
-  const idleDuration = now - session.lastActivityAt;
-  if (idleDuration > sessionConfig.timeout) {
-    return res.status(440).json({ error: 'Session expired due to inactivity' });
-  }
-
-  const absoluteDuration = now - session.createdAt;
-  if (absoluteDuration > sessionConfig.absoluteTimeout) {
-    return res.status(440).json({ error: 'Session exceeded absolute lifetime' });
-  }
-
   // Refresh last activity timestamp
   session.lastActivityAt = now;
   next();

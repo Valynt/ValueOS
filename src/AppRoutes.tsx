@@ -9,7 +9,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { DrawerProvider } from "./contexts/DrawerContext";
 import { ProtectedRoute } from "./components/Auth/ProtectedRoute";
 import { ToastProvider } from "./components/Common/Toast";
-import { ErrorBoundary } from "./components/ErrorBoundary";
+import { ErrorBoundary } from "./components/Common/ErrorBoundary";
 import { LoadingSpinner } from "./components/Common/LoadingSpinner";
 import { BetaFeedbackWidget } from "./components/Feedback/BetaFeedbackWidget";
 import { SDUIStateProvider } from "./lib/state/SDUIStateProvider";
