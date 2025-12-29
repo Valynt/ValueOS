@@ -18,6 +18,7 @@ import {
   SignupData,
 } from "../services/AuthService";
 import { createLogger } from "../lib/logger";
+import { UserClaims, computePermissions } from "../types/security";
 import { analyticsClient } from "../lib/analyticsClient";
 import { secureTokenManager } from "../lib/auth/SecureTokenManager";
 import { env } from "../lib/env";
@@ -100,8 +101,10 @@ class SecureSessionManager {
 
 interface AuthContextType {
   user: User | null;
+  userClaims: UserClaims | null; // New: with permissions
   session: Session | null;
   loading: boolean;
+  isAuthenticated: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
   signup: (data: SignupData) => Promise<void>;
   logout: () => Promise<void>;
@@ -116,6 +119,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [userClaims, setUserClaims] = useState<UserClaims | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -134,6 +138,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session) {
           setSession(session);
           setUser(session.user);
+
+          // Compute UserClaims with permissions
+          const roles = (session.user.user_metadata?.roles as string[]) || [
+            "ANALYST",
+          ];
+          setUserClaims({
+            sub: session.user.id,
+            email: session.user.email || "",
+            roles,
+            permissions: computePermissions(roles),
+            org_id: session.user.user_metadata?.org_id || "default",
+          });
+
           analyticsClient.identify(session.user.id, {
             email: session.user.email,
             created_at: session.user.created_at,
@@ -165,8 +182,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(newSession);
         setUser(newSession?.user ?? null);
 
+        // Update UserClaims
+        if (newSession?.user) {
+          const roles = (newSession.user.user_metadata?.roles as string[]) || [
+            "ANALYST",
+          ];
+          setUserClaims({
+            sub: newSession.user.id,
+            email: newSession.user.email || "",
+            roles,
+            permissions: computePermissions(roles),
+            org_id: newSession.user.user_metadata?.org_id || "default",
+          });
+        } else {
+          setUserClaims(null);
+        }
+
         if (event === "SIGNED_OUT") {
           setUser(null);
+          setUserClaims(null);
           setSession(null);
           SecureSessionManager.clearSession();
         } else if (newSession) {
@@ -268,8 +302,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value: AuthContextType = {
     user,
+    userClaims,
     session,
     loading,
+    isAuthenticated: !!user,
 
     login,
     signup,
