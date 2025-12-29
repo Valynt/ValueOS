@@ -72,12 +72,13 @@
     "saml:certs": "cd test/saml/certs && ./generate-test-certs.sh",
     "test:chaos": "ts-node scripts/chaos-test.ts",
     "chaos:enable": "CHAOS_ENABLED=true npm run dev",
+    "chaos:pipeline": "tsx scripts/chaos-engineering-pipeline.ts full",
+    "chaos:scheduled": "tsx scripts/chaos-engineering-pipeline.ts scheduled",
     "dev:fix": "bash scripts/dev-automation/fix-port-forwarding.sh",
     "dev:diagnose": "bash scripts/dev-automation/diagnose-network.sh",
     "dev:test-ports": "bash scripts/dev-automation/test-ports.sh",
     "dev:health": "bash scripts/dev-automation/dev-health-check.sh",
     "dev:auto-fix": "bash scripts/dev-automation/auto-fix.sh",
-    "chaos:pipeline": "bash scripts/run-chaos-pipeline.sh",
     "ci:bias-probes": "node -r tsx/cjs scripts/run-bias-probes.ts",
     "prepare": "husky",
     "beta:provision": "node -r tsx/cjs scripts/beta-provision.ts",
@@ -105,8 +106,44 @@
     "lint:inline-check": "node scripts/check-inline-styles.cjs",
     "lint:all": "npm run lint && npm run lint:css && npm run lint:inline-check",
     "check:tw-config": "node scripts/validate-tailwind-config.js",
-    "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    
+    "🔥 NEW EPIC-006 SCRIPTS 🔥",
+    
+    "test:coverage:enhance": "vitest run --coverage --reporter=verbose",
+    "test:mutation": "npx stryker run",
+    "test:property": "vitest run --config vitest.config.property.ts",
+    "test:benchmark": "tsx scripts/performance/run-benchmarks.ts",
+    "test:load:agent": "k6 run test/performance/agent-load-test.js",
+    "test:load:ui": "k6 run test/performance/ui-load-test.js",
+    "test:load:full": "k6 run test/performance/full-load-test.js",
+    
+    "chaos:full": "tsx scripts/chaos-engineering-pipeline.ts full",
+    "chaos:daily": "tsx scripts/chaos-engineering-pipeline.ts scheduled daily",
+    "chaos:weekly": "tsx scripts/chaos-engineering-pipeline.ts scheduled weekly",
+    "chaos:monthly": "tsx scripts/chaos-engineering-pipeline.ts scheduled monthly",
+    
+    "compliance:evidence": "bash scripts/compliance/collect-evidence.sh",
+    "compliance:validate": "tsx scripts/compliance/validate-controls.ts",
+    "compliance:report": "tsx scripts/compliance/generate-report.ts",
+    "compliance:full": "npm run compliance:evidence && npm run compliance:validate && npm run compliance:report",
+    
+    "soc2:prepare": "tsx scripts/soc2/prepare-audit.ts",
+    "soc2:checklist": "tsx scripts/soc2/checklist.ts",
+    "soc2:evidence": "bash scripts/compliance/collect-evidence.sh",
+    
+    "performance:baseline": "tsx scripts/performance/baseline.ts",
+    "performance:regression": "tsx scripts/performance/regression-check.ts",
+    "performance:monitor": "tsx scripts/performance/monitor.ts",
+    
+    "security:compliance": "npm run security:scan:all && npm run compliance:validate",
+    
+    "audit:all": "npm run test:coverage:enhance && npm run chaos:full && npm run performance:baseline && npm run compliance:full",
+    
+    "report:quality": "tsx scripts/reports/quality-metrics.ts",
+    "report:performance": "tsx scripts/reports/performance-metrics.ts",
+    "report:security": "tsx scripts/reports/security-metrics.ts",
+    "report:compliance": "tsx scripts/reports/compliance-metrics.ts",
+    "report:all": "npm run report:quality && npm run report:performance && npm run report:security && npm run report:compliance"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
@@ -121,14 +158,12 @@
     "@sentry/react": "^10.27.0",
     "@sentry/vite-plugin": "^4.6.1",
     "@supabase/supabase-js": "^2.57.4",
-    "@tanstack/react-virtual": "^3.13.13",
     "clsx": "^2.1.1",
     "cors": "^2.8.5",
     "dompurify": "^3.3.1",
     "express": "^4.18.2",
     "html2canvas": "^1.4.1",
     "isomorphic-dompurify": "^2.34.0",
-    "jspdf": "^3.0.4",
     "lucide-react": "^0.344.0",
     "lz-string": "^1.5.0",
     "p-queue": "^9.0.1",
@@ -145,7 +180,6 @@
     "winston": "^3.18.3",
     "winston-cloudwatch": "^6.3.0",
     "ws": "^8.18.3",
-    "xlsx": "^0.18.5",
     "zod": "^3.23.8",
     "zustand": "^5.0.9"
   },
@@ -204,15 +238,15 @@
     "typescript-eslint": "^8.3.0",
     "vite": "^7.2.6",
     "vitest": "^4.0.15",
-    "@storybook/react-vite": "^10.1.10",
-    "@chromatic-com/storybook": "^4.1.3",
-    "@storybook/addon-vitest": "^10.1.10",
-    "@storybook/addon-a11y": "^10.1.10",
-    "@storybook/addon-docs": "^10.1.10",
-    "@storybook/addon-onboarding": "^10.1.10",
-    "eslint-plugin-storybook": "^10.1.10",
-    "playwright": "^1.57.0",
-    "@vitest/browser-playwright": "^4.0.15"
+    
+    "🔥 NEW EPIC-006 DEPENDENCIES 🔥",
+    
+    "fast-check": "^3.15.0",
+    "@stryker-mutator/core": "^6.4.0",
+    "@stryker-mutator/vitest": "^6.4.0",
+    "k6": "^0.46.0",
+    "prom-client": "^15.1.3",
+    "grafana-sdk": "^0.1.0"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
