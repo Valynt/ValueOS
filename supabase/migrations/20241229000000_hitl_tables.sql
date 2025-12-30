@@ -33,6 +33,7 @@ ALTER TABLE public.hitl_requests ENABLE ROW LEVEL SECURITY;
 -- RLS Policies
 
 -- 1. Service Role (Agents) can do everything
+DROP POLICY IF EXISTS "Service role full access" ON public.hitl_requests;
 CREATE POLICY "Service role full access" ON public.hitl_requests
     FOR ALL
     TO service_role
@@ -44,6 +45,7 @@ CREATE POLICY "Service role full access" ON public.hitl_requests
 -- For now, we assume a simplified check or relying on service interactions.
 -- In a real app, we'd join with user_roles or organizations.
 -- This placeholder allows authenticated users to read.
+DROP POLICY IF EXISTS "Authenticated users view org requests" ON public.hitl_requests;
 CREATE POLICY "Authenticated users view org requests" ON public.hitl_requests
     FOR SELECT
     TO authenticated

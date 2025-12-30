@@ -18,15 +18,16 @@ CREATE TABLE IF NOT EXISTS security_audit_events (
 );
 
 -- Create indices for query performance
-CREATE INDEX idx_security_audit_timestamp ON security_audit_events(timestamp DESC);
-CREATE INDEX idx_security_audit_user_id ON security_audit_events(user_id);
-CREATE INDEX idx_security_audit_action ON security_audit_events(action);
-CREATE INDEX idx_security_audit_resource ON security_audit_events(resource);
+CREATE INDEX IF NOT EXISTS idx_security_audit_timestamp ON security_audit_events(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_security_audit_user_id ON security_audit_events(user_id);
+CREATE INDEX IF NOT EXISTS idx_security_audit_action ON security_audit_events(action);
+CREATE INDEX IF NOT EXISTS idx_security_audit_resource ON security_audit_events(resource);
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE security_audit_events ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policy: Only admins can read audit logs
+DROP POLICY IF EXISTS "Admins can view all audit events" ON security_audit_events;
 CREATE POLICY "Admins can view all audit events"
   ON security_audit_events
   FOR SELECT
@@ -39,6 +40,7 @@ CREATE POLICY "Admins can view all audit events"
   );
 
 -- RLS Policy: System can insert audit events (service role)
+DROP POLICY IF EXISTS "Service role can insert audit events" ON security_audit_events;
 CREATE POLICY "Service role can insert audit events"
   ON security_audit_events
   FOR INSERT

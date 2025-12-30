@@ -31,27 +31,32 @@ CREATE TABLE IF NOT EXISTS trusted_devices (
 ALTER TABLE trusted_devices ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies: Users can only access their own trusted devices
+DROP POLICY IF EXISTS "Users can view own trusted devices" ON trusted_devices;
 CREATE POLICY "Users can view own trusted devices"
   ON trusted_devices
   FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own trusted devices" ON trusted_devices;
 CREATE POLICY "Users can insert own trusted devices"
   ON trusted_devices
   FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own trusted devices" ON trusted_devices;
 CREATE POLICY "Users can update own trusted devices"
   ON trusted_devices
   FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own trusted devices" ON trusted_devices;
 CREATE POLICY "Users can delete own trusted devices"
   ON trusted_devices
   FOR DELETE
   USING (auth.uid() = user_id);
 
 -- Admins can view all trusted devices (for security monitoring)
+DROP POLICY IF EXISTS "Admins can view all trusted devices" ON trusted_devices;
 CREATE POLICY "Admins can view all trusted devices"
   ON trusted_devices
   FOR SELECT
@@ -64,9 +69,9 @@ CREATE POLICY "Admins can view all trusted devices"
   );
 
 -- Indexes
-CREATE INDEX idx_trusted_devices_user_id ON trusted_devices(user_id);
-CREATE INDEX idx_trusted_devices_fingerprint ON trusted_devices(device_fingerprint);
-CREATE INDEX idx_trusted_devices_expires ON trusted_devices(expires_at);
+CREATE INDEX IF NOT EXISTS idx_trusted_devices_user_id ON trusted_devices(user_id);
+CREATE INDEX IF NOT EXISTS idx_trusted_devices_fingerprint ON trusted_devices(device_fingerprint);
+CREATE INDEX IF NOT EXISTS idx_trusted_devices_expires ON trusted_devices(expires_at);
 
 -- Auto-cleanup expired devices (runs daily)
 CREATE OR REPLACE FUNCTION cleanup_expired_trusted_devices()

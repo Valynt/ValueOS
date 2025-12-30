@@ -38,27 +38,32 @@ CREATE TABLE IF NOT EXISTS webauthn_credentials (
 ALTER TABLE webauthn_credentials ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies: Users can only access their own credentials
+DROP POLICY IF EXISTS "Users can view own WebAuthn credentials" ON webauthn_credentials;
 CREATE POLICY "Users can view own WebAuthn credentials"
   ON webauthn_credentials
   FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own WebAuthn credentials" ON webauthn_credentials;
 CREATE POLICY "Users can insert own WebAuthn credentials"
   ON webauthn_credentials
   FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own WebAuthn credentials" ON webauthn_credentials;
 CREATE POLICY "Users can update own WebAuthn credentials"
   ON webauthn_credentials
   FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own WebAuthn credentials" ON webauthn_credentials;
 CREATE POLICY "Users can delete own WebAuthn credentials"
   ON webauthn_credentials
   FOR DELETE
   USING (auth.uid() = user_id);
 
 -- Admins can view all credentials (for support)
+DROP POLICY IF EXISTS "Admins can view all WebAuthn credentials" ON webauthn_credentials;
 CREATE POLICY "Admins can view all WebAuthn credentials"
   ON webauthn_credentials
   FOR SELECT
@@ -71,9 +76,9 @@ CREATE POLICY "Admins can view all WebAuthn credentials"
   );
 
 -- Indexes for performance
-CREATE INDEX idx_webauthn_user_id ON webauthn_credentials(user_id);
-CREATE INDEX idx_webauthn_credential_id ON webauthn_credentials(credential_id);
-CREATE INDEX idx_webauthn_last_used ON webauthn_credentials(last_used_at);
+CREATE INDEX IF NOT EXISTS idx_webauthn_user_id ON webauthn_credentials(user_id);
+CREATE INDEX IF NOT EXISTS idx_webauthn_credential_id ON webauthn_credentials(credential_id);
+CREATE INDEX IF NOT EXISTS idx_webauthn_last_used ON webauthn_credentials(last_used_at);
 
 -- Comments for documentation
 COMMENT ON TABLE webauthn_credentials IS 'WebAuthn: Passwordless authentication credentials (hardware keys, biometrics)';

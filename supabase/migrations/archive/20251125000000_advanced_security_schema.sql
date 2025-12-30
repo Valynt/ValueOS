@@ -340,17 +340,17 @@ CREATE POLICY "audit_log_access_admin_only" ON audit_log_access
 -- INDEXES FOR PERFORMANCE
 -- ===========================================
 
-CREATE INDEX idx_user_sessions_tenant_user ON user_sessions(tenant_id, user_id);
-CREATE INDEX idx_user_sessions_expires ON user_sessions(expires_at);
-CREATE INDEX idx_device_trust_user ON device_trust_history(user_id, device_id);
-CREATE INDEX idx_security_events_tenant_timestamp ON security_events(tenant_id, timestamp);
-CREATE INDEX idx_security_events_type ON security_events(event_type);
-CREATE INDEX idx_security_incidents_tenant_status ON security_incidents(tenant_id, status);
-CREATE INDEX idx_security_incidents_detected ON security_incidents(detected_at);
-CREATE INDEX idx_automated_responses_incident ON automated_responses(incident_id);
-CREATE INDEX idx_compliance_evidence_control ON compliance_evidence(control_id, tenant_id);
-CREATE INDEX idx_compliance_reports_tenant ON compliance_reports(tenant_id, generated_at);
-CREATE INDEX idx_system_metrics_tenant_type ON system_metrics(tenant_id, metric_type, timestamp);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_tenant_user ON user_sessions(tenant_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_expires ON user_sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_device_trust_user ON device_trust_history(user_id, device_id);
+CREATE INDEX IF NOT EXISTS idx_security_events_tenant_timestamp ON security_events(tenant_id, timestamp);
+CREATE INDEX IF NOT EXISTS idx_security_events_type ON security_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_security_incidents_tenant_status ON security_incidents(tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_security_incidents_detected ON security_incidents(detected_at);
+CREATE INDEX IF NOT EXISTS idx_automated_responses_incident ON automated_responses(incident_id);
+CREATE INDEX IF NOT EXISTS idx_compliance_evidence_control ON compliance_evidence(control_id, tenant_id);
+CREATE INDEX IF NOT EXISTS idx_compliance_reports_tenant ON compliance_reports(tenant_id, generated_at);
+CREATE INDEX IF NOT EXISTS idx_system_metrics_tenant_type ON system_metrics(tenant_id, metric_type, timestamp);
 
 -- ===========================================
 -- IMMUTABLE AUDIT LOG POLICIES

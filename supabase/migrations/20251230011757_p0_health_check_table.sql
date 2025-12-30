@@ -5,7 +5,7 @@
 
 -- Create health check table
 CREATE TABLE IF NOT EXISTS _health_check (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   count INTEGER DEFAULT 1,
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -23,7 +23,7 @@ SECURITY DEFINER
 AS $$
 BEGIN
   CREATE TABLE IF NOT EXISTS _health_check (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     count INTEGER DEFAULT 1,
     updated_at TIMESTAMPTZ DEFAULT NOW()
   );

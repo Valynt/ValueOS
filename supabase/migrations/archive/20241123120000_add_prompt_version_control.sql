@@ -45,12 +45,12 @@ CREATE TABLE IF NOT EXISTS ab_tests (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 -- Indexes for performance
-CREATE INDEX idx_prompt_versions_key_status ON prompt_versions(prompt_key, status);
-CREATE INDEX idx_prompt_versions_key_version ON prompt_versions(prompt_key, version DESC);
-CREATE INDEX idx_prompt_executions_version ON prompt_executions(prompt_version_id);
-CREATE INDEX idx_prompt_executions_user ON prompt_executions(user_id);
-CREATE INDEX idx_prompt_executions_created ON prompt_executions(created_at DESC);
-CREATE INDEX idx_ab_tests_key_status ON ab_tests(prompt_key, status);
+CREATE INDEX IF NOT EXISTS idx_prompt_versions_key_status ON prompt_versions(prompt_key, status);
+CREATE INDEX IF NOT EXISTS idx_prompt_versions_key_version ON prompt_versions(prompt_key, version DESC);
+CREATE INDEX IF NOT EXISTS idx_prompt_executions_version ON prompt_executions(prompt_version_id);
+CREATE INDEX IF NOT EXISTS idx_prompt_executions_user ON prompt_executions(user_id);
+CREATE INDEX IF NOT EXISTS idx_prompt_executions_created ON prompt_executions(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ab_tests_key_status ON ab_tests(prompt_key, status);
 -- Function to get active prompt version
 CREATE OR REPLACE FUNCTION get_active_prompt_version(p_prompt_key TEXT)
 RETURNS prompt_versions AS $$

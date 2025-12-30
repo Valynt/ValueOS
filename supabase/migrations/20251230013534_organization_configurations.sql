@@ -3,12 +3,15 @@
 -- Comprehensive configuration management for multi-tenant organizations
 -- Based on the Configuration & Settings Matrix specification
 
+-- Ensure audit_logs has the required changes column
+ALTER TABLE IF EXISTS public.audit_logs ADD COLUMN IF NOT EXISTS changes JSONB DEFAULT '{}'::jsonb;
+
 -- ============================================================================
 -- Organization Configurations Table
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS organization_configurations (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   
   -- ========================================================================
@@ -196,14 +199,14 @@ CREATE TABLE IF NOT EXISTS organization_configurations (
 -- Indexes
 -- ============================================================================
 
-CREATE INDEX idx_org_configs_org ON organization_configurations(organization_id);
-CREATE INDEX idx_org_configs_updated ON organization_configurations(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_org_configs_org ON organization_configurations(organization_id);
+CREATE INDEX IF NOT EXISTS idx_org_configs_updated ON organization_configurations(updated_at DESC);
 
 -- GIN indexes for JSONB queries
-CREATE INDEX idx_org_configs_tenant_status ON organization_configurations 
+CREATE INDEX IF NOT EXISTS idx_org_configs_tenant_status ON organization_configurations 
   USING GIN ((tenant_provisioning->'status'));
 
-CREATE INDEX idx_org_configs_subscription_tier ON organization_configurations 
+CREATE INDEX IF NOT EXISTS idx_org_configs_subscription_tier ON organization_configurations 
   USING GIN ((subscription_plan->'tier'));
 
 -- ============================================================================
@@ -228,18 +231,20 @@ COMMENT ON COLUMN organization_configurations.subscription_plan IS 'Billing tier
 ALTER TABLE organization_configurations ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Users can only access their organization's configuration
+DROP POLICY IF EXISTS org_configs_tenant_isolation ON organization_configurations;
 CREATE POLICY org_configs_tenant_isolation ON organization_configurations
   FOR ALL
   USING (organization_id = current_setting('app.current_tenant_id', true)::UUID);
 
 -- Policy: Vendor admins can access all configurations
+DROP POLICY IF EXISTS org_configs_vendor_admin ON organization_configurations;
 CREATE POLICY org_configs_vendor_admin ON organization_configurations
   FOR ALL
   USING (
     EXISTS (
-      SELECT 1 FROM users
-      WHERE users.id = auth.uid()
-      AND users.role = 'vendor_admin'
+      SELECT 1 FROM auth.users
+      WHERE auth.users.id = auth.uid()
+      AND (auth.users.raw_user_meta_data->>'role') = 'vendor_admin'
     )
   );
 
@@ -364,13 +369,12 @@ SELECT
   al.id,
   al.organization_id,
   al.user_id,
-  u.email as user_email,
+  (SELECT email FROM auth.users WHERE id = al.user_id) as user_email,
   al.action,
   al.resource_id as setting_name,
   al.changes,
   al.created_at
 FROM audit_logs al
-LEFT JOIN users u ON u.id = al.user_id
 WHERE al.resource_type = 'configuration'
 ORDER BY al.created_at DESC;
 

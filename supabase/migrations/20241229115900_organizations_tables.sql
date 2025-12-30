@@ -24,8 +24,8 @@ CREATE TABLE IF NOT EXISTS organizations (
   metadata JSONB DEFAULT '{}'::jsonb
 );
 
-CREATE INDEX idx_organizations_slug ON organizations(slug);
-CREATE INDEX idx_organizations_status ON organizations(status);
+CREATE INDEX IF NOT EXISTS idx_organizations_slug ON organizations(slug);
+CREATE INDEX IF NOT EXISTS idx_organizations_status ON organizations(status);
 
 -- User Organizations (join table for users and organizations)
 CREATE TABLE IF NOT EXISTS user_organizations (
@@ -44,9 +44,9 @@ CREATE TABLE IF NOT EXISTS user_organizations (
   UNIQUE(user_id, organization_id)
 );
 
-CREATE INDEX idx_user_organizations_user ON user_organizations(user_id);
-CREATE INDEX idx_user_organizations_org ON user_organizations(organization_id);
-CREATE INDEX idx_user_organizations_role ON user_organizations(role);
+CREATE INDEX IF NOT EXISTS idx_user_organizations_user ON user_organizations(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_organizations_org ON user_organizations(organization_id);
+CREATE INDEX IF NOT EXISTS idx_user_organizations_role ON user_organizations(role);
 
 -- Trigger to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_organizations_updated_at()
@@ -57,11 +57,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS organizations_updated_at ON organizations;
 CREATE TRIGGER organizations_updated_at
   BEFORE UPDATE ON organizations
   FOR EACH ROW
   EXECUTE FUNCTION update_organizations_updated_at();
 
+DROP TRIGGER IF EXISTS user_organizations_updated_at ON user_organizations;
 CREATE TRIGGER user_organizations_updated_at
   BEFORE UPDATE ON user_organizations
   FOR EACH ROW
@@ -71,6 +73,7 @@ CREATE TRIGGER user_organizations_updated_at
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
 
 -- Users can view organizations they belong to
+DROP POLICY IF EXISTS organizations_select ON organizations;
 CREATE POLICY organizations_select ON organizations
   FOR SELECT
   USING (
@@ -81,6 +84,7 @@ CREATE POLICY organizations_select ON organizations
   );
 
 -- Only owners can update organizations
+DROP POLICY IF EXISTS organizations_update ON organizations;
 CREATE POLICY organizations_update ON organizations
   FOR UPDATE
   USING (
@@ -96,6 +100,7 @@ CREATE POLICY organizations_update ON organizations
 ALTER TABLE user_organizations ENABLE ROW LEVEL SECURITY;
 
 -- Users can view their own organization memberships
+DROP POLICY IF EXISTS user_organizations_select ON user_organizations;
 CREATE POLICY user_organizations_select ON user_organizations
   FOR SELECT
   USING (
@@ -107,6 +112,7 @@ CREATE POLICY user_organizations_select ON user_organizations
   );
 
 -- Only admins and owners can add users to organizations
+DROP POLICY IF EXISTS user_organizations_insert ON user_organizations;
 CREATE POLICY user_organizations_insert ON user_organizations
   FOR INSERT
   WITH CHECK (
@@ -119,6 +125,7 @@ CREATE POLICY user_organizations_insert ON user_organizations
   );
 
 -- Only admins and owners can update user roles
+DROP POLICY IF EXISTS user_organizations_update ON user_organizations;
 CREATE POLICY user_organizations_update ON user_organizations
  FOR UPDATE
   USING (
@@ -131,6 +138,7 @@ CREATE POLICY user_organizations_update ON user_organizations
   );
 
 -- Only admins and owners can remove users from organizations
+DROP POLICY IF EXISTS user_organizations_delete ON user_organizations;
 CREATE POLICY user_organizations_delete ON user_organizations
   FOR DELETE
   USING (

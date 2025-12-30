@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS rate_limit_buckets (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_rate_limit_last_refill ON rate_limit_buckets(last_refill);
+CREATE INDEX IF NOT EXISTS idx_rate_limit_last_refill ON rate_limit_buckets(last_refill);
 
 -- Integration connections
 CREATE TABLE IF NOT EXISTS integration_connections (
@@ -53,10 +53,10 @@ CREATE TABLE IF NOT EXISTS integration_connections (
 );
 
 -- Indexes for integration_connections
-CREATE INDEX idx_integration_org ON integration_connections(organization_id);
-CREATE INDEX idx_integration_type ON integration_connections(adapter_type);
-CREATE INDEX idx_integration_status ON integration_connections(sync_status);
-CREATE INDEX idx_integration_last_sync ON integration_connections(last_sync_time DESC);
+CREATE INDEX IF NOT EXISTS idx_integration_org ON integration_connections(organization_id);
+CREATE INDEX IF NOT EXISTS idx_integration_type ON integration_connections(adapter_type);
+CREATE INDEX IF NOT EXISTS idx_integration_status ON integration_connections(sync_status);
+CREATE INDEX IF NOT EXISTS idx_integration_last_sync ON integration_connections(last_sync_time DESC);
 
 -- Sync history for audit trail
 CREATE TABLE IF NOT EXISTS sync_history (
@@ -92,9 +92,9 @@ CREATE TABLE IF NOT EXISTS sync_history (
 );
 
 -- Indexes for sync_history
-CREATE INDEX idx_sync_connection ON sync_history(connection_id);
-CREATE INDEX idx_sync_time ON sync_history(started_at DESC);
-CREATE INDEX idx_sync_status ON sync_history(status);
+CREATE INDEX IF NOT EXISTS idx_sync_connection ON sync_history(connection_id);
+CREATE INDEX IF NOT EXISTS idx_sync_time ON sync_history(started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sync_status ON sync_history(status);
 
 -- Trigger to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_integration_updated_at()
@@ -114,6 +114,7 @@ CREATE TRIGGER integration_connections_updated_at
 ALTER TABLE integration_connections ENABLE ROW LEVEL SECURITY;
 
 -- Users can view connections in their organization
+DROP POLICY IF EXISTS integration_connections_select ON integration_connections;
 CREATE POLICY integration_connections_select ON integration_connections
   FOR SELECT
   USING (
@@ -124,6 +125,7 @@ CREATE POLICY integration_connections_select ON integration_connections
   );
 
 -- Only admins can insert connections
+DROP POLICY IF EXISTS integration_connections_insert ON integration_connections;
 CREATE POLICY integration_connections_insert ON integration_connections
   FOR INSERT
   WITH CHECK (
@@ -136,6 +138,7 @@ CREATE POLICY integration_connections_insert ON integration_connections
   );
 
 -- Only admins can update connections
+DROP POLICY IF EXISTS integration_connections_update ON integration_connections;
 CREATE POLICY integration_connections_update ON integration_connections
   FOR UPDATE
   USING (
@@ -148,6 +151,7 @@ CREATE POLICY integration_connections_update ON integration_connections
   );
 
 -- Only admins can delete connections
+DROP POLICY IF EXISTS integration_connections_delete ON integration_connections;
 CREATE POLICY integration_connections_delete ON integration_connections
   FOR DELETE
   USING (
@@ -163,6 +167,7 @@ CREATE POLICY integration_connections_delete ON integration_connections
 ALTER TABLE sync_history ENABLE ROW LEVEL SECURITY;
 
 -- Users can view sync history for connections in their organization
+DROP POLICY IF EXISTS sync_history_select ON sync_history;
 CREATE POLICY sync_history_select ON sync_history
   FOR SELECT
   USING (
@@ -176,6 +181,7 @@ CREATE POLICY sync_history_select ON sync_history
   );
 
 -- System can insert sync history (no user-facing inserts)
+DROP POLICY IF EXISTS sync_history_insert ON sync_history;
 CREATE POLICY sync_history_insert ON sync_history
   FOR INSERT
   WITH CHECK (true);
