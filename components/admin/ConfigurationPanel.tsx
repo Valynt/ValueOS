@@ -6,12 +6,13 @@
 
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2, RefreshCw, Save, Check, AlertCircle, Command, Search } from 'lucide-react';
+import { AlertCircle, Check, Command, History, Loader2, RefreshCw, Save, Search, X } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -20,6 +21,7 @@ import { OrganizationSettings } from './configuration/OrganizationSettings';
 import { AISettings } from './configuration/AISettings';
 import { CommandPalette } from './CommandPalette';
 import { KeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
+import { ChangeHistorySidebar } from './configuration/ChangeHistorySidebar';
 
 interface ConfigurationPanelProps {
   organizationId: string;
@@ -52,6 +54,9 @@ export function ConfigurationPanel({ organizationId, userRole }: ConfigurationPa
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+  const [showChangeHistory, setShowChangeHistory] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
   const { toast } = useToast();
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -312,7 +317,22 @@ export function ConfigurationPanel({ organizationId, userRole }: ConfigurationPa
   useHotkeys('escape', () => {
     setShowCommandPalette(false);
     setShowShortcutsHelp(false);
+    setShowChangeHistory(false);
+    if (showSearch) {
+      setShowSearch(false);
+      setSearchQuery('');
+    }
   });
+
+  useHotkeys('mod+f', (e) => {
+    e.preventDefault();
+    setShowSearch(true);
+  }, { enableOnFormTags: true });
+
+  useHotkeys('mod+h', (e) => {
+    e.preventDefault();
+    setShowChangeHistory(true);
+  }, { enableOnFormTags: true });
 
   const clearCache = async () => {
     try {
@@ -460,6 +480,15 @@ export function ConfigurationPanel({ organizationId, userRole }: ConfigurationPa
           <Button
             variant="ghost"
             size="sm"
+            onClick={() => setShowChangeHistory(true)}
+            title="Change history (⌘+H)"
+          >
+            <History className="mr-2 h-4 w-4" />
+            History
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setShowShortcutsHelp(true)}
             title="Keyboard shortcuts (⌘+/)"
           >
@@ -506,6 +535,12 @@ export function ConfigurationPanel({ organizationId, userRole }: ConfigurationPa
         onOpenChange={setShowShortcutsHelp}
       />
 
+      <ChangeHistorySidebar
+        open={showChangeHistory}
+        onOpenChange={setShowChangeHistory}
+        organizationId={organizationId}
+      />
+
       {pendingChanges.size > 0 && saveStatus !== 'saving' && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
@@ -517,20 +552,56 @@ export function ConfigurationPanel({ organizationId, userRole }: ConfigurationPa
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground">
-          <TabsTrigger 
-            value="organization"
-            className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-6 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-          >
-            Organization
-          </TabsTrigger>
-          <TabsTrigger 
-            value="ai"
-            className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-6 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-          >
-            AI & Agents
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between gap-4">
+          <TabsList className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground">
+            <TabsTrigger 
+              value="organization"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-6 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+            >
+              Organization
+            </TabsTrigger>
+            <TabsTrigger 
+              value="ai"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-6 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+            >
+              AI & Agents
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Search Bar */}
+          {showSearch && (
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search settings... (⌘+F)"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-9"
+                autoFocus
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          )}
+          {!showSearch && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowSearch(true)}
+              className="ml-auto"
+            >
+              <Search className="mr-2 h-4 w-4" />
+              Search (⌘+F)
+            </Button>
+          )}
+        </div>
 
         <TabsContent value="organization" className="space-y-4">
           <OrganizationSettings
@@ -540,6 +611,7 @@ export function ConfigurationPanel({ organizationId, userRole }: ConfigurationPa
             }
             userRole={userRole}
             saving={saving}
+            searchQuery={searchQuery}
           />
         </TabsContent>
 
@@ -549,6 +621,7 @@ export function ConfigurationPanel({ organizationId, userRole }: ConfigurationPa
             onUpdate={(setting, value) => updateConfiguration('ai', setting, value)}
             userRole={userRole}
             saving={saving}
+            searchQuery={searchQuery}
           />
         </TabsContent>
       </Tabs>
