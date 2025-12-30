@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Cpu, DollarSign, Users } from 'lucide-react';
 import { HelpTooltip } from '@/components/ui/help-tooltip';
 import { configValidation } from '@/lib/validation/configValidation';
@@ -25,9 +26,13 @@ interface AISettingsProps {
   userRole: 'tenant_admin' | 'vendor_admin';
   saving: boolean;
   searchQuery?: string;
+  searchInValues?: boolean;
+  bulkEditMode?: boolean;
+  selectedSettings?: Set<string>;
+  onToggleSelection?: (path: string) => void;
 }
 
-export function AISettings({ settings, onUpdate, userRole, saving, searchQuery = '' }: AISettingsProps) {
+export function AISettings({ settings, onUpdate, userRole, saving, searchQuery = '', searchInValues = false, bulkEditMode = false, selectedSettings = new Set(), onToggleSelection }: AISettingsProps) {
   const [llmLimits, setLlmLimits] = useState(settings.llmSpendingLimits);
   const [modelRouting, setModelRouting] = useState(settings.modelRouting);
   const [agentToggles, setAgentToggles] = useState(settings.agentToggles);
@@ -37,15 +42,22 @@ export function AISettings({ settings, onUpdate, userRole, saving, searchQuery =
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   // Filter sections based on search query
-  const matchesSearch = (text: string) => {
+  const matchesSearch = (text: string, values?: any) => {
     if (!searchQuery) return true;
-    return text.toLowerCase().includes(searchQuery.toLowerCase());
+    const query = searchQuery.toLowerCase();
+    const textMatch = text.toLowerCase().includes(query);
+    
+    if (!searchInValues || !values) return textMatch;
+    
+    // Also search in values
+    const valueString = JSON.stringify(values).toLowerCase();
+    return textMatch || valueString.includes(query);
   };
 
-  const showLlmLimits = matchesSearch('llm spending limits budget cap alert threshold');
-  const showModelRouting = matchesSearch('model routing default temperature tokens');
-  const showAgentToggles = matchesSearch('agent toggles enable disable');
-  const showHitlThresholds = matchesSearch('hitl human loop confidence threshold');
+  const showLlmLimits = matchesSearch('llm spending limits budget cap alert threshold', llmLimits);
+  const showModelRouting = matchesSearch('model routing default temperature tokens', modelRouting);
+  const showAgentToggles = matchesSearch('agent toggles enable disable', agentToggles);
+  const showHitlThresholds = matchesSearch('hitl human loop confidence threshold', hitlThresholds);
 
   // Auto-save handlers with validation
   const handleLlmLimitsChange = (updates: Partial<typeof llmLimits>) => {
@@ -106,6 +118,12 @@ export function AISettings({ settings, onUpdate, userRole, saving, searchQuery =
       <Card id="llm_spending_limits">
         <CardHeader>
           <div className="flex items-center gap-2">
+            {bulkEditMode && onToggleSelection && (
+              <Checkbox
+                checked={selectedSettings.has('ai.llm_spending_limits')}
+                onCheckedChange={() => onToggleSelection('ai.llm_spending_limits')}
+              />
+            )}
             <DollarSign className="h-5 w-5" />
             <CardTitle>LLM Spending Limits</CardTitle>
             <HelpTooltip content="Set hard and soft budget caps to control AI costs. Hard caps block requests when reached, soft caps send alerts." />

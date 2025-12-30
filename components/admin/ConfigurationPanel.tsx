@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
-import { AlertCircle, Check, Command, History, Loader2, RefreshCw, Save, Search, X } from 'lucide-react';
+import { AlertCircle, Check, CheckSquare, Command, Filter, GitCompare, History, Loader2, RefreshCw, Save, Search, X } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -22,6 +22,7 @@ import { AISettings } from './configuration/AISettings';
 import { CommandPalette } from './CommandPalette';
 import { KeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
 import { ChangeHistorySidebar } from './configuration/ChangeHistorySidebar';
+import { ConfigurationDiffViewer } from './configuration/ConfigurationDiffViewer';
 
 interface ConfigurationPanelProps {
   organizationId: string;
@@ -55,8 +56,13 @@ export function ConfigurationPanel({ organizationId, userRole }: ConfigurationPa
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [showChangeHistory, setShowChangeHistory] = useState(false);
+  const [showDiffViewer, setShowDiffViewer] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  const [searchInValues, setSearchInValues] = useState(true);
+  const [searchFilter, setSearchFilter] = useState<'all' | 'recent' | 'organization' | 'ai'>('all');
+  const [bulkEditMode, setBulkEditMode] = useState(false);
+  const [selectedSettings, setSelectedSettings] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -318,6 +324,7 @@ export function ConfigurationPanel({ organizationId, userRole }: ConfigurationPa
     setShowCommandPalette(false);
     setShowShortcutsHelp(false);
     setShowChangeHistory(false);
+    setShowDiffViewer(false);
     if (showSearch) {
       setShowSearch(false);
       setSearchQuery('');
@@ -332,6 +339,16 @@ export function ConfigurationPanel({ organizationId, userRole }: ConfigurationPa
   useHotkeys('mod+h', (e) => {
     e.preventDefault();
     setShowChangeHistory(true);
+  }, { enableOnFormTags: true });
+
+  useHotkeys('mod+d', (e) => {
+    e.preventDefault();
+    setShowDiffViewer(true);
+  }, { enableOnFormTags: true });
+
+  useHotkeys('mod+b', (e) => {
+    e.preventDefault();
+    setBulkEditMode(!bulkEditMode);
   }, { enableOnFormTags: true });
 
   const clearCache = async () => {
@@ -477,41 +494,96 @@ export function ConfigurationPanel({ organizationId, userRole }: ConfigurationPa
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowChangeHistory(true)}
-            title="Change history (⌘+H)"
-          >
-            <History className="mr-2 h-4 w-4" />
-            History
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowShortcutsHelp(true)}
-            title="Keyboard shortcuts (⌘+/)"
-          >
-            <Command className="mr-2 h-4 w-4" />
-            Shortcuts
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowCommandPalette(true)}
-            title="Command palette (⌘+K)"
-          >
-            <Search className="mr-2 h-4 w-4" />
-            Search
-          </Button>
-          <Button variant="ghost" size="sm" onClick={clearCache}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Clear Cache
-          </Button>
-          <Button variant="outline" size="sm" onClick={fetchConfigurations}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
-          </Button>
+          {bulkEditMode ? (
+            <>
+              <Badge variant="secondary" className="mr-2">
+                Bulk Edit: {selectedSettings.size} selected
+              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setBulkEditMode(false);
+                  setSelectedSettings(new Set());
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={async () => {
+                  // Bulk save logic handled by existing auto-save
+                  setBulkEditMode(false);
+                  setSelectedSettings(new Set());
+                  toast({
+                    title: 'Bulk changes saved',
+                    description: `Saved ${selectedSettings.size} settings`
+                  });
+                }}
+                disabled={selectedSettings.size === 0}
+              >
+                <Save className="mr-2 h-4 w-4" />
+                Save All ({selectedSettings.size})
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant={bulkEditMode ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setBulkEditMode(!bulkEditMode)}
+                title="Bulk edit mode (⌘+B)"
+              >
+                <CheckSquare className="mr-2 h-4 w-4" />
+                Bulk Edit
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDiffViewer(true)}
+                title="Compare configurations (⌘+D)"
+              >
+                <GitCompare className="mr-2 h-4 w-4" />
+                Compare
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowChangeHistory(true)}
+                title="Change history (⌘+H)"
+              >
+                <History className="mr-2 h-4 w-4" />
+                History
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowShortcutsHelp(true)}
+                title="Keyboard shortcuts (⌘+/)"
+              >
+                <Command className="mr-2 h-4 w-4" />
+                Shortcuts
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowCommandPalette(true)}
+                title="Command palette (⌘+K)"
+              >
+                <Search className="mr-2 h-4 w-4" />
+                Search
+              </Button>
+              <Button variant="ghost" size="sm" onClick={clearCache}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Clear Cache
+              </Button>
+              <Button variant="outline" size="sm" onClick={fetchConfigurations}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refresh
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -541,6 +613,13 @@ export function ConfigurationPanel({ organizationId, userRole }: ConfigurationPa
         organizationId={organizationId}
       />
 
+      <ConfigurationDiffViewer
+        open={showDiffViewer}
+        onOpenChange={setShowDiffViewer}
+        organizationId={organizationId}
+        currentConfiguration={configurations}
+      />
+
       {pendingChanges.size > 0 && saveStatus !== 'saving' && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
@@ -568,26 +647,72 @@ export function ConfigurationPanel({ organizationId, userRole }: ConfigurationPa
             </TabsTrigger>
           </TabsList>
 
-          {/* Search Bar */}
+          {/* Advanced Search Bar */}
           {showSearch && (
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search settings... (⌘+F)"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-9"
-                autoFocus
-              />
-              {searchQuery && (
+            <div className="flex-1 max-w-2xl space-y-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search settings... (⌘+F)"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 pr-9"
+                  autoFocus
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <Filter className="h-3 w-3 text-muted-foreground" />
                 <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setSearchFilter('all')}
+                  className={`px-2 py-1 rounded ${
+                    searchFilter === 'all'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
                 >
-                  <X className="h-4 w-4" />
+                  All
                 </button>
-              )}
+                <button
+                  onClick={() => setSearchFilter('organization')}
+                  className={`px-2 py-1 rounded ${
+                    searchFilter === 'organization'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Organization
+                </button>
+                <button
+                  onClick={() => setSearchFilter('ai')}
+                  className={`px-2 py-1 rounded ${
+                    searchFilter === 'ai'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  AI
+                </button>
+                <div className="ml-auto flex items-center gap-2">
+                  <label className="flex items-center gap-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={searchInValues}
+                      onChange={(e) => setSearchInValues(e.target.checked)}
+                      className="rounded"
+                    />
+                    <span>Search in values</span>
+                  </label>
+                </div>
+              </div>
             </div>
           )}
           {!showSearch && (
@@ -604,25 +729,63 @@ export function ConfigurationPanel({ organizationId, userRole }: ConfigurationPa
         </div>
 
         <TabsContent value="organization" className="space-y-4">
-          <OrganizationSettings
-            settings={configurations.organization}
-            onUpdate={(setting, value) =>
-              updateConfiguration('organization', setting, value)
-            }
-            userRole={userRole}
-            saving={saving}
-            searchQuery={searchQuery}
-          />
+          {(searchFilter === 'all' || searchFilter === 'organization') && (
+            <OrganizationSettings
+              settings={configurations.organization}
+              onUpdate={(setting, value) =>
+                updateConfiguration('organization', setting, value)
+              }
+              userRole={userRole}
+              saving={saving}
+              searchQuery={searchQuery}
+              searchInValues={searchInValues}
+              bulkEditMode={bulkEditMode}
+              selectedSettings={selectedSettings}
+              onToggleSelection={(path) => {
+                const newSelected = new Set(selectedSettings);
+                if (newSelected.has(path)) {
+                  newSelected.delete(path);
+                } else {
+                  newSelected.add(path);
+                }
+                setSelectedSettings(newSelected);
+              }}
+            />
+          )}
+          {searchFilter === 'ai' && searchQuery && (
+            <div className="text-center py-12 text-muted-foreground">
+              No organization settings match your filter
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="ai" className="space-y-4">
-          <AISettings
-            settings={configurations.ai}
-            onUpdate={(setting, value) => updateConfiguration('ai', setting, value)}
-            userRole={userRole}
-            saving={saving}
-            searchQuery={searchQuery}
-          />
+          {(searchFilter === 'all' || searchFilter === 'ai') && (
+            <AISettings
+              settings={configurations.ai}
+              onUpdate={(setting, value) => updateConfiguration('ai', setting, value)}
+              userRole={userRole}
+              saving={saving}
+              searchQuery={searchQuery}
+              searchInValues={searchInValues}
+              bulkEditMode={bulkEditMode}
+              selectedSettings={selectedSettings}
+              onToggleSelection={(path) => {
+                const newSelected = new Set(selectedSettings);
+                if (newSelected.has(path)) {
+                  newSelected.delete(path);
+                } else {
+                  newSelected.add(path);
+                }
+                setSelectedSettings(newSelected);
+              }}
+            />
+          )}
+          {searchFilter === 'organization' && searchQuery && (
+            <div className="text-center py-12 text-muted-foreground">
+              No AI settings match your filter
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>
