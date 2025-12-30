@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { HelpTooltip } from '@/components/ui/help-tooltip';
 import { configValidation } from '@/lib/validation/configValidation';
 
@@ -25,6 +26,10 @@ interface OrganizationSettingsProps {
   userRole: 'tenant_admin' | 'vendor_admin';
   saving: boolean;
   searchQuery?: string;
+  searchInValues?: boolean;
+  bulkEditMode?: boolean;
+  selectedSettings?: Set<string>;
+  onToggleSelection?: (path: string) => void;
 }
 
 export function OrganizationSettings({
@@ -32,7 +37,11 @@ export function OrganizationSettings({
   onUpdate,
   userRole,
   saving,
-  searchQuery = ''
+  searchQuery = '',
+  searchInValues = false,
+  bulkEditMode = false,
+  selectedSettings = new Set(),
+  onToggleSelection
 }: OrganizationSettingsProps) {
   const [tenantProvisioning, setTenantProvisioning] = useState(
     settings.tenantProvisioning
@@ -44,14 +53,30 @@ export function OrganizationSettings({
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   // Filter sections based on search query
-  const matchesSearch = (text: string) => {
+  const matchesSearch = (text: string, values?: any) => {
     if (!searchQuery) return true;
-    return text.toLowerCase().includes(searchQuery.toLowerCase());
+    const query = searchQuery.toLowerCase();
+    const textMatch = text.toLowerCase().includes(query);
+    
+    if (!searchInValues || !values) return textMatch;
+    
+    // Also search in values
+    const valueString = JSON.stringify(values).toLowerCase();
+    return textMatch || valueString.includes(query);
   };
 
-  const showTenantProvisioning = matchesSearch('tenant provisioning status users storage');
-  const showCustomBranding = matchesSearch('custom branding logo color font theme');
-  const showDataResidency = matchesSearch('data residency region compliance gdpr hipaa');
+  const showTenantProvisioning = matchesSearch(
+    'tenant provisioning status users storage',
+    tenantProvisioning
+  );
+  const showCustomBranding = matchesSearch(
+    'custom branding logo color font theme',
+    customBranding
+  );
+  const showDataResidency = matchesSearch(
+    'data residency region compliance gdpr hipaa',
+    dataResidency
+  );
 
   // Auto-save on change with validation
   const handleTenantProvisioningChange = (updates: Partial<typeof tenantProvisioning>) => {
@@ -121,6 +146,12 @@ export function OrganizationSettings({
       <Card id="tenant_provisioning">
         <CardHeader>
           <div className="flex items-center gap-2">
+            {bulkEditMode && onToggleSelection && (
+              <Checkbox
+                checked={selectedSettings.has('organization.tenant_provisioning')}
+                onCheckedChange={() => onToggleSelection('organization.tenant_provisioning')}
+              />
+            )}
             <CardTitle>Tenant Provisioning</CardTitle>
             <HelpTooltip content="Control tenant status, user limits, and storage quotas. Changes take effect immediately." />
           </div>
@@ -193,6 +224,12 @@ export function OrganizationSettings({
       <Card id="custom_branding">
         <CardHeader>
           <div className="flex items-center gap-2">
+            {bulkEditMode && onToggleSelection && (
+              <Checkbox
+                checked={selectedSettings.has('organization.custom_branding')}
+                onCheckedChange={() => onToggleSelection('organization.custom_branding')}
+              />
+            )}
             <CardTitle>Custom Branding</CardTitle>
             <HelpTooltip content="Personalize your organization's appearance with custom logos, colors, and fonts. Changes apply to all users." />
           </div>
@@ -267,6 +304,12 @@ export function OrganizationSettings({
       <Card id="data_residency">
         <CardHeader>
           <div className="flex items-center gap-2">
+            {bulkEditMode && onToggleSelection && (
+              <Checkbox
+                checked={selectedSettings.has('organization.data_residency')}
+                onCheckedChange={() => onToggleSelection('organization.data_residency')}
+              />
+            )}
             <CardTitle>Data Residency</CardTitle>
             <HelpTooltip content="Select where your data is stored and which compliance standards to meet. Changing regions may require data migration." />
           </div>
