@@ -10,10 +10,13 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { ValidatedInput } from '@/components/ui/validated-input';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { HelpTooltip } from '@/components/ui/help-tooltip';
+import { configValidation } from '@/lib/validation/configValidation';
 
 
 interface OrganizationSettingsProps {
@@ -21,31 +24,88 @@ interface OrganizationSettingsProps {
   onUpdate: (setting: string, value: any) => void;
   userRole: 'tenant_admin' | 'vendor_admin';
   saving: boolean;
+  searchQuery?: string;
 }
 
 export function OrganizationSettings({
   settings,
   onUpdate,
   userRole,
-  saving
+  saving,
+  searchQuery = ''
 }: OrganizationSettingsProps) {
   const [tenantProvisioning, setTenantProvisioning] = useState(
     settings.tenantProvisioning
   );
   const [customBranding, setCustomBranding] = useState(settings.customBranding || {});
   const [dataResidency, setDataResidency] = useState(settings.dataResidency);
+  
+  // Validation state
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
-  // Auto-save on change
+  // Filter sections based on search query
+  const matchesSearch = (text: string) => {
+    if (!searchQuery) return true;
+    return text.toLowerCase().includes(searchQuery.toLowerCase());
+  };
+
+  const showTenantProvisioning = matchesSearch('tenant provisioning status users storage');
+  const showCustomBranding = matchesSearch('custom branding logo color font theme');
+  const showDataResidency = matchesSearch('data residency region compliance gdpr hipaa');
+
+  // Auto-save on change with validation
   const handleTenantProvisioningChange = (updates: Partial<typeof tenantProvisioning>) => {
     const updated = { ...tenantProvisioning, ...updates };
-    setTenantProvisioning(updated);
-    onUpdate('tenant_provisioning', updated);
+    
+    // Validate changes
+    const errors: Record<string, string> = {};
+    if (updates.maxUsers !== undefined) {
+      const result = configValidation.maxUsers(updates.maxUsers);
+      if (!result.valid && result.error) {
+        errors.maxUsers = result.error;
+      }
+    }
+    if (updates.maxStorageGB !== undefined) {
+      const result = configValidation.maxStorageGB(updates.maxStorageGB);
+      if (!result.valid && result.error) {
+        errors.maxStorageGB = result.error;
+      }
+    }
+    
+    setValidationErrors(prev => ({ ...prev, ...errors }));
+    
+    // Only save if valid
+    if (Object.keys(errors).length === 0) {
+      setTenantProvisioning(updated);
+      onUpdate('tenant_provisioning', updated);
+    }
   };
 
   const handleCustomBrandingChange = (updates: Partial<typeof customBranding>) => {
     const updated = { ...customBranding, ...updates };
-    setCustomBranding(updated);
-    onUpdate('custom_branding', updated);
+    
+    // Validate changes
+    const errors: Record<string, string> = {};
+    if (updates.logoUrl !== undefined) {
+      const result = configValidation.logoUrl(updates.logoUrl);
+      if (!result.valid && result.error) {
+        errors.logoUrl = result.error;
+      }
+    }
+    if (updates.primaryColor !== undefined) {
+      const result = configValidation.primaryColor(updates.primaryColor);
+      if (!result.valid && result.error) {
+        errors.primaryColor = result.error;
+      }
+    }
+    
+    setValidationErrors(prev => ({ ...prev, ...errors }));
+    
+    // Only save if valid
+    if (Object.keys(errors).length === 0) {
+      setCustomBranding(updated);
+      onUpdate('custom_branding', updated);
+    }
   };
 
   const handleDataResidencyChange = (updates: Partial<typeof dataResidency>) => {
@@ -57,9 +117,13 @@ export function OrganizationSettings({
   return (
     <div className="space-y-6">
       {/* Tenant Provisioning */}
+      {showTenantProvisioning && (
       <Card id="tenant_provisioning">
         <CardHeader>
-          <CardTitle>Tenant Provisioning</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle>Tenant Provisioning</CardTitle>
+            <HelpTooltip content="Control tenant status, user limits, and storage quotas. Changes take effect immediately." />
+          </div>
           <CardDescription>
             Manage tenant lifecycle and resource limits
           </CardDescription>
@@ -86,9 +150,9 @@ export function OrganizationSettings({
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="maxUsers">Max Users</Label>
-              <Input
+            <div>
+              <ValidatedInput
+                label="Max Users"
                 id="maxUsers"
                 type="number"
                 value={tenantProvisioning.maxUsers}
@@ -97,12 +161,15 @@ export function OrganizationSettings({
                     maxUsers: parseInt(e.target.value) || 0
                   })
                 }
+                error={validationErrors.maxUsers}
+                valid={!validationErrors.maxUsers && tenantProvisioning.maxUsers > 0}
+                helperText="Maximum number of users allowed"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="maxStorage">Max Storage (GB)</Label>
-              <Input
+            <div>
+              <ValidatedInput
+                label="Max Storage (GB)"
                 id="maxStorage"
                 type="number"
                 value={tenantProvisioning.maxStorageGB}
@@ -111,25 +178,33 @@ export function OrganizationSettings({
                     maxStorageGB: parseInt(e.target.value) || 0
                   })
                 }
+                error={validationErrors.maxStorageGB}
+                valid={!validationErrors.maxStorageGB && tenantProvisioning.maxStorageGB > 0}
+                helperText="Maximum storage in gigabytes"
               />
             </div>
           </div>
         </CardContent>
       </Card>
+      )}
 
       {/* Custom Branding */}
+      {showCustomBranding && (
       <Card id="custom_branding">
         <CardHeader>
-          <CardTitle>Custom Branding</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle>Custom Branding</CardTitle>
+            <HelpTooltip content="Personalize your organization's appearance with custom logos, colors, and fonts. Changes apply to all users." />
+          </div>
           <CardDescription>
             Customize organization appearance and theme
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="logoUrl">Logo URL</Label>
-              <Input
+            <div>
+              <ValidatedInput
+                label="Logo URL"
                 id="logoUrl"
                 type="url"
                 value={customBranding.logoUrl || ''}
@@ -137,18 +212,25 @@ export function OrganizationSettings({
                   handleCustomBrandingChange({ logoUrl: e.target.value })
                 }
                 placeholder="https://example.com/logo.png"
+                error={validationErrors.logoUrl}
+                valid={!validationErrors.logoUrl && customBranding.logoUrl}
+                helperText="URL to your organization's logo"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="primaryColor">Primary Color</Label>
-              <Input
+            <div>
+              <ValidatedInput
+                label="Primary Color"
                 id="primaryColor"
-                type="color"
-                value={customBranding.primaryColor || '#000000'}
+                type="text"
+                value={customBranding.primaryColor || ''}
                 onChange={(e) =>
                   handleCustomBrandingChange({ primaryColor: e.target.value })
                 }
+                placeholder="#FF5733"
+                error={validationErrors.primaryColor}
+                valid={!validationErrors.primaryColor && customBranding.primaryColor}
+                helperText="Hex color code (e.g., #FF5733)"
               />
             </div>
 
@@ -178,11 +260,16 @@ export function OrganizationSettings({
           </div>
         </CardContent>
       </Card>
+      )}
 
       {/* Data Residency */}
+      {showDataResidency && (
       <Card id="data_residency">
         <CardHeader>
-          <CardTitle>Data Residency</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle>Data Residency</CardTitle>
+            <HelpTooltip content="Select where your data is stored and which compliance standards to meet. Changing regions may require data migration." />
+          </div>
           <CardDescription>
             Configure geographic data storage and compliance
           </CardDescription>
@@ -237,6 +324,13 @@ export function OrganizationSettings({
           </div>
         </CardContent>
       </Card>
+      )}
+
+      {!showTenantProvisioning && !showCustomBranding && !showDataResidency && searchQuery && (
+        <div className="text-center py-12 text-muted-foreground">
+          No settings match "{searchQuery}"
+        </div>
+      )}
     </div>
   );
 }
