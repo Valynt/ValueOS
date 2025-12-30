@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
-import { AlertCircle, Check, CheckSquare, Command, Filter, GitCompare, History, Loader2, RefreshCw, Save, Search, X } from 'lucide-react';
+import { AlertCircle, Check, CheckSquare, Command, Download, Filter, GitCompare, History, Loader2, RefreshCw, Save, Search, Sparkles, Upload, X } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -23,6 +23,8 @@ import { CommandPalette } from './CommandPalette';
 import { KeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
 import { ChangeHistorySidebar } from './configuration/ChangeHistorySidebar';
 import { ConfigurationDiffViewer } from './configuration/ConfigurationDiffViewer';
+import { ExportImportDialog } from './configuration/ExportImportDialog';
+import { TemplatesDialog } from './configuration/TemplatesDialog';
 
 interface ConfigurationPanelProps {
   organizationId: string;
@@ -57,6 +59,8 @@ export function ConfigurationPanel({ organizationId, userRole }: ConfigurationPa
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [showChangeHistory, setShowChangeHistory] = useState(false);
   const [showDiffViewer, setShowDiffViewer] = useState(false);
+  const [showExportImport, setShowExportImport] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [searchInValues, setSearchInValues] = useState(true);
@@ -325,6 +329,8 @@ export function ConfigurationPanel({ organizationId, userRole }: ConfigurationPa
     setShowShortcutsHelp(false);
     setShowChangeHistory(false);
     setShowDiffViewer(false);
+    setShowExportImport(false);
+    setShowTemplates(false);
     if (showSearch) {
       setShowSearch(false);
       setSearchQuery('');
@@ -349,6 +355,16 @@ export function ConfigurationPanel({ organizationId, userRole }: ConfigurationPa
   useHotkeys('mod+b', (e) => {
     e.preventDefault();
     setBulkEditMode(!bulkEditMode);
+  }, { enableOnFormTags: true });
+
+  useHotkeys('mod+e', (e) => {
+    e.preventDefault();
+    setShowExportImport(true);
+  }, { enableOnFormTags: true });
+
+  useHotkeys('mod+t', (e) => {
+    e.preventDefault();
+    setShowTemplates(true);
   }, { enableOnFormTags: true });
 
   const clearCache = async () => {
@@ -541,6 +557,24 @@ export function ConfigurationPanel({ organizationId, userRole }: ConfigurationPa
               <Button
                 variant="ghost"
                 size="sm"
+                onClick={() => setShowTemplates(true)}
+                title="Templates (⌘+T)"
+              >
+                <Sparkles className="mr-2 h-4 w-4" />
+                Templates
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowExportImport(true)}
+                title="Export/Import (⌘+E)"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export/Import
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setShowDiffViewer(true)}
                 title="Compare configurations (⌘+D)"
               >
@@ -618,6 +652,21 @@ export function ConfigurationPanel({ organizationId, userRole }: ConfigurationPa
         onOpenChange={setShowDiffViewer}
         organizationId={organizationId}
         currentConfiguration={configurations}
+      />
+
+      <ExportImportDialog
+        open={showExportImport}
+        onOpenChange={setShowExportImport}
+        organizationId={organizationId}
+        currentConfiguration={configurations}
+        onImportComplete={fetchConfigurations}
+      />
+
+      <TemplatesDialog
+        open={showTemplates}
+        onOpenChange={setShowTemplates}
+        organizationId={organizationId}
+        onTemplateApplied={fetchConfigurations}
       />
 
       {pendingChanges.size > 0 && saveStatus !== 'saving' && (
