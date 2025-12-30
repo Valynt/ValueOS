@@ -13,41 +13,48 @@
 -- (These should already exist from migration 20251230012508_llm_gating_tables.sql)
 
 -- Enable RLS (if not already enabled)
-ALTER TABLE llm_usage_logs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tenant_llm_budgets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE llm_usage ENABLE ROW LEVEL SECURITY;
+ALTER TABLE llm_gating_policies ENABLE ROW LEVEL SECURITY;
+
+-- Ensure columns exist
+ALTER TABLE llm_gating_policies ADD COLUMN IF NOT EXISTS used_amount DECIMAL(10, 2) DEFAULT 0;
+ALTER TABLE llm_gating_policies ADD COLUMN IF NOT EXISTS hard_stop_active BOOLEAN DEFAULT true;
+ALTER TABLE llm_gating_policies ADD COLUMN IF NOT EXISTS alert_threshold FLOAT DEFAULT 0.8;
+ALTER TABLE llm_gating_policies ADD COLUMN IF NOT EXISTS strict_mode BOOLEAN DEFAULT true;
+ALTER TABLE llm_gating_policies ADD COLUMN IF NOT EXISTS hallucination_check BOOLEAN DEFAULT true;
 
 -- Drop existing policies if they exist (to allow re-running)
-DROP POLICY IF EXISTS "Tenants can view own usage" ON llm_usage_logs;
-DROP POLICY IF EXISTS "Tenants can view own budget" ON tenant_llm_budgets;
-DROP POLICY IF EXISTS "Tenants can insert own usage" ON llm_usage_logs;
-DROP POLICY IF EXISTS "Tenants can update own budget" ON tenant_llm_budgets;
-DROP POLICY IF EXISTS "Service role can manage all llm data" ON llm_usage_logs;
-DROP POLICY IF EXISTS "Service role can manage all budgets" ON tenant_llm_budgets;
+DROP POLICY IF EXISTS "Tenants can view own usage" ON llm_usage;
+DROP POLICY IF EXISTS "Tenants can view own budget" ON llm_gating_policies;
+DROP POLICY IF EXISTS "Tenants can insert own usage" ON llm_usage;
+DROP POLICY IF EXISTS "Tenants can update own budget" ON llm_gating_policies;
+DROP POLICY IF EXISTS "Service role can manage all llm data" ON llm_usage;
+DROP POLICY IF EXISTS "Service role can manage all budgets" ON llm_gating_policies;
 
 -- ============================================================================
 -- Tenant Isolation Policies
 -- ============================================================================
 
 -- Policy: Tenants can only see their own usage logs
-CREATE POLICY "Tenants can view own usage" ON llm_usage_logs
+CREATE POLICY "Tenants can view own usage" ON llm_usage
   FOR SELECT
-  USING (organization_id::text = auth.jwt() ->> 'org_id');
+  USING (tenant_id::text = auth.jwt() ->> 'org_id');
 
 -- Policy: Tenants can insert their own usage logs
-CREATE POLICY "Tenants can insert own usage" ON llm_usage_logs
+CREATE POLICY "Tenants can insert own usage" ON llm_usage
   FOR INSERT
-  WITH CHECK (organization_id::text = auth.jwt() ->> 'org_id');
+  WITH CHECK (tenant_id::text = auth.jwt() ->> 'org_id');
 
 -- Policy: Tenants can only view their own budget/quota
-CREATE POLICY "Tenants can view own budget" ON tenant_llm_budgets
+CREATE POLICY "Tenants can view own budget" ON llm_gating_policies
   FOR SELECT
-  USING (organization_id::text = auth.jwt() ->> 'org_id');
+  USING (tenant_id::text = auth.jwt() ->> 'org_id');
 
 -- Policy: Tenants can update their own budget (for manual adjustments)
-CREATE POLICY "Tenants can update own budget" ON tenant_llm_budgets
+CREATE POLICY "Tenants can update own budget" ON llm_gating_policies
   FOR UPDATE
-  USING (organization_id::text = auth.jwt() ->> 'org_id')
-  WITH CHECK (organization_id::text = auth.jwt() ->> 'org_id');
+  USING (tenant_id::text = auth.jwt() ->> 'org_id')
+  WITH CHECK (tenant_id::text = auth.jwt() ->> 'org_id');
 
 -- ============================================================================
 -- Service Role Bypass Policies
@@ -55,13 +62,13 @@ CREATE POLICY "Tenants can update own budget" ON tenant_llm_budgets
 
 -- Policy: Service role (Gating Service) can manage all usage logs
 -- This allows the LLMGatingService to write usage records and update spend
-CREATE POLICY "Service role can manage all llm data" ON llm_usage_logs
+CREATE POLICY "Service role can manage all llm data" ON llm_usage
   FOR ALL
   USING (auth.jwt() ->> 'role' = 'service_role')
   WITH CHECK (auth.jwt() ->> 'role' = 'service_role');
 
 -- Policy: Service role can manage all budget data
-CREATE POLICY "Service role can manage all budgets" ON tenant_llm_budgets
+CREATE POLICY "Service role can manage all budgets" ON llm_gating_policies
   FOR ALL
   USING (auth.jwt() ->> 'role' = 'service_role')
   WITH CHECK (auth.jwt() ->> 'role' = 'service_role');
@@ -72,21 +79,23 @@ CREATE POLICY "Service role can manage all budgets" ON tenant_llm_budgets
 
 -- Additional policy to ensure strict tenant isolation
 -- This acts as a safety net even if JWT claims are malformed
-CREATE POLICY "Strict tenant isolation - usage logs" ON llm_usage_logs
+DROP POLICY IF EXISTS "Strict tenant isolation - usage logs" ON llm_usage;
+CREATE POLICY "Strict tenant isolation - usage logs" ON llm_usage
   FOR ALL
   USING (
     CASE 
       WHEN auth.jwt() ->> 'role' = 'service_role' THEN true
-      ELSE organization_id = (auth.jwt() ->> 'org_id')::UUID
+      ELSE tenant_id = (auth.jwt() ->> 'org_id')::UUID
     END
   );
 
-CREATE POLICY "Strict tenant isolation - budgets" ON tenant_llm_budgets
+DROP POLICY IF EXISTS "Strict tenant isolation - budgets" ON llm_gating_policies;
+CREATE POLICY "Strict tenant isolation - budgets" ON llm_gating_policies
   FOR ALL
   USING (
     CASE 
       WHEN auth.jwt() ->> 'role' = 'service_role' THEN true
-      ELSE organization_id = (auth.jwt() ->> 'org_id')::UUID
+      ELSE tenant_id = (auth.jwt() ->> 'org_id')::UUID
     END
   );
 
@@ -97,14 +106,15 @@ CREATE POLICY "Strict tenant isolation - budgets" ON tenant_llm_budgets
 -- Ensure audit logs can be linked to usage logs
 -- The auditLogId field in LlmUsageLog should reference AuditTrail
 -- This policy allows read access to audit logs for verification
+DROP POLICY IF EXISTS "Tenants can view linked audit logs" ON audit_logs;
 CREATE POLICY "Tenants can view linked audit logs" ON audit_logs
   FOR SELECT
   USING (
     organization_id::text = auth.jwt() ->> 'org_id'
     AND EXISTS (
-      SELECT 1 FROM llm_usage_logs lul
-      WHERE lul.audit_log_id = audit_logs.id::text
-      AND lul.organization_id::text = auth.jwt() ->> 'org_id'
+      SELECT 1 FROM llm_usage lul
+      WHERE lul.audit_log_id = audit_logs.id
+      AND lul.tenant_id::text = auth.jwt() ->> 'org_id'
     )
   );
 
@@ -113,11 +123,11 @@ CREATE POLICY "Tenants can view linked audit logs" ON audit_logs
 -- ============================================================================
 
 -- Index to optimize RLS policy evaluation
-CREATE INDEX IF NOT EXISTS idx_llm_usage_logs_org_id ON llm_usage_logs(organization_id);
-CREATE INDEX IF NOT EXISTS idx_tenant_llm_budgets_org_id ON tenant_llm_budgets(organization_id);
+CREATE INDEX IF NOT EXISTS idx_llm_usage_org_id ON llm_usage(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_llm_gating_policies_org_id ON llm_gating_policies(tenant_id);
 
 -- Composite index for budget calculations with RLS
-CREATE INDEX IF NOT EXISTS idx_llm_usage_logs_org_created ON llm_usage_logs(organization_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_llm_usage_org_created ON llm_usage(tenant_id, created_at DESC);
 
 -- ============================================================================
 -- Helper Functions for Gating Service
@@ -127,9 +137,9 @@ CREATE INDEX IF NOT EXISTS idx_llm_usage_logs_org_created ON llm_usage_logs(orga
 -- This function is designed to be called by the Gating Service with service_role
 CREATE OR REPLACE FUNCTION get_tenant_budget_status(p_tenant_id UUID)
 RETURNS TABLE (
-  monthly_limit DECIMAL(10, 2),
-  current_spend DECIMAL(10, 2),
-  alert_threshold FLOAT,
+  monthly_budget_limit DECIMAL(10, 2),
+  used_amount DECIMAL(10, 2),
+  hard_stop_threshold FLOAT,
   hard_stop_active BOOLEAN,
   remaining_budget DECIMAL(10, 2),
   usage_percentage DECIMAL(5, 2),
@@ -138,15 +148,15 @@ RETURNS TABLE (
 BEGIN
   RETURN QUERY
   SELECT 
-    tlb.monthly_limit,
-    tlb.current_spend,
-    tlb.alert_threshold,
+    tlb.monthly_budget_limit,
+    tlb.used_amount,
+    tlb.hard_stop_threshold,
     tlb.hard_stop_active,
-    (tlb.monthly_limit - tlb.current_spend) AS remaining_budget,
-    (tlb.current_spend / tlb.monthly_limit * 100)::DECIMAL(5, 2) AS usage_percentage,
-    (tlb.current_spend >= tlb.monthly_limit) AS is_over_budget
-  FROM tenant_llm_budgets tlb
-  WHERE tlb.organization_id = p_tenant_id;
+    (tlb.monthly_budget_limit - tlb.used_amount) AS remaining_budget,
+    (tlb.used_amount / tlb.monthly_budget_limit * 100)::DECIMAL(5, 2) AS usage_percentage,
+    (tlb.used_amount >= tlb.monthly_budget_limit) AS is_over_budget
+  FROM llm_gating_policies tlb
+  WHERE tlb.tenant_id = p_tenant_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -154,8 +164,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Cost = ((PromptTokens × Rate_in) + (CompletionTokens × Rate_out)) / 1000
 CREATE OR REPLACE FUNCTION calculate_llm_cost(
   p_model_name VARCHAR,
-  p_prompt_tokens INT,
-  p_completion_tokens INT
+  p_input_tokens INT,
+  p_output_tokens INT
 )
 RETURNS DECIMAL(10, 6) AS $$
 DECLARE
@@ -175,7 +185,7 @@ BEGIN
       WHEN p_model_name LIKE '%gpt-4-turbo%' THEN 0.01
       WHEN p_model_name LIKE '%gpt-4%' THEN 0.03
       ELSE 0.03 -- Default conservative estimate
-    END::DECIMAL(10, 6) INTO v_input_rate,
+    END::DECIMAL(10, 6),
     CASE 
       WHEN p_model_name LIKE '%llama-3-70b%' THEN 0.0009
       WHEN p_model_name LIKE '%llama-3-8b%' THEN 0.0002
@@ -186,10 +196,10 @@ BEGIN
       WHEN p_model_name LIKE '%gpt-4-turbo%' THEN 0.03
       WHEN p_model_name LIKE '%gpt-4%' THEN 0.06
       ELSE 0.06 -- Default conservative estimate
-    END::DECIMAL(10, 6) INTO v_output_rate;
+    END::DECIMAL(10, 6) INTO v_input_rate, v_output_rate;
 
   -- Apply the formula: ((T_in × P_in) + (T_out × P_out)) / 1000
-  RETURN ((p_prompt_tokens * v_input_rate) + (p_completion_tokens * v_output_rate)) / 1000;
+  RETURN ((p_input_tokens * v_input_rate) + (p_output_tokens * v_output_rate)) / 1000;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -201,30 +211,30 @@ CREATE OR REPLACE FUNCTION update_tenant_spend(
 )
 RETURNS BOOLEAN AS $$
 DECLARE
-  v_current_spend DECIMAL(10, 2);
-  v_monthly_limit DECIMAL(10, 2);
+  v_used_amount DECIMAL(10, 2);
+  v_monthly_budget_limit DECIMAL(10, 2);
   v_hard_stop_active BOOLEAN;
 BEGIN
   -- Get current budget info
-  SELECT current_spend, monthly_limit, hard_stop_active
-  INTO v_current_spend, v_monthly_limit, v_hard_stop_active
-  FROM tenant_llm_budgets
-  WHERE organization_id = p_tenant_id;
+  SELECT used_amount, monthly_budget_limit, hard_stop_active
+  INTO v_used_amount, v_monthly_budget_limit, v_hard_stop_active
+  FROM llm_gating_policies
+  WHERE tenant_id = p_tenant_id;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Budget record not found for tenant %', p_tenant_id;
   END IF;
 
   -- Check if hard stop is active and would be exceeded
-  IF v_hard_stop_active AND (v_current_spend + p_cost) > v_monthly_limit THEN
+  IF v_hard_stop_active AND (v_used_amount + p_cost) > v_monthly_budget_limit THEN
     RETURN FALSE;
   END IF;
 
   -- Update spend atomically
-  UPDATE tenant_llm_budgets
-  SET current_spend = current_spend + p_cost,
+  UPDATE llm_gating_policies
+  SET used_amount = used_amount + p_cost,
       updated_at = NOW()
-  WHERE organization_id = p_tenant_id;
+  WHERE tenant_id = p_tenant_id;
 
   RETURN TRUE;
 END;
@@ -237,53 +247,53 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- View: Real-time budget status with RLS
 CREATE OR REPLACE VIEW tenant_budget_status AS
 SELECT 
-  tlb.organization_id,
-  tlb.monthly_limit,
-  tlb.current_spend,
-  tlb.alert_threshold,
+  tlb.tenant_id,
+  tlb.monthly_budget_limit,
+  tlb.used_amount,
+  tlb.hard_stop_threshold,
   tlb.hard_stop_active,
-  (tlb.monthly_limit - tlb.current_spend) AS remaining_budget,
-  (tlb.current_spend / tlb.monthly_limit * 100) AS usage_percentage,
+  (tlb.monthly_budget_limit - tlb.used_amount) AS remaining_budget,
+  (tlb.used_amount / tlb.monthly_budget_limit * 100) AS usage_percentage,
   COUNT(lul.id) AS total_requests,
   AVG(lul.latency_ms) AS avg_latency,
-  SUM(lul.estimated_cost) AS total_cost_30d
-FROM tenant_llm_budgets tlb
-LEFT JOIN llm_usage_logs lul ON lul.organization_id = tlb.organization_id 
+  SUM(lul.cost) AS total_cost_30d
+FROM llm_gating_policies tlb
+LEFT JOIN llm_usage lul ON lul.tenant_id = tlb.tenant_id 
   AND lul.created_at >= NOW() - INTERVAL '30 days'
-GROUP BY tlb.organization_id, tlb.monthly_limit, tlb.current_spend, 
-         tlb.alert_threshold, tlb.hard_stop_active;
+GROUP BY tlb.tenant_id, tlb.monthly_budget_limit, tlb.used_amount, 
+         tlb.hard_stop_threshold, tlb.hard_stop_active;
 
 -- View: Usage statistics with RLS
 CREATE OR REPLACE VIEW llm_usage_statistics AS
 SELECT 
-  organization_id,
+  tenant_id,
   DATE_TRUNC('day', created_at) AS date,
-  modelName,
-  taskType,
+  model,
+  task_type,
   COUNT(*) AS request_count,
-  SUM(prompt_tokens) AS total_prompt_tokens,
-  SUM(completion_tokens) AS total_completion_tokens,
+  SUM(input_tokens) AS total_input_tokens,
+  SUM(output_tokens) AS total_output_tokens,
   SUM(total_tokens) AS total_tokens,
-  SUM(estimated_cost) AS total_cost,
-  AVG(estimated_cost) AS avg_cost,
+  SUM(cost) AS total_cost,
+  AVG(cost) AS avg_cost,
   AVG(latency_ms) AS avg_latency_ms,
   COUNT(*) FILTER (WHERE confidence < 0.6) AS low_confidence_requests
-FROM llm_usage_logs
-GROUP BY organization_id, DATE_TRUNC('day', created_at), modelName, taskType;
+FROM llm_usage
+GROUP BY tenant_id, DATE_TRUNC('day', created_at), model, task_type;
 
 -- ============================================================================
 -- Comments and Documentation
 -- ============================================================================
 
-COMMENT ON TABLE llm_usage_logs IS 'Tracks every LLM interaction for billing, observability, and audit trail with tenant isolation';
-COMMENT ON TABLE tenant_llm_budgets IS 'Manages per-tenant budget limits and spending controls';
-COMMENT ON COLUMN llm_usage_logs.estimated_cost IS 'Calculated using formula: ((PromptTokens × Rate_in) + (CompletionTokens × Rate_out)) / 1000';
-COMMENT ON COLUMN llm_usage_logs.audit_log_id IS 'Optional link to AuditTrail for hash-chaining and zero-hallucination verification';
-COMMENT ON COLUMN llm_usage_logs.confidence IS 'Agent self-reported confidence score for quality tracking';
-COMMENT ON COLUMN tenant_llm_budgets.current_spend IS 'Tracked in real-time by Gating Service updates';
-COMMENT ON COLUMN tenant_llm_budgets.hard_stop_active IS 'When true, blocks requests that would exceed monthly limit';
-COMMENT ON COLUMN tenant_llm_budgets.strict_mode IS 'Manifesto enforcement: strict validation of all outputs';
-COMMENT ON COLUMN tenant_llm_budgets.hallucination_check IS 'Manifesto enforcement: enable hallucination detection';
+COMMENT ON TABLE llm_usage IS 'Tracks every LLM interaction for billing, observability, and audit trail with tenant isolation';
+COMMENT ON TABLE llm_gating_policies IS 'Manages per-tenant budget limits and spending controls';
+COMMENT ON COLUMN llm_usage.cost IS 'Calculated using formula: ((PromptTokens × Rate_in) + (CompletionTokens × Rate_out)) / 1000';
+COMMENT ON COLUMN llm_usage.audit_log_id IS 'Optional link to AuditTrail for hash-chaining and zero-hallucination verification';
+COMMENT ON COLUMN llm_usage.confidence IS 'Agent self-reported confidence score for quality tracking';
+COMMENT ON COLUMN llm_gating_policies.used_amount IS 'Tracked in real-time by Gating Service updates';
+COMMENT ON COLUMN llm_gating_policies.hard_stop_active IS 'When true, blocks requests that would exceed monthly limit';
+COMMENT ON COLUMN llm_gating_policies.strict_mode IS 'Manifesto enforcement: strict validation of all outputs';
+COMMENT ON COLUMN llm_gating_policies.hallucination_check IS 'Manifesto enforcement: enable hallucination detection';
 
 -- Grant permissions (if needed for specific roles)
 -- Note: RLS policies handle access control, these are for additional role-based permissions
@@ -295,11 +305,11 @@ GRANT SELECT ON llm_usage_statistics TO authenticated;
 -- ============================================================================
 
 -- Test RLS isolation (run these as different users to verify)
--- SELECT * FROM llm_usage_logs; -- Should only return tenant's own logs
--- SELECT * FROM tenant_llm_budgets; -- Should only return tenant's own budget
+-- SELECT * FROM llm_usage; -- Should only return tenant's own logs
+-- SELECT * FROM llm_gating_policies; -- Should only return tenant's own budget
 -- SELECT * FROM tenant_budget_status; -- Should only return tenant's status
 
 -- Test service role bypass (run with service_role key)
--- SELECT * FROM llm_usage_logs; -- Should return all logs
--- SELECT * FROM tenant_llm_budgets; -- Should return all budgets
--- UPDATE tenant_llm_budgets SET current_spend = current_spend + 0.01 WHERE organization_id = '...'; -- Should work
+-- SELECT * FROM llm_usage; -- Should return all logs
+-- SELECT * FROM llm_gating_policies; -- Should return all budgets
+-- UPDATE llm_gating_policies SET used_amount = used_amount + 0.01 WHERE tenant_id = '...'; -- Should work

@@ -8,7 +8,7 @@
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS llm_gating_policies (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   
   -- Budget configuration
@@ -41,9 +41,11 @@ CREATE TABLE IF NOT EXISTS llm_gating_policies (
   UNIQUE(tenant_id)
 );
 
+ALTER TABLE llm_gating_policies ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES organizations(id) ON DELETE CASCADE;
+
 -- Indexes
-CREATE INDEX idx_llm_gating_policies_tenant ON llm_gating_policies(tenant_id);
-CREATE INDEX idx_llm_gating_policies_updated ON llm_gating_policies(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_llm_gating_policies_tenant ON llm_gating_policies(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_llm_gating_policies_updated ON llm_gating_policies(updated_at DESC);
 
 -- Comments
 COMMENT ON TABLE llm_gating_policies IS 'LLM gating policies for tenant-specific cost control and model routing';
@@ -57,11 +59,11 @@ COMMENT ON COLUMN llm_gating_policies.manifesto_enforcement IS 'Manifesto compli
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS llm_usage (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   
   -- Tenant and user context
   tenant_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   
   -- Model and tokens
   model VARCHAR(100) NOT NULL,
@@ -91,17 +93,37 @@ CREATE TABLE IF NOT EXISTS llm_usage (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Ensure columns exist if table was already created
+ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES organizations(id) ON DELETE CASCADE;
+ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS model VARCHAR(100);
+ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS input_tokens INTEGER;
+ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS output_tokens INTEGER;
+ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS total_tokens INTEGER;
+ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS cost DECIMAL(10, 6);
+ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS task_type VARCHAR(50);
+ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS agent_id VARCHAR(100);
+ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS session_id UUID;
+ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS trace_id VARCHAR(100);
+ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS latency_ms INTEGER;
+ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS model_downgraded BOOLEAN DEFAULT false;
+ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS original_model VARCHAR(100);
+ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS audit_log_id UUID; -- REFERENCES audit_logs(id) might fail if audit_logs missing
+ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS confidence FLOAT;
+ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS request_hash TEXT;
+ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS response_hash TEXT;
+
 -- Indexes for efficient queries
-CREATE INDEX idx_llm_usage_tenant_date ON llm_usage(tenant_id, created_at DESC);
-CREATE INDEX idx_llm_usage_user_date ON llm_usage(user_id, created_at DESC);
-CREATE INDEX idx_llm_usage_model ON llm_usage(model);
-CREATE INDEX idx_llm_usage_task_type ON llm_usage(task_type) WHERE task_type IS NOT NULL;
-CREATE INDEX idx_llm_usage_agent ON llm_usage(agent_id) WHERE agent_id IS NOT NULL;
-CREATE INDEX idx_llm_usage_session ON llm_usage(session_id) WHERE session_id IS NOT NULL;
-CREATE INDEX idx_llm_usage_trace ON llm_usage(trace_id) WHERE trace_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_llm_usage_tenant_date ON llm_usage(tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_llm_usage_user_date ON llm_usage(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_llm_usage_model ON llm_usage(model);
+CREATE INDEX IF NOT EXISTS idx_llm_usage_task_type ON llm_usage(task_type) WHERE task_type IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_llm_usage_agent ON llm_usage(agent_id) WHERE agent_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_llm_usage_session ON llm_usage(session_id) WHERE session_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_llm_usage_trace ON llm_usage(trace_id) WHERE trace_id IS NOT NULL;
 
 -- Composite index for budget calculations
-CREATE INDEX idx_llm_usage_budget_calc ON llm_usage(tenant_id, created_at DESC, cost);
+CREATE INDEX IF NOT EXISTS idx_llm_usage_budget_calc ON llm_usage(tenant_id, created_at DESC, cost);
 
 -- Comments
 COMMENT ON TABLE llm_usage IS 'LLM usage tracking for cost calculation and audit trail';
@@ -262,11 +284,13 @@ ALTER TABLE llm_gating_policies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE llm_usage ENABLE ROW LEVEL SECURITY;
 
 -- Policies for llm_gating_policies
+DROP POLICY IF EXISTS llm_gating_policies_tenant_isolation ON llm_gating_policies;
 CREATE POLICY llm_gating_policies_tenant_isolation ON llm_gating_policies
   FOR ALL
   USING (tenant_id = current_setting('app.current_tenant_id', true)::UUID);
 
 -- Policies for llm_usage
+DROP POLICY IF EXISTS llm_usage_tenant_isolation ON llm_usage;
 CREATE POLICY llm_usage_tenant_isolation ON llm_usage
   FOR ALL
   USING (tenant_id = current_setting('app.current_tenant_id', true)::UUID);
@@ -284,6 +308,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS update_llm_gating_policies_updated_at ON llm_gating_policies;
 CREATE TRIGGER update_llm_gating_policies_updated_at
   BEFORE UPDATE ON llm_gating_policies
   FOR EACH ROW

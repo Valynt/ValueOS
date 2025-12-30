@@ -25,10 +25,10 @@ CREATE TABLE IF NOT EXISTS feature_flag_evaluations (
   evaluated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 -- Indexes
-CREATE INDEX idx_feature_flags_key ON feature_flags(key);
-CREATE INDEX idx_feature_flags_enabled ON feature_flags(enabled);
-CREATE INDEX idx_feature_flag_evaluations_flag ON feature_flag_evaluations(flag_key, evaluated_at DESC);
-CREATE INDEX idx_feature_flag_evaluations_user ON feature_flag_evaluations(user_id, evaluated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_feature_flags_key ON feature_flags(key);
+CREATE INDEX IF NOT EXISTS idx_feature_flags_enabled ON feature_flags(enabled);
+CREATE INDEX IF NOT EXISTS idx_feature_flag_evaluations_flag ON feature_flag_evaluations(flag_key, evaluated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_feature_flag_evaluations_user ON feature_flag_evaluations(user_id, evaluated_at DESC);
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_feature_flag_timestamp()
 RETURNS TRIGGER AS $$

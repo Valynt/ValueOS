@@ -28,22 +28,26 @@ CREATE TABLE IF NOT EXISTS mfa_secrets (
 ALTER TABLE mfa_secrets ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policy: Users can only access their own MFA secrets
+DROP POLICY IF EXISTS "Users can view own MFA secrets" ON mfa_secrets;
 CREATE POLICY "Users can view own MFA secrets"
   ON mfa_secrets
   FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own MFA secrets" ON mfa_secrets;
 CREATE POLICY "Users can update own MFA secrets"
   ON mfa_secrets
   FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own MFA secrets" ON mfa_secrets;
 CREATE POLICY "Users can insert own MFA secrets"
   ON mfa_secrets
   FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
 -- Admins can view all MFA status (for support)
+DROP POLICY IF EXISTS "Admins can view all MFA secrets" ON mfa_secrets;
 CREATE POLICY "Admins can view all MFA secrets"
   ON mfa_secrets
   FOR SELECT
@@ -56,8 +60,8 @@ CREATE POLICY "Admins can view all MFA secrets"
   );
 
 -- Add index for performance
-CREATE INDEX idx_mfa_secrets_user_id ON mfa_secrets(user_id);
-CREATE INDEX idx_mfa_secrets_enabled ON mfa_secrets(enabled);
+CREATE INDEX IF NOT EXISTS idx_mfa_secrets_user_id ON mfa_secrets(user_id);
+CREATE INDEX IF NOT EXISTS idx_mfa_secrets_enabled ON mfa_secrets(enabled);
 
 -- Function to check if MFA is required for user role
 CREATE OR REPLACE FUNCTION is_mfa_required(user_role TEXT)

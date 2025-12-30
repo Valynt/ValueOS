@@ -6373,1568 +6373,1568 @@ ALTER TABLE ONLY public.workflows
 -- Name: approval_requests_archive_agent_name_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX approval_requests_archive_agent_name_idx ON public.approval_requests_archive USING btree (agent_name);
+CREATE INDEX IF NOT EXISTS approval_requests_archive_agent_name_idx ON public.approval_requests_archive USING btree (agent_name);
 
 
 --
 -- Name: approval_requests_archive_created_at_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX approval_requests_archive_created_at_idx ON public.approval_requests_archive USING btree (created_at);
+CREATE INDEX IF NOT EXISTS approval_requests_archive_created_at_idx ON public.approval_requests_archive USING btree (created_at);
 
 
 --
 -- Name: approval_requests_archive_requester_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX approval_requests_archive_requester_id_idx ON public.approval_requests_archive USING btree (requester_id);
+CREATE INDEX IF NOT EXISTS approval_requests_archive_requester_id_idx ON public.approval_requests_archive USING btree (requester_id);
 
 
 --
 -- Name: approval_requests_archive_status_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX approval_requests_archive_status_idx ON public.approval_requests_archive USING btree (status);
+CREATE INDEX IF NOT EXISTS approval_requests_archive_status_idx ON public.approval_requests_archive USING btree (status);
 
 
 --
 -- Name: approvals_archive_approver_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX approvals_archive_approver_id_idx ON public.approvals_archive USING btree (approver_id);
+CREATE INDEX IF NOT EXISTS approvals_archive_approver_id_idx ON public.approvals_archive USING btree (approver_id);
 
 
 --
 -- Name: approvals_archive_request_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX approvals_archive_request_id_idx ON public.approvals_archive USING btree (request_id);
+CREATE INDEX IF NOT EXISTS approvals_archive_request_id_idx ON public.approvals_archive USING btree (request_id);
 
 
 --
 -- Name: audit_logs_archive_action_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX audit_logs_archive_action_idx ON public.audit_logs_archive USING btree (action);
+CREATE INDEX IF NOT EXISTS audit_logs_archive_action_idx ON public.audit_logs_archive USING btree (action);
 
 
 --
 -- Name: audit_logs_archive_created_at_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX audit_logs_archive_created_at_idx ON public.audit_logs_archive USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS audit_logs_archive_created_at_idx ON public.audit_logs_archive USING btree (created_at DESC);
 
 
 --
 -- Name: audit_logs_archive_resource_type_resource_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX audit_logs_archive_resource_type_resource_id_idx ON public.audit_logs_archive USING btree (resource_type, resource_id);
+CREATE INDEX IF NOT EXISTS audit_logs_archive_resource_type_resource_id_idx ON public.audit_logs_archive USING btree (resource_type, resource_id);
 
 
 --
 -- Name: audit_logs_archive_user_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX audit_logs_archive_user_id_idx ON public.audit_logs_archive USING btree (user_id);
+CREATE INDEX IF NOT EXISTS audit_logs_archive_user_id_idx ON public.audit_logs_archive USING btree (user_id);
 
 
 --
 -- Name: idx_ab_tests_key_status; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_ab_tests_key_status ON public.ab_tests USING btree (prompt_key, status);
+CREATE INDEX IF NOT EXISTS idx_ab_tests_key_status ON public.ab_tests USING btree (prompt_key, status);
 
 
 --
 -- Name: idx_academy_certifications_user; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_academy_certifications_user ON public.academy_certifications USING btree (user_id);
+CREATE INDEX IF NOT EXISTS idx_academy_certifications_user ON public.academy_certifications USING btree (user_id);
 
 
 --
 -- Name: idx_academy_lessons_module; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_academy_lessons_module ON public.academy_lessons USING btree (module_id);
+CREATE INDEX IF NOT EXISTS idx_academy_lessons_module ON public.academy_lessons USING btree (module_id);
 
 
 --
 -- Name: idx_academy_lessons_order; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_academy_lessons_order ON public.academy_lessons USING btree (module_id, display_order);
+CREATE INDEX IF NOT EXISTS idx_academy_lessons_order ON public.academy_lessons USING btree (module_id, display_order);
 
 
 --
 -- Name: idx_academy_lessons_type; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_academy_lessons_type ON public.academy_lessons USING btree (content_type);
+CREATE INDEX IF NOT EXISTS idx_academy_lessons_type ON public.academy_lessons USING btree (content_type);
 
 
 --
 -- Name: idx_academy_modules_pillar_order; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_academy_modules_pillar_order ON public.academy_modules USING btree (pillar, display_order);
+CREATE INDEX IF NOT EXISTS idx_academy_modules_pillar_order ON public.academy_modules USING btree (pillar, display_order);
 
 
 --
 -- Name: idx_academy_progress_lesson; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_academy_progress_lesson ON public.academy_progress USING btree (lesson_id);
+CREATE INDEX IF NOT EXISTS idx_academy_progress_lesson ON public.academy_progress USING btree (lesson_id);
 
 
 --
 -- Name: idx_academy_progress_status; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_academy_progress_status ON public.academy_progress USING btree (user_id, status);
+CREATE INDEX IF NOT EXISTS idx_academy_progress_status ON public.academy_progress USING btree (user_id, status);
 
 
 --
 -- Name: idx_academy_progress_user; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_academy_progress_user ON public.academy_progress USING btree (user_id);
+CREATE INDEX IF NOT EXISTS idx_academy_progress_user ON public.academy_progress USING btree (user_id);
 
 
 --
 -- Name: idx_agent_accuracy_agent_type; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_accuracy_agent_type ON public.agent_accuracy_metrics USING btree (agent_type);
+CREATE INDEX IF NOT EXISTS idx_agent_accuracy_agent_type ON public.agent_accuracy_metrics USING btree (agent_type);
 
 
 --
 -- Name: idx_agent_accuracy_org; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_accuracy_org ON public.agent_accuracy_metrics USING btree (organization_id) WHERE (organization_id IS NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_agent_accuracy_org ON public.agent_accuracy_metrics USING btree (organization_id) WHERE (organization_id IS NOT NULL);
 
 
 --
 -- Name: idx_agent_accuracy_recorded_at; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_accuracy_recorded_at ON public.agent_accuracy_metrics USING btree (recorded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_accuracy_recorded_at ON public.agent_accuracy_metrics USING btree (recorded_at DESC);
 
 
 --
 -- Name: idx_agent_activities_case_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_activities_case_id ON public.agent_activities USING btree (case_id);
+CREATE INDEX IF NOT EXISTS idx_agent_activities_case_id ON public.agent_activities USING btree (case_id);
 
 
 --
 -- Name: idx_agent_activities_timestamp; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_activities_timestamp ON public.agent_activities USING btree ("timestamp" DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_activities_timestamp ON public.agent_activities USING btree ("timestamp" DESC);
 
 
 --
 -- Name: idx_agent_calibration_agent_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_calibration_agent_id ON public.agent_calibration_models USING btree (agent_id);
+CREATE INDEX IF NOT EXISTS idx_agent_calibration_agent_id ON public.agent_calibration_models USING btree (agent_id);
 
 
 --
 -- Name: idx_agent_calibration_history_tenant; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_calibration_history_tenant ON public.agent_calibration_history USING btree (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_agent_calibration_history_tenant ON public.agent_calibration_history USING btree (tenant_id);
 
 
 --
 -- Name: idx_agent_calibration_last_calibrated; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_calibration_last_calibrated ON public.agent_calibration_models USING btree (last_calibrated DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_calibration_last_calibrated ON public.agent_calibration_models USING btree (last_calibrated DESC);
 
 
 --
 -- Name: idx_agent_calibration_models_tenant; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_calibration_models_tenant ON public.agent_calibration_models USING btree (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_agent_calibration_models_tenant ON public.agent_calibration_models USING btree (tenant_id);
 
 
 --
 -- Name: idx_agent_memory_expires_at; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_memory_expires_at ON public.agent_memory USING btree (expires_at);
+CREATE INDEX IF NOT EXISTS idx_agent_memory_expires_at ON public.agent_memory USING btree (expires_at);
 
 
 --
 -- Name: idx_agent_memory_org; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_memory_org ON public.agent_memory USING btree (organization_id);
+CREATE INDEX IF NOT EXISTS idx_agent_memory_org ON public.agent_memory USING btree (organization_id);
 
 
 --
 -- Name: idx_agent_memory_session; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_memory_session ON public.agent_memory USING btree (session_id);
+CREATE INDEX IF NOT EXISTS idx_agent_memory_session ON public.agent_memory USING btree (session_id);
 
 
 --
 -- Name: idx_agent_memory_type; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_memory_type ON public.agent_memory USING btree (memory_type);
+CREATE INDEX IF NOT EXISTS idx_agent_memory_type ON public.agent_memory USING btree (memory_type);
 
 
 --
 -- Name: idx_agent_metrics_session; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_metrics_session ON public.agent_metrics USING btree (session_id);
+CREATE INDEX IF NOT EXISTS idx_agent_metrics_session ON public.agent_metrics USING btree (session_id);
 
 
 --
 -- Name: idx_agent_metrics_type; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_metrics_type ON public.agent_metrics USING btree (metric_type);
+CREATE INDEX IF NOT EXISTS idx_agent_metrics_type ON public.agent_metrics USING btree (metric_type);
 
 
 --
 -- Name: idx_agent_predictions_accuracy; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_predictions_accuracy ON public.agent_predictions USING btree (agent_type, created_at DESC) WHERE (actual_outcome IS NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_agent_predictions_accuracy ON public.agent_predictions USING btree (agent_type, created_at DESC) WHERE (actual_outcome IS NOT NULL);
 
 
 --
 -- Name: idx_agent_predictions_agent_type; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_predictions_agent_type ON public.agent_predictions USING btree (agent_type);
+CREATE INDEX IF NOT EXISTS idx_agent_predictions_agent_type ON public.agent_predictions USING btree (agent_type);
 
 
 --
 -- Name: idx_agent_predictions_assumptions; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_predictions_assumptions ON public.agent_predictions USING gin (assumptions);
+CREATE INDEX IF NOT EXISTS idx_agent_predictions_assumptions ON public.agent_predictions USING gin (assumptions);
 
 
 --
 -- Name: idx_agent_predictions_calibration; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_predictions_calibration ON public.agent_predictions USING btree (agent_id, calibrated_confidence);
+CREATE INDEX IF NOT EXISTS idx_agent_predictions_calibration ON public.agent_predictions USING btree (agent_id, calibrated_confidence);
 
 
 --
 -- Name: idx_agent_predictions_confidence; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_predictions_confidence ON public.agent_predictions USING btree (confidence_level, confidence_score);
+CREATE INDEX IF NOT EXISTS idx_agent_predictions_confidence ON public.agent_predictions USING btree (confidence_level, confidence_score);
 
 
 --
 -- Name: idx_agent_predictions_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_predictions_created_at ON public.agent_predictions USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_predictions_created_at ON public.agent_predictions USING btree (created_at DESC);
 
 
 --
 -- Name: idx_agent_predictions_data_gaps; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_predictions_data_gaps ON public.agent_predictions USING gin (data_gaps);
+CREATE INDEX IF NOT EXISTS idx_agent_predictions_data_gaps ON public.agent_predictions USING gin (data_gaps);
 
 
 --
 -- Name: idx_agent_predictions_evidence; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_predictions_evidence ON public.agent_predictions USING gin (evidence);
+CREATE INDEX IF NOT EXISTS idx_agent_predictions_evidence ON public.agent_predictions USING gin (evidence);
 
 
 --
 -- Name: idx_agent_predictions_hallucination; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_predictions_hallucination ON public.agent_predictions USING btree (hallucination_detected) WHERE (hallucination_detected = true);
+CREATE INDEX IF NOT EXISTS idx_agent_predictions_hallucination ON public.agent_predictions USING btree (hallucination_detected) WHERE (hallucination_detected = true);
 
 
 --
 -- Name: idx_agent_predictions_hallucination_reasons; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_predictions_hallucination_reasons ON public.agent_predictions USING gin (hallucination_reasons);
+CREATE INDEX IF NOT EXISTS idx_agent_predictions_hallucination_reasons ON public.agent_predictions USING gin (hallucination_reasons);
 
 
 --
 -- Name: idx_agent_predictions_input_hash; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_predictions_input_hash ON public.agent_predictions USING btree (input_hash);
+CREATE INDEX IF NOT EXISTS idx_agent_predictions_input_hash ON public.agent_predictions USING btree (input_hash);
 
 
 --
 -- Name: idx_agent_predictions_session_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_predictions_session_id ON public.agent_predictions USING btree (session_id);
+CREATE INDEX IF NOT EXISTS idx_agent_predictions_session_id ON public.agent_predictions USING btree (session_id);
 
 
 --
 -- Name: idx_agent_predictions_tenant; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_predictions_tenant ON public.agent_predictions USING btree (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_agent_predictions_tenant ON public.agent_predictions USING btree (tenant_id);
 
 
 --
 -- Name: idx_agent_predictions_tenant_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_predictions_tenant_id ON public.agent_predictions USING btree (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_agent_predictions_tenant_id ON public.agent_predictions USING btree (tenant_id);
 
 
 --
 -- Name: idx_agent_retraining_agent_type; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_retraining_agent_type ON public.agent_retraining_queue USING btree (agent_type);
+CREATE INDEX IF NOT EXISTS idx_agent_retraining_agent_type ON public.agent_retraining_queue USING btree (agent_type);
 
 
 --
 -- Name: idx_agent_retraining_scheduled; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_retraining_scheduled ON public.agent_retraining_queue USING btree (scheduled_at);
+CREATE INDEX IF NOT EXISTS idx_agent_retraining_scheduled ON public.agent_retraining_queue USING btree (scheduled_at);
 
 
 --
 -- Name: idx_agent_retraining_status; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_retraining_status ON public.agent_retraining_queue USING btree (status);
+CREATE INDEX IF NOT EXISTS idx_agent_retraining_status ON public.agent_retraining_queue USING btree (status);
 
 
 --
 -- Name: idx_agent_sessions_tenant; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_agent_sessions_tenant ON public.agent_sessions USING btree (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_agent_sessions_tenant ON public.agent_sessions USING btree (tenant_id);
 
 
 --
 -- Name: idx_approval_requests_agent; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_approval_requests_agent ON public.approval_requests USING btree (agent_name);
+CREATE INDEX IF NOT EXISTS idx_approval_requests_agent ON public.approval_requests USING btree (agent_name);
 
 
 --
 -- Name: idx_approval_requests_created; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_approval_requests_created ON public.approval_requests USING btree (created_at);
+CREATE INDEX IF NOT EXISTS idx_approval_requests_created ON public.approval_requests USING btree (created_at);
 
 
 --
 -- Name: idx_approval_requests_requester; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_approval_requests_requester ON public.approval_requests USING btree (requester_id);
+CREATE INDEX IF NOT EXISTS idx_approval_requests_requester ON public.approval_requests USING btree (requester_id);
 
 
 --
 -- Name: idx_approval_requests_status; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_approval_requests_status ON public.approval_requests USING btree (status);
+CREATE INDEX IF NOT EXISTS idx_approval_requests_status ON public.approval_requests USING btree (status);
 
 
 --
 -- Name: idx_approvals_approver; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_approvals_approver ON public.approvals USING btree (approver_id);
+CREATE INDEX IF NOT EXISTS idx_approvals_approver ON public.approvals USING btree (approver_id);
 
 
 --
 -- Name: idx_approvals_request; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_approvals_request ON public.approvals USING btree (request_id);
+CREATE INDEX IF NOT EXISTS idx_approvals_request ON public.approvals USING btree (request_id);
 
 
 --
 -- Name: idx_approver_roles_active; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_approver_roles_active ON public.approver_roles USING btree (active);
+CREATE INDEX IF NOT EXISTS idx_approver_roles_active ON public.approver_roles USING btree (active);
 
 
 --
 -- Name: idx_approver_roles_user; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_approver_roles_user ON public.approver_roles USING btree (user_id);
+CREATE INDEX IF NOT EXISTS idx_approver_roles_user ON public.approver_roles USING btree (user_id);
 
 
 --
 -- Name: idx_assumptions_related; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_assumptions_related ON public.assumptions USING btree (related_table, related_id);
+CREATE INDEX IF NOT EXISTS idx_assumptions_related ON public.assumptions USING btree (related_table, related_id);
 
 
 --
 -- Name: idx_assumptions_value_case; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_assumptions_value_case ON public.assumptions USING btree (value_case_id);
+CREATE INDEX IF NOT EXISTS idx_assumptions_value_case ON public.assumptions USING btree (value_case_id);
 
 
 --
 -- Name: idx_audit_log_session; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_audit_log_session ON public.agent_audit_log USING btree (session_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_session ON public.agent_audit_log USING btree (session_id);
 
 
 --
 -- Name: idx_audit_log_timestamp; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_audit_log_timestamp ON public.agent_audit_log USING btree ("timestamp");
+CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp ON public.agent_audit_log USING btree ("timestamp");
 
 
 --
 -- Name: idx_audit_logs_action; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_audit_logs_action ON public.audit_logs USING btree (action);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON public.audit_logs USING btree (action);
 
 
 --
 -- Name: idx_audit_logs_created; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_audit_logs_created ON public.audit_logs USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON public.audit_logs USING btree (created_at DESC);
 
 
 --
 -- Name: idx_audit_logs_resource; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_audit_logs_resource ON public.audit_logs USING btree (resource_type, resource_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_resource ON public.audit_logs USING btree (resource_type, resource_id);
 
 
 --
 -- Name: idx_audit_logs_user; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_audit_logs_user ON public.audit_logs USING btree (user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON public.audit_logs USING btree (user_id);
 
 
 --
 -- Name: idx_automated_responses_incident; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_automated_responses_incident ON public.automated_responses USING btree (incident_id);
+CREATE INDEX IF NOT EXISTS idx_automated_responses_incident ON public.automated_responses USING btree (incident_id);
 
 
 --
 -- Name: idx_backup_logs_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_backup_logs_created_at ON public.backup_logs USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_backup_logs_created_at ON public.backup_logs USING btree (created_at DESC);
 
 
 --
 -- Name: idx_backup_logs_status; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_backup_logs_status ON public.backup_logs USING btree (status);
+CREATE INDEX IF NOT EXISTS idx_backup_logs_status ON public.backup_logs USING btree (status);
 
 
 --
 -- Name: idx_billing_customers_status; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_billing_customers_status ON public.billing_customers USING btree (status);
+CREATE INDEX IF NOT EXISTS idx_billing_customers_status ON public.billing_customers USING btree (status);
 
 
 --
 -- Name: idx_billing_customers_stripe; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_billing_customers_stripe ON public.billing_customers USING btree (stripe_customer_id);
+CREATE INDEX IF NOT EXISTS idx_billing_customers_stripe ON public.billing_customers USING btree (stripe_customer_id);
 
 
 --
 -- Name: idx_billing_customers_tenant; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_billing_customers_tenant ON public.billing_customers USING btree (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_billing_customers_tenant ON public.billing_customers USING btree (tenant_id);
 
 
 --
 -- Name: idx_calibration_history_agent_time; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_calibration_history_agent_time ON public.agent_calibration_history USING btree (agent_id, calibrated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_calibration_history_agent_time ON public.agent_calibration_history USING btree (agent_id, calibrated_at DESC);
 
 
 --
 -- Name: idx_canvas_components_case_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_canvas_components_case_id ON public.canvas_components USING btree (case_id);
+CREATE INDEX IF NOT EXISTS idx_canvas_components_case_id ON public.canvas_components USING btree (case_id);
 
 
 --
 -- Name: idx_cases_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_cases_created_at ON public.cases USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cases_created_at ON public.cases USING btree (created_at DESC);
 
 
 --
 -- Name: idx_cases_metadata; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_cases_metadata ON public.cases USING gin (metadata);
+CREATE INDEX IF NOT EXISTS idx_cases_metadata ON public.cases USING gin (metadata);
 
 
 --
 -- Name: idx_cases_status; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_cases_status ON public.cases USING btree (status);
+CREATE INDEX IF NOT EXISTS idx_cases_status ON public.cases USING btree (status);
 
 
 --
 -- Name: idx_cases_tenant_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_cases_tenant_id ON public.cases USING btree (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_cases_tenant_id ON public.cases USING btree (tenant_id);
 
 
 --
 -- Name: idx_cases_tenant_status; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_cases_tenant_status ON public.cases USING btree (tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_cases_tenant_status ON public.cases USING btree (tenant_id, status);
 
 
 --
 -- Name: idx_cases_user_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_cases_user_id ON public.cases USING btree (user_id);
+CREATE INDEX IF NOT EXISTS idx_cases_user_id ON public.cases USING btree (user_id);
 
 
 --
 -- Name: idx_compliance_evidence_control; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_compliance_evidence_control ON public.compliance_evidence USING btree (control_id, tenant_id);
+CREATE INDEX IF NOT EXISTS idx_compliance_evidence_control ON public.compliance_evidence USING btree (control_id, tenant_id);
 
 
 --
 -- Name: idx_compliance_reports_tenant; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_compliance_reports_tenant ON public.compliance_reports USING btree (tenant_id, generated_at);
+CREATE INDEX IF NOT EXISTS idx_compliance_reports_tenant ON public.compliance_reports USING btree (tenant_id, generated_at);
 
 
 --
 -- Name: idx_component_history_component_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_component_history_component_id ON public.component_history USING btree (component_id);
+CREATE INDEX IF NOT EXISTS idx_component_history_component_id ON public.component_history USING btree (component_id);
 
 
 --
 -- Name: idx_component_history_timestamp; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_component_history_timestamp ON public.component_history USING btree ("timestamp" DESC);
+CREATE INDEX IF NOT EXISTS idx_component_history_timestamp ON public.component_history USING btree ("timestamp" DESC);
 
 
 --
 -- Name: idx_component_relationships_source; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_component_relationships_source ON public.component_relationships USING btree (source_component_id);
+CREATE INDEX IF NOT EXISTS idx_component_relationships_source ON public.component_relationships USING btree (source_component_id);
 
 
 --
 -- Name: idx_component_relationships_target; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_component_relationships_target ON public.component_relationships USING btree (target_component_id);
+CREATE INDEX IF NOT EXISTS idx_component_relationships_target ON public.component_relationships USING btree (target_component_id);
 
 
 --
 -- Name: idx_confidence_violations_agent; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_confidence_violations_agent ON public.confidence_violations USING btree (agent_type);
+CREATE INDEX IF NOT EXISTS idx_confidence_violations_agent ON public.confidence_violations USING btree (agent_type);
 
 
 --
 -- Name: idx_confidence_violations_agent_type; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_confidence_violations_agent_type ON public.confidence_violations USING btree (agent_type);
+CREATE INDEX IF NOT EXISTS idx_confidence_violations_agent_type ON public.confidence_violations USING btree (agent_type);
 
 
 --
 -- Name: idx_confidence_violations_created; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_confidence_violations_created ON public.confidence_violations USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_confidence_violations_created ON public.confidence_violations USING btree (created_at DESC);
 
 
 --
 -- Name: idx_confidence_violations_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_confidence_violations_created_at ON public.confidence_violations USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_confidence_violations_created_at ON public.confidence_violations USING btree (created_at DESC);
 
 
 --
 -- Name: idx_confidence_violations_type; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_confidence_violations_type ON public.confidence_violations USING btree (violation_type);
+CREATE INDEX IF NOT EXISTS idx_confidence_violations_type ON public.confidence_violations USING btree (violation_type);
 
 
 --
 -- Name: idx_contextual_triggers_enabled; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_contextual_triggers_enabled ON public.contextual_triggers USING btree (enabled) WHERE (enabled = true);
+CREATE INDEX IF NOT EXISTS idx_contextual_triggers_enabled ON public.contextual_triggers USING btree (enabled) WHERE (enabled = true);
 
 
 --
 -- Name: idx_cost_alerts_acknowledged; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_cost_alerts_acknowledged ON public.cost_alerts USING btree (acknowledged);
+CREATE INDEX IF NOT EXISTS idx_cost_alerts_acknowledged ON public.cost_alerts USING btree (acknowledged);
 
 
 --
 -- Name: idx_cost_alerts_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_cost_alerts_created_at ON public.cost_alerts USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cost_alerts_created_at ON public.cost_alerts USING btree (created_at DESC);
 
 
 --
 -- Name: idx_cost_alerts_level; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_cost_alerts_level ON public.cost_alerts USING btree (level);
+CREATE INDEX IF NOT EXISTS idx_cost_alerts_level ON public.cost_alerts USING btree (level);
 
 
 --
 -- Name: idx_device_trust_user; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_device_trust_user ON public.device_trust_history USING btree (user_id, device_id);
+CREATE INDEX IF NOT EXISTS idx_device_trust_user ON public.device_trust_history USING btree (user_id, device_id);
 
 
 --
 -- Name: idx_evaluation_runs_agent_type; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_evaluation_runs_agent_type ON public.evaluation_runs USING btree (agent_type);
+CREATE INDEX IF NOT EXISTS idx_evaluation_runs_agent_type ON public.evaluation_runs USING btree (agent_type);
 
 
 --
 -- Name: idx_evaluation_runs_created; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_evaluation_runs_created ON public.evaluation_runs USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_evaluation_runs_created ON public.evaluation_runs USING btree (created_at DESC);
 
 
 --
 -- Name: idx_evaluation_runs_prompt_version; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_evaluation_runs_prompt_version ON public.evaluation_runs USING btree (prompt_version);
+CREATE INDEX IF NOT EXISTS idx_evaluation_runs_prompt_version ON public.evaluation_runs USING btree (prompt_version);
 
 
 --
 -- Name: idx_feature_flag_evaluations_flag; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_feature_flag_evaluations_flag ON public.feature_flag_evaluations USING btree (flag_key, evaluated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_feature_flag_evaluations_flag ON public.feature_flag_evaluations USING btree (flag_key, evaluated_at DESC);
 
 
 --
 -- Name: idx_feature_flag_evaluations_user; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_feature_flag_evaluations_user ON public.feature_flag_evaluations USING btree (user_id, evaluated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_feature_flag_evaluations_user ON public.feature_flag_evaluations USING btree (user_id, evaluated_at DESC);
 
 
 --
 -- Name: idx_feature_flags_enabled; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_feature_flags_enabled ON public.feature_flags USING btree (enabled);
+CREATE INDEX IF NOT EXISTS idx_feature_flags_enabled ON public.feature_flags USING btree (enabled);
 
 
 --
 -- Name: idx_feature_flags_key; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_feature_flags_key ON public.feature_flags USING btree (key);
+CREATE INDEX IF NOT EXISTS idx_feature_flags_key ON public.feature_flags USING btree (key);
 
 
 --
 -- Name: idx_golden_examples_agent_type; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_golden_examples_agent_type ON public.golden_examples USING btree (agent_type);
+CREATE INDEX IF NOT EXISTS idx_golden_examples_agent_type ON public.golden_examples USING btree (agent_type);
 
 
 --
 -- Name: idx_golden_examples_created; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_golden_examples_created ON public.golden_examples USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_golden_examples_created ON public.golden_examples USING btree (created_at DESC);
 
 
 --
 -- Name: idx_integration_usage_created; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_integration_usage_created ON public.integration_usage_log USING btree (created_at);
+CREATE INDEX IF NOT EXISTS idx_integration_usage_created ON public.integration_usage_log USING btree (created_at);
 
 
 --
 -- Name: idx_integration_usage_integration; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_integration_usage_integration ON public.integration_usage_log USING btree (integration_id);
+CREATE INDEX IF NOT EXISTS idx_integration_usage_integration ON public.integration_usage_log USING btree (integration_id);
 
 
 --
 -- Name: idx_invoices_customer; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_invoices_customer ON public.invoices USING btree (billing_customer_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_customer ON public.invoices USING btree (billing_customer_id);
 
 
 --
 -- Name: idx_invoices_period; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_invoices_period ON public.invoices USING btree (period_start, period_end);
+CREATE INDEX IF NOT EXISTS idx_invoices_period ON public.invoices USING btree (period_start, period_end);
 
 
 --
 -- Name: idx_invoices_status; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_invoices_status ON public.invoices USING btree (status);
+CREATE INDEX IF NOT EXISTS idx_invoices_status ON public.invoices USING btree (status);
 
 
 --
 -- Name: idx_invoices_stripe; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_invoices_stripe ON public.invoices USING btree (stripe_invoice_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_stripe ON public.invoices USING btree (stripe_invoice_id);
 
 
 --
 -- Name: idx_invoices_tenant; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_invoices_tenant ON public.invoices USING btree (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_tenant ON public.invoices USING btree (tenant_id);
 
 
 --
 -- Name: idx_llm_calls_agent; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_llm_calls_agent ON public.llm_calls USING btree (agent_id);
+CREATE INDEX IF NOT EXISTS idx_llm_calls_agent ON public.llm_calls USING btree (agent_id);
 
 
 --
 -- Name: idx_llm_calls_cache_hit; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_llm_calls_cache_hit ON public.llm_calls USING btree (cache_hit);
+CREATE INDEX IF NOT EXISTS idx_llm_calls_cache_hit ON public.llm_calls USING btree (cache_hit);
 
 
 --
 -- Name: idx_llm_calls_created; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_llm_calls_created ON public.llm_calls USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_llm_calls_created ON public.llm_calls USING btree (created_at DESC);
 
 
 --
 -- Name: idx_llm_calls_provider; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_llm_calls_provider ON public.llm_calls USING btree (provider);
+CREATE INDEX IF NOT EXISTS idx_llm_calls_provider ON public.llm_calls USING btree (provider);
 
 
 --
 -- Name: idx_llm_calls_session; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_llm_calls_session ON public.llm_calls USING btree (session_id);
+CREATE INDEX IF NOT EXISTS idx_llm_calls_session ON public.llm_calls USING btree (session_id);
 
 
 --
 -- Name: idx_llm_job_results_created; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_llm_job_results_created ON public.llm_job_results USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_llm_job_results_created ON public.llm_job_results USING btree (created_at DESC);
 
 
 --
 -- Name: idx_llm_job_results_job_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_llm_job_results_job_id ON public.llm_job_results USING btree (job_id);
+CREATE INDEX IF NOT EXISTS idx_llm_job_results_job_id ON public.llm_job_results USING btree (job_id);
 
 
 --
 -- Name: idx_llm_job_results_type; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_llm_job_results_type ON public.llm_job_results USING btree (type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_llm_job_results_type ON public.llm_job_results USING btree (type, created_at DESC);
 
 
 --
 -- Name: idx_llm_job_results_user; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_llm_job_results_user ON public.llm_job_results USING btree (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_llm_job_results_user ON public.llm_job_results USING btree (user_id, created_at DESC);
 
 
 --
 -- Name: idx_llm_performance_metrics_provider_time; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_llm_performance_metrics_provider_time ON public.llm_performance_metrics USING btree (provider, model, time_bucket DESC);
+CREATE INDEX IF NOT EXISTS idx_llm_performance_metrics_provider_time ON public.llm_performance_metrics USING btree (provider, model, time_bucket DESC);
 
 
 --
 -- Name: idx_llm_usage_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_llm_usage_created_at ON public.llm_usage USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_llm_usage_created_at ON public.llm_usage USING btree (created_at DESC);
 
 
 --
 -- Name: idx_llm_usage_model; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_llm_usage_model ON public.llm_usage USING btree (model);
+CREATE INDEX IF NOT EXISTS idx_llm_usage_model ON public.llm_usage USING btree (model);
 
 
 --
 -- Name: idx_llm_usage_provider; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_llm_usage_provider ON public.llm_usage USING btree (provider);
+CREATE INDEX IF NOT EXISTS idx_llm_usage_provider ON public.llm_usage USING btree (provider);
 
 
 --
 -- Name: idx_llm_usage_session_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_llm_usage_session_id ON public.llm_usage USING btree (session_id);
+CREATE INDEX IF NOT EXISTS idx_llm_usage_session_id ON public.llm_usage USING btree (session_id);
 
 
 --
 -- Name: idx_llm_usage_user_date_cost; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_llm_usage_user_date_cost ON public.llm_usage USING btree (user_id, created_at DESC, estimated_cost);
+CREATE INDEX IF NOT EXISTS idx_llm_usage_user_date_cost ON public.llm_usage USING btree (user_id, created_at DESC, estimated_cost);
 
 
 --
 -- Name: idx_llm_usage_user_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_llm_usage_user_id ON public.llm_usage USING btree (user_id);
+CREATE INDEX IF NOT EXISTS idx_llm_usage_user_id ON public.llm_usage USING btree (user_id);
 
 
 --
 -- Name: idx_login_attempts_email; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_login_attempts_email ON public.login_attempts USING btree (email);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_email ON public.login_attempts USING btree (email);
 
 
 --
 -- Name: idx_login_attempts_timestamp; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_login_attempts_timestamp ON public.login_attempts USING btree (attempted_at);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_timestamp ON public.login_attempts USING btree (attempted_at);
 
 
 --
 -- Name: idx_memory_provenance_memory_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_memory_provenance_memory_id ON public.memory_provenance USING btree (memory_id);
+CREATE INDEX IF NOT EXISTS idx_memory_provenance_memory_id ON public.memory_provenance USING btree (memory_id);
 
 
 --
 -- Name: idx_message_bus_session; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_message_bus_session ON public.message_bus USING btree (session_id);
+CREATE INDEX IF NOT EXISTS idx_message_bus_session ON public.message_bus USING btree (session_id);
 
 
 --
 -- Name: idx_message_bus_status; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_message_bus_status ON public.message_bus USING btree (status) WHERE (status = 'pending'::text);
+CREATE INDEX IF NOT EXISTS idx_message_bus_status ON public.message_bus USING btree (status) WHERE (status = 'pending'::text);
 
 
 --
 -- Name: idx_messages_case_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_messages_case_id ON public.messages USING btree (case_id);
+CREATE INDEX IF NOT EXISTS idx_messages_case_id ON public.messages USING btree (case_id);
 
 
 --
 -- Name: idx_messages_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_messages_created_at ON public.messages USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_created_at ON public.messages USING btree (created_at DESC);
 
 
 --
 -- Name: idx_messages_tenant_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_messages_tenant_id ON public.messages USING btree (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_messages_tenant_id ON public.messages USING btree (tenant_id);
 
 
 --
 -- Name: idx_messages_user_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_messages_user_id ON public.messages USING btree (user_id);
+CREATE INDEX IF NOT EXISTS idx_messages_user_id ON public.messages USING btree (user_id);
 
 
 --
 -- Name: idx_messages_workflow_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_messages_workflow_id ON public.messages USING btree (workflow_id);
+CREATE INDEX IF NOT EXISTS idx_messages_workflow_id ON public.messages USING btree (workflow_id);
 
 
 --
 -- Name: idx_prompt_executions_created; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_prompt_executions_created ON public.prompt_executions USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_prompt_executions_created ON public.prompt_executions USING btree (created_at DESC);
 
 
 --
 -- Name: idx_prompt_executions_user; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_prompt_executions_user ON public.prompt_executions USING btree (user_id);
+CREATE INDEX IF NOT EXISTS idx_prompt_executions_user ON public.prompt_executions USING btree (user_id);
 
 
 --
 -- Name: idx_prompt_executions_version; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_prompt_executions_version ON public.prompt_executions USING btree (prompt_version_id);
+CREATE INDEX IF NOT EXISTS idx_prompt_executions_version ON public.prompt_executions USING btree (prompt_version_id);
 
 
 --
 -- Name: idx_prompt_versions_key_status; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_prompt_versions_key_status ON public.prompt_versions USING btree (prompt_key, status);
+CREATE INDEX IF NOT EXISTS idx_prompt_versions_key_status ON public.prompt_versions USING btree (prompt_key, status);
 
 
 --
 -- Name: idx_prompt_versions_key_version; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_prompt_versions_key_version ON public.prompt_versions USING btree (prompt_key, version DESC);
+CREATE INDEX IF NOT EXISTS idx_prompt_versions_key_version ON public.prompt_versions USING btree (prompt_key, version DESC);
 
 
 --
 -- Name: idx_rate_limit_violations_ip; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_rate_limit_violations_ip ON public.rate_limit_violations USING btree (ip_address);
+CREATE INDEX IF NOT EXISTS idx_rate_limit_violations_ip ON public.rate_limit_violations USING btree (ip_address);
 
 
 --
 -- Name: idx_rate_limit_violations_user_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_rate_limit_violations_user_id ON public.rate_limit_violations USING btree (user_id);
+CREATE INDEX IF NOT EXISTS idx_rate_limit_violations_user_id ON public.rate_limit_violations USING btree (user_id);
 
 
 --
 -- Name: idx_rate_limit_violations_violated_at; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_rate_limit_violations_violated_at ON public.rate_limit_violations USING btree (violated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_rate_limit_violations_violated_at ON public.rate_limit_violations USING btree (violated_at DESC);
 
 
 --
 -- Name: idx_resource_artifacts_active; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_resource_artifacts_active ON public.resource_artifacts USING btree (deprecated) WHERE (deprecated = false);
+CREATE INDEX IF NOT EXISTS idx_resource_artifacts_active ON public.resource_artifacts USING btree (deprecated) WHERE (deprecated = false);
 
 
 --
 -- Name: idx_resource_artifacts_stage; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_resource_artifacts_stage ON public.resource_artifacts USING btree (lifecycle_stage);
+CREATE INDEX IF NOT EXISTS idx_resource_artifacts_stage ON public.resource_artifacts USING btree (lifecycle_stage);
 
 
 --
 -- Name: idx_resource_artifacts_type; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_resource_artifacts_type ON public.resource_artifacts USING btree (artifact_type);
+CREATE INDEX IF NOT EXISTS idx_resource_artifacts_type ON public.resource_artifacts USING btree (artifact_type);
 
 
 --
 -- Name: idx_retention_policies_enabled; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_retention_policies_enabled ON public.retention_policies USING btree (enabled);
+CREATE INDEX IF NOT EXISTS idx_retention_policies_enabled ON public.retention_policies USING btree (enabled);
 
 
 --
 -- Name: idx_secret_audit_logs_action; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_secret_audit_logs_action ON public.secret_audit_logs_legacy USING btree (action);
+CREATE INDEX IF NOT EXISTS idx_secret_audit_logs_action ON public.secret_audit_logs_legacy USING btree (action);
 
 
 --
 -- Name: idx_secret_audit_logs_result; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_secret_audit_logs_result ON public.secret_audit_logs_legacy USING btree (result);
+CREATE INDEX IF NOT EXISTS idx_secret_audit_logs_result ON public.secret_audit_logs_legacy USING btree (result);
 
 
 --
 -- Name: idx_secret_audit_logs_tenant_action_timestamp; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_secret_audit_logs_tenant_action_timestamp ON public.secret_audit_logs_legacy USING btree (tenant_id, action, "timestamp" DESC);
+CREATE INDEX IF NOT EXISTS idx_secret_audit_logs_tenant_action_timestamp ON public.secret_audit_logs_legacy USING btree (tenant_id, action, "timestamp" DESC);
 
 
 --
 -- Name: idx_secret_audit_logs_tenant_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_secret_audit_logs_tenant_id ON public.secret_audit_logs_legacy USING btree (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_secret_audit_logs_tenant_id ON public.secret_audit_logs_legacy USING btree (tenant_id);
 
 
 --
 -- Name: idx_secret_audit_logs_tenant_timestamp; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_secret_audit_logs_tenant_timestamp ON public.secret_audit_logs_legacy USING btree (tenant_id, "timestamp" DESC);
+CREATE INDEX IF NOT EXISTS idx_secret_audit_logs_tenant_timestamp ON public.secret_audit_logs_legacy USING btree (tenant_id, "timestamp" DESC);
 
 
 --
 -- Name: idx_secret_audit_logs_timestamp; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_secret_audit_logs_timestamp ON public.secret_audit_logs_legacy USING btree ("timestamp" DESC);
+CREATE INDEX IF NOT EXISTS idx_secret_audit_logs_timestamp ON public.secret_audit_logs_legacy USING btree ("timestamp" DESC);
 
 
 --
 -- Name: idx_secret_audit_logs_user_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_secret_audit_logs_user_id ON public.secret_audit_logs_legacy USING btree (user_id);
+CREATE INDEX IF NOT EXISTS idx_secret_audit_logs_user_id ON public.secret_audit_logs_legacy USING btree (user_id);
 
 
 --
 -- Name: idx_security_events_tenant_timestamp; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_security_events_tenant_timestamp ON public.security_events USING btree (tenant_id, "timestamp");
+CREATE INDEX IF NOT EXISTS idx_security_events_tenant_timestamp ON public.security_events USING btree (tenant_id, "timestamp");
 
 
 --
 -- Name: idx_security_events_type; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_security_events_type ON public.security_events USING btree (event_type);
+CREATE INDEX IF NOT EXISTS idx_security_events_type ON public.security_events USING btree (event_type);
 
 
 --
 -- Name: idx_security_incidents_detected; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_security_incidents_detected ON public.security_incidents USING btree (detected_at);
+CREATE INDEX IF NOT EXISTS idx_security_incidents_detected ON public.security_incidents USING btree (detected_at);
 
 
 --
 -- Name: idx_security_incidents_tenant_status; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_security_incidents_tenant_status ON public.security_incidents USING btree (tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_security_incidents_tenant_status ON public.security_incidents USING btree (tenant_id, status);
 
 
 --
 -- Name: idx_semantic_memory_created; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_semantic_memory_created ON public.semantic_memory USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_semantic_memory_created ON public.semantic_memory USING btree (created_at DESC);
 
 
 --
 -- Name: idx_semantic_memory_embedding; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_semantic_memory_embedding ON public.semantic_memory USING hnsw (embedding public.vector_cosine_ops) WITH (m='16', ef_construction='64');
+CREATE INDEX IF NOT EXISTS idx_semantic_memory_embedding ON public.semantic_memory USING hnsw (embedding public.vector_cosine_ops) WITH (m='16', ef_construction='64');
 
 
 --
 -- Name: idx_semantic_memory_metadata_gin; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_semantic_memory_metadata_gin ON public.semantic_memory USING gin (metadata);
+CREATE INDEX IF NOT EXISTS idx_semantic_memory_metadata_gin ON public.semantic_memory USING gin (metadata);
 
 
 --
 -- Name: idx_semantic_memory_org; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_semantic_memory_org ON public.semantic_memory USING btree (organization_id);
+CREATE INDEX IF NOT EXISTS idx_semantic_memory_org ON public.semantic_memory USING btree (organization_id);
 
 
 --
 -- Name: idx_semantic_memory_type; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_semantic_memory_type ON public.semantic_memory USING btree (type);
+CREATE INDEX IF NOT EXISTS idx_semantic_memory_type ON public.semantic_memory USING btree (type);
 
 
 --
 -- Name: idx_subscription_items_metric; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_subscription_items_metric ON public.subscription_items USING btree (metric);
+CREATE INDEX IF NOT EXISTS idx_subscription_items_metric ON public.subscription_items USING btree (metric);
 
 
 --
 -- Name: idx_subscription_items_stripe_item; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_subscription_items_stripe_item ON public.subscription_items USING btree (stripe_subscription_item_id);
+CREATE INDEX IF NOT EXISTS idx_subscription_items_stripe_item ON public.subscription_items USING btree (stripe_subscription_item_id);
 
 
 --
 -- Name: idx_subscription_items_subscription; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_subscription_items_subscription ON public.subscription_items USING btree (subscription_id);
+CREATE INDEX IF NOT EXISTS idx_subscription_items_subscription ON public.subscription_items USING btree (subscription_id);
 
 
 --
 -- Name: idx_subscriptions_customer; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_subscriptions_customer ON public.subscriptions USING btree (billing_customer_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_customer ON public.subscriptions USING btree (billing_customer_id);
 
 
 --
 -- Name: idx_subscriptions_period; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_subscriptions_period ON public.subscriptions USING btree (current_period_start, current_period_end);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_period ON public.subscriptions USING btree (current_period_start, current_period_end);
 
 
 --
 -- Name: idx_subscriptions_status; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_subscriptions_status ON public.subscriptions USING btree (status);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON public.subscriptions USING btree (status);
 
 
 --
 -- Name: idx_subscriptions_stripe; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_subscriptions_stripe ON public.subscriptions USING btree (stripe_subscription_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe ON public.subscriptions USING btree (stripe_subscription_id);
 
 
 --
 -- Name: idx_subscriptions_tenant; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_subscriptions_tenant ON public.subscriptions USING btree (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_tenant ON public.subscriptions USING btree (tenant_id);
 
 
 --
 -- Name: idx_system_metrics_tenant_type; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_system_metrics_tenant_type ON public.system_metrics USING btree (tenant_id, metric_type, "timestamp");
+CREATE INDEX IF NOT EXISTS idx_system_metrics_tenant_type ON public.system_metrics USING btree (tenant_id, metric_type, "timestamp");
 
 
 --
 -- Name: idx_task_queue_status; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_task_queue_status ON public.task_queue USING btree (status) WHERE (status = ANY (ARRAY['pending'::text, 'assigned'::text]));
+CREATE INDEX IF NOT EXISTS idx_task_queue_status ON public.task_queue USING btree (status) WHERE (status = ANY (ARRAY['pending'::text, 'assigned'::text]));
 
 
 --
 -- Name: idx_task_queue_workflow; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_task_queue_workflow ON public.task_queue USING btree (workflow_execution_id);
+CREATE INDEX IF NOT EXISTS idx_task_queue_workflow ON public.task_queue USING btree (workflow_execution_id);
 
 
 --
 -- Name: idx_tenant_integrations_provider; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_tenant_integrations_provider ON public.tenant_integrations USING btree (provider);
+CREATE INDEX IF NOT EXISTS idx_tenant_integrations_provider ON public.tenant_integrations USING btree (provider);
 
 
 --
 -- Name: idx_tenant_integrations_tenant; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_tenant_integrations_tenant ON public.tenant_integrations USING btree (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_integrations_tenant ON public.tenant_integrations USING btree (tenant_id);
 
 
 --
 -- Name: idx_tenants_status; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_tenants_status ON public.tenants USING btree (status);
+CREATE INDEX IF NOT EXISTS idx_tenants_status ON public.tenants USING btree (status);
 
 
 --
 -- Name: idx_usage_aggregates_idempotency; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_usage_aggregates_idempotency ON public.usage_aggregates USING btree (idempotency_key);
+CREATE INDEX IF NOT EXISTS idx_usage_aggregates_idempotency ON public.usage_aggregates USING btree (idempotency_key);
 
 
 --
 -- Name: idx_usage_aggregates_metric; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_usage_aggregates_metric ON public.usage_aggregates USING btree (metric);
+CREATE INDEX IF NOT EXISTS idx_usage_aggregates_metric ON public.usage_aggregates USING btree (metric);
 
 
 --
 -- Name: idx_usage_aggregates_period; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_usage_aggregates_period ON public.usage_aggregates USING btree (period_start, period_end);
+CREATE INDEX IF NOT EXISTS idx_usage_aggregates_period ON public.usage_aggregates USING btree (period_start, period_end);
 
 
 --
 -- Name: idx_usage_aggregates_submitted; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_usage_aggregates_submitted ON public.usage_aggregates USING btree (submitted_to_stripe, created_at) WHERE (NOT submitted_to_stripe);
+CREATE INDEX IF NOT EXISTS idx_usage_aggregates_submitted ON public.usage_aggregates USING btree (submitted_to_stripe, created_at) WHERE (NOT submitted_to_stripe);
 
 
 --
 -- Name: idx_usage_aggregates_tenant; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_usage_aggregates_tenant ON public.usage_aggregates USING btree (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_usage_aggregates_tenant ON public.usage_aggregates USING btree (tenant_id);
 
 
 --
 -- Name: idx_usage_alerts_acknowledged; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_usage_alerts_acknowledged ON public.usage_alerts USING btree (acknowledged);
+CREATE INDEX IF NOT EXISTS idx_usage_alerts_acknowledged ON public.usage_alerts USING btree (acknowledged);
 
 
 --
 -- Name: idx_usage_alerts_created; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_usage_alerts_created ON public.usage_alerts USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_usage_alerts_created ON public.usage_alerts USING btree (created_at DESC);
 
 
 --
 -- Name: idx_usage_alerts_metric; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_usage_alerts_metric ON public.usage_alerts USING btree (metric);
+CREATE INDEX IF NOT EXISTS idx_usage_alerts_metric ON public.usage_alerts USING btree (metric);
 
 
 --
 -- Name: idx_usage_alerts_tenant; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_usage_alerts_tenant ON public.usage_alerts USING btree (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_usage_alerts_tenant ON public.usage_alerts USING btree (tenant_id);
 
 
 --
 -- Name: idx_usage_events_metric; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_usage_events_metric ON public.usage_events USING btree (metric);
+CREATE INDEX IF NOT EXISTS idx_usage_events_metric ON public.usage_events USING btree (metric);
 
 
 --
 -- Name: idx_usage_events_processed; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_usage_events_processed ON public.usage_events USING btree (processed, "timestamp") WHERE (NOT processed);
+CREATE INDEX IF NOT EXISTS idx_usage_events_processed ON public.usage_events USING btree (processed, "timestamp") WHERE (NOT processed);
 
 
 --
 -- Name: idx_usage_events_request; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_usage_events_request ON public.usage_events USING btree (request_id);
+CREATE INDEX IF NOT EXISTS idx_usage_events_request ON public.usage_events USING btree (request_id);
 
 
 --
 -- Name: idx_usage_events_tenant; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_usage_events_tenant ON public.usage_events USING btree (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_usage_events_tenant ON public.usage_events USING btree (tenant_id);
 
 
 --
 -- Name: idx_usage_events_timestamp; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_usage_events_timestamp ON public.usage_events USING btree ("timestamp" DESC);
+CREATE INDEX IF NOT EXISTS idx_usage_events_timestamp ON public.usage_events USING btree ("timestamp" DESC);
 
 
 --
 -- Name: idx_usage_quotas_metric; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_usage_quotas_metric ON public.usage_quotas USING btree (metric);
+CREATE INDEX IF NOT EXISTS idx_usage_quotas_metric ON public.usage_quotas USING btree (metric);
 
 
 --
 -- Name: idx_usage_quotas_period; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_usage_quotas_period ON public.usage_quotas USING btree (period_start, period_end);
+CREATE INDEX IF NOT EXISTS idx_usage_quotas_period ON public.usage_quotas USING btree (period_start, period_end);
 
 
 --
 -- Name: idx_usage_quotas_sync; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_usage_quotas_sync ON public.usage_quotas USING btree (last_synced_at);
+CREATE INDEX IF NOT EXISTS idx_usage_quotas_sync ON public.usage_quotas USING btree (last_synced_at);
 
 
 --
 -- Name: idx_usage_quotas_tenant; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_usage_quotas_tenant ON public.usage_quotas USING btree (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_usage_quotas_tenant ON public.usage_quotas USING btree (tenant_id);
 
 
 --
 -- Name: idx_user_roles_user; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_user_roles_user ON public.user_roles USING btree (user_id);
+CREATE INDEX IF NOT EXISTS idx_user_roles_user ON public.user_roles USING btree (user_id);
 
 
 --
 -- Name: idx_user_sessions_expires; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_user_sessions_expires ON public.user_sessions USING btree (expires_at);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_expires ON public.user_sessions USING btree (expires_at);
 
 
 --
 -- Name: idx_user_sessions_tenant_user; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_user_sessions_tenant_user ON public.user_sessions USING btree (tenant_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_tenant_user ON public.user_sessions USING btree (tenant_id, user_id);
 
 
 --
 -- Name: idx_user_tenants_tenant; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_user_tenants_tenant ON public.user_tenants USING btree (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_user_tenants_tenant ON public.user_tenants USING btree (tenant_id);
 
 
 --
 -- Name: idx_user_tenants_user; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_user_tenants_user ON public.user_tenants USING btree (user_id);
+CREATE INDEX IF NOT EXISTS idx_user_tenants_user ON public.user_tenants USING btree (user_id);
 
 
 --
 -- Name: idx_value_cases_session; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_value_cases_session ON public.value_cases USING btree (session_id);
+CREATE INDEX IF NOT EXISTS idx_value_cases_session ON public.value_cases USING btree (session_id);
 
 
 --
 -- Name: idx_value_ledger_user; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_value_ledger_user ON public.value_ledger USING btree (user_id);
+CREATE INDEX IF NOT EXISTS idx_value_ledger_user ON public.value_ledger USING btree (user_id);
 
 
 --
 -- Name: idx_value_ledger_value; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_value_ledger_value ON public.value_ledger USING btree (value_realized DESC);
+CREATE INDEX IF NOT EXISTS idx_value_ledger_value ON public.value_ledger USING btree (value_realized DESC);
 
 
 --
 -- Name: idx_value_prediction_accuracy_created; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_value_prediction_accuracy_created ON public.value_prediction_accuracy USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_value_prediction_accuracy_created ON public.value_prediction_accuracy USING btree (created_at DESC);
 
 
 --
 -- Name: idx_value_prediction_accuracy_measurement; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_value_prediction_accuracy_measurement ON public.value_prediction_accuracy USING btree (measurement_date DESC);
+CREATE INDEX IF NOT EXISTS idx_value_prediction_accuracy_measurement ON public.value_prediction_accuracy USING btree (measurement_date DESC);
 
 
 --
 -- Name: idx_value_prediction_accuracy_metrics_type_time; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_value_prediction_accuracy_metrics_type_time ON public.value_prediction_accuracy_metrics USING btree (prediction_type, time_bucket DESC);
+CREATE INDEX IF NOT EXISTS idx_value_prediction_accuracy_metrics_type_time ON public.value_prediction_accuracy_metrics USING btree (prediction_type, time_bucket DESC);
 
 
 --
 -- Name: idx_value_prediction_accuracy_type; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_value_prediction_accuracy_type ON public.value_prediction_accuracy USING btree (prediction_type);
+CREATE INDEX IF NOT EXISTS idx_value_prediction_accuracy_type ON public.value_prediction_accuracy USING btree (prediction_type);
 
 
 --
 -- Name: idx_webhook_events_processed; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_webhook_events_processed ON public.webhook_events USING btree (processed, received_at) WHERE (NOT processed);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_processed ON public.webhook_events USING btree (processed, received_at) WHERE (NOT processed);
 
 
 --
 -- Name: idx_webhook_events_stripe; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_webhook_events_stripe ON public.webhook_events USING btree (stripe_event_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_stripe ON public.webhook_events USING btree (stripe_event_id);
 
 
 --
 -- Name: idx_webhook_events_type; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_webhook_events_type ON public.webhook_events USING btree (event_type);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_type ON public.webhook_events USING btree (event_type);
 
 
 --
 -- Name: idx_workflow_executions_session; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_workflow_executions_session ON public.workflow_executions USING btree (session_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_session ON public.workflow_executions USING btree (session_id);
 
 
 --
 -- Name: idx_workflow_executions_status; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_workflow_executions_status ON public.workflow_executions USING btree (status);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_status ON public.workflow_executions USING btree (status);
 
 
 --
 -- Name: idx_workflow_executions_tenant; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_workflow_executions_tenant ON public.workflow_executions USING btree (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_tenant ON public.workflow_executions USING btree (tenant_id);
 
 
 --
 -- Name: idx_workflows_case_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_workflows_case_id ON public.workflows USING btree (case_id);
+CREATE INDEX IF NOT EXISTS idx_workflows_case_id ON public.workflows USING btree (case_id);
 
 
 --
 -- Name: idx_workflows_config; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_workflows_config ON public.workflows USING gin (config);
+CREATE INDEX IF NOT EXISTS idx_workflows_config ON public.workflows USING gin (config);
 
 
 --
 -- Name: idx_workflows_status; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_workflows_status ON public.workflows USING btree (status);
+CREATE INDEX IF NOT EXISTS idx_workflows_status ON public.workflows USING btree (status);
 
 
 --
 -- Name: idx_workflows_tenant_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_workflows_tenant_id ON public.workflows USING btree (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_workflows_tenant_id ON public.workflows USING btree (tenant_id);
 
 
 --
 -- Name: idx_workflows_tenant_status; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_workflows_tenant_status ON public.workflows USING btree (tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_workflows_tenant_status ON public.workflows USING btree (tenant_id, status);
 
 
 --
 -- Name: idx_workflows_user_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_workflows_user_id ON public.workflows USING btree (user_id);
+CREATE INDEX IF NOT EXISTS idx_workflows_user_id ON public.workflows USING btree (user_id);
 
 
 --
@@ -8876,6 +8876,7 @@ ALTER TABLE ONLY public.workflows
 -- Name: ab_tests A/B tests are insertable by authenticated users; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "A/B tests are insertable by authenticated users" ON public.ab_tests;
 CREATE POLICY "A/B tests are insertable by authenticated users" ON public.ab_tests FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -8883,6 +8884,7 @@ CREATE POLICY "A/B tests are insertable by authenticated users" ON public.ab_tes
 -- Name: ab_tests A/B tests are updatable by authenticated users; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "A/B tests are updatable by authenticated users" ON public.ab_tests;
 CREATE POLICY "A/B tests are updatable by authenticated users" ON public.ab_tests FOR UPDATE TO authenticated USING (true);
 
 
@@ -8890,6 +8892,7 @@ CREATE POLICY "A/B tests are updatable by authenticated users" ON public.ab_test
 -- Name: ab_tests A/B tests are viewable by authenticated users; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "A/B tests are viewable by authenticated users" ON public.ab_tests;
 CREATE POLICY "A/B tests are viewable by authenticated users" ON public.ab_tests FOR SELECT TO authenticated USING (true);
 
 
@@ -8897,6 +8900,7 @@ CREATE POLICY "A/B tests are viewable by authenticated users" ON public.ab_tests
 -- Name: academy_lessons Academy lessons are viewable by authenticated users; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Academy lessons are viewable by authenticated users" ON public.academy_lessons;
 CREATE POLICY "Academy lessons are viewable by authenticated users" ON public.academy_lessons FOR SELECT TO authenticated USING (true);
 
 
@@ -8904,6 +8908,7 @@ CREATE POLICY "Academy lessons are viewable by authenticated users" ON public.ac
 -- Name: academy_modules Academy modules are viewable by authenticated users; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Academy modules are viewable by authenticated users" ON public.academy_modules;
 CREATE POLICY "Academy modules are viewable by authenticated users" ON public.academy_modules FOR SELECT TO authenticated USING (true);
 
 
@@ -8911,6 +8916,7 @@ CREATE POLICY "Academy modules are viewable by authenticated users" ON public.ac
 -- Name: agents Allow read access to agents; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Allow read access to agents" ON public.agents;
 CREATE POLICY "Allow read access to agents" ON public.agents FOR SELECT TO authenticated USING (true);
 
 
@@ -8918,6 +8924,7 @@ CREATE POLICY "Allow read access to agents" ON public.agents FOR SELECT TO authe
 -- Name: policy_rules Allow read access to policy rules; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Allow read access to policy rules" ON public.policy_rules;
 CREATE POLICY "Allow read access to policy rules" ON public.policy_rules FOR SELECT TO authenticated USING (true);
 
 
@@ -8925,6 +8932,7 @@ CREATE POLICY "Allow read access to policy rules" ON public.policy_rules FOR SEL
 -- Name: workflows Allow read access to workflows; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Allow read access to workflows" ON public.workflows;
 CREATE POLICY "Allow read access to workflows" ON public.workflows FOR SELECT TO authenticated USING (true);
 
 
@@ -8932,6 +8940,7 @@ CREATE POLICY "Allow read access to workflows" ON public.workflows FOR SELECT TO
 -- Name: contextual_triggers Contextual triggers are viewable by authenticated users; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Contextual triggers are viewable by authenticated users" ON public.contextual_triggers;
 CREATE POLICY "Contextual triggers are viewable by authenticated users" ON public.contextual_triggers FOR SELECT TO authenticated USING ((enabled = true));
 
 
@@ -8939,6 +8948,7 @@ CREATE POLICY "Contextual triggers are viewable by authenticated users" ON publi
 -- Name: evaluation_runs Evaluation runs are insertable by authenticated users; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Evaluation runs are insertable by authenticated users" ON public.evaluation_runs;
 CREATE POLICY "Evaluation runs are insertable by authenticated users" ON public.evaluation_runs FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -8946,6 +8956,7 @@ CREATE POLICY "Evaluation runs are insertable by authenticated users" ON public.
 -- Name: evaluation_runs Evaluation runs are viewable by authenticated users; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Evaluation runs are viewable by authenticated users" ON public.evaluation_runs;
 CREATE POLICY "Evaluation runs are viewable by authenticated users" ON public.evaluation_runs FOR SELECT TO authenticated USING (true);
 
 
@@ -8953,6 +8964,7 @@ CREATE POLICY "Evaluation runs are viewable by authenticated users" ON public.ev
 -- Name: feature_flag_evaluations Evaluations are insertable by authenticated users; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Evaluations are insertable by authenticated users" ON public.feature_flag_evaluations;
 CREATE POLICY "Evaluations are insertable by authenticated users" ON public.feature_flag_evaluations FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -8960,6 +8972,7 @@ CREATE POLICY "Evaluations are insertable by authenticated users" ON public.feat
 -- Name: feature_flags Feature flags are deletable by authenticated users; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Feature flags are deletable by authenticated users" ON public.feature_flags;
 CREATE POLICY "Feature flags are deletable by authenticated users" ON public.feature_flags FOR DELETE TO authenticated USING (true);
 
 
@@ -8967,6 +8980,7 @@ CREATE POLICY "Feature flags are deletable by authenticated users" ON public.fea
 -- Name: feature_flags Feature flags are insertable by authenticated users; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Feature flags are insertable by authenticated users" ON public.feature_flags;
 CREATE POLICY "Feature flags are insertable by authenticated users" ON public.feature_flags FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -8974,6 +8988,7 @@ CREATE POLICY "Feature flags are insertable by authenticated users" ON public.fe
 -- Name: feature_flags Feature flags are updatable by authenticated users; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Feature flags are updatable by authenticated users" ON public.feature_flags;
 CREATE POLICY "Feature flags are updatable by authenticated users" ON public.feature_flags FOR UPDATE TO authenticated USING (true);
 
 
@@ -8981,6 +8996,7 @@ CREATE POLICY "Feature flags are updatable by authenticated users" ON public.fea
 -- Name: feature_flags Feature flags are viewable by authenticated users; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Feature flags are viewable by authenticated users" ON public.feature_flags;
 CREATE POLICY "Feature flags are viewable by authenticated users" ON public.feature_flags FOR SELECT TO authenticated USING (true);
 
 
@@ -8988,6 +9004,7 @@ CREATE POLICY "Feature flags are viewable by authenticated users" ON public.feat
 -- Name: golden_examples Golden examples are insertable by authenticated users; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Golden examples are insertable by authenticated users" ON public.golden_examples;
 CREATE POLICY "Golden examples are insertable by authenticated users" ON public.golden_examples FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -8995,6 +9012,7 @@ CREATE POLICY "Golden examples are insertable by authenticated users" ON public.
 -- Name: golden_examples Golden examples are updatable by authenticated users; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Golden examples are updatable by authenticated users" ON public.golden_examples;
 CREATE POLICY "Golden examples are updatable by authenticated users" ON public.golden_examples FOR UPDATE TO authenticated USING (true);
 
 
@@ -9002,6 +9020,7 @@ CREATE POLICY "Golden examples are updatable by authenticated users" ON public.g
 -- Name: golden_examples Golden examples are viewable by authenticated users; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Golden examples are viewable by authenticated users" ON public.golden_examples;
 CREATE POLICY "Golden examples are viewable by authenticated users" ON public.golden_examples FOR SELECT TO authenticated USING (true);
 
 
@@ -9009,6 +9028,7 @@ CREATE POLICY "Golden examples are viewable by authenticated users" ON public.go
 -- Name: llm_job_results Job results are insertable by authenticated users; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Job results are insertable by authenticated users" ON public.llm_job_results;
 CREATE POLICY "Job results are insertable by authenticated users" ON public.llm_job_results FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -9016,6 +9036,7 @@ CREATE POLICY "Job results are insertable by authenticated users" ON public.llm_
 -- Name: agent_predictions Prevent prediction deletions; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Prevent prediction deletions" ON public.agent_predictions;
 CREATE POLICY "Prevent prediction deletions" ON public.agent_predictions FOR DELETE USING (false);
 
 
@@ -9023,6 +9044,7 @@ CREATE POLICY "Prevent prediction deletions" ON public.agent_predictions FOR DEL
 -- Name: agent_predictions Prevent prediction modifications; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Prevent prediction modifications" ON public.agent_predictions;
 CREATE POLICY "Prevent prediction modifications" ON public.agent_predictions FOR UPDATE USING (false);
 
 
@@ -9030,6 +9052,7 @@ CREATE POLICY "Prevent prediction modifications" ON public.agent_predictions FOR
 -- Name: prompt_versions Prompt versions are insertable by authenticated users; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Prompt versions are insertable by authenticated users" ON public.prompt_versions;
 CREATE POLICY "Prompt versions are insertable by authenticated users" ON public.prompt_versions FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -9037,6 +9060,7 @@ CREATE POLICY "Prompt versions are insertable by authenticated users" ON public.
 -- Name: prompt_versions Prompt versions are updatable by authenticated users; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Prompt versions are updatable by authenticated users" ON public.prompt_versions;
 CREATE POLICY "Prompt versions are updatable by authenticated users" ON public.prompt_versions FOR UPDATE TO authenticated USING (true);
 
 
@@ -9044,6 +9068,7 @@ CREATE POLICY "Prompt versions are updatable by authenticated users" ON public.p
 -- Name: prompt_versions Prompt versions are viewable by authenticated users; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Prompt versions are viewable by authenticated users" ON public.prompt_versions;
 CREATE POLICY "Prompt versions are viewable by authenticated users" ON public.prompt_versions FOR SELECT TO authenticated USING (true);
 
 
@@ -9051,6 +9076,7 @@ CREATE POLICY "Prompt versions are viewable by authenticated users" ON public.pr
 -- Name: resource_artifacts Resource artifacts are viewable by authenticated users; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Resource artifacts are viewable by authenticated users" ON public.resource_artifacts;
 CREATE POLICY "Resource artifacts are viewable by authenticated users" ON public.resource_artifacts FOR SELECT TO authenticated USING ((deprecated = false));
 
 
@@ -9058,6 +9084,7 @@ CREATE POLICY "Resource artifacts are viewable by authenticated users" ON public
 -- Name: semantic_memory Service role can access all memories; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Service role can access all memories" ON public.semantic_memory;
 CREATE POLICY "Service role can access all memories" ON public.semantic_memory TO service_role USING (true);
 
 
@@ -9065,6 +9092,7 @@ CREATE POLICY "Service role can access all memories" ON public.semantic_memory T
 -- Name: agent_accuracy_metrics Service role full access to metrics; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Service role full access to metrics" ON public.agent_accuracy_metrics;
 CREATE POLICY "Service role full access to metrics" ON public.agent_accuracy_metrics USING (((auth.jwt() ->> 'role'::text) = 'service_role'::text));
 
 
@@ -9072,6 +9100,7 @@ CREATE POLICY "Service role full access to metrics" ON public.agent_accuracy_met
 -- Name: agent_retraining_queue Service role only for retraining queue; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Service role only for retraining queue" ON public.agent_retraining_queue;
 CREATE POLICY "Service role only for retraining queue" ON public.agent_retraining_queue USING (((auth.jwt() ->> 'role'::text) = 'service_role'::text));
 
 
@@ -9079,6 +9108,7 @@ CREATE POLICY "Service role only for retraining queue" ON public.agent_retrainin
 -- Name: cases Users can create own cases; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can create own cases" ON public.cases;
 CREATE POLICY "Users can create own cases" ON public.cases FOR INSERT WITH CHECK ((auth.uid() = user_id));
 
 
@@ -9086,6 +9116,7 @@ CREATE POLICY "Users can create own cases" ON public.cases FOR INSERT WITH CHECK
 -- Name: messages Users can create own messages; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can create own messages" ON public.messages;
 CREATE POLICY "Users can create own messages" ON public.messages FOR INSERT WITH CHECK (((user_id = auth.uid()) AND (case_id IN ( SELECT cases.id
    FROM public.cases
   WHERE (cases.user_id = auth.uid())))));
@@ -9095,6 +9126,7 @@ CREATE POLICY "Users can create own messages" ON public.messages FOR INSERT WITH
 -- Name: workflows Users can create own workflows; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can create own workflows" ON public.workflows;
 CREATE POLICY "Users can create own workflows" ON public.workflows FOR INSERT WITH CHECK (((user_id = auth.uid()) OR (case_id IN ( SELECT cases.id
    FROM public.cases
   WHERE (cases.user_id = auth.uid())))));
@@ -9104,6 +9136,7 @@ CREATE POLICY "Users can create own workflows" ON public.workflows FOR INSERT WI
 -- Name: canvas_components Users can delete components in own cases; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can delete components in own cases" ON public.canvas_components;
 CREATE POLICY "Users can delete components in own cases" ON public.canvas_components FOR DELETE TO authenticated USING ((EXISTS ( SELECT 1
    FROM public.business_cases
   WHERE ((business_cases.id = canvas_components.case_id) AND (business_cases.owner_id = auth.uid())))));
@@ -9113,6 +9146,7 @@ CREATE POLICY "Users can delete components in own cases" ON public.canvas_compon
 -- Name: business_cases Users can delete own business cases; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can delete own business cases" ON public.business_cases;
 CREATE POLICY "Users can delete own business cases" ON public.business_cases FOR DELETE TO authenticated USING ((auth.uid() = owner_id));
 
 
@@ -9120,6 +9154,7 @@ CREATE POLICY "Users can delete own business cases" ON public.business_cases FOR
 -- Name: cases Users can delete own cases; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can delete own cases" ON public.cases;
 CREATE POLICY "Users can delete own cases" ON public.cases FOR DELETE USING ((auth.uid() = user_id));
 
 
@@ -9127,6 +9162,7 @@ CREATE POLICY "Users can delete own cases" ON public.cases FOR DELETE USING ((au
 -- Name: workflows Users can delete own workflows; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can delete own workflows" ON public.workflows;
 CREATE POLICY "Users can delete own workflows" ON public.workflows FOR DELETE USING (((user_id = auth.uid()) OR (case_id IN ( SELECT cases.id
    FROM public.cases
   WHERE (cases.user_id = auth.uid())))));
@@ -9136,6 +9172,7 @@ CREATE POLICY "Users can delete own workflows" ON public.workflows FOR DELETE US
 -- Name: component_relationships Users can delete relationships for own components; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can delete relationships for own components" ON public.component_relationships;
 CREATE POLICY "Users can delete relationships for own components" ON public.component_relationships FOR DELETE TO authenticated USING ((EXISTS ( SELECT 1
    FROM (public.canvas_components
      JOIN public.business_cases ON ((business_cases.id = canvas_components.case_id)))
@@ -9146,6 +9183,7 @@ CREATE POLICY "Users can delete relationships for own components" ON public.comp
 -- Name: semantic_memory Users can delete their own memories; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can delete their own memories" ON public.semantic_memory;
 CREATE POLICY "Users can delete their own memories" ON public.semantic_memory FOR DELETE TO authenticated USING (((metadata ->> 'userId'::text) = (auth.uid())::text));
 
 
@@ -9153,6 +9191,7 @@ CREATE POLICY "Users can delete their own memories" ON public.semantic_memory FO
 -- Name: agent_activities Users can insert activities in own cases; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can insert activities in own cases" ON public.agent_activities;
 CREATE POLICY "Users can insert activities in own cases" ON public.agent_activities FOR INSERT TO authenticated WITH CHECK ((EXISTS ( SELECT 1
    FROM public.business_cases
   WHERE ((business_cases.id = agent_activities.case_id) AND (business_cases.owner_id = auth.uid())))));
@@ -9162,6 +9201,7 @@ CREATE POLICY "Users can insert activities in own cases" ON public.agent_activit
 -- Name: canvas_components Users can insert components in own cases; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can insert components in own cases" ON public.canvas_components;
 CREATE POLICY "Users can insert components in own cases" ON public.canvas_components FOR INSERT TO authenticated WITH CHECK ((EXISTS ( SELECT 1
    FROM public.business_cases
   WHERE ((business_cases.id = canvas_components.case_id) AND (business_cases.owner_id = auth.uid())))));
@@ -9171,6 +9211,7 @@ CREATE POLICY "Users can insert components in own cases" ON public.canvas_compon
 -- Name: component_history Users can insert history for own components; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can insert history for own components" ON public.component_history;
 CREATE POLICY "Users can insert history for own components" ON public.component_history FOR INSERT TO authenticated WITH CHECK ((EXISTS ( SELECT 1
    FROM (public.canvas_components
      JOIN public.business_cases ON ((business_cases.id = canvas_components.case_id)))
@@ -9181,6 +9222,7 @@ CREATE POLICY "Users can insert history for own components" ON public.component_
 -- Name: business_cases Users can insert own business cases; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can insert own business cases" ON public.business_cases;
 CREATE POLICY "Users can insert own business cases" ON public.business_cases FOR INSERT TO authenticated WITH CHECK ((auth.uid() = owner_id));
 
 
@@ -9188,6 +9230,7 @@ CREATE POLICY "Users can insert own business cases" ON public.business_cases FOR
 -- Name: academy_progress Users can insert own progress; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can insert own progress" ON public.academy_progress;
 CREATE POLICY "Users can insert own progress" ON public.academy_progress FOR INSERT TO authenticated WITH CHECK ((auth.uid() = user_id));
 
 
@@ -9195,6 +9238,7 @@ CREATE POLICY "Users can insert own progress" ON public.academy_progress FOR INS
 -- Name: component_relationships Users can insert relationships for own components; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can insert relationships for own components" ON public.component_relationships;
 CREATE POLICY "Users can insert relationships for own components" ON public.component_relationships FOR INSERT TO authenticated WITH CHECK ((EXISTS ( SELECT 1
    FROM (public.canvas_components
      JOIN public.business_cases ON ((business_cases.id = canvas_components.case_id)))
@@ -9205,6 +9249,7 @@ CREATE POLICY "Users can insert relationships for own components" ON public.comp
 -- Name: prompt_executions Users can insert their own executions; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can insert their own executions" ON public.prompt_executions;
 CREATE POLICY "Users can insert their own executions" ON public.prompt_executions FOR INSERT TO authenticated WITH CHECK ((auth.uid() = user_id));
 
 
@@ -9212,6 +9257,7 @@ CREATE POLICY "Users can insert their own executions" ON public.prompt_execution
 -- Name: semantic_memory Users can insert their own memories; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can insert their own memories" ON public.semantic_memory;
 CREATE POLICY "Users can insert their own memories" ON public.semantic_memory FOR INSERT TO authenticated WITH CHECK (((metadata ->> 'userId'::text) = (auth.uid())::text));
 
 
@@ -9219,6 +9265,7 @@ CREATE POLICY "Users can insert their own memories" ON public.semantic_memory FO
 -- Name: agent_sessions Users can manage own sessions; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can manage own sessions" ON public.agent_sessions;
 CREATE POLICY "Users can manage own sessions" ON public.agent_sessions TO authenticated USING ((user_id = auth.uid())) WITH CHECK ((user_id = auth.uid()));
 
 
@@ -9226,6 +9273,7 @@ CREATE POLICY "Users can manage own sessions" ON public.agent_sessions TO authen
 -- Name: value_cases Users can manage own value cases; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can manage own value cases" ON public.value_cases;
 CREATE POLICY "Users can manage own value cases" ON public.value_cases TO authenticated USING ((EXISTS ( SELECT 1
    FROM public.agent_sessions
   WHERE ((agent_sessions.id = value_cases.session_id) AND (agent_sessions.user_id = auth.uid()))))) WITH CHECK ((EXISTS ( SELECT 1
@@ -9237,6 +9285,7 @@ CREATE POLICY "Users can manage own value cases" ON public.value_cases TO authen
 -- Name: canvas_components Users can update components in own cases; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can update components in own cases" ON public.canvas_components;
 CREATE POLICY "Users can update components in own cases" ON public.canvas_components FOR UPDATE TO authenticated USING ((EXISTS ( SELECT 1
    FROM public.business_cases
   WHERE ((business_cases.id = canvas_components.case_id) AND (business_cases.owner_id = auth.uid()))))) WITH CHECK ((EXISTS ( SELECT 1
@@ -9248,6 +9297,7 @@ CREATE POLICY "Users can update components in own cases" ON public.canvas_compon
 -- Name: business_cases Users can update own business cases; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can update own business cases" ON public.business_cases;
 CREATE POLICY "Users can update own business cases" ON public.business_cases FOR UPDATE TO authenticated USING ((auth.uid() = owner_id)) WITH CHECK ((auth.uid() = owner_id));
 
 
@@ -9255,6 +9305,7 @@ CREATE POLICY "Users can update own business cases" ON public.business_cases FOR
 -- Name: cases Users can update own cases; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can update own cases" ON public.cases;
 CREATE POLICY "Users can update own cases" ON public.cases FOR UPDATE USING ((auth.uid() = user_id)) WITH CHECK ((auth.uid() = user_id));
 
 
@@ -9262,6 +9313,7 @@ CREATE POLICY "Users can update own cases" ON public.cases FOR UPDATE USING ((au
 -- Name: academy_progress Users can update own progress; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can update own progress" ON public.academy_progress;
 CREATE POLICY "Users can update own progress" ON public.academy_progress FOR UPDATE TO authenticated USING ((auth.uid() = user_id));
 
 
@@ -9269,6 +9321,7 @@ CREATE POLICY "Users can update own progress" ON public.academy_progress FOR UPD
 -- Name: workflows Users can update own workflows; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can update own workflows" ON public.workflows;
 CREATE POLICY "Users can update own workflows" ON public.workflows FOR UPDATE USING (((user_id = auth.uid()) OR (case_id IN ( SELECT cases.id
    FROM public.cases
   WHERE (cases.user_id = auth.uid())))));
@@ -9278,6 +9331,7 @@ CREATE POLICY "Users can update own workflows" ON public.workflows FOR UPDATE US
 -- Name: prompt_executions Users can update their own executions; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can update their own executions" ON public.prompt_executions;
 CREATE POLICY "Users can update their own executions" ON public.prompt_executions FOR UPDATE TO authenticated USING ((auth.uid() = user_id));
 
 
@@ -9285,6 +9339,7 @@ CREATE POLICY "Users can update their own executions" ON public.prompt_execution
 -- Name: agent_activities Users can view activities in own cases; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view activities in own cases" ON public.agent_activities;
 CREATE POLICY "Users can view activities in own cases" ON public.agent_activities FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
    FROM public.business_cases
   WHERE ((business_cases.id = agent_activities.case_id) AND (business_cases.owner_id = auth.uid())))));
@@ -9294,6 +9349,7 @@ CREATE POLICY "Users can view activities in own cases" ON public.agent_activitie
 -- Name: canvas_components Users can view components in own cases; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view components in own cases" ON public.canvas_components;
 CREATE POLICY "Users can view components in own cases" ON public.canvas_components FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
    FROM public.business_cases
   WHERE ((business_cases.id = canvas_components.case_id) AND (business_cases.owner_id = auth.uid())))));
@@ -9303,6 +9359,7 @@ CREATE POLICY "Users can view components in own cases" ON public.canvas_componen
 -- Name: component_history Users can view history of own components; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view history of own components" ON public.component_history;
 CREATE POLICY "Users can view history of own components" ON public.component_history FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
    FROM (public.canvas_components
      JOIN public.business_cases ON ((business_cases.id = canvas_components.case_id)))
@@ -9313,6 +9370,7 @@ CREATE POLICY "Users can view history of own components" ON public.component_his
 -- Name: agent_accuracy_metrics Users can view org metrics; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view org metrics" ON public.agent_accuracy_metrics;
 CREATE POLICY "Users can view org metrics" ON public.agent_accuracy_metrics FOR SELECT USING (((organization_id IS NULL) OR (organization_id = (auth.jwt() ->> 'organization_id'::text))));
 
 
@@ -9320,6 +9378,7 @@ CREATE POLICY "Users can view org metrics" ON public.agent_accuracy_metrics FOR 
 -- Name: assumptions Users can view own assumptions; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view own assumptions" ON public.assumptions;
 CREATE POLICY "Users can view own assumptions" ON public.assumptions FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
    FROM (public.value_cases
      JOIN public.agent_sessions ON ((agent_sessions.id = value_cases.session_id)))
@@ -9330,6 +9389,7 @@ CREATE POLICY "Users can view own assumptions" ON public.assumptions FOR SELECT 
 -- Name: agent_audit_log Users can view own audit logs; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view own audit logs" ON public.agent_audit_log;
 CREATE POLICY "Users can view own audit logs" ON public.agent_audit_log FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
    FROM public.agent_sessions
   WHERE ((agent_sessions.id = agent_audit_log.session_id) AND (agent_sessions.user_id = auth.uid())))));
@@ -9339,6 +9399,7 @@ CREATE POLICY "Users can view own audit logs" ON public.agent_audit_log FOR SELE
 -- Name: business_cases Users can view own business cases; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view own business cases" ON public.business_cases;
 CREATE POLICY "Users can view own business cases" ON public.business_cases FOR SELECT TO authenticated USING ((auth.uid() = owner_id));
 
 
@@ -9346,6 +9407,7 @@ CREATE POLICY "Users can view own business cases" ON public.business_cases FOR S
 -- Name: cases Users can view own cases; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view own cases" ON public.cases;
 CREATE POLICY "Users can view own cases" ON public.cases FOR SELECT USING ((auth.uid() = user_id));
 
 
@@ -9353,6 +9415,7 @@ CREATE POLICY "Users can view own cases" ON public.cases FOR SELECT USING ((auth
 -- Name: academy_certifications Users can view own certifications; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view own certifications" ON public.academy_certifications;
 CREATE POLICY "Users can view own certifications" ON public.academy_certifications FOR SELECT TO authenticated USING ((auth.uid() = user_id));
 
 
@@ -9360,6 +9423,7 @@ CREATE POLICY "Users can view own certifications" ON public.academy_certificatio
 -- Name: company_profiles Users can view own company profiles; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view own company profiles" ON public.company_profiles;
 CREATE POLICY "Users can view own company profiles" ON public.company_profiles FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
    FROM (public.value_cases
      JOIN public.agent_sessions ON ((agent_sessions.id = value_cases.session_id)))
@@ -9370,6 +9434,7 @@ CREATE POLICY "Users can view own company profiles" ON public.company_profiles F
 -- Name: financial_models Users can view own financial models; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view own financial models" ON public.financial_models;
 CREATE POLICY "Users can view own financial models" ON public.financial_models FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
    FROM (public.value_cases
      JOIN public.agent_sessions ON ((agent_sessions.id = value_cases.session_id)))
@@ -9380,6 +9445,7 @@ CREATE POLICY "Users can view own financial models" ON public.financial_models F
 -- Name: kpi_hypotheses Users can view own kpi hypotheses; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view own kpi hypotheses" ON public.kpi_hypotheses;
 CREATE POLICY "Users can view own kpi hypotheses" ON public.kpi_hypotheses FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
    FROM (public.value_cases
      JOIN public.agent_sessions ON ((agent_sessions.id = value_cases.session_id)))
@@ -9390,6 +9456,7 @@ CREATE POLICY "Users can view own kpi hypotheses" ON public.kpi_hypotheses FOR S
 -- Name: value_ledger Users can view own ledger entries; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view own ledger entries" ON public.value_ledger;
 CREATE POLICY "Users can view own ledger entries" ON public.value_ledger FOR SELECT TO authenticated USING ((auth.uid() = user_id));
 
 
@@ -9397,6 +9464,7 @@ CREATE POLICY "Users can view own ledger entries" ON public.value_ledger FOR SEL
 -- Name: messages Users can view own messages; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view own messages" ON public.messages;
 CREATE POLICY "Users can view own messages" ON public.messages FOR SELECT USING (((user_id = auth.uid()) OR (case_id IN ( SELECT cases.id
    FROM public.cases
   WHERE (cases.user_id = auth.uid())))));
@@ -9406,6 +9474,7 @@ CREATE POLICY "Users can view own messages" ON public.messages FOR SELECT USING 
 -- Name: agent_metrics Users can view own metrics; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view own metrics" ON public.agent_metrics;
 CREATE POLICY "Users can view own metrics" ON public.agent_metrics FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
    FROM public.agent_sessions
   WHERE ((agent_sessions.id = agent_metrics.session_id) AND (agent_sessions.user_id = auth.uid())))));
@@ -9415,6 +9484,7 @@ CREATE POLICY "Users can view own metrics" ON public.agent_metrics FOR SELECT TO
 -- Name: academy_progress Users can view own progress; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view own progress" ON public.academy_progress;
 CREATE POLICY "Users can view own progress" ON public.academy_progress FOR SELECT TO authenticated USING ((auth.uid() = user_id));
 
 
@@ -9422,6 +9492,7 @@ CREATE POLICY "Users can view own progress" ON public.academy_progress FOR SELEC
 -- Name: agent_memory Users can view own session memory; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view own session memory" ON public.agent_memory;
 CREATE POLICY "Users can view own session memory" ON public.agent_memory FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
    FROM public.agent_sessions
   WHERE ((agent_sessions.id = agent_memory.session_id) AND (agent_sessions.user_id = auth.uid())))));
@@ -9431,6 +9502,7 @@ CREATE POLICY "Users can view own session memory" ON public.agent_memory FOR SEL
 -- Name: message_bus Users can view own session messages; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view own session messages" ON public.message_bus;
 CREATE POLICY "Users can view own session messages" ON public.message_bus FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
    FROM public.agent_sessions
   WHERE ((agent_sessions.id = message_bus.session_id) AND (agent_sessions.user_id = auth.uid())))));
@@ -9440,6 +9512,7 @@ CREATE POLICY "Users can view own session messages" ON public.message_bus FOR SE
 -- Name: task_queue Users can view own tasks; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view own tasks" ON public.task_queue;
 CREATE POLICY "Users can view own tasks" ON public.task_queue FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
    FROM (public.workflow_executions
      JOIN public.agent_sessions ON ((agent_sessions.id = workflow_executions.session_id)))
@@ -9450,6 +9523,7 @@ CREATE POLICY "Users can view own tasks" ON public.task_queue FOR SELECT TO auth
 -- Name: value_maps Users can view own value maps; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view own value maps" ON public.value_maps;
 CREATE POLICY "Users can view own value maps" ON public.value_maps FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
    FROM (public.value_cases
      JOIN public.agent_sessions ON ((agent_sessions.id = value_cases.session_id)))
@@ -9460,6 +9534,7 @@ CREATE POLICY "Users can view own value maps" ON public.value_maps FOR SELECT TO
 -- Name: workflow_executions Users can view own workflow executions; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view own workflow executions" ON public.workflow_executions;
 CREATE POLICY "Users can view own workflow executions" ON public.workflow_executions FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
    FROM public.agent_sessions
   WHERE ((agent_sessions.id = workflow_executions.session_id) AND (agent_sessions.user_id = auth.uid())))));
@@ -9469,6 +9544,7 @@ CREATE POLICY "Users can view own workflow executions" ON public.workflow_execut
 -- Name: workflows Users can view own workflows; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view own workflows" ON public.workflows;
 CREATE POLICY "Users can view own workflows" ON public.workflows FOR SELECT USING (((user_id = auth.uid()) OR (case_id IN ( SELECT cases.id
    FROM public.cases
   WHERE (cases.user_id = auth.uid())))));
@@ -9478,6 +9554,7 @@ CREATE POLICY "Users can view own workflows" ON public.workflows FOR SELECT USIN
 -- Name: component_relationships Users can view relationships for own components; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view relationships for own components" ON public.component_relationships;
 CREATE POLICY "Users can view relationships for own components" ON public.component_relationships FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
    FROM (public.canvas_components
      JOIN public.business_cases ON ((business_cases.id = canvas_components.case_id)))
@@ -9488,6 +9565,7 @@ CREATE POLICY "Users can view relationships for own components" ON public.compon
 -- Name: feature_flag_evaluations Users can view their own evaluations; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view their own evaluations" ON public.feature_flag_evaluations;
 CREATE POLICY "Users can view their own evaluations" ON public.feature_flag_evaluations FOR SELECT TO authenticated USING ((auth.uid() = user_id));
 
 
@@ -9495,6 +9573,7 @@ CREATE POLICY "Users can view their own evaluations" ON public.feature_flag_eval
 -- Name: prompt_executions Users can view their own executions; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view their own executions" ON public.prompt_executions;
 CREATE POLICY "Users can view their own executions" ON public.prompt_executions FOR SELECT TO authenticated USING ((auth.uid() = user_id));
 
 
@@ -9502,6 +9581,7 @@ CREATE POLICY "Users can view their own executions" ON public.prompt_executions 
 -- Name: llm_job_results Users can view their own job results; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view their own job results" ON public.llm_job_results;
 CREATE POLICY "Users can view their own job results" ON public.llm_job_results FOR SELECT TO authenticated USING ((auth.uid() = user_id));
 
 
@@ -9509,6 +9589,7 @@ CREATE POLICY "Users can view their own job results" ON public.llm_job_results F
 -- Name: semantic_memory Users can view their own memories; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Users can view their own memories" ON public.semantic_memory;
 CREATE POLICY "Users can view their own memories" ON public.semantic_memory FOR SELECT TO authenticated USING (((metadata ->> 'userId'::text) = (auth.uid())::text));
 
 
@@ -9546,6 +9627,7 @@ ALTER TABLE public.academy_progress ENABLE ROW LEVEL SECURITY;
 -- Name: security_audit_log admin_only_select; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS admin_only_select ON public.security_audit_log;
 CREATE POLICY admin_only_select ON public.security_audit_log FOR SELECT USING ((EXISTS ( SELECT 1
    FROM (public.user_roles ur
      JOIN public.roles r ON ((ur.role_id = r.id)))
@@ -9646,6 +9728,7 @@ ALTER TABLE public.approvals ENABLE ROW LEVEL SECURITY;
 -- Name: approvals approvals_viewable_by_stakeholders; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS approvals_viewable_by_stakeholders ON public.approvals;
 CREATE POLICY approvals_viewable_by_stakeholders ON public.approvals FOR SELECT USING (((approver_id = auth.uid()) OR (request_id IN ( SELECT approval_requests.id
    FROM public.approval_requests
   WHERE (approval_requests.requester_id = auth.uid())))));
@@ -9661,6 +9744,7 @@ ALTER TABLE public.approver_roles ENABLE ROW LEVEL SECURITY;
 -- Name: approval_requests approvers_can_view_pending; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS approvers_can_view_pending ON public.approval_requests;
 CREATE POLICY approvers_can_view_pending ON public.approval_requests FOR SELECT USING (((status = 'pending'::text) AND (EXISTS ( SELECT 1
    FROM public.approver_roles
   WHERE ((approver_roles.user_id = auth.uid()) AND (approver_roles.active = true))))));
@@ -9682,6 +9766,7 @@ ALTER TABLE public.audit_log_access ENABLE ROW LEVEL SECURITY;
 -- Name: audit_log_access audit_log_access_admin_only; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS audit_log_access_admin_only ON public.audit_log_access;
 CREATE POLICY audit_log_access_admin_only ON public.audit_log_access USING ((EXISTS ( SELECT 1
    FROM (public.user_roles ur
      JOIN public.roles r ON ((ur.role_id = r.id)))
@@ -9692,6 +9777,7 @@ CREATE POLICY audit_log_access_admin_only ON public.audit_log_access USING ((EXI
 -- Name: audit_log_access audit_log_access_immutable; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS audit_log_access_immutable ON public.audit_log_access;
 CREATE POLICY audit_log_access_immutable ON public.audit_log_access FOR UPDATE USING (false);
 
 
@@ -9699,6 +9785,7 @@ CREATE POLICY audit_log_access_immutable ON public.audit_log_access FOR UPDATE U
 -- Name: audit_log_access audit_log_access_no_delete; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS audit_log_access_no_delete ON public.audit_log_access;
 CREATE POLICY audit_log_access_no_delete ON public.audit_log_access FOR DELETE USING (false);
 
 
@@ -9730,6 +9817,7 @@ ALTER TABLE public.automated_responses ENABLE ROW LEVEL SECURITY;
 -- Name: automated_responses automated_responses_tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS automated_responses_tenant_isolation ON public.automated_responses;
 CREATE POLICY automated_responses_tenant_isolation ON public.automated_responses USING ((tenant_id IN ( SELECT user_tenants.tenant_id
    FROM public.user_tenants
   WHERE (user_tenants.user_id = (auth.uid())::text))));
@@ -9745,6 +9833,7 @@ ALTER TABLE public.backup_logs ENABLE ROW LEVEL SECURITY;
 -- Name: backup_logs backup_logs_insert_system; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS backup_logs_insert_system ON public.backup_logs;
 CREATE POLICY backup_logs_insert_system ON public.backup_logs FOR INSERT WITH CHECK (((auth.jwt() ->> 'role'::text) = 'service_role'::text));
 
 
@@ -9752,6 +9841,7 @@ CREATE POLICY backup_logs_insert_system ON public.backup_logs FOR INSERT WITH CH
 -- Name: backup_logs backup_logs_select_admin; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS backup_logs_select_admin ON public.backup_logs;
 CREATE POLICY backup_logs_select_admin ON public.backup_logs FOR SELECT USING (((auth.jwt() ->> 'role'::text) = 'admin'::text));
 
 
@@ -9783,6 +9873,7 @@ ALTER TABLE public.cases ENABLE ROW LEVEL SECURITY;
 -- Name: cases cases_tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS cases_tenant_isolation ON public.cases;
 CREATE POLICY cases_tenant_isolation ON public.cases USING ((tenant_id IN ( SELECT user_tenants.tenant_id
    FROM public.user_tenants
   WHERE (user_tenants.user_id = (auth.uid())::text))));
@@ -9804,6 +9895,7 @@ ALTER TABLE public.compliance_evidence ENABLE ROW LEVEL SECURITY;
 -- Name: compliance_evidence compliance_evidence_tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS compliance_evidence_tenant_isolation ON public.compliance_evidence;
 CREATE POLICY compliance_evidence_tenant_isolation ON public.compliance_evidence USING ((tenant_id IN ( SELECT user_tenants.tenant_id
    FROM public.user_tenants
   WHERE (user_tenants.user_id = (auth.uid())::text))));
@@ -9819,6 +9911,7 @@ ALTER TABLE public.compliance_reports ENABLE ROW LEVEL SECURITY;
 -- Name: compliance_reports compliance_reports_tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS compliance_reports_tenant_isolation ON public.compliance_reports;
 CREATE POLICY compliance_reports_tenant_isolation ON public.compliance_reports USING ((tenant_id IN ( SELECT user_tenants.tenant_id
    FROM public.user_tenants
   WHERE (user_tenants.user_id = (auth.uid())::text))));
@@ -9858,6 +9951,7 @@ ALTER TABLE public.cost_alerts ENABLE ROW LEVEL SECURITY;
 -- Name: cost_alerts cost_alerts_insert_system; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS cost_alerts_insert_system ON public.cost_alerts;
 CREATE POLICY cost_alerts_insert_system ON public.cost_alerts FOR INSERT WITH CHECK (((auth.jwt() ->> 'role'::text) = 'service_role'::text));
 
 
@@ -9865,6 +9959,7 @@ CREATE POLICY cost_alerts_insert_system ON public.cost_alerts FOR INSERT WITH CH
 -- Name: cost_alerts cost_alerts_select_admin; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS cost_alerts_select_admin ON public.cost_alerts;
 CREATE POLICY cost_alerts_select_admin ON public.cost_alerts FOR SELECT USING (((auth.jwt() ->> 'role'::text) = 'admin'::text));
 
 
@@ -9872,6 +9967,7 @@ CREATE POLICY cost_alerts_select_admin ON public.cost_alerts FOR SELECT USING ((
 -- Name: cost_alerts cost_alerts_update_admin; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS cost_alerts_update_admin ON public.cost_alerts;
 CREATE POLICY cost_alerts_update_admin ON public.cost_alerts FOR UPDATE USING (((auth.jwt() ->> 'role'::text) = 'admin'::text));
 
 
@@ -9879,6 +9975,7 @@ CREATE POLICY cost_alerts_update_admin ON public.cost_alerts FOR UPDATE USING ((
 -- Name: confidence_violations cv_tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS cv_tenant_isolation ON public.confidence_violations;
 CREATE POLICY cv_tenant_isolation ON public.confidence_violations FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
    FROM public.user_tenants ut
   WHERE (ut.user_id = (auth.uid())::text))));
@@ -9894,6 +9991,7 @@ ALTER TABLE public.device_trust_history ENABLE ROW LEVEL SECURITY;
 -- Name: device_trust_history device_trust_tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS device_trust_tenant_isolation ON public.device_trust_history;
 CREATE POLICY device_trust_tenant_isolation ON public.device_trust_history USING (((tenant_id = (auth.uid())::text) OR (tenant_id IN ( SELECT user_tenants.tenant_id
    FROM public.user_tenants
   WHERE (user_tenants.user_id = (auth.uid())::text)))));
@@ -9957,6 +10055,7 @@ ALTER TABLE public.llm_usage ENABLE ROW LEVEL SECURITY;
 -- Name: llm_usage llm_usage_insert_own; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS llm_usage_insert_own ON public.llm_usage;
 CREATE POLICY llm_usage_insert_own ON public.llm_usage FOR INSERT WITH CHECK (((auth.uid() = user_id) OR ((auth.jwt() ->> 'role'::text) = 'service_role'::text)));
 
 
@@ -9964,6 +10063,7 @@ CREATE POLICY llm_usage_insert_own ON public.llm_usage FOR INSERT WITH CHECK (((
 -- Name: llm_usage llm_usage_select_own; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS llm_usage_select_own ON public.llm_usage;
 CREATE POLICY llm_usage_select_own ON public.llm_usage FOR SELECT USING (((auth.uid() = user_id) OR ((auth.jwt() ->> 'role'::text) = 'admin'::text)));
 
 
@@ -9983,6 +10083,7 @@ ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 -- Name: messages messages_tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS messages_tenant_isolation ON public.messages;
 CREATE POLICY messages_tenant_isolation ON public.messages USING ((tenant_id IN ( SELECT user_tenants.tenant_id
    FROM public.user_tenants
   WHERE (user_tenants.user_id = (auth.uid())::text))));
@@ -9992,6 +10093,7 @@ CREATE POLICY messages_tenant_isolation ON public.messages USING ((tenant_id IN 
 -- Name: audit_logs no_direct_insert; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS no_direct_insert ON public.audit_logs;
 CREATE POLICY no_direct_insert ON public.audit_logs FOR INSERT WITH CHECK (false);
 
 
@@ -10023,6 +10125,7 @@ ALTER TABLE public.rate_limit_violations ENABLE ROW LEVEL SECURITY;
 -- Name: rate_limit_violations rate_limit_violations_insert_system; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS rate_limit_violations_insert_system ON public.rate_limit_violations;
 CREATE POLICY rate_limit_violations_insert_system ON public.rate_limit_violations FOR INSERT WITH CHECK (((auth.jwt() ->> 'role'::text) = 'service_role'::text));
 
 
@@ -10030,6 +10133,7 @@ CREATE POLICY rate_limit_violations_insert_system ON public.rate_limit_violation
 -- Name: rate_limit_violations rate_limit_violations_select_admin; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS rate_limit_violations_select_admin ON public.rate_limit_violations;
 CREATE POLICY rate_limit_violations_select_admin ON public.rate_limit_violations FOR SELECT USING (((auth.jwt() ->> 'role'::text) = 'admin'::text));
 
 
@@ -10061,6 +10165,7 @@ ALTER TABLE public.secret_audit_logs_legacy ENABLE ROW LEVEL SECURITY;
 -- Name: secret_audit_logs_legacy secret_audit_logs_no_update; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS secret_audit_logs_no_update ON public.secret_audit_logs_legacy;
 CREATE POLICY secret_audit_logs_no_update ON public.secret_audit_logs_legacy FOR UPDATE USING (false);
 
 
@@ -10068,6 +10173,7 @@ CREATE POLICY secret_audit_logs_no_update ON public.secret_audit_logs_legacy FOR
 -- Name: secret_audit_logs secret_audit_logs_system_access; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS secret_audit_logs_system_access ON public.secret_audit_logs;
 CREATE POLICY secret_audit_logs_system_access ON public.secret_audit_logs FOR SELECT TO authenticated USING (((current_setting('app.current_user_role'::text, true) = 'system'::text) OR (current_setting('app.current_user_role'::text, true) = 'admin'::text)));
 
 
@@ -10075,6 +10181,7 @@ CREATE POLICY secret_audit_logs_system_access ON public.secret_audit_logs FOR SE
 -- Name: secret_audit_logs_legacy secret_audit_logs_system_access; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS secret_audit_logs_system_access ON public.secret_audit_logs_legacy;
 CREATE POLICY secret_audit_logs_system_access ON public.secret_audit_logs_legacy FOR SELECT TO authenticated USING (((current_setting('app.current_user_role'::text, true) = 'system'::text) OR (current_setting('app.current_user_role'::text, true) = 'admin'::text)));
 
 
@@ -10082,6 +10189,7 @@ CREATE POLICY secret_audit_logs_system_access ON public.secret_audit_logs_legacy
 -- Name: secret_audit_logs_legacy secret_audit_logs_system_delete; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS secret_audit_logs_system_delete ON public.secret_audit_logs_legacy;
 CREATE POLICY secret_audit_logs_system_delete ON public.secret_audit_logs_legacy FOR DELETE TO authenticated USING (((current_setting('app.current_user_role'::text, true) = 'system'::text) AND ("timestamp" < (now() - '90 days'::interval))));
 
 
@@ -10089,6 +10197,7 @@ CREATE POLICY secret_audit_logs_system_delete ON public.secret_audit_logs_legacy
 -- Name: secret_audit_logs secret_audit_logs_system_insert; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS secret_audit_logs_system_insert ON public.secret_audit_logs;
 CREATE POLICY secret_audit_logs_system_insert ON public.secret_audit_logs FOR INSERT TO authenticated WITH CHECK ((current_setting('app.current_user_role'::text, true) = 'system'::text));
 
 
@@ -10096,6 +10205,7 @@ CREATE POLICY secret_audit_logs_system_insert ON public.secret_audit_logs FOR IN
 -- Name: secret_audit_logs_legacy secret_audit_logs_system_insert; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS secret_audit_logs_system_insert ON public.secret_audit_logs_legacy;
 CREATE POLICY secret_audit_logs_system_insert ON public.secret_audit_logs_legacy FOR INSERT TO authenticated WITH CHECK ((current_setting('app.current_user_role'::text, true) = 'system'::text));
 
 
@@ -10103,6 +10213,7 @@ CREATE POLICY secret_audit_logs_system_insert ON public.secret_audit_logs_legacy
 -- Name: secret_audit_logs secret_audit_logs_tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS secret_audit_logs_tenant_isolation ON public.secret_audit_logs;
 CREATE POLICY secret_audit_logs_tenant_isolation ON public.secret_audit_logs FOR SELECT USING (((tenant_id)::text = current_setting('app.current_tenant_id'::text, true)));
 
 
@@ -10110,6 +10221,7 @@ CREATE POLICY secret_audit_logs_tenant_isolation ON public.secret_audit_logs FOR
 -- Name: secret_audit_logs_legacy secret_audit_logs_tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS secret_audit_logs_tenant_isolation ON public.secret_audit_logs_legacy;
 CREATE POLICY secret_audit_logs_tenant_isolation ON public.secret_audit_logs_legacy FOR SELECT USING (((tenant_id)::text = current_setting('app.current_tenant_id'::text, true)));
 
 
@@ -10129,6 +10241,7 @@ ALTER TABLE public.security_events ENABLE ROW LEVEL SECURITY;
 -- Name: security_events security_events_immutable; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS security_events_immutable ON public.security_events;
 CREATE POLICY security_events_immutable ON public.security_events FOR UPDATE USING (false);
 
 
@@ -10136,6 +10249,7 @@ CREATE POLICY security_events_immutable ON public.security_events FOR UPDATE USI
 -- Name: security_events security_events_no_delete; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS security_events_no_delete ON public.security_events;
 CREATE POLICY security_events_no_delete ON public.security_events FOR DELETE USING (false);
 
 
@@ -10143,6 +10257,7 @@ CREATE POLICY security_events_no_delete ON public.security_events FOR DELETE USI
 -- Name: security_events security_events_tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS security_events_tenant_isolation ON public.security_events;
 CREATE POLICY security_events_tenant_isolation ON public.security_events USING (((tenant_id = (auth.uid())::text) OR (tenant_id IN ( SELECT user_tenants.tenant_id
    FROM public.user_tenants
   WHERE (user_tenants.user_id = (auth.uid())::text)))));
@@ -10158,6 +10273,7 @@ ALTER TABLE public.security_incidents ENABLE ROW LEVEL SECURITY;
 -- Name: security_incidents security_incidents_tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS security_incidents_tenant_isolation ON public.security_incidents;
 CREATE POLICY security_incidents_tenant_isolation ON public.security_incidents USING ((tenant_id IN ( SELECT user_tenants.tenant_id
    FROM public.user_tenants
   WHERE (user_tenants.user_id = (auth.uid())::text))));
@@ -10179,6 +10295,7 @@ ALTER TABLE public.security_policies ENABLE ROW LEVEL SECURITY;
 -- Name: security_policies security_policies_tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS security_policies_tenant_isolation ON public.security_policies;
 CREATE POLICY security_policies_tenant_isolation ON public.security_policies USING ((tenant_id IN ( SELECT user_tenants.tenant_id
    FROM public.user_tenants
   WHERE (user_tenants.user_id = (auth.uid())::text))));
@@ -10194,6 +10311,7 @@ ALTER TABLE public.semantic_memory ENABLE ROW LEVEL SECURITY;
 -- Name: agent_predictions strict_tenant_isolation_insert; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS strict_tenant_isolation_insert ON public.agent_predictions;
 CREATE POLICY strict_tenant_isolation_insert ON public.agent_predictions FOR INSERT WITH CHECK (((tenant_id IS NOT NULL) AND (EXISTS ( SELECT 1
    FROM public.user_tenants
   WHERE ((user_tenants.user_id = (auth.uid())::text) AND (user_tenants.tenant_id = agent_predictions.tenant_id))))));
@@ -10203,6 +10321,7 @@ CREATE POLICY strict_tenant_isolation_insert ON public.agent_predictions FOR INS
 -- Name: agent_predictions strict_tenant_isolation_select; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS strict_tenant_isolation_select ON public.agent_predictions;
 CREATE POLICY strict_tenant_isolation_select ON public.agent_predictions FOR SELECT USING (((tenant_id IS NOT NULL) AND (EXISTS ( SELECT 1
    FROM public.user_tenants
   WHERE ((user_tenants.user_id = (auth.uid())::text) AND (user_tenants.tenant_id = agent_predictions.tenant_id))))));
@@ -10212,6 +10331,7 @@ CREATE POLICY strict_tenant_isolation_select ON public.agent_predictions FOR SEL
 -- Name: agent_predictions strict_tenant_isolation_update; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS strict_tenant_isolation_update ON public.agent_predictions;
 CREATE POLICY strict_tenant_isolation_update ON public.agent_predictions FOR UPDATE USING (((tenant_id IS NOT NULL) AND (EXISTS ( SELECT 1
    FROM public.user_tenants
   WHERE ((user_tenants.user_id = (auth.uid())::text) AND (user_tenants.tenant_id = agent_predictions.tenant_id)))))) WITH CHECK (((tenant_id IS NOT NULL) AND (EXISTS ( SELECT 1
@@ -10253,6 +10373,7 @@ ALTER TABLE public.tenant_integrations ENABLE ROW LEVEL SECURITY;
 -- Name: agent_sessions tenant_isolation_delete; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS tenant_isolation_delete ON public.agent_sessions;
 CREATE POLICY tenant_isolation_delete ON public.agent_sessions FOR DELETE USING ((EXISTS ( SELECT 1
    FROM public.user_tenants
   WHERE ((user_tenants.user_id = (auth.uid())::text) AND (user_tenants.tenant_id = agent_sessions.tenant_id)))));
@@ -10262,6 +10383,7 @@ CREATE POLICY tenant_isolation_delete ON public.agent_sessions FOR DELETE USING 
 -- Name: agent_sessions tenant_isolation_insert; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS tenant_isolation_insert ON public.agent_sessions;
 CREATE POLICY tenant_isolation_insert ON public.agent_sessions FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
    FROM public.user_tenants
   WHERE ((user_tenants.user_id = (auth.uid())::text) AND (user_tenants.tenant_id = agent_sessions.tenant_id)))));
@@ -10271,6 +10393,7 @@ CREATE POLICY tenant_isolation_insert ON public.agent_sessions FOR INSERT WITH C
 -- Name: agent_sessions tenant_isolation_select; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS tenant_isolation_select ON public.agent_sessions;
 CREATE POLICY tenant_isolation_select ON public.agent_sessions FOR SELECT USING ((EXISTS ( SELECT 1
    FROM public.user_tenants
   WHERE ((user_tenants.user_id = (auth.uid())::text) AND (user_tenants.tenant_id = agent_sessions.tenant_id)))));
@@ -10280,6 +10403,7 @@ CREATE POLICY tenant_isolation_select ON public.agent_sessions FOR SELECT USING 
 -- Name: agent_sessions tenant_isolation_update; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS tenant_isolation_update ON public.agent_sessions;
 CREATE POLICY tenant_isolation_update ON public.agent_sessions FOR UPDATE USING ((EXISTS ( SELECT 1
    FROM public.user_tenants
   WHERE ((user_tenants.user_id = (auth.uid())::text) AND (user_tenants.tenant_id = agent_sessions.tenant_id))))) WITH CHECK ((EXISTS ( SELECT 1
@@ -10297,6 +10421,7 @@ ALTER TABLE public.tenants ENABLE ROW LEVEL SECURITY;
 -- Name: tenants tenants_select; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS tenants_select ON public.tenants;
 CREATE POLICY tenants_select ON public.tenants FOR SELECT USING ((id IN ( SELECT user_tenants.tenant_id
    FROM public.user_tenants
   WHERE (user_tenants.user_id = (auth.uid())::text))));
@@ -10348,6 +10473,7 @@ ALTER TABLE public.user_sessions ENABLE ROW LEVEL SECURITY;
 -- Name: user_sessions user_sessions_tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS user_sessions_tenant_isolation ON public.user_sessions;
 CREATE POLICY user_sessions_tenant_isolation ON public.user_sessions USING (((tenant_id = (auth.uid())::text) OR (tenant_id IN ( SELECT user_tenants.tenant_id
    FROM public.user_tenants
   WHERE (user_tenants.user_id = (auth.uid())::text)))));
@@ -10363,6 +10489,7 @@ ALTER TABLE public.user_tenants ENABLE ROW LEVEL SECURITY;
 -- Name: user_tenants user_tenants_insert; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS user_tenants_insert ON public.user_tenants;
 CREATE POLICY user_tenants_insert ON public.user_tenants FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
    FROM public.user_tenants ut
   WHERE ((ut.user_id = (auth.uid())::text) AND (ut.tenant_id = user_tenants.tenant_id) AND (ut.role = ANY (ARRAY['owner'::text, 'admin'::text]))))));
@@ -10372,6 +10499,7 @@ CREATE POLICY user_tenants_insert ON public.user_tenants FOR INSERT WITH CHECK (
 -- Name: user_tenants user_tenants_select; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS user_tenants_select ON public.user_tenants;
 CREATE POLICY user_tenants_select ON public.user_tenants FOR SELECT USING (((user_id = (auth.uid())::text) OR (EXISTS ( SELECT 1
    FROM public.user_tenants ut
   WHERE ((ut.user_id = (auth.uid())::text) AND (ut.tenant_id = user_tenants.tenant_id) AND (ut.role = ANY (ARRAY['owner'::text, 'admin'::text])))))));
@@ -10381,6 +10509,7 @@ CREATE POLICY user_tenants_select ON public.user_tenants FOR SELECT USING (((use
 -- Name: approval_requests users_can_view_own_requests; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS users_can_view_own_requests ON public.approval_requests;
 CREATE POLICY users_can_view_own_requests ON public.approval_requests FOR SELECT USING ((requester_id = auth.uid()));
 
 
@@ -10412,6 +10541,7 @@ ALTER TABLE public.workflow_executions ENABLE ROW LEVEL SECURITY;
 -- Name: workflow_executions workflow_executions_service; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS workflow_executions_service ON public.workflow_executions;
 CREATE POLICY workflow_executions_service ON public.workflow_executions TO service_role USING (true) WITH CHECK (true);
 
 
@@ -10425,6 +10555,7 @@ ALTER TABLE public.workflows ENABLE ROW LEVEL SECURITY;
 -- Name: workflows workflows_tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS workflows_tenant_isolation ON public.workflows;
 CREATE POLICY workflows_tenant_isolation ON public.workflows USING ((tenant_id IN ( SELECT user_tenants.tenant_id
    FROM public.user_tenants
   WHERE (user_tenants.user_id = (auth.uid())::text))));

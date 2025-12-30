@@ -25,11 +25,11 @@ CREATE TABLE IF NOT EXISTS evaluation_runs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 -- Indexes
-CREATE INDEX idx_golden_examples_agent_type ON golden_examples(agent_type);
-CREATE INDEX idx_golden_examples_created ON golden_examples(created_at DESC);
-CREATE INDEX idx_evaluation_runs_agent_type ON evaluation_runs(agent_type);
-CREATE INDEX idx_evaluation_runs_created ON evaluation_runs(created_at DESC);
-CREATE INDEX idx_evaluation_runs_prompt_version ON evaluation_runs(prompt_version);
+CREATE INDEX IF NOT EXISTS idx_golden_examples_agent_type ON golden_examples(agent_type);
+CREATE INDEX IF NOT EXISTS idx_golden_examples_created ON golden_examples(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_evaluation_runs_agent_type ON evaluation_runs(agent_type);
+CREATE INDEX IF NOT EXISTS idx_evaluation_runs_created ON evaluation_runs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_evaluation_runs_prompt_version ON evaluation_runs(prompt_version);
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_golden_example_timestamp()
 RETURNS TRIGGER AS $$
