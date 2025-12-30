@@ -201,6 +201,88 @@ model Canvas {
 }
 
 // ============================================
+// LLM Gating & Cost Control
+// ============================================
+
+// Track every individual LLM interaction for billing and observability
+model LlmUsageLog {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organizationId  String   @map("organization_id") @db.Uuid
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Model Metadata
+  provider        String   @db.VarChar(50)  // e.g., "together", "openai"
+  model           String   @db.VarChar(100) // e.g., "llama-3-70b" (matches BudgetTracker)
+  taskType        String?  @map("task_type") @db.VarChar(50) // e.g., "REASONING", "CAUSAL_ANALYSIS"
+  
+  // Consumption Metrics
+  inputTokens     Int      @map("input_tokens")
+  outputTokens    Int      @map("output_tokens")
+  totalTokens     Int      @map("total_tokens")
+  cost            Decimal  @db.Decimal(10, 6) // Calculated using formula: ((T_in * P_in) + (T_out * P_out)) / 1000
+  latencyMs       Int?     @map("latency_ms")
+  
+  // Manifesto & Traceability
+  auditLogId       String?  @unique @map("audit_log_id") @db.Uuid // Optional link to AuditTrail for hash-chaining
+  confidence       Float?   // The agent's self-reported confidence
+  
+  // Additional context
+  userId           String?  @map("user_id") @db.Uuid
+  agentId          String?  @map("agent_id") @db.VarChar(100)
+  sessionId        String?  @map("session_id") @db.Uuid
+  traceId          String?  @map("trace_id") @db.VarChar(100)
+  
+  // Model downgrade tracking
+  modelDowngraded  Boolean  @default(false) @map("model_downgraded")
+  originalModel    String?  @map("original_model") @db.VarChar(100)
+  
+  // Timestamps
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  user             User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  auditLog         AuditLog? @relation(fields: [auditLogId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, taskType])
+  @@index([organizationId, model])
+  @@index([auditLogId])
+  @@map("llm_usage")
+}
+
+// Manage quotas and budget thresholds per tenant
+model TenantLlmBudget {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organizationId  String   @unique @map("organization_id") @db.Uuid
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Budget configuration
+  monthlyLimit    Decimal  @db.Decimal(10, 2) @default(100.00) @map("monthly_limit")
+  currentSpend    Decimal  @db.Decimal(10, 2) @default(0.00) @map("current_spend")
+  alertThreshold  Float    @default(0.80) @map("alert_threshold") // Alert at 80%
+  hardStopActive  Boolean  @default(true) @map("hard_stop_active")
+  
+  // Additional controls
+  perRequestLimit Decimal? @db.Decimal(10, 2) @map("per_request_limit")
+  gracePeriodHours Int?    @map("grace_period_hours")
+  
+  // Manifesto enforcement settings
+  strictMode      Boolean  @default(true) @map("strict_mode")
+  hallucinationCheck Boolean @default(true) @map("hallucination_check")
+  
+  // Model routing
+  defaultModel    String   @map("default_model") @db.VarChar(100)
+  routingRules    Json     @default("[]") @map("routing_rules")
+  
+  // Timestamps
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([organizationId])
+  @@map("llm_gating_policies")
+}
+
+// ============================================
 // Enums
 // ============================================
 
