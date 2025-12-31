@@ -16,6 +16,7 @@ import { getUIGenerationTracker } from './UIGenerationTracker';
 import { validateComponentSelection } from '../sdui/ComponentToolRegistry';
 import { ComponentMutationService } from './ComponentMutationService';
 import { AgentCircuitBreaker } from '../lib/agent-fabric/CircuitBreaker';
+import { secureLLMComplete } from '../lib/llm/secureLLMWrapper';
 import {
   AtomicUIAction,
   createMutateAction,
@@ -192,12 +193,13 @@ Evaluate the layout's effectiveness for this task.`,
       },
     ];
 
-    const response = await this.llmGateway.complete(
-      messages,
-      { use_gating: true, temperature: 0.3 },
-      { task_type: 'ui_evaluation', complexity: 0.4 },
-      circuitBreaker
-    );
+    // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete()
+    const response = await secureLLMComplete(this.llmGateway, messages, {
+      temperature: 0.3,
+      organizationId: subgoal.organizationId,
+      serviceName: 'UIRefinementLoop',
+      operation: 'evaluateUI',
+    });
 
     // Parse response
     let evaluation: UIEvaluationResult;
@@ -318,13 +320,15 @@ Generate minimal atomic actions to fix these specific issues.`,
       },
     ];
 
-    const response = await this.llmGateway.complete(
-      messages,
-      { use_gating: true, temperature: 0.3 },
-      { task_type: 'ui_mutation', complexity: 0.4 },
+    // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete()
+    const response = await secureLLMComplete(this.llmGateway, messages, {
+      temperature: 0.3,
+      organizationId: taskContext?.organizationId,
+      userId: taskContext?.userId,
+      serviceName: 'UIRefinementLoop',
+      operation: 'generateMutations',
       taskContext,
-      circuitBreaker
-    );
+    });
 
     // Parse actions
     let actions: AtomicUIAction[];
@@ -418,13 +422,15 @@ Generate an improved layout that addresses these issues.`,
       },
     ];
 
-    const response = await this.llmGateway.complete(
-      messages,
-      { use_gating: true, temperature: 0.4 },
-      { task_type: 'ui_refinement', complexity: 0.6 },
+    // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete()
+    const response = await secureLLMComplete(this.llmGateway, messages, {
+      temperature: 0.4,
+      organizationId: taskContext?.organizationId,
+      userId: taskContext?.userId,
+      serviceName: 'UIRefinementLoop',
+      operation: 'refineLayout',
       taskContext,
-      circuitBreaker
-    );
+    });
 
     // Parse response
     let refinedLayout: SDUIPageDefinition;
@@ -499,13 +505,15 @@ Generate atomic actions to fulfill this request.`,
       },
     ];
 
-    const response = await this.llmGateway.complete(
-      messages,
-      { use_gating: true, temperature: 0.2 },
-      { task_type: 'ui_mutation', complexity: 0.3 },
+    // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete()
+    const response = await secureLLMComplete(this.llmGateway, messages, {
+      temperature: 0.2,
+      organizationId: taskContext?.organizationId,
+      userId: taskContext?.userId,
+      serviceName: 'UIRefinementLoop',
+      operation: 'generateUserRequestedMutations',
       taskContext,
-      circuitBreaker
-    );
+    });
 
     // Parse actions
     let actions: AtomicUIAction[];
