@@ -10,6 +10,7 @@ import type TaskContext from '../lib/agent-fabric/TaskContext';
 import { logger } from '../lib/logger';
 import { llmConfig } from '../config/llm';
 import { LabSuccessCriterion, QuizQuestion } from '../types/academy';
+import { secureLLMComplete } from '../lib/llm/secureLLMWrapper';
 
 // Lab message type (also defined in LabPanel)
 interface LabMessage {
@@ -111,11 +112,17 @@ Respond with a JSON object containing:
         { role: 'user' as const, content: prompt }
       ];
 
-      const response = await this.llmGateway.complete(messages, {
+      // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete()
+      const response = await secureLLMComplete(this.llmGateway, messages, {
         model: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
         temperature: 0.3,
         max_tokens: 1500,
-      }, taskContext);
+        organizationId: taskContext?.organizationId,
+        userId: taskContext?.userId,
+        serviceName: 'IntegrityAgentService',
+        operation: 'checkIntegrity',
+        taskContext,
+      });
 
       const content = response.content || '{}';
       const result = this.parseJSONResponse(content) as {
@@ -245,11 +252,17 @@ Respond with JSON:
         { role: 'user' as const, content: prompt }
       ];
 
-      const response = await this.llmGateway.complete(evalMessages, {
+      // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete()
+      const response = await secureLLMComplete(this.llmGateway, evalMessages, {
         model: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
         temperature: 0.3,
         max_tokens: 2000,
-      }, taskContext);
+        organizationId: taskContext?.organizationId,
+        userId: taskContext?.userId,
+        serviceName: 'IntegrityAgentService',
+        operation: 'evaluateLabSubmission',
+        taskContext,
+      });
 
       const content = response.content || '{}';
       const result = this.parseJSONResponse(content) as {
@@ -454,11 +467,17 @@ Provide your assessment.`;
         }
       ];
 
-      const response = await this.llmGateway.complete(feedbackMessages, {
+      // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete()
+      const response = await secureLLMComplete(this.llmGateway, feedbackMessages, {
         model: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
         temperature: 0.5,
         max_tokens: 200,
-      }, taskContext);
+        organizationId: taskContext?.organizationId,
+        userId: taskContext?.userId,
+        serviceName: 'IntegrityAgentService',
+        operation: 'generateQuizFeedback',
+        taskContext,
+      });
 
       return response.content || 'Review the explanations and try again.';
     } catch {

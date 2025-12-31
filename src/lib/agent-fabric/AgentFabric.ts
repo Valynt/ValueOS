@@ -13,6 +13,7 @@ import { logger } from '../logger';
 import { CommonSchemas, parseLLMOutputStrict } from '../../utils/safeJsonParser';
 import { featureFlags } from '../../config/featureFlags';
 import { z } from 'zod';
+import { secureLLMComplete } from '../llm/secureLLMWrapper';
 
 export class AgentFabric {
   private supabase: SupabaseClient;
@@ -296,10 +297,16 @@ Return JSON:
 }`;
 
     const sessionOrgId = await this.getSessionOrganization(sessionId);
-    const response = await this.llmGateway.complete([
+    // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete()
+    const response = await secureLLMComplete(this.llmGateway, [
       { role: 'system', content: 'You are a KPI specialist.' },
       { role: 'user', content: prompt }
-    ], {}, { sessionId, organizationId: sessionOrgId });
+    ], {
+      organizationId: sessionOrgId,
+      serviceName: 'AgentFabric',
+      operation: 'generateKPIs',
+      taskContext: { sessionId, organizationId: sessionOrgId, estimatedPromptTokens: 0, estimatedCompletionTokens: 1000 }
+    });
 
     const parsed = featureFlags.ENABLE_SAFE_JSON_PARSER
       ? await parseLLMOutputStrict(response.content, CommonSchemas.kpiSchema)
@@ -334,10 +341,16 @@ Return JSON:
 }`;
 
     const sessionOrgIdForCost = await this.getSessionOrganization(sessionId);
-    const response = await this.llmGateway.complete([
+    // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete()
+    const response = await secureLLMComplete(this.llmGateway, [
       { role: 'system', content: 'You are a cost analyst.' },
       { role: 'user', content: prompt }
-    ], {}, { sessionId, organizationId: sessionOrgIdForCost });
+    ], {
+      organizationId: sessionOrgIdForCost,
+      serviceName: 'AgentFabric',
+      operation: 'estimateCosts',
+      taskContext: { sessionId, organizationId: sessionOrgIdForCost, estimatedPromptTokens: 0, estimatedCompletionTokens: 500 }
+    });
 
     return featureFlags.ENABLE_SAFE_JSON_PARSER
       ? await parseLLMOutputStrict(response.content, z.any())

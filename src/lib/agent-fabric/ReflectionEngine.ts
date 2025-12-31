@@ -4,6 +4,7 @@ import { QualityRubric } from './types';
 import { parseLLMOutputStrict } from '../../utils/safeJsonParser';
 import { featureFlags } from '../../config/featureFlags';
 import { z } from 'zod';
+import { secureLLMComplete } from '../llm/secureLLMWrapper';
 
 export interface QualityAssessment {
   total_score: number;
@@ -22,7 +23,11 @@ export interface QualityAssessment {
 }
 
 export class ReflectionEngine {
-  constructor(private llmGateway: LLMGateway) {}
+  constructor(
+    private llmGateway: LLMGateway,
+    private organizationId?: string,
+    private userId?: string
+  ) {}
 
   async evaluateQuality(
     valueCaseData: any,
@@ -32,7 +37,8 @@ export class ReflectionEngine {
   ): Promise<QualityAssessment> {
     const evaluationPrompt = this.buildEvaluationPrompt(valueCaseData, rubric);
 
-    const response = await this.llmGateway.complete([
+    // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete()
+    const response = await secureLLMComplete(this.llmGateway, [
       {
         role: 'system',
         content: `You are a quality assessment agent evaluating business value cases.
@@ -45,8 +51,13 @@ Return ONLY valid JSON with no additional text or formatting.`
       }
     ], {
       temperature: 0.3,
-      max_tokens: 1500
-    }, taskContext);
+      max_tokens: 1500,
+      organizationId: this.organizationId || taskContext?.organizationId,
+      userId: this.userId || taskContext?.userId,
+      serviceName: 'ReflectionEngine',
+      operation: 'evaluateQuality',
+      taskContext,
+    });
 
     let assessment: QualityAssessment;
     if (featureFlags.ENABLE_SAFE_JSON_PARSER) {
@@ -144,7 +155,8 @@ Return your assessment in this exact JSON format:
     ,
     taskContext?: TaskContext
   ): Promise<string> {
-    const response = await this.llmGateway.complete([
+    // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete()
+    const response = await secureLLMComplete(this.llmGateway, [
       {
         role: 'system',
         content: 'You are a refinement coordinator. Generate specific instructions for improving a value case based on quality assessment feedback.'
@@ -168,8 +180,13 @@ Generate specific, actionable refinement instructions focusing on the weakest di
       }
     ], {
       temperature: 0.5,
-      max_tokens: 800
-    }, taskContext);
+      max_tokens: 800,
+      organizationId: this.organizationId || taskContext?.organizationId,
+      userId: this.userId || taskContext?.userId,
+      serviceName: 'ReflectionEngine',
+      operation: 'generateRefinementInstructions',
+      taskContext,
+    });
 
     return response.content;
   }
