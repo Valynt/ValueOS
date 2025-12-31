@@ -131,3 +131,6 @@ playwright-report/
 blob-report/
 playwright-artifacts/
 .env.production
+
+# PNPM
+.pnpm-store/
