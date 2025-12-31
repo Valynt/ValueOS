@@ -76,7 +76,7 @@ ACTIONS COMPLETED:
    # Should show NEW commit SHAs (not the old ones)
    
    # Old HEAD was: e0b3168
-   # New HEAD is:  4fe8cc6
+   # New HEAD is:  37448bf9
    ```
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -84,7 +84,7 @@ ACTIONS COMPLETED:
 COMMIT SHA CHANGES (for reference):
 
 Old SHA → New SHA
-e0b3168 → 4fe8cc6  (docs: Add gitignore effectiveness report)
+e0b3168 → 37448bf9  (docs: Add gitignore effectiveness report)
 b912676 → [removed] (security: Remove sensitive files - no longer needed)
 0202dc8 → 40d7be6  (docs: add repository and deployment information)
 1d49e4d → 67268e5  (chore: normalize line endings)
@@ -147,7 +147,7 @@ REQUIRED ACTIONS:
 2. Reset to new history: git fetch origin --force && git reset --hard origin/main
 3. Rebase your branches if needed
 
-Old HEAD: e0b3168 → New HEAD: 4fe8cc6
+Old HEAD: e0b3168 → New HEAD: 37448bf9
 
 Details: See email or TEAM_NOTIFICATION.md in repo
 Questions: #engineering channel
@@ -303,7 +303,7 @@ or create merge conflicts.
 (`git stash pop`).
 
 ### Q: How do I know if I'm on the new history?
-**A**: Check your HEAD commit SHA. It should be `4fe8cc6`, not `e0b3168`.
+**A**: Check your HEAD commit SHA. It should be `37448bf9`, not `e0b3168`.
 
 ### Q: What if I already pushed my branch?
 **A**: You'll need to force push after rebasing: `git push --force-with-lease`
@@ -317,7 +317,7 @@ or create merge conflicts.
 ```bash
 # 1. Check current HEAD (should be NEW SHA)
 git log --oneline -1
-# Expected: 4fe8cc6 docs: Add gitignore effectiveness report
+# Expected: 37448bf9 docs: Add gitignore effectiveness report
 
 # 2. Verify sensitive files are gone from history
 git log --all --full-history --oneline -- .env.production
