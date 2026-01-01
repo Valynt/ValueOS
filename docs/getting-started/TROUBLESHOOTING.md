@@ -1,239 +1,705 @@
-# Agent Fabric Troubleshooting Guide
+# Troubleshooting Guide
 
-## Issue: "Nothing happens when I try chatting with the agent"
-
-### Root Cause
-The Agent Fabric requires an LLM API key to function. Without it, the system cannot process requests.
-
-### Solution
-
-**Step 1: Add API Key**
-
-Open the `.env` file and add your Together.ai API key:
-
-```bash
-VITE_TOGETHER_API_KEY=your-api-key-here
-```
-
-Get your key from: https://api.together.xyz/settings/api-keys
-
-**Step 2: Restart Dev Server**
-
-After adding the key, restart your development server:
-
-```bash
-# Stop the server (Ctrl+C)
-# Start it again
-npm run dev
-```
-
-**Step 3: Test the Agent**
-
-1. Open the app in your browser
-2. Press `⌘K` (or `Ctrl+K`)
-3. Type a query like: "Create a value case for a SaaS company with 100 employees"
-4. Press Enter
-
-You should see a streaming indicator showing "Processing your request..."
+Common issues and solutions for ValueOS development.
 
 ---
 
-## Common Error Messages
+## Table of Contents
 
-### ⚠️ "LLM API key not configured"
-
-**What it means**: No API key found in environment variables
-
-**Fix**:
-1. Check `.env` file exists in project root
-2. Verify `VITE_TOGETHER_API_KEY` is set
-3. Make sure there are no quotes around the key value
-4. Restart dev server after adding
+- [Setup Issues](#setup-issues)
+- [Docker Issues](#docker-issues)
+- [Port Conflicts](#port-conflicts)
+- [Environment Issues](#environment-issues)
+- [Database Issues](#database-issues)
+- [Build Issues](#build-issues)
+- [Platform-Specific Issues](#platform-specific-issues)
 
 ---
 
-### ❌ "LLM API error: 401 Unauthorized"
+## Setup Issues
 
-**What it means**: API key is invalid or expired
+### Setup Script Fails
 
-**Fix**:
-1. Log in to https://api.together.xyz/settings/api-keys
-2. Generate a new API key
-3. Replace the old key in `.env`
-4. Restart dev server
-
----
-
-### ❌ "LLM API error: 429 Too Many Requests"
-
-**What it means**: You've hit rate limits
-
-**Fix**:
-1. Wait a few minutes before retrying
-2. Check your Together.ai account usage
-3. Consider upgrading your plan if you're on free tier
-
----
-
-### ❌ "AgentFabric not initialized"
-
-**What it means**: The fabric initialization was skipped
-
-**Fix**:
-- This should auto-initialize on first use
-- If it persists, check browser console for underlying errors
-- Ensure Supabase connection is working (check `.env` for VITE_SUPABASE_URL)
-
----
-
-## Debugging Steps
-
-### 1. Check Environment Variables
-
-```bash
-# In project root
-cat .env
-```
-
-Should show:
-```
-VITE_SUPABASE_URL=https://...supabase.co
-VITE_SUPABASE_ANON_KEY=eyJ...
-VITE_TOGETHER_API_KEY=your-key-here
-```
-
-### 2. Check Browser Console
-
-Open Developer Tools → Console
-
-Look for:
-- ✅ "Agent Fabric initialized"
-- ❌ Any red error messages
-
-### 3. Check Network Tab
-
-Open Developer Tools → Network
-
-When you submit a query, you should see:
-- Request to `https://api.together.xyz/v1/chat/completions`
-- Status: 200 OK
-- Response with model output
-
-### 4. Test API Key Directly
-
-```bash
-curl https://api.together.xyz/v1/models \
-  -H "Authorization: Bearer YOUR_API_KEY"
-```
-
-Should return a list of available models.
-
----
-
-## Using OpenAI Instead
-
-If you prefer OpenAI over Together.ai:
-
-1. Remove or comment out Together.ai key:
-```bash
-# VITE_TOGETHER_API_KEY=
-```
-
-2. Add OpenAI key:
-```bash
-VITE_OPENAI_API_KEY=sk-...
-```
-
-3. Restart server
-
-The system will automatically detect and use OpenAI as fallback.
-
----
-
-## Performance Issues
-
-### Agent is slow to respond
-
-**Possible causes**:
-- Large context (many components on canvas)
-- Complex query requiring multiple agents
-- Network latency to Together.ai
+**Symptom**: `npm run setup` exits with errors
 
 **Solutions**:
-1. Use a faster model:
-   - Try `meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo` (smaller, faster)
-   - Edit `LLMGateway.ts` and change `defaultModel`
 
-2. Reduce context:
-   - Clear canvas before making new requests
-   - Keep queries specific and concise
+1. **Check prerequisites**:
+   ```bash
+   node --version    # >= 18.0.0
+   docker --version  # Installed
+   docker ps         # Running
+   ```
 
-3. Check network:
-   - Open DevTools → Network tab
-   - Look for slow requests to Together.ai API
+2. **Clean and retry**:
+   ```bash
+   rm -rf node_modules package-lock.json .env
+   npm run setup
+   ```
+
+3. **Check disk space**:
+   ```bash
+   df -h .  # Need >= 10 GB free
+   ```
+
+4. **Check permissions**:
+   ```bash
+   # macOS/Linux
+   ls -la
+   # Should own the directory
+   
+   # Fix if needed
+   sudo chown -R $USER:$USER .
+   ```
+
+---
+
+### Dependencies Won't Install
+
+**Symptom**: `npm install` or `npm ci` fails
+
+**Solutions**:
+
+1. **Clear npm cache**:
+   ```bash
+   npm cache clean --force
+   rm -rf node_modules package-lock.json
+   npm install
+   ```
+
+2. **Check Node version**:
+   ```bash
+   node --version
+   # Must be >= 18.0.0
+   
+   # Update if needed
+   nvm install 18
+   nvm use 18
+   ```
+
+3. **Check network**:
+   ```bash
+   npm config get registry
+   # Should be: https://registry.npmjs.org/
+   
+   # Reset if needed
+   npm config set registry https://registry.npmjs.org/
+   ```
+
+4. **Try with verbose logging**:
+   ```bash
+   npm install --verbose
+   # Look for specific error messages
+   ```
+
+---
+
+## Docker Issues
+
+### Docker Not Running
+
+**Symptom**: `Cannot connect to the Docker daemon`
+
+**Solutions**:
+
+**macOS**:
+```bash
+# Start Docker Desktop
+open -a Docker
+
+# Wait for Docker to start (check menu bar icon)
+```
+
+**Linux**:
+```bash
+# Start Docker service
+sudo systemctl start docker
+
+# Enable on boot
+sudo systemctl enable docker
+
+# Check status
+sudo systemctl status docker
+```
+
+**Windows**:
+- Open Docker Desktop from Start menu
+- Wait for "Docker Desktop is running" message
+
+---
+
+### Docker Compose Fails
+
+**Symptom**: `docker-compose up` fails
+
+**Solutions**:
+
+1. **Check Docker Compose version**:
+   ```bash
+   docker-compose --version
+   # Should be >= 2.0.0
+   ```
+
+2. **Pull images manually**:
+   ```bash
+   docker-compose pull
+   docker-compose up -d
+   ```
+
+3. **Clean and rebuild**:
+   ```bash
+   docker-compose down -v
+   docker-compose up --build
+   ```
+
+4. **Check logs**:
+   ```bash
+   docker-compose logs
+   # Look for specific errors
+   ```
+
+---
+
+### Containers Keep Restarting
+
+**Symptom**: `docker-compose ps` shows containers restarting
+
+**Solutions**:
+
+1. **Check logs**:
+   ```bash
+   docker-compose logs <service-name>
+   # e.g., docker-compose logs postgres
+   ```
+
+2. **Check resource limits**:
+   ```bash
+   # macOS: Docker Desktop → Preferences → Resources
+   # Increase memory to >= 4 GB
+   ```
+
+3. **Check port conflicts**:
+   ```bash
+   # See Port Conflicts section below
+   ```
+
+4. **Reset Docker**:
+   ```bash
+   docker-compose down -v
+   docker system prune -a
+   docker-compose up -d
+   ```
+
+---
+
+## Port Conflicts
+
+### Port Already in Use
+
+**Symptom**: `Error: listen EADDRINUSE: address already in use :::5173`
+
+**Solutions**:
+
+**macOS/Linux**:
+```bash
+# Find process using port
+lsof -i :5173
+
+# Kill process
+kill -9 <PID>
+
+# Or kill all Node processes
+pkill -9 node
+```
+
+**Windows**:
+```powershell
+# Find process
+netstat -ano | findstr :5173
+
+# Kill process
+taskkill /PID <PID> /F
+```
+
+**Change Port** (alternative):
+```bash
+# Frontend
+PORT=5174 npm run dev
+
+# Backend
+PORT=3001 npm run backend:dev
+```
+
+---
+
+### Common Port Conflicts
+
+| Port | Service | Solution |
+|------|---------|----------|
+| 5173 | Vite (Frontend) | `lsof -i :5173` then `kill -9 <PID>` |
+| 3000 | Backend | `lsof -i :3000` then `kill -9 <PID>` |
+| 54322 | PostgreSQL | Stop other Postgres instances |
+| 6379 | Redis | Stop other Redis instances |
+| 54323 | Supabase Studio | Stop other Supabase instances |
+
+---
+
+## Environment Issues
+
+### Missing Environment Variables
+
+**Symptom**: `Error: JWT_SECRET is not defined`
+
+**Solutions**:
+
+1. **Check .env file exists**:
+   ```bash
+   ls -la .env
+   # Should exist
+   ```
+
+2. **Regenerate .env**:
+   ```bash
+   rm .env
+   npm run setup
+   ```
+
+3. **Validate .env**:
+   ```bash
+   npm run env:validate
+   ```
+
+4. **Check required variables**:
+   ```bash
+   grep -E "^(NODE_ENV|DATABASE_URL|JWT_SECRET)" .env
+   # All should have values
+   ```
+
+---
+
+### Weak Secrets Warning
+
+**Symptom**: `Weak JWT secret detected`
+
+**Solution**:
+```bash
+# Regenerate with secure secrets
+rm .env
+npm run setup
+```
+
+---
+
+### Wrong Environment
+
+**Symptom**: Connecting to wrong database/API
+
+**Solutions**:
+
+1. **Check NODE_ENV**:
+   ```bash
+   grep NODE_ENV .env
+   # Should be: development
+   ```
+
+2. **Check URLs**:
+   ```bash
+   grep URL .env
+   # Should be localhost URLs
+   ```
+
+3. **Never use production credentials locally**:
+   ```bash
+   # ❌ WRONG
+   DATABASE_URL=postgres://prod.supabase.co/...
+   
+   # ✅ RIGHT
+   DATABASE_URL=postgres://localhost:54322/postgres
+   ```
 
 ---
 
 ## Database Issues
 
-### "Permission denied" errors
+### Cannot Connect to Database
 
-**Fix**: Ensure you're using authenticated Supabase client
+**Symptom**: `Error: connect ECONNREFUSED 127.0.0.1:54322`
 
-The app uses Row Level Security (RLS). All operations are scoped to user sessions.
+**Solutions**:
 
-### Can't see past value cases
+1. **Check Docker is running**:
+   ```bash
+   docker-compose ps postgres
+   # Should show "Up"
+   ```
 
-**Fix**:
-1. Check `agent_sessions` table - sessions should be created
-2. Verify `value_cases` table has data
-3. Check RLS policies are active
+2. **Start Docker services**:
+   ```bash
+   docker-compose up -d
+   ```
 
-Query Supabase directly:
-```sql
-SELECT * FROM agent_sessions ORDER BY started_at DESC LIMIT 10;
-SELECT * FROM value_cases ORDER BY created_at DESC LIMIT 10;
+3. **Check logs**:
+   ```bash
+   docker-compose logs postgres
+   ```
+
+4. **Reset database**:
+   ```bash
+   docker-compose down -v
+   docker-compose up -d
+   npm run db:reset
+   ```
+
+---
+
+### Migration Fails
+
+**Symptom**: `Error: Migration failed`
+
+**Solutions**:
+
+1. **Check database is running**:
+   ```bash
+   docker-compose ps postgres
+   ```
+
+2. **Reset and retry**:
+   ```bash
+   npm run db:reset
+   npm run db:push
+   ```
+
+3. **Check migration files**:
+   ```bash
+   ls supabase/migrations/
+   # Should have .sql files
+   ```
+
+4. **Manual migration**:
+   ```bash
+   npm run db:repair
+   npm run db:push
+   ```
+
+---
+
+### Database Connection Pool Exhausted
+
+**Symptom**: `Error: Connection pool exhausted`
+
+**Solutions**:
+
+1. **Restart backend**:
+   ```bash
+   # Kill backend process
+   pkill -9 node
+   npm run backend:dev
+   ```
+
+2. **Restart database**:
+   ```bash
+   docker-compose restart postgres
+   ```
+
+3. **Check for connection leaks**:
+   - Ensure all queries use proper connection handling
+   - Check for unclosed connections in code
+
+---
+
+## Build Issues
+
+### Build Fails
+
+**Symptom**: `npm run build` exits with errors
+
+**Solutions**:
+
+1. **Check TypeScript errors**:
+   ```bash
+   npm run typecheck
+   # Fix any type errors
+   ```
+
+2. **Check linting**:
+   ```bash
+   npm run lint
+   npm run lint:fix
+   ```
+
+3. **Clear build cache**:
+   ```bash
+   rm -rf dist .vite
+   npm run build
+   ```
+
+4. **Check dependencies**:
+   ```bash
+   npm install
+   npm run build
+   ```
+
+---
+
+### Out of Memory
+
+**Symptom**: `JavaScript heap out of memory`
+
+**Solutions**:
+
+1. **Increase Node memory**:
+   ```bash
+   NODE_OPTIONS="--max-old-space-size=4096" npm run build
+   ```
+
+2. **Close other applications**:
+   - Free up system memory
+   - Close unused browser tabs
+
+3. **Build in production mode**:
+   ```bash
+   NODE_ENV=production npm run build
+   ```
+
+---
+
+## Platform-Specific Issues
+
+### macOS
+
+#### Rosetta 2 Issues (Apple Silicon)
+
+**Symptom**: `Bad CPU type in executable`
+
+**Solution**:
+```bash
+# Install Rosetta 2
+softwareupdate --install-rosetta
+```
+
+#### File Watching Issues
+
+**Symptom**: Hot reload not working
+
+**Solution**:
+```bash
+# Increase file watcher limit
+echo "kern.maxfiles=65536" | sudo tee -a /etc/sysctl.conf
+echo "kern.maxfilesperproc=65536" | sudo tee -a /etc/sysctl.conf
+sudo sysctl -w kern.maxfiles=65536
+sudo sysctl -w kern.maxfilesperproc=65536
 ```
 
 ---
 
-## Still Having Issues?
+### Windows/WSL2
 
-### Check System Status
+#### WSL2 Not Installed
 
-1. **Supabase**: https://status.supabase.com
-2. **Together.ai**: https://status.together.ai
+**Symptom**: `wsl: command not found`
 
-### Enable Verbose Logging
-
-Add to your component:
-
-```typescript
-console.log('Agent Fabric initialized:', fabric);
-console.log('LLM Provider:', llmGateway.getProvider());
-console.log('Default Model:', llmGateway.getDefaultModel());
+**Solution**:
+```powershell
+# In PowerShell (as Administrator)
+wsl --install
+# Restart computer
 ```
 
-### Test Components Individually
+#### File Permissions Issues
 
-```typescript
-// Test LLM Gateway directly
-const gateway = new LLMGateway(apiKey, 'together');
-const response = await gateway.complete([
-  { role: 'user', content: 'Say hello' }
-]);
-console.log(response);
+**Symptom**: `EACCES: permission denied`
+
+**Solution**:
+```bash
+# Keep code in WSL2 filesystem
+cd ~
+git clone https://github.com/Valynt/ValueOS.git
+cd ValueOS
+
+# NOT in /mnt/c/...
+```
+
+#### Line Ending Issues
+
+**Symptom**: `'\r': command not found`
+
+**Solution**:
+```bash
+# Configure git
+git config --global core.autocrlf input
+
+# Fix existing files
+dos2unix scripts/**/*.sh
+```
+
+#### Docker Desktop Integration
+
+**Symptom**: Docker commands fail in WSL2
+
+**Solution**:
+1. Open Docker Desktop
+2. Settings → Resources → WSL Integration
+3. Enable integration with your WSL2 distro
+4. Restart WSL2: `wsl --shutdown` then reopen
+
+---
+
+### Linux
+
+#### Docker Permission Denied
+
+**Symptom**: `permission denied while trying to connect to the Docker daemon`
+
+**Solution**:
+```bash
+# Add user to docker group
+sudo usermod -aG docker $USER
+
+# Apply changes
+newgrp docker
+
+# Or logout and login again
+```
+
+#### File Watcher Limit
+
+**Symptom**: `ENOSPC: System limit for number of file watchers reached`
+
+**Solution**:
+```bash
+# Increase limit
+echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+
+# Verify
+cat /proc/sys/fs/inotify/max_user_watches
 ```
 
 ---
 
-## Contact & Support
+## Still Stuck?
 
-If none of these solutions work:
+### Collect Debug Information
 
-1. Check the browser console for detailed error messages
-2. Review the `AGENT_FABRIC_README.md` for setup instructions
-3. Ensure all dependencies are installed: `npm install`
-4. Try a fresh build: `rm -rf dist && npm run build`
+```bash
+# System info
+uname -a
+node --version
+npm --version
+docker --version
+docker-compose --version
 
-The app should now display clear error messages in the UI when something goes wrong, including specific instructions for fixing API key issues.
+# Check services
+docker-compose ps
+npm run health
+
+# Check logs
+docker-compose logs
+```
+
+### Get Help
+
+1. **Check documentation**:
+   - [Getting Started](GETTING_STARTED.md)
+   - [Platform Guides](platform/)
+   - [Security](SECURITY_DEV_ENVIRONMENT.md)
+
+2. **Search existing issues**:
+   - [GitHub Issues](https://github.com/Valynt/ValueOS/issues)
+
+3. **Ask for help**:
+   - Slack: #engineering
+   - Create GitHub issue with:
+     - Platform (macOS/Windows/Linux)
+     - Node version
+     - Error messages
+     - Steps to reproduce
+
+4. **Emergency**:
+   - Contact: engineering@valueos.com
+
+---
+
+## Prevention
+
+### Best Practices
+
+1. **Keep dependencies updated**:
+   ```bash
+   npm outdated
+   npm update
+   ```
+
+2. **Regular cleanup**:
+   ```bash
+   docker system prune -a
+   npm cache clean --force
+   ```
+
+3. **Use version managers**:
+   ```bash
+   # Node.js
+   nvm use 18
+   
+   # Docker
+   # Keep Docker Desktop updated
+   ```
+
+4. **Monitor resources**:
+   - Check disk space regularly
+   - Monitor Docker resource usage
+   - Close unused applications
+
+5. **Backup before major changes**:
+   ```bash
+   npm run db:backup
+   git stash
+   ```
+
+---
+
+## Quick Reference
+
+### Health Check
+```bash
+npm run health
+```
+
+### Reset Everything
+```bash
+# Nuclear option - resets everything
+docker-compose down -v
+rm -rf node_modules package-lock.json .env
+npm run setup
+```
+
+### Check Logs
+```bash
+# Docker services
+docker-compose logs -f
+
+# Backend
+npm run backend:dev  # Check terminal output
+
+# Frontend
+# Check browser console
+```
+
+### Common Fixes
+```bash
+# Port conflict
+lsof -i :5173 && kill -9 <PID>
+
+# Docker issues
+docker-compose restart
+
+# Environment issues
+rm .env && npm run setup
+
+# Dependency issues
+rm -rf node_modules && npm install
+```
+
+---
+
+**Still having issues?** Ask in #engineering on Slack!

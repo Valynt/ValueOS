@@ -4,6 +4,10 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "setup": "node scripts/dx/setup.js",
+    "health": "node scripts/dx/health.js",
+    "dev:unified": "node scripts/dx/dev.js",
+    "env:validate": "node scripts/dx/validate-env.js",
     "dev": "vite --host",
     "build": "vite build",
     "lint": "eslint .",
