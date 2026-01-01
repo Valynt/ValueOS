@@ -42,7 +42,7 @@
 
 - [x] `npm run setup` - Automated setup
 - [x] `npm run health` - Health checks
-- [x] `npm run dev:unified` - Unified dev server
+- [x] `npm run dev` - Unified dev server
 - [x] `npm run env:validate` - Environment validation
 
 ---
@@ -110,14 +110,14 @@ We've completely rebuilt our setup process to make onboarding faster and easier:
 ✅ Auto-detects your platform (macOS/Windows/Linux)
 ✅ Helpful error messages with actionable solutions
 ✅ Health checks: `npm run health` verifies everything works
-✅ Unified dev server: `npm run dev:unified` starts all services
+✅ Unified dev server: `npm run dev` starts all services
 
 **Getting Started:**
 ```bash
 git clone https://github.com/Valynt/ValueOS.git
 cd ValueOS
 npm run setup
-npm run dev:unified
+npm run dev
 ```
 
 **Documentation:**

@@ -5,10 +5,9 @@
   "type": "module",
   "scripts": {
     "setup": "node scripts/dx/setup.js",
-    "health": "node scripts/dx/health.js",
-    "dev:unified": "node scripts/dx/dev.js",
-    "env:validate": "node scripts/dx/validate-env.js",
     "dev": "vite --host",
+    "health": "node scripts/dx/health.js",
+    "env:validate": "node scripts/dx/validate-env.js",
     "build": "vite build",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

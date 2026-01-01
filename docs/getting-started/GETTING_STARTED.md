@@ -15,7 +15,7 @@ cd ValueOS
 npm run setup
 
 # Start development
-npm run dev:unified
+npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173) to see the app!
@@ -165,7 +165,7 @@ npm run health
 
 ```bash
 # Unified command (recommended)
-npm run dev:unified
+npm run dev
 
 # Or start individually:
 npm run dev              # Frontend only
@@ -207,7 +207,7 @@ All systems operational! 🎉
 # Development
 npm run dev              # Start frontend dev server
 npm run backend:dev      # Start backend dev server
-npm run dev:unified      # Start all services
+npm run dev      # Start all services
 
 # Testing
 npm test                 # Run tests
