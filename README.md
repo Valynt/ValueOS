@@ -220,8 +220,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 ## 🔐 Security
 
-- **Security Policy**: [SECURITY.md](SECURITY.md)
-- **Dev Environment Security**: [docs/SECURITY_DEV_ENVIRONMENT.md](docs/SECURITY_DEV_ENVIRONMENT.md)
+- **Dev Environment Security**: [docs/operations/SECURITY_DEV_ENVIRONMENT.md](docs/operations/SECURITY_DEV_ENVIRONMENT.md)
 - **Report vulnerabilities**: security@valueos.com
 
 ---
@@ -235,9 +234,9 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 ## 🆘 Getting Help
 
 ### Documentation
-- [Getting Started](docs/GETTING_STARTED.md)
-- [Troubleshooting](docs/TROUBLESHOOTING.md)
-- [API Documentation](docs/API.md)
+- [Getting Started](docs/getting-started/GETTING_STARTED.md)
+- [Troubleshooting](docs/getting-started/TROUBLESHOOTING.md)
+- [Complete Documentation](docs/README.md)
 
 ### Community
 - **Slack**: #engineering

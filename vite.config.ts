@@ -22,6 +22,13 @@ export default defineConfig({
     host: process.env.VITE_HOST || "0.0.0.0", // Listen on all interfaces for container/Codespace access
     port: parseInt(process.env.VITE_PORT || "5173"),
     strictPort: false, // Allow fallback to other ports if port is busy
+    // Allow Gitpod preview URLs
+    allowedHosts: [
+      ".gitpod.io",
+      ".gitpod.dev",
+      "localhost",
+      "127.0.0.1",
+    ],
     // headers: getEnvironmentHeaders("development"),
     // CORS configuration for cross-origin requests
     cors: true,
