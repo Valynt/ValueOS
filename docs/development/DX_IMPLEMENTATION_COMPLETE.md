@@ -162,7 +162,7 @@ npm run env:validate   # Validate environment
 
 ### Development
 ```bash
-npm run dev:unified    # Start all services (recommended)
+npm run dev    # Start all services (recommended)
 npm run dev            # Start frontend only
 npm run backend:dev    # Start backend only
 ```
@@ -216,7 +216,7 @@ npm run setup
 # ⏱️  Time: 4m 23s
 # 
 # Next steps:
-#   1. Start development: npm run dev:unified
+#   1. Start development: npm run dev
 #   2. Open frontend: http://localhost:5173
 #   3. Read docs: docs/GETTING_STARTED.md
 # 

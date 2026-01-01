@@ -15,7 +15,7 @@ cd ValueOS
 npm run setup
 
 # Start development
-npm run dev:unified
+npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173) - you're ready to code! 🎉
@@ -48,17 +48,13 @@ The setup script checks these automatically.
 
 ## 🛠️ Development
 
-### Start All Services
+### Start Development
 
 ```bash
-# Recommended: Unified command
-npm run dev:unified
-
-# Or start individually:
-npm run dev              # Frontend (Vite)
-npm run backend:dev      # Backend (Express)
-docker-compose up        # Docker services
+npm run dev
 ```
+
+This starts the Vite dev server with hot reload on [http://localhost:5173](http://localhost:5173)
 
 ### Check System Health
 
@@ -128,10 +124,9 @@ ValueOS/
 
 ### Development
 ```bash
-npm run dev              # Start frontend
-npm run backend:dev      # Start backend
-npm run dev:unified      # Start all services
+npm run dev              # Start development server
 npm run health           # Check system health
+npm run setup            # Re-run setup if needed
 ```
 
 ### Database

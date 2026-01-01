@@ -120,7 +120,7 @@ docs/
 ```bash
 npm run setup          # Automated setup
 npm run health         # Check system health
-npm run dev:unified    # Start all services
+npm run dev    # Start all services
 ```
 
 **Deployment**:
