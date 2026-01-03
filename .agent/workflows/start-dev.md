@@ -30,4 +30,4 @@ docker-compose up -d
 
 - If Supabase fails, try `npx supabase stop` then `npx supabase start`
 - Ensure Docker is running for Supabase services
-- Check `.env.local` has correct configuration
+- Check `.env` has correct configuration

@@ -1,0 +1,441 @@
+name: Production Health Monitor & Auto-Rollback
+
+on:
+  schedule:
+    # Run every 5 minutes
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  actions: write
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  monitor-health:
+    name: Monitor Production Health
+    runs-on: ubuntu-latest
+    outputs:
+      health_status: ${{ steps.evaluate.outputs.status }}
+      should_rollback: ${{ steps.evaluate.outputs.rollback }}
+    
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_PROD }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Collect metrics
+        id: metrics
+        run: |
+          # Time window: last 5 minutes
+          START_TIME=$(date -u -d '5 minutes ago' +%Y-%m-%dT%H:%M:%S)
+          END_TIME=$(date -u +%Y-%m-%dT%H:%M:%S)
+          
+          # Error rate
+          ERROR_COUNT=$(aws cloudwatch get-metric-statistics \
+            --namespace AWS/ApplicationELB \
+            --metric-name HTTPCode_Target_5XX_Count \
+            --dimensions Name=LoadBalancer,Value=valuecanvas-prod \
+            --start-time $START_TIME \
+            --end-time $END_TIME \
+            --period 300 \
+            --statistics Sum \
+            --query 'Datapoints[0].Sum' \
+            --output text)
+          
+          REQUEST_COUNT=$(aws cloudwatch get-metric-statistics \
+            --namespace AWS/ApplicationELB \
+            --metric-name RequestCount \
+            --dimensions Name=LoadBalancer,Value=valuecanvas-prod \
+            --start-time $START_TIME \
+            --end-time $END_TIME \
+            --period 300 \
+            --statistics Sum \
+            --query 'Datapoints[0].Sum' \
+            --output text)
+          
+          # Calculate error rate percentage
+          if [ "$REQUEST_COUNT" != "None" ] && [ "$REQUEST_COUNT" -gt 0 ]; then
+            ERROR_RATE=$(echo "scale=2; ($ERROR_COUNT / $REQUEST_COUNT) * 100" | bc)
+          else
+            ERROR_RATE=0
+          fi
+          
+          # Latency (p99)
+          LATENCY_P99=$(aws cloudwatch get-metric-statistics \
+            --namespace AWS/ApplicationELB \
+            --metric-name TargetResponseTime \
+            --dimensions Name=LoadBalancer,Value=valuecanvas-prod \
+            --start-time $START_TIME \
+            --end-time $END_TIME \
+            --period 300 \
+            --extended-statistics p99 \
+            --query 'Datapoints[0].ExtendedStatistics.p99' \
+            --output text)
+          
+          # CPU utilization
+          CPU_UTIL=$(aws cloudwatch get-metric-statistics \
+            --namespace AWS/ECS \
+            --metric-name CPUUtilization \
+            --dimensions Name=ServiceName,Value=valuecanvas-app \
+            --start-time $START_TIME \
+            --end-time $END_TIME \
+            --period 300 \
+            --statistics Average \
+            --query 'Datapoints[0].Average' \
+            --output text)
+          
+          # Memory utilization
+          MEMORY_UTIL=$(aws cloudwatch get-metric-statistics \
+            --namespace AWS/ECS \
+            --metric-name MemoryUtilization \
+            --dimensions Name=ServiceName,Value=valuecanvas-app \
+            --start-time $START_TIME \
+            --end-time $END_TIME \
+            --period 300 \
+            --statistics Average \
+            --query 'Datapoints[0].Average' \
+            --output text)
+          
+          echo "error_count=${ERROR_COUNT}" >> $GITHUB_OUTPUT
+          echo "error_rate=${ERROR_RATE}" >> $GITHUB_OUTPUT
+          echo "latency_p99=${LATENCY_P99}" >> $GITHUB_OUTPUT
+          echo "cpu_util=${CPU_UTIL}" >> $GITHUB_OUTPUT
+          echo "memory_util=${MEMORY_UTIL}" >> $GITHUB_OUTPUT
+
+      - name: Get historical baseline
+        id: baseline
+        run: |
+          # Get metrics from 1 hour ago (known good state)
+          START_TIME=$(date -u -d '65 minutes ago' +%Y-%m-%dT%H:%M:%S)
+          END_TIME=$(date -u -d '60 minutes ago' +%Y-%m-%dT%H:%M:%S)
+          
+          BASELINE_ERROR_COUNT=$(aws cloudwatch get-metric-statistics \
+            --namespace AWS/ApplicationELB \
+            --metric-name HTTPCode_Target_5XX_Count \
+            --dimensions Name=LoadBalancer,Value=valuecanvas-prod \
+            --start-time $START_TIME \
+            --end-time $END_TIME \
+            --period 300 \
+            --statistics Sum \
+            --query 'Datapoints[0].Sum' \
+            --output text)
+          
+          BASELINE_LATENCY=$(aws cloudwatch get-metric-statistics \
+            --namespace AWS/ApplicationELB \
+            --metric-name TargetResponseTime \
+            --dimensions Name=LoadBalancer,Value=valuecanvas-prod \
+            --start-time $START_TIME \
+            --end-time $END_TIME \
+            --period 300 \
+            --extended-statistics p99 \
+            --query 'Datapoints[0].ExtendedStatistics.p99' \
+            --output text)
+          
+          echo "error_count=${BASELINE_ERROR_COUNT}" >> $GITHUB_OUTPUT
+          echo "latency=${BASELINE_LATENCY}" >> $GITHUB_OUTPUT
+
+      - name: Evaluate health
+        id: evaluate
+        run: |
+          # Current metrics
+          ERROR_RATE=${{ steps.metrics.outputs.error_rate }}
+          LATENCY=${{ steps.metrics.outputs.latency_p99 }}
+          CPU=${{ steps.metrics.outputs.cpu_util }}
+          MEMORY=${{ steps.metrics.outputs.memory_util }}
+          
+          # Baseline
+          BASELINE_ERRORS=${{ steps.baseline.outputs.error_count }}
+          BASELINE_LATENCY=${{ steps.baseline.outputs.latency }}
+          
+          # Health status
+          HEALTHY=true
+          ROLLBACK=false
+          ISSUES=()
+          
+          # Check error rate (absolute threshold: >5%)
+          if (( $(echo "$ERROR_RATE > 5.0" | bc -l) )); then
+            HEALTHY=false
+            ROLLBACK=true
+            ISSUES+=("Error rate ${ERROR_RATE}% exceeds 5% threshold")
+          fi
+          
+          # Check error rate (relative: >3x baseline)
+          if [ "$BASELINE_ERRORS" != "None" ] && [ "$BASELINE_ERRORS" -gt 0 ]; then
+            if (( $(echo "${{ steps.metrics.outputs.error_count }} > $BASELINE_ERRORS * 3" | bc -l) )); then
+              HEALTHY=false
+              ROLLBACK=true
+              ISSUES+=("Error count 3x higher than baseline")
+            fi
+          fi
+          
+          # Check latency (absolute threshold: >3s)
+          if [ "$LATENCY" != "None" ]; then
+            if (( $(echo "$LATENCY > 3.0" | bc -l) )); then
+              HEALTHY=false
+              ISSUES+=("Latency ${LATENCY}s exceeds 3s threshold")
+            fi
+          fi
+          
+          # Check latency (relative: >2x baseline)
+          if [ "$BASELINE_LATENCY" != "None" ] && [ "$LATENCY" != "None" ]; then
+            if (( $(echo "$LATENCY > $BASELINE_LATENCY * 2" | bc -l) )); then
+              HEALTHY=false
+              ISSUES+=("Latency 2x higher than baseline")
+            fi
+          fi
+          
+          # Check CPU (>90%)
+          if [ "$CPU" != "None" ]; then
+            if (( $(echo "$CPU > 90.0" | bc -l) )); then
+              HEALTHY=false
+              ISSUES+=("CPU utilization ${CPU}% exceeds 90%")
+            fi
+          fi
+          
+          # Check memory (>90%)
+          if [ "$MEMORY" != "None" ]; then
+            if (( $(echo "$MEMORY > 90.0" | bc -l) )); then
+              HEALTHY=false
+              ISSUES+=("Memory utilization ${MEMORY}% exceeds 90%")
+            fi
+          fi
+          
+          # Output results
+          if [ "$HEALTHY" == "true" ]; then
+            echo "status=healthy" >> $GITHUB_OUTPUT
+            echo "rollback=false" >> $GITHUB_OUTPUT
+            echo "✅ Production is healthy"
+          else
+            echo "status=unhealthy" >> $GITHUB_OUTPUT
+            echo "rollback=$ROLLBACK" >> $GITHUB_OUTPUT
+            echo "❌ Production is unhealthy:"
+            printf '%s\n' "${ISSUES[@]}"
+          fi
+          
+          # Save issues for notification
+          printf '%s\n' "${ISSUES[@]}" > health-issues.txt
+
+      - name: Upload health report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: health-report-${{ github.run_id }}
+          path: health-issues.txt
+
+      - name: Alert on unhealthy status
+        if: steps.evaluate.outputs.status == 'unhealthy'
+        run: |
+          ISSUES=$(cat health-issues.txt)
+          
+          # Send PagerDuty alert
+          curl -X POST https://events.pagerduty.com/v2/enqueue \
+            -H 'Content-Type: application/json' \
+            -d "{
+              \"routing_key\": \"${{ secrets.PAGERDUTY_ROUTING_KEY }}\",
+              \"event_action\": \"trigger\",
+              \"payload\": {
+                \"summary\": \"Production health degraded\",
+                \"severity\": \"error\",
+                \"source\": \"GitHub Actions\",
+                \"custom_details\": {
+                  \"error_rate\": \"${{ steps.metrics.outputs.error_rate }}%\",
+                  \"latency_p99\": \"${{ steps.metrics.outputs.latency_p99 }}s\",
+                  \"cpu_util\": \"${{ steps.metrics.outputs.cpu_util }}%\",
+                  \"memory_util\": \"${{ steps.metrics.outputs.memory_util }}%\",
+                  \"issues\": \"${ISSUES}\"
+                }
+              }
+            }"
+          
+          # Send Slack alert
+          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+            -H 'Content-Type: application/json' \
+            -d "{
+              \"attachments\": [{
+                \"color\": \"danger\",
+                \"title\": \"⚠️ Production Health Alert\",
+                \"text\": \"Production metrics are unhealthy\",
+                \"fields\": [
+                  {
+                    \"title\": \"Error Rate\",
+                    \"value\": \"${{ steps.metrics.outputs.error_rate }}%\",
+                    \"short\": true
+                  },
+                  {
+                    \"title\": \"Latency (p99)\",
+                    \"value\": \"${{ steps.metrics.outputs.latency_p99 }}s\",
+                    \"short\": true
+                  },
+                  {
+                    \"title\": \"CPU\",
+                    \"value\": \"${{ steps.metrics.outputs.cpu_util }}%\",
+                    \"short\": true
+                  },
+                  {
+                    \"title\": \"Memory\",
+                    \"value\": \"${{ steps.metrics.outputs.memory_util }}%\",
+                    \"short\": true
+                  },
+                  {
+                    \"title\": \"Issues\",
+                    \"value\": \"${ISSUES}\",
+                    \"short\": false
+                  }
+                ]
+              }]
+            }"
+
+  auto-rollback:
+    name: Auto-Rollback Production
+    runs-on: ubuntu-latest
+    needs: monitor-health
+    if: needs.monitor-health.outputs.should_rollback == 'true'
+    environment:
+      name: production-rollback
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_PROD }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name valuecanvas-prod-cluster \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Get previous stable version
+        id: previous
+        run: |
+          # Get previous revision
+          PREVIOUS_REVISION=$(kubectl rollout history deployment/valuecanvas-app \
+            --namespace=production \
+            --revision=0 | tail -2 | head -1 | awk '{print $1}')
+          
+          echo "revision=${PREVIOUS_REVISION}" >> $GITHUB_OUTPUT
+
+      - name: Rollback deployment
+        run: |
+          echo "🔄 Rolling back to revision ${{ steps.previous.outputs.revision }}..."
+          
+          kubectl rollout undo deployment/valuecanvas-app \
+            --namespace=production \
+            --to-revision=${{ steps.previous.outputs.revision }}
+          
+          # Wait for rollback
+          kubectl rollout status deployment/valuecanvas-app \
+            --namespace=production \
+            --timeout=5m
+          
+          echo "✅ Rollback complete"
+
+      - name: Verify rollback
+        run: |
+          # Wait 2 minutes for metrics to stabilize
+          sleep 120
+          
+          # Check if error rate improved
+          ERROR_COUNT=$(aws cloudwatch get-metric-statistics \
+            --namespace AWS/ApplicationELB \
+            --metric-name HTTPCode_Target_5XX_Count \
+            --dimensions Name=LoadBalancer,Value=valuecanvas-prod \
+            --start-time $(date -u -d '2 minutes ago' +%Y-%m-%dT%H:%M:%S) \
+            --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
+            --period 120 \
+            --statistics Sum \
+            --query 'Datapoints[0].Sum' \
+            --output text)
+          
+          if [ "$ERROR_COUNT" == "None" ] || [ "$ERROR_COUNT" -lt 5 ]; then
+            echo "✅ Rollback successful, error rate improved"
+          else
+            echo "⚠️ Rollback completed but errors persist"
+          fi
+
+      - name: Notify rollback
+        if: always()
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+            -H 'Content-Type: application/json' \
+            -d "{
+              \"attachments\": [{
+                \"color\": \"warning\",
+                \"title\": \"🔄 Automatic Rollback Executed\",
+                \"text\": \"Production was automatically rolled back due to unhealthy metrics\",
+                \"fields\": [
+                  {
+                    \"title\": \"Rolled back to\",
+                    \"value\": \"Revision ${{ steps.previous.outputs.revision }}\",
+                    \"short\": true
+                  },
+                  {
+                    \"title\": \"Reason\",
+                    \"value\": \"Health check failure\",
+                    \"short\": true
+                  },
+                  {
+                    \"title\": \"Action Required\",
+                    \"value\": \"Investigate root cause before next deployment\",
+                    \"short\": false
+                  }
+                ]
+              }]
+            }"
+          
+          # Create incident in PagerDuty
+          curl -X POST https://events.pagerduty.com/v2/enqueue \
+            -H 'Content-Type: application/json' \
+            -d "{
+              \"routing_key\": \"${{ secrets.PAGERDUTY_ROUTING_KEY }}\",
+              \"event_action\": \"trigger\",
+              \"payload\": {
+                \"summary\": \"Production auto-rollback executed\",
+                \"severity\": \"critical\",
+                \"source\": \"GitHub Actions\",
+                \"custom_details\": {
+                  \"revision\": \"${{ steps.previous.outputs.revision }}\",
+                  \"workflow_run\": \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"
+                }
+              }
+            }"
+
+      - name: Create incident issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 Production Auto-Rollback - ${new Date().toISOString()}`,
+              body: `## Automatic Rollback Executed
+              
+              Production was automatically rolled back due to unhealthy metrics.
+              
+              ### Details
+              - **Rolled back to:** Revision ${{ steps.previous.outputs.revision }}
+              - **Trigger:** Health monitor detected critical issues
+              - **Workflow:** [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+              
+              ### Next Steps
+              1. Review health metrics in Grafana
+              2. Investigate root cause
+              3. Fix issues before next deployment
+              4. Test thoroughly in staging
+              
+              ### Health Metrics
+              - Error Rate: ${{ needs.monitor-health.outputs.error_rate }}%
+              - Latency (p99): ${{ needs.monitor-health.outputs.latency_p99 }}s
+              `,
+              labels: ['incident', 'production', 'auto-rollback']
+            });

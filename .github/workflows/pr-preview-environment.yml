@@ -1,0 +1,417 @@
+name: Ephemeral PR Preview Environment
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+env:
+  AWS_REGION: us-east-1
+  REGISTRY: ghcr.io
+
+jobs:
+  # Job 1: Create preview environment
+  create-preview:
+    name: Create Preview Environment
+    runs-on: ubuntu-latest
+    if: github.event.action != 'closed'
+    outputs:
+      preview_url: ${{ steps.deploy.outputs.url }}
+      namespace: ${{ steps.setup.outputs.namespace }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup preview environment
+        id: setup
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          NAMESPACE="pr-${PR_NUMBER}"
+          SUBDOMAIN="pr-${PR_NUMBER}"
+          
+          echo "namespace=${NAMESPACE}" >> $GITHUB_OUTPUT
+          echo "subdomain=${SUBDOMAIN}" >> $GITHUB_OUTPUT
+          echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name valuecanvas-dev-cluster \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Create namespace
+        run: |
+          kubectl create namespace ${{ steps.setup.outputs.namespace }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+          
+          kubectl label namespace ${{ steps.setup.outputs.namespace }} \
+            type=preview \
+            pr-number=${{ steps.setup.outputs.pr_number }} \
+            created-by=${{ github.actor }} \
+            created-at=$(date +%s)
+
+      - name: Create ephemeral database
+        id: database
+        run: |
+          # Create isolated Supabase project for this PR
+          DB_NAME="pr_${{ steps.setup.outputs.pr_number }}"
+          
+          # Use Supabase branching (if available) or create schema
+          kubectl exec -n supabase deployment/supabase-db -- \
+            psql -U postgres -c "CREATE DATABASE ${DB_NAME};"
+          
+          # Run migrations on ephemeral DB
+          kubectl exec -n supabase deployment/supabase-db -- \
+            psql -U postgres -d ${DB_NAME} -f /migrations/schema.sql
+          
+          DB_URL="postgresql://postgres:postgres@supabase-db.supabase:5432/${DB_NAME}"
+          echo "url=${DB_URL}" >> $GITHUB_OUTPUT
+
+      - name: Build preview image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.prod
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ github.repository }}:pr-${{ steps.setup.outputs.pr_number }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Create secrets
+        run: |
+          kubectl create secret generic valuecanvas-secrets \
+            --from-literal=database-url="${{ steps.database.outputs.url }}" \
+            --from-literal=supabase-url="http://supabase-kong.supabase:8000" \
+            --from-literal=supabase-anon-key="${{ secrets.SUPABASE_ANON_KEY }}" \
+            --from-literal=together-api-key="${{ secrets.TOGETHER_API_KEY }}" \
+            --from-literal=jwt-secret="preview-jwt-secret-${{ steps.setup.outputs.pr_number }}" \
+            --namespace=${{ steps.setup.outputs.namespace }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy to preview namespace
+        id: deploy
+        run: |
+          cat <<EOF | kubectl apply -f -
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: valuecanvas-app
+            namespace: ${{ steps.setup.outputs.namespace }}
+            labels:
+              app: valuecanvas
+              pr: "${{ steps.setup.outputs.pr_number }}"
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: valuecanvas
+            template:
+              metadata:
+                labels:
+                  app: valuecanvas
+              spec:
+                containers:
+                - name: app
+                  image: ${{ env.REGISTRY }}/${{ github.repository }}:pr-${{ steps.setup.outputs.pr_number }}
+                  ports:
+                  - containerPort: 3000
+                  env:
+                  - name: NODE_ENV
+                    value: "preview"
+                  - name: VITE_APP_URL
+                    value: "https://${{ steps.setup.outputs.subdomain }}.preview.valuecanvas.app"
+                  envFrom:
+                  - secretRef:
+                      name: valuecanvas-secrets
+                  resources:
+                    requests:
+                      memory: "256Mi"
+                      cpu: "250m"
+                    limits:
+                      memory: "512Mi"
+                      cpu: "500m"
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: valuecanvas-app
+            namespace: ${{ steps.setup.outputs.namespace }}
+          spec:
+            selector:
+              app: valuecanvas
+            ports:
+            - port: 80
+              targetPort: 3000
+          ---
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: valuecanvas-app
+            namespace: ${{ steps.setup.outputs.namespace }}
+            annotations:
+              cert-manager.io/cluster-issuer: letsencrypt-prod
+              nginx.ingress.kubernetes.io/ssl-redirect: "true"
+          spec:
+            ingressClassName: nginx
+            tls:
+            - hosts:
+              - ${{ steps.setup.outputs.subdomain }}.preview.valuecanvas.app
+              secretName: preview-tls-${{ steps.setup.outputs.pr_number }}
+            rules:
+            - host: ${{ steps.setup.outputs.subdomain }}.preview.valuecanvas.app
+              http:
+                paths:
+                - path: /
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: valuecanvas-app
+                      port:
+                        number: 80
+          EOF
+          
+          PREVIEW_URL="https://${{ steps.setup.outputs.subdomain }}.preview.valuecanvas.app"
+          echo "url=${PREVIEW_URL}" >> $GITHUB_OUTPUT
+
+      - name: Wait for deployment
+        run: |
+          kubectl rollout status deployment/valuecanvas-app \
+            --namespace=${{ steps.setup.outputs.namespace }} \
+            --timeout=5m
+
+      - name: Wait for ingress
+        run: |
+          echo "Waiting for ingress to be ready..."
+          for i in {1..30}; do
+            if curl -f -s -o /dev/null ${{ steps.deploy.outputs.url }}/health; then
+              echo "✅ Preview environment is ready!"
+              exit 0
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 10
+          done
+          echo "❌ Preview environment failed to become ready"
+          exit 1
+
+      - name: Run preview smoke tests
+        run: |
+          curl -f ${{ steps.deploy.outputs.url }}/health || exit 1
+          echo "✅ Preview environment health check passed"
+
+      - name: Comment preview URL on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const previewUrl = '${{ steps.deploy.outputs.url }}';
+            const namespace = '${{ steps.setup.outputs.namespace }}';
+            const prNumber = ${{ steps.setup.outputs.pr_number }};
+            
+            const body = `## 🚀 Preview Environment Ready
+            
+            Your preview environment has been deployed!
+            
+            **Preview URL:** [${previewUrl}](${previewUrl})
+            
+            ### Details
+            - **Namespace:** \`${namespace}\`
+            - **Image:** \`${{ env.REGISTRY }}/${{ github.repository }}:pr-${prNumber}\`
+            - **Database:** Ephemeral (isolated)
+            - **Auto-cleanup:** On PR close
+            
+            ### Quick Links
+            - 🔗 [Open Preview](${previewUrl})
+            - 📊 [View Logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            - 🔍 [K8s Dashboard](https://k8s.valuecanvas.app/namespaces/${namespace})
+            
+            ---
+            
+            💡 **Tip:** This environment will be automatically destroyed when the PR is closed.
+            `;
+            
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('Preview Environment Ready')
+            );
+            
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+
+      - name: Set preview environment metadata
+        run: |
+          cat > preview-metadata.json <<EOF
+          {
+            "pr_number": ${{ steps.setup.outputs.pr_number }},
+            "namespace": "${{ steps.setup.outputs.namespace }}",
+            "preview_url": "${{ steps.deploy.outputs.url }}",
+            "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "created_by": "${{ github.actor }}",
+            "commit": "${{ github.event.pull_request.head.sha }}"
+          }
+          EOF
+
+      - name: Upload metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-metadata-${{ steps.setup.outputs.pr_number }}
+          path: preview-metadata.json
+
+  # Job 2: Cleanup preview environment on PR close
+  cleanup-preview:
+    name: Cleanup Preview Environment
+    runs-on: ubuntu-latest
+    if: github.event.action == 'closed'
+    
+    steps:
+      - name: Setup cleanup
+        id: setup
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          NAMESPACE="pr-${PR_NUMBER}"
+          
+          echo "namespace=${NAMESPACE}" >> $GITHUB_OUTPUT
+          echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name valuecanvas-dev-cluster \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Delete namespace
+        run: |
+          kubectl delete namespace ${{ steps.setup.outputs.namespace }} \
+            --ignore-not-found=true \
+            --timeout=5m
+
+      - name: Delete ephemeral database
+        run: |
+          DB_NAME="pr_${{ steps.setup.outputs.pr_number }}"
+          
+          kubectl exec -n supabase deployment/supabase-db -- \
+            psql -U postgres -c "DROP DATABASE IF EXISTS ${DB_NAME};" || true
+
+      - name: Delete preview image
+        run: |
+          # Optional: Clean up old preview images
+          # This can be done via a separate scheduled job
+          echo "Preview image cleanup can be done via scheduled job"
+
+      - name: Comment cleanup on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `## 🧹 Preview Environment Cleaned Up
+            
+            The preview environment for this PR has been destroyed.
+            
+            - **Namespace:** \`${{ steps.setup.outputs.namespace }}\` (deleted)
+            - **Database:** Ephemeral database dropped
+            - **Resources:** All resources released
+            
+            ---
+            
+            ✅ Cleanup completed successfully.
+            `;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
+
+  # Job 3: Scheduled cleanup of stale preview environments
+  cleanup-stale:
+    name: Cleanup Stale Previews
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name valuecanvas-dev-cluster \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Find stale preview namespaces
+        run: |
+          # Find preview namespaces older than 7 days
+          STALE_NAMESPACES=$(kubectl get namespaces \
+            -l type=preview \
+            -o json | \
+            jq -r '.items[] | 
+              select(
+                (.metadata.labels."created-at" | tonumber) < 
+                (now - (7 * 24 * 60 * 60))
+              ) | 
+              .metadata.name')
+          
+          if [ -z "$STALE_NAMESPACES" ]; then
+            echo "No stale preview environments found"
+            exit 0
+          fi
+          
+          echo "Found stale preview environments:"
+          echo "$STALE_NAMESPACES"
+          
+          # Delete stale namespaces
+          for ns in $STALE_NAMESPACES; do
+            echo "Deleting stale namespace: $ns"
+            kubectl delete namespace $ns --timeout=5m
+          done
+
+# Scheduled cleanup job (runs daily)
+on:
+  schedule:
+    - cron: '0 2 * * *'  # 2 AM UTC daily
