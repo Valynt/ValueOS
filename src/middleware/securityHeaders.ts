@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from "express";
+import { NextFunction, Request, Response } from "express";
 import { securityEvents } from "../security/securityLogger";
 
 export interface CSPConfig {
@@ -15,6 +15,10 @@ export interface CSPConfig {
   reportUri?: string;
   frameAncestors?: string[];
   baseUri?: string[];
+  formAction?: string[];
+  upgradeInsecureRequests?: boolean;
+}
+
 // Production CSP - Strict, nonce-based
 const productionCSP: CSPConfig = {
   defaultSrc: ["'self'"],
@@ -60,10 +64,6 @@ const developmentCSP: CSPConfig = {
   mediaSrc: ["'self'"],
   frameSrc: ["'none'"],
   workerSrc: ["'self'", "blob:"],
-};
-  frameSrc: ["'none'"],
-  workerSrc: ["'self'", "blob:"],
-  reportUri: "/api/csp-report",
 };
 
 function buildCSPString(config: CSPConfig): string {

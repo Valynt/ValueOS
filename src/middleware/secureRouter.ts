@@ -2,8 +2,8 @@ import { Router } from 'express';
 import {
   csrfProtectionMiddleware,
   securityHeadersMiddleware,
-  sessionTimeoutMiddleware,
 } from './securityMiddleware';
+import { sessionTimeoutMiddleware } from './sessionTimeoutMiddleware';
 import { serviceIdentityMiddleware } from './serviceIdentityMiddleware';
 import { rateLimiters, RateLimitTier } from './rateLimiter';
 import { requestAuditMiddleware } from './requestAuditMiddleware';

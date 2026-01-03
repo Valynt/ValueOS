@@ -69,10 +69,10 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-vc-surface-1 text-white font-sans selection:bg-emerald-500/30">
+    <div className="min-h-screen flex items-center justify-center bg-vc-surface-1 text-white font-sans selection:bg-vc-accent-teal-500/30">
       {/* Background Effects */}
       <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-500/10 rounded-full blur-[120px]" />
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-vc-accent-teal-500/10 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-teal-500/10 rounded-full blur-[120px]" />
       </div>
 
@@ -87,7 +87,7 @@ export function LoginPage() {
             <div className="flex justify-center mb-8">
               <div className="w-16 h-16 rounded-2xl bg-vc-surface-3 border border-white/10 flex items-center justify-center shadow-inner relative group overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="text-emerald-500 relative z-10">
+                <div className="text-vc-accent-teal-500 relative z-10">
                   <svg
                     width="24"
                     height="24"
@@ -112,7 +112,7 @@ export function LoginPage() {
                 New to the workspace?{" "}
                 <Link
                   to="/signup"
-                  className="text-emerald-400 hover:text-emerald-300 transition-colors font-medium"
+                  className="text-vc-accent-teal-400 hover:text-vc-accent-teal-500 transition-colors font-medium"
                 >
                   Create an account
                 </Link>
@@ -135,7 +135,7 @@ export function LoginPage() {
                   Work Email
                 </label>
                 <div className="group relative">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-emerald-500 transition-colors">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-vc-accent-teal-500 transition-colors">
                     <svg
                       width="18"
                       height="18"
@@ -156,7 +156,7 @@ export function LoginPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-vc-surface-3 border border-white/5 rounded-xl py-3.5 pl-11 pr-4 text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all shadow-inner"
+                    className="w-full bg-vc-surface-3 border border-white/5 rounded-xl py-3.5 pl-11 pr-4 text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-vc-accent-teal-500/50 focus:border-vc-accent-teal-500/50 transition-all shadow-inner"
                     placeholder="you@studio.dev"
                     disabled={loading}
                   />
@@ -174,13 +174,13 @@ export function LoginPage() {
                   </label>
                   <Link
                     to="/reset-password"
-                    className="text-[11px] font-medium text-gray-500 hover:text-emerald-400 transition-colors"
+                    className="text-[11px] font-medium text-gray-500 hover:text-vc-accent-teal-400 transition-colors"
                   >
                     Forgot?
                   </Link>
                 </div>
                 <div className="group relative">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-emerald-500 transition-colors">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-vc-accent-teal-500 transition-colors">
                     <svg
                       width="18"
                       height="18"
@@ -201,7 +201,7 @@ export function LoginPage() {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-vc-surface-3 border border-white/5 rounded-xl py-3.5 pl-11 pr-12 text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all shadow-inner"
+                    className="w-full bg-vc-surface-3 border border-white/5 rounded-xl py-3.5 pl-11 pr-12 text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-vc-accent-teal-500/50 focus:border-vc-accent-teal-500/50 transition-all shadow-inner"
                     placeholder="Enter your password"
                     disabled={loading}
                   />
@@ -225,7 +225,7 @@ export function LoginPage() {
                     MFA Code
                   </label>
                   <div className="group relative">
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-emerald-500 transition-colors">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-vc-accent-teal-500 transition-colors">
                       <svg
                         width="18"
                         height="18"
@@ -245,7 +245,7 @@ export function LoginPage() {
                       required={showMFA}
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value)}
-                      className="w-full bg-vc-surface-3 border border-white/5 rounded-xl py-3.5 pl-11 pr-4 text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all shadow-inner"
+                      className="w-full bg-vc-surface-3 border border-white/5 rounded-xl py-3.5 pl-11 pr-4 text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-vc-accent-teal-500/50 focus:border-vc-accent-teal-500/50 transition-all shadow-inner"
                       placeholder="123456"
                       disabled={loading}
                       maxLength={6}
@@ -257,7 +257,7 @@ export function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-semibold py-3.5 rounded-xl transition-all duration-300 shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-[0.98]"
+                className="w-full bg-vc-accent-teal-500 hover:bg-vc-accent-teal-400 text-black font-semibold py-3.5 rounded-xl transition-all duration-300 shadow-[0_0_20px_rgba(24,195,165,0.3)] hover:shadow-[0_0_30px_rgba(24,195,165,0.5)] disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-[0.98]"
               >
                 {loading ? "Signing in..." : "Continue to dashboard"}
               </button>
