@@ -1,0 +1,409 @@
+name: Preview Environment Cost Optimization
+
+on:
+  schedule:
+    # Run every hour
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  optimize-preview-envs:
+    name: Optimize Preview Environments
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name valuecanvas-dev-cluster \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Find inactive preview environments
+        id: inactive
+        run: |
+          # Get all preview namespaces
+          PREVIEW_NAMESPACES=$(kubectl get namespaces \
+            -l type=preview \
+            -o json)
+          
+          # Find inactive ones (no activity in last 2 hours)
+          INACTIVE_NAMESPACES=$(echo "$PREVIEW_NAMESPACES" | jq -r '
+            .items[] | 
+            select(
+              (.metadata.labels."last-activity" | tonumber) < 
+              (now - (2 * 60 * 60))
+            ) | 
+            .metadata.name
+          ')
+          
+          echo "inactive_namespaces<<EOF" >> $GITHUB_OUTPUT
+          echo "$INACTIVE_NAMESPACES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Scale down inactive environments
+        run: |
+          INACTIVE="${{ steps.inactive.outputs.inactive_namespaces }}"
+          
+          if [ -z "$INACTIVE" ]; then
+            echo "No inactive preview environments found"
+            exit 0
+          fi
+          
+          echo "Scaling down inactive preview environments:"
+          echo "$INACTIVE"
+          
+          for ns in $INACTIVE; do
+            echo "Scaling down namespace: $ns"
+            
+            # Scale deployments to 0
+            kubectl scale deployment --all \
+              --replicas=0 \
+              --namespace=$ns
+            
+            # Add label to indicate scaled down
+            kubectl label namespace $ns \
+              scaled-down=true \
+              scaled-down-at=$(date +%s) \
+              --overwrite
+          done
+
+      - name: Find stale preview environments
+        id: stale
+        run: |
+          # Find preview environments older than 7 days
+          STALE_NAMESPACES=$(kubectl get namespaces \
+            -l type=preview \
+            -o json | \
+            jq -r '.items[] | 
+              select(
+                (.metadata.labels."created-at" | tonumber) < 
+                (now - (7 * 24 * 60 * 60))
+              ) | 
+              .metadata.name')
+          
+          echo "stale_namespaces<<EOF" >> $GITHUB_OUTPUT
+          echo "$STALE_NAMESPACES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Delete stale environments
+        run: |
+          STALE="${{ steps.stale.outputs.stale_namespaces }}"
+          
+          if [ -z "$STALE" ]; then
+            echo "No stale preview environments found"
+            exit 0
+          fi
+          
+          echo "Deleting stale preview environments:"
+          echo "$STALE"
+          
+          for ns in $STALE; do
+            echo "Deleting namespace: $ns"
+            
+            # Get PR number from namespace
+            PR_NUMBER=$(echo $ns | sed 's/pr-//')
+            
+            # Delete namespace
+            kubectl delete namespace $ns --timeout=5m
+            
+            # Delete ephemeral database
+            DB_NAME="pr_${PR_NUMBER}"
+            kubectl exec -n supabase deployment/supabase-db -- \
+              psql -U postgres -c "DROP DATABASE IF EXISTS ${DB_NAME};" || true
+            
+            # Comment on PR if still open
+            gh pr comment $PR_NUMBER \
+              --body "🧹 Preview environment cleaned up due to inactivity (7+ days)" \
+              --repo ${{ github.repository }} || true
+          done
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Optimize resource limits
+        run: |
+          # Get all active preview namespaces
+          ACTIVE_NAMESPACES=$(kubectl get namespaces \
+            -l type=preview,scaled-down!=true \
+            -o jsonpath='{.items[*].metadata.name}')
+          
+          for ns in $ACTIVE_NAMESPACES; do
+            echo "Optimizing resources for namespace: $ns"
+            
+            # Reduce resource limits for preview environments
+            kubectl patch deployment --all \
+              --namespace=$ns \
+              --type=json \
+              -p='[
+                {
+                  "op": "replace",
+                  "path": "/spec/template/spec/containers/0/resources/limits/memory",
+                  "value": "512Mi"
+                },
+                {
+                  "op": "replace",
+                  "path": "/spec/template/spec/containers/0/resources/limits/cpu",
+                  "value": "500m"
+                },
+                {
+                  "op": "replace",
+                  "path": "/spec/template/spec/containers/0/resources/requests/memory",
+                  "value": "256Mi"
+                },
+                {
+                  "op": "replace",
+                  "path": "/spec/template/spec/containers/0/resources/requests/cpu",
+                  "value": "250m"
+                }
+              ]' || true
+          done
+
+      - name: Calculate cost savings
+        id: savings
+        run: |
+          # Count scaled down environments
+          SCALED_DOWN=$(kubectl get namespaces \
+            -l type=preview,scaled-down=true \
+            --no-headers | wc -l)
+          
+          # Count deleted environments
+          DELETED=$(echo "${{ steps.stale.outputs.stale_namespaces }}" | wc -w)
+          
+          # Estimate cost savings (rough estimate)
+          # Assume $0.05/hour per preview environment
+          HOURLY_SAVINGS=$(echo "scale=2; ($SCALED_DOWN + $DELETED) * 0.05" | bc)
+          MONTHLY_SAVINGS=$(echo "scale=2; $HOURLY_SAVINGS * 730" | bc)
+          
+          echo "scaled_down=$SCALED_DOWN" >> $GITHUB_OUTPUT
+          echo "deleted=$DELETED" >> $GITHUB_OUTPUT
+          echo "hourly_savings=$HOURLY_SAVINGS" >> $GITHUB_OUTPUT
+          echo "monthly_savings=$MONTHLY_SAVINGS" >> $GITHUB_OUTPUT
+
+      - name: Generate cost report
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY <<EOF
+          # 💰 Preview Environment Cost Optimization Report
+          
+          ## Actions Taken
+          
+          - **Scaled Down:** ${{ steps.savings.outputs.scaled_down }} inactive environments
+          - **Deleted:** ${{ steps.savings.outputs.deleted }} stale environments
+          
+          ## Estimated Cost Savings
+          
+          - **Hourly:** \$${{ steps.savings.outputs.hourly_savings }}
+          - **Monthly:** \$${{ steps.savings.outputs.monthly_savings }}
+          
+          ## Active Preview Environments
+          
+          \`\`\`
+          $(kubectl get namespaces -l type=preview --no-headers | wc -l) total
+          $(kubectl get namespaces -l type=preview,scaled-down!=true --no-headers | wc -l) active
+          $(kubectl get namespaces -l type=preview,scaled-down=true --no-headers | wc -l) scaled down
+          \`\`\`
+          
+          ## Resource Usage
+          
+          \`\`\`
+          $(kubectl top nodes | grep -A 100 "NAME")
+          \`\`\`
+          EOF
+
+  auto-scale-preview-envs:
+    name: Auto-Scale Preview Environments
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name valuecanvas-dev-cluster \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Install metrics server (if not exists)
+        run: |
+          kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml || true
+
+      - name: Configure Horizontal Pod Autoscaler
+        run: |
+          # Get all preview namespaces
+          PREVIEW_NAMESPACES=$(kubectl get namespaces \
+            -l type=preview \
+            -o jsonpath='{.items[*].metadata.name}')
+          
+          for ns in $PREVIEW_NAMESPACES; do
+            echo "Configuring HPA for namespace: $ns"
+            
+            # Create HPA for each deployment
+            kubectl autoscale deployment --all \
+              --namespace=$ns \
+              --min=1 \
+              --max=2 \
+              --cpu-percent=80 \
+              --dry-run=client -o yaml | kubectl apply -f - || true
+          done
+
+      - name: Configure Vertical Pod Autoscaler
+        run: |
+          # Install VPA if not exists
+          kubectl apply -f https://github.com/kubernetes/autoscaler/releases/latest/download/vertical-pod-autoscaler.yaml || true
+          
+          # Get all preview namespaces
+          PREVIEW_NAMESPACES=$(kubectl get namespaces \
+            -l type=preview \
+            -o jsonpath='{.items[*].metadata.name}')
+          
+          for ns in $PREVIEW_NAMESPACES; do
+            echo "Configuring VPA for namespace: $ns"
+            
+            # Create VPA for each deployment
+            cat <<EOF | kubectl apply -f -
+          apiVersion: autoscaling.k8s.io/v1
+          kind: VerticalPodAutoscaler
+          metadata:
+            name: valuecanvas-app-vpa
+            namespace: $ns
+          spec:
+            targetRef:
+              apiVersion: apps/v1
+              kind: Deployment
+              name: valuecanvas-app
+            updatePolicy:
+              updateMode: "Auto"
+            resourcePolicy:
+              containerPolicies:
+              - containerName: app
+                minAllowed:
+                  cpu: 100m
+                  memory: 128Mi
+                maxAllowed:
+                  cpu: 500m
+                  memory: 512Mi
+          EOF
+          done
+
+  monitor-preview-costs:
+    name: Monitor Preview Environment Costs
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get EKS cluster costs
+        id: costs
+        run: |
+          # Get cost for last 7 days
+          START_DATE=$(date -u -d '7 days ago' +%Y-%m-%d)
+          END_DATE=$(date -u +%Y-%m-%d)
+          
+          COST=$(aws ce get-cost-and-usage \
+            --time-period Start=$START_DATE,End=$END_DATE \
+            --granularity DAILY \
+            --metrics UnblendedCost \
+            --filter file://<(cat <<EOF
+          {
+            "Tags": {
+              "Key": "Environment",
+              "Values": ["preview"]
+            }
+          }
+          EOF
+          ) \
+            --query 'ResultsByTime[*].Total.UnblendedCost.Amount' \
+            --output text | awk '{s+=$1} END {print s}')
+          
+          echo "weekly_cost=$COST" >> $GITHUB_OUTPUT
+
+      - name: Check cost threshold
+        run: |
+          WEEKLY_COST=${{ steps.costs.outputs.weekly_cost }}
+          THRESHOLD=100.0  # $100/week threshold
+          
+          if (( $(echo "$WEEKLY_COST > $THRESHOLD" | bc -l) )); then
+            echo "⚠️ Preview environment costs exceed threshold"
+            echo "Weekly cost: \$$WEEKLY_COST"
+            echo "Threshold: \$$THRESHOLD"
+            
+            # Send alert
+            curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+              -H 'Content-Type: application/json' \
+              -d "{
+                \"attachments\": [{
+                  \"color\": \"warning\",
+                  \"title\": \"⚠️ Preview Environment Cost Alert\",
+                  \"text\": \"Weekly preview environment costs exceed threshold\",
+                  \"fields\": [
+                    {
+                      \"title\": \"Weekly Cost\",
+                      \"value\": \"\$$WEEKLY_COST\",
+                      \"short\": true
+                    },
+                    {
+                      \"title\": \"Threshold\",
+                      \"value\": \"\$$THRESHOLD\",
+                      \"short\": true
+                    }
+                  ]
+                }]
+              }"
+          else
+            echo "✅ Preview environment costs within threshold"
+            echo "Weekly cost: \$$WEEKLY_COST"
+          fi
+
+      - name: Generate cost breakdown
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY <<EOF
+          # 💵 Preview Environment Cost Report
+          
+          ## Weekly Costs
+          
+          **Total:** \$${{ steps.costs.outputs.weekly_cost }}
+          
+          ## Cost Breakdown by Service
+          
+          \`\`\`
+          $(aws ce get-cost-and-usage \
+            --time-period Start=$(date -u -d '7 days ago' +%Y-%m-%d),End=$(date -u +%Y-%m-%d) \
+            --granularity DAILY \
+            --metrics UnblendedCost \
+            --group-by Type=SERVICE \
+            --filter file://<(cat <<FILTER
+          {
+            "Tags": {
+              "Key": "Environment",
+              "Values": ["preview"]
+            }
+          }
+          FILTER
+          ) \
+            --query 'ResultsByTime[*].Groups[*].[Keys[0],Metrics.UnblendedCost.Amount]' \
+            --output text)
+          \`\`\`
+          EOF
