@@ -153,6 +153,10 @@ export interface AuthPolicyConfig {
 
 /**
  * SSO/SAML configuration
+ * 
+ * NOTE: SSO/SAML is not currently implemented.
+ * This interface is reserved for future enterprise features.
+ * Current authentication uses Supabase (email/password + OAuth).
  */
 export interface SSOConfig {
   /** Organization ID */
