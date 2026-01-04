@@ -1,0 +1,145 @@
+version: '3.8'
+
+# Docker Compose configuration with security hardening
+# Includes Docker socket proxy for restricted access
+
+services:
+  # Docker Socket Proxy - Restricts Docker API access
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: valuecanvas-docker-proxy
+    restart: unless-stopped
+    
+    # Security: Read-only root filesystem
+    read_only: true
+    
+    # Mount Docker socket (read-only)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    
+    # Network configuration
+    networks:
+      - docker-proxy-network
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    
+    # Environment variables control API access
+    environment:
+      # Allow container operations
+      CONTAINERS: 1
+      
+      # Allow image operations (read-only)
+      IMAGES: 1
+      
+      # Allow volume operations (read-only)
+      VOLUMES: 1
+      
+      # Allow network operations (read-only)
+      NETWORKS: 1
+      
+      # Deny dangerous operations
+      POST: 0          # Deny container creation
+      BUILD: 0         # Deny image builds
+      COMMIT: 0        # Deny container commits
+      CONFIGS: 0       # Deny config operations
+      DISTRIBUTION: 0  # Deny distribution operations
+      EXEC: 0          # Deny exec operations
+      PLUGINS: 0       # Deny plugin operations
+      SECRETS: 0       # Deny secrets operations
+      SERVICES: 0      # Deny service operations
+      SWARM: 0         # Deny swarm operations
+      SYSTEM: 0        # Deny system operations
+      TASKS: 0         # Deny task operations
+      
+      # Logging
+      LOG_LEVEL: info
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:2375/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    
+    # Drop all capabilities
+    cap_drop:
+      - ALL
+
+  # Development container with restricted Docker access
+  devcontainer:
+    image: valuecanvas-dev:latest
+    container_name: valuecanvas-dev-secure
+    
+    # Use Docker proxy instead of direct socket
+    environment:
+      DOCKER_HOST: tcp://docker-proxy:2375
+    
+    # Network configuration
+    networks:
+      - docker-proxy-network
+      - app-network
+    
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+      - seccomp:unconfined  # Required for some dev tools
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 6G
+        reservations:
+          cpus: '1'
+          memory: 4G
+    
+    # Volumes
+    volumes:
+      - ../:/workspace:cached
+      - valuecanvas-node-modules:/workspace/node_modules
+      - valuecanvas-npm-cache:/home/vscode/.npm
+      - valuecanvas-build-cache:/workspace/.cache
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  # Isolated network for Docker proxy
+  docker-proxy-network:
+    driver: bridge
+    internal: false
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+  
+  # Application network
+  app-network:
+    driver: bridge
+    internal: false
+    ipam:
+      config:
+        - subnet: 172.21.0.0/24
+
+volumes:
+  valuecanvas-node-modules:
+  valuecanvas-npm-cache:
+  valuecanvas-build-cache:

@@ -1,0 +1,153 @@
+# Network Security Configuration
+# Defines network segmentation and isolation policies
+
+version: '3.8'
+
+networks:
+  # Frontend network - Public facing
+  frontend-network:
+    driver: bridge
+    internal: false
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.22.0.0/24
+          gateway: 172.22.0.1
+    driver_opts:
+      com.docker.network.bridge.name: br-frontend
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+    labels:
+      com.valuecanvas.network.tier: "frontend"
+      com.valuecanvas.network.security: "public"
+
+  # Backend network - Internal only
+  backend-network:
+    driver: bridge
+    internal: true  # No external access
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.23.0.0/24
+          gateway: 172.23.0.1
+    driver_opts:
+      com.docker.network.bridge.name: br-backend
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "false"
+    labels:
+      com.valuecanvas.network.tier: "backend"
+      com.valuecanvas.network.security: "internal"
+
+  # Database network - Highly restricted
+  database-network:
+    driver: bridge
+    internal: true  # No external access
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.24.0.0/24
+          gateway: 172.24.0.1
+    driver_opts:
+      com.docker.network.bridge.name: br-database
+      com.docker.network.bridge.enable_icc: "false"  # Disable inter-container communication
+      com.docker.network.bridge.enable_ip_masquerade: "false"
+    labels:
+      com.valuecanvas.network.tier: "database"
+      com.valuecanvas.network.security: "restricted"
+
+  # Management network - Admin access only
+  management-network:
+    driver: bridge
+    internal: false
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.25.0.0/24
+          gateway: 172.25.0.1
+    driver_opts:
+      com.docker.network.bridge.name: br-mgmt
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+    labels:
+      com.valuecanvas.network.tier: "management"
+      com.valuecanvas.network.security: "admin"
+
+services:
+  # Frontend service
+  frontend:
+    image: valuecanvas-frontend:latest
+    networks:
+      - frontend-network
+      - backend-network  # Can communicate with backend
+    ports:
+      - "3000:3000"  # Only expose necessary port
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  # Backend API service
+  backend:
+    image: valuecanvas-backend:latest
+    networks:
+      - backend-network
+      - database-network  # Can communicate with database
+    # No ports exposed externally
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+
+  # Database service
+  database:
+    image: postgres:16-alpine
+    networks:
+      - database-network  # Only on database network
+    # No ports exposed externally
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+
+  # Redis cache
+  redis:
+    image: redis:7-alpine
+    networks:
+      - backend-network  # Only backend can access
+    # No ports exposed externally
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # Monitoring service (management network)
+  monitoring:
+    image: prom/prometheus:latest
+    networks:
+      - management-network
+      - backend-network  # Can scrape backend metrics
+    ports:
+      - "127.0.0.1:9090:9090"  # Only accessible from localhost
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+secrets:
+  db_password:
+    file: ./.devcontainer/secrets/db_password.txt
+
+volumes:
+  db-data:

@@ -24,15 +24,6 @@
 
   "remoteUser": "vscode",
 
-  // Environment variables for development
-  "containerEnv": {
-    "NODE_ENV": "development",
-    "ENVIRONMENT": "development",
-    // Optimize npm
-    "NPM_CONFIG_UPDATE_NOTIFIER": "false",
-    "NPM_CONFIG_FUND": "false"
-  },
-
   // Lifecycle scripts for automation
   "onCreateCommand": "bash .devcontainer/scripts/on-create.sh",
   "updateContentCommand": "bash .devcontainer/scripts/update-content.sh",
@@ -102,21 +93,46 @@
     "source=valuecanvas-playwright,target=/home/vscode/.cache/ms-playwright,type=volume"
   ],
 
-  // Container configuration for performance
+  // Container configuration for performance and security
   "runArgs": [
     "--name=valuecanvas-dev-optimized",
+    // Resource limits (prevent resource exhaustion)
+    // Note: Adjust --cpus based on host CPU count (use 2 for 2-core systems, 4 for 4+ core systems)
+    "--cpus=2",
+    "--cpu-shares=2048",
+    "--memory=6g",
+    "--memory-reservation=4g",
+    "--memory-swap=8g",
+    "--pids-limit=4096",
     // Increase shared memory for browser testing
     "--shm-size=2gb",
+    // OOM handling
+    "--oom-kill-disable=false",
+    "--oom-score-adj=500",
+    // Restart policy
+    "--restart=unless-stopped",
     // Add labels for identification
     "--label=project=valuecanvas",
     "--label=environment=development"
   ],
 
-  // Host requirements
+  // Host requirements (minimum recommended)
   "hostRequirements": {
     "cpus": 4,
     "memory": "8gb",
     "storage": "32gb"
+  },
+
+  // Container resource limits (enforced)
+  "containerEnv": {
+    "NODE_ENV": "development",
+    "ENVIRONMENT": "development",
+    // Optimize npm
+    "NPM_CONFIG_UPDATE_NOTIFIER": "false",
+    "NPM_CONFIG_FUND": "false",
+    // Resource monitoring
+    "CONTAINER_CPU_LIMIT": "4",
+    "CONTAINER_MEMORY_LIMIT": "6g"
   },
 
   // Customizations for VS Code and extensions

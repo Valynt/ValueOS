@@ -157,5 +157,9 @@ LABEL org.opencontainers.image.title="ValueCanvas Dev Container" \
       org.opencontainers.image.vendor="ValueCanvas" \
       org.opencontainers.image.version="1.0.0"
 
+# Health check configuration
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD /usr/local/bin/healthcheck || exit 1
+
 # Default command
 CMD ["/bin/zsh"]

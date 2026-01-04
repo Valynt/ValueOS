@@ -1,0 +1,6 @@
+# Ignore secrets directory
+secrets/
+
+# Except README and .gitignore
+!secrets/README.md
+!secrets/.gitignore
