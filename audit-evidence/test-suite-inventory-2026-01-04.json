@@ -1,0 +1,123 @@
+[
+  {
+    "name": "Tenant Isolation",
+    "file": "tests/compliance/security/tenant-isolation-verification.test.ts",
+    "tests": 23,
+    "category": "Security",
+    "compliance": [
+      "SOC2 CC6.1",
+      "ISO 27001 A.9.4.1"
+    ]
+  },
+  {
+    "name": "Audit Log Immutability",
+    "file": "tests/compliance/audit/audit-log-immutability.test.ts",
+    "tests": 15,
+    "category": "Audit",
+    "compliance": [
+      "SOC2 CC6.6",
+      "ISO 27001 A.12.4.1"
+    ]
+  },
+  {
+    "name": "PII Masking",
+    "file": "tests/compliance/privacy/pii-masking.test.ts",
+    "tests": 25,
+    "category": "Privacy",
+    "compliance": [
+      "GDPR Article 5",
+      "SOC2 CC6.7"
+    ]
+  },
+  {
+    "name": "Right to be Forgotten",
+    "file": "tests/compliance/privacy/right-to-be-forgotten.test.ts",
+    "tests": 30,
+    "category": "Privacy",
+    "compliance": [
+      "GDPR Article 17"
+    ]
+  },
+  {
+    "name": "Data Portability",
+    "file": "tests/compliance/privacy/data-portability.test.ts",
+    "tests": 25,
+    "category": "Privacy",
+    "compliance": [
+      "GDPR Article 20"
+    ]
+  },
+  {
+    "name": "Data Retention",
+    "file": "tests/compliance/privacy/data-retention.test.ts",
+    "tests": 30,
+    "category": "Privacy",
+    "compliance": [
+      "GDPR Article 5(e)",
+      "SOC2 CC6.5"
+    ]
+  },
+  {
+    "name": "Regional Residency",
+    "file": "tests/compliance/privacy/regional-residency.test.ts",
+    "tests": 25,
+    "category": "Privacy",
+    "compliance": [
+      "GDPR Articles 44-50"
+    ]
+  },
+  {
+    "name": "Plan Enforcement",
+    "file": "tests/billing/enforcement/plan-enforcement.test.ts",
+    "tests": 54,
+    "category": "Billing",
+    "compliance": [
+      "Business Logic"
+    ]
+  },
+  {
+    "name": "Usage Metering",
+    "file": "tests/billing/metering/usage-metering.test.ts",
+    "tests": 52,
+    "category": "Billing",
+    "compliance": [
+      "Business Logic"
+    ]
+  },
+  {
+    "name": "Zero-Downtime Deployment",
+    "file": "tests/deployment/zero-downtime.test.ts",
+    "tests": 19,
+    "category": "Deployment",
+    "compliance": [
+      "Operational Excellence"
+    ]
+  },
+  {
+    "name": "Rollback Safety",
+    "file": "tests/deployment/rollback.test.ts",
+    "tests": 24,
+    "category": "Deployment",
+    "compliance": [
+      "Operational Excellence"
+    ]
+  },
+  {
+    "name": "Load Testing",
+    "file": "tests/performance/load-testing.test.ts",
+    "tests": 21,
+    "category": "Performance",
+    "compliance": [
+      "SLA Compliance"
+    ]
+  },
+  {
+    "name": "Stress Testing",
+    "file": "tests/performance/stress-testing.test.ts",
+    "tests": 22,
+    "category": "Performance",
+    "compliance": [
+      "Resilience"
+    ]
+  }
+]

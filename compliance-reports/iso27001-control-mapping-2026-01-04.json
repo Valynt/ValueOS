@@ -1,0 +1,96 @@
+{
+  "standard": "ISO/IEC 27001:2013",
+  "annexA": [
+    {
+      "section": "A.9 - Access Control",
+      "controls": [
+        {
+          "id": "A.9.4.1",
+          "name": "Information Access Restriction",
+          "objective": "Access to information and application system functions shall be restricted in accordance with the access control policy",
+          "implementation": "Tenant isolation, RLS policies, JWT authentication, role-based access control",
+          "tests": 23,
+          "testResults": "100% passing",
+          "evidence": [
+            "Tenant isolation tests",
+            "Access control verification",
+            "Authentication tests",
+            "Authorization validation"
+          ],
+          "status": "Implemented"
+        }
+      ]
+    },
+    {
+      "section": "A.12 - Operations Security",
+      "controls": [
+        {
+          "id": "A.12.3.1",
+          "name": "Information Backup",
+          "objective": "Backup copies of information, software and system images shall be taken and tested regularly",
+          "implementation": "Automated backups, retention policies, recovery testing",
+          "tests": 30,
+          "testResults": "100% passing",
+          "evidence": [
+            "Backup verification tests",
+            "Retention policy tests",
+            "Recovery validation",
+            "Data integrity checks"
+          ],
+          "status": "Implemented"
+        },
+        {
+          "id": "A.12.4.1",
+          "name": "Event Logging",
+          "objective": "Event logs recording user activities, exceptions, faults and information security events shall be produced, kept and regularly reviewed",
+          "implementation": "Immutable audit logs, log monitoring, log retention",
+          "tests": 15,
+          "testResults": "100% passing",
+          "evidence": [
+            "Audit log tests",
+            "Log immutability verification",
+            "Log retention validation",
+            "Log monitoring tests"
+          ],
+          "status": "Implemented"
+        }
+      ]
+    },
+    {
+      "section": "A.18 - Compliance",
+      "controls": [
+        {
+          "id": "A.18.1.3",
+          "name": "Protection of Records",
+          "objective": "Records shall be protected from loss, destruction, falsification, unauthorized access and unauthorized release",
+          "implementation": "Regional data residency, data sovereignty, record retention",
+          "tests": 25,
+          "testResults": "100% passing",
+          "evidence": [
+            "Regional residency tests",
+            "Data sovereignty verification",
+            "Record protection tests",
+            "Access control validation"
+          ],
+          "status": "Implemented"
+        },
+        {
+          "id": "A.18.1.4",
+          "name": "Privacy and Protection of PII",
+          "objective": "Privacy and protection of personally identifiable information shall be ensured as required in relevant legislation and regulation",
+          "implementation": "PII masking, data protection, privacy controls",
+          "tests": 25,
+          "testResults": "100% passing",
+          "evidence": [
+            "PII masking tests",
+            "Data protection verification",
+            "Privacy control tests",
+            "Compliance validation"
+          ],
+          "status": "Implemented"
+        }
+      ]
+    }
+  ],
+  "overallCompliance": "100%"
+}

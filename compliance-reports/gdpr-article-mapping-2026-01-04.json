@@ -1,0 +1,100 @@
+{
+  "regulation": "GDPR (EU) 2016/679",
+  "articles": [
+    {
+      "id": "Article 5",
+      "title": "Principles relating to processing of personal data",
+      "requirements": [
+        "Data minimization",
+        "Purpose limitation",
+        "Storage limitation"
+      ],
+      "implementation": "PII masking, retention policies, purpose-based access controls",
+      "tests": 25,
+      "testResults": "100% passing",
+      "evidence": [
+        "PII masking tests",
+        "Retention policy tests",
+        "Purpose limitation verification"
+      ],
+      "status": "Compliant"
+    },
+    {
+      "id": "Article 17",
+      "title": "Right to erasure (right to be forgotten)",
+      "requirements": [
+        "Data deletion on request",
+        "Cascade deletion",
+        "Audit trail preservation"
+      ],
+      "implementation": "Automated deletion workflows, cascade delete, legal hold enforcement",
+      "tests": 30,
+      "testResults": "100% passing",
+      "evidence": [
+        "Data deletion tests",
+        "Cascade deletion verification",
+        "Legal hold tests",
+        "Audit trail validation"
+      ],
+      "status": "Compliant"
+    },
+    {
+      "id": "Article 20",
+      "title": "Right to data portability",
+      "requirements": [
+        "Machine-readable format",
+        "Complete data export",
+        "Cross-platform compatibility"
+      ],
+      "implementation": "JSON/CSV export, complete data extraction, standardized formats",
+      "tests": 25,
+      "testResults": "100% passing",
+      "evidence": [
+        "Data export tests",
+        "Format validation",
+        "Completeness verification",
+        "Compatibility tests"
+      ],
+      "status": "Compliant"
+    },
+    {
+      "id": "Article 32",
+      "title": "Security of processing",
+      "requirements": [
+        "Appropriate technical measures",
+        "Encryption",
+        "Access controls"
+      ],
+      "implementation": "Tenant isolation, encryption, authentication, monitoring",
+      "tests": 23,
+      "testResults": "100% passing",
+      "evidence": [
+        "Security tests",
+        "Encryption verification",
+        "Access control tests",
+        "Monitoring validation"
+      ],
+      "status": "Compliant"
+    },
+    {
+      "id": "Articles 44-50",
+      "title": "Transfers of personal data to third countries",
+      "requirements": [
+        "Data sovereignty",
+        "Regional data residency",
+        "Cross-border transfer controls"
+      ],
+      "implementation": "Regional isolation, data sovereignty enforcement, transfer logging",
+      "tests": 25,
+      "testResults": "100% passing",
+      "evidence": [
+        "Regional residency tests",
+        "Data sovereignty verification",
+        "Transfer control tests",
+        "Isolation validation"
+      ],
+      "status": "Compliant"
+    }
+  ],
+  "overallCompliance": "100%"
+}

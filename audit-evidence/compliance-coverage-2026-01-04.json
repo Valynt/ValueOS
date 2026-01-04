@@ -1,0 +1,86 @@
+{
+  "soc2": {
+    "cc6_1": {
+      "control": "Logical Access Controls",
+      "coverage": "100%",
+      "tests": 23
+    },
+    "cc6_5": {
+      "control": "Data Retention",
+      "coverage": "100%",
+      "tests": 30
+    },
+    "cc6_6": {
+      "control": "Audit Logging",
+      "coverage": "100%",
+      "tests": 15
+    },
+    "cc6_7": {
+      "control": "Data Classification",
+      "coverage": "100%",
+      "tests": 25
+    },
+    "cc7_2": {
+      "control": "System Monitoring",
+      "coverage": "100%",
+      "tests": 43
+    },
+    "overall": "100%"
+  },
+  "gdpr": {
+    "article5": {
+      "requirement": "Data Minimization",
+      "coverage": "100%",
+      "tests": 25
+    },
+    "article17": {
+      "requirement": "Right to be Forgotten",
+      "coverage": "100%",
+      "tests": 30
+    },
+    "article20": {
+      "requirement": "Data Portability",
+      "coverage": "100%",
+      "tests": 25
+    },
+    "article32": {
+      "requirement": "Security of Processing",
+      "coverage": "100%",
+      "tests": 23
+    },
+    "articles44_50": {
+      "requirement": "International Transfers",
+      "coverage": "100%",
+      "tests": 25
+    },
+    "overall": "100%"
+  },
+  "iso27001": {
+    "a9_4_1": {
+      "control": "Access Restriction",
+      "coverage": "100%",
+      "tests": 23
+    },
+    "a12_3_1": {
+      "control": "Information Backup",
+      "coverage": "100%",
+      "tests": 30
+    },
+    "a12_4_1": {
+      "control": "Event Logging",
+      "coverage": "100%",
+      "tests": 15
+    },
+    "a18_1_3": {
+      "control": "Records Protection",
+      "coverage": "100%",
+      "tests": 25
+    },
+    "a18_1_4": {
+      "control": "Privacy & PII",
+      "coverage": "100%",
+      "tests": 25
+    },
+    "overall": "100%"
+  }
+}

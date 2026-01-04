@@ -1,0 +1,17 @@
+{
+  "title": "Auditor Access Instructions",
+  "overview": "This package contains all evidence required for SOC2/ISO/GDPR audit",
+  "steps": [
+    "Review the README.md file for package overview",
+    "Examine evidence-manifest.json for complete file listing",
+    "Review framework-specific evidence files",
+    "Verify test results and coverage reports",
+    "Cross-reference controls with test evidence"
+  ],
+  "frameworks": {
+    "soc2": "See soc2-evidence-*.json for SOC2 Type II controls",
+    "gdpr": "See gdpr-evidence-*.json for GDPR articles",
+    "iso27001": "See iso27001-evidence-*.json for ISO 27001 controls"
+  },
+  "contact": "compliance@valueos.com"
+}

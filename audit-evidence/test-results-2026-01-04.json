@@ -1,0 +1,50 @@
+{
+  "timestamp": "2025-01-01T17:00:00.000Z",
+  "summary": {
+    "totalTests": 365,
+    "passing": 358,
+    "failing": 7,
+    "passRate": "98%"
+  },
+  "byCategory": {
+    "security": {
+      "total": 23,
+      "passing": 23,
+      "passRate": "100%"
+    },
+    "privacy": {
+      "total": 150,
+      "passing": 150,
+      "passRate": "100%"
+    },
+    "billing": {
+      "total": 106,
+      "passing": 106,
+      "passRate": "100%"
+    },
+    "deployment": {
+      "total": 43,
+      "passing": 42,
+      "passRate": "98%"
+    },
+    "performance": {
+      "total": 43,
+      "passing": 37,
+      "passRate": "86%"
+    }
+  },
+  "compliance": {
+    "soc2": {
+      "coverage": "95%",
+      "status": "Ready"
+    },
+    "gdpr": {
+      "coverage": "100%",
+      "status": "Ready"
+    },
+    "iso27001": {
+      "coverage": "94%",
+      "status": "Ready"
+    }
+  }
+}

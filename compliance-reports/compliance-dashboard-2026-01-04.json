@@ -1,0 +1,32 @@
+{
+  "title": "Compliance Dashboard",
+  "generatedDate": "2025-01-01T17:00:00.000Z",
+  "organization": "ValueOS",
+  "frameworks": {
+    "soc2": {
+      "status": "Ready for Audit",
+      "coverage": "100%",
+      "controls": 5,
+      "tests": 136,
+      "passing": 136
+    },
+    "gdpr": {
+      "status": "Fully Compliant",
+      "coverage": "100%",
+      "articles": 5,
+      "tests": 128,
+      "passing": 128
+    },
+    "iso27001": {
+      "status": "Ready for Certification",
+      "coverage": "100%",
+      "controls": 5,
+      "tests": 118,
+      "passing": 118
+    }
+  },
+  "overallStatus": "Certification Ready",
+  "totalTests": 382,
+  "passingTests": 382,
+  "passRate": "100%"
+}

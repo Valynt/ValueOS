@@ -1,0 +1,55 @@
+{
+  "framework": "SOC2 Type II",
+  "reportDate": "2025-01-01T17:00:00.000Z",
+  "controls": [
+    {
+      "id": "CC6.1",
+      "name": "Logical Access Controls",
+      "status": "Implemented",
+      "evidence": [
+        "Tenant isolation tests (23/23 passing)",
+        "RLS policies implemented",
+        "Service role access controls",
+        "JWT authentication verified"
+      ],
+      "testResults": "100% passing"
+    },
+    {
+      "id": "CC6.5",
+      "name": "Data Retention",
+      "status": "Implemented",
+      "evidence": [
+        "Retention policy tests (30/30 passing)",
+        "Automated cleanup jobs",
+        "Legal hold enforcement",
+        "Audit log retention"
+      ],
+      "testResults": "100% passing"
+    },
+    {
+      "id": "CC6.6",
+      "name": "Audit Logging",
+      "status": "Implemented",
+      "evidence": [
+        "Audit log immutability tests (15/15 passing)",
+        "Cryptographic integrity",
+        "Tamper detection",
+        "Log retention policies"
+      ],
+      "testResults": "100% passing"
+    },
+    {
+      "id": "CC6.7",
+      "name": "Data Classification",
+      "status": "Implemented",
+      "evidence": [
+        "PII masking tests (25/25 passing)",
+        "Sensitive data protection",
+        "Data classification policies",
+        "Access controls by classification"
+      ],
+      "testResults": "100% passing"
+    }
+  ],
+  "overallStatus": "Ready for Audit"
+}
