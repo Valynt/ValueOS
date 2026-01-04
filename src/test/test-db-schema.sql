@@ -229,9 +229,9 @@ CREATE POLICY "admin_only_select" ON security_audit_log
 -- ============================================================================
 
 -- Insert test organizations
-INSERT INTO organizations (id, name) VALUES
-  ('00000000-0000-0000-0000-000000000001'::UUID, 'Test Org 1'),
-  ('00000000-0000-0000-0000-000000000002'::UUID, 'Test Org 2')
+INSERT INTO organizations (id, name, slug, status) VALUES
+  ('00000000-0000-0000-0000-000000000001'::UUID, 'Test Org 1', 'test-org-1', 'active'),
+  ('00000000-0000-0000-0000-000000000002'::UUID, 'Test Org 2', 'test-org-2', 'active')
 ON CONFLICT (id) DO NOTHING;
 
 -- Insert test user-tenant mappings
