@@ -134,3 +134,4 @@ playwright-artifacts/
 
 # PNPM
 .pnpm-store/
+core
