@@ -7,8 +7,10 @@ ARG NODE_VERSION=20
 # Stage 1: Base image with system dependencies
 FROM mcr.microsoft.com/vscode/devcontainers/base:${VARIANT} AS base
 
-# Install system dependencies in a single layer
-RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
+# Install system dependencies in a single layer with BuildKit cache
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && export DEBIAN_FRONTEND=noninteractive \
     && apt-get install -y --no-install-recommends \
     # Build tools
     build-essential \
@@ -36,8 +38,7 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     unzip \
     # Python (for node-gyp)
     python3 \
-    python3-pip \
-    && rm -rf /var/lib/apt/lists/*
+    python3-pip
 
 # Stage 2: Node.js installation
 FROM base AS nodejs
@@ -49,8 +50,9 @@ RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Install global npm packages for development
-RUN npm install -g \
+# Install global npm packages for development with BuildKit cache mount
+RUN --mount=type=cache,target=/root/.npm \
+    npm install -g \
     npm@latest \
     pnpm \
     yarn \
@@ -62,13 +64,14 @@ RUN npm install -g \
 # Stage 3: Docker CLI installation
 FROM nodejs AS docker
 
-# Install Docker CLI and Docker Compose
-RUN mkdir -p /etc/apt/keyrings \
+# Install Docker CLI and Docker Compose with BuildKit cache
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null \
     && apt-get update \
-    && apt-get install -y docker-ce-cli docker-compose-plugin docker-buildx-plugin \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get install -y docker-ce-cli docker-compose-plugin docker-buildx-plugin
 
 # Stage 4: Development tools
 FROM docker AS devtools
