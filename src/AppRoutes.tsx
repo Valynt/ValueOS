@@ -38,6 +38,9 @@ const LaunchReadinessDashboard = lazy(
 const NotFound = lazy(() => import("./views/NotFound"));
 const MissionControl = lazy(() => import("./views/MissionControl"));
 
+// Lazy load Documentation Portal
+const DocsPortal = lazy(() => import("./components/docs/DocsPortal"));
+
 export function AppRoutes() {
   return (
     <BrowserRouter>
@@ -152,6 +155,24 @@ export function AppRoutes() {
                     >
                       <Route index element={<ConversationalAI />} />
                     </Route>
+
+                    {/* Documentation Portal Routes */}
+                    <Route
+                      path="/docs"
+                      element={
+                        <ProtectedRoute>
+                          <DocsPortal />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/docs/:sectionId"
+                      element={
+                        <ProtectedRoute>
+                          <DocsPortal />
+                        </ProtectedRoute>
+                      }
+                    />
 
                     {/* Main App (Chat+Canvas) - Default protected route */}
                     <Route
