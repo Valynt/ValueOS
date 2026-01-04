@@ -1,21 +1,17 @@
 /**
  * Login Page
- * User authentication with email/password and optional MFA
+ * Modern authentication with email/password and OAuth
  */
 
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
-// import { AlertCircle, Key, Lock, Mail } from "lucide-react"; // Replaced with custom styling/icons or kept if needed
 
 export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [showMFA, setShowMFA] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
 
   const { login, signInWithProvider } = useAuth();
@@ -31,17 +27,14 @@ export function LoginPage() {
     setLoading(true);
 
     try {
-      await login({ email, password, otpCode: otpCode || undefined });
+      await login({ email, password });
       navigate(from, { replace: true });
     } catch (err: unknown) {
       console.error("Login error:", err);
       const errorMessage =
         err instanceof Error ? err.message : "An error occurred";
 
-      if (errorMessage.includes("MFA")) {
-        setShowMFA(true);
-        setError("Please enter your MFA code");
-      } else if (errorMessage.includes("rate limit")) {
+      if (errorMessage.includes("rate limit")) {
         setError("Too many login attempts. Please try again later.");
       } else {
         setError(errorMessage || "Invalid email or password");

@@ -15,9 +15,9 @@ import { BetaFeedbackWidget } from "./components/Feedback/BetaFeedbackWidget";
 import { SDUIStateProvider } from "./lib/state/SDUIStateProvider";
 import { supabase } from "./lib/supabase";
 
-// Lazy load auth pages (public routes)
-const LoginPage = lazy(() => import("./views/Auth/LoginPage"));
-const SignupPage = lazy(() => import("./views/Auth/SignupPage"));
+// Lazy load auth pages (public routes) - Modern design
+const LoginPage = lazy(() => import("./views/Auth/ModernLoginPage").then(m => ({ default: m.ModernLoginPage })));
+const SignupPage = lazy(() => import("./views/Auth/ModernSignupPage").then(m => ({ default: m.ModernSignupPage })));
 const ResetPasswordPage = lazy(() => import("./views/Auth/ResetPasswordPage"));
 const AuthCallback = lazy(() => import("./views/Auth/AuthCallback"));
 
