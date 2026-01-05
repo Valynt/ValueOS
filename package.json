@@ -13,6 +13,7 @@
     "lint:fix": "eslint . --fix",
     "lint:openapi": "node scripts/validate-openapi.mjs",
     "lint:console": "bash scripts/cleanup-console-logs.sh",
+    "lint:design-tokens": "node scripts/validate-design-tokens.cjs",
     "preview": "serve dist -s -l 5173",
     "test": "vitest run --coverage",
     "bias:probes": "tsx scripts/run-bias-probes.ts",
