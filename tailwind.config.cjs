@@ -1,9 +1,24 @@
+/**
+ * Tailwind Configuration for VALYNT Design System
+ * 
+ * This config extends Tailwind with VALYNT brand tokens and shadcn/ui integration.
+ * All colors reference CSS variables defined in src/index.css.
+ * 
+ * VALYNT Design Principles:
+ * - Dark-first approach (dark mode is default)
+ * - Semantic token usage (never raw hex values)
+ * - 8px spacing grid (vc-1, vc-2, vc-3, etc.)
+ * - Value Teal for value intelligence
+ * - Graph Grey for structure/metadata
+ */
+
 module.exports = {
     darkMode: ["class"],
     content: ["./index.html", "./src/**/*.{ts,tsx,js,jsx}"],
   theme: {
   	extend: {
   		colors: {
+  			/* shadcn/ui semantic tokens (mapped to VALYNT in CSS) */
   			background: 'hsl(var(--background))',
   			card: {
   				DEFAULT: 'hsl(var(--card))',
@@ -49,6 +64,23 @@ module.exports = {
   				'3': 'hsl(var(--chart-3))',
   				'4': 'hsl(var(--chart-4))',
   				'5': 'hsl(var(--chart-5))'
+  			},
+  			/* VALYNT brand colors (direct access to design tokens) */
+  			'vc-surface': {
+  				'1': 'hsl(var(--vc-surface-1))',
+  				'2': 'hsl(var(--vc-surface-2))',
+  				'3': 'hsl(var(--vc-surface-3))'
+  			},
+  			'vc-teal': {
+  				'400': 'hsl(var(--vc-accent-teal-400))',
+  				'500': 'hsl(var(--vc-accent-teal-500))'
+  			},
+  			'vc-grey': {
+  				'500': 'hsl(var(--vc-accent-grey-500))'
+  			},
+  			'vc-border': {
+  				'default': 'hsl(var(--vc-border-default))',
+  				'strong': 'hsl(var(--vc-border-strong))'
   			}
   		},
   		spacing: {
