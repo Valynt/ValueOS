@@ -9,7 +9,7 @@
  * - Do Not Disturb mode
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { SettingsSection } from '../../components/Settings/SettingsSection';
 import { useSettingsGroup } from '../../lib/settingsRegistry';
 import { Bell, Loader2, Mail, MessageSquare, Moon, Smartphone } from 'lucide-react';
@@ -19,6 +19,8 @@ interface UserNotificationsProps {
 }
 
 export const UserNotifications: React.FC<UserNotificationsProps> = ({ userId }) => {
+  // FIX: Memoize context to prevent infinite re-renders
+  const context = useMemo(() => ({ userId }), [userId]);
   const { values, loading, updateSetting } = useSettingsGroup(
     [
       'user.notifications.email',
@@ -26,7 +28,7 @@ export const UserNotifications: React.FC<UserNotificationsProps> = ({ userId }) 
       'user.notifications.slack',
       'user.notifications.inApp',
     ],
-    { userId },
+    context,
     { scope: 'user' }
   );
 
