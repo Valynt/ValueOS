@@ -16,3 +16,4 @@ const password = process.env.SEED_ADMIN_PASSWORD
 const password = 'password123'
 const password = generateSecurePassword()
 grep -r "password.*=.*['\"].*123"
+const { email, password, otpCode } = req.body
