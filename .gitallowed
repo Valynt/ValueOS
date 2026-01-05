@@ -10,3 +10,9 @@ setPasswordExpiryDays
 PasswordPolicySchema
 PasswordPolicy
 password length
+password_hash
+passwordHash
+const password = process.env.SEED_ADMIN_PASSWORD
+const password = 'password123'
+const password = generateSecurePassword()
+grep -r "password.*=.*['\"].*123"
