@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { SettingsSection } from "../../components/Settings/SettingsSection";
 import { logger } from "@lib/logger";
+import { useDebouncedState } from "../../hooks/useDebounce";
 import {
   AlertCircle,
   Archive,
@@ -50,6 +51,20 @@ export const TeamSettings: React.FC = () => {
     archiveDays: 90,
     defaultAssignee: "unassigned",
   });
+
+  // Debounced archive days input to reduce API pressure
+  const [archiveDays, debouncedArchiveDays, setArchiveDays] = useDebouncedState(
+    workflow.archiveDays,
+    500
+  );
+
+  // Update workflow when debounced value changes
+  useEffect(() => {
+    setWorkflow(prev => ({
+      ...prev,
+      archiveDays: debouncedArchiveDays,
+    }));
+  }, [debouncedArchiveDays]);
 
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -394,13 +409,8 @@ export const TeamSettings: React.FC = () => {
                 <input
                   id="archiveDays"
                   type="number"
-                  value={workflow.archiveDays}
-                  onChange={(e) =>
-                    handleWorkflowChange(
-                      "archiveDays",
-                      parseInt(e.target.value)
-                    )
-                  }
+                  value={archiveDays}
+                  onChange={(e) => setArchiveDays(parseInt(e.target.value) || 30)}
                   min="30"
                   max="365"
                   className="w-32 px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"

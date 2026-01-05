@@ -3,6 +3,11 @@
  * 
  * Sprint 2 Enhancement: Type-safe setting keys
  * Prevents typos and provides IntelliSense for all setting keys
+ * 
+ * DX Enhancement: Strict discriminated unions
+ * - Compile-time validation of setting keys
+ * - Type-safe value access with proper inference
+ * - Prevents runtime errors from typos
  */
 
 // ============================================================================
@@ -520,4 +525,102 @@ export function isValidSettingValue<K extends SettingKey>(
     default:
       return false;
   }
+}
+
+// ============================================================================
+// Type-Safe Settings Accessor
+// ============================================================================
+
+/**
+ * Type-safe settings accessor that prevents typos at compile time
+ * 
+ * Usage:
+ *   const value = getSettingValue(settings, 'user.profile.displayName');
+ *   // TypeScript knows value is a string
+ * 
+ * Benefits:
+ *   - Compile-time validation of setting keys
+ *   - Proper type inference for values
+ *   - IntelliSense support
+ *   - Prevents runtime errors from typos
+ */
+export function getSettingValue<K extends SettingKey>(
+  settings: Record<string, unknown>,
+  key: K
+): SettingValue<K> | undefined {
+  const value = settings[key];
+  
+  if (value === undefined) {
+    return SETTING_METADATA[key].defaultValue as SettingValue<K>;
+  }
+  
+  if (isValidSettingValue(key, value)) {
+    return value;
+  }
+  
+  return SETTING_METADATA[key].defaultValue as SettingValue<K>;
+}
+
+/**
+ * Type-safe settings setter that validates values at compile time
+ * 
+ * Usage:
+ *   const newSettings = setSettingValue(settings, 'user.profile.displayName', 'John');
+ *   // TypeScript ensures 'John' is a valid string
+ */
+export function setSettingValue<K extends SettingKey>(
+  settings: Record<string, unknown>,
+  key: K,
+  value: SettingValue<K>
+): Record<string, unknown> {
+  if (!isValidSettingValue(key, value)) {
+    console.warn(`Invalid value for setting ${key}:`, value);
+    return settings;
+  }
+  
+  return {
+    ...settings,
+    [key]: value,
+  };
+}
+
+/**
+ * Discriminated union type for type-safe setting access
+ * 
+ * This allows pattern matching on setting keys with proper type inference:
+ * 
+ * Example:
+ *   function handleSetting(setting: SettingEntry) {
+ *     switch (setting.key) {
+ *       case 'user.profile.displayName':
+ *         // TypeScript knows setting.value is string
+ *         console.log(setting.value.toUpperCase());
+ *         break;
+ *       case 'user.notifications.emailEnabled':
+ *         // TypeScript knows setting.value is boolean
+ *         if (setting.value) { ... }
+ *         break;
+ *     }
+ *   }
+ */
+export type SettingEntry = {
+  [K in SettingKey]: {
+    key: K;
+    value: SettingValue<K>;
+    metadata: typeof SETTING_METADATA[K];
+  };
+}[SettingKey];
+
+/**
+ * Create a type-safe setting entry
+ */
+export function createSettingEntry<K extends SettingKey>(
+  key: K,
+  value: SettingValue<K>
+): SettingEntry {
+  return {
+    key,
+    value,
+    metadata: SETTING_METADATA[key],
+  } as SettingEntry;
 }

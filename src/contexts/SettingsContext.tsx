@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { SettingsContextType, SettingsPermission, UserPermissions } from '../types';
 import { settingsRegistry } from '../lib/settingsRegistry';
 
@@ -42,17 +42,27 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
     [permissions]
   );
 
-  const breadcrumbs = settingsRegistry.getBreadcrumbs(currentRoute);
+  // Memoize breadcrumbs to prevent unnecessary recalculations
+  const breadcrumbs = useMemo(
+    () => settingsRegistry.getBreadcrumbs(currentRoute),
+    [currentRoute]
+  );
 
-  const contextValue: SettingsContextType = {
-    currentRoute,
-    navigateTo,
-    searchQuery,
-    setSearchQuery,
-    permissions,
-    hasPermission,
-    breadcrumbs,
-  };
+  // Memoize context value to prevent infinite re-render loops
+  // This is critical: object literal instantiation on every render causes
+  // consumers to re-render even when values haven't changed
+  const contextValue: SettingsContextType = useMemo(
+    () => ({
+      currentRoute,
+      navigateTo,
+      searchQuery,
+      setSearchQuery,
+      permissions,
+      hasPermission,
+      breadcrumbs,
+    }),
+    [currentRoute, navigateTo, searchQuery, setSearchQuery, permissions, hasPermission, breadcrumbs]
+  );
 
   return (
     <SettingsContext.Provider value={contextValue}>

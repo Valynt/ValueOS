@@ -1,3 +1,9 @@
 placeholder="••••••••"
 export const Password: Story
 type="password"
+passwordMinLength
+passwordExpiryDays
+debouncedPasswordMinLength
+debouncedPasswordExpiryDays
+setPasswordMinLength
+setPasswordExpiryDays
