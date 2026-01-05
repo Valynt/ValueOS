@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { ChatCanvasLayout } from "./components/ChatCanvas";
 import { sessionManager } from "./services/SessionManager";
+import { Toaster } from "@/components/ui/toaster";
 
 /**
  * Main Application Component
@@ -13,16 +14,19 @@ function App() {
   }, []);
 
   return (
-    <ChatCanvasLayout
-      onSettingsClick={() => {
-        // Settings navigation handled within ChatCanvasLayout
-        console.log("Settings clicked");
-      }}
-      onHelpClick={() => {
-        // Help navigation handled within ChatCanvasLayout
-        console.log("Help clicked");
-      }}
-    />
+    <>
+      <ChatCanvasLayout
+        onSettingsClick={() => {
+          // Settings navigation handled within ChatCanvasLayout
+          console.log("Settings clicked");
+        }}
+        onHelpClick={() => {
+          // Help navigation handled within ChatCanvasLayout
+          console.log("Help clicked");
+        }}
+      />
+      <Toaster />
+    </>
   );
 }
 

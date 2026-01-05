@@ -22,22 +22,22 @@
     --vc-border-strong: 0 0% 23%; /* #3A3A3A */
 
     /* Semantic aliases (legacy Tailwind tokens) */
-    --background: var(--vc-surface-1);
-    --card: var(--vc-surface-2);
-    --popover: var(--vc-surface-3);
-    --foreground: var(--vc-foreground);
-    --card-foreground: var(--vc-foreground);
-    --popover-foreground: var(--vc-foreground);
+    --background: 0 0% 100%;
+    --card: 0 0% 100%;
+    --popover: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card-foreground: 0 0% 3.9%;
+    --popover-foreground: 0 0% 3.9%;
 
     /* Accent tokens */
-    --primary: var(--vc-accent-teal-500);
-    --primary-foreground: 0 0% 100%;
-    --accent: var(--vc-accent-teal-500);
-    --accent-foreground: 0 0% 100%; /* use teal only for confirmed value semantics */
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%; /* use teal only for confirmed value semantics */
 
     /* Graph / structure */
-    --muted: var(--vc-accent-grey-500); /* accent-grey-500 - #5A5D67 */
-    --muted-foreground: 0 0% 60%;
+    --muted: 0 0% 96.1%; /* accent-grey-500 - #5A5D67 */
+    --muted-foreground: 0 0% 45.1%;
 
     /* Status colors (semantic mapping) */
     --status-success: var(--vc-accent-teal-500);
@@ -46,16 +46,16 @@
     --status-error: 2 73% 62%;
 
     /* Borders and inputs */
-    --border: var(--vc-border-default); /* border.default - #2A2A2A */
-    --input: var(--vc-border-default);
+    --border: 0 0% 89.8%; /* border.default - #2A2A2A */
+    --input: 0 0% 89.8%;
 
     /* Ring / focus */
-    --ring: var(--vc-accent-teal-500);
+    --ring: 0 0% 3.9%;
 
     /* Radii (align to 8px base unit) */
     --vc-radius-card: 0.5rem; /* 8px */
     --vc-radius-modal: 1rem; /* 16px */
-    --radius: var(--vc-radius-card); /* legacy alias for Tailwind defaults */
+    --radius: 0.5rem; /* legacy alias for Tailwind defaults */
 
     /* Spacing (8px grid) */
     --spacing-1: 0.5rem; /* 8px */
@@ -130,6 +130,15 @@
     --text-base: var(--font-base);
     --text-3xl: var(--font-3xl);
     --text-5xl: var(--font-5xl);
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
   }
 
   .dark {
@@ -138,25 +147,25 @@
     --vc-surface-2: 230 12% 9%;
     --vc-surface-3: 230 12% 12%;
     --vc-foreground: 0 0% 88%;
-    --background: var(--vc-surface-1);
-    --card: var(--vc-surface-2);
-    --popover: var(--vc-surface-3);
-    --foreground: var(--vc-foreground);
-    --card-foreground: var(--vc-foreground);
-    --popover-foreground: var(--vc-foreground);
-    --primary: var(--vc-accent-teal-500);
-    --primary-foreground: 0 0% 100%;
-    --accent: var(--vc-accent-teal-500);
-    --accent-foreground: 0 0% 100%;
-    --muted: var(--vc-accent-grey-500);
-    --muted-foreground: 0 0% 60%;
+    --background: 0 0% 3.9%;
+    --card: 0 0% 3.9%;
+    --popover: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card-foreground: 0 0% 98%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
     --status-success: var(--vc-accent-teal-500);
     --status-warning: 38 100% 57%;
     --status-error: 2 73% 62%;
     --status-info: var(--vc-accent-teal-400);
-    --border: var(--vc-border-default);
-    --input: var(--vc-border-default);
-    --ring: var(--vc-accent-teal-500);
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
     --radius: var(--vc-radius-card);
     --sidebar-background: var(--vc-surface-2);
     --sidebar-foreground: var(--vc-foreground);
@@ -166,6 +175,15 @@
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: var(--vc-border-default);
     --sidebar-ring: var(--vc-accent-teal-500);
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
   }
 
   /* Font smoothing for better typography */
@@ -550,4 +568,15 @@ input[type="range"]:focus {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #3f3f46;
+}
+
+
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
