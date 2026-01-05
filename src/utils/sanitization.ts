@@ -275,6 +275,7 @@ export function containsDangerousContent(content: string): {
  */
 export function sanitizeBatch(
   contents: string[],
+
   options: SanitizationOptions = {}
 ): Array<SanitizationResult & { index: number }> {
   return contents.map((content, index) => ({
