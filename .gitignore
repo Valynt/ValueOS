@@ -134,3 +134,8 @@ playwright-artifacts/
 
 # PNPM
 .pnpm-store/
+
+# Core dumps
+core
+core.*
+*.core
