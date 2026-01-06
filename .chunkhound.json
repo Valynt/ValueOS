@@ -1,0 +1,37 @@
+{
+  "embedding": {
+    "provider": "voyageai",
+    "api_key": "${VOYAGE_API_KEY}",
+    "model": "voyage-code-2"
+  },
+  "llm": {
+    "provider": "claude-code-cli"
+  },
+  "indexing": {
+    "include": [
+      "src/**/*.ts",
+      "src/**/*.tsx",
+      "src/**/*.js",
+      "src/**/*.jsx",
+      "tests/**/*.ts",
+      "tests/**/*.tsx",
+      "docs/**/*.md",
+      "*.md"
+    ],
+    "exclude": [
+      "node_modules/**",
+      "dist/**",
+      "build/**",
+      "coverage/**",
+      ".git/**",
+      "*.log"
+    ],
+    "watch": true,
+    "auto_index_on_branch_switch": true
+  },
+  "search": {
+    "default_limit": 10,
+    "enable_multi_hop": true,
+    "max_hops": 3
+  }
+}
