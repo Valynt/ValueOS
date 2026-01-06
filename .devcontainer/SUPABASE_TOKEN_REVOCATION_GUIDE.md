@@ -10,7 +10,7 @@
 
 An exposed Supabase Management API token has been found in the repository. This token must be revoked immediately to prevent unauthorized access to your Supabase project.
 
-**Exposed Token:** `sbp_4d0537d35652d74db73f08ea849883070e8e9a21`  
+**Exposed Token:** `<REDACTED – REVOKED_SUPABASE_MANAGEMENT_API_TOKEN>`  
 **Token Type:** Management API Token  
 **Verification:** ✅ Confirmed valid by TruffleHog scanner
 
