@@ -189,6 +189,7 @@ export function PersonaSelector({ selectedPersona, onSelectPersona, disabled = f
 /**
  * Get template name for persona
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function getTemplateForPersona(persona: BuyerPersona): string {
   return personas.find(p => p.id === persona)?.template || 'TrinityDashboard';
 }
@@ -196,6 +197,7 @@ export function getTemplateForPersona(persona: BuyerPersona): string {
 /**
  * Get persona configuration
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function getPersonaConfig(persona: BuyerPersona): PersonaConfig | undefined {
   return personas.find(p => p.id === persona);
 }

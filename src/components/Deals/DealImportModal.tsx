@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CRMIntegrationService } from '@/services/CRMIntegrationService';
-import { ValueCaseService } from '@/services/ValueCaseService';
+import { valueCaseService } from '@/services/ValueCaseService';
 import { logger } from '@/lib/logger';
 import { AlertCircle, Building2, Plus, RefreshCw } from 'lucide-react';
 import type { CRMDeal } from '@/mcp-crm/types';
@@ -42,7 +42,6 @@ export function DealImportModal({ open, onClose, onDealImported }: DealImportMod
   });
 
   const crmService = new CRMIntegrationService();
-  const valueCaseService = new ValueCaseService();
 
   useEffect(() => {
     if (open && activeTab === 'crm') {

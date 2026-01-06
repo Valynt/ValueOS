@@ -9,7 +9,7 @@ import React, { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { type ValueCase, ValueCaseService } from '@/services/ValueCaseService';
+import { type ValueCase, valueCaseService } from '@/services/ValueCaseService';
 import { logger } from '@/lib/logger';
 import { AlertCircle, CheckCircle2, Clock, Plus, Search, TrendingUp } from 'lucide-react';
 import type { LifecycleStage } from '@/types/vos';
@@ -53,7 +53,7 @@ export function DealSelector({ onSelectDeal, onCreateDeal, selectedDealId }: Dea
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const valueCaseService = new ValueCaseService();
+
 
   useEffect(() => {
     loadDeals();

@@ -14,7 +14,7 @@ import { BusinessCaseGenerator } from '@/components/Deals/BusinessCaseGenerator'
 import { PersonaSelector, type BuyerPersona } from '@/components/Deals/PersonaSelector';
 import { OpportunityAnalysisPanel } from '@/components/Deals/OpportunityAnalysisPanel';
 import { BenchmarkComparisonPanel } from '@/components/Deals/BenchmarkComparisonPanel';
-import { ValueCaseService, type ValueCase } from '@/services/ValueCaseService';
+import { valueCaseService, type ValueCase } from '@/services/ValueCaseService';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -33,7 +33,7 @@ export function DealsView() {
   const [businessCase, setBusinessCase] = useState<any>(null);
   const [stageCompletion, setStageCompletion] = useState<Partial<Record<LifecycleStage, boolean>>>({});
 
-  const valueCaseService = new ValueCaseService();
+
 
   useEffect(() => {
     if (dealId) {
