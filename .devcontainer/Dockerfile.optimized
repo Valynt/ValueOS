@@ -142,10 +142,6 @@ RUN mkdir -p \
 # Set working directory
 WORKDIR /workspace
 
-# Add health check script
-COPY --chown=vscode:vscode .devcontainer/scripts/healthcheck.sh /usr/local/bin/healthcheck
-RUN chmod +x /usr/local/bin/healthcheck
-
 # Environment variables
 ENV ENVIRONMENT=development \
     NODE_ENV=development \
@@ -160,9 +156,5 @@ LABEL org.opencontainers.image.title="ValueCanvas Dev Container" \
       org.opencontainers.image.vendor="ValueCanvas" \
       org.opencontainers.image.version="1.0.0"
 
-# Health check configuration
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD /usr/local/bin/healthcheck || exit 1
-
 # Default command
-CMD ["/bin/zsh"]
+CMD ["/bin/bash"]
