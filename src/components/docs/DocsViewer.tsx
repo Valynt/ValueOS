@@ -5,12 +5,12 @@
  * table of contents, and role-appropriate content filtering.
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import remarkGfm from 'remark-gfm';
-import { DocSection, UserRole, TableOfContents, Breadcrumb } from './types';
+import { Breadcrumb, DocSection, TableOfContents, UserRole } from './types';
 import { DocsBreadcrumbs } from './DocsBreadcrumbs';
 import { DocsTableOfContents } from './DocsTableOfContents';
 import { DocsCopyButton } from './DocsCopyButton';
@@ -19,7 +19,7 @@ import { DocsRelatedLinks } from './DocsRelatedLinks';
 interface DocsViewerProps {
   section: DocSection | null;
   userRole: UserRole;
-  onNavigate: (sectionId: string) => void;
+  onNavigate: (_sectionId: string) => void;
 }
 
 export const DocsViewer: React.FC<DocsViewerProps> = ({
@@ -56,6 +56,7 @@ export const DocsViewer: React.FC<DocsViewerProps> = ({
 
       headings.forEach((heading) => {
         const rect = heading.getBoundingClientRect();
+        // eslint-disable-next-line @typescript-eslint/no-magic-numbers
         if (rect.top <= 100) {
           current = heading.id;
         }
@@ -144,16 +145,16 @@ export const DocsViewer: React.FC<DocsViewerProps> = ({
               remarkPlugins={[remarkGfm]}
               components={{
                 // Custom heading renderer with IDs for ToC
-                h2: ({ node, ...props }) => {
-                  const id = slugify(props.children?.toString() || '');
-                  return <h2 id={id} {...props} />;
+                h2: ({ node: _node, children, ...props }) => {
+                  const id = slugify(children?.toString() || '');
+                  return <h2 id={id} {...props}>{children}</h2>;
                 },
-                h3: ({ node, ...props }) => {
-                  const id = slugify(props.children?.toString() || '');
-                  return <h3 id={id} {...props} />;
+                h3: ({ node: _node, children, ...props }) => {
+                  const id = slugify(children?.toString() || '');
+                  return <h3 id={id} {...props}>{children}</h3>;
                 },
                 // Code blocks with syntax highlighting and copy button
-                code: ({ node, inline, className, children, ...props }) => {
+                code: ({ node: _node, inline, className, children, ...props }) => {
                   const match = /language-(\w+)/.exec(className || '');
                   const code = String(children).replace(/\n$/, '');
 
@@ -194,9 +195,17 @@ export const DocsViewer: React.FC<DocsViewerProps> = ({
                   );
                 },
                 // Custom link renderer for internal navigation
-                a: ({ node, href, children, ...props }) => {
-                  if (href?.startsWith('./') || href?.startsWith('../')) {
-                    const sectionId = extractSectionId(href);
+                a: ({ node: _node, href, children, ...props }) => {
+                  // 🤖 HARDEN: Prevent XSS via javascript: links
+                  const safeHref = href || '';
+                  // eslint-disable-next-line no-script-url
+                  if (safeHref.trim().toLowerCase().startsWith('javascript:')) {
+                    console.warn('Blocked unsafe link:', safeHref);
+                    return <span className="text-red-500 font-mono text-xs" title="Unsafe Link Blocked">[BLOCKED UNSAFE LINK]</span>;
+                  }
+
+                  if (safeHref.startsWith('./') || safeHref.startsWith('../')) {
+                    const sectionId = extractSectionId(safeHref);
                     return (
                       <button
                         onClick={() => onNavigate(sectionId)}
@@ -209,7 +218,7 @@ export const DocsViewer: React.FC<DocsViewerProps> = ({
                   }
                   return (
                     <a
-                      href={href}
+                      href={safeHref}
                       target="_blank"
                       rel="noopener noreferrer"
                       {...props}
@@ -219,7 +228,7 @@ export const DocsViewer: React.FC<DocsViewerProps> = ({
                   );
                 },
                 // Custom blockquote for callouts
-                blockquote: ({ node, children, ...props }) => {
+                blockquote: ({ node, children, ..._props }) => {
                   const text = node?.children?.[0]?.children?.[0]?.value || '';
                   const type = detectCalloutType(text);
 
@@ -324,8 +333,10 @@ function generateBreadcrumbs(section: DocSection): Breadcrumb[] {
 function filterContentByRole(content: string, role: UserRole): string {
   // For non-technical users, simplify technical sections
   if (role === 'business' || role === 'executive') {
-    // Remove overly technical sections
-    content = content.replace(/```[\s\S]*?```/g, (match) => {
+    // 🤖 HARDEN: Improve regex to catch backticks AND tildes, and variable length fences
+    // Matches ``` or ~~~ (at least 3), optional params, content, closing fence
+    // The [\s\S]*? is non-greedy match of body.
+    content = content.replace(/([`~]{3,})[\s\S]*?\1/g, (_) => {
       return '> 💡 **Technical details available**: Contact your technical team for implementation details.';
     });
   }
