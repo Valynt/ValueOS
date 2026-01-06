@@ -3,7 +3,7 @@
  * Centralized routing configuration with lazy loading and error boundaries
  */
 
-import React, { lazy, Suspense } from "react";
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { DrawerProvider } from "./contexts/DrawerContext";
@@ -16,8 +16,16 @@ import { SDUIStateProvider } from "./lib/state/SDUIStateProvider";
 import { supabase } from "./lib/supabase";
 
 // Lazy load auth pages (public routes) - Modern design
-const LoginPage = lazy(() => import("./views/Auth/ModernLoginPage").then(m => ({ default: m.ModernLoginPage })));
-const SignupPage = lazy(() => import("./views/Auth/ModernSignupPage").then(m => ({ default: m.ModernSignupPage })));
+const LoginPage = lazy(() =>
+  import("./views/Auth/ModernLoginPage").then((m) => ({
+    default: m.ModernLoginPage,
+  }))
+);
+const SignupPage = lazy(() =>
+  import("./views/Auth/ModernSignupPage").then((m) => ({
+    default: m.ModernSignupPage,
+  }))
+);
 const ResetPasswordPage = lazy(() => import("./views/Auth/ResetPasswordPage"));
 const AuthCallback = lazy(() => import("./views/Auth/AuthCallback"));
 
@@ -39,7 +47,16 @@ const NotFound = lazy(() => import("./views/NotFound"));
 const MissionControl = lazy(() => import("./views/MissionControl"));
 
 // Sales Enablement Views
-const DealsView = lazy(() => import("./views/DealsView").then(m => ({ default: m.DealsView })));
+const DealsView = lazy(() =>
+  import("./views/DealsView").then((m) => ({ default: m.DealsView }))
+);
+
+// Admin Views
+const CustomerAccessManagement = lazy(() =>
+  import("./views/Admin/CustomerAccessManagement").then((m) => ({
+    default: m.CustomerAccessManagement,
+  }))
+);
 
 // Lazy load Documentation Portal
 const DocsPortal = lazy(() => import("./components/docs/DocsPortal"));
@@ -59,7 +76,10 @@ export function AppRoutes() {
                 <Suspense fallback={<LoadingSpinner />}>
                   <Routes>
                     {/* Root redirect to deals (sales enablement) */}
-                    <Route path="/" element={<Navigate to="/deals" replace />} />
+                    <Route
+                      path="/"
+                      element={<Navigate to="/deals" replace />}
+                    />
 
                     {/* Public Auth Routes */}
                     <Route path="/login" element={<LoginPage />} />
@@ -86,6 +106,15 @@ export function AppRoutes() {
                       element={
                         <ProtectedRoute>
                           <DealsView />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/admin/customer-access"
+                      element={
+                        <ProtectedRoute>
+                          <CustomerAccessManagement />
                         </ProtectedRoute>
                       }
                     />

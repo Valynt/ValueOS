@@ -3,9 +3,9 @@
  * Manages secure token-based access for customer portal
  */
 
-import { supabase } from '../lib/supabase';
-import { BaseService } from './BaseService';
-import { logger } from '../lib/logger';
+import { supabase } from "../lib/supabase";
+import { BaseService } from "./BaseService";
+import { logger } from "../lib/logger";
 
 export interface CustomerAccessToken {
   id: string;
@@ -34,7 +34,7 @@ export interface CreateTokenResult {
 
 export class CustomerAccessService extends BaseService {
   constructor() {
-    super('CustomerAccessService');
+    super("CustomerAccessService");
   }
 
   /**
@@ -45,37 +45,43 @@ export class CustomerAccessService extends BaseService {
     expiresInDays: number = 90
   ): Promise<CreateTokenResult> {
     try {
-      this.logger.info('Generating customer token', { valueCaseId, expiresInDays });
-
-      const { data, error } = await supabase.rpc('create_customer_access_token', {
-        p_value_case_id: valueCaseId,
-        p_expires_in_days: expiresInDays
+      logger.info("Generating customer token", {
+        valueCaseId,
+        expiresInDays,
       });
 
+      const { data, error } = await supabase.rpc(
+        "create_customer_access_token",
+        {
+          p_value_case_id: valueCaseId,
+          p_expires_in_days: expiresInDays,
+        }
+      );
+
       if (error) {
-        this.logger.error('Failed to generate customer token', error);
+        logger.error("Failed to generate customer token", error as Error);
         throw new Error(`Failed to generate token: ${error.message}`);
       }
 
       if (!data || data.length === 0) {
-        throw new Error('No token returned from database');
+        throw new Error("No token returned from database");
       }
 
       const tokenData = data[0];
       const portalUrl = this.buildPortalUrl(tokenData.token);
 
-      this.logger.info('Customer token generated successfully', {
+      logger.info("Customer token generated successfully", {
         valueCaseId,
-        expiresAt: tokenData.expires_at
+        expiresAt: tokenData.expires_at,
       });
 
       return {
         token: tokenData.token,
         expires_at: tokenData.expires_at,
-        portal_url: portalUrl
+        portal_url: portalUrl,
       };
     } catch (error) {
-      this.logger.error('Error generating customer token', error as Error);
+      logger.error("Error generating customer token", error as Error);
       throw error;
     }
   }
@@ -85,18 +91,18 @@ export class CustomerAccessService extends BaseService {
    */
   async validateCustomerToken(token: string): Promise<TokenValidationResult> {
     try {
-      this.logger.debug('Validating customer token');
+      logger.debug("Validating customer token");
 
-      const { data, error } = await supabase.rpc('validate_customer_token', {
-        p_token: token
+      const { data, error } = await supabase.rpc("validate_customer_token", {
+        p_token: token,
       });
 
       if (error) {
-        this.logger.error('Failed to validate token', error);
+        logger.error("Failed to validate token", error as Error);
         return {
           value_case_id: null,
           is_valid: false,
-          error_message: error.message
+          error_message: error.message,
         };
       }
 
@@ -104,29 +110,29 @@ export class CustomerAccessService extends BaseService {
         return {
           value_case_id: null,
           is_valid: false,
-          error_message: 'Invalid token'
+          error_message: "Invalid token",
         };
       }
 
       const result = data[0];
 
       if (result.is_valid) {
-        this.logger.info('Token validated successfully', {
-          valueCaseId: result.value_case_id
+        logger.info("Token validated successfully", {
+          valueCaseId: result.value_case_id,
         });
       } else {
-        this.logger.warn('Token validation failed', {
-          error: result.error_message
+        logger.warn("Token validation failed", {
+          error: result.error_message,
         });
       }
 
       return result;
     } catch (error) {
-      this.logger.error('Error validating token', error as Error);
+      logger.error("Error validating token", error as Error);
       return {
         value_case_id: null,
         is_valid: false,
-        error_message: 'Token validation error'
+        error_message: "Token validation error",
       };
     }
   }
@@ -140,30 +146,30 @@ export class CustomerAccessService extends BaseService {
     reason?: string
   ): Promise<boolean> {
     try {
-      this.logger.info('Revoking customer token', { revokedBy, reason });
+      logger.info("Revoking customer token", { revokedBy, reason });
 
-      const { data, error } = await supabase.rpc('revoke_customer_token', {
+      const { data, error } = await supabase.rpc("revoke_customer_token", {
         p_token: token,
         p_revoked_by: revokedBy,
-        p_reason: reason || null
+        p_reason: reason || null,
       });
 
       if (error) {
-        this.logger.error('Failed to revoke token', error);
+        logger.error("Failed to revoke token", error as Error);
         throw new Error(`Failed to revoke token: ${error.message}`);
       }
 
       const success = data === true;
 
       if (success) {
-        this.logger.info('Token revoked successfully');
+        logger.info("Token revoked successfully");
       } else {
-        this.logger.warn('Token not found or already revoked');
+        logger.warn("Token not found or already revoked");
       }
 
       return success;
     } catch (error) {
-      this.logger.error('Error revoking token', error as Error);
+      logger.error("Error revoking token", error as Error);
       throw error;
     }
   }
@@ -171,22 +177,24 @@ export class CustomerAccessService extends BaseService {
   /**
    * Get all tokens for a value case
    */
-  async getTokensForValueCase(valueCaseId: string): Promise<CustomerAccessToken[]> {
+  async getTokensForValueCase(
+    valueCaseId: string
+  ): Promise<CustomerAccessToken[]> {
     try {
       const { data, error } = await supabase
-        .from('customer_access_tokens')
-        .select('*')
-        .eq('value_case_id', valueCaseId)
-        .order('created_at', { ascending: false });
+        .from("customer_access_tokens")
+        .select("*")
+        .eq("value_case_id", valueCaseId)
+        .order("created_at", { ascending: false });
 
       if (error) {
-        this.logger.error('Failed to fetch tokens', error);
+        logger.error("Failed to fetch tokens", error as Error);
         throw new Error(`Failed to fetch tokens: ${error.message}`);
       }
 
       return data || [];
     } catch (error) {
-      this.logger.error('Error fetching tokens', error as Error);
+      logger.error("Error fetching tokens", error as Error);
       throw error;
     }
   }
@@ -194,24 +202,26 @@ export class CustomerAccessService extends BaseService {
   /**
    * Get active (non-revoked, non-expired) tokens for a value case
    */
-  async getActiveTokensForValueCase(valueCaseId: string): Promise<CustomerAccessToken[]> {
+  async getActiveTokensForValueCase(
+    valueCaseId: string
+  ): Promise<CustomerAccessToken[]> {
     try {
       const { data, error } = await supabase
-        .from('customer_access_tokens')
-        .select('*')
-        .eq('value_case_id', valueCaseId)
-        .is('revoked_at', null)
-        .gt('expires_at', new Date().toISOString())
-        .order('created_at', { ascending: false });
+        .from("customer_access_tokens")
+        .select("*")
+        .eq("value_case_id", valueCaseId)
+        .is("revoked_at", null)
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false });
 
       if (error) {
-        this.logger.error('Failed to fetch active tokens', error);
+        logger.error("Failed to fetch active tokens", error as Error);
         throw new Error(`Failed to fetch active tokens: ${error.message}`);
       }
 
       return data || [];
     } catch (error) {
-      this.logger.error('Error fetching active tokens', error as Error);
+      logger.error("Error fetching active tokens", error as Error);
       throw error;
     }
   }
@@ -227,16 +237,12 @@ export class CustomerAccessService extends BaseService {
   ): Promise<CreateTokenResult> {
     try {
       // Revoke old token
-      await this.revokeCustomerToken(
-        oldToken,
-        revokedBy,
-        'Token regenerated'
-      );
+      await this.revokeCustomerToken(oldToken, revokedBy, "Token regenerated");
 
       // Generate new token
       return await this.generateCustomerToken(valueCaseId, expiresInDays);
     } catch (error) {
-      this.logger.error('Error regenerating token', error as Error);
+      logger.error("Error regenerating token", error as Error);
       throw error;
     }
   }
@@ -250,6 +256,13 @@ export class CustomerAccessService extends BaseService {
   }
 
   /**
+   * Get customer portal URL from token
+   */
+  getPortalUrl(token: string): string {
+    return this.buildPortalUrl(token);
+  }
+
+  /**
    * Send portal access email to customer
    */
   async sendPortalAccessEmail(
@@ -258,14 +271,14 @@ export class CustomerAccessService extends BaseService {
     portalUrl: string
   ): Promise<void> {
     try {
-      this.logger.info('Sending portal access email', { email, companyName });
+      logger.info("Sending portal access email", { email, companyName });
 
       // TODO: Integrate with email service
       // For now, just log the email details
-      this.logger.info('Portal access email details', {
+      logger.info("Portal access email details", {
         to: email,
         subject: `Your ${companyName} Value Realization Portal`,
-        portalUrl
+        portalUrl,
       });
 
       // In production, integrate with SendGrid, Postmark, etc.
@@ -275,7 +288,7 @@ export class CustomerAccessService extends BaseService {
       //   data: { companyName, portalUrl }
       // });
     } catch (error) {
-      this.logger.error('Error sending portal access email', error as Error);
+      logger.error("Error sending portal access email", error as Error);
       throw error;
     }
   }

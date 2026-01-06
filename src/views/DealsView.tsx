@@ -1,39 +1,48 @@
 /**
  * Deals View - Main Sales Enablement Interface
- * 
+ *
  * Primary view for sales reps to manage deals and generate business cases.
  * Replaces generic chat interface with deal-centric workflow.
  */
 
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { DealImportModal } from '@/components/Deals/DealImportModal';
-import { DealSelector } from '@/components/Deals/DealSelector';
-import { LifecycleStageNav } from '@/components/Deals/LifecycleStageNav';
-import { BusinessCaseGenerator } from '@/components/Deals/BusinessCaseGenerator';
-import { PersonaSelector, type BuyerPersona } from '@/components/Deals/PersonaSelector';
-import { OpportunityAnalysisPanel } from '@/components/Deals/OpportunityAnalysisPanel';
-import { BenchmarkComparisonPanel } from '@/components/Deals/BenchmarkComparisonPanel';
-import { valueCaseService, type ValueCase } from '@/services/ValueCaseService';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Tabs, TabsContent } from '@/components/ui/tabs';
-import { logger } from '@/lib/logger';
-import { ArrowLeft, FileText, Download } from 'lucide-react';
-import type { LifecycleStage } from '@/types/vos';
+import React, { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { DealImportModal } from "@/components/Deals/DealImportModal";
+import { DealSelector } from "@/components/Deals/DealSelector";
+import { LifecycleStageNav } from "@/components/Deals/LifecycleStageNav";
+import { BusinessCaseGenerator } from "@/components/Deals/BusinessCaseGenerator";
+import {
+  type BuyerPersona,
+  PersonaSelector,
+} from "@/components/Deals/PersonaSelector";
+import { OpportunityAnalysisPanel } from "@/components/Deals/OpportunityAnalysisPanel";
+import { BenchmarkComparisonPanel } from "@/components/Deals/BenchmarkComparisonPanel";
+import { type ValueCase, valueCaseService } from "@/services/ValueCaseService";
+import { ShareCustomerButton } from "@/components/Deals/ShareCustomerButton";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { logger } from "@/lib/logger";
+import { ArrowLeft, Download, FileText } from "lucide-react";
+import type { LifecycleStage } from "@/types/vos";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function DealsView() {
   const navigate = useNavigate();
   const { dealId } = useParams<{ dealId?: string }>();
-  
+  const { user } = useAuth();
+
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedDeal, setSelectedDeal] = useState<ValueCase | null>(null);
-  const [currentStage, setCurrentStage] = useState<LifecycleStage>('opportunity');
-  const [selectedPersona, setSelectedPersona] = useState<BuyerPersona | undefined>();
+  const [currentStage, setCurrentStage] =
+    useState<LifecycleStage>("opportunity");
+  const [selectedPersona, setSelectedPersona] = useState<
+    BuyerPersona | undefined
+  >();
   const [businessCase, setBusinessCase] = useState<any>(null);
-  const [stageCompletion, setStageCompletion] = useState<Partial<Record<LifecycleStage, boolean>>>({});
-
-
+  const [stageCompletion, setStageCompletion] = useState<
+    Partial<Record<LifecycleStage, boolean>>
+  >({});
 
   useEffect(() => {
     if (dealId) {
@@ -44,18 +53,18 @@ export function DealsView() {
   const loadDeal = async (id: string) => {
     try {
       const deals = await valueCaseService.getValueCases();
-      const deal = deals.find(d => d.id === id);
+      const deal = deals.find((d) => d.id === id);
       if (deal) {
         setSelectedDeal(deal);
         setCurrentStage(deal.stage);
-        
+
         // Load persona from metadata if exists
         if (deal.metadata?.persona) {
           setSelectedPersona(deal.metadata.persona as BuyerPersona);
         }
       }
     } catch (error) {
-      logger.error('Failed to load deal', error as Error);
+      logger.error("Failed to load deal", error as Error);
     }
   };
 
@@ -70,52 +79,52 @@ export function DealsView() {
 
   const handleStageChange = async (stage: LifecycleStage) => {
     setCurrentStage(stage);
-    
+
     // Update deal stage in database
     if (selectedDeal) {
       try {
         await valueCaseService.updateValueCase(selectedDeal.id, { stage });
       } catch (error) {
-        logger.error('Failed to update deal stage', error as Error);
+        logger.error("Failed to update deal stage", error as Error);
       }
     }
   };
 
   const handlePersonaSelect = async (persona: BuyerPersona) => {
     setSelectedPersona(persona);
-    
+
     // Save persona to deal metadata
     if (selectedDeal) {
       try {
         await valueCaseService.updateValueCase(selectedDeal.id, {
           metadata: {
             ...selectedDeal.metadata,
-            persona
-          }
+            persona,
+          },
         });
       } catch (error) {
-        logger.error('Failed to save persona', error as Error);
+        logger.error("Failed to save persona", error as Error);
       }
     }
   };
 
   const handleBusinessCaseComplete = (generatedCase: any) => {
     setBusinessCase(generatedCase);
-    setStageCompletion(prev => ({
+    setStageCompletion((prev) => ({
       ...prev,
       opportunity: true,
-      target: true
+      target: true,
     }));
   };
 
   const handleBusinessCaseError = (error: string) => {
-    logger.error('Business case generation error', new Error(error));
+    logger.error("Business case generation error", new Error(error));
     // TODO: Show error toast
   };
 
   const handleExportBusinessCase = () => {
     // TODO: Implement export functionality
-    logger.info('Exporting business case', { dealId: selectedDeal?.id });
+    logger.info("Exporting business case", { dealId: selectedDeal?.id });
   };
 
   // No deal selected - show deal selector
@@ -147,14 +156,16 @@ export function DealsView() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate('/deals')}
+                onClick={() => navigate("/deals")}
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 All Deals
               </Button>
               <div>
                 <h1 className="text-2xl font-bold">{selectedDeal.company}</h1>
-                <p className="text-sm text-muted-foreground">{selectedDeal.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {selectedDeal.name}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -164,7 +175,16 @@ export function DealsView() {
                   Export
                 </Button>
               )}
-              <Button variant="outline" onClick={() => setShowImportModal(true)}>
+              {user && (
+                <ShareCustomerButton
+                  valueCase={selectedDeal}
+                  userId={user.id}
+                />
+              )}
+              <Button
+                variant="outline"
+                onClick={() => setShowImportModal(true)}
+              >
                 New Deal
               </Button>
             </div>
@@ -181,7 +201,10 @@ export function DealsView() {
 
       {/* Main Content */}
       <div className="container mx-auto p-6 max-w-7xl">
-        <Tabs value={currentStage} onValueChange={(v) => handleStageChange(v as LifecycleStage)}>
+        <Tabs
+          value={currentStage}
+          onValueChange={(v) => handleStageChange(v as LifecycleStage)}
+        >
           {/* Discovery Stage */}
           <TabsContent value="opportunity" className="space-y-6">
             <Card className="p-6">
@@ -228,7 +251,7 @@ export function DealsView() {
                   {businessCase.benchmarks && (
                     <BenchmarkComparisonPanel
                       comparisons={businessCase.benchmarks}
-                      industry={selectedDeal.metadata?.industry || 'Technology'}
+                      industry={selectedDeal.metadata?.industry || "Technology"}
                       companySize={selectedDeal.metadata?.companySize}
                     />
                   )}
@@ -236,22 +259,30 @@ export function DealsView() {
                   {/* Financial Metrics */}
                   {businessCase.financial && (
                     <Card className="p-6">
-                      <h3 className="text-lg font-semibold mb-4">Financial Metrics</h3>
+                      <h3 className="text-lg font-semibold mb-4">
+                        Financial Metrics
+                      </h3>
                       <div className="grid grid-cols-3 gap-4">
                         <div className="p-4 rounded-lg bg-muted">
-                          <p className="text-sm text-muted-foreground mb-1">ROI</p>
+                          <p className="text-sm text-muted-foreground mb-1">
+                            ROI
+                          </p>
                           <p className="text-3xl font-bold text-green-600">
                             {businessCase.financial.roi}%
                           </p>
                         </div>
                         <div className="p-4 rounded-lg bg-muted">
-                          <p className="text-sm text-muted-foreground mb-1">NPV</p>
+                          <p className="text-sm text-muted-foreground mb-1">
+                            NPV
+                          </p>
                           <p className="text-3xl font-bold">
                             ${businessCase.financial.npv?.toLocaleString()}
                           </p>
                         </div>
                         <div className="p-4 rounded-lg bg-muted">
-                          <p className="text-sm text-muted-foreground mb-1">Payback</p>
+                          <p className="text-sm text-muted-foreground mb-1">
+                            Payback
+                          </p>
                           <p className="text-3xl font-bold">
                             {businessCase.financial.payback} mo
                           </p>
@@ -285,7 +316,8 @@ export function DealsView() {
             <Card className="p-6">
               <h2 className="text-xl font-semibold mb-4">Expansion Phase</h2>
               <p className="text-muted-foreground">
-                Identify upsell and cross-sell opportunities based on realized value
+                Identify upsell and cross-sell opportunities based on realized
+                value
               </p>
               {/* TODO: Implement expansion detection */}
             </Card>
