@@ -1,83 +1,56 @@
 {
-  {
-  "name": "ValueCanvas-Secure",
-  "build": {
-    "dockerfile": "Dockerfile.optimized",
-    "context": "..",
-    "args": {
-      "NODE_VERSION": "20-bookworm-slim", // Pin to a specific, minimal OS variant
-      "VARIANT": "ubuntu-22.04"
-    }
-  },
+  "name": "ValueOS",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-20-bookworm",
 
   "features": {
-    // 1. PIN FEATURE VERSIONS: Avoid "latest" to prevent supply chain drift
-    "ghcr.io/devcontainers/features/docker-outside-of-docker:1.6.0": {
-      "version": "1.6.0",
-      "enableNonRootDocker": "true",
-      "moby": "true"
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "enableNonRootDocker": "true"
     },
-    "ghcr.io/devcontainers/features/github-cli:1.0.0": {
-      "version": "1.0.0"
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+
+  "forwardPorts": [3000, 5173, 8000, 5432, 16686, 54321, 54323],
+  
+  "portsAttributes": {
+    "3000": {
+      "label": "Backend API",
+      "onAutoForward": "notify"
+    },
+    "5173": {
+      "label": "Vite Dev Server",
+      "onAutoForward": "notify"
+    },
+    "5432": {
+      "label": "PostgreSQL",
+      "onAutoForward": "silent"
+    },
+    "54321": {
+      "label": "Supabase API",
+      "onAutoForward": "notify"
+    },
+    "54323": {
+      "label": "Supabase Studio",
+      "onAutoForward": "notify"
     }
   },
 
-  "remoteUser": "vscode",
-
-  // 2. LIFECYCLE SCRIPTS: Use set -e inside these scripts to crash early on failure
-  "onCreateCommand": "bash .devcontainer/scripts/on-create.sh",
-  "updateContentCommand": "bash .devcontainer/scripts/update-content.sh",
-  "postCreateCommand": "bash .devcontainer/scripts/post-create.sh",
-
-  // 3. SECURE NETWORKING: Default sensitive ports to 'silent' to avoid host-side notification popups
-  "forwardPorts": [3000, 8000, 5432, 16686, 9090, 3001, 6379, 54321],
-  "portsAttributes": {
-    "5432": { "label": "PostgreSQL", "onAutoForward": "silent" },
-    "16686": { "label": "Jaeger UI", "onAutoForward": "silent" },
-    "9090": { "label": "Prometheus", "onAutoForward": "silent" },
-    "6379": { "label": "Redis", "onAutoForward": "silent" }
-  },
-
-  "mounts": [
-    "source=valuecanvas-node-modules,target=${containerWorkspaceFolder}/node_modules,type=volume",
-    "source=valuecanvas-npm-cache,target=/home/vscode/.npm,type=volume"
-  ],
-
-  // 4. HARDENED RUN ARGS: Drop unnecessary Linux capabilities
-  "runArgs": [
-    "--name=valuecanvas-dev-hardened",
-    "--cpus=2",
-    "--memory=6g",
-    // Prevent container processes from gaining new privileges
-    "--security-opt=no-new-privileges",
-    // Drop all capabilities and only add what is strictly necessary
-    "--cap-drop=ALL",
-    "--cap-add=CHOWN",
-    "--cap-add=SETGID",
-    "--cap-add=SETUID",
-    // Required for Docker-in-Docker to function safely
-    "--sysctl=net.ipv4.ip_unprivileged_port_start=0"
-  ],
-
-  "containerEnv": {
-    "NODE_ENV": "development",
-    // 5. SECRETS: Load from host environment variables, never hardcode here
-    "STRIPE_KEY": "${localEnv:STRIPE_KEY}",
-    "OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}"
-  },
+  "postCreateCommand": "npm install",
 
   "customizations": {
     "vscode": {
       "extensions": [
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
         "ms-azuretools.vscode-docker",
-        "GitHub.copilot",
-        "snyk-security.snyk-vscode" // ADDED: Real-time vulnerability scanning
+        "GitHub.copilot"
       ],
       "settings": {
-        "terminal.integrated.defaultProfile.linux": "zsh",
-        "typescript.tsdk": "node_modules/typescript/lib"
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        }
       }
     }
   }
