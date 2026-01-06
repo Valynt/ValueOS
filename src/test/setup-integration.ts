@@ -8,6 +8,12 @@ import path from "path";
 const DOCKER_TIMEOUT = 120_000;
 
 beforeAll(async () => {
+  // Skip testcontainers setup if flag is set
+  if (process.env.SKIP_TESTCONTAINERS === "1") {
+    console.warn("⚠️ SKIP_TESTCONTAINERS set — skipping integration test setup");
+    return;
+  }
+
   await setup();
 
   // Read DATABASE_URL from temp file (written by globalSetup in separate process)
@@ -51,5 +57,9 @@ beforeAll(async () => {
 }, DOCKER_TIMEOUT);
 
 afterAll(async () => {
+  // Skip teardown if testcontainers were skipped
+  if (process.env.SKIP_TESTCONTAINERS === "1") {
+    return;
+  }
   await teardown();
 });

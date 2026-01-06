@@ -131,3 +131,11 @@ playwright-report/
 blob-report/
 playwright-artifacts/
 .env.production
+
+# PNPM
+.pnpm-store/
+
+# Core dumps
+core
+core.*
+*.core

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Building2, ChevronRight, Clock, Plus, Search, Sparkles } from 'lucide-react';
 import AgentBadge from '../components/Agents/AgentBadge';
+import { DocsQuickAccessWidget } from '../components/docs/DocsQuickAccessWidget';
 
 const accounts = [
   {
@@ -64,7 +65,7 @@ export default function Home() {
           </button>
         </div>
 
-        <div className="grid grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-8">
           <div className="card p-5 border-l-4 border-l-primary">
             <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider mb-2">Pipeline Value</div>
             <div className="text-3xl font-bold text-foreground">$16.3M</div>
@@ -81,6 +82,11 @@ export default function Home() {
             <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider mb-2">System Integrity</div>
             <div className="text-3xl font-bold text-primary">94%</div>
           </div>
+        </div>
+
+        {/* Documentation Quick Access Widget */}
+        <div className="mb-8">
+          <DocsQuickAccessWidget />
         </div>
 
         <div className="card p-4 mb-8 bg-primary/5 border-primary/20">

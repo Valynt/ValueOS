@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SettingsSection } from '../../components/Settings/SettingsSection';
 import {
   AlertCircle, Check, Clock, Globe, Key, Lock, Plus, Shield, Trash2, Users
 } from 'lucide-react';
 import { AllowedDomain, AuthPolicy } from '../../types';
 import { analyticsClient } from '../../lib/analyticsClient';
+import { useDebouncedState } from '../../hooks/useDebounce';
 
 export const OrganizationSecurity: React.FC = () => {
   const [policy, setPolicy] = useState<AuthPolicy>({
@@ -20,6 +21,47 @@ export const OrganizationSecurity: React.FC = () => {
     idleTimeoutMinutes: 30,
     maxConcurrentSessions: 3,
   });
+
+  // Debounced numeric inputs to reduce API pressure
+  // Updates UI immediately but delays API calls by 500ms
+  const [passwordMinLength, debouncedPasswordMinLength, setPasswordMinLength] = useDebouncedState(
+    policy.passwordMinLength,
+    500
+  );
+  const [passwordExpiryDays, debouncedPasswordExpiryDays, setPasswordExpiryDays] = useDebouncedState(
+    policy.passwordExpiryDays,
+    500
+  );
+  const [sessionTimeoutMinutes, debouncedSessionTimeoutMinutes, setSessionTimeoutMinutes] = useDebouncedState(
+    policy.sessionTimeoutMinutes,
+    500
+  );
+  const [idleTimeoutMinutes, debouncedIdleTimeoutMinutes, setIdleTimeoutMinutes] = useDebouncedState(
+    policy.idleTimeoutMinutes,
+    500
+  );
+  const [maxConcurrentSessions, debouncedMaxConcurrentSessions, setMaxConcurrentSessions] = useDebouncedState(
+    policy.maxConcurrentSessions,
+    500
+  );
+
+  // Update policy when debounced values change (for API calls)
+  useEffect(() => {
+    setPolicy(prev => ({
+      ...prev,
+      passwordMinLength: debouncedPasswordMinLength,
+      passwordExpiryDays: debouncedPasswordExpiryDays,
+      sessionTimeoutMinutes: debouncedSessionTimeoutMinutes,
+      idleTimeoutMinutes: debouncedIdleTimeoutMinutes,
+      maxConcurrentSessions: debouncedMaxConcurrentSessions,
+    }));
+  }, [
+    debouncedPasswordMinLength,
+    debouncedPasswordExpiryDays,
+    debouncedSessionTimeoutMinutes,
+    debouncedIdleTimeoutMinutes,
+    debouncedMaxConcurrentSessions,
+  ]);
 
   const [domains, setDomains] = useState<AllowedDomain[]>([
     {
@@ -146,8 +188,8 @@ export const OrganizationSecurity: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Minimum Length</label>
                 <input
                   type="number"
-                  value={policy.passwordMinLength}
-                  onChange={(e) => setPolicy({ ...policy, passwordMinLength: parseInt(e.target.value) })}
+                  value={passwordMinLength}
+                  onChange={(e) => setPasswordMinLength(parseInt(e.target.value) || 8)}
                   min="8"
                   max="32"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -158,8 +200,8 @@ export const OrganizationSecurity: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Password Expiry (days)</label>
                 <input
                   type="number"
-                  value={policy.passwordExpiryDays}
-                  onChange={(e) => setPolicy({ ...policy, passwordExpiryDays: parseInt(e.target.value) })}
+                  value={passwordExpiryDays}
+                  onChange={(e) => setPasswordExpiryDays(parseInt(e.target.value) || 0)}
                   min="0"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -210,8 +252,8 @@ export const OrganizationSecurity: React.FC = () => {
             <div className="flex items-center space-x-2">
               <input
                 type="number"
-                value={policy.sessionTimeoutMinutes}
-                onChange={(e) => setPolicy({ ...policy, sessionTimeoutMinutes: parseInt(e.target.value) })}
+                value={sessionTimeoutMinutes}
+                onChange={(e) => setSessionTimeoutMinutes(parseInt(e.target.value) || 15)}
                 min="15"
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -227,8 +269,8 @@ export const OrganizationSecurity: React.FC = () => {
             <div className="flex items-center space-x-2">
               <input
                 type="number"
-                value={policy.idleTimeoutMinutes}
-                onChange={(e) => setPolicy({ ...policy, idleTimeoutMinutes: parseInt(e.target.value) })}
+                value={idleTimeoutMinutes}
+                onChange={(e) => setIdleTimeoutMinutes(parseInt(e.target.value) || 5)}
                 min="5"
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -243,8 +285,8 @@ export const OrganizationSecurity: React.FC = () => {
             </label>
             <input
               type="number"
-              value={policy.maxConcurrentSessions}
-              onChange={(e) => setPolicy({ ...policy, maxConcurrentSessions: parseInt(e.target.value) })}
+              value={maxConcurrentSessions}
+              onChange={(e) => setMaxConcurrentSessions(parseInt(e.target.value) || 1)}
               min="1"
               max="10"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"

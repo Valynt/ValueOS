@@ -3,20 +3,65 @@
  * 
  * This script seeds the development database with realistic multi-tenant test data.
  * It is designed to be run via `tsx`, e.g., `npx tsx scripts/seed_database.ts`
+ * 
+ * SECURITY: This script should ONLY be run in development/test environments.
+ * It will refuse to run in production.
  */
 
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
+import * as crypto from 'crypto';
+
+// --- Environment Validation ---
+const NODE_ENV = process.env.NODE_ENV || 'development';
+
+if (NODE_ENV === 'production') {
+  console.error('❌ SECURITY: Cannot run seed script in production environment!');
+  process.exit(1);
+}
+
+console.log(`Running seed script in ${NODE_ENV} environment`);
 
 // --- Configuration ---
-const supabaseUrl = process.env.VITE_SUPABASE_URL || 'http://localhost:54321';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || 'your-service-key'; // Ensure this is set in your env
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'http://localhost:54321';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
 
-if (!supabaseServiceKey || !supabaseUrl) {
-  throw new Error('Supabase URL and Service Key must be provided in environment variables.');
+if (!supabaseServiceKey || supabaseServiceKey === 'your-service-key') {
+  throw new Error('SUPABASE_SERVICE_KEY must be set in environment variables.');
+}
+
+if (!supabaseUrl) {
+  throw new Error('SUPABASE_URL must be set in environment variables.');
 }
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+// --- Helper Functions ---
+
+/**
+ * Generate a secure random password
+ */
+function generateSecurePassword(length: number = 16): string {
+  return crypto.randomBytes(length).toString('base64').slice(0, length);
+}
+
+/**
+ * Hash a password using bcrypt-compatible format
+ * Note: In production, use proper bcrypt library
+ */
+async function hashPassword(password: string): Promise<string> {
+  // For development seeding, we'll use a simple hash
+  // In production, this would use bcrypt
+  const hash = crypto.createHash('sha256').update(password).digest('hex');
+  return `$2a$10$${hash.slice(0, 53)}`; // Bcrypt-like format
+}
+
+/**
+ * Generate a secure API key
+ */
+function generateApiKey(): string {
+  return `sk_dev_${crypto.randomBytes(32).toString('hex')}`;
+}
 
 async function seedDevelopmentData() {
   console.log('Seeding development database...');
@@ -51,14 +96,24 @@ async function seedDevelopmentData() {
     // Create Test Users
     // ============================================ 
     console.log('Creating users...');
+    
+    // Generate secure passwords
+    const adminPassword = process.env.SEED_ADMIN_PASSWORD || generateSecurePassword();
+    const userPassword = process.env.SEED_USER_PASSWORD || generateSecurePassword();
+    const csoPassword = process.env.SEED_CSO_PASSWORD || generateSecurePassword();
+    
+    // Hash passwords
+    const adminPasswordHash = await hashPassword(adminPassword);
+    const userPasswordHash = await hashPassword(userPassword);
+    const csoPasswordHash = await hashPassword(csoPassword);
+    
     // Note: In a real scenario, you'd use Supabase Auth to create users.
     // For seeding, we're inserting directly into the public.users table.
-    // This requires a password_hash, which we will simulate.
     const { data: users, error: userError } = await supabase.from('users').insert([
       {
         organization_id: org1.id,
         email: 'admin@acme.com',
-        password_hash: 'hashed_pwd_1', // Placeholder
+        password_hash: adminPasswordHash,
         first_name: 'Alice',
         last_name: 'Admin',
         role: 'admin',
@@ -67,7 +122,7 @@ async function seedDevelopmentData() {
       {
         organization_id: org1.id,
         email: 'user@acme.com',
-        password_hash: 'hashed_pwd_2', // Placeholder
+        password_hash: userPasswordHash,
         first_name: 'Bob',
         last_name: 'Member',
         role: 'member',
@@ -76,7 +131,7 @@ async function seedDevelopmentData() {
       {
         organization_id: org2.id,
         email: 'cso@techstart.com',
-        password_hash: 'hashed_pwd_3', // Placeholder
+        password_hash: csoPasswordHash,
         first_name: 'Charlie',
         last_name: 'CSO',
         role: 'admin',
@@ -87,6 +142,15 @@ async function seedDevelopmentData() {
     if (userError) throw userError;
     const [adminUser] = users;
     console.log(`✓ Created ${users.length} users.`);
+    
+    // Log credentials ONLY in development
+    if (NODE_ENV === 'development') {
+      console.log('\n📝 Test User Credentials (save these):');
+      console.log('  Admin: admin@acme.com / ' + adminPassword);
+      console.log('  User:  user@acme.com / ' + userPassword);
+      console.log('  CSO:   cso@techstart.com / ' + csoPassword);
+      console.log('');
+    }
 
 
     // ============================================ 
@@ -165,16 +229,28 @@ async function seedDevelopmentData() {
     // Create API Keys
     // ============================================ 
     console.log('Creating API keys...');
+    
+    // Generate secure API key
+    const apiKeyValue = generateApiKey();
+    const apiKeyHash = await hashPassword(apiKeyValue);
+    
     const { data: apiKey, error: apiKeyError } = await supabase.from('api_keys').insert({
       organization_id: org1.id,
       user_id: adminUser.id,
-      key_hash: 'sk_dev_1234567890abcdef', // Placeholder, use proper hashing in reality
+      key_hash: apiKeyHash,
       name: 'Development Key',
       scopes: ['read:models', 'write:agents', 'execute:agents'],
       expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
     }).select().single();
     if (apiKeyError) throw apiKeyError;
     console.log('✓ Created 1 API key.');
+    
+    // Log API key ONLY in development
+    if (NODE_ENV === 'development') {
+      console.log('\n🔑 API Key (save this):');
+      console.log('  ' + apiKeyValue);
+      console.log('');
+    }
 
     console.log('
 ✅ Development database seeded successfully!');

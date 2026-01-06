@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import {
+  BookOpen,
   Calculator,
   ChevronDown,
   ChevronsLeft,
@@ -169,6 +170,28 @@ export default function Sidebar() {
         >
           <Users className="w-5 h-5 flex-shrink-0" />
           {isExpanded && <span>AI Collaborators</span>}
+        </NavLink>
+
+        <NavLink
+          to="/docs"
+          title={!isExpanded ? 'Documentation' : undefined}
+          className={({ isActive }) =>
+            `flex items-center ${isExpanded ? 'gap-3 px-3' : 'justify-center px-0'} py-2.5 rounded-lg text-sm transition-all duration-200 ${
+              isActive
+                ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                : 'text-muted-foreground hover:bg-secondary/80 hover:text-foreground'
+            }`
+          }
+        >
+          <BookOpen className="w-5 h-5 flex-shrink-0" />
+          {isExpanded && (
+            <div className="flex-1 flex items-center justify-between">
+              <span>Documentation</span>
+              <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded font-medium">
+                Help
+              </span>
+            </div>
+          )}
         </NavLink>
       </div>
 

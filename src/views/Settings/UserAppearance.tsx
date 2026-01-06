@@ -9,7 +9,7 @@
  * - Accessibility options
  */
 
-import React from "react";
+import React, { useMemo } from "react";
 import { SettingsSection } from "../../components/Settings/SettingsSection";
 import { useSettings, useSettingsGroup } from "../../lib/settingsRegistry";
 import {
@@ -28,6 +28,8 @@ interface UserAppearanceProps {
 }
 
 export const UserAppearance: React.FC<UserAppearanceProps> = ({ userId }) => {
+  // FIX: Memoize context to prevent infinite re-renders
+  const context = useMemo(() => ({ userId }), [userId]);
   const { values, loading, updateSetting } = useSettingsGroup(
     [
       "user.theme",

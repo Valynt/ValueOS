@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "title": "VALYNT Design Token Validation Configuration",
+  "description": "Configuration for automated design token validation in CI/CD",
+  "version": "1.0.0",
+  "rules": {
+    "rawHexColors": {
+      "enabled": true,
+      "severity": "error",
+      "message": "Use semantic color tokens (bg-primary, text-foreground) instead of hex values",
+      "examples": {
+        "bad": [
+          "color: #18C3A5",
+          "backgroundColor: '#0B0C0F'",
+          "className=\"bg-[#18C3A5]\""
+        ],
+        "good": [
+          "className=\"bg-primary\"",
+          "className=\"text-vc-teal-500\"",
+          "className=\"bg-vc-surface-2\""
+        ]
+      }
+    },
+    "rawRgbColors": {
+      "enabled": true,
+      "severity": "error",
+      "message": "Use semantic color tokens instead of rgb/rgba values",
+      "examples": {
+        "bad": [
+          "color: rgb(24, 195, 165)",
+          "backgroundColor: 'rgba(11, 12, 15, 0.8)'"
+        ],
+        "good": [
+          "className=\"bg-primary\"",
+          "className=\"bg-vc-surface-1/80\""
+        ]
+      }
+    },
+    "rawPixelValues": {
+      "enabled": true,
+      "severity": "warning",
+      "message": "Use spacing tokens (p-vc-2, m-vc-3) instead of raw px values",
+      "examples": {
+        "bad": [
+          "padding: 16px",
+          "margin: 24px",
+          "gap: 8px"
+        ],
+        "good": [
+          "className=\"p-vc-2\"",
+          "className=\"m-vc-3\"",
+          "className=\"gap-vc-1\""
+        ]
+      },
+      "allowedProperties": [
+        "font-size",
+        "line-height",
+        "border-width"
+      ]
+    },
+    "inlineStyles": {
+      "enabled": true,
+      "severity": "warning",
+      "message": "Use className with Tailwind/CSS instead of inline styles",
+      "examples": {
+        "bad": [
+          "style={{ backgroundColor: '#18C3A5' }}",
+          "style={{ padding: '16px' }}"
+        ],
+        "good": [
+          "className=\"bg-primary p-vc-2\""
+        ]
+      }
+    },
+    "nonSemanticColors": {
+      "enabled": true,
+      "severity": "error",
+      "message": "Use VALYNT semantic tokens instead of Tailwind color scales",
+      "examples": {
+        "bad": [
+          "className=\"bg-blue-500\"",
+          "className=\"text-gray-700\"",
+          "className=\"border-green-400\""
+        ],
+        "good": [
+          "className=\"bg-primary\"",
+          "className=\"text-muted-foreground\"",
+          "className=\"border-vc-border-default\""
+        ]
+      },
+      "allowedColors": [
+        "transparent",
+        "current",
+        "inherit"
+      ]
+    }
+  },
+  "valynt": {
+    "surfaces": {
+      "description": "VALYNT surface tokens for elevation hierarchy",
+      "tokens": [
+        "vc-surface-1",
+        "vc-surface-2",
+        "vc-surface-3"
+      ],
+      "usage": {
+        "vc-surface-1": "Base application shell",
+        "vc-surface-2": "Raised content (cards)",
+        "vc-surface-3": "Highest elevation (modals, dialogs)"
+      }
+    },
+    "colors": {
+      "description": "VALYNT brand accent colors",
+      "tokens": [
+        "vc-accent-teal-400",
+        "vc-accent-teal-500",
+        "vc-accent-grey-500"
+      ],
+      "semantics": {
+        "vc-accent-teal-500": "Value intelligence, economic truth, primary actions",
+        "vc-accent-teal-400": "Hover states, emphasis",
+        "vc-accent-grey-500": "Structure, metadata, neutral context"
+      }
+    },
+    "borders": {
+      "description": "VALYNT border tokens",
+      "tokens": [
+        "vc-border-default",
+        "vc-border-strong"
+      ]
+    },
+    "spacing": {
+      "description": "VALYNT 8px spacing grid",
+      "tokens": [
+        "vc-1",
+        "vc-2",
+        "vc-3",
+        "vc-4",
+        "vc-6",
+        "vc-8"
+      ],
+      "values": {
+        "vc-1": "8px",
+        "vc-2": "16px",
+        "vc-3": "24px",
+        "vc-4": "32px",
+        "vc-6": "48px",
+        "vc-8": "64px"
+      }
+    },
+    "semanticTokens": {
+      "description": "shadcn/ui semantic tokens mapped to VALYNT",
+      "tokens": [
+        "background",
+        "foreground",
+        "card",
+        "card-foreground",
+        "popover",
+        "popover-foreground",
+        "primary",
+        "primary-foreground",
+        "secondary",
+        "secondary-foreground",
+        "muted",
+        "muted-foreground",
+        "accent",
+        "accent-foreground",
+        "destructive",
+        "destructive-foreground",
+        "border",
+        "input",
+        "ring"
+      ]
+    }
+  },
+  "exceptions": {
+    "description": "How to mark exceptions in code",
+    "patterns": [
+      "// @design-token-exception: <reason>",
+      "/* @design-token-exception: <reason> */"
+    ],
+    "examples": [
+      "// @design-token-exception: Third-party library requires inline styles",
+      "/* @design-token-exception: Dynamic color from API */"
+    ]
+  },
+  "ci": {
+    "failOnError": true,
+    "failOnWarning": false,
+    "reportFormat": "github-actions"
+  }
+}

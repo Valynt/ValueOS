@@ -1,18 +1,37 @@
 /**
  * Database Seed Script
  * Populates database with initial data for development and testing
+ * 
+ * SECURITY: This script should ONLY be run in development/test environments.
  */
 
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import * as crypto from 'crypto';
 
 const prisma = new PrismaClient();
 
+// Environment validation
+const NODE_ENV = process.env.NODE_ENV || 'development';
+
+if (NODE_ENV === 'production') {
+  console.error('❌ SECURITY: Cannot run seed script in production environment!');
+  process.exit(1);
+}
+
+/**
+ * Generate a secure random password
+ */
+function generateSecurePassword(length: number = 16): string {
+  return crypto.randomBytes(length).toString('base64').slice(0, length);
+}
+
 async function main() {
   console.log('🌱 Starting database seed...');
+  console.log(`   Environment: ${NODE_ENV}`);
 
   // Clean existing data (development only!)
-  if (process.env.NODE_ENV === 'development') {
+  if (NODE_ENV === 'development') {
     console.log('🧹 Cleaning existing data...');
     await prisma.canvas.deleteMany();
     await prisma.model.deleteMany();
@@ -100,13 +119,21 @@ async function main() {
   // Create Users
   console.log('👥 Creating users...');
   
-  const passwordHash = await bcrypt.hash('Demo123!@#', 10);
+  // Generate secure passwords (or use environment variables)
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD || generateSecurePassword();
+  const managerPassword = process.env.SEED_MANAGER_PASSWORD || generateSecurePassword();
+  const memberPassword = process.env.SEED_MEMBER_PASSWORD || generateSecurePassword();
+  
+  // Hash passwords with bcrypt
+  const adminPasswordHash = await bcrypt.hash(adminPassword, 10);
+  const managerPasswordHash = await bcrypt.hash(managerPassword, 10);
+  const memberPasswordHash = await bcrypt.hash(memberPassword, 10);
 
   const adminUser = await prisma.user.create({
     data: {
       organizationId: demoOrg.id,
       email: 'admin@demo-org.com',
-      passwordHash,
+      passwordHash: adminPasswordHash,
       firstName: 'Admin',
       lastName: 'User',
       role: 'ADMIN',
@@ -122,7 +149,7 @@ async function main() {
     data: {
       organizationId: demoOrg.id,
       email: 'manager@demo-org.com',
-      passwordHash,
+      passwordHash: managerPasswordHash,
       firstName: 'Manager',
       lastName: 'User',
       role: 'MANAGER',
@@ -138,7 +165,7 @@ async function main() {
     data: {
       organizationId: demoOrg.id,
       email: 'member@demo-org.com',
-      passwordHash,
+      passwordHash: memberPasswordHash,
       firstName: 'Member',
       lastName: 'User',
       role: 'MEMBER',
@@ -150,11 +177,14 @@ async function main() {
     },
   });
 
+  const enterprisePassword = process.env.SEED_ENTERPRISE_PASSWORD || generateSecurePassword();
+  const enterprisePasswordHash = await bcrypt.hash(enterprisePassword, 10);
+  
   const enterpriseAdmin = await prisma.user.create({
     data: {
       organizationId: enterpriseOrg.id,
       email: 'admin@enterprise-corp.com',
-      passwordHash,
+      passwordHash: enterprisePasswordHash,
       firstName: 'Enterprise',
       lastName: 'Admin',
       role: 'ADMIN',
@@ -162,11 +192,14 @@ async function main() {
     },
   });
 
+  const freePassword = process.env.SEED_FREE_PASSWORD || generateSecurePassword();
+  const freePasswordHash = await bcrypt.hash(freePassword, 10);
+  
   const freeUser = await prisma.user.create({
     data: {
       organizationId: freeOrg.id,
       email: 'founder@startup-inc.com',
-      passwordHash,
+      passwordHash: freePasswordHash,
       firstName: 'Startup',
       lastName: 'Founder',
       role: 'ADMIN',
@@ -175,6 +208,17 @@ async function main() {
   });
 
   console.log(`✅ Created ${5} users`);
+  
+  // Log credentials ONLY in development
+  if (NODE_ENV === 'development') {
+    console.log('\n📝 Test User Credentials (save these):');
+    console.log('  Admin:      admin@demo-org.com / ' + adminPassword);
+    console.log('  Manager:    manager@demo-org.com / ' + managerPassword);
+    console.log('  Member:     member@demo-org.com / ' + memberPassword);
+    console.log('  Enterprise: admin@enterprise-corp.com / ' + enterprisePassword);
+    console.log('  Startup:    founder@startup-inc.com / ' + freePassword);
+    console.log('');
+  }
 
   // Create Agents
   console.log('🤖 Creating agents...');

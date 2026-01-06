@@ -36,6 +36,18 @@ GRANT SELECT ON table_name_masked TO analyst_role;';
 
 
 --
+-- Create roles if they don't exist
+--
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'view_reader') THEN
+    CREATE ROLE view_reader;
+  END IF;
+END
+$$;
+
+--
 -- Name: pgcrypto; Type: EXTENSION; Schema: -; Owner: -
 --
 

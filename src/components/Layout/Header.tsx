@@ -1,4 +1,5 @@
-import { ChevronRight, Download, Presentation, Share2 } from 'lucide-react';
+import { ChevronRight, Download, Presentation, Share2, BookOpen } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import WorkflowStepper from '../UI/WorkflowStepper';
 
 interface HeaderProps {
@@ -9,6 +10,8 @@ interface HeaderProps {
 }
 
 export default function Header({ title, breadcrumbs = [], actions, showStepper = true }: HeaderProps) {
+  const navigate = useNavigate();
+
   return (
     <div className="border-b border-border">
       {showStepper && (
@@ -36,6 +39,17 @@ export default function Header({ title, breadcrumbs = [], actions, showStepper =
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Documentation Help Button */}
+            <button
+              onClick={() => navigate('/docs')}
+              className="btn btn-ghost h-9 px-3 text-foreground/50 hover:text-foreground"
+              aria-label="Open documentation"
+              title="Documentation & Help"
+            >
+              <BookOpen className="w-4 h-4 sm:mr-2" aria-hidden="true" />
+              <span className="hidden sm:inline">Help</span>
+            </button>
+
             {actions || (
               <>
                 <button

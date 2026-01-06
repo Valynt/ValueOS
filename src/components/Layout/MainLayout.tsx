@@ -3,6 +3,7 @@ import { Outlet } from "react-router-dom";
 import { X } from "lucide-react";
 import UnifiedSidebar from "./UnifiedSidebar";
 import { useDrawer } from "../../contexts/DrawerContext";
+import { DocsHelpButton } from "../docs/DocsHelpButton";
 
 // Props for backwards compatibility with existing App.tsx
 interface MainLayoutProps {
@@ -29,6 +30,9 @@ export function MainLayout(_props: MainLayoutProps = {}) {
           className="flex-1 overflow-auto relative flex flex-col min-w-0 canvas-bg"
         >
           <Outlet />
+          
+          {/* Floating Help Button */}
+          <DocsHelpButton position="bottom-right" />
         </main>
 
         {isOpen && (

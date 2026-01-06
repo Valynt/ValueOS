@@ -1,3 +1,22 @@
+/**
+ * VALYNT Typography - Self-Hosted Fonts
+ * 
+ * Load Inter and JetBrains Mono fonts via @fontsource for consistent
+ * cross-platform rendering. These fonts are self-hosted to avoid external
+ * dependencies and ensure GDPR compliance.
+ * 
+ * Font Weights:
+ * - Inter: 400 (regular), 500 (medium), 600 (semibold), 700 (bold)
+ * - JetBrains Mono: 400 (regular), 500 (medium), 600 (semibold)
+ */
+import "@fontsource/inter/400.css";
+import "@fontsource/inter/500.css";
+import "@fontsource/inter/600.css";
+import "@fontsource/inter/700.css";
+import "@fontsource/jetbrains-mono/400.css";
+import "@fontsource/jetbrains-mono/500.css";
+import "@fontsource/jetbrains-mono/600.css";
+
 import { logger } from "./lib/logger";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";

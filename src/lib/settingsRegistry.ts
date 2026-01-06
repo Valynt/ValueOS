@@ -1,6 +1,6 @@
 import { SettingsPermission, SettingsRoute, SettingsSearchResult } from '../types';
 import { supabase } from './supabase';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 
 // ============================================================================
 // Types
@@ -323,6 +323,8 @@ export class SettingsRegistry {
     scopeId: string
   ): Promise<void> {
     // Determine the appropriate table based on scope
+    // FIX: Strip scope prefix to prevent redundant nesting
+    const strippedKey = this.stripScopePrefix(key, scope);
     const table = this.getTableForScope(scope);
     
     // For user preferences, update the user_preferences JSONB column
@@ -403,6 +405,8 @@ export class SettingsRegistry {
   ): Promise<void> {
     const table = this.getTableForScope(scope);
     
+    // FIX: Strip scope prefix
+    const strippedKey = this.stripScopePrefix(key, scope);
     if (scope === 'user' && table === 'users') {
       const { data: user } = await supabase
         .from('users')
@@ -489,7 +493,8 @@ export class SettingsRegistry {
     }
 
     const settings = data[column] || {};
-    return this.getNestedValue(settings, key);
+    const strippedKey = this.stripScopePrefix(key, scope); // FIX: Strip scope prefix
+    return this.getNestedValue(settings, strippedKey);
   }
 
   private getTableForScope(scope: 'user' | 'team' | 'organization'): string {
@@ -508,6 +513,30 @@ export class SettingsRegistry {
       organization: 'organization_settings',
     };
     return columnMap[scope];
+  }
+
+  /**
+   * Strip scope prefix from key (e.g., 'user.theme' -> 'theme')
+   * Prevents redundant nesting in JSONB columns
+   * 
+   * Example:
+   * - Input: 'user.theme', scope: 'user'
+   * - Output: 'theme'
+   * - Stored in DB: { "theme": "dark" } (not { "user": { "theme": "dark" } })
+   */
+  private stripScopePrefix(key: string, scope: 'user' | 'team' | 'organization'): string {
+    const prefixes = {
+      user: 'user.',
+      team: 'team.',
+      organization: 'organization.',
+    };
+    
+    const prefix = prefixes[scope];
+    if (key.startsWith(prefix)) {
+      return key.substring(prefix.length);
+    }
+    
+    return key;
   }
 
   private getNestedValue(obj: any, path: string): any {
@@ -886,7 +915,7 @@ export function useSettings<T = any>(
       }
 
       await settingsRegistry.saveSetting(key, newValue, scope, scopeId);
-      setValue(newValue);
+      setValue(prev => newValue); // FIX: Use functional update to prevent stale closure
     } catch (err) {
       setError(err as Error);
       throw err;

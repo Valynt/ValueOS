@@ -1,0 +1,289 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://valueos.com/schemas/docsconfig.json",
+  "title": "ValueOS Documentation Configuration",
+  "description": "Configuration schema for ValueOS documentation system",
+  "type": "object",
+  "required": ["version", "name", "structure"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Configuration version",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "name": {
+      "type": "string",
+      "description": "Documentation project name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Documentation project description"
+    },
+    "structure": {
+      "type": "object",
+      "description": "Documentation structure definition",
+      "patternProperties": {
+        "^[a-z-]+$": {
+          "type": "object",
+          "required": ["path", "sections"],
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Relative path to category directory"
+            },
+            "sections": {
+              "type": "array",
+              "description": "Documentation sections in this category",
+              "items": {
+                "type": "object",
+                "required": ["id", "title", "file"],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "description": "Unique section identifier"
+                  },
+                  "title": {
+                    "type": "string",
+                    "description": "Section title"
+                  },
+                  "file": {
+                    "type": "string",
+                    "description": "Markdown file name"
+                  },
+                  "mappings": {
+                    "type": "array",
+                    "description": "Code mappings for this section",
+                    "items": {
+                      "type": "object",
+                      "required": ["type", "path"],
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": ["file", "directory", "function", "class", "component"]
+                        },
+                        "path": {
+                          "type": "string",
+                          "description": "Path to code element"
+                        },
+                        "description": {
+                          "type": "string",
+                          "description": "Mapping description"
+                        },
+                        "lineStart": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "lineEnd": {
+                          "type": "integer",
+                          "minimum": 1
+                        }
+                      }
+                    }
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "properties": {
+                      "author": {
+                        "type": "string"
+                      },
+                      "reviewers": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "tags": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "automation": {
+      "type": "object",
+      "description": "Automation configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "triggers": {
+          "type": "object",
+          "properties": {
+            "onCommit": {
+              "type": "boolean",
+              "default": true
+            },
+            "onPullRequest": {
+              "type": "boolean",
+              "default": true
+            },
+            "onRelease": {
+              "type": "boolean",
+              "default": true
+            },
+            "schedule": {
+              "type": "string",
+              "description": "Cron expression for scheduled checks"
+            }
+          }
+        },
+        "actions": {
+          "type": "object",
+          "properties": {
+            "detectChanges": {
+              "type": "boolean",
+              "default": true
+            },
+            "updateDocs": {
+              "type": "boolean",
+              "default": false
+            },
+            "notifyReviewers": {
+              "type": "boolean",
+              "default": true
+            },
+            "createIssues": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        }
+      }
+    },
+    "versioning": {
+      "type": "object",
+      "description": "Version control configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "strategy": {
+          "type": "string",
+          "enum": ["semver", "date", "custom"],
+          "default": "semver"
+        },
+        "trackChanges": {
+          "type": "boolean",
+          "default": true
+        },
+        "archiveOldVersions": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "description": "Validation rules",
+      "properties": {
+        "checkLinks": {
+          "type": "boolean",
+          "default": true
+        },
+        "checkCodeExamples": {
+          "type": "boolean",
+          "default": true
+        },
+        "checkMappings": {
+          "type": "boolean",
+          "default": true
+        },
+        "requireReview": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "notifications": {
+      "type": "object",
+      "description": "Notification configuration",
+      "properties": {
+        "slack": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "channel": {
+              "type": "string"
+            },
+            "events": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["outdated", "broken-link", "missing-mapping", "review-required"]
+              }
+            }
+          }
+        },
+        "email": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "recipients": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "email"
+              }
+            },
+            "events": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["outdated", "broken-link", "missing-mapping", "review-required"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "api": {
+      "type": "object",
+      "description": "API configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "baseUrl": {
+          "type": "string",
+          "default": "/api/docs"
+        },
+        "authentication": {
+          "type": "string",
+          "enum": ["none", "bearer", "api-key", "oauth"],
+          "default": "bearer"
+        },
+        "rateLimit": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "requests": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "window": {
+              "type": "string",
+              "description": "Time window (e.g., '15m', '1h', '1d')"
+            }
+          }
+        }
+      }
+    }
+  }
+}

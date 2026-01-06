@@ -15,9 +15,9 @@ import { BetaFeedbackWidget } from "./components/Feedback/BetaFeedbackWidget";
 import { SDUIStateProvider } from "./lib/state/SDUIStateProvider";
 import { supabase } from "./lib/supabase";
 
-// Lazy load auth pages (public routes)
-const LoginPage = lazy(() => import("./views/Auth/LoginPage"));
-const SignupPage = lazy(() => import("./views/Auth/SignupPage"));
+// Lazy load auth pages (public routes) - Modern design
+const LoginPage = lazy(() => import("./views/Auth/ModernLoginPage").then(m => ({ default: m.ModernLoginPage })));
+const SignupPage = lazy(() => import("./views/Auth/ModernSignupPage").then(m => ({ default: m.ModernSignupPage })));
 const ResetPasswordPage = lazy(() => import("./views/Auth/ResetPasswordPage"));
 const AuthCallback = lazy(() => import("./views/Auth/AuthCallback"));
 
@@ -38,6 +38,12 @@ const LaunchReadinessDashboard = lazy(
 const NotFound = lazy(() => import("./views/NotFound"));
 const MissionControl = lazy(() => import("./views/MissionControl"));
 
+// Sales Enablement Views
+const DealsView = lazy(() => import("./views/DealsView").then(m => ({ default: m.DealsView })));
+
+// Lazy load Documentation Portal
+const DocsPortal = lazy(() => import("./components/docs/DocsPortal"));
+
 export function AppRoutes() {
   return (
     <BrowserRouter>
@@ -52,8 +58,8 @@ export function AppRoutes() {
               >
                 <Suspense fallback={<LoadingSpinner />}>
                   <Routes>
-                    {/* Root redirect to home */}
-                    <Route path="/" element={<Navigate to="/home" replace />} />
+                    {/* Root redirect to deals (sales enablement) */}
+                    <Route path="/" element={<Navigate to="/deals" replace />} />
 
                     {/* Public Auth Routes */}
                     <Route path="/login" element={<LoginPage />} />
@@ -65,6 +71,24 @@ export function AppRoutes() {
 
                     {/* OAuth Callback */}
                     <Route path="/auth/callback" element={<AuthCallback />} />
+
+                    {/* Sales Enablement - Deals View */}
+                    <Route
+                      path="/deals"
+                      element={
+                        <ProtectedRoute>
+                          <DealsView />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/deals/:dealId"
+                      element={
+                        <ProtectedRoute>
+                          <DealsView />
+                        </ProtectedRoute>
+                      }
+                    />
 
                     {/* Mission Control (Zero State) */}
                     <Route
@@ -152,6 +176,24 @@ export function AppRoutes() {
                     >
                       <Route index element={<ConversationalAI />} />
                     </Route>
+
+                    {/* Documentation Portal Routes */}
+                    <Route
+                      path="/docs"
+                      element={
+                        <ProtectedRoute>
+                          <DocsPortal />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/docs/:sectionId"
+                      element={
+                        <ProtectedRoute>
+                          <DocsPortal />
+                        </ProtectedRoute>
+                      }
+                    />
 
                     {/* Main App (Chat+Canvas) - Default protected route */}
                     <Route

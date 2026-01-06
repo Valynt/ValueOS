@@ -13,6 +13,7 @@ import workflowRouter from "../api/workflow";
 import documentRouter from "../api/documents";
 import healthRouter from "../api/health";
 import authRouter from "../api/auth";
+import docsApiRouter from "./docs-api";
 import { createLogger } from "../lib/logger";
 import { createVersionedApiRouter } from "./versioning";
 import { requestAuditMiddleware } from "../middleware/requestAuditMiddleware";
@@ -139,6 +140,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/agents", agentExecutionLimiter, agentsRouter);
 app.use("/api", workflowRouter);
 app.use("/api/documents", documentRouter);
+app.use("/api/docs", docsApiRouter);
 
 // Error handler
 app.use(

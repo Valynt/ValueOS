@@ -8,11 +8,22 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom', // Use jsdom for React component tests
-    setupFiles: ['./tests/setup.ts'], // Only basic setup, no database
+    setupFiles: ['./tests/setup-minimal.ts'], // Minimal setup, no database
     include: [
+      'src/config/__tests__/*.test.ts',
+      'src/security/__tests__/*.test.ts',
+      'src/utils/__tests__/*.test.ts',
+      'src/lib/__tests__/*.test.ts',
       'src/sdui/__tests__/*.unit.test.tsx',
       'src/sdui/__tests__/*.benchmark.test.ts',
       'src/sdui/__tests__/load.test.ts',
+    ],
+    exclude: [
+      'node_modules',
+      'dist',
+      '**/*.integration.test.{ts,tsx}',
+      'src/repositories/**',
+      'src/__tests__/integration/**',
     ],
     coverage: {
       provider: 'v8',

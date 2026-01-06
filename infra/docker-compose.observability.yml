@@ -22,12 +22,7 @@ services:
       - "4318:4318"       # OTLP HTTP
     environment:
       - COLLECTOR_OTLP_ENABLED=true
-      - SPAN_STORAGE_TYPE=badger
-      - BADGER_EPHEMERAL=false
-      - BADGER_DIRECTORY_VALUE=/badger/data
-      - BADGER_DIRECTORY_KEY=/badger/key
-    volumes:
-      - jaeger-data:/badger
+      - SPAN_STORAGE_TYPE=memory
     networks:
       - observability
       - valuecanvas-network
@@ -92,7 +87,6 @@ services:
       - valuecanvas-network
 
 volumes:
-  jaeger-data:
   prometheus-data:
   grafana-data:
 

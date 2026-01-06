@@ -52,12 +52,3 @@ export function csrfProtectionMiddleware(req: Request, res: Response, next: Next
 
   next();
 }
-
-/**
- * Session timeout enforcement (idle + absolute).
- * Requires a session object on the request with createdAt and lastActivityAt timestamps.
- */
-  // Refresh last activity timestamp
-  session.lastActivityAt = now;
-  next();
-}
