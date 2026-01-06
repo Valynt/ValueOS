@@ -1,0 +1,72 @@
+# Tempo Configuration for Local Development
+# Tempo is a distributed tracing backend that supports multiple trace formats
+# This configuration runs Tempo in single-instance mode
+
+server:
+  http_listen_port: 3200
+  http_listen_address: 0.0.0.0
+  grpc_listen_port: 9095
+  grpc_listen_address: 0.0.0.0
+  log_level: info
+
+# Distributor configuration - receives traces and forwards to ingesters
+distributor:
+  receivers:
+    # OTLP receiver - OpenTelemetry Protocol
+    otlp:
+      protocols:
+        # gRPC endpoint on port 4317
+        grpc:
+          endpoint: 0.0.0.0:4317
+        # HTTP endpoint on port 4318
+        http:
+          endpoint: 0.0.0.0:4318
+
+# Ingester configuration - batches and stores traces
+ingester:
+  trace_idle_period: 10s # How long before considering a trace complete
+  max_block_bytes: 1_000_000 # Maximum size of a trace block (1 MB)
+  max_block_duration: 5m # Maximum duration before flushing block
+
+# Compactor configuration - reduces storage size
+compactor:
+  compaction:
+    compaction_window: 1h # Time window for compaction
+    max_compaction_objects: 1000000
+    block_retention: 48h # Keep blocks for 2 days in local dev
+    compacted_block_retention: 10m
+
+# Storage configuration - local filesystem for development
+storage:
+  trace:
+    backend: local # Use local filesystem
+    wal:
+      path: /tmp/tempo/wal # Write-ahead log location
+    local:
+      path: /tmp/tempo/blocks # Trace block storage location
+    pool:
+      max_workers: 100
+      queue_depth: 10000
+
+# Query frontend configuration
+query_frontend:
+  search:
+    max_duration: 0 # No limit on search duration in local dev
+
+# Metrics generator - generates metrics from traces
+metrics_generator:
+  registry:
+    external_labels:
+      source: tempo
+      cluster: local
+  storage:
+    path: /tmp/tempo/generator/wal
+    remote_write:
+      - url: http://prometheus:9090/api/v1/write
+        send_exemplars: true
+
+# Overrides configuration - per-tenant limits (disabled for local)
+overrides:
+  defaults:
+    metrics_generator:
+      processors: [service-graphs, span-metrics] # Generate service graphs & span metrics
