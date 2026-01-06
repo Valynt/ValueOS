@@ -38,6 +38,9 @@ const LaunchReadinessDashboard = lazy(
 const NotFound = lazy(() => import("./views/NotFound"));
 const MissionControl = lazy(() => import("./views/MissionControl"));
 
+// Sales Enablement Views
+const DealsView = lazy(() => import("./views/DealsView").then(m => ({ default: m.DealsView })));
+
 // Lazy load Documentation Portal
 const DocsPortal = lazy(() => import("./components/docs/DocsPortal"));
 
@@ -55,8 +58,8 @@ export function AppRoutes() {
               >
                 <Suspense fallback={<LoadingSpinner />}>
                   <Routes>
-                    {/* Root redirect to home */}
-                    <Route path="/" element={<Navigate to="/home" replace />} />
+                    {/* Root redirect to deals (sales enablement) */}
+                    <Route path="/" element={<Navigate to="/deals" replace />} />
 
                     {/* Public Auth Routes */}
                     <Route path="/login" element={<LoginPage />} />
@@ -68,6 +71,24 @@ export function AppRoutes() {
 
                     {/* OAuth Callback */}
                     <Route path="/auth/callback" element={<AuthCallback />} />
+
+                    {/* Sales Enablement - Deals View */}
+                    <Route
+                      path="/deals"
+                      element={
+                        <ProtectedRoute>
+                          <DealsView />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/deals/:dealId"
+                      element={
+                        <ProtectedRoute>
+                          <DealsView />
+                        </ProtectedRoute>
+                      }
+                    />
 
                     {/* Mission Control (Zero State) */}
                     <Route
