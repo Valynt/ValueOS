@@ -20,7 +20,7 @@ BACKUP_DIR="${HOME}/.git-history-backup-$(date +%Y%m%d_%H%M%S)"
 REPLACEMENTS_FILE="/tmp/secret-replacements.txt"
 
 # Secrets to remove (add more as needed)
-EXPOSED_SUPABASE_TOKEN="sbp_4d0537d35652d74db73f08ea849883070e8e9a21"
+: "${EXPOSED_SUPABASE_TOKEN:?Environment variable EXPOSED_SUPABASE_TOKEN must be set to the token value to remove}"
 
 ###############################################################################
 # Helper Functions
