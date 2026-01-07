@@ -129,10 +129,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        // Initialize secure token manager
+        // OPTIMIZATION: Optimistically restore session from synchronous storage
+        // This prevents blocking the UI render for unauthenticated users
+        const storedSession = SecureSessionManager.getSession();
+
+        if (storedSession) {
+          setSession(storedSession);
+          setUser(storedSession.user);
+
+          // Re-compute claims immediately for optimistic UI
+          const roles = (storedSession.user.user_metadata
+            ?.roles as string[]) || ["ANALYST"];
+          setUserClaims({
+            sub: storedSession.user.id,
+            email: storedSession.user.email || "",
+            roles,
+            permissions: computePermissions(roles),
+            org_id: storedSession.user.user_metadata?.org_id || "default",
+          });
+          logger.debug("Session optimistically restored from storage");
+        } else {
+          // No session found, likely unauthenticated.
+          // We can stop loading immediately to show the Login page.
+          logger.debug("No session found in storage, assuming unauthenticated");
+        }
+
+        // Unblock the UI immediately
+        setLoading(false);
+
+        // Continue with heavy async initialization in the background
+        initializeBackgroundAuth();
+      } catch (error) {
+        logger.error("Failed to initialize auth", error as Error);
+        setLoading(false);
+      }
+    };
+
+    const initializeBackgroundAuth = async () => {
+      try {
+        // Initialize secure token manager (network calls)
         await secureTokenManager.initialize();
 
-        // Get current session from secure token manager
+        // Get authoritative session from secure token manager
         const session = await secureTokenManager.getCurrentSession();
 
         if (session) {
@@ -161,12 +199,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               Date.now() -
               (session.issued_at ? session.issued_at * 1000 : Date.now()),
           });
-          logger.info("Session restored via secure token manager");
+          logger.info("Session validated via secure token manager");
+        } else if (SecureSessionManager.getSession()) {
+          // If we had an optimistic session but the background check failed (e.g. token expired remotely and refresh failed)
+          // We should clear the state and redirect to login
+          logger.warn("Optimistic session invalid, clearing state");
+          setUser(null);
+          setUserClaims(null);
+          setSession(null);
+          SecureSessionManager.clearSession();
         }
       } catch (error) {
-        logger.error("Failed to initialize auth", error as Error);
-      } finally {
-        setLoading(false);
+        logger.error("Background auth initialization failed", error as Error);
       }
     };
 

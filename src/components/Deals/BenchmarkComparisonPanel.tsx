@@ -8,14 +8,11 @@
  * PRECISION: Uses decimal.js for accurate percentage calculations
  */
 
-import React from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import {
   AlertCircle,
   Award,
-  ExternalLink,
   Info,
   TrendingDown,
   TrendingUp,
@@ -73,6 +70,12 @@ const statusConfig = {
   },
 };
 
+const PERCENTILE_THRESHOLDS = {
+  TOP_QUARTILE: 75,
+  MEDIAN: 50,
+  BOTTOM_QUARTILE: 25,
+} as const;
+
 export function BenchmarkComparisonPanel({
   comparisons,
   industry,
@@ -86,9 +89,10 @@ export function BenchmarkComparisonPanel({
   };
 
   const getPercentilePosition = (percentile: number): string => {
-    if (percentile >= 75) return "Top 25%";
-    if (percentile >= 50) return "Top 50%";
-    if (percentile >= 25) return "Bottom 50%";
+    if (percentile >= PERCENTILE_THRESHOLDS.TOP_QUARTILE) return "Top 25%";
+    if (percentile >= PERCENTILE_THRESHOLDS.MEDIAN) return "Top 50%";
+    if (percentile >= PERCENTILE_THRESHOLDS.BOTTOM_QUARTILE)
+      return "Bottom 50%";
     return "Bottom 25%";
   };
 
@@ -153,7 +157,7 @@ export function BenchmarkComparisonPanel({
                   <span>P75</span>
                   <span>Best-in-Class</span>
                 </div>
-                <div className="relative h-8 bg-gradient-to-r from-red-100 via-yellow-100 via-green-100 to-blue-100 rounded-lg">
+                <div className="relative h-8 bg-[linear-gradient(to_right,theme(colors.red.100),theme(colors.yellow.100),theme(colors.green.100),theme(colors.blue.100))] rounded-lg">
                   {/* Benchmark Markers */}
                   <div className="absolute top-0 left-1/4 w-0.5 h-full bg-gray-400" />
                   <div className="absolute top-0 left-1/2 w-0.5 h-full bg-gray-600" />
