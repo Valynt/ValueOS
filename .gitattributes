@@ -50,3 +50,9 @@ Makefile text eol=lf
 *.mp4 binary
 *.webm binary
 *.pdf binary
+
+# Force Linux line endings for all shell scripts
+*.sh text eol=lf
+
+# Explicitly handle the devcontainer bridge
+.devcontainer/bridge.sh text eol=lf
