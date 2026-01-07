@@ -1,28 +1,30 @@
 /**
  * Opportunity Analysis Panel
- * 
+ *
  * Displays output from OpportunityAgent including pain points,
  * business objectives, and persona fit analysis.
- * 
+ *
  * EXPLAINABILITY: Shows confidence scores and data sources for each finding
  */
 
-import React from 'react';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { AlertTriangle, DollarSign, Info, Target, TrendingUp, Users } from 'lucide-react';
+import React from "react";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+  AlertTriangle,
+  DollarSign,
+  Info,
+  Target,
+  TrendingUp,
+  Users,
+} from "lucide-react";
+import Tooltip from "@/components/ui/tooltip";
 
 interface PainPoint {
-  category: 'efficiency' | 'cost' | 'revenue' | 'risk';
+  category: "efficiency" | "cost" | "revenue" | "risk";
   description: string;
-  severity: 'high' | 'medium' | 'low';
+  severity: "high" | "medium" | "low";
   frequency: string;
   estimated_annual_cost: number;
   affected_stakeholders: string[];
@@ -40,7 +42,7 @@ interface PersonaFit {
   score: number;
   role: string;
   seniority: string;
-  decision_authority: 'low' | 'medium' | 'high';
+  decision_authority: "low" | "medium" | "high";
   fit_reasoning: string;
 }
 
@@ -59,32 +61,35 @@ interface OpportunityAnalysisPanelProps {
 }
 
 const categoryColors = {
-  efficiency: 'bg-blue-100 text-blue-700',
-  cost: 'bg-red-100 text-red-700',
-  revenue: 'bg-green-100 text-green-700',
-  risk: 'bg-yellow-100 text-yellow-700'
+  efficiency: "bg-blue-100 text-blue-700",
+  cost: "bg-red-100 text-red-700",
+  revenue: "bg-green-100 text-green-700",
+  risk: "bg-yellow-100 text-yellow-700",
 };
 
 const categoryIcons = {
   efficiency: TrendingUp,
   cost: DollarSign,
   revenue: DollarSign,
-  risk: AlertTriangle
+  risk: AlertTriangle,
 };
 
 const severityColors = {
-  high: 'text-red-600',
-  medium: 'text-yellow-600',
-  low: 'text-green-600'
+  high: "text-red-600",
+  medium: "text-yellow-600",
+  low: "text-green-600",
 };
 
 const authorityColors = {
-  high: 'bg-green-100 text-green-700',
-  medium: 'bg-yellow-100 text-yellow-700',
-  low: 'bg-red-100 text-red-700'
+  high: "bg-green-100 text-green-700",
+  medium: "bg-yellow-100 text-yellow-700",
+  low: "bg-red-100 text-red-700",
 };
 
-export function OpportunityAnalysisPanel({ analysis, onEdit }: OpportunityAnalysisPanelProps) {
+export function OpportunityAnalysisPanel({
+  analysis,
+  onEdit,
+}: OpportunityAnalysisPanelProps) {
   return (
     <div className="space-y-6">
       {/* Executive Summary */}
@@ -95,21 +100,14 @@ export function OpportunityAnalysisPanel({ analysis, onEdit }: OpportunityAnalys
             Opportunity Summary
           </h3>
           {analysis.confidence_score !== undefined && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Badge variant="secondary" className="flex items-center gap-1">
-                    <Info className="w-3 h-3" />
-                    {Math.round(analysis.confidence_score * 100)}% Confidence
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="text-xs">
-                    Based on {analysis.data_sources?.length || 0} data sources
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Tooltip
+              content={`Based on ${analysis.data_sources?.length || 0} data sources`}
+            >
+              <Badge variant="secondary" className="flex items-center gap-1">
+                <Info className="w-3 h-3" />
+                {Math.round(analysis.confidence_score * 100)}% Confidence
+              </Badge>
+            </Tooltip>
           )}
         </div>
         <p className="text-muted-foreground leading-relaxed">
@@ -128,8 +126,13 @@ export function OpportunityAnalysisPanel({ analysis, onEdit }: OpportunityAnalys
             <div>
               <p className="font-semibold">{analysis.persona_fit.role}</p>
               <p className="text-sm text-muted-foreground">
-                {analysis.persona_fit.seniority} • Decision Authority:{' '}
-                <Badge className={authorityColors[analysis.persona_fit.decision_authority]} variant="secondary">
+                {analysis.persona_fit.seniority} • Decision Authority:{" "}
+                <Badge
+                  className={
+                    authorityColors[analysis.persona_fit.decision_authority]
+                  }
+                  variant="secondary"
+                >
                   {analysis.persona_fit.decision_authority}
                 </Badge>
               </p>
@@ -192,42 +195,45 @@ export function OpportunityAnalysisPanel({ analysis, onEdit }: OpportunityAnalys
         <div className="space-y-3">
           {analysis.pain_points.map((pain, index) => {
             const CategoryIcon = categoryIcons[pain.category];
-            
+
             return (
               <div
                 key={index}
                 className="p-4 rounded-lg border bg-card hover:bg-accent/5 transition-colors"
               >
                 <div className="flex items-start gap-4">
-                  <div className={`p-2 rounded-lg ${categoryColors[pain.category]}`}>
+                  <div
+                    className={`p-2 rounded-lg ${categoryColors[pain.category]}`}
+                  >
                     <CategoryIcon className="w-5 h-5" />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-start justify-between gap-4 mb-2">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <Badge className={categoryColors[pain.category]} variant="secondary">
+                          <Badge
+                            className={categoryColors[pain.category]}
+                            variant="secondary"
+                          >
                             {pain.category}
                           </Badge>
-                          <Badge variant="outline" className={severityColors[pain.severity]}>
+                          <Badge
+                            variant="outline"
+                            className={severityColors[pain.severity]}
+                          >
                             {pain.severity} severity
                           </Badge>
                           {pain.confidence !== undefined && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger>
-                                  <Badge variant="secondary" className="text-xs">
-                                    {Math.round(pain.confidence * 100)}% confidence
-                                  </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p className="text-xs">Confidence in cost estimate</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                            <Tooltip content="Confidence in cost estimate">
+                              <Badge variant="secondary" className="text-xs">
+                                {Math.round(pain.confidence * 100)}% confidence
+                              </Badge>
+                            </Tooltip>
                           )}
                         </div>
-                        <p className="text-sm font-medium mb-1">{pain.description}</p>
+                        <p className="text-sm font-medium mb-1">
+                          {pain.description}
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           Frequency: {pain.frequency}
                         </p>
@@ -236,14 +242,16 @@ export function OpportunityAnalysisPanel({ analysis, onEdit }: OpportunityAnalys
                         <p className="text-xl font-bold text-red-600">
                           ${pain.estimated_annual_cost.toLocaleString()}
                         </p>
-                        <p className="text-xs text-muted-foreground">Annual Cost</p>
+                        <p className="text-xs text-muted-foreground">
+                          Annual Cost
+                        </p>
                       </div>
                     </div>
                     {pain.affected_stakeholders.length > 0 && (
                       <div className="flex items-center gap-2 mt-2">
                         <Users className="w-3 h-3 text-muted-foreground" />
                         <p className="text-xs text-muted-foreground">
-                          Affects: {pain.affected_stakeholders.join(', ')}
+                          Affects: {pain.affected_stakeholders.join(", ")}
                         </p>
                       </div>
                     )}
@@ -259,7 +267,10 @@ export function OpportunityAnalysisPanel({ analysis, onEdit }: OpportunityAnalys
           <div className="flex items-center justify-between">
             <p className="font-semibold">Total Estimated Annual Cost</p>
             <p className="text-2xl font-bold text-red-600">
-              ${analysis.pain_points.reduce((sum, p) => sum + p.estimated_annual_cost, 0).toLocaleString()}
+              $
+              {analysis.pain_points
+                .reduce((sum, p) => sum + p.estimated_annual_cost, 0)
+                .toLocaleString()}
             </p>
           </div>
         </div>
