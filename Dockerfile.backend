@@ -7,7 +7,7 @@ WORKDIR /app
 RUN apk add --no-cache dumb-init
 
 # Copy package files
-COPY package*.json ./
+COPY package*.json .npmrc ./
 
 # Install dependencies
 RUN npm ci --only=production

@@ -99,3 +99,10 @@ export const settings = {
     corsOrigins: parseCorsOrigins(parsedSettings.CORS_ALLOWED_ORIGINS),
   },
 };
+
+/**
+ * Load managed secrets from the secret manager (server-side only).
+ * This is called lazily to avoid blocking the initial module load.
+ * Safe to call multiple times - will only load once.
+ */
+export { loadManagedSecretsIfNeeded };
