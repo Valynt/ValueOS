@@ -102,11 +102,11 @@
     "db:restore": "bash scripts/backup-restore.sh restore",
     "db:backup:list": "bash scripts/backup-restore.sh list",
     "env:staging": "cp .env.staging .env.local && echo '✅ Switched to STAGING environment'",
-    "env:production": "cp .env.production .env.local && echo '⚠️  Switched to PRODUCTION environment'",
+    "env:production": "cp .env.production .env.local && echo '⚠️ Switched to PRODUCTION environment'",
     "env:status": "grep VITE_SUPABASE_URL .env.local | sed 's/VITE_SUPABASE_URL=/Current environment: /'",
     "db:backup:manual": "mkdir -p backups && npx supabase db dump > backups/backup-$(date +%Y%m%d-%H%M%S).sql && echo 'Backup saved to backups/'",
     "db:push:staging": "npm run env:staging && npx supabase db push",
-    "db:push:prod": "npm run env:production && echo '⚠️  PUSHING TO PRODUCTION in 5 seconds (Ctrl+C to cancel)' && sleep 5 && npx supabase db push",
+    "db:push:prod": "npm run env:production && echo '⚠️ PUSHING TO PRODUCTION in 5 seconds (Ctrl+C to cancel)' && sleep 5 && npx supabase db push",
     "dev:staging": "npm run env:staging && npm run dev",
     "dev:production": "npm run env:production && npm run dev",
     "verify:llm-instrumentation": "node -r tsx/cjs scripts/verify-llm-instrumentation.ts",
@@ -251,10 +251,13 @@
   },
   "lint-staged": {
     "*.{ts,tsx}": [
-      "node ./node_modules/eslint/bin/eslint.js --fix"
+      "eslint --fix"
+    ],
+    "*.sh": [
+      "git update-index --chmod=+x"
     ],
     "*.{json,md,yml,yaml}": [
-      "node ./node_modules/prettier/bin/prettier.cjs --write"
+      "prettier --write"
     ]
   },
   "overrides": {
