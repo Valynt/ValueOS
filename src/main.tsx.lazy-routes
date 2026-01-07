@@ -1,0 +1,57 @@
+import { lazy, StrictMode, Suspense } from "react";
+import { createRoot } from "react-dom/client";
+import { logger } from "./lib/logger";
+import { isDevelopment } from "./config/environment";
+import { startConsoleCapture } from "./utils/consoleRecorder";
+import { analyticsClient } from "./lib/analyticsClient";
+import { initHMRFallback } from "./lib/vite-hmr-fallback";
+import * as ClientRateLimit from "./services/ClientRateLimit";
+import { BootstrapGuard } from "./components/Common/BootstrapGuard";
+
+// Load fonts
+import "@fontsource/inter/400.css";
+import "@fontsource/inter/500.css";
+import "@fontsource/inter/600.css";
+import "@fontsource/inter/700.css";
+import "@fontsource/jetbrains-mono/400.css";
+import "@fontsource/jetbrains-mono/500.css";
+import "@fontsource/jetbrains-mono/600.css";
+
+import "./index.css";
+
+// Lazy-load AppRoutes to prevent the module transformation deadlock
+const AppRoutes = lazy(() => import("./AppRoutes"));
+
+function main() {
+  const rootElement = document.getElementById("root");
+  if (!rootElement) throw new Error("Root element not found");
+
+  try {
+    ClientRateLimit.setupDefaultRateLimits?.();
+
+    if (isDevelopment()) {
+      initHMRFallback();
+    }
+
+    startConsoleCapture();
+    analyticsClient.initialize({ betaCohort: true });
+
+    const root = createRoot(rootElement);
+    root.render(
+      <StrictMode>
+        <BootstrapGuard>
+          <Suspense fallback={<div>Loading App Structure...</div>}>
+            <AppRoutes />
+          </Suspense>
+        </BootstrapGuard>
+      </StrictMode>
+    );
+
+    logger.debug("Application root rendered with Lazy AppRoutes");
+  } catch (error) {
+    logger.error("Fatal error during application initialization", error as Error);
+    rootElement.innerHTML = `<div style="color:red">Fatal Error: ${error}</div>`;
+  }
+}
+
+main();

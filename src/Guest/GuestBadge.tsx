@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { UserCheck, Eye, MessageSquare, Edit3, Clock } from 'lucide-react';
+import { Clock, Edit3, Eye, MessageSquare, UserCheck } from 'lucide-react';
 import { GuestPermissions } from '../../services/GuestAccessService';
 import { getGuestPermissionManager } from '../../lib/permissions/guestPermissions';
 

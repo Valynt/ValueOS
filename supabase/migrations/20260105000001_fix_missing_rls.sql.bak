@@ -22,6 +22,9 @@ DECLARE
     'secret_audit_logs_2024', 'secret_audit_logs_2025', 'secret_audit_logs_2026', 'secret_audit_logs_default'
   ];
 BEGIN
+  -- Drop dependent view first
+  DROP VIEW IF EXISTS public.secret_audit_failures;
+
   -- Drop policies on all relevant tables (including partitions)
   FOREACH t IN ARRAY policy_tables LOOP
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name=t) THEN
@@ -37,6 +40,20 @@ BEGIN
       EXECUTE 'ALTER TABLE ' || t || ' ALTER COLUMN tenant_id TYPE TEXT USING tenant_id::text';
     END IF;
   END LOOP;
+
+  -- Recreate the view
+  EXECUTE 'CREATE VIEW public.secret_audit_failures WITH (security_invoker=''true'') AS
+   SELECT secret_audit_logs.tenant_id,
+      secret_audit_logs.user_id,
+      secret_audit_logs.secret_key,
+      secret_audit_logs.action,
+      secret_audit_logs.error_message,
+      secret_audit_logs."timestamp"
+     FROM public.secret_audit_logs
+    WHERE (((secret_audit_logs.result)::text = ''FAILURE''::text) AND (secret_audit_logs."timestamp" >= (now() - ''7 days''::interval)))
+    ORDER BY secret_audit_logs."timestamp" DESC';
+    
+  EXECUTE 'COMMENT ON VIEW public.secret_audit_failures IS ''SECURITY INVOKER view - Recent failed secret access attempts for security monitoring. Relies on RLS policy on secret_audit_logs table.''';
 END $$;
 
 ALTER TABLE llm_calls ENABLE ROW LEVEL SECURITY;

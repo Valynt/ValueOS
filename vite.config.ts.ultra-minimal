@@ -1,18 +1,12 @@
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  root: 'src', // Move the entry point into the src folder to restrict scanning
-  publicDir: '../public',
   server: {
     host: "127.0.0.1",
     port: 5173,
     strictPort: true,
     watch: null, // COMPLETELY DISABLE
     hmr: false,
-    fs: {
-      strict: true, // Prevent access outside allowed paths
-      allow: ['..'], // Only allow files within ValueOS
-    }
   },
   optimizeDeps: {
     noDiscovery: true,

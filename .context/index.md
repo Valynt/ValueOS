@@ -1,7 +1,7 @@
 # ValueOS Codebase Context
 
-**Version:** 0.1.0  
-**Last Updated:** 2026-01-06  
+**Version:** 0.1.0
+**Last Updated:** 2026-01-07
 **Architecture:** Multi-Agent Sales Enablement Platform
 
 ---
@@ -11,9 +11,11 @@
 ValueOS is an **AI-native sales enablement platform** that helps B2B companies quantify and prove ROI throughout the customer lifecycle. It combines a proprietary Ground Truth Benchmark Layer with financial reasoning agents to replace manual spreadsheets with transparent, defensible business cases.
 
 ### Mission
+
 To become the "Customer Value Operating System" for B2B revenue teams.
 
 ### Target Users
+
 - Sales Representatives (generating buyer-facing business cases)
 - Customer Success Teams (tracking value realization)
 - Revenue Operations (analyzing pipeline and ROI)
@@ -24,6 +26,7 @@ To become the "Customer Value Operating System" for B2B revenue teams.
 ## Architecture Principles
 
 ### 1. Multi-Agent Architecture
+
 - **Specialization**: Each agent has a specific domain of expertise
 - **Collaboration**: Agents work together through orchestration
 - **Authority Levels**: Hierarchical permission system (1-5)
@@ -31,18 +34,21 @@ To become the "Customer Value Operating System" for B2B revenue teams.
 - **Observability**: Comprehensive logging and monitoring
 
 ### 2. Sales Enablement First
+
 - **Deal-Centric**: Everything revolves around deals/opportunities
 - **Buyer Personas**: Customized outputs for CFO, VP Sales, etc.
 - **Lifecycle Stages**: Discovery → Modeling → Realization → Expansion
 - **Export-Ready**: PDF/PowerPoint outputs for prospects
 
 ### 3. Trust & Transparency
+
 - **Explainable AI**: Every decision shows reasoning
 - **Confidence Scores**: Honest about uncertainty
 - **Data Attribution**: Sources cited for all benchmarks
 - **Audit Trails**: All actions logged
 
 ### 4. Precision & Accuracy
+
 - **Decimal Precision**: Uses decimal.js for financial calculations
 - **No Floating Point**: Avoids standard number types for currency
 - **Deterministic Logic**: Pure functions for all calculations
@@ -53,6 +59,7 @@ To become the "Customer Value Operating System" for B2B revenue teams.
 ## Technology Stack
 
 ### Frontend
+
 - **React 18.3** with TypeScript
 - **Vite 7.2** - Build tool
 - **Zustand** - State management
@@ -61,6 +68,7 @@ To become the "Customer Value Operating System" for B2B revenue teams.
 - **React Router 6** - Navigation
 
 ### Backend (Supabase)
+
 - **PostgreSQL 15.8** - Database
 - **GoTrue** - Authentication
 - **PostgREST** - Auto-generated REST API
@@ -69,11 +77,13 @@ To become the "Customer Value Operating System" for B2B revenue teams.
 - **Kong** - API Gateway
 
 ### AI/LLM
+
 - **Together AI** - Primary LLM provider
 - **OpenTelemetry** - Observability
 - **Custom Agent Fabric** - Multi-agent orchestration
 
 ### Observability
+
 - **Jaeger** - Distributed tracing
 - **Grafana** - Visualization
 - **Prometheus** - Metrics
@@ -140,39 +150,91 @@ ValueOS/
 
 ---
 
+## Client Capabilities
+
+### Core Features
+
+- **Deal Lifecycle Management**: Complete workflow from discovery to realization
+- **Multi-Agent Orchestration**: Real-time coordination of AI agents for business analysis
+- **Buyer Persona Customization**: Tailored outputs for CFO, VP Sales, CTO, and other decision-makers
+- **Benchmark Analytics**: Industry percentile positioning with confidence scores
+- **Financial Modeling**: NPV, IRR, payback period calculations with scenario analysis
+- **Export & Presentation**: PDF/PowerPoint generation for executive presentations
+
+### User Experience
+
+- **Progressive Web App**: Installable, offline-capable, mobile-responsive
+- **Real-Time Updates**: Streaming agent execution with live progress indicators
+- **Guest Collaboration**: Secure sharing with external stakeholders (view-only, comment, edit permissions)
+- **Intuitive Workflow**: Guided deal-centric interface replacing generic chat
+- **Responsive Design**: Optimized for desktop, tablet, and mobile devices
+
+### Security & Compliance
+
+- **Multi-Tenant Architecture**: Complete data isolation between organizations
+- **Row-Level Security**: Database-enforced access controls
+- **Audit Logging**: Comprehensive tracking of all user actions and agent invocations
+- **Guest Access Control**: Cryptographically secure tokens with automatic expiration
+- **Cost Governance**: LLM usage limits and real-time monitoring
+
+### Integrations
+
+- **CRM Sync**: Salesforce, HubSpot integration for deal data
+- **Authentication**: Supabase Auth with OAuth providers and MFA support
+- **File Storage**: Secure document upload and management
+- **Realtime Updates**: WebSocket-based live collaboration
+- **API Access**: RESTful APIs for external integrations
+
+### Performance
+
+- **Sub-800ms Response**: Streaming UI for fast feedback during agent execution
+- **Circuit Breaker Protection**: Automatic failure recovery and rate limiting
+- **Caching Strategy**: Redis-backed caching for improved performance
+- **Optimistic Updates**: Immediate UI feedback with background sync
+- **Virtual Scrolling**: Efficient handling of large datasets
+
+---
+
 ## Key Agents
 
 ### 1. OpportunityAgent (Authority: 3)
+
 **Purpose:** Discover customer pain points and business objectives  
 **Lifecycle Stage:** Discovery  
 **Outputs:** Pain points, objectives, persona fit score
 
 ### 2. TargetAgent (Authority: 3)
+
 **Purpose:** Build value models and ROI calculations  
 **Lifecycle Stage:** Modeling  
 **Outputs:** Value tree, financial metrics, scenarios
 
 ### 3. FinancialModelingAgent (Authority: 4)
+
 **Purpose:** Calculate NPV, IRR, payback period  
 **Lifecycle Stage:** Modeling  
 **Outputs:** ROI, NPV, IRR, sensitivity analysis
 
 ### 4. RealizationAgent (Authority: 3)
+
 **Purpose:** Track value delivery post-sale  
 **Lifecycle Stage:** Realization  
 **Outputs:** Actual vs. predicted, variance analysis
 
 ### 5. ExpansionAgent (Authority: 3)
+
 **Purpose:** Identify upsell opportunities  
 **Lifecycle Stage:** Expansion  
 **Outputs:** Expansion opportunities, incremental value
 
 ### 6. BenchmarkAgent (Authority: 3)
+
 **Purpose:** Provide industry benchmarks  
 **Used In:** All stages  
 **Outputs:** Percentile positioning, gap analysis
 
 ### 7. CommunicatorAgent (Authority: 2)
+
 **Purpose:** Generate buyer-facing narratives  
 **Used In:** All stages  
 **Outputs:** Executive summaries, white papers
@@ -182,24 +244,28 @@ ValueOS/
 ## Lifecycle Stages
 
 ### 1. Discovery (Opportunity)
+
 **Goal:** Identify pain points and opportunities  
 **Agent:** OpportunityAgent  
 **User Action:** Select buyer persona, provide discovery data  
 **Output:** Quantified pain points, business objectives
 
 ### 2. Modeling (Target)
+
 **Goal:** Build ROI model and business case  
 **Agents:** TargetAgent, FinancialModelingAgent, BenchmarkAgent  
 **User Action:** Review and adjust assumptions  
 **Output:** Complete business case with benchmarks
 
 ### 3. Realization
+
 **Goal:** Track value delivery post-sale  
 **Agent:** RealizationAgent  
 **User Action:** Input actual metrics  
 **Output:** Actual vs. predicted analysis
 
 ### 4. Expansion
+
 **Goal:** Identify upsell opportunities  
 **Agent:** ExpansionAgent  
 **User Action:** Review opportunities  
@@ -210,26 +276,31 @@ ValueOS/
 ## Buyer Personas
 
 ### CFO
+
 **Focus:** ROI, NPV, Cash Flow, Risk  
 **Template:** TrinityDashboard  
 **Language:** Financial metrics, conservative estimates
 
 ### VP Sales
+
 **Focus:** Revenue Growth, Win Rates, Pipeline  
 **Template:** ScenarioMatrix  
 **Language:** Sales impact, competitive positioning
 
 ### VP Product
+
 **Focus:** Feature Impact, User Adoption  
 **Template:** ImpactCascadeTemplate  
 **Language:** Product outcomes, customer value
 
 ### CTO
+
 **Focus:** Technical Efficiency, Integration  
 **Template:** TechnicalDeepDive  
 **Language:** Technical feasibility, architecture
 
 ### COO
+
 **Focus:** Operational Efficiency, Cost Reduction  
 **Template:** OperationalImpact  
 **Language:** Process improvement, efficiency gains
@@ -239,6 +310,7 @@ ValueOS/
 ## Data Models
 
 ### ValueCase (Deal)
+
 ```typescript
 {
   id: string;
@@ -257,6 +329,7 @@ ValueOS/
 ```
 
 ### BusinessObjective
+
 ```typescript
 {
   id: string;
@@ -269,6 +342,7 @@ ValueOS/
 ```
 
 ### PainPoint
+
 ```typescript
 {
   category: 'efficiency' | 'cost' | 'revenue' | 'risk';
@@ -285,6 +359,7 @@ ValueOS/
 ## Coding Conventions
 
 ### TypeScript
+
 - **Strict mode enabled**
 - **No `any` types** (use `unknown` if needed)
 - **Interfaces over types** for object shapes
@@ -292,6 +367,7 @@ ValueOS/
 - **Path aliases:** `@/` maps to `src/`
 
 ### React
+
 - **Functional components** with hooks
 - **Props interfaces** always defined
 - **Memoization** for expensive computations
@@ -299,12 +375,14 @@ ValueOS/
 - **Lazy loading** for routes
 
 ### Services
+
 - **Pure functions** for calculations
 - **Service layer** for business logic (not in components)
 - **Error handling** with try-catch and logging
 - **Result pattern** for external calls
 
 ### Naming
+
 - **Components:** PascalCase (e.g., `DealImportModal`)
 - **Files:** PascalCase for components, camelCase for utilities
 - **Functions:** camelCase (e.g., `handleDealImported`)
@@ -312,6 +390,7 @@ ValueOS/
 - **Types/Interfaces:** PascalCase (e.g., `ValueCase`)
 
 ### File Organization
+
 - **One component per file**
 - **Co-locate tests** (ComponentName.test.tsx)
 - **Index files** for clean exports
@@ -322,6 +401,7 @@ ValueOS/
 ## Environment Variables
 
 ### Required
+
 ```bash
 VITE_SUPABASE_URL          # Supabase project URL
 VITE_SUPABASE_ANON_KEY     # Supabase anonymous key
@@ -329,6 +409,7 @@ TOGETHER_API_KEY           # Together AI API key (server-side only)
 ```
 
 ### Optional
+
 ```bash
 VITE_LLM_GATING_ENABLED    # Cost-control gating (default: true)
 VITE_AGENT_FABRIC_ENABLED  # Enable agent fabric (default: true)
@@ -341,45 +422,49 @@ VITE_SENTRY_ENABLED        # Enable Sentry monitoring (default: false)
 ## Common Patterns
 
 ### Agent Invocation
+
 ```typescript
-import { getUnifiedAgentAPI } from '@/services/UnifiedAgentAPI';
+import { getUnifiedAgentAPI } from "@/services/UnifiedAgentAPI";
 
 const api = getUnifiedAgentAPI();
 const response = await api.invoke({
-  agent: 'opportunity',
-  query: 'Analyze Acme Corp',
-  context: { valueCaseId, company, description }
+  agent: "opportunity",
+  query: "Analyze Acme Corp",
+  context: { valueCaseId, company, description },
 });
 ```
 
 ### Database Queries (Supabase)
+
 ```typescript
-import { supabase } from '@/lib/supabase';
+import { supabase } from "@/lib/supabase";
 
 const { data, error } = await supabase
-  .from('value_cases')
-  .select('*')
-  .eq('organization_id', orgId);
+  .from("value_cases")
+  .select("*")
+  .eq("organization_id", orgId);
 ```
 
 ### Error Handling
+
 ```typescript
 try {
   const result = await service.execute();
-  logger.info('Success', { result });
+  logger.info("Success", { result });
   return result;
 } catch (error) {
-  logger.error('Failed', error as Error);
-  throw new ServiceError('User-friendly message', error);
+  logger.error("Failed", error as Error);
+  throw new ServiceError("User-friendly message", error);
 }
 ```
 
 ### Confidence Scores
+
 ```typescript
 // Always show confidence with data
 interface AnalysisResult {
   value: number;
-  confidence: number;  // 0-1
+  confidence: number; // 0-1
   dataSources: string[];
   reasoning: string;
 }
@@ -390,23 +475,27 @@ interface AnalysisResult {
 ## Testing Strategy
 
 ### Unit Tests (Vitest)
+
 - Component rendering
 - Service logic
 - Utility functions
 - Target: 80%+ coverage
 
 ### Integration Tests
+
 - API endpoints
 - Database operations
 - Agent workflows
 
 ### E2E Tests (Playwright)
+
 - User flows
 - Authentication
 - Deal lifecycle
 - Export functionality
 
 ### Performance Tests
+
 - Load testing
 - Agent execution times
 - API response times
@@ -416,17 +505,20 @@ interface AnalysisResult {
 ## Security
 
 ### Multi-Tenancy
+
 - **Row Level Security (RLS)** enforced at database
 - **Tenant ID** in all queries
 - **No cross-tenant access** possible
 
 ### Authentication
+
 - **Supabase Auth** (GoTrue)
 - **JWT tokens** for API access
 - **MFA support** available
 - **OAuth providers** supported
 
 ### Secrets
+
 - **Never expose** service role keys to frontend
 - **Environment variables** for sensitive data
 - **Kubernetes Secrets** in production
@@ -437,18 +529,21 @@ interface AnalysisResult {
 ## Performance
 
 ### Frontend
+
 - **Code splitting** with lazy loading
 - **Memoization** for expensive computations
 - **Virtual scrolling** for large lists
 - **Optimistic updates** for better UX
 
 ### Backend
+
 - **Connection pooling** (Supabase)
 - **Query optimization** with indexes
 - **Caching** with Redis (optional)
 - **Rate limiting** on API endpoints
 
 ### Agents
+
 - **Circuit breakers** prevent cascading failures
 - **Timeout limits** (30s default)
 - **Cost limits** ($5 per execution)
@@ -459,6 +554,7 @@ interface AnalysisResult {
 ## Deployment
 
 ### Development
+
 ```bash
 npm run dev          # Start Vite dev server (port 5173)
 npm run backend      # Start Express backend (port 3000)
@@ -466,12 +562,14 @@ supabase start       # Start Supabase stack
 ```
 
 ### Production
+
 ```bash
 npm run build        # Build for production
 npm run preview      # Test production build
 ```
 
 ### Observability
+
 ```bash
 cd infra
 docker-compose -f docker-compose.observability.yml up -d
@@ -481,9 +579,22 @@ docker-compose -f docker-compose.observability.yml up -d
 
 ---
 
-## Recent Changes (2026-01-06)
+## Recent Changes (2026-01-07)
 
-### Sales Enablement Frontend ✅
+### Guest Access System ✅
+
+- **7 new files** (~2,700 lines) for secure guest collaboration
+- **Magic link authentication** with cryptographically secure tokens
+- **Three-tier permission system** (view-only, comment, edit)
+- **Guest session management** with automatic expiration and warnings
+- **Activity audit logging** for all guest actions
+- **Database RLS policies** for multi-tenant security
+- **Complete test suite** with 15+ test cases
+
+### Previous Changes (2026-01-06)
+
+#### Sales Enablement Frontend ✅
+
 - **8 new components** for deal-centric workflow
 - **DealsView** as main interface (replaces generic chat)
 - **Lifecycle stage navigation** (4 stages)
@@ -492,16 +603,19 @@ docker-compose -f docker-compose.observability.yml up -d
 - **Benchmark comparison** with industry data
 - **Export functionality** (PDF/PowerPoint ready)
 
-### Security Fixes ✅
+#### Security Fixes ✅
+
 - **jspdf upgraded** from 3.0.4 → 4.0.0 (CRITICAL vulnerability fixed)
 - **0 vulnerabilities** in npm audit
 
-### Dependencies Added ✅
+#### Dependencies Added ✅
+
 - **@radix-ui/react-progress** - Progress bars
 - **@radix-ui/react-tabs** - Tab navigation
 - **@radix-ui/react-tooltip** - Tooltips
 
-### Observability ✅
+#### Observability ✅
+
 - **Jaeger UI** running on port 16686
 - **Complete stack** configured (Grafana, Prometheus, Tempo, Loki)
 - **OpenTelemetry** instrumentation in code
@@ -511,6 +625,7 @@ docker-compose -f docker-compose.observability.yml up -d
 ## Known Issues
 
 ### Minor (Non-Blocking)
+
 1. **Mock CRM data** in DealImportModal (replace when OAuth UI ready)
 2. **Export not fully wired** (connect to existing exportToPDF utility)
 3. **Large bundle chunks** (optimization opportunity)
@@ -521,18 +636,21 @@ docker-compose -f docker-compose.observability.yml up -d
 ## Getting Help
 
 ### Documentation
+
 - `SALES_ENABLEMENT_IMPLEMENTATION.md` - Implementation guide
 - `COMPREHENSIVE_TEST_REPORT.md` - Test results
 - `OBSERVABILITY_REVIEW.md` - Observability stack review
 - `ARCHITECTURE_CLARIFICATION.md` - Architecture overview
 
 ### Key Files
+
 - `src/lib/agent-fabric/` - Agent system
 - `src/services/` - Business logic
 - `src/components/Deals/` - Sales enablement UI
 - `supabase/migrations/` - Database schema
 
 ### Commands
+
 ```bash
 npm run typecheck    # Check TypeScript
 npm test            # Run tests
@@ -545,12 +663,14 @@ npm run build       # Build for production
 ## Contributing
 
 ### Before Making Changes
+
 1. Read this context document
 2. Review relevant documentation
 3. Check existing patterns in similar components
 4. Run tests before committing
 
 ### Code Review Checklist
+
 - [ ] TypeScript compiles with no errors
 - [ ] Tests pass
 - [ ] Follows coding conventions
@@ -563,10 +683,12 @@ npm run build       # Build for production
 ## Context Modules
 
 This `.context/` directory contains:
+
 - **`index.md`** - This overview (you are here)
 - **`agents.md`** - Agent system architecture, types, and usage patterns
 - **`database.md`** - Database schema, RLS policies, and query patterns
 - **`frontend.md`** - Frontend components, routing, and state management
+- **`client-capabilities.md`** - Client application capabilities and features
 - **`.contextignore`** - Files to exclude from context generation
 
 ---
