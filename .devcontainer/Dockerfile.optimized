@@ -25,6 +25,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     ca-certificates \
     gnupg \
     lsb-release \
+    socat \
     # Database clients
     postgresql-client \
     redis-tools \

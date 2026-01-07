@@ -9,8 +9,11 @@
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
 
+  "runArgs": ["--add-host=host.docker.internal:host-gateway"],
+  "postStartCommand": "nohup socat TCP-LISTEN:54322,fork,bind=127.0.0.1 TCP:host.docker.internal:54322 > /dev/null 2>&1 &",
+
   "forwardPorts": [3000, 5173, 8000, 5432, 16686, 54321, 54323],
-  
+
   "portsAttributes": {
     "3000": {
       "label": "Backend API",

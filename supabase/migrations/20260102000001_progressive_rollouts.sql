@@ -77,8 +77,9 @@ TO authenticated
 USING (
   EXISTS (
     SELECT 1 FROM user_roles
-    WHERE user_roles.user_id = auth.uid()
-    AND user_roles.role IN ('admin', 'developer')
+    JOIN roles ON user_roles.role_id = roles.id
+    WHERE user_roles.user_id = auth.uid()::text
+    AND roles.name IN ('admin', 'developer')
   )
 );
 
@@ -102,8 +103,9 @@ TO authenticated
 USING (
   EXISTS (
     SELECT 1 FROM user_roles
-    WHERE user_roles.user_id = auth.uid()
-    AND user_roles.role IN ('admin', 'developer')
+    JOIN roles ON user_roles.role_id = roles.id
+    WHERE user_roles.user_id = auth.uid()::text
+    AND roles.name IN ('admin', 'developer')
   )
 );
 
@@ -121,8 +123,9 @@ TO authenticated
 USING (
   EXISTS (
     SELECT 1 FROM user_roles
-    WHERE user_roles.user_id = auth.uid()
-    AND user_roles.role IN ('admin', 'developer')
+    JOIN roles ON user_roles.role_id = roles.id
+    WHERE user_roles.user_id = auth.uid()::text
+    AND roles.name IN ('admin', 'developer')
   )
 );
 

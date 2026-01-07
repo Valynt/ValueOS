@@ -7,12 +7,12 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
                  WHERE table_name='cases' AND column_name='tenant_id') THEN
-    ALTER TABLE cases ADD COLUMN tenant_id UUID REFERENCES tenants(id);
+    ALTER TABLE cases ADD COLUMN tenant_id TEXT REFERENCES tenants(id);
     
     -- Backfill tenant_id from user_tenants
     UPDATE cases SET tenant_id = (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_tenants.user_id = cases.user_id
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_tenants.user_id::text = cases.user_id::text
       LIMIT 1
     ) WHERE tenant_id IS NULL;
   END IF;
@@ -25,12 +25,12 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
                  WHERE table_name='messages' AND column_name='tenant_id') THEN
-    ALTER TABLE messages ADD COLUMN tenant_id UUID REFERENCES tenants(id);
+    ALTER TABLE messages ADD COLUMN tenant_id TEXT REFERENCES tenants(id);
     
     -- Backfill tenant_id from user_tenants
     UPDATE messages SET tenant_id = (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_tenants.user_id = messages.user_id
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_tenants.user_id::text = messages.user_id::text
       LIMIT 1
     ) WHERE tenant_id IS NULL;
   END IF;
@@ -47,15 +47,15 @@ CREATE POLICY tenant_isolation_cases ON cases
   FOR ALL
   USING (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_tenants.user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_tenants.user_id::text = auth.uid()::text
       AND user_tenants.status = 'active'
     )
   )
   WITH CHECK (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_tenants.user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_tenants.user_id::text = auth.uid()::text
       AND user_tenants.status = 'active'
     )
   );
@@ -77,15 +77,15 @@ CREATE POLICY tenant_isolation_messages ON messages
   FOR ALL
   USING (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_tenants.user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_tenants.user_id::text = auth.uid()::text
       AND user_tenants.status = 'active'
     )
   )
   WITH CHECK (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_tenants.user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_tenants.user_id::text = auth.uid()::text
       AND user_tenants.status = 'active'
     )
   );
@@ -99,6 +99,16 @@ CREATE POLICY service_role_messages ON messages
   WITH CHECK (true);
 
 -- Enable RLS on agent_sessions table
+DO $$ 
+DECLARE r RECORD;
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agent_sessions' AND column_name='tenant_id') THEN
+    FOR r IN (SELECT policyname FROM pg_policies WHERE tablename = 'agent_sessions') LOOP
+      EXECUTE 'DROP POLICY IF EXISTS "' || r.policyname || '" ON agent_sessions';
+    END LOOP;
+    ALTER TABLE agent_sessions ALTER COLUMN tenant_id TYPE TEXT USING tenant_id::text;
+  END IF;
+END $$;
 ALTER TABLE agent_sessions ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Users can only access their tenant's agent sessions
@@ -107,15 +117,15 @@ CREATE POLICY tenant_isolation_agent_sessions ON agent_sessions
   FOR ALL
   USING (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_tenants.user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_tenants.user_id::text = auth.uid()::text
       AND user_tenants.status = 'active'
     )
   )
   WITH CHECK (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_tenants.user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_tenants.user_id::text = auth.uid()::text
       AND user_tenants.status = 'active'
     )
   );
@@ -129,6 +139,16 @@ CREATE POLICY service_role_agent_sessions ON agent_sessions
   WITH CHECK (true);
 
 -- Enable RLS on agent_predictions table
+DO $$ 
+DECLARE r RECORD;
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agent_predictions' AND column_name='tenant_id') THEN
+    FOR r IN (SELECT policyname FROM pg_policies WHERE tablename = 'agent_predictions') LOOP
+      EXECUTE 'DROP POLICY IF EXISTS "' || r.policyname || '" ON agent_predictions';
+    END LOOP;
+    ALTER TABLE agent_predictions ALTER COLUMN tenant_id TYPE TEXT USING tenant_id::text;
+  END IF;
+END $$;
 ALTER TABLE agent_predictions ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Users can only access their tenant's agent predictions
@@ -137,15 +157,15 @@ CREATE POLICY tenant_isolation_agent_predictions ON agent_predictions
   FOR ALL
   USING (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_tenants.user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_tenants.user_id::text = auth.uid()::text
       AND user_tenants.status = 'active'
     )
   )
   WITH CHECK (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_tenants.user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_tenants.user_id::text = auth.uid()::text
       AND user_tenants.status = 'active'
     )
   );
@@ -161,7 +181,7 @@ CREATE POLICY service_role_agent_predictions ON agent_predictions
 -- Function to validate tenant membership
 CREATE OR REPLACE FUNCTION validate_tenant_membership(
   p_user_id UUID,
-  p_tenant_id UUID
+  p_tenant_id TEXT
 ) RETURNS BOOLEAN AS $$
 BEGIN
   RETURN EXISTS (
@@ -177,7 +197,7 @@ COMMENT ON FUNCTION validate_tenant_membership IS 'Validates if a user is an act
 
 -- Function to get user's tenant IDs
 CREATE OR REPLACE FUNCTION get_user_tenant_ids(p_user_id UUID)
-RETURNS UUID[] AS $$
+RETURNS TEXT[] AS $$
 BEGIN
   RETURN ARRAY(
     SELECT tenant_id FROM user_tenants
@@ -263,8 +283,8 @@ COMMENT ON VIEW tenant_isolation_audit IS 'Audits tenant isolation compliance ac
 -- Function to log cross-tenant access attempts
 CREATE OR REPLACE FUNCTION log_cross_tenant_access_attempt(
   p_user_id UUID,
-  p_attempted_tenant_id UUID,
-  p_actual_tenant_id UUID,
+  p_attempted_tenant_id TEXT,
+  p_actual_tenant_id TEXT,
   p_action TEXT,
   p_resource TEXT
 ) RETURNS UUID AS $$

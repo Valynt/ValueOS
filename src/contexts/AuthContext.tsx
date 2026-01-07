@@ -13,91 +13,20 @@ import React, {
 import { Session, User } from "@supabase/supabase-js";
 import {
   AuthService,
+  authService,
   AuthSession,
   LoginCredentials,
   SignupData,
 } from "../services/AuthService";
 import { createLogger } from "../lib/logger";
-import { UserClaims, computePermissions } from "../types/security";
+import { computePermissions, UserClaims } from "../types/security";
 import { analyticsClient } from "../lib/analyticsClient";
 import { secureTokenManager } from "../lib/auth/SecureTokenManager";
 import { env } from "../lib/env";
 
 const logger = createLogger({ component: "AuthContext" });
 
-// Secure session management
-class SecureSessionManager {
-  private static readonly SESSION_KEY = "vc_session_v2";
-  private static readonly MAX_SESSION_AGE = 8 * 60 * 60 * 1000; // 8 hours
-  private static readonly ROTATION_INTERVAL = 15 * 60 * 1000; // 15 minutes
-
-  static storeSession(session: Session): void {
-    try {
-      const sessionData = {
-        ...session,
-        storedAt: Date.now(),
-        rotatedAt: Date.now(),
-      };
-
-      // Use sessionStorage instead of localStorage for better security
-      sessionStorage.setItem(this.SESSION_KEY, JSON.stringify(sessionData));
-
-      logger.debug("Session stored securely");
-    } catch (error) {
-      logger.error("Failed to store session", error as Error);
-    }
-  }
-
-  static getSession(): Session | null {
-    try {
-      const stored = sessionStorage.getItem(this.SESSION_KEY);
-      if (!stored) return null;
-
-      const sessionData = JSON.parse(stored);
-      const now = Date.now();
-
-      // Check session age
-      if (now - sessionData.storedAt > this.MAX_SESSION_AGE) {
-        this.clearSession();
-        logger.warn("Session expired due to age");
-        return null;
-      }
-
-      // Check if rotation is needed
-      if (now - sessionData.rotatedAt > this.ROTATION_INTERVAL) {
-        // Rotate session by refreshing it
-        this.rotateSession(sessionData);
-      }
-
-      return sessionData;
-    } catch (error) {
-      logger.error("Failed to retrieve session", error as Error);
-      this.clearSession();
-      return null;
-    }
-  }
-
-  static clearSession(): void {
-    try {
-      sessionStorage.removeItem(this.SESSION_KEY);
-      // Also clear any potential localStorage remnants
-      localStorage.removeItem("supabase.auth.token");
-      logger.debug("Session cleared securely");
-    } catch (error) {
-      logger.error("Failed to clear session", error as Error);
-    }
-  }
-
-  private static rotateSession(sessionData: any): void {
-    try {
-      sessionData.rotatedAt = Date.now();
-      sessionStorage.setItem(this.SESSION_KEY, JSON.stringify(sessionData));
-      logger.debug("Session rotated for security");
-    } catch (error) {
-      logger.error("Failed to rotate session", error as Error);
-    }
-  }
-}
+// SecureSessionManager removed in favor of unified SecureTokenManager
 
 interface AuthContextType {
   user: User | null;
@@ -123,15 +52,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const authService = new AuthService();
-
   // Initialize auth state
   useEffect(() => {
     const initAuth = async () => {
       try {
         // OPTIMIZATION: Optimistically restore session from synchronous storage
         // This prevents blocking the UI render for unauthenticated users
-        const storedSession = SecureSessionManager.getSession();
+        const storedSession = secureTokenManager.getStoredSession();
 
         if (storedSession) {
           setSession(storedSession);
@@ -200,14 +127,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               (session.issued_at ? session.issued_at * 1000 : Date.now()),
           });
           logger.info("Session validated via secure token manager");
-        } else if (SecureSessionManager.getSession()) {
+        } else if (secureTokenManager.getStoredSession()) {
           // If we had an optimistic session but the background check failed (e.g. token expired remotely and refresh failed)
           // We should clear the state and redirect to login
           logger.warn("Optimistic session invalid, clearing state");
           setUser(null);
           setUserClaims(null);
           setSession(null);
-          SecureSessionManager.clearSession();
+          secureTokenManager.clearSessionStorage();
         }
       } catch (error) {
         logger.error("Background auth initialization failed", error as Error);
@@ -246,10 +173,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(null);
           setUserClaims(null);
           setSession(null);
-          SecureSessionManager.clearSession();
+          secureTokenManager.clearSessionStorage();
         } else if (newSession) {
           // Store session securely on sign in
-          SecureSessionManager.storeSession(newSession);
+          secureTokenManager.storeSession(newSession);
         }
       }
     );
@@ -257,7 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [authService]);
+  }, []);
 
   const login = async (credentials: LoginCredentials) => {
     try {

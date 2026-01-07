@@ -4,8 +4,40 @@
 -- Ref: PRE_RELEASE_AUDIT_2026-01-05.md Issue #2
 
 -- ============================================================================
+-- ============================================================================
 -- 1. llm_calls - LLM usage data
 -- ============================================================================
+
+DO $$
+DECLARE
+  t text;
+  r record;
+  alter_tables text[] := ARRAY[
+    'llm_calls', 'webhook_events', 'integration_usage_log', 
+    'memory_provenance', 'value_prediction_accuracy', 
+    'approval_requests_archive', 'approvals_archive',
+    'secret_audit_logs'
+  ];
+  policy_tables text[] := alter_tables || ARRAY[
+    'secret_audit_logs_2024', 'secret_audit_logs_2025', 'secret_audit_logs_2026', 'secret_audit_logs_default'
+  ];
+BEGIN
+  -- Drop policies on all relevant tables (including partitions)
+  FOREACH t IN ARRAY policy_tables LOOP
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name=t) THEN
+      FOR r IN (SELECT policyname FROM pg_policies WHERE tablename = t) LOOP
+        EXECUTE 'DROP POLICY IF EXISTS "' || r.policyname || '" ON ' || t;
+      END LOOP;
+    END IF;
+  END LOOP;
+
+  -- Alter columns on parent/standalone tables
+  FOREACH t IN ARRAY alter_tables LOOP
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name=t AND column_name='tenant_id') THEN
+      EXECUTE 'ALTER TABLE ' || t || ' ALTER COLUMN tenant_id TYPE TEXT USING tenant_id::text';
+    END IF;
+  END LOOP;
+END $$;
 
 ALTER TABLE llm_calls ENABLE ROW LEVEL SECURITY;
 
@@ -13,15 +45,15 @@ CREATE POLICY llm_calls_tenant_isolation ON llm_calls
   FOR ALL
   USING (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_id::text = auth.uid()::text
       AND status = 'active'
     )
   )
   WITH CHECK (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_id::text = auth.uid()::text
       AND status = 'active'
     )
   );
@@ -42,15 +74,15 @@ CREATE POLICY webhook_events_tenant_isolation ON webhook_events
   FOR ALL
   USING (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_id::text = auth.uid()::text
       AND status = 'active'
     )
   )
   WITH CHECK (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_id::text = auth.uid()::text
       AND status = 'active'
     )
   );
@@ -70,7 +102,7 @@ ALTER TABLE login_attempts ENABLE ROW LEVEL SECURITY;
 -- Users can only view their own login attempts
 CREATE POLICY login_attempts_own_data ON login_attempts
   FOR SELECT
-  USING (user_id = auth.uid());
+  USING (user_id::text = auth.uid()::text);
 
 -- Service role can manage all login attempts
 CREATE POLICY login_attempts_service_role ON login_attempts
@@ -94,15 +126,15 @@ CREATE POLICY integration_usage_log_tenant_isolation ON integration_usage_log
   FOR ALL
   USING (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_id::text = auth.uid()::text
       AND status = 'active'
     )
   )
   WITH CHECK (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_id::text = auth.uid()::text
       AND status = 'active'
     )
   );
@@ -123,15 +155,15 @@ CREATE POLICY memory_provenance_tenant_isolation ON memory_provenance
   FOR ALL
   USING (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_id::text = auth.uid()::text
       AND status = 'active'
     )
   )
   WITH CHECK (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_id::text = auth.uid()::text
       AND status = 'active'
     )
   );
@@ -152,15 +184,15 @@ CREATE POLICY value_prediction_accuracy_tenant_isolation ON value_prediction_acc
   FOR ALL
   USING (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_id::text = auth.uid()::text
       AND status = 'active'
     )
   )
   WITH CHECK (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_id::text = auth.uid()::text
       AND status = 'active'
     )
   );
@@ -181,15 +213,15 @@ CREATE POLICY approval_requests_archive_tenant_isolation ON approval_requests_ar
   FOR ALL
   USING (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_id::text = auth.uid()::text
       AND status = 'active'
     )
   )
   WITH CHECK (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_id::text = auth.uid()::text
       AND status = 'active'
     )
   );
@@ -210,15 +242,15 @@ CREATE POLICY approvals_archive_tenant_isolation ON approvals_archive
   FOR ALL
   USING (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_id::text = auth.uid()::text
       AND status = 'active'
     )
   )
   WITH CHECK (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_id::text = auth.uid()::text
       AND status = 'active'
     )
   );
@@ -241,8 +273,8 @@ CREATE POLICY retention_policies_admin_select ON retention_policies
   USING (
     EXISTS (
       SELECT 1 FROM user_tenants
-      WHERE user_id = auth.uid()
-      AND tenant_id = retention_policies.tenant_id
+      WHERE user_id::text = auth.uid()::text
+      AND tenant_id::text = retention_policies.tenant_id
       AND role IN ('admin', 'owner')
       AND status = 'active'
     )
@@ -254,8 +286,8 @@ CREATE POLICY retention_policies_admin_modify ON retention_policies
   USING (
     EXISTS (
       SELECT 1 FROM user_tenants
-      WHERE user_id = auth.uid()
-      AND tenant_id = retention_policies.tenant_id
+      WHERE user_id::text = auth.uid()::text
+      AND tenant_id::text = retention_policies.tenant_id
       AND role IN ('admin', 'owner')
       AND status = 'active'
     )
@@ -263,8 +295,8 @@ CREATE POLICY retention_policies_admin_modify ON retention_policies
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM user_tenants
-      WHERE user_id = auth.uid()
-      AND tenant_id = retention_policies.tenant_id
+      WHERE user_id::text = auth.uid()::text
+      AND tenant_id::text = retention_policies.tenant_id
       AND role IN ('admin', 'owner')
       AND status = 'active'
     )
@@ -287,8 +319,8 @@ CREATE POLICY secret_audit_logs_2024_select ON secret_audit_logs_2024
   FOR SELECT
   USING (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_id::text = auth.uid()::text
       AND status = 'active'
     )
   );
@@ -297,8 +329,8 @@ CREATE POLICY secret_audit_logs_2025_select ON secret_audit_logs_2025
   FOR SELECT
   USING (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_id::text = auth.uid()::text
       AND status = 'active'
     )
   );
@@ -307,8 +339,8 @@ CREATE POLICY secret_audit_logs_2026_select ON secret_audit_logs_2026
   FOR SELECT
   USING (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_id::text = auth.uid()::text
       AND status = 'active'
     )
   );
@@ -317,8 +349,8 @@ CREATE POLICY secret_audit_logs_default_select ON secret_audit_logs_default
   FOR SELECT
   USING (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_id::text = auth.uid()::text
       AND status = 'active'
     )
   );

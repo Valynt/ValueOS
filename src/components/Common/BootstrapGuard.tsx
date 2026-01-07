@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { useBootstrap } from "../../hooks/useBootstrap";
+import { logger } from "../../lib/logger";
 
 interface BootstrapGuardProps {
   children: React.ReactNode;
@@ -7,55 +8,52 @@ interface BootstrapGuardProps {
 
 /**
  * Guard component that handles application bootstrap sequence
- * Shows loading state or error screen and only renders children on success.
+ * Runs bootstrap in the background without blocking the UI.
+ * Only shows error screen for critical configuration failures.
  */
 export const BootstrapGuard: React.FC<BootstrapGuardProps> = ({ children }) => {
-  const { status, progress, step, errors, startBootstrap } = useBootstrap();
+  const { status, errors, startBootstrap } = useBootstrap();
   const hasStarted = useRef(false);
 
   useEffect(() => {
     if (!hasStarted.current) {
       hasStarted.current = true;
-      startBootstrap().catch(() => {
-        // Errors are handled by the hook's state
-      });
+      // Run bootstrap in the background without blocking UI
+      startBootstrap()
+        .then((result) => {
+          if (result) {
+            logger.info("Bootstrap completed", {
+              success: result.success,
+              duration: result.duration,
+              warnings: result.warnings.length,
+            });
+          }
+        })
+        .catch((err) => {
+          logger.error("Bootstrap failed", err);
+        });
     }
   }, [startBootstrap]);
 
-  if (status === "idle" || status === "loading") {
-    return (
-      <div className="vc-loading-root">
-        <div className="vc-loading-inner">
-          <div className="vc-loading-title">VALYNT</div>
-          <div className="vc-loading-subtitle">
-            {progress || "Initializing the value operating system..."}
-          </div>
-          <div className="vc-loading-bar" aria-hidden="true">
-            <div
-              className="vc-loading-fill"
-              style={{
-                width: `${(step / 8) * 100}%`,
-                transition: "width 0.3s ease",
-              }}
-            ></div>
-          </div>
-          <div className="vc-loading-step">Step {step} of 8</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (status === "error") {
+  // Only block the UI for critical configuration errors
+  // that would prevent the app from functioning at all
+  if (
+    status === "error" &&
+    errors.some(
+      (e) =>
+        e.includes("configuration") ||
+        e.includes("VITE_SUPABASE_URL") ||
+        e.includes("VITE_SUPABASE_ANON_KEY")
+    )
+  ) {
     return (
       <div className="vc-error-root">
         <div className="vc-error-card">
           <div className="vc-error-icon">⚠️</div>
-          <div className="vc-error-title">
-            Application Initialization Failed
-          </div>
+          <div className="vc-error-title">Critical Configuration Error</div>
           <div className="vc-error-message">
-            The application could not be initialized. Please contact support if
-            this problem persists.
+            The application is missing required configuration. Please check your
+            environment variables.
           </div>
           <div className="vc-error-details">
             <div className="vc-error-summary">Error Details</div>
@@ -90,12 +88,14 @@ export const BootstrapGuard: React.FC<BootstrapGuardProps> = ({ children }) => {
     );
   }
 
-  // Success state
+  // Render children immediately - bootstrap runs in background
+  // Agent health checks and other non-critical checks won't block the UI
   return (
     <>
       <div
-        id="bootstrap-complete"
-        data-testid="bootstrap-complete"
+        id="bootstrap-status"
+        data-testid="bootstrap-status"
+        data-status={status}
         style={{ display: "none" }}
       />
       {children}

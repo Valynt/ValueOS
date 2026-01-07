@@ -3,9 +3,10 @@
 -- Compliance: SOC2 CC6.7
 
 -- Usage Events Table
+DROP TABLE IF EXISTS usage_events CASCADE;
 CREATE TABLE IF NOT EXISTS usage_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  tenant_id TEXT NOT NULL REFERENCES tenants(id),
   metric TEXT NOT NULL CHECK (metric IN (
     'llm_tokens',
     'agent_executions',
@@ -32,9 +33,10 @@ COMMENT ON TABLE usage_events IS 'Individual usage events for billing';
 COMMENT ON COLUMN usage_events.request_id IS 'Idempotency key to prevent duplicate events';
 
 -- Usage Quotas Table
+DROP TABLE IF EXISTS usage_quotas CASCADE;
 CREATE TABLE IF NOT EXISTS usage_quotas (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  tenant_id TEXT NOT NULL REFERENCES tenants(id),
   subscription_id UUID,
   metric TEXT NOT NULL CHECK (metric IN (
     'llm_tokens',
@@ -72,8 +74,8 @@ CREATE POLICY usage_events_tenant_read ON usage_events
   FOR SELECT
   USING (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_id::text = auth.uid()::text
       AND status = 'active'
     )
   );
@@ -88,8 +90,8 @@ CREATE POLICY usage_quotas_tenant_read ON usage_quotas
   FOR SELECT
   USING (
     tenant_id IN (
-      SELECT tenant_id FROM user_tenants
-      WHERE user_id = auth.uid()
+      SELECT tenant_id::text FROM user_tenants
+      WHERE user_id::text = auth.uid()::text
       AND status = 'active'
     )
   );
@@ -101,7 +103,7 @@ CREATE POLICY usage_quotas_service_role ON usage_quotas
 
 -- Function to check and enforce usage quota
 CREATE OR REPLACE FUNCTION check_usage_quota(
-  p_tenant_id UUID,
+  p_tenant_id TEXT,
   p_metric TEXT,
   p_amount BIGINT
 ) RETURNS BOOLEAN AS $$
@@ -142,7 +144,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Function to record usage event
 CREATE OR REPLACE FUNCTION record_usage_event(
-  p_tenant_id UUID,
+  p_tenant_id TEXT,
   p_metric TEXT,
   p_amount BIGINT,
   p_request_id TEXT,

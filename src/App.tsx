@@ -2,6 +2,8 @@ import React, { useEffect } from "react";
 import { ChatCanvasLayout } from "./components/ChatCanvas";
 import { sessionManager } from "./services/SessionManager";
 import { Toaster } from "@/components/ui/toaster";
+import { ProblemMonitor } from "./components/monitoring/ProblemMonitor";
+import { initialProblems } from "./data/initialProblems";
 
 /**
  * Main Application Component
@@ -15,6 +17,11 @@ function App() {
 
   return (
     <>
+      <ProblemMonitor
+        autoStart={true}
+        initialProblems={initialProblems}
+        showIndicator={true}
+      />
       <ChatCanvasLayout
         onSettingsClick={() => {
           // Settings navigation handled within ChatCanvasLayout

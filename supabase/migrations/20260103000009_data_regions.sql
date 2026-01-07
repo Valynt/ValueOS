@@ -124,9 +124,10 @@ $$ LANGUAGE plpgsql;
 COMMENT ON FUNCTION enforce_data_region_on_insert IS 'Ensures data is created in the correct region based on tenant';
 
 -- Table to track data region changes
+DROP TABLE IF EXISTS data_region_changes CASCADE;
 CREATE TABLE IF NOT EXISTS data_region_changes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  tenant_id TEXT NOT NULL REFERENCES tenants(id),
   old_region TEXT NOT NULL,
   new_region TEXT NOT NULL,
   reason TEXT NOT NULL,
@@ -185,7 +186,7 @@ GROUP BY data_region;
 COMMENT ON VIEW data_region_distribution IS 'Shows distribution of tenants across data regions';
 
 -- Function to get tenant's data region
-CREATE OR REPLACE FUNCTION get_tenant_data_region(p_tenant_id UUID)
+CREATE OR REPLACE FUNCTION get_tenant_data_region(p_tenant_id TEXT)
 RETURNS TEXT AS $$
 DECLARE
   v_region TEXT;
@@ -201,7 +202,7 @@ $$ LANGUAGE plpgsql;
 COMMENT ON FUNCTION get_tenant_data_region IS 'Returns the data region for a tenant';
 
 -- Function to check data sovereignty compliance
-CREATE OR REPLACE FUNCTION check_data_sovereignty_compliance(p_tenant_id UUID)
+CREATE OR REPLACE FUNCTION check_data_sovereignty_compliance(p_tenant_id TEXT)
 RETURNS TABLE (
   table_name TEXT,
   total_records BIGINT,

@@ -56,10 +56,11 @@ BEGIN
 END $$;
 
 -- Create cases table for testing
+DROP TABLE IF EXISTS cases CASCADE;
 CREATE TABLE IF NOT EXISTS cases (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL,
-  tenant_id UUID,
+  tenant_id TEXT,
   name TEXT NOT NULL,
   client TEXT NOT NULL,
   status TEXT DEFAULT 'draft',
@@ -69,10 +70,11 @@ CREATE TABLE IF NOT EXISTS cases (
 );
 
 -- Create messages table for testing
+DROP TABLE IF EXISTS messages CASCADE;
 CREATE TABLE IF NOT EXISTS messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL,
-  tenant_id UUID,
+  tenant_id TEXT,
   content TEXT NOT NULL,
   role TEXT NOT NULL,
   metadata JSONB DEFAULT '{}'::jsonb,
@@ -84,7 +86,7 @@ CREATE TABLE IF NOT EXISTS security_audit_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   user_id TEXT NOT NULL,
-  tenant_id UUID,
+  tenant_id TEXT,
   action TEXT NOT NULL CHECK (action IN ('ACCESS_DENIED', 'ACCESS_GRANTED')),
   resource TEXT NOT NULL,
   required_permissions TEXT[] NOT NULL DEFAULT '{}',
@@ -94,6 +96,16 @@ CREATE TABLE IF NOT EXISTS security_audit_events (
   metadata JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                 WHERE table_name='security_audit_events' AND column_name='tenant_id') THEN
+    ALTER TABLE security_audit_events ADD COLUMN tenant_id TEXT;
+  ELSE
+    ALTER TABLE security_audit_events ALTER COLUMN tenant_id TYPE TEXT USING tenant_id::text;
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_security_audit_timestamp ON security_audit_events(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_security_audit_user_id ON security_audit_events(user_id);

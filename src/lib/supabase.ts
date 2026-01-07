@@ -17,7 +17,7 @@ if (supabaseUrl && supabaseAnonKey) {
     },
     auth: {
       autoRefreshToken: true,
-      persistSession: false, // Disable localStorage persistence for security
+      persistSession: false, // We handle persistence manually via SecureTokenManager for rotation support
       detectSessionInUrl: true,
     },
   };

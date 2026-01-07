@@ -5,7 +5,7 @@
 CREATE TABLE IF NOT EXISTS legal_holds (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id),
-  tenant_id UUID REFERENCES tenants(id),
+  tenant_id TEXT REFERENCES tenants(id),
   reason TEXT NOT NULL,
   case_number TEXT,
   created_by UUID NOT NULL REFERENCES auth.users(id),

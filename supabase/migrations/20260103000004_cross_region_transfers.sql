@@ -3,10 +3,11 @@
 -- Compliance: GDPR Article 44-50, SOC2 CC6.7
 -- Retention: 7 years
 
+DROP TABLE IF EXISTS cross_region_transfers CASCADE;
 CREATE TABLE IF NOT EXISTS cross_region_transfers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id),
-  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  tenant_id TEXT NOT NULL REFERENCES tenants(id),
   from_region TEXT NOT NULL,
   to_region TEXT NOT NULL,
   data_type TEXT NOT NULL,
@@ -89,7 +90,7 @@ CREATE TRIGGER check_cross_region_transfer_retention
 -- Function to log cross-region transfer
 CREATE OR REPLACE FUNCTION log_cross_region_transfer(
   p_user_id UUID,
-  p_tenant_id UUID,
+  p_tenant_id TEXT,
   p_from_region TEXT,
   p_to_region TEXT,
   p_data_type TEXT,

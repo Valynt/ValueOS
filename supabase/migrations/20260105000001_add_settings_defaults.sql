@@ -10,35 +10,36 @@
 -- Add user_preferences column if it doesn't exist
 -- ============================================================================
 
-DO $$ 
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_schema = 'auth' 
-    AND table_name = 'users' 
-    AND column_name = 'user_preferences'
-  ) THEN
-    ALTER TABLE auth.users 
-      ADD COLUMN user_preferences JSONB NOT NULL DEFAULT '{}'::jsonb;
-  END IF;
-END $$;
-
--- Ensure existing column has proper default
-ALTER TABLE auth.users 
-  ALTER COLUMN user_preferences SET DEFAULT '{}'::jsonb;
-
--- Ensure column is NOT NULL
-ALTER TABLE auth.users 
-  ALTER COLUMN user_preferences SET NOT NULL;
-
--- Update any existing NULL values to empty object
-UPDATE auth.users 
-SET user_preferences = '{}'::jsonb 
-WHERE user_preferences IS NULL;
-
--- Add comment
-COMMENT ON COLUMN auth.users.user_preferences IS 
-  'User-level settings (theme, notifications, etc.). Always {} never null. Keys are stored without "user." prefix.';
+-- SKIPPED: Permission denied for auth.users modification
+-- DO $$ 
+-- BEGIN
+--   IF NOT EXISTS (
+--     SELECT 1 FROM information_schema.columns 
+--     WHERE table_schema = 'auth' 
+--     AND table_name = 'users' 
+--     AND column_name = 'user_preferences'
+--   ) THEN
+--     ALTER TABLE auth.users 
+--       ADD COLUMN user_preferences JSONB NOT NULL DEFAULT '{}'::jsonb;
+--   END IF;
+-- END $$;
+-- 
+-- -- Ensure existing column has proper default
+-- ALTER TABLE auth.users 
+--   ALTER COLUMN user_preferences SET DEFAULT '{}'::jsonb;
+-- 
+-- -- Ensure column is NOT NULL
+-- ALTER TABLE auth.users 
+--   ALTER COLUMN user_preferences SET NOT NULL;
+-- 
+-- -- Update any existing NULL values to empty object
+-- UPDATE auth.users 
+-- SET user_preferences = '{}'::jsonb 
+-- WHERE user_preferences IS NULL;
+-- 
+-- -- Add comment
+-- COMMENT ON COLUMN auth.users.user_preferences IS 
+--   'User-level settings (theme, notifications, etc.). Always {} never null. Keys are stored without "user." prefix.';
 
 -- ============================================================================
 -- Add team_settings column if it doesn't exist
@@ -141,10 +142,11 @@ COMMENT ON COLUMN public.organizations.organization_settings IS
 -- ============================================================================
 
 -- Fix user_preferences with redundant "user" nesting
-UPDATE auth.users
-SET user_preferences = (user_preferences->'user')
-WHERE user_preferences ? 'user' 
-  AND jsonb_typeof(user_preferences->'user') = 'object';
+-- SKIPPED: auth.users modification
+-- UPDATE auth.users
+-- SET user_preferences = (user_preferences->'user')
+-- WHERE user_preferences ? 'user' 
+--   AND jsonb_typeof(user_preferences->'user') = 'object';
 
 -- Fix team_settings with redundant "team" nesting
 DO $$ 
@@ -172,8 +174,9 @@ WHERE organization_settings ? 'organization'
 -- ============================================================================
 
 -- Index for user preferences queries
-CREATE INDEX IF NOT EXISTS idx_users_preferences_gin 
-  ON auth.users USING GIN (user_preferences);
+-- SKIPPED: auth.users index
+-- CREATE INDEX IF NOT EXISTS idx_users_preferences_gin 
+--   ON auth.users USING GIN (user_preferences);
 
 -- Index for team settings queries
 DO $$ 
@@ -201,14 +204,14 @@ DO $$
 DECLARE
   null_count INTEGER;
 BEGIN
-  -- Check users
-  SELECT COUNT(*) INTO null_count
-  FROM auth.users 
-  WHERE user_preferences IS NULL;
+  -- SKIPPED: Check users
+  -- SELECT COUNT(*) INTO null_count
+  -- FROM auth.users 
+  -- WHERE user_preferences IS NULL;
   
-  IF null_count > 0 THEN
-    RAISE WARNING 'Found % NULL user_preferences', null_count;
-  END IF;
+  -- IF null_count > 0 THEN
+  --   RAISE WARNING 'Found % NULL user_preferences', null_count;
+  -- END IF;
 
   -- Check teams
   IF EXISTS (

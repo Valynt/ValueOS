@@ -13,7 +13,7 @@ GRANT USAGE ON SCHEMA cron TO postgres;
 CREATE TABLE IF NOT EXISTS sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id),
-  tenant_id UUID REFERENCES tenants(id),
+  tenant_id TEXT REFERENCES tenants(id),
   token TEXT NOT NULL,
   expires_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -26,7 +26,7 @@ CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
 CREATE TABLE IF NOT EXISTS temp_files (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id),
-  tenant_id UUID REFERENCES tenants(id),
+  tenant_id TEXT REFERENCES tenants(id),
   file_path TEXT NOT NULL,
   file_size BIGINT NOT NULL,
   mime_type TEXT,

@@ -77,10 +77,11 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create user_consents table if it doesn't exist
+DROP TABLE IF EXISTS user_consents CASCADE;
 CREATE TABLE IF NOT EXISTS user_consents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id),
-  tenant_id UUID REFERENCES tenants(id),
+  tenant_id TEXT REFERENCES tenants(id),
   consent_type TEXT NOT NULL,
   purpose TEXT NOT NULL,
   granted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -114,9 +115,10 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create security_incidents table if it doesn't exist
+DROP TABLE IF EXISTS security_incidents CASCADE;
 CREATE TABLE IF NOT EXISTS security_incidents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID REFERENCES tenants(id),
+  tenant_id TEXT REFERENCES tenants(id),
   incident_type TEXT NOT NULL,
   severity TEXT NOT NULL CHECK (severity IN ('low', 'medium', 'high', 'critical')),
   description TEXT NOT NULL,

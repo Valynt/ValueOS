@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS user_deletions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL,
   user_email TEXT NOT NULL,
-  tenant_id UUID REFERENCES tenants(id),
+  tenant_id TEXT REFERENCES tenants(id),
   requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   requested_by UUID REFERENCES auth.users(id),
   completed_at TIMESTAMPTZ,

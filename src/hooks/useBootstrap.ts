@@ -11,7 +11,9 @@ export interface UseBootstrapReturn {
   errors: string[];
   warnings: string[];
   result: BootstrapResult | null;
-  startBootstrap: (options?: BootstrapOptions) => Promise<void>;
+  startBootstrap: (
+    options?: BootstrapOptions
+  ) => Promise<BootstrapResult | null>;
   reset: () => void;
 }
 
@@ -27,8 +29,8 @@ export function useBootstrap(): UseBootstrapReturn {
   const [result, setResult] = useState<BootstrapResult | null>(null);
 
   const startBootstrap = useCallback(
-    async (options: BootstrapOptions = {}) => {
-      if (status === "loading") return;
+    async (options: BootstrapOptions = {}): Promise<BootstrapResult | null> => {
+      if (status === "loading") return null;
 
       setStatus("loading");
       setStep(1);
@@ -62,6 +64,8 @@ export function useBootstrap(): UseBootstrapReturn {
           setStatus("error");
           setErrors(bootstrapResult.errors);
         }
+
+        return bootstrapResult;
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
         setStatus("error");
@@ -70,6 +74,7 @@ export function useBootstrap(): UseBootstrapReturn {
           "Unhandled bootstrap error in hook",
           err instanceof Error ? err : undefined
         );
+        return null;
       }
     },
     [status]
