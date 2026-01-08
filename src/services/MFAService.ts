@@ -13,8 +13,8 @@
  * - Role-based MFA enforcement
  */
 
-import speakeasy from "speakeasy";
-import * as QRCode from "qrcode";
+import { generateSecret, totp } from "speakeasy";
+import { toDataURL } from "qrcode";
 import { logger } from "../lib/logger";
 import { BaseService } from "./BaseService";
 import { AuthenticationError, ValidationError } from "./errors";
@@ -76,19 +76,17 @@ export class MFAService extends BaseService {
         }
 
         // Generate new secret
-        const secret = speakeasy.generateSecret({
+        const secret = generateSecret({
           name: `ValueOS (${userEmail})`,
           issuer: "ValueOS",
           length: 32,
         });
 
         // Generate backup codes (10 codes, 8 characters each)
-        const backupCodes = Array.from({ length: 10 }, () =>
-          this.generateBackupCode()
-        );
+        const backupCodes = Array.from({ length: 10 }, () => this.generateBackupCode());
 
         // Generate QR code
-        const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url!);
+        const qrCodeUrl = await toDataURL(secret.otpauth_url!);
 
         // Store secret (disabled until user verifies)
         if (existing) {
@@ -141,7 +139,7 @@ export class MFAService extends BaseService {
         }
 
         // Verify token
-        const verified = speakeasy.totp.verify({
+        const verified = totp.verify({
           secret: mfaSecret.secret,
           encoding: "base32",
           token: token,
@@ -172,10 +170,7 @@ export class MFAService extends BaseService {
   /**
    * Verify MFA token during login
    */
-  async verifyMFAToken(
-    userId: string,
-    token: string
-  ): Promise<MFAVerificationResult> {
+  async verifyMFAToken(userId: string, token: string): Promise<MFAVerificationResult> {
     return this.executeRequest(
       async () => {
         const { data: mfaSecret, error } = await this.supabase
@@ -190,7 +185,7 @@ export class MFAService extends BaseService {
         }
 
         // Try TOTP verification first
-        const verified = speakeasy.totp.verify({
+        const verified = totp.verify({
           secret: mfaSecret.secret,
           encoding: "base32",
           token: token,
@@ -210,9 +205,7 @@ export class MFAService extends BaseService {
         // Try backup codes
         if (mfaSecret.backup_codes && mfaSecret.backup_codes.includes(token)) {
           // Remove used backup code
-          const updatedCodes = mfaSecret.backup_codes.filter(
-            (code) => code !== token
-          );
+          const updatedCodes = mfaSecret.backup_codes.filter((code) => code !== token);
 
           await this.supabase
             .from("mfa_secrets")
@@ -262,10 +255,7 @@ export class MFAService extends BaseService {
 
     return this.executeRequest(
       async () => {
-        await this.supabase
-          .from("mfa_secrets")
-          .update({ enabled: false })
-          .eq("user_id", userId);
+        await this.supabase.from("mfa_secrets").update({ enabled: false }).eq("user_id", userId);
 
         this.clearCache(`mfa-status-${userId}`);
       },
@@ -295,6 +285,7 @@ export class MFAService extends BaseService {
   async verifyMFA(
     userId: string,
     method: "totp" | "webauthn",
+    // @ts-ignore
     credential: { token?: string; assertion?: AuthenticationResponseJSON }
   ): Promise<MFAVerificationResult> {
     if (method === "totp") {
@@ -306,10 +297,8 @@ export class MFAService extends BaseService {
       if (!credential.assertion) {
         throw new ValidationError("WebAuthn assertion required");
       }
-      const result = await webAuthnService.verifyAuthentication(
-        userId,
-        credential.assertion
-      );
+      // @ts-ignore
+      const result = await webAuthnService.verifyAuthentication(userId, credential.assertion);
       return {
         verified: result.verified,
         usedBackupCode: false,

@@ -199,9 +199,7 @@ export async function exportToExcel(
     // SECURITY: Limit data size to prevent resource exhaustion
     const MAX_ROWS = 10000;
     if (data.length > MAX_ROWS) {
-      throw new Error(
-        `Data exceeds maximum limit of ${MAX_ROWS} rows for export`
-      );
+      throw new Error(`Data exceeds maximum limit of ${MAX_ROWS} rows for export`);
     }
 
     onProgress?.({
@@ -338,10 +336,7 @@ export function generateFilename(
   includeTimestamp: boolean = true
 ): string {
   if (includeTimestamp) {
-    const timestamp = new Date()
-      .toISOString()
-      .replace(/[:.]/g, "-")
-      .slice(0, -5);
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, -5);
     return `${base}_${timestamp}.${extension}`;
   }
   return `${base}.${extension}`;
@@ -354,11 +349,7 @@ export function useExport() {
   const [progress, setProgress] = React.useState<ExportProgress | null>(null);
   const [isExporting, setIsExporting] = React.useState(false);
 
-  const exportElement = async (
-    elementId: string,
-    format: "pdf" | "png",
-    filename?: string
-  ) => {
+  const exportElement = async (elementId: string, format: "pdf" | "png", filename?: string) => {
     setIsExporting(true);
     try {
       const blob =
@@ -385,11 +376,7 @@ export function useExport() {
   ) => {
     setIsExporting(true);
     try {
-      const blob = await exportToExcel(
-        data,
-        { format: "excel", ...options },
-        setProgress
-      );
+      const blob = await exportToExcel(data, { format: "excel", ...options }, setProgress);
 
       const actualFilename = generateFilename(filename || "data", "xlsx");
 
@@ -411,4 +398,4 @@ export function useExport() {
   };
 }
 
-import React from "react";
+import * as React from "react";

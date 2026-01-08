@@ -1,14 +1,14 @@
 /**
  * WebSocket Data Source
- * 
+ *
  * Integrates WebSocket real-time data streams with the SDUI data binding system.
  * Supports channel subscriptions, data transformations, and automatic reconnection.
  */
 
-import { WebSocketManager } from './WebSocketManager';
-import { DataBinding, ResolvedBinding, TransformFunction } from '../DataBindingSchema';
-import { DataSourceContext } from '../DataBindingSchema';
-import { TenantContext } from '../TenantContext';
+import { WebSocketManager } from "./WebSocketManager";
+import { DataBinding, ResolvedBinding, TransformFunction } from "../DataBindingSchema";
+import { DataSourceContext } from "../DataBindingSchema";
+import { TenantContext } from "../TenantContext";
 
 /**
  * Real-time data binding configuration
@@ -100,16 +100,16 @@ export class WebSocketDataSource {
         value: currentValue,
         success: true,
         timestamp: new Date().toISOString(),
-        source: 'realtime_stream',
+        source: "realtime_stream",
         cached: false,
       };
     } catch (error) {
       return {
         value: binding.$fallback,
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : "Unknown error",
         timestamp: new Date().toISOString(),
-        source: 'realtime_stream',
+        source: "realtime_stream",
         cached: false,
       };
     }
@@ -143,11 +143,7 @@ export class WebSocketDataSource {
   /**
    * Handle incoming message
    */
-  private handleMessage(
-    subscriptionKey: string,
-    binding: RealtimeDataBinding,
-    data: any
-  ): void {
+  private handleMessage(subscriptionKey: string, binding: RealtimeDataBinding, data: any): void {
     const subscription = this.subscriptions.get(subscriptionKey);
     if (!subscription) return;
 
@@ -173,7 +169,7 @@ export class WebSocketDataSource {
    * Extract value from data using path
    */
   private extractValue(data: any, path: string): any {
-    const parts = path.split('.');
+    const parts = path.split(".");
     let value = data;
 
     for (const part of parts) {
@@ -189,11 +185,7 @@ export class WebSocketDataSource {
   /**
    * Update buffer
    */
-  private updateBuffer(
-    subscription: SubscriptionState,
-    value: any,
-    bufferSize: number = 1
-  ): void {
+  private updateBuffer(subscription: SubscriptionState, value: any, bufferSize: number = 1): void {
     subscription.buffer.push(value);
     if (subscription.buffer.length > bufferSize) {
       subscription.buffer.shift();
@@ -203,10 +195,7 @@ export class WebSocketDataSource {
   /**
    * Get current value
    */
-  private getCurrentValue(
-    subscription: SubscriptionState,
-    binding: RealtimeDataBinding
-  ): any {
+  private getCurrentValue(subscription: SubscriptionState, binding: RealtimeDataBinding): any {
     if (subscription.buffer.length === 0) {
       return binding.$fallback;
     }
@@ -222,11 +211,7 @@ export class WebSocketDataSource {
   /**
    * Debounce notify
    */
-  private debounceNotify(
-    subscriptionKey: string,
-    debounceMs: number,
-    value: any
-  ): void {
+  private debounceNotify(subscriptionKey: string, debounceMs: number, value: any): void {
     // Clear existing timer
     const existingTimer = this.debounceTimers.get(subscriptionKey);
     if (existingTimer) {
@@ -288,20 +273,14 @@ export class WebSocketDataSource {
   /**
    * Create subscription key
    */
-  private createSubscriptionKey(
-    binding: RealtimeDataBinding,
-    context: DataSourceContext
-  ): string {
+  private createSubscriptionKey(binding: RealtimeDataBinding, context: DataSourceContext): string {
     return `${context.organizationId}:${binding.$channel}:${binding.$bind}`;
   }
 
   /**
    * Build channel name with tenant context
    */
-  private buildChannelName(
-    binding: RealtimeDataBinding,
-    context: DataSourceContext
-  ): string {
+  private buildChannelName(binding: RealtimeDataBinding, context: DataSourceContext): string {
     // Include tenant/org in channel name for isolation
     const tenantId = context.metadata?.tenantId || context.organizationId;
     return `${tenantId}:${binding.$channel}`;
@@ -401,6 +380,6 @@ export function useRealtimeBinding(
 }
 
 // Import React for the hook
-import React from 'react';
+import * as React from "react";
 
 export default WebSocketDataSource;

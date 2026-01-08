@@ -21,7 +21,7 @@ Replace manual spreadsheet research and AI hallucinations with **transparent, de
 
 ValueOS implements a three-tiered data hierarchy that guarantees reliability and transparency:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │ Tier 1: Authoritative Public Data (Confidence: 0.9-1.0)   │
 │ SEC EDGAR, XBRL, Legally Binding Financial Filings         │
@@ -53,6 +53,7 @@ EDGAR/XBRL data **always overrides** all other sources when available.
 ### Tier 1: Authoritative Public Data
 
 **Characteristics:**
+
 - Legally binding GAAP/IFRS financial statements
 - Confidence scores: 0.9-1.0
 - Full provenance: Filing type, accession number, filing date
@@ -67,6 +68,7 @@ EDGAR/XBRL data **always overrides** all other sources when available.
 **Authentication:** None (requires User-Agent header)
 
 **Available Data:**
+
 - Quarterly reports (10-Q)
 - Annual reports (10-K)
 - Registration statements (S-1, S-4)
@@ -74,6 +76,7 @@ EDGAR/XBRL data **always overrides** all other sources when available.
 - Proxy statements (DEF 14A)
 
 **Key Metrics Extracted:**
+
 ```typescript
 {
   // Income Statement
@@ -83,20 +86,20 @@ EDGAR/XBRL data **always overrides** all other sources when available.
   operating_income: number;
   net_income: number;
   ebitda: number;
-  
+
   // Balance Sheet
   total_assets: number;
   total_liabilities: number;
   shareholders_equity: number;
   cash_and_equivalents: number;
   total_debt: number;
-  
+
   // Cash Flow
   operating_cash_flow: number;
   investing_cash_flow: number;
   financing_cash_flow: number;
   free_cash_flow: number;
-  
+
   // Per Share
   earnings_per_share: number;
   book_value_per_share: number;
@@ -104,6 +107,7 @@ EDGAR/XBRL data **always overrides** all other sources when available.
 ```
 
 **Implementation:**
+
 - Module: `EDGARModule.ts`
 - CIK (Central Index Key) used as primary identifier
 - Ticker symbol resolution to CIK via mapping table
@@ -117,25 +121,28 @@ EDGAR/XBRL data **always overrides** all other sources when available.
 **Update Frequency:** Same as source filing
 
 **Advantages:**
+
 - Machine-readable structured data
 - Standardized taxonomy (US-GAAP, IFRS)
 - Deterministic extraction (no NLP required)
 - Fact-level precision with units and contexts
 
 **Implementation:**
+
 - Module: `XBRLModule.ts`
 - Parser: Custom XBRL taxonomy navigator
 - Validation: Schema validation against US-GAAP/IFRS standards
 - Fallback: If XBRL unavailable, parse HTML/text filings
 
 **Extraction Confidence Scoring:**
+
 ```typescript
-if (metric.extracted_from === 'xbrl') {
+if (metric.extracted_from === "xbrl") {
   confidence = 0.97; // Structured, unambiguous
-} else if (metric.extracted_from === 'html_table') {
+} else if (metric.extracted_from === "html_table") {
   confidence = 0.85; // Parsed from HTML
-} else if (metric.extracted_from === 'text_nlp') {
-  confidence = 0.70; // NLP extraction
+} else if (metric.extracted_from === "text_nlp") {
+  confidence = 0.7; // NLP extraction
 }
 ```
 
@@ -144,6 +151,7 @@ if (metric.extracted_from === 'xbrl') {
 ### Tier 2: High-Confidence Private Data
 
 **Characteristics:**
+
 - Private company estimates and inferred ranges
 - Confidence scores: 0.5-0.85
 - Proxy-based estimation (headcount, web traffic, funding)
@@ -157,6 +165,7 @@ if (metric.extracted_from === 'xbrl') {
 **Environment Variable:** `CRUNCHBASE_API_KEY`
 
 **Available Data:**
+
 - Funding rounds and total capital raised
 - Headcount estimates
 - Industry classification (NAICS mapping)
@@ -164,6 +173,7 @@ if (metric.extracted_from === 'xbrl') {
 - Acquisition and IPO history
 
 **Estimation Methodology:**
+
 ```typescript
 // Revenue estimation for private companies
 revenue_estimate = {
@@ -181,12 +191,14 @@ revenue_estimate = {
 **Environment Variable:** `ZOOMINFO_API_KEY`, `LINKEDIN_API_KEY`
 
 **Available Data:**
+
 - Real-time employee counts
 - Department-level headcount (Sales, Engineering, etc.)
 - Growth rate trends
 - Job posting velocity
 
 **Use Cases:**
+
 - Private company revenue estimation
 - Operational efficiency benchmarking
 - Competitive intelligence
@@ -199,12 +211,14 @@ revenue_estimate = {
 **Authentication:** API Key (optional)
 
 **Available Data:**
+
 - Industry-level revenue per employee
 - Median wages by industry and geography
 - Number of firms by size category
 - Economic census data (every 5 years)
 
 **Datasets Used:**
+
 - **County Business Patterns (CBP):** Annual employment and payroll
 - **Economic Census:** Comprehensive industry statistics
 - **Annual Survey of Manufacturers:** Manufacturing-specific metrics
@@ -217,12 +231,14 @@ revenue_estimate = {
 **Environment Variable:** `BLS_API_KEY`
 
 **Available Data:**
+
 - Median hourly/annual wages by occupation (SOC codes)
 - Wage by percentile (P10, P25, P50, P75, P90)
 - Geographic wage differentials
 - Employment growth projections
 
 **Use Cases:**
+
 - Labor cost benchmarking
 - Productivity delta calculations
 - Cost modeling for workforce changes
@@ -232,6 +248,7 @@ revenue_estimate = {
 ### Tier 3: Narrative & Contextual Data
 
 **Characteristics:**
+
 - Industry trends and qualitative insights
 - Confidence scores: 0.2-0.6
 - Used for context, not direct calculations
@@ -240,12 +257,14 @@ revenue_estimate = {
 #### 3.1 Market Data Providers
 
 **Alpha Vantage** (Free/Premium)
+
 - Real-time stock prices
 - Historical market data
 - Technical indicators
 - Environment Variable: `ALPHA_VANTAGE_API_KEY`
 
 **Polygon.io** (Premium)
+
 - Market data at scale
 - Real-time and historical prices
 - Options and derivatives data
@@ -254,18 +273,21 @@ revenue_estimate = {
 #### 3.2 Industry Research Reports
 
 **Sources:**
+
 - Gartner Magic Quadrants
 - Forrester Wave Reports
 - IDC Market Analysis
 - McKinsey Industry Reports
 
 **Usage:**
+
 - Qualitative context for value propositions
 - Trend analysis and market sizing
 - Competitive positioning
 - **NOT used for direct financial calculations**
 
 **Implementation:**
+
 - Manually curated research database
 - Tagged with confidence scores (0.3-0.5)
 - Referenced in narrative outputs only
@@ -281,20 +303,20 @@ All modules return data in a standardized `FinancialMetric` object:
 ```typescript
 interface FinancialMetric {
   // Core data
-  type: 'metric' | 'range' | 'text' | 'narrative';
+  type: "metric" | "range" | "text" | "narrative";
   metric_name: string;
   value: number | string | [number, number]; // Range for private companies
   unit: string; // 'USD', 'employees', 'percentage', etc.
-  
+
   // Trust and quality
   confidence: number; // 0.0 to 1.0
-  tier: 'tier1' | 'tier2' | 'tier3';
-  
+  tier: "tier1" | "tier2" | "tier3";
+
   // Provenance
   source: string;
   source_name?: string;
   timestamp: string; // ISO 8601
-  
+
   // Additional context
   metadata: {
     filing_type?: string; // For Tier 1
@@ -303,7 +325,7 @@ interface FinancialMetric {
     industry_code?: string; // NAICS code
     quality_factors?: number[]; // Adjustment multipliers
   };
-  
+
   // Audit trail
   raw_extract?: string;
   provenance: ProvenanceInfo;
@@ -335,41 +357,43 @@ Value drivers in ValueOS are grounded in real data using this workflow:
 ```typescript
 // 1. Extract value driver from discovery conversation
 const driver: ValueDriver = {
-  category: 'cost',
-  subcategory: 'labor_efficiency',
-  name: 'Reduce invoice processing time',
-  economic_mechanism: 'linear',
+  category: "cost",
+  subcategory: "labor_efficiency",
+  name: "Reduce invoice processing time",
+  economic_mechanism: "linear",
   // ... other fields
 };
 
 // 2. Fetch benchmark data from Ground Truth
-const benchmark = await mcpServer.executeTool('get_industry_benchmark', {
-  identifier: '541511', // NAICS: Custom Computer Programming
-  metric: 'invoice_processing_cost_per_invoice',
+const benchmark = await mcpServer.executeTool("get_industry_benchmark", {
+  identifier: "541511", // NAICS: Custom Computer Programming
+  metric: "invoice_processing_cost_per_invoice",
 });
 
 // 3. Attach benchmark to driver
-driver.benchmarks = [{
-  source: 'census',
-  benchmark_id: 'apqc_invoice_processing_p50',
-  value: 5.83,
-  unit: 'USD',
-  percentile: 50,
-  industry: '541511'
-}];
+driver.benchmarks = [
+  {
+    source: "census",
+    benchmark_id: "apqc_invoice_processing_p50",
+    value: 5.83,
+    unit: "USD",
+    percentile: 50,
+    industry: "541511",
+  },
+];
 
 // 4. Calculate baseline gap
-driver.baseline_value = 12.50; // From customer
+driver.baseline_value = 12.5; // From customer
 driver.target_value = 5.83; // Benchmark P50
-driver.expected_delta = 12.50 - 5.83; // $6.67 savings per invoice
+driver.expected_delta = 12.5 - 5.83; // $6.67 savings per invoice
 
 // 5. Calculate financial impact
 const invoiceVolume = 50000; // Annual invoices
 driver.financial_impact = {
-  annual_value: (driver.expected_delta * invoiceVolume),
-  currency: 'USD',
-  calculation_method: 'linear: (baseline - target) × volume',
-  confidence: benchmark.confidence // Inherited from source
+  annual_value: driver.expected_delta * invoiceVolume,
+  currency: "USD",
+  calculation_method: "linear: (baseline - target) × volume",
+  confidence: benchmark.confidence, // Inherited from source
 };
 ```
 
@@ -383,30 +407,31 @@ The `BenchmarkAgent` (`src/lib/agent-fabric/agents/BenchmarkAgent.ts`) uses grou
 4. **Cite sources** for all benchmark claims
 
 **Example Invocation:**
+
 ```typescript
 const result = await benchmarkAgent.execute(sessionId, {
-  industry: '541511',
-  companySize: 'enterprise',
+  industry: "541511",
+  companySize: "enterprise",
   kpis: [
-    { name: 'revenue_per_employee', currentValue: 200000, unit: 'USD' },
-    { name: 'sales_cycle_days', currentValue: 45, unit: 'days' }
-  ]
+    { name: "revenue_per_employee", currentValue: 200000, unit: "USD" },
+    { name: "sales_cycle_days", currentValue: 45, unit: "days" },
+  ],
 });
 
 // Result includes:
 result.comparisons[0] = {
-  kpiName: 'revenue_per_employee',
+  kpiName: "revenue_per_employee",
   currentValue: 200000,
   benchmarks: {
-    median: 250000,   // P50 from Census data
-    p25: 180000,      // P25
-    p75: 320000,      // P75
-    bestInClass: 450000 // P90
+    median: 250000, // P50 from Census data
+    p25: 180000, // P25
+    p75: 320000, // P75
+    bestInClass: 450000, // P90
   },
   percentile: 40,
   gapToMedian: -50000,
-  status: 'lagging',
-  dataSources: ['U.S. Census Bureau - Economic Census 2022']
+  status: "lagging",
+  dataSources: ["U.S. Census Bureau - Economic Census 2022"],
 };
 ```
 
@@ -428,14 +453,15 @@ result.comparisons[0] = {
 Retrieves legally binding GAAP financial data from SEC EDGAR.
 
 ```typescript
-await mcpServer.executeTool('get_authoritative_financials', {
-  entity_id: '0000320193', // CIK or ticker (AAPL)
-  period: 'FY2024',
-  metrics: ['revenue_total', 'net_income', 'gross_profit']
+await mcpServer.executeTool("get_authoritative_financials", {
+  entity_id: "0000320193", // CIK or ticker (AAPL)
+  period: "FY2024",
+  metrics: ["revenue_total", "net_income", "gross_profit"],
 });
 ```
 
 **Returns:**
+
 - Tier 1 confidence (0.95-1.0)
 - Filing metadata (10-K, 10-Q, accession number)
 - Verification hash for audit trail
@@ -445,14 +471,15 @@ await mcpServer.executeTool('get_authoritative_financials', {
 Generates financial estimates for private companies.
 
 ```typescript
-await mcpServer.executeTool('get_private_entity_estimates', {
-  domain: 'openai.com',
-  proxy_metric: 'headcount_linkedin',
-  industry_code: '541511'
+await mcpServer.executeTool("get_private_entity_estimates", {
+  domain: "openai.com",
+  proxy_metric: "headcount_linkedin",
+  industry_code: "541511",
 });
 ```
 
 **Estimation Methods:**
+
 - Headcount proxy: `revenue = headcount × industry_avg_revenue_per_employee`
 - Funding-based: `revenue = total_funding_raised × industry_funding_to_revenue_ratio`
 - Quality factors applied for adjustments
@@ -462,17 +489,19 @@ await mcpServer.executeTool('get_private_entity_estimates', {
 Cross-references natural language claims against ground truth.
 
 ```typescript
-await mcpServer.executeTool('verify_claim_aletheia', {
-  claim_text: 'Apple generated $383B in revenue in FY2024',
-  context_entity: '0000320193',
-  strict_mode: true
+await mcpServer.executeTool("verify_claim_aletheia", {
+  claim_text: "Apple generated $383B in revenue in FY2024",
+  context_entity: "0000320193",
+  strict_mode: true,
 });
 ```
 
 **The Aletheia Loop Pattern:**
+
 > Before outputting final responses, AI agents pass draft summaries to `verify_claim_aletheia`. If `verified` is `false`, agents rewrite using provided `evidence_snippet`.
 
 **Result:**
+
 ```typescript
 {
   verified: true,
@@ -491,15 +520,16 @@ await mcpServer.executeTool('verify_claim_aletheia', {
 Calculates productivity deltas for value driver analysis.
 
 ```typescript
-await mcpServer.executeTool('populate_value_driver_tree', {
-  target_cik: '0000320193',
-  benchmark_naics: '541511',
-  driver_node_id: 'productivity_delta',
-  simulation_period: '2025-2027'
+await mcpServer.executeTool("populate_value_driver_tree", {
+  target_cik: "0000320193",
+  benchmark_naics: "541511",
+  driver_node_id: "productivity_delta",
+  simulation_period: "2025-2027",
 });
 ```
 
 **Returns:**
+
 - Calculated gap between target and benchmark
 - Supporting data with provenance
 - Rationale and confidence scores
@@ -514,12 +544,12 @@ Only approved data sources can be accessed:
 
 ```typescript
 const ALLOWED_DOMAINS = [
-  'sec.gov',           // SEC EDGAR
-  'alphavantage.co',   // Market data
-  'polygon.io',        // Market data
-  'census.gov',        // Industry benchmarks
-  'bls.gov',           // Wage data
-  'crunchbase.com',    // Private company data
+  "sec.gov", // SEC EDGAR
+  "alphavantage.co", // Market data
+  "polygon.io", // Market data
+  "census.gov", // Industry benchmarks
+  "bls.gov", // Wage data
+  "crunchbase.com", // Private company data
 ];
 ```
 
@@ -531,15 +561,16 @@ Provider-specific rate limits enforced:
 
 ```typescript
 const RATE_LIMITS = {
-  'sec.gov/edgar': { requests: 10, window: '1s' },
-  'alphavantage.co': { requests: 5, window: '1m' },
-  'census.gov': { requests: 500, window: '1d' },
+  "sec.gov/edgar": { requests: 10, window: "1s" },
+  "alphavantage.co": { requests: 5, window: "1m" },
+  "census.gov": { requests: 500, window: "1d" },
 };
 ```
 
 ### Audit Logging
 
 All requests logged with:
+
 - Trace ID (distributed tracing)
 - User/Agent ID
 - Request parameters
@@ -559,9 +590,10 @@ All requests logged with:
 ### Rule 2: Tiered Trust Handling
 
 > "Check the `source_tier` in the JSON response:
-> - **Tier 1:** State as fact. *'Revenue was $10B [Source: SEC 10-K]'*
-> - **Tier 2:** State as estimate. *'Revenue is estimated at $8-12B based on headcount'*
-> - **Tier 3:** Use for context only. *'Industry benchmark is $250k/employee'*"
+>
+> - **Tier 1:** State as fact. _'Revenue was $10B [Source: SEC 10-K]'_
+> - **Tier 2:** State as estimate. _'Revenue is estimated at $8-12B based on headcount'_
+> - **Tier 3:** Use for context only. _'Industry benchmark is $250k/employee'_"
 
 ### Rule 3: The Aletheia Loop
 
@@ -571,13 +603,13 @@ All requests logged with:
 
 ## Performance Targets
 
-| Operation | Target Latency | Cache Hit Latency |
-|-----------|---------------|-------------------|
-| EDGAR fetch | ~250ms | ~30ms |
-| XBRL parse | ~60ms | N/A (cached with fetch) |
-| Market API | ~80ms | ~20ms |
-| Private company estimate | 120-300ms | ~40ms |
-| **Total round-trip** | **<400ms** | **<100ms** |
+| Operation                | Target Latency | Cache Hit Latency       |
+| ------------------------ | -------------- | ----------------------- |
+| EDGAR fetch              | ~250ms         | ~30ms                   |
+| XBRL parse               | ~60ms          | N/A (cached with fetch) |
+| Market API               | ~80ms          | ~20ms                   |
+| Private company estimate | 120-300ms      | ~40ms                   |
+| **Total round-trip**     | **<400ms**     | **<100ms**              |
 
 ### Caching Strategy
 
@@ -593,15 +625,18 @@ All requests logged with:
 ### Test Coverage
 
 **Unit Tests:** Module-level validation
+
 - `EDGARModule.test.ts`
 - `XBRLModule.test.ts`
 - `PrivateCompanyModule.test.ts`
 
 **Integration Tests:** End-to-end workflows
+
 - `tests/test/mcp-ground-truth/phase1-analyst-developer.test.ts`
 - `tests/test/mcp-ground-truth/phase2-ai-query-generation.test.ts`
 
 **Test Plans:**
+
 - `tests/test/mcp-ground-truth/TEST_PLAN.md` - Comprehensive 3-phase test plan
 - `tests/test/mcp-ground-truth/TEST_EXECUTION_GUIDE.md` - Execution instructions
 
@@ -615,15 +650,15 @@ All requests logged with:
 
 ## Data Freshness & Updates
 
-| Data Source | Update Frequency | Data Latency |
-|-------------|-----------------|--------------|
-| SEC EDGAR (10-Q) | Quarterly + 45 days | Real-time as filed |
-| SEC EDGAR (10-K) | Annual + 90 days | Real-time as filed |
-| Market Data | Continuous | 15-minute delay (free tier) |
-| Census Benchmarks | Annual | 6-12 month lag |
-| BLS Wage Data | Annual | 3-6 month lag |
-| Crunchbase | Daily | Real-time |
-| LinkedIn Headcount | Weekly | 7-day lag |
+| Data Source        | Update Frequency    | Data Latency                |
+| ------------------ | ------------------- | --------------------------- |
+| SEC EDGAR (10-Q)   | Quarterly + 45 days | Real-time as filed          |
+| SEC EDGAR (10-K)   | Annual + 90 days    | Real-time as filed          |
+| Market Data        | Continuous          | 15-minute delay (free tier) |
+| Census Benchmarks  | Annual              | 6-12 month lag              |
+| BLS Wage Data      | Annual              | 3-6 month lag               |
+| Crunchbase         | Daily               | Real-time                   |
+| LinkedIn Headcount | Weekly              | 7-day lag                   |
 
 ### Staleness Detection
 
@@ -659,6 +694,7 @@ Planned improvements to ground truth infrastructure:
 - **`security.md`** - Authentication and data protection
 
 **MCP Ground Truth Server:**
+
 - `src/mcp-ground-truth/README.md` - Technical implementation guide
 - `src/mcp-ground-truth/QUICK_START.md` - Getting started guide
 - `tests/test/mcp-ground-truth/TEST_PLAN.md` - QA test plan

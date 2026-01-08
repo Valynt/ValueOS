@@ -1,12 +1,12 @@
 /**
  * SDUI Page Rendering Engine
- * 
+ *
  * Handles rendering of SDUI pages including layout directives from CoordinatorAgent.
  */
 
-import { logger } from '../../lib/logger';
-import React from 'react';
-import type { SDUILayoutDirective, SDUIPageDefinition, SDUISection } from '../schema';
+import { logger } from "../../lib/logger";
+import * as React from "react";
+import type { SDUILayoutDirective, SDUIPageDefinition, SDUISection } from "../schema";
 
 export interface RenderContext {
   userId?: string;
@@ -24,10 +24,7 @@ export interface RenderOptions {
 /**
  * Render a complete SDUI page
  */
-export function renderPage(
-  page: SDUIPageDefinition,
-  options?: RenderOptions
-): React.ReactElement {
+export function renderPage(page: SDUIPageDefinition, options?: RenderOptions): React.ReactElement {
   const { context, onError, componentRegistry } = options || {};
 
   try {
@@ -45,21 +42,17 @@ export function renderPage(
 
     // Wrap in page container
     return React.createElement(
-      'div',
+      "div",
       {
-        key: 'sdui-page',
-        className: 'sdui-page',
-        'data-version': page.version,
+        key: "sdui-page",
+        className: "sdui-page",
+        "data-version": page.version,
       },
       renderedSections
     );
   } catch (error) {
-    logger.error('Failed to render SDUI page:', error);
-    return React.createElement(
-      'div',
-      { className: 'sdui-error' },
-      'Failed to render page'
-    );
+    logger.error("Failed to render SDUI page:", error);
+    return React.createElement("div", { className: "sdui-error" }, "Failed to render page");
   }
 }
 
@@ -72,7 +65,7 @@ function renderSection(
   context?: RenderContext,
   componentRegistry?: Map<string, React.ComponentType<any>>
 ): React.ReactElement {
-  if (section.type === 'layout.directive') {
+  if (section.type === "layout.directive") {
     return renderLayoutDirective(section, index, context, componentRegistry);
   }
 
@@ -129,7 +122,7 @@ function renderComponent(
   context?: RenderContext,
   componentRegistry?: Map<string, React.ComponentType<any>>
 ): React.ReactElement {
-  if (section.type !== 'component') {
+  if (section.type !== "component") {
     throw new Error(`Invalid section type: ${(section as any).type}`);
   }
 
@@ -140,7 +133,7 @@ function renderComponent(
 
   if (!Component) {
     logger.warn(`Component not found in registry: ${component}`);
-    
+
     // Use fallback if provided
     if (fallback?.component) {
       const FallbackComponent = componentRegistry?.get(fallback.component);
@@ -180,30 +173,30 @@ function wrapWithLayout(
   componentRegistry?: Map<string, React.ComponentType<any>>
 ): React.ReactElement {
   // Handle nested layout objects
-  if (typeof layout === 'object' && layout.type) {
+  if (typeof layout === "object" && layout.type) {
     return renderNestedLayout(layout, element, index, context, componentRegistry);
   }
 
   // Handle simple string layout types
   const layoutClasses: Record<string, string> = {
-    default: 'sdui-layout-default',
-    full_width: 'sdui-layout-full-width',
-    two_column: 'sdui-layout-two-column',
-    dashboard: 'sdui-layout-dashboard',
-    single_column: 'sdui-layout-single-column',
-    grid: 'sdui-layout-grid',
-    flex: 'sdui-layout-flex',
-    nested: 'sdui-layout-nested',
+    default: "sdui-layout-default",
+    full_width: "sdui-layout-full-width",
+    two_column: "sdui-layout-two-column",
+    dashboard: "sdui-layout-dashboard",
+    single_column: "sdui-layout-single-column",
+    grid: "sdui-layout-grid",
+    flex: "sdui-layout-flex",
+    nested: "sdui-layout-nested",
   };
 
   const className = layoutClasses[layout as string] || layoutClasses.default;
 
   return React.createElement(
-    'div',
+    "div",
     {
       key: `layout-${index}`,
       className,
-      'data-layout': layout,
+      "data-layout": layout,
     },
     element
   );
@@ -223,23 +216,30 @@ function renderNestedLayout(
 
   // Render child sections recursively
   const renderedChildren = children
-    ? children.map((child, childIndex) => {
-        if (child.type === 'component' || child.type === 'layout.directive') {
-          return renderSection(child, `${index}-${childIndex}` as any, context, componentRegistry);
-        }
-        return null;
-      }).filter(Boolean)
+    ? children
+        .map((child, childIndex) => {
+          if (child.type === "component" || child.type === "layout.directive") {
+            return renderSection(
+              child,
+              `${index}-${childIndex}` as any,
+              context,
+              componentRegistry
+            );
+          }
+          return null;
+        })
+        .filter(Boolean)
     : [];
 
   // Combine primary element with rendered children
   const allChildren = [primaryElement, ...renderedChildren];
 
   return React.createElement(
-    'div',
+    "div",
     {
       key: `nested-layout-${index}`,
       className: `sdui-nested-layout sdui-nested-layout-${type}`,
-      'data-layout-type': type,
+      "data-layout-type": type,
       ...props,
     },
     allChildren
@@ -255,7 +255,7 @@ function renderErrorFallback(
   index: number
 ): React.ReactElement {
   // Log error for monitoring
-  logger.error('SDUI render error', {
+  logger.error("SDUI render error", {
     component: (section as any).component,
     sectionType: section.type,
     error: error.message,
@@ -263,37 +263,33 @@ function renderErrorFallback(
   });
 
   return React.createElement(
-    'div',
+    "div",
     {
       key: `error-${index}`,
-      className: 'sdui-error-fallback',
-      'data-error-type': 'render-failure',
-      'data-component': (section as any).component,
+      className: "sdui-error-fallback",
+      "data-error-type": "render-failure",
+      "data-component": (section as any).component,
     },
     React.createElement(
-      'div',
-      { className: 'sdui-error-header' },
-      React.createElement('h3', null, '⚠️ Component Render Failed')
+      "div",
+      { className: "sdui-error-header" },
+      React.createElement("h3", null, "⚠️ Component Render Failed")
     ),
     React.createElement(
-      'div',
-      { className: 'sdui-error-details' },
-      React.createElement('p', { className: 'sdui-error-message' }, error.message),
-      process.env.NODE_ENV === 'development' &&
+      "div",
+      { className: "sdui-error-details" },
+      React.createElement("p", { className: "sdui-error-message" }, error.message),
+      process.env.NODE_ENV === "development" &&
         React.createElement(
-          'details',
-          { className: 'sdui-error-debug' },
-          React.createElement('summary', null, 'Debug Information'),
+          "details",
+          { className: "sdui-error-debug" },
+          React.createElement("summary", null, "Debug Information"),
           React.createElement(
-            'pre',
-            { className: 'sdui-error-section' },
+            "pre",
+            { className: "sdui-error-section" },
             JSON.stringify(section, null, 2)
           ),
-          React.createElement(
-            'pre',
-            { className: 'sdui-error-stack' },
-            error.stack
-          )
+          React.createElement("pre", { className: "sdui-error-stack" }, error.stack)
         )
     )
   );
@@ -302,18 +298,15 @@ function renderErrorFallback(
 /**
  * Render missing component placeholder
  */
-function renderMissingComponent(
-  componentName: string,
-  index: number
-): React.ReactElement {
+function renderMissingComponent(componentName: string, index: number): React.ReactElement {
   return React.createElement(
-    'div',
+    "div",
     {
       key: `missing-${index}`,
-      className: 'sdui-missing-component',
+      className: "sdui-missing-component",
     },
-    React.createElement('h3', null, 'Component Not Found'),
-    React.createElement('p', null, `Component "${componentName}" is not registered`)
+    React.createElement("h3", null, "Component Not Found"),
+    React.createElement("p", null, `Component "${componentName}" is not registered`)
   );
 }
 
@@ -329,20 +322,20 @@ export function validatePageForRendering(page: SDUIPageDefinition): {
   const warnings: string[] = [];
 
   if (!page.sections || page.sections.length === 0) {
-    errors.push('Page must have at least one section');
+    errors.push("Page must have at least one section");
   }
 
   for (const section of page.sections) {
-    if (section.type === 'layout.directive') {
+    if (section.type === "layout.directive") {
       if (!section.intent) {
-        errors.push('Layout directive must have an intent');
+        errors.push("Layout directive must have an intent");
       }
       if (!section.component) {
-        errors.push('Layout directive must specify a component');
+        errors.push("Layout directive must specify a component");
       }
-    } else if (section.type === 'component') {
+    } else if (section.type === "component") {
       if (!section.component) {
-        errors.push('Component section must specify a component');
+        errors.push("Component section must specify a component");
       }
     } else {
       errors.push(`Unknown section type: ${(section as any).type}`);
@@ -365,11 +358,11 @@ export function extractPageMetadata(page: SDUIPageDefinition): {
   hasHydration: boolean;
   cacheEnabled: boolean;
 } {
-  const componentCount = page.sections.filter((s) => s.type === 'component').length;
-  const directiveCount = page.sections.filter((s) => s.type === 'layout.directive').length;
-  
+  const componentCount = page.sections.filter((s) => s.type === "component").length;
+  const directiveCount = page.sections.filter((s) => s.type === "layout.directive").length;
+
   const hasHydration = page.sections.some(
-    (s) => s.type === 'component' && s.hydrateWith && s.hydrateWith.length > 0
+    (s) => s.type === "component" && s.hydrateWith && s.hydrateWith.length > 0
   );
 
   const cacheEnabled = !!page.metadata?.cacheTtlSeconds;

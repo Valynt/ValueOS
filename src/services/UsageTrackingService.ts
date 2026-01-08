@@ -1,29 +1,29 @@
 /**
  * Usage Tracking Service
- * 
+ *
  * Tracks tenant resource usage for billing and limit enforcement.
  * Provides real-time usage monitoring and reporting.
  */
 
-import { logger } from '../lib/logger';
-import { createClient } from '@supabase/supabase-js';
-import { getConfig } from '../config/environment';
-import { isWithinLimits, TenantLimits, TenantUsage } from './TenantProvisioning';
+import { logger } from "../lib/logger";
+import { createClient } from "@supabase/supabase-js";
+import { getConfig } from "../config/environment";
+import { isWithinLimits, TenantLimits, TenantUsage } from "./TenantProvisioning";
 
 /**
  * Usage event type
  */
 export type UsageEventType =
-  | 'user_added'
-  | 'user_removed'
-  | 'team_created'
-  | 'team_deleted'
-  | 'project_created'
-  | 'project_deleted'
-  | 'storage_added'
-  | 'storage_removed'
-  | 'api_call'
-  | 'agent_call';
+  | "user_added"
+  | "user_removed"
+  | "team_created"
+  | "team_deleted"
+  | "project_created"
+  | "project_deleted"
+  | "storage_added"
+  | "storage_removed"
+  | "api_call"
+  | "agent_call";
 
 /**
  * Usage event
@@ -83,34 +83,34 @@ export async function trackUsage(event: UsageEvent): Promise<void> {
 
   // Update usage based on event type
   switch (event.type) {
-    case 'user_added':
+    case "user_added":
       usage.users += event.amount;
       break;
-    case 'user_removed':
+    case "user_removed":
       usage.users = Math.max(0, usage.users - event.amount);
       break;
-    case 'team_created':
+    case "team_created":
       usage.teams += event.amount;
       break;
-    case 'team_deleted':
+    case "team_deleted":
       usage.teams = Math.max(0, usage.teams - event.amount);
       break;
-    case 'project_created':
+    case "project_created":
       usage.projects += event.amount;
       break;
-    case 'project_deleted':
+    case "project_deleted":
       usage.projects = Math.max(0, usage.projects - event.amount);
       break;
-    case 'storage_added':
+    case "storage_added":
       usage.storage += event.amount;
       break;
-    case 'storage_removed':
+    case "storage_removed":
       usage.storage = Math.max(0, usage.storage - event.amount);
       break;
-    case 'api_call':
+    case "api_call":
       usage.apiCalls += event.amount;
       break;
-    case 'agent_call':
+    case "agent_call":
       usage.agentCalls += event.amount;
       break;
   }
@@ -122,20 +122,17 @@ export async function trackUsage(event: UsageEvent): Promise<void> {
 
   // Persist to database (async, non-blocking)
   persistUsage(usage).catch((error) => {
-    logger.error('Failed to persist usage', error instanceof Error ? error : undefined);
+    logger.error("Failed to persist usage", error instanceof Error ? error : undefined);
   });
 
   // Log event
-  logger.debug('Usage tracked: ${event.type} for ${event.organizationId} (${event.amount})');
+  logger.debug("Usage tracked: ${event.type} for ${event.organizationId} (${event.amount})");
 }
 
 /**
  * Get current usage for organization
  */
-export async function getUsage(
-  organizationId: string,
-  period?: string
-): Promise<TenantUsage> {
+export async function getUsage(organizationId: string, period?: string): Promise<TenantUsage> {
   const currentPeriod = period || new Date().toISOString().substring(0, 7);
   const cacheKey = `${organizationId}:${currentPeriod}`;
 
@@ -238,29 +235,29 @@ export async function canPerformAction(
   const usage = await getUsage(organizationId);
 
   switch (action) {
-    case 'user_added':
+    case "user_added":
       if (limits.maxUsers !== -1 && usage.users >= limits.maxUsers) {
-        return { allowed: false, reason: 'User limit reached' };
+        return { allowed: false, reason: "User limit reached" };
       }
       break;
-    case 'team_created':
+    case "team_created":
       if (limits.maxTeams !== -1 && usage.teams >= limits.maxTeams) {
-        return { allowed: false, reason: 'Team limit reached' };
+        return { allowed: false, reason: "Team limit reached" };
       }
       break;
-    case 'project_created':
+    case "project_created":
       if (limits.maxProjects !== -1 && usage.projects >= limits.maxProjects) {
-        return { allowed: false, reason: 'Project limit reached' };
+        return { allowed: false, reason: "Project limit reached" };
       }
       break;
-    case 'api_call':
+    case "api_call":
       if (limits.maxApiCalls !== -1 && usage.apiCalls >= limits.maxApiCalls) {
-        return { allowed: false, reason: 'API call limit reached for this period' };
+        return { allowed: false, reason: "API call limit reached for this period" };
       }
       break;
-    case 'agent_call':
+    case "agent_call":
       if (limits.maxAgentCalls !== -1 && usage.agentCalls >= limits.maxAgentCalls) {
-        return { allowed: false, reason: 'Agent call limit reached for this period' };
+        return { allowed: false, reason: "Agent call limit reached for this period" };
       }
       break;
   }
@@ -268,20 +265,23 @@ export async function canPerformAction(
   return { allowed: true };
 }
 
-const supabase = typeof window === 'undefined' ? createClient(
-  import.meta.env?.VITE_SUPABASE_URL || '',
-  import.meta.env?.SUPABASE_SERVICE_ROLE_KEY || ''
-) : null;
+const supabase =
+  typeof window === "undefined"
+    ? createClient(
+        import.meta.env?.VITE_SUPABASE_URL || "",
+        import.meta.env?.SUPABASE_SERVICE_ROLE_KEY || ""
+      )
+    : null;
 
 /**
  * Persist usage to database (upsert into `tenant_usage` table)
  */
 async function persistUsage(usage: TenantUsage): Promise<void> {
   if (!supabase) {
-    logger.warn('Supabase client not available (browser environment)');
+    logger.warn("Supabase client not available (browser environment)");
     return;
   }
-  
+
   try {
     const payload = {
       organization_id: usage.organizationId,
@@ -295,27 +295,22 @@ async function persistUsage(usage: TenantUsage): Promise<void> {
       last_updated: usage.lastUpdated.toISOString(),
     } as Record<string, any>;
 
-    const { error } = await supabase
-      .from('tenant_usage')
-      .upsert(payload)
-      .select();
+    const { error } = await supabase.from("tenant_usage").upsert(payload).select();
 
     if (error) {
-      logger.error('Failed to persist usage', error);
+      logger.error("Failed to persist usage", error);
     } else {
       logger.debug(`Usage persisted for ${usage.organizationId}`);
     }
   } catch (err) {
-    logger.error('Failed to persist usage', err instanceof Error ? err : undefined);
+    logger.error("Failed to persist usage", err instanceof Error ? err : undefined);
   }
 }
 
 /**
  * Reset usage for new period
  */
-export async function resetUsageForNewPeriod(
-  organizationId: string
-): Promise<void> {
+export async function resetUsageForNewPeriod(organizationId: string): Promise<void> {
   const newPeriod = new Date().toISOString().substring(0, 7);
   const cacheKey = `${organizationId}:${newPeriod}`;
 
@@ -337,7 +332,7 @@ export async function resetUsageForNewPeriod(
   usageCache.set(cacheKey, newUsage);
   await persistUsage(newUsage);
 
-  logger.debug('Usage reset for new period: ${newPeriod}');
+  logger.debug("Usage reset for new period: ${newPeriod}");
 }
 
 /**
@@ -394,7 +389,7 @@ export function useUsageTracking(organizationId: string, limits: TenantLimits) {
           setLoading(false);
         }
       } catch (error) {
-        logger.error('Failed to load usage', error instanceof Error ? error : undefined);
+        logger.error("Failed to load usage", error instanceof Error ? error : undefined);
         if (mounted) {
           setLoading(false);
         }
@@ -412,17 +407,20 @@ export function useUsageTracking(organizationId: string, limits: TenantLimits) {
     };
   }, [organizationId, limits]);
 
-  const track = React.useCallback(async (event: Omit<UsageEvent, 'organizationId' | 'timestamp'>) => {
-    await trackUsage({
-      ...event,
-      organizationId,
-      timestamp: new Date(),
-    });
+  const track = React.useCallback(
+    async (event: Omit<UsageEvent, "organizationId" | "timestamp">) => {
+      await trackUsage({
+        ...event,
+        organizationId,
+        timestamp: new Date(),
+      });
 
-    // Refresh summary
-    const newSummary = await getUsageSummary(organizationId, limits);
-    setSummary(newSummary);
-  }, [organizationId, limits]);
+      // Refresh summary
+      const newSummary = await getUsageSummary(organizationId, limits);
+      setSummary(newSummary);
+    },
+    [organizationId, limits]
+  );
 
   return {
     summary,
@@ -432,4 +430,4 @@ export function useUsageTracking(organizationId: string, limits: TenantLimits) {
 }
 
 // Import React for the hook
-import React from 'react';
+import * as React from "react";

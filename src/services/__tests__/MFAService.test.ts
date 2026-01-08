@@ -6,7 +6,7 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { mfaService, MFAService } from "../MFAService";
-import speakeasy from "speakeasy";
+import * as speakeasy from "speakeasy";
 
 // Mock dependencies
 vi.mock("../../lib/logger");

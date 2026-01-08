@@ -13,11 +13,7 @@ import {
 } from "./config/environment";
 import { initializeAgents, SystemHealth } from "./services/AgentInitializer";
 import { initializeSecurity, validateSecurity } from "./security";
-import {
-  createLogger,
-  logger as globalLogger,
-  setupMonitoring,
-} from "./lib/logger";
+import { createLogger, logger as globalLogger, setupMonitoring } from "./lib/logger";
 
 /**
  * Bootstrap result
@@ -72,9 +68,7 @@ export interface BootstrapOptions {
 /**
  * Bootstrap the application
  */
-export async function bootstrap(
-  options: BootstrapOptions = {}
-): Promise<BootstrapResult> {
+export async function bootstrap(options: BootstrapOptions = {}): Promise<BootstrapResult> {
   const startTime = Date.now();
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -91,11 +85,15 @@ export async function bootstrap(
     onError,
   } = options;
 
+  console.log(
+    `[${new Date().toISOString()}] 🚀 Bootstrap: Starting... (skipAgentCheck=${skipAgentCheck}, failFast=${failFast})`
+  );
   logger.info("🚀 Bootstrapping ValueCanvas Application", {
     action: "bootstrap_start",
   });
 
   // Step 1: Load and validate environment configuration
+  console.log(`[${new Date().toISOString()}] 📄 Bootstrap: Step 1 - Loading Config`);
   onProgress?.("Loading environment configuration...");
   logger.info("Step 1: Loading environment configuration", {
     action: "load_config",
@@ -115,13 +113,9 @@ export async function bootstrap(
     const errorMsg = `Failed to load configuration: ${error instanceof Error ? error.message : "Unknown error"}`;
     errors.push(errorMsg);
     onError?.(errorMsg);
-    logger.error(
-      "Failed to load configuration",
-      error instanceof Error ? error : undefined,
-      {
-        action: "config_load_failed",
-      }
-    );
+    logger.error("Failed to load configuration", error instanceof Error ? error : undefined, {
+      action: "config_load_failed",
+    });
 
     return {
       success: false,
@@ -170,9 +164,7 @@ export async function bootstrap(
   logger.info(`   Workflow: ${config.features.workflow ? "✅" : "❌"}`);
   logger.info(`   Compliance: ${config.features.compliance ? "✅" : "❌"}`);
   logger.info(`   Multi-Tenant: ${config.features.multiTenant ? "✅" : "❌"}`);
-  logger.info(
-    `   Usage Tracking: ${config.features.usageTracking ? "✅" : "❌"}`
-  );
+  logger.info(`   Usage Tracking: ${config.features.usageTracking ? "✅" : "❌"}`);
   logger.info(`   Billing: ${config.features.billing ? "✅" : "❌"}`);
 
   // Step 4: Initialize security
@@ -210,9 +202,7 @@ export async function bootstrap(
     // Initialize security features
     initializeSecurity();
     logger.info("   ✅ Security features initialized");
-    logger.info(
-      `   - CSRF protection: ${config.security.csrfEnabled ? "✅" : "❌"}`
-    );
+    logger.info(`   - CSRF protection: ${config.security.csrfEnabled ? "✅" : "❌"}`);
     logger.info(`   - CSP: ${config.security.cspEnabled ? "✅" : "❌"}`);
     logger.info(`   - HTTPS only: ${config.security.httpsOnly ? "✅" : "❌"}`);
   } catch (error) {
@@ -268,9 +258,7 @@ export async function bootstrap(
     // Create a timeout promise
     const timeoutPromise = new Promise<SystemHealth>((_, reject) => {
       setTimeout(() => {
-        reject(
-          new Error(`Agent health check timed out after ${agentCheckTimeout}ms`)
-        );
+        reject(new Error(`Agent health check timed out after ${agentCheckTimeout}ms`));
       }, agentCheckTimeout);
     });
 
@@ -284,9 +272,7 @@ export async function bootstrap(
           retryDelay: 500,
           onProgress: (status) => {
             const icon = status.available ? "✅" : "❌";
-            const time = status.responseTime
-              ? ` (${status.responseTime}ms)`
-              : "";
+            const time = status.responseTime ? ` (${status.responseTime}ms)` : "";
             logger.info(`   ${icon} ${status.agent}${time}`);
           },
         }),

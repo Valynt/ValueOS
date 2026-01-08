@@ -1,6 +1,6 @@
 /**
  * VALYNT Application Entry Point
- * 
+ *
  * Optimized for fast initial load:
  * - Fonts loaded asynchronously after initial render
  * - Critical styles loaded synchronously
@@ -44,30 +44,41 @@ const loadFontsAsync = async () => {
   }
 };
 
+// 🚀 DEBUG: Start Application Initialization
+console.log(`[${new Date().toISOString()}] 🚀 Main: Starting application initialization...`);
+
 /**
  * Application entry point with production-ready bootstrap
  */
 function main() {
+  console.log(`[${new Date().toISOString()}] 📦 Main: Finding root element...`);
   const rootElement = document.getElementById("root");
 
   if (!rootElement) {
+    console.error(`[${new Date().toISOString()}] ❌ Main: Root element not found!`);
     throw new Error("Root element not found");
   }
 
   try {
     // 1. Initialize mission-critical telemetry and recovery systems first
+    console.log(`[${new Date().toISOString()}] 🛡️ Main: Setting up rate limits...`);
     ClientRateLimit.setupDefaultRateLimits?.();
 
     if (isDevelopment()) {
+      console.log(`[${new Date().toISOString()}] 🔄 Main: Initializing HMR fallback...`);
       initHMRFallback();
     }
 
+    console.log(`[${new Date().toISOString()}] 📊 Main: Initializing analytics...`);
     startConsoleCapture();
     analyticsClient.initialize({ betaCohort: true });
 
     // 2. Render React Root with BootstrapGuard
     // The Guard will handle the bootstrap sequence and UI states
+    console.log(`[${new Date().toISOString()}] ⚛️ Main: Creating React Root...`);
     const root = createRoot(rootElement);
+
+    console.log(`[${new Date().toISOString()}] 🎨 Main: Rendering <AppRoutes />...`);
     root.render(
       <StrictMode>
         <BootstrapGuard>
@@ -76,15 +87,17 @@ function main() {
       </StrictMode>
     );
 
+    console.log(`[${new Date().toISOString()}] ✅ Main: Render called successfully.`);
     logger.debug("Application root rendered with BootstrapGuard");
 
     // 3. Load fonts asynchronously after React has rendered
     // This allows the login page to appear immediately with system fonts
     setTimeout(() => {
+      console.log(`[${new Date().toISOString()}] 🔤 Main: Loading fonts async...`);
       loadFontsAsync();
     }, 100);
-
   } catch (error) {
+    console.error(`[${new Date().toISOString()}] 💥 Main: FATAL ERROR during init:`, error);
     logger.error(
       "Fatal error during application initialization",
       error instanceof Error ? error : new Error(String(error))
@@ -92,12 +105,9 @@ function main() {
 
     // High-fidelity fallback error UI
     rootElement.innerHTML = `
-      <div class="vc-error-root">
-        <div class="vc-error-card">
-          <div class="vc-error-icon">❌</div>
-          <div class="vc-error-title">Fatal Startup Error</div>
-          <div class="vc-error-message">${error instanceof Error ? error.message : "An unexpected error occurred during bootstrap initiation."}</div>
-        </div>
+      <div style="padding: 2rem; color: white; background: #0f172a; height: 100vh; font-family: sans-serif;">
+        <h1 style="color: #ef4444;">Fatal Startup Error</h1>
+        <pre style="background: #1e293b; padding: 1rem; border-radius: 0.5rem; overflow: auto;">${error instanceof Error ? error.stack : String(error)}</pre>
       </div>
     `;
   }

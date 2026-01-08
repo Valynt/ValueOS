@@ -58,17 +58,23 @@ describe("LoginPage Component", () => {
 
       expect(screen.getByLabelText(/work email/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: /continue to dashboard/i })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /continue to dashboard/i })).toBeInTheDocument();
     });
 
     it("should render OAuth provider buttons", () => {
       renderLoginPage();
 
-      const oauthButtons = screen.getAllByRole("button");
-      // Google, Apple, GitHub buttons exist
-      expect(oauthButtons.length).toBeGreaterThanOrEqual(4); // Login + 3 OAuth
+      // Only Google button exists now
+      const googleButton = screen.getByRole("button", { name: /continue with google/i });
+      expect(googleButton).toBeInTheDocument();
+
+      // Apple and GitHub buttons should NOT exist
+      const buttons = screen.getAllByRole("button");
+      // 1. Submit button
+      // 2. Toggle password visibility button
+      // 3. Google button
+      // So checks for length < 5 to ensure others are gone
+      expect(buttons.length).toBeLessThan(5);
     });
 
     it("should render signup link", () => {
@@ -84,10 +90,7 @@ describe("LoginPage Component", () => {
 
       const forgotLink = screen.getByText(/forgot/i);
       expect(forgotLink).toBeInTheDocument();
-      expect(forgotLink.closest("a")).toHaveAttribute(
-        "href",
-        "/reset-password"
-      );
+      expect(forgotLink.closest("a")).toHaveAttribute("href", "/reset-password");
     });
   });
 
@@ -132,9 +135,7 @@ describe("LoginPage Component", () => {
     it("should show/hide password when toggle button is clicked", () => {
       renderLoginPage();
 
-      const passwordInput = screen.getByLabelText(
-        /password/i
-      ) as HTMLInputElement;
+      const passwordInput = screen.getByLabelText(/password/i) as HTMLInputElement;
       const toggleButton = screen.getByRole("button", { name: /show/i });
 
       expect(passwordInput.type).toBe("password");
@@ -148,9 +149,7 @@ describe("LoginPage Component", () => {
 
     it("should show loading state during login", async () => {
       renderLoginPage();
-      mockLogin.mockImplementation(
-        () => new Promise((resolve) => setTimeout(resolve, 100))
-      );
+      mockLogin.mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 100)));
 
       const emailInput = screen.getByLabelText(/work email/i);
       const passwordInput = screen.getByLabelText(/password/i);
@@ -169,9 +168,7 @@ describe("LoginPage Component", () => {
 
     it("should disable form during login", async () => {
       renderLoginPage();
-      mockLogin.mockImplementation(
-        () => new Promise((resolve) => setTimeout(resolve, 100))
-      );
+      mockLogin.mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 100)));
 
       const emailInput = screen.getByLabelText(/work email/i);
       const passwordInput = screen.getByLabelText(/password/i);
@@ -194,9 +191,7 @@ describe("LoginPage Component", () => {
   describe("MFA Support", () => {
     it("should show MFA input when MFA is required", async () => {
       renderLoginPage();
-      mockLogin.mockRejectedValueOnce(
-        new ValidationError("MFA code required for login")
-      );
+      mockLogin.mockRejectedValueOnce(new ValidationError("MFA code required for login"));
 
       const emailInput = screen.getByLabelText(/work email/i);
       const passwordInput = screen.getByLabelText(/password/i);
@@ -230,18 +225,14 @@ describe("LoginPage Component", () => {
       fireEvent.click(submitButton);
 
       await waitFor(() => {
-        expect(
-          screen.getByText(/invalid email or password/i)
-        ).toBeInTheDocument();
+        expect(screen.getByText(/invalid email or password/i)).toBeInTheDocument();
       });
     });
 
     it("should display rate limit error message", async () => {
       renderLoginPage();
       mockLogin.mockRejectedValue(
-        new RateLimitError(
-          "Too many authentication attempts. Please try again later."
-        )
+        new RateLimitError("Too many authentication attempts. Please try again later.")
       );
 
       const emailInput = screen.getByLabelText(/work email/i);
@@ -255,9 +246,7 @@ describe("LoginPage Component", () => {
       fireEvent.click(submitButton);
 
       await waitFor(() => {
-        expect(
-          screen.getByText(/too many login attempts/i)
-        ).toBeInTheDocument();
+        expect(screen.getByText(/too many login attempts/i)).toBeInTheDocument();
       });
     });
   });
@@ -267,9 +256,7 @@ describe("LoginPage Component", () => {
       renderLoginPage();
       mockSignInWithProvider.mockResolvedValue({});
 
-      const oauthButtons = screen.getAllByRole("button");
-      // Find Google button (first OAuth button after main submit)
-      const googleButton = oauthButtons[1];
+      const googleButton = screen.getByRole("button", { name: /continue with google/i });
 
       fireEvent.click(googleButton);
 
@@ -284,8 +271,7 @@ describe("LoginPage Component", () => {
         () => new Promise((resolve) => setTimeout(resolve, 100))
       );
 
-      const oauthButtons = screen.getAllByRole("button");
-      const googleButton = oauthButtons[1];
+      const googleButton = screen.getByRole("button", { name: /continue with google/i });
 
       fireEvent.click(googleButton);
 
@@ -296,12 +282,9 @@ describe("LoginPage Component", () => {
 
     it("should handle OAuth errors", async () => {
       renderLoginPage();
-      mockSignInWithProvider.mockRejectedValue(
-        new Error("OAuth sign in failed")
-      );
+      mockSignInWithProvider.mockRejectedValue(new Error("OAuth sign in failed"));
 
-      const oauthButtons = screen.getAllByRole("button");
-      const googleButton = oauthButtons[1];
+      const googleButton = screen.getByRole("button", { name: /continue with google/i });
 
       fireEvent.click(googleButton);
 

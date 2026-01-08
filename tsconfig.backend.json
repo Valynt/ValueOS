@@ -1,0 +1,35 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "CommonJS",
+    "outDir": "./dist/backend",
+    "rootDir": "./src",
+    "noEmit": false,
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": false,
+    "allowImportingTsExtensions": false
+  },
+  "include": [
+    "src/backend/**/*",
+    "src/lib/**/*",
+    "src/types/**/*",
+    "src/config/**/*"
+  ],
+  "exclude": [
+    "src/**/*.test.*",
+    "src/**/*.spec.*",
+    "src/**/*.stories.*",
+    "src/views/**/*",
+    "src/components/**/*",
+    "src/hooks/**/*",
+    "src/pages/**/*"
+  ]
+}

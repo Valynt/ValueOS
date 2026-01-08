@@ -16,8 +16,8 @@ RUN npm ci
 # Copy source files
 COPY . .
 
-# Build the application
-RUN npm run build
+# Build the backend application
+RUN npm run build:backend || npx tsc -p tsconfig.backend.json
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
@@ -35,4 +35,4 @@ EXPOSE 3001
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
 
-CMD ["node", "dist/backend/server.js"]
+CMD ["npx", "tsx", "src/backend/server.ts"]

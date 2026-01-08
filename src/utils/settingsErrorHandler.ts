@@ -1,23 +1,23 @@
 /**
  * Settings Error Handling
- * 
+ *
  * Sprint 2 Enhancement: Consistent error handling
  * Provides standardized error handling and user-friendly messages
  */
 
-import { logger } from '../lib/logger';
+import { logger } from "../lib/logger";
 
 // ============================================================================
 // Error Types
 // ============================================================================
 
 export enum SettingsErrorCode {
-  VALIDATION_ERROR = 'VALIDATION_ERROR',
-  PERMISSION_DENIED = 'PERMISSION_DENIED',
-  NOT_FOUND = 'NOT_FOUND',
-  NETWORK_ERROR = 'NETWORK_ERROR',
-  DATABASE_ERROR = 'DATABASE_ERROR',
-  UNKNOWN_ERROR = 'UNKNOWN_ERROR',
+  VALIDATION_ERROR = "VALIDATION_ERROR",
+  PERMISSION_DENIED = "PERMISSION_DENIED",
+  NOT_FOUND = "NOT_FOUND",
+  NETWORK_ERROR = "NETWORK_ERROR",
+  DATABASE_ERROR = "DATABASE_ERROR",
+  UNKNOWN_ERROR = "UNKNOWN_ERROR",
 }
 
 export class SettingsError extends Error {
@@ -27,7 +27,7 @@ export class SettingsError extends Error {
     public details?: Record<string, any>
   ) {
     super(message);
-    this.name = 'SettingsError';
+    this.name = "SettingsError";
   }
 }
 
@@ -36,12 +36,12 @@ export class SettingsError extends Error {
 // ============================================================================
 
 const ERROR_MESSAGES: Record<SettingsErrorCode, string> = {
-  [SettingsErrorCode.VALIDATION_ERROR]: 'Invalid value provided',
-  [SettingsErrorCode.PERMISSION_DENIED]: 'You don\'t have permission to change this setting',
-  [SettingsErrorCode.NOT_FOUND]: 'Setting not found',
-  [SettingsErrorCode.NETWORK_ERROR]: 'Network error. Please check your connection',
-  [SettingsErrorCode.DATABASE_ERROR]: 'Failed to save setting. Please try again',
-  [SettingsErrorCode.UNKNOWN_ERROR]: 'An unexpected error occurred',
+  [SettingsErrorCode.VALIDATION_ERROR]: "Invalid value provided",
+  [SettingsErrorCode.PERMISSION_DENIED]: "You don't have permission to change this setting",
+  [SettingsErrorCode.NOT_FOUND]: "Setting not found",
+  [SettingsErrorCode.NETWORK_ERROR]: "Network error. Please check your connection",
+  [SettingsErrorCode.DATABASE_ERROR]: "Failed to save setting. Please try again",
+  [SettingsErrorCode.UNKNOWN_ERROR]: "An unexpected error occurred",
 };
 
 // ============================================================================
@@ -56,11 +56,11 @@ export interface ErrorHandlerOptions {
 
 /**
  * Handle settings errors with consistent messaging
- * 
+ *
  * @param error - The error to handle
  * @param options - Error handling options
  * @returns User-friendly error message
- * 
+ *
  * @example
  * ```typescript
  * try {
@@ -71,14 +71,11 @@ export interface ErrorHandlerOptions {
  * }
  * ```
  */
-export function handleSettingsError(
-  error: unknown,
-  options: ErrorHandlerOptions = {}
-): string {
+export function handleSettingsError(error: unknown, options: ErrorHandlerOptions = {}): string {
   const {
     showToast = false,
     logError = true,
-    fallbackMessage = 'Failed to update setting',
+    fallbackMessage = "Failed to update setting",
   } = options;
 
   let errorMessage: string;
@@ -89,7 +86,7 @@ export function handleSettingsError(
     errorCode = error.code;
 
     if (logError) {
-      logger.error('Settings error', error, {
+      logger.error("Settings error", error, {
         code: error.code,
         details: error.details,
       });
@@ -98,25 +95,25 @@ export function handleSettingsError(
     errorMessage = error.message || fallbackMessage;
 
     // Detect error type from message
-    if (error.message.includes('permission') || error.message.includes('unauthorized')) {
+    if (error.message.includes("permission") || error.message.includes("unauthorized")) {
       errorCode = SettingsErrorCode.PERMISSION_DENIED;
       errorMessage = ERROR_MESSAGES[SettingsErrorCode.PERMISSION_DENIED];
-    } else if (error.message.includes('network') || error.message.includes('fetch')) {
+    } else if (error.message.includes("network") || error.message.includes("fetch")) {
       errorCode = SettingsErrorCode.NETWORK_ERROR;
       errorMessage = ERROR_MESSAGES[SettingsErrorCode.NETWORK_ERROR];
-    } else if (error.message.includes('validation') || error.message.includes('invalid')) {
+    } else if (error.message.includes("validation") || error.message.includes("invalid")) {
       errorCode = SettingsErrorCode.VALIDATION_ERROR;
       errorMessage = ERROR_MESSAGES[SettingsErrorCode.VALIDATION_ERROR];
     }
 
     if (logError) {
-      logger.error('Settings error', error, { errorCode });
+      logger.error("Settings error", error, { errorCode });
     }
   } else {
     errorMessage = fallbackMessage;
 
     if (logError) {
-      logger.error('Unknown settings error', undefined, { error });
+      logger.error("Unknown settings error", undefined, { error });
     }
   }
 
@@ -134,7 +131,7 @@ export function handleSettingsError(
 
 /**
  * Validate a setting value
- * 
+ *
  * @param key - Setting key
  * @param value - Value to validate
  * @param metadata - Setting metadata with validation rules
@@ -154,9 +151,9 @@ export function validateSettingValue(
   if (!metadata) return null;
 
   switch (metadata.type) {
-    case 'number':
-      if (typeof value !== 'number' || isNaN(value)) {
-        return 'Value must be a number';
+    case "number":
+      if (typeof value !== "number" || isNaN(value)) {
+        return "Value must be a number";
       }
       if (metadata.min !== undefined && value < metadata.min) {
         return `Value must be at least ${metadata.min}`;
@@ -166,30 +163,30 @@ export function validateSettingValue(
       }
       break;
 
-    case 'string':
-      if (typeof value !== 'string') {
-        return 'Value must be a string';
+    case "string":
+      if (typeof value !== "string") {
+        return "Value must be a string";
       }
       if (metadata.pattern && !metadata.pattern.test(value)) {
-        return 'Invalid format';
+        return "Invalid format";
       }
       break;
 
-    case 'boolean':
-      if (typeof value !== 'boolean') {
-        return 'Value must be true or false';
+    case "boolean":
+      if (typeof value !== "boolean") {
+        return "Value must be true or false";
       }
       break;
 
-    case 'select':
+    case "select":
       if (metadata.options && !metadata.options.includes(value)) {
-        return `Value must be one of: ${metadata.options.join(', ')}`;
+        return `Value must be one of: ${metadata.options.join(", ")}`;
       }
       break;
 
-    case 'array':
+    case "array":
       if (!Array.isArray(value)) {
-        return 'Value must be an array';
+        return "Value must be an array";
       }
       break;
   }
@@ -203,12 +200,12 @@ export function validateSettingValue(
 
 /**
  * Retry a settings operation with exponential backoff
- * 
+ *
  * @param operation - The operation to retry
  * @param maxRetries - Maximum number of retries (default: 3)
  * @param baseDelay - Base delay in milliseconds (default: 1000)
  * @returns Result of the operation
- * 
+ *
  * @example
  * ```typescript
  * const result = await retryOperation(
@@ -236,12 +233,12 @@ export async function retryOperation<T>(
         logger.warn(`Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms`, {
           error: lastError.message,
         });
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
   }
 
-  throw lastError || new Error('Operation failed after retries');
+  throw lastError || new Error("Operation failed after retries");
 }
 
 // ============================================================================
@@ -256,7 +253,7 @@ export interface ErrorBoundaryState {
 
 /**
  * Create error boundary state handler
- * 
+ *
  * @returns Error boundary state and handlers
  */
 export function createErrorBoundaryState() {
@@ -281,7 +278,7 @@ export function createErrorBoundaryState() {
       errorInfo: errorInfo || null,
     });
 
-    logger.error('Settings component error', error, {
+    logger.error("Settings component error", error, {
       componentStack: errorInfo?.componentStack,
     });
   };
@@ -304,31 +301,22 @@ export function isSettingsError(error: unknown): error is SettingsError {
  * Check if error is a validation error
  */
 export function isValidationError(error: unknown): boolean {
-  return (
-    isSettingsError(error) &&
-    error.code === SettingsErrorCode.VALIDATION_ERROR
-  );
+  return isSettingsError(error) && error.code === SettingsErrorCode.VALIDATION_ERROR;
 }
 
 /**
  * Check if error is a permission error
  */
 export function isPermissionError(error: unknown): boolean {
-  return (
-    isSettingsError(error) &&
-    error.code === SettingsErrorCode.PERMISSION_DENIED
-  );
+  return isSettingsError(error) && error.code === SettingsErrorCode.PERMISSION_DENIED;
 }
 
 /**
  * Check if error is a network error
  */
 export function isNetworkError(error: unknown): boolean {
-  return (
-    isSettingsError(error) &&
-    error.code === SettingsErrorCode.NETWORK_ERROR
-  );
+  return isSettingsError(error) && error.code === SettingsErrorCode.NETWORK_ERROR;
 }
 
 // Import React for error boundary helper
-import React from 'react';
+import * as React from "react";

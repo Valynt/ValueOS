@@ -2,13 +2,13 @@
  * Performance Monitoring and Optimization Utilities
  */
 
-import { logger } from '../lib/logger';
-import React from 'react';
+import { logger } from "../lib/logger";
+import * as React from "react";
 
 export interface PerformanceMetric {
   name: string;
   value: number;
-  unit: 'ms' | 'bytes' | 'count';
+  unit: "ms" | "bytes" | "count";
   timestamp: number;
   metadata?: Record<string, any>;
 }
@@ -20,14 +20,14 @@ export interface PerformanceBenchmark {
 }
 
 export const PERFORMANCE_BENCHMARKS: Record<string, PerformanceBenchmark> = {
-  'settings.panel.load': { target: 200, warning: 300, critical: 500 },
-  'settings.section.load': { target: 100, warning: 150, critical: 250 },
-  'settings.search': { target: 50, warning: 100, critical: 200 },
-  'settings.save': { target: 300, warning: 500, critical: 1000 },
-  'web-vitals.inp': { target: 200, warning: 300, critical: 500 },
-  'web-vitals.tbt': { target: 200, warning: 400, critical: 600 },
-  'web-vitals.fcp': { target: 1800, warning: 2500, critical: 3000 },
-  'web-vitals.lcp': { target: 2500, warning: 3500, critical: 4000 },
+  "settings.panel.load": { target: 200, warning: 300, critical: 500 },
+  "settings.section.load": { target: 100, warning: 150, critical: 250 },
+  "settings.search": { target: 50, warning: 100, critical: 200 },
+  "settings.save": { target: 300, warning: 500, critical: 1000 },
+  "web-vitals.inp": { target: 200, warning: 300, critical: 500 },
+  "web-vitals.tbt": { target: 200, warning: 400, critical: 600 },
+  "web-vitals.fcp": { target: 1800, warning: 2500, critical: 3000 },
+  "web-vitals.lcp": { target: 2500, warning: 3500, critical: 4000 },
 };
 
 class PerformanceMonitor {
@@ -48,14 +48,14 @@ class PerformanceMonitor {
       try {
         performance.measure(name, `${name}-start`, `${name}-end`);
       } catch (error) {
-        logger.warn('Performance measure failed:', error);
+        logger.warn("Performance measure failed:", error);
       }
 
       const duration = endTime - startTime;
       this.recordMetric({
         name,
         value: duration,
-        unit: 'ms',
+        unit: "ms",
         timestamp: Date.now(),
       });
 
@@ -76,13 +76,13 @@ class PerformanceMonitor {
 
     // Check against benchmarks
     const benchmark = PERFORMANCE_BENCHMARKS[metric.name];
-    if (benchmark && metric.unit === 'ms') {
+    if (benchmark && metric.unit === "ms") {
       if (metric.value > benchmark.critical) {
-        logger.error('Performance critical: ${metric.name} took ${metric.value}ms');
-        this.reportPerformanceIssue(metric, 'critical');
+        logger.error("Performance critical: ${metric.name} took ${metric.value}ms");
+        this.reportPerformanceIssue(metric, "critical");
       } else if (metric.value > benchmark.warning) {
-        logger.warn('Performance warning: ${metric.name} took ${metric.value}ms');
-        this.reportPerformanceIssue(metric, 'warning');
+        logger.warn("Performance warning: ${metric.name} took ${metric.value}ms");
+        this.reportPerformanceIssue(metric, "warning");
       }
     }
   }
@@ -120,7 +120,7 @@ class PerformanceMonitor {
    * Observe Core Web Vitals
    */
   observeWebVitals(): void {
-    if (typeof window === 'undefined' || !('PerformanceObserver' in window)) {
+    if (typeof window === "undefined" || !("PerformanceObserver" in window)) {
       return;
     }
 
@@ -131,17 +131,17 @@ class PerformanceMonitor {
         const lastEntry = entries[entries.length - 1] as any;
 
         this.recordMetric({
-          name: 'web-vitals.lcp',
+          name: "web-vitals.lcp",
           value: lastEntry.renderTime || lastEntry.loadTime,
-          unit: 'ms',
+          unit: "ms",
           timestamp: Date.now(),
         });
       });
 
-      lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true });
-      this.observers.set('lcp', lcpObserver);
+      lcpObserver.observe({ type: "largest-contentful-paint", buffered: true });
+      this.observers.set("lcp", lcpObserver);
     } catch (error) {
-      logger.warn('LCP observation failed:', error);
+      logger.warn("LCP observation failed:", error);
     }
 
     // First Input Delay (FID)
@@ -150,18 +150,18 @@ class PerformanceMonitor {
         const entries = list.getEntries();
         entries.forEach((entry: any) => {
           this.recordMetric({
-            name: 'web-vitals.fid',
+            name: "web-vitals.fid",
             value: entry.processingStart - entry.startTime,
-            unit: 'ms',
+            unit: "ms",
             timestamp: Date.now(),
           });
         });
       });
 
-      fidObserver.observe({ type: 'first-input', buffered: true });
-      this.observers.set('fid', fidObserver);
+      fidObserver.observe({ type: "first-input", buffered: true });
+      this.observers.set("fid", fidObserver);
     } catch (error) {
-      logger.warn('FID observation failed:', error);
+      logger.warn("FID observation failed:", error);
     }
 
     // Cumulative Layout Shift (CLS)
@@ -176,17 +176,17 @@ class PerformanceMonitor {
         });
 
         this.recordMetric({
-          name: 'web-vitals.cls',
+          name: "web-vitals.cls",
           value: clsValue,
-          unit: 'count',
+          unit: "count",
           timestamp: Date.now(),
         });
       });
 
-      clsObserver.observe({ type: 'layout-shift', buffered: true });
-      this.observers.set('cls', clsObserver);
+      clsObserver.observe({ type: "layout-shift", buffered: true });
+      this.observers.set("cls", clsObserver);
     } catch (error) {
-      logger.warn('CLS observation failed:', error);
+      logger.warn("CLS observation failed:", error);
     }
 
     // Interaction to Next Paint (INP) - replaces FID
@@ -204,7 +204,7 @@ class PerformanceMonitor {
    * Measures responsiveness throughout the page lifecycle
    */
   private observeINP(): void {
-    if (typeof window === 'undefined' || !('PerformanceObserver' in window)) {
+    if (typeof window === "undefined" || !("PerformanceObserver" in window)) {
       return;
     }
 
@@ -213,11 +213,11 @@ class PerformanceMonitor {
         const entries = list.getEntries();
         entries.forEach((entry: any) => {
           const duration = entry.processingEnd - entry.startTime;
-          
+
           this.recordMetric({
-            name: 'web-vitals.inp',
+            name: "web-vitals.inp",
             value: duration,
-            unit: 'ms',
+            unit: "ms",
             timestamp: Date.now(),
             metadata: {
               interactionType: entry.name,
@@ -227,10 +227,10 @@ class PerformanceMonitor {
         });
       });
 
-      inpObserver.observe({ type: 'event', buffered: true, durationThreshold: 16 });
-      this.observers.set('inp', inpObserver);
+      inpObserver.observe({ type: "event", buffered: true, durationThreshold: 16 });
+      this.observers.set("inp", inpObserver);
     } catch (error) {
-      logger.warn('INP observation failed:', error);
+      logger.warn("INP observation failed:", error);
     }
   }
 
@@ -238,7 +238,7 @@ class PerformanceMonitor {
    * Observe First Contentful Paint (FCP)
    */
   private observeFCP(): void {
-    if (typeof window === 'undefined' || !('PerformanceObserver' in window)) {
+    if (typeof window === "undefined" || !("PerformanceObserver" in window)) {
       return;
     }
 
@@ -247,18 +247,18 @@ class PerformanceMonitor {
         const entries = list.getEntries();
         entries.forEach((entry: any) => {
           this.recordMetric({
-            name: 'web-vitals.fcp',
+            name: "web-vitals.fcp",
             value: entry.startTime,
-            unit: 'ms',
+            unit: "ms",
             timestamp: Date.now(),
           });
         });
       });
 
-      fcpObserver.observe({ type: 'paint', buffered: true });
-      this.observers.set('fcp', fcpObserver);
+      fcpObserver.observe({ type: "paint", buffered: true });
+      this.observers.set("fcp", fcpObserver);
     } catch (error) {
-      logger.warn('FCP observation failed:', error);
+      logger.warn("FCP observation failed:", error);
     }
   }
 
@@ -267,7 +267,7 @@ class PerformanceMonitor {
    * Tracks long tasks that block the main thread
    */
   private observeTBT(): void {
-    if (typeof window === 'undefined' || !('PerformanceObserver' in window)) {
+    if (typeof window === "undefined" || !("PerformanceObserver" in window)) {
       return;
     }
 
@@ -282,17 +282,17 @@ class PerformanceMonitor {
         });
 
         this.recordMetric({
-          name: 'web-vitals.tbt',
+          name: "web-vitals.tbt",
           value: tbtValue,
-          unit: 'ms',
+          unit: "ms",
           timestamp: Date.now(),
         });
       });
 
-      tbtObserver.observe({ type: 'longtask', buffered: true });
-      this.observers.set('tbt', tbtObserver);
+      tbtObserver.observe({ type: "longtask", buffered: true });
+      this.observers.set("tbt", tbtObserver);
     } catch (error) {
-      logger.warn('TBT observation failed:', error);
+      logger.warn("TBT observation failed:", error);
     }
   }
 
@@ -301,10 +301,10 @@ class PerformanceMonitor {
    */
   private reportPerformanceIssue(
     metric: PerformanceMetric,
-    severity: 'warning' | 'critical'
+    severity: "warning" | "critical"
   ): void {
-    if (typeof window !== 'undefined' && (window as any).analytics) {
-      (window as any).analytics.track('Performance Issue', {
+    if (typeof window !== "undefined" && (window as any).analytics) {
+      (window as any).analytics.track("Performance Issue", {
         metric: metric.name,
         value: metric.value,
         unit: metric.unit,
@@ -338,9 +338,9 @@ class PerformanceMonitor {
       if (benchmark) {
         const p95 = this.getPercentile(name, 95);
         if (p95 > benchmark.critical) {
-          issues.push({ name, severity: 'critical', value: p95 });
+          issues.push({ name, severity: "critical", value: p95 });
         } else if (p95 > benchmark.warning) {
-          issues.push({ name, severity: 'warning', value: p95 });
+          issues.push({ name, severity: "warning", value: p95 });
         }
       }
     });
@@ -368,11 +368,11 @@ class PerformanceMonitor {
    */
   measureThroughput(componentName: string, actionCount: number, duration: number): void {
     const throughput = (actionCount / duration) * 1000;
-    
+
     this.recordMetric({
       name: `throughput.${componentName}`,
       value: throughput,
-      unit: 'count',
+      unit: "count",
       timestamp: Date.now(),
       metadata: {
         actionCount,
@@ -386,7 +386,7 @@ class PerformanceMonitor {
    */
   monitorFrameRate(duration: number = 1000): Promise<number> {
     return new Promise((resolve) => {
-      if (typeof window === 'undefined' || !window.requestAnimationFrame) {
+      if (typeof window === "undefined" || !window.requestAnimationFrame) {
         resolve(0);
         return;
       }
@@ -397,25 +397,25 @@ class PerformanceMonitor {
 
       const countFrame = (currentTime: number) => {
         frameCount++;
-        
+
         if (currentTime - startTime < duration) {
           lastTime = currentTime;
           requestAnimationFrame(countFrame);
         } else {
           const actualDuration = currentTime - startTime;
           const fps = (frameCount / actualDuration) * 1000;
-          
+
           this.recordMetric({
-            name: 'animation.fps',
+            name: "animation.fps",
             value: fps,
-            unit: 'count',
+            unit: "count",
             timestamp: Date.now(),
             metadata: {
               frameCount,
               duration: actualDuration,
             },
           });
-          
+
           resolve(fps);
         }
       };
@@ -428,16 +428,16 @@ class PerformanceMonitor {
    * Track memory usage (if available)
    */
   trackMemoryUsage(): void {
-    if (typeof window === 'undefined' || !(performance as any).memory) {
+    if (typeof window === "undefined" || !(performance as any).memory) {
       return;
     }
 
     const memory = (performance as any).memory;
-    
+
     this.recordMetric({
-      name: 'memory.used',
+      name: "memory.used",
       value: memory.usedJSHeapSize / 1048576,
-      unit: 'bytes',
+      unit: "bytes",
       timestamp: Date.now(),
       metadata: {
         total: memory.totalJSHeapSize / 1048576,
@@ -468,7 +468,7 @@ class PerformanceMonitor {
     this.recordMetric({
       name,
       value: duration || 0,
-      unit: 'ms',
+      unit: "ms",
       timestamp: Date.now(),
       metadata: {
         error: !success,
@@ -497,7 +497,7 @@ export const usePerformanceMonitor = (name: string) => {
   }, [name]);
 
   return {
-    recordMetric: (metric: Omit<PerformanceMetric, 'timestamp'>) =>
+    recordMetric: (metric: Omit<PerformanceMetric, "timestamp">) =>
       performanceMonitor.recordMetric({ ...metric, timestamp: Date.now() }),
   };
 };
