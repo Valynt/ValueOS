@@ -5,6 +5,7 @@
  * Generates and validates CSRF tokens for state-changing operations.
  */
 
+import * as React from "react";
 import { logger } from "../lib/logger";
 import { getSecurityConfig } from "./SecurityConfig";
 import { getConfig } from "../config/environment";
@@ -448,9 +449,6 @@ export function useCSRFToken(sessionId?: string): {
     addToFormData,
   };
 }
-
-// Import React for the hook
-import React from "react";
 
 let csrfFetchInterceptorInstalled = false;
 let originalFetch: typeof fetch | null = null;

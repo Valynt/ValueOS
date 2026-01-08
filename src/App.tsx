@@ -1,7 +1,6 @@
 import React, { useEffect } from "react";
 import { ChatCanvasLayout } from "./components/ChatCanvas";
 import { sessionManager } from "./services/SessionManager";
-import { Toaster } from "@/components/ui/toaster";
 import { ProblemMonitor } from "./components/monitoring/ProblemMonitor";
 import { initialProblems } from "./data/initialProblems";
 
@@ -32,7 +31,6 @@ function App() {
           console.log("Help clicked");
         }}
       />
-      <Toaster />
     </>
   );
 }

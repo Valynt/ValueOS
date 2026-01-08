@@ -5,6 +5,7 @@
  * Protects against brute force attacks and API abuse.
  */
 
+import * as React from 'react';
 import { getSecurityConfig } from './SecurityConfig';
 
 /**
@@ -419,6 +420,3 @@ export function cleanupRateLimiters(): void {
   }
   rateLimiters.clear();
 }
-
-// Import React for the hook
-import React from 'react';

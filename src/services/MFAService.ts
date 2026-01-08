@@ -14,7 +14,7 @@
  */
 
 import speakeasy from "speakeasy";
-import QRCode from "qrcode";
+import * as QRCode from "qrcode";
 import { logger } from "../lib/logger";
 import { BaseService } from "./BaseService";
 import { AuthenticationError, ValidationError } from "./errors";

@@ -22,7 +22,7 @@ import { createLogger } from "../lib/logger";
 import { computePermissions, UserClaims } from "../types/security";
 import { analyticsClient } from "../lib/analyticsClient";
 import { secureTokenManager } from "../lib/auth/SecureTokenManager";
-import { env } from "../lib/env";
+import { env, getSupabaseConfig } from "../lib/env";
 
 const logger = createLogger({ component: "AuthContext" });
 
@@ -56,6 +56,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       try {
+        // Validate Supabase configuration first
+        const supabaseConfig = getSupabaseConfig();
+        if (!supabaseConfig.url || !supabaseConfig.anonKey) {
+          logger.error("Supabase configuration missing", {
+            hasUrl: !!supabaseConfig.url,
+            hasAnonKey: !!supabaseConfig.anonKey,
+          });
+          setLoading(false);
+          return;
+        }
+
+        logger.debug("Supabase configuration validated");
+
         // OPTIMIZATION: Optimistically restore session from synchronous storage
         // This prevents blocking the UI render for unauthenticated users
         const storedSession = secureTokenManager.getStoredSession();
@@ -124,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             workflow: "activation",
             session_age:
               Date.now() -
-              (session.issued_at ? session.issued_at * 1000 : Date.now()),
+              (session.created_at ? new Date(session.created_at).getTime() : Date.now()),
           });
           logger.info("Session validated via secure token manager");
         } else if (secureTokenManager.getStoredSession()) {
@@ -147,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = authService["supabase"].auth.onAuthStateChange(
-      async (event, newSession) => {
+      async (event: string, newSession: Session | null) => {
         logger.debug("Auth state changed", { event });
 
         setSession(newSession);
@@ -288,6 +301,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
+
+export { AuthContext };
 
 export function useAuth() {
   const context = useContext(AuthContext);

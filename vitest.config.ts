@@ -10,7 +10,7 @@ export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
-    environment: "node", // Use node env for backend/repo tests
+    environment: "happy-dom", // Use happy-dom for React component tests (was "node")
     setupFiles: [
       "./tests/setup.ts",
       "./src/test/setup.ts",
@@ -39,6 +39,13 @@ export default defineConfig({
         ".storybook/",
         "storybook-static/",
       ],
+      // Enforce coverage thresholds
+      thresholds: {
+        lines: 75,
+        functions: 70,
+        branches: 65,
+        statements: 75,
+      },
     },
     exclude: [
       "node_modules",

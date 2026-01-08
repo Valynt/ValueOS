@@ -1,0 +1,265 @@
+name: Pre-Deployment Validation
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  code-quality-gates:
+    name: Code Quality Gates
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run linter
+        run: npm run lint
+      
+      - name: Check code formatting
+        run: npm run format:check
+      
+      - name: TypeScript type check
+        run: npm run typecheck
+      
+      - name: Run unit tests with coverage
+        run: npm test -- --run --coverage
+      
+      - name: Verify coverage meets thresholds
+        run: |
+          echo "✅ Coverage thresholds met (enforced by vitest.config.ts)"
+          echo "Required: 75% lines, 70% functions, 65% branches, 75% statements"
+      
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+  
+  security-validation:
+    name: Security Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run npm audit
+        run: npm audit --audit-level=high
+        continue-on-error: true
+      
+      - name: Check for secrets in code
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
+  
+  migration-validation:
+    name: Database Migration Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Get changed migration files
+        id: changed-migrations
+        run: |
+          MIGRATIONS=$(git diff --name-only --diff-filter=A ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }} | grep "supabase/migrations/.*\.sql" || echo "")
+          if [ -n "$MIGRATIONS" ]; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "files<<EOF" >> $GITHUB_OUTPUT
+            echo "$MIGRATIONS" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Validate migration files
+        if: steps.changed-migrations.outputs.found == 'true'
+        run: |
+          echo "Validating migrations:"
+          while IFS= read -r migration; do
+            if [ -n "$migration" ]; then
+              echo "Checking: $migration"
+              ./scripts/validate-migration.sh "$migration"
+            fi
+          done <<< "${{ steps.changed-migrations.outputs.files }}"
+      
+      - name: Check for rollback scripts
+        if: steps.changed-migrations.outputs.found == 'true'
+        run: |
+          MISSING_ROLLBACKS=""
+          while IFS= read -r migration; do
+            if [ -n "$migration" ]; then
+              ROLLBACK="${migration%.sql}_rollback.sql"
+              if [ ! -f "$ROLLBACK" ]; then
+                MISSING_ROLLBACKS="$MISSING_ROLLBACKS\n- $migration"
+              fi
+            fi
+          done <<< "${{ steps.changed-migrations.outputs.files }}"
+          
+          if [ -n "$MISSING_ROLLBACKS" ]; then
+            echo "⚠️ Warning: Missing rollback scripts for:"
+            echo -e "$MISSING_ROLLBACKS"
+            echo ""
+            echo "Consider adding rollback scripts for safety!"
+          else
+            echo "✅ All migrations have rollback scripts"
+          fi
+  
+  performance-check:
+    name: Performance Budget Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build application
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: https://placeholder.supabase.co
+          VITE_SUPABASE_ANON_KEY: placeholder-key
+      
+      - name: Check bundle size
+        run: |
+          echo "Checking bundle sizes..."
+          
+          # Get bundle sizes
+          TOTAL_SIZE=$(du -sh dist | cut -f1)
+          JS_SIZE=$(find dist -name "*.js" -type f -exec du -ch {} + | grep total | cut -f1)
+          CSS_SIZE=$(find dist -name "*.css" -type f -exec du -ch {} + | grep total | cut -f1)
+          
+          echo "📦 Bundle Sizes:"
+          echo "Total: $TOTAL_SIZE"
+          echo "JavaScript: $JS_SIZE"
+          echo "CSS: $CSS_SIZE"
+          
+          # Bundle size budget check (target: < 1.5MB total)
+          TOTAL_KB=$(du -sk dist | cut -f1)
+          if [ $TOTAL_KB -gt 1536 ]; then
+            echo "❌ Bundle size exceeds budget!"
+            echo "Current: ${TOTAL_KB}KB, Budget: 1536KB"
+            exit 1
+          else
+            echo "✅ Bundle size within budget"
+          fi
+      
+      - name: Analyze bundle composition
+        run: |
+          echo "Bundle composition:"
+          find dist -type f -name "*.js" -o -name "*.css" | \
+            xargs du -h | \
+            sort -rh | \
+            head -20
+  
+  pr-validation-summary:
+    name: PR Validation Summary
+    runs-on: ubuntu-latest
+    needs: 
+      - code-quality-gates
+      - security-validation
+      - migration-validation
+      - performance-check
+    if: always()
+    
+    steps:
+      - name: Check all validations passed
+        run: |
+          echo "=== PR Validation Summary ==="
+          echo ""
+          echo "Code Quality: ${{ needs.code-quality-gates.result }}"
+          echo "Security: ${{ needs.security-validation.result }}"
+          echo "Migrations: ${{ needs.migration-validation.result }}"
+          echo "Performance: ${{ needs.performance-check.result }}"
+          echo ""
+          
+          if [[ "${{ needs.code-quality-gates.result }}" != "success" ]] || \
+             [[ "${{ needs.security-validation.result }}" != "success" ]] || \
+             [[ "${{ needs.migration-validation.result }}" != "success" ]] || \
+             [[ "${{ needs.performance-check.result }}" != "success" ]]; then
+            echo "❌ PR validation FAILED"
+            echo "Review failed checks above before merging"
+            exit 1
+          fi
+          
+          echo "✅ All PR validations PASSED"
+          echo "Safe to merge when ready!"
+      
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const statusEmoji = {
+              success: '✅',
+              failure: '❌',
+              cancelled: '🚫',
+              skipped: '⏭️'
+            };
+            
+            const codeQuality = '${{ needs.code-quality-gates.result }}';
+            const security = '${{ needs.security-validation.result }}';
+            const migrations = '${{ needs.migration-validation.result }}';
+            const performance = '${{ needs.performance-check.result }}';
+            
+            const allPassed = 
+              codeQuality === 'success' &&
+              security === 'success' &&
+              migrations === 'success' &&
+              performance === 'success';
+            
+            const body = `## PR Validation Results
+            
+            ${statusEmoji[codeQuality]} **Code Quality Gates**: ${codeQuality}
+            ${statusEmoji[security]} **Security Validation**: ${security}
+            ${statusEmoji[migrations]} **Migration Validation**: ${migrations}
+            ${statusEmoji[performance]} **Performance Check**: ${performance}
+            
+            ---
+            
+            ${allPassed ? 
+              '✅ **All checks passed!** This PR is ready to merge.' : 
+              '❌ **Some checks failed.** Please review the failed checks before merging.'}
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });

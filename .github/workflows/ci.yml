@@ -70,12 +70,19 @@ jobs:
       - name: Run tests
         run: npm test -- --run --coverage
       
+      - name: Check coverage thresholds
+        run: |
+          # Vitest will fail if coverage is below thresholds
+          # Thresholds defined in vitest.config.ts
+          echo "Coverage thresholds enforced: 75% lines, 70% functions, 65% branches"
+      
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
           files: ./coverage/coverage-final.json
           flags: unittests
           name: codecov-umbrella
+          fail_ci_if_error: true
       
       - name: Upload test results
         if: always()

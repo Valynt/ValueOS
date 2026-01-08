@@ -489,6 +489,138 @@ CREATE TABLE expansion_opportunities (
 
 ---
 
+## Recent Migrations (2026-01-08)
+
+### Migration: 20260108000001_add_tenant_id_to_value_cases
+
+**Purpose:** Add proper tenant isolation to value_cases table
+
+**Changes:**
+- Added `tenant_id` column to value_cases
+- Populated from existing agent_sessions relationships
+- Added NOT NULL constraint after data migration
+- Created foreign key to tenants table with CASCADE delete
+- Added performance index on tenant_id
+- Implemented RLS policy for tenant isolation
+
+**Impact:** Critical security fix - ensures multi-tenant data isolation
+
+```sql
+ALTER TABLE public.value_cases ADD COLUMN tenant_id text;
+
+CREATE POLICY "value_cases_tenant_isolation" ON public.value_cases
+FOR ALL USING (tenant_id = (SELECT NULLIF((current_setting('request.jwt.claims', true)::jsonb ->> 'tenant_id'), '')::text));
+```
+
+---
+
+### Migration: 20260108000002_add_foreign_key_constraints_workflow_executions
+
+**Purpose:** Improve referential integrity for workflow_executions table
+
+**Changes:**
+- Added foreign key constraints
+- Improved CASCADE behavior
+- Enhanced data consistency
+
+---
+
+### Migration: 20260108000003_convert_agent_memory_embedding_to_vector
+
+**Purpose:** Enable proper vector database functionality for semantic search
+
+**Changes:**
+- Installed `pgvector` extension
+- Converted `embedding` column from text to vector(1536)
+- Added IVFFlat index for similarity search
+- Added check constraints for data validation
+- Created indexes for memory_type and tenant_id
+
+**Impact:** Enables efficient semantic search and embedding-based memory retrieval
+
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+
+ALTER TABLE public.agent_memory ADD COLUMN embedding_vector vector(1536);
+
+CREATE INDEX idx_agent_memory_embedding ON public.agent_memory 
+USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+```
+
+**Vector Operations Now Available:**
+```typescript
+// Similarity search in agent memory
+const { data } = await supabase.rpc('match_agent_memory', {
+  query_embedding: embeddingVector,
+  match_threshold: 0.8,
+  match_count: 5
+});
+```
+
+---
+
+### Migration: 20260108000004_add_not_null_constraints_and_defaults
+
+**Purpose:** Improve data quality with constraints and sensible defaults
+
+**Changes:**
+- Added NOT NULL constraints to required fields
+- Set default values for common columns
+- Improved data consistency
+- Reduced null-related bugs
+
+---
+
+### Migration: 20260108000005_add_check_constraints_for_data_validation
+
+**Purpose:** Database-level data validation
+
+**Changes:**
+- Added CHECK constraints for:
+  - Email format validation
+  - Numeric range validation
+  - Enum-like text fields
+  - Date logic validation
+- Prevents invalid data at database level
+
+---
+
+### Migration: 20260108000006_normalize_jsonb_fields_where_appropriate
+
+**Purpose:** Optimize JSONB field structure for better performance
+
+**Changes:**
+- Normalized frequently-queried JSONB fields
+- Created GIN indexes for JSONB columns
+- Improved query performance
+- Better storage efficiency
+
+**Example:**
+```sql
+CREATE INDEX idx_value_cases_metadata ON value_cases USING gin(metadata);
+```
+
+---
+
+### Migration: 20260108000007_add_performance_indexes
+
+**Purpose:** Strategic indexes for query optimization
+
+**Changes:**
+- Added composite indexes for common query patterns
+- Created partial indexes for filtered queries
+- Optimized JOIN operations
+- Improved search performance
+
+**Key Indexes:**
+- Value cases by tenant + lifecycle stage
+- Agent executions by tenant + created date
+- Opportunities by value_case + type
+- Benchmarks by industry + company_size + vintage
+```
+
+---
+
 ## Queries
 
 ### Common Patterns
@@ -644,5 +776,5 @@ if (error) {
 
 ---
 
-**Last Updated:** 2026-01-06  
+**Last Updated:** 2026-01-08  
 **Related:** `src/lib/supabase.ts`, `supabase/migrations/`

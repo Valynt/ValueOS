@@ -250,15 +250,16 @@ export function LoginPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <button
-                onClick={() => handleOAuthSignIn("google")}
-                disabled={loading || oauthLoading !== null}
-                className="flex items-center justify-center py-2.5 rounded-xl border border-white/10 bg-vc-surface-3 hover:bg-vc-surface-3/80 text-white transition-all hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {oauthLoading === "google" ? (
-                  <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                ) : (
+            {/* Google Sign In */}
+            <button
+              onClick={() => handleOAuthSignIn("google")}
+              disabled={loading || oauthLoading !== null}
+              className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-white/10 bg-vc-surface-3 hover:bg-vc-surface-3/80 text-white transition-all hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {oauthLoading === "google" ? (
+                <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
                   <svg
                     width="20"
                     height="20"
@@ -267,49 +268,10 @@ export function LoginPage() {
                   >
                     <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z" />
                   </svg>
-                )}
-              </button>
-              <button
-                onClick={() => handleOAuthSignIn("apple")}
-                disabled={loading || oauthLoading !== null}
-                className="flex items-center justify-center py-2.5 rounded-xl border border-white/10 bg-vc-surface-3 hover:bg-vc-surface-3/80 text-white transition-all hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {oauthLoading === "apple" ? (
-                  <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
-                    <path d="M17.05 20.28c-.98 0.95-2.05 0.8-3.08 0.35-1.09-0.46-2.09-0.48-3.24 0-1.44 0.62-2.2 0.44-3.06-0.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35 0.07 2.29 0.74 3.08 0.8 1.18-0.24 2.31-0.93 3.57-0.84 1.51 0.12 2.65 0.72 3.4 1.8-3.12 1.87-2.38 5.98 0.48 7.13-0.57 1.5-1.31 2.99-2.54 4.09l0.01-0.01zM12.03 7.25c-0.15-2.23 1.66-4.07 3.74-4.25 0.29 2.58-2.34 4.5-3.74 4.25z" />
-                  </svg>
-                )}
-              </button>
-              <button
-                onClick={() => handleOAuthSignIn("github")}
-                disabled={loading || oauthLoading !== null}
-                className="flex items-center justify-center py-2.5 rounded-xl border border-white/10 bg-vc-surface-3 hover:bg-vc-surface-3/80 text-white transition-all hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {oauthLoading === "github" ? (
-                  <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      clipRule="evenodd"
-                      d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.04-.015-2.04-3.338.72-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"
-                    />
-                  </svg>
-                )}
-              </button>
-            </div>
+                  <span className="text-sm font-medium">Continue with Google</span>
+                </>
+              )}
+            </button>
 
             {/* Footer Text */}
             <div className="mt-8 text-center">

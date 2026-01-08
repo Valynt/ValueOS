@@ -12,7 +12,7 @@
   "runArgs": ["--add-host=host.docker.internal:host-gateway"],
 
   // Runs every time the container starts up
-  "postStartCommand": "chmod +x ./.devcontainer/bridge.sh && ./.devcontainer/bridge.sh",
+  "postStartCommand": "chmod +x ./.devcontainer/bridge.sh && ./.devcontainer/bridge.sh && (npm run dev > /tmp/vite.log 2>&1 &)",
 
   // Optimized: Runs when container is created or repo content changes (e.g., git pull)
   "updateContentCommand": "npm install",
@@ -21,7 +21,12 @@
 
   "portsAttributes": {
     "3000": { "label": "Backend API", "onAutoForward": "notify" },
-    "5173": { "label": "Vite Dev Server", "onAutoForward": "notify" },
+    "5173": { 
+      "label": "Vite Dev Server", 
+      "onAutoForward": "openBrowser",
+      "elevateIfNeeded": true,
+      "protocol": "http"
+    },
     "5432": { "label": "PostgreSQL", "onAutoForward": "silent" },
     "54321": { "label": "Supabase API", "onAutoForward": "notify" },
     "54323": { "label": "Supabase Studio", "onAutoForward": "notify" },
@@ -34,6 +39,7 @@
         "esbenp.prettier-vscode",
         "bradlc.vscode-tailwindcss",
         "ms-azuretools.vscode-docker",
+        "ms-vscode-remote.remote-containers",
         "GitHub.copilot",
       ],
       "settings": {
