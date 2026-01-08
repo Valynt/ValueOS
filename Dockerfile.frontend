@@ -6,8 +6,9 @@ WORKDIR /app
 # Copy package files
 COPY package*.json .npmrc ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install all dependencies for build (including dev dependencies)
+ENV npm_config_ignore_scripts=true
+RUN npm ci
 
 # Copy source files
 COPY . .

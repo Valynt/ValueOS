@@ -13,8 +13,8 @@ yarn-error.log*
 .npm/
 .yarn/
 
-# Build outputs
-dist/
+# Build outputs (excluded from initial context but created in-container)
+# Note: dist/ is created during build, so don't exclude it from COPY --from
 build/
 .vite/
 .cache/

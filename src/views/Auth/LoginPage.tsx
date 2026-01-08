@@ -6,6 +6,7 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import { AlertCircle, Eye, EyeOff, Lock, Mail } from "lucide-react";
 
 export function LoginPage() {
   const [email, setEmail] = useState("");
@@ -13,6 +14,9 @@ export function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showMFA, setShowMFA] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
 
   const { login, signInWithProvider } = useAuth();
   const navigate = useNavigate();
@@ -27,7 +31,11 @@ export function LoginPage() {
     setLoading(true);
 
     try {
-      await login({ email, password });
+      await login({
+        email,
+        password,
+        otpCode: showMFA ? otpCode : undefined
+      });
       navigate(from, { replace: true });
     } catch (err: unknown) {
       console.error("Login error:", err);
@@ -36,6 +44,11 @@ export function LoginPage() {
 
       if (errorMessage.includes("rate limit")) {
         setError("Too many login attempts. Please try again later.");
+      } else if (errorMessage.includes("MFA_ENROLLMENT_REQUIRED")) {
+        setError("Multi-factor authentication is required for your account. Please set it up first.");
+      } else if (errorMessage.includes("MFA")) {
+        setShowMFA(true);
+        setError("Please enter your MFA code");
       } else {
         setError(errorMessage || "Invalid email or password");
       }
@@ -128,21 +141,7 @@ export function LoginPage() {
                   Work Email
                 </label>
                 <div className="group relative">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-vc-accent-teal-500 transition-colors">
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect x="2" y="4" width="20" height="16" rx="2" />
-                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-                    </svg>
-                  </div>
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-vc-accent-teal-500 transition-colors" />
                   <input
                     id="email"
                     type="email"
@@ -173,21 +172,7 @@ export function LoginPage() {
                   </Link>
                 </div>
                 <div className="group relative">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-vc-accent-teal-500 transition-colors">
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                    </svg>
-                  </div>
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-vc-accent-teal-500 transition-colors" />
                   <input
                     id="password"
                     type={showPassword ? "text" : "password"}
@@ -203,7 +188,7 @@ export function LoginPage() {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-medium text-gray-500 hover:text-white transition-colors"
                   >
-                    {showPassword ? "Hide" : "Show"}
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
