@@ -63,9 +63,9 @@ services:
       - REDIS_URL=redis://redis:6379
       - DATABASE_URL=postgresql://postgres:dev_password@postgres:5432/valuecanvas_dev
       - DB_URL=postgresql://postgres:dev_password@postgres:5432/valuecanvas_dev
-      - SUPABASE_URL=http://postgres:5432
+      - SUPABASE_URL=http://localhost:54321
       - SUPABASE_ANON_KEY=sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH
-      - VITE_SUPABASE_URL=http://localhost:5432
+      - VITE_SUPABASE_URL=http://localhost:54321
       - VITE_SUPABASE_ANON_KEY=sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH
       - TOGETHER_API_KEY=${TOGETHER_API_KEY}
       - VITE_API_BASE_URL=http://localhost:3001

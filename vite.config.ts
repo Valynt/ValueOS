@@ -15,11 +15,8 @@ export default defineConfig({
       interval: 100,
     },
     hmr: {
-      // Enable Hot Module Replacement
-      host: "localhost", // Use localhost for HMR connections from browser
-      protocol: "ws",
-      clientPort: 5173, // Explicit client port for HMR
-      port: 5173,
+      port: 5173, // Server-side HMR port
+      clientPort: 5174, // Client connects to forwarded port
     },
     fs: {
       strict: true, // Prevent access outside allowed paths

@@ -85,15 +85,11 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
     onError,
   } = options;
 
-  console.log(
-    `[${new Date().toISOString()}] 🚀 Bootstrap: Starting... (skipAgentCheck=${skipAgentCheck}, failFast=${failFast})`
-  );
   logger.info("🚀 Bootstrapping ValueCanvas Application", {
     action: "bootstrap_start",
   });
 
   // Step 1: Load and validate environment configuration
-  console.log(`[${new Date().toISOString()}] 📄 Bootstrap: Step 1 - Loading Config`);
   onProgress?.("Loading environment configuration...");
   logger.info("Step 1: Loading environment configuration", {
     action: "load_config",

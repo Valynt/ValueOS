@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import DOMPurify from "isomorphic-dompurify";
+import * as DOMPurify from "isomorphic-dompurify";
 
 // ============================================================================
 // XSS Prevention
