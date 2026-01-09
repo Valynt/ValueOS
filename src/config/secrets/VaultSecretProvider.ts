@@ -9,6 +9,7 @@
  */
 
 import { logger } from '../../lib/logger';
+import { createServerSupabaseClient } from '../../lib/supabase';
 import type {
   AuditAction,
   AuditResult,
@@ -507,7 +508,26 @@ export class VaultSecretProvider implements ISecretProvider {
       logger.warn('SECRET_ACCESS_DENIED', logEntry);
     }
 
-    // TODO: Also write to database audit log table
+    // Write to database audit log table
+    try {
+      const supabase = createServerSupabaseClient();
+      const { error: dbError } = await supabase.from('secret_audit_logs').insert({
+        tenant_id: tenantId,
+        user_id: userId,
+        secret_key: this.maskSecretKey(secretKey),
+        action: action,
+        result: result,
+        error_message: error,
+        metadata: metadata || {},
+        timestamp: logEntry.timestamp
+      });
+
+      if (dbError) {
+        logger.error('Failed to write secret audit log to database', dbError, logEntry);
+      }
+    } catch (err) {
+      logger.error('Unexpected error writing secret audit log', err instanceof Error ? err : new Error(String(err)), logEntry);
+    }
   }
 
   private maskSecretKey(key: string): string {

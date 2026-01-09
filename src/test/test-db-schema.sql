@@ -17,6 +17,8 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE TABLE IF NOT EXISTS organizations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
+  slug TEXT,
+  status TEXT DEFAULT 'active',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -34,8 +36,9 @@ CREATE TABLE IF NOT EXISTS user_tenants (
 CREATE TABLE IF NOT EXISTS user_roles (
   user_id UUID NOT NULL,
   role TEXT NOT NULL,
+  tenant_id UUID,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  PRIMARY KEY (user_id, role)
+  PRIMARY KEY (user_id, role, tenant_id)
 );
 
 -- Agent Sessions
@@ -133,6 +136,20 @@ CREATE TABLE IF NOT EXISTS security_audit_log (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Secret Audit Logs (Added for SEC-003)
+CREATE TABLE IF NOT EXISTS secret_audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id VARCHAR(255) NOT NULL,
+  user_id VARCHAR(255),
+  secret_key VARCHAR(255) NOT NULL,
+  action VARCHAR(50) NOT NULL CHECK (action IN ('READ', 'WRITE', 'DELETE', 'ROTATE')),
+  result VARCHAR(50) NOT NULL CHECK (result IN ('SUCCESS', 'FAILURE')),
+  error_message TEXT,
+  metadata JSONB DEFAULT '{}'::JSONB,
+  timestamp TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
 -- Health Check Table
 CREATE TABLE IF NOT EXISTS health_check (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -154,6 +171,7 @@ ALTER TABLE workflow_stage_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE canvas_data ENABLE ROW LEVEL SECURITY;
 ALTER TABLE value_trees ENABLE ROW LEVEL SECURITY;
 ALTER TABLE security_audit_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE secret_audit_logs ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================================
 -- Basic RLS Policies for Tests
@@ -224,6 +242,15 @@ CREATE POLICY "admin_only_select" ON security_audit_log
   FOR SELECT
   USING (auth.role() = 'service_role');
 
+-- Secret Audit Logs Policies
+CREATE POLICY "secret_audit_logs_insert" ON secret_audit_logs
+  FOR INSERT
+  WITH CHECK (true);
+
+CREATE POLICY "secret_audit_logs_select" ON secret_audit_logs
+  FOR SELECT
+  USING (true);
+
 -- ============================================================================
 -- Test Data
 -- ============================================================================
@@ -264,7 +291,8 @@ BEGIN
       'workflow_executions',
       'canvas_data',
       'value_trees',
-      'security_audit_log'
+      'security_audit_log',
+      'secret_audit_logs'
     );
 END;
 $$ LANGUAGE plpgsql;

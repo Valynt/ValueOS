@@ -22,6 +22,8 @@ import {
   UpdateSecretCommand
 } from '@aws-sdk/client-secrets-manager';
 import { logger } from '../lib/logger';
+import { createServerSupabaseClient } from '../lib/supabase';
+import { RbacService, RbacUser, SecretPermission } from '../services/RbacService';
 
 /**
  * Secret cache entry with expiration
@@ -89,6 +91,7 @@ export class MultiTenantSecretsManager {
   private cache: Map<string, SecretCache> = new Map();
   private cacheTTL: number = 5 * 60 * 1000; // 5 minutes
   private environment: string;
+  private rbacService: RbacService;
   
   constructor() {
     this.client = new SecretsManagerClient({
@@ -96,6 +99,7 @@ export class MultiTenantSecretsManager {
     });
     
     this.environment = process.env.NODE_ENV || 'development';
+    this.rbacService = new RbacService();
     
     logger.info('Multi-tenant secrets manager initialized', {
       environment: this.environment,
@@ -133,11 +137,11 @@ export class MultiTenantSecretsManager {
    * Integrates with existing access control system.
    * Default deny policy - all access must be explicitly granted.
    */
-  private checkPermission(
+  private async checkPermission(
     userId: string | undefined,
     tenantId: string,
     action: 'READ' | 'WRITE' | 'DELETE' | 'ROTATE'
-  ): PermissionCheck {
+  ): Promise<PermissionCheck> {
     // If no userId provided, deny by default
     if (!userId) {
       return {
@@ -146,31 +150,71 @@ export class MultiTenantSecretsManager {
       };
     }
     
-    // TODO: Integrate with actual RBAC system
-    // For now, implement basic permission model based on user roles
-    // This should be replaced with proper integration to MemoryAccessControl
-    
     // System users have full access
     if (userId === 'system') {
       return { allowed: true };
     }
     
-    // Admin users have full access
+    // Admin users have full access (legacy check)
     if (userId.startsWith('admin-')) {
       return { allowed: true };
     }
-    
-    // Regular users can only READ their own tenant secrets
-    if (action === 'READ') {
-      // TODO: Verify user belongs to tenant
-      return { allowed: true };
+
+    // Map action to SecretPermission
+    let permission: SecretPermission;
+    switch (action) {
+      case 'READ':
+        permission = 'secrets:read';
+        break;
+      case 'WRITE':
+        permission = 'secrets:write';
+        break;
+      case 'ROTATE':
+        permission = 'secrets:rotate';
+        break;
+      case 'DELETE':
+        permission = 'secrets:delete';
+        break;
+      default:
+        return { allowed: false, reason: `Unknown action: ${action}` };
     }
-    
-    // By default, deny
-    return {
-      allowed: false,
-      reason: `User ${this.maskUserId(userId)} lacks permission for ${action} on tenant ${tenantId}`
-    };
+
+    try {
+      // Fetch user roles from database
+      const supabase = createServerSupabaseClient();
+      const { data: userRoles, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('tenant_id', tenantId);
+
+      if (error) {
+        logger.error('Failed to fetch user roles for RBAC check', error, { userId, tenantId });
+        return { allowed: false, reason: 'Failed to verify permissions' };
+      }
+
+      const roles = userRoles?.map(ur => ur.role) || [];
+      const rbacUser: RbacUser = {
+        id: userId,
+        roles: roles,
+        tenantRoles: {
+          [tenantId]: roles
+        }
+      };
+
+      if (this.rbacService.can(rbacUser, permission, tenantId)) {
+        return { allowed: true };
+      }
+
+      return {
+        allowed: false,
+        reason: `User ${this.maskUserId(userId)} lacks permission ${permission} for tenant ${tenantId}`
+      };
+
+    } catch (err) {
+      logger.error('Unexpected error during RBAC check', err instanceof Error ? err : new Error(String(err)), { userId, tenantId });
+      return { allowed: false, reason: 'Internal error during permission verification' };
+    }
   }
   
   /**
@@ -194,8 +238,26 @@ export class MultiTenantSecretsManager {
       logger.warn('SECRET_ACCESS_DENIED', logEntry);
     }
     
-    // TODO: Also write to database for long-term compliance
-    // INSERT INTO secret_audit_logs (...)
+    // Write to database for long-term compliance
+    try {
+      const supabase = createServerSupabaseClient();
+      const { error } = await supabase.from('secret_audit_logs').insert({
+        tenant_id: entry.tenantId,
+        user_id: entry.userId,
+        secret_key: this.maskSecretKey(entry.secretKey),
+        action: entry.action,
+        result: entry.result,
+        error_message: entry.error,
+        metadata: entry.metadata || {},
+        timestamp: entry.timestamp || new Date().toISOString()
+      });
+
+      if (error) {
+        logger.error('Failed to write secret audit log to database', error, logEntry);
+      }
+    } catch (err) {
+      logger.error('Unexpected error writing secret audit log', err instanceof Error ? err : new Error(String(err)), logEntry);
+    }
   }
   
   /**
@@ -239,7 +301,7 @@ export class MultiTenantSecretsManager {
     const startTime = Date.now();
     
     // Check permissions
-    const permCheck = this.checkPermission(userId, tenantId, 'READ');
+    const permCheck = await this.checkPermission(userId, tenantId, 'READ');
     if (!permCheck.allowed) {
       await this.auditLog({
         tenantId,
@@ -380,7 +442,7 @@ export class MultiTenantSecretsManager {
     userId?: string
   ): Promise<void> {
     // Check permissions
-    const permCheck = this.checkPermission(userId, tenantId, 'WRITE');
+    const permCheck = await this.checkPermission(userId, tenantId, 'WRITE');
     if (!permCheck.allowed) {
       await this.auditLog({
         tenantId,
@@ -456,7 +518,7 @@ export class MultiTenantSecretsManager {
     userId?: string
   ): Promise<void> {
     // Check permissions
-    const permCheck = this.checkPermission(userId, tenantId, 'ROTATE');
+    const permCheck = await this.checkPermission(userId, tenantId, 'ROTATE');
     if (!permCheck.allowed) {
       await this.auditLog({
         tenantId,
