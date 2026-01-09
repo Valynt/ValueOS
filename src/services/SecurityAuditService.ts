@@ -1,6 +1,8 @@
 import { logger } from '../lib/logger';
 import { sanitizeForLogging } from '../lib/piiFilter';
 import { BaseService } from './BaseService';
+import { createServerSupabaseClient } from '../lib/supabase';
+import { captureMessage } from '../lib/sentry';
 
 export interface RequestAuditEvent {
   requestId: string;
@@ -20,6 +22,7 @@ export interface RequestAuditEvent {
 class SecurityAuditService extends BaseService {
   constructor() {
     super('SecurityAuditService');
+    this.supabase = createServerSupabaseClient();
   }
 
   async logRequestEvent(event: RequestAuditEvent): Promise<void> {
@@ -51,6 +54,14 @@ class SecurityAuditService extends BaseService {
         logger.error('Failed to write security audit event', error, {
           requestId: event.requestId,
           action: event.action,
+        });
+        captureMessage('Security audit write failed', {
+          level: 'error',
+          extra: {
+            requestId: event.requestId,
+            action: event.action,
+            resource: event.resource,
+          },
         });
         throw error;
       }
