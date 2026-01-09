@@ -65,7 +65,10 @@ supabase migration list --db-url "$STAGING_DATABASE_URL"
 echo ""
 echo "🔐 Running RLS/policy validation..."
 supabase db lint --db-url "$STAGING_DATABASE_URL"
-psql "$STAGING_DATABASE_URL" -c "SELECT schemaname, tablename, policyname FROM pg_policies WHERE schemaname = 'public' ORDER BY tablename, policyname;" || true
+if ! psql "$STAGING_DATABASE_URL" -c "SELECT schemaname, tablename, policyname FROM pg_policies WHERE schemaname = 'public' ORDER BY tablename, policyname;"; then
+    echo "❌ Failed to query RLS policies on staging. Please check STAGING_DATABASE_URL, network connectivity, and database permissions."
+    exit 1
+fi
 
 # Run post-deployment checks
 echo ""
