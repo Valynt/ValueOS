@@ -205,6 +205,8 @@ export async function provisionTenant(
       logger.error('Organization creation failed', error instanceof Error ? error : undefined, {
         organizationId: config.organizationId,
       });
+      // Organization is foundational, rethrow to abort
+      throw new Error(msg);
     }
 
     // Step 2: Initialize settings
@@ -321,19 +323,29 @@ export async function provisionTenant(
  * Create organization in database
  */
 async function createOrganization(config: TenantConfig): Promise<void> {
-  // TODO: Implement database call
-  // await supabase.from('organizations').insert({
-  //   id: config.organizationId,
-  //   name: config.name,
-  //   tier: config.tier,
-  //   owner_id: config.ownerId,
-  //   status: 'active',
-  //   limits: config.limits || TIER_LIMITS[config.tier],
-  //   features: config.features || TIER_FEATURES[config.tier],
-  //   created_at: new Date().toISOString(),
-  // });
+  const supabase = createServerSupabaseClient();
 
-  logger.debug('Organization ${config.organizationId} created');
+  // Upsert into tenants table
+  // Use organizationId as tenant id
+  const { error } = await supabase.from('tenants').upsert({
+    id: config.organizationId,
+    name: config.name,
+    settings: {
+      ...config.settings,
+      tier: config.tier,
+      limits: config.limits || TIER_LIMITS[config.tier],
+      features: config.features || TIER_FEATURES[config.tier],
+    },
+    status: 'active',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  });
+
+  if (error) {
+    throw new Error(`Supabase error creating organization: ${error.message}`);
+  }
+
+  logger.debug(`Organization ${config.organizationId} created`);
 }
 
 /**
@@ -353,45 +365,104 @@ async function initializeSettings(config: TenantConfig): Promise<void> {
   //   defaultSettings
   // );
 
-  logger.debug('Settings initialized for ${config.organizationId}');
+  logger.debug(`Settings initialized for ${config.organizationId}`);
 }
 
 /**
  * Create default team and roles
  */
 async function createTeamsAndRoles(config: TenantConfig): Promise<void> {
-  // Create default team
-  // TODO: Implement database call
-  // await supabase.from('teams').insert({
-  //   organization_id: config.organizationId,
-  //   name: 'Default Team',
-  //   description: 'Default team for all members',
-  //   created_at: new Date().toISOString(),
-  // });
+  const supabase = createServerSupabaseClient();
+  const tenantId = config.organizationId;
 
-  // Create default roles
+  // 1. Create default team
+  // Idempotent upsert by (tenant_id, name) via unique constraint
+  const { data: teamData, error: teamError } = await supabase.from('teams').upsert({
+    tenant_id: tenantId,
+    name: 'Default Team',
+    description: 'Default team for all members',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    team_settings: {}
+  }, { onConflict: 'tenant_id,name' }).select().single();
+
+  if (teamError) {
+    throw new Error(`Failed to create default team: ${teamError.message}`);
+  }
+
+  logger.debug(`Default team created for ${tenantId}`);
+
+  // 2. Ensure global roles exist and assign owner
   const defaultRoles = ['owner', 'admin', 'member', 'viewer'];
   
-  // TODO: Implement database call
-  // for (const role of defaultRoles) {
-  //   await supabase.from('roles').insert({
-  //     organization_id: config.organizationId,
-  //     name: role,
-  //     permissions: getDefaultPermissions(role),
-  //     created_at: new Date().toISOString(),
-  //   });
-  // }
+  for (const roleName of defaultRoles) {
+    // Check if role exists globally
+    const { data: existingRoles, error: roleError } = await supabase
+      .from('roles')
+      .select('id, name')
+      .eq('name', roleName)
+      .limit(1);
 
-  // Assign owner role to creator
-  // TODO: Implement database call
-  // await supabase.from('user_roles').insert({
-  //   user_id: config.ownerId,
-  //   organization_id: config.organizationId,
-  //   role: 'owner',
-  //   created_at: new Date().toISOString(),
-  // });
+    if (roleError) {
+      throw new Error(`Failed to check role ${roleName}: ${roleError.message}`);
+    }
 
-  logger.debug('Teams and roles created for ${config.organizationId}');
+    let roleId: string;
+
+    if (!existingRoles || existingRoles.length === 0) {
+      // Create role if missing (global)
+      const { data: newRole, error: createError } = await supabase
+        .from('roles')
+        .insert({
+          name: roleName,
+          description: `System role: ${roleName}`,
+          permissions: getDefaultPermissions(roleName),
+          created_at: new Date().toISOString()
+        })
+        .select('id')
+        .single();
+
+      if (createError) {
+        throw new Error(`Failed to create role ${roleName}: ${createError.message}`);
+      }
+      roleId = newRole.id;
+      logger.debug(`Created missing global role: ${roleName}`);
+    } else {
+      roleId = existingRoles[0].id;
+    }
+
+    // 3. Assign owner role to creator
+    if (roleName === 'owner') {
+      // Check if user has this role for this tenant already
+      const { data: existingUserRole, error: userRoleCheckError } = await supabase
+        .from('user_roles')
+        .select('role_id')
+        .eq('user_id', config.ownerId)
+        .eq('tenant_id', tenantId)
+        .eq('role_id', roleId)
+        .single();
+
+      if (userRoleCheckError && userRoleCheckError.code !== 'PGRST116') { // PGRST116 is "Row not found"
+         throw new Error(`Failed to check user role assignment: ${userRoleCheckError.message}`);
+      }
+
+      if (!existingUserRole) {
+        const { error: assignError } = await supabase.from('user_roles').insert({
+          user_id: config.ownerId,
+          tenant_id: tenantId,
+          role_id: roleId,
+          created_at: new Date().toISOString(),
+        });
+
+        if (assignError) {
+          throw new Error(`Failed to assign owner role: ${assignError.message}`);
+        }
+        logger.debug(`Assigned owner role to ${config.ownerId} for tenant ${tenantId}`);
+      }
+    }
+  }
+
+  logger.debug(`Teams and roles setup complete for ${config.organizationId}`);
 }
 
 /**
@@ -419,6 +490,15 @@ async function initializeBilling(config: TenantConfig): Promise<void> {
         owner_id: config.ownerId
       }
     );
+
+    // 3. Configure payment method if provided
+    // (Usually skipped during initial provisioning unless coming from checkout flow)
+    if (config.settings?.paymentMethodId) {
+      await CustomerService.updatePaymentMethod(
+        config.organizationId,
+        config.settings.paymentMethodId
+      );
+    }
 
     // 3. Configure payment method if provided
     // (Usually skipped during initial provisioning unless coming from checkout flow)
@@ -504,7 +584,7 @@ async function initializeUsageTracking(config: TenantConfig): Promise<void> {
     throw error;
   }
 
-  logger.debug('Usage tracking initialized for ${config.organizationId}');
+  logger.debug(`Usage tracking initialized for ${config.organizationId}`);
 }
 
 /**
@@ -531,7 +611,7 @@ async function sendWelcomeEmail(config: TenantConfig): Promise<void> {
   //   },
   // });
 
-  logger.debug('Welcome email sent to ${config.ownerEmail}');
+  logger.debug(`Welcome email sent to ${config.ownerEmail}`);
 }
 
 /**
@@ -610,7 +690,7 @@ export async function deprovisionTenant(
  */
 async function cancelBilling(organizationId: string): Promise<void> {
   // TODO: Implement billing cancellation
-  logger.debug('Billing canceled for ${organizationId}');
+  logger.debug(`Billing canceled for ${organizationId}`);
 }
 
 /**
@@ -621,7 +701,7 @@ async function archiveTenantData(organizationId: string): Promise<void> {
   // - Export all data to archive storage
   // - Mark records as archived
   // - Schedule for deletion after retention period
-  logger.debug('Data archived for ${organizationId}');
+  logger.debug(`Data archived for ${organizationId}`);
 }
 
 /**
@@ -632,7 +712,7 @@ async function revokeAllAccess(organizationId: string): Promise<void> {
   // - Revoke all user sessions
   // - Revoke API keys
   // - Disable integrations
-  logger.debug('Access revoked for ${organizationId}');
+  logger.debug(`Access revoked for ${organizationId}`);
 }
 
 /**
@@ -648,7 +728,7 @@ async function updateTenantStatus(
   //   .update({ status, updated_at: new Date().toISOString() })
   //   .eq('id', organizationId);
 
-  logger.debug('Status updated to ${status} for ${organizationId}');
+  logger.debug(`Status updated to ${status} for ${organizationId}`);
 }
 
 /**
@@ -659,7 +739,7 @@ async function sendDeactivationEmail(
   reason?: string
 ): Promise<void> {
   // TODO: Implement email sending
-  logger.debug('Deactivation email sent for ${organizationId}');
+  logger.debug(`Deactivation email sent for ${organizationId}`);
 }
 
 /**
