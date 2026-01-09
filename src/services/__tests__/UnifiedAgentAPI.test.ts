@@ -65,7 +65,6 @@ describe('UnifiedAgentAPI', () => {
       VITE_AGENT_API_URL: getEnvVar('VITE_AGENT_API_URL'),
       AGENT_API_URL: getEnvVar('AGENT_API_URL'),
     };
-    __setEnvSourceForTests({ NODE_ENV: 'test' });
     resetUnifiedAgentAPI();
     api = new UnifiedAgentAPI();
     vi.clearAllMocks();
