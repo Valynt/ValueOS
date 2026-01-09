@@ -51,10 +51,6 @@ declare global {
 }
 
 function resolveTenantCandidate(req: Request): TenantResolutionResult {
-  if ((req as any).tenantId) {
-    return { tenantId: (req as any).tenantId, source: 'user' };
-  }
-
   const headerTenantId = req.header('x-tenant-id');
   if (headerTenantId) {
     return { tenantId: headerTenantId, source: 'service-header' };
