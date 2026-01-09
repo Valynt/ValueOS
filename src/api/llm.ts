@@ -18,12 +18,17 @@ import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddlewa
 import { rateLimiters } from '../middleware/rateLimiter';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
 import { requireConsent } from '../middleware/consentMiddleware';
+import { consentRegistry } from '../services/consentRegistry';
 import { sanitizeAgentInput } from '../utils/security';
+import { requireAuth } from '../middleware/auth';
+import { tenantContextMiddleware } from '../middleware/tenantContext';
 
 const router = Router();
 router.use(requestAuditMiddleware());
 router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
+router.use(requireAuth);
+router.use(tenantContextMiddleware());
 
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
   requestId: (req as any).requestId || res.locals.requestId,
@@ -40,7 +45,7 @@ router.post(
   rateLimiters.agentExecution,
   csrfProtectionMiddleware,
   sessionTimeoutMiddleware,
-  requireConsent('llm.chat'),
+  requireConsent('llm.chat', consentRegistry),
   llmRateLimiter,
   async (req: Request, res: Response) => {
   try {

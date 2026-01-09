@@ -3,11 +3,13 @@
 ## Quick Reference
 
 ### Emergency Contacts
+
 - **On-Call Engineer**: Check PagerDuty rotation
 - **Engineering Lead**: [Contact Info]
 - **DevOps Team**: #devops Slack channel
 
 ### Critical Links
+
 - **Production Dashboard**: https://app.valuecanvas.com
 - **Staging Dashboard**: https://staging.valuecanvas.app
 - **Grafana**: [URL]
@@ -52,10 +54,11 @@ npm run test -- --coverage
    - Delete feature branch
 
 2. **Monitor Auto-Deployment**
+
    ```bash
    # Watch deployment progress
    gh run watch
-   
+
    # Or via GitHub Actions UI
    # https://github.com/[org]/ValueOS/actions
    ```
@@ -71,13 +74,14 @@ npm run test -- --coverage
    - Monitor deployment progress
 
 5. **Post-Deployment Verification**
+
    ```bash
    # Run smoke tests against production
    BASE_URL=https://app.valuecanvas.com npm run test:smoke
-   
+
    # Check health endpoint
    curl https://app.valuecanvas.com/health
-   
+
    # Monitor error rates (first 10 minutes critical)
    # - Check Grafana dashboard
    # - Watch Slack #alerts channel
@@ -171,30 +175,33 @@ supabase db push --db-url [connection-string] --file [rollback-file]
 ### Key Metrics to Monitor
 
 **Immediately After Deployment (0-10 min)**
+
 - Error rate (target: < 1%)
 - Response time p99 (target: < 3s)
 - Request success rate (target: > 99%)
 - Database connection pool utilization
 
 **Short Term (10-60 min)**
+
 - User-reported issues (Slack, support tickets)
 - Crash rate (Sentry)
 - Key user flows (login, deals creation, etc.)
 
 **Long Term (1-24 hours)**
+
 - Daily active users (should not drop)
 - Feature adoption rates
 - Performance regression trends
 
 ### Alert Thresholds
 
-| Metric | Warning | Critical | Action |
-|--------|---------|----------|--------|
-| Error Rate | > 2% | > 5% | Consider rollback |
-| P99 Latency | > 3s | > 5s | Investigate |
-| CPU Usage | > 75% | > 90% | Scale up |
-| Memory Usage | > 80% | > 95% | Scale up |
-| Disk Usage | > 80% | > 90% | Clean up logs |
+| Metric       | Warning | Critical | Action            |
+| ------------ | ------- | -------- | ----------------- |
+| Error Rate   | > 2%    | > 5%     | Consider rollback |
+| P99 Latency  | > 3s    | > 5s     | Investigate       |
+| CPU Usage    | > 75%   | > 90%    | Scale up          |
+| Memory Usage | > 80%   | > 95%    | Scale up          |
+| Disk Usage   | > 80%   | > 90%    | Clean up logs     |
 
 ---
 
@@ -205,6 +212,7 @@ supabase db push --db-url [connection-string] --file [rollback-file]
 **Symptoms:** Deployment status shows "In Progress" for > 15 minutes
 
 **Solutions:**
+
 ```bash
 # 1. Check pod status
 kubectl get pods -n valuecanvas
@@ -224,6 +232,7 @@ aws ecr get-login-password | docker login ...
 **Symptoms:** Migration errors in logs, data inconsistency
 
 **Solutions:**
+
 ```bash
 # 1. Check migration status
 supabase migration list
@@ -243,7 +252,9 @@ supabase db repair [migration-version]
 **Symptoms:** Error rate > 5% within 10 minutes
 
 **Actions:**
+
 1. **Immediately:** Initiate rollback
+
    ```bash
    ./scripts/rollback-production.sh --previous --confirm
    ```
@@ -259,6 +270,7 @@ supabase db repair [migration-version]
 **Symptoms:** P99 latency increased by > 2x
 
 **Actions:**
+
 ```bash
 # 1. Check recent deployments
 git log --oneline -10
@@ -310,6 +322,23 @@ npm run db:push:prod
 # (5 second delay, Ctrl+C to cancel)
 ```
 
+### Migration Rollback / Forward Steps
+
+```bash
+# Check applied vs pending migrations
+supabase migration list --db-url $DATABASE_URL
+
+# Roll back a specific migration (prefer rollback SQL files)
+psql $DATABASE_URL -f supabase/migrations/rollback/<timestamp>_<name>_rollback.sql
+
+# If rollback is unsafe or unavailable, apply a forward-fix migration
+supabase db push --db-url $DATABASE_URL --include-all
+
+# Validate RLS/policies after rollback/forward
+supabase db lint --db-url $DATABASE_URL
+psql $DATABASE_URL -c "SELECT schemaname, tablename, policyname FROM pg_policies WHERE schemaname = 'public';"
+```
+
 ---
 
 ## Feature Flags
@@ -326,8 +355,8 @@ VALUES ('new-feature', 10, true);
 
 ```sql
 -- Gradual increase: 10% → 25% → 50% → 100%
-UPDATE feature_rollouts 
-SET percentage = 25 
+UPDATE feature_rollouts
+SET percentage = 25
 WHERE feature_name = 'new-feature';
 ```
 
@@ -335,8 +364,8 @@ WHERE feature_name = 'new-feature';
 
 ```sql
 -- Disable feature immediately
-UPDATE feature_rollouts 
-SET active = false, 
+UPDATE feature_rollouts
+SET active = false,
     rollback_reason = 'High error rate detected'
 WHERE feature_name = 'new-feature';
 ```
@@ -422,11 +451,11 @@ kubectl exec -it deployment/valuecanvas-app -n valuecanvas -- /bin/sh
 
 ### Environment Variables Quick Reference
 
-| Variable | Development | Staging | Production |
-|----------|-------------|---------|------------|
-| VITE_SUPABASE_URL | Local Supabase | Staging DB | Prod DB |
-| NODE_ENV | development | staging | production |
-| LOG_LEVEL | debug | info | warn |
+| Variable          | Development    | Staging    | Production |
+| ----------------- | -------------- | ---------- | ---------- |
+| VITE_SUPABASE_URL | Local Supabase | Staging DB | Prod DB    |
+| NODE_ENV          | development    | staging    | production |
+| LOG_LEVEL         | debug          | info       | warn       |
 
 ---
 

@@ -1,12 +1,15 @@
 import type { SecretValue } from './ISecretProvider';
 import { defaultProvider } from './ProviderFactory';
 import { logger } from '../../lib/logger';
+import { getEnvVar, setEnvVar } from '../../lib/env';
 
 const isServer = typeof window === 'undefined';
 
 const SECRET_KEY_MAPPING: Record<string, string> = {
-  SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY_SECRET_NAME || 'supabase-service-key',
-  REDIS_URL: process.env.REDIS_URL_SECRET_NAME || 'redis-url'
+  SUPABASE_SERVICE_KEY:
+    getEnvVar('SUPABASE_SERVICE_KEY_SECRET_NAME') || 'supabase-service-key',
+  REDIS_URL: getEnvVar('REDIS_URL_SECRET_NAME') || 'redis-url',
+  DATABASE_URL: getEnvVar('DATABASE_URL_SECRET_NAME') || 'database-url',
 };
 
 function normalizeSecret(secret: SecretValue, envKey: string): string | undefined {
@@ -25,16 +28,16 @@ export async function hydrateServerSecretsFromManager(): Promise<Record<string, 
     return {};
   }
 
-  if (process.env.SECRETS_MANAGER_ENABLED !== 'true') {
+  if (getEnvVar('SECRETS_MANAGER_ENABLED') !== 'true') {
     logger.info('Secrets manager hydration skipped (SECRETS_MANAGER_ENABLED not true)');
     return {};
   }
 
-  const tenantId = process.env.SECRETS_TENANT_ID || 'platform';
+  const tenantId = getEnvVar('SECRETS_TENANT_ID') || 'platform';
   const hydrated: Record<string, string> = {};
 
   for (const [envVar, secretKey] of Object.entries(SECRET_KEY_MAPPING)) {
-    if (process.env[envVar]) {
+    if (getEnvVar(envVar)) {
       continue;
     }
 
@@ -47,9 +50,13 @@ export async function hydrateServerSecretsFromManager(): Promise<Record<string, 
         continue;
       }
 
-      process.env[envVar] = normalized;
+      setEnvVar(envVar, normalized);
       hydrated[envVar] = normalized;
-      logger.info('Hydrated secret from manager', { envVar, tenantId, provider: process.env.SECRETS_PROVIDER || 'aws' });
+      logger.info('Hydrated secret from manager', {
+        envVar,
+        tenantId,
+        provider: getEnvVar('SECRETS_PROVIDER') || 'aws',
+      });
     } catch (error) {
       logger.error('Failed to hydrate secret from manager', { envVar, tenantId, error });
     }

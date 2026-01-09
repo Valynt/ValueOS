@@ -326,6 +326,38 @@ describe('RLS Tenant Isolation - Critical Security Tests', () => {
   });
 
   describe('Security Audit Triggers', () => {
+    it('should allow service role to write security audit logs under RLS', async () => {
+      if (!process.env.SUPABASE_SERVICE_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        console.warn('Skipping RLS test - SUPABASE_SERVICE_KEY not set');
+        return;
+      }
+
+      const { error } = await adminClient
+        .from('security_audit_log')
+        .insert({
+          event_type: 'audit_test_service_role',
+          user_id: crypto.randomUUID(),
+        });
+
+      expect(error).toBeNull();
+    });
+
+    it('should reject audit writes from authenticated users', async () => {
+      if (!process.env.SUPABASE_SERVICE_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        console.warn('Skipping RLS test - SUPABASE_SERVICE_KEY not set');
+        return;
+      }
+
+      const { error } = await tenant1Client
+        .from('security_audit_log')
+        .insert({
+          event_type: 'audit_test_authenticated',
+          user_id: user1Id,
+        });
+
+      expect(error).not.toBeNull();
+    });
+
     it('should log security violations to audit table', async () => {
       if (!process.env.SUPABASE_SERVICE_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
         console.warn('Skipping RLS test - SUPABASE_SERVICE_KEY not set');

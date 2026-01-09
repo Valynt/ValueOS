@@ -6,7 +6,7 @@ import { GenericContainer, StartedTestContainer } from "testcontainers";
 import { Client } from "pg";
 import fs from "fs";
 import path from "path";
-import { __setEnvSourceForTests } from "../lib/env";
+import { getEnvVar, setEnvVarForTests } from "../lib/env";
 
 const POSTGRES_PORT = 5432;
 const REDIS_PORT = 6379;
@@ -17,7 +17,7 @@ let redisContainer: StartedTestContainer | undefined;
 
 export async function setup() {
   // Allow skipping heavy testcontainers setup for fast local unit tests
-  if (process.env.SKIP_TESTCONTAINERS === "1") {
+  if (getEnvVar("SKIP_TESTCONTAINERS") === "1") {
     console.warn(
       "⚠️ SKIP_TESTCONTAINERS set — skipping Postgres/Redis testcontainers setup"
     );
@@ -38,9 +38,7 @@ export async function setup() {
   console.warn(`✅ Postgres started at ${dbUrl}`);
 
   // 2. Set env var for tests to pick up - BOTH process.env and custom source
-  // eslint-disable-next-line no-restricted-syntax
-  process.env.DATABASE_URL = dbUrl;
-  __setEnvSourceForTests({ ...process.env, DATABASE_URL: dbUrl });
+  setEnvVarForTests("DATABASE_URL", dbUrl);
 
   // 3. Write to temp file for worker processes to read (globalSetup runs in separate process)
   const envFilePath = path.resolve(__dirname, "../../.vitest-env.json");
@@ -68,10 +66,7 @@ export async function setup() {
     const redisHost = redisContainer.getHost();
     const redisPort = redisContainer.getMappedPort(6379);
     const redisUrl = `redis://${redisHost}:${redisPort}`;
-    // eslint-disable-next-line no-restricted-syntax
-    process.env.REDIS_URL = redisUrl;
-    // eslint-disable-next-line no-restricted-syntax
-    __setEnvSourceForTests({ ...process.env, REDIS_URL: redisUrl });
+    setEnvVarForTests("REDIS_URL", redisUrl);
     console.warn(`✅ Redis started at ${redisUrl}`);
   } catch (err) {
     console.warn(

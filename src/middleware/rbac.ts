@@ -239,7 +239,7 @@ export function requirePermission(
       }
 
       const userId = user.id;
-      const tenantId = user.tenant_id || req.headers['x-tenant-id'] as string;
+      const tenantId = user.tenant_id || (req as any).tenantId;
 
       if (!tenantId) {
         logger.warn('Permission check failed: No tenant', { userId, permission });
@@ -303,7 +303,7 @@ export function requireRole(role: Role | Role[]) {
       }
 
       const userId = user.id;
-      const tenantId = user.tenant_id || req.headers['x-tenant-id'] as string;
+      const tenantId = user.tenant_id || (req as any).tenantId;
 
       if (!tenantId) {
         return res.status(400).json({
@@ -435,7 +435,7 @@ export function requireAnyPermission(...permissions: Permission[]) {
       }
 
       const userId = user.id;
-      const tenantId = user.tenant_id || req.headers['x-tenant-id'] as string;
+      const tenantId = user.tenant_id || (req as any).tenantId;
 
       if (!tenantId) {
         return res.status(400).json({
@@ -495,7 +495,7 @@ export function requireAllPermissions(...permissions: Permission[]) {
       }
 
       const userId = user.id;
-      const tenantId = user.tenant_id || req.headers['x-tenant-id'] as string;
+      const tenantId = user.tenant_id || (req as any).tenantId;
 
       if (!tenantId) {
         return res.status(400).json({

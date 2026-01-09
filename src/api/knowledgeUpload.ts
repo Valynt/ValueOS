@@ -4,6 +4,7 @@ import { requireConsent } from '../middleware/consentMiddleware';
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
 import { logger } from '../utils/logger';
 import { requirePermission } from '../middleware/rbac';
+import { consentRegistry } from '../services/consentRegistry';
 
 const router = Router();
 router.use(securityHeadersMiddleware);
@@ -12,7 +13,7 @@ router.use(requirePermission('data.import'));
 router.post(
   '/upload',
   enforceLineage(),
-  requireConsent('knowledge.upload'),
+  requireConsent('knowledge.upload', consentRegistry),
   async (req: Request, res: Response) => {
     const { source_origin, data_sensitivity_level, ...rest } = req.body;
 

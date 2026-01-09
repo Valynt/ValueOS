@@ -14,7 +14,11 @@ const logger = createLogger({ component: 'UsageTrackingMiddleware' });
  * Track API calls
  */
 export function trackAPICall(req: Request, res: Response, next: NextFunction) {
-  const tenantId = (req as any).tenantId || req.headers['x-tenant-id'] as string;
+  const tenantId =
+    (req as any).tenantId ||
+    ((req as any).serviceIdentityVerified
+      ? (req.headers['x-tenant-id'] as string)
+      : undefined);
   
   if (!tenantId) {
     return next();
@@ -42,7 +46,11 @@ export function trackAPICall(req: Request, res: Response, next: NextFunction) {
  */
 export function trackLLMUsage(tokens: number, model?: string) {
   return (req: Request, res: Response, next: NextFunction) => {
-    const tenantId = (req as any).tenantId || req.headers['x-tenant-id'] as string;
+    const tenantId =
+      (req as any).tenantId ||
+      ((req as any).serviceIdentityVerified
+        ? (req.headers['x-tenant-id'] as string)
+        : undefined);
     
     if (!tenantId) {
       return next();
@@ -68,7 +76,11 @@ export function trackLLMUsage(tokens: number, model?: string) {
  */
 export function trackAgentExecution(agentType?: string) {
   return (req: Request, res: Response, next: NextFunction) => {
-    const tenantId = (req as any).tenantId || req.headers['x-tenant-id'] as string;
+    const tenantId =
+      (req as any).tenantId ||
+      ((req as any).serviceIdentityVerified
+        ? (req.headers['x-tenant-id'] as string)
+        : undefined);
     
     if (!tenantId) {
       return next();

@@ -161,6 +161,8 @@ VITE_API_BASE_URL=https://api.valuecanvas.com
 
 # Agent Fabric
 VITE_AGENT_API_URL=https://agents.valuecanvas.com/api/agents
+# Mock routing is disabled in production. If you do not use a single base URL,
+# ensure each agent is registered with an explicit endpoint before serving traffic.
 
 # Database
 VITE_SUPABASE_URL=https://your-project.supabase.co

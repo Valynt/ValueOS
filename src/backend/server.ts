@@ -26,8 +26,12 @@ import {
   metricsMiddleware,
 } from "../middleware/metricsMiddleware";
 import { createRateLimiter } from "../middleware/rateLimiter";
+import { serviceIdentityMiddleware } from "../middleware/serviceIdentityMiddleware";
 import { securityHeadersMiddleware } from "../middleware/securityHeaders";
+import { requireAuth } from "../middleware/auth";
+import { tenantContextMiddleware } from "../middleware/tenantContext";
 import { settings } from "../config/settings";
+import { isConsentRegistryConfigured } from "../services/consentRegistry";
 
 const logger = createLogger({ component: "BillingServer" });
 const INTERNAL_ERROR_STATUS = 500;
@@ -137,9 +141,16 @@ app.get("/metrics/latency", (_req, res) => {
 apiRouter.use("/billing", billingRouter);
 app.use("/api", apiRouter);
 app.use("/api/auth", authRouter);
-app.use("/api/agents", agentExecutionLimiter, agentsRouter);
+app.use(
+  "/api/agents",
+  serviceIdentityMiddleware,
+  requireAuth,
+  tenantContextMiddleware(),
+  agentExecutionLimiter,
+  agentsRouter
+);
 app.use("/api", workflowRouter);
-app.use("/api/documents", documentRouter);
+app.use("/api/documents", requireAuth, tenantContextMiddleware(), documentRouter);
 app.use("/api/docs", docsApiRouter);
 
 // Error handler
@@ -173,6 +184,12 @@ if (
   import.meta.url === `file://${process.argv[1]}` ||
   settings.NODE_ENV === "development"
 ) {
+  if (settings.NODE_ENV === "production" && !isConsentRegistryConfigured()) {
+    throw new Error(
+      "Consent registry is not configured. Verify consent registry Supabase URL and authentication configuration."
+    );
+  }
+
   server.listen(PORT, () => {
     logger.info(
       `Billing API server with WebSocket support running on port ${PORT}`,

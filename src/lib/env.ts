@@ -99,3 +99,18 @@ export function getLLMCostTrackerConfig(): {
 export function __setEnvSourceForTests(source: EnvRecord): void {
   envSource = source;
 }
+
+export function setEnvVar(key: string, value: string): void {
+  if (typeof process !== "undefined" && process.env) {
+    process.env[key] = value;
+
+    if (envSource !== process.env) {
+      envSource = { ...envSource, [key]: value };
+    }
+  }
+}
+
+export function setEnvVarForTests(key: string, value: string): void {
+  setEnvVar(key, value);
+  __setEnvSourceForTests({ ...process.env, [key]: value });
+}
