@@ -31,6 +31,7 @@ import { ALL_VMRT_SEEDS } from '../types/vos-pt1-seed';
 import { VMRTAssumption } from '../types/vmrt';
 import { ManifestoValidationResult } from '../types/vos';
 import { EXTENDED_STRUCTURAL_PERSONA_MAPS } from '../types/structural-data';
+import { OutcomeHypothesis } from '../types/sof';
 
 /**
  * Schema head pointer - points to current schema hash
@@ -844,10 +845,53 @@ export class CanvasSchemaService {
 
   /**
    * Fetch outcome hypotheses
+   * Retrieves outcome hypotheses linked to the system map of the current workspace.
+   * Relies on the 'outcome_hypotheses' table as referenced in DataBindingResolver.ts.
    */
-  private async fetchOutcomeHypotheses(workspaceId: string): Promise<any[]> {
-    // TODO: Implement actual outcome hypothesis fetching
-    return [];
+  private async fetchOutcomeHypotheses(workspaceId: string): Promise<OutcomeHypothesis[]> {
+    try {
+      const supabase = getSupabaseClient();
+
+      // 1. Resolve the System Map ID for this Workspace
+      // We assume 'system_maps' has a 'business_case_id' column based on standard patterns.
+      const { data: systemMap, error: systemMapError } = await supabase
+        .from('system_maps')
+        .select('id')
+        .eq('business_case_id', workspaceId)
+        .maybeSingle();
+
+      if (systemMapError) {
+        logger.error('Error resolving system map for outcomes', { workspaceId, error: systemMapError.message });
+        return [];
+      }
+
+      if (!systemMap) {
+        // No system map exists for this workspace yet, so no outcomes can exist.
+        return [];
+      }
+
+      // 2. Fetch outcome hypotheses linked to the System Map
+      const { data, error } = await supabase
+        .from('outcome_hypotheses')
+        .select('*')
+        .eq('system_map_id', systemMap.id)
+        // Ordering by creation ensures consistent display order
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        logger.error('Error fetching outcome hypotheses', { workspaceId, error: error.message });
+        return [];
+      }
+
+      return (data as OutcomeHypothesis[]) || [];
+
+    } catch (err) {
+      logger.error('Unexpected error in fetchOutcomeHypotheses', {
+        workspaceId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return [];
+    }
   }
 
   /**
