@@ -27,6 +27,7 @@ import {
 } from "../middleware/metricsMiddleware";
 import { createRateLimiter } from "../middleware/rateLimiter";
 import { securityHeadersMiddleware } from "../middleware/securityHeaders";
+import { requireAuth } from "../middleware/auth";
 import { settings } from "../config/settings";
 import { isConsentRegistryConfigured } from "../services/consentRegistry";
 
@@ -140,7 +141,7 @@ app.use("/api", apiRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/agents", agentExecutionLimiter, agentsRouter);
 app.use("/api", workflowRouter);
-app.use("/api/documents", documentRouter);
+app.use("/api/documents", requireAuth, documentRouter);
 app.use("/api/docs", docsApiRouter);
 
 // Error handler

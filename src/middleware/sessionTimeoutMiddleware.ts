@@ -8,7 +8,8 @@
  */
 
 import { NextFunction, Request, Response } from 'express';
-import { createClient } from '@supabase/supabase-js';
+import { JwtPayload } from 'jsonwebtoken';
+import { verifyAccessToken } from './auth';
 
 // Session configuration
 const SESSION_CONFIG = {
@@ -16,12 +17,6 @@ const SESSION_CONFIG = {
   IDLE_TIMEOUT_MS: 30 * 60 * 1000,      // 30 minutes
   CLOCK_SKEW_MS: 5 * 1000,              // 5 seconds tolerance
 };
-
-// Initialize Supabase client
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
-);
 
 /**
  * Session metadata stored in Redis/memory
@@ -83,6 +78,18 @@ setInterval(() => {
 /**
  * Extract JWT from Authorization header or cookie
  */
+const SUPABASE_COOKIE_NAMES = ['sb-access-token', 'sb_access_token'];
+
+function parseCookieHeader(raw?: string): Record<string, string> {
+  if (!raw) return {};
+  return raw.split(';').reduce<Record<string, string>>((cookies, part) => {
+    const [key, ...rest] = part.trim().split('=');
+    if (!key) return cookies;
+    cookies[key] = decodeURIComponent(rest.join('=') || '');
+    return cookies;
+  }, {});
+}
+
 function extractToken(req: Request): string | null {
   // Check Authorization header
   const authHeader = req.headers.authorization;
@@ -91,28 +98,30 @@ function extractToken(req: Request): string | null {
   }
 
   // Check cookie
-  const cookieToken = req.cookies?.['sb-access-token'];
-  if (cookieToken) {
-    return cookieToken;
+  const cookies = (req as any).cookies ?? parseCookieHeader(req.headers.cookie);
+  for (const name of SUPABASE_COOKIE_NAMES) {
+    const cookieToken = cookies?.[name];
+    if (cookieToken) {
+      return cookieToken;
+    }
   }
 
   return null;
 }
 
-/**
- * Decode JWT without verification (just to read claims)
- */
-function decodeJWT(token: string): any {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    
-    const payload = parts[1];
-    const decoded = Buffer.from(payload, 'base64').toString('utf-8');
-    return JSON.parse(decoded);
-  } catch (error) {
-    return null;
-  }
+function extractTenantId(claims: JwtPayload | null, user?: any): string | undefined {
+  return (
+    (claims?.tenant_id as string | undefined) ??
+    (claims?.organization_id as string | undefined) ??
+    (claims?.app_metadata as any)?.tenant_id ??
+    (user?.user_metadata?.tenant_id as string | undefined) ??
+    (user?.app_metadata?.tenant_id as string | undefined) ??
+    (user?.tenant_id as string | undefined)
+  );
+}
+
+function getNumericClaim(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 /**
@@ -131,26 +140,36 @@ export async function sessionTimeoutMiddleware(
   }
 
   try {
-    // Decode JWT to get claims
-    const payload = decodeJWT(token);
-    if (!payload) {
+    const verified = await verifyAccessToken(token);
+    if (!verified) {
       return res.status(401).json({
-        error: 'Invalid token format',
+        error: 'Invalid or expired token',
         code: 'INVALID_TOKEN',
       });
     }
 
-    const { sub: userId, iat, exp, session_id } = payload;
+    const claims = verified.claims as JwtPayload;
+    const userId = claims?.sub;
+    const issuedAt = getNumericClaim(claims?.iat);
+    const expiresAt = getNumericClaim(claims?.exp);
+    const sessionIdClaim = (claims as any)?.session_id;
     const now = Math.floor(Date.now() / 1000);
+
+    if (!userId || !issuedAt || !expiresAt) {
+      return res.status(401).json({
+        error: 'Token missing required claims',
+        code: 'INVALID_TOKEN_CLAIMS',
+      });
+    }
 
     // ========================================================================
     // 1. Check JWT Expiry (with clock skew tolerance)
     // ========================================================================
-    if (exp && exp + SESSION_CONFIG.CLOCK_SKEW_MS / 1000 < now) {
+    if (expiresAt + SESSION_CONFIG.CLOCK_SKEW_MS / 1000 < now) {
       return res.status(401).json({
         error: 'Token expired',
         code: 'TOKEN_EXPIRED',
-        expiresAt: exp,
+        expiresAt,
         currentTime: now,
       });
     }
@@ -158,7 +177,7 @@ export async function sessionTimeoutMiddleware(
     // ========================================================================
     // 2. Check Absolute Timeout (1 hour from iat)
     // ========================================================================
-    const tokenAge = now - iat;
+    const tokenAge = now - issuedAt;
     const maxAge = SESSION_CONFIG.ABSOLUTE_TIMEOUT_MS / 1000;
 
     if (tokenAge > maxAge) {
@@ -173,7 +192,7 @@ export async function sessionTimeoutMiddleware(
     // ========================================================================
     // 3. Check Idle Timeout (30 minutes)
     // ========================================================================
-    const sessionId = session_id || `${userId}:${iat}`;
+    const sessionId = sessionIdClaim || `${userId}:${issuedAt}`;
     let sessionMetadata = sessionStore.get(sessionId);
 
     if (!sessionMetadata) {
@@ -181,9 +200,9 @@ export async function sessionTimeoutMiddleware(
       const nowMs = Date.now();
       sessionMetadata = {
         userId,
-        createdAt: iat * 1000,
+        createdAt: issuedAt * 1000,
         lastActivityAt: nowMs,
-        absoluteExpiresAt: iat * 1000 + SESSION_CONFIG.ABSOLUTE_TIMEOUT_MS,
+        absoluteExpiresAt: issuedAt * 1000 + SESSION_CONFIG.ABSOLUTE_TIMEOUT_MS,
         idleExpiresAt: nowMs + SESSION_CONFIG.IDLE_TIMEOUT_MS,
       };
       sessionStore.set(sessionId, sessionMetadata);
@@ -209,15 +228,22 @@ export async function sessionTimeoutMiddleware(
     // ========================================================================
     // 4. Attach user info to request
     // ========================================================================
-    (req as any).user = {
-      id: userId,
-      sessionId,
-      tokenIssuedAt: iat,
-      tokenExpiresAt: exp,
-    };
+    const tenantId = extractTenantId(claims, verified.user);
+    const userWithTenant = verified.user
+      ? { ...verified.user, tenant_id: tenantId ?? verified.user.tenant_id }
+      : {
+          id: userId,
+          sessionId,
+          tokenIssuedAt: issuedAt,
+          tokenExpiresAt: expiresAt,
+          tenant_id: tenantId,
+        };
+
+    (req as any).user = userWithTenant;
+    (req as any).tenantId = tenantId;
 
     // Add session info to response headers
-    res.setHeader('X-Session-Expires-In', String(exp - now));
+    res.setHeader('X-Session-Expires-In', String(expiresAt - now));
     res.setHeader('X-Session-Idle-Timeout', String(SESSION_CONFIG.IDLE_TIMEOUT_MS / 1000));
 
     next();
@@ -250,13 +276,21 @@ export async function strictSessionTimeoutMiddleware(
   }
 
   try {
-    const payload = decodeJWT(token);
-    if (!payload) {
+    const verified = await verifyAccessToken(token);
+    if (!verified) {
       return res.status(401).json({ error: 'Invalid token' });
     }
 
-    const { sub: userId, iat, session_id } = payload;
-    const sessionId = session_id || `${userId}:${iat}`;
+    const claims = verified.claims as JwtPayload;
+    const userId = claims?.sub;
+    const issuedAt = getNumericClaim(claims?.iat);
+    const sessionIdClaim = (claims as any)?.session_id;
+
+    if (!userId || !issuedAt) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const sessionId = sessionIdClaim || `${userId}:${issuedAt}`;
     const sessionMetadata = sessionStore.get(sessionId);
 
     if (sessionMetadata) {
@@ -289,12 +323,23 @@ export function invalidateSession(req: Request): void {
   const token = extractToken(req);
   if (!token) return;
 
-  const payload = decodeJWT(token);
-  if (!payload) return;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return;
 
-  const { sub: userId, iat, session_id } = payload;
-  const sessionId = session_id || `${userId}:${iat}`;
-  sessionStore.delete(sessionId);
+    const payload = Buffer.from(parts[1], 'base64').toString('utf-8');
+    const claims = JSON.parse(payload);
+    const userId = claims?.sub;
+    const issuedAt = getNumericClaim(claims?.iat);
+    const sessionIdClaim = claims?.session_id;
+
+    if (!userId || !issuedAt) return;
+
+    const sessionId = sessionIdClaim || `${userId}:${issuedAt}`;
+    sessionStore.delete(sessionId);
+  } catch {
+    return;
+  }
 }
 
 /**
@@ -307,22 +352,34 @@ export function getSessionTimeRemaining(req: Request): {
   const token = extractToken(req);
   if (!token) return null;
 
-  const payload = decodeJWT(token);
-  if (!payload) return null;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
 
-  const { sub: userId, iat, exp, session_id } = payload;
-  const sessionId = session_id || `${userId}:${iat}`;
-  const sessionMetadata = sessionStore.get(sessionId);
+    const payload = Buffer.from(parts[1], 'base64').toString('utf-8');
+    const claims = JSON.parse(payload);
+    const userId = claims?.sub;
+    const issuedAt = getNumericClaim(claims?.iat);
+    const expiresAt = getNumericClaim(claims?.exp);
+    const sessionIdClaim = claims?.session_id;
 
-  if (!sessionMetadata) return null;
+    if (!userId || !issuedAt || !expiresAt) return null;
 
-  const nowMs = Date.now();
-  const now = Math.floor(nowMs / 1000);
+    const sessionId = sessionIdClaim || `${userId}:${issuedAt}`;
+    const sessionMetadata = sessionStore.get(sessionId);
 
-  return {
-    absoluteRemaining: exp - now,
-    idleRemaining: Math.floor((sessionMetadata.idleExpiresAt - nowMs) / 1000),
-  };
+    if (!sessionMetadata) return null;
+
+    const nowMs = Date.now();
+    const now = Math.floor(nowMs / 1000);
+
+    return {
+      absoluteRemaining: expiresAt - now,
+      idleRemaining: Math.floor((sessionMetadata.idleExpiresAt - nowMs) / 1000),
+    };
+  } catch {
+    return null;
+  }
 }
 
 export default sessionTimeoutMiddleware;
