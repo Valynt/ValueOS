@@ -27,6 +27,7 @@ import { generateSOFRealizationPage } from '../sdui/templates/sof-realization-te
 import { hashObject, shortHash } from '../lib/contentHash';
 import { ALL_VMRT_SEEDS } from '../types/vos-pt1-seed';
 import { VMRTAssumption } from '../types/vmrt';
+import { ManifestoValidationResult } from '../types/vos';
 
 /**
  * Schema head pointer - points to current schema hash
@@ -714,9 +715,78 @@ export class CanvasSchemaService {
   /**
    * Fetch manifesto results
    */
-  private async fetchManifestoResults(workspaceId: string): Promise<any[]> {
-    // TODO: Implement actual manifesto results fetching
-    return [];
+  private async fetchManifestoResults(workspaceId: string): Promise<ManifestoValidationResult[]> {
+    try {
+      const supabase = getSupabaseClient();
+      const results: ManifestoValidationResult[] = [];
+
+      // Helper to process artifacts
+      const collectResults = (artifacts: any[]) => {
+        if (!artifacts) return;
+        artifacts.forEach(artifact => {
+          if (artifact.compliance_metadata && artifact.compliance_metadata.results) {
+            results.push(...artifact.compliance_metadata.results);
+          }
+        });
+      };
+
+      // 1. Fetch Value Trees
+      const { data: valueTrees } = await supabase
+        .from('value_trees')
+        .select('id, compliance_metadata')
+        .eq('value_case_id', workspaceId);
+
+      collectResults(valueTrees || []);
+
+      // 2. Fetch ROI Models (linked via Value Trees)
+      if (valueTrees && valueTrees.length > 0) {
+        const valueTreeIds = valueTrees.map((vt: any) => vt.id);
+        const { data: roiModels } = await supabase
+          .from('roi_models')
+          .select('id, compliance_metadata')
+          .in('value_tree_id', valueTreeIds);
+
+        collectResults(roiModels || []);
+      }
+
+      // 3. Fetch Value Commits
+      const { data: valueCommits } = await supabase
+        .from('value_commits')
+        .select('id, compliance_metadata')
+        .eq('value_case_id', workspaceId);
+
+      collectResults(valueCommits || []);
+
+      // 4. Fetch Realization Reports
+      const { data: realizationReports } = await supabase
+        .from('realization_reports')
+        .select('id, compliance_metadata')
+        .eq('value_case_id', workspaceId);
+
+      collectResults(realizationReports || []);
+
+      // 5. Fetch Expansion Models
+      const { data: expansionModels } = await supabase
+        .from('expansion_models')
+        .select('id, compliance_metadata')
+        .eq('value_case_id', workspaceId);
+
+      collectResults(expansionModels || []);
+
+      logger.debug('Fetched manifesto results', {
+        workspaceId,
+        count: results.length
+      });
+
+      return results;
+
+    } catch (error) {
+      logger.error('Failed to fetch manifesto results', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
   }
 
   /**
