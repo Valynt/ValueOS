@@ -13,16 +13,17 @@ import React, { useMemo } from 'react';
 import {
   UsageMetricsGrid,
   UsageSummaryBanner,
-  useUsageMetrics,
-  COMMON_USAGE_METRICS,
 } from '../../components/Billing/UsageMetrics';
+import { useUsageMetrics } from '../../components/Billing/useUsageMetrics';
 import {
   AsyncFeedbackBanner,
-  useAsyncState,
   SettingsErrorBoundary,
+  useAsyncState,
 } from '../../components/Settings/SettingsAsyncFeedback';
 import { FullPageLoading } from '../../components/Settings/SettingsLoadingState';
-import { CreditCard, Calendar, Download, TrendingUp } from 'lucide-react';
+import { Calendar, CreditCard, Download, TrendingUp } from 'lucide-react';
+import { PlanConfig, PLANS, PlanTier } from '../../config/billing';
+import { Subscription } from '../../types/billing';
 
 interface BillingPlan {
   name: string;
@@ -43,44 +44,112 @@ interface EnhancedBillingDashboardProps {
 export const EnhancedBillingDashboard: React.FC<EnhancedBillingDashboardProps> = ({
   organizationId,
 }) => {
-  // Phase 1 Fix 4: Memoize context
-  const context = useMemo(() => ({ organizationId }), [organizationId]);
+  // Phase 1 Fix 4: Memoize context (even if unused, keeping for potential future usage as per comments)
+  // const context = React.useMemo(() => ({ organizationId }), [organizationId]);
+
+  const [currentSubscription, setCurrentSubscription] = React.useState<Subscription | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = React.useState(true);
+  const [subscriptionError, setSubscriptionError] = React.useState<Error | null>(null);
 
   // Fetch usage metrics with color-coded warnings
-  const { metrics, loading, error, hasWarnings, hasCritical } = useUsageMetrics(organizationId);
+  const { metrics, loading: usageLoading, error: usageError, hasWarnings, hasCritical } = useUsageMetrics(organizationId);
 
   // Async state for plan changes
   const { state: upgradeState, execute: executeUpgrade, reset: resetUpgrade } = useAsyncState();
 
-  // Mock current plan data
+  // Fetch subscription details on mount
+  React.useEffect(() => {
+    const fetchSubscription = async () => {
+      try {
+        setSubscriptionLoading(true);
+        const response = await fetch('/api/billing/subscription');
+        if (!response.ok) {
+           // If 404, it might mean no subscription, defaulting to free
+           const HTTP_NOT_FOUND = 404;
+           if (response.status === HTTP_NOT_FOUND) {
+             // Mock minimal subscription object for free tier
+             setCurrentSubscription({ plan_tier: 'free' } as unknown as Subscription);
+             return;
+           }
+           throw new Error('Failed to fetch subscription');
+        }
+        const data = await response.json();
+        setCurrentSubscription(data);
+      } catch (err) {
+        setSubscriptionError(err instanceof Error ? err : new Error('Unknown error'));
+      } finally {
+        setSubscriptionLoading(false);
+      }
+    };
+
+    fetchSubscription();
+  }, [organizationId]);
+
+  // Derive current plan from subscription
+  const planConfig: PlanConfig = React.useMemo(() => {
+    const tier: PlanTier = currentSubscription?.plan_tier || 'free';
+    return PLANS[tier];
+  }, [currentSubscription]);
+
   const currentPlan: BillingPlan = {
-    name: 'Professional',
-    price: 99,
-    billingCycle: 'monthly',
-    features: [
-      '10 active users',
-      '10 GB storage',
-      '1,000 API calls/month',
-      'Priority support',
-    ],
+    name: planConfig.name,
+    price: planConfig.price,
+    billingCycle: planConfig.billingPeriod === 'yearly' ? 'annual' : 'monthly',
+    features: planConfig.features,
     limits: {
-      users: 10,
-      storage: 10,
-      apiCalls: 1000,
+      users: planConfig.quotas.user_seats,
+      storage: planConfig.quotas.storage_gb,
+      apiCalls: planConfig.quotas.api_calls,
     },
   };
 
-  const nextBillingDate = new Date('2026-02-01');
+  const DEFAULT_DAYS_UNTIL_BILLING = 30;
+  const MS_PER_DAY = 86400000;
+
+  const nextBillingDate = currentSubscription?.current_period_end
+    ? new Date(currentSubscription.current_period_end)
+    : new Date(Date.now() + DEFAULT_DAYS_UNTIL_BILLING * MS_PER_DAY); // Default to 30 days from now
 
   // Handle plan upgrade
   const handleUpgrade = async () => {
     await executeUpgrade(async () => {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      // TODO: Implement actual upgrade logic
-      console.log('Upgrading plan...');
+      // Determine next plan tier
+      const currentTier = currentSubscription?.plan_tier || 'free';
+      let nextTier: PlanTier;
+
+      if (currentTier === 'free') {
+        nextTier = 'standard';
+      } else if (currentTier === 'standard') {
+        nextTier = 'enterprise';
+      } else {
+        // Already at top tier or unknown
+        throw new Error('You are already on the highest plan. Contact sales for custom needs.');
+      }
+
+      const response = await fetch('/api/billing/subscription', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ planTier: nextTier }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to upgrade plan');
+      }
+
+      // Refresh subscription data
+      const subResponse = await fetch('/api/billing/subscription');
+      if (subResponse.ok) {
+        const subData = await subResponse.json();
+        setCurrentSubscription(subData);
+      }
     });
   };
+
+  const loading = usageLoading || subscriptionLoading;
+  const error = usageError || subscriptionError;
 
   // Loading state
   if (loading) {

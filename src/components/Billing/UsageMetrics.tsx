@@ -9,70 +9,14 @@
  */
 
 import React from 'react';
-import { AlertTriangle, TrendingUp, Users, Database, Zap } from 'lucide-react';
-
-// ============================================================================
-// Types
-// ============================================================================
-
-export interface UsageMetric {
-  label: string;
-  current: number;
-  limit: number;
-  unit: string;
-  icon?: React.ComponentType<{ className?: string }>;
-}
-
-export type UsageLevel = 'safe' | 'warning' | 'critical';
-
-// ============================================================================
-// Usage Level Calculation
-// ============================================================================
-
-/**
- * Calculate usage level based on percentage
- * - safe: < 75%
- * - warning: 75-90%
- * - critical: > 90%
- */
-export function getUsageLevel(current: number, limit: number): UsageLevel {
-  const percentage = (current / limit) * 100;
-  
-  if (percentage >= 90) return 'critical';
-  if (percentage >= 75) return 'warning';
-  return 'safe';
-}
-
-/**
- * Get color classes for usage level
- */
-export function getUsageLevelColors(level: UsageLevel) {
-  const colors = {
-    safe: {
-      bg: 'bg-green-50',
-      border: 'border-green-200',
-      text: 'text-green-800',
-      bar: 'bg-green-500',
-      icon: 'text-green-600',
-    },
-    warning: {
-      bg: 'bg-yellow-50',
-      border: 'border-yellow-200',
-      text: 'text-yellow-800',
-      bar: 'bg-yellow-500',
-      icon: 'text-yellow-600',
-    },
-    critical: {
-      bg: 'bg-red-50',
-      border: 'border-red-200',
-      text: 'text-red-800',
-      bar: 'bg-red-500',
-      icon: 'text-red-600',
-    },
-  };
-
-  return colors[level];
-}
+import { AlertTriangle, TrendingUp } from 'lucide-react';
+import {
+  getUsageLevel,
+  getUsageLevelColors,
+  MAX_PERCENTAGE,
+  UsageLevel,
+  UsageMetric,
+} from './UsageUtils';
 
 // ============================================================================
 // Usage Progress Bar
@@ -86,7 +30,7 @@ export const UsageProgressBar: React.FC<{
   limit: number;
   showPercentage?: boolean;
 }> = ({ current, limit, showPercentage = true }) => {
-  const percentage = Math.min((current / limit) * 100, 100);
+  const percentage = Math.min((current / limit) * MAX_PERCENTAGE, MAX_PERCENTAGE);
   const level = getUsageLevel(current, limit);
   const colors = getUsageLevelColors(level);
 
@@ -128,7 +72,7 @@ export const UsageMetricCard: React.FC<UsageMetric> = ({
 }) => {
   const level = getUsageLevel(current, limit);
   const colors = getUsageLevelColors(level);
-  const percentage = (current / limit) * 100;
+  const percentage = (current / limit) * MAX_PERCENTAGE;
 
   return (
     <div
@@ -277,7 +221,7 @@ export const UsageTrendIndicator: React.FC<{
   label: string;
 }> = ({ current, previous, label }) => {
   const change = current - previous;
-  const percentChange = previous > 0 ? (change / previous) * 100 : 0;
+  const percentChange = previous > 0 ? (change / previous) * MAX_PERCENTAGE : 0;
   const isIncrease = change > 0;
 
   return (
@@ -301,82 +245,3 @@ export const UsageTrendIndicator: React.FC<{
   );
 };
 
-// ============================================================================
-// Preset Usage Metrics
-// ============================================================================
-
-/**
- * Common usage metrics for billing dashboard
- */
-export const COMMON_USAGE_METRICS = {
-  users: (current: number, limit: number): UsageMetric => ({
-    label: 'Active Users',
-    current,
-    limit,
-    unit: 'users',
-    icon: Users,
-  }),
-  storage: (current: number, limit: number): UsageMetric => ({
-    label: 'Storage',
-    current,
-    limit,
-    unit: 'GB',
-    icon: Database,
-  }),
-  apiCalls: (current: number, limit: number): UsageMetric => ({
-    label: 'API Calls',
-    current,
-    limit,
-    unit: 'calls',
-    icon: Zap,
-  }),
-};
-
-// ============================================================================
-// Hook for Usage Metrics
-// ============================================================================
-
-/**
- * Hook to fetch and manage usage metrics
- */
-export function useUsageMetrics(organizationId: string) {
-  const [metrics, setMetrics] = React.useState<UsageMetric[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<Error | null>(null);
-
-  React.useEffect(() => {
-    const fetchMetrics = async () => {
-      try {
-        setLoading(true);
-        // TODO: Fetch from API
-        // const response = await fetch(`/api/billing/usage/${organizationId}`);
-        // const data = await response.json();
-        
-        // Mock data for now
-        const mockMetrics: UsageMetric[] = [
-          COMMON_USAGE_METRICS.users(8, 10),
-          COMMON_USAGE_METRICS.storage(7.5, 10),
-          COMMON_USAGE_METRICS.apiCalls(850, 1000),
-        ];
-        
-        setMetrics(mockMetrics);
-      } catch (err) {
-        setError(err as Error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (organizationId) {
-      fetchMetrics();
-    }
-  }, [organizationId]);
-
-  return {
-    metrics,
-    loading,
-    error,
-    hasWarnings: metrics.some((m) => getUsageLevel(m.current, m.limit) !== 'safe'),
-    hasCritical: metrics.some((m) => getUsageLevel(m.current, m.limit) === 'critical'),
-  };
-}
