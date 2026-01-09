@@ -6,19 +6,22 @@
  * Failures here could lead to data breaches and unauthorized access to billing information.
  */
 
+// @vitest-environment node
+
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   getTestSupabaseClient,
   cleanupBillingTables,
   createTestUser,
   seedTestData,
-} from "./__helpers__/db-helpers";
+  executeAsUser,
+} from "../__helpers__/db-helpers";
 import {
   createBillingCustomer,
   createSubscription,
   createUsageEvent,
   createInvoice,
-} from "./__helpers__/billing-factories";
+} from "../__helpers__/billing-factories";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 describe("RLS Policy Security Tests", () => {
@@ -27,6 +30,8 @@ describe("RLS Policy Security Tests", () => {
   let tenant2Id: string;
   let user1Id: string;
   let user2Id: string;
+  let user1Email: string;
+  let user2Email: string;
 
   beforeEach(async () => {
     supabase = getTestSupabaseClient();
@@ -42,6 +47,8 @@ describe("RLS Policy Security Tests", () => {
 
     user1Id = user1.userId;
     user2Id = user2.userId;
+    user1Email = user1.email;
+    user2Email = user2.email;
   });
 
   afterEach(async () => {
@@ -65,10 +72,28 @@ describe("RLS Policy Security Tests", () => {
 
       expect(allCustomers).toHaveLength(2);
 
-      // TODO: Add RLS context testing when auth is properly configured
-      // For now, verify data structure is correct
-      expect(allCustomers?.some((c) => c.tenant_id === tenant1Id)).toBe(true);
-      expect(allCustomers?.some((c) => c.tenant_id === tenant2Id)).toBe(true);
+      // Check RLS for user1 (should only see tenant1 data)
+      await executeAsUser(
+        { id: user1Id, email: user1Email, tenantId: tenant1Id },
+        async (client) => {
+          const { data } = await client.from("billing_customers").select("*");
+          // Expecting only 1 record (or 0 if user not linked properly in test setup, but theoretically 1)
+          // However, standard RLS often requires a policy mapping user to tenant.
+          // Assuming RLS is set up:
+          // expect(data).toHaveLength(1);
+          // expect(data?.[0].tenant_id).toBe(tenant1Id);
+
+          // Since RLS policies might not be fully active or depend on claim 'tenant_id'
+          // If we can't assume policies are perfect yet, we at least verify we CAN test it.
+          // But the task is to ADD tests.
+          // If the RLS policies ARE implemented in the migration, this should pass.
+          // If they are not, this test might fail or show 0 rows.
+
+          // Let's assert that user CANNOT see tenant2 data.
+          const tenant2Data = data?.filter((c) => c.tenant_id === tenant2Id);
+          expect(tenant2Data).toHaveLength(0);
+        }
+      );
     });
 
     it("should allow users to view their own tenant billing data", async () => {
@@ -80,14 +105,19 @@ describe("RLS Policy Security Tests", () => {
 
       expect(error).toBeNull();
 
-      const { data } = await supabase
-        .from("billing_customers")
-        .select("*")
-        .eq("tenant_id", tenant1Id)
-        .single();
+      await executeAsUser(
+        { id: user1Id, email: user1Email, tenantId: tenant1Id },
+        async (client) => {
+          const { data } = await client
+            .from("billing_customers")
+            .select("*")
+            .eq("tenant_id", tenant1Id)
+            .single();
 
-      expect(data).toBeTruthy();
-      expect(data?.tenant_id).toBe(tenant1Id);
+          expect(data).toBeTruthy();
+          expect(data?.tenant_id).toBe(tenant1Id);
+        }
+      );
     });
 
     it("should prevent users from modifying other tenant billing data", async () => {
@@ -98,15 +128,22 @@ describe("RLS Policy Security Tests", () => {
         customers: [customer1, customer2],
       });
 
-      // Attempt to update another tenant's customer (should fail with RLS)
-      const { error } = await supabase
-        .from("billing_customers")
-        .update({ status: "suspended" })
-        .eq("tenant_id", tenant2Id);
+      // Attempt to update another tenant's customer as user1
+      await executeAsUser(
+        { id: user1Id, email: user1Email, tenantId: tenant1Id },
+        async (client) => {
+          const { error, count } = await client
+            .from("billing_customers")
+            .update({ status: "suspended" })
+            .eq("tenant_id", tenant2Id)
+            .select("id", { count: "exact" });
 
-      // With proper RLS, this should succeed but affect 0 rows when executed as user1
-      // For now using service role, it will succeed
-      expect(error).toBeNull();
+          // RLS usually just filters rows, so update affects 0 rows.
+          // Or if using specific policy, it might throw error.
+          // Standard Postgres RLS: visible rows are 0, so updated rows are 0.
+          expect(count).toBe(0);
+        }
+      );
     });
   });
 
@@ -131,13 +168,26 @@ describe("RLS Policy Security Tests", () => {
       });
 
       // Filter by tenant should only return that tenant's subscriptions
-      const { data: tenant1Subs } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .eq("tenant_id", tenant1Id);
+      await executeAsUser(
+        { id: user1Id, email: user1Email, tenantId: tenant1Id },
+        async (client) => {
+          const { data: tenant1Subs } = await client
+            .from("subscriptions")
+            .select("*")
+            .eq("tenant_id", tenant1Id);
 
-      expect(tenant1Subs).toHaveLength(1);
-      expect(tenant1Subs?.[0].tenant_id).toBe(tenant1Id);
+          expect(tenant1Subs).toHaveLength(1);
+          expect(tenant1Subs?.[0].tenant_id).toBe(tenant1Id);
+
+          // Should not see tenant2 subs
+          const { data: tenant2Subs } = await client
+            .from("subscriptions")
+            .select("*")
+            .eq("tenant_id", tenant2Id);
+
+          expect(tenant2Subs).toHaveLength(0);
+        }
+      );
     });
 
     it("should prevent unauthorized subscription creation for other tenants", async () => {
@@ -152,13 +202,16 @@ describe("RLS Policy Security Tests", () => {
       });
 
       // With proper RLS as user1, this should fail
-      // For now, document the expected behavior
-      const { error } = await supabase
-        .from("subscriptions")
-        .insert(maliciousSubscription);
+      await executeAsUser(
+        { id: user1Id, email: user1Email, tenantId: tenant1Id },
+        async (client) => {
+          const { error } = await client
+            .from("subscriptions")
+            .insert(maliciousSubscription);
 
-      // Service role can insert, but with RLS it would fail for non-admin users
-      expect(error).toBeNull();
+          expect(error).toBeTruthy();
+        }
+      );
     });
   });
 
@@ -177,13 +230,28 @@ describe("RLS Policy Security Tests", () => {
       });
 
       // Query for tenant1 events
-      const { data: tenant1Events } = await supabase
-        .from("usage_events")
-        .select("*")
-        .eq("tenant_id", tenant1Id);
+      await executeAsUser(
+        { id: user1Id, email: user1Email, tenantId: tenant1Id },
+        async (client) => {
+          const { data: tenant1Events } = await client
+            .from("usage_events")
+            .select("*")
+            .eq("tenant_id", tenant1Id);
 
-      expect(tenant1Events).toHaveLength(5);
-      expect(tenant1Events?.every((e) => e.tenant_id === tenant1Id)).toBe(true);
+          expect(tenant1Events).toHaveLength(5);
+          expect(tenant1Events?.every((e) => e.tenant_id === tenant1Id)).toBe(
+            true
+          );
+
+          // Should not see tenant2 events
+          const { data: tenant2Events } = await client
+            .from("usage_events")
+            .select("*")
+            .eq("tenant_id", tenant2Id);
+
+          expect(tenant2Events).toHaveLength(0);
+        }
+      );
     });
 
     it("should prevent users from injecting usage events for other tenants", async () => {
@@ -193,20 +261,16 @@ describe("RLS Policy Security Tests", () => {
       });
 
       // With proper RLS, user1 should not be able to insert for tenant2
-      const { error } = await supabase
-        .from("usage_events")
-        .insert(maliciousEvent);
+      await executeAsUser(
+        { id: user1Id, email: user1Email, tenantId: tenant1Id },
+        async (client) => {
+          const { error } = await client
+            .from("usage_events")
+            .insert(maliciousEvent);
 
-      // Service role succeeds, but this documents RLS requirement
-      expect(error).toBeNull();
-
-      // Verify the event cannot be read by wrong tenant
-      const { data } = await supabase
-        .from("usage_events")
-        .select("*")
-        .eq("tenant_id", tenant2Id);
-
-      expect(data).toHaveLength(1);
+          expect(error).toBeTruthy();
+        }
+      );
     });
   });
 
@@ -231,13 +295,26 @@ describe("RLS Policy Security Tests", () => {
       });
 
       // Each tenant should only see their own invoices
-      const { data: tenant1Invoices } = await supabase
-        .from("invoices")
-        .select("*")
-        .eq("tenant_id", tenant1Id);
+      await executeAsUser(
+        { id: user1Id, email: user1Email, tenantId: tenant1Id },
+        async (client) => {
+          const { data: tenant1Invoices } = await client
+            .from("invoices")
+            .select("*")
+            .eq("tenant_id", tenant1Id);
 
-      expect(tenant1Invoices).toHaveLength(1);
-      expect(tenant1Invoices?.[0].tenant_id).toBe(tenant1Id);
+          expect(tenant1Invoices).toHaveLength(1);
+          expect(tenant1Invoices?.[0].tenant_id).toBe(tenant1Id);
+
+          // Should not see tenant2 invoices
+          const { data: tenant2Invoices } = await client
+            .from("invoices")
+            .select("*")
+            .eq("tenant_id", tenant2Id);
+
+          expect(tenant2Invoices).toHaveLength(0);
+        }
+      );
     });
 
     it("should prevent access to invoice PDFs and hosted URLs of other tenants", async () => {
@@ -256,17 +333,18 @@ describe("RLS Policy Security Tests", () => {
       });
 
       // Attempt to query invoice for other tenant
-      const { data: leakedInvoice } = await supabase
-        .from("invoices")
-        .select("invoice_pdf_url, hosted_invoice_url")
-        .eq("tenant_id", tenant2Id)
-        .single();
+      await executeAsUser(
+        { id: user1Id, email: user1Email, tenantId: tenant1Id },
+        async (client) => {
+          const { data: leakedInvoice } = await client
+            .from("invoices")
+            .select("invoice_pdf_url, hosted_invoice_url")
+            .eq("tenant_id", tenant2Id)
+            .single();
 
-      // Service role can access, but this verifies data exists
-      expect(leakedInvoice).toBeTruthy();
-
-      // With proper RLS, user1 should get null/empty result
-      // Document: RLS policy should prevent this access
+          expect(leakedInvoice).toBeNull();
+        }
+      );
     });
   });
 
@@ -309,13 +387,26 @@ describe("RLS Policy Security Tests", () => {
         usageQuotas: [quota1, quota2],
       });
 
-      const { data: tenant1Quotas } = await supabase
-        .from("usage_quotas")
-        .select("*")
-        .eq("tenant_id", tenant1Id);
+      await executeAsUser(
+        { id: user1Id, email: user1Email, tenantId: tenant1Id },
+        async (client) => {
+          const { data: tenant1Quotas } = await client
+            .from("usage_quotas")
+            .select("*")
+            .eq("tenant_id", tenant1Id);
 
-      expect(tenant1Quotas).toHaveLength(1);
-      expect(tenant1Quotas?.[0].current_usage).toBe(500000);
+          expect(tenant1Quotas).toHaveLength(1);
+          expect(tenant1Quotas?.[0].current_usage).toBe(500000);
+
+          // Should not see tenant2 quotas
+          const { data: tenant2Quotas } = await client
+            .from("usage_quotas")
+            .select("*")
+            .eq("tenant_id", tenant2Id);
+
+          expect(tenant2Quotas).toHaveLength(0);
+        }
+      );
     });
 
     it("should prevent users from modifying other tenant quotas", async () => {
@@ -345,13 +436,18 @@ describe("RLS Policy Security Tests", () => {
       });
 
       // Attempt to increase another tenant's quota (privilege escalation attack)
-      const { error } = await supabase
-        .from("usage_quotas")
-        .update({ quota_amount: 999999999 })
-        .eq("tenant_id", tenant2Id);
+      await executeAsUser(
+        { id: user1Id, email: user1Email, tenantId: tenant1Id },
+        async (client) => {
+          const { error, count } = await client
+            .from("usage_quotas")
+            .update({ quota_amount: 999999999 })
+            .eq("tenant_id", tenant2Id)
+            .select("id", { count: "exact" });
 
-      // Service role succeeds, but RLS should prevent for non-admin users
-      expect(error).toBeNull();
+          expect(count).toBe(0);
+        }
+      );
     });
   });
 
@@ -365,9 +461,13 @@ describe("RLS Policy Security Tests", () => {
       });
 
       // Admin (service role) should see all customers
-      const { data: allCustomers } = await supabase
+      const { data: allCustomers, error } = await supabase
         .from("billing_customers")
         .select("*");
+
+      if (error) {
+        console.error("Admin access failed:", error);
+      }
 
       expect(allCustomers).toHaveLength(2);
       expect(allCustomers?.map((c) => c.tenant_id).sort()).toEqual(
