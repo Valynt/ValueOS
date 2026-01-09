@@ -6,6 +6,7 @@
 import { supabase } from "../lib/supabase";
 import { BaseService } from "./BaseService";
 import { logger } from "../lib/logger";
+import { emailService } from "./EmailService";
 
 export interface CustomerAccessToken {
   id: string;
@@ -251,7 +252,7 @@ export class CustomerAccessService extends BaseService {
    * Build portal URL from token
    */
   private buildPortalUrl(token: string): string {
-    const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    const baseUrl = import.meta.env.VITE_APP_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
     return `${baseUrl}/customer/portal?token=${encodeURIComponent(token)}`;
   }
 
@@ -273,20 +274,18 @@ export class CustomerAccessService extends BaseService {
     try {
       logger.info("Sending portal access email", { email, companyName });
 
-      // TODO: Integrate with email service
-      // For now, just log the email details
       logger.info("Portal access email details", {
         to: email,
         subject: `Your ${companyName} Value Realization Portal`,
         portalUrl,
       });
 
-      // In production, integrate with SendGrid, Postmark, etc.
-      // await emailService.send({
-      //   to: email,
-      //   template: 'customer-portal-access',
-      //   data: { companyName, portalUrl }
-      // });
+      await emailService.send({
+        to: email,
+        subject: `Your ${companyName} Value Realization Portal`,
+        template: 'customer-portal-access',
+        data: { companyName, portalUrl }
+      });
     } catch (error) {
       logger.error("Error sending portal access email", error as Error);
       throw error;
