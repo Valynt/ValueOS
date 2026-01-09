@@ -23,11 +23,15 @@ fi
 echo "📊 Checking current migration status..."
 supabase migration list --db-url "$STAGING_DATABASE_URL" || true
 
-# New migrations to deploy
+# Pending migrations (inventory from infra/supabase/FINAL_STATUS.md)
 NEW_MIGRATIONS=(
+    "20251213000000_fix_rls_tenant_isolation.sql"
+    "20251213000001_fix_tenant_columns_and_rls.sql"
     "20251214000000_add_confidence_calibration.sql"
+    "20251216000000_add_tenant_seat_allocation_rpc.sql"
+    "20251226000000_fix_agent_performance_summary_security.sql"
     "20260111000000_add_memory_gc_and_provenance.sql"
-    "20260111000000_add_tenant_isolation_to_match_memory.sql"
+    "20260111000001_add_tenant_isolation_to_match_memory.sql"
     "20260112000000_add_org_filter_to_search_semantic_memory.sql"
     "20260113000000_create_memory_provenance.sql"
     "20260114000000_add_org_to_semantic_memory.sql"
@@ -56,6 +60,15 @@ supabase db push --db-url "$STAGING_DATABASE_URL"
 echo ""
 echo "✅ Verifying deployment..."
 supabase migration list --db-url "$STAGING_DATABASE_URL"
+
+# Run RLS/policy validation
+echo ""
+echo "🔐 Running RLS/policy validation..."
+supabase db lint --db-url "$STAGING_DATABASE_URL"
+if ! psql "$STAGING_DATABASE_URL" -c "SELECT schemaname, tablename, policyname FROM pg_policies WHERE schemaname = 'public' ORDER BY tablename, policyname;"; then
+    echo "❌ Failed to query RLS policies on staging. Please check STAGING_DATABASE_URL, network connectivity, and database permissions."
+    exit 1
+fi
 
 # Run post-deployment checks
 echo ""
