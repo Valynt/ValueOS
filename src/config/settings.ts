@@ -27,17 +27,22 @@ const SettingsSchema = z.object({
 });
 
 // Determine if we are in a server-side (Node.js) or client-side (browser) environment
-const isServer = runtimeEnv.isServer();
+const isServer = typeof window === 'undefined';
 
 // Load managed secrets on the server before parsing the environment
 // Use dynamic import to avoid bundling Node.js-only code in the browser
 let managedSecrets: Record<string, string> = {};
 // optimization: Skip secret hydration in development to prevent startup hangs
 // caused by unreachable Vault/AWS endpoints
-if (isServer && !runtimeEnv.isDevelopment) {
+// We use import.meta.env.SSR check if available (Vite), otherwise runtime check
+const isViteSsrBuild = import.meta.env?.SSR;
+
+if ((isViteSsrBuild || isServer) && !runtimeEnv.isDevelopment) {
   try {
+    // Use a variable to prevent Vite from analyzing this as a static import in client build
+    const hydratorPath = "./secrets/SecretHydrator";
     const { hydrateServerSecretsFromManager } =
-      await import("./secrets/SecretHydrator");
+      await import(/* @vite-ignore */ hydratorPath);
     managedSecrets = await hydrateServerSecretsFromManager();
   } catch {
     // SecretHydrator not available in browser or failed to load

@@ -1,28 +1,29 @@
 /**
  * Multi-Tenant Secrets Manager (v2)
- * 
+ *
  * SEC-001: Implements tenant-isolated secret paths
  * SEC-002: Integrates RBAC permission checks
  * SEC-003: Comprehensive audit logging
- * 
+ *
  * Enterprise-grade secrets management with:
  * - Multi-tenancy with complete isolation
  * - Role-based access control
  * - Structured audit logging
  * - Provider abstraction ready
- * 
+ *
  * Created: 2024-11-29
  * Sprint: 1 - Critical Security Fixes
  */
 
-import { 
-  GetSecretValueCommand, 
+import {
+  GetSecretValueCommand,
   RotateSecretCommand,
   SecretsManagerClient,
-  UpdateSecretCommand
+  UpdateSecretCommand,
 } from '@aws-sdk/client-secrets-manager';
 import { logger } from '../lib/logger';
 import { createServerSupabaseClient } from '../lib/supabase';
+import { RbacService, type RbacUser, type SecretPermission } from '../services/RbacService';
 
 /**
  * Secret cache entry with expiration
@@ -90,93 +91,153 @@ export class MultiTenantSecretsManager {
   private cache: Map<string, SecretCache> = new Map();
   private cacheTTL: number = 5 * 60 * 1000; // 5 minutes
   private environment: string;
-  
+  private rbacService: RbacService;
+
   constructor() {
     this.client = new SecretsManagerClient({
-      region: process.env.AWS_REGION || 'us-east-1'
+      region: process.env.AWS_REGION || 'us-east-1',
     });
-    
+
     this.environment = process.env.NODE_ENV || 'development';
-    
+    this.rbacService = new RbacService();
+
     logger.info('Multi-tenant secrets manager initialized', {
       environment: this.environment,
-      region: process.env.AWS_REGION || 'us-east-1'
+      region: process.env.AWS_REGION || 'us-east-1',
     });
   }
-  
+
   /**
    * [SEC-001] Generate tenant-isolated secret path
-   * 
+   *
    * Format: valuecanvas/{environment}/tenants/{tenantId}/{secretKey}
-   * 
-   * This ensures complete tenant isolation at the storage level.
    */
   private getTenantSecretPath(tenantId: string, secretKey: string): string {
     if (!tenantId) {
       throw new Error('Tenant ID is required for secret access');
     }
-    
+
     if (!secretKey) {
       throw new Error('Secret key is required');
     }
-    
+
     // Validate tenant ID format (alphanumeric + hyphens only)
     if (!/^[a-zA-Z0-9-]+$/.test(tenantId)) {
       throw new Error('Invalid tenant ID format');
     }
-    
+
     return `valuecanvas/${this.environment}/tenants/${tenantId}/${secretKey}`;
   }
-  
+
   /**
    * [SEC-002] Check RBAC permissions for secret access
-   * 
-   * Integrates with existing access control system.
+   *
    * Default deny policy - all access must be explicitly granted.
+   *
+   * Strategy:
+   * - system + admin-* bypass
+   * - attempt role-backed RBAC using user_roles (tenant-scoped)
+   * - for READ only, fall back to tenant membership check (users.organization_id)
    */
   private async checkPermission(
     userId: string | undefined,
     tenantId: string,
     action: 'READ' | 'WRITE' | 'DELETE' | 'ROTATE'
   ): Promise<PermissionCheck> {
-    // If no userId provided, deny by default
     if (!userId) {
-      return {
-        allowed: false,
-        reason: 'User ID required for authentication'
-      };
+      return { allowed: false, reason: 'User ID required for authentication' };
     }
-    
-    // TODO: Integrate with actual RBAC system
-    // For now, implement basic permission model based on user roles
-    // This should be replaced with proper integration to MemoryAccessControl
-    
-    // System users have full access
+
     if (userId === 'system') {
       return { allowed: true };
     }
-    
-    // Admin users have full access
+
     if (userId.startsWith('admin-')) {
       return { allowed: true };
     }
-    
-    // Regular users can only READ their own tenant secrets
+
+    // Map action to SecretPermission
+    const permission: SecretPermission =
+      action === 'READ'
+        ? 'secrets:read'
+        : action === 'WRITE'
+          ? 'secrets:write'
+          : action === 'DELETE'
+            ? 'secrets:delete'
+            : 'secrets:rotate';
+
+    // First: try role-backed RBAC.
+    try {
+      const supabase = createServerSupabaseClient();
+
+      const { data: userRoles, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('tenant_id', tenantId);
+
+      if (error) {
+        let logError: Error;
+
+        if (error instanceof Error) {
+          logError = error;
+        } else {
+          let serializedError: string;
+          try {
+            serializedError = JSON.stringify(error);
+          } catch {
+            serializedError = String(error);
+          }
+          logError = new Error(
+            `Supabase error while fetching user roles: ${serializedError}`
+          );
+        }
+
+        logger.error(
+          'Failed to fetch user roles for RBAC check',
+          logError,
+          { userId, tenantId }
+        );
+      } else {
+        const roles = (userRoles ?? []).map((ur: any) => ur.role).filter(Boolean);
+
+        if (roles.length > 0) {
+          const rbacUser: RbacUser = {
+            id: userId,
+            roles,
+            tenantRoles: {
+              [tenantId]: roles,
+            },
+          };
+
+          const allowed = this.rbacService.can(rbacUser, permission, tenantId);
+          if (allowed) return { allowed: true };
+
+          return {
+            allowed: false,
+            reason: `User ${this.maskUserId(userId)} lacks permission ${permission} for tenant ${tenantId}`,
+          };
+        }
+      }
+    } catch (err) {
+      logger.error(
+        'Unexpected error during RBAC check',
+        err instanceof Error ? err : new Error(String(err)),
+        { userId, tenantId }
+      );
+    }
+
+    // Second: READ fallback — tenant membership check.
     if (action === 'READ') {
       try {
-        // We need to handle the case where we might not have the service key yet
-        // (e.g. during initial hydration). But usually regular users accessing secrets
-        // happens after startup.
-
         let supabase;
         try {
           supabase = createServerSupabaseClient();
         } catch (e) {
           logger.warn('Failed to create Supabase client for permission check', { error: e });
-          // If we can't connect to DB, we can't verify membership
           return {
             allowed: false,
-            reason: 'Cannot verify tenant membership: Database access unavailable'
+            reason: 'Cannot verify tenant membership: Database access unavailable',
           };
         }
 
@@ -187,42 +248,40 @@ export class MultiTenantSecretsManager {
           .single();
 
         if (error || !user) {
-          logger.warn('User not found or database error during permission check', { userId, tenantId, error });
-          return {
-            allowed: false,
-            reason: 'User not found or database error'
-          };
+          logger.warn('User not found or database error during permission check', {
+            userId,
+            tenantId,
+            error,
+          });
+          return { allowed: false, reason: 'User not found or database error' };
         }
 
-        if (user.organization_id === tenantId) {
+        if ((user as any).organization_id === tenantId) {
           return { allowed: true };
-        } else {
-          return {
-            allowed: false,
-            reason: `User ${this.maskUserId(userId)} does not belong to tenant ${tenantId}`
-          };
         }
-      } catch (err) {
-        logger.error('Unexpected error verifying user tenant membership', err);
+
         return {
           allowed: false,
-          reason: 'Internal error verifying permissions'
+          reason: `User ${this.maskUserId(userId)} does not belong to tenant ${tenantId}`,
         };
+      } catch (err) {
+        logger.error(
+          'Unexpected error verifying user tenant membership',
+          err instanceof Error ? err : new Error(String(err))
+        );
+        return { allowed: false, reason: 'Internal error verifying permissions' };
       }
     }
-    
-    // By default, deny
+
+    // Default deny.
     return {
       allowed: false,
-      reason: `User ${this.maskUserId(userId)} lacks permission for ${action} on tenant ${tenantId}`
+      reason: `User ${this.maskUserId(userId)} lacks permission ${permission} for tenant ${tenantId}`,
     };
   }
-  
+
   /**
    * [SEC-003] Audit log for compliance and security monitoring
-   * 
-   * Logs all secret access attempts to structured logger.
-   * Includes success/failure, user, tenant, and action details.
    */
   private async auditLog(entry: AuditLogEntry): Promise<void> {
     const logEntry = {
@@ -230,53 +289,48 @@ export class MultiTenantSecretsManager {
       timestamp: entry.timestamp || new Date().toISOString(),
       secretKey: this.maskSecretKey(entry.secretKey),
       service: 'secrets_manager',
-      version: 'v2'
+      version: 'v2',
     };
-    
+
     if (entry.result === 'SUCCESS') {
       logger.info('SECRET_ACCESS', logEntry);
     } else {
       logger.warn('SECRET_ACCESS_DENIED', logEntry);
     }
-    
+
     try {
-      // Write to database for long-term compliance
       const supabase = createServerSupabaseClient();
 
-      // Calculate secret path safely
       let secretPath: string | undefined;
       try {
         secretPath = this.getTenantSecretPath(entry.tenantId, 'config');
       } catch (e) {
-        // If we can't generate the path (e.g. invalid tenant ID), log the error but still record the audit
         secretPath = `invalid_path_generation: ${e instanceof Error ? e.message : String(e)}`;
       }
 
-      // Truncate secret key if too long for column (VARCHAR(255))
-      const secretKey = entry.secretKey.length > 255
-        ? entry.secretKey.substring(0, 252) + '...'
-        : entry.secretKey;
+      // Truncate secret key if too long for common VARCHAR limits
+      const secretKey = entry.secretKey.length > 255 ? `${entry.secretKey.substring(0, 252)}...` : entry.secretKey;
 
       await supabase.from('secret_audit_logs').insert({
         tenant_id: entry.tenantId,
         user_id: entry.userId || null,
-        secret_key: secretKey, // Store actual key name for audit trail
+        secret_key: secretKey,
         secret_path: secretPath,
         action: entry.action,
         result: entry.result,
         error_message: entry.error || null,
         metadata: entry.metadata || {},
-        timestamp: entry.timestamp || new Date().toISOString()
+        timestamp: entry.timestamp || new Date().toISOString(),
       });
     } catch (error) {
-      // Log failure but don't disrupt flow - audit logging is critical but shouldn't crash app if DB is down
-      logger.error('Failed to write to secret_audit_logs database', error instanceof Error ? error : new Error(String(error)), {
-        tenantId: entry.tenantId,
-        action: entry.action
-      });
+      logger.error(
+        'Failed to write to secret_audit_logs database',
+        error instanceof Error ? error : new Error(String(error)),
+        { tenantId: entry.tenantId, action: entry.action }
+      );
     }
   }
-  
+
   /**
    * Mask secret key for logging (show first/last 4 chars only)
    */
@@ -286,7 +340,7 @@ export class MultiTenantSecretsManager {
     }
     return `${key.substring(0, 4)}...${key.substring(key.length - 4)}`;
   }
-  
+
   /**
    * Mask user ID for logging
    */
@@ -296,28 +350,20 @@ export class MultiTenantSecretsManager {
     }
     return `${userId.substring(0, 4)}...`;
   }
-  
+
   /**
    * Get cache key for tenant-scoped secret
    */
   private getCacheKey(tenantId: string, secretKey: string): string {
     return `${tenantId}:${secretKey}`;
   }
-  
+
   /**
    * Get all secrets for a tenant from AWS Secrets Manager
-   * 
-   * [SEC-001] Requires tenant ID
-   * [SEC-002] Checks RBAC permissions
-   * [SEC-003] Logs access attempt
    */
-  async getSecrets(
-    tenantId: string,
-    userId?: string
-  ): Promise<SecretsConfig> {
+  async getSecrets(tenantId: string, userId?: string): Promise<SecretsConfig> {
     const startTime = Date.now();
-    
-    // Check permissions
+
     const permCheck = await this.checkPermission(userId, tenantId, 'READ');
     if (!permCheck.allowed) {
       await this.auditLog({
@@ -327,16 +373,15 @@ export class MultiTenantSecretsManager {
         action: 'READ',
         result: 'FAILURE',
         error: permCheck.reason,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-      
+
       throw new Error(`Permission denied: ${permCheck.reason}`);
     }
-    
-    // Check cache first
+
     const cacheKey = this.getCacheKey(tenantId, 'all_secrets');
     const cached = this.cache.get(cacheKey);
-    
+
     if (cached && cached.expiresAt > Date.now() && cached.tenantId === tenantId) {
       await this.auditLog({
         tenantId,
@@ -345,34 +390,33 @@ export class MultiTenantSecretsManager {
         action: 'READ',
         result: 'SUCCESS',
         timestamp: new Date().toISOString(),
-        metadata: { source: 'cache', latency_ms: Date.now() - startTime }
+        metadata: { source: 'cache', latency_ms: Date.now() - startTime },
       });
-      
+
       return cached.value;
     }
-    
+
     try {
       const secretPath = this.getTenantSecretPath(tenantId, 'config');
-      
+
       const command = new GetSecretValueCommand({
-        SecretId: secretPath
+        SecretId: secretPath,
       });
-      
+
       const response = await this.client.send(command);
-      
+
       if (!response.SecretString) {
         throw new Error('Secret value is empty');
       }
-      
+
       const secrets = JSON.parse(response.SecretString) as SecretsConfig;
-      
-      // Cache the secrets
+
       this.cache.set(cacheKey, {
         value: secrets,
         expiresAt: Date.now() + this.cacheTTL,
-        tenantId
+        tenantId,
       });
-      
+
       await this.auditLog({
         tenantId,
         userId,
@@ -380,9 +424,9 @@ export class MultiTenantSecretsManager {
         action: 'READ',
         result: 'SUCCESS',
         timestamp: new Date().toISOString(),
-        metadata: { source: 'aws', latency_ms: Date.now() - startTime }
+        metadata: { source: 'aws', latency_ms: Date.now() - startTime },
       });
-      
+
       return secrets;
     } catch (error) {
       await this.auditLog({
@@ -392,26 +436,25 @@ export class MultiTenantSecretsManager {
         action: 'READ',
         result: 'FAILURE',
         error: error instanceof Error ? error.message : String(error),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-      
-      logger.error('Failed to fetch secrets from AWS Secrets Manager', error instanceof Error ? error : new Error(String(error)), {
-        tenantId,
-        path: this.getTenantSecretPath(tenantId, 'config')
-      });
-      
-      // Fallback to environment variables
+
+      logger.error(
+        'Failed to fetch secrets from AWS Secrets Manager',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          tenantId,
+          path: this.getTenantSecretPath(tenantId, 'config'),
+        }
+      );
+
       logger.warn('Falling back to environment variables', { tenantId });
       return this.getSecretsFromEnv();
     }
   }
-  
+
   /**
    * Get specific secret value for a tenant
-   * 
-   * [SEC-001] Requires tenant ID
-   * [SEC-002] Checks RBAC permissions
-   * [SEC-003] Logs access attempt
    */
   async getSecret(
     tenantId: string,
@@ -421,7 +464,7 @@ export class MultiTenantSecretsManager {
     const secrets = await this.getSecrets(tenantId, userId);
     return secrets[key];
   }
-  
+
   /**
    * Fallback to environment variables (development only)
    */
@@ -430,9 +473,9 @@ export class MultiTenantSecretsManager {
       logger.error('Environment variable fallback not allowed in production');
       throw new Error('Cannot fallback to environment variables in production');
     }
-    
+
     logger.warn('Using environment variable fallback - not recommended for production');
-    
+
     return {
       TOGETHER_API_KEY: process.env.TOGETHER_API_KEY || '',
       OPENAI_API_KEY: process.env.OPENAI_API_KEY,
@@ -442,23 +485,14 @@ export class MultiTenantSecretsManager {
       JWT_SECRET: process.env.JWT_SECRET || '',
       DATABASE_URL: process.env.DATABASE_URL || '',
       REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
-      SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL
+      SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL,
     };
   }
-  
+
   /**
    * Update a secret value for a tenant
-   * 
-   * [SEC-001] Requires tenant ID
-   * [SEC-002] Checks RBAC permissions  
-   * [SEC-003] Logs update attempt
    */
-  async updateSecret(
-    tenantId: string,
-    updates: Partial<SecretsConfig>,
-    userId?: string
-  ): Promise<void> {
-    // Check permissions
+  async updateSecret(tenantId: string, updates: Partial<SecretsConfig>, userId?: string): Promise<void> {
     const permCheck = await this.checkPermission(userId, tenantId, 'WRITE');
     if (!permCheck.allowed) {
       await this.auditLog({
@@ -468,29 +502,28 @@ export class MultiTenantSecretsManager {
         action: 'WRITE',
         result: 'FAILURE',
         error: permCheck.reason,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-      
+
       throw new Error(`Permission denied: ${permCheck.reason}`);
     }
-    
+
     try {
       const currentSecrets = await this.getSecrets(tenantId, userId);
       const updatedSecrets = { ...currentSecrets, ...updates };
-      
+
       const secretPath = this.getTenantSecretPath(tenantId, 'config');
-      
+
       const command = new UpdateSecretCommand({
         SecretId: secretPath,
-        SecretString: JSON.stringify(updatedSecrets)
+        SecretString: JSON.stringify(updatedSecrets),
       });
-      
+
       await this.client.send(command);
-      
-      // Invalidate cache
+
       const cacheKey = this.getCacheKey(tenantId, 'all_secrets');
       this.cache.delete(cacheKey);
-      
+
       await this.auditLog({
         tenantId,
         userId,
@@ -498,12 +531,12 @@ export class MultiTenantSecretsManager {
         action: 'WRITE',
         result: 'SUCCESS',
         timestamp: new Date().toISOString(),
-        metadata: { keysUpdated: Object.keys(updates) }
+        metadata: { keysUpdated: Object.keys(updates) },
       });
-      
+
       logger.info('Secret updated successfully', {
         tenantId,
-        keysUpdated: Object.keys(updates).length
+        keysUpdated: Object.keys(updates).length,
       });
     } catch (error) {
       await this.auditLog({
@@ -513,28 +546,20 @@ export class MultiTenantSecretsManager {
         action: 'WRITE',
         result: 'FAILURE',
         error: error instanceof Error ? error.message : String(error),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-      
+
       logger.error('Failed to update secret', error instanceof Error ? error : new Error(String(error)), {
-        tenantId
+        tenantId,
       });
       throw error;
     }
   }
-  
+
   /**
    * Rotate a secret (trigger automatic rotation)
-   * 
-   * [SEC-001] Requires tenant ID
-   * [SEC-002] Checks RBAC permissions
-   * [SEC-003] Logs rotation attempt
    */
-  async rotateSecret(
-    tenantId: string,
-    userId?: string
-  ): Promise<void> {
-    // Check permissions
+  async rotateSecret(tenantId: string, userId?: string): Promise<void> {
     const permCheck = await this.checkPermission(userId, tenantId, 'ROTATE');
     if (!permCheck.allowed) {
       await this.auditLog({
@@ -544,34 +569,33 @@ export class MultiTenantSecretsManager {
         action: 'ROTATE',
         result: 'FAILURE',
         error: permCheck.reason,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-      
+
       throw new Error(`Permission denied: ${permCheck.reason}`);
     }
-    
+
     try {
       const secretPath = this.getTenantSecretPath(tenantId, 'config');
-      
+
       const command = new RotateSecretCommand({
-        SecretId: secretPath
+        SecretId: secretPath,
       });
-      
+
       await this.client.send(command);
-      
-      // Invalidate cache
+
       const cacheKey = this.getCacheKey(tenantId, 'all_secrets');
       this.cache.delete(cacheKey);
-      
+
       await this.auditLog({
         tenantId,
         userId,
         secretKey: 'all_secrets',
         action: 'ROTATE',
         result: 'SUCCESS',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-      
+
       logger.info('Secret rotation initiated', { tenantId });
     } catch (error) {
       await this.auditLog({
@@ -581,40 +605,36 @@ export class MultiTenantSecretsManager {
         action: 'ROTATE',
         result: 'FAILURE',
         error: error instanceof Error ? error.message : String(error),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-      
+
       logger.error('Failed to rotate secret', error instanceof Error ? error : new Error(String(error)), {
-        tenantId
+        tenantId,
       });
       throw error;
     }
   }
-  
+
   /**
    * Clear cache (force refresh on next access)
    */
   clearCache(tenantId?: string): void {
     if (tenantId) {
-      // Clear cache for specific tenant
       const cacheKey = this.getCacheKey(tenantId, 'all_secrets');
       this.cache.delete(cacheKey);
       logger.info('Cache cleared for tenant', { tenantId });
     } else {
-      // Clear all cache
       this.cache.clear();
       logger.info('All cache cleared');
     }
   }
-  
+
   /**
    * Validate that all required secrets are present for a tenant
    */
-  async validateSecrets(
-    tenantId: string,
-    userId?: string
-  ): Promise<{ valid: boolean; missing: string[] }> {
+  async validateSecrets(tenantId: string, userId?: string): Promise<{ valid: boolean; missing: string[] }> {
     const secrets = await this.getSecrets(tenantId, userId);
+
     const required: (keyof SecretsConfig)[] = [
       'TOGETHER_API_KEY',
       'SUPABASE_URL',
@@ -622,14 +642,14 @@ export class MultiTenantSecretsManager {
       'SUPABASE_SERVICE_KEY',
       'JWT_SECRET',
       'DATABASE_URL',
-      'REDIS_URL'
+      'REDIS_URL',
     ];
-    
-    const missing = required.filter(key => !secrets[key]);
-    
+
+    const missing = required.filter((key) => !secrets[key]);
+
     return {
       valid: missing.length === 0,
-      missing
+      missing,
     };
   }
 }
@@ -640,28 +660,27 @@ export const multiTenantSecretsManager = new MultiTenantSecretsManager();
 /**
  * Initialize secrets for a tenant on application startup
  */
-export async function initializeTenantsSecrets(
-  tenantId: string,
-  userId?: string
-): Promise<void> {
+export async function initializeTenantsSecrets(tenantId: string, userId?: string): Promise<void> {
   logger.info('Initializing secrets for tenant', { tenantId });
-  
+
   try {
     const validation = await multiTenantSecretsManager.validateSecrets(tenantId, userId);
-    
+
     if (!validation.valid) {
       logger.warn('Missing required secrets for tenant', {
         tenantId,
-        missing: validation.missing
+        missing: validation.missing,
       });
       logger.warn('Application may not function correctly for this tenant');
     } else {
       logger.info('All required secrets loaded successfully for tenant', { tenantId });
     }
   } catch (error) {
-    logger.error('Failed to initialize secrets for tenant', error instanceof Error ? error : new Error(String(error)), {
-      tenantId
-    });
+    logger.error(
+      'Failed to initialize secrets for tenant',
+      error instanceof Error ? error : new Error(String(error)),
+      { tenantId }
+    );
     throw error;
   }
 }
