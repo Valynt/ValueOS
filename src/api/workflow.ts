@@ -7,12 +7,14 @@ import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddlewa
 import { validateRequest } from '../middleware/inputValidation';
 import { requirePermission } from '../middleware/rbac';
 import { requireAuth } from '../middleware/auth';
+import { tenantContextMiddleware } from '../middleware/tenantContext';
 
 const router = Router();
 router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
 router.use(validateRequest);
 router.use(requireAuth);
+router.use(tenantContextMiddleware());
 router.use(requirePermission('agents.execute'));
 
 function sanitizeEvidence(evidence: any): Array<{ source?: string; description?: string; confidence?: number }> {
