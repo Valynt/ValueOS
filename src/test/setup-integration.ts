@@ -3,13 +3,15 @@ import { setup, teardown } from "./testcontainers-global-setup";
 import { Client } from "pg";
 import fs from "fs";
 import path from "path";
+import { getEnvVar, setEnvVarForTests } from "../lib/env";
+import { getDatabaseUrl } from "../config/database";
 
 // Increase timeout for Docker operations (pulling images can take time)
 const DOCKER_TIMEOUT = 120_000;
 
 beforeAll(async () => {
   // Skip testcontainers setup if flag is set
-  if (process.env.SKIP_TESTCONTAINERS === "1") {
+  if (getEnvVar("SKIP_TESTCONTAINERS") === "1") {
     console.warn("⚠️ SKIP_TESTCONTAINERS set — skipping integration test setup");
     return;
   }
@@ -17,15 +19,13 @@ beforeAll(async () => {
   await setup();
 
   // Read DATABASE_URL from temp file (written by globalSetup in separate process)
-  // eslint-disable-next-line no-restricted-syntax
-  let dbUrl = process.env.DATABASE_URL;
+  let dbUrl = getDatabaseUrl();
   if (!dbUrl) {
     const envFilePath = path.resolve(__dirname, "../../.vitest-env.json");
     if (fs.existsSync(envFilePath)) {
       const envData = JSON.parse(fs.readFileSync(envFilePath, "utf8"));
       dbUrl = envData.DATABASE_URL;
-      // eslint-disable-next-line no-restricted-syntax
-      process.env.DATABASE_URL = dbUrl;
+      setEnvVarForTests("DATABASE_URL", dbUrl);
     }
   }
 
@@ -58,7 +58,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   // Skip teardown if testcontainers were skipped
-  if (process.env.SKIP_TESTCONTAINERS === "1") {
+  if (getEnvVar("SKIP_TESTCONTAINERS") === "1") {
     return;
   }
   await teardown();
