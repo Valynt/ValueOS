@@ -25,6 +25,8 @@ import { generateSOFExpansionPage } from '../sdui/templates/sof-expansion-templa
 import { generateSOFIntegrityPage } from '../sdui/templates/sof-integrity-template';
 import { generateSOFRealizationPage } from '../sdui/templates/sof-realization-template';
 import { hashObject, shortHash } from '../lib/contentHash';
+import { ROIFormulaInterpreter } from './ROIFormulaInterpreter';
+import { ROIModel, ROIModelCalculation } from '../types/vos';
 
 /**
  * Schema head pointer - points to current schema hash
@@ -704,9 +706,68 @@ export class CanvasSchemaService {
   /**
    * Fetch ROI
    */
-  private async fetchROI(workspaceId: string): Promise<any | null> {
-    // TODO: Implement actual ROI fetching
-    return null;
+  private async fetchROI(workspaceId: string): Promise<{
+    model: ROIModel;
+    calculations: ROIModelCalculation[];
+    results: any;
+  } | null> {
+    try {
+      const supabase = getSupabaseClient();
+
+      // Fetch ROI Model and Calculations in a single efficient query
+      // using nested filtering via join with value_trees table
+      const { data: roiModel, error: rmError } = await supabase
+        .from('roi_models')
+        .select(`
+          *,
+          roi_model_calculations (*),
+          value_trees!inner (
+            value_case_id
+          )
+        `)
+        .eq('value_trees.value_case_id', workspaceId)
+        .maybeSingle();
+
+      if (rmError || !roiModel) {
+        logger.debug('ROI Model not found', { workspaceId });
+        return null;
+      }
+
+      // Calculations are already ordered by database if not we sort them
+      const calculations = (roiModel.roi_model_calculations || []).sort(
+        (a: ROIModelCalculation, b: ROIModelCalculation) => a.calculation_order - b.calculation_order
+      );
+
+      // Clean up the model object to remove the extra nested data if strict typing needed
+      // But for now casting or just using it is fine.
+      // We also need to remove the value_trees property if it's not part of ROIModel type
+      // But let's keep it simple.
+
+      // 4. Calculate results using ROIFormulaInterpreter
+      const interpreter = new ROIFormulaInterpreter(supabase);
+
+      // Initialize context with KPI data
+      const context = await interpreter.createContextFromKPIs(workspaceId);
+
+      // Execute calculation sequence
+      const results = await interpreter.executeCalculationSequence(
+        calculations,
+        context
+      );
+
+      return {
+        model: roiModel as unknown as ROIModel,
+        calculations,
+        results
+      };
+
+    } catch (error) {
+      logger.error('Failed to fetch ROI', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
   }
 
   /**

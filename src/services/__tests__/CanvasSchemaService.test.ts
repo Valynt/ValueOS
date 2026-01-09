@@ -8,10 +8,12 @@ import { WorkspaceContext } from '../../types/sdui-integration';
 import { CacheService } from '../CacheService';
 import { ValueFabricService } from '../ValueFabricService';
 import { logger } from '../../lib/logger';
+import { ROIFormulaInterpreter } from '../ROIFormulaInterpreter';
 
 // Mock dependencies
 vi.mock('../CacheService');
 vi.mock('../ValueFabricService');
+vi.mock('../ROIFormulaInterpreter');
 vi.mock('../../lib/logger', () => ({
   logger: {
     info: vi.fn(),
@@ -36,7 +38,8 @@ const mockSupabase = vi.hoisted(() => ({
           maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null })
         })),
         maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null })
-      }))
+      })),
+      order: vi.fn().mockReturnValue({ data: [], error: null }),
     }))
   }))
 }));
@@ -375,6 +378,84 @@ describe('CanvasSchemaService', () => {
       service.invalidateCache('workspace-1');
 
       expect(deleteSpy).toHaveBeenCalledWith('sdui:schema:workspace-1');
+    });
+  });
+
+  describe('fetchROI', () => {
+    it('should fetch ROI data', async () => {
+      const workspaceId = 'workspace-1';
+      const mockCalculations = [{ id: 'calc-1', formula: '1 + 1', name: 'calc', calculation_order: 1 }];
+      const mockROIModel = {
+        id: 'roi-1',
+        value_tree_id: 'vt-1',
+        roi_model_calculations: mockCalculations,
+        value_trees: { value_case_id: workspaceId }
+      };
+
+      mockSupabase.from.mockImplementation((table) => {
+        if (table === 'roi_models') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({ data: mockROIModel, error: null })
+              }))
+            }))
+          } as any;
+        }
+        if (table === 'business_cases' || table === 'value_cases') { // mock business case so detectWorkspaceState works
+             return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                eq: vi.fn(() => ({
+                  maybeSingle: vi.fn().mockResolvedValue({ data: {id: workspaceId}, error: null })
+                })),
+                maybeSingle: vi.fn().mockResolvedValue({ data: {id: workspaceId}, error: null })
+              }))
+            }))
+          } as any;
+        }
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null })
+            }))
+          }))
+        } as any;
+      });
+
+      // Mock ROIFormulaInterpreter
+      const mockResults = { calc: { value: 2 } };
+      vi.spyOn(ROIFormulaInterpreter.prototype, 'createContextFromKPIs').mockResolvedValue({ variables: {}, functions: {} });
+      vi.spyOn(ROIFormulaInterpreter.prototype, 'executeCalculationSequence').mockResolvedValue(mockResults);
+
+      // Access private method using any cast
+      const result = await (service as any).fetchROI(workspaceId);
+
+      expect(result).toBeDefined();
+      expect(result.model.id).toEqual(mockROIModel.id);
+      expect(result.calculations).toEqual(mockCalculations);
+      expect(result.results).toEqual(mockResults);
+    });
+
+    it('should return null if roi model not found', async () => {
+       const workspaceId = 'workspace-1';
+
+       mockSupabase.from.mockImplementation((table) => {
+         if (table === 'roi_models') {
+           return {
+             select: vi.fn(() => ({
+               eq: vi.fn(() => ({
+                 maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null })
+               }))
+             }))
+           } as any;
+         }
+         return { select: vi.fn() } as any;
+       });
+
+       const result = await (service as any).fetchROI(workspaceId);
+
+       expect(result).toBeNull();
     });
   });
 });
