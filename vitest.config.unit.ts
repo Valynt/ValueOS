@@ -14,6 +14,7 @@ export default defineConfig({
       'src/security/__tests__/*.test.ts',
       'src/utils/__tests__/*.test.ts',
       'src/lib/__tests__/*.test.ts',
+      'src/components/**/__tests__/*.test.tsx',
       'src/sdui/__tests__/*.unit.test.tsx',
       'src/sdui/__tests__/*.benchmark.test.ts',
       'src/sdui/__tests__/load.test.ts',

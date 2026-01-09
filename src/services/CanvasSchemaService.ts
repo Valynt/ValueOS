@@ -25,6 +25,12 @@ import { generateSOFExpansionPage } from '../sdui/templates/sof-expansion-templa
 import { generateSOFIntegrityPage } from '../sdui/templates/sof-integrity-template';
 import { generateSOFRealizationPage } from '../sdui/templates/sof-realization-template';
 import { hashObject, shortHash } from '../lib/contentHash';
+import { ROIFormulaInterpreter } from './ROIFormulaInterpreter';
+import { ROIModel, ROIModelCalculation } from '../types/vos';
+import { ALL_VMRT_SEEDS } from '../types/vos-pt1-seed';
+import { VMRTAssumption } from '../types/vmrt';
+import { ManifestoValidationResult } from '../types/vos';
+import { EXTENDED_STRUCTURAL_PERSONA_MAPS } from '../types/structural-data';
 
 /**
  * Schema head pointer - points to current schema hash
@@ -484,7 +490,8 @@ export class CanvasSchemaService {
       };
 
       // Fetch business case if available
-      data.businessCase = await this.fetchBusinessCase(state.workspaceId);
+      const userId = state.metadata?.userId as string | undefined;
+      data.businessCase = await this.fetchBusinessCase(state.workspaceId, userId);
 
       // Fetch stage-specific data
       switch (state.lifecycleStage) {
@@ -510,7 +517,7 @@ export class CanvasSchemaService {
 
         case 'integrity':
           data.manifestoResults = await this.fetchManifestoResults(state.workspaceId);
-          data.assumptions = await this.fetchAssumptions(state.workspaceId);
+          data.assumptions = await this.fetchAssumptions(state.workspaceId, data.businessCase);
           break;
 
         case 'realization':
@@ -549,41 +556,290 @@ export class CanvasSchemaService {
   /**
    * Fetch business case
    */
-  private async fetchBusinessCase(workspaceId: string): Promise<any | null> {
-    // TODO: Implement actual business case fetching
-    return null;
+  private async fetchBusinessCase(workspaceId: string, userId?: string): Promise<any | null> {
+    try {
+      const supabase = getSupabaseClient();
+
+      // Try business_cases table (legacy but primary for now)
+      // We select fields that map to the ValueCase interface
+      let query = supabase
+        .from('business_cases')
+        .select(`
+          id,
+          name,
+          client,
+          description,
+          status,
+          created_at,
+          updated_at,
+          metadata,
+          owner_id
+        `)
+        .eq('id', workspaceId);
+
+      // If userId is provided, we can optionally check ownership,
+      // though RLS should handle this securely at the database level.
+      if (userId) {
+        query = query.eq('owner_id', userId);
+      }
+
+      const { data, error } = await query.maybeSingle();
+
+      if (error) {
+        logger.warn('Error fetching business case', { workspaceId, error: error.message });
+        return null;
+      }
+
+      if (!data) {
+        // Fallback: try value_cases table if business_cases didn't yield result
+        // This handles the migration scenario where data might be in the new table
+        const { data: vcData, error: vcError } = await supabase
+          .from('value_cases')
+          .select(`
+            id,
+            name,
+            description,
+            status,
+            created_at,
+            updated_at,
+            metadata,
+            company_profiles (
+              company_name
+            )
+          `)
+          .eq('id', workspaceId)
+          .maybeSingle();
+
+        if (vcError || !vcData) {
+          logger.debug('Business case not found in either table', { workspaceId });
+          return null;
+        }
+
+        // Map value_cases result
+        return {
+          id: vcData.id,
+          name: vcData.name,
+          description: vcData.description,
+          company: vcData.company_profiles?.[0]?.company_name || 'Unknown Company',
+          stage: vcData.metadata?.stage || 'opportunity',
+          status: vcData.status,
+          created_at: vcData.created_at,
+          updated_at: vcData.updated_at,
+          metadata: vcData.metadata || {},
+        };
+      }
+
+      // Map business_cases result
+      return {
+        id: data.id,
+        name: data.name,
+        description: data.metadata?.description || data.description,
+        company: data.client,
+        stage: data.metadata?.stage || 'opportunity',
+        status: data.status === 'presented' ? 'completed' : 'in-progress',
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        metadata: data.metadata || {},
+      };
+
+    } catch (error) {
+      logger.error('Failed to fetch business case', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
   }
 
   /**
    * Fetch system map
    */
   private async fetchSystemMap(workspaceId: string): Promise<any | null> {
-    // TODO: Implement actual system map fetching
-    return null;
+    try {
+      const supabase = getSupabaseClient();
+
+      const { data, error } = await supabase
+        .from('system_maps')
+        .select('*')
+        .eq('business_case_id', workspaceId)
+        .maybeSingle();
+
+      if (error) {
+        logger.warn('Error fetching system map', { workspaceId, error: error.message });
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      logger.error('Failed to fetch system map', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
   }
 
   /**
    * Fetch personas
    */
   private async fetchPersonas(workspaceId: string): Promise<any[]> {
-    // TODO: Implement actual persona fetching
-    return [];
+    try {
+      // 1. Fetch business case to get context (industry, custom stakeholders)
+      const businessCase = await this.fetchBusinessCase(workspaceId);
+
+      // 2. If business case has stored stakeholders/personas, return them
+      if (businessCase?.metadata?.stakeholders && Array.isArray(businessCase.metadata.stakeholders)) {
+        return businessCase.metadata.stakeholders;
+      }
+
+      if (businessCase?.metadata?.personas && Array.isArray(businessCase.metadata.personas)) {
+        return businessCase.metadata.personas;
+      }
+
+      // 3. Fallback: Use structural truth data
+      // We map the structural personas to the format expected by the UI
+      return EXTENDED_STRUCTURAL_PERSONA_MAPS.map(p => ({
+        id: p.persona, // Use persona key as ID
+        name: this.formatPersonaName(p.persona),
+        role: p.persona,
+        primaryPain: p.primaryPain,
+        painDescription: p.painDescription,
+        keyKPIs: p.keyKPIs,
+        financialDriver: p.financialDriver,
+        typicalGoals: p.typicalGoals,
+        communicationPreference: p.communicationPreference
+      }));
+
+    } catch (error) {
+       logger.error('Failed to fetch personas', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
+  }
+
+  private formatPersonaName(key: string): string {
+    return key
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   }
 
   /**
    * Fetch KPIs
    */
   private async fetchKPIs(workspaceId: string): Promise<any[]> {
-    // TODO: Implement actual KPI fetching
-    return [];
+    try {
+      const supabase = getSupabaseClient();
+
+      // 1. First try to find active value commit
+      // This allows us to get committed targets if they exist
+      const { data: commit } = await supabase
+        .from('value_commits')
+        .select('id')
+        .eq('value_case_id', workspaceId)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (commit) {
+        // 2. If commit exists, fetch targets
+        const { data: targets, error: targetError } = await supabase
+          .from('kpi_targets')
+          .select('*')
+          .eq('value_commit_id', commit.id);
+
+        if (!targetError && targets && targets.length > 0) {
+          return targets.map(t => ({
+            id: t.id,
+            kpi_name: t.kpi_name,
+            baseline_value: t.baseline_value,
+            target_value: t.target_value,
+            unit: t.unit,
+            confidence_level: t.confidence_level,
+            source: 'target',
+            created_at: t.created_at
+          }));
+        }
+      }
+
+      // 3. Fallback: fetch hypotheses
+      // Used in Opportunity stage or before commitment
+      const { data: hypotheses, error: hypoError } = await supabase
+        .from('kpi_hypotheses')
+        .select('*')
+        .eq('value_case_id', workspaceId);
+
+      if (hypoError) {
+        logger.warn('Error fetching KPI hypotheses', { workspaceId, error: hypoError.message });
+        return [];
+      }
+
+      return (hypotheses || []).map(h => ({
+        id: h.id,
+        kpi_name: h.kpi_name,
+        baseline_value: h.baseline_value,
+        target_value: h.target_value,
+        unit: h.unit,
+        confidence_level: h.confidence_level,
+        source: 'hypothesis',
+        created_at: h.created_at
+      }));
+
+    } catch (error) {
+      logger.error('Failed to fetch KPIs', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
   }
 
   /**
    * Fetch interventions
    */
   private async fetchInterventions(workspaceId: string): Promise<any[]> {
-    // TODO: Implement actual intervention fetching
-    return [];
+    try {
+      const supabase = getSupabaseClient();
+
+      // 1. Get system map for this workspace (business case)
+      const { data: systemMap, error: mapError } = await supabase
+        .from('system_maps')
+        .select('id')
+        .eq('business_case_id', workspaceId)
+        .maybeSingle();
+
+      if (mapError) {
+        logger.warn('Error fetching system map for interventions', { workspaceId, error: mapError.message });
+        return [];
+      }
+
+      if (!systemMap) {
+        logger.debug('No system map found for workspace', { workspaceId });
+        return [];
+      }
+
+      // 2. Fetch interventions for the system map
+      const { data: interventions, error: intError } = await supabase
+        .from('intervention_points')
+        .select('*')
+        .eq('system_map_id', systemMap.id)
+        .order('created_at', { ascending: false });
+
+      if (intError) {
+        logger.error('Error fetching interventions', { workspaceId, error: intError.message });
+        return [];
+      }
+
+      return interventions || [];
+
+    } catch (error) {
+      logger.error('Failed to fetch interventions', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
   }
 
   /**
@@ -598,40 +854,285 @@ export class CanvasSchemaService {
    * Fetch value tree
    */
   private async fetchValueTree(workspaceId: string): Promise<any | null> {
-    // TODO: Implement actual value tree fetching
-    return null;
+    try {
+      const supabase = getSupabaseClient();
+
+      const { data, error } = await supabase
+        .from('value_trees')
+        .select(`
+          *,
+          value_tree_nodes(*),
+          value_tree_links(*)
+        `)
+        .eq('value_case_id', workspaceId)
+        .maybeSingle();
+
+      if (error) {
+        logger.error('Error fetching value tree', { workspaceId, error: error.message });
+        return null;
+      }
+
+      if (!data) return null;
+
+      // Transform to match expected structure (similar to ValueTreeService)
+      return {
+        ...data,
+        nodes: data.value_tree_nodes || [],
+        links: data.value_tree_links || []
+      };
+    } catch (error) {
+      logger.error('Failed to fetch value tree', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
   }
 
   /**
    * Fetch gaps
    */
   private async fetchGaps(workspaceId: string): Promise<any[]> {
-    // TODO: Implement actual gap fetching
-    return [];
+    try {
+      const supabase = getSupabaseClient();
+
+      // Fetch opportunities with gap analysis
+      const { data: opportunities, error } = await supabase
+        .from('opportunities')
+        .select('id, title, type, gap_analysis, current_state, desired_state, impact_score')
+        .eq('value_case_id', workspaceId)
+        .not('gap_analysis', 'is', null);
+
+      if (error) {
+        logger.warn('Error fetching gaps from opportunities', { workspaceId, error: error.message });
+        return [];
+      }
+
+      // Transform into a standardized Gap interface
+      return (opportunities || []).map(opp => ({
+        id: opp.id,
+        name: opp.title,
+        type: opp.type,
+        gap_analysis: opp.gap_analysis,
+        current_state: opp.current_state,
+        desired_state: opp.desired_state,
+        impact_score: opp.impact_score
+      }));
+
+    } catch (error) {
+      logger.error('Failed to fetch gaps', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
   }
 
   /**
    * Fetch ROI
    */
-  private async fetchROI(workspaceId: string): Promise<any | null> {
-    // TODO: Implement actual ROI fetching
-    return null;
+  private async fetchROI(workspaceId: string): Promise<{
+    model: ROIModel;
+    calculations: ROIModelCalculation[];
+    results: any;
+  } | null> {
+    try {
+      const supabase = getSupabaseClient();
+
+      // Fetch ROI Model and Calculations in a single efficient query
+      // using nested filtering via join with value_trees table
+      const { data: roiModel, error: rmError } = await supabase
+        .from('roi_models')
+        .select(`
+          *,
+          roi_model_calculations (*),
+          value_trees!inner (
+            value_case_id
+          )
+        `)
+        .eq('value_trees.value_case_id', workspaceId)
+        .maybeSingle();
+
+      if (rmError || !roiModel) {
+        logger.debug('ROI Model not found', { workspaceId });
+        return null;
+      }
+
+      // Calculations are already ordered by database if not we sort them
+      const calculations = (roiModel.roi_model_calculations || []).sort(
+        (a: ROIModelCalculation, b: ROIModelCalculation) => a.calculation_order - b.calculation_order
+      );
+
+      // Clean up the model object to remove the extra nested data if strict typing needed
+      // But for now casting or just using it is fine.
+      // We also need to remove the value_trees property if it's not part of ROIModel type
+      // But let's keep it simple.
+
+      // 4. Calculate results using ROIFormulaInterpreter
+      const interpreter = new ROIFormulaInterpreter(supabase);
+
+      // Initialize context with KPI data
+      const context = await interpreter.createContextFromKPIs(workspaceId);
+
+      // Execute calculation sequence
+      const results = await interpreter.executeCalculationSequence(
+        calculations,
+        context
+      );
+
+      return {
+        model: roiModel as unknown as ROIModel,
+        calculations,
+        results
+      };
+
+    } catch (error) {
+      logger.error('Failed to fetch ROI', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
   }
 
   /**
    * Fetch manifesto results
    */
-  private async fetchManifestoResults(workspaceId: string): Promise<any[]> {
-    // TODO: Implement actual manifesto results fetching
-    return [];
+  private async fetchManifestoResults(workspaceId: string): Promise<ManifestoValidationResult[]> {
+    try {
+      const supabase = getSupabaseClient();
+      const results: ManifestoValidationResult[] = [];
+
+      // Helper to process artifacts
+      const collectResults = (artifacts: any[]) => {
+        if (!artifacts) return;
+        artifacts.forEach(artifact => {
+          if (artifact.compliance_metadata && artifact.compliance_metadata.results) {
+            results.push(...artifact.compliance_metadata.results);
+          }
+        });
+      };
+
+      // 1. Fetch Value Trees
+      const { data: valueTrees } = await supabase
+        .from('value_trees')
+        .select('id, compliance_metadata')
+        .eq('value_case_id', workspaceId);
+
+      collectResults(valueTrees || []);
+
+      // 2. Fetch ROI Models (linked via Value Trees)
+      if (valueTrees && valueTrees.length > 0) {
+        const valueTreeIds = valueTrees.map((vt: any) => vt.id);
+        const { data: roiModels } = await supabase
+          .from('roi_models')
+          .select('id, compliance_metadata')
+          .in('value_tree_id', valueTreeIds);
+
+        collectResults(roiModels || []);
+      }
+
+      // 3. Fetch Value Commits
+      const { data: valueCommits } = await supabase
+        .from('value_commits')
+        .select('id, compliance_metadata')
+        .eq('value_case_id', workspaceId);
+
+      collectResults(valueCommits || []);
+
+      // 4. Fetch Realization Reports
+      const { data: realizationReports } = await supabase
+        .from('realization_reports')
+        .select('id, compliance_metadata')
+        .eq('value_case_id', workspaceId);
+
+      collectResults(realizationReports || []);
+
+      // 5. Fetch Expansion Models
+      const { data: expansionModels } = await supabase
+        .from('expansion_models')
+        .select('id, compliance_metadata')
+        .eq('value_case_id', workspaceId);
+
+      collectResults(expansionModels || []);
+
+      logger.debug('Fetched manifesto results', {
+        workspaceId,
+        count: results.length
+      });
+
+      return results;
+
+    } catch (error) {
+      logger.error('Failed to fetch manifesto results', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
   }
 
   /**
    * Fetch assumptions
    */
-  private async fetchAssumptions(workspaceId: string): Promise<any[]> {
-    // TODO: Implement actual assumption fetching
-    return [];
+  private async fetchAssumptions(workspaceId: string, businessCase?: any): Promise<VMRTAssumption[]> {
+    try {
+      // 1. Try to fetch from database models first
+      const supabase = getSupabaseClient();
+
+      // Try to find a model associated with this business case (workspace)
+      // We check if the model_data contains the business_case_id
+      const { data: modelData } = await supabase
+        .from('models')
+        .select('model_data')
+        .contains('model_data', { business_case_id: workspaceId })
+        .maybeSingle();
+
+      // If we found a model with assumptions, return them
+      if (modelData?.model_data?.assumptions && Array.isArray(modelData.model_data.assumptions)) {
+         return modelData.model_data.assumptions;
+      }
+
+      // 2. Fallback to seed data based on industry/context
+      const industry = businessCase?.metadata?.industry;
+
+      // Find relevant VMRTs from the seeds
+      let relevantTraces = ALL_VMRT_SEEDS;
+
+      if (industry) {
+        const industryTraces = ALL_VMRT_SEEDS.filter(t =>
+          t.context?.organization?.industry?.toLowerCase() === industry.toLowerCase()
+        );
+        if (industryTraces.length > 0) {
+          relevantTraces = industryTraces;
+        }
+      }
+
+      // Extract all assumptions from reasoning steps
+      const assumptions: VMRTAssumption[] = relevantTraces.flatMap(trace =>
+        trace.reasoningSteps?.flatMap(step => step.assumptions || []) || []
+      );
+
+      // Deduplicate by factor name, keeping the one with higher confidence
+      const uniqueAssumptions = Array.from(
+        assumptions.reduce((map, assumption) => {
+          const existing = map.get(assumption.factor);
+          if (!existing || (assumption.confidence > existing.confidence)) {
+            map.set(assumption.factor, assumption);
+          }
+          return map;
+        }, new Map<string, VMRTAssumption>()).values()
+      );
+
+      return uniqueAssumptions;
+
+    } catch (error) {
+      logger.error('Failed to fetch assumptions', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
   }
 
   /**

@@ -18,6 +18,7 @@ import {
 import { LifecycleStage } from '../types/workflow';
 import { logger } from '../lib/logger';
 import { ExecutionRequest } from '../types/execution';
+import { useToast } from './Common/Toast';
 
 /**
  * SDUI App Props
@@ -77,6 +78,7 @@ export const SDUIApp: React.FC<SDUIAppProps> = ({
   sessionId,
   debug = false,
 }) => {
+  const { error: showToastError } = useToast();
   const [schema, setSchema] = useState<SDUIPageDefinition | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -151,8 +153,7 @@ export const SDUIApp: React.FC<SDUIAppProps> = ({
           });
 
           // Show error to user
-          // TODO: Implement error notification system
-          alert(`Action failed: ${result.error}`);
+          showToastError('Action failed', result.error);
           return;
         }
 
@@ -184,10 +185,10 @@ export const SDUIApp: React.FC<SDUIAppProps> = ({
         });
 
         // Show error to user
-        alert(`Failed to handle action: ${errorMessage}`);
+        showToastError('Action failed', errorMessage);
       }
     },
-    [workspaceId, userId, sessionId]
+    [workspaceId, userId, sessionId, showToastError]
   );
 
   /**

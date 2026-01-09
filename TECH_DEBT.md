@@ -2,12 +2,16 @@
 
 This document outlines identified technical debt in the repository as of the current date. It serves as a guide for future refactoring, security hardening, and maintenance efforts.
 
-## 1. Critical Security & Compliance (In Progress)
+## 1. Critical Security & Compliance
 
-Several areas in the codebase contained "TODO" comments indicating missing security controls. These are being addressed.
+Several areas in the codebase contain "TODO" comments indicating missing security controls. These are high-priority items.
 
-*   **[RESOLVED] Missing RBAC Integration**: `src/config/secretsManager.v2.ts` now integrates with `RbacService` and Supabase `user_roles`.
-*   **[RESOLVED] Audit Logging**: `src/config/secretsManager.v2.ts`, `AWSSecretProvider.ts`, and `VaultSecretProvider.ts` now write to `secret_audit_logs` table.
+*   **Missing RBAC Integration**: `src/config/secretsManager.v2.ts` contains placeholders:
+    *   `// TODO: Integrate with actual RBAC system`
+    *   `// TODO: Verify user belongs to tenant`
+    *   `// TODO: Also write to database for long-term compliance`
+*   **Audit Logging**: Multiple secret providers (`AWSSecretProvider.ts`, `VaultSecretProvider.ts`) are missing audit log writes:
+    *   `// TODO: Also write to database audit log table`
 
 ## 2. Code Maintainability & Architecture
 
@@ -20,10 +24,10 @@ Files exceeding 1000 lines of code are difficult to maintain and test.
 *   `src/lib/agent-fabric/agents/BaseAgent.ts` (~977 lines): The base class for agents is becoming very heavy, potentially violating the Single Responsibility Principle.
 
 ### Logic Duplication
-*   **[RESOLVED]** `src/causal/business-case-generator.ts` has been deleted in favor of `src/causal/business-case-generator-enhanced.ts`.
+*   `src/causal/business-case-generator.ts` and `src/causal/business-case-generator-enhanced.ts` appear to exist side-by-side. This suggests a migration that was never completed ("enhanced" version added but original not removed), leading to confusion about which to use.
 
 ### High Volume of Pending Work
-*   There are **many TODO/FIXME comments** remaining in the `src/` directory.
+*   There are **89 TODO/FIXME comments** in the `src/` directory alone.
 *   Critical missing implementations in `src/views/DealsView.tsx`:
     *   `// TODO: Implement export functionality`
     *   `// TODO: Show error toast`
@@ -72,8 +76,8 @@ Tests are scattered across multiple top-level directories, making it unclear whe
 
 ## Recommendations
 
-1.  **Security Audit**: [DONE] Address the RBAC and Audit Logging TODOs in `src/config`.
+1.  **Security Audit**: Immediately address the RBAC and Audit Logging TODOs in `src/config`.
 2.  **Consolidate Config**: Merge the various `vite.config.*` and `vitest.config.*` files into single, conditional configurations or standard presets.
 3.  **Refactor Large Components**: Break down `ChatCanvasLayout.tsx` and `UnifiedAgentOrchestrator.ts` into smaller, composed parts.
 4.  **Standardize Testing**: Choose one directory structure for tests (e.g., `src/**/*.test.ts` for unit, `e2e/` for functional) and move files accordingly.
-5.  **Clean Up**: [PARTIAL] Remove `business-case-generator.ts`. Continue to evaluate `package.json.*` variants.
+5.  **Clean Up**: Remove unused `package.json.*` variants and the deprecated `business-case-generator.ts` if the "enhanced" version is the standard.

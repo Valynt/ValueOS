@@ -14,6 +14,9 @@ import {
 import { initializeAgents, SystemHealth } from "./services/AgentInitializer";
 import { initializeSecurity, validateSecurity } from "./security";
 import { createLogger, logger as globalLogger, setupMonitoring } from "./lib/logger";
+import { initializeRedisCache } from "./lib/redis";
+import { initializeSentry } from "./lib/sentry";
+import { checkDatabaseConnection } from "./lib/database";
 
 /**
  * Bootstrap result
@@ -226,11 +229,9 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
     onProgress?.("Initializing error tracking...");
     logger.info("\n📊 Step 5: Initializing Sentry");
     try {
-      // TODO: Initialize Sentry
-      // await initializeSentry(config.monitoring.sentry);
-      logger.info("   ⚠️  Sentry initialization not implemented yet");
-      warnings.push("Sentry initialization not implemented");
-      onWarning?.("Sentry initialization not implemented");
+      await initializeSentry(config.monitoring.sentry);
+      await initializeSentry();
+      logger.info("   ✅ Sentry initialized");
     } catch (error) {
       const errorMsg = `Failed to initialize Sentry: ${error instanceof Error ? error.message : "Unknown error"}`;
       warnings.push(errorMsg);
@@ -334,16 +335,58 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
     onProgress?.("Checking database connection...");
     logger.info("\n💾 Step 7: Database connection");
     try {
-      // TODO: Check database connection
-      // await checkDatabaseConnection();
-      logger.info("   ⚠️  Database connection check not implemented yet");
-      warnings.push("Database connection check not implemented");
-      onWarning?.("Database connection check not implemented");
+      await checkDatabaseConnection();
+      // Use shorter retry strategy for development to improve startup time
+      const maxRetries = isDevelopment() ? 3 : 5;
+      const retryDelay = isDevelopment() ? 500 : 1000;
+
+      const dbHealth = await checkDatabaseConnection(maxRetries, retryDelay);
+
+      if (dbHealth.connected) {
+        logger.info(`   ✅ Database connected (${dbHealth.latency}ms)`);
+      } else {
+        const errorMsg = `Database connection failed: ${dbHealth.error || "Unknown error"}`;
+
+        if (failFast) {
+          errors.push(errorMsg);
+          onError?.(errorMsg);
+          logger.error(`   ❌ ${errorMsg}`);
+
+          return {
+            success: false,
+            config,
+            agentHealth,
+            errors,
+            warnings,
+            duration: Date.now() - startTime,
+          };
+        } else {
+          warnings.push(errorMsg);
+          onWarning?.(errorMsg);
+          logger.warn(`   ⚠️  ${errorMsg}`);
+        }
+      }
     } catch (error) {
-      const errorMsg = `Database connection failed: ${error instanceof Error ? error.message : "Unknown error"}`;
-      warnings.push(errorMsg);
-      onWarning?.(errorMsg);
-      logger.warn(`   ⚠️  ${errorMsg}`);
+      const errorMsg = `Database connection check failed: ${error instanceof Error ? error.message : "Unknown error"}`;
+
+      if (failFast) {
+        errors.push(errorMsg);
+        onError?.(errorMsg);
+        logger.error(`   ❌ ${errorMsg}`);
+
+        return {
+          success: false,
+          config,
+          agentHealth,
+          errors,
+          warnings,
+          duration: Date.now() - startTime,
+        };
+      } else {
+        warnings.push(errorMsg);
+        onWarning?.(errorMsg);
+        logger.warn(`   ⚠️  ${errorMsg}`);
+      }
     }
   } else {
     logger.info("\n💾 Step 7: Database not configured");
@@ -354,11 +397,25 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
     onProgress?.("Initializing cache...");
     logger.info("\n🗄️  Step 8: Cache initialization");
     try {
-      // TODO: Initialize Redis cache
-      // await initializeCache(config.cache);
-      logger.info("   ⚠️  Cache initialization not implemented yet");
-      warnings.push("Cache initialization not implemented");
-      onWarning?.("Cache initialization not implemented");
+      const cacheResult = await initializeRedisCache(config.cache);
+
+      if (cacheResult.connected) {
+        logger.info(`   ✅ Cache initialized (${cacheResult.latency}ms)`);
+      } else {
+        const errorMsg = `Cache initialization failed: ${cacheResult.error || "Unknown error"}`;
+        // In development, treat cache failures as warnings
+        if (isDevelopment()) {
+          warnings.push(errorMsg);
+          onWarning?.(errorMsg);
+          logger.warn(`   ⚠️  ${errorMsg} (continuing anyway in development)`);
+        } else {
+          // In production, we might want to fail fast or just warn depending on criticality
+          // For now, following existing pattern of warning but continuing
+          warnings.push(errorMsg);
+          onWarning?.(errorMsg);
+          logger.warn(`   ⚠️  ${errorMsg}`);
+        }
+      }
     } catch (error) {
       const errorMsg = `Cache initialization failed: ${error instanceof Error ? error.message : "Unknown error"}`;
       warnings.push(errorMsg);

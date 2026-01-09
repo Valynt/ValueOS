@@ -1,15 +1,16 @@
 /**
  * Usage Metrics Components
  * Phase 3: System Observability
- * 
+ *
  * Color-coded usage metrics with warning system:
  * - Green: < 75% usage
  * - Yellow: 75-90% usage (warning)
- * - Red: > 90% usage (critical)
+ * - Red: >= 90% usage (critical)
  */
 
 import React from 'react';
-import { AlertTriangle, TrendingUp, Users, Database, Zap } from 'lucide-react';
+import { AlertTriangle, TrendingUp, Users, Database, Zap, Bot } from 'lucide-react';
+import type { UsageSummary } from '../../types/billing';
 
 // ============================================================================
 // Types
@@ -26,6 +27,14 @@ export interface UsageMetric {
 export type UsageLevel = 'safe' | 'warning' | 'critical';
 
 // ============================================================================
+// Constants
+// ============================================================================
+
+export const MAX_PERCENTAGE = 100;
+export const CRITICAL_THRESHOLD = 90;
+export const WARNING_THRESHOLD = 75;
+
+// ============================================================================
 // Usage Level Calculation
 // ============================================================================
 
@@ -33,13 +42,18 @@ export type UsageLevel = 'safe' | 'warning' | 'critical';
  * Calculate usage level based on percentage
  * - safe: < 75%
  * - warning: 75-90%
- * - critical: > 90%
+ * - critical: >= 90%
  */
 export function getUsageLevel(current: number, limit: number): UsageLevel {
-  const percentage = (current / limit) * 100;
-  
-  if (percentage >= 90) return 'critical';
-  if (percentage >= 75) return 'warning';
+  // Defensive: treat missing/zero limits as critical if there is usage, otherwise safe.
+  if (!Number.isFinite(limit) || limit <= 0) {
+    return current > 0 ? 'critical' : 'safe';
+  }
+
+  const percentage = (current / limit) * MAX_PERCENTAGE;
+
+  if (percentage >= CRITICAL_THRESHOLD) return 'critical';
+  if (percentage >= WARNING_THRESHOLD) return 'warning';
   return 'safe';
 }
 
@@ -86,13 +100,29 @@ export const UsageProgressBar: React.FC<{
   limit: number;
   showPercentage?: boolean;
 }> = ({ current, limit, showPercentage = true }) => {
-  const percentage = Math.min((current / limit) * 100, 100);
+  const safeLimit = Number.isFinite(limit) && limit > 0 ? limit : 0;
+  const rawPercentage = safeLimit > 0 ? (current / safeLimit) * MAX_PERCENTAGE : 0;
+  const percentage = Math.min(Math.max(rawPercentage, 0), MAX_PERCENTAGE);
   const level = getUsageLevel(current, limit);
   const colors = getUsageLevelColors(level);
 
+  const statusText =
+    level === 'safe'
+      ? 'Usage within limits'
+      : level === 'warning'
+        ? 'Approaching limit'
+        : 'Limit exceeded';
+
   return (
-    <div className="space-y-1">
-      <div className="relative w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+    <div className="space-y-1" aria-label="Usage" role="group">
+      <div
+        className="relative w-full h-2 bg-gray-200 rounded-full overflow-hidden"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={safeLimit || undefined}
+        aria-valuenow={Number.isFinite(current) ? current : 0}
+        aria-valuetext={`${percentage.toFixed(1)}% used. ${statusText}.`}
+      >
         <div
           className={`h-full ${colors.bar} transition-all duration-500 ease-out`}
           style={{ width: `${percentage}%` }}
@@ -101,11 +131,7 @@ export const UsageProgressBar: React.FC<{
       {showPercentage && (
         <div className="flex justify-between text-xs">
           <span className={colors.text}>{percentage.toFixed(1)}% used</span>
-          {level !== 'safe' && (
-            <span className={colors.text}>
-              {level === 'warning' ? '⚠️ Approaching limit' : '🚨 Limit exceeded'}
-            </span>
-          )}
+          {level !== 'safe' && <span className={colors.text}>{statusText}</span>}
         </div>
       )}
     </div>
@@ -128,30 +154,28 @@ export const UsageMetricCard: React.FC<UsageMetric> = ({
 }) => {
   const level = getUsageLevel(current, limit);
   const colors = getUsageLevelColors(level);
-  const percentage = (current / limit) * 100;
+
+  const safeLimit = Number.isFinite(limit) && limit > 0 ? limit : 0;
+  const percentage = safeLimit > 0 ? (current / safeLimit) * MAX_PERCENTAGE : 0;
 
   return (
     <div
-      className={`
-        p-4 rounded-lg border-2 transition-all
-        ${colors.bg} ${colors.border}
-      `}
+      className={`p-4 rounded-lg border-2 transition-all ${colors.bg} ${colors.border}`}
+      aria-label={`${label} usage`}
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center space-x-2">
-          <Icon className={`h-5 w-5 ${colors.icon}`} />
+          <Icon className={`h-5 w-5 ${colors.icon}`} aria-hidden="true" />
           <h4 className="font-medium text-gray-900">{label}</h4>
         </div>
         {level !== 'safe' && (
-          <AlertTriangle className={`h-5 w-5 ${colors.icon}`} />
+          <AlertTriangle className={`h-5 w-5 ${colors.icon}`} aria-hidden="true" />
         )}
       </div>
 
       <div className="space-y-2">
         <div className="flex items-baseline justify-between">
-          <span className="text-2xl font-bold text-gray-900">
-            {current.toLocaleString()}
-          </span>
+          <span className="text-2xl font-bold text-gray-900">{current.toLocaleString()}</span>
           <span className="text-sm text-gray-600">
             of {limit.toLocaleString()} {unit}
           </span>
@@ -181,8 +205,8 @@ export const UsageMetricsGrid: React.FC<{
 }> = ({ metrics }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {metrics.map((metric, index) => (
-        <UsageMetricCard key={index} {...metric} />
+      {metrics.map((metric) => (
+        <UsageMetricCard key={metric.label} {...metric} />
       ))}
     </div>
   );
@@ -198,7 +222,6 @@ export const UsageMetricsGrid: React.FC<{
 export const UsageSummaryBanner: React.FC<{
   metrics: UsageMetric[];
 }> = ({ metrics }) => {
-  // Find the highest usage level
   const highestLevel = metrics.reduce<UsageLevel>((highest, metric) => {
     const level = getUsageLevel(metric.current, metric.limit);
     if (level === 'critical') return 'critical';
@@ -209,52 +232,37 @@ export const UsageSummaryBanner: React.FC<{
   if (highestLevel === 'safe') return null;
 
   const colors = getUsageLevelColors(highestLevel);
-  const criticalMetrics = metrics.filter(
-    (m) => getUsageLevel(m.current, m.limit) === 'critical'
-  );
-  const warningMetrics = metrics.filter(
-    (m) => getUsageLevel(m.current, m.limit) === 'warning'
-  );
+  const criticalMetrics = metrics.filter((m) => getUsageLevel(m.current, m.limit) === 'critical');
+  const warningMetrics = metrics.filter((m) => getUsageLevel(m.current, m.limit) === 'warning');
 
   return (
-    <div
-      className={`
-        p-4 rounded-lg border-2 mb-6
-        ${colors.bg} ${colors.border}
-      `}
-    >
+    <div className={`p-4 rounded-lg border-2 mb-6 ${colors.bg} ${colors.border}`} role="status">
       <div className="flex items-start space-x-3">
-        <AlertTriangle className={`h-6 w-6 ${colors.icon} flex-shrink-0 mt-0.5`} />
+        <AlertTriangle className={`h-6 w-6 ${colors.icon} flex-shrink-0 mt-0.5`} aria-hidden="true" />
         <div className="flex-1">
           <h3 className={`font-semibold ${colors.text}`}>
-            {highestLevel === 'critical'
-              ? 'Usage Limit Exceeded'
-              : 'Approaching Usage Limits'}
+            {highestLevel === 'critical' ? 'Usage Limit Exceeded' : 'Approaching Usage Limits'}
           </h3>
           <p className="text-sm text-gray-700 mt-1">
             {criticalMetrics.length > 0 && (
               <>
-                <strong>Critical:</strong>{' '}
-                {criticalMetrics.map((m) => m.label).join(', ')}
+                <strong>Critical:</strong> {criticalMetrics.map((m) => m.label).join(', ')}
                 {warningMetrics.length > 0 && '. '}
               </>
             )}
             {warningMetrics.length > 0 && (
               <>
-                <strong>Warning:</strong>{' '}
-                {warningMetrics.map((m) => m.label).join(', ')}
+                <strong>Warning:</strong> {warningMetrics.map((m) => m.label).join(', ')}
               </>
             )}
           </p>
           <button
-            className={`
-              mt-3 px-4 py-2 rounded-lg font-medium transition-colors
-              ${
-                highestLevel === 'critical'
-                  ? 'bg-red-600 text-white hover:bg-red-700'
-                  : 'bg-yellow-600 text-white hover:bg-yellow-700'
-              }
-            `}
+            type="button"
+            className={`mt-3 px-4 py-2 rounded-lg font-medium transition-colors ${
+              highestLevel === 'critical'
+                ? 'bg-red-600 text-white hover:bg-red-700'
+                : 'bg-yellow-600 text-white hover:bg-yellow-700'
+            }`}
           >
             Upgrade Plan
           </button>
@@ -277,24 +285,15 @@ export const UsageTrendIndicator: React.FC<{
   label: string;
 }> = ({ current, previous, label }) => {
   const change = current - previous;
-  const percentChange = previous > 0 ? (change / previous) * 100 : 0;
+  const percentChange = previous > 0 ? (change / previous) * MAX_PERCENTAGE : 0;
   const isIncrease = change > 0;
 
   return (
     <div className="flex items-center space-x-2 text-sm">
       <span className="text-gray-600">{label}:</span>
-      <span className="font-medium text-gray-900">
-        {current.toLocaleString()}
-      </span>
-      <span
-        className={`
-          flex items-center
-          ${isIncrease ? 'text-red-600' : 'text-green-600'}
-        `}
-      >
-        <TrendingUp
-          className={`h-4 w-4 ${isIncrease ? '' : 'rotate-180'}`}
-        />
+      <span className="font-medium text-gray-900">{current.toLocaleString()}</span>
+      <span className={`flex items-center ${isIncrease ? 'text-red-600' : 'text-green-600'}`}>
+        <TrendingUp className={`h-4 w-4 ${isIncrease ? '' : 'rotate-180'}`} aria-hidden="true" />
         {Math.abs(percentChange).toFixed(1)}%
       </span>
     </div>
@@ -348,20 +347,71 @@ export function useUsageMetrics(organizationId: string) {
     const fetchMetrics = async () => {
       try {
         setLoading(true);
-        // TODO: Fetch from API
-        // const response = await fetch(`/api/billing/usage/${organizationId}`);
-        // const data = await response.json();
-        
-        // Mock data for now
-        const mockMetrics: UsageMetric[] = [
-          COMMON_USAGE_METRICS.users(8, 10),
-          COMMON_USAGE_METRICS.storage(7.5, 10),
-          COMMON_USAGE_METRICS.apiCalls(850, 1000),
+
+        // Prefer tenant-aware requests.
+        const response = await fetch('/api/billing/usage', {
+          headers: {
+            'x-tenant-id': organizationId,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch usage metrics');
+        }
+
+        const data: UsageSummary = await response.json();
+
+        // Use mapped metrics so the dashboard can evolve without changing API shape.
+        const mappedMetrics: UsageMetric[] = [
+          {
+            label: 'Active Users',
+            current: data.usage.user_seats,
+            limit: data.quotas.user_seats,
+            unit: 'users',
+            icon: Users,
+          },
+          {
+            label: 'Storage',
+            current: data.usage.storage_gb,
+            limit: data.quotas.storage_gb,
+            unit: 'GB',
+            icon: Database,
+          },
+          {
+            label: 'API Calls',
+            current: data.usage.api_calls,
+            limit: data.quotas.api_calls,
+            unit: 'calls',
+            icon: Zap,
+          },
+          {
+            label: 'LLM Tokens',
+            current: data.usage.llm_tokens,
+            limit: data.quotas.llm_tokens,
+            unit: 'tokens',
+            icon: TrendingUp,
+          },
+          {
+            label: 'Agent Executions',
+            current: data.usage.agent_executions,
+            limit: data.quotas.agent_executions,
+            unit: 'executions',
+            icon: Bot,
+          },
         ];
-        
-        setMetrics(mockMetrics);
+
+        setMetrics(mappedMetrics);
       } catch (err) {
-        setError(err as Error);
+        console.error('Error fetching usage metrics:', err);
+        setError(err instanceof Error ? err : new Error('Unknown error'));
+
+        // Fallback to safe defaults if fetch fails
+        setMetrics([
+          COMMON_USAGE_METRICS.users(0, 1),
+          COMMON_USAGE_METRICS.storage(0, 1),
+          COMMON_USAGE_METRICS.apiCalls(0, 1),
+        ]);
       } finally {
         setLoading(false);
       }

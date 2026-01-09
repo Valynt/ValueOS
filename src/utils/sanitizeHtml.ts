@@ -27,6 +27,13 @@ const DEFAULT_CONFIG: DOMPurify.Config = {
   ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i,
 };
 
+// Add a hook to enforce rel="noopener noreferrer" on target="_blank" links
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.tagName === 'A' && node.getAttribute('target') === '_blank') {
+    node.setAttribute('rel', 'noopener noreferrer');
+  }
+});
+
 export function sanitizeHtml(dirty: string): string {
   if (!dirty) return '';
   return DOMPurify.sanitize(dirty, DEFAULT_CONFIG);
