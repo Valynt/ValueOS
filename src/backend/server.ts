@@ -176,7 +176,7 @@ if (
 ) {
   if (settings.NODE_ENV === "production" && !isConsentRegistryConfigured()) {
     throw new Error(
-      "Consent registry is not configured. Set SUPABASE_SERVICE_KEY and VITE_SUPABASE_URL."
+      "Consent registry is not configured. Verify consent registry Supabase URL and authentication configuration."
     );
   }
 
