@@ -18,7 +18,7 @@ function createDatabaseConsentRegistry(): ConsentRegistry {
       const { data, error } = await supabase
         .from(CONSENT_TABLE)
         .select('id')
-        .eq('tenant_id', tenantId)
+        .eq('organization_id', tenantId)
         .eq('consent_type', scope)
         .is('withdrawn_at', null)
         .limit(1);
