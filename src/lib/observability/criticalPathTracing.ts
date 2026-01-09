@@ -14,7 +14,7 @@ import { logger } from '../logger';
 /**
  * Trace value tree operations
  */
-export async function traceValueTreeOperation\u003cT\u003e(
+export async function traceValueTreeOperation<T>(
   operationName: string,
   attributes: {
     sessionId: string;
@@ -22,8 +22,8 @@ export async function traceValueTreeOperation\u003cT\u003e(
     nodeCount?: number;
     depth?: number;
   },
-  operation: (span: Span) =\u003e Promise\u003cT\u003e
-): Promise\u003cT\u003e {
+  operation: (span: Span) => Promise<T>
+): Promise<T> {
   const tracer = getTracer();
   
   return await tracer.startActiveSpan(
@@ -84,7 +84,7 @@ export async function traceValueTreeOperation\u003cT\u003e(
 /**
  * Trace workflow orchestration
  */
-export async function traceWorkflowOperation\u003cT\u003e(
+export async function traceWorkflowOperation<T>(
   operationName: string,
   attributes: {
     sessionId: string;
@@ -93,8 +93,8 @@ export async function traceWorkflowOperation\u003cT\u003e(
     currentStage?: string;
     stageCount?: number;
   },
-  operation: (span: Span) =\u003e Promise\u003cT\u003e
-): Promise\u003cT\u003e {
+  operation: (span: Span) => Promise<T>
+): Promise<T> {
   const tracer = getTracer();
   
   return await tracer.startActiveSpan(
@@ -157,7 +157,7 @@ export async function traceWorkflowOperation\u003cT\u003e(
 /**
  * Trace SDUI generation
  */
-export async function traceSDUIGeneration\u003cT\u003e(
+export async function traceSDUIGeneration<T>(
   operationName: string,
   attributes: {
     sessionId: string;
@@ -165,8 +165,8 @@ export async function traceSDUIGeneration\u003cT\u003e(
     componentCount?: number;
     dataSize?: number;
   },
-  operation: (span: Span) =\u003e Promise\u003cT\u003e
-): Promise\u003cT\u003e {
+  operation: (span: Span) => Promise<T>
+): Promise<T> {
   const tracer = getTracer();
   
   return await tracer.startActiveSpan(
@@ -298,7 +298,7 @@ export function recordValuePrediction(
   confidence: number,
   baselineValue?: number
 ): void {
-  const attributes: Record\u003cstring, string | number | boolean\u003e = {
+  const attributes: Record<string, string | number | boolean> = {
     'prediction.type': predictionType,
     'prediction.value': predictedValue,
     'prediction.confidence': confidence

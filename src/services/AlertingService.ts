@@ -9,6 +9,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '../lib/logger';
 import { getMetricsCollector } from './MetricsCollector';
 import { captureMessage } from '../lib/sentry';
+import { settings } from '../config/settings';
 
 export interface AlertThreshold {
   metricName: string;
@@ -26,7 +27,7 @@ export interface Alert {
   currentValue: number;
   threshold: number;
   timestamp: Date;
-  metadata?: Record\u003cstring, any\u003e;
+  metadata?: Record<string, any>;
 }
 
 export interface AlertRule {
@@ -175,8 +176,8 @@ export class AlertingService {
   private supabase: SupabaseClient;
   private metricsCollector = getMetricsCollector();
   private alertRules: AlertRule[] = DEFAULT_ALERT_RULES;
-  private activeAlerts: Map\u003cstring, Alert\u003e = new Map();
-  private checkIntervals: Map\u003cstring, NodeJS.Timeout\u003e = new Map();
+  private activeAlerts: Map<string, Alert> = new Map();
+  private checkIntervals: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(supabaseClient: SupabaseClient) {
     this.supabase = supabaseClient;
@@ -187,7 +188,7 @@ export class AlertingService {
    */
   start(): void {
     logger.info('Starting alerting service', {
-      ruleCount: this.alertRules.filter(r =\u003e r.enabled).length
+      ruleCount: this.alertRules.filter(r => r.enabled).length
     });
 
     for (const rule of this.alertRules) {
@@ -218,7 +219,7 @@ export class AlertingService {
 
     // Schedule periodic checks
     const interval = setInterval(
-      () =\u003e this.checkRule(rule),
+      () => this.checkRule(rule),
       rule.checkIntervalMinutes * 60 * 1000
     );
 
@@ -234,7 +235,7 @@ export class AlertingService {
   /**
    * Check a specific rule
    */
-  private async checkRule(rule: AlertRule): Promise\u003cvoid\u003e {
+  private async checkRule(rule: AlertRule): Promise<void> {
     try {
       for (const threshold of rule.thresholds) {
         const currentValue = await this.getMetricValue(threshold.metricName);
@@ -255,7 +256,7 @@ export class AlertingService {
   /**
    * Get current value for a metric
    */
-  private async getMetricValue(metricName: string): Promise\u003cnumber\u003e {
+  private async getMetricValue(metricName: string): Promise<number> {
     const [category, metric] = metricName.split('.');
 
     switch (category) {
@@ -326,14 +327,14 @@ export class AlertingService {
       };
     }
 
-    const totalInvocations = metrics.reduce((sum, m) =\u003e sum + m.totalInvocations, 0);
-    const successfulInvocations = metrics.reduce((sum, m) =\u003e sum + m.successfulInvocations, 0);
+    const totalInvocations = metrics.reduce((sum, m) => sum + m.totalInvocations, 0);
+    const successfulInvocations = metrics.reduce((sum, m) => sum + m.successfulInvocations, 0);
     const hallucinationCount = metrics.reduce(
-      (sum, m) =\u003e sum + (m.totalInvocations * m.hallucinationRate),
+      (sum, m) => sum + (m.totalInvocations * m.hallucinationRate),
       0
     );
     const lowConfidenceCount = metrics.reduce(
-      (sum, m) =\u003e sum + (m.totalInvocations * (1 - m.avgConfidenceScore)),
+      (sum, m) => sum + (m.totalInvocations * (1 - m.avgConfidenceScore)),
       0
     );
 
@@ -341,8 +342,8 @@ export class AlertingService {
       successRate: successfulInvocations / totalInvocations,
       hallucinationRate: hallucinationCount / totalInvocations,
       lowConfidenceRate: lowConfidenceCount / totalInvocations,
-      p95ResponseTime: Math.max(...metrics.map(m =\u003e m.p95ResponseTime)),
-      p99ResponseTime: Math.max(...metrics.map(m =\u003e m.p99ResponseTime))
+      p95ResponseTime: Math.max(...metrics.map(m => m.p95ResponseTime)),
+      p99ResponseTime: Math.max(...metrics.map(m => m.p99ResponseTime))
     };
   }
 
@@ -352,13 +353,13 @@ export class AlertingService {
   private shouldAlert(currentValue: number, threshold: AlertThreshold): boolean {
     switch (threshold.operator) {
       case 'gt':
-        return currentValue \u003e threshold.threshold;
+        return currentValue > threshold.threshold;
       case 'lt':
-        return currentValue \u003c threshold.threshold;
+        return currentValue < threshold.threshold;
       case 'gte':
-        return currentValue \u003e= threshold.threshold;
+        return currentValue >= threshold.threshold;
       case 'lte':
-        return currentValue \u003c= threshold.threshold;
+        return currentValue <= threshold.threshold;
       case 'eq':
         return currentValue === threshold.threshold;
       default:
@@ -395,10 +396,10 @@ export class AlertingService {
   private async triggerAlert(
     alert: Alert,
     channels: ('sentry' | 'email' | 'webhook')[]
-  ): Promise\u003cvoid\u003e {
+  ): Promise<void> {
     // Check if alert is already active (debouncing)
     const existingAlert = this.activeAlerts.get(alert.metricName);
-    if (existingAlert \u0026\u0026 Date.now() - existingAlert.timestamp.getTime() \u003c 5 * 60 * 1000) {
+    if (existingAlert && Date.now() - existingAlert.timestamp.getTime() < 5 * 60 * 1000) {
       // Alert was triggered less than 5 minutes ago, skip
       return;
     }
@@ -432,7 +433,7 @@ export class AlertingService {
   /**
    * Store alert in database
    */
-  private async storeAlert(alert: Alert): Promise\u003cvoid\u003e {
+  private async storeAlert(alert: Alert): Promise<void> {
     try {
       await this.supabase.from('alerts').insert({
         id: alert.id,
@@ -457,7 +458,7 @@ export class AlertingService {
   private async sendNotification(
     alert: Alert,
     channel: 'sentry' | 'email' | 'webhook'
-  ): Promise\u003cvoid\u003e {
+  ): Promise<void> {
     switch (channel) {
       case 'sentry':
         captureMessage(
@@ -482,11 +483,48 @@ export class AlertingService {
         break;
 
       case 'webhook':
-        // TODO: Implement webhook notification
-        logger.info('Webhook notification not yet implemented', {
-          alertId: alert.id
-        });
+        if (settings.ALERT_WEBHOOK_URL) {
+          await this.sendWebhookWithRetry(alert, settings.ALERT_WEBHOOK_URL);
+        } else {
+          logger.warn('Webhook notification skipped: ALERT_WEBHOOK_URL not configured', {
+            alertId: alert.id
+          });
+        }
         break;
+    }
+  }
+
+  /**
+   * Send webhook notification with retry logic
+   */
+  private async sendWebhookWithRetry(alert: Alert, url: string, retries = 3): Promise<void> {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(alert),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Webhook failed with status: ${response.status}`);
+        }
+
+        return;
+      } catch (error) {
+        if (i === retries - 1) {
+          logger.error('Failed to send webhook notification after retries', error as Error, {
+            alertId: alert.id,
+            url
+          });
+          throw error;
+        }
+
+        // Exponential backoff: 1s, 2s, 4s
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+      }
     }
   }
 
@@ -531,7 +569,7 @@ export class AlertingService {
       this.checkIntervals.delete(ruleId);
     }
 
-    this.alertRules = this.alertRules.filter(r =\u003e r.id !== ruleId);
+    this.alertRules = this.alertRules.filter(r => r.id !== ruleId);
 
     logger.info('Alert rule removed', { ruleId });
   }
