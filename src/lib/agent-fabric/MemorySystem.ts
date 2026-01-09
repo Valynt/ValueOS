@@ -583,4 +583,27 @@ export class MemorySystem {
     });
     if (error) throw error;
   }
+
+  /**
+   * List stored documents from Supabase Storage for retrieval context
+   */
+  async listStoredDocuments(organizationId: string): Promise<any[]> {
+    // SECURITY: Ensure organizationId is used to isolate tenants
+    // Using organizationId as the storage path folder
+    const { data, error } = await this.supabase
+      .storage
+      .from('documents')
+      .list(organizationId, {
+        limit: 100,
+        offset: 0,
+        sortBy: { column: 'created_at', order: 'desc' },
+      });
+
+    if (error) {
+      // Log warning but don't throw, return empty list so agent can continue
+      logger.warn('Failed to list documents from storage', { error, organizationId });
+      return [];
+    }
+    return data || [];
+  }
 }

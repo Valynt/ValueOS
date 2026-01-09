@@ -10,8 +10,8 @@
  * Prevents hallucinations by grounding LLM responses in retrieved data.
  */
 
-import { AgentMemory, MemorySystem } from '../MemorySystem';
-import { logger } from '../../logger';
+import { AgentMemory, MemorySystem } from './MemorySystem';
+import { logger } from '../logger';
 import { z } from 'zod';
 import { webScraperService } from '../../services/WebScraperService';
 
@@ -284,10 +284,22 @@ export class RetrievalEngine {
     sessionId: string,
     config: Required<RetrievalConfig>
   ): Promise<RetrievalContext['document_metadata']> {
-    // TODO: Integrate with Supabase storage metadata query
-    // For now, return empty array
-    logger.debug('Document metadata retrieval not yet implemented', { sessionId });
-    return [];
+    try {
+      const files = await this.memorySystem.listStoredDocuments(this.organizationId);
+
+      return files.map(f => ({
+        source_id: f.id,
+        title: f.name,
+        created_at: f.created_at,
+        // Map custom metadata if available in the file object's metadata field
+        headers: f.metadata?.headers,
+        page_count: f.metadata?.page_count,
+        word_count: f.metadata?.word_count
+      }));
+    } catch (error) {
+       logger.error('Document metadata retrieval failed', { sessionId, error });
+       return [];
+    }
   }
 
   /**
@@ -440,7 +452,7 @@ export class RetrievalEngine {
 // EXAMPLE: RETRIEVAL-CONDITIONED AGENT
 // =====================================================
 
-import { BaseAgent } from '../BaseAgent';
+import { BaseAgent } from './agents/BaseAgent';
 import { AgentConfig } from '../../../types/agent';
 import Handlebars from 'handlebars';
 
