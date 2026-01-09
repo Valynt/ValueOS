@@ -752,8 +752,18 @@ export async function deprovisionTenant(
  * Cancel billing for tenant
  */
 async function cancelBilling(organizationId: string): Promise<void> {
-  // TODO: Implement billing cancellation
-  logger.debug(`Billing canceled for ${organizationId}`);
+  try {
+    // Cancel subscription immediately
+    await SubscriptionService.cancelSubscription(organizationId, true);
+    logger.debug(`Billing canceled for ${organizationId}`);
+  } catch (error) {
+    // If no subscription found, we can consider this a success (or at least not a blocker)
+    if (error instanceof Error && error.message.includes('No active subscription found')) {
+      logger.info(`No active subscription found for ${organizationId}, skipping billing cancellation`);
+      return;
+    }
+    throw error;
+  }
 }
 
 /**

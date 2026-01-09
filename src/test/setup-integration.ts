@@ -11,7 +11,7 @@ const DOCKER_TIMEOUT = 120_000;
 
 beforeAll(async () => {
   // Skip testcontainers setup if flag is set
-  if (getEnvVar("SKIP_TESTCONTAINERS") === "1") {
+  if (process.env.SKIP_TESTCONTAINERS === "1" || getEnvVar("SKIP_TESTCONTAINERS") === "1") {
     console.warn("⚠️ SKIP_TESTCONTAINERS set — skipping integration test setup");
     return;
   }
@@ -58,7 +58,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   // Skip teardown if testcontainers were skipped
-  if (getEnvVar("SKIP_TESTCONTAINERS") === "1") {
+  if (process.env.SKIP_TESTCONTAINERS === "1" || getEnvVar("SKIP_TESTCONTAINERS") === "1") {
     return;
   }
   await teardown();
