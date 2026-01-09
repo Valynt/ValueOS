@@ -2,6 +2,7 @@ import { Request, Response, Router } from 'express';
 import { modelCardService } from '../services/ModelCardService';
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
+import { tenantContextMiddleware } from '../middleware/tenantContext';
 import { rateLimiters } from '../middleware/rateLimiter';
 import { validateRequest, ValidationSchemas } from '../middleware/inputValidation';
 import { logger } from '../lib/logger';
@@ -11,6 +12,7 @@ import { getUnifiedAgentAPI } from '../services/UnifiedAgentAPI';
 const router = Router();
 router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
+router.use(tenantContextMiddleware());
 router.use(requirePermission('agents.execute'));
 
 router.get('/:agentId/info', rateLimiters.loose, (req: Request, res: Response) => {

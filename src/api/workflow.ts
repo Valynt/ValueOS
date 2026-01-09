@@ -4,12 +4,14 @@ import { logger } from '../lib/logger';
 import { rateLimiters } from '../middleware/rateLimiter';
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
+import { tenantContextMiddleware } from '../middleware/tenantContext';
 import { validateRequest } from '../middleware/inputValidation';
 import { requirePermission } from '../middleware/rbac';
 
 const router = Router();
 router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
+router.use(tenantContextMiddleware());
 router.use(validateRequest);
 router.use(requirePermission('agents.execute'));
 

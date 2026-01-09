@@ -19,7 +19,7 @@ export function requireConsent(scope: string, registry?: ConsentRegistry): Reque
     registry = defaultRegistry;
   }
   return async (req: Request, res: Response, next: NextFunction) => {
-    const tenantId = (req.headers['x-tenant-id'] as string) || (req as any).tenantId || 'default';
+    const tenantId = req.tenantId || 'default';
 
     const consentGranted = await registry.hasConsent(tenantId, scope);
     if (!consentGranted) {

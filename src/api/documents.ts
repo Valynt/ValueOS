@@ -8,6 +8,7 @@ import { Request, Response, Router } from 'express';
 import { logger } from '../utils/logger';
 import { csrfProtectionMiddleware, securityHeadersMiddleware } from '../middleware/securityMiddleware';
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
+import { tenantContextMiddleware } from '../middleware/tenantContext';
 import { rateLimiters } from '../middleware/rateLimiter';
 import { requirePermission } from '../middleware/rbac';
 
@@ -20,6 +21,7 @@ interface LineageMetadata {
 const router = Router();
 router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
+router.use(tenantContextMiddleware());
 router.use(requirePermission('data.import'));
 
 router.post(

@@ -5,6 +5,7 @@ import {
 } from './securityMiddleware';
 import { sessionTimeoutMiddleware } from './sessionTimeoutMiddleware';
 import { serviceIdentityMiddleware } from './serviceIdentityMiddleware';
+import { tenantContextMiddleware } from './tenantContext';
 import { rateLimiters, RateLimitTier } from './rateLimiter';
 import { requestAuditMiddleware } from './requestAuditMiddleware';
 
@@ -17,9 +18,9 @@ export function createSecureRouter(tier: RateLimitTier = 'standard'): ReturnType
   router.use(requestAuditMiddleware());
   router.use(securityHeadersMiddleware);
   router.use(serviceIdentityMiddleware);
+  router.use(tenantContextMiddleware());
   router.use(csrfProtectionMiddleware);
   router.use(sessionTimeoutMiddleware);
   router.use(rateLimiters[tier]);
   return router;
 }
-

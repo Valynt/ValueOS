@@ -10,6 +10,7 @@ import invoicesRouter from './invoices';
 import webhooksRouter from './webhooks';
 import { securityHeadersMiddleware } from '../../middleware/securityMiddleware';
 import { serviceIdentityMiddleware } from '../../middleware/serviceIdentityMiddleware';
+import { tenantContextMiddleware } from '../../middleware/tenantContext';
 import { requirePermission } from '../../middleware/rbac';
 
 const router = express.Router();
@@ -17,6 +18,7 @@ const router = express.Router();
 // Baseline protections applied to all billing routes
 router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
+router.use(tenantContextMiddleware());
 
 // Public webhook endpoints (Stripe verification handles its own validation)
 router.use('/webhooks', webhooksRouter);

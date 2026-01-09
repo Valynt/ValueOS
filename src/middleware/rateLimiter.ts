@@ -161,7 +161,7 @@ const store = new RateLimitStore();
  * Default key generator (uses user ID or IP)
  */
 export function getRateLimitKey(req: Request): string {
-  const tenantId = (req as any).user?.organizationId || req.header('x-tenant-id');
+  const tenantId = req.tenantId || (req as any).user?.organizationId;
 
   // Use user ID if authenticated
   if (req.user?.id) {
