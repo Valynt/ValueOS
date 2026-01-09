@@ -18,7 +18,7 @@
 DROP VIEW IF EXISTS public.recent_confidence_violations;
 
 CREATE VIEW public.recent_confidence_violations
-SECURITY INVOKER
+WITH (security_invoker = true)
 AS
 SELECT 
   cv.*,
