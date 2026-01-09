@@ -24,6 +24,7 @@ vi.mock('@aws-sdk/client-secrets-manager', () => {
 });
 
 // Mock Supabase
+const mockInsert = vi.fn();
 const mockSupabase = {
   from: vi.fn(),
 };
@@ -50,10 +51,19 @@ describe('MultiTenantSecretsManager', () => {
 
     // Default mock setup for Supabase
     // We need to chain calls: from().select().eq().single()
+    // Also from().insert()
     const mockSingle = vi.fn();
     const mockEq = vi.fn().mockReturnValue({ single: mockSingle });
     const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
-    mockSupabase.from.mockReturnValue({ select: mockSelect });
+
+    mockSupabase.from.mockImplementation((table) => {
+      if (table === 'secret_audit_logs') {
+        return { insert: mockInsert };
+      }
+      return { select: mockSelect };
+    });
+
+    mockInsert.mockResolvedValue({ error: null });
 
     // Reset implementation of createServerSupabaseClient if needed,
     // although clearing mocks should handle it if we spy correctly.
@@ -290,6 +300,51 @@ describe('MultiTenantSecretsManager', () => {
           result: 'FAILURE',
           error: 'Permission denied'
         })
+      );
+    });
+
+    it('should write to secret_audit_logs table', async () => {
+      const manager = secretsManager as any;
+
+      const timestamp = new Date().toISOString();
+      await manager.auditLog({
+        tenantId: 'tenant-123',
+        userId: 'user-456',
+        secretKey: 'api_key',
+        action: 'WRITE',
+        result: 'SUCCESS',
+        timestamp
+      });
+
+      expect(mockSupabase.from).toHaveBeenCalledWith('secret_audit_logs');
+      expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
+        tenant_id: 'tenant-123',
+        user_id: 'user-456',
+        secret_key: 'api_key',
+        action: 'WRITE',
+        result: 'SUCCESS',
+        timestamp
+      }));
+    });
+
+    it('should handle database write errors gracefully', async () => {
+      const manager = secretsManager as any;
+      const { logger } = await import('../../lib/logger');
+
+      mockInsert.mockRejectedValueOnce(new Error('DB connection failed'));
+
+      await expect(manager.auditLog({
+        tenantId: 'tenant-123',
+        secretKey: 'api_key',
+        action: 'READ',
+        result: 'SUCCESS',
+        timestamp: new Date().toISOString()
+      })).resolves.not.toThrow();
+
+      expect(logger.error).toHaveBeenCalledWith(
+        'Failed to write to secret_audit_logs database',
+        expect.any(Error),
+        expect.anything()
       );
     });
   });
