@@ -99,6 +99,7 @@ export async function initializeRedisCache(
     logger.info('Redis cache initialized', {
       url: maskRedisUrl(config.url),
       latency,
+      ttl: config.ttl,
     });
 
     return { connected: true, latency };
