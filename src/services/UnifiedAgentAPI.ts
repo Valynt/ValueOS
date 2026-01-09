@@ -22,6 +22,7 @@ import { SDUIPageDefinition, validateSDUISchema } from '../sdui/schema';
 import { getAuditLogger, logAgentResponse } from './AgentAuditLogger';
 import { AgentType } from './agent-types';
 import { AgentHealthStatus, ConfidenceLevel } from '../types/agent';
+import { env, getEnvVar } from '../lib/env';
 
 // ============================================================================
 // Types
@@ -114,6 +115,9 @@ const DEFAULT_CONFIG: UnifiedAPIConfig = {
   enableAuditLogging: true,
 };
 
+const PRODUCTION_ROUTING_ERROR =
+  'Mock routing is disabled in production. Configure baseUrl or agent endpoints.';
+
 /**
  * Sanitize user input for LLM prompts to prevent injection attacks
  */
@@ -175,7 +179,15 @@ export class UnifiedAgentAPI {
   private auditLogger: ReturnType<typeof getAuditLogger> | null = null;
 
   constructor(config: Partial<UnifiedAPIConfig> = {}) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+    const envBaseUrl =
+      getEnvVar('VITE_AGENT_API_URL') ||
+      getEnvVar('AGENT_API_URL');
+    const resolvedBaseUrl = config.baseUrl ?? envBaseUrl;
+    this.config = {
+      ...DEFAULT_CONFIG,
+      ...config,
+      baseUrl: resolvedBaseUrl || undefined,
+    };
     this.circuitBreakers = new CircuitBreakerManager();
     this.registry = new AgentRegistry();
 
@@ -223,6 +235,8 @@ export class UnifiedAgentAPI {
     }
 
     try {
+      this.assertRoutingConfigured(request.agent);
+
       // Get circuit breaker for this agent
       const circuitBreakerKey = `agent-${request.agent}`;
 
@@ -449,7 +463,7 @@ export class UnifiedAgentAPI {
    */
   private determineRouteType(agent: AgentType): 'http' | 'local' | 'mock' {
     // Check if we have an HTTP endpoint configured
-    if (this.config.baseUrl) {
+    if (this.getResolvedBaseUrl()) {
       return 'http';
     }
 
@@ -459,7 +473,11 @@ export class UnifiedAgentAPI {
       return 'http';
     }
 
-    // For now, use mock for development
+    if (env.isProduction) {
+      throw new Error(PRODUCTION_ROUTING_ERROR);
+    }
+
+    // For now, use mock for development/test
     return 'mock';
   }
 
@@ -470,8 +488,7 @@ export class UnifiedAgentAPI {
     request: UnifiedAgentRequest,
     traceId: string
   ): Promise<UnifiedAgentResponse> {
-    const baseUrl = this.config.baseUrl || '';
-    const url = `${baseUrl}/agents/${request.agent}/invoke`;
+    const url = this.resolveAgentInvokeUrl(request.agent);
 
     const response = await fetch(url, {
       method: 'POST',
@@ -545,6 +562,44 @@ export class UnifiedAgentAPI {
       confidenceScore: 0.75,
       type: 'message',
     };
+  }
+
+  private getResolvedBaseUrl(): string | undefined {
+    const baseUrl = this.config.baseUrl?.trim();
+    return baseUrl ? baseUrl : undefined;
+  }
+
+  private assertRoutingConfigured(agent: AgentType): void {
+    if (!env.isProduction) {
+      return;
+    }
+
+    const hasBaseUrl = Boolean(this.getResolvedBaseUrl());
+    const hasEndpoint = Boolean(this.registry.getAgent(agent)?.endpoint);
+
+    if (!hasBaseUrl && !hasEndpoint) {
+      throw new Error(PRODUCTION_ROUTING_ERROR);
+    }
+  }
+
+  private resolveAgentInvokeUrl(agent: AgentType): string {
+    const baseUrl = this.getResolvedBaseUrl();
+    const agentEndpoint = this.registry.getAgent(agent)?.endpoint;
+
+    if (agentEndpoint) {
+      const normalized = agentEndpoint.replace(/\/$/, '');
+      return normalized.endsWith('/invoke') ? normalized : `${normalized}/invoke`;
+    }
+
+    if (baseUrl) {
+      const normalizedBaseUrl = baseUrl.replace(/\/$/, '');
+      const basePrefix = normalizedBaseUrl.endsWith('/agents')
+        ? normalizedBaseUrl
+        : `${normalizedBaseUrl}/agents`;
+      return `${basePrefix}/${agent}/invoke`;
+    }
+
+    throw new Error('Agent routing configuration missing. Set baseUrl or agent endpoints.');
   }
 }
 

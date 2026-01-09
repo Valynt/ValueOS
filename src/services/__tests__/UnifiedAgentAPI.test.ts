@@ -13,8 +13,8 @@ import {
   resetUnifiedAgentAPI,
   UnifiedAgentAPI,
   UnifiedAgentRequest,
-  UnifiedAgentResponse,
 } from '../UnifiedAgentAPI';
+import { __setEnvSourceForTests, getEnvVar } from '../../lib/env';
 
 // Mock fetch
 global.fetch = vi.fn();
@@ -56,8 +56,16 @@ vi.mock('../../sdui/schema', () => ({
 
 describe('UnifiedAgentAPI', () => {
   let api: UnifiedAgentAPI;
+  let originalEnv: Record<string, string | undefined>;
 
   beforeEach(() => {
+    originalEnv = {
+      NODE_ENV: getEnvVar('NODE_ENV'),
+      MODE: getEnvVar('MODE'),
+      VITE_AGENT_API_URL: getEnvVar('VITE_AGENT_API_URL'),
+      AGENT_API_URL: getEnvVar('AGENT_API_URL'),
+    };
+    __setEnvSourceForTests({ NODE_ENV: 'test' });
     resetUnifiedAgentAPI();
     api = new UnifiedAgentAPI();
     vi.clearAllMocks();
@@ -65,6 +73,7 @@ describe('UnifiedAgentAPI', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    __setEnvSourceForTests(originalEnv);
   });
 
   describe('Singleton Pattern', () => {
@@ -266,8 +275,19 @@ describe('UnifiedAgentAPI', () => {
 
   describe('Route Type Determination', () => {
     it('should use mock for development by default', async () => {
-      const determineRouteType = (api as any).determineRouteType.bind(api);
+      __setEnvSourceForTests({ NODE_ENV: 'development' });
+      const devApi = new UnifiedAgentAPI();
+      const determineRouteType = (devApi as any).determineRouteType.bind(devApi);
       expect(determineRouteType('opportunity')).toBe('mock');
+    });
+
+    it('should disallow mock routing in production without configuration', async () => {
+      __setEnvSourceForTests({ NODE_ENV: 'production' });
+      const prodApi = new UnifiedAgentAPI();
+      const determineRouteType = (prodApi as any).determineRouteType.bind(prodApi);
+      expect(() => determineRouteType('opportunity')).toThrow(
+        'Mock routing is disabled in production. Configure baseUrl or agent endpoints.'
+      );
     });
 
     it('should use HTTP when baseUrl is configured', async () => {
@@ -276,6 +296,55 @@ describe('UnifiedAgentAPI', () => {
       });
       const determineRouteType = (configuredApi as any).determineRouteType.bind(configuredApi);
       expect(determineRouteType('opportunity')).toBe('http');
+    });
+
+    it('should use HTTP when env baseUrl is configured', async () => {
+      __setEnvSourceForTests({
+        NODE_ENV: 'production',
+        VITE_AGENT_API_URL: 'https://agents.example.com/api/agents',
+      });
+      const envApi = new UnifiedAgentAPI();
+      const determineRouteType = (envApi as any).determineRouteType.bind(envApi);
+      expect(determineRouteType('opportunity')).toBe('http');
+    });
+
+    it('should return configuration error in production invoke without endpoints', async () => {
+      __setEnvSourceForTests({ NODE_ENV: 'production' });
+      const prodApi = new UnifiedAgentAPI();
+      const response = await prodApi.invoke({
+        agent: 'opportunity',
+        query: 'Test',
+      });
+
+      expect(response.success).toBe(false);
+      expect(response.error).toBe(
+        'Mock routing is disabled in production. Configure baseUrl or agent endpoints.'
+      );
+    });
+
+    it('should invoke via env baseUrl in production', async () => {
+      __setEnvSourceForTests({
+        NODE_ENV: 'production',
+        VITE_AGENT_API_URL: 'https://agents.example.com/api/agents',
+      });
+      (global.fetch as any).mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          success: true,
+          data: { result: 'test' },
+        }),
+      });
+
+      const prodApi = new UnifiedAgentAPI();
+      await prodApi.invoke({
+        agent: 'opportunity',
+        query: 'Test',
+      });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://agents.example.com/api/agents/opportunity/invoke',
+        expect.any(Object)
+      );
     });
   });
 
