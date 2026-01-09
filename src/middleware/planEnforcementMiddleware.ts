@@ -9,6 +9,7 @@ import GracePeriodService from '../services/metering/GracePeriodService';
 import { BillingMetric, GRACE_PERIOD_MS, isHardCap, PlanTier } from '../config/billing';
 import { createLogger } from '../lib/logger';
 import SubscriptionService from '../services/billing/SubscriptionService';
+import { createServerSupabaseClient } from '../lib/supabase';
 
 const logger = createLogger({ component: 'PlanEnforcementMiddleware' });
 const PLAN_TIERS: PlanTier[] = ['free', 'standard', 'enterprise'];
@@ -45,6 +46,33 @@ async function resolvePlanTier(req: Request, tenantId: string): Promise<PlanTier
     }
   } catch (error) {
     logger.warn('Failed to resolve plan tier from subscription', {
+      tenantId,
+      error: error instanceof Error ? error.message : error,
+    });
+  }
+
+  // Try to get from organizations table (source of truth for configuration)
+  try {
+    const supabase = createServerSupabaseClient();
+    const { data: org, error } = await supabase
+      .from('organizations')
+      .select('tier')
+      .eq('id', tenantId)
+      .single();
+
+    if (!error && org) {
+      let tier = org.tier;
+      // Map tenant tier to plan tier
+      if (tier === 'professional' || tier === 'starter') {
+        tier = 'standard';
+      }
+
+      if (isPlanTier(tier)) {
+        return tier as PlanTier;
+      }
+    }
+  } catch (error) {
+    logger.warn('Failed to resolve plan tier from organization', {
       tenantId,
       error: error instanceof Error ? error.message : error,
     });
