@@ -5,6 +5,7 @@
  * Ensures all data access is properly scoped to the tenant context.
  */
 
+import { enhancedAuditLogger, AuditActor } from '../lib/audit/index';
 import { DataBinding, DataSourceContext, ResolvedBinding } from './DataBindingSchema';
 import { hasPermission, TenantContext, TenantContextError } from './TenantContext';
 
@@ -229,7 +230,33 @@ export function logDataAccess(
   };
 
   // Send to audit logging service
-  // TODO: Integrate with AuditLogger service
+  const actor: AuditActor = {
+    type: 'human', // Defaulting to human based on typical usage; context usually implies user context
+    id: context.userId,
+    role: 'user', // Default role
+    organizationId: context.organizationId,
+    sessionId: context.sessionId
+  };
+
+  enhancedAuditLogger.logDataAccess(
+    actor,
+    binding.$source,
+    binding.$bind,
+    'read',
+    result.success,
+    {
+      cached: result.cached,
+      dataResidency: context.dataResidency,
+      tenantId: context.tenantId,
+      ...log.metadata,
+      ...(result.error ? { error: result.error } : {})
+    }
+  ).catch(err => {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[AUDIT LOGGER ERROR]', err);
+    }
+  });
+
   if (process.env.NODE_ENV === 'development') {
     console.warn('[DATA ACCESS AUDIT]', log);
   }
