@@ -13,7 +13,7 @@ import {
   customerAccessService,
   type CustomerAccessToken,
 } from "@/services/CustomerAccessService";
-import { CustomerAccessTable } from "@/components/Admin/CustomerAccessTable";
+import { CustomerAccessTable } from "@/components/admin/CustomerAccessTable";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/Common/Toast";
 import { logger } from "@/lib/logger";

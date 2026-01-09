@@ -17,7 +17,7 @@ import type {
   SecretMetadata,
   SecretValue
 } from './ISecretProvider';
-import { promises as fs } from 'fs';
+import * as fs from 'fs';
 
 // Type definitions for node-vault (simplified)
 interface VaultClient {
@@ -93,7 +93,7 @@ export class VaultSecretProvider implements ISecretProvider {
   private async authenticateKubernetes(role: string): Promise<void> {
     try {
       const jwtPath = '/var/run/secrets/kubernetes.io/serviceaccount/token';
-      const jwt = await fs.readFile(jwtPath, 'utf8');
+      const jwt = await fs.promises.readFile(jwtPath, 'utf8');
 
       if (!this.client) {
         throw new Error('Vault client not initialized');

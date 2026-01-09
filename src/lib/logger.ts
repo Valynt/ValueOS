@@ -261,11 +261,12 @@ export function setupMonitoring() {
     // Add Sentry integration if available
     try {
       // Dynamically import Sentry to avoid dependency errors in minimal builds
-       
-      const Sentry = require('@sentry/node');
+      // @ts-ignore
+      const Sentry = typeof window === 'undefined' ? require('@sentry/node') : null;
 
-      logger.addListener((entry) => {
-        if (entry.level === 'error' && entry.error) {
+      if (Sentry) {
+        logger.addListener((entry) => {
+          if (entry.level === 'error' && entry.error) {
           const trace = getTraceContextForLogging();
           Sentry.withScope((scope: any) => {
             scope.setExtras({ ...entry.context, ...trace });
@@ -273,7 +274,8 @@ export function setupMonitoring() {
             Sentry.captureException(entry.error);
           });
         }
-      });
+        });
+      }
     } catch (err) {
       logger.warn('Sentry not installed; skipping error forwarding', { error: err instanceof Error ? err.message : String(err) });
     }
