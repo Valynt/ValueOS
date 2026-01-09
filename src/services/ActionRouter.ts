@@ -24,6 +24,7 @@ import { manifestoEnforcer } from './ManifestoEnforcer';
 import { atomicActionExecutor } from './AtomicActionExecutor';
 import { canvasSchemaService } from './CanvasSchemaService';
 import { EnforcementResult, enforceRules } from '../lib/rules';
+import { workspaceStateService } from './WorkspaceStateService';
 
 /**
  * Action Router
@@ -582,11 +583,19 @@ export class ActionRouter {
         return { success: false, error: 'Invalid action type' };
       }
 
-      // TODO: Implement workspace saving
-      return {
-        success: true,
-        data: { workspaceId: action.workspaceId, saved: true },
-      };
+      try {
+        await workspaceStateService.persistState(action.workspaceId);
+
+        return {
+          success: true,
+          data: { workspaceId: action.workspaceId, saved: true },
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
     });
 
     // mutateComponent handler
