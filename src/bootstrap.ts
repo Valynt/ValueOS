@@ -14,6 +14,7 @@ import {
 import { initializeAgents, SystemHealth } from "./services/AgentInitializer";
 import { initializeSecurity, validateSecurity } from "./security";
 import { createLogger, logger as globalLogger, setupMonitoring } from "./lib/logger";
+import { initializeRedisCache } from "./lib/redis";
 import { initializeSentry } from "./lib/sentry";
 import { checkDatabaseConnection } from "./lib/database";
 
@@ -228,6 +229,7 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
     onProgress?.("Initializing error tracking...");
     logger.info("\n📊 Step 5: Initializing Sentry");
     try {
+      await initializeSentry(config.monitoring.sentry);
       await initializeSentry();
       logger.info("   ✅ Sentry initialized");
     } catch (error) {
@@ -333,6 +335,7 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
     onProgress?.("Checking database connection...");
     logger.info("\n💾 Step 7: Database connection");
     try {
+      await checkDatabaseConnection();
       // Use shorter retry strategy for development to improve startup time
       const maxRetries = isDevelopment() ? 3 : 5;
       const retryDelay = isDevelopment() ? 500 : 1000;
@@ -394,11 +397,25 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
     onProgress?.("Initializing cache...");
     logger.info("\n🗄️  Step 8: Cache initialization");
     try {
-      // TODO: Initialize Redis cache
-      // await initializeCache(config.cache);
-      logger.info("   ⚠️  Cache initialization not implemented yet");
-      warnings.push("Cache initialization not implemented");
-      onWarning?.("Cache initialization not implemented");
+      const cacheResult = await initializeRedisCache(config.cache);
+
+      if (cacheResult.connected) {
+        logger.info(`   ✅ Cache initialized (${cacheResult.latency}ms)`);
+      } else {
+        const errorMsg = `Cache initialization failed: ${cacheResult.error || "Unknown error"}`;
+        // In development, treat cache failures as warnings
+        if (isDevelopment()) {
+          warnings.push(errorMsg);
+          onWarning?.(errorMsg);
+          logger.warn(`   ⚠️  ${errorMsg} (continuing anyway in development)`);
+        } else {
+          // In production, we might want to fail fast or just warn depending on criticality
+          // For now, following existing pattern of warning but continuing
+          warnings.push(errorMsg);
+          onWarning?.(errorMsg);
+          logger.warn(`   ⚠️  ${errorMsg}`);
+        }
+      }
     } catch (error) {
       const errorMsg = `Cache initialization failed: ${error instanceof Error ? error.message : "Unknown error"}`;
       warnings.push(errorMsg);

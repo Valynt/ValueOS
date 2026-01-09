@@ -5,6 +5,8 @@
  * Only initializes in production environment.
  */
 
+import { logger } from './logger';
+import { getConfig, isDevelopment, isProduction } from '../config/environment';
 import * as Sentry from '@sentry/react';
 import { logger } from './logger';
 import { getConfig, isProduction } from '../config/environment';
