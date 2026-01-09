@@ -1,12 +1,11 @@
 # Production Environment Terraform Configuration
 #
-# - Multi-AZ RDS with read replicas
+# - Supabase hosted Postgres (managed externally)
 # - Auto-scaling groups
 # - CDN (CloudFront/equivalent)
 # - WAF + Shield (DDoS protection)
 # - Secrets Manager + KMS encryption
 # - VPC with strict NACLs
-# - Private database endpoints
 # - Disaster recovery (cross-region backups)
 # - Immutable deployments
 # - Blue-green deployment strategy
@@ -108,21 +107,6 @@ resource "aws_subnet" "private" {
   )
 }
 
-resource "aws_subnet" "database" {
-  count = 3
-
-  vpc_id            = aws_vpc.prod.id
-  cidr_block        = "10.2.${count.index + 20}.0/24"
-  availability_zone = data.aws_availability_zones.available.names[count.index]
-
-  tags = merge(
-    local.common_tags,
-    {
-      Name = "${local.name_prefix}-database-${count.index + 1}"
-      Type = "Database"
-    }
-  )
-}
 
 # Network ACLs (strict security)
 resource "aws_network_acl" "prod" {
@@ -250,17 +234,6 @@ resource "aws_route_table" "private" {
   )
 }
 
-resource "aws_route_table" "database" {
-  vpc_id = aws_vpc.prod.id
-
-  # No internet access for database subnets
-  tags = merge(
-    local.common_tags,
-    {
-      Name = "${local.name_prefix}-database-rt"
-    }
-  )
-}
 
 # Route Table Associations
 resource "aws_route_table_association" "public" {
@@ -277,12 +250,6 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private[count.index].id
 }
 
-resource "aws_route_table_association" "database" {
-  count = length(aws_subnet.database)
-
-  subnet_id      = aws_subnet.database[count.index].id
-  route_table_id = aws_route_table.database.id
-}
 
 # Production Security Groups (strict)
 resource "aws_security_group" "prod_app" {
@@ -331,34 +298,6 @@ resource "aws_security_group" "prod_app" {
   )
 }
 
-resource "aws_security_group" "prod_db" {
-  name_prefix = "${local.name_prefix}-db-"
-  vpc_id      = aws_vpc.prod.id
-
-  # Allow database access only from app
-  ingress {
-    description     = "Allow PostgreSQL from app"
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [aws_security_group.prod_app.id]
-  }
-
-  egress {
-    description = "Allow all outbound traffic"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = merge(
-    local.common_tags,
-    {
-      Name = "${local.name_prefix}-db-sg"
-    }
-  )
-}
 
 resource "aws_security_group" "prod_alb" {
   name_prefix = "${local.name_prefix}-alb-"
@@ -397,73 +336,6 @@ resource "aws_security_group" "prod_alb" {
   )
 }
 
-# Production RDS (multi-AZ with read replicas)
-resource "aws_db_instance" "prod_primary" {
-  identifier = "${local.name_prefix}-postgres-primary"
-
-  engine         = "postgres"
-  engine_version = "14.10"
-  instance_class = "db.t3.medium"
-
-  allocated_storage     = 500
-  max_allocated_storage = 2000
-  storage_type          = "gp2"
-  storage_encrypted     = true
-
-  db_name  = "valuecanvas_prod"
-  username = "prod_user"
-  password = "prod_secure_password_change_me"
-
-  vpc_security_group_ids = [aws_security_group.prod_db.id]
-  db_subnet_group_name   = aws_db_subnet_group.prod.name
-
-  backup_retention_period = 30
-  backup_window          = "03:00-04:00"
-  maintenance_window     = "sun:04:00-sun:05:00"
-
-  multi_az               = true
-  deletion_protection    = true
-
-  tags = merge(
-    local.common_tags,
-    {
-      Name = "${local.name_prefix}-postgres-primary"
-    }
-  )
-}
-
-resource "aws_db_instance" "prod_replica" {
-  count = 2
-
-  identifier = "${local.name_prefix}-postgres-replica-${count.index + 1}"
-
-  replicate_source_db = aws_db_instance.prod_primary.identifier
-  instance_class      = "db.t3.medium"
-
-  vpc_security_group_ids = [aws_security_group.prod_db.id]
-  db_subnet_group_name   = aws_db_subnet_group.prod.name
-
-  skip_final_snapshot = true
-
-  tags = merge(
-    local.common_tags,
-    {
-      Name = "${local.name_prefix}-postgres-replica-${count.index + 1}"
-    }
-  )
-}
-
-resource "aws_db_subnet_group" "prod" {
-  name       = "${local.name_prefix}-subnet-group"
-  subnet_ids = aws_subnet.database[*].id
-
-  tags = merge(
-    local.common_tags,
-    {
-      Name = "${local.name_prefix}-subnet-group"
-    }
-  )
-}
 
 # Production Redis (cluster mode enabled)
 resource "aws_elasticache_subnet_group" "prod" {
@@ -735,12 +607,12 @@ resource "aws_secretsmanager_secret_version" "prod" {
   secret_id = aws_secretsmanager_secret.prod.id
   
   secret_string = jsonencode({
-    database_url      = aws_db_instance.prod_primary.endpoint
     redis_endpoint    = aws_elasticache_replication_group.prod.primary_endpoint_address
     jwt_secret        = "prod_jwt_secret_change_immediately"
     together_api_key  = "prod_together_api_key"
     supabase_url      = "https://prod.supabase.co"
     supabase_anon_key = "prod_supabase_anon_key"
+    supabase_service_key = "prod_supabase_service_key"
   })
 }
 
@@ -883,18 +755,6 @@ resource "aws_lambda_function" "secret_rotation" {
 output "vpc_id" {
   description = "Production VPC ID"
   value       = aws_vpc.prod.id
-}
-
-output "database_endpoint" {
-  description = "Production database endpoint"
-  value       = aws_db_instance.prod_primary.endpoint
-  sensitive   = true
-}
-
-output "database_replicas" {
-  description = "Production database replica endpoints"
-  value       = aws_db_instance.prod_replica[*].endpoint
-  sensitive   = true
 }
 
 output "redis_endpoint" {

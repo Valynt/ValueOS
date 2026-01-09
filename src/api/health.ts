@@ -199,7 +199,7 @@ async function checkSupabase(): Promise<DependencyStatus> {
 }
 
 /**
- * Check database connectivity (direct PostgreSQL)
+ * Check database connectivity (Supabase Postgres)
  */
 async function checkDatabase(): Promise<DependencyStatus> {
   const startTime = Date.now();
