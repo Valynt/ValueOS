@@ -18,6 +18,7 @@ import CustomerService from './billing/CustomerService';
 import SubscriptionService from './billing/SubscriptionService';
 import { PlanTier } from '../config/billing';
 import { createServerSupabaseClient } from '../lib/supabase';
+import { emailService } from './EmailService';
 
 /**
  * Tenant tier
@@ -598,18 +599,17 @@ async function sendWelcomeEmail(config: TenantConfig): Promise<void> {
     return;
   }
 
-  // TODO: Implement email sending
-  // await emailService.send({
-  //   to: config.ownerEmail,
-  //   subject: `Welcome to ValueCanvas - ${config.name}`,
-  //   template: 'welcome',
-  //   data: {
-  //     organizationName: config.name,
-  //     tier: config.tier,
-  //     features: TIER_FEATURES[config.tier],
-  //     limits: TIER_LIMITS[config.tier],
-  //   },
-  // });
+  await emailService.send({
+    to: config.ownerEmail,
+    subject: `Welcome to ValueCanvas - ${config.name}`,
+    template: 'welcome',
+    data: {
+      organizationName: config.name,
+      tier: config.tier,
+      features: TIER_FEATURES[config.tier],
+      limits: TIER_LIMITS[config.tier],
+    },
+  });
 
   logger.debug(`Welcome email sent to ${config.ownerEmail}`);
 }
