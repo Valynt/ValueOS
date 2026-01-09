@@ -14,6 +14,8 @@ import {
 import { initializeAgents, SystemHealth } from "./services/AgentInitializer";
 import { initializeSecurity, validateSecurity } from "./security";
 import { createLogger, logger as globalLogger, setupMonitoring } from "./lib/logger";
+import { initializeSentry } from "./lib/sentry";
+import { checkDatabaseConnection } from "./lib/database";
 
 /**
  * Bootstrap result
@@ -226,11 +228,8 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
     onProgress?.("Initializing error tracking...");
     logger.info("\n📊 Step 5: Initializing Sentry");
     try {
-      // TODO: Initialize Sentry
-      // await initializeSentry(config.monitoring.sentry);
-      logger.info("   ⚠️  Sentry initialization not implemented yet");
-      warnings.push("Sentry initialization not implemented");
-      onWarning?.("Sentry initialization not implemented");
+      await initializeSentry();
+      logger.info("   ✅ Sentry initialized");
     } catch (error) {
       const errorMsg = `Failed to initialize Sentry: ${error instanceof Error ? error.message : "Unknown error"}`;
       warnings.push(errorMsg);
@@ -334,16 +333,57 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
     onProgress?.("Checking database connection...");
     logger.info("\n💾 Step 7: Database connection");
     try {
-      // TODO: Check database connection
-      // await checkDatabaseConnection();
-      logger.info("   ⚠️  Database connection check not implemented yet");
-      warnings.push("Database connection check not implemented");
-      onWarning?.("Database connection check not implemented");
+      // Use shorter retry strategy for development to improve startup time
+      const maxRetries = isDevelopment() ? 3 : 5;
+      const retryDelay = isDevelopment() ? 500 : 1000;
+
+      const dbHealth = await checkDatabaseConnection(maxRetries, retryDelay);
+
+      if (dbHealth.connected) {
+        logger.info(`   ✅ Database connected (${dbHealth.latency}ms)`);
+      } else {
+        const errorMsg = `Database connection failed: ${dbHealth.error || "Unknown error"}`;
+
+        if (failFast) {
+          errors.push(errorMsg);
+          onError?.(errorMsg);
+          logger.error(`   ❌ ${errorMsg}`);
+
+          return {
+            success: false,
+            config,
+            agentHealth,
+            errors,
+            warnings,
+            duration: Date.now() - startTime,
+          };
+        } else {
+          warnings.push(errorMsg);
+          onWarning?.(errorMsg);
+          logger.warn(`   ⚠️  ${errorMsg}`);
+        }
+      }
     } catch (error) {
-      const errorMsg = `Database connection failed: ${error instanceof Error ? error.message : "Unknown error"}`;
-      warnings.push(errorMsg);
-      onWarning?.(errorMsg);
-      logger.warn(`   ⚠️  ${errorMsg}`);
+      const errorMsg = `Database connection check failed: ${error instanceof Error ? error.message : "Unknown error"}`;
+
+      if (failFast) {
+        errors.push(errorMsg);
+        onError?.(errorMsg);
+        logger.error(`   ❌ ${errorMsg}`);
+
+        return {
+          success: false,
+          config,
+          agentHealth,
+          errors,
+          warnings,
+          duration: Date.now() - startTime,
+        };
+      } else {
+        warnings.push(errorMsg);
+        onWarning?.(errorMsg);
+        logger.warn(`   ⚠️  ${errorMsg}`);
+      }
     }
   } else {
     logger.info("\n💾 Step 7: Database not configured");
