@@ -6,7 +6,7 @@
  */
 
 import { logger } from '../lib/logger';
-import { SDUIUpdate } from '../types/sdui-integration';
+import { SDUIUpdate, WorkspaceState } from '../types/sdui-integration';
 import { WebSocketManager, WebSocketMessage } from './WebSocketManager';
 import { workspaceStateService } from './WorkspaceStateService';
 
@@ -93,6 +93,7 @@ export class RealtimeUpdateService extends BrowserEventEmitter {
   private workspaceId: string | null = null;
   private userId: string | null = null;
   private conflictResolutionStrategy: ConflictResolutionStrategy = 'last_write_wins';
+  private lastProcessedUpdates: Map<string, SDUIUpdate> = new Map();
 
   constructor(wsManager?: WebSocketManager) {
     super();
@@ -184,7 +185,7 @@ export class RealtimeUpdateService extends BrowserEventEmitter {
   /**
    * Subscribe to updates
    */
-  onUpdate(_callback: (update: SDUIUpdate) => void): Unsubscribe {
+  onUpdate(callback: (update: SDUIUpdate) => void): Unsubscribe {
     if (!this.workspaceId) {
       throw new Error('Not connected to any workspace');
     }
@@ -216,8 +217,8 @@ export class RealtimeUpdateService extends BrowserEventEmitter {
    * Resolve conflict between local and remote changes
    */
   async resolveConflict(
-    _localVersion: number,
-    _remoteVersion: number,
+    localVersion: number,
+    remoteVersion: number,
     localChanges: Record<string, unknown>,
     remoteChanges: Record<string, unknown>
   ): Promise<ConflictResolution> {
@@ -283,7 +284,7 @@ export class RealtimeUpdateService extends BrowserEventEmitter {
   /**
    * Set conflict resolution strategy
    */
-  setConflictResolutionStrategy(_strategy: ConflictResolutionStrategy): void {
+  setConflictResolutionStrategy(strategy: ConflictResolutionStrategy): void {
     this.conflictResolutionStrategy = strategy;
     logger.info('Conflict resolution strategy set', { strategy });
   }
@@ -325,7 +326,7 @@ export class RealtimeUpdateService extends BrowserEventEmitter {
   /**
    * Handle incoming update
    */
-  private async handleIncomingUpdate(_payload: any): Promise<void> {
+  private async handleIncomingUpdate(payload: any): Promise<void> {
     const { workspaceId, update } = payload;
 
     logger.info('Received update', {
@@ -339,16 +340,40 @@ export class RealtimeUpdateService extends BrowserEventEmitter {
       const currentState = await workspaceStateService.getState(workspaceId);
       const hasConflict = this.detectConflict(currentState, update);
 
+      let updateToApply = update;
+
       if (hasConflict) {
-        logger.warn('Conflict detected', { workspaceId });
-        // TODO: Implement conflict resolution
+        const lastUpdate = this.lastProcessedUpdates.get(workspaceId);
+        const localChanges = this.extractUpdateChanges(lastUpdate);
+        const remoteChanges = this.extractUpdateChanges(update);
+        const resolution = await this.resolveConflict(
+          currentState.version,
+          update.timestamp,
+          localChanges,
+          remoteChanges
+        );
+
+        updateToApply = this.buildResolvedUpdate(update, resolution.resolved);
+
+        logger.warn('Conflict detected and resolved', {
+          workspaceId,
+          strategy: resolution.strategy,
+          conflicts: resolution.conflicts,
+        });
+
+        this.emit('conflict_resolved', {
+          workspaceId,
+          resolution,
+          update: updateToApply,
+        });
       }
 
       // Notify subscribers
-      this.notifySubscribers(workspaceId, update);
+      this.lastProcessedUpdates.set(workspaceId, updateToApply);
+      this.notifySubscribers(workspaceId, updateToApply);
 
       // Emit event
-      this.emit('update_received', { workspaceId, update });
+      this.emit('update_received', { workspaceId, update: updateToApply });
     } catch (error) {
       logger.error('Failed to handle incoming update', {
         workspaceId,
@@ -380,10 +405,19 @@ export class RealtimeUpdateService extends BrowserEventEmitter {
   /**
    * Detect conflict
    */
-  private detectConflict(_currentState: any, _update: SDUIUpdate): boolean {
-    // Simple version-based conflict detection
-    // In production, this would be more sophisticated
-    return false;
+  private detectConflict(currentState: WorkspaceState, update: SDUIUpdate): boolean {
+    const stateUpdatedAt = currentState?.lastUpdated ?? 0;
+    const lastUpdate = this.lastProcessedUpdates.get(update.workspaceId);
+
+    if (lastUpdate) {
+      const sameMoment = update.timestamp === lastUpdate.timestamp;
+      const olderThanLast = update.timestamp < lastUpdate.timestamp;
+      if ((sameMoment || olderThanLast) && lastUpdate.source !== update.source) {
+        return true;
+      }
+    }
+
+    return update.timestamp <= stateUpdatedAt;
   }
 
   /**
@@ -408,6 +442,37 @@ export class RealtimeUpdateService extends BrowserEventEmitter {
     }
 
     return merged;
+  }
+
+  /**
+   * Extract comparable changes from an update
+   */
+  private extractUpdateChanges(update?: SDUIUpdate): Record<string, unknown> {
+    if (!update) {
+      return {};
+    }
+
+    return {
+      type: update.type,
+      schema: update.schema,
+      actions: update.actions,
+      timestamp: update.timestamp,
+      source: update.source,
+    };
+  }
+
+  /**
+   * Build a resolved update from conflict resolution output
+   */
+  private buildResolvedUpdate(baseUpdate: SDUIUpdate, resolved: Record<string, unknown>): SDUIUpdate {
+    return {
+      type: (resolved.type as SDUIUpdate['type']) ?? baseUpdate.type,
+      workspaceId: baseUpdate.workspaceId,
+      schema: (resolved.schema as SDUIUpdate['schema']) ?? baseUpdate.schema,
+      actions: (resolved.actions as SDUIUpdate['actions']) ?? baseUpdate.actions,
+      timestamp: (resolved.timestamp as number) ?? baseUpdate.timestamp,
+      source: (resolved.source as string) ?? baseUpdate.source,
+    };
   }
 
   /**
