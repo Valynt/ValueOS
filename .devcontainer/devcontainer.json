@@ -1,6 +1,12 @@
 {
   "name": "ValueOS",
   "image": "mcr.microsoft.com/devcontainers/typescript-node:1-20-bookworm",
+  "remoteUser": "vscode",
+  "containerUser": "vscode",
+
+  "mounts": [
+    "source=valueos-node-modules,target=${containerWorkspaceFolder}/node_modules,type=volume"
+  ],
 
   "features": {
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
@@ -10,6 +16,9 @@
   },
 
   "runArgs": ["--add-host=host.docker.internal:host-gateway"],
+
+  // Runs when container is first created
+  "postCreateCommand": "./.devcontainer/scripts/setup-audit-tools.sh",
 
   // Runs every time the container starts up
   // "postStartCommand": "chmod +x ./.devcontainer/bridge.sh && ./.devcontainer/bridge.sh && (npm run dev > /tmp/vite.log 2>&1 &)",

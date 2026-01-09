@@ -1,10 +1,8 @@
-# Backend API Server Dockerfile
-FROM node:20-alpine
+# Multi-stage production build for Backend API Server
+# Stage 1: Build environment (using same base as dev for consistency)
+FROM mcr.microsoft.com/devcontainers/typescript-node:1-20-bookworm AS builder
 
 WORKDIR /app
-
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
 
 # Copy package files
 COPY package*.json .npmrc ./
@@ -19,11 +17,45 @@ COPY . .
 # Build the backend application
 RUN npm run build:backend || npx tsc -p tsconfig.backend.json
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001 && \
+# Prune dev dependencies for production
+RUN npm prune --production
+
+# Stage 2: Security scanning
+FROM builder AS security-scan
+
+# Install trivy for vulnerability scanning
+RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+# Scan filesystem for vulnerabilities
+RUN trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /app
+
+# Stage 3: Production runtime
+FROM node:20-bookworm-slim AS production
+
+# Install dumb-init for proper signal handling
+RUN apt-get update && apt-get install -y --no-install-recommends dumb-init && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Create non-root user (matching dev environment security)
+RUN groupadd -r nodejs -g 1001 && \
+    useradd -r nodejs -u 1001 -g nodejs && \
     chown -R nodejs:nodejs /app
 
+# Copy built application and production dependencies
+COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
+
+# Runtime security scan (final check)
+RUN apt-get update && apt-get install -y curl && \
+    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin && \
+    trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /app && \
+    apt-get remove -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/* && \
+    rm /usr/local/bin/trivy
+
+# Switch to non-root user
 USER nodejs
 
 # Add healthcheck
