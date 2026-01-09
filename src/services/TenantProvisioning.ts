@@ -573,15 +573,6 @@ async function initializeBilling(config: TenantConfig): Promise<void> {
       );
     }
 
-    // 3. Configure payment method if provided
-    // (Usually skipped during initial provisioning unless coming from checkout flow)
-    if (config.settings?.paymentMethodId) {
-      await CustomerService.updatePaymentMethod(
-        config.organizationId,
-        config.settings.paymentMethodId
-      );
-    }
-
     // 4. Create subscription
     // Use mapped plan tier
     await SubscriptionService.createSubscription(
