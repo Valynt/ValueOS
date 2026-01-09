@@ -113,7 +113,6 @@ app.use(
   })
 );
 app.use(express.json());
-app.use(express.raw({ type: "application/json" }));
 app.use(securityHeadersMiddleware);
 app.use(metricsMiddleware());
 app.use(requestAuditMiddleware());
