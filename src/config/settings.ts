@@ -35,9 +35,9 @@ let managedSecrets: Record<string, string> = {};
 // optimization: Skip secret hydration in development to prevent startup hangs
 // caused by unreachable Vault/AWS endpoints
 // We use import.meta.env.SSR check if available (Vite), otherwise runtime check
-const isSsrBuild = import.meta.env?.SSR;
+const isViteSsrBuild = import.meta.env?.SSR;
 
-if ((isSsrBuild || isServer) && !runtimeEnv.isDevelopment) {
+if ((isViteSsrBuild || isServer) && !runtimeEnv.isDevelopment) {
   try {
     // Use a variable to prevent Vite from analyzing this as a static import in client build
     const hydratorPath = "./secrets/SecretHydrator";
