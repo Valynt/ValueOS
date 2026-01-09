@@ -1,4 +1,4 @@
-/**
+**
  * Unified environment adapter for both server and browser runtimes.
  * All code should import helpers from this module instead of touching
  * `process.env` or `import.meta.env` directly.
@@ -13,7 +13,7 @@ const detectIsServer = (): boolean =>
 
 const resolveEnvSource = (): EnvRecord => {
   if (detectIsServer() && typeof process !== "undefined" && process.env) {
-    return process.env;
+    return process.env as unknown as EnvRecord;
   }
 
   if (typeof import.meta !== "undefined") {
@@ -105,4 +105,33 @@ export function __setEnvSourceForTests(source: EnvRecord): void {
  */
 export function __getEnvSourceForTests(): EnvRecord {
   return { ...envSource };
+}
+
+/**
+ * Runtime helper: set a var in Node environments (and keep the adapter in sync).
+ * No-op in browser builds.
+ */
+export function setEnvVar(key: string, value: string): void {
+  if (typeof process !== "undefined" && process.env) {
+    process.env[key] = value;
+
+    // Keep the cached adapter source in sync if it isn't process.env
+    if (envSource !== (process.env as unknown as EnvRecord)) {
+      envSource = { ...envSource, [key]: value };
+    }
+  }
+}
+
+/**
+ * Test helper: set a var and ensure envSource reflects it (even if tests stub env).
+ */
+export function setEnvVarForTests(key: string, value: string): void {
+  setEnvVar(key, value);
+
+  const procEnv: EnvRecord =
+    typeof process !== "undefined" && process.env
+      ? (process.env as unknown as EnvRecord)
+      : {};
+
+  __setEnvSourceForTests({ ...procEnv, [key]: value });
 }

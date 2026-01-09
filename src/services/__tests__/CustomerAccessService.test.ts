@@ -2,11 +2,15 @@
  * Customer Access Service Tests
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi, afterEach } from 'vitest';
 import { CustomerAccessService } from '../CustomerAccessService';
 import { supabase } from '../../lib/supabase';
+import { emailService } from '../EmailService';
+import { logger } from '../../lib/logger';
 
-// Mock Supabase
+// Mock dependencies
+vi.mock('../EmailService');
+vi.mock('../../lib/logger');
 vi.mock('../../lib/supabase', () => ({
   supabase: {
     rpc: vi.fn(),
@@ -284,6 +288,37 @@ describe('CustomerAccessService', () => {
 
       expect(result.token).toBe(newToken);
       expect(supabase.rpc).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('sendPortalAccessEmail', () => {
+    it('should send an email using emailService', async () => {
+      const email = 'customer@example.com';
+      const companyName = 'Acme Corp';
+      const portalUrl = 'https://app.valuecanvas.com/customer/portal?token=123';
+
+      await service.sendPortalAccessEmail(email, companyName, portalUrl);
+
+      expect(emailService.send).toHaveBeenCalledWith({
+        to: email,
+        subject: `Your ${companyName} Value Realization Portal`,
+        template: 'customer-portal-access',
+        data: { companyName, portalUrl }
+      });
+    });
+
+    it('should log an error if email sending fails', async () => {
+      const email = 'customer@example.com';
+      const companyName = 'Acme Corp';
+      const portalUrl = 'https://app.valuecanvas.com/customer/portal?token=123';
+      const error = new Error('Email failed');
+
+      // Mock emailService.send to throw an error
+      vi.mocked(emailService.send).mockRejectedValueOnce(error);
+
+      await expect(service.sendPortalAccessEmail(email, companyName, portalUrl)).rejects.toThrow(error);
+
+      expect(logger.error).toHaveBeenCalledWith('Error sending portal access email', error);
     });
   });
 });

@@ -76,34 +76,13 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 /**
- * Extract JWT from Authorization header or cookie
+ * Extract JWT from Authorization header.
  */
-const SUPABASE_COOKIE_NAMES = ['sb-access-token', 'sb_access_token'];
-
-function parseCookieHeader(raw?: string): Record<string, string> {
-  if (!raw) return {};
-  return raw.split(';').reduce<Record<string, string>>((cookies, part) => {
-    const [key, ...rest] = part.trim().split('=');
-    if (!key) return cookies;
-    cookies[key] = decodeURIComponent(rest.join('=') || '');
-    return cookies;
-  }, {});
-}
-
 function extractToken(req: Request): string | null {
   // Check Authorization header
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     return authHeader.substring(7);
-  }
-
-  // Check cookie
-  const cookies = (req as any).cookies ?? parseCookieHeader(req.headers.cookie);
-  for (const name of SUPABASE_COOKIE_NAMES) {
-    const cookieToken = cookies?.[name];
-    if (cookieToken) {
-      return cookieToken;
-    }
   }
 
   return null;

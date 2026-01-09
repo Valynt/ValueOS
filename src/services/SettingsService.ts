@@ -413,6 +413,27 @@ export class SettingsService extends TenantAwareService {
   }
 
   /**
+   * Initialize default organization settings
+   * @param organizationId - Organization identifier
+   * @param settings - Settings object
+   * @param userId - User identifier (required for access check)
+   */
+  async initializeOrganizationSettings(
+    organizationId: string,
+    settings: Record<string, any>,
+    userId: string
+  ): Promise<Setting[]> {
+    this.log('info', 'Initializing organization settings', { organizationId, count: Object.keys(settings).length });
+
+    return this.bulkUpdateSettings(
+      'organization',
+      organizationId,
+      settings,
+      userId
+    );
+  }
+
+  /**
    * Serialize value for storage
    */
   private serializeValue(value: any, type: Setting['type']): string {
@@ -458,11 +479,6 @@ export class SettingsService extends TenantAwareService {
           return value;
       }
     } catch (error) {
-        type,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        valueLength: value.length
-      });
-
       // Log security event for failed deserialization
       logger.warn('Setting deserialization failed - potential security issue', {
         type,

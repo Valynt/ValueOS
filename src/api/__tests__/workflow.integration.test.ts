@@ -8,6 +8,7 @@ import request from 'supertest';
 import express from 'express';
 import workflowRouter from '../workflow';
 import { Client } from 'pg';
+import { getDatabaseUrl } from '../../config/database';
 
 const app = express();
 app.use(express.json());
@@ -21,12 +22,18 @@ describe('Workflow API Integration', () => {
   let dbClient: Client;
   const testExecutionId = 'test-exec-001';
   const testStepId = 'test-step-001';
+  const resolveDatabaseUrl = () => {
+    const databaseUrl = getDatabaseUrl();
+    if (!databaseUrl) {
+      console.warn('DATABASE_URL not set, skipping integration tests');
+    }
+    return databaseUrl;
+  };
   const testTenantId = 'test-tenant-001';
 
   beforeAll(async () => {
-    const dbUrl = process.env.DATABASE_URL;
+    const dbUrl = resolveDatabaseUrl();
     if (!dbUrl) {
-      console.warn('DATABASE_URL not set, skipping integration tests');
       return;
     }
 
@@ -92,8 +99,7 @@ describe('Workflow API Integration', () => {
     });
 
     it('should return explanation for valid execution step', async () => {
-      if (!process.env.DATABASE_URL) {
-        console.warn('Skipping test - DATABASE_URL not set');
+      if (!resolveDatabaseUrl()) {
         return;
       }
 
@@ -112,8 +118,7 @@ describe('Workflow API Integration', () => {
     });
 
     it('should return 404 for non-existent execution', async () => {
-      if (!process.env.DATABASE_URL) {
-        console.warn('Skipping test - DATABASE_URL not set');
+      if (!resolveDatabaseUrl()) {
         return;
       }
 
@@ -127,8 +132,7 @@ describe('Workflow API Integration', () => {
     });
 
     it('should sanitize evidence data', async () => {
-      if (!process.env.DATABASE_URL) {
-        console.warn('Skipping test - DATABASE_URL not set');
+      if (!resolveDatabaseUrl()) {
         return;
       }
 
@@ -149,8 +153,7 @@ describe('Workflow API Integration', () => {
     });
 
     it('should handle missing reasoning gracefully', async () => {
-      if (!process.env.DATABASE_URL) {
-        console.warn('Skipping test - DATABASE_URL not set');
+      if (!resolveDatabaseUrl()) {
         return;
       }
 
@@ -186,8 +189,7 @@ describe('Workflow API Integration', () => {
     });
 
     it('should handle missing evidence gracefully', async () => {
-      if (!process.env.DATABASE_URL) {
-        console.warn('Skipping test - DATABASE_URL not set');
+      if (!resolveDatabaseUrl()) {
         return;
       }
 
@@ -223,8 +225,7 @@ describe('Workflow API Integration', () => {
     });
 
     it('should return null confidence when not available', async () => {
-      if (!process.env.DATABASE_URL) {
-        console.warn('Skipping test - DATABASE_URL not set');
+      if (!resolveDatabaseUrl()) {
         return;
       }
 
@@ -294,8 +295,7 @@ describe('Workflow API Integration', () => {
 
   describe('Error Handling', () => {
     it('should handle database errors gracefully', async () => {
-      if (!process.env.DATABASE_URL) {
-        console.warn('Skipping test - DATABASE_URL not set');
+      if (!resolveDatabaseUrl()) {
         return;
       }
 
@@ -309,8 +309,7 @@ describe('Workflow API Integration', () => {
     });
 
     it('should return 500 on unexpected errors', async () => {
-      if (!process.env.DATABASE_URL) {
-        console.warn('Skipping test - DATABASE_URL not set');
+      if (!resolveDatabaseUrl()) {
         return;
       }
 
@@ -338,8 +337,7 @@ describe('Workflow API Integration', () => {
     });
 
     it('should sanitize SQL injection attempts', async () => {
-      if (!process.env.DATABASE_URL) {
-        console.warn('Skipping test - DATABASE_URL not set');
+      if (!resolveDatabaseUrl()) {
         return;
       }
 
@@ -365,8 +363,7 @@ describe('Workflow API Integration', () => {
 
   describe('Performance', () => {
     it('should respond within acceptable time', async () => {
-      if (!process.env.DATABASE_URL) {
-        console.warn('Skipping test - DATABASE_URL not set');
+      if (!resolveDatabaseUrl()) {
         return;
       }
 

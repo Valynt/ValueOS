@@ -56,6 +56,49 @@ describe('tenantContextMiddleware', () => {
     expect(res.status).not.toHaveBeenCalled();
   });
 
+  it('blocks tenant header when service identity is not verified', async () => {
+    const req = {
+      header: vi.fn((name: string) => (name === 'x-tenant-id' ? 'tenant-spoof' : undefined)),
+      params: {},
+      user: { id: 'user-999' },
+    } as any;
+    const res = mockRes();
+    const next = vi.fn();
+
+    await tenantContextMiddleware()(req, res as any, next);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'Forbidden',
+      message: 'Tenant header is restricted to internal service requests.',
+    });
+    expect(next).not.toHaveBeenCalled();
+    expect(req.tenantId).toBeUndefined();
+    expect(verifyTenantMembership).not.toHaveBeenCalled();
+  });
+
+  it('requires tenant membership verification for user tenants', async () => {
+    (verifyTenantMembership as unknown as { mockResolvedValue: (value: boolean) => void }).mockResolvedValue(false);
+
+    const req = {
+      header: vi.fn(() => undefined),
+      params: {},
+      user: { id: 'user-222', tenant_id: 'tenant-222' },
+    } as any;
+    const res = mockRes();
+    const next = vi.fn();
+
+    await tenantContextMiddleware()(req, res as any, next);
+
+    expect(verifyTenantMembership).toHaveBeenCalledWith('user-222', 'tenant-222');
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'Forbidden',
+      message: 'User does not belong to tenant.',
+    });
+    expect(next).not.toHaveBeenCalled();
+  });
+
   it('falls back to user tenant lookup when no candidate provided', async () => {
     (getUserTenantId as unknown as { mockResolvedValue: (value: string) => void }).mockResolvedValue('tenant-lookup');
 

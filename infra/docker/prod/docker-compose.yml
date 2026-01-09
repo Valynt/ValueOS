@@ -10,20 +10,12 @@ services:
       - "8000:8000"
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=${PROD_DATABASE_URL}
       - REDIS_URL=${PROD_REDIS_URL}
-      - UV_THREADPOOL_SIZE=${UV_THREADPOOL_SIZE:-8}
-      - PG_POOL_MIN=${PG_POOL_MIN:-4}
-      - PG_POOL_MAX=${PG_POOL_MAX:-40}
-      - PG_POOL_IDLE_TIMEOUT_MS=${PG_POOL_IDLE_TIMEOUT_MS:-10000}
-      - PG_POOL_CONNECTION_TIMEOUT_MS=${PG_POOL_CONNECTION_TIMEOUT_MS:-2000}
     env_file:
       - ../../.env.prod
     networks:
       - prod-network
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
     restart: always
@@ -46,41 +38,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
-  postgres:
-    image: postgres:15-alpine
-    container_name: prod-postgres
-    environment:
-      POSTGRES_DB: ${PROD_DB_NAME}
-      POSTGRES_USER: ${PROD_DB_USER}
-      POSTGRES_PASSWORD: ${PROD_DB_PASSWORD}
-    volumes:
-      - prod-postgres-data:/var/lib/postgresql/data
-      - ./postgres-backup:/backup
-    networks:
-      - prod-network
-    restart: always
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${PROD_DB_USER}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  postgres-exporter:
-    image: quay.io/prometheuscommunity/postgres-exporter:v0.16.0
-    container_name: prod-postgres-exporter
-    env_file:
-      - ../../.env.prod
-    environment:
-      DATA_SOURCE_NAME: postgresql://${PROD_DB_USER}:${PROD_DB_PASSWORD}@postgres:5432/${PROD_DB_NAME}?sslmode=disable
-      PG_EXPORTER_EXTEND_QUERY_PATH: /etc/postgres_exporter/queries.yml
-    volumes:
-      - ../../infrastructure/postgres-exporter-queries.yml:/etc/postgres_exporter/queries.yml:ro
-    networks:
-      - prod-network
-    depends_on:
-      - postgres
-    restart: always
 
   redis:
     image: redis:7-alpine
@@ -118,5 +75,4 @@ networks:
     driver: bridge
 
 volumes:
-  prod-postgres-data:
   prod-redis-data:

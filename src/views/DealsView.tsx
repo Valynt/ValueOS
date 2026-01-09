@@ -24,15 +24,23 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/components/Common/Toast";
 import { logger } from "@/lib/logger";
-import { ArrowLeft, Download, FileText } from "lucide-react";
+import { ArrowLeft, Download, FileText, Loader2 } from "lucide-react";
 import type { LifecycleStage } from "@/types/vos";
 import { useAuth } from "@/contexts/AuthContext";
+import { useExport } from "@/utils/export";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 export function DealsView() {
   const navigate = useNavigate();
   const { dealId } = useParams<{ dealId?: string }>();
   const { user } = useAuth();
   const { error: errorToast } = useToast();
+  const { exportElement, exportData, isExporting } = useExport();
 
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedDeal, setSelectedDeal] = useState<ValueCase | null>(null);
@@ -124,9 +132,45 @@ export function DealsView() {
     errorToast("Business case generation failed", error || "Please try again.");
   };
 
-  const handleExportBusinessCase = () => {
-    // TODO: Implement export functionality
-    logger.info("Exporting business case", { dealId: selectedDeal?.id });
+  const getExportData = () => {
+    if (!businessCase) return [];
+    const rows = [];
+
+    // Financials
+    if (businessCase.financial) {
+      rows.push({ Category: "Financial", Metric: "ROI", Value: `${businessCase.financial.roi}%` });
+      if (businessCase.financial.npv) {
+        rows.push({ Category: "Financial", Metric: "NPV", Value: businessCase.financial.npv });
+      }
+      if (businessCase.financial.payback) {
+        rows.push({ Category: "Financial", Metric: "Payback Period", Value: `${businessCase.financial.payback} months` });
+      }
+    }
+
+    // Opportunity
+    if (businessCase.opportunity) {
+       // Flatten opportunity metrics if simple enough, or just add high level scores
+       if (businessCase.opportunity.score) {
+          rows.push({ Category: "Opportunity", Metric: "Score", Value: businessCase.opportunity.score });
+       }
+    }
+
+    return rows;
+  };
+
+  const handleExportPDF = async () => {
+    if (!selectedDeal) return;
+    const filename = `${selectedDeal.company}_Business_Case`;
+    await exportElement("deals-view-content", "pdf", filename);
+    logger.info("Exported business case as PDF", { dealId: selectedDeal.id });
+  };
+
+  const handleExportCSV = async () => {
+    if (!selectedDeal || !businessCase) return;
+    const filename = `${selectedDeal.company}_Business_Case`;
+    const data = getExportData();
+    await exportData(data, filename, { format: "csv" });
+    logger.info("Exported business case as CSV", { dealId: selectedDeal.id });
   };
 
   // No deal selected - show deal selector
@@ -172,10 +216,26 @@ export function DealsView() {
             </div>
             <div className="flex items-center gap-2">
               {businessCase && (
-                <Button variant="outline" onClick={handleExportBusinessCase}>
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" disabled={isExporting}>
+                      {isExporting ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Download className="w-4 h-4 mr-2" />
+                      )}
+                      Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleExportPDF}>
+                      Export as PDF
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportCSV}>
+                      Export as CSV
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
               {user && (
                 <ShareCustomerButton
@@ -202,7 +262,7 @@ export function DealsView() {
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto p-6 max-w-7xl">
+      <div id="deals-view-content" className="container mx-auto p-6 max-w-7xl">
         <Tabs
           value={currentStage}
           onValueChange={(v) => handleStageChange(v as LifecycleStage)}

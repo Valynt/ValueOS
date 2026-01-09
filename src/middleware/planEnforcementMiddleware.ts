@@ -6,15 +6,79 @@
 import { NextFunction, Request, Response } from 'express';
 import UsageCache from '../services/metering/UsageCache';
 import GracePeriodService from '../services/metering/GracePeriodService';
-import { BillingMetric, GRACE_PERIOD_MS, isHardCap } from '../config/billing';
+import { BillingMetric, GRACE_PERIOD_MS, isHardCap, PlanTier } from '../config/billing';
 import { createLogger } from '../lib/logger';
+import SubscriptionService from '../services/billing/SubscriptionService';
+import { createServerSupabaseClient } from '../lib/supabase';
 
 const logger = createLogger({ component: 'PlanEnforcementMiddleware' });
+const PLAN_TIERS: PlanTier[] = ['free', 'standard', 'enterprise'];
+const DEFAULT_PLAN_TIER: PlanTier = 'free';
 
 interface EnforcementConfig {
   metric: BillingMetric;
   checkBeforeRequest?: boolean;
   hardCapOnly?: boolean;
+}
+
+function isPlanTier(value: unknown): value is PlanTier {
+  return typeof value === 'string' && PLAN_TIERS.includes(value as PlanTier);
+}
+
+async function resolvePlanTier(req: Request, tenantId: string): Promise<PlanTier> {
+  const userTier = (req as any)?.user?.subscription_tier
+    ?? (req as any)?.user?.plan_tier
+    ?? (req as any)?.user?.planTier;
+
+  if (isPlanTier(userTier)) {
+    return userTier;
+  }
+
+  const tenantSettingsTier = (req as any)?.tenantSettings?.billing?.planTier;
+  if (isPlanTier(tenantSettingsTier)) {
+    return tenantSettingsTier;
+  }
+
+  try {
+    const subscription = await SubscriptionService.getActiveSubscription(tenantId);
+    if (isPlanTier(subscription?.plan_tier)) {
+      return subscription.plan_tier;
+    }
+  } catch (error) {
+    logger.warn('Failed to resolve plan tier from subscription', {
+      tenantId,
+      error: error instanceof Error ? error.message : error,
+    });
+  }
+
+  // Try to get from organizations table (source of truth for configuration)
+  try {
+    const supabase = createServerSupabaseClient();
+    const { data: org, error } = await supabase
+      .from('organizations')
+      .select('tier')
+      .eq('id', tenantId)
+      .single();
+
+    if (!error && org) {
+      let tier = org.tier;
+      // Map tenant tier to plan tier
+      if (tier === 'professional' || tier === 'starter') {
+        tier = 'standard';
+      }
+
+      if (isPlanTier(tier)) {
+        return tier as PlanTier;
+      }
+    }
+  } catch (error) {
+    logger.warn('Failed to resolve plan tier from organization', {
+      tenantId,
+      error: error instanceof Error ? error.message : error,
+    });
+  }
+
+  return DEFAULT_PLAN_TIER;
 }
 
 /**
@@ -32,11 +96,12 @@ export function createPlanEnforcement(config: EnforcementConfig) {
 
       const { metric, hardCapOnly = false } = config;
 
-      // Get current usage and quota
-      const [usage, quota, isOver] = await Promise.all([
+      // Get current usage, quota, and plan tier
+      const [usage, quota, isOver, planTier] = await Promise.all([
         UsageCache.getCurrentUsage(tenantId, metric),
         UsageCache.getQuota(tenantId, metric),
         UsageCache.isOverQuota(tenantId, metric),
+        resolvePlanTier(req, tenantId),
       ]);
 
       // Check if over quota
@@ -52,7 +117,7 @@ export function createPlanEnforcement(config: EnforcementConfig) {
         });
 
         // Check if hard cap
-        const isHard = isHardCap('free', metric); // TODO: Get actual plan tier
+        const isHard = isHardCap(planTier, metric);
 
         if (isHard || hardCapOnly) {
           // Hard cap - reject immediately

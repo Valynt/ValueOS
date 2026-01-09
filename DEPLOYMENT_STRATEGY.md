@@ -9,6 +9,10 @@ ValueOS uses a **"slick" dev → stage → prod** deployment strategy with:
 - **Automated rollback** (on metrics degradation)
 - **Zero-downtime migrations** (expand-migrate-contract pattern)
 
+### Production Database Decision
+
+Production uses **hosted Supabase Postgres** as the only supported database backend. We do not provision or operate RDS in production; all database connectivity, migrations, and health checks are aligned to Supabase-managed Postgres.
+
 ---
 
 ## Quick Start

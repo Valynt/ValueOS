@@ -82,7 +82,6 @@ kubectl get namespaces
 
 ```bash
 kubectl create secret generic valuecanvas-secrets \
-  --from-literal=database-url="postgresql://..." \
   --from-literal=supabase-url="https://xxx.supabase.co" \
   --from-literal=supabase-anon-key="eyJ..." \
   --from-literal=supabase-service-key="eyJ..." \
@@ -204,7 +203,6 @@ Secrets are managed via Kubernetes secrets or AWS Secrets Manager:
 
 ```bash
 kubectl create secret generic valuecanvas-secrets \
-  --from-literal=database-url=<value> \
   --from-literal=supabase-url=<value> \
   --from-literal=supabase-anon-key=<value> \
   --from-literal=supabase-service-key=<value> \
