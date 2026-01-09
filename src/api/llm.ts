@@ -18,6 +18,7 @@ import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddlewa
 import { rateLimiters } from '../middleware/rateLimiter';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
 import { requireConsent } from '../middleware/consentMiddleware';
+import { consentRegistry } from '../services/consentRegistry';
 import { sanitizeAgentInput } from '../utils/security';
 import { requireAuth } from '../middleware/auth';
 
@@ -42,7 +43,7 @@ router.post(
   rateLimiters.agentExecution,
   csrfProtectionMiddleware,
   sessionTimeoutMiddleware,
-  requireConsent('llm.chat'),
+  requireConsent('llm.chat', consentRegistry),
   llmRateLimiter,
   async (req: Request, res: Response) => {
   try {
