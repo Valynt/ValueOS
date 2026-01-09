@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CRMIntegrationService } from '@/services/CRMIntegrationService';
+import { crmIntegrationService } from '@/services/CRMIntegrationService';
 import { valueCaseService } from '@/services/ValueCaseService';
 import { logger } from '@/lib/logger';
 import { AlertCircle, Building2, Plus, RefreshCw } from 'lucide-react';
@@ -41,8 +41,6 @@ export function DealImportModal({ open, onClose, onDealImported }: DealImportMod
     description: ''
   });
 
-  const crmService = new CRMIntegrationService();
-
   useEffect(() => {
     if (open && activeTab === 'crm') {
       loadCRMDeals();
@@ -53,45 +51,8 @@ export function DealImportModal({ open, onClose, onDealImported }: DealImportMod
     setLoading(true);
     setError(null);
     try {
-      // TODO: Implement CRM deal fetching
-      // const deals = await crmService.fetchDeals();
-      // setCrmDeals(deals);
-      
-      // Mock data for now
-      setCrmDeals([
-        {
-          id: 'deal-1',
-          externalId: 'SF-001',
-          provider: 'salesforce',
-          name: 'Acme Corp - Enterprise License',
-          amount: 250000,
-          currency: 'USD',
-          stage: 'Proposal',
-          probability: 75,
-          closeDate: new Date('2026-03-15'),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          ownerName: 'Sarah Johnson',
-          companyName: 'Acme Corp',
-          properties: {}
-        },
-        {
-          id: 'deal-2',
-          externalId: 'SF-002',
-          provider: 'salesforce',
-          name: 'TechStart Inc - Growth Plan',
-          amount: 85000,
-          currency: 'USD',
-          stage: 'Discovery',
-          probability: 40,
-          closeDate: new Date('2026-04-01'),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          ownerName: 'Mike Chen',
-          companyName: 'TechStart Inc',
-          properties: {}
-        }
-      ]);
+      const deals = await crmIntegrationService.fetchDeals();
+      setCrmDeals(deals);
     } catch (err) {
       logger.error('Failed to load CRM deals', err as Error);
       setError('Failed to load deals from CRM. Please check your connection.');
