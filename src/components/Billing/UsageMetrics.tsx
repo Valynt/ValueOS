@@ -9,7 +9,8 @@
  */
 
 import React from 'react';
-import { AlertTriangle, TrendingUp, Users, Database, Zap } from 'lucide-react';
+import { AlertTriangle, TrendingUp, Users, Database, Zap, Bot } from 'lucide-react';
+import { UsageSummary } from '../../types/billing';
 
 // ============================================================================
 // Types
@@ -348,18 +349,59 @@ export function useUsageMetrics(organizationId: string) {
     const fetchMetrics = async () => {
       try {
         setLoading(true);
-        // TODO: Fetch from API
-        // const response = await fetch(`/api/billing/usage/${organizationId}`);
-        // const data = await response.json();
         
-        // Mock data for now
-        const mockMetrics: UsageMetric[] = [
-          COMMON_USAGE_METRICS.users(8, 10),
-          COMMON_USAGE_METRICS.storage(7.5, 10),
-          COMMON_USAGE_METRICS.apiCalls(850, 1000),
+        const response = await fetch('/api/billing/usage', {
+          headers: {
+            'x-tenant-id': organizationId,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch usage metrics');
+        }
+
+        const data: UsageSummary = await response.json();
+
+        const mappedMetrics: UsageMetric[] = [
+          {
+            label: 'Active Users',
+            current: data.usage.user_seats,
+            limit: data.quotas.user_seats,
+            unit: 'users',
+            icon: Users,
+          },
+          {
+            label: 'Storage',
+            current: data.usage.storage_gb,
+            limit: data.quotas.storage_gb,
+            unit: 'GB',
+            icon: Database,
+          },
+          {
+            label: 'API Calls',
+            current: data.usage.api_calls,
+            limit: data.quotas.api_calls,
+            unit: 'calls',
+            icon: Zap,
+          },
+          {
+            label: 'LLM Tokens',
+            current: data.usage.llm_tokens,
+            limit: data.quotas.llm_tokens,
+            unit: 'tokens',
+            icon: TrendingUp,
+          },
+          {
+            label: 'Agent Executions',
+            current: data.usage.agent_executions,
+            limit: data.quotas.agent_executions,
+            unit: 'executions',
+            icon: Bot,
+          },
         ];
         
-        setMetrics(mockMetrics);
+        setMetrics(mappedMetrics);
       } catch (err) {
         setError(err as Error);
       } finally {

@@ -7,16 +7,11 @@
 
 import { logger } from './logger';
 import { getConfig, isDevelopment, isProduction } from '../config/environment';
+import * as Sentry from '@sentry/react';
+import { logger } from './logger';
+import { getConfig, isProduction } from '../config/environment';
 
 // Type-safe Sentry interface (will be replaced with actual SDK)
-interface SentryConfig {
-  dsn: string;
-  environment: string;
-  tracesSampleRate: number;
-  replaysSessionSampleRate: number;
-  replaysOnErrorSampleRate: number;
-}
-
 interface SentryContext {
   react?: {
     componentStack?: string;
@@ -37,17 +32,18 @@ interface SentryExtra {
  * 
  * // In bootstrap
  * if (config.monitoring.sentry.enabled) {
- *   initializeSentry();
+ *   await initializeSentry();
  * }
  * ```
  */
-export function initializeSentry(): void {
-  if (!isProduction()) {
+export async function initializeSentry(): Promise<void> {
+  const config = getConfig();
+
+  // Always allow initialization check, let internal logic decide to skip
+  if (!isProduction() && !config.monitoring.sentry.enabled) {
     logger.debug('[Sentry] Skipping initialization (not in production)');
     return;
   }
-
-  const config = getConfig();
 
   if (!config.monitoring.sentry.enabled) {
     logger.debug('[Sentry] Disabled in configuration');
@@ -60,42 +56,37 @@ export function initializeSentry(): void {
   }
 
   try {
-    // Sentry SDK is now installed
-    
-    import('@sentry/react').then((Sentry) => {
-      Sentry.init({
-        dsn: config.monitoring.sentry.dsn,
-        environment: config.monitoring.sentry.environment,
-        integrations: [
-          Sentry.browserTracingIntegration(),
-          Sentry.replayIntegration({
-            maskAllText: true,
-            blockAllMedia: true,
-          }),
-        ],
-        tracesSampleRate: config.monitoring.sentry.sampleRate,
-        replaysSessionSampleRate: 0.1,
-        replaysOnErrorSampleRate: 1.0,
-        
-        // Performance monitoring
-        beforeSend(event) {
-          // Filter out development errors
-          if (event.environment === 'development') {
-            return null;
-          }
-          return event;
-        },
-        
-        // Ignore common non-critical errors
-        ignoreErrors: [
-          'ResizeObserver loop limit exceeded',
-          'Non-Error promise rejection captured',
-        ],
-      });
+    Sentry.init({
+      dsn: config.monitoring.sentry.dsn,
+      environment: config.monitoring.sentry.environment,
+      integrations: [
+        Sentry.browserTracingIntegration(),
+        Sentry.replayIntegration({
+          maskAllText: true,
+          blockAllMedia: true,
+        }),
+      ],
+      tracesSampleRate: config.monitoring.sentry.sampleRate,
+      replaysSessionSampleRate: 0.1,
+      replaysOnErrorSampleRate: 1.0,
 
-      logger.debug('[Sentry] Initialized successfully');
+      // Performance monitoring
+      beforeSend(event) {
+        // Filter out development errors
+        if (event.environment === 'development') {
+          return null;
+        }
+        return event;
+      },
+
+      // Ignore common non-critical errors
+      ignoreErrors: [
+        'ResizeObserver loop limit exceeded',
+        'Non-Error promise rejection captured',
+      ],
     });
-    
+
+    logger.debug('[Sentry] Initialized successfully');
 
   } catch (error) {
     logger.error('[Sentry] Initialization failed:', error);
@@ -128,14 +119,8 @@ export function captureException(
     return;
   }
 
-  // Sentry SDK is now installed
-  /*
-  import('@sentry/react').then((Sentry) => {
-    Sentry.captureException(error, options);
-  });
-  */
-
-  logger.error('[Sentry] Exception captured (SDK not installed):', error);
+  // Cast options to match Sentry's expected type
+  Sentry.captureException(error, options as unknown as Sentry.CaptureContext);
 }
 
 /**
@@ -161,14 +146,9 @@ export function captureMessage(
     return;
   }
 
-  // Sentry SDK is now installed
-  /*
-  import('@sentry/react').then((Sentry) => {
-    Sentry.captureMessage(message, options?.level || 'info');
-  });
-  */
-
-  logger.debug('[Sentry] Message captured (SDK not installed):', message);
+  // Handle level conversion if necessary, though Sentry types usually match
+  // @ts-ignore - Sentry types are strict about the context object
+  Sentry.captureMessage(message, { level: (options?.level || 'info') as any });
 }
 
 /**
@@ -194,14 +174,7 @@ export function setUser(user: {
     return;
   }
 
-  // Sentry SDK is now installed
-  /*
-  import('@sentry/react').then((Sentry) => {
-    Sentry.setUser(user);
-  });
-  */
-
-  logger.debug('[Sentry] User set (SDK not installed):', user?.id);
+  Sentry.setUser(user);
 }
 
 /**
@@ -227,14 +200,7 @@ export function addBreadcrumb(breadcrumb: {
     return;
   }
 
-  // Sentry SDK is now installed
-  /*
-  import('@sentry/react').then((Sentry) => {
-    Sentry.addBreadcrumb(breadcrumb);
-  });
-  */
-
-  logger.debug('[Sentry] Breadcrumb added (SDK not installed):', breadcrumb.message);
+  Sentry.addBreadcrumb(breadcrumb);
 }
 
 /**
@@ -262,21 +228,27 @@ export function startTransaction(options: {
   if (!isProduction()) {
     logger.debug('[Sentry] Would start transaction:', options);
     return {
-      finish: () => logger.debug('[Sentry] Transaction finished:', options.name),
-      setStatus: (status) => logger.debug('[Sentry] Transaction status:', status),
+      finish: () => logger.debug('[Sentry] Transaction finished:', { name: options.name }),
+      setStatus: (status) => logger.debug('[Sentry] Transaction status:', { status }),
     };
   }
 
-  // Sentry SDK is now installed
-  /*
-  import('@sentry/react').then((Sentry) => {
-    return Sentry.startTransaction(options);
-  });
-  */
+  // Sentry v8 usage of startSpan.
+  // Note: This returns a simplified object to match existing API.
+  // The actual span is active within the callback in startSpan, but here we're trying to return a control object.
+  // This pattern is problematic with v8's startSpan which expects a callback.
+  // For now, we will use startInactiveSpan which returns a span that must be manually ended.
+
+  const span = Sentry.startInactiveSpan({ name: options.name, op: options.op });
 
   return {
-    finish: () => {},
-    setStatus: () => {},
+    finish: () => span.end(),
+    setStatus: (status: string) => {
+      // Map string status to SpanStatusCode (1=OK, 2=ERROR)
+      const code = status === 'ok' ? 1 : 2;
+      // @ts-ignore - OpenTelemetry types mismatch
+      span.setStatus({ code, message: status });
+    },
   };
 }
 
@@ -288,47 +260,6 @@ export function isSentryEnabled(): boolean {
   return isProduction() && config.monitoring.sentry.enabled;
 }
 
-/**
- * Installation instructions
- */
-export const INSTALLATION_INSTRUCTIONS = `
-To enable Sentry error tracking:
-
-1. Install dependencies:
-   npm install @sentry/react @sentry/vite-plugin
-
-2. Get Sentry DSN:
-   - Sign up at https://sentry.io
-   - Create a new project
-   - Copy the DSN
-
-3. Add to .env.production:
-   VITE_SENTRY_DSN=https://your-dsn@sentry.io/project-id
-   VITE_SENTRY_ENABLED=true
-   VITE_SENTRY_ENVIRONMENT=production
-   SENTRY_AUTH_TOKEN=your-auth-token
-
-4. Update vite.config.ts:
-   import { sentryVitePlugin } from '@sentry/vite-plugin';
-   
-   export default defineConfig({
-     build: { sourcemap: true },
-     plugins: [
-       react(),
-       sentryVitePlugin({
-         org: 'your-org',
-         project: 'valuecanvas',
-         authToken: process.env.SENTRY_AUTH_TOKEN,
-       }),
-     ],
-   });
-
-5. Uncomment Sentry code in this file
-
-6. Test in production build:
-   npm run build && npm run preview
-`;
-
 export default {
   initializeSentry,
   captureException,
@@ -337,5 +268,4 @@ export default {
   addBreadcrumb,
   startTransaction,
   isSentryEnabled,
-  INSTALLATION_INSTRUCTIONS,
 };

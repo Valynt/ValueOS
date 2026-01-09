@@ -102,7 +102,6 @@ export interface CostAlert {
 
 export class LLMCostTracker {
   private supabase?: SupabaseClient;
-  private alertsSent: Set<string> = new Set(); // TODO: Remove after migration
   private enabled = false;
   private static warnedMissingConfig = false;
   
@@ -339,12 +338,9 @@ export class LLMCostTracker {
     if (checkError) {
       logger.error('Failed to check for duplicate alerts', checkError);
       // Continue with sending alert despite check failure
-    } else if ((existingAlerts?.length ?? 0) > 0 || this.alertsSent.has(alertKey)) {
+    } else if ((existingAlerts?.length ?? 0) > 0) {
       return;
     }
-    
-    this.alertsSent.add(alertKey);
-    setTimeout(() => this.alertsSent.delete(alertKey), ONE_HOUR_MS);
     
     logger.warn('LLM COST ALERT', { alert });
     

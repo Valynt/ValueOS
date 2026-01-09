@@ -22,6 +22,7 @@ import {
   UpdateSecretCommand
 } from '@aws-sdk/client-secrets-manager';
 import { logger } from '../lib/logger';
+import { createServerSupabaseClient } from '../lib/supabase';
 
 /**
  * Secret cache entry with expiration
@@ -133,11 +134,11 @@ export class MultiTenantSecretsManager {
    * Integrates with existing access control system.
    * Default deny policy - all access must be explicitly granted.
    */
-  private checkPermission(
+  private async checkPermission(
     userId: string | undefined,
     tenantId: string,
     action: 'READ' | 'WRITE' | 'DELETE' | 'ROTATE'
-  ): PermissionCheck {
+  ): Promise<PermissionCheck> {
     // If no userId provided, deny by default
     if (!userId) {
       return {
@@ -162,8 +163,52 @@ export class MultiTenantSecretsManager {
     
     // Regular users can only READ their own tenant secrets
     if (action === 'READ') {
-      // TODO: Verify user belongs to tenant
-      return { allowed: true };
+      try {
+        // We need to handle the case where we might not have the service key yet
+        // (e.g. during initial hydration). But usually regular users accessing secrets
+        // happens after startup.
+
+        let supabase;
+        try {
+          supabase = createServerSupabaseClient();
+        } catch (e) {
+          logger.warn('Failed to create Supabase client for permission check', { error: e });
+          // If we can't connect to DB, we can't verify membership
+          return {
+            allowed: false,
+            reason: 'Cannot verify tenant membership: Database access unavailable'
+          };
+        }
+
+        const { data: user, error } = await supabase
+          .from('users')
+          .select('organization_id')
+          .eq('id', userId)
+          .single();
+
+        if (error || !user) {
+          logger.warn('User not found or database error during permission check', { userId, tenantId, error });
+          return {
+            allowed: false,
+            reason: 'User not found or database error'
+          };
+        }
+
+        if (user.organization_id === tenantId) {
+          return { allowed: true };
+        } else {
+          return {
+            allowed: false,
+            reason: `User ${this.maskUserId(userId)} does not belong to tenant ${tenantId}`
+          };
+        }
+      } catch (err) {
+        logger.error('Unexpected error verifying user tenant membership', err);
+        return {
+          allowed: false,
+          reason: 'Internal error verifying permissions'
+        };
+      }
     }
     
     // By default, deny
@@ -194,8 +239,42 @@ export class MultiTenantSecretsManager {
       logger.warn('SECRET_ACCESS_DENIED', logEntry);
     }
     
-    // TODO: Also write to database for long-term compliance
-    // INSERT INTO secret_audit_logs (...)
+    try {
+      // Write to database for long-term compliance
+      const supabase = createServerSupabaseClient();
+
+      // Calculate secret path safely
+      let secretPath: string | undefined;
+      try {
+        secretPath = this.getTenantSecretPath(entry.tenantId, 'config');
+      } catch (e) {
+        // If we can't generate the path (e.g. invalid tenant ID), log the error but still record the audit
+        secretPath = `invalid_path_generation: ${e instanceof Error ? e.message : String(e)}`;
+      }
+
+      // Truncate secret key if too long for column (VARCHAR(255))
+      const secretKey = entry.secretKey.length > 255
+        ? entry.secretKey.substring(0, 252) + '...'
+        : entry.secretKey;
+
+      await supabase.from('secret_audit_logs').insert({
+        tenant_id: entry.tenantId,
+        user_id: entry.userId || null,
+        secret_key: secretKey, // Store actual key name for audit trail
+        secret_path: secretPath,
+        action: entry.action,
+        result: entry.result,
+        error_message: entry.error || null,
+        metadata: entry.metadata || {},
+        timestamp: entry.timestamp || new Date().toISOString()
+      });
+    } catch (error) {
+      // Log failure but don't disrupt flow - audit logging is critical but shouldn't crash app if DB is down
+      logger.error('Failed to write to secret_audit_logs database', error instanceof Error ? error : new Error(String(error)), {
+        tenantId: entry.tenantId,
+        action: entry.action
+      });
+    }
   }
   
   /**
@@ -239,7 +318,7 @@ export class MultiTenantSecretsManager {
     const startTime = Date.now();
     
     // Check permissions
-    const permCheck = this.checkPermission(userId, tenantId, 'READ');
+    const permCheck = await this.checkPermission(userId, tenantId, 'READ');
     if (!permCheck.allowed) {
       await this.auditLog({
         tenantId,
@@ -380,7 +459,7 @@ export class MultiTenantSecretsManager {
     userId?: string
   ): Promise<void> {
     // Check permissions
-    const permCheck = this.checkPermission(userId, tenantId, 'WRITE');
+    const permCheck = await this.checkPermission(userId, tenantId, 'WRITE');
     if (!permCheck.allowed) {
       await this.auditLog({
         tenantId,
@@ -456,7 +535,7 @@ export class MultiTenantSecretsManager {
     userId?: string
   ): Promise<void> {
     // Check permissions
-    const permCheck = this.checkPermission(userId, tenantId, 'ROTATE');
+    const permCheck = await this.checkPermission(userId, tenantId, 'ROTATE');
     if (!permCheck.allowed) {
       await this.auditLog({
         tenantId,

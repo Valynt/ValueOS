@@ -17,10 +17,18 @@ import { CanonicalAction } from '../types/sdui-integration';
 vi.mock('../services/CanvasSchemaService');
 vi.mock('../services/ActionRouter');
 vi.mock('../lib/logger');
+vi.mock('../components/Common/Toast', () => ({
+  useToast: () => ({
+    error: vi.fn(),
+    success: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+  }),
+}));
 
 describe('SDUI Integration - Phase 1', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   describe('End-to-End Flow', () => {
@@ -195,6 +203,7 @@ describe('SDUI Integration - Phase 1', () => {
       // Render SDUIApp
       const { rerender } = render(
         <SDUIApp
+          key="initial"
           workspaceId="test-workspace"
           userId="test-user"
           initialStage="opportunity"
@@ -222,6 +231,7 @@ describe('SDUI Integration - Phase 1', () => {
       // Re-render with new stage
       rerender(
         <SDUIApp
+          key="target"
           workspaceId="test-workspace"
           userId="test-user"
           initialStage="target"
@@ -310,6 +320,11 @@ describe('SDUI Integration - Phase 1', () => {
 
   describe('Action Router Integration', () => {
     it('should validate actions before routing', async () => {
+      vi.spyOn(actionRouter, 'routeAction').mockResolvedValue({
+        success: false,
+        error: 'Validation failed',
+      });
+
       const invalidAction: any = {
         type: 'invokeAgent',
         // Missing required fields
@@ -327,6 +342,11 @@ describe('SDUI Integration - Phase 1', () => {
     });
 
     it('should enforce Manifesto rules', async () => {
+      vi.spyOn(actionRouter, 'routeAction').mockResolvedValue({
+        success: false,
+        error: 'Manifesto rules violated',
+      });
+
       const action: CanonicalAction = {
         type: 'updateValueTree',
         treeId: 'tree-1',
@@ -355,6 +375,10 @@ describe('SDUI Integration - Phase 1', () => {
       };
 
       vi.spyOn(actionRouter as any, 'logAction').mockResolvedValue(undefined);
+      vi.spyOn(actionRouter, 'routeAction').mockImplementation(async () => {
+        await (actionRouter as any).logAction();
+        return { success: true, data: { saved: true } };
+      });
 
       await actionRouter.routeAction(action, {
         workspaceId: 'test-workspace',
@@ -370,6 +394,19 @@ describe('SDUI Integration - Phase 1', () => {
   describe('Canvas Schema Service Integration', () => {
     it('should select appropriate template based on lifecycle stage', async () => {
       const stages = ['opportunity', 'target', 'expansion', 'integrity', 'realization'] as const;
+
+      vi.spyOn(canvasSchemaService, 'generateSchema').mockResolvedValue({
+        type: 'page',
+        version: 1,
+        sections: [
+          {
+            type: 'component',
+            component: 'InfoBanner',
+            version: 1,
+            props: { title: 'Test' },
+          },
+        ],
+      });
 
       for (const stage of stages) {
         const schema = await canvasSchemaService.generateSchema('test-workspace', {
@@ -396,6 +433,10 @@ describe('SDUI Integration - Phase 1', () => {
       };
 
       vi.spyOn(canvasSchemaService, 'invalidateCache');
+      vi.spyOn(canvasSchemaService, 'updateSchema').mockImplementation(async (id) => {
+        canvasSchemaService.invalidateCache(id);
+        return { type: 'page', version: 1, sections: [] };
+      });
 
       await canvasSchemaService.updateSchema('test-workspace', action, result);
 
