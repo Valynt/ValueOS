@@ -3,9 +3,7 @@
  * Provides export functionality for dashboards and data (PDF, PNG, Excel)
  */
 
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
-import * as ExcelJS from "exceljs";
+import * as React from "react";
 
 export interface ExportOptions {
   filename?: string;
@@ -33,6 +31,12 @@ export async function exportToPDF(
       progress: 10,
       message: "Preparing export...",
     });
+
+    // Lazy load dependencies
+    const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+      import("jspdf"),
+      import("html2canvas"),
+    ]);
 
     const element = document.getElementById(elementId);
     if (!element) {
@@ -113,6 +117,9 @@ export async function exportToPNG(
       progress: 10,
       message: "Preparing export...",
     });
+
+    // Lazy load dependencies
+    const { default: html2canvas } = await import("html2canvas");
 
     const element = document.getElementById(elementId);
     if (!element) {
@@ -195,6 +202,9 @@ export async function exportToExcel(
     if (!data || data.length === 0) {
       throw new Error("No data to export");
     }
+
+    // Lazy load dependencies
+    const ExcelJS = await import("exceljs");
 
     // SECURITY: Limit data size to prevent resource exhaustion
     const MAX_ROWS = 10000;
@@ -397,5 +407,3 @@ export function useExport() {
     isExporting,
   };
 }
-
-import * as React from "react";
