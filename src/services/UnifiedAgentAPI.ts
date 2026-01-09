@@ -570,8 +570,7 @@ export class UnifiedAgentAPI {
   }
 
   private getResolvedBaseUrl(): string | undefined {
-    const baseUrl = this.config.baseUrl?.trim();
-    return baseUrl ? baseUrl : undefined;
+    return this.config.baseUrl?.trim() || undefined;
   }
 
   private assertRoutingConfigured(agent: AgentType): void {
