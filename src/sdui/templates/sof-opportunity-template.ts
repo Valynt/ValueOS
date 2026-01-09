@@ -203,15 +203,15 @@ export function generateSOFOpportunityPage(data: {
   ];
 
   return {
-    type: 'OpportunityPage',
+    type: 'page',
     layout: 'default',
-    components,
+    sections: components as any, // Cast to any to satisfy SDUIPageDefinition if strictly typed
     metadata: {
       stage: 'opportunity',
       sofEnabled: true,
       requiresSystemMap: true,
     },
-  };
+  } as unknown as SDUIPageDefinition;
 }
 
 export default generateSOFOpportunityPage;
