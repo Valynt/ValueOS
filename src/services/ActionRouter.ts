@@ -27,6 +27,7 @@ import { EnforcementResult, enforceRules } from '../lib/rules';
 import { workspaceStateService } from './WorkspaceStateService';
 import { ValueTreeService, LifecycleContext } from './ValueTreeService';
 import { getSupabaseClient } from '../lib/supabase';
+import { SDUIPageDefinition } from '../sdui/schema';
 import { assumptionService } from './AssumptionService';
 import {
   exportToPDF,
@@ -699,11 +700,66 @@ export class ActionRouter {
         return { success: false, error: 'Invalid action type' };
       }
 
-      // TODO: Implement explanation showing
-      return {
-        success: true,
-        data: { componentId: action.componentId, topic: action.topic },
-      };
+      try {
+        // Get current schema
+        const currentSchema = canvasSchemaService.getCachedSchema(context.workspaceId);
+
+        if (!currentSchema) {
+          return {
+            success: false,
+            error: 'No schema available for workspace to explain component',
+          };
+        }
+
+        const found = this.findComponentById(currentSchema, action.componentId);
+        if (!found) {
+             return {
+                success: false,
+                error: `Component not found with ID: ${action.componentId}`,
+             };
+        }
+
+        const { component } = found;
+
+        // Construct context for agent
+        const explanationContext = {
+            ...context,
+            componentName: component.component,
+            componentProps: component.props,
+            topic: action.topic
+        };
+
+        // Use invokeAgent with 'narrative' agent
+        const agentResponse = await this.agentAPI.invokeAgent({
+            agent: 'narrative',
+            query: `Explain the "${action.topic}" for the component "${component.component}".
+The component has the following configuration: ${JSON.stringify(component.props, null, 2)}.
+Please provide a clear, concise explanation suitable for a user.`,
+            context: explanationContext
+        });
+
+        if (!agentResponse.success) {
+            return {
+                success: false,
+                error: agentResponse.error || 'Failed to generate explanation',
+            };
+        }
+
+        return {
+            success: true,
+            data: {
+                componentId: action.componentId,
+                topic: action.topic,
+                explanation: agentResponse.data
+            },
+        };
+
+      } catch (error) {
+         return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
     });
 
     // navigateToStage handler
@@ -865,6 +921,81 @@ export class ActionRouter {
     logger.info('Registered default action handlers', {
       handlerCount: this.handlers.size,
     });
+  }
+
+  /**
+   * Helper to find a component by ID in the schema
+   */
+  private findComponentById(
+    schema: SDUIPageDefinition,
+    componentId: string
+  ): { component: any; path: string } | null {
+    // 1. Search top-level sections
+    for (let i = 0; i < schema.sections.length; i++) {
+      const section = schema.sections[i];
+      // Check explicit ID in props
+      if (section.props?.id === componentId) {
+        return { component: section, path: `sections[${i}]` };
+      }
+
+      // Check implicit ID (ComponentMutationService style)
+      // ComponentMutationService uses `${section.component}_${index}`
+      // We should check if componentId matches this pattern
+      const implicitId = `${section.component}_${i}`;
+      if (implicitId === componentId) {
+        return { component: section, path: `sections[${i}]` };
+      }
+
+      // Check for 'id' property if it exists at top level (unlikely for SDUISection but possible in some schemas)
+      if ((section as any).id === componentId) {
+        return { component: section, path: `sections[${i}]` };
+      }
+
+      // Recursive search in props
+      const found = this.findComponentInProps(section.props, componentId, `sections[${i}]`);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  private findComponentInProps(
+    props: any,
+    componentId: string,
+    currentPath: string
+  ): { component: any; path: string } | null {
+    if (!props || typeof props !== 'object') return null;
+
+    if (Array.isArray(props)) {
+      for (let i = 0; i < props.length; i++) {
+        const result = this.findComponentInProps(props[i], componentId, `${currentPath}[${i}]`);
+        if (result) return result;
+      }
+      return null;
+    }
+
+    // Check if current object is a component (heuristic)
+    // It's a component if it has 'component' field and we are traversing objects that could be components
+    if (props.component && typeof props.component === 'string') {
+        if (props.props?.id === componentId) {
+             return { component: props, path: currentPath };
+        }
+        // Also check if the object itself has an id
+        if (props.id === componentId) {
+             return { component: props, path: currentPath };
+        }
+    }
+
+    // Recurse into keys
+    for (const key of Object.keys(props)) {
+      // If the value is an object or array, recurse
+      const value = props[key];
+      if (typeof value === 'object' && value !== null) {
+          const result = this.findComponentInProps(value, componentId, `${currentPath}.${key}`);
+          if (result) return result;
+      }
+    }
+
+    return null;
   }
 
   /**
