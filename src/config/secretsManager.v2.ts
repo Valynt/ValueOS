@@ -22,8 +22,10 @@ import {
   UpdateSecretCommand,
 } from '@aws-sdk/client-secrets-manager';
 import { logger } from '../lib/logger';
+import { getEnvVar } from '../lib/env';
 import { createServerSupabaseClient } from '../lib/supabase';
 import { RbacService, type RbacUser, type SecretPermission } from '../services/RbacService';
+import { getDatabaseUrl } from './database';
 
 /**
  * Secret cache entry with expiration
@@ -95,15 +97,15 @@ export class MultiTenantSecretsManager {
 
   constructor() {
     this.client = new SecretsManagerClient({
-      region: process.env.AWS_REGION || 'us-east-1',
+      region: getEnvVar('AWS_REGION') || 'us-east-1',
     });
 
-    this.environment = process.env.NODE_ENV || 'development';
+    this.environment = getEnvVar('NODE_ENV') || 'development';
     this.rbacService = new RbacService();
 
     logger.info('Multi-tenant secrets manager initialized', {
       environment: this.environment,
-      region: process.env.AWS_REGION || 'us-east-1',
+      region: getEnvVar('AWS_REGION') || 'us-east-1',
     });
   }
 
@@ -477,15 +479,15 @@ export class MultiTenantSecretsManager {
     logger.warn('Using environment variable fallback - not recommended for production');
 
     return {
-      TOGETHER_API_KEY: process.env.TOGETHER_API_KEY || '',
-      OPENAI_API_KEY: process.env.OPENAI_API_KEY,
-      SUPABASE_URL: process.env.VITE_SUPABASE_URL || '',
-      SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY || '',
-      SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY || '',
-      JWT_SECRET: process.env.JWT_SECRET || '',
-      DATABASE_URL: process.env.DATABASE_URL || '',
-      REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
-      SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL,
+      TOGETHER_API_KEY: getEnvVar('TOGETHER_API_KEY') || '',
+      OPENAI_API_KEY: getEnvVar('OPENAI_API_KEY'),
+      SUPABASE_URL: getEnvVar('VITE_SUPABASE_URL') || '',
+      SUPABASE_ANON_KEY: getEnvVar('VITE_SUPABASE_ANON_KEY') || '',
+      SUPABASE_SERVICE_KEY: getEnvVar('SUPABASE_SERVICE_KEY') || '',
+      JWT_SECRET: getEnvVar('JWT_SECRET') || '',
+      DATABASE_URL: getDatabaseUrl() || '',
+      REDIS_URL: getEnvVar('REDIS_URL') || 'redis://localhost:6379',
+      SLACK_WEBHOOK_URL: getEnvVar('SLACK_WEBHOOK_URL'),
     };
   }
 

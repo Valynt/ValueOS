@@ -1,15 +1,17 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Pool } from 'pg';
+import { getDatabaseUrl } from '../../config/database';
 
 describe('ValueTreeRepository Integration', () => {
   let pool: Pool;
 
   beforeAll(() => {
     // This ENV var is set by our global setup
-    if (!process.env.DATABASE_URL) {
+    const databaseUrl = getDatabaseUrl();
+    if (!databaseUrl) {
       throw new Error('DATABASE_URL not set. Is the test container running?');
     }
-    pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    pool = new Pool({ connectionString: databaseUrl });
   });
 
   afterAll(async () => {
