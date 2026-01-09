@@ -14,6 +14,7 @@
 
 import { logger } from '../lib/logger';
 import { getConfig } from '../config/environment';
+import { createServerSupabaseClient } from '../lib/supabase';
 
 /**
  * Tenant tier
@@ -421,8 +422,26 @@ async function initializeUsageTracking(config: TenantConfig): Promise<void> {
     lastUpdated: new Date(),
   };
 
-  // TODO: Implement database call
-  // await supabase.from('tenant_usage').insert(initialUsage);
+  const supabase = createServerSupabaseClient();
+
+  // Convert to snake_case for database
+  const payload = {
+    organization_id: initialUsage.organizationId,
+    period: initialUsage.period,
+    users: initialUsage.users,
+    teams: initialUsage.teams,
+    projects: initialUsage.projects,
+    storage: initialUsage.storage,
+    api_calls: initialUsage.apiCalls,
+    agent_calls: initialUsage.agentCalls,
+    last_updated: initialUsage.lastUpdated.toISOString(),
+  };
+
+  const { error } = await supabase.from('tenant_usage').insert(payload);
+
+  if (error) {
+    throw error;
+  }
 
   logger.debug('Usage tracking initialized for ${config.organizationId}');
 }
