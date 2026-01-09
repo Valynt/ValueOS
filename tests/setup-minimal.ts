@@ -7,6 +7,7 @@
 
 import { beforeAll, afterAll } from "vitest";
 import { vi } from "vitest";
+import '@testing-library/jest-dom';
 
 // Mock Supabase client for tests that import it
 vi.mock("@supabase/supabase-js", () => ({

@@ -54,18 +54,24 @@ export const CitationTooltip: React.FC<CitationTooltipProps> = ({
     <div className={`relative inline-block ${className}`}>
       {/* Trigger badge */}
       <button
+        type="button"
         className={`
           inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium border
           transition-all hover:shadow-sm
           ${sourceColors[sourceType]}
         `}
+        aria-label={`Citation ${citationId} from ${sourceLabels[sourceType]}`}
+        aria-expanded={showTooltip}
+        aria-haspopup="dialog"
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
         onClick={() => setShowTooltip(!showTooltip)}
       >
-        {sourceIcons[sourceType]}
-        <span className="hidden sm:inline">{citationId}</span>
-        <span className="sm:hidden">{sourceLabels[sourceType]}</span>
+        <span aria-hidden="true" className="flex items-center gap-1">
+          {sourceIcons[sourceType]}
+          <span className="hidden sm:inline">{citationId}</span>
+          <span className="sm:hidden">{sourceLabels[sourceType]}</span>
+        </span>
       </button>
 
       {/* Tooltip */}
