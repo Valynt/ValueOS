@@ -13,8 +13,8 @@ import React, { useMemo } from 'react';
 import {
   UsageMetricsGrid,
   UsageSummaryBanner,
+  useUsageMetrics,
 } from '../../components/Billing/UsageMetrics';
-import { useUsageMetrics } from '../../components/Billing/useUsageMetrics';
 import {
   AsyncFeedbackBanner,
   SettingsErrorBoundary,
