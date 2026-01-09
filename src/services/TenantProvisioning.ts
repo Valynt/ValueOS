@@ -353,7 +353,7 @@ export async function provisionTenant(
 /**
  * Create organization in database
  */
-async function createOrganization(config: TenantConfig): Promise<void> {
+export async function createOrganization(config: TenantConfig): Promise<void> {
   const supabase = createServerSupabaseClient();
 
   // Upsert into tenants table
@@ -521,15 +521,6 @@ async function initializeBilling(config: TenantConfig): Promise<void> {
         owner_id: config.ownerId
       }
     );
-
-    // 3. Configure payment method if provided
-    // (Usually skipped during initial provisioning unless coming from checkout flow)
-    if (config.settings?.paymentMethodId) {
-      await CustomerService.updatePaymentMethod(
-        config.organizationId,
-        config.settings.paymentMethodId
-      );
-    }
 
     // 3. Configure payment method if provided
     // (Usually skipped during initial provisioning unless coming from checkout flow)
