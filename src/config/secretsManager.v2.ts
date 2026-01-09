@@ -177,9 +177,25 @@ export class MultiTenantSecretsManager {
         .eq('tenant_id', tenantId);
 
       if (error) {
+        let logError: Error;
+
+        if (error instanceof Error) {
+          logError = error;
+        } else {
+          let serializedError: string;
+          try {
+            serializedError = JSON.stringify(error);
+          } catch {
+            serializedError = String(error);
+          }
+          logError = new Error(
+            `Supabase error while fetching user roles: ${serializedError}`
+          );
+        }
+
         logger.error(
           'Failed to fetch user roles for RBAC check',
-          error instanceof Error ? error : new Error(error?.message ?? 'Supabase error while fetching user roles'),
+          logError,
           { userId, tenantId }
         );
       } else {
