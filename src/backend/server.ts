@@ -28,6 +28,7 @@ import {
 import { createRateLimiter } from "../middleware/rateLimiter";
 import { securityHeadersMiddleware } from "../middleware/securityHeaders";
 import { settings } from "../config/settings";
+import { isConsentRegistryConfigured } from "../services/consentRegistry";
 
 const logger = createLogger({ component: "BillingServer" });
 const INTERNAL_ERROR_STATUS = 500;
@@ -173,6 +174,12 @@ if (
   import.meta.url === `file://${process.argv[1]}` ||
   settings.NODE_ENV === "development"
 ) {
+  if (settings.NODE_ENV === "production" && !isConsentRegistryConfigured()) {
+    throw new Error(
+      "Consent registry is not configured. Set SUPABASE_SERVICE_KEY and VITE_SUPABASE_URL."
+    );
+  }
+
   server.listen(PORT, () => {
     logger.info(
       `Billing API server with WebSocket support running on port ${PORT}`,

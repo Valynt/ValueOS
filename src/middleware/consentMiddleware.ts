@@ -1,24 +1,19 @@
 import { NextFunction, Request, RequestHandler, Response } from 'express';
+import { consentRegistry } from '../services/consentRegistry';
+import type { ConsentRegistry } from '../types/consent';
 
-export type ConsentRegistry = {
-  hasConsent: (tenantId: string, scope: string) => Promise<boolean> | boolean;
-};
-
-
-
-
-
-const defaultRegistry: ConsentRegistry = {
-  hasConsent: async () => true,
-};
-
-export function requireConsent(scope: string, registry?: ConsentRegistry): RequestHandler {
-  if (!registry) {
-    // Use default permissive registry if none is provided to avoid failing tests
-    // Production systems should provide a proper registry implementation.
-    registry = defaultRegistry;
-  }
+export function requireConsent(
+  scope: string,
+  registry: ConsentRegistry | null = consentRegistry
+): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
+    if (!registry) {
+      return res.status(503).json({
+        error: 'Consent registry unavailable',
+        message: 'Consent registry is not configured for this environment',
+      });
+    }
+
     const tenantId = (req.headers['x-tenant-id'] as string) || (req as any).tenantId || 'default';
 
     const consentGranted = await registry.hasConsent(tenantId, scope);

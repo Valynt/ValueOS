@@ -16,6 +16,7 @@ import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddlewa
 import { rateLimiters } from '../middleware/rateLimiter';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
 import { requireConsent } from '../middleware/consentMiddleware';
+import { consentRegistry } from '../services/consentRegistry';
 import { sanitizeAgentInput } from '../utils/security';
 
 const router = Router();
@@ -38,7 +39,7 @@ router.post(
   rateLimiters.standard,
   csrfProtectionMiddleware,
   sessionTimeoutMiddleware,
-  requireConsent('queue.llm'),
+  requireConsent('queue.llm', consentRegistry),
   async (req: Request, res: Response) => {
   try {
     const { type, promptKey, promptVariables, prompt, model, maxTokens, temperature, metadata } = req.body;
@@ -200,7 +201,7 @@ router.delete(
   rateLimiters.standard,
   csrfProtectionMiddleware,
   sessionTimeoutMiddleware,
-  requireConsent('queue.llm.cancel'),
+  requireConsent('queue.llm.cancel', consentRegistry),
   async (req: Request, res: Response) => {
   try {
     const { jobId } = req.params;

@@ -65,6 +65,13 @@ vi.mock('../../services/MessageQueue', () => ({
   },
 }));
 
+vi.mock('../../services/consentRegistry', () => ({
+  consentRegistry: {
+    hasConsent: vi.fn().mockResolvedValue(true),
+  },
+  isConsentRegistryConfigured: () => true,
+}));
+
 describe('Security Integration Tests', () => {
   let app: Express;
   let validCsrfToken: string;
