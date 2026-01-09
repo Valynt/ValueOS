@@ -14,6 +14,9 @@
 
 import { logger } from '../lib/logger';
 import { getConfig } from '../config/environment';
+import CustomerService from './billing/CustomerService';
+import SubscriptionService from './billing/SubscriptionService';
+import { PlanTier } from '../config/billing';
 import { createServerSupabaseClient } from '../lib/supabase';
 
 /**
@@ -242,11 +245,11 @@ export async function provisionTenant(
         resources.billing = true;
         logger.info('Billing initialized', { organizationId: config.organizationId });
       } catch (error) {
-        const msg = `Failed to initialize billing: ${error instanceof Error ? error.message : 'Unknown error'}`;
-        warnings.push(msg);
-        logger.warn('Billing initialization failed', {
-          organizationId: config.organizationId,
+    logger.error('Billing initialization failed', error instanceof Error ? error : undefined, {
+      organizationId: config.organizationId
         });
+    // Re-throw to be handled by the caller (provisionTenant)
+    throw error;
       }
     } else {
       logger.debug('Provisioning step 4/6: Billing disabled');
@@ -395,13 +398,71 @@ async function createTeamsAndRoles(config: TenantConfig): Promise<void> {
  * Initialize billing
  */
 async function initializeBilling(config: TenantConfig): Promise<void> {
-  // TODO: Implement billing integration
-  // - Create customer in payment provider (Stripe, etc.)
-  // - Set up subscription based on tier
-  // - Configure payment method
-  // - Set up webhooks
+  logger.info('Initializing billing integration', {
+    organizationId: config.organizationId,
+    tier: config.tier
+  });
 
-  logger.debug('Billing initialized for ${config.organizationId}');
+  try {
+    // 1. Map tenant tier to billing plan
+    const planTier = mapTenantToPlan(config.tier);
+
+    // 2. Create customer in Stripe
+    // Include tenant_id in metadata for webhook correlation
+    const _customer = await CustomerService.createCustomer(
+      config.organizationId,
+      config.name,
+      config.ownerEmail,
+      {
+        tenant_id: config.organizationId,
+        original_tier: config.tier,
+        owner_id: config.ownerId
+      }
+    );
+
+    // 3. Configure payment method if provided
+    // (Usually skipped during initial provisioning unless coming from checkout flow)
+    if (config.settings?.paymentMethodId) {
+      await CustomerService.updatePaymentMethod(
+        config.organizationId,
+        config.settings.paymentMethodId
+      );
+    }
+
+    // 4. Create subscription
+    // Use mapped plan tier
+    await SubscriptionService.createSubscription(
+      config.organizationId,
+      planTier
+      // Note: trial days could be passed here if needed based on policy
+    );
+
+    logger.debug(`Billing initialized successfully for ${config.organizationId}`);
+  } catch (error) {
+    logger.error('Billing initialization failed', error instanceof Error ? error : undefined, {
+      organizationId: config.organizationId
+    });
+    // Re-throw to be handled by the caller (provisionTenant)
+    throw error;
+  }
+}
+
+/**
+ * Map tenant tier to billing plan tier
+ */
+function mapTenantToPlan(tier: TenantTier): PlanTier {
+  switch (tier) {
+    case 'free':
+      return 'free';
+    case 'starter':
+      return 'standard';
+    case 'professional':
+      return 'standard'; // Map to standard, distinguishing via metadata/limits if needed
+    case 'enterprise':
+      return 'enterprise';
+    default:
+      return 'free'; // Fallback
+  }
 }
 
 /**
