@@ -8,10 +8,12 @@ import { WorkspaceContext } from '../../types/sdui-integration';
 import { CacheService } from '../CacheService';
 import { ValueFabricService } from '../ValueFabricService';
 import { logger } from '../../lib/logger';
+import { ROIFormulaInterpreter } from '../ROIFormulaInterpreter';
 
 // Mock dependencies
 vi.mock('../CacheService');
 vi.mock('../ValueFabricService');
+vi.mock('../ROIFormulaInterpreter');
 vi.mock('../../lib/logger', () => ({
   logger: {
     info: vi.fn(),
@@ -36,6 +38,10 @@ const mockSupabase = vi.hoisted(() => ({
           maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null })
         })),
         maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null })
+      })),
+      order: vi.fn().mockReturnValue({ data: [], error: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        order: vi.fn().mockResolvedValue({ data: [], error: null })
       }))
     }))
   }))
@@ -110,11 +116,43 @@ describe('CanvasSchemaService', () => {
             }))
           } as any;
         }
+        if (table === 'value_trees') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                data: [{
+                  id: 'vt-1',
+                  compliance_metadata: {
+                    results: [{ rule_id: 'r1', passed: true, message: 'passed' }]
+                  }
+                }],
+                error: null
+              }))
+            }))
+          } as any;
+        }
+        if (table === 'roi_models') {
+           return {
+            select: vi.fn(() => ({
+              in: vi.fn(() => ({
+                data: [{
+                  id: 'roi-1',
+                  compliance_metadata: {
+                    results: [{ rule_id: 'r2', passed: false, message: 'failed' }]
+                  }
+                }],
+                error: null
+              }))
+            }))
+          } as any;
+        }
         return {
           select: vi.fn(() => ({
             eq: vi.fn(() => ({
-              maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null })
-            }))
+              maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+              eq: vi.fn(() => ({ data: [], error: null }))
+            })),
+            in: vi.fn(() => ({ data: [], error: null }))
           }))
         } as any;
       });
@@ -150,6 +188,29 @@ describe('CanvasSchemaService', () => {
 
       expect(schema).toBeDefined();
       expect(schema.type).toBe('page');
+    });
+
+    it('should fetch manifesto results correctly', async () => {
+      // Access private method via any cast or just trust generateSchema calls it
+      // But let's verify fetchWorkspaceData logic which calls fetchManifestoResults
+      const context: WorkspaceContext = {
+        workspaceId: 'workspace-1',
+        userId: 'user-1',
+        lifecycleStage: 'integrity',
+      };
+
+      // Spy on fetchManifestoResults to ensure it's called
+      const fetchManifestoSpy = vi.spyOn(service as any, 'fetchManifestoResults');
+
+      await service.generateSchema('workspace-1', context);
+
+      expect(fetchManifestoSpy).toHaveBeenCalledWith('workspace-1');
+
+      // Verify the result of the spy call
+      const results = await fetchManifestoSpy.mock.results[0].value;
+      expect(results).toHaveLength(2); // 1 from value_trees, 1 from roi_models based on our mock
+      expect(results[0].rule_id).toBe('r1');
+      expect(results[1].rule_id).toBe('r2');
     });
 
     it('should generate schema for expansion stage', async () => {
@@ -375,6 +436,84 @@ describe('CanvasSchemaService', () => {
       service.invalidateCache('workspace-1');
 
       expect(deleteSpy).toHaveBeenCalledWith('sdui:schema:workspace-1');
+    });
+  });
+
+  describe('fetchROI', () => {
+    it('should fetch ROI data', async () => {
+      const workspaceId = 'workspace-1';
+      const mockCalculations = [{ id: 'calc-1', formula: '1 + 1', name: 'calc', calculation_order: 1 }];
+      const mockROIModel = {
+        id: 'roi-1',
+        value_tree_id: 'vt-1',
+        roi_model_calculations: mockCalculations,
+        value_trees: { value_case_id: workspaceId }
+      };
+
+      mockSupabase.from.mockImplementation((table) => {
+        if (table === 'roi_models') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({ data: mockROIModel, error: null })
+              }))
+            }))
+          } as any;
+        }
+        if (table === 'business_cases' || table === 'value_cases') { // mock business case so detectWorkspaceState works
+             return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                eq: vi.fn(() => ({
+                  maybeSingle: vi.fn().mockResolvedValue({ data: {id: workspaceId}, error: null })
+                })),
+                maybeSingle: vi.fn().mockResolvedValue({ data: {id: workspaceId}, error: null })
+              }))
+            }))
+          } as any;
+        }
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null })
+            }))
+          }))
+        } as any;
+      });
+
+      // Mock ROIFormulaInterpreter
+      const mockResults = { calc: { value: 2 } };
+      vi.spyOn(ROIFormulaInterpreter.prototype, 'createContextFromKPIs').mockResolvedValue({ variables: {}, functions: {} });
+      vi.spyOn(ROIFormulaInterpreter.prototype, 'executeCalculationSequence').mockResolvedValue(mockResults);
+
+      // Access private method using any cast
+      const result = await (service as any).fetchROI(workspaceId);
+
+      expect(result).toBeDefined();
+      expect(result.model.id).toEqual(mockROIModel.id);
+      expect(result.calculations).toEqual(mockCalculations);
+      expect(result.results).toEqual(mockResults);
+    });
+
+    it('should return null if roi model not found', async () => {
+       const workspaceId = 'workspace-1';
+
+       mockSupabase.from.mockImplementation((table) => {
+         if (table === 'roi_models') {
+           return {
+             select: vi.fn(() => ({
+               eq: vi.fn(() => ({
+                 maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null })
+               }))
+             }))
+           } as any;
+         }
+         return { select: vi.fn() } as any;
+       });
+
+       const result = await (service as any).fetchROI(workspaceId);
+
+       expect(result).toBeNull();
     });
   });
 });
