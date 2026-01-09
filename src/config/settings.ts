@@ -20,6 +20,7 @@ const SettingsSchema = z.object({
   SUPABASE_SERVICE_KEY: z.string().optional(), // Only available on the server
   REDIS_URL: z.string().url().optional(),
   CORS_ALLOWED_ORIGINS: z.string().optional(),
+  ALERT_WEBHOOK_URL: z.string().url().optional(),
   DATABASE_URL: z.string().url().optional(),
 
   // Shared variables
@@ -71,6 +72,7 @@ const resolvedEnv = {
   SUPABASE_SERVICE_KEY: readEnv("SUPABASE_SERVICE_KEY"),
   REDIS_URL: readEnv("REDIS_URL"),
   CORS_ALLOWED_ORIGINS: readEnv("CORS_ALLOWED_ORIGINS"),
+  ALERT_WEBHOOK_URL: readEnv("ALERT_WEBHOOK_URL"),
   DATABASE_URL: readEnv("DATABASE_URL"),
 };
 

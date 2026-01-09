@@ -19,11 +19,11 @@ export interface AgentSpanAttributes {
 /**
  * Trace an agent execution
  */
-export async function traceAgentExecution\u003cT\u003e(
+export async function traceAgentExecution<T>(
   operationName: string,
   attributes: AgentSpanAttributes,
-  operation: (span: Span) =\u003e Promise\u003cT\u003e
-): Promise\u003cT\u003e {
+  operation: (span: Span) => Promise<T>
+): Promise<T> {
   const tracer = getTracer();
   
   return await tracer.startActiveSpan(
@@ -85,10 +85,10 @@ export async function traceAgentExecution\u003cT\u003e(
 /**
  * Trace agent invocation with confidence tracking
  */
-export async function traceAgentInvocation\u003cT\u003e(
+export async function traceAgentInvocation<T>(
   attributes: AgentSpanAttributes,
-  operation: (span: Span) =\u003e Promise\u003cT \u0026 { confidence_level?: string; confidence_score?: number }\u003e
-): Promise\u003cT\u003e {
+  operation: (span: Span) => Promise<T & { confidence_level?: string; confidence_score?: number }>
+): Promise<T> {
   return await traceAgentExecution('invoke', attributes, async (span) => {
     const result = await operation(span);
     
@@ -107,11 +107,11 @@ export async function traceAgentInvocation\u003cT\u003e(
 /**
  * Trace value prediction with accuracy tracking
  */
-export async function traceValuePrediction\u003cT\u003e(
+export async function traceValuePrediction<T>(
   attributes: AgentSpanAttributes,
   predictionType: string,
-  operation: (span: Span) =\u003e Promise\u003cT\u003e
-): Promise\u003cT\u003e {
+  operation: (span: Span) => Promise<T>
+): Promise<T> {
   const tracer = getTracer();
   
   return await tracer.startActiveSpan(
@@ -143,7 +143,7 @@ export async function traceValuePrediction\u003cT\u003e(
  */
 export function addAgentEvent(
   eventName: string,
-  attributes?: Record\u003cstring, string | number | boolean\u003e
+  attributes?: Record<string, string | number | boolean>
 ): void {
   addSpanEvent(`agent.${eventName}`, attributes);
 }

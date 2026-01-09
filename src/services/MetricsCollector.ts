@@ -256,7 +256,7 @@ export class MetricsCollector {
   async getAgentMetrics(
     agentType?: string,
     period: 'hour' | 'day' | 'week' | 'month' = 'day'
-  ): Promise\u003cAgentMetrics[]\u003e {
+  ): Promise<AgentMetrics[]> {
     if (!this.supabase) {
       throw new Error('Supabase client not configured');
     }
@@ -293,12 +293,12 @@ export class MetricsCollector {
       
       for (const [type, preds] of Object.entries(byAgentType)) {
         const responseTimes = preds
-          .map(p =\u003e p.processing_time_ms)
-          .filter(t =\u003e t !== null)
-          .sort((a, b) =\u003e a - b);
+          .map(p => p.processing_time_ms)
+          .filter(t => t !== null)
+          .sort((a, b) => a - b);
         
         const totalInvocations = preds.length;
-        const successfulInvocations = preds.filter(p =\u003e !p.error).length;
+        const successfulInvocations = preds.filter(p => !p.error).length;
         const failedInvocations = totalInvocations - successfulInvocations;
         
         metrics.push({
@@ -312,9 +312,9 @@ export class MetricsCollector {
           p95ResponseTime: this.percentile(responseTimes, 0.95),
           p99ResponseTime: this.percentile(responseTimes, 0.99),
           avgConfidenceScore: this.average(
-            preds.map(p =\u003e p.confidence_score).filter(s =\u003e s !== null)
+            preds.map(p => p.confidence_score).filter(s => s !== null)
           ),
-          hallucinationRate: preds.filter(p =\u003e p.hallucination_detected).length / totalInvocations
+          hallucinationRate: preds.filter(p => p.hallucination_detected).length / totalInvocations
         });
       }
       
@@ -335,7 +335,7 @@ export class MetricsCollector {
   async getValuePredictionMetrics(
     predictionType?: string,
     period: 'hour' | 'day' | 'week' | 'month' = 'day'
-  ): Promise\u003cValuePredictionMetrics[]\u003e {
+  ): Promise<ValuePredictionMetrics[]> {
     if (!this.supabase) {
       throw new Error('Supabase client not configured');
     }
@@ -372,7 +372,7 @@ export class MetricsCollector {
       const metrics: ValuePredictionMetrics[] = [];
       
       for (const [type, preds] of Object.entries(byType)) {
-        const errors = preds.map(p =\u003e {
+        const errors = preds.map(p => {
           const error = Math.abs(p.predicted_value - p.actual_value);
           const errorPercent = (error / p.actual_value) * 100;
           return { error, errorPercent };
@@ -381,11 +381,11 @@ export class MetricsCollector {
         metrics.push({
           predictionType: type,
           totalPredictions: preds.length,
-          avgPredictedValue: this.average(preds.map(p =\u003e p.predicted_value)),
-          avgActualValue: this.average(preds.map(p =\u003e p.actual_value)),
-          avgError: this.average(errors.map(e =\u003e e.error)),
-          avgErrorPercent: this.average(errors.map(e =\u003e e.errorPercent)),
-          accuracy: 1 - (this.average(errors.map(e =\u003e e.errorPercent)) / 100)
+          avgPredictedValue: this.average(preds.map(p => p.predicted_value)),
+          avgActualValue: this.average(preds.map(p => p.actual_value)),
+          avgError: this.average(errors.map(e => e.error)),
+          avgErrorPercent: this.average(errors.map(e => e.errorPercent)),
+          accuracy: 1 - (this.average(errors.map(e => e.errorPercent)) / 100)
         });
       }
       
@@ -405,7 +405,7 @@ export class MetricsCollector {
    */
   async getSystemMetrics(
     period: 'hour' | 'day' | 'week' | 'month' = 'day'
-  ): Promise\u003cSystemMetrics\u003e {
+  ): Promise<SystemMetrics> {
     if (!this.supabase) {
       throw new Error('Supabase client not configured');
     }
@@ -434,13 +434,13 @@ export class MetricsCollector {
 
       const totalAgentInvocations = predictions?.length || 0;
       const totalLLMCalls = llmCalls?.length || 0;
-      const totalCacheHits = llmCalls?.filter(c =\u003e c.cache_hit).length || 0;
+      const totalCacheHits = llmCalls?.filter(c => c.cache_hit).length || 0;
       const totalCacheMisses = totalLLMCalls - totalCacheHits;
-      const cacheHitRate = totalLLMCalls \u003e 0 ? totalCacheHits / totalLLMCalls : 0;
+      const cacheHitRate = totalLLMCalls > 0 ? totalCacheHits / totalLLMCalls : 0;
       const avgLLMLatency = this.average(
-        llmCalls?.map(c =\u003e c.latency_ms).filter(l =\u003e l !== null) || []
+        llmCalls?.map(c => c.latency_ms).filter(l => l !== null) || []
       );
-      const totalCost = llmCalls?.reduce((sum, c) =\u003e sum + (c.cost || 0), 0) || 0;
+      const totalCost = llmCalls?.reduce((sum, c) => sum + (c.cost || 0), 0) || 0;
 
       return {
         totalAgentInvocations,
@@ -461,25 +461,25 @@ export class MetricsCollector {
   /**
    * Helper: Group predictions by agent type
    */
-  private groupByAgentType(predictions: any[]): Record\u003cstring, any[]\u003e {
-    return predictions.reduce((acc, pred) =\u003e {
+  private groupByAgentType(predictions: any[]): Record<string, any[]> {
+    return predictions.reduce((acc, pred) => {
       const type = pred.agent_type;
       if (!acc[type]) acc[type] = [];
       acc[type].push(pred);
       return acc;
-    }, {} as Record\u003cstring, any[]\u003e);
+    }, {} as Record<string, any[]>);
   }
 
   /**
    * Helper: Group predictions by type
    */
-  private groupByPredictionType(predictions: any[]): Record\u003cstring, any[]\u003e {
-    return predictions.reduce((acc, pred) =\u003e {
+  private groupByPredictionType(predictions: any[]): Record<string, any[]> {
+    return predictions.reduce((acc, pred) => {
       const type = pred.prediction_type;
       if (!acc[type]) acc[type] = [];
       acc[type].push(pred);
       return acc;
-    }, {} as Record\u003cstring, any[]\u003e);
+    }, {} as Record<string, any[]>);
   }
 
   /**
@@ -487,7 +487,7 @@ export class MetricsCollector {
    */
   private average(values: number[]): number {
     if (values.length === 0) return 0;
-    return values.reduce((sum, v) =\u003e sum + v, 0) / values.length;
+    return values.reduce((sum, v) => sum + v, 0) / values.length;
   }
 
   /**
