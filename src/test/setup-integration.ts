@@ -19,7 +19,6 @@ beforeAll(async () => {
   await setup();
 
   // Read DATABASE_URL from temp file (written by globalSetup in separate process)
-   
   let dbUrl = getDatabaseUrl();
   if (!dbUrl) {
     const envFilePath = path.resolve(__dirname, "../../.vitest-env.json");
