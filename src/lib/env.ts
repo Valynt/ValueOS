@@ -99,3 +99,10 @@ export function getLLMCostTrackerConfig(): {
 export function __setEnvSourceForTests(source: EnvRecord): void {
   envSource = source;
 }
+
+/**
+ * Test helper: return a copy of the cached env source.
+ */
+export function __getEnvSourceForTests(): EnvRecord {
+  return { ...envSource };
+}

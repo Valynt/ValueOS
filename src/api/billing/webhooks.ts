@@ -7,6 +7,7 @@ import express, { Request, Response } from 'express';
 import WebhookService from '../../services/billing/WebhookService';
 import { createLogger } from '../../lib/logger';
 import { recordStripeWebhook } from '../../metrics/billingMetrics';
+import { getSupabaseConfig } from '../../lib/env';
 
 const router = express.Router();
 const logger = createLogger({ component: 'WebhooksAPI' });
@@ -22,6 +23,17 @@ const withRequestContext = (req: Request, res: Response, meta?: Record<string, u
  */
 router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Request, res: Response) => {
   try {
+    const { url, serviceRoleKey } = getSupabaseConfig();
+    if (!url || !serviceRoleKey) {
+      logger.warn(
+        'Billing database configuration missing for webhook processing',
+        withRequestContext(req, res)
+      );
+      return res.status(503).json({
+        error: 'Billing database configuration is missing. Set VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.',
+      });
+    }
+
     const signature = req.headers['stripe-signature'] as string;
     
     if (!signature) {
