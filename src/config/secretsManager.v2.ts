@@ -189,7 +189,11 @@ export class MultiTenantSecretsManager {
         .eq('tenant_id', tenantId);
 
       if (error) {
-        logger.error('Failed to fetch user roles for RBAC check', error, { userId, tenantId });
+        logger.error(
+          'Failed to fetch user roles for RBAC check',
+          error instanceof Error ? error : new Error(error?.message ?? 'Supabase error while fetching user roles'),
+          { userId, tenantId }
+        );
         return { allowed: false, reason: 'Failed to verify permissions' };
       }
 
