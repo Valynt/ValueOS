@@ -834,8 +834,39 @@ export class CanvasSchemaService {
    * Fetch value tree
    */
   private async fetchValueTree(workspaceId: string): Promise<any | null> {
-    // TODO: Implement actual value tree fetching
-    return null;
+    try {
+      const supabase = getSupabaseClient();
+
+      const { data, error } = await supabase
+        .from('value_trees')
+        .select(`
+          *,
+          value_tree_nodes(*),
+          value_tree_links(*)
+        `)
+        .eq('value_case_id', workspaceId)
+        .maybeSingle();
+
+      if (error) {
+        logger.error('Error fetching value tree', { workspaceId, error: error.message });
+        return null;
+      }
+
+      if (!data) return null;
+
+      // Transform to match expected structure (similar to ValueTreeService)
+      return {
+        ...data,
+        nodes: data.value_tree_nodes || [],
+        links: data.value_tree_links || []
+      };
+    } catch (error) {
+      logger.error('Failed to fetch value tree', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
   }
 
   /**
