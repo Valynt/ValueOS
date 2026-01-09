@@ -15,6 +15,7 @@ import CustomerService from './billing/CustomerService';
 import SubscriptionService from './billing/SubscriptionService';
 import { PlanTier } from '../config/billing';
 import { emailService } from './EmailService';
+import { settingsService } from './SettingsService';
 
 /**
  * Tenant tier
@@ -432,11 +433,11 @@ async function initializeSettings(config: TenantConfig): Promise<void> {
     features: config.features || TIER_FEATURES[config.tier],
   };
 
-  // TODO: Implement settings initialization
-  // await settingsService.initializeOrganizationSettings(
-  //    config.organizationId,
-  //    defaultSettings
-  // );
+  await settingsService.initializeOrganizationSettings(
+    config.organizationId,
+    defaultSettings,
+    config.ownerId
+  );
 
   logger.debug(`Settings initialized for ${config.organizationId}`);
 }
