@@ -15,32 +15,12 @@ import { getEnvVar } from '../lib/env';
 const logger = createLogger({ component: 'AuthMiddleware' });
 
 const SUPABASE_TOKEN_PREFIX = 'Bearer ';
-const SUPABASE_COOKIE_NAMES = ['sb-access-token', 'sb_access_token'];
 
 function parseBearerToken(header?: string): string | null {
   if (!header) return null;
   if (!header.startsWith(SUPABASE_TOKEN_PREFIX)) return null;
   const token = header.slice(SUPABASE_TOKEN_PREFIX.length).trim();
   return token.length > 0 ? token : null;
-}
-
-function parseCookieHeader(raw?: string): Record<string, string> {
-  if (!raw) return {};
-  return raw.split(';').reduce<Record<string, string>>((cookies, part) => {
-    const [key, ...rest] = part.trim().split('=');
-    if (!key) return cookies;
-    cookies[key] = decodeURIComponent(rest.join('=') || '');
-    return cookies;
-  }, {});
-}
-
-function getCookieToken(req: Request): string | null {
-  const cookies = (req as any).cookies ?? parseCookieHeader(req.headers.cookie);
-  for (const name of SUPABASE_COOKIE_NAMES) {
-    const value = cookies?.[name];
-    if (value) return value;
-  }
-  return null;
 }
 
 function decodeClaims(token: string): JwtPayload | null {
@@ -154,7 +134,6 @@ export async function verifyAccessToken(token: string) {
 export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const authHeader = req.headers.authorization;
-    const sessionCookie = getCookieToken(req);
     const bearerToken = parseBearerToken(authHeader);
 
     let session = null;
@@ -164,15 +143,6 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     // Try to get session from various sources
     if (bearerToken) {
       const verified = await verifyAccessToken(bearerToken);
-      if (!verified) {
-        throw new AuthenticationError('Invalid or expired token');
-      }
-
-      session = verified.session;
-      user = verified.user;
-      claims = verified.claims ?? null;
-    } else if (sessionCookie) {
-      const verified = await verifyAccessToken(sessionCookie);
       if (!verified) {
         throw new AuthenticationError('Invalid or expired token');
       }
@@ -236,18 +206,12 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 export async function optionalAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const bearerToken = parseBearerToken(req.headers.authorization);
-    const sessionCookie = getCookieToken(req);
     let session = null;
     let user = null;
     let claims: JwtPayload | null = null;
 
     if (bearerToken) {
       const verified = await verifyAccessToken(bearerToken);
-      session = verified?.session ?? null;
-      user = verified?.user ?? null;
-      claims = verified?.claims ?? null;
-    } else if (sessionCookie) {
-      const verified = await verifyAccessToken(sessionCookie);
       session = verified?.session ?? null;
       user = verified?.user ?? null;
       claims = verified?.claims ?? null;
