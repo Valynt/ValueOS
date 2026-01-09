@@ -113,11 +113,43 @@ describe('CanvasSchemaService', () => {
             }))
           } as any;
         }
+        if (table === 'value_trees') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                data: [{
+                  id: 'vt-1',
+                  compliance_metadata: {
+                    results: [{ rule_id: 'r1', passed: true, message: 'passed' }]
+                  }
+                }],
+                error: null
+              }))
+            }))
+          } as any;
+        }
+        if (table === 'roi_models') {
+           return {
+            select: vi.fn(() => ({
+              in: vi.fn(() => ({
+                data: [{
+                  id: 'roi-1',
+                  compliance_metadata: {
+                    results: [{ rule_id: 'r2', passed: false, message: 'failed' }]
+                  }
+                }],
+                error: null
+              }))
+            }))
+          } as any;
+        }
         return {
           select: vi.fn(() => ({
             eq: vi.fn(() => ({
-              maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null })
-            }))
+              maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+              eq: vi.fn(() => ({ data: [], error: null }))
+            })),
+            in: vi.fn(() => ({ data: [], error: null }))
           }))
         } as any;
       });
@@ -153,6 +185,29 @@ describe('CanvasSchemaService', () => {
 
       expect(schema).toBeDefined();
       expect(schema.type).toBe('page');
+    });
+
+    it('should fetch manifesto results correctly', async () => {
+      // Access private method via any cast or just trust generateSchema calls it
+      // But let's verify fetchWorkspaceData logic which calls fetchManifestoResults
+      const context: WorkspaceContext = {
+        workspaceId: 'workspace-1',
+        userId: 'user-1',
+        lifecycleStage: 'integrity',
+      };
+
+      // Spy on fetchManifestoResults to ensure it's called
+      const fetchManifestoSpy = vi.spyOn(service as any, 'fetchManifestoResults');
+
+      await service.generateSchema('workspace-1', context);
+
+      expect(fetchManifestoSpy).toHaveBeenCalledWith('workspace-1');
+
+      // Verify the result of the spy call
+      const results = await fetchManifestoSpy.mock.results[0].value;
+      expect(results).toHaveLength(2); // 1 from value_trees, 1 from roi_models based on our mock
+      expect(results[0].rule_id).toBe('r1');
+      expect(results[1].rule_id).toBe('r2');
     });
 
     it('should generate schema for expansion stage', async () => {
