@@ -6,6 +6,8 @@
  */
 
 import { logger } from "../lib/logger";
+import { useToast } from "../components/Common/Toast";
+import * as React from "react";
 
 // ============================================================================
 // Error Types
@@ -52,6 +54,7 @@ export interface ErrorHandlerOptions {
   showToast?: boolean;
   logError?: boolean;
   fallbackMessage?: string;
+  onToast?: (message: string) => void;
 }
 
 /**
@@ -63,12 +66,15 @@ export interface ErrorHandlerOptions {
  *
  * @example
  * ```typescript
- * try {
- *   await updateSetting('user.theme', 'dark');
- * } catch (error) {
- *   const message = handleSettingsError(error, { showToast: true });
- *   setError(message);
- * }
+ * // Using the hook (recommended)
+ * const { handleError } = useSettingsErrorHandler();
+ * handleError(error);
+ *
+ * // Or manually
+ * handleSettingsError(error, {
+ *   showToast: true,
+ *   onToast: (msg) => toast.error(msg)
+ * });
  * ```
  */
 export function handleSettingsError(error: unknown, options: ErrorHandlerOptions = {}): string {
@@ -118,11 +124,36 @@ export function handleSettingsError(error: unknown, options: ErrorHandlerOptions
   }
 
   if (showToast) {
-    // TODO: Integrate with toast notification system
-    console.error(errorMessage);
+    if (options.onToast) {
+      options.onToast(errorMessage);
+    } else {
+      console.error(errorMessage);
+    }
   }
 
   return errorMessage;
+}
+
+/**
+ * Hook to handle settings errors using the toast notification system
+ *
+ * @returns Object containing the handleError function
+ */
+export function useSettingsErrorHandler() {
+  const { error: showToastError } = useToast();
+
+  const handleError = React.useCallback((error: unknown, options: ErrorHandlerOptions = {}) => {
+    // Default showToast to true when using the hook unless explicitly set to false
+    const shouldShowToast = options.showToast !== false;
+
+    return handleSettingsError(error, {
+      ...options,
+      showToast: shouldShowToast,
+      onToast: (message) => showToastError('Error', message),
+    });
+  }, [showToastError]);
+
+  return { handleError };
 }
 
 // ============================================================================
@@ -318,5 +349,3 @@ export function isNetworkError(error: unknown): boolean {
   return isSettingsError(error) && error.code === SettingsErrorCode.NETWORK_ERROR;
 }
 
-// Import React for error boundary helper
-import * as React from "react";
