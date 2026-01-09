@@ -9,15 +9,27 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MultiTenantSecretsManager } from '../secretsManager.v2';
+import * as SupabaseLib from '../../lib/supabase';
 
 // Mock AWS SDK
-vi.mock('@aws-sdk/client-secrets-manager', () => ({
-  SecretsManagerClient: vi.fn().mockImplementation(() => ({
-    send: vi.fn()
-  })),
-  GetSecretValueCommand: vi.fn(),
-  UpdateSecretCommand: vi.fn(),
-  RotateSecretCommand: vi.fn()
+vi.mock('@aws-sdk/client-secrets-manager', () => {
+  return {
+    SecretsManagerClient: class MockSecretsManagerClient {
+      send = vi.fn();
+    },
+    GetSecretValueCommand: vi.fn(),
+    UpdateSecretCommand: vi.fn(),
+    RotateSecretCommand: vi.fn()
+  };
+});
+
+// Mock Supabase
+const mockSupabase = {
+  from: vi.fn(),
+};
+
+vi.mock('../../lib/supabase', () => ({
+  createServerSupabaseClient: vi.fn(() => mockSupabase),
 }));
 
 // Mock logger
@@ -33,8 +45,21 @@ describe('MultiTenantSecretsManager', () => {
   let secretsManager: MultiTenantSecretsManager;
 
   beforeEach(() => {
-    secretsManager = new MultiTenantSecretsManager();
     vi.clearAllMocks();
+    secretsManager = new MultiTenantSecretsManager();
+
+    // Default mock setup for Supabase
+    // We need to chain calls: from().select().eq().single()
+    const mockSingle = vi.fn();
+    const mockEq = vi.fn().mockReturnValue({ single: mockSingle });
+    const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
+    mockSupabase.from.mockReturnValue({ select: mockSelect });
+
+    // Reset implementation of createServerSupabaseClient if needed,
+    // although clearing mocks should handle it if we spy correctly.
+    // However, since we mocked the module, we access the mock via the import if possible
+    // or just rely on the fact that vi.mock hoisted it.
+    // But to change implementation per test, we might need to access the mocked function.
   });
 
   afterEach(() => {
@@ -55,9 +80,9 @@ describe('MultiTenantSecretsManager', () => {
     });
 
     it('should require tenant ID for secret access', async () => {
-      await expect(
+      expect(() =>
         (secretsManager as any).getTenantSecretPath('', 'config')
-      ).rejects.toThrow('Tenant ID is required');
+      ).toThrow('Tenant ID is required');
     });
 
     it('should validate tenant ID format', () => {
@@ -107,19 +132,19 @@ describe('MultiTenantSecretsManager', () => {
     it('should deny access without user ID', async () => {
       const manager = secretsManager as any;
       
-      const permCheck = manager.checkPermission(undefined, 'tenant-123', 'READ');
+      const permCheck = await manager.checkPermission(undefined, 'tenant-123', 'READ');
       
       expect(permCheck.allowed).toBe(false);
       expect(permCheck.reason).toContain('User ID required');
     });
 
-    it('should allow system user full access', () => {
+    it('should allow system user full access', async () => {
       const manager = secretsManager as any;
       
-      const readCheck = manager.checkPermission('system', 'tenant-123', 'READ');
-      const writeCheck = manager.checkPermission('system', 'tenant-123', 'WRITE');
-      const deleteCheck = manager.checkPermission('system', 'tenant-123', 'DELETE');
-      const rotateCheck = manager.checkPermission('system', 'tenant-123', 'ROTATE');
+      const readCheck = await manager.checkPermission('system', 'tenant-123', 'READ');
+      const writeCheck = await manager.checkPermission('system', 'tenant-123', 'WRITE');
+      const deleteCheck = await manager.checkPermission('system', 'tenant-123', 'DELETE');
+      const rotateCheck = await manager.checkPermission('system', 'tenant-123', 'ROTATE');
       
       expect(readCheck.allowed).toBe(true);
       expect(writeCheck.allowed).toBe(true);
@@ -127,32 +152,78 @@ describe('MultiTenantSecretsManager', () => {
       expect(rotateCheck.allowed).toBe(true);
     });
 
-    it('should allow admin users full access', () => {
+    it('should allow admin users full access', async () => {
       const manager = secretsManager as any;
       
-      const readCheck = manager.checkPermission('admin-user-1', 'tenant-123', 'READ');
-      const writeCheck = manager.checkPermission('admin-user-1', 'tenant-123', 'WRITE');
+      const readCheck = await manager.checkPermission('admin-user-1', 'tenant-123', 'READ');
+      const writeCheck = await manager.checkPermission('admin-user-1', 'tenant-123', 'WRITE');
       
       expect(readCheck.allowed).toBe(true);
       expect(writeCheck.allowed).toBe(true);
     });
 
-    it('should deny regular users write access by default', () => {
+    it('should deny regular users write access by default', async () => {
       const manager = secretsManager as any;
       
-      const writeCheck = manager.checkPermission('user-123', 'tenant-123', 'WRITE');
-      const deleteCheck = manager.checkPermission('user-123', 'tenant-123', 'DELETE');
+      const writeCheck = await manager.checkPermission('user-123', 'tenant-123', 'WRITE');
+      const deleteCheck = await manager.checkPermission('user-123', 'tenant-123', 'DELETE');
       
       expect(writeCheck.allowed).toBe(false);
       expect(deleteCheck.allowed).toBe(false);
     });
 
-    it('should allow regular users read access', () => {
+    it('should allow regular users read access if belonging to tenant', async () => {
       const manager = secretsManager as any;
       
-      const readCheck = manager.checkPermission('user-123', 'tenant-123', 'READ');
+      // Setup mock return value
+      mockSupabase.from('users').select('organization_id').eq('id', 'user-123').single.mockResolvedValue({
+        data: { organization_id: 'tenant-123' },
+        error: null
+      });
+
+      const readCheck = await manager.checkPermission('user-123', 'tenant-123', 'READ');
       
       expect(readCheck.allowed).toBe(true);
+    });
+
+    it('should deny regular users read access if NOT belonging to tenant', async () => {
+      const manager = secretsManager as any;
+
+      mockSupabase.from('users').select('organization_id').eq('id', 'user-123').single.mockResolvedValue({
+        data: { organization_id: 'tenant-999' },
+        error: null
+      });
+
+      const readCheck = await manager.checkPermission('user-123', 'tenant-123', 'READ');
+
+      expect(readCheck.allowed).toBe(false);
+      expect(readCheck.reason).toContain('does not belong to tenant');
+    });
+
+    it('should deny regular users read access if user not found', async () => {
+      const manager = secretsManager as any;
+
+      mockSupabase.from('users').select('organization_id').eq('id', 'user-123').single.mockResolvedValue({
+        data: null,
+        error: { message: 'Not found' }
+      });
+
+      const readCheck = await manager.checkPermission('user-123', 'tenant-123', 'READ');
+
+      expect(readCheck.allowed).toBe(false);
+      expect(readCheck.reason).toContain('User not found');
+    });
+
+     it('should deny regular users read access if DB error occurs', async () => {
+      const manager = secretsManager as any;
+
+      // Mock createServerSupabaseClient to throw
+      (SupabaseLib.createServerSupabaseClient as any).mockImplementationOnce(() => { throw new Error('DB connection failed'); });
+
+      const readCheck = await manager.checkPermission('user-123', 'tenant-123', 'READ');
+
+      expect(readCheck.allowed).toBe(false);
+      expect(readCheck.reason).toContain('Cannot verify tenant membership');
     });
   });
 
@@ -230,9 +301,9 @@ describe('MultiTenantSecretsManager', () => {
       
       const manager = new MultiTenantSecretsManager();
       
-      await expect(
+      expect(() =>
         (manager as any).getSecretsFromEnv()
-      ).rejects.toThrow('Cannot fallback to environment variables in production');
+      ).toThrow('Cannot fallback to environment variables in production');
       
       process.env.NODE_ENV = originalEnv;
     });
@@ -258,7 +329,7 @@ describe('MultiTenantSecretsManager', () => {
         TOGETHER_API_KEY: 'test-key',
         SUPABASE_URL: 'https://test.supabase.co',
         // Missing other required secrets
-      });
+      } as any);
       
       const validation = await secretsManager.validateSecrets('tenant-123', 'system');
       
@@ -282,7 +353,7 @@ describe('MultiTenantSecretsManager', () => {
       };
       
       // First call - cache miss
-      vi.spyOn(manager.client, 'send').mockResolvedValue({
+      manager.client.send = vi.fn().mockResolvedValue({
         SecretString: JSON.stringify(mockSecrets)
       });
       

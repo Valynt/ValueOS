@@ -7,6 +7,8 @@
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Shield, XCircle } from 'lucide-react';
+import { logger } from '../../lib/logger';
+import { captureException } from '../../lib/sentry';
 import { AgentType } from '../../services/AgentAPI';
 
 /**
@@ -95,11 +97,13 @@ export class AgentErrorBoundary extends Component<
     this.setState({ errorInfo });
     onError?.(error, errorInfo);
 
-    // Log to error tracking service in production
-    if (process.env.NODE_ENV === 'production') {
-      // TODO: Integrate with error tracking service
-      // logErrorToService(error, { agent, errorInfo });
-    }
+    // Log to error tracking service
+    captureException(error, {
+      extra: {
+        agent,
+        errorInfo,
+      },
+    });
   }
 
   handleRetry = (): void => {
