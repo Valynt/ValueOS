@@ -25,9 +25,12 @@ import { generateSOFExpansionPage } from '../sdui/templates/sof-expansion-templa
 import { generateSOFIntegrityPage } from '../sdui/templates/sof-integrity-template';
 import { generateSOFRealizationPage } from '../sdui/templates/sof-realization-template';
 import { hashObject, shortHash } from '../lib/contentHash';
+import { ROIFormulaInterpreter } from './ROIFormulaInterpreter';
+import { ROIModel, ROIModelCalculation } from '../types/vos';
 import { ALL_VMRT_SEEDS } from '../types/vos-pt1-seed';
 import { VMRTAssumption } from '../types/vmrt';
 import { ManifestoValidationResult } from '../types/vos';
+import { EXTENDED_STRUCTURAL_PERSONA_MAPS } from '../types/structural-data';
 
 /**
  * Schema head pointer - points to current schema hash
@@ -652,16 +655,75 @@ export class CanvasSchemaService {
    * Fetch system map
    */
   private async fetchSystemMap(workspaceId: string): Promise<any | null> {
-    // TODO: Implement actual system map fetching
-    return null;
+    try {
+      const supabase = getSupabaseClient();
+
+      const { data, error } = await supabase
+        .from('system_maps')
+        .select('*')
+        .eq('business_case_id', workspaceId)
+        .maybeSingle();
+
+      if (error) {
+        logger.warn('Error fetching system map', { workspaceId, error: error.message });
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      logger.error('Failed to fetch system map', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
   }
 
   /**
    * Fetch personas
    */
   private async fetchPersonas(workspaceId: string): Promise<any[]> {
-    // TODO: Implement actual persona fetching
-    return [];
+    try {
+      // 1. Fetch business case to get context (industry, custom stakeholders)
+      const businessCase = await this.fetchBusinessCase(workspaceId);
+
+      // 2. If business case has stored stakeholders/personas, return them
+      if (businessCase?.metadata?.stakeholders && Array.isArray(businessCase.metadata.stakeholders)) {
+        return businessCase.metadata.stakeholders;
+      }
+
+      if (businessCase?.metadata?.personas && Array.isArray(businessCase.metadata.personas)) {
+        return businessCase.metadata.personas;
+      }
+
+      // 3. Fallback: Use structural truth data
+      // We map the structural personas to the format expected by the UI
+      return EXTENDED_STRUCTURAL_PERSONA_MAPS.map(p => ({
+        id: p.persona, // Use persona key as ID
+        name: this.formatPersonaName(p.persona),
+        role: p.persona,
+        primaryPain: p.primaryPain,
+        painDescription: p.painDescription,
+        keyKPIs: p.keyKPIs,
+        financialDriver: p.financialDriver,
+        typicalGoals: p.typicalGoals,
+        communicationPreference: p.communicationPreference
+      }));
+
+    } catch (error) {
+       logger.error('Failed to fetch personas', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
+  }
+
+  private formatPersonaName(key: string): string {
+    return key
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   }
 
   /**
@@ -792,24 +854,145 @@ export class CanvasSchemaService {
    * Fetch value tree
    */
   private async fetchValueTree(workspaceId: string): Promise<any | null> {
-    // TODO: Implement actual value tree fetching
-    return null;
+    try {
+      const supabase = getSupabaseClient();
+
+      const { data, error } = await supabase
+        .from('value_trees')
+        .select(`
+          *,
+          value_tree_nodes(*),
+          value_tree_links(*)
+        `)
+        .eq('value_case_id', workspaceId)
+        .maybeSingle();
+
+      if (error) {
+        logger.error('Error fetching value tree', { workspaceId, error: error.message });
+        return null;
+      }
+
+      if (!data) return null;
+
+      // Transform to match expected structure (similar to ValueTreeService)
+      return {
+        ...data,
+        nodes: data.value_tree_nodes || [],
+        links: data.value_tree_links || []
+      };
+    } catch (error) {
+      logger.error('Failed to fetch value tree', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
   }
 
   /**
    * Fetch gaps
    */
   private async fetchGaps(workspaceId: string): Promise<any[]> {
-    // TODO: Implement actual gap fetching
-    return [];
+    try {
+      const supabase = getSupabaseClient();
+
+      // Fetch opportunities with gap analysis
+      const { data: opportunities, error } = await supabase
+        .from('opportunities')
+        .select('id, title, type, gap_analysis, current_state, desired_state, impact_score')
+        .eq('value_case_id', workspaceId)
+        .not('gap_analysis', 'is', null);
+
+      if (error) {
+        logger.warn('Error fetching gaps from opportunities', { workspaceId, error: error.message });
+        return [];
+      }
+
+      // Transform into a standardized Gap interface
+      return (opportunities || []).map(opp => ({
+        id: opp.id,
+        name: opp.title,
+        type: opp.type,
+        gap_analysis: opp.gap_analysis,
+        current_state: opp.current_state,
+        desired_state: opp.desired_state,
+        impact_score: opp.impact_score
+      }));
+
+    } catch (error) {
+      logger.error('Failed to fetch gaps', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
   }
 
   /**
    * Fetch ROI
    */
-  private async fetchROI(workspaceId: string): Promise<any | null> {
-    // TODO: Implement actual ROI fetching
-    return null;
+  private async fetchROI(workspaceId: string): Promise<{
+    model: ROIModel;
+    calculations: ROIModelCalculation[];
+    results: any;
+  } | null> {
+    try {
+      const supabase = getSupabaseClient();
+
+      // Fetch ROI Model and Calculations in a single efficient query
+      // using nested filtering via join with value_trees table
+      const { data: roiModel, error: rmError } = await supabase
+        .from('roi_models')
+        .select(`
+          *,
+          roi_model_calculations (*),
+          value_trees!inner (
+            value_case_id
+          )
+        `)
+        .eq('value_trees.value_case_id', workspaceId)
+        .maybeSingle();
+
+      if (rmError || !roiModel) {
+        logger.debug('ROI Model not found', { workspaceId });
+        return null;
+      }
+
+      // Calculations are already ordered by database if not we sort them
+      const calculations = (roiModel.roi_model_calculations || []).sort(
+        (a: ROIModelCalculation, b: ROIModelCalculation) => a.calculation_order - b.calculation_order
+      );
+
+      // Clean up the model object to remove the extra nested data if strict typing needed
+      // But for now casting or just using it is fine.
+      // We also need to remove the value_trees property if it's not part of ROIModel type
+      // But let's keep it simple.
+
+      // 4. Calculate results using ROIFormulaInterpreter
+      const interpreter = new ROIFormulaInterpreter(supabase);
+
+      // Initialize context with KPI data
+      const context = await interpreter.createContextFromKPIs(workspaceId);
+
+      // Execute calculation sequence
+      const results = await interpreter.executeCalculationSequence(
+        calculations,
+        context
+      );
+
+      return {
+        model: roiModel as unknown as ROIModel,
+        calculations,
+        results
+      };
+
+    } catch (error) {
+      logger.error('Failed to fetch ROI', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
   }
 
   /**
