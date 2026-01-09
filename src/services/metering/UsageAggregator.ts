@@ -94,6 +94,8 @@ class UsageAggregator {
     const eventCount = events.length;
     const periodStart = events[0].timestamp;
     const periodEnd = events[events.length - 1].timestamp;
+    const periodStartKey = new Date(periodStart).toISOString();
+    const periodEndKey = new Date(periodEnd).toISOString();
 
     // Fetch active subscriptions for tenant
     const { data: subscriptions, error: subsErr } = await supabase
@@ -132,7 +134,7 @@ class UsageAggregator {
     }
 
     // Generate idempotency key
-    const idempotencyKey = `aggregate_${tenantId}_${metric}_${Date.now()}`;
+    const idempotencyKey = `aggregate_${tenantId}_${metric}_${periodStartKey}_${periodEndKey}`;
 
     // Create aggregate
     const { error } = await supabase
@@ -149,7 +151,20 @@ class UsageAggregator {
         idempotency_key: idempotencyKey,
       });
 
-    if (error) throw error;
+    if (error) {
+      const errorCode = (error as { code?: string }).code;
+      const errorMessage = (error as { message?: string }).message || '';
+      if (errorCode === '23505' || errorMessage.includes('duplicate key')) {
+        logger.info('Aggregate already exists for idempotency key', {
+          tenantId,
+          metric,
+          idempotencyKey,
+        });
+        await this.markEventsProcessed(events.map(e => e.id));
+        return;
+      }
+      throw error;
+    }
 
     // Mark events as processed
     await this.markEventsProcessed(events.map(e => e.id));

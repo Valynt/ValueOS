@@ -15,6 +15,9 @@ vi.mock('@supabase/supabase-js', () => {
     lastUpdatePayload: null,
     lastUpsertPayload: null,
     lastInsertPayload: null,
+    insertPayloads: [] as any[],
+    insertedIdempotencyKeys: new Set<string>(),
+    selectResponses: {} as Record<string, any[] | null>,
     processedEventIds: [] as any[],
   };
 
@@ -39,14 +42,32 @@ vi.mock('@supabase/supabase-js', () => {
         return { error: null };
       },
       insert: async (payload: any) => {
+        const payloads = Array.isArray(payload) ? payload : [payload];
+        if (table === 'usage_aggregates') {
+          for (const entry of payloads) {
+            const key = entry?.idempotency_key as string | undefined;
+            if (key && state.insertedIdempotencyKeys.has(key)) {
+              return {
+                error: {
+                  code: '23505',
+                  message: 'duplicate key value violates unique constraint',
+                },
+              };
+            }
+            if (key) {
+              state.insertedIdempotencyKeys.add(key);
+            }
+          }
+        }
         state.lastInsertPayload = payload;
+        state.insertPayloads.push(...payloads);
         return { error: null };
       },
       upsert: async (payload: any) => {
         state.lastUpsertPayload = payload;
         return { error: null };
       },
-      then: async () => ({ data: null, error: null }),
+      then: async () => ({ data: state.selectResponses[table] ?? null, error: null }),
     } as any;
   };
 
@@ -84,8 +105,16 @@ import aggregator from '../metering/UsageAggregator';
 import { trackUsage } from '../UsageTrackingService';
 
 describe('Billing patches', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    const client = (await import('@supabase/supabase-js')).createClient();
+    client.state.lastUpdatePayload = null;
+    client.state.lastUpsertPayload = null;
+    client.state.lastInsertPayload = null;
+    client.state.insertPayloads = [];
+    client.state.insertedIdempotencyKeys.clear();
+    client.state.selectResponses = {};
+    client.state.processedEventIds = [];
   });
 
   it('increments retry_count when marking webhook failed', async () => {
@@ -130,5 +159,22 @@ describe('Billing patches', () => {
     const client = (await import('@supabase/supabase-js')).createClient();
     expect(client.state.lastUpsertPayload).toBeTruthy();
     expect(client.state.lastUpsertPayload.organization_id).toBe('org-1');
+  });
+
+  it('does not create duplicate aggregates when reprocessing the same group', async () => {
+    const events = [
+      { id: 'e1', tenant_id: 't1', metric: 'api_calls', amount: '1', timestamp: '2025-01-01T00:00:00Z' },
+      { id: 'e2', tenant_id: 't1', metric: 'api_calls', amount: '2', timestamp: '2025-01-01T00:05:00Z' },
+    ];
+
+    const client = (await import('@supabase/supabase-js')).createClient();
+    client.state.selectResponses.subscriptions = [{ id: 'sub-1' }];
+    client.state.selectResponses.subscription_items = [{ id: 'item-1' }];
+
+    await (aggregator as any).createAggregate(events);
+    await (aggregator as any).createAggregate(events);
+
+    expect(client.state.insertPayloads).toHaveLength(1);
+    expect(client.state.insertPayloads[0].idempotency_key).toContain('aggregate_t1_api_calls');
   });
 });
