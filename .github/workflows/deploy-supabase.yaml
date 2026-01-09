@@ -67,7 +67,7 @@ jobs:
       - name: Check for pending migrations
         run: |
           set -euo pipefail
-          pending="$(supabase migration list --linked | awk 'tolower($0) ~ /pending/ {print}')"
+          pending="$(supabase migration list --linked | awk 'tolower($NF) == "pending" {print}')"
           if [ -n "$pending" ]; then
             echo "❌ Pending migrations detected in staging:"
             echo "$pending"
