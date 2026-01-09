@@ -26,8 +26,10 @@ import {
   metricsMiddleware,
 } from "../middleware/metricsMiddleware";
 import { createRateLimiter } from "../middleware/rateLimiter";
+import { serviceIdentityMiddleware } from "../middleware/serviceIdentityMiddleware";
 import { securityHeadersMiddleware } from "../middleware/securityHeaders";
 import { requireAuth } from "../middleware/auth";
+import { tenantContextMiddleware } from "../middleware/tenantContext";
 import { settings } from "../config/settings";
 import { isConsentRegistryConfigured } from "../services/consentRegistry";
 
@@ -139,9 +141,16 @@ app.get("/metrics/latency", (_req, res) => {
 apiRouter.use("/billing", billingRouter);
 app.use("/api", apiRouter);
 app.use("/api/auth", authRouter);
-app.use("/api/agents", agentExecutionLimiter, agentsRouter);
+app.use(
+  "/api/agents",
+  serviceIdentityMiddleware,
+  requireAuth,
+  tenantContextMiddleware(),
+  agentExecutionLimiter,
+  agentsRouter
+);
 app.use("/api", workflowRouter);
-app.use("/api/documents", requireAuth, documentRouter);
+app.use("/api/documents", requireAuth, tenantContextMiddleware(), documentRouter);
 app.use("/api/docs", docsApiRouter);
 
 // Error handler

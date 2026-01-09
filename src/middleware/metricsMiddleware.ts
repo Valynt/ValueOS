@@ -55,7 +55,9 @@ export const metricsMiddleware = () =>
       const routeLabel = resolveRouteLabel(req);
       const tenantId =
         (req as any).tenantId ||
-        (req.headers['x-tenant-id'] as string) ||
+        ((req as any).serviceIdentityVerified
+          ? (req.headers['x-tenant-id'] as string | undefined)
+          : undefined) ||
         'unknown';
 
       const labels: MetricsLabels = {
