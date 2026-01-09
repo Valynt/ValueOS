@@ -15,6 +15,8 @@ import { initializeAgents, SystemHealth } from "./services/AgentInitializer";
 import { initializeSecurity, validateSecurity } from "./security";
 import { createLogger, logger as globalLogger, setupMonitoring } from "./lib/logger";
 import { initializeRedisCache } from "./lib/redis";
+import { initializeSentry } from "./lib/sentry";
+import { checkDatabaseConnection } from "./lib/database";
 
 /**
  * Bootstrap result
@@ -227,11 +229,7 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
     onProgress?.("Initializing error tracking...");
     logger.info("\n📊 Step 5: Initializing Sentry");
     try {
-      // TODO: Initialize Sentry
-      // await initializeSentry(config.monitoring.sentry);
-      logger.info("   ⚠️  Sentry initialization not implemented yet");
-      warnings.push("Sentry initialization not implemented");
-      onWarning?.("Sentry initialization not implemented");
+      await initializeSentry(config.monitoring.sentry);
     } catch (error) {
       const errorMsg = `Failed to initialize Sentry: ${error instanceof Error ? error.message : "Unknown error"}`;
       warnings.push(errorMsg);
@@ -335,11 +333,7 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
     onProgress?.("Checking database connection...");
     logger.info("\n💾 Step 7: Database connection");
     try {
-      // TODO: Check database connection
-      // await checkDatabaseConnection();
-      logger.info("   ⚠️  Database connection check not implemented yet");
-      warnings.push("Database connection check not implemented");
-      onWarning?.("Database connection check not implemented");
+      await checkDatabaseConnection();
     } catch (error) {
       const errorMsg = `Database connection failed: ${error instanceof Error ? error.message : "Unknown error"}`;
       warnings.push(errorMsg);

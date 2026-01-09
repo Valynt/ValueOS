@@ -5,7 +5,7 @@
  * Only initializes in production environment.
  */
 
-import { logger } from './lib/logger';
+import { logger } from './logger';
 import { getConfig, isDevelopment, isProduction } from '../config/environment';
 
 // Type-safe Sentry interface (will be replaced with actual SDK)
