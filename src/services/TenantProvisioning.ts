@@ -14,6 +14,7 @@
 
 import { logger } from '../lib/logger';
 import { getConfig } from '../config/environment';
+import { createServerSupabaseClient } from '../lib/supabase';
 
 /**
  * Tenant tier
@@ -316,20 +317,70 @@ export async function provisionTenant(
 /**
  * Create organization in database
  */
-async function createOrganization(config: TenantConfig): Promise<void> {
-  // TODO: Implement database call
-  // await supabase.from('organizations').insert({
-  //   id: config.organizationId,
-  //   name: config.name,
-  //   tier: config.tier,
-  //   owner_id: config.ownerId,
-  //   status: 'active',
-  //   limits: config.limits || TIER_LIMITS[config.tier],
-  //   features: config.features || TIER_FEATURES[config.tier],
-  //   created_at: new Date().toISOString(),
-  // });
+export async function createOrganization(config: TenantConfig): Promise<any> {
+  const supabase = createServerSupabaseClient();
 
-  logger.debug('Organization ${config.organizationId} created');
+  // Map tiers: starter -> professional
+  let dbTier = config.tier;
+  if (config.tier === 'starter') {
+    dbTier = 'professional' as any;
+  }
+
+  // 1. Insert into organizations
+  let orgData;
+  const { data, error } = await supabase.from('organizations').insert({
+    id: config.organizationId,
+    tenant_id: config.organizationId, // Assuming 1:1 mapping for now
+    name: config.name,
+    tier: dbTier,
+    is_active: true,
+    settings: config.settings || {},
+    created_at: new Date().toISOString(),
+  }).select().single();
+
+  if (error) {
+    // Idempotency: If duplicate key, fetch existing
+    if (error.code === '23505') { // Unique violation
+      logger.info('Organization already exists, retrieving existing record', { organizationId: config.organizationId });
+      const existing = await supabase
+        .from('organizations')
+        .select()
+        .eq('id', config.organizationId)
+        .single();
+
+      if (existing.error) {
+        throw new Error(`Failed to retrieve existing organization: ${existing.error.message}`);
+      }
+      orgData = existing.data;
+    } else {
+      throw new Error(`Failed to create organization: ${error.message}`);
+    }
+  } else {
+    orgData = data;
+  }
+
+  // 2. Insert owner membership
+  // Using user_tenants as the join table
+  const { error: membershipError } = await supabase.from('user_tenants').insert({
+    user_id: config.ownerId,
+    tenant_id: config.organizationId,
+    status: 'active',
+    role: 'owner', // Attempting to set role if schema permits
+  }).select().single();
+
+  if (membershipError) {
+    // Check if membership already exists (idempotency)
+    if (membershipError.code === '23505') {
+       logger.info('User membership already exists', { userId: config.ownerId, tenantId: config.organizationId });
+       // We can consider this a success for idempotency
+    } else {
+       throw new Error(`Organization created but failed to assign owner membership: ${membershipError.message}`);
+    }
+  }
+
+  logger.debug(`Organization ${config.organizationId} created and owner assigned`);
+
+  return orgData;
 }
 
 /**
