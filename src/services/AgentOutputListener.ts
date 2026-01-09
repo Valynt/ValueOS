@@ -9,6 +9,7 @@ import { logger } from '../lib/logger';
 import { AgentOutput } from '../types/agent-output';
 import { agentSDUIAdapter } from './AgentSDUIAdapter';
 import { canvasSchemaService } from './CanvasSchemaService';
+import { getComponentMutationService } from './ComponentMutationService';
 import { EventEmitter } from 'events';
 
 /**
@@ -149,7 +150,7 @@ export class AgentOutputListener extends EventEmitter {
   private async processForSDUI(output: AgentOutput): Promise<void> {
     try {
       // Generate SDUI update from agent output
-      const sduiUpdate = await agentSDUIAdapter.processAgentOutput(
+      const sduiUpdate = await agentSDUIAdapter.processAgentOutputWithIntents(
         output.agentId,
         output,
         output.workspaceId
@@ -164,11 +165,36 @@ export class AgentOutputListener extends EventEmitter {
         });
       } else if (sduiUpdate.type === 'atomic_actions' && sduiUpdate.actions) {
         // Apply atomic actions
-        // TODO: Integrate with ComponentMutationService
-        logger.info('Generated atomic actions', {
-          workspaceId: output.workspaceId,
-          actionCount: sduiUpdate.actions.length,
-        });
+        const mutationService = getComponentMutationService();
+        const currentSchema = await canvasSchemaService.getCachedSchema(output.workspaceId);
+
+        if (currentSchema) {
+          const { layout: newSchema, results } = await mutationService.applyActions(currentSchema, sduiUpdate.actions);
+
+          // Check if any action was successful
+          const anySuccess = results.some(r => r.success);
+
+          if (anySuccess) {
+            // Update cache with new schema
+            await canvasSchemaService.cacheSchemaWithCAS(output.workspaceId, newSchema);
+            logger.info('Applied atomic actions and updated schema', {
+              workspaceId: output.workspaceId,
+              actionCount: sduiUpdate.actions.length,
+              successCount: results.filter(r => r.success).length,
+            });
+          } else {
+             logger.warn('All atomic actions failed', {
+               workspaceId: output.workspaceId,
+               results
+             });
+          }
+        } else {
+           logger.warn('Could not apply atomic actions: No cached schema found', {
+             workspaceId: output.workspaceId
+           });
+           // Invalidate to force regeneration next time
+           canvasSchemaService.invalidateCache(output.workspaceId);
+        }
       }
     } catch (error) {
       logger.error('Failed to process agent output for SDUI', {

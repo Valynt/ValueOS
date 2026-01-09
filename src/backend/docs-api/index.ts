@@ -7,7 +7,11 @@
 
 import express, { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import { createLogger } from '../../lib/logger';
+import { sanitizeForLogging } from '../../lib/piiFilter';
+import { settings } from '../../config/settings';
 
+const logger = createLogger({ component: 'DocsAPI' });
 const router = express.Router();
 
 // ============================================================================
@@ -440,13 +444,19 @@ router.get('/health', (req: Request, res: Response) => {
 // ============================================================================
 
 router.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error('Documentation API Error:', err);
+  const sanitizedError = sanitizeForLogging(err);
+  logger.error('Documentation API Error', err, { context: sanitizedError as any });
   
+  const message =
+    settings.NODE_ENV === "development"
+      ? err.message
+      : undefined;
+
   res.status(500).json({
     success: false,
     error: {
       code: 'INTERNAL_ERROR',
-      message: err.message
+      message: message || 'Internal server error'
     }
   });
 });

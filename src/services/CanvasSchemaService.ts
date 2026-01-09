@@ -484,7 +484,8 @@ export class CanvasSchemaService {
       };
 
       // Fetch business case if available
-      data.businessCase = await this.fetchBusinessCase(state.workspaceId);
+      const userId = state.metadata?.userId as string | undefined;
+      data.businessCase = await this.fetchBusinessCase(state.workspaceId, userId);
 
       // Fetch stage-specific data
       switch (state.lifecycleStage) {
@@ -549,9 +550,99 @@ export class CanvasSchemaService {
   /**
    * Fetch business case
    */
-  private async fetchBusinessCase(workspaceId: string): Promise<any | null> {
-    // TODO: Implement actual business case fetching
-    return null;
+  private async fetchBusinessCase(workspaceId: string, userId?: string): Promise<any | null> {
+    try {
+      const supabase = getSupabaseClient();
+
+      // Try business_cases table (legacy but primary for now)
+      // We select fields that map to the ValueCase interface
+      let query = supabase
+        .from('business_cases')
+        .select(`
+          id,
+          name,
+          client,
+          description,
+          status,
+          created_at,
+          updated_at,
+          metadata,
+          owner_id
+        `)
+        .eq('id', workspaceId);
+
+      // If userId is provided, we can optionally check ownership,
+      // though RLS should handle this securely at the database level.
+      if (userId) {
+        query = query.eq('owner_id', userId);
+      }
+
+      const { data, error } = await query.maybeSingle();
+
+      if (error) {
+        logger.warn('Error fetching business case', { workspaceId, error: error.message });
+        return null;
+      }
+
+      if (!data) {
+        // Fallback: try value_cases table if business_cases didn't yield result
+        // This handles the migration scenario where data might be in the new table
+        const { data: vcData, error: vcError } = await supabase
+          .from('value_cases')
+          .select(`
+            id,
+            name,
+            description,
+            status,
+            created_at,
+            updated_at,
+            metadata,
+            company_profiles (
+              company_name
+            )
+          `)
+          .eq('id', workspaceId)
+          .maybeSingle();
+
+        if (vcError || !vcData) {
+          logger.debug('Business case not found in either table', { workspaceId });
+          return null;
+        }
+
+        // Map value_cases result
+        return {
+          id: vcData.id,
+          name: vcData.name,
+          description: vcData.description,
+          company: vcData.company_profiles?.[0]?.company_name || 'Unknown Company',
+          stage: vcData.metadata?.stage || 'opportunity',
+          status: vcData.status,
+          created_at: vcData.created_at,
+          updated_at: vcData.updated_at,
+          metadata: vcData.metadata || {},
+        };
+      }
+
+      // Map business_cases result
+      return {
+        id: data.id,
+        name: data.name,
+        description: data.metadata?.description || data.description,
+        company: data.client,
+        stage: data.metadata?.stage || 'opportunity',
+        status: data.status === 'presented' ? 'completed' : 'in-progress',
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        metadata: data.metadata || {},
+      };
+
+    } catch (error) {
+      logger.error('Failed to fetch business case', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
   }
 
   /**

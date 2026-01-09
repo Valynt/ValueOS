@@ -239,8 +239,42 @@ export class MultiTenantSecretsManager {
       logger.warn('SECRET_ACCESS_DENIED', logEntry);
     }
     
-    // TODO: Also write to database for long-term compliance
-    // INSERT INTO secret_audit_logs (...)
+    try {
+      // Write to database for long-term compliance
+      const supabase = createServerSupabaseClient();
+
+      // Calculate secret path safely
+      let secretPath: string | undefined;
+      try {
+        secretPath = this.getTenantSecretPath(entry.tenantId, 'config');
+      } catch (e) {
+        // If we can't generate the path (e.g. invalid tenant ID), log the error but still record the audit
+        secretPath = `invalid_path_generation: ${e instanceof Error ? e.message : String(e)}`;
+      }
+
+      // Truncate secret key if too long for column (VARCHAR(255))
+      const secretKey = entry.secretKey.length > 255
+        ? entry.secretKey.substring(0, 252) + '...'
+        : entry.secretKey;
+
+      await supabase.from('secret_audit_logs').insert({
+        tenant_id: entry.tenantId,
+        user_id: entry.userId || null,
+        secret_key: secretKey, // Store actual key name for audit trail
+        secret_path: secretPath,
+        action: entry.action,
+        result: entry.result,
+        error_message: entry.error || null,
+        metadata: entry.metadata || {},
+        timestamp: entry.timestamp || new Date().toISOString()
+      });
+    } catch (error) {
+      // Log failure but don't disrupt flow - audit logging is critical but shouldn't crash app if DB is down
+      logger.error('Failed to write to secret_audit_logs database', error instanceof Error ? error : new Error(String(error)), {
+        tenantId: entry.tenantId,
+        action: entry.action
+      });
+    }
   }
   
   /**
