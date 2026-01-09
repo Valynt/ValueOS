@@ -114,7 +114,6 @@ export default defineConfig(({ mode }) => {
     return {
       ...baseConfig,
       plugins: [react()],
-      root: "src", // Ensure root is set to src so index.html is found
       define: {
         global: "globalThis",
       },
