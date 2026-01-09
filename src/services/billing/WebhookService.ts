@@ -8,12 +8,12 @@ import StripeService from './StripeService';
 import InvoiceService from './InvoiceService';
 import { STRIPE_CONFIG } from '../../config/billing';
 import { createLogger } from '../../lib/logger';
+import { getSupabaseConfig } from '../../lib/env';
 import { recordBillingJobFailure, recordInvoiceEvent, recordStripeWebhook } from '../../metrics/billingMetrics';
 
 const logger = createLogger({ component: 'WebhookService' });
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const { url: supabaseUrl, serviceRoleKey: supabaseServiceRoleKey } = getSupabaseConfig();
 
 let supabase: any = null;
 
@@ -30,7 +30,7 @@ class WebhookService {
     // Initialize Stripe service only if billing is configured
     try {
       this.stripe = StripeService.getInstance().getClient();
-    } catch (error) {
+    } catch (_error) {
       logger.warn('Stripe service not available, billing features disabled');
       this.stripe = null;
     }
@@ -62,6 +62,10 @@ class WebhookService {
    * Process webhook event
    */
   async processEvent(event: any): Promise<void> {
+    if (!supabase) {
+      throw new Error('Supabase billing not configured');
+    }
+
     // Check if event already processed (idempotency)
     const { data: existing } = await supabase
       .from('webhook_events')
