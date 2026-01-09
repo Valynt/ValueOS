@@ -673,8 +673,47 @@ export class CanvasSchemaService {
    * Fetch interventions
    */
   private async fetchInterventions(workspaceId: string): Promise<any[]> {
-    // TODO: Implement actual intervention fetching
-    return [];
+    try {
+      const supabase = getSupabaseClient();
+
+      // 1. Get system map for this workspace (business case)
+      const { data: systemMap, error: mapError } = await supabase
+        .from('system_maps')
+        .select('id')
+        .eq('business_case_id', workspaceId)
+        .maybeSingle();
+
+      if (mapError) {
+        logger.warn('Error fetching system map for interventions', { workspaceId, error: mapError.message });
+        return [];
+      }
+
+      if (!systemMap) {
+        logger.debug('No system map found for workspace', { workspaceId });
+        return [];
+      }
+
+      // 2. Fetch interventions for the system map
+      const { data: interventions, error: intError } = await supabase
+        .from('intervention_points')
+        .select('*')
+        .eq('system_map_id', systemMap.id)
+        .order('created_at', { ascending: false });
+
+      if (intError) {
+        logger.error('Error fetching interventions', { workspaceId, error: intError.message });
+        return [];
+      }
+
+      return interventions || [];
+
+    } catch (error) {
+      logger.error('Failed to fetch interventions', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
   }
 
   /**
