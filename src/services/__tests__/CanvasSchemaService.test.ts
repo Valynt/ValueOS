@@ -7,11 +7,47 @@ import { CanvasSchemaService } from '../CanvasSchemaService';
 import { WorkspaceContext } from '../../types/sdui-integration';
 import { CacheService } from '../CacheService';
 import { ValueFabricService } from '../ValueFabricService';
+import { logger } from '../../lib/logger';
 
 // Mock dependencies
 vi.mock('../CacheService');
 vi.mock('../ValueFabricService');
-vi.mock('../../lib/logger');
+vi.mock('../../lib/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    debug: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+  },
+  createLogger: () => ({
+    info: vi.fn(),
+    debug: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+  })
+}));
+
+// Mock supabase
+const mockSupabase = vi.hoisted(() => ({
+  from: vi.fn(() => ({
+    select: vi.fn(() => ({
+      eq: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null })
+        })),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null })
+      }))
+    }))
+  }))
+}));
+
+vi.mock('../../lib/supabase', () => {
+  return {
+    getSupabaseClient: () => mockSupabase,
+    supabase: mockSupabase,
+    createServerSupabaseClient: () => mockSupabase
+  };
+});
 
 describe('CanvasSchemaService', () => {
   let service: CanvasSchemaService;
@@ -19,6 +55,7 @@ describe('CanvasSchemaService', () => {
   let mockValueFabricService: ValueFabricService;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     mockCacheService = new CacheService();
     mockValueFabricService = new ValueFabricService(null as any);
     service = new CanvasSchemaService(mockCacheService, mockValueFabricService);
@@ -38,6 +75,68 @@ describe('CanvasSchemaService', () => {
       expect(schema.type).toBe('page');
       expect(schema.sections).toBeDefined();
       expect(schema.sections.length).toBeGreaterThan(0);
+    });
+
+    it('should fetch and include business case data', async () => {
+      const context: WorkspaceContext = {
+        workspaceId: 'workspace-1',
+        userId: 'user-1',
+        lifecycleStage: 'opportunity',
+      };
+
+      // Mock business case response
+      const mockBusinessCase = {
+        id: 'workspace-1',
+        name: 'Test Business Case',
+        client: 'Test Client',
+        description: 'Test Description',
+        status: 'in-progress',
+        created_at: '2023-01-01',
+        updated_at: '2023-01-01',
+        metadata: { stage: 'opportunity' },
+        owner_id: 'user-1'
+      };
+
+      mockSupabase.from.mockImplementation((table) => {
+        if (table === 'business_cases') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                eq: vi.fn(() => ({
+                  maybeSingle: vi.fn().mockResolvedValue({ data: mockBusinessCase, error: null })
+                })),
+                maybeSingle: vi.fn().mockResolvedValue({ data: mockBusinessCase, error: null })
+              }))
+            }))
+          } as any;
+        }
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null })
+            }))
+          }))
+        } as any;
+      });
+
+      const schema = await service.generateSchema('workspace-1', context);
+
+      if (schema.sections[0]?.component === 'InfoBanner') {
+        // Inspect logger errors if fallback occurred
+        const errorCalls = (logger.error as any).mock.calls;
+        console.log('Logger Errors:', JSON.stringify(errorCalls, null, 2));
+      }
+
+      // Check if sections exists (based on passing tests)
+      expect(schema.sections).toBeDefined();
+
+      const header = schema.sections.find((c: any) =>
+        c.type === 'PageHeader' ||
+        (c.type === 'component' && c.component === 'PageHeader')
+      ) as any;
+
+      expect(header).toBeDefined();
+      expect(header.props.breadcrumbs[2].label).toBe('Test Business Case');
     });
 
     it('should generate schema for target stage', async () => {
@@ -226,7 +325,7 @@ describe('CanvasSchemaService', () => {
   });
 
   describe('getCachedSchema', () => {
-    it('should return cached schema if valid', () => {
+    it('should return cached schema if valid', async () => {
       const cachedSchema = {
         type: 'page' as const,
         version: 1,
@@ -241,12 +340,12 @@ describe('CanvasSchemaService', () => {
         version: 1,
       });
 
-      const schema = service.getCachedSchema('workspace-1');
+      const schema = await service.getCachedSchema('workspace-1');
 
       expect(schema).toEqual(cachedSchema);
     });
 
-    it('should return null if cache expired', () => {
+    it('should return null if cache expired', async () => {
       vi.spyOn(mockCacheService, 'get').mockReturnValue({
         schema: { type: 'page' as const, version: 1, sections: [] },
         timestamp: Date.now() - 400000, // 400 seconds ago
@@ -255,15 +354,15 @@ describe('CanvasSchemaService', () => {
         version: 1,
       });
 
-      const schema = service.getCachedSchema('workspace-1');
+      const schema = await service.getCachedSchema('workspace-1');
 
       expect(schema).toBeNull();
     });
 
-    it('should return null if no cache exists', () => {
+    it('should return null if no cache exists', async () => {
       vi.spyOn(mockCacheService, 'get').mockReturnValue(null);
 
-      const schema = service.getCachedSchema('workspace-1');
+      const schema = await service.getCachedSchema('workspace-1');
 
       expect(schema).toBeNull();
     });
