@@ -1,8 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Tenant Provisioning Service
- * 
  * Handles automated provisioning of new tenants (organizations) with:
  * - Organization creation
  * - Default settings initialization
@@ -14,10 +10,10 @@
 
 import { logger } from '../lib/logger';
 import { getConfig } from '../config/environment';
+import { createServerSupabaseClient } from '../lib/supabase';
 import CustomerService from './billing/CustomerService';
 import SubscriptionService from './billing/SubscriptionService';
 import { PlanTier } from '../config/billing';
-import { createServerSupabaseClient } from '../lib/supabase';
 import { emailService } from './EmailService';
 
 /**
@@ -337,7 +333,7 @@ export async function provisionTenant(
     };
   } catch (error) {
     errors.push(`Fatal provisioning error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    
+     
     return {
       success: false,
       organizationId: config.organizationId,
@@ -353,30 +349,76 @@ export async function provisionTenant(
 /**
  * Create organization in database
  */
-async function createOrganization(config: TenantConfig): Promise<void> {
+export async function createOrganization(config: TenantConfig): Promise<void> {
   const supabase = createServerSupabaseClient();
 
-  // Upsert into tenants table
-  // Use organizationId as tenant id
-  const { error } = await supabase.from('tenants').upsert({
+  // Map tiers: starter -> professional
+  let dbTier = config.tier;
+  if (config.tier === 'starter') {
+    dbTier = 'professional' as any;
+  }
+
+  // Calculate default limits and features (merged from Main branch)
+  const limits = config.limits || TIER_LIMITS[config.tier];
+  const features = config.features || TIER_FEATURES[config.tier];
+
+  // 1. Insert into organizations
+  // Using 'organizations' table (from Jules branch) but including settings logic (from Main branch)
+  const { error } = await supabase.from('organizations').insert({
     id: config.organizationId,
+    tenant_id: config.organizationId, // Assuming 1:1 mapping for now
     name: config.name,
+    tier: dbTier,
+    is_active: true,
     settings: {
       ...config.settings,
       tier: config.tier,
-      limits: config.limits || TIER_LIMITS[config.tier],
-      features: config.features || TIER_FEATURES[config.tier],
+      limits,
+      features,
     },
-    status: 'active',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-  });
+  }).select().single();
 
   if (error) {
-    throw new Error(`Supabase error creating organization: ${error.message}`);
+    // Idempotency: If duplicate key, fetch existing
+    if (error.code === '23505') { // Unique violation
+      logger.info('Organization already exists, retrieving existing record', { organizationId: config.organizationId });
+      const existing = await supabase
+        .from('organizations')
+        .select()
+        .eq('id', config.organizationId)
+        .single();
+
+      if (existing.error) {
+        throw new Error(`Failed to retrieve existing organization: ${existing.error.message}`);
+      }
+      // Organization exists, we can proceed
+    } else {
+      throw new Error(`Failed to create organization: ${error.message}`);
+    }
   }
 
-  logger.debug(`Organization ${config.organizationId} created`);
+  // 2. Insert owner membership
+  // Using user_tenants as the join table (from Jules branch)
+  const { error: membershipError } = await supabase.from('user_tenants').insert({
+    user_id: config.ownerId,
+    tenant_id: config.organizationId,
+    status: 'active',
+    role: 'owner', // Attempting to set role if schema permits
+  }).select().single();
+
+  if (membershipError) {
+    // Check if membership already exists (idempotency)
+    if (membershipError.code === '23505') {
+       logger.info('User membership already exists', { userId: config.ownerId, tenantId: config.organizationId });
+       // We can consider this a success for idempotency
+    } else {
+       throw new Error(`Organization created but failed to assign owner membership: ${membershipError.message}`);
+    }
+  }
+
+  logger.debug(`Organization ${config.organizationId} created and owner assigned`);
 }
 
 /**
@@ -392,8 +434,8 @@ async function initializeSettings(config: TenantConfig): Promise<void> {
 
   // TODO: Implement settings initialization
   // await settingsService.initializeOrganizationSettings(
-  //   config.organizationId,
-  //   defaultSettings
+  //    config.organizationId,
+  //    defaultSettings
   // );
 
   logger.debug(`Settings initialized for ${config.organizationId}`);
@@ -425,7 +467,7 @@ async function createTeamsAndRoles(config: TenantConfig): Promise<void> {
 
   // 2. Ensure global roles exist and assign owner
   const defaultRoles = ['owner', 'admin', 'member', 'viewer'];
-  
+   
   for (const roleName of defaultRoles) {
     // Check if role exists globally
     const { data: existingRoles, error: roleError } = await supabase
@@ -474,7 +516,7 @@ async function createTeamsAndRoles(config: TenantConfig): Promise<void> {
         .single();
 
       if (userRoleCheckError && userRoleCheckError.code !== 'PGRST116') { // PGRST116 is "Row not found"
-         throw new Error(`Failed to check user role assignment: ${userRoleCheckError.message}`);
+          throw new Error(`Failed to check user role assignment: ${userRoleCheckError.message}`);
       }
 
       if (!existingUserRole) {
@@ -970,9 +1012,9 @@ async function updateTenantStatus(
 ): Promise<void> {
   // TODO: Implement database update
   // await supabase
-  //   .from('organizations')
-  //   .update({ status, updated_at: new Date().toISOString() })
-  //   .eq('id', organizationId);
+  //    .from('organizations')
+  //    .update({ status, updated_at: new Date().toISOString() })
+  //    .eq('id', organizationId);
 
   logger.debug(`Status updated to ${status} for ${organizationId}`);
 }
