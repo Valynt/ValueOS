@@ -655,8 +655,28 @@ export class CanvasSchemaService {
    * Fetch system map
    */
   private async fetchSystemMap(workspaceId: string): Promise<any | null> {
-    // TODO: Implement actual system map fetching
-    return null;
+    try {
+      const supabase = getSupabaseClient();
+
+      const { data, error } = await supabase
+        .from('system_maps')
+        .select('*')
+        .eq('business_case_id', workspaceId)
+        .maybeSingle();
+
+      if (error) {
+        logger.warn('Error fetching system map', { workspaceId, error: error.message });
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      logger.error('Failed to fetch system map', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
   }
 
   /**
