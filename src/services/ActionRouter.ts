@@ -544,11 +544,27 @@ export class ActionRouter {
         return { success: false, error: 'Invalid action type' };
       }
 
-      // TODO: Implement audit trail opening
-      return {
-        success: true,
-        data: { entityId: action.entityId, entityType: action.entityType },
-      };
+      try {
+        const logs = await this.auditLogService.query({
+          resourceId: action.entityId,
+          resourceType: action.entityType,
+          limit: 100, // Default limit
+        });
+
+        return {
+          success: true,
+          data: {
+            entityId: action.entityId,
+            entityType: action.entityType,
+            logs,
+          },
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
     });
 
     // showExplanation handler

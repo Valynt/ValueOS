@@ -34,6 +34,7 @@ export interface AuditLogQuery {
   userId?: string;
   action?: string;
   resourceType?: string;
+  resourceId?: string;
   startDate?: string;
   endDate?: string;
   status?: 'success' | 'failed';
@@ -163,6 +164,10 @@ export class AuditLogService extends BaseService {
 
         if (query.resourceType) {
           dbQuery = dbQuery.eq('resource_type' as any, query.resourceType as any);
+        }
+
+        if (query.resourceId) {
+          dbQuery = dbQuery.eq('resource_id' as any, query.resourceId as any);
         }
 
         if (query.status) {
