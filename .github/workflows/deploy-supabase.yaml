@@ -4,11 +4,11 @@ on:
   push:
     branches: [main, production]
     paths:
-      - 'supabase/**'
+      - "supabase/**"
   pull_request:
     branches: [main]
     paths:
-      - 'supabase/**'
+      - "supabase/**"
 
 jobs:
   # ============================================================================
@@ -64,6 +64,32 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
+      - name: Check for pending migrations
+        run: |
+          set -euo pipefail
+          pending="$(supabase migration list --linked | awk 'tolower($0) ~ /pending/ {print}')"
+          if [ -n "$pending" ]; then
+            echo "❌ Pending migrations detected in staging:"
+            echo "$pending"
+            exit 1
+          fi
+          echo "✅ No pending migrations detected"
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_STAGING_DB_PASSWORD }}
+
+      - name: Check for schema drift
+        run: |
+          set -euo pipefail
+          supabase db diff --linked --schema public > schema-diff.sql
+          if [ -s schema-diff.sql ]; then
+            echo "❌ Schema drift detected in staging:"
+            cat schema-diff.sql
+            exit 1
+          fi
+          echo "✅ No schema drift detected"
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_STAGING_DB_PASSWORD }}
+
       - name: Deploy Migrations to Staging
         run: supabase db push
         env:
@@ -102,6 +128,32 @@ jobs:
         run: supabase link --project-ref ${{ secrets.SUPABASE_PRODUCTION_PROJECT_REF }}
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Check for pending migrations
+        run: |
+          set -euo pipefail
+          pending="$(supabase migration list --linked | awk 'tolower($0) ~ /pending/ {print}')"
+          if [ -n "$pending" ]; then
+            echo "❌ Pending migrations detected in production:"
+            echo "$pending"
+            exit 1
+          fi
+          echo "✅ No pending migrations detected"
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_PRODUCTION_DB_PASSWORD }}
+
+      - name: Check for schema drift
+        run: |
+          set -euo pipefail
+          supabase db diff --linked --schema public > schema-diff.sql
+          if [ -s schema-diff.sql ]; then
+            echo "❌ Schema drift detected in production:"
+            cat schema-diff.sql
+            exit 1
+          fi
+          echo "✅ No schema drift detected"
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_PRODUCTION_DB_PASSWORD }}
 
       - name: Deploy Migrations to Production
         run: supabase db push
