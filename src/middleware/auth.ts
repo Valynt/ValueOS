@@ -4,12 +4,96 @@
  */
 
 import { NextFunction, Request, Response } from 'express';
+import jwt, { JwtPayload } from 'jsonwebtoken';
 import { authService } from '../services/AuthService';
 import { AuthenticationError } from '../services/errors';
 import { createLogger } from '../lib/logger';
 import { sanitizeForLogging } from '../lib/piiFilter';
+import { getSupabaseClient } from '../lib/supabase';
+import { getEnvVar } from '../lib/env';
 
 const logger = createLogger({ component: 'AuthMiddleware' });
+
+const SUPABASE_TOKEN_PREFIX = 'Bearer ';
+
+function parseBearerToken(header?: string): string | null {
+  if (!header) return null;
+  if (!header.startsWith(SUPABASE_TOKEN_PREFIX)) return null;
+  const token = header.slice(SUPABASE_TOKEN_PREFIX.length).trim();
+  return token.length > 0 ? token : null;
+}
+
+function buildSessionFromClaims(token: string, claims: JwtPayload) {
+  const user = {
+    id: claims.sub,
+    email: claims.email,
+    role: claims.role,
+    tenant_id: claims.tenant_id ?? claims.organization_id,
+    app_metadata: claims.app_metadata,
+    user_metadata: claims.user_metadata,
+  };
+
+  return {
+    access_token: token,
+    token_type: 'bearer',
+    expires_at: claims.exp,
+    expires_in: claims.exp ? claims.exp - Math.floor(Date.now() / 1000) : undefined,
+    user,
+  };
+}
+
+async function verifyTokenWithSupabase(token: string) {
+  try {
+    const supabaseClient = getSupabaseClient();
+    const { data, error } = await supabaseClient.auth.getUser(token);
+
+    if (error || !data?.user) {
+      return null;
+    }
+
+    return {
+      user: data.user,
+      session: {
+        access_token: token,
+        token_type: 'bearer',
+        user: data.user,
+      },
+    };
+  } catch (error) {
+    logger.debug('Supabase token verification unavailable', sanitizeForLogging(error));
+    return null;
+  }
+}
+
+function verifyTokenLocally(token: string) {
+  const secret = getEnvVar('SUPABASE_JWT_SECRET') || getEnvVar('JWT_SECRET');
+  if (!secret) {
+    logger.warn('JWT secret missing; local token verification disabled');
+    return null;
+  }
+
+  try {
+    const claims = jwt.verify(token, secret) as JwtPayload;
+    if (!claims?.sub) {
+      return null;
+    }
+
+    const session = buildSessionFromClaims(token, claims);
+    return { user: session.user, session };
+  } catch (error) {
+    logger.debug('Local token verification failed', sanitizeForLogging(error));
+    return null;
+  }
+}
+
+async function verifyAccessToken(token: string) {
+  const supabaseSession = await verifyTokenWithSupabase(token);
+  if (supabaseSession) {
+    return supabaseSession;
+  }
+
+  return verifyTokenLocally(token);
+}
 
 /**
  * Middleware to require authentication for protected routes
@@ -19,23 +103,31 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   try {
     const authHeader = req.headers.authorization;
     const sessionCookie = req.cookies?.sb_access_token;
+    const bearerToken = parseBearerToken(authHeader);
 
     let session = null;
+    let user = null;
 
     // Try to get session from various sources
-    if (authHeader?.startsWith('Bearer ')) {
-      // Bearer token in header - this would need custom implementation
-      // For now, rely on Supabase client session
-      session = await authService.getSession();
+    if (bearerToken) {
+      const verified = await verifyAccessToken(bearerToken);
+      if (!verified) {
+        throw new AuthenticationError('Invalid or expired token');
+      }
+
+      session = verified.session;
+      user = verified.user;
     } else if (sessionCookie) {
       // Session cookie - Supabase handles this automatically
       session = await authService.getSession();
+      user = session?.user ?? null;
     } else {
       // Try to get current session from Supabase (may be from cookies)
       session = await authService.getSession();
+      user = session?.user ?? null;
     }
 
-    if (!session || !session.user) {
+    if (!session || !user) {
       logger.warn('Authentication required but no valid session found', {
         path: sanitizeForLogging(req.path),
         method: req.method,
@@ -46,11 +138,11 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     }
 
     // Add user and session to request for use in handlers
-    (req as any).user = session.user;
+    (req as any).user = user;
     (req as any).session = session;
 
     logger.debug('Authentication successful', {
-      userId: sanitizeForLogging(session.user.id),
+      userId: sanitizeForLogging(user.id),
       path: sanitizeForLogging(req.path),
       method: req.method
     });
@@ -74,14 +166,25 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
  */
 export async function optionalAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const session = await authService.getSession();
+    const bearerToken = parseBearerToken(req.headers.authorization);
+    let session = null;
+    let user = null;
 
-    if (session?.user) {
-      (req as any).user = session.user;
+    if (bearerToken) {
+      const verified = await verifyAccessToken(bearerToken);
+      session = verified?.session ?? null;
+      user = verified?.user ?? null;
+    } else {
+      session = await authService.getSession();
+      user = session?.user ?? null;
+    }
+
+    if (user && session) {
+      (req as any).user = user;
       (req as any).session = session;
 
       logger.debug('Optional authentication successful', {
-        userId: sanitizeForLogging(session.user.id),
+        userId: sanitizeForLogging(user.id),
         path: sanitizeForLogging(req.path)
       });
     }
