@@ -25,6 +25,8 @@ import { generateSOFExpansionPage } from '../sdui/templates/sof-expansion-templa
 import { generateSOFIntegrityPage } from '../sdui/templates/sof-integrity-template';
 import { generateSOFRealizationPage } from '../sdui/templates/sof-realization-template';
 import { hashObject, shortHash } from '../lib/contentHash';
+import { ALL_VMRT_SEEDS } from '../types/vos-pt1-seed';
+import { VMRTAssumption } from '../types/vmrt';
 import { ManifestoValidationResult } from '../types/vos';
 
 /**
@@ -512,7 +514,7 @@ export class CanvasSchemaService {
 
         case 'integrity':
           data.manifestoResults = await this.fetchManifestoResults(state.workspaceId);
-          data.assumptions = await this.fetchAssumptions(state.workspaceId);
+          data.assumptions = await this.fetchAssumptions(state.workspaceId, data.businessCase);
           break;
 
         case 'realization':
@@ -790,9 +792,64 @@ export class CanvasSchemaService {
   /**
    * Fetch assumptions
    */
-  private async fetchAssumptions(workspaceId: string): Promise<any[]> {
-    // TODO: Implement actual assumption fetching
-    return [];
+  private async fetchAssumptions(workspaceId: string, businessCase?: any): Promise<VMRTAssumption[]> {
+    try {
+      // 1. Try to fetch from database models first
+      const supabase = getSupabaseClient();
+
+      // Try to find a model associated with this business case (workspace)
+      // We check if the model_data contains the business_case_id
+      const { data: modelData } = await supabase
+        .from('models')
+        .select('model_data')
+        .contains('model_data', { business_case_id: workspaceId })
+        .maybeSingle();
+
+      // If we found a model with assumptions, return them
+      if (modelData?.model_data?.assumptions && Array.isArray(modelData.model_data.assumptions)) {
+         return modelData.model_data.assumptions;
+      }
+
+      // 2. Fallback to seed data based on industry/context
+      const industry = businessCase?.metadata?.industry;
+
+      // Find relevant VMRTs from the seeds
+      let relevantTraces = ALL_VMRT_SEEDS;
+
+      if (industry) {
+        const industryTraces = ALL_VMRT_SEEDS.filter(t =>
+          t.context?.organization?.industry?.toLowerCase() === industry.toLowerCase()
+        );
+        if (industryTraces.length > 0) {
+          relevantTraces = industryTraces;
+        }
+      }
+
+      // Extract all assumptions from reasoning steps
+      const assumptions: VMRTAssumption[] = relevantTraces.flatMap(trace =>
+        trace.reasoningSteps?.flatMap(step => step.assumptions || []) || []
+      );
+
+      // Deduplicate by factor name, keeping the one with higher confidence
+      const uniqueAssumptions = Array.from(
+        assumptions.reduce((map, assumption) => {
+          const existing = map.get(assumption.factor);
+          if (!existing || (assumption.confidence > existing.confidence)) {
+            map.set(assumption.factor, assumption);
+          }
+          return map;
+        }, new Map<string, VMRTAssumption>()).values()
+      );
+
+      return uniqueAssumptions;
+
+    } catch (error) {
+      logger.error('Failed to fetch assumptions', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
   }
 
   /**
