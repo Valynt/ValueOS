@@ -170,6 +170,36 @@ const TIER_FEATURES: Record<TenantTier, string[]> = {
   ],
 };
 
+const TENANT_ARCHIVE_BUCKET = 'tenant-archives';
+const TENANT_ARCHIVE_FORMAT = 'json';
+// Retention policy expectations: archives are kept for 90 days by default. Update this
+// reference once retention policy automation is wired (e.g., compliance-driven TTL jobs).
+const TENANT_ARCHIVE_RETENTION_POLICY = 'default-90-days';
+
+const TENANT_ARCHIVE_TABLES: Array<{
+  table: string;
+  tenantColumns: string[];
+}> = [
+  { table: 'organizations', tenantColumns: ['id'] },
+  { table: 'tenants', tenantColumns: ['id'] },
+  { table: 'user_tenants', tenantColumns: ['tenant_id'] },
+  { table: 'user_roles', tenantColumns: ['tenant_id'] },
+  { table: 'users', tenantColumns: ['organization_id', 'tenant_id'] },
+  { table: 'api_keys', tenantColumns: ['organization_id', 'tenant_id'] },
+  { table: 'audit_logs', tenantColumns: ['organization_id', 'tenant_id'] },
+  { table: 'cases', tenantColumns: ['organization_id', 'tenant_id'] },
+  { table: 'workflows', tenantColumns: ['organization_id', 'tenant_id'] },
+  { table: 'workflow_states', tenantColumns: ['organization_id', 'tenant_id'] },
+  { table: 'shared_artifacts', tenantColumns: ['organization_id', 'tenant_id'] },
+  { table: 'agents', tenantColumns: ['organization_id', 'tenant_id'] },
+  { table: 'agent_runs', tenantColumns: ['organization_id', 'tenant_id'] },
+  { table: 'agent_memory', tenantColumns: ['organization_id', 'tenant_id'] },
+  { table: 'models', tenantColumns: ['organization_id', 'tenant_id'] },
+  { table: 'kpis', tenantColumns: ['organization_id', 'tenant_id'] },
+  { table: 'messages', tenantColumns: ['tenant_id', 'organization_id'] },
+  { table: 'security_audit_events', tenantColumns: ['tenant_id', 'organization_id'] },
+];
+
 /**
  * Provision a new tenant
  */
@@ -697,11 +727,227 @@ async function cancelBilling(organizationId: string): Promise<void> {
  * Archive tenant data
  */
 async function archiveTenantData(organizationId: string): Promise<void> {
-  // TODO: Implement data archival
-  // - Export all data to archive storage
-  // - Mark records as archived
-  // - Schedule for deletion after retention period
-  logger.debug(`Data archived for ${organizationId}`);
+  const supabase = createServerSupabaseClient();
+  const exportTimestamp = new Date().toISOString();
+  const errors: string[] = [];
+
+  try {
+    const { data: tableRows, error: tableError } = await supabase
+      .from('information_schema.tables')
+      .select('table_name')
+      .eq('table_schema', 'public');
+
+    if (tableError) {
+      throw new Error(`Failed to list tables for archival: ${tableError.message}`);
+    }
+
+    const existingTables = new Set((tableRows || []).map((row) => row.table_name));
+    const tablesToArchive = TENANT_ARCHIVE_TABLES.filter((entry) => existingTables.has(entry.table));
+
+    const archivePayload: Record<string, unknown> = {};
+    const tableColumnCache: Record<string, Set<string>> = {};
+
+    for (const entry of tablesToArchive) {
+      const { data: columnRows, error: columnError } = await supabase
+        .from('information_schema.columns')
+        .select('column_name')
+        .eq('table_schema', 'public')
+        .eq('table_name', entry.table);
+
+      if (columnError) {
+        errors.push(`Failed to inspect columns for ${entry.table}: ${columnError.message}`);
+        continue;
+      }
+
+      const columns = new Set((columnRows || []).map((row) => row.column_name));
+      tableColumnCache[entry.table] = columns;
+
+      const availableTenantColumns = entry.tenantColumns.filter((column) => columns.has(column));
+
+      if (availableTenantColumns.length === 0) {
+        errors.push(`No tenant identifier columns found for ${entry.table}`);
+        continue;
+      }
+
+      let query = supabase.from(entry.table).select('*');
+      if (availableTenantColumns.length === 1) {
+        query = query.eq(availableTenantColumns[0], organizationId);
+      } else {
+        const filters = availableTenantColumns.map((column) => `${column}.eq.${organizationId}`).join(',');
+        query = query.or(filters);
+      }
+
+      const { data, error } = await query;
+      if (error) {
+        errors.push(`Failed to export ${entry.table}: ${error.message}`);
+        continue;
+      }
+
+      archivePayload[entry.table] = data || [];
+    }
+
+    if (errors.length > 0) {
+      throw new Error(`Archival export failed: ${errors.join('; ')}`);
+    }
+
+    const storagePath = `${organizationId}/${exportTimestamp}.${TENANT_ARCHIVE_FORMAT}`;
+    const serializedPayload = JSON.stringify(
+      {
+        organizationId,
+        exportedAt: exportTimestamp,
+        format: TENANT_ARCHIVE_FORMAT,
+        tables: archivePayload,
+      },
+      null,
+      2
+    );
+
+    const { error: storageError } = await supabase.storage
+      .from(TENANT_ARCHIVE_BUCKET)
+      .upload(storagePath, Buffer.from(serializedPayload), {
+        contentType: 'application/json',
+        upsert: true,
+      });
+
+    if (storageError) {
+      throw new Error(`Failed to upload archive: ${storageError.message}`);
+    }
+
+    const { error: archiveRecordError } = await supabase.from('tenant_archives').upsert(
+      {
+        organization_id: organizationId,
+        storage_location: `${TENANT_ARCHIVE_BUCKET}/${storagePath}`,
+        export_format: TENANT_ARCHIVE_FORMAT,
+        exported_at: exportTimestamp,
+        retention_policy: TENANT_ARCHIVE_RETENTION_POLICY,
+      },
+      { onConflict: 'organization_id' }
+    );
+
+    if (archiveRecordError) {
+      throw new Error(`Failed to record archive metadata: ${archiveRecordError.message}`);
+    }
+
+    const statusOverrides: Record<string, string> = {
+      tenants: 'deleted',
+      users: 'inactive',
+      cases: 'closed',
+      workflow_states: 'cancelled',
+      agent_runs: 'cancelled',
+      models: 'archived',
+    };
+
+    const tableTimestampOverrides: Record<string, string> = {
+      cases: 'closed_at',
+    };
+
+    for (const entry of tablesToArchive) {
+      const columns = tableColumnCache[entry.table];
+      if (!columns) {
+        errors.push(`Missing column metadata for ${entry.table}`);
+        continue;
+      }
+
+      const availableTenantColumns = entry.tenantColumns.filter((column) => columns.has(column));
+      if (availableTenantColumns.length === 0) {
+        errors.push(`No tenant identifier columns found for ${entry.table}`);
+        continue;
+      }
+
+      const updatePayload: Record<string, unknown> = {};
+      let hasArchiveMarker = false;
+      if (columns.has('archived_at')) {
+        updatePayload.archived_at = exportTimestamp;
+        hasArchiveMarker = true;
+      }
+      if (columns.has('is_archived')) {
+        updatePayload.is_archived = true;
+        hasArchiveMarker = true;
+      }
+      if (columns.has('deleted_at')) {
+        updatePayload.deleted_at = exportTimestamp;
+        hasArchiveMarker = true;
+      }
+      if (columns.has('is_active')) {
+        updatePayload.is_active = false;
+        hasArchiveMarker = true;
+      }
+      if (columns.has('status') && statusOverrides[entry.table]) {
+        updatePayload.status = statusOverrides[entry.table];
+        hasArchiveMarker = true;
+      }
+      const timestampOverrideColumn = tableTimestampOverrides[entry.table];
+      if (timestampOverrideColumn && columns.has(timestampOverrideColumn)) {
+        updatePayload[timestampOverrideColumn] = exportTimestamp;
+        hasArchiveMarker = true;
+      }
+      if (columns.has('updated_at')) {
+        updatePayload.updated_at = exportTimestamp;
+      }
+
+      if (!hasArchiveMarker) {
+        if (columns.has('metadata') && columns.has('id')) {
+          const rows = archivePayload[entry.table];
+          if (Array.isArray(rows)) {
+            for (const row of rows) {
+              if (!row || !('id' in row)) {
+                errors.push(`Failed to archive metadata for ${entry.table}: missing id`);
+                break;
+              }
+              const currentMetadata = row?.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+              const mergedMetadata = {
+                ...currentMetadata,
+                archived: true,
+                archived_at: exportTimestamp,
+              };
+              const metadataUpdate: Record<string, unknown> = { metadata: mergedMetadata };
+              if (columns.has('updated_at')) {
+                metadataUpdate.updated_at = exportTimestamp;
+              }
+              const { error: metadataError } = await supabase
+                .from(entry.table)
+                .update(metadataUpdate)
+                .eq('id', row.id as string);
+              if (metadataError) {
+                errors.push(`Failed to archive metadata for ${entry.table}: ${metadataError.message}`);
+                break;
+              }
+            }
+            continue;
+          }
+        }
+
+        errors.push(`No archival fields available for ${entry.table}`);
+        continue;
+      }
+
+      let updateQuery = supabase.from(entry.table).update(updatePayload);
+      if (availableTenantColumns.length === 1) {
+        updateQuery = updateQuery.eq(availableTenantColumns[0], organizationId);
+      } else {
+        const filters = availableTenantColumns.map((column) => `${column}.eq.${organizationId}`).join(',');
+        updateQuery = updateQuery.or(filters);
+      }
+
+      const { error: updateError } = await updateQuery;
+      if (updateError) {
+        errors.push(`Failed to mark ${entry.table} as archived: ${updateError.message}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new Error(`Archival update incomplete: ${errors.join('; ')}`);
+    }
+
+    logger.debug(`Data archived for ${organizationId}`);
+  } catch (error) {
+    logger.error('Tenant archival failed', error instanceof Error ? error : undefined, {
+      organizationId,
+    });
+    throw new Error(
+      `Tenant archival failed for ${organizationId}: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
 }
 
 /**
