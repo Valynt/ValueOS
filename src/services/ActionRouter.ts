@@ -25,6 +25,14 @@ import { atomicActionExecutor } from './AtomicActionExecutor';
 import { canvasSchemaService } from './CanvasSchemaService';
 import { EnforcementResult, enforceRules } from '../lib/rules';
 import { workspaceStateService } from './WorkspaceStateService';
+import {
+  exportToPDF,
+  exportToPNG,
+  exportToExcel,
+  exportToCSV,
+  downloadBlob,
+  generateFilename
+} from '../utils/export';
 
 /**
  * Action Router
@@ -531,11 +539,74 @@ export class ActionRouter {
         return { success: false, error: 'Invalid action type' };
       }
 
-      // TODO: Implement artifact export
-      return {
-        success: true,
-        data: { artifactType: action.artifactType, format: action.format },
-      };
+      // Check if running in browser environment
+      if (typeof window === 'undefined' || typeof document === 'undefined') {
+        return {
+          success: false,
+          error: 'Export is only supported in browser environment',
+        };
+      }
+
+      try {
+        const { artifactType, format } = action;
+        const filename = generateFilename(artifactType, format);
+        let blob: Blob;
+
+        if (format === 'pdf') {
+          // Assume artifactType is the element ID for visual exports
+          blob = await exportToPDF(artifactType, { format: 'pdf', filename });
+        } else if (format === 'png') {
+          blob = await exportToPNG(artifactType, { format: 'png', filename });
+        } else if (format === 'excel' || format === 'csv') {
+          // For data exports, fetch data from workspace state
+          const state = await workspaceStateService.getState(context.workspaceId);
+          let dataToExport: any[] = [];
+
+          // Strategy:
+          // 1. Check if state.data[artifactType] exists and is an array -> use it
+          // 2. If it is an object -> wrap in array
+          // 3. If generic export -> export whole state.data
+
+          if (state.data && state.data[artifactType]) {
+            const targetData = state.data[artifactType];
+            if (Array.isArray(targetData)) {
+              dataToExport = targetData;
+            } else {
+              dataToExport = [targetData];
+            }
+          } else {
+            // Fallback: if artifactType doesn't match a specific key,
+            // check if there is any data to export at all
+            if (state.data && Object.keys(state.data).length > 0) {
+              // Default to wrapping state.data in array
+              dataToExport = [state.data];
+            } else {
+              return { success: false, error: `No data found for artifact type: ${artifactType}` };
+            }
+          }
+
+          if (format === 'csv') {
+            blob = await exportToCSV(dataToExport, { format: 'excel' }); // format here is ExportOptions, conceptually 'data'
+          } else {
+            blob = await exportToExcel(dataToExport, { format: 'excel', sheetName: artifactType });
+          }
+        } else {
+          return { success: false, error: `Unsupported format: ${format}` };
+        }
+
+        // Trigger download
+        downloadBlob(blob, filename);
+
+        return {
+          success: true,
+          data: { artifactType, format, exported: true, filename },
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
     });
 
     // openAuditTrail handler
