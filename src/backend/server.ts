@@ -5,7 +5,7 @@
 
 import express from "express";
 import cors from "cors";
-import { createServer } from "http";
+import { createServer, type IncomingMessage } from "http";
 import { WebSocket, WebSocketServer } from "ws";
 import billingRouter from "../api/billing";
 import agentsRouter from "../api/agents";
@@ -27,9 +27,10 @@ import {
 } from "../middleware/metricsMiddleware";
 import { createRateLimiter } from "../middleware/rateLimiter";
 import { securityHeadersMiddleware } from "../middleware/securityHeaders";
-import { requireAuth } from "../middleware/auth";
+import { extractTenantId, requireAuth, verifyAccessToken } from "../middleware/auth";
 import { settings } from "../config/settings";
 import { isConsentRegistryConfigured } from "../services/consentRegistry";
+import { TenantContextResolver } from "../services/TenantContextResolver";
 
 const logger = createLogger({ component: "BillingServer" });
 const INTERNAL_ERROR_STATUS = 500;
@@ -45,11 +46,93 @@ const agentExecutionLimiter = createRateLimiter("strict", {
   message: "Too many agent calls. Please wait before trying again.",
   skip: (req) => req.method === "GET",
 });
+const tenantContextResolver = new TenantContextResolver();
+const WS_UNAUTHORIZED_CODE = 1008;
+const SUPABASE_TOKEN_PREFIX = "Bearer ";
+
+type AuthenticatedWebSocket = WebSocket & {
+  tenantId?: string;
+  userId?: string;
+};
+
+function parseWebSocketToken(req: IncomingMessage): string | null {
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith(SUPABASE_TOKEN_PREFIX)) {
+    const token = authHeader.slice(SUPABASE_TOKEN_PREFIX.length).trim();
+    if (token) {
+      return token;
+    }
+  }
+
+  const url = new URL(req.url ?? "", "http://localhost");
+  return (
+    url.searchParams.get("token") ??
+    url.searchParams.get("access_token") ??
+    null
+  );
+}
+
+function parseWebSocketTenantHint(req: IncomingMessage): string | null {
+  const url = new URL(req.url ?? "", "http://localhost");
+  return url.searchParams.get("tenantId") ?? url.searchParams.get("tenant_id");
+}
+
+async function authenticateWebSocket(
+  ws: AuthenticatedWebSocket,
+  req: IncomingMessage
+): Promise<boolean> {
+  const token = parseWebSocketToken(req);
+  if (!token) {
+    ws.close(WS_UNAUTHORIZED_CODE, "Authentication required");
+    return false;
+  }
+
+  const verified = await verifyAccessToken(token);
+  if (!verified?.user) {
+    ws.close(WS_UNAUTHORIZED_CODE, "Invalid or expired token");
+    return false;
+  }
+
+  const claims = verified.claims ?? null;
+  let tenantId = extractTenantId(claims, verified.user);
+
+  if (!tenantId) {
+    const requestedTenantId = parseWebSocketTenantHint(req);
+    if (requestedTenantId && verified.user.id) {
+      const hasAccess = await tenantContextResolver.hasTenantAccess(
+        verified.user.id,
+        requestedTenantId
+      );
+      if (hasAccess) {
+        tenantId = requestedTenantId;
+      }
+    }
+  }
+
+  if (!tenantId) {
+    ws.close(WS_UNAUTHORIZED_CODE, "Tenant access required");
+    return false;
+  }
+
+  ws.tenantId = tenantId;
+  ws.userId = verified.user.id;
+  return true;
+}
 
 // WebSocket connection handling
-wss.on("connection", (ws: WebSocket, req) => {
+wss.on("connection", async (ws: AuthenticatedWebSocket, req) => {
   const clientIp = req.socket.remoteAddress;
-  logger.info("WebSocket client connected", { clientIp });
+  const isAuthenticated = await authenticateWebSocket(ws, req);
+  if (!isAuthenticated) {
+    logger.warn("WebSocket authentication failed", { clientIp });
+    return;
+  }
+
+  logger.info("WebSocket client connected", {
+    clientIp,
+    tenantId: ws.tenantId,
+    userId: ws.userId,
+  });
 
   ws.on("message", (data: Buffer) => {
     try {
@@ -62,7 +145,12 @@ wss.on("connection", (ws: WebSocket, req) => {
       switch (message.type) {
         case "sdui_update":
           wss.clients.forEach((client) => {
-            if (client !== ws && client.readyState === WebSocket.OPEN) {
+            const target = client as AuthenticatedWebSocket;
+            if (
+              client !== ws &&
+              client.readyState === WebSocket.OPEN &&
+              target.tenantId === ws.tenantId
+            ) {
               client.send(
                 JSON.stringify({
                   type: "sdui_update",
@@ -193,4 +281,5 @@ if (
   });
 }
 
+export { app, server, wss };
 export default app;

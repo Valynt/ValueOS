@@ -70,7 +70,10 @@ function buildSessionFromClaims(token: string, claims: JwtPayload) {
   };
 }
 
-function extractTenantId(claims: JwtPayload | null, user?: any): string | undefined {
+export function extractTenantId(
+  claims: JwtPayload | null,
+  user?: any
+): string | undefined {
   return (
     (claims?.tenant_id as string | undefined) ??
     (claims?.organization_id as string | undefined) ??
