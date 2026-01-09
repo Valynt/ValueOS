@@ -25,4 +25,10 @@ describe('sanitizeHtml', () => {
     const cleaned = sanitizeHtml(dirty);
     expect(cleaned).toBe('<span>Test</span>');
   });
+
+  it('adds rel="noopener noreferrer" to target="_blank" links', () => {
+    const dirty = '<a href="https://example.com" target="_blank">External Link</a>';
+    const cleaned = sanitizeHtml(dirty);
+    expect(cleaned).toContain('rel="noopener noreferrer"');
+  });
 });
