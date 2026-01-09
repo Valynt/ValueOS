@@ -30,6 +30,7 @@ import { ROIModel, ROIModelCalculation } from '../types/vos';
 import { ALL_VMRT_SEEDS } from '../types/vos-pt1-seed';
 import { VMRTAssumption } from '../types/vmrt';
 import { ManifestoValidationResult } from '../types/vos';
+import { EXTENDED_STRUCTURAL_PERSONA_MAPS } from '../types/structural-data';
 
 /**
  * Schema head pointer - points to current schema hash
@@ -662,8 +663,47 @@ export class CanvasSchemaService {
    * Fetch personas
    */
   private async fetchPersonas(workspaceId: string): Promise<any[]> {
-    // TODO: Implement actual persona fetching
-    return [];
+    try {
+      // 1. Fetch business case to get context (industry, custom stakeholders)
+      const businessCase = await this.fetchBusinessCase(workspaceId);
+
+      // 2. If business case has stored stakeholders/personas, return them
+      if (businessCase?.metadata?.stakeholders && Array.isArray(businessCase.metadata.stakeholders)) {
+        return businessCase.metadata.stakeholders;
+      }
+
+      if (businessCase?.metadata?.personas && Array.isArray(businessCase.metadata.personas)) {
+        return businessCase.metadata.personas;
+      }
+
+      // 3. Fallback: Use structural truth data
+      // We map the structural personas to the format expected by the UI
+      return EXTENDED_STRUCTURAL_PERSONA_MAPS.map(p => ({
+        id: p.persona, // Use persona key as ID
+        name: this.formatPersonaName(p.persona),
+        role: p.persona,
+        primaryPain: p.primaryPain,
+        painDescription: p.painDescription,
+        keyKPIs: p.keyKPIs,
+        financialDriver: p.financialDriver,
+        typicalGoals: p.typicalGoals,
+        communicationPreference: p.communicationPreference
+      }));
+
+    } catch (error) {
+       logger.error('Failed to fetch personas', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
+  }
+
+  private formatPersonaName(key: string): string {
+    return key
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   }
 
   /**
