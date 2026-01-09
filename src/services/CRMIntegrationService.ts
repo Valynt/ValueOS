@@ -6,9 +6,8 @@
  */
 
 import { logger } from "../lib/logger";
-import { hubSpotModule } from "../mcp-crm/modules/HubSpotModule"; // Assuming we export a singleton or instantiate here
-// We need to instantiate it if not exported.
 import { HubSpotModule } from "../mcp-crm/modules/HubSpotModule";
+import { CRMDeal } from "../mcp-crm/types";
 
 // Create a singleton instance for now, assuming connection management is handled globally or we pass it
 const crmModule = new HubSpotModule();
@@ -19,6 +18,65 @@ export interface CRMSyncResult {
 }
 
 export class CRMIntegrationService {
+  /**
+   * Fetches deals from the connected CRM
+   */
+  async fetchDeals(): Promise<CRMDeal[]> {
+    // Check connection status
+    const isConnected = crmModule.isConnected();
+
+    // MOCK: Return mock data if in development AND not connected
+    // This allows testing real integration in dev if configured/connected
+    if (process.env.NODE_ENV !== "production" && !isConnected) {
+      logger.info("[MOCK] Fetching CRM deals (Dev mode & Not Connected)");
+      // Simulate network delay
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
+      return [
+        {
+          id: 'deal-1',
+          externalId: 'HS-001',
+          provider: 'hubspot',
+          name: 'Acme Corp - Enterprise License',
+          amount: 250000,
+          currency: 'USD',
+          stage: 'Proposal',
+          probability: 75,
+          closeDate: new Date('2026-03-15'),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          ownerName: 'Sarah Johnson',
+          companyName: 'Acme Corp',
+          properties: {}
+        },
+        {
+          id: 'deal-2',
+          externalId: 'HS-002',
+          provider: 'hubspot',
+          name: 'TechStart Inc - Growth Plan',
+          amount: 85000,
+          currency: 'USD',
+          stage: 'Discovery',
+          probability: 40,
+          closeDate: new Date('2026-04-01'),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          ownerName: 'Mike Chen',
+          companyName: 'TechStart Inc',
+          properties: {}
+        }
+      ];
+    }
+
+    try {
+      const result = await crmModule.searchDeals({ limit: 50 });
+      return result.deals;
+    } catch (error) {
+      logger.error("Failed to fetch CRM deals", error);
+      throw error;
+    }
+  }
+
   /**
    * Syncs the current analysis state back to the linked Deal in CRM
    */
