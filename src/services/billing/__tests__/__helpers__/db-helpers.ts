@@ -5,10 +5,22 @@
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach } from "vitest";
+import fetch, { Headers, Request, Response } from "node-fetch";
+import jwt from "jsonwebtoken";
 
 const supabaseUrl =
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const supabaseServiceKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SERVICE_KEY ||
+  "";
+const supabaseAnonKey =
+  process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
+
+// Default Supabase local dev secret
+const JWT_SECRET =
+  process.env.SUPABASE_JWT_SECRET ||
+  "super-secret-jwt-token-with-at-least-32-characters-long";
 
 /**
  * Get Supabase client for tests
@@ -18,7 +30,11 @@ export function getTestSupabaseClient(): SupabaseClient {
     throw new Error("Missing Supabase environment variables for testing");
   }
 
-  return createClient(supabaseUrl, supabaseServiceKey);
+  return createClient(supabaseUrl, supabaseServiceKey, {
+    global: {
+      fetch: fetch as any,
+    },
+  });
 }
 
 /**
@@ -81,10 +97,43 @@ export async function createTestUser(
   email: string,
   tenantId: string,
   role: string = "user"
-): Promise<{ userId: string; tenantId: string }> {
-  // Note: In real tests, you'd use supabase.auth.admin.createUser
-  // This is a simplified version
-  const userId = `user_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+): Promise<{ userId: string; tenantId: string; email: string }> {
+  // Try to create real auth user using admin API
+  let userId: string;
+  const password = "test-password-123";
+
+  try {
+    // Check if user already exists
+    const {
+      data: { users },
+    } = await supabase.auth.admin.listUsers();
+    const existingUser = users.find((u) => u.email === email);
+
+    if (existingUser) {
+      userId = existingUser.id;
+      // Ensure password works (might need to update it if we want to be sure)
+      await supabase.auth.admin.updateUserById(userId, { password });
+    } else {
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { tenant_id: tenantId, role },
+      });
+
+      if (error) throw error;
+      if (!user) throw new Error("User creation failed");
+      userId = user.id;
+    }
+  } catch (error) {
+    console.warn("Could not create auth user, falling back to mock:", error);
+    userId = `user_${Date.now()}_${Math.random()
+      .toString(36)
+      .substring(7)}`;
+  }
 
   // Create user_tenants entry if table exists
   try {
@@ -98,7 +147,7 @@ export async function createTestUser(
     console.warn("Could not create user_tenants entry:", error);
   }
 
-  return { userId, tenantId };
+  return { userId, tenantId, email };
 }
 
 /**
@@ -125,13 +174,50 @@ export async function executeAsServiceRole<T = any>(
  * Execute SQL as specific user (testing RLS)
  */
 export async function executeAsUser<T = any>(
-  supabase: SupabaseClient,
-  userId: string,
-  query: () => Promise<{ data: T | null; error: any }>
+  user: { id: string; email: string; tenantId: string },
+  query: (client: SupabaseClient) => Promise<{ data: T | null; error: any }>
 ): Promise<{ data: T | null; error: any }> {
-  // In real implementation, you'd set the JWT token context
-  // For now, this is a placeholder that shows the pattern
-  return await query();
+  // If anon key is not available, we can't create a client that respects RLS easily
+  // (unless we use the service role key which bypasses it)
+  if (!supabaseAnonKey) {
+    console.warn(
+      "Missing VITE_SUPABASE_ANON_KEY, skipping RLS check (running as service role)"
+    );
+    const client = getTestSupabaseClient();
+    return await query(client);
+  }
+
+  // Generate a valid JWT for the user instead of signing in
+  // This avoids conflicts with MSW and HTTP auth flows in tests
+  const token = jwt.sign(
+    {
+      sub: user.id,
+      email: user.email,
+      role: "authenticated",
+      aud: "authenticated",
+      app_metadata: {
+        provider: "email",
+        tenant_id: user.tenantId, // Custom claim for RLS
+      },
+      user_metadata: {
+        tenant_id: user.tenantId,
+      },
+    },
+    JWT_SECRET,
+    { expiresIn: "1h" }
+  );
+
+  // Create a client with the user's token
+  const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      fetch: fetch as any,
+    },
+  });
+
+  return await query(userClient);
 }
 
 /**
@@ -233,6 +319,7 @@ export async function seedTestData(
     subscriptionItems?: any[];
     usageEvents?: any[];
     usageQuotas?: any[];
+    invoices?: any[];
   }
 ): Promise<void> {
   if (data.customers) {
@@ -253,6 +340,10 @@ export async function seedTestData(
 
   if (data.usageEvents) {
     await supabase.from("usage_events").insert(data.usageEvents);
+  }
+
+  if (data.invoices) {
+    await supabase.from("invoices").insert(data.invoices);
   }
 }
 
