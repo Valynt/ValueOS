@@ -22,6 +22,7 @@ import { ShareCustomerButton } from "@/components/Deals/ShareCustomerButton";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { useToast } from "@/components/Common/Toast";
 import { logger } from "@/lib/logger";
 import { ArrowLeft, Download, FileText } from "lucide-react";
 import type { LifecycleStage } from "@/types/vos";
@@ -31,6 +32,7 @@ export function DealsView() {
   const navigate = useNavigate();
   const { dealId } = useParams<{ dealId?: string }>();
   const { user } = useAuth();
+  const { error: errorToast } = useToast();
 
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedDeal, setSelectedDeal] = useState<ValueCase | null>(null);
@@ -119,7 +121,7 @@ export function DealsView() {
 
   const handleBusinessCaseError = (error: string) => {
     logger.error("Business case generation error", new Error(error));
-    // TODO: Show error toast
+    errorToast("Business case generation failed", error || "Please try again.");
   };
 
   const handleExportBusinessCase = () => {

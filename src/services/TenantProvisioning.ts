@@ -1,8 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Tenant Provisioning Service
- * 
  * Handles automated provisioning of new tenants (organizations) with:
  * - Organization creation
  * - Default settings initialization
@@ -15,6 +11,10 @@
 import { logger } from '../lib/logger';
 import { getConfig } from '../config/environment';
 import { createServerSupabaseClient } from '../lib/supabase';
+import CustomerService from './billing/CustomerService';
+import SubscriptionService from './billing/SubscriptionService';
+import { PlanTier } from '../config/billing';
+import { emailService } from './EmailService';
 
 /**
  * Tenant tier
@@ -166,6 +166,36 @@ const TIER_FEATURES: Record<TenantTier, string[]> = {
   ],
 };
 
+const TENANT_ARCHIVE_BUCKET = 'tenant-archives';
+const TENANT_ARCHIVE_FORMAT = 'json';
+// Retention policy expectations: archives are kept for 90 days by default. Update this
+// reference once retention policy automation is wired (e.g., compliance-driven TTL jobs).
+const TENANT_ARCHIVE_RETENTION_POLICY = 'default-90-days';
+
+const TENANT_ARCHIVE_TABLES: Array<{
+  table: string;
+  tenantColumns: string[];
+}> = [
+  { table: 'organizations', tenantColumns: ['id'] },
+  { table: 'tenants', tenantColumns: ['id'] },
+  { table: 'user_tenants', tenantColumns: ['tenant_id'] },
+  { table: 'user_roles', tenantColumns: ['tenant_id'] },
+  { table: 'users', tenantColumns: ['organization_id', 'tenant_id'] },
+  { table: 'api_keys', tenantColumns: ['organization_id', 'tenant_id'] },
+  { table: 'audit_logs', tenantColumns: ['organization_id', 'tenant_id'] },
+  { table: 'cases', tenantColumns: ['organization_id', 'tenant_id'] },
+  { table: 'workflows', tenantColumns: ['organization_id', 'tenant_id'] },
+  { table: 'workflow_states', tenantColumns: ['organization_id', 'tenant_id'] },
+  { table: 'shared_artifacts', tenantColumns: ['organization_id', 'tenant_id'] },
+  { table: 'agents', tenantColumns: ['organization_id', 'tenant_id'] },
+  { table: 'agent_runs', tenantColumns: ['organization_id', 'tenant_id'] },
+  { table: 'agent_memory', tenantColumns: ['organization_id', 'tenant_id'] },
+  { table: 'models', tenantColumns: ['organization_id', 'tenant_id'] },
+  { table: 'kpis', tenantColumns: ['organization_id', 'tenant_id'] },
+  { table: 'messages', tenantColumns: ['tenant_id', 'organization_id'] },
+  { table: 'security_audit_events', tenantColumns: ['tenant_id', 'organization_id'] },
+];
+
 /**
  * Provision a new tenant
  */
@@ -202,6 +232,8 @@ export async function provisionTenant(
       logger.error('Organization creation failed', error instanceof Error ? error : undefined, {
         organizationId: config.organizationId,
       });
+      // Organization is foundational, rethrow to abort
+      throw new Error(msg);
     }
 
     // Step 2: Initialize settings
@@ -242,11 +274,11 @@ export async function provisionTenant(
         resources.billing = true;
         logger.info('Billing initialized', { organizationId: config.organizationId });
       } catch (error) {
-        const msg = `Failed to initialize billing: ${error instanceof Error ? error.message : 'Unknown error'}`;
-        warnings.push(msg);
-        logger.warn('Billing initialization failed', {
-          organizationId: config.organizationId,
+    logger.error('Billing initialization failed', error instanceof Error ? error : undefined, {
+      organizationId: config.organizationId
         });
+    // Re-throw to be handled by the caller (provisionTenant)
+    throw error;
       }
     } else {
       logger.debug('Provisioning step 4/6: Billing disabled');
@@ -301,7 +333,7 @@ export async function provisionTenant(
     };
   } catch (error) {
     errors.push(`Fatal provisioning error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    
+     
     return {
       success: false,
       organizationId: config.organizationId,
@@ -317,7 +349,7 @@ export async function provisionTenant(
 /**
  * Create organization in database
  */
-export async function createOrganization(config: TenantConfig): Promise<any> {
+export async function createOrganization(config: TenantConfig): Promise<void> {
   const supabase = createServerSupabaseClient();
 
   // Map tiers: starter -> professional
@@ -326,16 +358,26 @@ export async function createOrganization(config: TenantConfig): Promise<any> {
     dbTier = 'professional' as any;
   }
 
+  // Calculate default limits and features (merged from Main branch)
+  const limits = config.limits || TIER_LIMITS[config.tier];
+  const features = config.features || TIER_FEATURES[config.tier];
+
   // 1. Insert into organizations
-  let orgData;
-  const { data, error } = await supabase.from('organizations').insert({
+  // Using 'organizations' table (from Jules branch) but including settings logic (from Main branch)
+  const { error } = await supabase.from('organizations').insert({
     id: config.organizationId,
     tenant_id: config.organizationId, // Assuming 1:1 mapping for now
     name: config.name,
     tier: dbTier,
     is_active: true,
-    settings: config.settings || {},
+    settings: {
+      ...config.settings,
+      tier: config.tier,
+      limits,
+      features,
+    },
     created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   }).select().single();
 
   if (error) {
@@ -351,16 +393,14 @@ export async function createOrganization(config: TenantConfig): Promise<any> {
       if (existing.error) {
         throw new Error(`Failed to retrieve existing organization: ${existing.error.message}`);
       }
-      orgData = existing.data;
+      // Organization exists, we can proceed
     } else {
       throw new Error(`Failed to create organization: ${error.message}`);
     }
-  } else {
-    orgData = data;
   }
 
   // 2. Insert owner membership
-  // Using user_tenants as the join table
+  // Using user_tenants as the join table (from Jules branch)
   const { error: membershipError } = await supabase.from('user_tenants').insert({
     user_id: config.ownerId,
     tenant_id: config.organizationId,
@@ -379,8 +419,6 @@ export async function createOrganization(config: TenantConfig): Promise<any> {
   }
 
   logger.debug(`Organization ${config.organizationId} created and owner assigned`);
-
-  return orgData;
 }
 
 /**
@@ -396,62 +434,188 @@ async function initializeSettings(config: TenantConfig): Promise<void> {
 
   // TODO: Implement settings initialization
   // await settingsService.initializeOrganizationSettings(
-  //   config.organizationId,
-  //   defaultSettings
+  //    config.organizationId,
+  //    defaultSettings
   // );
 
-  logger.debug('Settings initialized for ${config.organizationId}');
+  logger.debug(`Settings initialized for ${config.organizationId}`);
 }
 
 /**
  * Create default team and roles
  */
 async function createTeamsAndRoles(config: TenantConfig): Promise<void> {
-  // Create default team
-  // TODO: Implement database call
-  // await supabase.from('teams').insert({
-  //   organization_id: config.organizationId,
-  //   name: 'Default Team',
-  //   description: 'Default team for all members',
-  //   created_at: new Date().toISOString(),
-  // });
+  const supabase = createServerSupabaseClient();
+  const tenantId = config.organizationId;
 
-  // Create default roles
+  // 1. Create default team
+  // Idempotent upsert by (tenant_id, name) via unique constraint
+  const { data: teamData, error: teamError } = await supabase.from('teams').upsert({
+    tenant_id: tenantId,
+    name: 'Default Team',
+    description: 'Default team for all members',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    team_settings: {}
+  }, { onConflict: 'tenant_id,name' }).select().single();
+
+  if (teamError) {
+    throw new Error(`Failed to create default team: ${teamError.message}`);
+  }
+
+  logger.debug(`Default team created for ${tenantId}`);
+
+  // 2. Ensure global roles exist and assign owner
   const defaultRoles = ['owner', 'admin', 'member', 'viewer'];
-  
-  // TODO: Implement database call
-  // for (const role of defaultRoles) {
-  //   await supabase.from('roles').insert({
-  //     organization_id: config.organizationId,
-  //     name: role,
-  //     permissions: getDefaultPermissions(role),
-  //     created_at: new Date().toISOString(),
-  //   });
-  // }
+   
+  for (const roleName of defaultRoles) {
+    // Check if role exists globally
+    const { data: existingRoles, error: roleError } = await supabase
+      .from('roles')
+      .select('id, name')
+      .eq('name', roleName)
+      .limit(1);
 
-  // Assign owner role to creator
-  // TODO: Implement database call
-  // await supabase.from('user_roles').insert({
-  //   user_id: config.ownerId,
-  //   organization_id: config.organizationId,
-  //   role: 'owner',
-  //   created_at: new Date().toISOString(),
-  // });
+    if (roleError) {
+      throw new Error(`Failed to check role ${roleName}: ${roleError.message}`);
+    }
 
-  logger.debug('Teams and roles created for ${config.organizationId}');
+    let roleId: string;
+
+    if (!existingRoles || existingRoles.length === 0) {
+      // Create role if missing (global)
+      const { data: newRole, error: createError } = await supabase
+        .from('roles')
+        .insert({
+          name: roleName,
+          description: `System role: ${roleName}`,
+          permissions: getDefaultPermissions(roleName),
+          created_at: new Date().toISOString()
+        })
+        .select('id')
+        .single();
+
+      if (createError) {
+        throw new Error(`Failed to create role ${roleName}: ${createError.message}`);
+      }
+      roleId = newRole.id;
+      logger.debug(`Created missing global role: ${roleName}`);
+    } else {
+      roleId = existingRoles[0].id;
+    }
+
+    // 3. Assign owner role to creator
+    if (roleName === 'owner') {
+      // Check if user has this role for this tenant already
+      const { data: existingUserRole, error: userRoleCheckError } = await supabase
+        .from('user_roles')
+        .select('role_id')
+        .eq('user_id', config.ownerId)
+        .eq('tenant_id', tenantId)
+        .eq('role_id', roleId)
+        .single();
+
+      if (userRoleCheckError && userRoleCheckError.code !== 'PGRST116') { // PGRST116 is "Row not found"
+          throw new Error(`Failed to check user role assignment: ${userRoleCheckError.message}`);
+      }
+
+      if (!existingUserRole) {
+        const { error: assignError } = await supabase.from('user_roles').insert({
+          user_id: config.ownerId,
+          tenant_id: tenantId,
+          role_id: roleId,
+          created_at: new Date().toISOString(),
+        });
+
+        if (assignError) {
+          throw new Error(`Failed to assign owner role: ${assignError.message}`);
+        }
+        logger.debug(`Assigned owner role to ${config.ownerId} for tenant ${tenantId}`);
+      }
+    }
+  }
+
+  logger.debug(`Teams and roles setup complete for ${config.organizationId}`);
 }
 
 /**
  * Initialize billing
  */
 async function initializeBilling(config: TenantConfig): Promise<void> {
-  // TODO: Implement billing integration
-  // - Create customer in payment provider (Stripe, etc.)
-  // - Set up subscription based on tier
-  // - Configure payment method
-  // - Set up webhooks
+  logger.info('Initializing billing integration', {
+    organizationId: config.organizationId,
+    tier: config.tier
+  });
 
-  logger.debug('Billing initialized for ${config.organizationId}');
+  try {
+    // 1. Map tenant tier to billing plan
+    const planTier = mapTenantToPlan(config.tier);
+
+    // 2. Create customer in Stripe
+    // Include tenant_id in metadata for webhook correlation
+    const _customer = await CustomerService.createCustomer(
+      config.organizationId,
+      config.name,
+      config.ownerEmail,
+      {
+        tenant_id: config.organizationId,
+        original_tier: config.tier,
+        owner_id: config.ownerId
+      }
+    );
+
+    // 3. Configure payment method if provided
+    // (Usually skipped during initial provisioning unless coming from checkout flow)
+    if (config.settings?.paymentMethodId) {
+      await CustomerService.updatePaymentMethod(
+        config.organizationId,
+        config.settings.paymentMethodId
+      );
+    }
+
+    // 3. Configure payment method if provided
+    // (Usually skipped during initial provisioning unless coming from checkout flow)
+    if (config.settings?.paymentMethodId) {
+      await CustomerService.updatePaymentMethod(
+        config.organizationId,
+        config.settings.paymentMethodId
+      );
+    }
+
+    // 4. Create subscription
+    // Use mapped plan tier
+    await SubscriptionService.createSubscription(
+      config.organizationId,
+      planTier
+      // Note: trial days could be passed here if needed based on policy
+    );
+
+    logger.debug(`Billing initialized successfully for ${config.organizationId}`);
+  } catch (error) {
+    logger.error('Billing initialization failed', error instanceof Error ? error : undefined, {
+      organizationId: config.organizationId
+    });
+    // Re-throw to be handled by the caller (provisionTenant)
+    throw error;
+  }
+}
+
+/**
+ * Map tenant tier to billing plan tier
+ */
+function mapTenantToPlan(tier: TenantTier): PlanTier {
+  switch (tier) {
+    case 'free':
+      return 'free';
+    case 'starter':
+      return 'standard';
+    case 'professional':
+      return 'standard'; // Map to standard, distinguishing via metadata/limits if needed
+    case 'enterprise':
+      return 'enterprise';
+    default:
+      return 'free'; // Fallback
+  }
 }
 
 /**
@@ -472,10 +636,28 @@ async function initializeUsageTracking(config: TenantConfig): Promise<void> {
     lastUpdated: new Date(),
   };
 
-  // TODO: Implement database call
-  // await supabase.from('tenant_usage').insert(initialUsage);
+  const supabase = createServerSupabaseClient();
 
-  logger.debug('Usage tracking initialized for ${config.organizationId}');
+  // Convert to snake_case for database
+  const payload = {
+    organization_id: initialUsage.organizationId,
+    period: initialUsage.period,
+    users: initialUsage.users,
+    teams: initialUsage.teams,
+    projects: initialUsage.projects,
+    storage: initialUsage.storage,
+    api_calls: initialUsage.apiCalls,
+    agent_calls: initialUsage.agentCalls,
+    last_updated: initialUsage.lastUpdated.toISOString(),
+  };
+
+  const { error } = await supabase.from('tenant_usage').insert(payload);
+
+  if (error) {
+    throw error;
+  }
+
+  logger.debug(`Usage tracking initialized for ${config.organizationId}`);
 }
 
 /**
@@ -489,20 +671,19 @@ async function sendWelcomeEmail(config: TenantConfig): Promise<void> {
     return;
   }
 
-  // TODO: Implement email sending
-  // await emailService.send({
-  //   to: config.ownerEmail,
-  //   subject: `Welcome to ValueCanvas - ${config.name}`,
-  //   template: 'welcome',
-  //   data: {
-  //     organizationName: config.name,
-  //     tier: config.tier,
-  //     features: TIER_FEATURES[config.tier],
-  //     limits: TIER_LIMITS[config.tier],
-  //   },
-  // });
+  await emailService.send({
+    to: config.ownerEmail,
+    subject: `Welcome to ValueCanvas - ${config.name}`,
+    template: 'welcome',
+    data: {
+      organizationName: config.name,
+      tier: config.tier,
+      features: TIER_FEATURES[config.tier],
+      limits: TIER_LIMITS[config.tier],
+    },
+  });
 
-  logger.debug('Welcome email sent to ${config.ownerEmail}');
+  logger.debug(`Welcome email sent to ${config.ownerEmail}`);
 }
 
 /**
@@ -581,18 +762,234 @@ export async function deprovisionTenant(
  */
 async function cancelBilling(organizationId: string): Promise<void> {
   // TODO: Implement billing cancellation
-  logger.debug('Billing canceled for ${organizationId}');
+  logger.debug(`Billing canceled for ${organizationId}`);
 }
 
 /**
  * Archive tenant data
  */
 async function archiveTenantData(organizationId: string): Promise<void> {
-  // TODO: Implement data archival
-  // - Export all data to archive storage
-  // - Mark records as archived
-  // - Schedule for deletion after retention period
-  logger.debug('Data archived for ${organizationId}');
+  const supabase = createServerSupabaseClient();
+  const exportTimestamp = new Date().toISOString();
+  const errors: string[] = [];
+
+  try {
+    const { data: tableRows, error: tableError } = await supabase
+      .from('information_schema.tables')
+      .select('table_name')
+      .eq('table_schema', 'public');
+
+    if (tableError) {
+      throw new Error(`Failed to list tables for archival: ${tableError.message}`);
+    }
+
+    const existingTables = new Set((tableRows || []).map((row) => row.table_name));
+    const tablesToArchive = TENANT_ARCHIVE_TABLES.filter((entry) => existingTables.has(entry.table));
+
+    const archivePayload: Record<string, unknown> = {};
+    const tableColumnCache: Record<string, Set<string>> = {};
+
+    for (const entry of tablesToArchive) {
+      const { data: columnRows, error: columnError } = await supabase
+        .from('information_schema.columns')
+        .select('column_name')
+        .eq('table_schema', 'public')
+        .eq('table_name', entry.table);
+
+      if (columnError) {
+        errors.push(`Failed to inspect columns for ${entry.table}: ${columnError.message}`);
+        continue;
+      }
+
+      const columns = new Set((columnRows || []).map((row) => row.column_name));
+      tableColumnCache[entry.table] = columns;
+
+      const availableTenantColumns = entry.tenantColumns.filter((column) => columns.has(column));
+
+      if (availableTenantColumns.length === 0) {
+        errors.push(`No tenant identifier columns found for ${entry.table}`);
+        continue;
+      }
+
+      let query = supabase.from(entry.table).select('*');
+      if (availableTenantColumns.length === 1) {
+        query = query.eq(availableTenantColumns[0], organizationId);
+      } else {
+        const filters = availableTenantColumns.map((column) => `${column}.eq.${organizationId}`).join(',');
+        query = query.or(filters);
+      }
+
+      const { data, error } = await query;
+      if (error) {
+        errors.push(`Failed to export ${entry.table}: ${error.message}`);
+        continue;
+      }
+
+      archivePayload[entry.table] = data || [];
+    }
+
+    if (errors.length > 0) {
+      throw new Error(`Archival export failed: ${errors.join('; ')}`);
+    }
+
+    const storagePath = `${organizationId}/${exportTimestamp}.${TENANT_ARCHIVE_FORMAT}`;
+    const serializedPayload = JSON.stringify(
+      {
+        organizationId,
+        exportedAt: exportTimestamp,
+        format: TENANT_ARCHIVE_FORMAT,
+        tables: archivePayload,
+      },
+      null,
+      2
+    );
+
+    const { error: storageError } = await supabase.storage
+      .from(TENANT_ARCHIVE_BUCKET)
+      .upload(storagePath, Buffer.from(serializedPayload), {
+        contentType: 'application/json',
+        upsert: true,
+      });
+
+    if (storageError) {
+      throw new Error(`Failed to upload archive: ${storageError.message}`);
+    }
+
+    const { error: archiveRecordError } = await supabase.from('tenant_archives').upsert(
+      {
+        organization_id: organizationId,
+        storage_location: `${TENANT_ARCHIVE_BUCKET}/${storagePath}`,
+        export_format: TENANT_ARCHIVE_FORMAT,
+        exported_at: exportTimestamp,
+        retention_policy: TENANT_ARCHIVE_RETENTION_POLICY,
+      },
+      { onConflict: 'organization_id' }
+    );
+
+    if (archiveRecordError) {
+      throw new Error(`Failed to record archive metadata: ${archiveRecordError.message}`);
+    }
+
+    const statusOverrides: Record<string, string> = {
+      tenants: 'deleted',
+      users: 'inactive',
+      cases: 'closed',
+      workflow_states: 'cancelled',
+      agent_runs: 'cancelled',
+      models: 'archived',
+    };
+
+    const tableTimestampOverrides: Record<string, string> = {
+      cases: 'closed_at',
+    };
+
+    for (const entry of tablesToArchive) {
+      const columns = tableColumnCache[entry.table];
+      if (!columns) {
+        errors.push(`Missing column metadata for ${entry.table}`);
+        continue;
+      }
+
+      const availableTenantColumns = entry.tenantColumns.filter((column) => columns.has(column));
+      if (availableTenantColumns.length === 0) {
+        errors.push(`No tenant identifier columns found for ${entry.table}`);
+        continue;
+      }
+
+      const updatePayload: Record<string, unknown> = {};
+      let hasArchiveMarker = false;
+      if (columns.has('archived_at')) {
+        updatePayload.archived_at = exportTimestamp;
+        hasArchiveMarker = true;
+      }
+      if (columns.has('is_archived')) {
+        updatePayload.is_archived = true;
+        hasArchiveMarker = true;
+      }
+      if (columns.has('deleted_at')) {
+        updatePayload.deleted_at = exportTimestamp;
+        hasArchiveMarker = true;
+      }
+      if (columns.has('is_active')) {
+        updatePayload.is_active = false;
+        hasArchiveMarker = true;
+      }
+      if (columns.has('status') && statusOverrides[entry.table]) {
+        updatePayload.status = statusOverrides[entry.table];
+        hasArchiveMarker = true;
+      }
+      const timestampOverrideColumn = tableTimestampOverrides[entry.table];
+      if (timestampOverrideColumn && columns.has(timestampOverrideColumn)) {
+        updatePayload[timestampOverrideColumn] = exportTimestamp;
+        hasArchiveMarker = true;
+      }
+      if (columns.has('updated_at')) {
+        updatePayload.updated_at = exportTimestamp;
+      }
+
+      if (!hasArchiveMarker) {
+        if (columns.has('metadata') && columns.has('id')) {
+          const rows = archivePayload[entry.table];
+          if (Array.isArray(rows)) {
+            for (const row of rows) {
+              if (!row || !('id' in row)) {
+                errors.push(`Failed to archive metadata for ${entry.table}: missing id`);
+                break;
+              }
+              const currentMetadata = row?.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+              const mergedMetadata = {
+                ...currentMetadata,
+                archived: true,
+                archived_at: exportTimestamp,
+              };
+              const metadataUpdate: Record<string, unknown> = { metadata: mergedMetadata };
+              if (columns.has('updated_at')) {
+                metadataUpdate.updated_at = exportTimestamp;
+              }
+              const { error: metadataError } = await supabase
+                .from(entry.table)
+                .update(metadataUpdate)
+                .eq('id', row.id as string);
+              if (metadataError) {
+                errors.push(`Failed to archive metadata for ${entry.table}: ${metadataError.message}`);
+                break;
+              }
+            }
+            continue;
+          }
+        }
+
+        errors.push(`No archival fields available for ${entry.table}`);
+        continue;
+      }
+
+      let updateQuery = supabase.from(entry.table).update(updatePayload);
+      if (availableTenantColumns.length === 1) {
+        updateQuery = updateQuery.eq(availableTenantColumns[0], organizationId);
+      } else {
+        const filters = availableTenantColumns.map((column) => `${column}.eq.${organizationId}`).join(',');
+        updateQuery = updateQuery.or(filters);
+      }
+
+      const { error: updateError } = await updateQuery;
+      if (updateError) {
+        errors.push(`Failed to mark ${entry.table} as archived: ${updateError.message}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new Error(`Archival update incomplete: ${errors.join('; ')}`);
+    }
+
+    logger.debug(`Data archived for ${organizationId}`);
+  } catch (error) {
+    logger.error('Tenant archival failed', error instanceof Error ? error : undefined, {
+      organizationId,
+    });
+    throw new Error(
+      `Tenant archival failed for ${organizationId}: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
 }
 
 /**
@@ -603,7 +1000,7 @@ async function revokeAllAccess(organizationId: string): Promise<void> {
   // - Revoke all user sessions
   // - Revoke API keys
   // - Disable integrations
-  logger.debug('Access revoked for ${organizationId}');
+  logger.debug(`Access revoked for ${organizationId}`);
 }
 
 /**
@@ -615,11 +1012,11 @@ async function updateTenantStatus(
 ): Promise<void> {
   // TODO: Implement database update
   // await supabase
-  //   .from('organizations')
-  //   .update({ status, updated_at: new Date().toISOString() })
-  //   .eq('id', organizationId);
+  //    .from('organizations')
+  //    .update({ status, updated_at: new Date().toISOString() })
+  //    .eq('id', organizationId);
 
-  logger.debug('Status updated to ${status} for ${organizationId}');
+  logger.debug(`Status updated to ${status} for ${organizationId}`);
 }
 
 /**
@@ -630,7 +1027,7 @@ async function sendDeactivationEmail(
   reason?: string
 ): Promise<void> {
   // TODO: Implement email sending
-  logger.debug('Deactivation email sent for ${organizationId}');
+  logger.debug(`Deactivation email sent for ${organizationId}`);
 }
 
 /**

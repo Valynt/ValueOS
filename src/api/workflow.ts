@@ -6,11 +6,15 @@ import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
 import { validateRequest } from '../middleware/inputValidation';
 import { requirePermission } from '../middleware/rbac';
+import { requireAuth } from '../middleware/auth';
+import { tenantContextMiddleware } from '../middleware/tenantContext';
 
 const router = Router();
 router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
 router.use(validateRequest);
+router.use(requireAuth);
+router.use(tenantContextMiddleware());
 router.use(requirePermission('agents.execute'));
 
 function sanitizeEvidence(evidence: any): Array<{ source?: string; description?: string; confidence?: number }> {
@@ -27,6 +31,14 @@ router.get(
   rateLimiters.loose,
   async (req: Request, res: Response) => {
     const { executionId, stepId } = req.params;
+    const tenantId = (req as any).tenantId;
+
+    if (!tenantId) {
+      return res.status(403).json({
+        error: 'tenant_required',
+        message: 'Tenant context is required to access workflow execution logs',
+      });
+    }
 
     try {
       const { data, error } = await supabase
@@ -34,6 +46,7 @@ router.get(
         .select('execution_id, stage_id, output_data')
         .eq('execution_id', executionId)
         .eq('stage_id', stepId)
+        .eq('tenant_id', tenantId)
         .order('started_at', { ascending: false })
         .limit(1)
         .maybeSingle();

@@ -235,6 +235,7 @@ jobs:
    - [ ] Run migrations (if auto-deploy enabled)
    - [ ] Verify migration success
    - [ ] Rollback plan ready
+   - [ ] RLS/policy validation complete
 
 3. **Deployment Phase**
    - [ ] Deploy new image to staging
@@ -298,13 +299,30 @@ redis-cli -u $REDIS_URL ping
    pg_restore -d $DATABASE_URL staging_backup_$(date +%Y%m%d).dump
    ```
 
-3. **Verification**
+3. **Migration Rollback / Forward Plan**
+
+   ```bash
+   # Inspect applied vs pending migrations
+   supabase migration list --db-url $STAGING_DATABASE_URL
+
+   # Roll back a specific migration (preferred: rollback SQL file)
+   psql $STAGING_DATABASE_URL -f supabase/migrations/rollback/<timestamp>_<name>_rollback.sql
+
+   # If rollback is unsafe, apply a forward-fix migration instead
+   supabase db push --db-url $STAGING_DATABASE_URL --include-all
+
+   # Validate RLS/policies after rollback/forward
+   supabase db lint --db-url $STAGING_DATABASE_URL
+   psql $STAGING_DATABASE_URL -c "SELECT schemaname, tablename, policyname FROM pg_policies WHERE schemaname = 'public';"
+   ```
+
+4. **Verification**
    - [ ] Previous version deployed
    - [ ] Health checks passing
    - [ ] No errors in logs
    - [ ] Service recovery confirmed
 
-4. **Post-Mortem**
+5. **Post-Mortem**
    - [ ] Document failure reason
    - [ ] Create issue for fix
    - [ ] Update runbook with lessons learned

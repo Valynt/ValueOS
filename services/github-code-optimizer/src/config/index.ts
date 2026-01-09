@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { getDatabaseUrl } from './env.js';
 
 const configSchema = z.object({
   port: z.number().default(3000),
@@ -43,7 +44,7 @@ export const config: Config = configSchema.parse({
   },
   database: {
     type: (process.env.DATABASE_TYPE as any) || 'memory',
-    url: process.env.DATABASE_URL,
+    url: getDatabaseUrl(),
   },
   logging: {
     level: (process.env.LOG_LEVEL as any) || 'info',
