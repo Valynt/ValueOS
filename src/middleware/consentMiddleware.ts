@@ -14,7 +14,13 @@ export function requireConsent(
       });
     }
 
-    const tenantId = (req.headers['x-tenant-id'] as string) || (req as any).tenantId || 'default';
+    const tenantId = (req.headers['x-tenant-id'] as string) || (req as any).tenantId;
+    if (!tenantId) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Tenant ID is required. Please provide "x-tenant-id" header.',
+      });
+    }
 
     const consentGranted = await registry.hasConsent(tenantId, scope);
     if (!consentGranted) {
