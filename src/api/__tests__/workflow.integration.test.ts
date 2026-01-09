@@ -11,12 +11,17 @@ import { Client } from 'pg';
 
 const app = express();
 app.use(express.json());
+app.use((req, _res, next) => {
+  (req as any).tenantId = req.header('x-tenant-id');
+  next();
+});
 app.use('/api', workflowRouter);
 
 describe('Workflow API Integration', () => {
   let dbClient: Client;
   const testExecutionId = 'test-exec-001';
   const testStepId = 'test-step-001';
+  const testTenantId = 'test-tenant-001';
 
   beforeAll(async () => {
     const dbUrl = process.env.DATABASE_URL;
@@ -34,19 +39,25 @@ describe('Workflow API Integration', () => {
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         execution_id TEXT NOT NULL,
         stage_id TEXT NOT NULL,
+        tenant_id TEXT NOT NULL,
         output_data JSONB,
         started_at TIMESTAMPTZ DEFAULT NOW(),
         completed_at TIMESTAMPTZ
       );
     `);
+    await dbClient.query(`
+      ALTER TABLE workflow_execution_logs
+      ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'test-tenant-001';
+    `);
 
     await dbClient.query(`
-      INSERT INTO workflow_execution_logs (execution_id, stage_id, output_data)
-      VALUES ($1, $2, $3)
+      INSERT INTO workflow_execution_logs (execution_id, stage_id, tenant_id, output_data)
+      VALUES ($1, $2, $3, $4)
       ON CONFLICT DO NOTHING;
     `, [
       testExecutionId,
       testStepId,
+      testTenantId,
       JSON.stringify({
         reasoning: 'Test reasoning for workflow step',
         evidence: [
@@ -61,13 +72,25 @@ describe('Workflow API Integration', () => {
     if (dbClient) {
       await dbClient.query(`
         DELETE FROM workflow_execution_logs 
-        WHERE execution_id = $1;
-      `, [testExecutionId]);
+        WHERE execution_id = $1
+          AND tenant_id = $2;
+      `, [testExecutionId, testTenantId]);
       await dbClient.end();
     }
   });
 
   describe('GET /api/workflow/:executionId/step/:stepId/explain', () => {
+    it('should require a tenant context', async () => {
+      if (!process.env.DATABASE_URL) {
+        console.warn('Skipping test - DATABASE_URL not set');
+        return;
+      }
+
+      await request(app)
+        .get(`/api/workflow/${testExecutionId}/step/${testStepId}/explain`)
+        .expect(403);
+    });
+
     it('should return explanation for valid execution step', async () => {
       if (!process.env.DATABASE_URL) {
         console.warn('Skipping test - DATABASE_URL not set');
@@ -76,6 +99,7 @@ describe('Workflow API Integration', () => {
 
       const response = await request(app)
         .get(`/api/workflow/${testExecutionId}/step/${testStepId}/explain`)
+        .set('x-tenant-id', testTenantId)
         .expect(200);
 
       expect(response.body).toHaveProperty('success', true);
@@ -95,6 +119,7 @@ describe('Workflow API Integration', () => {
 
       const response = await request(app)
         .get('/api/workflow/non-existent/step/non-existent/explain')
+        .set('x-tenant-id', testTenantId)
         .expect(404);
 
       expect(response.body).toHaveProperty('error', 'not_found');
@@ -109,6 +134,7 @@ describe('Workflow API Integration', () => {
 
       const response = await request(app)
         .get(`/api/workflow/${testExecutionId}/step/${testStepId}/explain`)
+        .set('x-tenant-id', testTenantId)
         .expect(200);
 
       const { evidence } = response.body.data;
@@ -133,17 +159,19 @@ describe('Workflow API Integration', () => {
       const noReasoningStepId = 'test-step-no-reasoning';
 
       await dbClient.query(`
-        INSERT INTO workflow_execution_logs (execution_id, stage_id, output_data)
-        VALUES ($1, $2, $3)
+        INSERT INTO workflow_execution_logs (execution_id, stage_id, tenant_id, output_data)
+        VALUES ($1, $2, $3, $4)
         ON CONFLICT DO NOTHING;
       `, [
         noReasoningExecId,
         noReasoningStepId,
+        testTenantId,
         JSON.stringify({ result: {} })
       ]);
 
       const response = await request(app)
         .get(`/api/workflow/${noReasoningExecId}/step/${noReasoningStepId}/explain`)
+        .set('x-tenant-id', testTenantId)
         .expect(200);
 
       expect(response.body.data.reasoning).toBeDefined();
@@ -152,8 +180,9 @@ describe('Workflow API Integration', () => {
       // Cleanup
       await dbClient.query(`
         DELETE FROM workflow_execution_logs 
-        WHERE execution_id = $1;
-      `, [noReasoningExecId]);
+        WHERE execution_id = $1
+          AND tenant_id = $2;
+      `, [noReasoningExecId, testTenantId]);
     });
 
     it('should handle missing evidence gracefully', async () => {
@@ -167,17 +196,19 @@ describe('Workflow API Integration', () => {
       const noEvidenceStepId = 'test-step-no-evidence';
 
       await dbClient.query(`
-        INSERT INTO workflow_execution_logs (execution_id, stage_id, output_data)
-        VALUES ($1, $2, $3)
+        INSERT INTO workflow_execution_logs (execution_id, stage_id, tenant_id, output_data)
+        VALUES ($1, $2, $3, $4)
         ON CONFLICT DO NOTHING;
       `, [
         noEvidenceExecId,
         noEvidenceStepId,
+        testTenantId,
         JSON.stringify({ reasoning: 'Test reasoning' })
       ]);
 
       const response = await request(app)
         .get(`/api/workflow/${noEvidenceExecId}/step/${noEvidenceStepId}/explain`)
+        .set('x-tenant-id', testTenantId)
         .expect(200);
 
       expect(response.body.data.evidence).toBeDefined();
@@ -186,8 +217,9 @@ describe('Workflow API Integration', () => {
       // Cleanup
       await dbClient.query(`
         DELETE FROM workflow_execution_logs 
-        WHERE execution_id = $1;
-      `, [noEvidenceExecId]);
+        WHERE execution_id = $1
+          AND tenant_id = $2;
+      `, [noEvidenceExecId, testTenantId]);
     });
 
     it('should return null confidence when not available', async () => {
@@ -201,17 +233,19 @@ describe('Workflow API Integration', () => {
       const noConfidenceStepId = 'test-step-no-confidence';
 
       await dbClient.query(`
-        INSERT INTO workflow_execution_logs (execution_id, stage_id, output_data)
-        VALUES ($1, $2, $3)
+        INSERT INTO workflow_execution_logs (execution_id, stage_id, tenant_id, output_data)
+        VALUES ($1, $2, $3, $4)
         ON CONFLICT DO NOTHING;
       `, [
         noConfidenceExecId,
         noConfidenceStepId,
+        testTenantId,
         JSON.stringify({ reasoning: 'Test reasoning' })
       ]);
 
       const response = await request(app)
         .get(`/api/workflow/${noConfidenceExecId}/step/${noConfidenceStepId}/explain`)
+        .set('x-tenant-id', testTenantId)
         .expect(200);
 
       expect(response.body.data).toHaveProperty('confidence_score');
@@ -221,8 +255,40 @@ describe('Workflow API Integration', () => {
       // Cleanup
       await dbClient.query(`
         DELETE FROM workflow_execution_logs 
-        WHERE execution_id = $1;
-      `, [noConfidenceExecId]);
+        WHERE execution_id = $1
+          AND tenant_id = $2;
+      `, [noConfidenceExecId, testTenantId]);
+    });
+
+    it('should block cross-tenant access', async () => {
+      if (!process.env.DATABASE_URL) {
+        console.warn('Skipping test - DATABASE_URL not set');
+        return;
+      }
+
+      const otherTenantId = 'test-tenant-002';
+
+      await dbClient.query(`
+        INSERT INTO workflow_execution_logs (execution_id, stage_id, tenant_id, output_data)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT DO NOTHING;
+      `, [
+        'test-exec-foreign',
+        'test-step-foreign',
+        testTenantId,
+        JSON.stringify({ reasoning: 'Tenant A reasoning' })
+      ]);
+
+      await request(app)
+        .get('/api/workflow/test-exec-foreign/step/test-step-foreign/explain')
+        .set('x-tenant-id', otherTenantId)
+        .expect(404);
+
+      await dbClient.query(`
+        DELETE FROM workflow_execution_logs 
+        WHERE execution_id = $1
+          AND tenant_id = $2;
+      `, ['test-exec-foreign', testTenantId]);
     });
   });
 
@@ -236,6 +302,7 @@ describe('Workflow API Integration', () => {
       // Use invalid characters that might cause SQL errors
       const response = await request(app)
         .get('/api/workflow/invalid%00id/step/invalid%00step/explain')
+        .set('x-tenant-id', testTenantId)
         .expect(404);
 
       expect(response.body).toHaveProperty('error');
@@ -279,7 +346,8 @@ describe('Workflow API Integration', () => {
       const maliciousId = "'; DROP TABLE workflow_execution_logs; --";
       
       const response = await request(app)
-        .get(`/api/workflow/${encodeURIComponent(maliciousId)}/step/test/explain`);
+        .get(`/api/workflow/${encodeURIComponent(maliciousId)}/step/test/explain`)
+        .set('x-tenant-id', testTenantId);
 
       // Should return 404, not cause SQL injection
       expect(response.status).toBe(404);
@@ -306,6 +374,7 @@ describe('Workflow API Integration', () => {
       
       await request(app)
         .get(`/api/workflow/${testExecutionId}/step/${testStepId}/explain`)
+        .set('x-tenant-id', testTenantId)
         .expect(200);
 
       const duration = Date.now() - startTime;

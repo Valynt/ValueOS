@@ -29,6 +29,14 @@ router.get(
   rateLimiters.loose,
   async (req: Request, res: Response) => {
     const { executionId, stepId } = req.params;
+    const tenantId = (req as any).tenantId;
+
+    if (!tenantId) {
+      return res.status(403).json({
+        error: 'tenant_required',
+        message: 'Tenant context is required to access workflow execution logs',
+      });
+    }
 
     try {
       const { data, error } = await supabase
@@ -36,6 +44,7 @@ router.get(
         .select('execution_id, stage_id, output_data')
         .eq('execution_id', executionId)
         .eq('stage_id', stepId)
+        .eq('tenant_id', tenantId)
         .order('started_at', { ascending: false })
         .limit(1)
         .maybeSingle();
