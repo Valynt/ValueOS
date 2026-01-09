@@ -5,6 +5,7 @@ This guide describes how external systems can integrate with ValueCanvas to trig
 ## Authentication
 - **Method**: Bearer tokens generated per workspace.
 - **Header**: `Authorization: Bearer <token>`
+- **Token source**: Use the `access_token` returned by `POST /auth/login` or the Supabase session `access_token` issued to your workspace users.
 - **Scopes**:
   - `lifecycle:trigger` — run agents and orchestrations
   - `docs:read` — fetch documentation pages and metadata

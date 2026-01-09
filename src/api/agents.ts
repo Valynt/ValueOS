@@ -7,10 +7,12 @@ import { validateRequest, ValidationSchemas } from '../middleware/inputValidatio
 import { logger } from '../lib/logger';
 import { requirePermission } from '../middleware/rbac';
 import { getUnifiedAgentAPI } from '../services/UnifiedAgentAPI';
+import { requireAuth } from '../middleware/auth';
 
 const router = Router();
 router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
+router.use(requireAuth);
 router.use(requirePermission('agents.execute'));
 
 router.get('/:agentId/info', rateLimiters.loose, (req: Request, res: Response) => {
