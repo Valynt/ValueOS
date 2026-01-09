@@ -25,6 +25,7 @@ import { atomicActionExecutor } from './AtomicActionExecutor';
 import { canvasSchemaService } from './CanvasSchemaService';
 import { EnforcementResult, enforceRules } from '../lib/rules';
 import { workspaceStateService } from './WorkspaceStateService';
+import { assumptionService } from './AssumptionService';
 import {
   exportToPDF,
   exportToPNG,
@@ -526,11 +527,22 @@ export class ActionRouter {
         return { success: false, error: 'Invalid action type' };
       }
 
-      // TODO: Implement assumption update
-      return {
-        success: true,
-        data: { assumptionId: action.assumptionId, updated: true },
-      };
+      try {
+        const result = await assumptionService.updateAssumption(
+          action.assumptionId,
+          action.updates
+        );
+
+        return {
+          success: true,
+          data: result,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
     });
 
     // exportArtifact handler
