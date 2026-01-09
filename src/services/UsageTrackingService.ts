@@ -9,6 +9,8 @@ import { logger } from "../lib/logger";
 import { createClient } from "@supabase/supabase-js";
 import { getConfig } from "../config/environment";
 import { isWithinLimits, TenantLimits, TenantUsage } from "./TenantProvisioning";
+import { supabase as publicSupabase } from "../lib/supabase";
+import * as React from "react";
 
 /**
  * Usage event type
@@ -142,13 +144,36 @@ export async function getUsage(organizationId: string, period?: string): Promise
     return cached;
   }
 
-  // TODO: Fetch from database
-  // const result = await supabase
-  //   .from('tenant_usage')
-  //   .select('*')
-  //   .eq('organization_id', organizationId)
-  //   .eq('period', currentPeriod)
-  //   .single();
+  const client = serviceRoleSupabase || publicSupabase;
+
+  if (client) {
+    try {
+      const { data, error } = await client
+        .from("tenant_usage")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .eq("period", currentPeriod)
+        .single();
+
+      if (data) {
+        const usage: TenantUsage = {
+          organizationId: data.organization_id,
+          period: data.period,
+          users: data.users || 0,
+          teams: data.teams || 0,
+          projects: data.projects || 0,
+          storage: data.storage || 0,
+          apiCalls: data.api_calls || 0,
+          agentCalls: data.agent_calls || 0,
+          lastUpdated: new Date(data.last_updated),
+        };
+        usageCache.set(cacheKey, usage);
+        return usage;
+      }
+    } catch (err) {
+      logger.error("Failed to fetch usage from database", err instanceof Error ? err : undefined);
+    }
+  }
 
   // For now, return default
   const usage: TenantUsage = {
@@ -265,7 +290,7 @@ export async function canPerformAction(
   return { allowed: true };
 }
 
-const supabase =
+const serviceRoleSupabase =
   typeof window === "undefined"
     ? createClient(
         import.meta.env?.VITE_SUPABASE_URL || "",
@@ -277,7 +302,7 @@ const supabase =
  * Persist usage to database (upsert into `tenant_usage` table)
  */
 async function persistUsage(usage: TenantUsage): Promise<void> {
-  if (!supabase) {
+  if (!serviceRoleSupabase) {
     logger.warn("Supabase client not available (browser environment)");
     return;
   }
@@ -295,7 +320,7 @@ async function persistUsage(usage: TenantUsage): Promise<void> {
       last_updated: usage.lastUpdated.toISOString(),
     } as Record<string, any>;
 
-    const { error } = await supabase.from("tenant_usage").upsert(payload).select();
+    const { error } = await serviceRoleSupabase.from("tenant_usage").upsert(payload).select();
 
     if (error) {
       logger.error("Failed to persist usage", error);
@@ -342,15 +367,41 @@ export async function getUsageHistory(
   organizationId: string,
   months: number = 12
 ): Promise<TenantUsage[]> {
-  // TODO: Implement database query
-  // const result = await supabase
-  //   .from('tenant_usage')
-  //   .select('*')
-  //   .eq('organization_id', organizationId)
-  //   .order('period', { ascending: false })
-  //   .limit(months);
+  const client = serviceRoleSupabase || publicSupabase;
 
-  // For now, return empty array
+  if (!client) {
+    return [];
+  }
+
+  try {
+    const { data, error } = await client
+      .from("tenant_usage")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .order("period", { ascending: false })
+      .limit(months);
+
+    if (error) {
+      throw error;
+    }
+
+    if (data) {
+      return data.map((item: any) => ({
+        organizationId: item.organization_id,
+        period: item.period,
+        users: item.users || 0,
+        teams: item.teams || 0,
+        projects: item.projects || 0,
+        storage: item.storage || 0,
+        apiCalls: item.api_calls || 0,
+        agentCalls: item.agent_calls || 0,
+        lastUpdated: new Date(item.last_updated),
+      }));
+    }
+  } catch (err) {
+    logger.error("Failed to fetch usage history", err instanceof Error ? err : undefined);
+  }
+
   return [];
 }
 
@@ -428,6 +479,3 @@ export function useUsageTracking(organizationId: string, limits: TenantLimits) {
     track,
   };
 }
-
-// Import React for the hook
-import * as React from "react";
