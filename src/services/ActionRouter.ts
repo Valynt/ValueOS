@@ -25,6 +25,8 @@ import { atomicActionExecutor } from './AtomicActionExecutor';
 import { canvasSchemaService } from './CanvasSchemaService';
 import { EnforcementResult, enforceRules } from '../lib/rules';
 import { workspaceStateService } from './WorkspaceStateService';
+import { ValueTreeService, LifecycleContext } from './ValueTreeService';
+import { getSupabaseClient } from '../lib/supabase';
 import { SDUIPageDefinition } from '../sdui/schema';
 import { assumptionService } from './AssumptionService';
 import {
@@ -44,6 +46,7 @@ export class ActionRouter {
   private auditLogService: AuditLogService;
   private orchestrator: UnifiedAgentOrchestrator;
   private agentAPI: AgentAPI;
+  private valueTreeService: ValueTreeService | undefined;
   
   private componentMutationService: ComponentMutationService;
 
@@ -51,13 +54,27 @@ export class ActionRouter {
     auditLogService?: AuditLogService,
     orchestrator?: UnifiedAgentOrchestrator,
     agentAPI?: AgentAPI,
-    componentMutationService?: ComponentMutationService
+    componentMutationService?: ComponentMutationService,
+    valueTreeService?: ValueTreeService
   ) {
     this.handlers = new Map();
     this.auditLogService = auditLogService || new AuditLogService();
     this.orchestrator = orchestrator || getUnifiedOrchestrator();
     this.agentAPI = agentAPI || getAgentAPI();
     this.componentMutationService = componentMutationService || new ComponentMutationService();
+
+    // Lazily initialize valueTreeService if not provided
+    // We try-catch because getSupabaseClient might fail in some environments (e.g. tests without config)
+    // but allowing injection in constructor helps with testing.
+    if (valueTreeService) {
+      this.valueTreeService = valueTreeService;
+    } else {
+      try {
+        this.valueTreeService = new ValueTreeService(getSupabaseClient());
+      } catch (e) {
+        logger.warn('Failed to initialize ValueTreeService in ActionRouter constructor', e);
+      }
+    }
 
     // Register default handlers
     this.registerDefaultHandlers();
@@ -515,11 +532,53 @@ export class ActionRouter {
         return { success: false, error: 'Invalid action type' };
       }
 
-      // TODO: Implement value tree update
-      return {
-        success: true,
-        data: { treeId: action.treeId, updated: true },
-      };
+      if (!this.valueTreeService) {
+        // Try to init if missing (e.g. if env vars were missing at startup but now available)
+        try {
+          this.valueTreeService = new ValueTreeService(getSupabaseClient());
+        } catch (e) {
+          logger.error('ValueTreeService not available', e);
+          return { success: false, error: 'ValueTreeService not available' };
+        }
+      }
+
+      // Validate structure
+      if (!this.validateValueTreeStructure(action.updates)) {
+        return { success: false, error: 'Invalid value tree structure updates' };
+      }
+
+      try {
+        const lifecycleContext: LifecycleContext = {
+          userId: context.userId,
+          organizationId: context.organizationId,
+          sessionId: context.sessionId
+        };
+
+        const result = await this.valueTreeService.updateValueTree(
+          action.treeId,
+          action.updates,
+          lifecycleContext
+        );
+
+        return {
+          success: true,
+          data: {
+            treeId: result.id,
+            updated: true,
+            version: result.version
+          },
+        };
+      } catch (error) {
+        logger.error('Failed to update value tree', {
+          treeId: action.treeId,
+          error: error instanceof Error ? error.message : String(error)
+        });
+
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error)
+        };
+      }
     });
 
     // updateAssumption handler
