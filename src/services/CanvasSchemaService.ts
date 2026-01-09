@@ -800,8 +800,39 @@ export class CanvasSchemaService {
    * Fetch gaps
    */
   private async fetchGaps(workspaceId: string): Promise<any[]> {
-    // TODO: Implement actual gap fetching
-    return [];
+    try {
+      const supabase = getSupabaseClient();
+
+      // Fetch opportunities with gap analysis
+      const { data: opportunities, error } = await supabase
+        .from('opportunities')
+        .select('id, title, type, gap_analysis, current_state, desired_state, impact_score')
+        .eq('value_case_id', workspaceId)
+        .not('gap_analysis', 'is', null);
+
+      if (error) {
+        logger.warn('Error fetching gaps from opportunities', { workspaceId, error: error.message });
+        return [];
+      }
+
+      // Transform into a standardized Gap interface
+      return (opportunities || []).map(opp => ({
+        id: opp.id,
+        name: opp.title,
+        type: opp.type,
+        gap_analysis: opp.gap_analysis,
+        current_state: opp.current_state,
+        desired_state: opp.desired_state,
+        impact_score: opp.impact_score
+      }));
+
+    } catch (error) {
+      logger.error('Failed to fetch gaps', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
   }
 
   /**
