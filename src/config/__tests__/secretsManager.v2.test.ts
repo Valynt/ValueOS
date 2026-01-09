@@ -34,24 +34,9 @@ vi.mock('../../lib/logger', () => ({
 }));
 
 // Mock Supabase client
-// Define variables to be used in tests, but initialize them in beforeEach/hoisted block if possible.
-// However, vi.mock is hoisted. We cannot access outer variables inside vi.mock unless they are also hoisted.
-// But we need to control the mock from the test.
-// The solution is to use a mutable object that is defined *inside* the mock factory or use vi.importActual if needed,
-// OR simpler: just return a mock function we can manipulate.
-// But we need complex chaining.
-
-// We will return a fresh mock from the factory every time, but we need to control it.
-// The best way in Vitest for this complex case is to mock the implementation to return a global (to the file) object
-// BUT we have to be careful about hoisting.
-// Actually, variables starting with `mock` are allowed to be accessed in `vi.mock` if they are top-level.
-// Let's rename `mockSupabaseChain` to `mockSupabaseChain` (it already is).
-// Wait, `const mockSupabaseChain = ...` IS top level.
-// Ah, but `vi.mock` is hoisted *above* the variable declaration.
-
-// Solution: Define the mock object *inside* `vi.mock` and export it? No, `vi.mock` doesn't export.
-// Solution: Use `vi.hoisted`
-
+// Use vi.hoisted so that mockSupabaseChain and mockSupabaseResponse are created in a hoisted
+// context and can be shared between hoisted vi.mock calls and the tests, avoiding ordering
+// issues caused by Vitest's mock hoisting.
 const { mockSupabaseChain, mockSupabaseResponse } = vi.hoisted(() => {
   const response = { data: [] as any[], error: null as any };
   const chain = {
