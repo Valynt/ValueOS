@@ -1,22 +1,18 @@
 import { settings } from '../config/settings';
-import { createServerSupabaseClient } from '../lib/supabase';
+import { createSupabaseClient } from '../lib/supabase';
 import { logger } from '../lib/logger';
 import type { ConsentRegistry } from '../types/consent';
 
 const CONSENT_TABLE = 'user_consents';
 
 export function isConsentRegistryConfigured(): boolean {
-  return Boolean(settings.VITE_SUPABASE_URL && settings.SUPABASE_SERVICE_KEY);
+  // Consent checks must use RLS-enforced clients (anon/user tokens), not service_role.
+  // Rely on general Supabase configuration; createSupabaseClient() will handle auth context.
+  return Boolean(settings.VITE_SUPABASE_URL);
 }
 
 function createDatabaseConsentRegistry(): ConsentRegistry {
-  const serviceKey = settings.SUPABASE_SERVICE_KEY;
-  if (!serviceKey) {
-    throw new Error('SUPABASE_SERVICE_KEY is required to load the consent registry.');
-  }
-
-  const supabase = createServerSupabaseClient(serviceKey);
-
+  const supabase = createSupabaseClient();
   return {
     hasConsent: async (tenantId: string, scope: string) => {
       const { data, error } = await supabase
