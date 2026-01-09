@@ -10,6 +10,7 @@ import { logger } from '../lib/logger';
 import { getMetricsCollector } from './MetricsCollector';
 import { captureMessage } from '../lib/sentry';
 import { settings } from '../config/settings';
+import { emailService } from './EmailService';
 
 export interface AlertThreshold {
   metricName: string;
@@ -476,10 +477,28 @@ export class AlertingService {
         break;
 
       case 'email':
-        // TODO: Implement email notification
-        logger.info('Email notification not yet implemented', {
-          alertId: alert.id
-        });
+        if (settings.ALERT_EMAIL_RECIPIENT) {
+          const subject = `[Alert] ${alert.severity.toUpperCase()}: ${alert.metricName}`;
+          const html = `
+            <h2>Alert Triggered: ${alert.metricName}</h2>
+            <p><strong>Severity:</strong> ${alert.severity.toUpperCase()}</p>
+            <p><strong>Message:</strong> ${alert.message}</p>
+            <p><strong>Current Value:</strong> ${alert.currentValue}</p>
+            <p><strong>Threshold:</strong> ${alert.threshold}</p>
+            <p><strong>Time:</strong> ${alert.timestamp.toISOString()}</p>
+            ${alert.metadata ? `<p><strong>Metadata:</strong> <pre>${JSON.stringify(alert.metadata, null, 2)}</pre></p>` : ''}
+          `;
+
+          await emailService.send({
+            to: settings.ALERT_EMAIL_RECIPIENT,
+            subject,
+            html
+          });
+        } else {
+          logger.warn('Email notification skipped: ALERT_EMAIL_RECIPIENT not configured', {
+            alertId: alert.id
+          });
+        }
         break;
 
       case 'webhook':
