@@ -10,6 +10,7 @@ import { AuditLogService } from '../AuditLogService';
 import { UnifiedAgentOrchestrator } from '../UnifiedAgentOrchestrator';
 import { AgentAPI } from '../AgentAPI';
 import { ComponentMutationService } from '../ComponentMutationService';
+import { assumptionService } from '../AssumptionService';
 
 // Mock dependencies
 vi.mock('../AuditLogService');
@@ -17,6 +18,7 @@ vi.mock('../UnifiedAgentOrchestrator');
 vi.mock('../AgentAPI');
 vi.mock('../ComponentMutationService');
 vi.mock('../../lib/logger');
+vi.mock('../AssumptionService');
 vi.mock('../WorkspaceStateService', () => ({
   workspaceStateService: {
     persistState: vi.fn().mockResolvedValue(undefined),
@@ -287,6 +289,23 @@ describe('ActionRouter', () => {
 
       expect(result.success).toBe(true);
       expect(result.data).toEqual({ workspaceId: 'workspace-1', saved: true });
+    });
+
+    it('should route updateAssumption action successfully', async () => {
+      const action: CanonicalAction = {
+        type: 'updateAssumption',
+        assumptionId: 'asm-1',
+        updates: { value: 100 }
+      };
+
+      const mockResult = { assumptionId: 'asm-1', updated: true };
+      (assumptionService.updateAssumption as any).mockResolvedValue(mockResult);
+
+      const result = await router.routeAction(action, context);
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual(mockResult);
+      expect(assumptionService.updateAssumption).toHaveBeenCalledWith('asm-1', { value: 100 });
     });
 
     it('should fail routing for invalid action', async () => {
