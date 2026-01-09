@@ -176,7 +176,7 @@ export class AuthService extends BaseService {
 
         // AUTH-001: Check if user's role requires MFA
         const userRole = data.user.user_metadata?.role as string;
-        const mfaRequired = mfaService.isMFARRequiredForRole(userRole);
+        const mfaRequired = mfaService.isMFARequiredForRole(userRole);
 
         if (mfaRequired) {
           // Check if user has MFA enabled
