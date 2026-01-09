@@ -13,6 +13,7 @@
 import { AgentMemory, MemorySystem } from '../MemorySystem';
 import { logger } from '../../logger';
 import { z } from 'zod';
+import { webScraperService } from '../../services/WebScraperService';
 
 // =====================================================
 // RETRIEVAL CONTEXT TYPES
@@ -297,10 +298,41 @@ export class RetrievalEngine {
     query: string,
     config: Required<RetrievalConfig>
   ): Promise<RetrievalContext['web_content']> {
-    // TODO: Integrate with web scraper service
-    // For now, return empty array
-    logger.debug('Web content retrieval not yet implemented', { sessionId });
-    return [];
+    try {
+      // 1. Check if query itself is a URL or contains URLs
+      const urls = this.extractUrls(query);
+
+      if (urls.length > 0) {
+        logger.debug('Scraping URLs found in query', { sessionId, urls });
+
+        // Limit to 3 URLs to avoid long waits
+        const targetUrls = urls.slice(0, 3);
+
+        const scrapePromises = targetUrls.map(url => webScraperService.scrape(url));
+        const results = await Promise.all(scrapePromises);
+
+        // Filter out nulls
+        return results.filter((r): r is NonNullable<typeof r> => r !== null);
+      }
+
+      // 2. If no URLs in query, we would typically use a search engine (Google/Bing)
+      // to find relevant pages, then scrape them.
+      // Since we don't have a live search API integration here yet, we return empty.
+
+      return [];
+    } catch (error) {
+      logger.error('Web content retrieval failed', { sessionId, error });
+      return [];
+    }
+  }
+
+  /**
+   * Helper to extract URLs from text
+   */
+  private extractUrls(text: string): string[] {
+    // Regex to extract URLs, excluding trailing punctuation common in sentences
+    const urlRegex = /(https?:\/\/[^\s.,;:)]+)/g;
+    return text.match(urlRegex) || [];
   }
 
   /**
