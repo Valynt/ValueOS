@@ -183,29 +183,42 @@ export class WorkflowDAGExecutor {
           completed_at: new Date().toISOString(),
         });
 
-        await this.updateExecutionContext(executionId, {
+        // Update execution context with output and executed steps
+        const contextUpdate: Record<string, any> = {
           executed_steps: executedSteps,
-        });
+        };
+
+        if (result.output && typeof result.output === 'object') {
+          Object.assign(contextUpdate, result.output);
+        }
+
+        await this.updateExecutionContext(executionId, contextUpdate);
 
         await this.logEvent(executionId, 'stage_completed', stage.id, {
           duration: result.duration,
           output: result.output,
         });
 
-        // Check if this is a final stage
-        if (workflow.final_stages.includes(currentStageId)) {
-          await this.completeWorkflow(executionId);
-          return;
-        }
+        // Get latest context for condition evaluation
+        const { data: latestExecution } = await supabase
+          .from('workflow_executions')
+          .select('context')
+          .eq('id', executionId)
+          .single();
+
+        const context = latestExecution?.context || {};
 
         // Find next stage
-        const nextStageId = this.getNextStage(workflow, currentStageId);
-        if (!nextStageId) {
+        const nextStageId = this.getNextStage(workflow, currentStageId, context);
+
+        if (nextStageId) {
+          currentStageId = nextStageId;
+        } else {
+          // No next stage found (or conditions not met)
+          // Whether it's a final stage or not, if we can't transition, we complete the workflow
           await this.completeWorkflow(executionId);
           return;
         }
-
-        currentStageId = nextStageId;
       } else {
         // Stage execution failed
         await this.logEvent(executionId, 'stage_failed', stage.id, {
@@ -375,16 +388,45 @@ export class WorkflowDAGExecutor {
   /**
    * Get next stage based on transitions
    */
-  private getNextStage(workflow: WorkflowDAG, currentStageId: string): string | null {
+  private getNextStage(
+    workflow: WorkflowDAG,
+    currentStageId: string,
+    context: Record<string, any>
+  ): string | null {
     const transitions = workflow.transitions.filter((t) => t.from_stage === currentStageId);
 
     if (transitions.length === 0) {
       return null;
     }
 
-    // For now, take the first transition
-    // TODO: Implement condition evaluation for conditional transitions
-    return transitions[0].to_stage;
+    // 1. Check for conditional matches first
+    const conditionalMatch = transitions.find(
+      (t) => t.condition && this.evaluateCondition(t.condition, context)
+    );
+    if (conditionalMatch) {
+      return conditionalMatch.to_stage;
+    }
+
+    // 2. Fallback to unconditional transitions
+    const defaultMatch = transitions.find((t) => !t.condition);
+    if (defaultMatch) {
+      return defaultMatch.to_stage;
+    }
+
+    return null;
+  }
+
+  /**
+   * Evaluate a condition against the execution context
+   */
+  private evaluateCondition(condition: string, context: Record<string, any>): boolean {
+    // Support negation
+    if (condition.startsWith('!')) {
+      const key = condition.substring(1);
+      return !context[key];
+    }
+
+    return !!context[condition];
   }
 
   /**
