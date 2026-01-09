@@ -88,7 +88,7 @@ export function tenantContextMiddleware() {
     let resolvedTenantId = candidateTenantId;
 
     if (!resolvedTenantId && userId) {
-      resolvedTenantId = await getUserTenantId(userId) || undefined;
+      resolvedTenantId = await getUserTenantId(userId);
     }
 
     if (!resolvedTenantId) {
