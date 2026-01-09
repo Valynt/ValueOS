@@ -670,16 +670,116 @@ export class CanvasSchemaService {
    * Fetch KPIs
    */
   private async fetchKPIs(workspaceId: string): Promise<any[]> {
-    // TODO: Implement actual KPI fetching
-    return [];
+    try {
+      const supabase = getSupabaseClient();
+
+      // 1. First try to find active value commit
+      // This allows us to get committed targets if they exist
+      const { data: commit } = await supabase
+        .from('value_commits')
+        .select('id')
+        .eq('value_case_id', workspaceId)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (commit) {
+        // 2. If commit exists, fetch targets
+        const { data: targets, error: targetError } = await supabase
+          .from('kpi_targets')
+          .select('*')
+          .eq('value_commit_id', commit.id);
+
+        if (!targetError && targets && targets.length > 0) {
+          return targets.map(t => ({
+            id: t.id,
+            kpi_name: t.kpi_name,
+            baseline_value: t.baseline_value,
+            target_value: t.target_value,
+            unit: t.unit,
+            confidence_level: t.confidence_level,
+            source: 'target',
+            created_at: t.created_at
+          }));
+        }
+      }
+
+      // 3. Fallback: fetch hypotheses
+      // Used in Opportunity stage or before commitment
+      const { data: hypotheses, error: hypoError } = await supabase
+        .from('kpi_hypotheses')
+        .select('*')
+        .eq('value_case_id', workspaceId);
+
+      if (hypoError) {
+        logger.warn('Error fetching KPI hypotheses', { workspaceId, error: hypoError.message });
+        return [];
+      }
+
+      return (hypotheses || []).map(h => ({
+        id: h.id,
+        kpi_name: h.kpi_name,
+        baseline_value: h.baseline_value,
+        target_value: h.target_value,
+        unit: h.unit,
+        confidence_level: h.confidence_level,
+        source: 'hypothesis',
+        created_at: h.created_at
+      }));
+
+    } catch (error) {
+      logger.error('Failed to fetch KPIs', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
   }
 
   /**
    * Fetch interventions
    */
   private async fetchInterventions(workspaceId: string): Promise<any[]> {
-    // TODO: Implement actual intervention fetching
-    return [];
+    try {
+      const supabase = getSupabaseClient();
+
+      // 1. Get system map for this workspace (business case)
+      const { data: systemMap, error: mapError } = await supabase
+        .from('system_maps')
+        .select('id')
+        .eq('business_case_id', workspaceId)
+        .maybeSingle();
+
+      if (mapError) {
+        logger.warn('Error fetching system map for interventions', { workspaceId, error: mapError.message });
+        return [];
+      }
+
+      if (!systemMap) {
+        logger.debug('No system map found for workspace', { workspaceId });
+        return [];
+      }
+
+      // 2. Fetch interventions for the system map
+      const { data: interventions, error: intError } = await supabase
+        .from('intervention_points')
+        .select('*')
+        .eq('system_map_id', systemMap.id)
+        .order('created_at', { ascending: false });
+
+      if (intError) {
+        logger.error('Error fetching interventions', { workspaceId, error: intError.message });
+        return [];
+      }
+
+      return interventions || [];
+
+    } catch (error) {
+      logger.error('Failed to fetch interventions', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
   }
 
   /**

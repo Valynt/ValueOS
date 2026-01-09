@@ -199,18 +199,10 @@ export async function exportToExcel(
       message: "Preparing data...",
     });
 
-    if (!data || data.length === 0) {
-      throw new Error("No data to export");
-    }
+    const exportData = await prepareDataForExport(data, options.columns);
 
     // Lazy load dependencies
     const ExcelJS = await import("exceljs");
-
-    // SECURITY: Limit data size to prevent resource exhaustion
-    const MAX_ROWS = 10000;
-    if (data.length > MAX_ROWS) {
-      throw new Error(`Data exceeds maximum limit of ${MAX_ROWS} rows for export`);
-    }
 
     onProgress?.({
       status: "generating",
@@ -218,74 +210,15 @@ export async function exportToExcel(
       message: "Generating Excel file...",
     });
 
-    // SECURITY: Sanitize object keys to prevent prototype pollution
-    const sanitizeKey = (key: string): string => {
-      // Block dangerous keys
-      const dangerousKeys = ["__proto__", "constructor", "prototype"];
-      if (dangerousKeys.includes(key.toLowerCase())) {
-        return `_${key}`;
-      }
-      // Limit key length
-      return key.slice(0, 100);
-    };
-
-    const sanitizeValue = (value: any): any => {
-      if (value === null || value === undefined) return value;
-      if (typeof value === "string") {
-        // Limit string length to prevent issues
-        return value.slice(0, 32000); // Excel cell limit
-      }
-      if (typeof value === "object") {
-        // Prevent deeply nested objects
-        return JSON.stringify(value).slice(0, 32000);
-      }
-      return value;
-    };
-
-    // Filter columns if specified
-    let exportData = data;
-    if (options.columns) {
-      exportData = data.map((row) => {
-        const filtered: any = {};
-        options.columns!.forEach((col) => {
-          const safeKey = sanitizeKey(col);
-          if (row.hasOwnProperty(col)) {
-            filtered[safeKey] = sanitizeValue(row[col]);
-          }
-        });
-        return filtered;
-      });
-    } else {
-      // Sanitize all data
-      exportData = data.map((row) => {
-        const sanitized: any = {};
-        Object.keys(row).forEach((key) => {
-          const safeKey = sanitizeKey(key);
-          sanitized[safeKey] = sanitizeValue(row[key]);
-        });
-        return sanitized;
-      });
-    }
-
     // Create workbook and worksheet using ExcelJS (SECURE: no vulnerabilities)
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet(options.sheetName || "Data");
 
-    // Add headers
+    // Add headers and rows
+    addHeadersAndRows(worksheet, exportData);
+
+    // Style headers
     if (exportData.length > 0) {
-      const headers = Object.keys(exportData[0]);
-      worksheet.columns = headers.map((header) => ({
-        header,
-        key: header,
-        width: Math.min(Math.max(header.length + 2, 10), 50),
-      }));
-
-      // Add rows
-      exportData.forEach((row) => {
-        worksheet.addRow(row);
-      });
-
-      // Style headers
       worksheet.getRow(1).font = { bold: true };
       worksheet.getRow(1).fill = {
         type: "pattern",
@@ -321,6 +254,149 @@ export async function exportToExcel(
     });
     throw error;
   }
+}
+
+/**
+ * Export data to CSV
+ */
+export async function exportToCSV(
+  data: any[],
+  options: ExportOptions & { columns?: string[] } = {
+    format: "excel", // Reusing excel format logic conceptually
+  },
+  onProgress?: (progress: ExportProgress) => void
+): Promise<Blob> {
+  try {
+    onProgress?.({
+      status: "preparing",
+      progress: 20,
+      message: "Preparing data...",
+    });
+
+    const exportData = await prepareDataForExport(data, options.columns);
+
+    // Lazy load dependencies
+    const ExcelJS = await import("exceljs");
+
+    onProgress?.({
+      status: "generating",
+      progress: 50,
+      message: "Generating CSV file...",
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Data");
+
+    addHeadersAndRows(worksheet, exportData);
+
+    onProgress?.({
+      status: "generating",
+      progress: 80,
+      message: "Finalizing...",
+    });
+
+    // Generate buffer
+    const buffer = await workbook.csv.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    onProgress?.({
+      status: "complete",
+      progress: 100,
+      message: "Export complete!",
+    });
+
+    return blob;
+  } catch (error) {
+    onProgress?.({
+      status: "error",
+      progress: 0,
+      message: error instanceof Error ? error.message : "Export failed",
+    });
+    throw error;
+  }
+}
+
+// Helper to validate and sanitize data
+async function prepareDataForExport(data: any[], columns?: string[]): Promise<any[]> {
+    if (!data || data.length === 0) {
+      throw new Error("No data to export");
+    }
+
+    // SECURITY: Limit data size to prevent resource exhaustion
+    const MAX_ROWS = 10000;
+    if (data.length > MAX_ROWS) {
+      throw new Error(`Data exceeds maximum limit of ${MAX_ROWS} rows for export`);
+    }
+
+    // SECURITY: Sanitize object keys to prevent prototype pollution
+    const sanitizeKey = (key: string): string => {
+      // Block dangerous keys
+      const dangerousKeys = ["__proto__", "constructor", "prototype"];
+      if (dangerousKeys.includes(key.toLowerCase())) {
+        return `_${key}`;
+      }
+      // Limit key length
+      return key.slice(0, 100);
+    };
+
+    const sanitizeValue = (value: any): any => {
+      if (value === null || value === undefined) return value;
+      if (typeof value === "string") {
+        // Limit string length to prevent issues
+        return value.slice(0, 32000); // Excel cell limit
+      }
+      if (typeof value === "object") {
+        // Prevent deeply nested objects
+        return JSON.stringify(value).slice(0, 32000);
+      }
+      return value;
+    };
+
+    // Filter columns if specified
+    let exportData = data;
+    if (columns) {
+      exportData = data.map((row) => {
+        const filtered: any = {};
+        columns.forEach((col) => {
+          const safeKey = sanitizeKey(col);
+          if (row.hasOwnProperty(col)) {
+            filtered[safeKey] = sanitizeValue(row[col]);
+          }
+        });
+        return filtered;
+      });
+    } else {
+      // Sanitize all data
+      exportData = data.map((row) => {
+        const sanitized: any = {};
+        Object.keys(row).forEach((key) => {
+          const safeKey = sanitizeKey(key);
+          sanitized[safeKey] = sanitizeValue(row[key]);
+        });
+        return sanitized;
+      });
+    }
+
+    return exportData;
+}
+
+function addHeadersAndRows(worksheet: any, exportData: any[]) {
+    // Add headers
+    if (exportData.length > 0) {
+      const headers = Object.keys(exportData[0]);
+      worksheet.columns = headers.map((header: string) => ({
+        header,
+        key: header,
+        width: Math.min(Math.max(header.length + 2, 10), 50),
+      }));
+
+      // Add rows
+      exportData.forEach((row) => {
+        worksheet.addRow(row);
+      });
+    }
 }
 
 /**
@@ -382,13 +458,21 @@ export function useExport() {
   const exportData = async (
     data: any[],
     filename?: string,
-    options?: { sheetName?: string; columns?: string[] }
+    options?: { sheetName?: string; columns?: string[]; format?: "excel" | "csv" }
   ) => {
     setIsExporting(true);
     try {
-      const blob = await exportToExcel(data, { format: "excel", ...options }, setProgress);
+      const format = options?.format || "excel";
+      let blob: Blob;
 
-      const actualFilename = generateFilename(filename || "data", "xlsx");
+      if (format === "csv") {
+        blob = await exportToCSV(data, { format: "excel", columns: options?.columns }, setProgress);
+      } else {
+        blob = await exportToExcel(data, { format: "excel", ...options }, setProgress);
+      }
+
+      const ext = format === "csv" ? "csv" : "xlsx";
+      const actualFilename = generateFilename(filename || "data", ext);
 
       downloadBlob(blob, actualFilename);
     } catch (error) {
