@@ -36,7 +36,7 @@ describe('rateLimiter tenant isolation', () => {
     expect(key).toBe('tenant:org-1:user:user-1');
   });
 
-  it('keys by tenant + ip when tenant context present and user missing', () => {
+  it('keys by tenant + ip when tenantId present and user missing', () => {
     const key = getRateLimitKey(
       mockReq({
         tenantId: 'org-2',
