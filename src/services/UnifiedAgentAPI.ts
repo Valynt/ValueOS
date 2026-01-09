@@ -179,6 +179,11 @@ export class UnifiedAgentAPI {
   private auditLogger: ReturnType<typeof getAuditLogger> | null = null;
 
   constructor(config: Partial<UnifiedAPIConfig> = {}) {
+    // NOTE: Environment variable precedence for agent API base URL:
+    // - VITE_AGENT_API_URL: used in Vite/client-side bundles (must be VITE_-prefixed to be exposed)
+    // - AGENT_API_URL: used in server-side / non-Vite contexts (e.g., Node services, tests)
+    // If both are set, VITE_AGENT_API_URL takes precedence so client and server can share
+    // a consistent default while still allowing explicit overrides via config.baseUrl.
     const envBaseUrl =
       getEnvVar('VITE_AGENT_API_URL') ||
       getEnvVar('AGENT_API_URL');
