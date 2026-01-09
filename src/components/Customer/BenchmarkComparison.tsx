@@ -4,8 +4,8 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
-import { TrendingUp, Award, Target } from 'lucide-react';
+import { Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Award, Target, TrendingUp } from 'lucide-react';
 import { logger } from '../../lib/logger';
 
 export interface BenchmarkComparisonProps {

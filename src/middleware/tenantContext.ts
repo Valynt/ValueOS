@@ -1,3 +1,10 @@
+/**
+ * Tenant Context Middleware
+ *
+ * Centralizes tenant resolution and validation.
+ * Populates req.tenantId for downstream consumption.
+ */
+
 import { NextFunction, Request, Response } from 'express';
 import { createLogger } from '../lib/logger';
 import { getUserTenantId, verifyTenantMembership } from '../lib/tenantVerification';

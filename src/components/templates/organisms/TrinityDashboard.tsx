@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FinancialSummary } from '../molecules/FinancialSummary';
 import { CashFlowChart } from '../molecules/CashFlowChart';
 import { RiskAnalysis } from '../molecules/RiskAnalysis';

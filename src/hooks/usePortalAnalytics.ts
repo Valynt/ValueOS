@@ -4,18 +4,18 @@
  * Provides easy-to-use hooks for tracking analytics events in React components
  */
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import {
   getPortalAnalytics,
-  trackPageView,
-  trackExport,
-  trackEmailShare,
-  trackBenchmarkView,
-  trackMetricView,
-  trackError,
-  trackTokenValidation,
-  trackTokenExpired,
   PortalEventProperties,
+  trackBenchmarkView,
+  trackEmailShare,
+  trackError,
+  trackExport,
+  trackMetricView,
+  trackPageView,
+  trackTokenExpired,
+  trackTokenValidation,
 } from '../lib/analytics/customerPortalTracking';
 
 /**

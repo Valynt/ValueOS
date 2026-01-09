@@ -9,11 +9,11 @@
 import type { FC } from 'react';
 import { 
   ImpactCascadeTemplate, 
-  TrinityDashboard, 
-  StoryArcCanvas, 
-  ScenarioMatrix, 
   QuantumView,
+  ScenarioMatrix, 
+  StoryArcCanvas,
   type TemplateProps,
+  TrinityDashboard,
 } from './index';
 
 /**

@@ -10,7 +10,7 @@
  * that data to another controller.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 describe('Data Portability (GDPR Article 20)', () => {

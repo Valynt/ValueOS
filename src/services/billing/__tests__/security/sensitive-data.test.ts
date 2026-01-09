@@ -5,10 +5,10 @@
  * CRITICAL: These tests ensure PCI compliance and prevent data breaches.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  getTestSupabaseClient,
   cleanupBillingTables,
+  getTestSupabaseClient,
   seedTestData,
 } from "../__helpers__/db-helpers";
 import {

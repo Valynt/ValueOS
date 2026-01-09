@@ -4,9 +4,9 @@
  * Tests the complete flow of all P0 implementations
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { checkDatabaseConnection, isDatabaseHealthy } from '../lib/database';
-import { initializeRedisCache, isRedisConnected, setCache, getCache, deleteCache } from '../lib/redis';
+import { deleteCache, getCache, initializeRedisCache, isRedisConnected, setCache } from '../lib/redis';
 
 describe('P0 Integration: Database Connection', () => {
   it('should connect to database successfully', async () => {

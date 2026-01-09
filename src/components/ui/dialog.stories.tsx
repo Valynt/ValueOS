@@ -23,7 +23,7 @@ import {
 import { Button } from "./button";
 import { Input } from "./input";
 import { Label } from "./label";
-import { AlertTriangle, Info, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Info } from "lucide-react";
 
 const meta: Meta<typeof Dialog> = {
   title: "VALYNT/shadcn/Dialog",

@@ -8,19 +8,19 @@
 
 // @vitest-environment node
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  getTestSupabaseClient,
   cleanupBillingTables,
   createTestUser,
-  seedTestData,
   executeAsUser,
+  getTestSupabaseClient,
+  seedTestData,
 } from "../__helpers__/db-helpers";
 import {
   createBillingCustomer,
+  createInvoice,
   createSubscription,
   createUsageEvent,
-  createInvoice,
 } from "../__helpers__/billing-factories";
 import type { SupabaseClient } from "@supabase/supabase-js";
 

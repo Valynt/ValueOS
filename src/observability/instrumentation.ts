@@ -15,13 +15,13 @@ import { Resource } from "@opentelemetry/resources";
 import { SemanticResourceAttributes } from "@opentelemetry/semantic-conventions";
 import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-node";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
-import { trace, metrics, context, SpanStatusCode } from "@opentelemetry/api";
+import { context, metrics, SpanStatusCode, trace } from "@opentelemetry/api";
 import type {
-  Span,
-  Tracer,
   Counter,
   Histogram,
   ObservableGauge,
+  Span,
+  Tracer,
 } from "@opentelemetry/api";
 import * as winston from "winston";
 

@@ -3,23 +3,23 @@
  * Main component for immutable audit trail viewing with compliance features
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
-  Shield, 
-  Filter, 
-  Download, 
-  RefreshCw, 
+  Activity,
   AlertTriangle, 
   CheckCircle2,
-  XCircle,
-  Clock,
-  Activity,
-  Search,
   ChevronDown,
   ChevronUp,
-  ShieldCheck,
+  Clock,
+  Database,
+  Download,
   FileText,
-  Database
+  Filter,
+  RefreshCw,
+  Search,
+  Shield,
+  ShieldCheck,
+  XCircle
 } from 'lucide-react';
 import { useAuditTrail } from '../hooks/useAuditTrail';
 import { AuditFilter, ExportFormat } from '../types/audit';

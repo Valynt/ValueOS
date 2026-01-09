@@ -10,6 +10,7 @@ describe('createSecureRouter', () => {
     const router = createSecureRouter('standard');
     expect(hasMiddleware(router, 'securityHeadersMiddleware')).toBe(true);
     expect(hasMiddleware(router, 'serviceIdentityMiddleware')).toBe(true);
+    expect(hasMiddleware(router, 'tenantContextMiddleware')).toBe(true);
     expect(hasMiddleware(router, 'csrfProtectionMiddleware')).toBe(true);
     expect(hasMiddleware(router, 'sessionTimeoutMiddleware')).toBe(true);
     expect(hasMiddleware(router, 'rateLimiter')).toBe(true);

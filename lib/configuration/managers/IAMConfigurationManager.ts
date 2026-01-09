@@ -11,11 +11,11 @@
 import { ConfigurationManager } from '../ConfigurationManager';
 import type {
   AuthPolicyConfig,
-  SSOConfig,
-  SessionControlConfig,
-  IPWhitelistConfig,
+  ConfigurationAccessLevel,
   ConfigurationScope,
-  ConfigurationAccessLevel
+  IPWhitelistConfig,
+  SessionControlConfig,
+  SSOConfig
 } from '../types/settings-matrix';
 
 export class IAMConfigurationManager {

@@ -18,11 +18,13 @@ import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
 import { requireConsent } from '../middleware/consentMiddleware';
 import { consentRegistry } from '../services/consentRegistry';
 import { sanitizeAgentInput } from '../utils/security';
+import { tenantContextMiddleware } from '../middleware/tenantContext';
 
 const router = Router();
 router.use(requestAuditMiddleware());
 router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
+router.use(tenantContextMiddleware());
 
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
   requestId: (req as any).requestId || res.locals.requestId,

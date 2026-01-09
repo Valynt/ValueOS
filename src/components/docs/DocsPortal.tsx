@@ -5,7 +5,7 @@
  * Provides role-aware, searchable documentation for all user types.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { DocsNavigation } from './DocsNavigation';
 import { DocsViewer } from './DocsViewer';

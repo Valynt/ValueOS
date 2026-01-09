@@ -8,7 +8,7 @@
  * - Transaction rollback
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 describe("Database Failure Handling", () => {
   describe("Connection Loss", () => {

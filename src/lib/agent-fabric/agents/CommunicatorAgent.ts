@@ -15,10 +15,10 @@ import type { LLMGateway } from "../../llm/gateway";
 import type { MemorySystem } from "../../memory/system";
 import type { AuditLogger } from "../../audit/logger";
 import type {
-  ValueTree,
-  ROIModel,
-  RealizationReport,
   ConfidenceLevel,
+  RealizationReport,
+  ROIModel,
+  ValueTree,
 } from "../../../types/vos";
 
 // ============================================================================

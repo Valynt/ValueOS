@@ -222,7 +222,7 @@ export function sanitizeRequest(req: any): Record<string, unknown> {
     path: req.path || req.url,
     query: sanitizeForLogging(req.query),
     user_id: req.user?.id,
-    tenant_id: req.headers?.['x-tenant-id'],
+    tenant_id: req.tenantId, // Use resolved tenantId
     ip: isDevelopment() ? req.ip : '[REDACTED]',
     // NEVER log: body, headers, cookies, authorization
   };

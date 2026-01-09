@@ -11,12 +11,12 @@
  */
 
 import { 
-  SETTINGS_TEMPLATES, 
   getTemplate, 
   listTemplates,
-  type SettingsTemplate,
   type OrganizationSettings,
   OrganizationSettingsSchema,
+  SETTINGS_TEMPLATES,
+  type SettingsTemplate,
 } from '../validations/settings';
 
 // ============================================================================

@@ -5,7 +5,7 @@
  * Integrates with existing agent orchestration system.
  */
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { agentChatService } from '../services/AgentChatService';
 import { logger } from '../lib/logger';
 

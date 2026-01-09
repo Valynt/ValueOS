@@ -6,8 +6,8 @@
 
 import { ConfigurationManager } from '../ConfigurationManager';
 import type {
-  ConfigurationScope,
   ConfigurationAccessLevel,
+  ConfigurationScope,
   TenantProvisioningConfig
 } from '../types/settings-matrix';
 

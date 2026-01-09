@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, Share2, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle, Loader2, Share2, X } from "lucide-react";
 import { crmIntegrationService } from "../../services/CRMIntegrationService";
 import { useToast } from "../Common/Toast";
 

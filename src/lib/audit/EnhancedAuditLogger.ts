@@ -14,18 +14,18 @@
 
 import { createLogger } from '../logger';
 import {
-  AuditEvent,
-  AuditCategory,
-  AuditSeverity,
-  AuditActor,
   AuditAction,
+  AuditActor,
+  AuditCategory,
   AuditContext,
   AuditDataChange,
-  CreateAuditEventOptions,
+  AuditEvent,
+  AuditSeverity,
   createAuditEvent,
-  verifyEventChain,
-  redactPII,
+  CreateAuditEventOptions,
   getSOC2Controls,
+  redactPII,
+  verifyEventChain,
 } from './AuditEvent';
 
 const logger = createLogger({ component: 'EnhancedAuditLogger' });

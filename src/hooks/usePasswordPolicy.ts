@@ -5,7 +5,7 @@
  * Fetches organization password policy from database and provides validation
  */
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
 

@@ -9,7 +9,7 @@
  */
 
 import React from 'react';
-import { AlertTriangle, TrendingUp, Users, Database, Zap, Bot } from 'lucide-react';
+import { AlertTriangle, Bot, Database, TrendingUp, Users, Zap } from 'lucide-react';
 import type { UsageSummary } from '../../types/billing';
 
 // ============================================================================
@@ -351,7 +351,6 @@ export function useUsageMetrics(organizationId: string) {
         // Prefer tenant-aware requests.
         const response = await fetch('/api/billing/usage', {
           headers: {
-            'x-tenant-id': organizationId,
             'Content-Type': 'application/json',
           },
         });

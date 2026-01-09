@@ -10,17 +10,17 @@
  */
 
 import { logger } from '../lib/logger';
-import { getCache, setCache, deleteCache } from '../lib/redis';
+import { deleteCache, getCache, setCache } from '../lib/redis';
 import {
-  OrganizationConfiguration,
-  ConfigCategory,
-  hasConfigAccess,
-  TenantProvisioningConfig,
-  CustomBrandingConfig,
-  AuthPolicyConfig,
-  LLMSpendingLimitsConfig,
-  FeatureFlagsConfig,
   AuditIntegrityConfig,
+  AuthPolicyConfig,
+  ConfigCategory,
+  CustomBrandingConfig,
+  FeatureFlagsConfig,
+  hasConfigAccess,
+  LLMSpendingLimitsConfig,
+  OrganizationConfiguration,
+  TenantProvisioningConfig,
   TokenDashboardConfig,
 } from './settingsMatrix';
 

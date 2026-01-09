@@ -3,7 +3,7 @@
  * Tests the full integration with Prometheus metrics collection
  */
 
-import { describe, it, expect, beforeAll } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { PrometheusClient } from "../helpers/prometheus-client";
 import axios from "axios";
 

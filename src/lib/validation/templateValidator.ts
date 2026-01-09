@@ -5,10 +5,10 @@
  */
 
 import type {
-  CalculatorTemplate,
   CalculatorInput,
-  ValidationRule,
+  CalculatorTemplate,
   MetricDefinition,
+  ValidationRule,
 } from '../../types/calculatorTemplate';
 import { logger } from '../logger';
 

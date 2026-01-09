@@ -27,7 +27,7 @@
  * - ⌘/: Show shortcuts
  */
 
-import { useEffect, useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { logger } from '../lib/logger';
 
 export type WorkflowStage = 'opportunity' | 'target' | 'realization' | 'expansion';

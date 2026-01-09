@@ -11,14 +11,14 @@
 
 import { createLogger } from '../logger';
 import {
+  AGENT_PERMISSION_MATRIX,
   AgentIdentity,
   AgentRole,
-  Permission,
   hasPermission,
+  Permission,
+  PermissionDeniedError,
   requirePermission,
   requiresHITL,
-  PermissionDeniedError,
-  AGENT_PERMISSION_MATRIX,
 } from './AgentIdentity';
 
 const logger = createLogger({ component: 'PermissionMiddleware' });

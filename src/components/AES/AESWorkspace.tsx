@@ -9,14 +9,14 @@
  * 5. Co-Presence Layer - Live presence of humans and agents
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
-  Sparkles, 
   Activity, 
-  Shield, 
-  Users,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Shield,
+  Sparkles,
+  Users
 } from 'lucide-react';
 import { IntentPanel } from './IntentPanel';
 import { OrchestrationCanvas } from './OrchestrationCanvas';

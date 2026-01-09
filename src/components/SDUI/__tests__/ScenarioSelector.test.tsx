@@ -3,9 +3,9 @@
  * Tests functionality, security, accessibility, and performance
  */
 
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ScenarioSelector, type Scenario } from '../ScenarioSelector';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type Scenario, ScenarioSelector } from '../ScenarioSelector';
 
 // Mock data for testing
 const mockScenarios: Scenario[] = [

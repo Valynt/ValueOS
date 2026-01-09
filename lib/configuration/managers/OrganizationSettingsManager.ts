@@ -11,13 +11,13 @@
 
 import { ConfigurationManager } from '../ConfigurationManager';
 import type {
-  TenantProvisioningConfig,
+  ConfigurationAccessLevel,
+  ConfigurationScope,
   CustomBrandingConfig,
   DataResidencyConfig,
   DomainManagementConfig,
   NamespaceIsolationConfig,
-  ConfigurationScope,
-  ConfigurationAccessLevel
+  TenantProvisioningConfig
 } from '../types/settings-matrix';
 
 export class OrganizationSettingsManager {

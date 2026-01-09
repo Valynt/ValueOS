@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Search, Globe, X, ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Globe, Loader2, Search, X } from "lucide-react";
 import { Input } from "../Common/Input";
 import { Button } from "../Common/Button";
 import { Card } from "../Common/Card";

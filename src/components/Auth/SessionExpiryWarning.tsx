@@ -6,7 +6,7 @@
  * AUTH-004: User notification for session timeout
  */
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { logger } from "../../lib/logger";
 
 interface SessionWarningProps {

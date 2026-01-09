@@ -3,8 +3,8 @@
  * Tests performance under heavy load conditions
  */
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ROICalculator from '../ROICalculator';
 import ImpactCascade from '../ImpactCascade';
 import { ScenarioSelector } from '../../components/SDUI/ScenarioSelector';

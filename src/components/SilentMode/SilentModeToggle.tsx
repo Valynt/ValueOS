@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { MessageSquare, Layout, Zap } from 'lucide-react';
+import { Layout, MessageSquare, Zap } from 'lucide-react';
 import { useSilentMode } from '../../hooks/useSilentMode';
 
 interface SilentModeToggleProps {

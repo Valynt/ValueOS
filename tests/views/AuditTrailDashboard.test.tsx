@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { AuditTrailDashboard } from '../../src/views/AuditTrailDashboard';
 import { useAuditTrail } from '../../src/hooks/useAuditTrail';
 import { PermissionMiddleware } from '../../lib/auth/PermissionMiddleware';

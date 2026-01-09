@@ -8,8 +8,8 @@
  */
 
 import { logger } from '../../lib/logger';
-import { MCPCRMServer, getMCPCRMServer } from './MCPCRMServer';
-import type { TemplateDataSource, MetricData, OutcomeData, FinancialData } from '../../components/templates';
+import { getMCPCRMServer, MCPCRMServer } from './MCPCRMServer';
+import type { FinancialData, MetricData, OutcomeData, TemplateDataSource } from '../../components/templates';
 
 // ============================================================================
 // Types

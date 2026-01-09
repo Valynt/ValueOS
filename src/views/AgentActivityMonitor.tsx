@@ -3,19 +3,19 @@
  * Real-time monitoring dashboard for agent activities with WebSocket integration
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { 
   Activity, 
-  Clock, 
   AlertTriangle, 
   CheckCircle, 
-  XCircle, 
-  TrendingUp,
+  Clock,
   Filter,
-  RefreshCw,
-  Play,
   Pause,
-  Search
+  Play,
+  RefreshCw,
+  Search,
+  TrendingUp,
+  XCircle
 } from 'lucide-react';
 import AgentBadge from '../components/Agents/AgentBadge';
 import { secureMessageBus } from '../lib/agent-fabric/SecureMessageBus';

@@ -3,9 +3,9 @@
  * Tests complete user journeys across multiple templates
  */
 
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import ROICalculator from '../ROICalculator';
 import ImpactCascade from '../ImpactCascade';
 import { ScenarioSelector } from '../../components/SDUI/ScenarioSelector';

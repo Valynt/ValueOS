@@ -12,7 +12,7 @@
  * Acceptance Criteria: Multi-language support with proper formatting
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('Internationalization Tests', () => {
   describe('Translation Coverage', () => {

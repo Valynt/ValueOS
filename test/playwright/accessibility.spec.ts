@@ -7,7 +7,7 @@
  * - Screen reader compatibility
  */
 
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
 test.describe("Accessibility Tests - WCAG 2.1 AA", () => {

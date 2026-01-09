@@ -12,7 +12,7 @@
  * Acceptance Criteria: Polished, professional UX
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('User Experience Tests', () => {
   describe('Loading States', () => {

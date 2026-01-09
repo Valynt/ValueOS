@@ -3,8 +3,8 @@
  * Tests UI interactions, form validation, and OAuth button interactions
  */
 
-import { describe, expect, it, beforeEach, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
 import { LoginPage } from "../LoginPage";
 import { AuthContext } from "../../../contexts/AuthContext";

@@ -7,7 +7,7 @@
  * 3. Audit log viewing
  */
 
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 test.describe("Admin Workflows - Golden Path", () => {
   test.use({

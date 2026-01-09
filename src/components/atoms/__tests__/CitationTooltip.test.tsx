@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { CitationTooltip } from '../CitationTooltip';
 import React from 'react';
 

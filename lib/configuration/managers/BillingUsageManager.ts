@@ -10,12 +10,12 @@
 
 import { ConfigurationManager } from '../ConfigurationManager';
 import type {
-  TokenDashboardConfig,
-  ValueMeteringConfig,
-  SubscriptionPlanConfig,
-  InvoicingConfig,
+  ConfigurationAccessLevel,
   ConfigurationScope,
-  ConfigurationAccessLevel
+  InvoicingConfig,
+  SubscriptionPlanConfig,
+  TokenDashboardConfig,
+  ValueMeteringConfig
 } from '../types/settings-matrix';
 
 export class BillingUsageManager {

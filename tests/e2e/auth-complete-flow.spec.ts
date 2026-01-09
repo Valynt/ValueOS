@@ -5,7 +5,7 @@
  * Run with: npx playwright test tests/e2e/auth-complete-flow.spec.ts
  */
 
-import { test, expect, Page } from '@playwright/test';
+import { expect, Page, test } from '@playwright/test';
 
 // Test data
 const generateTestUser = () => ({

@@ -12,18 +12,18 @@
 
 import { 
   BusinessAction, 
-  ImpactDistribution, 
-  TimeCurve, 
-  CausalRelationship, 
+  CAUSAL_RELATIONSHIPS,
   CausalChain,
   CausalQueryEngine,
-  CAUSAL_RELATIONSHIPS
+  CausalRelationship,
+  ImpactDistribution,
+  TimeCurve
 } from './causal-truth';
 
 import { 
   StructuralIndustry, 
-  StructuralPersona,
-  StructuralKPINode
+  StructuralKPINode,
+  StructuralPersona
 } from '../types/structural-truth';
 
 export interface CausalTruthConfig {

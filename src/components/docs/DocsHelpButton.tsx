@@ -6,8 +6,8 @@
  */
 
 import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { BookOpen, X, HelpCircle, ExternalLink } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { BookOpen, ExternalLink, HelpCircle, X } from 'lucide-react';
 
 interface DocsHelpButtonProps {
   /** Optional specific section to link to */

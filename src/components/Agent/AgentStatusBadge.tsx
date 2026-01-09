@@ -13,14 +13,14 @@
 
 import React, { useState } from 'react';
 import { 
+  AlertTriangle,
   Bot, 
   CheckCircle, 
-  Loader2, 
-  AlertTriangle, 
-  XCircle,
   ChevronUp,
   Clock,
-  DollarSign
+  DollarSign,
+  Loader2,
+  XCircle
 } from 'lucide-react';
 import { useAgentHealth } from '../../hooks/useAgentHealth';
 

@@ -18,7 +18,7 @@
  */
 
 import React, { useMemo } from 'react';
-import type { TemplateProps, OutcomeData } from './index';
+import type { OutcomeData, TemplateProps } from './index';
 
 interface StoryPhase {
   id: string;

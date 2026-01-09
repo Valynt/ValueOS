@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTemplateStore } from '../hooks/useTemplateStore';
 import { TrustBadgeTooltip } from '../atoms/TrustBadgeTooltip';
 

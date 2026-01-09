@@ -13,8 +13,8 @@ import React, { useState } from 'react';
 import { AlertCircle, Check, Loader2, Shield } from 'lucide-react';
 import { useOptimisticSettings } from '../../hooks/useOptimisticSettings';
 import { 
-  OrgSecuritySchema, 
   type OrgSecurity,
+  OrgSecuritySchema,
   validateSettings,
 } from '../../lib/validations/settings';
 import { TemplateSelector } from './TemplateSelector';

@@ -9,7 +9,7 @@
  * masked in logs, error messages, and other outputs to prevent data leaks.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 describe('PII Masking', () => {

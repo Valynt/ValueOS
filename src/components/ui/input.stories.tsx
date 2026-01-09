@@ -13,7 +13,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { Input } from "./input";
 import { Label } from "./label";
-import { Search, Mail, Lock, DollarSign } from "lucide-react";
+import { DollarSign, Lock, Mail, Search } from "lucide-react";
 
 const meta: Meta<typeof Input> = {
   title: "VALYNT/shadcn/Input",

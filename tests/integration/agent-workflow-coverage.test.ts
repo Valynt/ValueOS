@@ -3,7 +3,7 @@
  * Comprehensive integration tests for agent workflows
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AgentFabric } from '../../src/lib/agent-fabric/AgentFabric';
 import { BaseAgent } from '../../src/lib/agent-fabric/agents/BaseAgent';
 import { SecureMessageBus } from '../../src/lib/agent-fabric/SecureMessageBus';

@@ -9,7 +9,7 @@
  * 5. Verify detailed view
  */
 
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 test.describe("Research Company Flow - Golden Path", () => {
   test.beforeEach(async ({ page }) => {

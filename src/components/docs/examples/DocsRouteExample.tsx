@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { DocsPortal } from '../DocsPortal';
 import { useAuth } from '../../../contexts/AuthContext';
 

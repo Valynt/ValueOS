@@ -9,7 +9,7 @@
  * 5. Unsaved changes warning ✅
  */
 
-import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ConfigurationPanel } from '../ConfigurationPanel';
 import '@testing-library/jest-dom';
 

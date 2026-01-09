@@ -11,16 +11,16 @@
  */
 
 import {
-  generateRegistrationOptions,
-  verifyRegistrationResponse,
   generateAuthenticationOptions,
-  verifyAuthenticationResponse,
-  type VerifiedRegistrationResponse,
+  generateRegistrationOptions,
   type VerifiedAuthenticationResponse,
+  type VerifiedRegistrationResponse,
+  verifyAuthenticationResponse,
+  verifyRegistrationResponse,
 } from "@simplewebauthn/server";
 import type {
-  RegistrationResponseJSON,
   AuthenticationResponseJSON,
+  RegistrationResponseJSON,
 } from "@simplewebauthn/browser";
 import { logger } from "../lib/logger";
 import { BaseService } from "./BaseService";

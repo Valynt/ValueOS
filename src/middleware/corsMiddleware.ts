@@ -6,7 +6,7 @@
  * API-001: Secure CORS implementation
  */
 
-import { Request, Response, NextFunction } from "express";
+import { NextFunction, Request, Response } from "express";
 import { getSecurityConfig } from "../security/SecurityConfig";
 import { getCORSHeaders, isOriginAllowed } from "../security/CORSValidator";
 import { logger } from "../lib/logger";

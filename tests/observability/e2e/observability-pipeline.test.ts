@@ -3,7 +3,7 @@
  * Tests the complete flow: Application → Traces → Logs → Metrics → Grafana
  */
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { LokiClient } from "../helpers/loki-client";
 import { TempoClient } from "../helpers/tempo-client";
 import { PrometheusClient } from "../helpers/prometheus-client";

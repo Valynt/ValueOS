@@ -35,12 +35,10 @@ describe('rateLimiter tenant isolation', () => {
     expect(key).toBe('tenant:org-1:user:user-1');
   });
 
-  it('keys by tenant + ip when tenant header present and user missing', () => {
-    const key = getRateLimitKey(
-      mockReq({
-        headers: { 'x-tenant-id': 'org-2' },
-      })
-    );
+  it('keys by tenant + ip when tenant context present and user missing', () => {
+    const req = mockReq();
+    req.tenantId = 'org-2';
+    const key = getRateLimitKey(req);
     expect(key).toBe('tenant:org-2:ip:1.1.1.1');
   });
 
@@ -67,19 +65,25 @@ describe('rateLimiter tenant isolation', () => {
     // Tenant A first request
     const resA1 = makeRes();
     const nextA1 = vi.fn();
-    limiter(mockReq({ headers: { 'x-tenant-id': 'org-A' } }), resA1 as any, nextA1);
+    const reqA = mockReq();
+    reqA.tenantId = 'org-A';
+    limiter(reqA, resA1 as any, nextA1);
     expect(resA1.headers['X-RateLimit-Remaining']).toBe('59');
 
     // Tenant B first request should not decrement Tenant A's remaining
     const resB1 = makeRes();
     const nextB1 = vi.fn();
-    limiter(mockReq({ headers: { 'x-tenant-id': 'org-B' } }), resB1 as any, nextB1);
+    const reqB = mockReq();
+    reqB.tenantId = 'org-B';
+    limiter(reqB, resB1 as any, nextB1);
     expect(resB1.headers['X-RateLimit-Remaining']).toBe('59');
 
     // Tenant A second request decrements its own quota
     const resA2 = makeRes();
     const nextA2 = vi.fn();
-    limiter(mockReq({ headers: { 'x-tenant-id': 'org-A' } }), resA2 as any, nextA2);
+    const reqA2 = mockReq();
+    reqA2.tenantId = 'org-A';
+    limiter(reqA2, resA2 as any, nextA2);
     expect(resA2.headers['X-RateLimit-Remaining']).toBe('58');
   });
 });

@@ -11,7 +11,7 @@
  * Acceptance Criteria: Full screen reader support
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('Assistive Technology Compatibility', () => {
   describe('Screen Reader Support', () => {
