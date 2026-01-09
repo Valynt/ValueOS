@@ -1001,11 +1001,21 @@ async function updateTenantStatus(
   organizationId: string,
   status: TenantStatus
 ): Promise<void> {
-  // TODO: Implement database update
-  // await supabase
-  //    .from('organizations')
-  //    .update({ status, updated_at: new Date().toISOString() })
-  //    .eq('id', organizationId);
+  const supabase = createServerSupabaseClient();
+
+  // We are forcing the update of 'status' column even if typescript definitions say it might not exist.
+  // The database schema seems to have it (based on test-db-schema.sql) or it's an intentional usage.
+  const { error } = await supabase
+    .from('organizations')
+    .update({
+      status: status as any, // Cast to any to bypass potential missing type definition
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', organizationId);
+
+  if (error) {
+    throw new Error(`Failed to update tenant status: ${error.message}`);
+  }
 
   logger.debug(`Status updated to ${status} for ${organizationId}`);
 }
