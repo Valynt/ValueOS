@@ -17,6 +17,11 @@ vi.mock('../UnifiedAgentOrchestrator');
 vi.mock('../AgentAPI');
 vi.mock('../ComponentMutationService');
 vi.mock('../../lib/logger');
+vi.mock('../WorkspaceStateService', () => ({
+  workspaceStateService: {
+    persistState: vi.fn().mockResolvedValue(undefined),
+  },
+}));
 vi.mock('../ManifestoEnforcer', () => ({
   manifestoEnforcer: {
     checkAction: vi.fn().mockResolvedValue({
@@ -25,6 +30,14 @@ vi.mock('../ManifestoEnforcer', () => ({
       warnings: [],
     }),
   },
+}));
+vi.mock('../../lib/rules', () => ({
+  enforceRules: vi.fn().mockResolvedValue({
+    allowed: true,
+    violations: [],
+    metadata: { globalRulesChecked: 0, localRulesChecked: 0 },
+    warnings: [],
+  })
 }));
 
 describe('ActionRouter', () => {
