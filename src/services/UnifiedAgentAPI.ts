@@ -591,12 +591,12 @@ export class UnifiedAgentAPI {
     const agentEndpoint = this.registry.getAgent(agent)?.endpoint;
 
     if (agentEndpoint) {
-      const normalized = agentEndpoint.replace(/\/$/, '');
+      const normalized = agentEndpoint.replace(/\/+$/, '');
       return normalized.endsWith('/invoke') ? normalized : `${normalized}/invoke`;
     }
 
     if (baseUrl) {
-      const normalizedBaseUrl = baseUrl.replace(/\/$/, '');
+      const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
       const basePrefix = normalizedBaseUrl.endsWith('/agents')
         ? normalizedBaseUrl
         : `${normalizedBaseUrl}/agents`;
