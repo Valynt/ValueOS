@@ -14,7 +14,7 @@ import {
   UnifiedAgentAPI,
   UnifiedAgentRequest,
 } from '../UnifiedAgentAPI';
-import { __setEnvSourceForTests, getEnvVar } from '../../lib/env';
+import { getEnvVar } from '../../lib/env';
 
 // Mock fetch
 global.fetch = vi.fn();
