@@ -523,7 +523,7 @@ export class CanvasSchemaService {
 
         case 'realization':
           data.feedbackLoops = await this.fetchFeedbackLoops(state.workspaceId);
-          data.metrics = await this.fetchRealizationMetrics(state.workspaceId);
+          data.realizationData = await this.fetchRealizationMetrics(state.workspaceId);
           data.kpis = await this.fetchKPIs(state.workspaceId);
           break;
       }
@@ -1183,16 +1183,98 @@ export class CanvasSchemaService {
    * Fetch feedback loops
    */
   private async fetchFeedbackLoops(workspaceId: string): Promise<any[]> {
-    // TODO: Implement actual feedback loop fetching
-    return [];
+    try {
+      const supabase = getSupabaseClient();
+
+      // 1. Get system map
+      const { data: systemMap, error: mapError } = await supabase
+        .from('system_maps')
+        .select('id')
+        .eq('business_case_id', workspaceId)
+        .maybeSingle();
+
+      if (mapError || !systemMap) {
+        return [];
+      }
+
+      // 2. Fetch feedback loops
+      const { data: loops, error: loopError } = await supabase
+        .from('feedback_loops')
+        .select('*')
+        .eq('system_map_id', systemMap.id);
+
+      if (loopError) {
+        logger.warn('Error fetching feedback loops', { workspaceId, error: loopError.message });
+        return [];
+      }
+
+      return loops || [];
+    } catch (error) {
+      logger.error('Failed to fetch feedback loops', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
   }
 
   /**
    * Fetch realization metrics
    */
   private async fetchRealizationMetrics(workspaceId: string): Promise<any> {
-    // TODO: Implement actual realization metrics fetching
-    return null;
+    try {
+      const supabase = getSupabaseClient();
+
+      // 1. Fetch Realization Status (Report)
+      const { data: report } = await supabase
+        .from('realization_reports')
+        .select('*')
+        .eq('value_case_id', workspaceId)
+        .order('report_period_end', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      let implementationStatus = 'planning';
+      let kpiMeasurements: any[] = [];
+
+      if (report) {
+        // Map status
+        const statusMap: Record<string, string> = {
+          'on_track': 'implementing',
+          'at_risk': 'implementing',
+          'achieved': 'completed',
+          'missed': 'completed'
+        };
+        implementationStatus = statusMap[report.overall_status] || 'planning';
+
+        // Fetch KPI measurements for this report
+        const { data: results } = await supabase
+          .from('realization_results')
+          .select('*')
+          .eq('realization_report_id', report.id);
+
+        if (results) {
+          kpiMeasurements = results;
+        }
+      }
+
+      // 2. Fetch Observed Changes (from Feedback Loops)
+      const feedbackLoops = await this.fetchFeedbackLoops(workspaceId);
+      const observedChanges = feedbackLoops.flatMap(loop => loop.behavior_changes || []);
+
+      return {
+        implementationStatus,
+        observedChanges,
+        kpiMeasurements
+      };
+
+    } catch (error) {
+      logger.error('Failed to fetch realization metrics', {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
   }
 
   /**
