@@ -18,6 +18,17 @@ router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
 router.use(rateLimiters.loose);
 
+// Shutdown state
+let isShuttingDown = false;
+
+/**
+ * Mark application as shutting down
+ * Triggers 503 on readiness probe
+ */
+export function markAsShuttingDown() {
+  isShuttingDown = true;
+}
+
 interface HealthCheckResult {
   status: 'healthy' | 'degraded' | 'unhealthy';
   timestamp: string;
@@ -346,6 +357,15 @@ router.get('/health/live', (req: Request, res: Response) => {
  * Returns 200 if the application is ready to serve traffic
  */
 router.get('/health/ready', async (req: Request, res: Response) => {
+  // Check if shutting down
+  if (isShuttingDown) {
+    res.status(503).json({
+      status: 'shutting_down',
+      timestamp: new Date().toISOString()
+    });
+    return;
+  }
+
   try {
     // Check critical dependencies only
     const [database, togetherAI] = await Promise.all([
