@@ -54,12 +54,28 @@ export function adaptToTrinityDashboard(dataSource: TemplateDataSource): {
   verification: TrinityVerification;
   outcomes: TrinityOutcome[];
 } {
+  // Extract outcomes from causal chains
+  const outcomes: TrinityOutcome[] = (dataSource.outcomes || []).map(
+    (chain, idx) => ({
+      id: `outcome-${idx}`,
+      name: chain.effect,
+      category: categorizeOutcome(chain.effect),
+      impact: chain.impact,
+      description: chain.driver,
+    })
+  );
+
+  // Calculate risk reduction from risk analysis
+  const riskReduction = outcomes
+    .filter((o) => o.category === "risk")
+    .reduce((sum, o) => sum + o.impact, 0);
+
   // Extract financials
   const financials: TrinityFinancials = {
     totalValue: dataSource.financials?.totalBenefits || 0,
     revenueImpact: dataSource.financials?.incrementalRevenue || 0,
     costSavings: dataSource.financials?.costSavings || 0,
-    riskReduction: 0, // TODO: Calculate from risk analysis
+    riskReduction: riskReduction,
     roi: dataSource.financials?.roi,
     npv: dataSource.financials?.netPresentValue,
     paybackPeriod: dataSource.financials?.paybackPeriod
@@ -92,17 +108,6 @@ export function adaptToTrinityDashboard(dataSource: TemplateDataSource): {
       citations: auditByCategory.risk.sources,
     },
   };
-
-  // Extract outcomes from causal chains
-  const outcomes: TrinityOutcome[] = (dataSource.outcomes || []).map(
-    (chain, idx) => ({
-      id: `outcome-${idx}`,
-      name: chain.effect,
-      category: categorizeOutcome(chain.effect),
-      impact: chain.impact,
-      description: chain.driver,
-    })
-  );
 
   return { financials, verification, outcomes };
 }

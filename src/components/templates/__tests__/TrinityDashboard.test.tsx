@@ -192,7 +192,9 @@ describe("TrinityDashboard", () => {
       );
 
       // Should display citations in the pillars
-      expect(screen.getByText(/sources/i)).toBeInTheDocument();
+      const sources = screen.getAllByText(/sources/i);
+      expect(sources.length).toBeGreaterThan(0);
+      expect(sources[0]).toBeInTheDocument();
     });
   });
 
@@ -390,7 +392,8 @@ describe("TrinityDashboard", () => {
         />
       );
 
-      expect(screen.getByText("$0")).toBeInTheDocument();
+      // Use getAllByText because "$0" appears for total value and each pillar
+      expect(screen.getAllByText("$0").length).toBeGreaterThan(0);
     });
 
     it("applies custom className", () => {
