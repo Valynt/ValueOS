@@ -275,18 +275,24 @@ export function BusinessCaseGenerator({ valueCase, onComplete, onError }: Busine
           <div>
             <h3 className="text-lg font-semibold flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-primary" />
-              Generate Business Case
+              Draft Business Case
             </h3>
             <p className="text-sm text-muted-foreground mt-1">
               AI agents will analyze your opportunity and build a buyer-facing business case
             </p>
           </div>
-          {!generating && Object.keys(agentProgress).length === 0 && (
-            <Button onClick={generateBusinessCase}>
+          <Button
+            onClick={generateBusinessCase}
+            disabled={generating}
+            aria-label={generating ? "Drafting business case" : "Draft business case"}
+          >
+            {generating ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
               <Sparkles className="w-4 h-4 mr-2" />
-              Generate
-            </Button>
-          )}
+            )}
+            {generating ? "Drafting..." : "Draft Business Case"}
+          </Button>
         </div>
 
         {/* Overall Progress */}
