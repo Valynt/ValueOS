@@ -40,9 +40,7 @@ const mockSupabase = vi.hoisted(() => ({
         maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null })
       })),
       order: vi.fn().mockReturnValue({ data: [], error: null }),
-        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-        order: vi.fn().mockResolvedValue({ data: [], error: null })
-      }))
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null })
     }))
   }))
 }));
