@@ -297,7 +297,6 @@ Return JSON:
 }`;
 
     const sessionOrgId = await this.getSessionOrganization(sessionId);
-    // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete()
     const response = await secureLLMComplete(this.llmGateway, [
       { role: 'system', content: 'You are a KPI specialist.' },
       { role: 'user', content: prompt }
@@ -341,7 +340,6 @@ Return JSON:
 }`;
 
     const sessionOrgIdForCost = await this.getSessionOrganization(sessionId);
-    // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete()
     const response = await secureLLMComplete(this.llmGateway, [
       { role: 'system', content: 'You are a cost analyst.' },
       { role: 'user', content: prompt }

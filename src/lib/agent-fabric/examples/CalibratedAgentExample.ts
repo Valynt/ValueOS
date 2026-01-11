@@ -28,6 +28,10 @@ export class CalibratedOpportunityAgent extends BaseAgent {
     if (!this.supabase) {
       throw new Error('Supabase client required for calibration');
     }
+
+    if (!this.organizationId) {
+      throw new Error('organizationId required for tenant-scoped calibration');
+    }
     
     this.calibrationService = new ConfidenceCalibrationService(this.supabase);
   }
@@ -41,6 +45,7 @@ export class CalibratedOpportunityAgent extends BaseAgent {
 
     // 2. Calibrate confidence score
     const calibrationResult = await this.calibrationService.calibrate(
+      this.organizationId,
       this.agentId,
       rawResult.confidence,
       0.7  // Minimum acceptable confidence threshold
@@ -77,6 +82,7 @@ export class CalibratedOpportunityAgent extends BaseAgent {
       });
 
       await this.calibrationService.triggerRetraining(
+        this.organizationId,
         this.agentId,
         `High calibration error: ${calibrationResult.calibrationModel.calibrationError}`
       );
@@ -119,6 +125,7 @@ export class CalibratedOpportunityAgent extends BaseAgent {
       await this.supabase
         .from('approval_requests')
         .insert({
+          tenant_id: this.organizationId,
           session_id: sessionId,
           agent_id: this.agentId,
           request_type: 'low_confidence_review',
@@ -145,6 +152,7 @@ export class CalibratedOpportunityAgent extends BaseAgent {
     await this.supabase
       .from('agent_predictions')
       .insert({
+        tenant_id: this.organizationId,
         session_id: sessionId,
         agent_id: this.agentId,
         agent_type: this.lifecycleStage,
@@ -181,9 +189,11 @@ export class CalibratedOpportunityAgent extends BaseAgent {
  * Usage Example
  */
 export async function exampleUsage(supabase: SupabaseClient) {
+  const tenantId = 'tenant-123';
   // 1. Create calibrated agent
   const agent = new CalibratedOpportunityAgent({
     id: 'opportunity-agent-001',
+    organizationId: tenantId,
     supabase,
     llmGateway: {} as any,  // Your LLM gateway
     memorySystem: {} as any,  // Your memory system
@@ -215,12 +225,13 @@ export async function exampleUsage(supabase: SupabaseClient) {
       actual_recorded_at: new Date().toISOString(),
       variance_percentage: 5.2  // Actual vs predicted variance
     })
+    .eq('tenant_id', tenantId)
     .eq('session_id', 'session-123')
     .eq('agent_id', 'opportunity-agent-001');
 
   // 5. Periodically check calibration status
   const calibrationService = new ConfidenceCalibrationService(supabase);
-  const stats = await calibrationService.getCalibrationStats('opportunity-agent-001');
+  const stats = await calibrationService.getCalibrationStats(tenantId, 'opportunity-agent-001');
   
   logger.info('Calibration Status', {
     recentAccuracy: stats.recentAccuracy,
@@ -231,6 +242,7 @@ export async function exampleUsage(supabase: SupabaseClient) {
   // 6. Manually trigger recalibration if needed
   if (stats.needsRecalibration) {
     await calibrationService.triggerRetraining(
+      tenantId,
       'opportunity-agent-001',
       'Manual recalibration requested'
     );
@@ -262,6 +274,7 @@ export async function exampleUsage(supabase: SupabaseClient) {
  * // After (calibrated confidence)
  * const result = await this.llm.complete(prompt);
  * const calibration = await this.calibrationService.calibrate(
+ *   this.organizationId,
  *   this.agentId,
  *   result.confidence
  * );

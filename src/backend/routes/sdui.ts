@@ -12,11 +12,21 @@
 
 import { Request, Response, Router } from 'express';
 import { logger } from '../../lib/logger';
-import { validateSDUISchema } from '../../sdui/schema';
+import { validateSDUISchema, SDUI_VERSION, SDUIPageDefinition } from '../../sdui/schema';
 import { migrateSchema } from '../../sdui/migrations';
-import { SDUI_VERSION } from '../../sdui/registry';
+import { canvasSchemaService } from '../../services/CanvasSchemaService';
+import { WorkspaceContext } from '../../types/sdui-integration';
+import { LifecycleStage } from '../../types/workflow';
 
 const router = Router();
+
+// Helper to validate lifecycle stage
+function isValidStage(stage: string): stage is LifecycleStage {
+  const stages: LifecycleStage[] = [
+    'opportunity', 'target', 'realization', 'expansion', 'integrity'
+  ];
+  return stages.includes(stage as LifecycleStage);
+}
 
 /**
  * Get SDUI schema for a workspace
@@ -36,8 +46,18 @@ router.get('/api/sdui/schema/:workspaceId', async (req: Request, res: Response) 
       serverVersion: SDUI_VERSION
     });
 
-    // Generate schema for workspace (placeholder - implement actual generation)
-    let schema = await generateSchemaForWorkspace(workspaceId);
+    const context: WorkspaceContext = {
+      workspaceId,
+      userId: (req as any).user?.id || 'anonymous',
+      lifecycleStage: isValidStage(req.query.stage as string) ? (req.query.stage as LifecycleStage) : 'opportunity',
+      metadata: {
+        tenantId: (req as any).tenantId,
+        sessionId: req.headers['x-session-id'] as string
+      }
+    };
+
+    // Generate schema for workspace
+    let schema = await canvasSchemaService.generateSchema(workspaceId, context);
 
     // Validate schema
     const validation = validateSDUISchema(schema);
@@ -98,7 +118,7 @@ router.get('/api/sdui/agent/:agentId/schema', async (req: Request, res: Response
       requestedVersion: clientVersion
     });
 
-    // Generate schema for agent (placeholder - implement actual generation)
+    // Generate schema for agent
     let schema = await generateSchemaForAgent(agentId);
 
     // Validate schema
@@ -206,53 +226,27 @@ function parseVersion(versionHeader: string | undefined): number | null {
 }
 
 /**
- * Generate SDUI schema for workspace
- * 
- * TODO: Implement actual schema generation based on workspace state
- */
-async function generateSchemaForWorkspace(workspaceId: string): Promise<Record<string, unknown>> {
-  logger.info('Generating schema for workspace', { workspaceId });
-
-  // Placeholder implementation
-  return {
-    version: SDUI_VERSION,
-    title: `Workspace ${workspaceId}`,
-    layout: 'vertical',
-    components: [
-      {
-        id: 'welcome-banner',
-        type: 'InfoBanner',
-        version: SDUI_VERSION,
-        props: {
-          message: 'Welcome to your workspace',
-          variant: 'info'
-        }
-      }
-    ]
-  };
-}
-
-/**
  * Generate SDUI schema for agent
  * 
- * TODO: Implement actual schema generation based on agent state
+ * Returns a basic schema wrapping the AgentWorkflowPanel
  */
-async function generateSchemaForAgent(agentId: string): Promise<Record<string, unknown>> {
+async function generateSchemaForAgent(agentId: string): Promise<SDUIPageDefinition> {
   logger.info('Generating schema for agent', { agentId });
 
-  // Placeholder implementation
+  // Basic schema for agent view
   return {
+    type: 'page',
     version: SDUI_VERSION,
-    title: `Agent ${agentId}`,
-    layout: 'vertical',
-    components: [
+    sections: [
       {
-        id: 'agent-status',
-        type: 'AgentResponseCard',
-        version: SDUI_VERSION,
+        type: 'component',
+        component: 'AgentWorkflowPanel',
+        version: 1,
         props: {
-          agentId,
-          status: 'active'
+          agents: [
+             // Minimal mock data for now
+             { id: agentId, name: agentId, status: 'active', role: 'assistant' }
+          ]
         }
       }
     ]

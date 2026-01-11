@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { BaseAgent } from './BaseAgent';
 import { FinancialModel } from '../types';
 
@@ -12,6 +13,10 @@ export interface FinancialModelingOutput {
 }
 
 export class FinancialModelingAgent extends BaseAgent {
+  public lifecycleStage = 'financial_modeling';
+  public version = '1.0.0';
+  public name = 'FinancialModelingAgent';
+
   async execute(
     sessionId: string,
     input: FinancialModelingInput
@@ -66,10 +71,30 @@ Return ONLY valid JSON:
 
     // SECURITY FIX: Use secureInvoke() for hallucination detection and circuit breaker
     const financialSchema = z.object({
-      financial_model: z.any(),
-      roi_analysis: z.any(),
-      sensitivity_scenarios: z.array(z.any()),
+      total_investment: z.number(),
+      total_benefit: z.number(),
+      roi_percentage: z.number(),
+      npv_amount: z.number(),
+      payback_months: z.number(),
+      cost_breakdown: z.object({
+        software: z.number(),
+        implementation: z.number(),
+        training: z.number(),
+        support: z.number().optional()
+      }).passthrough(),
+      benefit_breakdown: z.object({
+        year_1: z.number(),
+        year_2: z.number(),
+        year_3: z.number(),
+        by_kpi: z.record(z.string(), z.number())
+      }),
+      sensitivity_analysis: z.object({
+        pessimistic: z.object({ roi: z.number(), payback_months: z.number() }),
+        realistic: z.object({ roi: z.number(), payback_months: z.number() }),
+        optimistic: z.object({ roi: z.number(), payback_months: z.number() })
+      }),
       confidence_level: z.enum(['high', 'medium', 'low']),
+      assumptions: z.array(z.string()),
       reasoning: z.string(),
       hallucination_check: z.boolean().optional()
     });
@@ -83,7 +108,7 @@ Return ONLY valid JSON:
         confidenceThresholds: { low: 0.7, high: 0.9 },
         context: {
           agent: 'FinancialModelingAgent',
-          valueHypothesis: input.valueHypothesis
+          valueCaseId: input.value_case_id
         }
       }
     );
@@ -96,7 +121,7 @@ Return ONLY valid JSON:
     await this.logMetric(sessionId, 'tokens_used', response.tokens_used, 'tokens');
     await this.logMetric(sessionId, 'latency_ms', durationMs, 'ms');
     await this.logPerformanceMetric(sessionId, 'financial_modeling_execute', durationMs, {
-      calculations: parsed.calculations?.length || 0,
+      kpi_count: input.kpi_hypotheses?.length || 0,
     });
 
     await this.logExecution(
