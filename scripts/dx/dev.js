@@ -10,6 +10,7 @@ import fs from "fs";
 import net from "net";
 import path from "path";
 import { fileURLToPath } from "url";
+import { resolveMode } from "./lib/mode.js";
 import { loadPorts, resolvePort, writePortsEnvFile } from "./ports.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -183,23 +184,6 @@ function runCommand(name, command) {
   });
 }
 
-/**
- * Parse CLI args for --mode.
- */
-function resolveMode(args) {
-  const modeArg = args.find((arg) => arg.startsWith("--mode="));
-  if (modeArg) {
-    return modeArg.split("=")[1];
-  }
-
-  const modeIndex = args.indexOf("--mode");
-  if (modeIndex !== -1 && args[modeIndex + 1]) {
-    return args[modeIndex + 1];
-  }
-
-  return "local";
-}
-
 function getRunningComposeServices(composeFile) {
   try {
     const output = execSync(
@@ -241,7 +225,13 @@ function isDockerPortPublished(port) {
  * Main function
  */
 async function main() {
-  const mode = resolveMode(process.argv.slice(2));
+  let mode;
+  try {
+    mode = resolveMode(process.argv.slice(2));
+  } catch (error) {
+    console.error(error.message);
+    process.exit(1);
+  }
   process.env.DX_MODE = mode;
 
   if (!["local", "docker"].includes(mode)) {
