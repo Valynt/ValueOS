@@ -16,17 +16,17 @@ import {
   ReconciliationAgent,
   ReconciliationInput,
   ValueDriverExtractionAgent
-} from '../../../src/lib/agent-fabric/agents/AdversarialReasoningAgents';
+} from '../AdversarialReasoningAgents';
 import {
   RetrievalConditionedAgent,
   RetrievalConfig,
   RetrievalEngine
-} from '../../../src/lib/agent-fabric/RetrievalEngine';
-import { ValueDriver } from '../../../src/types/valueDriverTaxonomy';
-import { createBoltClientMock } from '../../mocks/mockSupabaseClient';
-import { LLMGateway } from '../../../src/lib/agent-fabric/LLMGateway';
-import { MemorySystem } from '../../../src/lib/agent-fabric/MemorySystem';
-import { AgentConfig } from '../../../src/types/agent';
+} from '../../RetrievalEngine';
+import { ValueDriver } from '../../../../types/valueDriverTaxonomy';
+import { createBoltClientMock } from '../../../../../tests/test/mocks/mockSupabaseClient';
+import { LLMGateway } from '../../LLMGateway';
+import { MemorySystem } from '../../MemorySystem';
+import { AgentConfig } from '../../../../types/agent';
 
 // =====================================================
 // TEST SETUP
