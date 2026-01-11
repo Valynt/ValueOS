@@ -22,8 +22,8 @@ Open [http://localhost:5173](http://localhost:5173) (or the port in `config/port
 
 **Ports & modes**
 
-- **Local dev (direct)**: Ports from `config/ports.json` (synced to `.env.ports`).
-- **Container/Caddy dev**: Use the edge proxy (`https://localhost:8443` or `http://localhost:8080`) and Caddy routes to the same internal ports.
+- **Local dev (direct)**: Ports from `config/ports.json` (synced to `.env.ports`), with `VITE_API_BASE_URL` set to `http://localhost:${API_PORT}`.
+- **Container/Caddy dev**: Use the edge proxy (`https://localhost:8443` or `http://localhost:8080`), with `VITE_API_BASE_URL` set to `/api` so Caddy can proxy.
 
 ---
 
@@ -141,6 +141,9 @@ cp .env.example .env.local
 # Edit .env.local and set:
 # - JWT_SECRET (generate with: openssl rand -hex 32)
 # - DATABASE_URL
+# - VITE_API_BASE_URL:
+#   - Direct/local dev: http://localhost:${API_PORT}
+#   - Caddy/edge (docker-compose.dev.yml): /api
 # - Other required variables
 ```
 

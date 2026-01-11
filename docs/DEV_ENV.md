@@ -28,6 +28,15 @@ This runbook is the canonical troubleshooting guide for ValueOS dev. It is desig
 
 ---
 
+## API Base URL by Mode
+
+| Mode                                | VITE_API_BASE_URL              | Notes                                                                    |
+| ----------------------------------- | ------------------------------ | ------------------------------------------------------------------------ |
+| Local dev (direct)                  | `http://localhost:${API_PORT}` | Use when running `npm run dx`/`npm run dev` against the local backend.   |
+| Caddy/edge (docker-compose.dev.yml) | `/api`                         | Use when the edge proxy terminates the frontend and proxies API traffic. |
+
+---
+
 ## Common Failures + Exact Fixes
 
 ### 1) Port already in use

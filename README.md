@@ -104,11 +104,13 @@ npm run health
 - **Backend API**: [http://localhost:3001](http://localhost:3001)
 - **Supabase API**: [http://localhost:54321](http://localhost:54321)
 - **Supabase Studio**: [http://localhost:54323](http://localhost:54323)
+- **VITE_API_BASE_URL**: `http://localhost:${API_PORT}` (direct mode)
 
 **Container/Caddy dev** (via `docker-compose.dev.yml`) fronts the stack:
 
 - **Edge (HTTPS)**: [https://localhost:8443](https://localhost:8443)
 - **Edge (HTTP → HTTPS redirect)**: [http://localhost:8080](http://localhost:8080)
+- **VITE_API_BASE_URL**: `/api` (edge mode via Caddy)
 
 ---
 
