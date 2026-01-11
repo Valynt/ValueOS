@@ -12,10 +12,18 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { resolveMode } from './lib/mode.js';
 import { loadPorts, resolvePort } from './ports.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+let mode;
+try {
+  mode = resolveMode(process.argv.slice(2));
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
+}
 
 // Port registry (single source of truth)
 const portConfig = loadPorts();
@@ -119,7 +127,7 @@ $ npm run dev\
  * Check PostgreSQL (via docker compose service status)
  */
 async function checkDatabase() {
-  const composeFile = process.env.DX_MODE === 'docker'
+  const composeFile = mode === 'docker'
     ? 'docker-compose.full.yml'
     : 'docker-compose.deps.yml';
 
@@ -154,7 +162,7 @@ $ docker compose --env-file .env.ports -f ${composeFile} up -d\
  * Check Redis (via docker compose service status)
  */
 async function checkRedis() {
-  const composeFile = process.env.DX_MODE === 'docker'
+  const composeFile = mode === 'docker'
     ? 'docker-compose.full.yml'
     : 'docker-compose.deps.yml';
 

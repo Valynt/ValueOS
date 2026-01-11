@@ -9,6 +9,7 @@ import net from 'net';
 import path from 'path';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import { resolveMode } from './lib/mode.js';
 import { loadPorts, resolvePort, formatPortsEnv, writePortsEnvFile } from './ports.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -16,22 +17,13 @@ const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '../..');
 
 const args = process.argv.slice(2);
-
-function resolveMode(cliArgs) {
-  const modeArg = cliArgs.find(arg => arg.startsWith('--mode='));
-  if (modeArg) {
-    return modeArg.split('=')[1];
-  }
-
-  const modeIndex = cliArgs.indexOf('--mode');
-  if (modeIndex !== -1 && cliArgs[modeIndex + 1]) {
-    return cliArgs[modeIndex + 1];
-  }
-
-  return process.env.DX_MODE || 'local';
+let mode;
+try {
+  mode = resolveMode(args);
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
 }
-
-const mode = resolveMode(args);
 
 const ports = loadPorts();
 const frontendPort = resolvePort(process.env.VITE_PORT, ports.frontend.port);
