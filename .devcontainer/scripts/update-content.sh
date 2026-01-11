@@ -2,6 +2,7 @@
 ###############################################################################
 # Dev Container - Update Content Script
 # Runs when container content is updated (e.g., after git pull)
+# Optimized for ValueOS
 ###############################################################################
 
 set -e

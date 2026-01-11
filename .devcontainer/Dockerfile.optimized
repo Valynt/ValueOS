@@ -110,6 +110,15 @@ RUN git clone --depth 1 https://github.com/awslabs/git-secrets.git /tmp/git-secr
 # Install Snyk CLI
 RUN npm install -g snyk
 
+# Install Dive (Image Layer Analyzer) - v0.12.0
+RUN curl -L https://github.com/wagoodman/dive/releases/download/v0.12.0/dive_0.12.0_linux_amd64.deb -o dive.deb \
+    && apt-get install -y ./dive.deb \
+    && rm dive.deb
+
+# Install Hadolint (Dockerfile Linter) - v2.12.0
+RUN curl -L -o /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64 \
+    && chmod +x /usr/local/bin/hadolint
+
 # Stage 6: Database tools
 FROM security AS dbtools
 

@@ -93,7 +93,7 @@ verify_proxy() {
     sleep 5
     
     # Check if proxy is running
-    if ! docker ps | grep -q valuecanvas-docker-proxy; then
+    if ! docker ps | grep -q valueos-docker-proxy; then
         log_error "Docker proxy not running"
         return 1
     fi
@@ -104,7 +104,7 @@ verify_proxy() {
     log_info "Testing proxy access..."
     
     # Get proxy IP
-    local proxy_ip=$(docker inspect valuecanvas-docker-proxy --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
+    local proxy_ip=$(docker inspect valueos-docker-proxy --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
     
     if [ -z "$proxy_ip" ]; then
         log_error "Could not get proxy IP"
@@ -139,7 +139,7 @@ configure_environment() {
     log_section "Configuring Environment"
     
     # Get proxy IP
-    local proxy_ip=$(docker inspect valuecanvas-docker-proxy --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
+    local proxy_ip=$(docker inspect valueos-docker-proxy --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
     
     # Create environment file
     cat > /workspaces/ValueOS/.devcontainer/.docker-proxy.env <<EOF
@@ -166,19 +166,19 @@ show_status() {
     log_section "Docker Proxy Status"
     
     echo "Container Status:"
-    docker ps --filter name=valuecanvas-docker-proxy --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+    docker ps --filter name=valueos-docker-proxy --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
     
     echo ""
     echo "Network Configuration:"
-    docker inspect valuecanvas-docker-proxy --format '{{range .NetworkSettings.Networks}}Network: {{.NetworkID}} IP: {{.IPAddress}}{{end}}'
+    docker inspect valueos-docker-proxy --format '{{range .NetworkSettings.Networks}}Network: {{.NetworkID}} IP: {{.IPAddress}}{{end}}'
     
     echo ""
     echo "Resource Usage:"
-    docker stats valuecanvas-docker-proxy --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}"
+    docker stats valueos-docker-proxy --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}"
     
     echo ""
     echo "Logs (last 10 lines):"
-    docker logs valuecanvas-docker-proxy --tail 10
+    docker logs valueos-docker-proxy --tail 10
 }
 
 ###############################################################################

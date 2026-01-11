@@ -3,6 +3,7 @@
 # Dev Container - Post Create Script
 # Runs after container is created and content is updated
 # Performs final setup and validation
+# Optimized for ValueOS
 ###############################################################################
 
 set -e
