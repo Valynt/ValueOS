@@ -122,7 +122,7 @@ export class ValueDriverExtractionAgent extends BaseAgent {
       reasoning: z.string()
     });
 
-    // SECURITY FIX: Use secureInvoke() instead of direct llmGateway.complete()
+    // SECURITY FIX: secureInvoke() enforces structured output validation via Zod schema
     const secureResult = await this.secureInvoke(
       sessionId,
       prompt,
@@ -265,7 +265,7 @@ export class AdversarialChallengeAgent extends BaseAgent {
       reasoning: z.string()
     });
 
-    // SECURITY FIX: Use secureInvoke() instead of direct llmGateway.complete()
+    // SECURITY FIX: secureInvoke() enforces structured output validation via Zod schema
     const secureResult = await this.secureInvoke(
       sessionId,
       prompt,
@@ -432,7 +432,7 @@ export class ReconciliationAgent extends BaseAgent {
       reasoning: z.string()
     });
 
-    // SECURITY FIX: Use secureInvoke() instead of direct llmGateway.complete()
+    // SECURITY FIX: secureInvoke() enforces structured output validation via Zod schema
     const secureResult = await this.secureInvoke(
       sessionId,
       prompt,
