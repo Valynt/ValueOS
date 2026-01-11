@@ -37,7 +37,6 @@ export class ReflectionEngine {
   ): Promise<QualityAssessment> {
     const evaluationPrompt = this.buildEvaluationPrompt(valueCaseData, rubric);
 
-    // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete()
     const response = await secureLLMComplete(this.llmGateway, [
       {
         role: 'system',
@@ -155,7 +154,6 @@ Return your assessment in this exact JSON format:
     ,
     taskContext?: TaskContext
   ): Promise<string> {
-    // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete()
     const response = await secureLLMComplete(this.llmGateway, [
       {
         role: 'system',
