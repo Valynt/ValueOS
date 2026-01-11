@@ -254,19 +254,63 @@ echo ""
 # ============================================================================
 # Ask if user wants to start dev server now
 # ============================================================================
-read -p "Start development server now? [Y/n]: " START_DEV
-START_DEV=${START_DEV:-y}
+is_port_in_use() {
+    local port="$1"
+    if command -v lsof &> /dev/null; then
+        lsof -iTCP:"${port}" -sTCP:LISTEN -t &> /dev/null
+        return $?
+    elif command -v ss &> /dev/null; then
+        ss -ltn | awk '{print $4}' | grep -qE "(^|:)${port}$"
+        return $?
+    elif command -v netstat &> /dev/null; then
+        netstat -ltn | awk '{print $4}' | grep -qE "(^|:)${port}$"
+        return $?
+    fi
+    return 1
+}
+
+DEV_SERVER_PORT=5173
+BACKEND_SERVER_PORT=3000
+RUNNING_PROCESSES=()
+
+if is_port_in_use "${DEV_SERVER_PORT}"; then
+    RUNNING_PROCESSES+=("Vite (port ${DEV_SERVER_PORT})")
+fi
+
+if is_port_in_use "${BACKEND_SERVER_PORT}"; then
+    RUNNING_PROCESSES+=("Backend API (port ${BACKEND_SERVER_PORT})")
+fi
+
+if [ ${#RUNNING_PROCESSES[@]} -gt 0 ]; then
+    echo -e "${YELLOW}⚠️  Detected running dev processes:${NC} ${RUNNING_PROCESSES[*]}"
+    echo "   Auto-start will skip launching another dev server."
+    echo ""
+fi
+
+if [[ "${START_DEV_SERVER}" =~ ^(n|no|0)$ ]]; then
+    START_DEV="n"
+else
+    read -p "Start development server now? [Y/n] (set START_DEV_SERVER=no to skip): " START_DEV
+    START_DEV=${START_DEV:-y}
+fi
 
 if [[ "$START_DEV" =~ ^[Yy]$ ]]; then
-    echo ""
-    echo -e "${BLUE}🌐 Starting Development Server${NC}"
-    echo ""
-    echo -e "${GREEN}✨ ValueCanvas is starting!${NC}"
-    echo ""
-    echo "Press Ctrl+C to stop"
-    echo ""
-    
-    npm run dev
+    if [ ${#RUNNING_PROCESSES[@]} -gt 0 ]; then
+        echo ""
+        echo -e "${YELLOW}⚠️  Skipping dev server start because ports are already in use.${NC}"
+        echo "   Stop the running processes above or run: npm run dev"
+        echo ""
+    else
+        echo ""
+        echo -e "${BLUE}🌐 Starting Development Server${NC}"
+        echo ""
+        echo -e "${GREEN}✨ ValueCanvas is starting!${NC}"
+        echo ""
+        echo "Press Ctrl+C to stop"
+        echo ""
+        
+        npm run dev
+    fi
 else
     echo ""
     echo "To start the development server later, run:"

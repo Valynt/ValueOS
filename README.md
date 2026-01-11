@@ -15,7 +15,7 @@ cd ValueOS
 npm install
 
 # Automated setup (takes ~5 minutes)
-npm run setup
+npm run setup    # Runs scripts/dev/setup.sh
 
 # Start development
 npm run dev
@@ -68,9 +68,9 @@ cp .env.dev.example .env.dev
 docker compose -f docker-compose.dev.yml up --build
 ```
 
-* **Edge (HTTPS)**: [https://localhost:8443](https://localhost:8443)
-* **Edge (HTTP → HTTPS redirect)**: [http://localhost:8080](http://localhost:8080)
-* **Caddy Admin**: [http://localhost:2019](http://localhost:2019)
+- **Edge (HTTPS)**: [https://localhost:8443](https://localhost:8443)
+- **Edge (HTTP → HTTPS redirect)**: [http://localhost:8080](http://localhost:8080)
+- **Caddy Admin**: [http://localhost:2019](http://localhost:2019)
 
 > To trust the local TLS certificate, see the runbook: [docs/edge-caddy.md](docs/edge-caddy.md)
 
@@ -145,7 +145,7 @@ ValueOS/
 ```bash
 npm run dev              # Start development server
 npm run health           # Check system health
-npm run setup            # Re-run setup if needed
+npm run setup            # Re-run setup (scripts/dev/setup.sh)
 ```
 
 ### Database
@@ -217,7 +217,7 @@ taskkill /PID <PID> /F
 
 ```bash
 rm .env
-npm run setup
+npm run setup            # Runs scripts/dev/setup.sh
 ```
 
 **More help**: See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)

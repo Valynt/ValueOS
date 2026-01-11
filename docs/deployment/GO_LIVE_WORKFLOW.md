@@ -7,6 +7,7 @@
 ## 📋 Overview
 
 This workflow covers three distinct stages:
+
 1. **Local Development** - Fast feedback with HMR
 2. **Staging Validation** - Simulated production environment
 3. **Production Deployment** - Final go-live with audit checks
@@ -19,7 +20,7 @@ This workflow covers three distinct stages:
 
 ```bash
 # Run automated setup
-bash scripts/dev-setup.sh
+npm run setup
 
 # Or manual check
 node --version    # Should be v20+
@@ -30,13 +31,13 @@ supabase --version
 
 ### Launch Sequence
 
-| Step | Command | Output / Goal |
-|------|---------|---------------|
-| **1. Install Dependencies** | `npm install` | Installs all project dependencies |
-| **2. Start Supabase** | `supabase start` | Starts local Supabase (DB, Auth, Storage) |
-| **3. Generate Types** | `npm run db:types` | Generates TypeScript types from DB schema |
-| **4. Launch Frontend** | `npm run dev` | Starts Vite dev server with HMR |
-| **5. Access** | Open `http://localhost:3000` | Application accessible |
+| Step                        | Command                      | Output / Goal                             |
+| --------------------------- | ---------------------------- | ----------------------------------------- |
+| **1. Install Dependencies** | `npm install`                | Installs all project dependencies         |
+| **2. Start Supabase**       | `supabase start`             | Starts local Supabase (DB, Auth, Storage) |
+| **3. Generate Types**       | `npm run db:types`           | Generates TypeScript types from DB schema |
+| **4. Launch Frontend**      | `npm run dev`                | Starts Vite dev server with HMR           |
+| **5. Access**               | Open `http://localhost:3000` | Application accessible                    |
 
 ### Development Commands
 
@@ -60,11 +61,13 @@ npm run lint:fix
 ### Debugging Tools
 
 **Hot Module Replacement (HMR):**
+
 - Vite automatically reloads on file changes
 - State is preserved during updates
 - WebSocket on port 24678
 
 **Console Log Cleanup:**
+
 ```bash
 # Check for console.log statements
 npm run lint:console
@@ -73,6 +76,7 @@ npm run lint:console
 ```
 
 **Health Checks:**
+
 ```bash
 # Check dev environment health
 npm run dev:health
@@ -89,6 +93,7 @@ npm run dev:auto-fix
 ## 2️⃣ Staging Validation & Hardening 🧪
 
 ### Purpose
+
 Simulate production environment to validate deployment and configuration.
 
 ### Launch Staging
@@ -104,14 +109,14 @@ docker-compose -f infra/infra/docker/compose.stage.yml up -d
 
 ### Validation Checklist
 
-| Check | Command | Success Criteria |
-|-------|---------|------------------|
-| **Golden Path Monitoring** | `npm run monitor:golden-path` | All critical user flows pass |
-| **Security Scan** | `npm run security:scan:all` | No high-severity vulnerabilities |
-| **Performance Tests** | `npm run test:perf` | Meets performance benchmarks |
-| **RLS Tests** | `npm run test:rls` | All RLS policies enforced |
-| **Database Validation** | `npm run db:validate` | All fixes validated |
-| **SAML Tests** | `npm run test:saml` | SAML compliance verified |
+| Check                      | Command                       | Success Criteria                 |
+| -------------------------- | ----------------------------- | -------------------------------- |
+| **Golden Path Monitoring** | `npm run monitor:golden-path` | All critical user flows pass     |
+| **Security Scan**          | `npm run security:scan:all`   | No high-severity vulnerabilities |
+| **Performance Tests**      | `npm run test:perf`           | Meets performance benchmarks     |
+| **RLS Tests**              | `npm run test:rls`            | All RLS policies enforced        |
+| **Database Validation**    | `npm run db:validate`         | All fixes validated              |
+| **SAML Tests**             | `npm run test:saml`           | SAML compliance verified         |
 
 ### Staging Commands
 
@@ -155,6 +160,7 @@ curl -f http://grafana.yourdomain.com/api/health
 ```
 
 **Required Dashboards:**
+
 - Application Performance
 - Database Metrics
 - Error Rates
@@ -174,6 +180,7 @@ npm run db:validate
 ```
 
 **Success Criteria:**
+
 - Backup completes in < 5 minutes
 - Restore completes successfully
 - All data integrity checks pass
@@ -308,6 +315,7 @@ docker-compose -f infra/infra/docker/prod/docker-compose.yml up -d --no-deps app
 ### Post-Deployment Monitoring (First 24 Hours)
 
 **Immediate (0-1 hour):**
+
 - [ ] Application accessible
 - [ ] Health checks passing
 - [ ] No errors in logs
@@ -315,6 +323,7 @@ docker-compose -f infra/infra/docker/prod/docker-compose.yml up -d --no-deps app
 - [ ] SSL certificate valid
 
 **Short-term (1-24 hours):**
+
 - [ ] Performance metrics normal
 - [ ] Error rate < 1%
 - [ ] Response time < 200ms (p95)
@@ -322,6 +331,7 @@ docker-compose -f infra/infra/docker/prod/docker-compose.yml up -d --no-deps app
 - [ ] Database connections stable
 
 **Alerts to Monitor:**
+
 - Application errors
 - High response times
 - Database connection issues
@@ -331,6 +341,7 @@ docker-compose -f infra/infra/docker/prod/docker-compose.yml up -d --no-deps app
 ### Golden Path Monitoring
 
 **Critical User Flows:**
+
 1. User registration
 2. User login
 3. Create canvas
@@ -339,6 +350,7 @@ docker-compose -f infra/infra/docker/prod/docker-compose.yml up -d --no-deps app
 6. Export canvas
 
 **Run monitors:**
+
 ```bash
 # Against production
 PLAYWRIGHT_BASE_URL=https://yourdomain.com npm run monitor:golden-path
@@ -442,6 +454,7 @@ kubectl rollout restart deployment/grafana -n monitoring
 ## 🎯 Quick Reference
 
 ### Local Development
+
 ```bash
 npm install
 supabase start
@@ -450,6 +463,7 @@ npm run dev
 ```
 
 ### Staging
+
 ```bash
 npm run staging:start
 npm run monitor:golden-path
@@ -458,6 +472,7 @@ npm run staging:stop
 ```
 
 ### Production
+
 ```bash
 bash scripts/pre-deployment-checklist.sh
 bash scripts/deploy.sh prod
