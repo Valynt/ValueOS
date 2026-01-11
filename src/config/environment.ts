@@ -54,6 +54,13 @@ export interface EnvironmentConfig {
     websocketUrl: string;
   };
 
+  // Groundtruth
+  groundtruth: {
+    apiUrl: string;
+    apiKey: string;
+    timeout: number;
+  };
+
   // Database
   database: {
     url: string;
@@ -232,6 +239,12 @@ export function loadEnvironmentConfig(): EnvironmentConfig {
       websocketUrl: getEnv('VITE_AGENT_WEBSOCKET_URL', env === 'production' 
         ? 'wss://api.valuecanvas.com/ws/agents' 
         : 'ws://localhost:8000/ws/agents'),
+    },
+
+    groundtruth: {
+      apiUrl: getEnv('VITE_GROUNDTRUTH_API_URL', getEnv('GROUNDTRUTH_API_URL', '')),
+      apiKey: getEnv('GROUNDTRUTH_API_KEY', ''),
+      timeout: getNumberEnv('GROUNDTRUTH_API_TIMEOUT', 15000),
     },
 
     database: {

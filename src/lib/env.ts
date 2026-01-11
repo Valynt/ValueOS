@@ -93,6 +93,24 @@ export function getLLMCostTrackerConfig(): {
   };
 }
 
+export function getGroundtruthConfig(): {
+  apiUrl?: string;
+  apiKey?: string;
+  timeoutMs: number;
+} {
+  const timeoutCandidate =
+    getEnvVar("VITE_GROUNDTRUTH_API_TIMEOUT") ||
+    getEnvVar("GROUNDTRUTH_API_TIMEOUT") ||
+    "15000";
+  const parsedTimeout = Number.parseInt(timeoutCandidate, 10);
+
+  return {
+    apiUrl: getEnvVar("VITE_GROUNDTRUTH_API_URL") || getEnvVar("GROUNDTRUTH_API_URL"),
+    apiKey: getEnvVar("GROUNDTRUTH_API_KEY"),
+    timeoutMs: Number.isNaN(parsedTimeout) ? 15000 : parsedTimeout,
+  };
+}
+
 /**
  * Test helper: override the cached env source.
  */

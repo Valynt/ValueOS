@@ -38,7 +38,8 @@ export type AgentType =
   // New agents (roadmap implementation)
   | 'research'
   | 'benchmark'
-  | 'narrative';
+  | 'narrative'
+  | 'groundtruth';
 
 /**
  * Agent request context

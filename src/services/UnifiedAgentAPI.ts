@@ -22,7 +22,12 @@ import { SDUIPageDefinition, validateSDUISchema } from '../sdui/schema';
 import { getAuditLogger, logAgentResponse } from './AgentAuditLogger';
 import { AgentType } from './agent-types';
 import { AgentHealthStatus, ConfidenceLevel } from '../types/agent';
-import { env, getEnvVar } from '../lib/env';
+import { env, getEnvVar, getGroundtruthConfig } from '../lib/env';
+import GroundtruthAPI, {
+  GroundtruthAPIConfig,
+  GroundtruthRequestPayload,
+  GroundtruthRequestOptions,
+} from './GroundtruthAPI';
 
 // ============================================================================
 // Types
@@ -44,6 +49,8 @@ export interface UnifiedAgentRequest {
   context?: Record<string, any>;
   /** Request parameters */
   parameters?: Record<string, any>;
+  /** Groundtruth integration options */
+  groundtruth?: GroundtruthInvocationOptions;
   /** Trace ID for observability */
   traceId?: string;
 }
@@ -89,6 +96,14 @@ export interface UnifiedAgentResponse<T = any> {
   warnings?: string[];
 }
 
+export interface GroundtruthInvocationOptions {
+  enabled?: boolean;
+  endpoint?: string;
+  mergeKey?: string;
+  payload?: Partial<GroundtruthRequestPayload>;
+  requestOptions?: GroundtruthRequestOptions;
+}
+
 /**
  * API configuration
  */
@@ -105,6 +120,8 @@ export interface UnifiedAPIConfig {
   cooldownPeriod?: number;
   /** Enable audit logging */
   enableAuditLogging?: boolean;
+  /** Groundtruth API configuration */
+  groundtruth?: GroundtruthAPIConfig;
 }
 
 const DEFAULT_CONFIG: UnifiedAPIConfig = {
@@ -177,6 +194,7 @@ export class UnifiedAgentAPI {
   private circuitBreakers: CircuitBreakerManager;
   private registry: AgentRegistry;
   private auditLogger: ReturnType<typeof getAuditLogger> | null = null;
+  private groundtruthAPI: GroundtruthAPI | null = null;
 
   constructor(config: Partial<UnifiedAPIConfig> = {}) {
     // NOTE: Environment variable precedence for agent API base URL:
@@ -199,6 +217,17 @@ export class UnifiedAgentAPI {
     if (this.config.enableAuditLogging) {
       this.auditLogger = getAuditLogger();
     }
+
+    const groundtruthEnv = getGroundtruthConfig();
+    const groundtruthConfig = {
+      baseUrl: groundtruthEnv.apiUrl,
+      apiKey: groundtruthEnv.apiKey,
+      timeoutMs: groundtruthEnv.timeoutMs,
+      ...config.groundtruth,
+    };
+    this.groundtruthAPI = groundtruthConfig.baseUrl
+      ? new GroundtruthAPI(groundtruthConfig)
+      : null;
   }
 
   // ==========================================================================
@@ -256,17 +285,22 @@ export class UnifiedAgentAPI {
         }
       );
 
+      const enrichedResponse = await this.attachGroundtruth(
+        sanitizedRequest,
+        response,
+        traceId
+      );
       const duration = Date.now() - startTime;
 
       // Add metadata
       const result: UnifiedAgentResponse<T> = {
-        ...response,
+        ...enrichedResponse,
         metadata: {
           agent: request.agent,
           duration,
           timestamp: new Date().toISOString(),
           traceId,
-          ...response.metadata,
+          ...enrichedResponse.metadata,
         },
       };
 
@@ -454,6 +488,8 @@ export class UnifiedAgentAPI {
     const routeType = this.determineRouteType(request.agent);
 
     switch (routeType) {
+      case 'groundtruth':
+        return this.executeGroundtruthRequest(request, traceId);
       case 'http':
         return this.executeHttpRequest(request, traceId);
       case 'local':
@@ -466,7 +502,17 @@ export class UnifiedAgentAPI {
   /**
    * Determine how to route the request
    */
-  private determineRouteType(agent: AgentType): 'http' | 'local' | 'mock' {
+  private determineRouteType(agent: AgentType): 'http' | 'local' | 'mock' | 'groundtruth' {
+    if (agent === 'groundtruth') {
+      if (this.groundtruthAPI?.isConfigured()) {
+        return 'groundtruth';
+      }
+      if (env.isProduction) {
+        throw new Error('Groundtruth API routing is not configured.');
+      }
+      return 'mock';
+    }
+
     // Check if we have an HTTP endpoint configured
     if (this.getResolvedBaseUrl()) {
       return 'http';
@@ -557,6 +603,10 @@ export class UnifiedAgentAPI {
         taskPlan: { phases: ['Discovery', 'Analysis', 'Design'] },
         assignedAgents: ['opportunity', 'system-mapper', 'intervention-designer'],
       },
+      groundtruth: {
+        verified: false,
+        issues: ['Groundtruth API not configured'],
+      },
     };
 
     return {
@@ -566,6 +616,120 @@ export class UnifiedAgentAPI {
       confidenceLevel: 'medium',
       confidenceScore: 0.75,
       type: 'message',
+    };
+  }
+
+  private async executeGroundtruthRequest(
+    request: UnifiedAgentRequest,
+    traceId: string
+  ): Promise<UnifiedAgentResponse> {
+    if (!this.groundtruthAPI) {
+      return {
+        success: false,
+        error: 'Groundtruth API is not configured',
+        metadata: {
+          agent: request.agent,
+          duration: 0,
+          timestamp: new Date().toISOString(),
+          traceId,
+        },
+      };
+    }
+
+    const payload: GroundtruthRequestPayload = {
+      query: request.query,
+      agent: request.agent,
+      context: request.context,
+      metadata: {
+        sessionId: request.sessionId,
+        userId: request.userId,
+        traceId,
+      },
+      ...(request.groundtruth?.payload ?? {}),
+    };
+
+    const groundtruthResponse = await this.groundtruthAPI.evaluate(
+      payload,
+      request.groundtruth?.requestOptions
+    );
+
+    return {
+      success: groundtruthResponse.success,
+      data: groundtruthResponse.data,
+      error: groundtruthResponse.error,
+      metadata: {
+        agent: request.agent,
+        duration: 0,
+        timestamp: new Date().toISOString(),
+        traceId,
+      },
+      payload: {
+        groundtruth: groundtruthResponse,
+      },
+    };
+  }
+
+  private async attachGroundtruth(
+    request: UnifiedAgentRequest,
+    response: UnifiedAgentResponse,
+    traceId: string
+  ): Promise<UnifiedAgentResponse> {
+    if (!request.groundtruth?.enabled) {
+      return response;
+    }
+
+    if (!this.groundtruthAPI) {
+      return {
+        ...response,
+        warnings: [
+          ...(response.warnings ?? []),
+          'Groundtruth API is not configured',
+        ],
+      };
+    }
+
+    const groundtruthPayload: GroundtruthRequestPayload = {
+      query: request.query,
+      agent: request.agent,
+      response: response.data ?? response.payload ?? response.content,
+      context: request.context,
+      metadata: {
+        sessionId: request.sessionId,
+        userId: request.userId,
+        traceId,
+      },
+      ...(request.groundtruth.payload ?? {}),
+    };
+
+    const groundtruthResult = await this.groundtruthAPI.evaluate(
+      groundtruthPayload,
+      request.groundtruth.requestOptions
+    );
+
+    const mergeKey = request.groundtruth.mergeKey ?? 'groundtruth';
+    const existingPayload =
+      response.payload && typeof response.payload === 'object'
+        ? response.payload
+        : response.payload !== undefined
+        ? { value: response.payload }
+        : {};
+
+    const mergedPayload = {
+      ...existingPayload,
+      [mergeKey]: groundtruthResult,
+    };
+
+    const nextWarnings = groundtruthResult.success
+      ? response.warnings
+      : [
+          ...(response.warnings ?? []),
+          groundtruthResult.error || 'Groundtruth verification failed',
+        ];
+
+    return {
+      ...response,
+      payload: mergedPayload,
+      warnings: nextWarnings,
     };
   }
 
