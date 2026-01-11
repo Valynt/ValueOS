@@ -14,6 +14,7 @@ import { AgentMemory, MemorySystem } from './MemorySystem';
 import { logger } from '../logger';
 import { z } from 'zod';
 import { webScraperService } from '../../services/WebScraperService';
+import { getMCPServer } from '../mcp/MCPClient';
 
 // =====================================================
 // RETRIEVAL CONTEXT TYPES
@@ -354,10 +355,120 @@ export class RetrievalEngine {
     query: string,
     config: Required<RetrievalConfig>
   ): Promise<RetrievalContext['benchmark_context']> {
-    // TODO: Integrate with MCP Ground Truth API
-    // For now, return empty array
-    logger.debug('Benchmark context retrieval not yet implemented');
-    return [];
+    try {
+      const mcpServer = await getMCPServer();
+      const contextItems: RetrievalContext['benchmark_context'] = [];
+
+      // 1. Extract intents from query (simple keyword matching for now)
+      // In production, this would use a more sophisticated NLU or LLM extraction
+      const intents = this.extractBenchmarkIntents(query);
+
+      // 2. Execute MCP tools for each intent
+      for (const intent of intents) {
+        try {
+          // Determine which tool to use based on intent type
+          if (intent.type === 'industry') {
+            const result = await mcpServer.executeTool('get_industry_benchmark', {
+              identifier: intent.identifier,
+            });
+
+            if (!result.isError && result.content[0]?.text) {
+              const data = JSON.parse(result.content[0].text);
+              contextItems.push({
+                metric_name: data.metric,
+                industry: data.metadata?.industry_name || intent.label,
+                value: Array.isArray(data.value) ? (data.value[0] + data.value[1]) / 2 : data.value,
+                unit: data.unit || 'unit',
+                source: 'internal', // Default to internal/MCP
+                confidence: data.confidence || 0.8
+              });
+            }
+          } else if (intent.type === 'entity') {
+            const result = await mcpServer.executeTool('get_authoritative_financials', {
+              entity_id: intent.identifier,
+              metrics: ['revenue_total', 'gross_profit'], // Default metrics
+              period: 'LTM'
+            });
+
+            if (!result.isError && result.content[0]?.text) {
+              const data = JSON.parse(result.content[0].text);
+              if (data.data && Array.isArray(data.data)) {
+                 data.data.forEach((item: any) => {
+                    contextItems.push({
+                      metric_name: item.metric,
+                      industry: item.entity.name,
+                      value: item.value,
+                      unit: item.unit,
+                      source: 'internal',
+                      confidence: 0.95
+                    });
+                 });
+              }
+            }
+          }
+        } catch (toolError) {
+          logger.warn(`Failed to execute MCP tool for intent ${intent.identifier}`, { error: toolError });
+        }
+      }
+
+      return contextItems;
+    } catch (error) {
+      logger.error('Benchmark context retrieval failed', { error });
+      return [];
+    }
+  }
+
+  /**
+   * Helper to extract benchmark intents from query
+   */
+  private extractBenchmarkIntents(query: string): Array<{ type: 'industry' | 'entity', identifier: string, label: string }> {
+    const intents: Array<{ type: 'industry' | 'entity', identifier: string, label: string }> = [];
+    const lowerQuery = query.toLowerCase();
+
+    // Map common keywords to NAICS codes (Sample mapping)
+    const industryMap: Record<string, string> = {
+      'software': '511210',
+      'saas': '511210',
+      'tech': '541511',
+      'technology': '541511',
+      'consulting': '541511',
+      'programming': '541511',
+      'banking': '522110',
+      'retail': '440000'
+    };
+
+    // Map common entities to Tickers/CIKs (Sample mapping)
+    // In production, use a proper entity resolution service
+    const entityMap: Record<string, string> = {
+      'apple': 'AAPL',
+      'microsoft': 'MSFT',
+      'google': 'GOOGL',
+      'alphabet': 'GOOGL',
+      'amazon': 'AMZN'
+    };
+
+    // Check for industries
+    for (const [keyword, naics] of Object.entries(industryMap)) {
+      if (lowerQuery.includes(keyword)) {
+        intents.push({ type: 'industry', identifier: naics, label: keyword });
+      }
+    }
+
+    // Check for entities
+    for (const [keyword, ticker] of Object.entries(entityMap)) {
+      if (lowerQuery.includes(keyword)) {
+        intents.push({ type: 'entity', identifier: ticker, label: keyword });
+      }
+    }
+
+    // Check for Occupation codes (basic regex)
+    // Matches 15-1252 etc.
+    const occupationMatch = query.match(/\d{2}-\d{4}/);
+    if (occupationMatch) {
+       intents.push({ type: 'industry', identifier: occupationMatch[0], label: 'occupation' });
+    }
+
+    return intents;
   }
 
   /**
