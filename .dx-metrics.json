@@ -22,5 +22,29 @@
     "success": true,
     "timestamp": "2026-01-05T11:19:26.109Z",
     "duration": 271159
+  },
+  {
+    "startTime": 1768164210798,
+    "platform": "linux",
+    "steps": [
+      {
+        "name": "Install dependencies",
+        "success": true,
+        "duration": 58604
+      },
+      {
+        "name": "Pull Docker images",
+        "success": true,
+        "duration": 88792
+      },
+      {
+        "name": "Start Docker services",
+        "success": false,
+        "duration": 84
+      }
+    ],
+    "success": true,
+    "timestamp": "2026-01-11T20:45:58.552Z",
+    "duration": 147754
   }
 ]
