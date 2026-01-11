@@ -103,7 +103,13 @@ export const Canvas: React.FC<CanvasProps> = ({
           key={`selection-${component.id}`}
           component={component}
           isSelected={selectedComponent?.id === component.id}
-          onResize={(id, size) => onUpdateComponent(id, { size })}
+          onResize={(id, result) => {
+            const updates: Partial<CanvasComponent> = { size: result.size };
+            if (result.position) {
+              updates.position = result.position;
+            }
+            onUpdateComponent(id, updates);
+          }}
         />
       ))}
     </div>
