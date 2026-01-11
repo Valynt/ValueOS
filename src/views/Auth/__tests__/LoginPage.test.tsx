@@ -27,13 +27,16 @@ describe("LoginPage Component", () => {
 
   const createAuthContext = () => ({
     user: null,
+    userClaims: null,
     session: null,
     loading: false,
+    isAuthenticated: false,
     login: mockLogin,
     signup: vi.fn(),
     logout: vi.fn(),
     resetPassword: vi.fn(),
     updatePassword: vi.fn(),
+    resendVerificationEmail: vi.fn(),
     signInWithProvider: mockSignInWithProvider,
   });
 

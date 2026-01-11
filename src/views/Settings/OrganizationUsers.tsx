@@ -1,28 +1,37 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { SettingsSection } from '../../components/Settings/SettingsSection';
 import {
   Ban, CheckCircle, ChevronLeft, ChevronRight, Clock, Download,
-  Filter, Mail, MoreVertical, Search, UserPlus, XCircle
+  Mail, MoreVertical, Search, UserPlus, XCircle
 } from 'lucide-react';
 import { OrganizationUser } from '../../types';
 import { analyticsClient } from '../../lib/analyticsClient';
-
-const MOCK_USERS: OrganizationUser[] = Array.from({ length: 50 }, (_, i) => ({
-  id: `user-${i}`,
-  email: `user${i}@example.com`,
-  fullName: `User ${i}`,
-  role: ['Admin', 'User', 'Viewer'][i % 3],
-  department: ['Engineering', 'Sales', 'Marketing', 'Support'][i % 4],
-  status: (['active', 'invited', 'suspended', 'deactivated'] as const)[i % 4],
-  lastLoginAt: i % 2 === 0 ? new Date(Date.now() - i * 86400000).toISOString() : undefined,
-  createdAt: new Date(Date.now() - i * 86400000 * 30).toISOString(),
-  groups: [],
-}));
+import { useAuth } from '../../contexts/AuthContext';
+import { addCSRFHeader } from '../../security/CSRFProtection';
 
 const PAGE_SIZE = 10;
+const ROLE_OPTIONS = [
+  { value: 'owner', label: 'Owner' },
+  { value: 'admin', label: 'Admin' },
+  { value: 'member', label: 'User' },
+  { value: 'viewer', label: 'Viewer' },
+] as const;
+
+type TenantRoleValue = typeof ROLE_OPTIONS[number]['value'];
+
+const roleLabelToValue = (label: string): TenantRoleValue => {
+  const option = ROLE_OPTIONS.find((role) => role.label === label);
+  return option?.value || 'member';
+};
+
+const roleValueToLabel = (value: TenantRoleValue): string => {
+  return ROLE_OPTIONS.find((role) => role.value === value)?.label || 'User';
+};
 
 export const OrganizationUsers: React.FC = () => {
-  const [users, setUsers] = useState<OrganizationUser[]>(MOCK_USERS);
+  const [users, setUsers] = useState<OrganizationUser[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -33,8 +42,53 @@ export const OrganizationUsers: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [isInviteModalOpen, setInviteModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<'Admin' | 'User' | 'Viewer'>('User');
+  const [inviteRole, setInviteRole] = useState<TenantRoleValue>('member');
   const [inviteStatus, setInviteStatus] = useState<string | null>(null);
+  const { session } = useAuth();
+
+  const buildHeaders = useCallback(
+    (includeJson?: boolean) => {
+      const headers: Record<string, string> = {};
+      if (includeJson) {
+        headers['Content-Type'] = 'application/json';
+      }
+      if (session?.access_token) {
+        headers.Authorization = `Bearer ${session.access_token}`;
+      }
+      return addCSRFHeader(headers) as Record<string, string>;
+    },
+    [session?.access_token]
+  );
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      if (!session?.access_token) {
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setLoadError(null);
+
+      try {
+        const response = await fetch('/api/admin/users', {
+          headers: buildHeaders(),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload?.error || 'Failed to load users');
+        }
+
+        setUsers(payload.users || []);
+      } catch (error) {
+        setLoadError(error instanceof Error ? error.message : 'Failed to load users');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, [buildHeaders, session?.access_token]);
 
   const filteredAndSortedUsers = useMemo(() => {
     const result = users.filter(user => {
@@ -96,29 +150,79 @@ export const OrganizationUsers: React.FC = () => {
     }
   };
 
-  const handleInviteSubmit = (event: React.FormEvent) => {
+  const handleInviteSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!inviteEmail) return;
 
-    const newUser: OrganizationUser = {
-      id: `invite-${Date.now()}`,
-      email: inviteEmail,
-      fullName: inviteEmail.split('@')[0],
-      role: inviteRole,
-      department: 'Beta Cohort',
-      status: 'invited',
-      createdAt: new Date().toISOString(),
-      groups: [],
-    };
+    try {
+      const response = await fetch('/api/admin/users/invite', {
+        method: 'POST',
+        headers: buildHeaders(true),
+        body: JSON.stringify({
+          email: inviteEmail,
+          role: inviteRole,
+        }),
+      });
 
-    setUsers([newUser, ...users]);
-    setInviteStatus(`Invitation sent to ${inviteEmail}`);
-    analyticsClient.trackWorkflowEvent('teammate_invited', 'team_invite', {
-      email: inviteEmail,
-      role: inviteRole,
-    });
-    setInviteModalOpen(false);
-    setInviteEmail('');
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Invite failed');
+      }
+
+      setUsers((current) => [payload.user, ...current]);
+      setInviteStatus(`Invitation sent to ${inviteEmail}`);
+      analyticsClient.trackWorkflowEvent('teammate_invited', 'team_invite', {
+        email: inviteEmail,
+        role: roleValueToLabel(inviteRole),
+      });
+      setInviteModalOpen(false);
+      setInviteEmail('');
+    } catch (error) {
+      setInviteStatus(
+        error instanceof Error ? error.message : 'Failed to send invite'
+      );
+    }
+  };
+
+  const handleRoleChange = async (userId: string, role: TenantRoleValue) => {
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/role`, {
+        method: 'PATCH',
+        headers: buildHeaders(true),
+        body: JSON.stringify({ role }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Role update failed');
+      }
+
+      setUsers((current) =>
+        current.map((user) =>
+          user.id === userId ? { ...user, role: roleValueToLabel(role) } : user
+        )
+      );
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Failed to update role');
+    }
+  };
+
+  const handleRemoveUser = async (userId: string) => {
+    try {
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: buildHeaders(),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Removal failed');
+      }
+
+      setUsers((current) => current.filter((user) => user.id !== userId));
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Failed to remove user');
+    }
   };
 
   const getStatusIcon = (status: OrganizationUser['status']) => {
@@ -184,9 +288,11 @@ export const OrganizationUsers: React.FC = () => {
               className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Roles</option>
-              <option value="Admin">Admin</option>
-              <option value="User">User</option>
-              <option value="Viewer">Viewer</option>
+              {ROLE_OPTIONS.map((role) => (
+                <option key={role.value} value={role.label}>
+                  {role.label}
+                </option>
+              ))}
             </select>
 
             <select
@@ -202,7 +308,19 @@ export const OrganizationUsers: React.FC = () => {
             </select>
           </div>
 
-          {selectedUsers.size > 0 && (
+          {loadError && (
+            <div className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              {loadError}
+            </div>
+          )}
+
+          {isLoading && (
+            <div className="flex items-center justify-center p-6 border border-gray-200 rounded-lg text-sm text-gray-500">
+              Loading users...
+            </div>
+          )}
+
+          {!isLoading && selectedUsers.size > 0 && (
             <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <span className="text-sm text-blue-900">
                 {selectedUsers.size} user{selectedUsers.size > 1 ? 's' : ''} selected
@@ -271,9 +389,22 @@ export const OrganizationUsers: React.FC = () => {
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">{user.email}</td>
                       <td className="px-4 py-3">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {user.role}
-                        </span>
+                        <select
+                          value={roleLabelToValue(user.role)}
+                          onChange={(event) =>
+                            handleRoleChange(
+                              user.id,
+                              event.target.value as TenantRoleValue
+                            )
+                          }
+                          className="text-xs font-medium bg-blue-50 text-blue-800 border border-blue-100 rounded-full px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          {ROLE_OPTIONS.map((role) => (
+                            <option key={role.value} value={role.value}>
+                              {role.label}
+                            </option>
+                          ))}
+                        </select>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">{user.department}</td>
                       <td className="px-4 py-3">
@@ -286,9 +417,17 @@ export const OrganizationUsers: React.FC = () => {
                         {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : 'Never'}
                       </td>
                       <td className="px-4 py-3">
-                        <button className="p-1 hover:bg-gray-100 rounded transition-colors">
-                          <MoreVertical className="h-5 w-5 text-gray-400" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button className="p-1 hover:bg-gray-100 rounded transition-colors">
+                            <MoreVertical className="h-5 w-5 text-gray-400" />
+                          </button>
+                          <button
+                            className="text-xs text-red-600 hover:text-red-700"
+                            onClick={() => handleRemoveUser(user.id)}
+                          >
+                            Remove
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -349,8 +488,14 @@ export const OrganizationUsers: React.FC = () => {
             <p className="text-sm text-gray-600 mb-4">Invites are auto-tagged with <span className="font-semibold">beta_cohort</span> for priority support.</p>
             <form className="space-y-4" onSubmit={handleInviteSubmit}>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <label
+                  htmlFor="invite-email"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Email
+                </label>
                 <input
+                  id="invite-email"
                   type="email"
                   required
                   value={inviteEmail}
@@ -360,15 +505,23 @@ export const OrganizationUsers: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                <label
+                  htmlFor="invite-role"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Role
+                </label>
                 <select
+                  id="invite-role"
                   value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value as typeof inviteRole)}
+                  onChange={(e) => setInviteRole(e.target.value as TenantRoleValue)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="Admin">Admin</option>
-                  <option value="User">User</option>
-                  <option value="Viewer">Viewer</option>
+                  {ROLE_OPTIONS.map((role) => (
+                    <option key={role.value} value={role.value}>
+                      {role.label}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="flex justify-end gap-3 pt-2">

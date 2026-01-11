@@ -12,25 +12,46 @@ export function ModernSignupPage() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [error, setError] = useState("");
+  const [verificationNotice, setVerificationNotice] = useState("");
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState(false);
 
-  const { signup, signInWithProvider } = useAuth();
+  const { signup, resendVerificationEmail, signInWithProvider } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setVerificationNotice("");
     setLoading(true);
 
     try {
-      await signup({ email, password, fullName });
+      const result = await signup({ email, password, fullName });
+      if (result.requiresEmailVerification) {
+        setVerificationNotice("Check your email to verify your account.");
+        return;
+      }
       navigate("/", { replace: true });
     } catch (err: unknown) {
       console.error("Signup error:", err);
       const errorMessage =
         err instanceof Error ? err.message : "An error occurred";
       setError(errorMessage || "Failed to create account");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      await resendVerificationEmail(email);
+      setVerificationNotice("Verification email resent. Please check your inbox.");
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to resend verification email";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -110,6 +131,19 @@ export function ModernSignupPage() {
         </div>
 
         {/* Error Message */}
+        {verificationNotice && (
+          <div className="p-3 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs text-center">
+            {verificationNotice}
+            <button
+              type="button"
+              onClick={handleResendVerification}
+              className="ml-2 text-emerald-300 underline underline-offset-4 hover:text-emerald-200 transition-colors"
+            >
+              Resend
+            </button>
+          </div>
+        )}
+
         {error && (
           <div className="p-3 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-xs text-center">
             {error}

@@ -15,6 +15,7 @@
 import { logger } from '../lib/logger';
 import { sanitizeForLogging } from '../lib/piiFilter';
 import { BaseService } from './BaseService';
+import { createServerSupabaseClient } from '../lib/supabase';
 import { AuditLogEntry } from '../types';
 
 export interface AuditLogCreateInput {
@@ -52,6 +53,13 @@ export class AuditLogService extends BaseService {
 
   constructor() {
     super('AuditLogService');
+    if (typeof window === 'undefined') {
+      try {
+        this.supabase = createServerSupabaseClient();
+      } catch (error) {
+        logger.warn('Failed to initialize server Supabase client for audit logs', error as Error);
+      }
+    }
   }
 
   /**

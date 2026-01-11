@@ -14,9 +14,10 @@ export function SignupPage() {
   const [fullName, setFullName] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [verificationNotice, setVerificationNotice] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { signup } = useAuth();
+  const { signup, resendVerificationEmail } = useAuth();
   const navigate = useNavigate();
 
   // Password strength validation
@@ -36,6 +37,7 @@ export function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setVerificationNotice("");
 
     if (!isPasswordValid) {
       setError("Password does not meet all requirements");
@@ -50,7 +52,13 @@ export function SignupPage() {
     setLoading(true);
 
     try {
-      await signup({ email, password, fullName });
+      const result = await signup({ email, password, fullName });
+      if (result.requiresEmailVerification) {
+        setVerificationNotice(
+          "Check your email to verify your account before signing in."
+        );
+        return;
+      }
       navigate("/", { replace: true });
     } catch (err: any) {
       console.error("Signup error:", err);
@@ -64,6 +72,19 @@ export function SignupPage() {
       } else {
         setError(err.message || "Signup failed. Please try again.");
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      await resendVerificationEmail(email);
+      setVerificationNotice("Verification email resent. Please check your inbox.");
+    } catch (err: any) {
+      setError(err.message || "Failed to resend verification email.");
     } finally {
       setLoading(false);
     }
@@ -97,6 +118,22 @@ export function SignupPage() {
             {/* Signup Form */}
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Error Alert */}
+              {verificationNotice && (
+                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 flex items-start">
+                  <CheckCircle className="w-5 h-5 text-emerald-400 mr-3 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-emerald-200">
+                    {verificationNotice}
+                    <button
+                      type="button"
+                      onClick={handleResendVerification}
+                      className="ml-2 text-emerald-300 underline underline-offset-2 hover:text-emerald-200"
+                    >
+                      Resend
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {error && (
                 <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start">
                   <AlertCircle className="w-5 h-5 text-red-400 mr-3 mt-0.5 flex-shrink-0" />

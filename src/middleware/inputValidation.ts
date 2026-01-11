@@ -357,6 +357,23 @@ export const ValidationSchemas = {
     fullName: { type: 'string' as const, required: true, minLength: 2, maxLength: 100 }
   },
 
+  adminInviteUser: {
+    email: { type: 'email' as const, required: true },
+    role: {
+      type: 'string' as const,
+      required: true,
+      enum: ['owner', 'admin', 'member', 'viewer'],
+    },
+  },
+
+  adminChangeRole: {
+    role: {
+      type: 'string' as const,
+      required: true,
+      enum: ['owner', 'admin', 'member', 'viewer'],
+    },
+  },
+
   // Agent/LLM interactions
   agentPrompt: {
     prompt: { type: 'string' as const, required: true, maxLength: 2000 },

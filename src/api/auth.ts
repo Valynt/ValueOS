@@ -17,9 +17,32 @@ import { authService } from '../services/AuthService';
 import { AuthenticationError, ValidationError } from '../services/errors';
 import { createLogger } from '../lib/logger';
 import { sanitizeForLogging } from '../lib/piiFilter';
+import { auditLogService } from '../services/AuditLogService';
+import { createServerSupabaseClient } from '../lib/supabase';
+import { sanitizeErrorMessage } from '../utils/security';
 
 const logger = createLogger({ component: 'AuthAPI' });
 const router = createSecureRouter('strict');
+let serverSupabase: ReturnType<typeof createServerSupabaseClient> | null = null;
+
+function getServerSupabase() {
+  if (!serverSupabase) {
+    serverSupabase = createServerSupabaseClient();
+  }
+  return serverSupabase;
+}
+
+function resolveActor(user?: any) {
+  return {
+    id: user?.id,
+    email: user?.email,
+    name:
+      user?.user_metadata?.full_name ||
+      user?.user_metadata?.name ||
+      user?.email ||
+      'Unknown User',
+  };
+}
 
 router.post('/login', validateRequest(ValidationSchemas.login), async (req: Request, res: Response) => {
   try {
@@ -36,6 +59,24 @@ router.post('/login', validateRequest(ValidationSchemas.login), async (req: Requ
     logger.info('User login successful', {
       userId: sanitizeForLogging(result.user.id),
       email: sanitizeForLogging(email)
+    });
+
+    await auditLogService.log({
+      userId: result.user.id,
+      userName:
+        result.user.user_metadata?.full_name ||
+        result.user.user_metadata?.name ||
+        result.user.email ||
+        'User',
+      userEmail: result.user.email || email,
+      action: 'auth.login',
+      resourceType: 'auth',
+      resourceId: result.user.id,
+      details: {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      },
+      status: 'success',
     });
 
     // Return session info (client will handle token storage)
@@ -82,6 +123,36 @@ router.post('/signup', validateRequest(ValidationSchemas.signup), async (req: Re
       email: sanitizeForLogging(email)
     });
 
+    await auditLogService.log({
+      userId: result.user.id,
+      userName:
+        result.user.user_metadata?.full_name ||
+        result.user.user_metadata?.name ||
+        result.user.email ||
+        'User',
+      userEmail: result.user.email || email,
+      action: 'auth.signup',
+      resourceType: 'auth',
+      resourceId: result.user.id,
+      details: {
+        requiresEmailVerification: !result.session,
+        ipAddress: req.ip,
+      },
+      status: 'success',
+    });
+
+    if (!result.session) {
+      return res.status(202).json({
+        user: {
+          id: result.user.id,
+          email: result.user.email,
+          user_metadata: result.user.user_metadata
+        },
+        session: null,
+        requiresEmailVerification: true
+      });
+    }
+
     res.status(201).json({
       user: {
         id: result.user.id,
@@ -126,6 +197,31 @@ router.post('/password/reset', validateRequest({
       email: sanitizeForLogging(email)
     });
 
+    try {
+      const supabaseAdmin = getServerSupabase();
+      const { data: resetUser } = await supabaseAdmin.auth.admin.getUserByEmail(email);
+      if (resetUser?.user) {
+        await auditLogService.log({
+          userId: resetUser.user.id,
+          userName:
+            resetUser.user.user_metadata?.full_name ||
+            resetUser.user.user_metadata?.name ||
+            resetUser.user.email ||
+            'User',
+          userEmail: resetUser.user.email || email,
+          action: 'auth.password_reset_requested',
+          resourceType: 'auth',
+          resourceId: resetUser.user.id,
+          details: {
+            ipAddress: req.ip,
+          },
+          status: 'success',
+        });
+      }
+    } catch (auditError) {
+      logger.warn('Password reset audit lookup failed', sanitizeForLogging(auditError));
+    }
+
     // Always return success to prevent email enumeration
     res.json({
       message: 'If an account with that email exists, a password reset link has been sent.'
@@ -133,6 +229,59 @@ router.post('/password/reset', validateRequest({
   } catch (error) {
     logger.error('Password reset request failed', sanitizeForLogging(error));
     // Don't expose internal errors for security
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/verify/resend', validateRequest({
+  email: { type: 'email' as const, required: true }
+}), async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const { error } = await getServerSupabase().auth.resend({
+      type: 'signup',
+      email,
+      options: {
+        emailRedirectTo: `${req.protocol}://${req.get('host')}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      throw new AuthenticationError(sanitizeErrorMessage(error));
+    }
+
+    try {
+      const { data: verifyUser } = await getServerSupabase().auth.admin.getUserByEmail(email);
+      if (verifyUser?.user) {
+        await auditLogService.log({
+          userId: verifyUser.user.id,
+          userName:
+            verifyUser.user.user_metadata?.full_name ||
+            verifyUser.user.user_metadata?.name ||
+            verifyUser.user.email ||
+            'User',
+          userEmail: verifyUser.user.email || email,
+          action: 'auth.verify_resend',
+          resourceType: 'auth',
+          resourceId: verifyUser.user.id,
+          details: {
+            ipAddress: req.ip,
+          },
+          status: 'success',
+        });
+      }
+    } catch (auditError) {
+      logger.warn('Verification audit lookup failed', sanitizeForLogging(auditError));
+    }
+
+    res.json({ message: 'Verification email resent' });
+  } catch (error) {
+    logger.error('Verification resend failed', sanitizeForLogging(error));
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -153,6 +302,22 @@ router.post('/password/update', requireAuth, async (req: Request, res: Response)
       userId: sanitizeForLogging((req as any).user.id)
     });
 
+    const actor = resolveActor((req as any).user);
+    if (actor.id) {
+      await auditLogService.log({
+        userId: actor.id,
+        userName: actor.name,
+        userEmail: actor.email,
+        action: 'auth.password_updated',
+        resourceType: 'auth',
+        resourceId: actor.id,
+        details: {
+          ipAddress: req.ip,
+        },
+        status: 'success',
+      });
+    }
+
     res.json({
       message: 'Password updated successfully'
     });
@@ -170,11 +335,27 @@ router.post('/password/update', requireAuth, async (req: Request, res: Response)
   }
 });
 
-router.post('/logout', async (req: Request, res: Response) => {
+router.post('/logout', requireAuth, async (req: Request, res: Response) => {
   try {
     await authService.logout();
 
     logger.info('User logout successful');
+
+    const actor = resolveActor((req as any).user);
+    if (actor.id) {
+      await auditLogService.log({
+        userId: actor.id,
+        userName: actor.name,
+        userEmail: actor.email,
+        action: 'auth.logout',
+        resourceType: 'auth',
+        resourceId: actor.id,
+        details: {
+          ipAddress: req.ip,
+        },
+        status: 'success',
+      });
+    }
 
     res.json({
       message: 'Logged out successfully'
@@ -244,4 +425,3 @@ router.post('/refresh', async (req: Request, res: Response) => {
 });
 
 export default router;
-

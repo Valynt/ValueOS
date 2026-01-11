@@ -10,14 +10,15 @@ import { Session, User } from "@supabase/supabase-js";
 import { sanitizeErrorMessage, validatePassword } from "../utils/security";
 import { securityLogger } from "./SecurityLogger";
 import { getConfig } from "../config/environment";
-import { checkPasswordBreach } from "../security";
 import {
+  checkPasswordBreach,
   consumeAuthRateLimit,
   RateLimitExceededError,
   resetRateLimit,
 } from "../security";
 import { clientRateLimit } from "./ClientRateLimit";
 import { mfaService } from "./MFAService";
+import { fetchWithCSRF } from "../security/CSRFProtection";
 
 export interface LoginCredentials {
   email: string;
@@ -33,12 +34,57 @@ export interface SignupData {
 
 export interface AuthSession {
   user: User;
-  session: Session;
+  session: Session | null;
+  requiresEmailVerification?: boolean;
 }
 
 export class AuthService extends BaseService {
   constructor() {
     super("AuthService");
+  }
+
+  private isBrowser(): boolean {
+    return typeof window !== "undefined";
+  }
+
+  private getAuthApiUrl(path: string): string {
+    const config = getConfig();
+    const baseUrl = config.app.apiBaseUrl || "/api";
+    const normalizedBase = baseUrl.endsWith("/api")
+      ? baseUrl
+      : `${baseUrl.replace(/\/$/, "")}/api`;
+
+    return `${normalizedBase}/auth${path}`;
+  }
+
+  private async callAuthEndpoint<T>(
+    path: string,
+    options: RequestInit
+  ): Promise<T> {
+    const headers = new Headers(options.headers);
+    const { data: sessionData } = await this.supabase.auth.getSession();
+    if (sessionData?.session?.access_token && !headers.has("Authorization")) {
+      headers.set(
+        "Authorization",
+        `Bearer ${sessionData.session.access_token}`
+      );
+    }
+
+    const response = await fetchWithCSRF(this.getAuthApiUrl(path), {
+      credentials: "include",
+      ...options,
+      headers,
+    });
+
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      const errorMessage =
+        typeof payload?.error === "string" ? payload.error : "Request failed";
+      throw new AuthenticationError(errorMessage);
+    }
+
+    return payload as T;
   }
 
   /**
@@ -96,6 +142,43 @@ export class AuthService extends BaseService {
 
     this.log("info", "User signup", { email: data.email });
 
+    if (this.isBrowser()) {
+      const payload = await this.callAuthEndpoint<{
+        user: User;
+        session: Session | null;
+        requiresEmailVerification?: boolean;
+      }>("/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (payload.session?.access_token && payload.session.refresh_token) {
+        const { data: sessionData, error } = await this.supabase.auth.setSession(
+          {
+            access_token: payload.session.access_token,
+            refresh_token: payload.session.refresh_token,
+          }
+        );
+
+        if (error) {
+          throw new AuthenticationError(sanitizeErrorMessage(error));
+        }
+
+        return {
+          user: sessionData.user ?? payload.user,
+          session: sessionData.session,
+          requiresEmailVerification: payload.requiresEmailVerification,
+        };
+      }
+
+      return {
+        user: payload.user,
+        session: null,
+        requiresEmailVerification: payload.requiresEmailVerification ?? true,
+      };
+    }
+
     return this.executeRequest(
       async () => {
         const { data: authData, error } = await this.supabase.auth.signUp({
@@ -105,13 +188,14 @@ export class AuthService extends BaseService {
             data: {
               full_name: data.fullName,
             },
+            emailRedirectTo: `${getConfig().app.url}/auth/callback`,
           },
         });
 
         if (error) {
           throw new AuthenticationError(sanitizeErrorMessage(error));
         }
-        if (!authData.user || !authData.session) {
+        if (!authData.user) {
           throw new AuthenticationError("Signup failed");
         }
 
@@ -119,7 +203,8 @@ export class AuthService extends BaseService {
 
         return {
           user: authData.user,
-          session: authData.session,
+          session: authData.session ?? null,
+          requiresEmailVerification: !authData.session,
         };
       },
       { skipCache: true }
@@ -146,6 +231,31 @@ export class AuthService extends BaseService {
     this.enforceAuthRateLimit(credentials.email, "login");
 
     this.log("info", "User login", { email: credentials.email });
+
+    if (this.isBrowser()) {
+      const payload = await this.callAuthEndpoint<{
+        user: User;
+        session: Session;
+      }>("/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credentials),
+      });
+
+      const { data: sessionData, error } = await this.supabase.auth.setSession({
+        access_token: payload.session.access_token,
+        refresh_token: payload.session.refresh_token,
+      });
+
+      if (error) {
+        throw new AuthenticationError(sanitizeErrorMessage(error));
+      }
+
+      return {
+        user: sessionData.user ?? payload.user,
+        session: sessionData.session,
+      };
+    }
 
     return this.executeRequest(
       async () => {
@@ -245,6 +355,15 @@ export class AuthService extends BaseService {
   async logout(): Promise<void> {
     this.log("info", "User logout");
 
+    if (this.isBrowser()) {
+      await this.callAuthEndpoint("/logout", { method: "POST" });
+      const { error } = await this.supabase.auth.signOut();
+      if (error) {
+        throw new AuthenticationError(sanitizeErrorMessage(error));
+      }
+      return;
+    }
+
     return this.executeRequest(
       async () => {
         const { error } = await this.supabase.auth.signOut();
@@ -290,6 +409,27 @@ export class AuthService extends BaseService {
   async refreshSession(): Promise<AuthSession> {
     this.log("info", "Refreshing session");
 
+    if (this.isBrowser()) {
+      const payload = await this.callAuthEndpoint<{
+        user: User;
+        session: Session;
+      }>("/refresh", { method: "POST" });
+
+      const { data: sessionData, error } = await this.supabase.auth.setSession({
+        access_token: payload.session.access_token,
+        refresh_token: payload.session.refresh_token,
+      });
+
+      if (error) {
+        throw new AuthenticationError(sanitizeErrorMessage(error));
+      }
+
+      return {
+        user: sessionData.user ?? payload.user,
+        session: sessionData.session,
+      };
+    }
+
     return this.executeRequest(
       async () => {
         const { data, error } = await this.supabase.auth.refreshSession();
@@ -317,6 +457,15 @@ export class AuthService extends BaseService {
     this.enforceAuthRateLimit(email, "password-reset");
 
     this.log("info", "Password reset requested", { email });
+
+    if (this.isBrowser()) {
+      await this.callAuthEndpoint("/password/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      return;
+    }
 
     return this.executeRequest(
       async () => {
@@ -356,6 +505,15 @@ export class AuthService extends BaseService {
     }
 
     this.log("info", "Updating password");
+
+    if (this.isBrowser()) {
+      await this.callAuthEndpoint("/password/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newPassword }),
+      });
+      return;
+    }
 
     return this.executeRequest(
       async () => {
@@ -421,6 +579,34 @@ export class AuthService extends BaseService {
   async isAuthenticated(): Promise<boolean> {
     const session = await this.getSession();
     return session !== null;
+  }
+
+  /**
+   * Resend verification email for signup confirmation
+   */
+  async resendVerificationEmail(email: string): Promise<void> {
+    this.log("info", "Resending verification email", { email });
+
+    if (this.isBrowser()) {
+      await this.callAuthEndpoint("/verify/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      return;
+    }
+
+    const { error } = await this.supabase.auth.resend({
+      type: "signup",
+      email,
+      options: {
+        emailRedirectTo: `${getConfig().app.url}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      throw new AuthenticationError(sanitizeErrorMessage(error));
+    }
   }
 }
 

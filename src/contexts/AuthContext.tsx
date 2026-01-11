@@ -3,6 +3,7 @@
  * Provides authentication state and methods throughout the app
  */
 
+/* eslint-disable react-refresh/only-export-components */
 import React, {
   createContext,
   ReactNode,
@@ -12,7 +13,6 @@ import React, {
 } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import {
-  AuthService,
   authService,
   AuthSession,
   LoginCredentials,
@@ -22,7 +22,7 @@ import { createLogger } from "../lib/logger";
 import { computePermissions, UserClaims } from "../types/security";
 import { analyticsClient } from "../lib/analyticsClient";
 import { secureTokenManager } from "../lib/auth/SecureTokenManager";
-import { env, getSupabaseConfig } from "../lib/env";
+import { getSupabaseConfig } from "../lib/env";
 
 const logger = createLogger({ component: "AuthContext" });
 
@@ -35,10 +35,11 @@ interface AuthContextType {
   loading: boolean;
   isAuthenticated: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
-  signup: (data: SignupData) => Promise<void>;
+  signup: (data: SignupData) => Promise<AuthSession>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
+  resendVerificationEmail: (email: string) => Promise<void>;
   signInWithProvider: (
     provider: "google" | "apple" | "github"
   ) => Promise<void>;
@@ -219,17 +220,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signup = async (data: SignupData) => {
     try {
       const authSession: AuthSession = await authService.signup(data);
-      setUser(authSession.user);
-      setSession(authSession.session);
-      logger.info("User signed up", { email: data.email });
-      analyticsClient.identify(authSession.user.id, {
-        email: authSession.user.email,
-        created_at: authSession.user.created_at,
-      });
-      analyticsClient.track("user_created", {
-        workflow: "activation",
-        created_at: authSession.user.created_at,
-      });
+      if (authSession.session) {
+        setUser(authSession.user);
+        setSession(authSession.session);
+        logger.info("User signed up", { email: data.email });
+        analyticsClient.identify(authSession.user.id, {
+          email: authSession.user.email,
+          created_at: authSession.user.created_at,
+        });
+        analyticsClient.track("user_created", {
+          workflow: "activation",
+          created_at: authSession.user.created_at,
+        });
+      } else {
+        setUser(null);
+        setSession(null);
+        logger.info("Signup pending email verification", { email: data.email });
+        analyticsClient.track("user_signup_pending_verification", {
+          workflow: "activation",
+          email: data.email,
+        });
+      }
+      return authSession;
     } catch (error) {
       logger.error("Signup failed", error as Error);
       throw error;
@@ -268,6 +280,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const resendVerificationEmail = async (email: string) => {
+    try {
+      await authService.resendVerificationEmail(email);
+      logger.info("Verification email resent", { email });
+    } catch (error) {
+      logger.error("Resend verification failed", error as Error);
+      throw error;
+    }
+  };
+
   const signInWithProvider = async (
     provider: "google" | "apple" | "github"
   ) => {
@@ -296,6 +318,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
     resetPassword,
     updatePassword,
+    resendVerificationEmail,
     signInWithProvider,
   };
 
