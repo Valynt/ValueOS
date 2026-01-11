@@ -19,7 +19,6 @@ interface UserNotificationsProps {
 }
 
 export const UserNotifications: React.FC<UserNotificationsProps> = ({ userId }) => {
-  // FIX: Memoize context to prevent infinite re-renders
   const context = useMemo(() => ({ userId }), [userId]);
   const { values, loading, updateSetting } = useSettingsGroup(
     [
