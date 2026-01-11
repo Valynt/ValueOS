@@ -21,6 +21,8 @@ npm run setup    # Runs scripts/dx/setup.js
 npm run dx
 ```
 
+> **Supported entrypoints:** Use `npm run dx` (local app + Docker deps) or `npm run dx:docker` (full Docker stack). Other entrypoints are unsupported.
+
 Open [http://localhost:5173](http://localhost:5173) (or the port in `config/ports.json` / `.env.ports`) - you're ready to code! 🎉
 
 **First time here?** See [docs/getting-started/GETTING_STARTED.md](docs/getting-started/GETTING_STARTED.md)
@@ -59,6 +61,8 @@ npm run dx
 
 This starts the local app + Docker dependencies with hot reload on [http://localhost:5173](http://localhost:5173) (or the port in `config/ports.json` / `.env.ports`).
 
+> **Only supported entrypoints:** `npm run dx` and `npm run dx:docker`.
+
 For a full Docker stack (frontend + backend + deps), run:
 
 ```bash
@@ -73,7 +77,7 @@ npm run dx:doctor
 
 ### Edge Proxy (Caddy)
 
-Run the full stack through the Caddy edge layer (HTTPS, SPA routing, API proxy):
+Run the full stack through the Caddy edge layer (HTTPS, SPA routing, API proxy). This is an advanced flow and **not** a supported entrypoint; the supported entrypoints are `npm run dx` and `npm run dx:docker`:
 
 ```bash
 cp .env.dev.example .env.dev

@@ -1,3 +1,4 @@
+# Full-stack alias of docker-compose.full.yml
 services:
   # PostgreSQL database for Supabase
   postgres:
