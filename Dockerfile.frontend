@@ -38,7 +38,7 @@ RUN apt-get update && apt-get install -y curl && \
     apt-get remove -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
 # Create nginx user and directories
-RUN useradd -r -s /bin/false nginx && \
+RUN id -u nginx >/dev/null 2>&1 || useradd -r -s /bin/false nginx && \
     chown -R nginx:nginx /var/cache/nginx /var/log/nginx /etc/nginx/conf.d
 
 # Copy built assets from builder
