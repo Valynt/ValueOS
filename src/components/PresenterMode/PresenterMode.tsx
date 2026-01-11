@@ -120,7 +120,21 @@ export function PresenterMode({
   }, []);
 
   const slide = slides[currentSlide];
-  const progress = ((currentSlide + 1) / slides.length) * 100;
+  const progress = slides.length > 0 ? ((currentSlide + 1) / slides.length) * 100 : 0;
+
+  if (!slide) {
+    return (
+      <div
+        className={cn(
+          "fixed inset-0 z-50 bg-gray-950 text-white",
+          "flex items-center justify-center",
+          className
+        )}
+      >
+        <p className="text-white/60">No slides available</p>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("fixed inset-0 z-50 bg-gray-950 text-white", "flex flex-col", className)}>
