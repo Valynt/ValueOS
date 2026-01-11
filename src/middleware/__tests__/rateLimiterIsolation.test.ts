@@ -19,7 +19,7 @@ const mockReq = (overrides: any = {}) => {
 describe('rateLimiter tenant isolation', () => {
   // Reset rate limiter state between tests
   beforeEach(() => {
-    vi.useFakeTimers();
+    // Tests are using real timers
   });
 
   afterEach(() => {

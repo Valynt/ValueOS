@@ -193,7 +193,9 @@ export function createRateLimiter(
       return next();
     }
 
-    const key = keyGenerator(req);
+    const baseKey = keyGenerator(req);
+    // Append tier to key to prevent collisions between different tiers
+    const key = `${tier}:${baseKey}`;
     const entry = store.increment(key, config.windowMs);
 
     // Set rate limit headers
@@ -269,7 +271,11 @@ export const rateLimiters = {
  * Reset rate limit for a user (admin only)
  */
 export function resetRateLimit(userId: string): void {
-  store.reset(`user:${userId}`);
+  // Reset for all tiers
+  const tiers: RateLimitTier[] = ['strict', 'standard', 'loose'];
+  tiers.forEach(tier => {
+    store.reset(`${tier}:user:${userId}`);
+  });
   logger.info('Rate limit reset', { userId });
 }
 
@@ -281,7 +287,8 @@ export function getRateLimitStatus(userId: string): {
   limit: number;
   resetTime: Date;
 } | null {
-  const entry = store.get(`user:${userId}`);
+  // Default to standard tier status
+  const entry = store.get(`standard:user:${userId}`);
   if (!entry) return null;
 
   return {
