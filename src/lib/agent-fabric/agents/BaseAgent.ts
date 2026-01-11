@@ -2,7 +2,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { LLMGateway, LLMMessage } from '../LLMGateway';
 import { MemorySystem } from '../MemorySystem';
 import { AuditLogger } from '../AuditLogger';
-import secureLLMInvoke from '../../llm/secureLLMInvoke';
+import secureLLMInvoke from '../../llm/secureLLMWrapper';
 import { z } from 'zod';
 import { AgentConfig, ConfidenceLevel } from '../../../types/agent';
 import { getTracer } from '../../observability';

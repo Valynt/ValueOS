@@ -9,7 +9,7 @@
  * Implements adversarial validation pattern for higher accuracy.
  */
 
-import { BaseAgent } from '../BaseAgent';
+import { BaseAgent } from './BaseAgent';
 import { AgentConfig } from '../../../types/agent';
 import { ValueDriver, ValueDriverValidationResult, ConfidenceScore } from '../../../types/valueDriverTaxonomy';
 import { logger } from '../../../lib/logger';
@@ -200,7 +200,7 @@ Claim: {{description}}
 Baseline: {{baseline_value}} {{baseline_unit}}
 Target: {{target_value}} {{target_unit}}
 Delta: {{expected_delta}} {{delta_unit}}
-Financial Impact: ${{financial_impact.annual_value}}
+Financial Impact: \${{financial_impact.annual_value}}
 Confidence: {{confidence_score}}
 Evidence Count: {{evidence.length}}
 ---
@@ -340,7 +340,7 @@ DRIVERS ({{original_drivers.length}}):
 ---
 Driver {{@index}}: {{name}}
 Original Confidence: {{confidence_score}}
-Financial Impact: ${{financial_impact.annual_value}}
+Financial Impact: \${{financial_impact.annual_value}}
 ---
 {{/each}}
 
