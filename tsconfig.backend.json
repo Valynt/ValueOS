@@ -24,6 +24,8 @@
     "src/config/**/*"
   ],
   "exclude": [
+    "src/lib/settingsRegistry.patch.ts",
+    "src/lib/settingsRegistry.fixed.ts",
     "src/**/*.test.*",
     "src/**/*.spec.*",
     "src/**/*.stories.*",

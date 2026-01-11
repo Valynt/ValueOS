@@ -16,7 +16,7 @@ export interface ValuePrediction {
   confidence: number;
   sessionId: string;
   agentId: string;
-  metadata?: Record\u003cstring, any\u003e;
+  metadata?: Record<string, any>;
 }
 
 export interface ActualOutcome {
@@ -50,7 +50,7 @@ export class ValuePredictionTracker {
   /**
    * Record a value prediction
    */
-  async recordPrediction(prediction: ValuePrediction): Promise\u003cstring\u003e {
+  async recordPrediction(prediction: ValuePrediction): Promise<string> {
     try {
       const { data, error } = await this.supabase
         .from('agent_predictions')
@@ -98,7 +98,7 @@ export class ValuePredictionTracker {
   /**
    * Record actual outcome for a prediction
    */
-  async recordActualOutcome(outcome: ActualOutcome): Promise\u003cvoid\u003e {
+  async recordActualOutcome(outcome: ActualOutcome): Promise<void> {
     try {
       // Get the original prediction
       const { data: prediction, error: predError } = await this.supabase
@@ -156,7 +156,7 @@ export class ValuePredictionTracker {
   /**
    * Get prediction accuracy for a specific prediction
    */
-  async getPredictionAccuracy(predictionId: string): Promise\u003cPredictionAccuracy | null\u003e {
+  async getPredictionAccuracy(predictionId: string): Promise<PredictionAccuracy | null> {
     try {
       const { data, error } = await this.supabase
         .from('value_prediction_accuracy')
@@ -198,14 +198,14 @@ export class ValuePredictionTracker {
   async getAccuracyStatistics(
     predictionType: string,
     period: 'week' | 'month' | 'quarter' | 'year' = 'month'
-  ): Promise\u003c{
+  ): Promise<{
     totalPredictions: number;
     predictionsWithActuals: number;
     avgErrorPercent: number;
     medianErrorPercent: number;
     accuracy: number;
     trend: 'improving' | 'stable' | 'declining';
-  }\u003e {
+  }> {
     const periodDays = {
       week: 7,
       month: 30,
@@ -241,21 +241,23 @@ export class ValuePredictionTracker {
       }
 
       // Calculate statistics
-      const errors = accuracyData.map(d =\u003e d.error_percent).sort((a, b) =\u003e a - b);
-      const avgErrorPercent = errors.reduce((sum, e) =\u003e sum + e, 0) / errors.length;
-      const medianErrorPercent = errors[Math.floor(errors.length / 2)];
+      const rows = (accuracyData ?? []) as Array<{ error_percent: number; created_at: string }>;
+      const errors = rows.map((d) => d.error_percent).sort((a: number, b: number) => a - b);
+      const avgErrorPercent = errors.reduce((sum: number, e: number) => sum + e, 0) / errors.length;
+      const medianErrorPercent = errors[Math.floor(errors.length / 2)] ?? 0;
       const accuracy = 1 - (avgErrorPercent / 100);
 
       // Calculate trend (compare first half vs second half)
       const midpoint = Math.floor(errors.length / 2);
-      const firstHalfAvg = errors.slice(0, midpoint).reduce((sum, e) =\u003e sum + e, 0) / midpoint;
-      const secondHalfAvg = errors.slice(midpoint).reduce((sum, e) =\u003e sum + e, 0) / (errors.length - midpoint);
+      const firstHalfAvg = errors.slice(0, midpoint).reduce((sum: number, e: number) => sum + e, 0) / midpoint;
+      const secondHalfAvg =
+        errors.slice(midpoint).reduce((sum: number, e: number) => sum + e, 0) / (errors.length - midpoint);
       
       let trend: 'improving' | 'stable' | 'declining';
-      if (secondHalfAvg \u003c firstHalfAvg * 0.9) {
-        trend = 'improving'; // Error decreased by \u003e10%
-      } else if (secondHalfAvg \u003e firstHalfAvg * 1.1) {
-        trend = 'declining'; // Error increased by \u003e10%
+      if (secondHalfAvg < firstHalfAvg * 0.9) {
+        trend = 'improving'; // Error decreased by >10%
+      } else if (secondHalfAvg > firstHalfAvg * 1.1) {
+        trend = 'declining'; // Error increased by >10%
       } else {
         trend = 'stable';
       }
@@ -284,13 +286,13 @@ export class ValuePredictionTracker {
   async getPendingPredictions(
     predictionType?: string,
     olderThanDays: number = 30
-  ): Promise\u003cArray\u003c{
+  ): Promise<Array<{
     id: string;
     predictionType: string;
     predictedValue: number;
     createdAt: Date;
     daysOld: number;
-  }\u003e\u003e {
+  }>> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
 
@@ -306,14 +308,14 @@ export class ValuePredictionTracker {
         );
 
       if (predictionType) {
-        query = query.eq('prediction-\u003e\u003etype', predictionType);
+        query = query.eq('prediction->>type', predictionType);
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
 
-      return (data || []).map(p =\u003e {
+      return (data || []).map((p: any) => {
         const createdAt = new Date(p.created_at);
         const daysOld = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
         
@@ -341,14 +343,14 @@ export class ValuePredictionTracker {
   async getAccuracyTrend(
     predictionType: string,
     days: number = 30
-  ): Promise\u003cArray\u003c{
+  ): Promise<Array<{
     date: string;
     avgErrorPercent: number;
     predictionCount: number;
-  }\u003e\u003e {
-    const trend: Array\u003c{ date: string; avgErrorPercent: number; predictionCount: number }\u003e = [];
+  }>> {
+    const trend: Array<{ date: string; avgErrorPercent: number; predictionCount: number }> = [];
 
-    for (let i = days - 1; i \u003e= 0; i--) {
+    for (let i = days - 1; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
       date.setHours(0, 0, 0, 0);
@@ -364,12 +366,12 @@ export class ValuePredictionTracker {
         .lt('created_at', nextDate.toISOString());
 
       const count = data?.length || 0;
-      const avgErrorPercent = count \u003e 0
-        ? data.reduce((sum, d) =\u003e sum + d.error_percent, 0) / count
+      const avgErrorPercent = count > 0
+        ? (data as Array<{ error_percent: number }>).reduce((sum: number, d) => sum + d.error_percent, 0) / count
         : 0;
 
       trend.push({
-        date: date.toISOString().split('T')[0],
+        date: date.toISOString().substring(0, 10),
         avgErrorPercent,
         predictionCount: count
       });

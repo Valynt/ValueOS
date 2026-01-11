@@ -7,33 +7,62 @@
 import { AlertRule } from '../services/AlertingService';
 
 /**
+ * Alert thresholds configuration type
+ */
+export type AlertThresholds = {
+  // Agent Performance
+  readonly AGENT_ERROR_RATE_WARNING: number;
+  readonly AGENT_ERROR_RATE_CRITICAL: number;
+  readonly HALLUCINATION_RATE_WARNING: number;
+  readonly HALLUCINATION_RATE_CRITICAL: number;
+  readonly LOW_CONFIDENCE_RATE_WARNING: number;
+   
+  // Response Times (milliseconds)
+  readonly P95_RESPONSE_TIME_WARNING: number;
+  readonly P99_RESPONSE_TIME_CRITICAL: number;
+   
+  // LLM Costs (USD per hour)
+  readonly LLM_HOURLY_COST_WARNING: number;
+  readonly LLM_HOURLY_COST_CRITICAL: number;
+   
+  // Cache Performance
+  readonly CACHE_HIT_RATE_WARNING: number;
+   
+  // Confidence Scores
+  readonly MIN_CONFIDENCE_SCORE: number;
+   
+  // Prediction Accuracy
+  readonly MIN_PREDICTION_ACCURACY: number;
+};
+
+/**
  * Alert thresholds configuration
  */
-export const ALERT_THRESHOLDS = {
+export const ALERT_THRESHOLDS: AlertThresholds = {
   // Agent Performance
   AGENT_ERROR_RATE_WARNING: 0.05,      // 5%
   AGENT_ERROR_RATE_CRITICAL: 0.10,     // 10%
   HALLUCINATION_RATE_WARNING: 0.15,    // 15%
   HALLUCINATION_RATE_CRITICAL: 0.25,   // 25%
   LOW_CONFIDENCE_RATE_WARNING: 0.30,   // 30%
-  
+   
   // Response Times (milliseconds)
   P95_RESPONSE_TIME_WARNING: 5000,     // 5 seconds
   P99_RESPONSE_TIME_CRITICAL: 10000,   // 10 seconds
-  
+   
   // LLM Costs (USD per hour)
   LLM_HOURLY_COST_WARNING: 10,         // $10/hour
   LLM_HOURLY_COST_CRITICAL: 50,        // $50/hour
-  
+   
   // Cache Performance
   CACHE_HIT_RATE_WARNING: 0.50,        // 50%
-  
+   
   // Confidence Scores
   MIN_CONFIDENCE_SCORE: 0.60,          // 60%
-  
+   
   // Prediction Accuracy
   MIN_PREDICTION_ACCURACY: 0.70,       // 70%
-} as const;
+};
 
 /**
  * Alert check intervals (minutes)
@@ -216,7 +245,7 @@ export const ALERT_RULES: AlertRule[] = [
  */
 export function getAlertRulesBySeverity(severity: 'info' | 'warning' | 'critical'): AlertRule[] {
   return ALERT_RULES.filter(rule =>
-    rule.thresholds.some(t =\u003e t.severity === severity)
+    rule.thresholds.some(t => t.severity === severity)
   );
 }
 
@@ -224,14 +253,14 @@ export function getAlertRulesBySeverity(severity: 'info' | 'warning' | 'critical
  * Get enabled alert rules
  */
 export function getEnabledAlertRules(): AlertRule[] {
-  return ALERT_RULES.filter(rule =\u003e rule.enabled);
+  return ALERT_RULES.filter(rule => rule.enabled);
 }
 
 /**
  * Get alert rule by ID
  */
 export function getAlertRuleById(id: string): AlertRule | undefined {
-  return ALERT_RULES.find(rule =\u003e rule.id === id);
+  return ALERT_RULES.find(rule => rule.id === id);
 }
 
 /**
@@ -244,16 +273,16 @@ export function validateAlertConfig(): {
   const errors: string[] = [];
   
   // Check for duplicate IDs
-  const ids = ALERT_RULES.map(r =\u003e r.id);
-  const duplicates = ids.filter((id, index) =\u003e ids.indexOf(id) !== index);
-  if (duplicates.length \u003e 0) {
+  const ids = ALERT_RULES.map(r => r.id);
+  const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
+  if (duplicates.length > 0) {
     errors.push(`Duplicate alert rule IDs: ${duplicates.join(', ')}`);
   }
   
   // Check threshold values
   for (const rule of ALERT_RULES) {
     for (const threshold of rule.thresholds) {
-      if (threshold.threshold \u003c 0) {
+      if (threshold.threshold < 0) {
         errors.push(`Invalid threshold value for ${rule.id}: ${threshold.threshold}`);
       }
     }
@@ -261,7 +290,7 @@ export function validateAlertConfig(): {
   
   // Check check intervals
   for (const rule of ALERT_RULES) {
-    if (rule.checkIntervalMinutes \u003c 1) {
+    if (rule.checkIntervalMinutes < 1) {
       errors.push(`Invalid check interval for ${rule.id}: ${rule.checkIntervalMinutes}`);
     }
   }
@@ -275,7 +304,7 @@ export function validateAlertConfig(): {
 /**
  * Environment-specific overrides
  */
-export function getAlertConfigForEnvironment(env: 'development' | 'staging' | 'production'): typeof ALERT_THRESHOLDS {
+export function getAlertConfigForEnvironment(env: 'development' | 'staging' | 'production'): AlertThresholds {
   switch (env) {
     case 'development':
       return {
