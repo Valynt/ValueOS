@@ -6,6 +6,7 @@
  */
 
 import { logger } from '../lib/logger';
+import { isBrowser } from '../lib/env';
 
 // MCP Server type (dynamic import to avoid circular deps)
 interface MCPServer {
@@ -53,6 +54,7 @@ class MCPGroundTruthService {
   private server: MCPServer | null = null;
   private initialized = false;
   private initPromise: Promise<void> | null = null;
+  private readonly apiBasePath = '/api/groundtruth';
 
   /**
    * Initialize the MCP server (lazy, on first use)
@@ -60,6 +62,11 @@ class MCPGroundTruthService {
   async initialize(): Promise<void> {
     if (this.initialized) return;
     if (this.initPromise) return this.initPromise;
+
+    if (isBrowser()) {
+      this.initialized = true;
+      return;
+    }
 
     this.initPromise = this.doInitialize();
     return this.initPromise;
@@ -83,7 +90,7 @@ class MCPGroundTruthService {
    * Check if service is available
    */
   isAvailable(): boolean {
-    return this.server !== null;
+    return isBrowser() || this.server !== null;
   }
 
   /**
@@ -100,11 +107,59 @@ class MCPGroundTruthService {
     }
   }
 
+  private async callGroundtruthApi<T>(
+    path: string,
+    payload: Record<string, unknown>
+  ): Promise<T | null> {
+    try {
+      const response = await fetch(`${this.apiBasePath}/${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        logger.warn('Groundtruth API request failed', {
+          path,
+          status: response.status,
+          body: errorBody,
+        });
+        return null;
+      }
+
+      const data = await response.json();
+      if (!data?.success) {
+        logger.warn('Groundtruth API responded with an error', {
+          path,
+          error: data?.error || data?.message,
+        });
+        return null;
+      }
+
+      return data.data as T;
+    } catch (error) {
+      logger.error('Groundtruth API request failed', error instanceof Error ? error : undefined, {
+        path,
+      });
+      return null;
+    }
+  }
+
   /**
    * Get authoritative financial data for an entity
    */
   async getFinancialData(request: FinancialDataRequest): Promise<FinancialDataResult | null> {
     await this.initialize();
+
+    if (isBrowser()) {
+      return this.callGroundtruthApi<FinancialDataResult>('financials', {
+        entityId: request.entityId,
+        metrics: request.metrics,
+        period: request.period,
+        includeIndustryBenchmarks: request.includeIndustryBenchmarks,
+      });
+    }
 
     if (!this.server) {
       logger.warn('MCP server not available, returning null');
@@ -149,6 +204,23 @@ class MCPGroundTruthService {
   }> {
     await this.initialize();
 
+    if (isBrowser()) {
+      const response = await this.callGroundtruthApi<{
+        verified: boolean;
+        actualValue?: number;
+        deviation?: number;
+        source?: string;
+        confidence: number;
+      }>('verify', {
+        entityId: claim.entityId,
+        metric: claim.metric,
+        value: claim.value,
+        period: claim.period,
+      });
+
+      return response ?? { verified: false, confidence: 0 };
+    }
+
     if (!this.server) {
       return { verified: false, confidence: 0 };
     }
@@ -188,6 +260,18 @@ class MCPGroundTruthService {
     sampleSize: number;
   }> | null> {
     await this.initialize();
+
+    if (isBrowser()) {
+      return this.callGroundtruthApi<Record<string, {
+        median: number;
+        p25: number;
+        p75: number;
+        sampleSize: number;
+      }>>('benchmarks', {
+        industryCode,
+        metrics,
+      });
+    }
 
     if (!this.server) {
       return null;
