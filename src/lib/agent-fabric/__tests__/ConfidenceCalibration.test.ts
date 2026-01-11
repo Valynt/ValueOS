@@ -10,6 +10,7 @@ import { ConfidenceCalibrationService } from '../ConfidenceCalibration';
 describe('ConfidenceCalibrationService', () => {
   let mockSupabase: any;
   let calibrationService: ConfidenceCalibrationService;
+  const tenantId = 'tenant-123';
 
   beforeEach(() => {
     // Mock Supabase client
@@ -49,7 +50,7 @@ describe('ConfidenceCalibrationService', () => {
         error: null
       });
 
-      const result = await calibrationService.calibrate('test-agent', 0.8);
+      const result = await calibrationService.calibrate(tenantId, 'test-agent', 0.8);
 
       expect(result.rawConfidence).toBe(0.8);
       expect(result.calibratedConfidence).toBeGreaterThan(0);
@@ -74,7 +75,7 @@ describe('ConfidenceCalibrationService', () => {
         error: null
       });
 
-      const result = await calibrationService.calibrate('test-agent', 0.6);
+      const result = await calibrationService.calibrate(tenantId, 'test-agent', 0.6);
 
       expect(result.shouldTriggerFallback).toBe(true);
     });
@@ -95,18 +96,18 @@ describe('ConfidenceCalibrationService', () => {
         error: null
       });
 
-      const result = await calibrationService.calibrate('test-agent', 0.8);
+      const result = await calibrationService.calibrate(tenantId, 'test-agent', 0.8);
 
       expect(result.shouldTriggerRetraining).toBe(true);
     });
 
     it('should throw error for invalid raw confidence', async () => {
       await expect(
-        calibrationService.calibrate('test-agent', 1.5)
+        calibrationService.calibrate(tenantId, 'test-agent', 1.5)
       ).rejects.toThrow('Invalid raw confidence');
 
       await expect(
-        calibrationService.calibrate('test-agent', -0.1)
+        calibrationService.calibrate(tenantId, 'test-agent', -0.1)
       ).rejects.toThrow('Invalid raw confidence');
     });
 
@@ -123,7 +124,7 @@ describe('ConfidenceCalibrationService', () => {
         error: null
       }));
 
-      const result = await calibrationService.calibrate('new-agent', 0.8);
+      const result = await calibrationService.calibrate(tenantId, 'new-agent', 0.8);
 
       expect(result.calibratedConfidence).toBeDefined();
       expect(result.calibrationModel.sampleSize).toBe(0);
@@ -175,7 +176,7 @@ describe('ConfidenceCalibrationService', () => {
          error: null
        }));
 
-       const result = await calibrationService.calibrate('test-agent', 0.8);
+       const result = await calibrationService.calibrate(tenantId, 'test-agent', 0.8);
 
        expect(result.calibrationModel).toBeDefined();
        expect(result.calibrationModel.sampleSize).toBe(60);
@@ -183,8 +184,9 @@ describe('ConfidenceCalibrationService', () => {
        expect(result.calibrationModel.parameterA).toBeGreaterThan(0.5);
        // Should trigger database insert
        expect(mockSupabase.insert).toHaveBeenCalledWith(expect.objectContaining({
-          agent_id: 'test-agent',
-          sample_size: 60
+         tenant_id: tenantId,
+         agent_id: 'test-agent',
+         sample_size: 60
        }));
     });
   });
@@ -206,7 +208,7 @@ describe('ConfidenceCalibrationService', () => {
         error: null
       });
 
-      const result = await calibrationService.calibrate('test-agent', 0.5);
+      const result = await calibrationService.calibrate(tenantId, 'test-agent', 0.5);
 
       // With A=1, B=0: C_cal = 1 / (1 + exp(-0.5)) ≈ 0.622
       expect(result.calibratedConfidence).toBeCloseTo(0.622, 2);
@@ -228,7 +230,7 @@ describe('ConfidenceCalibrationService', () => {
         error: null
       });
 
-      const result = await calibrationService.calibrate('test-agent', 0.5);
+      const result = await calibrationService.calibrate(tenantId, 'test-agent', 0.5);
 
       // With A=2, B=0: C_cal = 1 / (1 + exp(-1.0)) ≈ 0.731
       expect(result.calibratedConfidence).toBeGreaterThan(0.7);
@@ -250,7 +252,7 @@ describe('ConfidenceCalibrationService', () => {
         error: null
       });
 
-      const result = await calibrationService.calibrate('test-agent', 0.8);
+      const result = await calibrationService.calibrate(tenantId, 'test-agent', 0.8);
 
       // With A=-2, B=0: C_cal = 1 / (1 + exp(1.6)) ≈ 0.168
       expect(result.calibratedConfidence).toBeLessThan(0.3);
@@ -272,7 +274,7 @@ describe('ConfidenceCalibrationService', () => {
         error: null
       });
 
-      const result = await calibrationService.calibrate('test-agent', 0.9);
+      const result = await calibrationService.calibrate(tenantId, 'test-agent', 0.9);
 
       expect(result.calibratedConfidence).toBeGreaterThanOrEqual(0);
       expect(result.calibratedConfidence).toBeLessThanOrEqual(1);
@@ -284,11 +286,12 @@ describe('ConfidenceCalibrationService', () => {
       // Mock insert via then
       mockSupabase.then.mockImplementationOnce((resolve) => resolve({ data: {}, error: null }));
 
-      await calibrationService.triggerRetraining('test-agent', 'High calibration error');
+      await calibrationService.triggerRetraining(tenantId, 'test-agent', 'High calibration error');
 
       expect(mockSupabase.from).toHaveBeenCalledWith('agent_retraining_queue');
       expect(mockSupabase.insert).toHaveBeenCalledWith(
         expect.objectContaining({
+          tenant_id: tenantId,
           agent_id: 'test-agent',
           reason: 'High calibration error',
           priority: 'high',
@@ -327,7 +330,7 @@ describe('ConfidenceCalibrationService', () => {
         error: null
       }));
 
-      const stats = await calibrationService.getCalibrationStats('test-agent');
+      const stats = await calibrationService.getCalibrationStats(tenantId, 'test-agent');
 
       expect(stats.model).toBeDefined();
       expect(stats.recentAccuracy).toBeCloseTo(0.75, 2);  // 3/4 correct
@@ -357,7 +360,7 @@ describe('ConfidenceCalibrationService', () => {
         error: null
       }));
 
-      const stats = await calibrationService.getCalibrationStats('test-agent');
+      const stats = await calibrationService.getCalibrationStats(tenantId, 'test-agent');
 
       expect(stats.needsRecalibration).toBe(true);
     });
@@ -387,7 +390,7 @@ describe('ConfidenceCalibrationService', () => {
         error: null
       }));
 
-      const stats = await calibrationService.getCalibrationStats('test-agent');
+      const stats = await calibrationService.getCalibrationStats(tenantId, 'test-agent');
 
       expect(stats.needsRecalibration).toBe(true);
     });
@@ -411,14 +414,14 @@ describe('ConfidenceCalibrationService', () => {
       });
 
       // First call - should fetch from database
-      await calibrationService.calibrate('test-agent', 0.8);
+      await calibrationService.calibrate(tenantId, 'test-agent', 0.8);
       expect(mockSupabase.from).toHaveBeenCalled();
 
       // Reset mock
       mockSupabase.from.mockClear();
 
       // Second call - should use cache
-      await calibrationService.calibrate('test-agent', 0.8);
+      await calibrationService.calibrate(tenantId, 'test-agent', 0.8);
       expect(mockSupabase.from).not.toHaveBeenCalled();
     });
 
@@ -439,14 +442,14 @@ describe('ConfidenceCalibrationService', () => {
       });
 
       // First call
-      await calibrationService.calibrate('test-agent', 0.8);
+      await calibrationService.calibrate(tenantId, 'test-agent', 0.8);
       mockSupabase.from.mockClear();
 
       // Clear cache
       calibrationService.clearCache();
 
       // Second call - should fetch from database again
-      await calibrationService.calibrate('test-agent', 0.8);
+      await calibrationService.calibrate(tenantId, 'test-agent', 0.8);
       expect(mockSupabase.from).toHaveBeenCalled();
     });
   });
@@ -465,7 +468,7 @@ describe('ConfidenceCalibrationService', () => {
       }));
 
       // Should fall back to default model
-      const result = await calibrationService.calibrate('test-agent', 0.8);
+      const result = await calibrationService.calibrate(tenantId, 'test-agent', 0.8);
 
       expect(result.calibratedConfidence).toBeDefined();
       expect(result.calibrationModel.sampleSize).toBe(0);
@@ -487,7 +490,7 @@ describe('ConfidenceCalibrationService', () => {
         error: null
       });
 
-      const result = await calibrationService.calibrate('test-agent', 0.0);
+      const result = await calibrationService.calibrate(tenantId, 'test-agent', 0.0);
 
       expect(result.calibratedConfidence).toBeGreaterThanOrEqual(0);
       expect(result.calibratedConfidence).toBeLessThanOrEqual(1);
@@ -509,7 +512,7 @@ describe('ConfidenceCalibrationService', () => {
         error: null
       });
 
-      const result = await calibrationService.calibrate('test-agent', 1.0);
+      const result = await calibrationService.calibrate(tenantId, 'test-agent', 1.0);
 
       expect(result.calibratedConfidence).toBeGreaterThanOrEqual(0);
       expect(result.calibratedConfidence).toBeLessThanOrEqual(1);

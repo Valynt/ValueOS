@@ -24,6 +24,7 @@ import { logger } from '../logger';
  * C_cal = 1 / (1 + exp(A * C_raw + B))
  */
 export interface CalibrationModel {
+  tenantId: string;
   agentId: string;
   agentType: string;
   /** Platt scaling parameter A */
@@ -84,12 +85,14 @@ export class ConfidenceCalibrationService {
   /**
    * Calibrate a raw confidence score using historical performance
    * 
+   * @param tenantId - Tenant identifier
    * @param agentId - Agent identifier
    * @param rawConfidence - Raw confidence score from LLM (0-1)
    * @param minThreshold - Minimum acceptable confidence (default: 0.7)
    * @returns Calibrated confidence and decision flags
    */
   async calibrate(
+    tenantId: string,
     agentId: string,
     rawConfidence: number,
     _minThreshold: number = 0.7
@@ -100,7 +103,7 @@ export class ConfidenceCalibrationService {
     }
 
     // Get or compute calibration model
-    const model = await this.getCalibrationModel(agentId);
+    const model = await this.getCalibrationModel(tenantId, agentId);
 
     // Apply Platt scaling transformation
     const calibratedConfidence = this.applyPlattScaling(
@@ -117,6 +120,7 @@ export class ConfidenceCalibrationService {
 
     // Log calibration
     logger.info('Confidence calibrated', {
+      tenantId,
       agentId,
       rawConfidence,
       calibratedConfidence,
@@ -137,9 +141,10 @@ export class ConfidenceCalibrationService {
   /**
    * Get calibration model for an agent (cached or computed)
    */
-  private async getCalibrationModel(agentId: string): Promise<CalibrationModel> {
+  private async getCalibrationModel(tenantId: string, agentId: string): Promise<CalibrationModel> {
+    const cacheKey = this.getCacheKey(tenantId, agentId);
     // Check cache
-    const cached = this.calibrationCache.get(agentId);
+    const cached = this.calibrationCache.get(cacheKey);
     if (cached && Date.now() - cached.lastCalibrated.getTime() < this.cacheExpiry) {
       return cached;
     }
@@ -148,6 +153,7 @@ export class ConfidenceCalibrationService {
     const { data: storedModel, error: fetchError } = await this.supabase
       .from('agent_calibration_models')
       .select('*')
+      .eq('tenant_id', tenantId)
       .eq('agent_id', agentId)
       .order('last_calibrated', { ascending: false })
       .limit(1)
@@ -155,6 +161,7 @@ export class ConfidenceCalibrationService {
 
     if (storedModel && !fetchError) {
       const model: CalibrationModel = {
+        tenantId: storedModel.tenant_id || tenantId,
         agentId: storedModel.agent_id,
         agentType: storedModel.agent_type,
         parameterA: storedModel.parameter_a,
@@ -166,13 +173,13 @@ export class ConfidenceCalibrationService {
         retrainingThreshold: storedModel.retraining_threshold || 0.15
       };
 
-      this.calibrationCache.set(agentId, model);
+      this.calibrationCache.set(cacheKey, model);
       return model;
     }
 
     // No stored model - compute new calibration
-    logger.info('No calibration model found, computing new model', { agentId });
-    return await this.computeCalibrationModel(agentId);
+    logger.info('No calibration model found, computing new model', { tenantId, agentId });
+    return await this.computeCalibrationModel(tenantId, agentId);
   }
 
   /**
@@ -180,11 +187,12 @@ export class ConfidenceCalibrationService {
    * 
    * Uses Platt scaling to fit parameters A and B that minimize calibration error
    */
-  private async computeCalibrationModel(agentId: string): Promise<CalibrationModel> {
+  private async computeCalibrationModel(tenantId: string, agentId: string): Promise<CalibrationModel> {
     // Fetch historical predictions with outcomes
     const { data: predictions, error: _error } = await this.supabase
       .from('agent_predictions')
       .select('id, agent_id, confidence_score, actual_outcome, variance_percentage, created_at')
+      .eq('tenant_id', tenantId)
       .eq('agent_id', agentId)
       .not('actual_outcome', 'is', null)
       .order('created_at', { ascending: false })
@@ -192,11 +200,12 @@ export class ConfidenceCalibrationService {
 
     if (_error || !predictions || predictions.length < 50) {
       logger.warn('Insufficient historical data for calibration, using default model', {
+        tenantId,
         agentId,
         sampleSize: predictions?.length || 0,
         minimumRequired: 50
       });
-      return this.getDefaultCalibrationModel(agentId);
+      return this.getDefaultCalibrationModel(tenantId, agentId);
     }
 
     // Convert to HistoricalPrediction format
@@ -216,10 +225,12 @@ export class ConfidenceCalibrationService {
     const { data: agentData, error: _agentError } = await this.supabase
       .from('agents')
       .select('type')
+      .eq('tenant_id', tenantId)
       .eq('id', agentId)
       .single();
 
     const model: CalibrationModel = {
+      tenantId,
       agentId,
       agentType: agentData?.type || 'unknown',
       parameterA,
@@ -235,6 +246,7 @@ export class ConfidenceCalibrationService {
     await this.supabase
       .from('agent_calibration_models')
       .insert({
+        tenant_id: model.tenantId,
         agent_id: model.agentId,
         agent_type: model.agentType,
         parameter_a: model.parameterA,
@@ -247,9 +259,10 @@ export class ConfidenceCalibrationService {
       });
 
     // Cache the model
-    this.calibrationCache.set(agentId, model);
+    this.calibrationCache.set(this.getCacheKey(tenantId, agentId), model);
 
     logger.info('Calibration model computed', {
+      tenantId,
       agentId,
       sampleSize: model.sampleSize,
       calibrationError: model.calibrationError,
@@ -343,8 +356,9 @@ export class ConfidenceCalibrationService {
   /**
    * Get default calibration model when insufficient data
    */
-  private getDefaultCalibrationModel(agentId: string): CalibrationModel {
+  private getDefaultCalibrationModel(tenantId: string, agentId: string): CalibrationModel {
     return {
+      tenantId,
       agentId,
       agentType: 'unknown',
       parameterA: 1.0,  // Identity transformation initially
@@ -360,12 +374,13 @@ export class ConfidenceCalibrationService {
   /**
    * Trigger retraining for an agent when calibration error is high
    */
-  async triggerRetraining(agentId: string, reason: string): Promise<void> {
-    logger.warn('Triggering agent retraining', { agentId, reason });
+  async triggerRetraining(tenantId: string, agentId: string, reason: string): Promise<void> {
+    logger.warn('Triggering agent retraining', { tenantId, agentId, reason });
 
     await this.supabase
       .from('agent_retraining_queue')
       .insert({
+        tenant_id: tenantId,
         agent_id: agentId,
         reason,
         priority: 'high',
@@ -385,18 +400,19 @@ export class ConfidenceCalibrationService {
   /**
    * Get calibration statistics for monitoring
    */
-  async getCalibrationStats(agentId: string): Promise<{
+  async getCalibrationStats(tenantId: string, agentId: string): Promise<{
     model: CalibrationModel | null;
     recentAccuracy: number;
     predictionCount: number;
     needsRecalibration: boolean;
   }> {
-    const model = await this.getCalibrationModel(agentId);
+    const model = await this.getCalibrationModel(tenantId, agentId);
 
     // Get recent accuracy
     const { data: recentPredictions } = await this.supabase
       .from('agent_predictions')
       .select('variance_percentage')
+      .eq('tenant_id', tenantId)
       .eq('agent_id', agentId)
       .not('actual_outcome', 'is', null)
       .order('created_at', { ascending: false })
@@ -420,6 +436,10 @@ export class ConfidenceCalibrationService {
       needsRecalibration
     };
   }
+
+  private getCacheKey(tenantId: string, agentId: string): string {
+    return `${tenantId}:${agentId}`;
+  }
 }
 
 /**
@@ -429,6 +449,7 @@ export class ConfidenceCalibrationService {
  * 
  * CREATE TABLE IF NOT EXISTS agent_calibration_models (
  *   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+ *   tenant_id TEXT NOT NULL,
  *   agent_id TEXT NOT NULL,
  *   agent_type TEXT NOT NULL,
  *   parameter_a DECIMAL(10, 6) NOT NULL,
@@ -441,6 +462,6 @@ export class ConfidenceCalibrationService {
  *   created_at TIMESTAMPTZ DEFAULT NOW()
  * );
  * 
- * CREATE INDEX idx_agent_calibration_agent_id ON agent_calibration_models(agent_id);
+ * CREATE INDEX idx_agent_calibration_tenant_agent_id ON agent_calibration_models(tenant_id, agent_id);
  * CREATE INDEX idx_agent_calibration_last_calibrated ON agent_calibration_models(last_calibrated DESC);
  */
