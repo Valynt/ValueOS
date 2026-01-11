@@ -1059,34 +1059,16 @@ async function sendDeactivationEmail(
   }
 
   // 2. Get owner email
-  // Query user_tenants for 'owner' role, then join with users
-  // Note: Since Supabase joining can be complex depending on setup, we'll do it in two steps or use a join if relations exist
-  const { data: ownerMembership, error: memberError } = await supabase
-    .from('user_tenants')
-    .select('user_id')
-    .eq('tenant_id', organizationId)
-    .eq('role', 'owner')
-    .single();
+  const owner = await getTenantOwner(organizationId);
 
-  if (memberError || !ownerMembership) {
-    logger.warn(`Failed to fetch owner for deactivation email: ${memberError?.message || 'No owner found'}`);
-    return;
-  }
-
-  const { data: user, error: userError } = await supabase
-    .from('users')
-    .select('email')
-    .eq('id', ownerMembership.user_id)
-    .single();
-
-  if (userError || !user || !user.email) {
-    logger.warn(`Failed to fetch user email: ${userError?.message || 'User/Email not found'}`);
+  if (!owner) {
+    logger.warn(`Failed to fetch owner email for deactivation notification. Organization: ${organizationId}`);
     return;
   }
 
   // 3. Send email
   await emailService.send({
-    to: user.email,
+    to: owner.email,
     subject: `Account Deactivation - ${organization.name}`,
     template: 'deactivation',
     data: {
@@ -1095,7 +1077,57 @@ async function sendDeactivationEmail(
     },
   });
 
-  logger.debug(`Deactivation email sent for ${organizationId} to ${user.email}`);
+  logger.debug(`Deactivation email sent for ${organizationId} to ${owner.email}`);
+}
+
+/**
+ * Get the owner of a tenant.
+ *
+ * Checks user_tenants for role='owner'.
+ * If multiple owners exist, returns the first one found.
+ */
+async function getTenantOwner(tenantId: string): Promise<{ userId: string; email: string } | null> {
+  const supabase = createServerSupabaseClient();
+
+  // 1. Find owner membership
+  const { data: ownerMemberships, error: memberError } = await supabase
+    .from('user_tenants')
+    .select('user_id')
+    .eq('tenant_id', tenantId)
+    .eq('role', 'owner')
+    .limit(1);
+
+  if (memberError) {
+    logger.warn(`Error querying tenant owner: ${memberError.message}`, { tenantId });
+    return null;
+  }
+
+  if (!ownerMemberships || ownerMemberships.length === 0) {
+    return null;
+  }
+
+  const userId = ownerMemberships[0].user_id;
+
+  // 2. Get user email
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .select('email')
+    .eq('id', userId)
+    .single();
+
+  if (userError) {
+    logger.warn(`Error querying owner user details: ${userError.message}`, { userId });
+    return null;
+  }
+
+  if (!user || !user.email) {
+    return null;
+  }
+
+  return {
+    userId,
+    email: user.email,
+  };
 }
 
 /**
