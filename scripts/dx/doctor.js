@@ -260,6 +260,74 @@ function checkComposeState() {
   }
 }
 
+function checkDockerContainerHealth() {
+  if (!commandExists('docker')) {
+    return;
+  }
+
+  let containers = [];
+  try {
+    containers = runCommand('docker ps -a --format "{{.ID}}\t{{.Names}}"')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => {
+        const [id, name] = line.split('\t');
+        return { id, name };
+      });
+  } catch {
+    return;
+  }
+
+  if (containers.length === 0) {
+    return;
+  }
+
+  const unhealthy = [];
+  const restartLoops = [];
+
+  containers.forEach(({ id, name }) => {
+    try {
+      const statusLine = runCommand(
+        `docker inspect --format "{{.State.Status}}\t{{.State.RestartCount}}\t{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}" ${id}`
+      )
+        .trim()
+        .split('\t');
+
+      const [status, restartCountRaw, healthStatus] = statusLine;
+      const restartCount = Number(restartCountRaw);
+      const isRestarting = status === 'restarting';
+      if (healthStatus === 'unhealthy') {
+        unhealthy.push(name);
+      }
+      if (isRestarting || restartCount > 1) {
+        const detail = `${name} (restarts: ${Number.isNaN(restartCount) ? 'unknown' : restartCount}${isRestarting ? ', restarting' : ''})`;
+        restartLoops.push(detail);
+      }
+    } catch {
+      // Ignore containers that cannot be inspected.
+    }
+  });
+
+  if (unhealthy.length === 0 && restartLoops.length === 0) {
+    return;
+  }
+
+  const detailParts = [];
+  if (unhealthy.length > 0) {
+    detailParts.push(`Unhealthy containers: ${unhealthy.join(', ')}.`);
+  }
+  if (restartLoops.length > 0) {
+    detailParts.push(`Repeated restarts detected: ${restartLoops.join(', ')}.`);
+  }
+
+  reportFailure(
+    'Docker containers unhealthy or restarting',
+    detailParts.join(' '),
+    'Run: npm run dx:reset'
+  );
+}
+
 function checkSupabase() {
   const viteSupabaseUrl = process.env.VITE_SUPABASE_URL || '';
   const isLocalSupabase =
@@ -303,6 +371,7 @@ async function main() {
   checkDocker();
   checkEnvironment();
   checkComposeState();
+  checkDockerContainerHealth();
   checkSupabase();
   await checkPorts();
 
