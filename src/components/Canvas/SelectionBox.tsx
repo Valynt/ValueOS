@@ -1,10 +1,15 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { CanvasComponent } from '../../types';
+
+export interface ResizeResult {
+  size: { width: number; height: number };
+  position?: { x: number; y: number };
+}
 
 interface SelectionBoxProps {
   component: CanvasComponent;
   isSelected: boolean;
-  onResize?: (id: string, size: { width: number; height: number }) => void;
+  onResize?: (id: string, result: ResizeResult) => void;
 }
 
 export const SelectionBox: React.FC<SelectionBoxProps> = ({
@@ -12,11 +17,126 @@ export const SelectionBox: React.FC<SelectionBoxProps> = ({
   isSelected,
   onResize
 }) => {
+  // Use a ref to store current drag state to avoid stale closures in event listeners
+  const dragRef = useRef<{
+    startX: number;
+    startY: number;
+    startWidth: number;
+    startHeight: number;
+    startLeft: number;
+    startTop: number;
+    direction: string;
+  } | null>(null);
+
+  useEffect(() => {
+    // Cleanup listeners on unmount
+    return () => {
+      document.removeEventListener('pointermove', handlePointerMove);
+      document.removeEventListener('pointerup', handlePointerUp);
+      document.body.style.userSelect = '';
+    };
+  }, []);
+
   if (!isSelected) return null;
 
-  const handleMouseDown = (e: React.MouseEvent, direction: string) => {
+  const handlePointerDown = (e: React.PointerEvent, direction: string) => {
+    e.preventDefault();
     e.stopPropagation();
-    // TODO: Implement resize functionality
+
+    // Set dragging state
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startWidth: component.size.width,
+      startHeight: component.size.height,
+      startLeft: component.position.x,
+      startTop: component.position.y,
+      direction
+    };
+
+    // Add global listeners
+    document.addEventListener('pointermove', handlePointerMove);
+    document.addEventListener('pointerup', handlePointerUp);
+    document.body.style.userSelect = 'none';
+
+    // Capture pointer if possible for smoother dragging
+    if (e.target instanceof Element && typeof e.target.setPointerCapture === 'function') {
+      e.target.setPointerCapture(e.pointerId);
+    }
+  };
+
+  const handlePointerMove = (e: PointerEvent) => {
+    if (!dragRef.current || !onResize) return;
+
+    const {
+      startX,
+      startY,
+      startWidth,
+      startHeight,
+      startLeft,
+      startTop,
+      direction
+    } = dragRef.current;
+
+    const deltaX = e.clientX - startX;
+    const deltaY = e.clientY - startY;
+
+    let newWidth = startWidth;
+    let newHeight = startHeight;
+    let newX = startLeft;
+    let newY = startTop;
+
+    // Minimum dimensions
+    const MIN_WIDTH = 50;
+    const MIN_HEIGHT = 50;
+
+    // Calculate new dimensions based on direction
+    if (direction.includes('e')) {
+      newWidth = Math.max(MIN_WIDTH, startWidth + deltaX);
+    }
+    if (direction.includes('w')) {
+      const tentativeWidth = startWidth - deltaX;
+      if (tentativeWidth >= MIN_WIDTH) {
+        newWidth = tentativeWidth;
+        newX = startLeft + deltaX;
+      } else {
+        newWidth = MIN_WIDTH;
+        newX = startLeft + (startWidth - MIN_WIDTH);
+      }
+    }
+    if (direction.includes('s')) {
+      newHeight = Math.max(MIN_HEIGHT, startHeight + deltaY);
+    }
+    if (direction.includes('n')) {
+      const tentativeHeight = startHeight - deltaY;
+      if (tentativeHeight >= MIN_HEIGHT) {
+        newHeight = tentativeHeight;
+        newY = startTop + deltaY;
+      } else {
+        newHeight = MIN_HEIGHT;
+        newY = startTop + (startHeight - MIN_HEIGHT);
+      }
+    }
+
+    const result: ResizeResult = {
+      size: { width: newWidth, height: newHeight }
+    };
+
+    // Only include position if it changed
+    if (newX !== startLeft || newY !== startTop) {
+      result.position = { x: newX, y: newY };
+    }
+
+    onResize(component.id, result);
+  };
+
+  const handlePointerUp = (e: PointerEvent) => {
+    if (!dragRef.current) return;
+
+    dragRef.current = null;
+    document.removeEventListener('pointermove', handlePointerMove);
+    document.removeEventListener('pointerup', handlePointerUp);
+    document.body.style.userSelect = '';
   };
 
   return (
@@ -37,44 +157,44 @@ export const SelectionBox: React.FC<SelectionBoxProps> = ({
           <div
             className="absolute w-2 h-2 bg-blue-500 border border-white rounded-sm cursor-nw-resize pointer-events-auto"
             style={{ top: -4, left: -4 }}
-            onMouseDown={(e) => handleMouseDown(e, 'nw')}
+            onPointerDown={(e) => handlePointerDown(e, 'nw')}
           />
           <div
             className="absolute w-2 h-2 bg-blue-500 border border-white rounded-sm cursor-ne-resize pointer-events-auto"
             style={{ top: -4, right: -4 }}
-            onMouseDown={(e) => handleMouseDown(e, 'ne')}
+            onPointerDown={(e) => handlePointerDown(e, 'ne')}
           />
           <div
             className="absolute w-2 h-2 bg-blue-500 border border-white rounded-sm cursor-sw-resize pointer-events-auto"
             style={{ bottom: -4, left: -4 }}
-            onMouseDown={(e) => handleMouseDown(e, 'sw')}
+            onPointerDown={(e) => handlePointerDown(e, 'sw')}
           />
           <div
             className="absolute w-2 h-2 bg-blue-500 border border-white rounded-sm cursor-se-resize pointer-events-auto"
             style={{ bottom: -4, right: -4 }}
-            onMouseDown={(e) => handleMouseDown(e, 'se')}
+            onPointerDown={(e) => handlePointerDown(e, 'se')}
           />
           
           {/* Edge handles */}
           <div
             className="absolute w-2 h-1 bg-blue-500 border border-white rounded-sm cursor-n-resize pointer-events-auto"
             style={{ top: -4, left: '50%', transform: 'translateX(-50%)' }}
-            onMouseDown={(e) => handleMouseDown(e, 'n')}
+            onPointerDown={(e) => handlePointerDown(e, 'n')}
           />
           <div
             className="absolute w-1 h-2 bg-blue-500 border border-white rounded-sm cursor-e-resize pointer-events-auto"
             style={{ right: -4, top: '50%', transform: 'translateY(-50%)' }}
-            onMouseDown={(e) => handleMouseDown(e, 'e')}
+            onPointerDown={(e) => handlePointerDown(e, 'e')}
           />
           <div
             className="absolute w-2 h-1 bg-blue-500 border border-white rounded-sm cursor-s-resize pointer-events-auto"
             style={{ bottom: -4, left: '50%', transform: 'translateX(-50%)' }}
-            onMouseDown={(e) => handleMouseDown(e, 's')}
+            onPointerDown={(e) => handlePointerDown(e, 's')}
           />
           <div
             className="absolute w-1 h-2 bg-blue-500 border border-white rounded-sm cursor-w-resize pointer-events-auto"
             style={{ left: -4, top: '50%', transform: 'translateY(-50%)' }}
-            onMouseDown={(e) => handleMouseDown(e, 'w')}
+            onPointerDown={(e) => handlePointerDown(e, 'w')}
           />
         </>
       )}
