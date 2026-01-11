@@ -17,6 +17,9 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
+VITE_PORT="${VITE_PORT:-5173}"
+API_PORT="${API_PORT:-3001}"
+
 print_section() {
     echo ""
     echo -e "${BLUE}━━━ $1 ━━━${NC}"
@@ -52,7 +55,7 @@ fi
 # 3. Listening Ports
 print_section "Listening Ports"
 echo "Checking common development ports..."
-for port in 3000 8000 5432 6379 9090 16686; do
+for port in "$VITE_PORT" "$API_PORT" 5432 6379 9090 16686; do
     if lsof -i :$port > /dev/null 2>&1; then
         PID=$(lsof -t -i :$port)
         PROCESS=$(ps -p $PID -o comm= 2>/dev/null || echo "unknown")
@@ -71,17 +74,29 @@ ps aux | grep -E "node|npm|vite" | grep -v grep | head -10 || echo "None found"
 print_section "Network Connectivity"
 
 # Test localhost
-if curl -s http://localhost:3000 > /dev/null 2>&1; then
-    print_success "localhost:3000 is accessible"
+if curl -s "http://localhost:${VITE_PORT}" > /dev/null 2>&1; then
+    print_success "localhost:${VITE_PORT} is accessible (frontend)"
 else
-    print_warning "localhost:3000 is not accessible"
+    print_warning "localhost:${VITE_PORT} is not accessible (frontend)"
+fi
+
+if curl -s "http://localhost:${API_PORT}/health" > /dev/null 2>&1; then
+    print_success "localhost:${API_PORT} is accessible (backend)"
+else
+    print_warning "localhost:${API_PORT} is not accessible (backend)"
 fi
 
 # Test 0.0.0.0
-if curl -s http://0.0.0.0:3000 > /dev/null 2>&1; then
-    print_success "0.0.0.0:3000 is accessible"
+if curl -s "http://0.0.0.0:${VITE_PORT}" > /dev/null 2>&1; then
+    print_success "0.0.0.0:${VITE_PORT} is accessible (frontend)"
 else
-    print_warning "0.0.0.0:3000 is not accessible"
+    print_warning "0.0.0.0:${VITE_PORT} is not accessible (frontend)"
+fi
+
+if curl -s "http://0.0.0.0:${API_PORT}/health" > /dev/null 2>&1; then
+    print_success "0.0.0.0:${API_PORT} is accessible (backend)"
+else
+    print_warning "0.0.0.0:${API_PORT} is not accessible (backend)"
 fi
 
 # Test external connectivity
@@ -104,7 +119,7 @@ print_section "Firewall Status"
 if command -v ufw > /dev/null 2>&1; then
     if sudo ufw status 2>/dev/null | grep -q "Status: active"; then
         print_warning "UFW firewall is active"
-        sudo ufw status | grep -E "3000|8000|5432"
+        sudo ufw status | grep -E "${VITE_PORT}|${API_PORT}|5432"
     else
         print_success "UFW firewall is inactive"
     fi
@@ -156,7 +171,7 @@ if [ -f "vite.config.ts" ]; then
     else
         print_error "Vite NOT configured to listen on all interfaces"
         echo "Add to vite.config.ts:"
-        echo "  server: { host: '0.0.0.0', port: 3000 }"
+        echo "  server: { host: '0.0.0.0', port: ${VITE_PORT} }"
     fi
 else
     print_warning "vite.config.ts not found"
@@ -164,6 +179,8 @@ fi
 
 # 11. Environment Variables
 print_section "Environment Variables"
+echo "VITE_PORT: ${VITE_PORT}"
+echo "API_PORT: ${API_PORT}"
 echo "VITE_API_URL: ${VITE_API_URL:-not set}"
 echo "NODE_ENV: ${NODE_ENV:-not set}"
 echo "PORT: ${PORT:-not set}"
@@ -173,16 +190,20 @@ echo "HOST: ${HOST:-not set}"
 print_section "Recommendations"
 echo ""
 
-if ! lsof -i :3000 > /dev/null 2>&1; then
-    echo "1. Start dev server: npm run dev"
+if ! lsof -i :"$VITE_PORT" > /dev/null 2>&1; then
+    echo "1. Start frontend: VITE_PORT=${VITE_PORT} npm run dev"
+fi
+
+if ! lsof -i :"$API_PORT" > /dev/null 2>&1; then
+    echo "2. Start backend: API_PORT=${API_PORT} npm run backend:dev"
 fi
 
 if ! grep -q "host: '0.0.0.0'" vite.config.ts 2>/dev/null; then
-    echo "2. Update vite.config.ts to listen on 0.0.0.0"
+    echo "3. Update vite.config.ts to listen on 0.0.0.0"
 fi
 
 if [ -f "/.dockerenv" ] || [ -n "$CODESPACES" ]; then
-    echo "3. Ensure ports are forwarded in container configuration"
+    echo "4. Ensure ports are forwarded in container configuration"
 fi
 
 echo ""

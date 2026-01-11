@@ -16,6 +16,9 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+VITE_PORT="${VITE_PORT:-5173}"
+API_PORT="${API_PORT:-3001}"
+
 test_port() {
     local port=$1
     local name=$2
@@ -36,8 +39,8 @@ test_port() {
 PASSED=0
 FAILED=0
 
-test_port 3000 "Frontend (Vite)" && PASSED=$((PASSED + 1)) || FAILED=$((FAILED + 1))
-test_port 8000 "Backend API" && PASSED=$((PASSED + 1)) || FAILED=$((FAILED + 1))
+test_port "$VITE_PORT" "Frontend (Vite)" && PASSED=$((PASSED + 1)) || FAILED=$((FAILED + 1))
+test_port "$API_PORT" "Backend API" && PASSED=$((PASSED + 1)) || FAILED=$((FAILED + 1))
 test_port 5432 "PostgreSQL" && PASSED=$((PASSED + 1)) || FAILED=$((FAILED + 1))
 test_port 6379 "Redis" && PASSED=$((PASSED + 1)) || FAILED=$((FAILED + 1))
 test_port 9090 "Prometheus" && PASSED=$((PASSED + 1)) || FAILED=$((FAILED + 1))

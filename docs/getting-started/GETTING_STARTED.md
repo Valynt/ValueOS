@@ -18,7 +18,12 @@ npm run setup
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) to see the app!
+Open [http://localhost:5173](http://localhost:5173) (or the port in `VITE_PORT`) to see the app!
+
+**Ports & modes**
+
+- **Local dev (direct)**: Frontend on `VITE_PORT` (default `5173`), backend on `API_PORT` (default `3001`).
+- **Container/Caddy dev**: Use the edge proxy (`https://localhost:8443` or `http://localhost:8080`) and Caddy routes to the same internal ports.
 
 ---
 
@@ -180,10 +185,11 @@ npm run health
 ```
 
 Output:
+
 ```
 🏥 Running health checks...
 
-✅ Backend API       http://localhost:3000/health
+✅ Backend API       http://localhost:3001/health
 ✅ Frontend          http://localhost:5173
 ✅ PostgreSQL        localhost:54322
 ✅ Redis             localhost:6379
@@ -194,10 +200,10 @@ All systems operational! 🎉
 
 ### Access Services
 
-- **Frontend**: [http://localhost:5173](http://localhost:5173)
-- **Backend API**: [http://localhost:3000](http://localhost:3000)
+- **Frontend**: [http://localhost:5173](http://localhost:5173) (`VITE_PORT`)
+- **Backend API**: [http://localhost:3001](http://localhost:3001) (`API_PORT`)
 - **Supabase Studio**: [http://localhost:54323](http://localhost:54323)
-- **API Docs**: [http://localhost:3000/api-docs](http://localhost:3000/api-docs)
+- **API Docs**: [http://localhost:3001/api-docs](http://localhost:3001/api-docs)
 
 ---
 
@@ -239,6 +245,7 @@ npm run typecheck        # Type check
 ### Setup Fails
 
 **Check prerequisites**:
+
 ```bash
 node --version    # Should be >= 18.0.0
 docker --version  # Should be installed
@@ -246,6 +253,7 @@ docker ps         # Docker should be running
 ```
 
 **Clean and retry**:
+
 ```bash
 rm -rf node_modules package-lock.json .env
 npm run setup
@@ -254,9 +262,10 @@ npm run setup
 ### Port Already in Use
 
 **Find and kill process**:
+
 ```bash
 # macOS/Linux
-lsof -i :5173  # or :3000, :54322, etc.
+lsof -i :5173  # or :$VITE_PORT, :$API_PORT, :54322, etc.
 kill -9 <PID>
 
 # Windows
@@ -267,6 +276,7 @@ taskkill /PID <PID> /F
 ### Docker Issues
 
 **Restart Docker**:
+
 ```bash
 # macOS
 killall Docker && open -a Docker
@@ -279,6 +289,7 @@ Restart Docker Desktop
 ```
 
 **Check Docker status**:
+
 ```bash
 docker-compose ps
 docker-compose logs
@@ -287,6 +298,7 @@ docker-compose logs
 ### Environment Variables Missing
 
 **Regenerate .env**:
+
 ```bash
 rm .env
 npm run setup
@@ -341,6 +353,7 @@ ValueOS/
 ### Hot Reload
 
 Both frontend and backend support hot reload:
+
 - **Frontend**: Vite automatically reloads on file changes
 - **Backend**: tsx watch restarts on file changes
 
@@ -360,11 +373,13 @@ npm run db:types
 ### Debugging
 
 **Frontend**:
+
 - Use React DevTools browser extension
 - Check browser console
 - Use `console.log()` or debugger
 
 **Backend**:
+
 - Check terminal output
 - Use `console.log()` or debugger
 - View logs: `docker-compose logs backend`
@@ -372,11 +387,13 @@ npm run db:types
 ### Performance
 
 **Frontend**:
+
 - Use React DevTools Profiler
 - Check Network tab for slow requests
 - Use Lighthouse for audits
 
 **Backend**:
+
 - Check response times in logs
 - Use database query logging
 - Profile with Node.js inspector
@@ -390,7 +407,7 @@ npm run db:types
 - **This Guide**: You're reading it!
 - **Troubleshooting**: [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 - **Platform Guides**: [docs/platform/](platform/)
-- **API Docs**: [http://localhost:3000/api-docs](http://localhost:3000/api-docs)
+- **API Docs**: [http://localhost:3001/api-docs](http://localhost:3001/api-docs)
 
 ### Community
 
@@ -401,6 +418,7 @@ npm run db:types
 ### Support
 
 If you're stuck:
+
 1. Check [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 2. Search existing GitHub issues
 3. Ask in #engineering on Slack
@@ -417,6 +435,7 @@ If you're stuck:
 You're all set! 🎉
 
 **What's Next?**
+
 - Explore the codebase
 - Pick up a task from Linear/Jira
 - Make your first contribution
