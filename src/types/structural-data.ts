@@ -3,7 +3,7 @@
  * Contains 100+ KPI definitions across 7 industry verticals
  */
 
-import type { FormulaRegistry, StructuralEdge, StructuralKPINode, StructuralPersonaValueMap } from "./structural-truth";
+import type { StructuralKPINode, StructuralEdge, StructuralPersonaValueMap, FormulaRegistry } from "./structural-truth";
 
 // ============================================================================
 // SaaS Industry KPIs (50+ metrics)

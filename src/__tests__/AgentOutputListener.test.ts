@@ -1,5 +1,5 @@
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AgentOutputListener } from '../services/AgentOutputListener';
 import { AgentOutput } from '../types/agent-output';
 

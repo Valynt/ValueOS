@@ -2,13 +2,13 @@
  * Connection Manager Tests
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
-  categorizeError,
-  ConnectionErrorType,
-  ConnectionState,
-  createConnectionError,
   getConnectionManager,
+  ConnectionState,
+  ConnectionErrorType,
+  createConnectionError,
+  categorizeError,
 } from '../connectionManager';
 
 describe('ConnectionManager', () => {

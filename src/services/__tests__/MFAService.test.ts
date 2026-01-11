@@ -4,7 +4,7 @@
  * Tests for AUTH-001 MFA enforcement
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { mfaService } from "../MFAService";
 import * as OTPAuth from "otpauth";
 

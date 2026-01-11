@@ -6,7 +6,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { DocCategory, DocSection, UserRole } from './types';
+import { DocSection, UserRole, DocCategory } from './types';
 
 interface DocsNavigationProps {
   sections: DocSection[];

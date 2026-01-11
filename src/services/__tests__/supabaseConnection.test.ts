@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { describe, expect, it } from "vitest";
+import { describe, it, expect } from "vitest";
 import dotenv from "dotenv";
 
 // Load environment variables for the test

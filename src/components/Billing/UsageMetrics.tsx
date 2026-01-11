@@ -9,7 +9,7 @@
  */
 
 import React from 'react';
-import { AlertTriangle, Bot, Database, TrendingUp, Users, Zap } from 'lucide-react';
+import { AlertTriangle, TrendingUp, Users, Database, Zap, Bot } from 'lucide-react';
 import type { UsageSummary } from '../../types/billing';
 
 // ============================================================================

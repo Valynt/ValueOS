@@ -10,7 +10,7 @@
  * Acceptance Criteria: RTO < 4 hours, RPO < 1 hour
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 describe('Backup and Restore Tests', () => {
   describe('Automated Backups', () => {

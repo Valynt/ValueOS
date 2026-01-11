@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { Button } from "../button";
-import { Card, CardContent, CardHeader, CardTitle } from "../card";
+import { Card, CardHeader, CardTitle, CardContent } from "../card";
 
 describe("VALYNT Token Integration", () => {
   describe("Button Component", () => {

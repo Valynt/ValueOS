@@ -5,7 +5,7 @@
  * Verifies that generating backup codes correctly invalidates old codes
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { supabase } from '../../../lib/supabase';
 
 // Mock Supabase

@@ -3,13 +3,13 @@
  * Tests Truth Engine integration, verification states, and ROI calculations
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { TrinityDashboard } from "../TrinityDashboard";
 import type {
   TrinityFinancials,
-  TrinityOutcome,
   TrinityVerification,
+  TrinityOutcome,
 } from "../TrinityDashboard";
 
 describe("TrinityDashboard", () => {

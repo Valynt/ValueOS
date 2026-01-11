@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 
 test.describe("App Bootstrap", () => {
   test("should load the app and pass the bootstrap guard", async ({ page }) => {

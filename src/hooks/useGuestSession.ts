@@ -4,12 +4,12 @@
  * Manages guest user session, token validation, and expiration handling
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   getGuestAccessService,
-  GuestPermissions,
   TokenValidationResult,
+  GuestPermissions,
 } from '../services/GuestAccessService';
 import { logger } from '../lib/logger';
 

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { provisionTenant, TenantConfig } from '../TenantProvisioning';
 
 // Mock Supabase client
@@ -41,6 +41,12 @@ vi.mock('../../lib/logger', () => ({
     warn: vi.fn(),
     error: vi.fn(),
   },
+  createLogger: () => ({
+    info: vi.fn(),
+    debug: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  }),
 }));
 
 describe('TenantProvisioning', () => {

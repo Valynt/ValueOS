@@ -18,7 +18,7 @@
  * - Reduced perceived latency
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { z } from 'zod';
 
 export interface OptimisticUpdateOptions<T> {

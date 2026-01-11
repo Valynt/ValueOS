@@ -9,7 +9,7 @@
 
 import React, { useState } from 'react';
 import { Check, Shield, Sparkles, Zap } from 'lucide-react';
-import { compareTemplates, listTemplates, type SettingsTemplate } from '../../lib/services/settingsTemplates';
+import { listTemplates, compareTemplates, type SettingsTemplate } from '../../lib/services/settingsTemplates';
 
 interface TemplateSelectorProps {
   /**

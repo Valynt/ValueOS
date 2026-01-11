@@ -6,10 +6,10 @@
  * preventing duplicate charges and missing payments.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
-  cleanupBillingTables,
   getTestSupabaseClient,
+  cleanupBillingTables,
   waitForCondition,
 } from "../__helpers__/db-helpers";
 import { createMockStripeEvent } from "../__helpers__/stripe-mocks";

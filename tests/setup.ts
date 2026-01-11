@@ -10,7 +10,7 @@
 
 import { config } from "dotenv";
 import { resolve } from "path";
-import { afterAll, beforeAll, beforeEach } from "vitest";
+import { beforeAll, afterAll, beforeEach } from "vitest";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // Load test environment variables

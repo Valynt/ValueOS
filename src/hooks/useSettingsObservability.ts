@@ -5,7 +5,7 @@
  * Tracks and monitors settings operations for debugging and analytics
  */
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { logger } from '../lib/logger';
 
 // ============================================================================

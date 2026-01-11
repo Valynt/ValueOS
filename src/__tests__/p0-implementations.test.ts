@@ -9,7 +9,7 @@
  * 5. Plan tier detection
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 describe('P0-2: Database Connection Check', () => {
   it('should successfully connect to database', async () => {

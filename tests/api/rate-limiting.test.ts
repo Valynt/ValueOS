@@ -9,8 +9,8 @@
  * - Rate limit reset
  */
 
-import { describe, expect, it } from "vitest";
-import { TEST_TENANT_A, testAdminClient } from "../../setup";
+import { describe, it, expect } from "vitest";
+import { testAdminClient, TEST_TENANT_A } from "../../setup";
 import { createTestWorkflow } from "../../test-utils";
 
 describe("API Rate Limiting", () => {

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ActionRouter } from '../ActionRouter';
 import { workspaceStateService } from '../WorkspaceStateService';
 import * as ExportUtils from '../../utils/export';

@@ -10,7 +10,7 @@
  * Acceptance Criteria: WCAG 2.1 AA compliant
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 describe('WCAG 2.1 AA Compliance', () => {
   describe('Principle 1: Perceivable', () => {

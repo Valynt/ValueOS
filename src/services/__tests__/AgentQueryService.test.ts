@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { AgentQueryService } from "../../services/AgentQueryService";
 import { TimeoutError } from "../../lib/resilience/errors";
 

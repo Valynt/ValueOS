@@ -2,15 +2,15 @@
  * Tests for Together AI Validation Utilities
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import {
-  assertTogetherAIProvider,
-  containsOpenAIReferences,
-  getProviderInfo,
-  validateTogetherAIEnvironment,
   validateTogetherAIProvider,
-  validateTogetherAIStartup,
+  validateTogetherAIEnvironment,
+  assertTogetherAIProvider,
+  getProviderInfo,
+  containsOpenAIReferences,
   validateTogetherAPIKey,
+  validateTogetherAIStartup,
 } from "../togetherAIValidation";
 
 describe("Together AI Validation Utilities", () => {

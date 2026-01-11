@@ -3,9 +3,9 @@
  * Tests the full integration with Tempo distributed tracing service
  */
 
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { TempoClient } from "../helpers/tempo-client";
-import { context, trace } from "@opentelemetry/api";
+import { trace, context } from "@opentelemetry/api";
 import {
   BasicTracerProvider,
   BatchSpanProcessor,

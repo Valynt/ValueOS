@@ -5,17 +5,17 @@
  * These tests verify invoice generation, Stripe sync, and payment processing.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
-  assertRecordExists,
-  cleanupBillingTables,
   getTestSupabaseClient,
+  cleanupBillingTables,
   seedTestData,
+  assertRecordExists,
 } from "../__helpers__/db-helpers";
 import {
   createBillingCustomer,
-  createInvoice,
   createSubscription,
+  createInvoice,
 } from "../__helpers__/billing-factories";
 import { createMockStripeInvoice } from "../__helpers__/stripe-mocks";
 import type { SupabaseClient } from "@supabase/supabase-js";

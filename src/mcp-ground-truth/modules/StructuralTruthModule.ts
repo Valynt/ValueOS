@@ -11,16 +11,16 @@
 import { BaseModule } from "../core/BaseModule";
 import {
   ALL_ESO_KPIS,
-  EXTENDED_ESO_EDGES,
   EXTENDED_PERSONA_MAPS,
+  EXTENDED_ESO_EDGES,
 } from "../../types/eso-data";
 import { ALL_VMRT_SEEDS } from "../../types/vos-pt1-seed";
 import { checkBenchmarkAlignment } from "../../types/eso";
 import type {
-  ESOEdge,
-  ESOIndustry,
   ESOKPINode,
+  ESOEdge,
   ESOPersonaValueMap,
+  ESOIndustry,
 } from "../../types/eso";
 import type { VMRT } from "../../types/vmrt";
 

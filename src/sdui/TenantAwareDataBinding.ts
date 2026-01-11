@@ -5,7 +5,7 @@
  * Ensures all data access is properly scoped to the tenant context.
  */
 
-import { AuditActor, enhancedAuditLogger } from '../lib/audit/index';
+import { enhancedAuditLogger, AuditActor } from '../lib/audit/index';
 import { DataBinding, DataSourceContext, ResolvedBinding } from './DataBindingSchema';
 import { hasPermission, TenantContext, TenantContextError } from './TenantContext';
 

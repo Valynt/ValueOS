@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { SettingsSection } from "../../components/Settings/SettingsSection";
 import { logger } from "@lib/logger";
 import { useDebouncedState } from "../../hooks/useDebounce";

@@ -7,8 +7,8 @@
  * - SDUI generation
  */
 
-import { addSpanAttributes, addSpanEvent, getTracer } from './index';
-import { Span, SpanStatusCode } from '@opentelemetry/api';
+import { getTracer, addSpanAttributes, addSpanEvent } from './index';
+import { SpanStatusCode, Span } from '@opentelemetry/api';
 import { logger } from '../logger';
 
 /**

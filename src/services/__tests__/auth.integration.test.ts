@@ -3,16 +3,16 @@
  * Tests complete authentication flows end-to-end
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { AuthService } from "../AuthService";
 import {
-  createLoginCredentials,
-  createMockSession,
   createSignupData,
-  createSuccessfulLoginResponse,
+  createLoginCredentials,
   createSuccessfulSignupResponse,
+  createSuccessfulLoginResponse,
+  createMockSession,
 } from "../../test-utils/auth.fixtures";
-import { resetAuthMocks, setupAuthMocks } from "../../test-utils/auth.helpers";
+import { setupAuthMocks, resetAuthMocks } from "../../test-utils/auth.helpers";
 
 // Setup mocks
 const mocks = setupAuthMocks();

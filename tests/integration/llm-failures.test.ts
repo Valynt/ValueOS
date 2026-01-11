@@ -9,7 +9,7 @@
  * - Malformed response
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 describe("LLM Failure Handling", () => {
   describe("Connection Timeout", () => {

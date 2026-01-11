@@ -3,7 +3,7 @@
  * Tests Zero Trust security wrapper with permission validation
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { ProtectedComponent } from "../ProtectedComponent";
 import { UserClaims } from "@/types/security";

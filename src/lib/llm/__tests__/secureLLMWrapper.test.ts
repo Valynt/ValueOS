@@ -8,7 +8,7 @@
  * - Input sanitization
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { secureLLMComplete } from '../secureLLMWrapper';
 import type { LLMGateway } from '../../agent-fabric/LLMGateway';
 

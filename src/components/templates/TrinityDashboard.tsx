@@ -6,7 +6,7 @@
 import React, { useMemo } from "react";
 import { MetricCard } from "../atoms/MetricCard";
 import { Card } from "../atoms/Card";
-import { DollarSign, Shield, TrendingDown } from "lucide-react";
+import { DollarSign, TrendingDown, Shield } from "lucide-react";
 
 export interface TrinityFinancials {
   totalValue: number;

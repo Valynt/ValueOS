@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { AlertCircle, AlertTriangle, RefreshCw, XCircle } from 'lucide-react';
+import { AlertCircle, AlertTriangle, XCircle, RefreshCw } from 'lucide-react';
 
 // ============================================================================
 // Error Alert

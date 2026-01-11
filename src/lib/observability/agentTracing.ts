@@ -4,8 +4,8 @@
  * Provides tracing wrappers for agent operations
  */
 
-import { addSpanAttributes, addSpanEvent, getTracer, recordSpanException } from './index';
-import { Span, SpanStatusCode } from '@opentelemetry/api';
+import { getTracer, addSpanAttributes, addSpanEvent, recordSpanException } from './index';
+import { SpanStatusCode, Span } from '@opentelemetry/api';
 import { logger } from '../logger';
 
 export interface AgentSpanAttributes {

@@ -1,5 +1,5 @@
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Define mocks outside to be used in vi.mock and tests
 const mockLogger = {

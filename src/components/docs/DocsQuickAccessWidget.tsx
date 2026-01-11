@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, BookOpen, Sparkles } from 'lucide-react';
+import { BookOpen, ArrowRight, Sparkles } from 'lucide-react';
 
 interface DocLink {
   id: string;

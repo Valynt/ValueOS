@@ -3,8 +3,8 @@
  * Tests error handling, logging, and recovery actions
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { TemplateErrorBoundary } from "../TemplateErrorBoundary";
 import { DashboardErrorBoundary } from "../DashboardErrorBoundary";
 

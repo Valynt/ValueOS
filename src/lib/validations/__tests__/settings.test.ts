@@ -4,15 +4,15 @@
  * Tests Zod schemas for runtime type safety
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
+  OrgSecuritySchema,
+  UserProfileSchema,
+  TeamWorkflowSchema,
+  validateSettings,
+  parseSettingsWithDefaults,
   getTemplate,
   listTemplates,
-  OrgSecuritySchema,
-  parseSettingsWithDefaults,
-  TeamWorkflowSchema,
-  UserProfileSchema,
-  validateSettings,
 } from '../settings';
 
 describe('Settings Validation', () => {

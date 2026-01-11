@@ -4,10 +4,10 @@
  */
 
 import type {
+  IEnterpriseAdapter,
   AdapterConfig,
   AdapterMetrics,
   HealthStatus,
-  IEnterpriseAdapter,
   SyncOptions,
   SyncResult,
 } from "./IEnterpriseAdapter";

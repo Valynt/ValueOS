@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Home } from "lucide-react";
+import { Home, ArrowLeft } from "lucide-react";
 
 /**
  * 404 Not Found Page

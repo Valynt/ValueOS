@@ -6,7 +6,7 @@
  */
 
 import { logger } from '../logger';
-import { captureError, ErrorCategory, ErrorSeverity } from '../monitoring/errorMonitoring';
+import { captureError, ErrorSeverity, ErrorCategory } from '../monitoring/errorMonitoring';
 
 // Connection state
 export enum ConnectionState {

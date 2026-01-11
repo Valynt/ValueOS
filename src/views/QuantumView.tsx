@@ -4,20 +4,20 @@
  * Features: Persona switching, parallel analysis views, consensus indicators
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
-  Activity,
-  AlertTriangle, 
-  Brain,
-  CheckCircle, 
-  Clock,
-  MessageSquare,
-  Shield,
-  Star,
-  TrendingUp,
-  UserCheck,
   Users,
-  UserX
+  UserCheck,
+  UserX,
+  AlertTriangle, 
+  CheckCircle, 
+  Brain,
+  MessageSquare,
+  Activity,
+  Shield,
+  TrendingUp,
+  Clock,
+  Star
 } from 'lucide-react';
 import AgentBadge from '../components/Agents/AgentBadge';
 import ConfidenceIndicator from '../components/Agents/ConfidenceIndicator';

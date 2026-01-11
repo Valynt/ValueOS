@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, CheckCircle2, Download, FileJson, Upload } from 'lucide-react';
+import { Download, Upload, AlertCircle, CheckCircle2, FileJson } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 interface ExportImportDialogProps {

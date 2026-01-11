@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 /**

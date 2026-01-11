@@ -2,8 +2,8 @@
  * Supabase Realtime Service Tests
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CanvasComment, CanvasElement, getRealtimeService, PresenceUser } from '../supabaseRealtime';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { getRealtimeService, PresenceUser, CanvasElement, CanvasComment } from '../supabaseRealtime';
 
 // Mock Supabase
 const mockChannel = {

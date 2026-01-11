@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import { AlertCircle, CheckCircle, Info } from "lucide-react";
+import { CheckCircle, AlertCircle, Info } from "lucide-react";
 import { VerificationBadge } from "./VerificationBadge";
 import { CitationTooltip } from "./CitationTooltip";
 

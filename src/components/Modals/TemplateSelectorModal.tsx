@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Check, ChevronRight, FileBox, X } from "lucide-react";
+import { X, FileBox, Check, ChevronRight } from "lucide-react";
 import { Button } from "../Common/Button";
 import { Card } from "../Common/Card";
 

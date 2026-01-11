@@ -4,8 +4,8 @@
  * React hook for fetching and managing documentation data.
  */
 
-import { useCallback, useState } from 'react';
-import { DocHealth, DocSection, SearchResult, UserRole } from '../components/docs/types';
+import { useState, useCallback } from 'react';
+import { DocSection, SearchResult, DocHealth, UserRole } from '../components/docs/types';
 
 const API_BASE = '/api/docs';
 

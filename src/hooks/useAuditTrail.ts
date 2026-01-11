@@ -3,7 +3,7 @@
  * Manages audit trail data fetching, real-time updates, and filtering
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { AuditEvent, AuditFilter, AuditStatistics, IntegrityVerification, RealTimeConfig } from '../types/audit';
 import { auditLogService } from '../services/AuditLogService';
 import { secureMessageBus } from '../lib/agent-fabric/SecureMessageBus';

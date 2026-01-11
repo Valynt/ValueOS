@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import { Download, FileText, Printer, X } from "lucide-react";
+import { X, Printer, Download, FileText } from "lucide-react";
 import { useReactToPrint } from "react-to-print";
 import { PrintReportLayout } from "../Report/PrintReportLayout";
 import { ValueCase } from "../../services/ValueCaseService";

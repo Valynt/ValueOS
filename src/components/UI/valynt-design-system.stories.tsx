@@ -13,10 +13,10 @@
 
 import type { Meta, StoryObj } from "@storybook/react";
 import { Button } from "./button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "./card";
 import { Input } from "./input";
 import { Label } from "./label";
-import { Activity, DollarSign, TrendingUp, Users } from "lucide-react";
+import { TrendingUp, DollarSign, Activity, Users } from "lucide-react";
 
 const meta: Meta = {
   title: "VALYNT/Design System",

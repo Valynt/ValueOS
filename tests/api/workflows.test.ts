@@ -9,11 +9,11 @@
  * - DELETE /api/v1/workflows/:id - Delete workflow
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { TEST_TENANT_A, TEST_TENANT_B, testAdminClient } from "../../setup";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { testAdminClient, TEST_TENANT_A, TEST_TENANT_B } from "../../setup";
 import {
-  cleanupTestTables,
   createTestWorkflow,
+  cleanupTestTables,
   generateTestId,
 } from "../../test-utils";
 

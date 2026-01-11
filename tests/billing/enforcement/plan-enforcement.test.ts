@@ -9,9 +9,9 @@
  * revenue leakage.
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { getPlan, getQuota, isHardCap, PLANS } from '@/config/billing';
-import type { BillingMetric, PlanTier } from '@/config/billing';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { PLANS, getPlan, getQuota, isHardCap } from '@/config/billing';
+import type { PlanTier, BillingMetric } from '@/config/billing';
 
 describe('Billing Plan Enforcement', () => {
   describe('Plan Configuration', () => {

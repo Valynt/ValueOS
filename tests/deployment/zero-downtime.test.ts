@@ -11,7 +11,7 @@
  * - Health checks pass throughout
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 describe('Zero-Downtime Deployment', () => {

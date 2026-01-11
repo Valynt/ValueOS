@@ -14,32 +14,32 @@ import { logger } from '../../../lib/logger';
 import {
   AgentIdentity,
   AgentRole,
+  Permission,
   createAgentIdentity,
   hasPermission,
-  Permission,
-  PermissionDeniedError,
   requirePermission,
   requiresHITL,
+  PermissionDeniedError,
 } from '../../auth/AgentIdentity';
 // VOS-SEC-002: Permission Middleware
 import { permissionMiddleware, withPermissionScope } from '../../auth/PermissionMiddleware';
 // VOS-HITL-001: HITL Framework
-import { ApprovalRequest, hitlFramework } from '../../hitl/HITLFramework';
+import { hitlFramework, ApprovalRequest } from '../../hitl/HITLFramework';
 // 4-Layer Truth Architecture
 import {
-  addReasoningStep,
-  Citation,
-  createReasoningChain,
-  finalizeReasoningChain,
-  getIntegrityAgent,
   IIntegrityAgent,
   IntegrityCheckRequest,
   IntegrityCheckResult,
   IntegrityError,
   IntegrityIssue,
-  parseCitations,
+  Citation,
   ReasoningChain,
+  getIntegrityAgent,
   verifyCitations,
+  parseCitations,
+  createReasoningChain,
+  addReasoningStep,
+  finalizeReasoningChain,
 } from '../../truth/GroundTruthEngine';
 
 export interface SecureInvocationOptions {

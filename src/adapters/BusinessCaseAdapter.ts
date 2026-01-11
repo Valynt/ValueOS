@@ -9,11 +9,11 @@
 
 import { BusinessCaseResult } from '../causal/business-case-generator-enhanced';
 import { 
-  AuditEvidence,
-  CausalChain,
+  TemplateDataSource,
   FinancialMetrics,
   KPIImpact,
-  TemplateDataSource
+  CausalChain,
+  AuditEvidence
 } from '../components/templates/types';
 
 /**

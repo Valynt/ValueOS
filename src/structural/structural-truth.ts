@@ -11,23 +11,23 @@
  */
 
 import { 
-  checkBenchmarkAlignment,
+  StructuralKPINode,
+  StructuralEdge,
   FormulaRegistry, 
+  StructuralGraph,
+  StructuralPersona,
+  StructuralIndustry,
+  ImprovementDirection,
   FormulaResult,
   FormulaStep,
-  ImprovementDirection,
-  StructuralEdge,
-  StructuralGraph,
-  StructuralIndustry,
-  StructuralKPINode,
-  StructuralPersona,
-  ValidationResult
+  ValidationResult,
+  checkBenchmarkAlignment
 } from '../types/structural-truth';
 import { 
   ALL_STRUCTURAL_KPIS, 
   EXTENDED_STRUCTURAL_EDGES, 
-  EXTENDED_STRUCTURAL_PERSONA_MAPS,
-  INITIAL_FORMULA_REGISTRY
+  INITIAL_FORMULA_REGISTRY,
+  EXTENDED_STRUCTURAL_PERSONA_MAPS
 } from '../types/structural-data';
 
 export interface FormulaInput {

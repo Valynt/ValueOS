@@ -11,13 +11,13 @@
 
 import { ConfigurationManager } from '../ConfigurationManager';
 import type {
-  CacheManagementConfig,
-  ConfigurationAccessLevel,
-  ConfigurationScope,
   FeatureFlagsConfig,
-  ObservabilityConfig,
   RateLimitingConfig,
-  WebhooksConfig
+  ObservabilityConfig,
+  CacheManagementConfig,
+  WebhooksConfig,
+  ConfigurationScope,
+  ConfigurationAccessLevel
 } from '../types/settings-matrix';
 
 export class OperationalSettingsManager {

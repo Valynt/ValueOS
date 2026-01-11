@@ -5,10 +5,10 @@
  * IMPORTANT: These tests validate system performance and scalability.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
-  cleanupBillingTables,
   getTestSupabaseClient,
+  cleanupBillingTables,
 } from "../__helpers__/db-helpers";
 import {
   createBatchUsageEvents,

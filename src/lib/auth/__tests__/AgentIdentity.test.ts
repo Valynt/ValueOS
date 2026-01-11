@@ -6,27 +6,27 @@
  * @see /docs/PHASE4_PLUS_ENTERPRISE_TICKETS.md - VOS-SEC-001
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
-  AGENT_PERMISSION_MATRIX,
   AgentRole,
-  createAgentIdentity,
-  fromTokenClaims,
-  hasPermission,
-  HITL_ACTION_REGISTRY,
   Permission,
-  PermissionDeniedError,
+  createAgentIdentity,
+  hasPermission,
   requirePermission,
   requiresHITL,
-  toTokenClaims,
   validateIdentity,
+  toTokenClaims,
+  fromTokenClaims,
+  PermissionDeniedError,
+  AGENT_PERMISSION_MATRIX,
+  HITL_ACTION_REGISTRY,
 } from '../AgentIdentity';
 import {
   AgentTokenService,
   createAgentForRole,
   createCoordinatorAgent,
-  createIntegrityAgent,
   createTargetAgent,
+  createIntegrityAgent,
 } from '../AgentTokenService';
 
 // Mock the logger

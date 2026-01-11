@@ -5,7 +5,7 @@
  * Prevents excessive API calls and improves performance
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 
 // ============================================================================
 // useDebounce Hook

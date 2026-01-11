@@ -12,7 +12,7 @@
  */
 
 import React, { useMemo } from 'react';
-import type { MetricData, OutcomeData, TemplateProps } from './index';
+import type { TemplateProps, MetricData, OutcomeData } from './index';
 
 interface CascadeNode {
   id: string;

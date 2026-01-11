@@ -4,7 +4,7 @@
  */
 
 import { render, screen, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import ROICalculator from '../ROICalculator';
 import ImpactCascade from '../ImpactCascade';
 import { ScenarioSelector } from '../../components/SDUI/ScenarioSelector';

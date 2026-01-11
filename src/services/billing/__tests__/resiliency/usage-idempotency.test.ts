@@ -5,16 +5,16 @@
  * CRITICAL: These tests prevent duplicate charging and ensure billing accuracy.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
-  assertRowCount,
-  cleanupBillingTables,
   getTestSupabaseClient,
+  cleanupBillingTables,
+  assertRowCount,
 } from "../__helpers__/db-helpers";
 import {
-  createBatchUsageEvents,
-  createUsageAggregate,
   createUsageEvent,
+  createUsageAggregate,
+  createBatchUsageEvents,
 } from "../__helpers__/billing-factories";
 import type { SupabaseClient } from "@supabase/supabase-js";
 

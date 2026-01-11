@@ -5,10 +5,10 @@
  * CRITICAL: These tests prevent SQL injection and data corruption attacks.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
-  cleanupBillingTables,
   getTestSupabaseClient,
+  cleanupBillingTables,
   seedTestData,
 } from "../__helpers__/db-helpers";
 import {

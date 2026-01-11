@@ -15,7 +15,7 @@
  */
 
 import { logger } from '../logger';
-import { getCache, incrementCache, setCache } from '../redis';
+import { getCache, setCache, incrementCache } from '../redis';
 import { TenantBudgetStatus } from './types';
 
 /**

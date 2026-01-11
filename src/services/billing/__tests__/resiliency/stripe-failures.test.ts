@@ -5,7 +5,7 @@
  * CRITICAL: These tests ensure billing continues working during Stripe outages.
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   createMockStripeClient,
   StripeErrors,

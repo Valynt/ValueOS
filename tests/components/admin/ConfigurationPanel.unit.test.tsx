@@ -4,7 +4,7 @@
  * Pure unit tests without database dependencies
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 describe('ConfigurationPanel - Week 1 Verification', () => {
   describe('Item 1: Remove Placeholder Tabs', () => {

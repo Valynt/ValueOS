@@ -5,7 +5,7 @@
  * the entire application stack.
  */
 
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, beforeAll, vi } from "vitest";
 import { llmConfig } from "../../config/llm";
 import { validateLLMConfig } from "../../config/validateEnv";
 import { LLMFallbackService } from "../../services/LLMFallback";

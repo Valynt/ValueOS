@@ -2,18 +2,18 @@
  * Customer Portal Analytics Tracking Tests
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   getPortalAnalytics,
   PortalEventType,
-  trackBenchmarkView,
-  trackEmailShare,
-  trackError,
-  trackExport,
-  trackMetricView,
   trackPageView,
-  trackTokenExpired,
+  trackExport,
+  trackEmailShare,
+  trackBenchmarkView,
+  trackMetricView,
+  trackError,
   trackTokenValidation,
+  trackTokenExpired,
 } from '../customerPortalTracking';
 
 // Mock fetch

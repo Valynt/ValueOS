@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen } from "@testing-library/react";
 import { BootstrapGuard } from "../BootstrapGuard";
-import { describe, expect, it, vi } from "vitest";
+import { vi, describe, it, expect } from "vitest";
 import { useBootstrap } from "../../../hooks/useBootstrap";
 import React from "react";
 

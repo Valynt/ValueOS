@@ -13,14 +13,14 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import {
   Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
 } from "./card";
 import { Button } from "./button";
-import { Activity, DollarSign, TrendingUp, Users } from "lucide-react";
+import { TrendingUp, DollarSign, Users, Activity } from "lucide-react";
 
 const meta: Meta<typeof Card> = {
   title: "VALYNT/shadcn/Card",

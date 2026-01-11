@@ -3,7 +3,7 @@
  * Contains 100+ KPI definitions across 7 industry verticals
  */
 
-import type { ESOEdge, ESOKPINode, ESOPersonaValueMap } from "./eso";
+import type { ESOKPINode, ESOEdge, ESOPersonaValueMap } from "./eso";
 
 // ============================================================================
 // SaaS Industry KPIs (50+ metrics)

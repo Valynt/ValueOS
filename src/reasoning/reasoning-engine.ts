@@ -14,9 +14,9 @@ import { StructuralTruth } from '../structural/structural-truth';
 import CausalTruth from '../causal/causal-truth-enhanced';
 import { BusinessAction } from '../causal/causal-truth';
 import { 
+  StructuralPersona,
   StructuralIndustry,
-  StructuralKPINode,
-  StructuralPersona
+  StructuralKPINode
 } from '../types/structural-truth';
 
 // ============================================================================

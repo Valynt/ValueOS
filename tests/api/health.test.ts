@@ -7,7 +7,7 @@
  * - GET /health/live
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, it, expect } from "vitest";
 import { testAdminClient } from "../../setup";
 
 describe("Health Check API Endpoints", () => {

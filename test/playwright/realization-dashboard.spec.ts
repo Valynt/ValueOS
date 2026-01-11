@@ -9,7 +9,7 @@
  * 5. Export data
  */
 
-import { expect, test } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 
 test.describe("Realization Dashboard - Golden Path", () => {
   test.beforeEach(async ({ page }) => {

@@ -12,12 +12,12 @@
 import { ConfigurationManager } from '../ConfigurationManager';
 import type {
   AuditIntegrityConfig,
-  ConfigurationAccessLevel,
-  ConfigurationScope,
-  ManifestoStrictnessConfig,
   RetentionPoliciesConfig,
+  ManifestoStrictnessConfig,
+  SecretRotationConfig,
   RLSMonitoringConfig,
-  SecretRotationConfig
+  ConfigurationScope,
+  ConfigurationAccessLevel
 } from '../types/settings-matrix';
 
 export class SecurityGovernanceManager {

@@ -11,7 +11,7 @@
  * Part of Phase 3 - Integration & Business Case Generation
  */
 
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import { IntegratedMCPServer } from '../../../src/mcp-ground-truth/core/IntegratedMCPServer';
 import { StructuralTruth } from '../../../src/structural/structural-truth';
 import CausalTruth from '../../../src/causal/causal-truth-enhanced';

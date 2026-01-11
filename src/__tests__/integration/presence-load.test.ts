@@ -4,7 +4,7 @@
  * Tests presence tracking under various load conditions
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { getRealtimeService } from '../../lib/realtime/supabaseRealtime';
 import type { PresenceUser } from '../../lib/realtime/supabaseRealtime';
 

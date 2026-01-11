@@ -10,7 +10,7 @@
  * - Smooth transitions
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { logger } from '../lib/logger';
 
 const SILENT_MODE_KEY = 'valueOS:silentMode';

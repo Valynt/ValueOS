@@ -6,12 +6,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthService } from "../AuthService";
 import {
-  AuthenticationError,
-  RateLimitError,
   ValidationError,
+  RateLimitError,
+  AuthenticationError,
 } from "../errors";
 import { TEST_PASSWORDS } from "../../test-utils/auth.fixtures";
-import { resetAuthMocks, setupAuthMocks } from "../../test-utils/auth.helpers";
+import { setupAuthMocks, resetAuthMocks } from "../../test-utils/auth.helpers";
 
 // Setup mocks
 const mocks = setupAuthMocks();

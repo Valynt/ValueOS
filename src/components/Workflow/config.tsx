@@ -5,7 +5,7 @@
  */
 
 import * as React from 'react';
-import { Activity, DollarSign, FileCheck, Shield, TrendingUp } from 'lucide-react';
+import { TrendingUp, DollarSign, Activity, Shield, FileCheck } from 'lucide-react';
 import type { WorkflowStageConfig } from './types';
 
 export const BUSINESS_WORKFLOW_STAGES: WorkflowStageConfig[] = [

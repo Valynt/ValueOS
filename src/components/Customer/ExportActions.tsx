@@ -4,10 +4,10 @@
  */
 
 import React, { useState } from 'react';
-import { CheckCircle2, FileDown, FileSpreadsheet, Loader2, Mail } from 'lucide-react';
+import { FileDown, FileSpreadsheet, Mail, Loader2, CheckCircle2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { logger } from '../../lib/logger';
-import { useEmailShareTracking, useExportTracking } from '../../hooks/usePortalAnalytics';
+import { useExportTracking, useEmailShareTracking } from '../../hooks/usePortalAnalytics';
 
 export interface ExportActionsProps {
   valueCaseId: string;

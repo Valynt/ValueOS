@@ -6,7 +6,7 @@
  * User → Team → Organization → System Default
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { SettingsRegistry } from '../settingsRegistry';
 import { supabase } from '../supabase';
 

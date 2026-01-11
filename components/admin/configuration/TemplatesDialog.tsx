@@ -15,7 +15,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertCircle, CheckCircle2, Sparkles } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { type ConfigurationTemplate, configurationTemplates } from '@/lib/configuration-templates';
+import { configurationTemplates, type ConfigurationTemplate } from '@/lib/configuration-templates';
 
 interface TemplatesDialogProps {
   open: boolean;

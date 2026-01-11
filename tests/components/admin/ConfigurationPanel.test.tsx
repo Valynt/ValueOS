@@ -9,8 +9,8 @@
  * 5. Unsaved changes warning
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { ConfigurationPanel } from '@/components/admin/ConfigurationPanel';
 
 // Mock the toast hook

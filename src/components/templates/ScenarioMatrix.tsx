@@ -18,7 +18,7 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import type { FinancialData, MetricData, TemplateProps } from './index';
+import type { TemplateProps, MetricData, FinancialData } from './index';
 
 type ScenarioType = 'conservative' | 'expected' | 'optimistic';
 

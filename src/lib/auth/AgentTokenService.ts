@@ -17,12 +17,12 @@ import {
   AgentIdentity,
   AgentRole,
   AgentTokenClaims,
-  createAgentIdentity,
   CreateAgentIdentityOptions,
-  fromTokenClaims,
-  Permission,
+  createAgentIdentity,
   toTokenClaims,
+  fromTokenClaims,
   validateIdentity,
+  Permission,
 } from './AgentIdentity';
 
 const logger = createLogger({ component: 'AgentTokenService' });

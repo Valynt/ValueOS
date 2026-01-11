@@ -5,13 +5,13 @@
  * All tests must pass before production deployment
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { 
-  assertTenantMembership,
+  verifyTenantMembership,
   getUserTenantId,
-  TenantSecurityError,
   verifyTenantExists,
-  verifyTenantMembership
+  assertTenantMembership,
+  TenantSecurityError
 } from '../lib/tenantVerification';
 
 describe('P0 Security: Tenant Verification', () => {

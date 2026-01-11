@@ -4,10 +4,10 @@
  * Provides access to problem monitoring in React components
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
-  type Problem,
   problemMonitor,
+  type Problem,
   type ProblemStats,
 } from "../services/ProblemMonitor";
 

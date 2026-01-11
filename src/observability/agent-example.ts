@@ -3,24 +3,24 @@
  */
 
 import {
-  trackContextSwitch,
-  trackConversationTurn,
-  trackMemoryInconsistency,
-  trackMemoryOperation,
   trackReasoning,
-  trackSafetyCheck,
   trackToolInvocation,
+  trackMemoryOperation,
+  trackSafetyCheck,
+  trackContextSwitch,
+  trackMemoryInconsistency,
+  trackConversationTurn,
 } from "./agent-instrumentation";
 
 import {
-  trackAgentInteraction,
-  trackCircuitBreakerStateChange,
+  trackLLMCall,
   trackDependencyCall,
   trackFailure,
-  trackHealthCheck,
-  trackLLMCall,
   trackRecovery,
+  trackCircuitBreakerStateChange,
   trackRetryAttempt,
+  trackHealthCheck,
+  trackAgentInteraction,
 } from "./system-instrumentation";
 
 // ============================================================================

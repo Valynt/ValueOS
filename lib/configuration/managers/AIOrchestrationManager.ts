@@ -12,14 +12,14 @@
 
 import { ConfigurationManager } from '../ConfigurationManager';
 import type {
-  AgentTogglesConfig,
-  ConfigurationAccessLevel,
-  ConfigurationScope,
-  FormulaVersioningConfig,
-  GroundTruthSyncConfig,
-  HITLThresholdsConfig,
   LLMSpendingLimitsConfig,
-  ModelRoutingConfig
+  ModelRoutingConfig,
+  AgentTogglesConfig,
+  HITLThresholdsConfig,
+  GroundTruthSyncConfig,
+  FormulaVersioningConfig,
+  ConfigurationScope,
+  ConfigurationAccessLevel
 } from '../types/settings-matrix';
 
 export class AIOrchestrationManager {

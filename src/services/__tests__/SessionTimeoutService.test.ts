@@ -4,7 +4,7 @@
  * Tests for AUTH-004 role-based session timeouts
  */
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { SessionTimeoutService } from "../SessionTimeoutService";
 import { getSessionTimeoutForRole } from "../../security/SecurityConfig";
 

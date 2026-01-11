@@ -3,9 +3,9 @@
  * Tests functionality, security, accessibility, and performance
  */
 
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { type PersonaAnalysis, type PersonaType, QuantumView } from '../QuantumView';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { QuantumView, type PersonaAnalysis, type PersonaType } from '../QuantumView';
 
 // Mock dependencies
 vi.mock('../../components/Agents/AgentBadge', () => ({

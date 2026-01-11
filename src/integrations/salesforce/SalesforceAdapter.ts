@@ -7,10 +7,10 @@
 import { EnterpriseAdapter } from "../base/EnterpriseAdapter";
 import type {
   AdapterConfig,
-  Conflict,
-  SyncError,
   SyncOptions,
   SyncResult,
+  Conflict,
+  SyncError,
 } from "../base/IEnterpriseAdapter";
 import axios, { AxiosInstance } from "axios";
 

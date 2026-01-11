@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import { AlertTriangle, Clock, Shield } from "lucide-react";
+import { Shield, Clock, AlertTriangle } from "lucide-react";
 
 export type VerificationStatus = "verified" | "pending" | "failed";
 

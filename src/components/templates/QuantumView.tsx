@@ -12,7 +12,7 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import type { FinancialData, MetricData, OutcomeData, TemplateProps } from './index';
+import type { TemplateProps, MetricData, OutcomeData, FinancialData } from './index';
 
 type Dimension = 'time' | 'scope' | 'certainty' | 'category';
 type TimeFrame = 'short' | 'medium' | 'long';

@@ -14,7 +14,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react";
 import { Button } from "./button";
-import { Download, Loader2, Plus, Settings, Trash2 } from "lucide-react";
+import { Loader2, Download, Trash2, Settings, Plus } from "lucide-react";
 
 const meta: Meta<typeof Button> = {
   title: "VALYNT/shadcn/Button",

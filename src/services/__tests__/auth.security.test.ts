@@ -3,19 +3,19 @@
  * Tests security features including XSS prevention, rate limiting,  and input sanitization
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 import {
-  RateLimiter,
   sanitizeUserInput,
+  RateLimiter,
   validatePassword,
 } from "../../utils/security";
 import { AuthService } from "../AuthService";
 import {
-  createSignupData,
   TEST_EMAILS,
   TEST_PASSWORDS,
+  createSignupData,
 } from "../../test-utils/auth.fixtures";
-import { resetAuthMocks, setupAuthMocks } from "../../test-utils/auth.helpers";
+import { setupAuthMocks, resetAuthMocks } from "../../test-utils/auth.helpers";
 
 // Setup mocks
 const mocks = setupAuthMocks();
