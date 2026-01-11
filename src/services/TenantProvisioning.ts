@@ -1038,8 +1038,64 @@ async function sendDeactivationEmail(
   organizationId: string,
   reason?: string
 ): Promise<void> {
-  // TODO: Implement email sending
-  logger.debug(`Deactivation email sent for ${organizationId}`);
+  const appConfig = getConfig();
+  if (!appConfig.email.enabled) {
+    logger.debug('    Email disabled, skipping deactivation email');
+    return;
+  }
+
+  const supabase = createServerSupabaseClient();
+
+  // 1. Get organization details
+  const { data: organization, error: orgError } = await supabase
+    .from('organizations')
+    .select('name')
+    .eq('id', organizationId)
+    .single();
+
+  if (orgError || !organization) {
+    logger.warn(`Failed to fetch organization details for email: ${orgError?.message || 'Not found'}`);
+    return;
+  }
+
+  // 2. Get owner email
+  // Query user_tenants for 'owner' role, then join with users
+  // Note: Since Supabase joining can be complex depending on setup, we'll do it in two steps or use a join if relations exist
+  const { data: ownerMembership, error: memberError } = await supabase
+    .from('user_tenants')
+    .select('user_id')
+    .eq('tenant_id', organizationId)
+    .eq('role', 'owner')
+    .single();
+
+  if (memberError || !ownerMembership) {
+    logger.warn(`Failed to fetch owner for deactivation email: ${memberError?.message || 'No owner found'}`);
+    return;
+  }
+
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .select('email')
+    .eq('id', ownerMembership.user_id)
+    .single();
+
+  if (userError || !user || !user.email) {
+    logger.warn(`Failed to fetch user email: ${userError?.message || 'User/Email not found'}`);
+    return;
+  }
+
+  // 3. Send email
+  await emailService.send({
+    to: user.email,
+    subject: `Account Deactivation - ${organization.name}`,
+    template: 'deactivation',
+    data: {
+      organizationName: organization.name,
+      reason,
+    },
+  });
+
+  logger.debug(`Deactivation email sent for ${organizationId} to ${user.email}`);
 }
 
 /**

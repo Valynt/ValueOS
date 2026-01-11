@@ -45,9 +45,49 @@ export class EmailService {
     if (templateName === 'customer-portal-access') {
         return this.renderCustomerPortalAccessTemplate(data);
     }
+    if (templateName === 'deactivation') {
+        return this.renderDeactivationTemplate(data);
+    }
     // Fallback for unknown templates
     logger.warn(`Template ${templateName} not found, sending empty body`);
     return '';
+  }
+
+  private renderDeactivationTemplate(data: Record<string, any>): string {
+    const { organizationName, reason } = data;
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px; }
+          .header { background-color: #f8f9fa; padding: 20px; text-align: center; border-bottom: 1px solid #eee; }
+          .content { padding: 20px; }
+          .footer { font-size: 12px; color: #6c757d; text-align: center; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Account Deactivation</h1>
+          </div>
+          <div class="content">
+            <p>Hello,</p>
+            <p>Your organization <strong>${organizationName}</strong> has been deactivated.</p>
+
+            ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
+
+            <p>If you believe this is an error, please contact support immediately.</p>
+          </div>
+          <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} ValueCanvas. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
   }
 
   private renderCustomerPortalAccessTemplate(data: Record<string, any>): string {
