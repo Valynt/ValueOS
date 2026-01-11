@@ -6,13 +6,13 @@ import { supabase } from '../lib/supabase';
 import { KPITarget } from '../types/vos';
 
 export class KpiTargetRepository {
-  private orgId: string;
+  private tenantId: string;
 
-  constructor(orgId: string) {
-    if (!orgId) {
-      throw new Error('Organization ID is required for KpiTargetRepository');
+  constructor(tenantId: string) {
+    if (!tenantId) {
+      throw new Error('Tenant ID is required for KpiTargetRepository');
     }
-    this.orgId = orgId;
+    this.tenantId = tenantId;
   }
 
   /**
@@ -28,7 +28,7 @@ export class KpiTargetRepository {
       .from('kpi_targets')
       .select('*')
       .eq('value_commit_id', valueCommitId)
-      .eq('organization_id', this.orgId);
+      .eq('tenant_id', this.tenantId);
   }
 
   /**
@@ -36,10 +36,10 @@ export class KpiTargetRepository {
    * @param kpiData The data for the new KPI Target.
    * @returns A Supabase postgrest response with the created KPI Target or an error.
    */
-  async create(kpiData: Omit<KPITarget, 'id' | 'organization_id' | 'created_at'>) {
+  async create(kpiData: Omit<KPITarget, 'id' | 'tenant_id' | 'created_at'>) {
     const dataToInsert = {
       ...kpiData,
-      organization_id: this.orgId,
+      tenant_id: this.tenantId,
     };
     return supabase
       .from('kpi_targets')

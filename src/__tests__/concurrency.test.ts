@@ -17,6 +17,7 @@ const describeMaybe = runIntegration ? describe : describe.skip;
 describeMaybe('Concurrency Safety', () => {
   let service: AgentQueryService;
   let supabase: ReturnType<typeof createBoltClientMock>;
+  const tenantId = 'tenant-1';
 
   beforeEach(() => {
     supabase = createBoltClientMock();
@@ -25,7 +26,7 @@ describeMaybe('Concurrency Safety', () => {
 
   afterEach(async () => {
     // Cleanup test sessions
-    await service.cleanupOldSessions(0);
+    await service.cleanupOldSessions(0, tenantId);
   });
 
   describe('Session Isolation', () => {
@@ -39,7 +40,7 @@ describeMaybe('Concurrency Safety', () => {
 
       // Execute all requests concurrently
       const results = await Promise.all(
-        requests.map(req => service.handleQuery(req.query, req.userId))
+        requests.map(req => service.handleQuery(req.query, req.userId, undefined, { tenantId }))
       );
 
       // Verify each user got a unique session
@@ -61,7 +62,9 @@ describeMaybe('Concurrency Safety', () => {
       const userId = 'test-user-concurrent';
       const firstResult = await service.handleQuery(
         'Initial query',
-        userId
+        userId,
+        undefined,
+        { tenantId }
       );
       const sessionId = firstResult.sessionId;
 
@@ -72,7 +75,7 @@ describeMaybe('Concurrency Safety', () => {
 
       const results = await Promise.all(
         queries.map(query => 
-          service.handleQuery(query, userId, sessionId)
+          service.handleQuery(query, userId, sessionId, { tenantId })
         )
       );
 
@@ -82,7 +85,7 @@ describeMaybe('Concurrency Safety', () => {
       });
 
       // Verify session state is consistent
-      const session = await service.getSession(sessionId);
+      const session = await service.getSession(sessionId, tenantId);
       expect(session).toBeDefined();
       expect(session?.user_id).toBe(userId);
     });
@@ -99,7 +102,7 @@ describeMaybe('Concurrency Safety', () => {
         'What is my revenue?',
         userA,
         undefined,
-        { initialContext: userAContext }
+        { initialContext: userAContext, tenantId }
       );
 
       // User B creates a session with different context
@@ -113,15 +116,15 @@ describeMaybe('Concurrency Safety', () => {
         'What is my revenue?',
         userB,
         undefined,
-        { initialContext: userBContext }
+        { initialContext: userBContext, tenantId }
       );
 
       // Verify sessions are different
       expect(resultA.sessionId).not.toBe(resultB.sessionId);
 
       // Verify context is isolated
-      const sessionA = await service.getSession(resultA.sessionId);
-      const sessionB = await service.getSession(resultB.sessionId);
+      const sessionA = await service.getSession(resultA.sessionId, tenantId);
+      const sessionB = await service.getSession(resultB.sessionId, tenantId);
 
       expect(sessionA?.workflow_state.context.companyName).toBe('Company A');
       expect(sessionB?.workflow_state.context.companyName).toBe('Company B');
@@ -133,18 +136,18 @@ describeMaybe('Concurrency Safety', () => {
   describe('Race Condition Prevention', () => {
     it('should handle rapid sequential updates', async () => {
       const userId = 'test-user-rapid';
-      const firstResult = await service.handleQuery('Initial', userId);
+      const firstResult = await service.handleQuery('Initial', userId, undefined, { tenantId });
       const sessionId = firstResult.sessionId;
 
       // Send 20 rapid sequential queries
       const queries = Array.from({ length: 20 }, (_, i) => `Query ${i}`);
       
       for (const query of queries) {
-        await service.handleQuery(query, userId, sessionId);
+        await service.handleQuery(query, userId, sessionId, { tenantId });
       }
 
       // Verify session state is consistent
-      const session = await service.getSession(sessionId);
+      const session = await service.getSession(sessionId, tenantId);
       expect(session).toBeDefined();
       
       // Conversation history should have all queries
@@ -155,7 +158,7 @@ describeMaybe('Concurrency Safety', () => {
 
     it('should handle concurrent updates with retry', async () => {
       const userId = 'test-user-retry';
-      const firstResult = await service.handleQuery('Initial', userId);
+      const firstResult = await service.handleQuery('Initial', userId, undefined, { tenantId });
       const sessionId = firstResult.sessionId;
 
       // Send 5 concurrent updates
@@ -165,7 +168,7 @@ describeMaybe('Concurrency Safety', () => {
 
       const results = await Promise.allSettled(
         queries.map(query => 
-          service.handleQuery(query, userId, sessionId)
+          service.handleQuery(query, userId, sessionId, { tenantId })
         )
       );
 
@@ -174,7 +177,7 @@ describeMaybe('Concurrency Safety', () => {
       expect(succeeded.length).toBeGreaterThan(0);
 
       // Session should still be valid
-      const session = await service.getSession(sessionId);
+      const session = await service.getSession(sessionId, tenantId);
       expect(session).toBeDefined();
     });
   });
@@ -190,7 +193,7 @@ describeMaybe('Concurrency Safety', () => {
       const startTime = Date.now();
 
       const results = await Promise.all(
-        requests.map(req => service.handleQuery(req.query, req.userId))
+        requests.map(req => service.handleQuery(req.query, req.userId, undefined, { tenantId }))
       );
 
       const duration = Date.now() - startTime;
@@ -226,7 +229,7 @@ describeMaybe('Concurrency Safety', () => {
       const startTime = Date.now();
 
       const results = await Promise.all(
-        allRequests.map(req => service.handleQuery(req.query, req.userId))
+        allRequests.map(req => service.handleQuery(req.query, req.userId, undefined, { tenantId }))
       );
 
       const duration = Date.now() - startTime;
@@ -262,12 +265,12 @@ describeMaybe('Concurrency Safety', () => {
       const userA = 'test-user-error-a';
       const userB = 'test-user-error-b';
 
-      const resultA = await service.handleQuery('Valid query', userA);
-      const resultB = await service.handleQuery('Valid query', userB);
+      const resultA = await service.handleQuery('Valid query', userA, undefined, { tenantId });
+      const resultB = await service.handleQuery('Valid query', userB, undefined, { tenantId });
 
       // Simulate error in session A (invalid query)
       try {
-        await service.handleQuery('', userA, resultA.sessionId);
+        await service.handleQuery('', userA, resultA.sessionId, { tenantId });
       } catch (error) {
         // Expected to fail
       }
@@ -276,7 +279,8 @@ describeMaybe('Concurrency Safety', () => {
       const resultB2 = await service.handleQuery(
         'Another valid query',
         userB,
-        resultB.sessionId
+        resultB.sessionId,
+        { tenantId }
       );
 
       expect(resultB2.sessionId).toBe(resultB.sessionId);

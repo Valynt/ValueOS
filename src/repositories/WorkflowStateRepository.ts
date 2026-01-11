@@ -32,6 +32,7 @@ export interface WorkflowState {
  */
 export interface SessionData {
   id: string;
+  tenant_id?: string;
   user_id: string;
   workflow_state: WorkflowState;
   status: 'active' | 'completed' | 'error' | 'abandoned';
@@ -45,18 +46,27 @@ export interface SessionData {
 export class WorkflowStateRepository {
   constructor(private supabase: SupabaseClient) {}
 
+  private requireTenantId(tenantId: string): string {
+    if (!tenantId) {
+      throw new Error('Tenant ID is required for workflow state access');
+    }
+    return tenantId;
+  }
+
   /**
    * Get workflow state for a session
    * 
    * @param sessionId Session identifier
    * @returns Workflow state or null if not found
    */
-  async getState(sessionId: string): Promise<WorkflowState | null> {
+  async getState(sessionId: string, tenantId: string): Promise<WorkflowState | null> {
     try {
+      const resolvedTenantId = this.requireTenantId(tenantId);
       const { data, error } = await this.supabase
         .from('agent_sessions')
         .select('workflow_state')
         .eq('id', sessionId)
+        .eq('tenant_id', resolvedTenantId)
         .single();
 
       if (error) {
@@ -84,8 +94,9 @@ export class WorkflowStateRepository {
    * @param sessionId Session identifier
    * @param state Workflow state to save
    */
-  async saveState(sessionId: string, state: WorkflowState): Promise<void> {
+  async saveState(sessionId: string, state: WorkflowState, tenantId: string): Promise<void> {
     try {
+      const resolvedTenantId = this.requireTenantId(tenantId);
       // Add metadata
       const stateWithMetadata: WorkflowState = {
         ...state,
@@ -101,7 +112,8 @@ export class WorkflowStateRepository {
           workflow_state: stateWithMetadata,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', sessionId);
+        .eq('id', sessionId)
+        .eq('tenant_id', resolvedTenantId);
 
       if (error) {
         logger.error('Failed to save workflow state', error, { sessionId });
@@ -130,9 +142,11 @@ export class WorkflowStateRepository {
    */
   async createSession(
     userId: string,
-    initialState: WorkflowState
+    initialState: WorkflowState,
+    tenantId: string
   ): Promise<string> {
     try {
+      const resolvedTenantId = this.requireTenantId(tenantId);
       // Add metadata
       const stateWithMetadata: WorkflowState = {
         ...initialState,
@@ -148,6 +162,7 @@ export class WorkflowStateRepository {
         .from('agent_sessions')
         .insert({
           user_id: userId,
+          tenant_id: resolvedTenantId,
           workflow_state: stateWithMetadata,
           status: 'active',
         })
@@ -180,12 +195,14 @@ export class WorkflowStateRepository {
    * @param sessionId Session identifier
    * @returns Session data or null if not found
    */
-  async getSession(sessionId: string): Promise<SessionData | null> {
+  async getSession(sessionId: string, tenantId: string): Promise<SessionData | null> {
     try {
+      const resolvedTenantId = this.requireTenantId(tenantId);
       const { data, error } = await this.supabase
         .from('agent_sessions')
         .select('*')
         .eq('id', sessionId)
+        .eq('tenant_id', resolvedTenantId)
         .single();
 
       if (error) {
@@ -210,16 +227,19 @@ export class WorkflowStateRepository {
    */
   async updateSessionStatus(
     sessionId: string,
-    status: 'active' | 'completed' | 'error' | 'abandoned'
+    status: 'active' | 'completed' | 'error' | 'abandoned',
+    tenantId: string
   ): Promise<void> {
     try {
+      const resolvedTenantId = this.requireTenantId(tenantId);
       const { error } = await this.supabase
         .from('agent_sessions')
         .update({
           status,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', sessionId);
+        .eq('id', sessionId)
+        .eq('tenant_id', resolvedTenantId);
 
       if (error) {
         logger.error('Failed to update session status', error, { sessionId, status });
@@ -241,9 +261,9 @@ export class WorkflowStateRepository {
    * 
    * @param sessionId Session identifier
    */
-  async incrementErrorCount(sessionId: string): Promise<void> {
+  async incrementErrorCount(sessionId: string, tenantId: string): Promise<void> {
     try {
-      const state = await this.getState(sessionId);
+      const state = await this.getState(sessionId, tenantId);
       if (!state) {
         throw new Error('Session not found');
       }
@@ -257,7 +277,7 @@ export class WorkflowStateRepository {
         },
       };
 
-      await this.saveState(sessionId, updatedState);
+      await this.saveState(sessionId, updatedState, tenantId);
     } catch (error) {
       logger.error('Error incrementing error count', error instanceof Error ? error : undefined, {
         sessionId,
@@ -273,12 +293,14 @@ export class WorkflowStateRepository {
    * @param limit Maximum number of sessions to return
    * @returns Array of session data
    */
-  async getActiveSessions(userId: string, limit: number = 10): Promise<SessionData[]> {
+  async getActiveSessions(userId: string, tenantId: string, limit: number = 10): Promise<SessionData[]> {
     try {
+      const resolvedTenantId = this.requireTenantId(tenantId);
       const { data, error } = await this.supabase
         .from('agent_sessions')
         .select('*')
         .eq('user_id', userId)
+        .eq('tenant_id', resolvedTenantId)
         .eq('status', 'active')
         .order('updated_at', { ascending: false })
         .limit(limit);
@@ -303,8 +325,9 @@ export class WorkflowStateRepository {
    * @param olderThanDays Delete sessions older than this many days
    * @returns Number of sessions deleted
    */
-  async cleanupOldSessions(olderThanDays: number = 30): Promise<number> {
+  async cleanupOldSessions(olderThanDays: number = 30, tenantId: string): Promise<number> {
     try {
+      const resolvedTenantId = this.requireTenantId(tenantId);
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
 
@@ -312,6 +335,7 @@ export class WorkflowStateRepository {
         .from('agent_sessions')
         .delete()
         .lt('updated_at', cutoffDate.toISOString())
+        .eq('tenant_id', resolvedTenantId)
         .neq('status', 'active')
         .select('id');
 
@@ -344,9 +368,11 @@ export class WorkflowStateRepository {
   async atomicStateUpdate(
     sessionId: string,
     expectedUpdatedAt: string,
-    newState: WorkflowState
+    newState: WorkflowState,
+    tenantId: string
   ): Promise<boolean> {
     try {
+      const resolvedTenantId = this.requireTenantId(tenantId);
       const stateWithMetadata: WorkflowState = {
         ...newState,
         metadata: {
@@ -362,6 +388,7 @@ export class WorkflowStateRepository {
           updated_at: new Date().toISOString(),
         })
         .eq('id', sessionId)
+        .eq('tenant_id', resolvedTenantId)
         .eq('updated_at', expectedUpdatedAt)
         .select('id');
 

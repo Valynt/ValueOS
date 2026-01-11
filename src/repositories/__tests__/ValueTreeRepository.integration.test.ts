@@ -19,21 +19,21 @@ describe('ValueTreeRepository Integration', () => {
   });
 
   it('should be able to write and read from the value_trees table', async () => {
-    const orgId = '00000000-0000-0000-0000-000000000000'; // UUID format
+    const tenantId = '00000000-0000-0000-0000-000000000000'; // UUID format
     const treeName = 'Integration Test Tree';
 
     // 1. Direct Insert (Simulating repository action)
     // Since we are testing against a raw Postgres container, we use SQL directly
     // to verify the Schema and constraints are correct.
     const insertQuery = `
-      INSERT INTO value_trees (name, organization_id, description)
+      INSERT INTO value_trees (name, tenant_id, description)
       VALUES ($1, $2, $3)
       RETURNING *;
     `;
 
     const insertResult = await pool.query(insertQuery, [
       treeName,
-      orgId,
+      tenantId,
       'Created via integration test'
     ]);
 
@@ -48,6 +48,6 @@ describe('ValueTreeRepository Integration', () => {
     );
 
     expect(selectResult.rows).toHaveLength(1);
-    expect(selectResult.rows[0].organization_id).toBe(orgId);
+    expect(selectResult.rows[0].tenant_id).toBe(tenantId);
   });
 });

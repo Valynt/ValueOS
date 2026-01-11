@@ -89,6 +89,7 @@ export interface UseCaseKPI {
 
 export interface ValueTree {
   id: string;
+  tenant_id?: string;
   value_case_id: string;
   use_case_id?: string;
   name: string;
@@ -101,6 +102,7 @@ export interface ValueTree {
 
 export interface ValueTreeNode {
   id: string;
+  tenant_id?: string;
   value_tree_id: string;
   node_id: string;
   label: string;
@@ -113,6 +115,7 @@ export interface ValueTreeNode {
 }
 
 export interface ValueTreeLink {
+  tenant_id?: string;
   parent_id: string;
   child_id: string;
   link_type: string;
@@ -122,6 +125,7 @@ export interface ValueTreeLink {
 
 export interface ROIModel {
   id: string;
+  tenant_id?: string;
   organization_id: string;
   value_tree_id: string;
   financial_model_id?: string;
@@ -135,6 +139,7 @@ export interface ROIModel {
 
 export interface ROIModelCalculation {
   id: string;
+  tenant_id?: string;
   roi_model_id: string;
   name: string;
   formula: string;
@@ -168,6 +173,7 @@ export interface Benchmark {
 
 export interface ValueCommit {
   id: string;
+  tenant_id?: string;
   value_tree_id: string;
   value_case_id: string;
   committed_by?: string;
@@ -214,6 +220,7 @@ export interface ProvenanceAuditEntry {
 
 export interface KPITarget {
   id: string;
+  tenant_id?: string;
   organization_id: string;
   value_commit_id: string;
   kpi_hypothesis_id: string;

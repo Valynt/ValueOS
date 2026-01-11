@@ -21,6 +21,7 @@ import type { LifecycleStage } from '../types/vos';
 export interface SessionInitOptions {
   caseId: string;
   userId: string;
+  tenantId: string;
   initialStage?: LifecycleStage;
   context?: Record<string, any>;
 }
@@ -52,11 +53,11 @@ export class WorkflowStateService {
   async loadOrCreateSession(
     options: SessionInitOptions
   ): Promise<{ sessionId: string; state: WorkflowState }> {
-    const { caseId, userId, initialStage = 'opportunity', context = {} } = options;
+    const { caseId, userId, tenantId, initialStage = 'opportunity', context = {} } = options;
 
     try {
       // Try to find existing active session for this case
-      const existingSessions = await this.repository.getActiveSessions(userId, 10);
+      const existingSessions = await this.repository.getActiveSessions(userId, tenantId, 10);
       const existingSession = existingSessions.find(
         session => session.workflow_state?.context?.caseId === caseId
       );
@@ -93,7 +94,7 @@ export class WorkflowStateService {
         },
       };
 
-      const sessionId = await this.repository.createSession(userId, initialState);
+      const sessionId = await this.repository.createSession(userId, initialState, tenantId);
 
       return {
         sessionId,
@@ -114,9 +115,9 @@ export class WorkflowStateService {
    * @param sessionId Session identifier
    * @param state Updated workflow state
    */
-  async saveWorkflowState(sessionId: string, state: WorkflowState): Promise<void> {
+  async saveWorkflowState(sessionId: string, state: WorkflowState, tenantId: string): Promise<void> {
     try {
-      await this.repository.saveState(sessionId, state);
+      await this.repository.saveState(sessionId, state, tenantId);
       
       logger.debug('Workflow state saved', {
         sessionId,
@@ -140,9 +141,9 @@ export class WorkflowStateService {
    * @param sessionId Session identifier
    * @returns Workflow state or null if not found
    */
-  async getWorkflowState(sessionId: string): Promise<WorkflowState | null> {
+  async getWorkflowState(sessionId: string, tenantId: string): Promise<WorkflowState | null> {
     try {
-      return await this.repository.getState(sessionId);
+      return await this.repository.getState(sessionId, tenantId);
     } catch (error) {
       logger.error('Failed to get workflow state', error instanceof Error ? error : undefined, {
         sessionId,
@@ -157,9 +158,9 @@ export class WorkflowStateService {
    * @param sessionId Session identifier
    * @returns Session data or null if not found
    */
-  async getSession(sessionId: string): Promise<SessionData | null> {
+  async getSession(sessionId: string, tenantId: string): Promise<SessionData | null> {
     try {
-      return await this.repository.getSession(sessionId);
+      return await this.repository.getSession(sessionId, tenantId);
     } catch (error) {
       logger.error('Failed to get session', error instanceof Error ? error : undefined, {
         sessionId,
@@ -176,10 +177,11 @@ export class WorkflowStateService {
    */
   async updateSessionStatus(
     sessionId: string,
-    status: 'active' | 'completed' | 'error' | 'abandoned'
+    status: 'active' | 'completed' | 'error' | 'abandoned',
+    tenantId: string
   ): Promise<void> {
     try {
-      await this.repository.updateSessionStatus(sessionId, status);
+      await this.repository.updateSessionStatus(sessionId, status, tenantId);
       
       logger.info('Session status updated', { sessionId, status });
     } catch (error) {
@@ -247,9 +249,9 @@ export class WorkflowStateService {
    * @param olderThanDays Delete sessions older than this many days
    * @returns Number of sessions deleted
    */
-  async cleanupOldSessions(olderThanDays: number = 30): Promise<number> {
+  async cleanupOldSessions(olderThanDays: number = 30, tenantId: string): Promise<number> {
     try {
-      const count = await this.repository.cleanupOldSessions(olderThanDays);
+      const count = await this.repository.cleanupOldSessions(olderThanDays, tenantId);
       logger.info('Old sessions cleaned up', { count, olderThanDays });
       return count;
     } catch (error) {

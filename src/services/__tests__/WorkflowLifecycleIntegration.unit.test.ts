@@ -17,7 +17,7 @@ describe('WorkflowLifecycleIntegration', () => {
     const fakeSupabase: any = {}; // Not used in happy path due to mocks
     const integration = new WorkflowLifecycleIntegration(fakeSupabase as any);
 
-    const exec = await integration.executeWorkflow('user-1', { initial: true });
+    const exec = await integration.executeWorkflow('user-1', { initial: true }, { tenantId: 'tenant-1' });
 
     expect(exec.status).toBe('completed');
     expect(exec.completedStages.length).toBeGreaterThan(0);
@@ -33,7 +33,9 @@ describe('WorkflowLifecycleIntegration', () => {
     const fakeSupabase: any = {};
     const integration = new WorkflowLifecycleIntegration(fakeSupabase as any);
 
-    await expect(integration.executeWorkflow('user-1', { some: 'input' })).rejects.toThrow('Stage failed');
+    await expect(
+      integration.executeWorkflow('user-1', { some: 'input' }, { tenantId: 'tenant-1' })
+    ).rejects.toThrow('Stage failed');
 
     // Ensure failed execution recorded
     const executions = integration.getUserExecutions('user-1');

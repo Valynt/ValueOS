@@ -277,6 +277,7 @@ export interface AgentConfig {
  */
 export interface LifecycleContext {
   userId: string;
+  tenantId?: string;
   organizationId?: string;
   sessionId?: string;
   metadata?: Record<string, any>;

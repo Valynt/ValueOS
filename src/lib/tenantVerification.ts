@@ -36,31 +36,51 @@ export async function verifyTenantMembership(
     // Import supabase client dynamically to avoid circular dependencies
     const { supabase } = await import('./supabase');
     
-    // Query user's organization membership
+    const { data: membership, error: membershipError } = await supabase
+      .from('user_tenants')
+      .select('tenant_id, status')
+      .eq('user_id', userId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+
+    if (!membershipError && membership) {
+      const membershipStatus = membership.status || 'active';
+      const belongsToTenant = membershipStatus === 'active';
+
+      if (!belongsToTenant) {
+        logger.warn('Tenant membership inactive', {
+          userId: maskUserId(userId),
+          tenantId,
+          status: membershipStatus,
+        });
+      }
+
+      return belongsToTenant;
+    }
+
+    if (membershipError) {
+      logger.warn('Tenant membership lookup failed, falling back to legacy org check', {
+        userId: maskUserId(userId),
+        tenantId,
+        errorCode: membershipError.code,
+      });
+    }
+
+    // Legacy fallback: single-tenant users table
     const { data, error } = await supabase
       .from('users')
       .select('organization_id')
       .eq('id', userId)
       .single();
 
-    if (error) {
-      logger.error('Failed to verify tenant membership', error, {
+    if (error || !data) {
+      logger.error('Failed to verify tenant membership via legacy org check', error, {
         userId: maskUserId(userId),
         tenantId,
-        errorCode: error.code,
       });
       return false; // Fail closed - deny access on error
     }
 
-    if (!data) {
-      logger.warn('User not found during tenant verification', {
-        userId: maskUserId(userId),
-        tenantId,
-      });
-      return false;
-    }
-
-    // Check if user's organization matches requested tenant
     const belongsToTenant = data.organization_id === tenantId;
     
     if (!belongsToTenant) {
@@ -99,7 +119,25 @@ export async function verifyTenantMembershipBatch(
   try {
     const { supabase } = await import('./supabase');
     
-    // Get user's organization
+    const { data: memberships, error: membershipsError } = await supabase
+      .from('user_tenants')
+      .select('tenant_id, status')
+      .eq('user_id', userId)
+      .eq('status', 'active');
+
+    if (!membershipsError && memberships) {
+      const allowed = new Set(memberships.map(membership => membership.tenant_id));
+      tenantIds.forEach(tenantId => results.set(tenantId, allowed.has(tenantId)));
+      return results;
+    }
+
+    if (membershipsError) {
+      logger.warn('Batch tenant lookup failed, falling back to legacy org check', {
+        userId: maskUserId(userId),
+        errorCode: membershipsError.code,
+      });
+    }
+
     const { data, error } = await supabase
       .from('users')
       .select('organization_id')
@@ -107,14 +145,12 @@ export async function verifyTenantMembershipBatch(
       .single();
 
     if (error || !data) {
-      // If we can't verify, deny all
       tenantIds.forEach(tenantId => results.set(tenantId, false));
       return results;
     }
 
     const userTenantId = data.organization_id;
-    
-    // Check each tenant
+
     tenantIds.forEach(tenantId => {
       results.set(tenantId, tenantId === userTenantId);
     });
@@ -142,6 +178,26 @@ export async function getUserTenantId(userId: string): Promise<string | null> {
   try {
     const { supabase } = await import('./supabase');
     
+    const { data: membership, error: membershipError } = await supabase
+      .from('user_tenants')
+      .select('tenant_id, created_at, status')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (!membershipError && membership?.tenant_id) {
+      return membership.tenant_id;
+    }
+
+    if (membershipError) {
+      logger.warn('Tenant lookup failed, falling back to legacy org check', {
+        userId: maskUserId(userId),
+        error: membershipError.message,
+      });
+    }
+
     const { data, error } = await supabase
       .from('users')
       .select('organization_id')
@@ -175,6 +231,23 @@ export async function verifyTenantExists(tenantId: string): Promise<boolean> {
   try {
     const { supabase } = await import('./supabase');
     
+    const { data: tenant, error: tenantError } = await supabase
+      .from('tenants')
+      .select('id, status')
+      .eq('id', tenantId)
+      .single();
+
+    if (!tenantError && tenant) {
+      return tenant.status === 'active';
+    }
+
+    if (tenantError) {
+      logger.warn('Tenant lookup failed, falling back to organizations table', {
+        tenantId,
+        errorCode: tenantError.code,
+      });
+    }
+
     const { data, error } = await supabase
       .from('organizations')
       .select('id, status')
@@ -185,7 +258,6 @@ export async function verifyTenantExists(tenantId: string): Promise<boolean> {
       return false;
     }
 
-    // Check if organization is active
     return data.status === 'active' || data.status === 'trial';
   } catch (error) {
     logger.error('Error verifying tenant exists', error instanceof Error ? error : undefined, {

@@ -5,16 +5,19 @@ import { supabase } from '../lib/supabase';
 import { ROIModelCalculation } from '../types/vos';
 
 export class RoiModelCalculationRepository {
-  private orgId: string;
+  private tenantId: string;
 
-  constructor(orgId: string) {
-    this.orgId = orgId;
+  constructor(tenantId: string) {
+    if (!tenantId) {
+      throw new Error('Tenant ID is required for RoiModelCalculationRepository');
+    }
+    this.tenantId = tenantId;
   }
 
-  async create(calcData: Omit<ROIModelCalculation, 'id' | 'created_at' | 'organization_id'>) {
+  async create(calcData: Omit<ROIModelCalculation, 'id' | 'created_at' | 'tenant_id'>) {
     const dataToInsert = {
       ...calcData,
-      organization_id: this.orgId,
+      tenant_id: this.tenantId,
     };
     return supabase
       .from('roi_model_calculations')

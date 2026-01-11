@@ -326,7 +326,7 @@ describe('AgentOrchestratorAdapter', () => {
   describe('Session Management', () => {
     describe('getSession()', () => {
       it('should get session by ID', async () => {
-        const session = await agentOrchestrator.getSession('session-123');
+        const session = await agentOrchestrator.getSession('session-123', 'tenant-1');
         // Returns null from mock
         expect(session).toBeNull();
       });
@@ -334,12 +334,12 @@ describe('AgentOrchestratorAdapter', () => {
 
     describe('getActiveSessions()', () => {
       it('should get active sessions for user', async () => {
-        const sessions = await agentOrchestrator.getActiveSessions('user-123');
+        const sessions = await agentOrchestrator.getActiveSessions('user-123', 'tenant-1');
         expect(Array.isArray(sessions)).toBe(true);
       });
 
       it('should accept limit parameter', async () => {
-        const sessions = await agentOrchestrator.getActiveSessions('user-123', 5);
+        const sessions = await agentOrchestrator.getActiveSessions('user-123', 'tenant-1', 5);
         expect(Array.isArray(sessions)).toBe(true);
       });
     });

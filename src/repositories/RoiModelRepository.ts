@@ -6,13 +6,13 @@ import { supabase } from '../lib/supabase';
 import { ROIModel } from '../types/vos';
 
 export class RoiModelRepository {
-  private orgId: string;
+  private tenantId: string;
 
-  constructor(orgId: string) {
-    if (!orgId) {
-      throw new Error('Organization ID is required for RoiModelRepository');
+  constructor(tenantId: string) {
+    if (!tenantId) {
+      throw new Error('Tenant ID is required for RoiModelRepository');
     }
-    this.orgId = orgId;
+    this.tenantId = tenantId;
   }
 
   /**
@@ -28,7 +28,7 @@ export class RoiModelRepository {
       .from('roi_models')
       .select('*')
       .eq('id', modelId)
-      .eq('organization_id', this.orgId)
+      .eq('tenant_id', this.tenantId)
       .single();
   }
 
@@ -37,10 +37,10 @@ export class RoiModelRepository {
    * @param modelData The data for the new model.
    * @returns A Supabase postgrest response with the created model or an error.
    */
-  async create(modelData: Omit<ROIModel, 'id' | 'organization_id' | 'created_at' | 'updated_at'>) {
+  async create(modelData: Omit<ROIModel, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>) {
     const dataToInsert = {
       ...modelData,
-      organization_id: this.orgId,
+      tenant_id: this.tenantId,
     };
     return supabase
       .from('roi_models')

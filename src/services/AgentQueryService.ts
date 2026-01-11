@@ -45,6 +45,14 @@ export interface QueryOptions {
 
   /** Initial execution request for new sessions */
   execution?: ExecutionRequest;
+
+  /** Tenant context for session isolation */
+  tenantId?: string;
+
+  /** Initial execution context */
+  initialContext?: Record<string, any> & {
+    organizationId?: string;
+  };
 }
 
 import { agentQueryLatency } from "../lib/monitoring/metrics";
@@ -78,6 +86,10 @@ export class AgentQueryService {
     sessionId?: string,
     options: QueryOptions = {}
   ): Promise<QueryResult> {
+    const tenantId = options.tenantId || options.initialContext?.organizationId;
+    if (!tenantId) {
+      throw new Error("Tenant ID is required to handle agent queries");
+    }
     const startTime = Date.now();
     // Generate trace ID for observability
     const traceId = uuidv4();
@@ -109,7 +121,7 @@ export class AgentQueryService {
 
       if (currentSessionId) {
         // Existing session
-        currentState = await this.stateRepo.getState(currentSessionId);
+        currentState = await this.stateRepo.getState(currentSessionId, tenantId);
 
         if (!currentState) {
           logger.warn("Session not found, creating new session", {
@@ -138,7 +150,8 @@ export class AgentQueryService {
 
         currentSessionId = await this.stateRepo.createSession(
           userId,
-          initialState
+          initialState,
+          tenantId
         );
         currentState = initialState;
 
@@ -153,7 +166,7 @@ export class AgentQueryService {
       const envelope = {
         intent: "agent-query",
         actor: { id: userId },
-        organizationId: options.initialContext?.organizationId || "unknown",
+        organizationId: tenantId,
         entryPoint: "agent-query-service",
         reason: "interactive-query",
         timestamps: { requestedAt: new Date().toISOString() },
@@ -168,13 +181,14 @@ export class AgentQueryService {
       );
 
       // 4. Save updated state
-      await this.stateRepo.saveState(currentSessionId, result.nextState);
+      await this.stateRepo.saveState(currentSessionId, result.nextState, tenantId);
 
       // 5. Update session status if workflow is complete
       if (this.orchestrator.isWorkflowComplete(result.nextState)) {
         await this.stateRepo.updateSessionStatus(
           currentSessionId,
-          result.nextState.status === "error" ? "error" : "completed"
+          result.nextState.status === "error" ? "error" : "completed",
+          tenantId
         );
       }
 
@@ -220,7 +234,7 @@ export class AgentQueryService {
       // Increment error count if session exists
       if (sessionId) {
         try {
-          await this.stateRepo.incrementErrorCount(sessionId);
+          await this.stateRepo.incrementErrorCount(sessionId, tenantId);
         } catch (err) {
           logger.error(
             "Failed to increment error count",
@@ -243,8 +257,8 @@ export class AgentQueryService {
    * @param sessionId Session identifier
    * @returns Session data or null if not found
    */
-  async getSession(sessionId: string) {
-    return await this.stateRepo.getSession(sessionId);
+  async getSession(sessionId: string, tenantId: string) {
+    return await this.stateRepo.getSession(sessionId, tenantId);
   }
 
   /**
@@ -254,8 +268,8 @@ export class AgentQueryService {
    * @param limit Maximum number of sessions
    * @returns Array of session data
    */
-  async getActiveSessions(userId: string, limit: number = 10) {
-    return await this.stateRepo.getActiveSessions(userId, limit);
+  async getActiveSessions(userId: string, tenantId: string, limit: number = 10) {
+    return await this.stateRepo.getActiveSessions(userId, tenantId, limit);
   }
 
   /**
@@ -263,8 +277,8 @@ export class AgentQueryService {
    *
    * @param sessionId Session identifier
    */
-  async abandonSession(sessionId: string): Promise<void> {
-    await this.stateRepo.updateSessionStatus(sessionId, "abandoned");
+  async abandonSession(sessionId: string, tenantId: string): Promise<void> {
+    await this.stateRepo.updateSessionStatus(sessionId, "abandoned", tenantId);
     logger.info("Session abandoned", { sessionId });
   }
 
@@ -274,8 +288,8 @@ export class AgentQueryService {
    * @param olderThanDays Delete sessions older than this many days
    * @returns Number of sessions deleted
    */
-  async cleanupOldSessions(olderThanDays: number = 30): Promise<number> {
-    return await this.stateRepo.cleanupOldSessions(olderThanDays);
+  async cleanupOldSessions(olderThanDays: number = 30, tenantId: string): Promise<number> {
+    return await this.stateRepo.cleanupOldSessions(olderThanDays, tenantId);
   }
 
   /**

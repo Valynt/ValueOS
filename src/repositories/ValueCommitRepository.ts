@@ -5,16 +5,19 @@ import { supabase } from '../lib/supabase';
 import { ValueCommit } from '../types/vos';
 
 export class ValueCommitRepository {
-  private orgId: string;
+  private tenantId: string;
 
-  constructor(orgId: string) {
-    this.orgId = orgId;
+  constructor(tenantId: string) {
+    if (!tenantId) {
+      throw new Error('Tenant ID is required for ValueCommitRepository');
+    }
+    this.tenantId = tenantId;
   }
 
-  async create(commitData: Omit<ValueCommit, 'id' | 'created_at' | 'organization_id'>) {
+  async create(commitData: Omit<ValueCommit, 'id' | 'created_at' | 'tenant_id'>) {
     const dataToInsert = {
       ...commitData,
-      organization_id: this.orgId,
+      tenant_id: this.tenantId,
     };
     return supabase
       .from('value_commits')

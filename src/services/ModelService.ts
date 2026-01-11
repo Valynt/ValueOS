@@ -26,29 +26,31 @@ export class ModelService {
   private valueCommitRepo: ValueCommitRepository;
 
   constructor(context: LifecycleContext) {
-    if (!context.organizationId) {
-      throw new Error('Organization ID is required to initialize ModelService');
+    const tenantId = context.tenantId || context.organizationId;
+    if (!tenantId) {
+      throw new Error('Tenant ID is required to initialize ModelService');
     }
     this.context = context;
-    this.roiModelRepo = new RoiModelRepository(context.organizationId);
-    this.kpiTargetRepo = new KpiTargetRepository(context.organizationId);
-    this.valueTreeRepo = new ValueTreeRepository(context.organizationId);
-    this.valueTreeNodeRepo = new ValueTreeNodeRepository(context.organizationId);
-    this.valueTreeLinkRepo = new ValueTreeLinkRepository(context.organizationId);
-    this.roiModelCalcRepo = new RoiModelCalculationRepository(context.organizationId);
-    this.valueCommitRepo = new ValueCommitRepository(context.organizationId);
+    this.roiModelRepo = new RoiModelRepository(tenantId);
+    this.kpiTargetRepo = new KpiTargetRepository(tenantId);
+    this.valueTreeRepo = new ValueTreeRepository(tenantId);
+    this.valueTreeNodeRepo = new ValueTreeNodeRepository(tenantId);
+    this.valueTreeLinkRepo = new ValueTreeLinkRepository(tenantId);
+    this.roiModelCalcRepo = new RoiModelCalculationRepository(tenantId);
+    this.valueCommitRepo = new ValueCommitRepository(tenantId);
   }
 
   /**
    * Helper to resolve audit actor details with fallback
    */
   private async resolveAuditActor(): Promise<{ userId: string; userName: string; userEmail: string }> {
-    const { userId, organizationId } = this.context;
+    const { userId } = this.context;
+    const tenantId = this.context.tenantId || this.context.organizationId;
 
     try {
-      if (!organizationId) throw new Error('No organization ID in context');
+      if (!tenantId) throw new Error('No tenant ID in context');
 
-      const profile = await userSettingsService.getProfile(userId, organizationId);
+      const profile = await userSettingsService.getProfile(userId, tenantId);
       return {
         userId,
         userName: profile.fullName || 'Unknown User',

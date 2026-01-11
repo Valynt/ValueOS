@@ -83,9 +83,12 @@ export const EnhancedWorkflowContainer: React.FC<EnhancedWorkflowContainerProps>
   const initializeWorkflow = async () => {
     try {
       setLoading(true);
+      if (!organizationId) {
+        throw new Error('Tenant context is required to initialize workflow');
+      }
       
       // Try to restore existing session
-      const existingSession = await agentQueryService.getSession(workflowId);
+      const existingSession = await agentQueryService.getSession(workflowId, organizationId);
       
       if (existingSession) {
         logger.info('Restored existing workflow session', { workflowId });
@@ -138,6 +141,7 @@ export const EnhancedWorkflowContainer: React.FC<EnhancedWorkflowContainerProps>
           undefined,
           {
             initialStage,
+            tenantId: organizationId,
             initialContext: {
               workflowId,
               organizationId,

@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import { createLogger } from '../lib/logger';
-import { getUserTenantId, verifyTenantMembership } from '../lib/tenantVerification';
+import { getUserTenantId, verifyTenantExists, verifyTenantMembership } from '../lib/tenantVerification';
 
 type TenantCandidateSource = 'service-header' | 'user-claim' | 'request' | 'none';
 
@@ -57,6 +57,19 @@ export function tenantContextMiddleware() {
 
     if (!resolvedTenantId) {
       return next();
+    }
+
+    const tenantExists = await verifyTenantExists(resolvedTenantId);
+    if (!tenantExists) {
+      logger.warn('Tenant context resolved to inactive or unknown tenant', {
+        userId,
+        tenantId: resolvedTenantId,
+        source,
+      });
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Tenant not found or inactive.',
+      });
     }
 
     if (userId) {
