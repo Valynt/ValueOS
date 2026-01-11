@@ -6,6 +6,20 @@ import { createProviderFromEnv, providerFactory } from '../ProviderFactory';
 let sendMock: ReturnType<typeof vi.fn>;
 let mockVaultClient: any;
 
+// Mock fs for kubernetes auth check - placed early
+vi.mock('fs', () => ({
+  promises: {
+    readFile: vi.fn().mockResolvedValue('mock-jwt-token'),
+  },
+  // We need to mock default export if it's used, or named exports
+  readFileSync: vi.fn(),
+  default: {
+    promises: {
+      readFile: vi.fn().mockResolvedValue('mock-jwt-token'),
+    }
+  }
+}));
+
 vi.mock('@aws-sdk/client-secrets-manager', () => {
   class GetSecretValueCommand {
     constructor(public input: any) {}
@@ -51,6 +65,16 @@ vi.mock('../../../lib/logger', () => ({
     warn: vi.fn(),
     error: vi.fn(),
   },
+}));
+
+vi.mock('../../../lib/supabase', () => ({
+  createServerSupabaseClient: vi.fn(() => ({
+    from: vi.fn(() => ({
+      insert: vi.fn().mockResolvedValue({ error: null }),
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+    })),
+  })),
 }));
 
 describe.each([

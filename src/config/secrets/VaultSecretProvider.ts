@@ -18,6 +18,7 @@ import type {
   SecretValue
 } from './ISecretProvider';
 import * as fs from 'fs';
+import { StructuredSecretAuditLogger, SecretAuditEvent } from './SecretAuditLogger';
 
 // Type definitions for node-vault (simplified)
 interface VaultClient {
@@ -40,6 +41,7 @@ export class VaultSecretProvider implements ISecretProvider {
   private cache: Map<string, { value: SecretValue; expiresAt: number }> = new Map();
   private cacheTTL: number;
   private kubernetesRole?: string;
+  private auditLogger: StructuredSecretAuditLogger;
 
   constructor(
     vaultAddress: string,
@@ -52,6 +54,7 @@ export class VaultSecretProvider implements ISecretProvider {
     this.environment = process.env.NODE_ENV || 'development';
     this.cacheTTL = cacheTTL;
     this.kubernetesRole = kubernetesRole;
+    this.auditLogger = new StructuredSecretAuditLogger();
 
     logger.info('Vault Secret Provider initialized', {
       provider: 'vault',
@@ -453,7 +456,7 @@ export class VaultSecretProvider implements ISecretProvider {
         version: String(vaultMetadata.current_version || 'latest'),
         createdAt: vaultMetadata.created_time || new Date().toISOString(),
         lastAccessed: new Date().toISOString(),
-        sensitivityLevel: 'high', // Default, should be in custom_metadata
+        sensitivityLevel: 'high', // Default, should be in tags
         tags: vaultMetadata.custom_metadata || {}
       };
 
@@ -490,43 +493,24 @@ export class VaultSecretProvider implements ISecretProvider {
     error?: string,
     metadata?: Record<string, any>
   ): Promise<void> {
-    const logEntry = {
-      provider: 'vault',
+    const event: SecretAuditEvent = {
       tenantId,
       userId,
-      secretKey: this.maskSecretKey(secretKey),
+      secretKey,
       action,
       result,
       error,
-      metadata,
-      timestamp: new Date().toISOString()
+      metadata
     };
 
     if (result === 'SUCCESS') {
-      logger.info('SECRET_ACCESS', logEntry);
-    } else {
-      logger.warn('SECRET_ACCESS_DENIED', logEntry);
-    }
-
-    // Write to database audit log table
-    try {
-      const supabase = createServerSupabaseClient();
-      const { error: dbError } = await supabase.from('secret_audit_logs').insert({
-        tenant_id: tenantId,
-        user_id: userId,
-        secret_key: this.maskSecretKey(secretKey),
-        action: action,
-        result: result,
-        error_message: error,
-        metadata: metadata || {},
-        timestamp: logEntry.timestamp
-      });
-
-      if (dbError) {
-        logger.error('Failed to write secret audit log to database', dbError, logEntry);
+      if (action === 'ROTATE') {
+        await this.auditLogger.logRotation(event);
+      } else {
+        await this.auditLogger.logAccess(event);
       }
-    } catch (err) {
-      logger.error('Unexpected error writing secret audit log', err instanceof Error ? err : new Error(String(err)), logEntry);
+    } else {
+      await this.auditLogger.logDenied({ ...event, reason: error || 'Unknown error' });
     }
   }
 

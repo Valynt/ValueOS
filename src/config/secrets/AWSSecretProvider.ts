@@ -27,6 +27,7 @@ import type {
   SecretMetadata,
   SecretValue
 } from './ISecretProvider';
+import { StructuredSecretAuditLogger, SecretAuditEvent } from './SecretAuditLogger';
 
 /**
  * AWS Secrets Manager provider implementation
@@ -36,6 +37,7 @@ export class AWSSecretProvider implements ISecretProvider {
   private environment: string;
   private cache: Map<string, { value: SecretValue; expiresAt: number }> = new Map();
   private cacheTTL: number;
+  private auditLogger: StructuredSecretAuditLogger;
 
   constructor(
     region: string = 'us-east-1',
@@ -44,6 +46,7 @@ export class AWSSecretProvider implements ISecretProvider {
     this.client = new SecretsManagerClient({ region });
     this.environment = process.env.NODE_ENV || 'development';
     this.cacheTTL = cacheTTL;
+    this.auditLogger = new StructuredSecretAuditLogger();
 
     logger.info('AWS Secret Provider initialized', {
       provider: 'aws',
@@ -409,43 +412,24 @@ export class AWSSecretProvider implements ISecretProvider {
     error?: string,
     metadata?: Record<string, any>
   ): Promise<void> {
-    const logEntry = {
-      provider: 'aws',
+    const event: SecretAuditEvent = {
       tenantId,
       userId,
-      secretKey: this.maskSecretKey(secretKey),
+      secretKey,
       action,
       result,
       error,
-      metadata,
-      timestamp: new Date().toISOString()
+      metadata
     };
 
     if (result === 'SUCCESS') {
-      logger.info('SECRET_ACCESS', logEntry);
-    } else {
-      logger.warn('SECRET_ACCESS_DENIED', logEntry);
-    }
-
-    // Write to database audit log table
-    try {
-      const supabase = createServerSupabaseClient();
-      const { error: dbError } = await supabase.from('secret_audit_logs').insert({
-        tenant_id: tenantId,
-        user_id: userId,
-        secret_key: this.maskSecretKey(secretKey),
-        action: action,
-        result: result,
-        error_message: error,
-        metadata: metadata || {},
-        timestamp: logEntry.timestamp
-      });
-
-      if (dbError) {
-        logger.error('Failed to write secret audit log to database', dbError, logEntry);
+      if (action === 'ROTATE') {
+        await this.auditLogger.logRotation(event);
+      } else {
+        await this.auditLogger.logAccess(event);
       }
-    } catch (err) {
-      logger.error('Unexpected error writing secret audit log', err instanceof Error ? err : new Error(String(err)), logEntry);
+    } else {
+      await this.auditLogger.logDenied({ ...event, reason: error || 'Unknown error' });
     }
   }
 
