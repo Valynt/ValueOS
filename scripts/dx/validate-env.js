@@ -13,7 +13,24 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const projectRoot = path.resolve(__dirname, '../..');
-const envPath = path.join(projectRoot, '.env');
+const preferredEnvFile = '.env.local';
+const fallbackEnvFile = '.env';
+const envCandidates = [
+  path.join(projectRoot, preferredEnvFile),
+  path.join(projectRoot, fallbackEnvFile)
+];
+
+function resolveEnvFile() {
+  const foundPath = envCandidates.find(candidate => fs.existsSync(candidate));
+  if (!foundPath) {
+    return null;
+  }
+
+  return {
+    path: foundPath,
+    name: path.basename(foundPath)
+  };
+}
 
 /**
  * Parse .env file
@@ -51,11 +68,11 @@ function checkRequired(env) {
   if (missing.length > 0) {
     console.log('❌ Missing required environment variables:');
     missing.forEach(key => console.log(`   - ${key}`));
-    return false;
+    return { ok: false, missing };
   }
 
   console.log('✅ All required variables present');
-  return true;
+  return { ok: true, missing: [] };
 }
 
 /**
@@ -162,20 +179,26 @@ function checkLocalhostUrls(env) {
 async function validateEnvironment() {
   console.log('\n🔍 Validating environment configuration...\n');
 
-  // Check if .env exists
-  if (!fs.existsSync(envPath)) {
-    console.log('❌ .env file not found');
-    console.log('\nRun: npm run setup\n');
+  const envFile = resolveEnvFile();
+  const regenCommand = `rm -f ${envFile?.name || preferredEnvFile} && npm run setup`;
+
+  // Check if env file exists
+  if (!envFile) {
+    console.log(`❌ ${preferredEnvFile} or ${fallbackEnvFile} file not found`);
+    console.log(`\nRun: ${regenCommand}\n`);
     return false;
   }
 
-  // Read and parse .env
-  const content = fs.readFileSync(envPath, 'utf8');
+  console.log(`Using ${envFile.name} for validation`);
+
+  // Read and parse env file
+  const content = fs.readFileSync(envFile.path, 'utf8');
   const env = parseEnvFile(content);
 
   // Run checks
+  const requiredCheck = checkRequired(env);
   const checks = [
-    checkRequired(env),
+    requiredCheck.ok,
     checkSecrets(env),
     checkProductionCredentials(env),
     checkLocalhostUrls(env)
@@ -189,7 +212,7 @@ async function validateEnvironment() {
   } else {
     console.log('\n❌ Environment validation failed\n');
     console.log('Fix issues above or regenerate:');
-    console.log('  rm .env && npm run setup\n');
+    console.log(`  ${regenCommand}\n`);
     return false;
   }
 }

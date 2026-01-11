@@ -271,21 +271,21 @@ API_PORT=3002 npm run backend:dev
 
 **Solutions**:
 
-1. **Check .env file exists**:
+1. **Check .env.local file exists**:
 
    ```bash
-   ls -la .env
+   ls -la .env.local
    # Should exist
    ```
 
-2. **Regenerate .env**:
+2. **Regenerate .env.local**:
 
    ```bash
-   rm .env
+   rm .env.local
    npm run setup
    ```
 
-3. **Validate .env**:
+3. **Validate .env.local**:
 
    ```bash
    npm run env:validate
@@ -293,7 +293,7 @@ API_PORT=3002 npm run backend:dev
 
 4. **Check required variables**:
    ```bash
-   grep -E "^(NODE_ENV|DATABASE_URL|JWT_SECRET)" .env
+   grep -E "^(NODE_ENV|DATABASE_URL|JWT_SECRET)" .env.local
    # All should have values
    ```
 
@@ -307,7 +307,7 @@ API_PORT=3002 npm run backend:dev
 
 ```bash
 # Regenerate with secure secrets
-rm .env
+rm .env.local
 npm run setup
 ```
 
@@ -322,14 +322,14 @@ npm run setup
 1. **Check NODE_ENV**:
 
    ```bash
-   grep NODE_ENV .env
+   grep NODE_ENV .env.local
    # Should be: development
    ```
 
 2. **Check URLs**:
 
    ```bash
-   grep URL .env
+   grep URL .env.local
    # Should be localhost URLs
    ```
 
