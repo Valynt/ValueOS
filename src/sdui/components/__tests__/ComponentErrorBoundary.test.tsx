@@ -4,11 +4,22 @@ import { describe, expect, it } from 'vitest';
 import { ComponentErrorBoundary } from '../ComponentErrorBoundary';
 import { __setEnvSourceForTests, env } from '../../../lib/env';
 import { captureException } from '../../../lib/sentry';
+import { isProduction, isDevelopment } from '../../../config/environment';
 
 // Mock Sentry
 vi.mock('../../../lib/sentry', () => ({
   captureException: vi.fn(),
 }));
+
+// Mock config environment
+vi.mock('../../../config/environment', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../config/environment')>();
+  return {
+    ...actual,
+    isProduction: vi.fn(),
+    isDevelopment: vi.fn(),
+  };
+});
 
 const Thrower = () => {
   throw new Error('password=secret123');
@@ -16,8 +27,8 @@ const Thrower = () => {
 
 describe('ComponentErrorBoundary secrecy + retry', () => {
   it('hides sensitive error details outside development while keeping retry and logs to Sentry', () => {
-    const originalMode = env.mode;
-    __setEnvSourceForTests({ NODE_ENV: 'production' });
+    vi.mocked(isProduction).mockReturnValue(true);
+    vi.mocked(isDevelopment).mockReturnValue(false);
 
     render(
       <ComponentErrorBoundary componentName="Danger">
@@ -44,7 +55,5 @@ describe('ComponentErrorBoundary secrecy + retry', () => {
         },
       })
     );
-
-    __setEnvSourceForTests({ NODE_ENV: originalMode });
   });
 });
