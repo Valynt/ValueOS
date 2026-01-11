@@ -6,6 +6,7 @@
   "packageManager": "npm@9.2.0",
   "scripts": {
     "setup": "bash scripts/dev/setup.sh",
+    "dx": "bash scripts/dev/start.sh",
     "dev": "vite",
     "dx": "node scripts/dx/dev.js",
     "dx:docker": "node scripts/dx/dev.js --mode docker",
