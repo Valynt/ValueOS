@@ -34,10 +34,10 @@ describe("Critical Fixes Verification", () => {
       expect(tool).toBeDefined();
       expect(tool.name).toBe("web_search");
 
-      // Test that the tool has the performSearch method with URL validation
-      // The actual URL validation is implemented in the performSearch method
-      expect(tool).toHaveProperty("performSearch");
-      expect(typeof tool.performSearch).toBe("function");
+      // Test that the tool has the execute method with URL validation
+      // The actual URL validation is implemented in the private performSearch method
+      expect(tool).toHaveProperty("execute");
+      expect(typeof tool.execute).toBe("function");
 
       // Test basic execution (should work with allowlisted domains)
       const result = await tool.execute({
@@ -131,7 +131,7 @@ describe("Critical Fixes Verification", () => {
       // 2. URL validation should be implemented
       const webSearchTool = new WebSearchTool();
       expect(webSearchTool).toBeDefined();
-      expect(webSearchTool).toHaveProperty("performSearch");
+      expect(webSearchTool).toHaveProperty("execute");
 
       // 3. Idempotency should be supported
       expect(api).toHaveProperty("invoke");

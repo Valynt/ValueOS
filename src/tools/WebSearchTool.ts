@@ -92,7 +92,7 @@ export class WebSearchTool extends BaseTool {
   }
 
   private async safeSearchApiCall(
-    query: string,
+    _query: string,
     maxResults: number,
     validateUrl: (url: string) => boolean
   ): Promise<any[]> {

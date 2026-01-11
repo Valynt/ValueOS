@@ -68,7 +68,7 @@ export class WorkflowStateMachine {
    */
   transitionWorkflow(currentState: string, nextState: string, context?: Record<string, any>): void {
     if (!this.isValidTransition(currentState, nextState)) {
-      logger.error("Invalid workflow transition attempted", {
+      logger.error("Invalid workflow transition attempted", undefined, {
         currentState,
         nextState,
         validTransitions: this.getValidTransitions(currentState),

@@ -46,12 +46,13 @@ const MAX_QUEUE_SIZE = 100;
 const getSessionId = (): string => {
   if (typeof window === "undefined") return uuidv4();
 
-  let sessionId = sessionStorage.getItem("valueos-session-id");
-  if (!sessionId) {
-    sessionId = uuidv4();
-    sessionStorage.setItem("valueos-session-id", sessionId);
+  const storedSessionId = sessionStorage.getItem("valueos-session-id");
+  if (storedSessionId) {
+    return storedSessionId;
   }
-  return sessionId;
+  const newSessionId = uuidv4();
+  sessionStorage.setItem("valueos-session-id", newSessionId);
+  return newSessionId;
 };
 
 /**

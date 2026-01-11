@@ -251,9 +251,10 @@ export class UnifiedAgentAPI {
     try {
       sanitizedRequest = validateAndSanitizeRequest(request);
     } catch (error) {
-      logger.warn("Request validation failed", error instanceof Error ? error : undefined, {
+      logger.warn("Request validation failed", {
         traceId,
         agent: request.agent,
+        error: error instanceof Error ? error.message : String(error),
       });
       return {
         success: false,
@@ -589,7 +590,7 @@ export class UnifiedAgentAPI {
    */
   private async executeMockAgent(
     request: UnifiedAgentRequest,
-    traceId: string
+    _traceId: string
   ): Promise<UnifiedAgentResponse> {
     // Simulate processing time
     await new Promise((resolve) => setTimeout(resolve, 500 + Math.random() * 500));

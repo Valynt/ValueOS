@@ -13,10 +13,8 @@
 import { logger } from "../../lib/logger";
 import { supabase } from "../../lib/supabase";
 import {
-  CircuitBreakerState,
   ExecutedStep,
   RetryConfig,
-  StageStatus,
   WorkflowDAG,
   WorkflowExecution,
   WorkflowStage,
@@ -24,7 +22,6 @@ import {
 } from "../../types/workflow";
 import {
   ALL_WORKFLOW_DEFINITIONS,
-  getStageById,
   getWorkflowById,
   validateWorkflowDAG,
 } from "./WorkflowDAGDefinitions";
@@ -77,12 +74,14 @@ export class WorkflowDAGExecutor {
       // Validate workflow before registration
       const validation = validateWorkflowDAG(workflow);
       if (!validation.valid) {
-        logger.error(`Workflow ${workflow.id} validation failed:`, validation.errors);
+        logger.error(`Workflow ${workflow.id} validation failed`, undefined, {
+          errors: validation.errors,
+        });
         continue;
       }
 
       if (validation.warnings.length > 0) {
-        logger.warn(`Workflow ${workflow.id} warnings:`, validation.warnings);
+        logger.warn(`Workflow ${workflow.id} warnings`, { warnings: validation.warnings });
       }
 
       await supabase.from("workflow_definitions").upsert(
@@ -271,31 +270,20 @@ export class WorkflowDAGExecutor {
     while (attempt < retryConfig.max_attempts) {
       attempt++;
 
-      // Check circuit breaker
-      const circuitBreakerKey = `${workflowId}:${stage.id}`;
-      if (this.circuitBreakers.isOpen(circuitBreakerKey)) {
-        return {
-          success: false,
-          error: "Circuit breaker is open",
-          duration: 0,
-          retryable: false,
-        };
-      }
-
       // Log attempt
       await this.logEvent(executionId, "stage_attempt", stage.id, {
         attempt,
         max_attempts: retryConfig.max_attempts,
       });
 
-      // Execute stage
+      // Execute stage with circuit breaker
+      const circuitBreakerKey = `${workflowId}:${stage.id}`;
       const startTime = Date.now();
       try {
-        const result = await this.executeStage(executionId, workflowId, stage);
+        const result = await this.circuitBreakers.execute(circuitBreakerKey, () =>
+          this.executeStage(executionId, workflowId, stage)
+        );
         const duration = Date.now() - startTime;
-
-        // Record success in circuit breaker
-        this.circuitBreakers.recordSuccess(circuitBreakerKey);
 
         return {
           success: true,
@@ -305,10 +293,18 @@ export class WorkflowDAGExecutor {
         };
       } catch (error) {
         const duration = Date.now() - startTime;
-        lastError = (error as Error).message;
+        const errorMessage = (error as Error).message;
+        lastError = errorMessage;
 
-        // Record failure in circuit breaker
-        this.circuitBreakers.recordFailure(circuitBreakerKey);
+        // Check if circuit breaker is open
+        if (errorMessage === "Circuit breaker open") {
+          return {
+            success: false,
+            error: "Circuit breaker is open",
+            duration: 0,
+            retryable: false,
+          };
+        }
 
         // Check if retryable
         const isRetryable = this.isRetryableError(error as Error);
@@ -368,19 +364,18 @@ export class WorkflowDAGExecutor {
     const agentType = this.mapStageToAgentType(stage.agent_type);
 
     // Invoke agent via AgentAPI
-    const agentResponse = await this.agentAPI.invokeAgent(
-      agentType,
-      `Execute ${stage.name}`,
-      {
-        userId: execution.context.userId,
-        organizationId: execution.context.organizationId,
+    const agentResponse = await this.agentAPI.invokeAgent({
+      agent: agentType,
+      query: `Execute ${stage.name}`,
+      context: {
+        userId: execution.context?.userId,
+        organizationId: execution.context?.organizationId,
         sessionId: executionId,
         workflowId,
         stageId: stage.id,
         ...context,
       },
-      stage.timeout_seconds * 1000
-    );
+    });
 
     if (!agentResponse.success) {
       throw new Error(agentResponse.error || "Agent invocation failed");
@@ -453,7 +448,7 @@ export class WorkflowDAGExecutor {
    */
   private async triggerCompensation(
     executionId: string,
-    executedSteps: ExecutedStep[]
+    _executedSteps: ExecutedStep[]
   ): Promise<void> {
     try {
       await workflowCompensation.rollbackExecution(executionId);
@@ -624,7 +619,7 @@ export class WorkflowDAGExecutor {
    */
   getCircuitBreakerStatus(workflowId: string, stageId: string): any {
     const key = `${workflowId}:${stageId}`;
-    return this.circuitBreakers.getStatus(key);
+    return this.circuitBreakers.getState(key);
   }
 
   /**
@@ -707,10 +702,11 @@ export async function retryWorkflowFromLastStage(
   }
 
   // Start from last successful stage or initial stage
-  const executedSteps: ExecutedStep[] = execution.context?.executed_steps || [];
+  const executedStepsFromContext: ExecutedStep[] = execution.context?.executed_steps || [];
   const lastSuccessfulStage =
-    executedSteps.length > 0
-      ? executedSteps[executedSteps.length - 1].stage_id
+    executedStepsFromContext.length > 0
+      ? (executedStepsFromContext[executedStepsFromContext.length - 1]?.stage_id ??
+        workflow.initial_stage)
       : workflow.initial_stage;
 
   return workflowDAGExecutor.executeWorkflow(
