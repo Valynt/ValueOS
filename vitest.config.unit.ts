@@ -19,6 +19,7 @@ export default defineConfig({
       'src/sdui/__tests__/*.unit.test.tsx',
       'src/sdui/__tests__/*.benchmark.test.ts',
       'src/sdui/__tests__/load.test.ts',
+      'src/sdui/components/__tests__/*.test.tsx',
     ],
     exclude: [
       'node_modules',
