@@ -10,6 +10,7 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { getPortRegistry } from './port-registry.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -49,7 +50,8 @@ async function checkUrl(url, timeout = 5000) {
  * Check backend API
  */
 async function checkBackend() {
-  const url = process.env.BACKEND_URL || 'http://localhost:3000';
+  const ports = getPortRegistry();
+  const url = ports.backend.url;
   const healthUrl = `${url}/health`;
   
   const result = await checkUrl(healthUrl);
@@ -64,7 +66,7 @@ async function checkBackend() {
     fix: result.success ? null : `
    Possible causes:
    - Backend not started (run: npm run backend:dev)
-   - Port 3000 in use (check: lsof -i :3000)
+   - Port ${ports.backend.port} in use (check: lsof -i :${ports.backend.port})
    - Environment vars missing (check: .env)
    
    Debug:
@@ -76,7 +78,8 @@ async function checkBackend() {
  * Check frontend
  */
 async function checkFrontend() {
-  const url = process.env.VITE_APP_URL || 'http://localhost:5173';
+  const ports = getPortRegistry();
+  const url = ports.frontend.url;
   
   const result = await checkUrl(url);
   
@@ -90,7 +93,7 @@ async function checkFrontend() {
     fix: result.success ? null : `
    Possible causes:
    - Frontend not started (run: npm run dev)
-   - Port 5173 in use (check: lsof -i :5173)
+   - Port ${ports.frontend.port} in use (check: lsof -i :${ports.frontend.port})
    
    Debug:
    $ npm run dev`
@@ -101,28 +104,32 @@ async function checkFrontend() {
  * Check PostgreSQL
  */
 async function checkDatabase() {
+  const ports = getPortRegistry();
+  const composeFile = process.env.DX_MODE === 'docker'
+    ? 'docker-compose.full.yml'
+    : 'docker-compose.deps.yml';
   try {
-    execSync('docker-compose ps postgres', { 
+    execSync(`docker compose -f ${composeFile} ps postgres`, {
       stdio: 'ignore',
       cwd: path.resolve(__dirname, '../..')
     });
     
     return {
       name: 'PostgreSQL',
-      url: 'localhost:54322',
+      url: ports.database.address,
       passed: true,
-      message: '✅ PostgreSQL (localhost:54322)',
+      message: `✅ PostgreSQL (${ports.database.address})`,
       fix: null
     };
   } catch {
     return {
       name: 'PostgreSQL',
-      url: 'localhost:54322',
+      url: ports.database.address,
       passed: false,
       message: '❌ PostgreSQL - Not running',
       fix: `
    Start Docker services:
-   $ docker-compose up -d`
+   $ docker compose -f ${composeFile} up -d`
     };
   }
 }
@@ -131,28 +138,32 @@ async function checkDatabase() {
  * Check Redis
  */
 async function checkRedis() {
+  const ports = getPortRegistry();
+  const composeFile = process.env.DX_MODE === 'docker'
+    ? 'docker-compose.full.yml'
+    : 'docker-compose.deps.yml';
   try {
-    execSync('docker-compose ps redis', { 
+    execSync(`docker compose -f ${composeFile} ps redis`, {
       stdio: 'ignore',
       cwd: path.resolve(__dirname, '../..')
     });
     
     return {
       name: 'Redis',
-      url: 'localhost:6379',
+      url: ports.redis.address,
       passed: true,
-      message: '✅ Redis (localhost:6379)',
+      message: `✅ Redis (${ports.redis.address})`,
       fix: null
     };
   } catch {
     return {
       name: 'Redis',
-      url: 'localhost:6379',
+      url: ports.redis.address,
       passed: false,
       message: '❌ Redis - Not running',
       fix: `
    Start Docker services:
-   $ docker-compose up -d`
+   $ docker compose -f ${composeFile} up -d`
     };
   }
 }
@@ -243,10 +254,11 @@ async function runHealthChecks() {
  * Display service URLs
  */
 function displayServiceUrls() {
+  const ports = getPortRegistry();
   console.log('📍 Service URLs:');
-  console.log(`   Frontend:  ${process.env.VITE_APP_URL || 'http://localhost:5173'}`);
-  console.log(`   Backend:   ${process.env.BACKEND_URL || 'http://localhost:3000'}`);
-  console.log(`   Supabase:  http://localhost:54323`);
+  console.log(`   Frontend:  ${ports.frontend.url}`);
+  console.log(`   Backend:   ${ports.backend.url}`);
+  console.log(`   Supabase:  ${ports.supabase.studio.url}`);
   console.log('');
 }
 
