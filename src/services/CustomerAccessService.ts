@@ -6,6 +6,7 @@
 import { supabase } from "../lib/supabase";
 import { BaseService } from "./BaseService";
 import { logger } from "../lib/logger";
+import { emailService } from "./EmailService";
 
 export interface CustomerAccessToken {
   id: string;
@@ -281,12 +282,15 @@ export class CustomerAccessService extends BaseService {
         portalUrl,
       });
 
-      // In production, integrate with SendGrid, Postmark, etc.
-      // await emailService.send({
-      //   to: email,
-      //   template: 'customer-portal-access',
-      //   data: { companyName, portalUrl }
-      // });
+      await emailService.send({
+        to: email,
+        subject: `Your ${companyName} Value Realization Portal`,
+        template: 'customer-portal-access',
+        data: { companyName, portalUrl },
+        // Fallback content for when template is not used
+        text: `Welcome to your ${companyName} Value Realization Portal. Access it here: ${portalUrl}`,
+        html: `<p>Welcome to your <strong>${companyName}</strong> Value Realization Portal.</p><p><a href="${portalUrl}">Click here to access your portal</a></p>`
+      });
     } catch (error) {
       logger.error("Error sending portal access email", error as Error);
       throw error;
