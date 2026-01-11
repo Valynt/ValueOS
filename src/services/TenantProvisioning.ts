@@ -14,6 +14,7 @@
 
 import { logger } from '../lib/logger';
 import { getConfig } from '../config/environment';
+import subscriptionService from './billing/SubscriptionService';
 
 /**
  * Tenant tier
@@ -70,6 +71,15 @@ export interface ProvisioningResult {
   errors: string[];
   warnings: string[];
 }
+
+/**
+ * Billing cancellation result
+ */
+export type BillingCancelResult =
+  | { status: "skipped"; reason: "billing_disabled" }
+  | { status: "noop"; reason: "no_active_subscription" }
+  | { status: "success"; provider: "stripe" | "other"; subscriptionId?: string }
+  | { status: "failed"; error: { message: string; code?: string }; context?: any };
 
 /**
  * Tenant usage tracking
@@ -468,11 +478,22 @@ export async function deprovisionTenant(
   try {
     // 1. Cancel billing
     logger.debug('Deprovisioning step 1/5: Canceling billing...');
-    try {
-      await cancelBilling(organizationId);
-      logger.info('Billing canceled');
-    } catch (error) {
-      errors.push(`Failed to cancel billing: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    const billingResult = await cancelBilling(organizationId);
+
+    if (billingResult.status === 'success') {
+      logger.info('Billing canceled', { subscriptionId: billingResult.subscriptionId });
+    } else if (billingResult.status === 'skipped') {
+      logger.debug('Billing cancellation skipped', { reason: billingResult.reason });
+    } else if (billingResult.status === 'noop') {
+      logger.info('Billing cancellation no-op', { reason: billingResult.reason });
+    } else if (billingResult.status === 'failed') {
+      const msg = `Failed to cancel billing: ${billingResult.error.message}`;
+      errors.push(msg);
+      // We explicitly escalate billing failures to error log level
+      logger.error('Billing cancellation failed', billingResult.error.context, {
+        organizationId,
+        error: billingResult.error
+      });
     }
 
     // 2. Archive data
@@ -528,9 +549,38 @@ export async function deprovisionTenant(
 /**
  * Cancel billing for tenant
  */
-async function cancelBilling(organizationId: string): Promise<void> {
-  // TODO: Implement billing cancellation
-  logger.debug('Billing canceled for ${organizationId}');
+async function cancelBilling(organizationId: string): Promise<BillingCancelResult> {
+  const appConfig = getConfig();
+
+  if (!appConfig.features.billing) {
+    return { status: 'skipped', reason: 'billing_disabled' };
+  }
+
+  try {
+    const subscription = await subscriptionService.cancelSubscription(organizationId, true);
+    return {
+      status: 'success',
+      provider: 'stripe', // Assuming stripe for now as it is the only provider
+      subscriptionId: subscription.id
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown billing error';
+
+    // Check for "No active subscription found" error
+    if (message.includes('No active subscription found')) {
+      return { status: 'noop', reason: 'no_active_subscription' };
+    }
+
+    // Return failed status for other errors
+    return {
+      status: 'failed',
+      error: {
+        message,
+        code: (error as any)?.code || (error as any)?.type || 'unknown_error',
+      },
+      context: error
+    };
+  }
 }
 
 /**
