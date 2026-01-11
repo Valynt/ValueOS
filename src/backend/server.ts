@@ -14,6 +14,7 @@ import workflowRouter from "../api/workflow";
 import documentRouter from "../api/documents";
 import healthRouter, { markAsShuttingDown } from "../api/health";
 import authRouter from "../api/auth";
+import adminRouter from "../api/admin";
 import docsApiRouter from "./docs-api";
 import { initializeSecretVolumeWatcher, secretVolumeWatcher } from "../config/secrets/SecretVolumeWatcher";
 import { createLogger } from "../lib/logger";
@@ -242,6 +243,7 @@ app.get("/metrics/latency", (_req, res) => {
 apiRouter.use("/billing", billingRouter);
 app.use("/api", apiRouter);
 app.use("/api/auth", authRouter);
+app.use("/api/admin", adminRouter);
 app.use(
   "/api/agents",
   serviceIdentityMiddleware,
