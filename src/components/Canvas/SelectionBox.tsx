@@ -28,42 +28,11 @@ export const SelectionBox: React.FC<SelectionBoxProps> = ({
     direction: string;
   } | null>(null);
 
-  useEffect(() => {
-    // Cleanup listeners on unmount
-    return () => {
-      document.removeEventListener('pointermove', handlePointerMove);
-      document.removeEventListener('pointerup', handlePointerUp);
-      document.body.style.userSelect = '';
-    };
-  }, []);
-
-  if (!isSelected) return null;
-
-  const handlePointerDown = (e: React.PointerEvent, direction: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    // Set dragging state
-    dragRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      startWidth: component.size.width,
-      startHeight: component.size.height,
-      startLeft: component.position.x,
-      startTop: component.position.y,
-      direction
-    };
-
-    // Add global listeners
-    document.addEventListener('pointermove', handlePointerMove);
-    document.addEventListener('pointerup', handlePointerUp);
-    document.body.style.userSelect = 'none';
-
-    // Capture pointer if possible for smoother dragging
-    if (e.target instanceof Element && typeof e.target.setPointerCapture === 'function') {
-      e.target.setPointerCapture(e.pointerId);
-    }
-  };
+  // Store active listeners to ensure correct removal on unmount/cleanup
+  const listenersRef = useRef<{
+    move: (e: PointerEvent) => void;
+    up: (e: PointerEvent) => void;
+  } | null>(null);
 
   const handlePointerMove = (e: PointerEvent) => {
     if (!dragRef.current || !onResize) return;
@@ -134,10 +103,60 @@ export const SelectionBox: React.FC<SelectionBoxProps> = ({
     if (!dragRef.current) return;
 
     dragRef.current = null;
-    document.removeEventListener('pointermove', handlePointerMove);
-    document.removeEventListener('pointerup', handlePointerUp);
+
+    if (listenersRef.current) {
+        document.removeEventListener('pointermove', listenersRef.current.move);
+        document.removeEventListener('pointerup', listenersRef.current.up);
+        listenersRef.current = null;
+    }
+
     document.body.style.userSelect = '';
   };
+
+  const handlePointerDown = (e: React.PointerEvent, direction: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Set dragging state
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startWidth: component.size.width,
+      startHeight: component.size.height,
+      startLeft: component.position.x,
+      startTop: component.position.y,
+      direction
+    };
+
+    // Store references to the handlers used
+    listenersRef.current = {
+        move: handlePointerMove,
+        up: handlePointerUp
+    };
+
+    // Add global listeners
+    document.addEventListener('pointermove', handlePointerMove);
+    document.addEventListener('pointerup', handlePointerUp);
+    document.body.style.userSelect = 'none';
+
+    // Capture pointer if possible for smoother dragging
+    if (e.target instanceof Element && typeof e.target.setPointerCapture === 'function') {
+      e.target.setPointerCapture(e.pointerId);
+    }
+  };
+
+  useEffect(() => {
+    // Cleanup listeners on unmount
+    return () => {
+      if (listenersRef.current) {
+          document.removeEventListener('pointermove', listenersRef.current.move);
+          document.removeEventListener('pointerup', listenersRef.current.up);
+      }
+      document.body.style.userSelect = '';
+    };
+  }, []);
+
+  if (!isSelected) return null;
 
   return (
     <div
