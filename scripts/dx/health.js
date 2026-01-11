@@ -102,7 +102,7 @@ async function checkFrontend() {
  */
 async function checkDatabase() {
   try {
-    execSync('docker-compose ps postgres', { 
+    execSync('docker-compose -f docker-compose.deps.yml ps postgres', { 
       stdio: 'ignore',
       cwd: path.resolve(__dirname, '../..')
     });
@@ -122,7 +122,7 @@ async function checkDatabase() {
       message: '❌ PostgreSQL - Not running',
       fix: `
    Start Docker services:
-   $ docker-compose up -d`
+   $ docker-compose -f docker-compose.deps.yml up -d`
     };
   }
 }
@@ -132,7 +132,7 @@ async function checkDatabase() {
  */
 async function checkRedis() {
   try {
-    execSync('docker-compose ps redis', { 
+    execSync('docker-compose -f docker-compose.deps.yml ps redis', { 
       stdio: 'ignore',
       cwd: path.resolve(__dirname, '../..')
     });
@@ -152,7 +152,7 @@ async function checkRedis() {
       message: '❌ Redis - Not running',
       fix: `
    Start Docker services:
-   $ docker-compose up -d`
+   $ docker-compose -f docker-compose.deps.yml up -d`
     };
   }
 }
