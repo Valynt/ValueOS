@@ -50,11 +50,13 @@ npm run dev
 ## 📦 Prerequisites
 
 ### Required
+
 - **Node.js:** v20 LTS or higher
 - **npm:** v9 or higher
 - **Git:** v2.30 or higher
 
 ### Optional (for full features)
+
 - **Docker:** v24 or higher
 - **Docker Compose:** v2 or higher
 - **kubectl:** v1.28 or higher (for Kubernetes development)
@@ -80,23 +82,27 @@ The optimized dev container provides:
 ### Included Tools
 
 **Languages & Runtimes:**
+
 - Node.js 20 LTS
 - Python 3
 - TypeScript
 
 **Development Tools:**
+
 - Docker CLI & Docker Compose
 - kubectl & Helm
 - Terraform
 - Git & Git LFS
 
 **Security Tools:**
+
 - Trivy (vulnerability scanner)
 - TruffleHog (secret scanner)
 - Git Secrets
 - Snyk CLI
 
 **Database Tools:**
+
 - PostgreSQL client
 - Redis CLI
 - Prisma CLI
@@ -178,6 +184,7 @@ bash scripts/dev-automation/quick-setup.sh
 ```
 
 **What it does:**
+
 - Installs dependencies
 - Sets up environment files
 - Generates Prisma client
@@ -193,6 +200,7 @@ bash scripts/dev-automation/dev-health-check.sh
 ```
 
 **Checks:**
+
 - Node.js and npm versions
 - Docker availability
 - Project files (package.json, .env, etc.)
@@ -208,6 +216,7 @@ bash scripts/dev-automation/auto-fix.sh
 ```
 
 **Fixes:**
+
 - Missing node_modules
 - Missing .env file
 - Stale Prisma client
@@ -235,16 +244,18 @@ docker-compose -f .devcontainer/docker-compose.monitoring.yml up -d
 
 ### Available Services
 
-| Service | Port | Purpose |
-|---------|------|---------|
-| Frontend | 3000 | Vite dev server |
-| Backend API | 8000 | Express server |
-| PostgreSQL | 5432 | Database |
-| Redis | 6379 | Cache & sessions |
-| Prometheus | 9090 | Metrics collection |
-| Grafana | 3001 | Metrics visualization |
-| Jaeger | 16686 | Distributed tracing |
-| Mailhog | 8025 | Email testing |
+Local dev defaults to `VITE_PORT=5173` and `API_PORT=3001`. If you're using the Caddy edge stack, access the app via `https://localhost:8443` or `http://localhost:8080` and Caddy routes to these internal ports.
+
+| Service     | Port  | Purpose                       |
+| ----------- | ----- | ----------------------------- |
+| Frontend    | 5173  | Vite dev server (`VITE_PORT`) |
+| Backend API | 3001  | Express server (`API_PORT`)   |
+| PostgreSQL  | 5432  | Database                      |
+| Redis       | 6379  | Cache & sessions              |
+| Prometheus  | 9090  | Metrics collection            |
+| Grafana     | 3001  | Metrics visualization         |
+| Jaeger      | 16686 | Distributed tracing           |
+| Mailhog     | 8025  | Email testing                 |
 
 ---
 
@@ -277,11 +288,11 @@ Press `Cmd/Ctrl + Shift + P` and search for "Tasks: Run Task":
 
 ### Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| `Cmd/Ctrl + Shift + B` | Build project |
-| `Cmd/Ctrl + Shift + T` | Run tests |
-| `F5` | Start debugging |
+| Shortcut               | Action          |
+| ---------------------- | --------------- |
+| `Cmd/Ctrl + Shift + B` | Build project   |
+| `Cmd/Ctrl + Shift + T` | Run tests       |
+| `F5`                   | Start debugging |
 | `Cmd/Ctrl + Shift + P` | Command palette |
 
 ---
@@ -317,13 +328,13 @@ npm install
 
 ```bash
 # Find process using port
-lsof -i :3000
+lsof -i :5173  # or :$VITE_PORT
 
 # Kill process
 kill -9 <PID>
 
 # Or use different port
-PORT=3001 npm run dev
+VITE_PORT=5174 npm run dev
 ```
 
 ### Database Connection Issues
@@ -360,6 +371,7 @@ npm install
 ### 1. Use Volume Mounts
 
 The optimized dev container uses volume mounts for:
+
 - `node_modules` - Persistent across rebuilds
 - `.npm` cache - Faster installs
 - `.cache` - Build artifacts
@@ -400,11 +412,13 @@ npm ci --prefer-offline --no-audit --no-fund
 ## 📚 Additional Resources
 
 ### Documentation
+
 - [Dev Container Optimization Guide](.devcontainer/OPTIMIZATION_GUIDE.md)
 - [GitHub Copilot Instructions](.github/copilot-instructions.md)
 - [Project README](../README.md)
 
 ### External Links
+
 - [Dev Containers Specification](https://containers.dev/)
 - [GitHub Codespaces Docs](https://docs.github.com/en/codespaces)
 - [Docker Best Practices](https://docs.docker.com/develop/dev-best-practices/)
