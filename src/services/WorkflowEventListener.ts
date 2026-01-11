@@ -15,6 +15,7 @@ import {
   WorkflowProgress,
 } from '../types/workflow-sdui';
 import { StageStatus, WorkflowStatus } from '../types/workflow';
+import { getStageById } from './workflows/WorkflowDAGDefinitions';
 
 /**
  * Workflow event types
@@ -205,11 +206,15 @@ export class WorkflowEventListener extends EventEmitter {
         this.workflowProgress.set(workflowId, progress);
       }
 
+      // Get lifecycle stage from definition
+      const stageDef = getStageById(workflowId, stageId);
+      const lifecycleStage = stageDef?.agent_type || 'opportunity';
+
       const event: StageCompletionEvent = {
         workflowId,
         executionId: workflowId,
         stageId,
-        lifecycleStage: 'opportunity', // TODO: Get from stage definition
+        lifecycleStage,
         status,
         duration,
         output,
