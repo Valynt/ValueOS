@@ -8,6 +8,7 @@ const mockReq = (overrides: any = {}) => {
     headers,
     header: (name: string) => headers[name.toLowerCase()],
     get: (name: string) => headers[name.toLowerCase()],
+    tenantId: overrides.tenantId,
     ip: overrides.ip || '1.1.1.1',
     socket: { remoteAddress: overrides.remoteAddress || '1.1.1.1' },
     path: overrides.path || '/test',
@@ -30,15 +31,16 @@ describe('rateLimiter tenant isolation', () => {
     const key = getRateLimitKey(
       mockReq({
         user: { id: 'user-1', organizationId: 'org-1' },
+        tenantId: 'org-1',
       })
     );
     expect(key).toBe('tenant:org-1:user:user-1');
   });
 
-  it('keys by tenant + ip when tenant header present and user missing', () => {
+  it('keys by tenant + ip when tenant present and user missing', () => {
     const key = getRateLimitKey(
       mockReq({
-        headers: { 'x-tenant-id': 'org-2' },
+        tenantId: 'org-2',
       })
     );
     expect(key).toBe('tenant:org-2:ip:1.1.1.1');
@@ -67,19 +69,19 @@ describe('rateLimiter tenant isolation', () => {
     // Tenant A first request
     const resA1 = makeRes();
     const nextA1 = vi.fn();
-    limiter(mockReq({ headers: { 'x-tenant-id': 'org-A' } }), resA1 as any, nextA1);
+    limiter(mockReq({ tenantId: 'org-A' }), resA1 as any, nextA1);
     expect(resA1.headers['X-RateLimit-Remaining']).toBe('59');
 
     // Tenant B first request should not decrement Tenant A's remaining
     const resB1 = makeRes();
     const nextB1 = vi.fn();
-    limiter(mockReq({ headers: { 'x-tenant-id': 'org-B' } }), resB1 as any, nextB1);
+    limiter(mockReq({ tenantId: 'org-B' }), resB1 as any, nextB1);
     expect(resB1.headers['X-RateLimit-Remaining']).toBe('59');
 
     // Tenant A second request decrements its own quota
     const resA2 = makeRes();
     const nextA2 = vi.fn();
-    limiter(mockReq({ headers: { 'x-tenant-id': 'org-A' } }), resA2 as any, nextA2);
+    limiter(mockReq({ tenantId: 'org-A' }), resA2 as any, nextA2);
     expect(resA2.headers['X-RateLimit-Remaining']).toBe('58');
   });
 });
