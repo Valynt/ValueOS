@@ -28,7 +28,7 @@ function parsePort(value) {
   return Number.isNaN(port) ? null : port;
 }
 
-function resolvePort({ envPort, urlValue, defaultPort }) {
+function resolvePortFromSources({ envPort, urlValue, defaultPort }) {
   const parsedEnvPort = parsePort(envPort);
   if (parsedEnvPort) {
     return parsedEnvPort;
@@ -49,27 +49,37 @@ function resolveHost(urlValue, fallback = 'localhost') {
 
 export function getPortRegistry() {
   const ports = loadPorts();
-  const frontendPort = resolvePort(process.env.VITE_PORT, ports.frontend.port);
-  const backendPort = resolvePort(
-    process.env.API_PORT || process.env.BACKEND_PORT || process.env.PORT,
-    ports.backend.port
-  );
-  const databasePort = resolvePort(
-    process.env.DB_PORT || process.env.POSTGRES_PORT,
-    ports.postgres.port
-  );
+  const frontendEnvUrl = process.env.VITE_APP_URL;
+  const backendEnvUrl = process.env.BACKEND_URL;
+  const supabaseApiEnvUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseStudioEnvUrl = process.env.SUPABASE_STUDIO_URL;
+  const frontendPort = resolvePortFromSources({
+    envPort: process.env.VITE_PORT,
+    urlValue: frontendEnvUrl,
+    defaultPort: ports.frontend.port
+  });
+  const backendPort = resolvePortFromSources({
+    envPort: process.env.API_PORT || process.env.BACKEND_PORT || process.env.PORT,
+    urlValue: backendEnvUrl,
+    defaultPort: ports.backend.port
+  });
+  const databasePort = resolvePort(process.env.DB_PORT || process.env.POSTGRES_PORT, ports.postgres.port);
   const redisPort = resolvePort(process.env.REDIS_PORT, ports.redis.port);
-  const supabaseApiPort = resolvePort(process.env.SUPABASE_API_PORT, ports.supabase.apiPort);
-  const supabaseStudioPort = resolvePort(
-    process.env.SUPABASE_STUDIO_PORT,
-    ports.supabase.studioPort
-  );
+  const supabaseApiPort = resolvePortFromSources({
+    envPort: process.env.SUPABASE_API_PORT,
+    urlValue: supabaseApiEnvUrl,
+    defaultPort: ports.supabase.apiPort
+  });
+  const supabaseStudioPort = resolvePortFromSources({
+    envPort: process.env.SUPABASE_STUDIO_PORT,
+    urlValue: supabaseStudioEnvUrl,
+    defaultPort: ports.supabase.studioPort
+  });
 
-  const frontendUrl = process.env.VITE_APP_URL || `http://localhost:${frontendPort}`;
-  const backendUrl = process.env.BACKEND_URL || `http://localhost:${backendPort}`;
-  const supabaseApiUrl =
-    process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || `http://localhost:${supabaseApiPort}`;
-  const supabaseStudioUrl = process.env.SUPABASE_STUDIO_URL || `http://localhost:${supabaseStudioPort}`;
+  const frontendUrl = frontendEnvUrl || `http://localhost:${frontendPort}`;
+  const backendUrl = backendEnvUrl || `http://localhost:${backendPort}`;
+  const supabaseApiUrl = supabaseApiEnvUrl || `http://localhost:${supabaseApiPort}`;
+  const supabaseStudioUrl = supabaseStudioEnvUrl || `http://localhost:${supabaseStudioPort}`;
 
   return {
     frontend: {
