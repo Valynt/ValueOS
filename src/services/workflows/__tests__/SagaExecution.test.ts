@@ -57,7 +57,7 @@ describe('Saga Execution and Rollback', () => {
       const result = await integration.executeWorkflow(
         'user-1',
         { companyName: 'Test Corp' },
-        { stopStage: 'opportunity' }
+        { stopStage: 'opportunity', tenantId: 'tenant-1' }
       );
 
       expect(result.status).toBe('completed');
@@ -77,7 +77,8 @@ describe('Saga Execution and Rollback', () => {
       await expect(
         integration.executeWorkflow(
           'user-1',
-          { companyName: 'Test Corp' }
+          { companyName: 'Test Corp' },
+          { tenantId: 'tenant-1' }
         )
       ).rejects.toThrow();
     });
@@ -102,7 +103,7 @@ describe('Saga Execution and Rollback', () => {
       const result = await integration.executeWorkflow(
         'user-1',
         { companyName: 'Test Corp' },
-        { stopStage: 'target' }
+        { stopStage: 'target', tenantId: 'tenant-1' }
       );
 
       expect(result.completedStages).toHaveLength(2);
@@ -117,6 +118,7 @@ describe('Saga Execution and Rollback', () => {
       const execution = {
         id: 'exec-1',
         userId: 'user-1',
+        tenantId: 'tenant-1',
         status: 'failed' as const,
         currentStage: 'target' as const,
         completedStages: ['opportunity' as const],
@@ -290,7 +292,7 @@ describe('Saga Execution and Rollback', () => {
       await integration.executeWorkflow(
         'user-1',
         { companyName: 'Test Corp' },
-        { stopStage: 'expansion' }
+        { stopStage: 'expansion', tenantId: 'tenant-1' }
       );
 
       expect(stages).toEqual(['opportunity', 'target', 'expansion']);
@@ -318,7 +320,8 @@ describe('Saga Execution and Rollback', () => {
         { companyName: 'Test Corp' },
         {
           startStage: 'target',
-          stopStage: 'expansion'
+          stopStage: 'expansion',
+          tenantId: 'tenant-1'
         }
       );
 
@@ -347,8 +350,8 @@ describe('Saga Execution and Rollback', () => {
         })
       } as any);
 
-      await integration.executeWorkflow('user-1', {}, { stopStage: 'opportunity' });
-      await integration.executeWorkflow('user-1', {}, { stopStage: 'opportunity' });
+      await integration.executeWorkflow('user-1', {}, { stopStage: 'opportunity', tenantId: 'tenant-1' });
+      await integration.executeWorkflow('user-1', {}, { stopStage: 'opportunity', tenantId: 'tenant-1' });
 
       const executions = integration.getUserExecutions('user-1');
       expect(executions).toHaveLength(2);

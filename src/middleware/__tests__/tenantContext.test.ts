@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { tenantContextMiddleware } from '../tenantContext';
-import { getUserTenantId, verifyTenantMembership } from '../../lib/tenantVerification';
+import { getUserTenantId, verifyTenantExists, verifyTenantMembership } from '../../lib/tenantVerification';
 
 vi.mock('../../lib/tenantVerification', () => ({
   getUserTenantId: vi.fn(),
+  verifyTenantExists: vi.fn(),
   verifyTenantMembership: vi.fn(),
 }));
 
@@ -37,6 +38,7 @@ describe('tenantContextMiddleware', () => {
   });
 
   it('accepts service header when identity verified and membership valid', async () => {
+    (verifyTenantExists as unknown as { mockResolvedValue: (value: boolean) => void }).mockResolvedValue(true);
     (verifyTenantMembership as unknown as { mockResolvedValue: (value: boolean) => void }).mockResolvedValue(true);
 
     const req = {
@@ -78,6 +80,7 @@ describe('tenantContextMiddleware', () => {
   });
 
   it('requires tenant membership verification for user tenants', async () => {
+    (verifyTenantExists as unknown as { mockResolvedValue: (value: boolean) => void }).mockResolvedValue(true);
     (verifyTenantMembership as unknown as { mockResolvedValue: (value: boolean) => void }).mockResolvedValue(false);
 
     const req = {
@@ -101,6 +104,7 @@ describe('tenantContextMiddleware', () => {
 
   it('falls back to user tenant lookup when no candidate provided', async () => {
     (getUserTenantId as unknown as { mockResolvedValue: (value: string) => void }).mockResolvedValue('tenant-lookup');
+    (verifyTenantExists as unknown as { mockResolvedValue: (value: boolean) => void }).mockResolvedValue(true);
 
     const req = {
       header: vi.fn(() => undefined),
@@ -116,5 +120,27 @@ describe('tenantContextMiddleware', () => {
     expect(req.tenantId).toBe('tenant-lookup');
     expect(req.tenantSource).toBe('user-lookup');
     expect(next).toHaveBeenCalled();
+  });
+
+  it('rejects requests for unknown tenants', async () => {
+    (verifyTenantExists as unknown as { mockResolvedValue: (value: boolean) => void }).mockResolvedValue(false);
+
+    const req = {
+      header: vi.fn(() => undefined),
+      params: {},
+      user: { id: 'user-222', tenant_id: 'tenant-unknown' },
+    } as any;
+    const res = mockRes();
+    const next = vi.fn();
+
+    await tenantContextMiddleware()(req, res as any, next);
+
+    expect(verifyTenantExists).toHaveBeenCalledWith('tenant-unknown');
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'Not Found',
+      message: 'Tenant not found or inactive.',
+    });
+    expect(next).not.toHaveBeenCalled();
   });
 });

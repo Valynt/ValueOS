@@ -71,6 +71,7 @@ describe('WorkflowStateService (integration-ish)', () => {
     const { sessionId, state } = await service.loadOrCreateSession({
       caseId: 'case-1',
       userId: 'user-1',
+      tenantId: 'tenant-1',
       initialStage: 'opportunity',
       context: { company: 'Acme' },
     });
@@ -79,9 +80,9 @@ describe('WorkflowStateService (integration-ish)', () => {
     expect(state.context.caseId).toBe('case-1');
 
     const updated = { ...state, currentStage: 'target', completedStages: ['opportunity'] };
-    await service.saveWorkflowState(sessionId, updated);
+    await service.saveWorkflowState(sessionId, updated, 'tenant-1');
 
-    const fetched = await service.getWorkflowState(sessionId);
+    const fetched = await service.getWorkflowState(sessionId, 'tenant-1');
     expect(fetched?.currentStage).toBe('target');
     expect(fetched?.completedStages).toContain('opportunity');
   });

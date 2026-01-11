@@ -22,6 +22,7 @@ export type WorkflowExecutionStatus = 'pending' | 'running' | 'completed' | 'fai
 export interface WorkflowExecution {
   id: string;
   userId: string;
+  tenantId: string;
   status: WorkflowExecutionStatus;
   currentStage: LifecycleStage | null;
   completedStages: LifecycleStage[];
@@ -44,6 +45,8 @@ export interface WorkflowExecutionOptions {
   autoCompensate?: boolean;
   /** Session ID for state management */
   sessionId?: string;
+  /** Tenant ID for session isolation */
+  tenantId?: string;
 }
 
 /**
@@ -73,6 +76,9 @@ export class WorkflowLifecycleIntegration {
     initialInput: any,
     options: WorkflowExecutionOptions = {}
   ): Promise<WorkflowExecution> {
+    if (!options.tenantId) {
+      throw new Error('Tenant ID is required to execute workflow');
+    }
     const executionId = `exec-${Date.now()}-${userId}`;
     const stages: LifecycleStage[] = this.getStageSequence(options);
 
@@ -80,6 +86,7 @@ export class WorkflowLifecycleIntegration {
     const execution: WorkflowExecution = {
       id: executionId,
       userId,
+      tenantId: options.tenantId,
       status: 'pending',
       currentStage: null,
       completedStages: [],
@@ -96,10 +103,12 @@ export class WorkflowLifecycleIntegration {
       status: 'active',
       completedStages: [],
       context: { executionId, initialInput }
-    });
+    }, options.tenantId);
 
     const context: LifecycleContext = {
       userId,
+      tenantId: options.tenantId,
+      organizationId: options.tenantId,
       sessionId,
       metadata: { executionId }
     };
@@ -144,7 +153,7 @@ export class WorkflowLifecycleIntegration {
             executionId,
             results: execution.results
           }
-        });
+        }, options.tenantId);
 
         // Use output as input for next stage
         stageInput = mergedResult.data;
@@ -161,7 +170,7 @@ export class WorkflowLifecycleIntegration {
       execution.currentStage = null;
       execution.completedAt = new Date();
 
-      await this.stateRepository.updateSessionStatus(sessionId, 'completed');
+      await this.stateRepository.updateSessionStatus(sessionId, 'completed', options.tenantId);
 
       logger.info('Workflow execution completed', {
         executionId,
@@ -181,8 +190,8 @@ export class WorkflowLifecycleIntegration {
       });
 
       // Update session status
-      await this.stateRepository.updateSessionStatus(sessionId, 'error');
-      await this.stateRepository.incrementErrorCount(sessionId);
+      await this.stateRepository.updateSessionStatus(sessionId, 'error', options.tenantId);
+      await this.stateRepository.incrementErrorCount(sessionId, options.tenantId);
 
       // Compensate if enabled
       if (options.autoCompensate !== false) {
@@ -313,7 +322,8 @@ export class WorkflowLifecycleIntegration {
     const options: WorkflowExecutionOptions = {
       startStage: execution.failedStage || undefined,
       sessionId: execution.id,
-      autoCompensate: true
+      autoCompensate: true,
+      tenantId: execution.tenantId
     };
 
     return await this.executeWorkflow(execution.userId, input, options);

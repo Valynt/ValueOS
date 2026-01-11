@@ -795,12 +795,13 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
 
   // Initialize workflow state for selected case
   useEffect(() => {
-    if (selectedCase && currentUserId) {
+    if (selectedCase && currentUserId && currentTenantId) {
       // Load or create session for this case
       workflowStateService
         .loadOrCreateSession({
           caseId: selectedCase.id,
           userId: currentUserId,
+          tenantId: currentTenantId,
           initialStage: selectedCase.stage as any,
           context: {
             company: selectedCase.company,
@@ -890,7 +891,7 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
       setCurrentSessionId(null);
       setIsInitialCanvasLoad(false);
     }
-  }, [selectedCaseId, currentUserId, workflowStateService]);
+  }, [selectedCaseId, currentUserId, currentTenantId, workflowStateService]);
 
   // Keyboard shortcuts (⌘K for command bar, ⌘Z/⌘⇧Z for undo/redo)
   useEffect(() => {
@@ -1011,9 +1012,14 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
             },
           });
 
+          if (!currentTenantId) {
+            throw new Error("Tenant ID is required to persist workflow state");
+          }
+
           await workflowStateService.saveWorkflowState(
             currentSessionId,
-            result.nextState
+            result.nextState,
+            currentTenantId
           );
           logger.debug("Workflow state persisted after chat", {
             sessionId: currentSessionId,

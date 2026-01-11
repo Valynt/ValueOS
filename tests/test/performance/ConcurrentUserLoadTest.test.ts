@@ -54,7 +54,7 @@ class SimulatedUser {
       await this.workflow.executeWorkflow(
         this.userId,
         { companyName: `Company ${this.userId}` },
-        { stopStage: 'opportunity', sessionId: this.sessionId }
+        { stopStage: 'opportunity', sessionId: this.sessionId, tenantId: `tenant-${this.userId}` }
       );
       operations++;
 

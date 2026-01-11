@@ -174,9 +174,9 @@ class AgentOrchestratorAdapter {
   /**
    * Get session (new interface)
    */
-  async getSession(sessionId: string) {
+  async getSession(sessionId: string, tenantId: string) {
     if (this.queryService) {
-      return await this.queryService.getSession(sessionId);
+      return await this.queryService.getSession(sessionId, tenantId);
     }
     return null;
   }
@@ -184,9 +184,9 @@ class AgentOrchestratorAdapter {
   /**
    * Get active sessions (new interface)
    */
-  async getActiveSessions(userId: string, limit?: number) {
+  async getActiveSessions(userId: string, tenantId: string, limit?: number) {
     if (this.queryService) {
-      return await this.queryService.getActiveSessions(userId, limit);
+      return await this.queryService.getActiveSessions(userId, tenantId, limit);
     }
     return [];
   }

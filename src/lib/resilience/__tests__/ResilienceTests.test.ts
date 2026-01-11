@@ -200,7 +200,7 @@ describe('Resilience Testing', () => {
         await integration.executeWorkflow(
           'user-1',
           { companyName: 'Test' },
-          { autoCompensate: true }
+          { autoCompensate: true, tenantId: 'tenant-1' }
         );
       } catch (error) {
         // Expected to fail
@@ -324,7 +324,7 @@ describe('Resilience Testing', () => {
       const integration = getWorkflowLifecycleIntegration(failingSupabase);
 
       await expect(
-        integration.executeWorkflow('user-1', { companyName: 'Test' })
+        integration.executeWorkflow('user-1', { companyName: 'Test' }, { tenantId: 'tenant-1' })
       ).rejects.toThrow();
     });
 
@@ -355,7 +355,7 @@ describe('Resilience Testing', () => {
       const result = await integration.executeWorkflow(
         'user-1',
         { companyName: 'Test' },
-        { stopStage: 'opportunity' }
+        { stopStage: 'opportunity', tenantId: 'tenant-1' }
       );
 
       expect(attempts).toBeGreaterThanOrEqual(3);
@@ -380,7 +380,7 @@ describe('Resilience Testing', () => {
       const integration = getWorkflowLifecycleIntegration(mockSupabase);
 
       await expect(
-        integration.executeWorkflow('user-1', { companyName: 'Test' })
+        integration.executeWorkflow('user-1', { companyName: 'Test' }, { tenantId: 'tenant-1' })
       ).rejects.toThrow('Timeout');
     });
 

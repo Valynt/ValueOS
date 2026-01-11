@@ -5,16 +5,19 @@ import { supabase } from '../lib/supabase';
 import { ValueTree } from '../types/vos';
 
 export class ValueTreeRepository {
-  private orgId: string;
+  private tenantId: string;
 
-  constructor(orgId: string) {
-    this.orgId = orgId;
+  constructor(tenantId: string) {
+    if (!tenantId) {
+      throw new Error('Tenant ID is required for ValueTreeRepository');
+    }
+    this.tenantId = tenantId;
   }
 
-  async create(treeData: Omit<ValueTree, 'id' | 'created_at' | 'updated_at' | 'organization_id'>) {
+  async create(treeData: Omit<ValueTree, 'id' | 'created_at' | 'updated_at' | 'tenant_id'>) {
     const dataToInsert = {
       ...treeData,
-      organization_id: this.orgId,
+      tenant_id: this.tenantId,
     };
     return supabase
       .from('value_trees')
