@@ -18,7 +18,7 @@ npm run setup
 npm run dx
 ```
 
-Open [http://localhost:5173](http://localhost:5173) (or the port in `config/ports.json` / `.env.ports`) to see the app!
+Open [http://localhost:${VITE_PORT}](http://localhost:${VITE_PORT}) (or the port in `config/ports.json` / `.env.ports`) to see the app!
 
 **Ports & modes**
 

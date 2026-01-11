@@ -281,6 +281,19 @@ function checkSupabase() {
   }
 }
 
+function checkPortLiterals() {
+  try {
+    runCommand('node scripts/dx/port-lint.js');
+  } catch (error) {
+    const details = error?.stdout?.toString().trim() || error?.stderr?.toString().trim();
+    reportFailure(
+      'Port literal mismatch',
+      details || 'Port lint failed. Update docs/scripts to use config/ports.json values.',
+      'Run: node scripts/dx/port-lint.js'
+    );
+  }
+}
+
 async function main() {
   if (!['local', 'docker'].includes(mode)) {
     console.error(`❌ Invalid mode "${mode}". Use --mode local or --mode docker.`);
@@ -295,6 +308,7 @@ async function main() {
   checkEnvironment();
   checkComposeState();
   checkSupabase();
+  checkPortLiterals();
   await checkPorts();
 
   if (failures.length > 0) {

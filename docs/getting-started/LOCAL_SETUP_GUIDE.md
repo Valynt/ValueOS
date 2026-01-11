@@ -1,6 +1,7 @@
 # Local Setup Guide - ValueCanvas with LLM-MARL & Generative UI
 
 This guide will help you run the complete ValueCanvas system locally with all the new features:
+
 - LLM-MARL (Multi-Agent Reinforcement Learning)
 - Generative UI System
 - SOF (Systemic Outcome Framework)
@@ -10,21 +11,25 @@ This guide will help you run the complete ValueCanvas system locally with all th
 ## Prerequisites
 
 ### Required Software
+
 1. **Node.js** (v18 or higher)
+
    ```bash
    node --version  # Should be v18+
    ```
 
 2. **npm** or **yarn**
+
    ```bash
    npm --version
    ```
 
 3. **Supabase CLI** (for local database)
+
    ```bash
    # Install Supabase CLI
    npm install -g supabase
-   
+
    # Or with Homebrew (Mac)
    brew install supabase/tap/supabase
    ```
@@ -87,7 +92,7 @@ Edit `.env` with your values:
 ```bash
 # Application
 VITE_APP_ENV=development
-VITE_APP_URL=http://localhost:5173
+VITE_APP_URL=http://localhost:${VITE_PORT}
 
 # Supabase (Local)
 VITE_SUPABASE_URL=http://localhost:54321
@@ -117,11 +122,13 @@ LOG_LEVEL=debug
 ### Get LLM API Keys
 
 **Together.ai** (Recommended - cheaper):
+
 1. Go to https://together.ai
 2. Sign up and get API key
 3. Add to `.env` as `VITE_LLM_API_KEY`
 
 **OpenAI** (Alternative):
+
 1. Go to https://platform.openai.com
 2. Get API key
 3. Set `VITE_LLM_PROVIDER=openai`
@@ -202,14 +209,15 @@ psql postgresql://postgres:postgres@localhost:54322/postgres
 # Start the development server
 npm run dev
 
-# Server will start at http://localhost:5173
+# Server will start at http://localhost:${VITE_PORT}
 ```
 
 You should see:
+
 ```
   VITE v5.4.2  ready in 500 ms
 
-  ➜  Local:   http://localhost:5173/
+  ➜  Local:   http://localhost:${VITE_PORT}/
   ➜  Network: use --host to expose
   ➜  press h + enter to show help
 ```
@@ -220,17 +228,18 @@ You should see:
 
 ### Test 1: Basic Application
 
-1. Open http://localhost:5173
+1. Open http://localhost:${VITE_PORT}
 2. You should see the ValueCanvas application
 3. Check browser console for any errors
 
 ### Test 2: Database Connection
 
 Open browser console and run:
+
 ```javascript
 // Test Supabase connection
-const { data, error } = await supabase.from('business_cases').select('count');
-console.log('Database connected:', !error);
+const { data, error } = await supabase.from("business_cases").select("count");
+console.log("Database connected:", !error);
 ```
 
 ### Test 3: Dynamic UI Generation
@@ -238,41 +247,44 @@ console.log('Database connected:', !error);
 Create a test file `test-dynamic-ui.ts`:
 
 ```typescript
-import { CoordinatorAgent } from './src/agents/CoordinatorAgent';
+import { CoordinatorAgent } from "./src/agents/CoordinatorAgent";
 
 async function testDynamicUI() {
   const coordinator = new CoordinatorAgent();
-  
+
   // Enable dynamic UI
   coordinator.setDynamicUIEnabled(true);
   coordinator.setUIRefinementEnabled(true);
-  
+
   // Test subgoal
   const subgoal = {
-    id: 'test-123',
-    parent_task_id: 'task-123',
-    subgoal_type: 'analysis' as const,
-    description: 'Test system analysis',
-    assigned_agent: 'SystemMapperAgent',
+    id: "test-123",
+    parent_task_id: "task-123",
+    subgoal_type: "analysis" as const,
+    description: "Test system analysis",
+    assigned_agent: "SystemMapperAgent",
     dependencies: [],
-    status: 'completed' as const,
+    status: "completed" as const,
     priority: 5,
     estimated_complexity: 0.6,
     context: { test: true },
     output: {
-      systemMap: { id: 'map-1', map_name: 'Test Map' },
-      entities: [{ id: 'e1', entity_name: 'Test Entity' }],
+      systemMap: { id: "map-1", map_name: "Test Map" },
+      entities: [{ id: "e1", entity_name: "Test Entity" }],
       relationships: [],
     },
     created_at: new Date().toISOString(),
   };
-  
+
   try {
     const layout = await coordinator.produceSDUILayout(subgoal);
-    console.log('✅ Dynamic UI generated:', layout);
-    console.log('Components:', layout.sections.map(s => s.component));
+    console.log("✅ Dynamic UI generated:", layout);
+    console.log(
+      "Components:",
+      layout.sections.map((s) => s.component)
+    );
   } catch (error) {
-    console.error('❌ Error:', error);
+    console.error("❌ Error:", error);
   }
 }
 
@@ -280,6 +292,7 @@ testDynamicUI();
 ```
 
 Run with:
+
 ```bash
 npx tsx test-dynamic-ui.ts
 ```
@@ -287,21 +300,21 @@ npx tsx test-dynamic-ui.ts
 ### Test 4: Message Bus
 
 ```typescript
-import { MessageBus } from './src/services/MessageBus';
+import { MessageBus } from "./src/services/MessageBus";
 
 const bus = new MessageBus();
 
 // Subscribe
-bus.subscribe('test', 'TestAgent', async (event) => {
-  console.log('✅ Received:', event);
+bus.subscribe("test", "TestAgent", async (event) => {
+  console.log("✅ Received:", event);
 });
 
 // Publish
-await bus.publishMessage('test', {
-  channel: 'test',
-  message_type: 'heartbeat',
-  sender_agent: 'TestAgent',
-  payload: { message: 'Hello!' },
+await bus.publishMessage("test", {
+  channel: "test",
+  message_type: "heartbeat",
+  sender_agent: "TestAgent",
+  payload: { message: "Hello!" },
 });
 ```
 
@@ -324,21 +337,21 @@ npm test test/sof
 
 ```javascript
 // Check CoordinatorAgent
-import { CoordinatorAgent } from './src/agents/CoordinatorAgent';
+import { CoordinatorAgent } from "./src/agents/CoordinatorAgent";
 const coordinator = new CoordinatorAgent();
-console.log('Available agents:', coordinator.getAvailableAgents());
-console.log('Task patterns:', coordinator.getTaskPatterns());
+console.log("Available agents:", coordinator.getAvailableAgents());
+console.log("Task patterns:", coordinator.getTaskPatterns());
 
 // Check UI Generation Tracker
-import { getUIGenerationTracker } from './src/services/UIGenerationTracker';
+import { getUIGenerationTracker } from "./src/services/UIGenerationTracker";
 const tracker = getUIGenerationTracker();
 const stats = await tracker.getAggregateStats();
-console.log('UI Generation Stats:', stats);
+console.log("UI Generation Stats:", stats);
 
 // Check Component Registry
-import { getAllComponentTools } from './src/sdui/ComponentToolRegistry';
+import { getAllComponentTools } from "./src/sdui/ComponentToolRegistry";
 const components = getAllComponentTools();
-console.log('Available components:', components.length);
+console.log("Available components:", components.length);
 ```
 
 ---
@@ -352,6 +365,7 @@ console.log('Available components:', components.length);
 ### Issue: "Supabase connection failed"
 
 **Solutions**:
+
 1. Check Docker is running: `docker ps`
 2. Restart Supabase: `supabase stop && supabase start`
 3. Check `.env` has correct URL and key
@@ -360,6 +374,7 @@ console.log('Available components:', components.length);
 ### Issue: "LLM API key invalid"
 
 **Solutions**:
+
 1. Verify API key in `.env`
 2. Check API key is active at together.ai or openai.com
 3. Test with curl:
@@ -371,6 +386,7 @@ console.log('Available components:', components.length);
 ### Issue: "Module not found: uuid or lz-string"
 
 **Solution**:
+
 ```bash
 npm install uuid lz-string
 npm install --save-dev @types/uuid
@@ -379,6 +395,7 @@ npm install --save-dev @types/uuid
 ### Issue: "Database tables not found"
 
 **Solution**:
+
 ```bash
 # Reset database
 supabase db reset
@@ -390,6 +407,7 @@ supabase db push
 ### Issue: "Port 5173 already in use"
 
 **Solution**:
+
 ```bash
 # Kill process on port
 lsof -ti:5173 | xargs kill -9
@@ -494,6 +512,7 @@ npm run build
 ### Enable Debug Mode
 
 In `.env`:
+
 ```bash
 VITE_SDUI_DEBUG=true
 LOG_LEVEL=debug
@@ -516,18 +535,18 @@ supabase db logs
 
 ```javascript
 // In browser console
-import { getUIGenerationTracker } from './src/services/UIGenerationTracker';
+import { getUIGenerationTracker } from "./src/services/UIGenerationTracker";
 const tracker = getUIGenerationTracker();
 
 // Get statistics
 const stats = await tracker.getAggregateStats();
-console.log('Total generations:', stats.total_generations);
-console.log('Average quality:', stats.average_quality_score);
-console.log('Success rate:', stats.average_task_success_rate);
+console.log("Total generations:", stats.total_generations);
+console.log("Average quality:", stats.average_quality_score);
+console.log("Success rate:", stats.average_task_success_rate);
 
 // Compare methods
 const comparison = await tracker.compareGenerationMethods();
-console.log('Dynamic vs Static:', comparison);
+console.log("Dynamic vs Static:", comparison);
 ```
 
 ---
@@ -568,6 +587,7 @@ npm run dev
 ```
 
 Make executable and run:
+
 ```bash
 chmod +x start.sh
 ./start.sh
@@ -603,6 +623,7 @@ If you encounter issues:
 ## Summary
 
 You now have:
+
 - ✅ Complete LLM-MARL system
 - ✅ Generative UI with dynamic component selection
 - ✅ SOF (Systemic Outcome Framework)

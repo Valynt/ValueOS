@@ -15,7 +15,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Configuration
-APP_URL="${APP_URL:-http://localhost:5173}"
+APP_URL="${APP_URL:-http://localhost:${VITE_PORT:-5173}}"
 TIMEOUT=30
 RETRIES=5
 

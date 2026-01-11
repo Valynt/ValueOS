@@ -21,7 +21,7 @@ npm run setup    # Runs scripts/dev/setup.sh
 npm run dx
 ```
 
-Open [http://localhost:5173](http://localhost:5173) (or the port in `config/ports.json` / `.env.ports`) - you're ready to code! 🎉
+Open [http://localhost:${VITE_PORT}](http://localhost:${VITE_PORT}) (or the port in `config/ports.json` / `.env.ports`) - you're ready to code! 🎉
 
 **First time here?** See [docs/getting-started/GETTING_STARTED.md](docs/getting-started/GETTING_STARTED.md)
 
@@ -57,7 +57,7 @@ The setup script checks these automatically.
 npm run dx
 ```
 
-This starts the local app + Docker dependencies with hot reload on [http://localhost:5173](http://localhost:5173) (or the port in `config/ports.json` / `.env.ports`).
+This starts the local app + Docker dependencies with hot reload on [http://localhost:${VITE_PORT}](http://localhost:${VITE_PORT}) (or the port in `config/ports.json` / `.env.ports`).
 
 For a full Docker stack (frontend + backend + deps), run:
 
@@ -96,8 +96,8 @@ npm run health
 
 **Local dev (direct)** uses the ports defined in `config/ports.json` (synced to `.env.ports`). Override via `.env.ports` (e.g., `docker compose --env-file .env.ports ...`) or shell env (`VITE_PORT`, `API_PORT`).
 
-- **Frontend**: [http://localhost:5173](http://localhost:5173)
-- **Backend API**: [http://localhost:3001](http://localhost:3001)
+- **Frontend**: [http://localhost:${VITE_PORT}](http://localhost:${VITE_PORT})
+- **Backend API**: [http://localhost:${API_PORT}](http://localhost:${API_PORT})
 - **Supabase API**: [http://localhost:54321](http://localhost:54321)
 - **Supabase Studio**: [http://localhost:54323](http://localhost:54323)
 

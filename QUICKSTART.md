@@ -7,7 +7,7 @@ npm run setup    # One-time setup (5 minutes)
 npm run dx       # Start development
 ```
 
-Open [http://localhost:5173](http://localhost:5173) (see `config/ports.json` for defaults)
+Open [http://localhost:${VITE_PORT}](http://localhost:${VITE_PORT}) (see `config/ports.json` for defaults)
 
 ---
 

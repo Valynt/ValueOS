@@ -109,7 +109,7 @@ fi
 
 echo ""
 echo "🔗 Application URLs:"
-echo "   - Frontend:  http://localhost:5173"
-echo "   - Postgres:  localhost:5432"
-echo "   - Redis:     localhost:6379"
+echo "   - Frontend:  http://localhost:${VITE_PORT:-5173}"
+echo "   - Postgres:  localhost:${POSTGRES_PORT:-5432}"
+echo "   - Redis:     localhost:${REDIS_PORT:-6379}"
 echo ""

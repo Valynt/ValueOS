@@ -15,7 +15,7 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { writePortsEnvFile } from './ports.js';
+import { loadPorts, resolvePort, writePortsEnvFile } from './ports.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -138,6 +138,8 @@ function displaySuccess() {
   const duration = Date.now() - metrics.startTime;
   const minutes = Math.floor(duration / 60000);
   const seconds = Math.floor((duration % 60000) / 1000);
+  const ports = loadPorts();
+  const frontendPort = resolvePort(process.env.VITE_PORT, ports.frontend.port);
   
   console.log('\n' + '='.repeat(60));
   console.log('✅ Setup complete! 🎉');
@@ -145,7 +147,7 @@ function displaySuccess() {
   console.log(`\n⏱️  Time: ${minutes}m ${seconds}s`);
   console.log('\n📋 Next steps:');
   console.log('   1. Start development: npm run dx');
-  console.log('   2. Open frontend: http://localhost:5173');
+  console.log(`   2. Open frontend: http://localhost:${frontendPort}`);
   console.log('   3. Read docs: docs/GETTING_STARTED.md');
   console.log('\n💡 Useful commands:');
   console.log('   npm run health     - Check system health');
