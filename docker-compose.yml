@@ -123,6 +123,7 @@ services:
       - "--web.console.templates=/usr/share/prometheus/consoles"
     networks:
       - valueos-network
+    profiles: ["observability"]
     restart: unless-stopped
 
   # Grafana (Visualization)
@@ -140,6 +141,7 @@ services:
       - prometheus
     networks:
       - valueos-network
+    profiles: ["observability"]
     restart: unless-stopped
 
 networks:
