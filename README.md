@@ -11,6 +11,9 @@ Enterprise-grade value management platform built with modern web technologies.
 git clone https://github.com/Valynt/ValueOS.git
 cd ValueOS
 
+# Install dependencies (node_modules are not committed)
+npm install
+
 # Automated setup (takes ~5 minutes)
 npm run setup
 
@@ -123,6 +126,7 @@ ValueOS/
 ## 🔧 Common Commands
 
 ### Development
+
 ```bash
 npm run dev              # Start development server
 npm run health           # Check system health
@@ -130,6 +134,7 @@ npm run setup            # Re-run setup if needed
 ```
 
 ### Database
+
 ```bash
 npm run db:push          # Push schema changes
 npm run db:pull          # Pull schema from remote
@@ -138,6 +143,7 @@ npm run db:types         # Generate TypeScript types
 ```
 
 ### Code Quality
+
 ```bash
 npm run lint             # Lint code
 npm run lint:fix         # Fix linting issues
@@ -146,6 +152,7 @@ npm test                 # Run tests
 ```
 
 ### Docker
+
 ```bash
 docker-compose up -d     # Start services
 docker-compose down      # Stop services
@@ -160,6 +167,7 @@ docker-compose ps        # Check status
 ### Setup Issues
 
 **Prerequisites check fails**:
+
 ```bash
 node --version    # Check Node >= 18.0.0
 docker --version  # Check Docker installed
@@ -167,6 +175,7 @@ docker ps         # Check Docker running
 ```
 
 **Port conflicts**:
+
 ```bash
 # macOS/Linux
 lsof -i :5173
@@ -178,6 +187,7 @@ taskkill /PID <PID> /F
 ```
 
 **Environment issues**:
+
 ```bash
 rm .env
 npm run setup
@@ -229,11 +239,13 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 ## 🆘 Getting Help
 
 ### Documentation
+
 - [Getting Started](docs/getting-started/GETTING_STARTED.md)
 - [Troubleshooting](docs/getting-started/TROUBLESHOOTING.md)
 - [Complete Documentation](docs/README.md)
 
 ### Community
+
 - **Slack**: #engineering
 - **GitHub Issues**: [Report bugs](https://github.com/Valynt/ValueOS/issues)
 - **Email**: engineering@valueos.com
@@ -243,6 +255,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 ## 🎯 Roadmap
 
 ### Current (Q1 2025)
+
 - ✅ Enhanced developer experience
 - ✅ Automated setup and health checks
 - ✅ Platform-specific guides
@@ -250,6 +263,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 - 🔄 Performance optimizations
 
 ### Upcoming (Q2 2025)
+
 - Cloud development environments (Gitpod/Codespaces)
 - AI-powered error diagnosis
 - Automated testing improvements
@@ -260,6 +274,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 ## 🙏 Acknowledgments
 
 Built with:
+
 - [React](https://react.dev/) - UI framework
 - [Vite](https://vitejs.dev/) - Build tool
 - [Supabase](https://supabase.com/) - Backend platform
