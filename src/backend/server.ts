@@ -18,6 +18,8 @@ import docsApiRouter from "./docs-api";
 import { initializeSecretVolumeWatcher, secretVolumeWatcher } from "../config/secrets/SecretVolumeWatcher";
 import { createLogger } from "../lib/logger";
 import { createVersionedApiRouter } from "./versioning";
+import { initializeContext } from "../lib/context";
+import { tracingMiddleware } from "../config/telemetry";
 import { requestAuditMiddleware } from "../middleware/requestAuditMiddleware";
 import {
   getLatencySnapshot,
@@ -29,7 +31,7 @@ import {
 } from "../middleware/metricsMiddleware";
 import { createRateLimiter } from "../middleware/rateLimiter";
 import { serviceIdentityMiddleware } from "../middleware/serviceIdentityMiddleware";
-import { securityHeadersMiddleware } from "../middleware/securityHeaders";
+import { securityHeadersMiddleware, cspReportHandler } from "../middleware/securityHeaders";
 import { extractTenantId, requireAuth, verifyAccessToken } from "../middleware/auth";
 import { tenantContextMiddleware } from "../middleware/tenantContext";
 import { settings } from "../config/settings";
@@ -216,6 +218,7 @@ app.use(
 );
 app.use(express.json());
 app.use(securityHeadersMiddleware);
+app.use(tracingMiddleware()); // Add tracing middleware early
 app.use(metricsMiddleware());
 app.use(requestAuditMiddleware());
 app.use(latencyMetricsMiddleware());
@@ -237,6 +240,9 @@ app.get("/metrics/latency", (_req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+// CSP Reporting Endpoint
+app.post("/api/csp-report", express.json({ type: "application/csp-report" }), cspReportHandler);
 
 // Mount routes
 apiRouter.use("/billing", billingRouter);
@@ -299,7 +305,8 @@ if (
     );
   }
 
-  // Initialize secret watcher
+  // Initialize infrastructure
+  await initializeContext();
   await initializeSecretVolumeWatcher();
 
   if (secretVolumeWatcher) {

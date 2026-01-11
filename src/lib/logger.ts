@@ -26,6 +26,7 @@ import {
   sanitizeUser,
   validateLogMessage 
 } from './piiFilter';
+import { getContext } from './context';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -121,11 +122,18 @@ class Logger {
       return;
     }
 
+    // Merge with AsyncLocalStorage context if available
+    const requestContext = getContext();
+    const mergedContext = {
+      ...requestContext,
+      ...context
+    };
+
     const entry: LogEntry = {
       level,
       message,
       timestamp: new Date().toISOString(),
-      context: context ? { ...context, error: undefined } : undefined,
+      context: Object.keys(mergedContext).length > 0 ? { ...mergedContext, error: undefined } : undefined,
       error: context?.error,
     };
 

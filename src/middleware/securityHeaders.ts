@@ -175,7 +175,12 @@ export function cspReportHandler(req: Request, res: Response): void {
   const report = req.body;
 
   // Log CSP violations for analysis
-  securityEvents.cspViolation(report);
+  if (securityEvents && typeof securityEvents.cspViolation === 'function') {
+    securityEvents.cspViolation(report);
+  } else {
+    // Fallback if securityEvents is not fully initialized or mock
+    console.warn('CSP Violation:', JSON.stringify(report));
+  }
 
   // In production, this can be integrated with Sentry or other monitoring tools
   res.status(204).send();

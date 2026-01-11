@@ -2,6 +2,8 @@ import { randomUUID } from 'crypto';
 import { NextFunction, Request, Response } from 'express';
 import { securityAuditService } from '../services/SecurityAuditService';
 import { logger } from '../lib/logger';
+import { runWithContext } from '../lib/context';
+import { getTraceContextForLogging } from '../config/telemetry';
 
 const DEFAULT_IGNORED_PATHS = ['/health', '/metrics'];
 
@@ -51,31 +53,40 @@ export function requestAuditMiddleware(options?: { ignoredPaths?: string[] }) {
     (req as any).requestId = requestId;
     res.setHeader('X-Request-Id', requestId);
 
-    res.on('finish', async () => {
-      try {
-        await securityAuditService.logRequestEvent({
-          requestId,
-          userId: actor.id,
-          actor: actor.label,
-          action: req.method.toLowerCase(),
-          resource: req.baseUrl || req.originalUrl,
-          requestPath: req.originalUrl,
-          ipAddress: req.ip || req.socket.remoteAddress || undefined,
-          userAgent: req.get('user-agent') || undefined,
-          statusCode: res.statusCode,
-          severity: res.statusCode >= 500 ? 'high' : 'medium',
-          eventData: {
-            duration_ms: Date.now() - startedAt,
-            org: (req.headers['x-organization-id'] as string) || (req as any).organizationId,
-            routeParams: req.params,
-            query: req.query,
-          },
-        });
-      } catch (error) {
-        logger.error('Failed to write request audit event', error as Error, { requestId });
-      }
-    });
+    // Prepare context
+    const context = {
+      requestId,
+      userId: actor.id,
+      ...getTraceContextForLogging()
+    };
 
-    next();
+    runWithContext(context, () => {
+      res.on('finish', async () => {
+        try {
+          await securityAuditService.logRequestEvent({
+            requestId,
+            userId: actor.id,
+            actor: actor.label,
+            action: req.method.toLowerCase(),
+            resource: req.baseUrl || req.originalUrl,
+            requestPath: req.originalUrl,
+            ipAddress: req.ip || req.socket.remoteAddress || undefined,
+            userAgent: req.get('user-agent') || undefined,
+            statusCode: res.statusCode,
+            severity: res.statusCode >= 500 ? 'high' : 'medium',
+            eventData: {
+              duration_ms: Date.now() - startedAt,
+              org: (req.headers['x-organization-id'] as string) || (req as any).organizationId,
+              routeParams: req.params,
+              query: req.query,
+            },
+          });
+        } catch (error) {
+          logger.error('Failed to write request audit event', error as Error, { requestId });
+        }
+      });
+
+      next();
+    });
   };
 }
