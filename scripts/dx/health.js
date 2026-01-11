@@ -124,7 +124,7 @@ async function checkDatabase() {
     : 'docker-compose.deps.yml';
 
   try {
-    execSync(`docker compose -f ${composeFile} ps postgres`, {
+    execSync(`docker compose --env-file .env.ports -f ${composeFile} ps postgres`, {
       stdio: 'ignore',
       cwd: path.resolve(__dirname, '../..')
     });
@@ -144,7 +144,7 @@ async function checkDatabase() {
       message: 'ERR PostgreSQL - Not running',
       fix: `\
 Start Docker services:\
-$ docker compose -f ${composeFile} up -d\
+$ docker compose --env-file .env.ports -f ${composeFile} up -d\
 `
     };
   }
@@ -159,7 +159,7 @@ async function checkRedis() {
     : 'docker-compose.deps.yml';
 
   try {
-    execSync(`docker compose -f ${composeFile} ps redis`, {
+    execSync(`docker compose --env-file .env.ports -f ${composeFile} ps redis`, {
       stdio: 'ignore',
       cwd: path.resolve(__dirname, '../..')
     });
@@ -179,7 +179,7 @@ async function checkRedis() {
       message: 'ERR Redis - Not running',
       fix: `\
 Start Docker services:\
-$ docker compose -f ${composeFile} up -d\
+$ docker compose --env-file .env.ports -f ${composeFile} up -d\
 `
     };
   }
