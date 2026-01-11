@@ -7,24 +7,28 @@ Implemented comprehensive analytics tracking and monitoring system for the custo
 ## Completed Subtasks
 
 ### ✅ Add analytics tracking to portal
+
 - Created `CustomerPortalAnalytics` service with session management
 - Implemented event tracking for all portal interactions
 - Added automatic session timeout and heartbeat monitoring
 - Built singleton pattern for consistent analytics instance
 
 ### ✅ Track page views, time on page
+
 - Page view tracking with automatic duration calculation
 - Session-based page view counting
 - Time-on-page metrics with visibility API integration
 - Component-level visibility tracking hooks
 
 ### ✅ Track export actions
+
 - PDF export tracking (start, success, error)
 - Excel export tracking with status monitoring
 - Email share tracking with recipient count
 - Export format distribution analytics
 
 ### ✅ Set up error monitoring
+
 - Global error handler for uncaught exceptions
 - Unhandled promise rejection tracking
 - Error categorization (authentication, API, validation, etc.)
@@ -33,6 +37,7 @@ Implemented comprehensive analytics tracking and monitoring system for the custo
 - Error fingerprinting for grouping
 
 ### ✅ Create Grafana dashboard for portal metrics
+
 - 15 comprehensive dashboard panels
 - Real-time metrics visualization
 - Performance monitoring charts
@@ -44,9 +49,11 @@ Implemented comprehensive analytics tracking and monitoring system for the custo
 ## Files Created
 
 ### 1. Analytics Tracking Service
+
 **File:** `src/lib/analytics/customerPortalTracking.ts` (500+ lines)
 
 **Features:**
+
 - Session management with automatic timeout
 - Event tracking for 12+ event types
 - Heartbeat monitoring
@@ -55,27 +62,30 @@ Implemented comprehensive analytics tracking and monitoring system for the custo
 - Automatic data flushing on page unload
 
 **Event Types:**
+
 ```typescript
 enum PortalEventType {
-  PAGE_VIEW = 'portal_page_view',
-  SESSION_START = 'portal_session_start',
-  SESSION_END = 'portal_session_end',
-  EXPORT_PDF = 'portal_export_pdf',
-  EXPORT_EXCEL = 'portal_export_excel',
-  SHARE_EMAIL = 'portal_share_email',
-  BENCHMARK_VIEW = 'portal_benchmark_view',
-  METRIC_VIEW = 'portal_metric_view',
-  ERROR = 'portal_error',
-  TOKEN_VALIDATION = 'portal_token_validation',
-  TOKEN_EXPIRED = 'portal_token_expired',
-  TOKEN_INVALID = 'portal_token_invalid',
+  PAGE_VIEW = "portal_page_view",
+  SESSION_START = "portal_session_start",
+  SESSION_END = "portal_session_end",
+  EXPORT_PDF = "portal_export_pdf",
+  EXPORT_EXCEL = "portal_export_excel",
+  SHARE_EMAIL = "portal_share_email",
+  BENCHMARK_VIEW = "portal_benchmark_view",
+  METRIC_VIEW = "portal_metric_view",
+  ERROR = "portal_error",
+  TOKEN_VALIDATION = "portal_token_validation",
+  TOKEN_EXPIRED = "portal_token_expired",
+  TOKEN_INVALID = "portal_token_invalid",
 }
 ```
 
 ### 2. React Analytics Hooks
+
 **File:** `src/hooks/usePortalAnalytics.ts` (300+ lines)
 
 **Hooks Provided:**
+
 - `usePageTracking()` - Automatic page view and time tracking
 - `useExportTracking()` - Export action tracking
 - `useEmailShareTracking()` - Email share tracking
@@ -89,9 +99,11 @@ enum PortalEventType {
 - `usePerformanceTracking()` - Performance metric tracking
 
 ### 3. Error Monitoring Service
+
 **File:** `src/lib/monitoring/errorMonitoring.ts` (400+ lines)
 
 **Features:**
+
 - Global error handlers (window.onerror, unhandledrejection)
 - Error categorization (8 categories)
 - Error severity levels (4 levels)
@@ -102,20 +114,22 @@ enum PortalEventType {
 - Backend error reporting
 
 **Error Categories:**
+
 ```typescript
 enum ErrorCategory {
-  AUTHENTICATION = 'authentication',
-  API = 'api',
-  VALIDATION = 'validation',
-  NETWORK = 'network',
-  RENDERING = 'rendering',
-  DATA = 'data',
-  EXPORT = 'export',
-  UNKNOWN = 'unknown',
+  AUTHENTICATION = "authentication",
+  API = "api",
+  VALIDATION = "validation",
+  NETWORK = "network",
+  RENDERING = "rendering",
+  DATA = "data",
+  EXPORT = "export",
+  UNKNOWN = "unknown",
 }
 ```
 
 ### 4. Grafana Dashboard
+
 **File:** `infra/grafana/dashboards/customer-portal.json` (500+ lines)
 
 **Dashboard Panels:**
@@ -146,6 +160,7 @@ enum ErrorCategory {
    - Session activity heatmap
 
 **Dashboard Features:**
+
 - Auto-refresh every 30 seconds
 - Configurable time ranges (1h to 30 days)
 - Drill-down capabilities
@@ -153,9 +168,11 @@ enum ErrorCategory {
 - Responsive layout
 
 ### 5. Test Suite
+
 **File:** `src/lib/analytics/__tests__/customerPortalTracking.test.ts` (200+ lines)
 
 **Test Coverage:**
+
 - Session management (initialization, duration, timeout)
 - Page view tracking (views, time on page)
 - Export tracking (PDF, Excel)
@@ -169,9 +186,11 @@ enum ErrorCategory {
 **Test Count:** 15+ test cases
 
 ### 6. Documentation
+
 **File:** `docs/analytics/CUSTOMER_PORTAL_ANALYTICS.md` (500+ lines)
 
 **Documentation Sections:**
+
 - Architecture overview
 - Event types reference
 - Usage examples for all hooks
@@ -190,11 +209,16 @@ enum ErrorCategory {
 ### Component Integration
 
 **RealizationPortal:**
+
 ```typescript
-import { usePageTracking, useTokenTracking, useErrorTracking } from '../../hooks/usePortalAnalytics';
+import {
+  usePageTracking,
+  useTokenTracking,
+  useErrorTracking,
+} from "../../hooks/usePortalAnalytics";
 
 // Track page view
-usePageTracking('realization-portal', {
+usePageTracking("realization-portal", {
   valueCaseId: data?.valueCase?.id,
   companyName: data?.valueCase?.company_name,
 });
@@ -205,14 +229,15 @@ trackValidation(true, { token, valueCaseId });
 ```
 
 **ExportActions:**
+
 ```typescript
-import { useExportTracking, useEmailShareTracking } from '../../hooks/usePortalAnalytics';
+import { useExportTracking, useEmailShareTracking } from "../../hooks/usePortalAnalytics";
 
 const trackExport = useExportTracking();
 const trackEmailShare = useEmailShareTracking();
 
 // Track export
-trackExport('pdf', { valueCaseId, companyName, status: 'success' });
+trackExport("pdf", { valueCaseId, companyName, status: "success" });
 
 // Track email share
 trackEmailShare(recipientCount, { valueCaseId, companyName });
@@ -268,6 +293,7 @@ portal_page_duration_seconds{page="..."}
 ## Technical Achievements
 
 ### 1. Session Management
+
 - Automatic session initialization
 - 30-minute inactivity timeout
 - Heartbeat monitoring (1-minute intervals)
@@ -275,6 +301,7 @@ portal_page_duration_seconds{page="..."}
 - Graceful session end on page unload
 
 ### 2. Event Tracking
+
 - 12+ event types
 - Automatic context enrichment (sessionId, userAgent, timestamp)
 - Queue management for offline scenarios
@@ -282,6 +309,7 @@ portal_page_duration_seconds{page="..."}
 - Fire-and-forget pattern for performance
 
 ### 3. Error Monitoring
+
 - Global error capture
 - Automatic error categorization
 - Error fingerprinting for grouping
@@ -290,6 +318,7 @@ portal_page_duration_seconds{page="..."}
 - Integration-ready for Sentry
 
 ### 4. Performance Optimization
+
 - Async event sending (non-blocking)
 - Event queue with size limits
 - Keepalive for page unload events
@@ -297,6 +326,7 @@ portal_page_duration_seconds{page="..."}
 - Configurable enable/disable
 
 ### 5. Privacy & Security
+
 - No PII tracking by default
 - Configurable data collection
 - Encrypted data transmission (HTTPS)
@@ -341,7 +371,7 @@ function MyPage() {
     valueCaseId: 'vc-123',
     companyName: 'Acme Corp',
   });
-  
+
   return <div>My Page</div>;
 }
 ```
@@ -352,12 +382,12 @@ function MyPage() {
 const trackExport = useExportTracking();
 
 const handleExport = async () => {
-  trackExport('pdf', { status: 'started' });
+  trackExport("pdf", { status: "started" });
   try {
     await exportPDF();
-    trackExport('pdf', { status: 'success' });
+    trackExport("pdf", { status: "success" });
   } catch (error) {
-    trackExport('pdf', { status: 'error', errorMessage: error.message });
+    trackExport("pdf", { status: "error", errorMessage: error.message });
   }
 };
 ```
@@ -370,9 +400,9 @@ const trackError = useErrorTracking();
 try {
   await fetchData();
 } catch (error) {
-  trackError(error.message, 'API_ERROR', {
-    endpoint: '/api/data',
-    valueCaseId: 'vc-123',
+  trackError(error.message, "API_ERROR", {
+    endpoint: "/api/data",
+    valueCaseId: "vc-123",
   });
 }
 ```
@@ -380,6 +410,7 @@ try {
 ## Metrics & KPIs
 
 ### Engagement Metrics
+
 - Page views per session
 - Average session duration
 - Time on page by page type
@@ -387,6 +418,7 @@ try {
 - Return visitor rate
 
 ### Export Metrics
+
 - Export count by format (PDF, Excel)
 - Export success rate
 - Export error rate
@@ -394,6 +426,7 @@ try {
 - Recipients per share
 
 ### Quality Metrics
+
 - Error rate by category
 - Error rate by severity
 - Token validation success rate
@@ -401,6 +434,7 @@ try {
 - Invalid token rate
 
 ### Performance Metrics
+
 - Page load time
 - Time to interactive
 - API response time
@@ -409,18 +443,21 @@ try {
 ## Next Steps
 
 ### Immediate
+
 1. Implement backend API endpoints
 2. Set up Prometheus metrics collection
 3. Deploy Grafana dashboard
 4. Configure alerting rules
 
 ### Short-term
+
 1. Add A/B testing support
 2. Implement funnel analysis
 3. Add cohort analysis
 4. Create custom reports
 
 ### Long-term
+
 1. Machine learning for anomaly detection
 2. Predictive analytics
 3. Real-time alerting
