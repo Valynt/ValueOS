@@ -5,7 +5,7 @@
   "type": "module",
   "packageManager": "npm@9.2.0",
   "scripts": {
-    "setup": "bash scripts/dev/setup.sh",
+    "setup": "node scripts/dx/setup.js",
     "dx": "node scripts/dx/doctor.js --mode local && node scripts/dx/dev.js --mode local",
     "dx:doctor": "node scripts/dx/doctor.js",
     "dx:docker": "node scripts/dx/doctor.js --mode docker && node scripts/dx/dev.js --mode docker",
