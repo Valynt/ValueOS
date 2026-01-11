@@ -13,7 +13,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const projectRoot = path.resolve(__dirname, '../..');
+const envLocalPath = path.join(projectRoot, '.env.local');
 const envPath = path.join(projectRoot, '.env');
+
+function resolveEnvPath() {
+  if (fs.existsSync(envLocalPath)) {
+    return { path: envLocalPath, label: '.env.local' };
+  }
+
+  if (fs.existsSync(envPath)) {
+    return { path: envPath, label: '.env' };
+  }
+
+  return { path: null, label: null };
+}
 
 /**
  * Parse .env file
@@ -162,15 +175,17 @@ function checkLocalhostUrls(env) {
 async function validateEnvironment() {
   console.log('\n🔍 Validating environment configuration...\n');
 
-  // Check if .env exists
-  if (!fs.existsSync(envPath)) {
-    console.log('❌ .env file not found');
+  const resolvedEnv = resolveEnvPath();
+  if (!resolvedEnv.path) {
+    console.log('❌ No environment file found (.env.local or .env)');
     console.log('\nRun: npm run setup\n');
     return false;
   }
 
-  // Read and parse .env
-  const content = fs.readFileSync(envPath, 'utf8');
+  console.log(`Using ${resolvedEnv.label}`);
+
+  // Read and parse environment file
+  const content = fs.readFileSync(resolvedEnv.path, 'utf8');
   const env = parseEnvFile(content);
 
   // Run checks
@@ -189,7 +204,7 @@ async function validateEnvironment() {
   } else {
     console.log('\n❌ Environment validation failed\n');
     console.log('Fix issues above or regenerate:');
-    console.log('  rm .env && npm run setup\n');
+    console.log('  rm .env.local && npm run setup\n');
     return false;
   }
 }

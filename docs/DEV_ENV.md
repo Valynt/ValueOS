@@ -15,6 +15,8 @@ This runbook is the canonical troubleshooting guide for ValueOS dev. It is desig
    npm run setup
    npm run dx
    ```
+
+   - `npm run setup` writes `.env.local` (canonical) and a `.env` compatibility copy.
 3. **Open the app**
    - Frontend: http://localhost:5173 (or `VITE_PORT`)
    - Backend: http://localhost:3001/health (or `API_PORT`)
@@ -81,6 +83,8 @@ npm run dx:docker   # full docker stack
 ```bash
 npm run setup
 ```
+
+**Precedence:** `.env.local` is checked first; `.env` is only used as a fallback.
 
 ### 5) Supabase local not running
 

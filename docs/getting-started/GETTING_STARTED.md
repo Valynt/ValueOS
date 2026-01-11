@@ -136,13 +136,15 @@ If automated setup fails, you can set up manually:
 
 ```bash
 # Copy template
-cp .env.example .env
+cp .env.example .env.local
 
-# Edit .env and set:
+# Edit .env.local and set:
 # - JWT_SECRET (generate with: openssl rand -hex 32)
 # - DATABASE_URL
 # - Other required variables
 ```
+
+**Environment file precedence:** `.env.local` is the canonical local file. Tooling checks `.env.local` first and falls back to `.env` only when needed. `npm run setup` generates `.env.local` and also writes `.env` for legacy tooling compatibility.
 
 ### 2. Install Dependencies
 
