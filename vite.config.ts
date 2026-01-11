@@ -44,20 +44,42 @@ export default defineConfig(({ mode }) => {
           "winston-cloudwatch",
         ],
         output: {
-          manualChunks: {
+          manualChunks: (id: string) => {
             // Core React vendor chunk
-            "vendor-react": ["react", "react-dom", "react-router-dom"],
+            if (
+              id.includes("node_modules/react-dom") ||
+              id.includes("node_modules/react-router") ||
+              (id.includes("node_modules/react/") && !id.includes("react-dom"))
+            ) {
+              return "vendor-react";
+            }
             // UI libraries
-            "vendor-ui": ["lucide-react", "clsx", "tailwind-merge"],
-            // Heavy export libraries - lazy loaded
-            "vendor-pdf": ["jspdf"],
-            "vendor-excel": ["exceljs"],
+            if (
+              id.includes("node_modules/lucide-react") ||
+              id.includes("node_modules/clsx") ||
+              id.includes("node_modules/tailwind-merge")
+            ) {
+              return "vendor-ui";
+            }
+            // Heavy export libraries - separate chunks for lazy loading
+            if (id.includes("node_modules/jspdf")) {
+              return "vendor-pdf";
+            }
+            if (id.includes("node_modules/exceljs")) {
+              return "vendor-excel";
+            }
             // Supabase client
-            "vendor-supabase": ["@supabase/supabase-js"],
+            if (id.includes("node_modules/@supabase")) {
+              return "vendor-supabase";
+            }
             // Charts and visualization
-            "vendor-charts": ["recharts"],
+            if (id.includes("node_modules/recharts")) {
+              return "vendor-charts";
+            }
             // Date utilities
-            "vendor-date": ["date-fns"],
+            if (id.includes("node_modules/date-fns")) {
+              return "vendor-date";
+            }
           },
         },
       },
