@@ -161,26 +161,33 @@ const StageIndicator: React.FC<{ stage: ValueCase["stage"] }> = ({ stage }) => {
 };
 
 // Condensed case item (like screenshot)
-const CaseItem: React.FC<{
-  case_: ValueCase;
-  isSelected: boolean;
-  onClick: () => void;
-}> = ({ case_, isSelected, onClick }) => {
-  return (
-    <button
-      onClick={onClick}
-      aria-label={`${isSelected ? "Currently viewing" : "Open"} ${case_.name} for ${case_.company}`}
-      aria-current={isSelected ? "page" : undefined}
-      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-        isSelected
-          ? "bg-card text-foreground shadow-beautiful-sm"
-          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-      }`}
-    >
-      {case_.name}
-    </button>
-  );
-};
+const CaseItem = React.memo(
+  ({
+    case_,
+    isSelected,
+    onSelect,
+  }: {
+    case_: ValueCase;
+    isSelected: boolean;
+    onSelect: (id: string) => void;
+  }) => {
+    return (
+      <button
+        onClick={() => onSelect(case_.id)}
+        aria-label={`${isSelected ? "Currently viewing" : "Open"} ${case_.name} for ${case_.company}`}
+        aria-current={isSelected ? "page" : undefined}
+        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+          isSelected
+            ? "bg-card text-foreground shadow-beautiful-sm"
+            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        }`}
+      >
+        {case_.name}
+      </button>
+    );
+  }
+);
+CaseItem.displayName = "CaseItem";
 
 // Starter card component
 const StarterCard: React.FC<{
@@ -468,20 +475,6 @@ const logTelemetrySummary = () => {
   }
 };
 
-const formatRelativeTime = (date: Date): string => {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
-};
-
 const BETA_HUB_URL =
   import.meta.env.VITE_BETA_HUB_URL || "https://docs.valuecanvas.app/beta-hub";
 
@@ -590,10 +583,23 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
   // Toast notifications
   const { error: showError, success: showSuccess, info: showInfo } = useToast();
 
-  // Derived state
-  const selectedCase = cases.find((c) => c.id === selectedCaseId);
-  const inProgressCases = cases.filter((c) => c.status === "in-progress");
-  const completedCases = cases.filter((c) => c.status === "completed");
+  // Derived state (memoized to prevent recalculation on every render)
+  const selectedCase = React.useMemo(
+    () => cases.find((c) => c.id === selectedCaseId),
+    [cases, selectedCaseId]
+  );
+  const inProgressCases = React.useMemo(
+    () => cases.filter((c) => c.status === "in-progress"),
+    [cases]
+  );
+  const completedCases = React.useMemo(
+    () => cases.filter((c) => c.status === "completed"),
+    [cases]
+  );
+
+  const handleCaseSelect = useCallback((id: string) => {
+    setSelectedCaseId(id);
+  }, []);
 
   const trackAssetCreated = useCallback(
     (payload: {
@@ -1641,7 +1647,7 @@ Based on this call analysis, help me:
                     key={case_.id}
                     case_={case_}
                     isSelected={selectedCaseId === case_.id}
-                    onClick={() => setSelectedCaseId(case_.id)}
+                    onSelect={handleCaseSelect}
                   />
                 ))}
               </div>
@@ -1660,7 +1666,7 @@ Based on this call analysis, help me:
                     key={case_.id}
                     case_={case_}
                     isSelected={selectedCaseId === case_.id}
-                    onClick={() => setSelectedCaseId(case_.id)}
+                    onSelect={handleCaseSelect}
                   />
                 ))}
               </div>
