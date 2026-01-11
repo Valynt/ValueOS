@@ -8,6 +8,7 @@
 import { detectPlatform, getPlatformConfig } from '../lib/platform.js';
 import { checkPrerequisites } from '../lib/prerequisites.js';
 import { generateSecrets, validateEnv } from '../lib/environment.js';
+import { getPortRegistry } from './port-registry.js';
 
 console.log('🧪 Testing DX Implementation\n');
 console.log('='.repeat(60));
@@ -76,6 +77,11 @@ async function runTests() {
   });
   
   console.log('\n🔐 Testing Environment Generator\n');
+
+  test('Port registry loads', () => {
+    getPortRegistry();
+    return true;
+  });
   
   test('Secret generation works', () => {
     const secrets = generateSecrets();
