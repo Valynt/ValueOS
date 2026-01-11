@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "packageManager": "npm@9.2.0",
   "scripts": {
     "setup": "node scripts/dx/setup.js",
     "dev": "vite",
@@ -255,7 +256,6 @@
     "prettier": "^3.7.4",
     "rate-limit-redis": "^4.3.1",
     "snyk": "^1.1275.0",
-    "storybook": "^8.6.15",
     "stylelint": "^16.26.1",
     "stylelint-config-standard": "^39.0.1",
     "supabase": "^2.70.5",

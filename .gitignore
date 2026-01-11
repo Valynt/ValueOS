@@ -135,6 +135,10 @@ playwright-artifacts/
 
 # PNPM
 .pnpm-store/
+pnpm-lock.yaml
+
+# Yarn
+yarn.lock
 
 # Core dumps
 core
