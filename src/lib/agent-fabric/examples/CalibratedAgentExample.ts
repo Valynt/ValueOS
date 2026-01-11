@@ -36,6 +36,10 @@ export class CalibratedOpportunityAgent extends BaseAgent {
    * Execute agent with calibrated confidence
    */
   async execute(sessionId: string, input: unknown): Promise<unknown> {
+    // 0. Get tenantId from session or input (assuming input has context or derived)
+    // For example, fetch session to get tenantId
+    const tenantId = await this.getTenantId(sessionId);
+
     // 1. Execute agent logic (existing implementation)
     const rawResult = await this.executeInternal(sessionId, input);
 
@@ -43,6 +47,7 @@ export class CalibratedOpportunityAgent extends BaseAgent {
     const calibrationResult = await this.calibrationService.calibrate(
       this.agentId,
       rawResult.confidence,
+      tenantId,
       0.7  // Minimum acceptable confidence threshold
     );
 
@@ -59,6 +64,7 @@ export class CalibratedOpportunityAgent extends BaseAgent {
       logger.warn('Calibrated confidence below threshold, triggering fallback', {
         agentId: this.agentId,
         sessionId,
+        tenantId,
         rawConfidence: calibrationResult.rawConfidence,
         calibratedConfidence: calibrationResult.calibratedConfidence,
         threshold: calibrationResult.calibrationModel.minThreshold
@@ -72,28 +78,50 @@ export class CalibratedOpportunityAgent extends BaseAgent {
     if (calibrationResult.shouldTriggerRetraining) {
       logger.warn('Calibration error high, triggering retraining', {
         agentId: this.agentId,
+        tenantId,
         calibrationError: calibrationResult.calibrationModel.calibrationError,
         threshold: calibrationResult.calibrationModel.retrainingThreshold
       });
 
       await this.calibrationService.triggerRetraining(
         this.agentId,
+        tenantId,
         `High calibration error: ${calibrationResult.calibrationModel.calibrationError}`
       );
     }
 
     // 6. Store prediction with calibrated confidence for future calibration
     if (this.supabase) {
-      await this.storePrediction(sessionId, calibratedResult);
+      await this.storePrediction(sessionId, tenantId, calibratedResult);
     }
 
     return calibratedResult;
   }
 
   /**
+   * Helper to get tenant ID from session
+   */
+  private async getTenantId(sessionId: string): Promise<string> {
+    if (!this.supabase) return 'unknown';
+
+    const { data } = await this.supabase
+      .from('agent_sessions')
+      .select('tenant_id')
+      .eq('id', sessionId)
+      .single();
+
+    return data?.tenant_id || 'unknown';
+  }
+
+  /**
    * Internal execution logic (existing agent implementation)
    */
-  private async executeInternal(_sessionId: string, _input: unknown): Promise<unknown> {
+  private async executeInternal(_sessionId: string, _input: unknown): Promise<{
+    opportunities: any[];
+    confidence: number;
+    reasoning: string;
+    evidence: any[];
+  }> {
     // Existing agent logic here
     // Returns result with raw confidence score
     return {
@@ -107,7 +135,7 @@ export class CalibratedOpportunityAgent extends BaseAgent {
   /**
    * Trigger human-in-the-loop fallback when confidence is too low
    */
-  private async triggerHumanFallback(sessionId: string, result: unknown): Promise<unknown> {
+  private async triggerHumanFallback(sessionId: string, result: any): Promise<unknown> {
     logger.info('Triggering human-in-the-loop fallback', {
       agentId: this.agentId,
       sessionId,
@@ -139,7 +167,7 @@ export class CalibratedOpportunityAgent extends BaseAgent {
   /**
    * Store prediction for future calibration
    */
-  private async storePrediction(sessionId: string, result: Record<string, unknown>): Promise<void> {
+  private async storePrediction(sessionId: string, tenantId: string, result: any): Promise<void> {
     if (!this.supabase) return;
 
     await this.supabase
@@ -148,6 +176,7 @@ export class CalibratedOpportunityAgent extends BaseAgent {
         session_id: sessionId,
         agent_id: this.agentId,
         agent_type: this.lifecycleStage,
+        tenant_id: tenantId,
         input_hash: this.hashInput(result.input),
         input_data: result.input,
         prediction: result,
@@ -191,7 +220,8 @@ export async function exampleUsage(supabase: SupabaseClient) {
   });
 
   // 2. Execute agent
-  const result = await agent.execute('session-123', {
+  // execute now fetches tenantId internally
+  const result: any = await agent.execute('session-123', {
     companyName: 'Acme Corp',
     industry: 'Technology'
   });
@@ -220,7 +250,9 @@ export async function exampleUsage(supabase: SupabaseClient) {
 
   // 5. Periodically check calibration status
   const calibrationService = new ConfidenceCalibrationService(supabase);
-  const stats = await calibrationService.getCalibrationStats('opportunity-agent-001');
+  // Get tenant ID (assuming known or retrieved)
+  const tenantId = 'tenant-123';
+  const stats = await calibrationService.getCalibrationStats('opportunity-agent-001', tenantId);
   
   logger.info('Calibration Status', {
     recentAccuracy: stats.recentAccuracy,
@@ -232,41 +264,8 @@ export async function exampleUsage(supabase: SupabaseClient) {
   if (stats.needsRecalibration) {
     await calibrationService.triggerRetraining(
       'opportunity-agent-001',
+      tenantId,
       'Manual recalibration requested'
     );
   }
 }
-
-/**
- * Integration Pattern for Existing Agents
- * 
- * To integrate calibration into existing agents:
- * 
- * 1. Add calibrationService to agent constructor
- * 2. After getting raw confidence from LLM, call calibrationService.calibrate()
- * 3. Use calibrated confidence for decision-making
- * 4. Trigger fallback if calibrated confidence < threshold
- * 5. Store predictions with both raw and calibrated confidence
- * 6. Record actual outcomes when available
- * 7. Monitor calibration stats and trigger retraining when needed
- * 
- * Example integration:
- * 
- * ```typescript
- * // Before (raw confidence)
- * const result = await this.llm.complete(prompt);
- * if (result.confidence < 0.7) {
- *   return this.fallback();
- * }
- * 
- * // After (calibrated confidence)
- * const result = await this.llm.complete(prompt);
- * const calibration = await this.calibrationService.calibrate(
- *   this.agentId,
- *   result.confidence
- * );
- * if (calibration.calibratedConfidence < 0.7) {
- *   return this.fallback();
- * }
- * ```
- */
