@@ -6,6 +6,7 @@
  */
 
 import { spawn } from 'child_process';
+import net from 'net';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -32,6 +33,34 @@ function formatLog(service, line, color) {
   const timestamp = new Date().toLocaleTimeString();
   const prefix = `${color}[${service}]${colors.reset}`;
   return `${colors.bright}${timestamp}${colors.reset} ${prefix} ${line}`;
+}
+
+/**
+ * Check whether a port is already in use.
+ */
+function isPortInUse(port, host = '127.0.0.1') {
+  return new Promise((resolve) => {
+    const tester = net
+      .createServer()
+      .once('error', (error) => {
+        if (error.code === 'EADDRINUSE') {
+          resolve(true);
+        } else {
+          resolve(false);
+        }
+      })
+      .once('listening', () => {
+        tester.close(() => resolve(false));
+      })
+      .listen(port, host);
+  });
+}
+
+/**
+ * Log a warning with service prefix.
+ */
+function logWarning(service, message) {
+  console.log(formatLog(service, `⚠️ ${message}`, colors.yellow));
 }
 
 /**
@@ -93,15 +122,25 @@ async function main() {
   await new Promise(resolve => setTimeout(resolve, 3000));
 
   // Start backend
-  const backendProc = startService('backend', 'npm run backend:dev', colors.blue);
-  services.push(backendProc);
+  const backendPortInUse = await isPortInUse(3001);
+  if (backendPortInUse) {
+    logWarning('backend', 'Port 3001 already in use. Skipping local backend start.');
+  } else {
+    const backendProc = startService('backend', 'npm run backend:dev', colors.blue);
+    services.push(backendProc);
+  }
 
   // Wait a bit for backend to start
   await new Promise(resolve => setTimeout(resolve, 2000));
 
   // Start frontend
-  const frontendProc = startService('frontend', 'npm run dev', colors.green);
-  services.push(frontendProc);
+  const frontendPortInUse = await isPortInUse(5173);
+  if (frontendPortInUse) {
+    logWarning('frontend', 'Port 5173 already in use. Skipping local frontend start.');
+  } else {
+    const frontendProc = startService('frontend', 'npm run dev', colors.green);
+    services.push(frontendProc);
+  }
 
   // Wait for services to initialize
   await new Promise(resolve => setTimeout(resolve, 5000));
