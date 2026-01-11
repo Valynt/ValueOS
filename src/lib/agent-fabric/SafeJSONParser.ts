@@ -254,9 +254,12 @@ function attemptJSONRecovery(
 
     // Strategy 3: Fix common quote issues
     () => {
-      const fixed = jsonString
-        .replace(/'/g, '"') // Replace single quotes with double quotes
-        .replace(/([{,]\s*)(\w+)(\s*:)/g, '$1"$2"$3'); // Quote unquoted keys
+      // Intelligently convert single quotes to double quotes
+      const fixedQuotes = fixSingleQuotes(jsonString);
+
+      // Also quote unquoted keys
+      const fixed = fixedQuotes
+        .replace(/([{,]\s*)(\w+)(\s*:)/g, '$1"$2"$3');
       
       try {
         return {
@@ -391,4 +394,79 @@ export async function extractJSON<T = any>(
   }
 
   return result.data!;
+}
+
+/**
+ * Intelligently convert single quotes to double quotes in a JSON-like string.
+ * Handles nested quotes, escaped characters, and common apostrophe issues.
+ */
+function fixSingleQuotes(jsonString: string): string {
+  let result = '';
+  let inString: "'" | '"' | null = null;
+  let escaped = false;
+
+  for (let i = 0; i < jsonString.length; i++) {
+    const char = jsonString[i];
+    const nextChar = jsonString[i + 1];
+
+    if (escaped) {
+      // If we are in a single-quoted string and see an escaped single quote,
+      // we need to unescape it because we are converting to double quotes (where single quotes are valid).
+      // Example: 'It\'s' -> "It's"
+      if (inString === "'" && char === "'") {
+        result += char;
+      } else {
+        result += '\\' + char;
+      }
+      escaped = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+
+    if (inString === '"') {
+      if (char === '"') {
+        inString = null;
+        result += '"';
+      } else {
+        result += char;
+      }
+    } else if (inString === "'") {
+      if (char === "'") {
+        // Heuristic: If followed by a word character, assume it's an apostrophe inside the string
+        // This handles cases like 'It's' which cleanJSONString might have produced by unescaping 'It\'s'
+        if (nextChar && /[a-zA-Z]/.test(nextChar)) {
+           result += char;
+        } else {
+           inString = null;
+           result += '"'; // Convert closing single quote to double
+        }
+      } else if (char === '"') {
+        result += '\\"'; // Escape double quote inside string
+      } else {
+        result += char;
+      }
+    } else {
+      // Not in string
+      if (char === '"') {
+        inString = '"';
+        result += '"';
+      } else if (char === "'") {
+        inString = "'";
+        result += '"'; // Convert opening single quote to double
+      } else {
+        result += char;
+      }
+    }
+  }
+
+  // Append trailing escape if string ended with backslash (invalid JSON but prevent crash)
+  if (escaped) {
+      result += '\\';
+  }
+
+  return result;
 }
