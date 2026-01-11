@@ -7,6 +7,9 @@
   "scripts": {
     "setup": "bash scripts/dev/setup.sh",
     "dev": "vite",
+    "dx": "node scripts/dx/dev.js",
+    "dx:docker": "node scripts/dx/dev.js --mode docker",
+    "dx:down": "sh -c \"docker compose -f docker-compose.full.yml down --remove-orphans || true; docker compose -f docker-compose.deps.yml down --remove-orphans\"",
     "health": "node scripts/dx/health.js",
     "env:validate": "tsx scripts/env-validate.ts",
     "build": "vite build",

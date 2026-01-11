@@ -5,7 +5,7 @@
  * Starts all services with unified logging
  */
 
-import { spawn } from 'child_process';
+import { execSync, spawn } from 'child_process';
 import net from 'net';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -104,22 +104,111 @@ function startService(name, command, color) {
 }
 
 /**
+ * Run a command and stream output.
+ */
+function runCommand(name, command) {
+  return new Promise((resolve, reject) => {
+    console.log(formatLog(name, `Running "${command}"...`, colors.yellow));
+    const proc = spawn(command, {
+      cwd: projectRoot,
+      stdio: 'inherit',
+      shell: true
+    });
+
+    proc.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`${name} exited with code ${code}`));
+      }
+    });
+  });
+}
+
+/**
+ * Parse CLI args for --mode.
+ */
+function resolveMode(args) {
+  const modeArg = args.find(arg => arg.startsWith('--mode='));
+  if (modeArg) {
+    return modeArg.split('=')[1];
+  }
+
+  const modeIndex = args.indexOf('--mode');
+  if (modeIndex !== -1 && args[modeIndex + 1]) {
+    return args[modeIndex + 1];
+  }
+
+  return 'local';
+}
+
+/**
+ * Check whether Docker is publishing a host port.
+ */
+function isDockerPortPublished(port) {
+  let output = '';
+  try {
+    output = execSync('docker ps --format "{{.Ports}}"', {
+      cwd: projectRoot,
+      encoding: 'utf8'
+    }).trim();
+  } catch (error) {
+    return false;
+  }
+
+  if (!output) {
+    return false;
+  }
+
+  const matcher = new RegExp(`(^|,\\s*)(?:[^\\s,]+:)?${port}->`);
+  return output.split('\n').some(line => matcher.test(line));
+}
+
+/**
  * Main function
  */
 async function main() {
+  const mode = resolveMode(process.argv.slice(2));
+
+  if (!['local', 'docker'].includes(mode)) {
+    console.error(`❌ Invalid mode "${mode}". Use --mode local or --mode docker.`);
+    process.exit(1);
+  }
+
   console.log('\n' + '='.repeat(60));
   console.log('🚀 Starting ValueOS development environment...');
   console.log('='.repeat(60) + '\n');
 
   const services = [];
 
-  // Start Docker services first
-  console.log(formatLog('docker', 'Starting Docker services...', colors.yellow));
-  const dockerProc = startService('docker', 'docker-compose up', colors.yellow);
-  services.push(dockerProc);
+  if (mode === 'docker') {
+    await runCommand('docker', 'docker compose -f docker-compose.full.yml up -d');
+    console.log('\n' + '='.repeat(60));
+    console.log('✅ Docker services are running!');
+    console.log('='.repeat(60) + '\n');
+    console.log('💡 Run "npm run dx:down" to stop the environment.\n');
+    return;
+  }
 
-  // Wait a bit for Docker to start
-  await new Promise(resolve => setTimeout(resolve, 3000));
+  // Start Docker dependency services first
+  await runCommand('docker', 'docker compose -f docker-compose.deps.yml up -d');
+
+  const conflicts = [];
+  if (isDockerPortPublished(3001)) {
+    conflicts.push('Backend already running in Docker on 3001');
+  }
+  if (isDockerPortPublished(5173)) {
+    conflicts.push('Frontend already running in Docker on 5173');
+  }
+
+  if (conflicts.length > 0) {
+    console.error(formatLog(
+      'dx',
+      `${conflicts.join('. ')}. Run "npm run dx:down" or start with "npm run dx:docker".`,
+      colors.yellow
+    ));
+    process.exit(1);
+  }
 
   // Start backend
   const backendPortInUse = await isPortInUse(3001);
