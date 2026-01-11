@@ -16,7 +16,10 @@ import healthRouter, { markAsShuttingDown } from "../api/health";
 import authRouter from "../api/auth";
 import adminRouter from "../api/admin";
 import docsApiRouter from "./docs-api";
-import { initializeSecretVolumeWatcher, secretVolumeWatcher } from "../config/secrets/SecretVolumeWatcher";
+import {
+  initializeSecretVolumeWatcher,
+  secretVolumeWatcher,
+} from "../config/secrets/SecretVolumeWatcher";
 import { createLogger } from "../lib/logger";
 import { createVersionedApiRouter } from "./versioning";
 import { initializeContext } from "../lib/context";
@@ -26,10 +29,7 @@ import {
   getLatencySnapshot,
   latencyMetricsMiddleware,
 } from "../middleware/latencyMetricsMiddleware";
-import {
-  getMetricsRegistry,
-  metricsMiddleware,
-} from "../middleware/metricsMiddleware";
+import { getMetricsRegistry, metricsMiddleware } from "../middleware/metricsMiddleware";
 import { createRateLimiter } from "../middleware/rateLimiter";
 import { serviceIdentityMiddleware } from "../middleware/serviceIdentityMiddleware";
 import { securityHeadersMiddleware, cspReportHandler } from "../middleware/securityHeaders";
@@ -65,6 +65,7 @@ const tenantResolver = new TenantContextResolver();
 function parseBearerToken(header?: string | string[]): string | null {
   if (!header) return null;
   const headerValue = Array.isArray(header) ? header[0] : header;
+  if (!headerValue) return null;
   const prefix = "Bearer ";
   if (!headerValue.startsWith(prefix)) return null;
   const token = headerValue.slice(prefix.length).trim();
@@ -189,10 +190,7 @@ async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promi
           logger.warn("Unknown WebSocket message type", { type: message.type });
       }
     } catch (error) {
-      logger.error(
-        "Error handling WebSocket message",
-        error instanceof Error ? error : undefined
-      );
+      logger.error("Error handling WebSocket message", error instanceof Error ? error : undefined);
     }
   });
 
@@ -278,17 +276,11 @@ app.use(
     res: express.Response,
     _next: express.NextFunction
   ): void => {
-    logger.error(
-      "Server error",
-      err instanceof Error ? err : new Error(String(err)),
-      {
-        requestId: res.locals.requestId,
-      }
-    );
+    logger.error("Server error", err instanceof Error ? err : new Error(String(err)), {
+      requestId: res.locals.requestId,
+    });
     const message =
-      settings.NODE_ENV === "development" && err instanceof Error
-        ? err.message
-        : undefined;
+      settings.NODE_ENV === "development" && err instanceof Error ? err.message : undefined;
     res.status(INTERNAL_ERROR_STATUS).json({
       error: "Internal server error",
       message,
@@ -296,11 +288,7 @@ app.use(
   }
 );
 
-// Start server
-if (
-  import.meta.url === `file://${process.argv[1]}` ||
-  settings.NODE_ENV === "development"
-) {
+async function startServer(): Promise<void> {
   if (settings.NODE_ENV === "production" && !isConsentRegistryConfigured()) {
     throw new Error(
       "Consent registry is not configured. Verify consent registry Supabase URL and authentication configuration."
@@ -336,15 +324,20 @@ if (
   }
 
   server.listen(PORT, () => {
-    logger.info(
-      `Billing API server with WebSocket support running on port ${PORT}`,
-      {
-        url: `http://localhost:${PORT}`,
-        webSocketUrl: `ws://localhost:${PORT}/ws/sdui`,
-        healthCheck: `http://localhost:${PORT}/health`,
-      }
-    );
+    logger.info(`Billing API server with WebSocket support running on port ${PORT}`, {
+      url: `http://localhost:${PORT}`,
+      webSocketUrl: `ws://localhost:${PORT}/ws/sdui`,
+      healthCheck: `http://localhost:${PORT}/health`,
+    });
   });
+}
+
+const isMainModule =
+  typeof require !== "undefined" && typeof module !== "undefined" && require.main === module;
+
+// Start server when executed directly (or when running via tsx watch in development)
+if (isMainModule || settings.NODE_ENV === "development") {
+  void startServer();
 }
 
 export { app, server, wss };

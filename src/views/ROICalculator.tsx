@@ -12,7 +12,7 @@ import {
 import { useDrawer } from "../contexts/DrawerContext";
 import AgentBadge from "../components/Agents/AgentBadge";
 import ConfidenceIndicator from "../components/Agents/ConfidenceIndicator";
-import Tooltip from "../components/UI/Tooltip";
+import Tooltip from "../components/ui/tooltip";
 
 export default function ROICalculator() {
   const { openDrawer } = useDrawer();

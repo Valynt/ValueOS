@@ -47,7 +47,7 @@ vi.mock('../../components/Agents/ConfidenceIndicator', () => ({
   ),
 }));
 
-vi.mock('../../components/UI/Tooltip', () => ({
+vi.mock('../../components/ui/tooltip', () => ({
   default: ({
     children,
     content,

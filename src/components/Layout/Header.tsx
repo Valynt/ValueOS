@@ -1,6 +1,6 @@
 import { ChevronRight, Download, Presentation, Share2, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import WorkflowStepper from '../UI/WorkflowStepper';
+import WorkflowStepper from '../ui/WorkflowStepper';
 
 interface HeaderProps {
   title: string;

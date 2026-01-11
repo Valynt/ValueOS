@@ -17,12 +17,7 @@
     "isolatedModules": false,
     "allowImportingTsExtensions": false
   },
-  "include": [
-    "src/backend/**/*",
-    "src/lib/**/*",
-    "src/types/**/*",
-    "src/config/**/*"
-  ],
+  "include": ["src/backend/**/*", "src/lib/**/*", "src/types/**/*", "src/config/**/*"],
   "exclude": [
     "src/lib/settingsRegistry.patch.ts",
     "src/lib/settingsRegistry.fixed.ts",
