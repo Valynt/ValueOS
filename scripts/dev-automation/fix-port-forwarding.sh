@@ -33,6 +33,46 @@ print_error() {
     echo -e "${RED}✗${NC} $1"
 }
 
+DRY_RUN=true
+
+for arg in "$@"; do
+    case "$arg" in
+        --apply)
+            DRY_RUN=false
+            ;;
+        -h|--help)
+            echo "Usage: $0 [--apply]"
+            echo ""
+            echo "  --apply   Apply fixes after confirmation (default: dry-run instructions only)"
+            exit 0
+            ;;
+        *)
+            print_error "Unknown argument: $arg"
+            exit 1
+            ;;
+    esac
+done
+
+confirm_action() {
+    local prompt="$1"
+    if [ "$DRY_RUN" = true ]; then
+        print_warning "Dry-run mode: no changes will be applied."
+        return 1
+    fi
+    read -p "$prompt (y/n): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        return 0
+    fi
+    return 1
+}
+
+print_instruction() {
+    local instruction="$1"
+    print_status "Manual step:"
+    echo "  $instruction"
+}
+
 FIXES_APPLIED=0
 
 # 1. Check if dev server is running
@@ -94,9 +134,13 @@ if command -v ufw > /dev/null 2>&1; then
     if sudo ufw status | grep -q "Status: active"; then
         print_warning "Firewall is active. Checking rules..."
         if ! sudo ufw status | grep -q "3000"; then
-            print_status "Adding firewall rule for port 3000..."
-            sudo ufw allow 3000/tcp
-            FIXES_APPLIED=$((FIXES_APPLIED + 1))
+            print_warning "Port 3000 is not allowed in the firewall."
+            print_instruction "sudo ufw allow 3000/tcp"
+            if confirm_action "Apply firewall rule for port 3000 now?"; then
+                sudo ufw allow 3000/tcp
+                print_success "Firewall rule added for port 3000"
+                FIXES_APPLIED=$((FIXES_APPLIED + 1))
+            fi
         fi
     fi
 else
@@ -115,9 +159,14 @@ fi
 print_status "Checking environment variables..."
 if [ -z "$VITE_API_URL" ]; then
     print_warning "VITE_API_URL not set"
-    echo "export VITE_API_URL=http://localhost:8000" >> ~/.bashrc
-    export VITE_API_URL=http://localhost:8000
-    FIXES_APPLIED=$((FIXES_APPLIED + 1))
+    print_instruction "echo 'export VITE_API_URL=http://localhost:8000' >> ~/.bashrc"
+    print_instruction "export VITE_API_URL=http://localhost:8000"
+    if confirm_action "Apply VITE_API_URL environment updates now?"; then
+        echo "export VITE_API_URL=http://localhost:8000" >> ~/.bashrc
+        export VITE_API_URL=http://localhost:8000
+        print_success "VITE_API_URL updated for current session and ~/.bashrc"
+        FIXES_APPLIED=$((FIXES_APPLIED + 1))
+    fi
 fi
 
 # 8. Verify package.json scripts
@@ -126,23 +175,25 @@ if grep -q '"dev":.*--host' package.json; then
     print_success "Dev script includes --host flag"
 else
     print_warning "Dev script missing --host flag"
-    print_status "Updating package.json..."
-    
-    # Backup
-    cp package.json package.json.backup
-    
-    # Update dev script
-    sed -i 's/"dev": "vite"/"dev": "vite --host"/' package.json
-    print_success "Package.json updated"
-    FIXES_APPLIED=$((FIXES_APPLIED + 1))
+    print_instruction "Update package.json \"dev\" script to: \"vite --host\""
+    print_instruction "Example: sed -i 's/\"dev\": \"vite\"/\"dev\": \"vite --host\"/' package.json"
+    if confirm_action "Apply package.json update now?"; then
+        cp package.json package.json.backup
+        sed -i 's/"dev": "vite"/"dev": "vite --host"/' package.json
+        print_success "Package.json updated (backup at package.json.backup)"
+        FIXES_APPLIED=$((FIXES_APPLIED + 1))
+    fi
 fi
 
 # 9. Clear Vite cache
 print_status "Clearing Vite cache..."
 if [ -d "node_modules/.vite" ]; then
-    rm -rf node_modules/.vite
-    print_success "Vite cache cleared"
-    FIXES_APPLIED=$((FIXES_APPLIED + 1))
+    print_instruction "rm -rf node_modules/.vite"
+    if confirm_action "Clear Vite cache now?"; then
+        rm -rf node_modules/.vite
+        print_success "Vite cache cleared"
+        FIXES_APPLIED=$((FIXES_APPLIED + 1))
+    fi
 fi
 
 # 10. Restart dev server
