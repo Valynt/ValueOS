@@ -565,7 +565,6 @@ export class RetrievalEngine {
 
 import { BaseAgent } from './agents/BaseAgent';
 import { AgentConfig } from '../../../types/agent';
-import Handlebars from 'handlebars';
 
 export interface RetrievalConditionedInput {
   query: string;
@@ -584,18 +583,22 @@ export interface RetrievalConditionedOutput {
   confidence: number;
 }
 
-const RETRIEVAL_CONDITIONED_PROMPT = `You are an expert analyst answering questions using ONLY retrieved context.
+const RETRIEVAL_CONDITIONED_PROMPT = (input: {
+  query: string;
+  contextHint?: string;
+  retrievedContext: string;
+}): string => {
+  const contextHintSection = input.contextHint
+    ? `\n## CONTEXT HINT\n${input.contextHint}\n`
+    : '';
 
-{{{retrieved_context}}}
+  return `You are an expert analyst answering questions using ONLY retrieved context.
+
+${input.retrievedContext}
 
 ## USER QUERY
-{{query}}
-
-{{#if context_hint}}
-## CONTEXT HINT
-{{context_hint}}
-{{/if}}
-
+${input.query}
+${contextHintSection}
 CRITICAL RULES:
 1. Answer ONLY from retrieved context above
 2. If no relevant context exists, say "Insufficient context to answer"
@@ -608,6 +611,7 @@ Return valid JSON:
   "confidence": 0.85,
   "sources_cited": [1, 2]
 }`;
+};
 
 export class RetrievalConditionedAgent extends BaseAgent {
   public lifecycleStage = 'discovery';
@@ -639,11 +643,10 @@ export class RetrievalConditionedAgent extends BaseAgent {
     const formattedContext = this.retrievalEngine.formatContextForPrompt(truncatedContext);
 
     // STEP 4: Inject context into prompt
-    const template = Handlebars.compile(RETRIEVAL_CONDITIONED_PROMPT);
-    const prompt = template({
+    const prompt = RETRIEVAL_CONDITIONED_PROMPT({
       query: input.query,
-      context_hint: input.context_hint,
-      retrieved_context: formattedContext
+      contextHint: input.context_hint,
+      retrievedContext: formattedContext
     });
 
     // Define schema for structured output
