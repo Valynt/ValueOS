@@ -11,7 +11,7 @@ Welcome to ValueOS! This guide will help you set up your local development envir
 git clone https://github.com/Valynt/ValueOS.git
 cd ValueOS
 
-# Run automated setup
+# Run automated setup (scripts/dx/setup.js)
 npm run setup
 
 # Start development
@@ -115,7 +115,7 @@ See [docs/platform/LINUX.md](platform/LINUX.md) for other distributions.
 
 ## Automated Setup
 
-The `npm run setup` command will:
+The `npm run setup` command (backed by `scripts/dx/setup.js`) will:
 
 1. ✅ Detect your platform (macOS/Windows/Linux)
 2. ✅ Check prerequisites (Node, Docker, disk space)

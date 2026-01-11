@@ -15,7 +15,7 @@ cd ValueOS
 npm install
 
 # Automated setup (takes ~5 minutes)
-npm run setup    # Runs scripts/dev/setup.sh
+npm run setup    # Runs scripts/dx/setup.js
 
 # Start development
 npm run dx
@@ -172,7 +172,7 @@ npm run dx:doctor        # Preflight checks (fail fast)
 npm run dx:down          # Stop dev services
 npm run dx:reset         # Clean slate (volumes + locks)
 npm run health           # Check system health
-npm run setup            # Re-run setup (scripts/dev/setup.sh)
+npm run setup            # Re-run setup (scripts/dx/setup.js)
 ```
 
 ### Database
@@ -245,7 +245,7 @@ taskkill /PID <PID> /F
 
 ```bash
 rm .env
-npm run setup            # Runs scripts/dev/setup.sh
+npm run setup            # Runs scripts/dx/setup.js
 ```
 
 **Preflight check**:
