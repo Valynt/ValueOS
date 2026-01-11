@@ -10,9 +10,23 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { loadPorts, resolvePort } from './ports.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const ports = loadPorts();
+const backendPort = resolvePort(process.env.API_PORT, ports.backend.port);
+const frontendPort = resolvePort(process.env.VITE_PORT, ports.frontend.port);
+const postgresPort = resolvePort(process.env.POSTGRES_PORT, ports.postgres.port);
+const redisPort = resolvePort(process.env.REDIS_PORT, ports.redis.port);
+const supabaseApiPort = resolvePort(
+  process.env.SUPABASE_API_PORT,
+  ports.supabase.apiPort
+);
+const supabaseStudioPort = resolvePort(
+  process.env.SUPABASE_STUDIO_PORT,
+  ports.supabase.studioPort
+);
 
 /**
  * Check if a URL is accessible
@@ -49,7 +63,7 @@ async function checkUrl(url, timeout = 5000) {
  * Check backend API
  */
 async function checkBackend() {
-  const url = process.env.BACKEND_URL || 'http://localhost:3000';
+  const url = process.env.BACKEND_URL || `http://localhost:${backendPort}`;
   const healthUrl = `${url}/health`;
   
   const result = await checkUrl(healthUrl);
@@ -64,7 +78,7 @@ async function checkBackend() {
     fix: result.success ? null : `
    Possible causes:
    - Backend not started (run: npm run backend:dev)
-   - Port 3000 in use (check: lsof -i :3000)
+   - Port ${backendPort} in use (check: lsof -i :${backendPort})
    - Environment vars missing (check: .env)
    
    Debug:
@@ -76,7 +90,7 @@ async function checkBackend() {
  * Check frontend
  */
 async function checkFrontend() {
-  const url = process.env.VITE_APP_URL || 'http://localhost:5173';
+  const url = process.env.VITE_APP_URL || `http://localhost:${frontendPort}`;
   
   const result = await checkUrl(url);
   
@@ -90,7 +104,7 @@ async function checkFrontend() {
     fix: result.success ? null : `
    Possible causes:
    - Frontend not started (run: npm run dev)
-   - Port 5173 in use (check: lsof -i :5173)
+   - Port ${frontendPort} in use (check: lsof -i :${frontendPort})
    
    Debug:
    $ npm run dev`
@@ -109,15 +123,15 @@ async function checkDatabase() {
     
     return {
       name: 'PostgreSQL',
-      url: 'localhost:54322',
+      url: `localhost:${postgresPort}`,
       passed: true,
-      message: '✅ PostgreSQL (localhost:54322)',
+      message: `✅ PostgreSQL (localhost:${postgresPort})`,
       fix: null
     };
   } catch {
     return {
       name: 'PostgreSQL',
-      url: 'localhost:54322',
+      url: `localhost:${postgresPort}`,
       passed: false,
       message: '❌ PostgreSQL - Not running',
       fix: `
@@ -139,15 +153,15 @@ async function checkRedis() {
     
     return {
       name: 'Redis',
-      url: 'localhost:6379',
+      url: `localhost:${redisPort}`,
       passed: true,
-      message: '✅ Redis (localhost:6379)',
+      message: `✅ Redis (localhost:${redisPort})`,
       fix: null
     };
   } catch {
     return {
       name: 'Redis',
-      url: 'localhost:6379',
+      url: `localhost:${redisPort}`,
       passed: false,
       message: '❌ Redis - Not running',
       fix: `
@@ -244,9 +258,10 @@ async function runHealthChecks() {
  */
 function displayServiceUrls() {
   console.log('📍 Service URLs:');
-  console.log(`   Frontend:  ${process.env.VITE_APP_URL || 'http://localhost:5173'}`);
-  console.log(`   Backend:   ${process.env.BACKEND_URL || 'http://localhost:3000'}`);
-  console.log(`   Supabase:  http://localhost:54323`);
+  console.log(`   Frontend:  ${process.env.VITE_APP_URL || `http://localhost:${frontendPort}`}`);
+  console.log(`   Backend:   ${process.env.BACKEND_URL || `http://localhost:${backendPort}`}`);
+  console.log(`   Supabase API:     http://localhost:${supabaseApiPort}`);
+  console.log(`   Supabase Studio:  http://localhost:${supabaseStudioPort}`);
   console.log('');
 }
 

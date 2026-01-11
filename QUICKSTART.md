@@ -7,7 +7,7 @@ npm run setup    # One-time setup (5 minutes)
 npm run dev      # Start development
 ```
 
-Open [http://localhost:5173](http://localhost:5173)
+Open [http://localhost:5173](http://localhost:5173) (see `config/ports.json` for defaults)
 
 ---
 

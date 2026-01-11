@@ -21,7 +21,7 @@ npm run setup    # Runs scripts/dev/setup.sh
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) (or the port in `VITE_PORT`) - you're ready to code! 🎉
+Open [http://localhost:5173](http://localhost:5173) (or the port in `config/ports.json` / `.env.ports`) - you're ready to code! 🎉
 
 **First time here?** See [docs/getting-started/GETTING_STARTED.md](docs/getting-started/GETTING_STARTED.md)
 
@@ -57,7 +57,7 @@ The setup script checks these automatically.
 npm run dev
 ```
 
-This starts the Vite dev server with hot reload on [http://localhost:5173](http://localhost:5173) (or `VITE_PORT`)
+This starts the Vite dev server with hot reload on [http://localhost:5173](http://localhost:5173) (or the port in `config/ports.json` / `.env.ports`)
 
 ### Edge Proxy (Caddy)
 
@@ -82,10 +82,11 @@ npm run health
 
 ### Access Services (Local vs Container)
 
-**Local dev (direct)** uses the ports below. Override via `.env` or shell env (`VITE_PORT`, `API_PORT`).
+**Local dev (direct)** uses the ports defined in `config/ports.json` (mirrored in `.env.ports`). Override via `.env.ports` (e.g., `docker compose --env-file .env.ports ...`) or shell env (`VITE_PORT`, `API_PORT`).
 
 - **Frontend**: [http://localhost:5173](http://localhost:5173)
 - **Backend API**: [http://localhost:3001](http://localhost:3001)
+- **Supabase API**: [http://localhost:54321](http://localhost:54321)
 - **Supabase Studio**: [http://localhost:54323](http://localhost:54323)
 
 **Container/Caddy dev** (via `docker-compose.dev.yml`) fronts the stack:

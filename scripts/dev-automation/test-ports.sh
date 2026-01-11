@@ -16,8 +16,23 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+if [ -f ".env.ports" ]; then
+    while IFS='=' read -r key value; do
+        if [[ -z "$key" || "$key" == \#* ]]; then
+            continue
+        fi
+        if [ -z "${!key}" ]; then
+            export "$key"="$value"
+        fi
+    done < ".env.ports"
+fi
+
 VITE_PORT="${VITE_PORT:-5173}"
 API_PORT="${API_PORT:-3001}"
+POSTGRES_PORT="${POSTGRES_PORT:-5432}"
+REDIS_PORT="${REDIS_PORT:-6379}"
+PROMETHEUS_PORT="${PROMETHEUS_PORT:-9090}"
+JAEGER_PORT="${JAEGER_PORT:-16686}"
 
 test_port() {
     local port=$1
@@ -41,10 +56,10 @@ FAILED=0
 
 test_port "$VITE_PORT" "Frontend (Vite)" && PASSED=$((PASSED + 1)) || FAILED=$((FAILED + 1))
 test_port "$API_PORT" "Backend API" && PASSED=$((PASSED + 1)) || FAILED=$((FAILED + 1))
-test_port 5432 "PostgreSQL" && PASSED=$((PASSED + 1)) || FAILED=$((FAILED + 1))
-test_port 6379 "Redis" && PASSED=$((PASSED + 1)) || FAILED=$((FAILED + 1))
-test_port 9090 "Prometheus" && PASSED=$((PASSED + 1)) || FAILED=$((FAILED + 1))
-test_port 16686 "Jaeger UI" && PASSED=$((PASSED + 1)) || FAILED=$((FAILED + 1))
+test_port "$POSTGRES_PORT" "PostgreSQL" && PASSED=$((PASSED + 1)) || FAILED=$((FAILED + 1))
+test_port "$REDIS_PORT" "Redis" && PASSED=$((PASSED + 1)) || FAILED=$((FAILED + 1))
+test_port "$PROMETHEUS_PORT" "Prometheus" && PASSED=$((PASSED + 1)) || FAILED=$((FAILED + 1))
+test_port "$JAEGER_PORT" "Jaeger UI" && PASSED=$((PASSED + 1)) || FAILED=$((FAILED + 1))
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

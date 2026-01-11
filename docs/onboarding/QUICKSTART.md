@@ -22,23 +22,26 @@ cp .env.example .env
 ./start.sh
 ```
 
-That's it! Open http://localhost:5173
+That's it! Open http://localhost:5173 (default; see `config/ports.json` for overrides)
 
 ## What You Get
 
 ✅ **LLM-MARL System**
+
 - CoordinatorAgent for task planning
 - MessageBus for agent communication
 - Episodic memory for learning
 - Simulation loop for "what-if" analysis
 
 ✅ **Generative UI**
+
 - Dynamic component selection
 - LLM-powered layout generation
 - Automatic refinement (3 iterations)
 - Continuous learning from interactions
 
 ✅ **SOF Framework**
+
 - System mapping
 - Intervention design
 - Outcome engineering
@@ -75,11 +78,13 @@ npm test
 ## Get LLM API Key
 
 **Together.ai** (Recommended):
+
 1. Go to https://together.ai
 2. Sign up and get API key
 3. Add to `.env`: `VITE_LLM_API_KEY=your-key`
 
 **OpenAI** (Alternative):
+
 1. Go to https://platform.openai.com
 2. Get API key
 3. Set in `.env`: `VITE_LLM_PROVIDER=openai`
@@ -87,20 +92,24 @@ npm test
 ## Troubleshooting
 
 ### "npm not found"
+
 Install Node.js from https://nodejs.org
 
 ### "Docker not running"
+
 Start Docker Desktop
 
 ### "Supabase connection failed"
+
 ```bash
 supabase stop
 supabase start
 ```
 
 ### "Port 5173 in use"
+
 ```bash
-npm run dev -- --port 3000
+VITE_PORT=5174 npm run dev
 ```
 
 ## Documentation
@@ -113,8 +122,9 @@ npm run dev -- --port 3000
 ## Key Features
 
 ### Dynamic UI Generation
+
 ```typescript
-import { CoordinatorAgent } from './src/agents/CoordinatorAgent';
+import { CoordinatorAgent } from "./src/agents/CoordinatorAgent";
 
 const coordinator = new CoordinatorAgent();
 coordinator.setDynamicUIEnabled(true);
@@ -124,22 +134,21 @@ const layout = await coordinator.produceSDUILayout(subgoal);
 ```
 
 ### Agent Communication
-```typescript
-import { CommunicatorAgent } from './src/agents/CommunicatorAgent';
 
-const comm = new CommunicatorAgent('MyAgent');
-await comm.sendMessage('TargetAgent', 'task_assignment', data);
+```typescript
+import { CommunicatorAgent } from "./src/agents/CommunicatorAgent";
+
+const comm = new CommunicatorAgent("MyAgent");
+await comm.sendMessage("TargetAgent", "task_assignment", data);
 ```
 
 ### Workflow Simulation
-```typescript
-import { workflowOrchestrator } from './src/services/WorkflowOrchestrator';
 
-const simulation = await workflowOrchestrator.simulateWorkflow(
-  workflowId,
-  context
-);
-console.log('Success probability:', simulation.success_probability);
+```typescript
+import { workflowOrchestrator } from "./src/services/WorkflowOrchestrator";
+
+const simulation = await workflowOrchestrator.simulateWorkflow(workflowId, context);
+console.log("Success probability:", simulation.success_probability);
 ```
 
 ## Architecture
@@ -181,8 +190,9 @@ npm run build
 ## URLs
 
 - **Application**: http://localhost:5173
+- **Backend API**: http://localhost:3001
+- **Supabase API**: http://localhost:54321
 - **Supabase Studio**: http://localhost:54323
-- **API**: http://localhost:54321
 
 ## Next Steps
 
