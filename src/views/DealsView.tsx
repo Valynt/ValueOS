@@ -5,7 +5,7 @@
  * Replaces generic chat interface with deal-centric workflow.
  */
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { DealImportModal } from "@/components/Deals/DealImportModal";
 import { DealSelector } from "@/components/Deals/DealSelector";
@@ -22,15 +22,26 @@ import { ShareCustomerButton } from "@/components/Deals/ShareCustomerButton";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { logger } from "@/lib/logger";
-import { ArrowLeft, Download, FileText } from "lucide-react";
+import { ArrowLeft, Download, FileText, FileSpreadsheet } from "lucide-react";
 import type { LifecycleStage } from "@/types/vos";
 import { useAuth } from "@/contexts/AuthContext";
+import { useExport } from "@/utils/export";
+import { useToast } from "@/components/Common/Toast";
 
 export function DealsView() {
   const navigate = useNavigate();
   const { dealId } = useParams<{ dealId?: string }>();
   const { user } = useAuth();
+  const { exportElement, exportData, isExporting } = useExport();
+  const { success, error: showError } = useToast();
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedDeal, setSelectedDeal] = useState<ValueCase | null>(null);
@@ -43,6 +54,9 @@ export function DealsView() {
   const [stageCompletion, setStageCompletion] = useState<
     Partial<Record<LifecycleStage, boolean>>
   >({});
+
+  // Local state to manage export preparation (rendering headers)
+  const [isPreparingExport, setIsPreparingExport] = useState(false);
 
   useEffect(() => {
     if (dealId) {
@@ -117,14 +131,102 @@ export function DealsView() {
     }));
   };
 
-  const handleBusinessCaseError = (error: string) => {
-    logger.error("Business case generation error", new Error(error));
-    // TODO: Show error toast
+  const handleBusinessCaseError = (err: string) => {
+    logger.error("Business case generation error", new Error(err));
+    showError("Failed to generate business case", err);
   };
 
-  const handleExportBusinessCase = () => {
-    // TODO: Implement export functionality
-    logger.info("Exporting business case", { dealId: selectedDeal?.id });
+  const handleExportPDF = async () => {
+    if (!contentRef.current) {
+      showError("Export failed", "Content area not found");
+      return;
+    }
+
+    try {
+      // 1. Prepare for export (show headers)
+      setIsPreparingExport(true);
+
+      // 2. Wait for render to update DOM with headers
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // 3. Ensure ID exists
+      if (!contentRef.current.id) {
+        contentRef.current.id = "deal-export-content";
+      }
+
+      const filename = selectedDeal?.company || "Deal_Export";
+
+      // 4. Capture and export
+      await exportElement(contentRef.current.id, "pdf", filename);
+      success("Export successful", "PDF has been downloaded");
+    } catch (err) {
+      logger.error("Export failed", err as Error);
+      showError("Export failed", "Could not generate PDF");
+    } finally {
+      // 5. Cleanup
+      setIsPreparingExport(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      let dataToExport: any[] = [];
+      let sheetName = "Data";
+
+      if (currentStage === "target" && businessCase) {
+        // Export Financial Metrics and Benchmarks
+        const metrics = businessCase.financial ? [
+          { Category: "Financial Metrics", Metric: "ROI", Value: `${businessCase.financial.roi}%` },
+          { Category: "Financial Metrics", Metric: "NPV", Value: `$${businessCase.financial.npv?.toLocaleString()}` },
+          { Category: "Financial Metrics", Metric: "Payback Period", Value: `${businessCase.financial.payback} months` },
+        ] : [];
+
+        const benchmarks = businessCase.benchmarks ?
+          businessCase.benchmarks.map((b: any) => ({
+            Category: "Benchmark",
+            Metric: b.metric || "Metric",
+            Value: b.value,
+            IndustryAverage: b.industryAvg,
+            Difference: b.diff
+          })) : [];
+
+        dataToExport = [...metrics, ...benchmarks];
+        sheetName = "Financials & Benchmarks";
+
+      } else if (currentStage === "opportunity" && businessCase?.opportunity) {
+         // Export Opportunity Analysis
+         const opp = businessCase.opportunity;
+         dataToExport = [
+             { Category: "Opportunity", Metric: "Summary", Value: opp.summary },
+             ...(opp.painPoints || []).map((p: string, i: number) => ({ Category: "Pain Point", Metric: `#${i+1}`, Value: p })),
+             ...(opp.objectives || []).map((o: string, i: number) => ({ Category: "Objective", Metric: `#${i+1}`, Value: o }))
+         ];
+         sheetName = "Discovery Analysis";
+      } else {
+        // Fallback: Export generic deal info
+        dataToExport = [
+          { Property: "Company", Value: selectedDeal?.company },
+          { Property: "Deal Name", Value: selectedDeal?.name },
+          { Property: "Stage", Value: currentStage },
+          { Property: "Value", Value: selectedDeal?.value },
+          { Property: "Close Date", Value: selectedDeal?.closeDate },
+        ];
+        sheetName = "Deal Info";
+      }
+
+      if (dataToExport.length === 0) {
+        showError("Nothing to export", "No data available for this stage yet.");
+        return;
+      }
+
+      const filename = selectedDeal?.company || "Deal_Data";
+      await exportData(dataToExport, filename, { sheetName, format: "excel" });
+      success("Export successful", "Excel file has been downloaded");
+
+    } catch (err) {
+      logger.error("Export failed", err as Error);
+      showError("Export failed", "Could not generate Excel file");
+    }
   };
 
   // No deal selected - show deal selector
@@ -170,10 +272,24 @@ export function DealsView() {
             </div>
             <div className="flex items-center gap-2">
               {businessCase && (
-                <Button variant="outline" onClick={handleExportBusinessCase}>
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" disabled={isExporting || isPreparingExport}>
+                      <Download className="w-4 h-4 mr-2" />
+                      {isExporting || isPreparingExport ? "Exporting..." : "Export"}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleExportPDF}>
+                      <FileText className="w-4 h-4 mr-2" />
+                      Export as PDF
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportExcel}>
+                      <FileSpreadsheet className="w-4 h-4 mr-2" />
+                      Export as Excel
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
               {user && (
                 <ShareCustomerButton
@@ -201,128 +317,143 @@ export function DealsView() {
 
       {/* Main Content */}
       <div className="container mx-auto p-6 max-w-7xl">
-        <Tabs
-          value={currentStage}
-          onValueChange={(v) => handleStageChange(v as LifecycleStage)}
-        >
-          {/* Discovery Stage */}
-          <TabsContent value="opportunity" className="space-y-6">
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Discovery Phase</h2>
-              <p className="text-muted-foreground mb-6">
-                Identify pain points, business objectives, and opportunity scope
-              </p>
+        <div ref={contentRef} id="deal-content-area" className="bg-background">
 
-              {/* Persona Selection */}
-              <div className="mb-6">
-                <PersonaSelector
-                  selectedPersona={selectedPersona}
-                  onSelectPersona={handlePersonaSelect}
-                />
+          {/* Export Header - visible only when exporting/preparing */}
+          {(isPreparingExport || isExporting) && (
+            <div className="mb-6 p-4 border rounded-lg bg-muted/50">
+              <h1 className="text-2xl font-bold text-primary">{selectedDeal.company}</h1>
+              <div className="flex gap-4 text-sm text-muted-foreground mt-2">
+                 <span>{currentStage.charAt(0).toUpperCase() + currentStage.slice(1)} Phase</span>
+                 <span>•</span>
+                 <span>Generated: {new Date().toLocaleDateString()}</span>
               </div>
+            </div>
+          )}
 
-              {/* Business Case Generator */}
-              {selectedPersona && (
-                <BusinessCaseGenerator
-                  valueCase={selectedDeal}
-                  onComplete={handleBusinessCaseComplete}
-                  onError={handleBusinessCaseError}
-                />
-              )}
-            </Card>
+          <Tabs
+            value={currentStage}
+            onValueChange={(v) => handleStageChange(v as LifecycleStage)}
+          >
+            {/* Discovery Stage */}
+            <TabsContent value="opportunity" className="space-y-6">
+              <Card className="p-6">
+                <h2 className="text-xl font-semibold mb-4">Discovery Phase</h2>
+                <p className="text-muted-foreground mb-6">
+                  Identify pain points, business objectives, and opportunity scope
+                </p>
 
-            {/* Show Opportunity Analysis if available */}
-            {businessCase?.opportunity && (
-              <OpportunityAnalysisPanel analysis={businessCase.opportunity} />
-            )}
-          </TabsContent>
-
-          {/* Modeling Stage */}
-          <TabsContent value="target" className="space-y-6">
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Modeling Phase</h2>
-              <p className="text-muted-foreground mb-6">
-                Build ROI model, benchmark against industry, and quantify value
-              </p>
-
-              {businessCase ? (
-                <div className="space-y-6">
-                  {/* Benchmark Comparison */}
-                  {businessCase.benchmarks && (
-                    <BenchmarkComparisonPanel
-                      comparisons={businessCase.benchmarks}
-                      industry={selectedDeal.metadata?.industry || "Technology"}
-                      companySize={selectedDeal.metadata?.companySize}
-                    />
-                  )}
-
-                  {/* Financial Metrics */}
-                  {businessCase.financial && (
-                    <Card className="p-6">
-                      <h3 className="text-lg font-semibold mb-4">
-                        Financial Metrics
-                      </h3>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="p-4 rounded-lg bg-muted">
-                          <p className="text-sm text-muted-foreground mb-1">
-                            ROI
-                          </p>
-                          <p className="text-3xl font-bold text-green-600">
-                            {businessCase.financial.roi}%
-                          </p>
-                        </div>
-                        <div className="p-4 rounded-lg bg-muted">
-                          <p className="text-sm text-muted-foreground mb-1">
-                            NPV
-                          </p>
-                          <p className="text-3xl font-bold">
-                            ${businessCase.financial.npv?.toLocaleString()}
-                          </p>
-                        </div>
-                        <div className="p-4 rounded-lg bg-muted">
-                          <p className="text-sm text-muted-foreground mb-1">
-                            Payback
-                          </p>
-                          <p className="text-3xl font-bold">
-                            {businessCase.financial.payback} mo
-                          </p>
-                        </div>
-                      </div>
-                    </Card>
-                  )}
+                {/* Persona Selection */}
+                <div className="mb-6">
+                  <PersonaSelector
+                    selectedPersona={selectedPersona}
+                    onSelectPersona={handlePersonaSelect}
+                  />
                 </div>
-              ) : (
-                <div className="text-center py-12 text-muted-foreground">
-                  <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p>Complete the Discovery phase to access modeling</p>
-                </div>
+
+                {/* Business Case Generator */}
+                {selectedPersona && (
+                  <BusinessCaseGenerator
+                    valueCase={selectedDeal}
+                    onComplete={handleBusinessCaseComplete}
+                    onError={handleBusinessCaseError}
+                  />
+                )}
+              </Card>
+
+              {/* Show Opportunity Analysis if available */}
+              {businessCase?.opportunity && (
+                <OpportunityAnalysisPanel analysis={businessCase.opportunity} />
               )}
-            </Card>
-          </TabsContent>
+            </TabsContent>
 
-          {/* Realization Stage */}
-          <TabsContent value="realization" className="space-y-6">
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Realization Phase</h2>
-              <p className="text-muted-foreground">
-                Track value delivery and compare actual vs. predicted outcomes
-              </p>
-              {/* TODO: Implement realization tracking */}
-            </Card>
-          </TabsContent>
+            {/* Modeling Stage */}
+            <TabsContent value="target" className="space-y-6">
+              <Card className="p-6">
+                <h2 className="text-xl font-semibold mb-4">Modeling Phase</h2>
+                <p className="text-muted-foreground mb-6">
+                  Build ROI model, benchmark against industry, and quantify value
+                </p>
 
-          {/* Expansion Stage */}
-          <TabsContent value="expansion" className="space-y-6">
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Expansion Phase</h2>
-              <p className="text-muted-foreground">
-                Identify upsell and cross-sell opportunities based on realized
-                value
-              </p>
-              {/* TODO: Implement expansion detection */}
-            </Card>
-          </TabsContent>
-        </Tabs>
+                {businessCase ? (
+                  <div className="space-y-6">
+                    {/* Benchmark Comparison */}
+                    {businessCase.benchmarks && (
+                      <BenchmarkComparisonPanel
+                        comparisons={businessCase.benchmarks}
+                        industry={selectedDeal.metadata?.industry || "Technology"}
+                        companySize={selectedDeal.metadata?.companySize}
+                      />
+                    )}
+
+                    {/* Financial Metrics */}
+                    {businessCase.financial && (
+                      <Card className="p-6">
+                        <h3 className="text-lg font-semibold mb-4">
+                          Financial Metrics
+                        </h3>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="p-4 rounded-lg bg-muted">
+                            <p className="text-sm text-muted-foreground mb-1">
+                              ROI
+                            </p>
+                            <p className="text-3xl font-bold text-green-600">
+                              {businessCase.financial.roi}%
+                            </p>
+                          </div>
+                          <div className="p-4 rounded-lg bg-muted">
+                            <p className="text-sm text-muted-foreground mb-1">
+                              NPV
+                            </p>
+                            <p className="text-3xl font-bold">
+                              ${businessCase.financial.npv?.toLocaleString()}
+                            </p>
+                          </div>
+                          <div className="p-4 rounded-lg bg-muted">
+                            <p className="text-sm text-muted-foreground mb-1">
+                              Payback
+                            </p>
+                            <p className="text-3xl font-bold">
+                              {businessCase.financial.payback} mo
+                            </p>
+                          </div>
+                        </div>
+                      </Card>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>Complete the Discovery phase to access modeling</p>
+                  </div>
+                )}
+              </Card>
+            </TabsContent>
+
+            {/* Realization Stage */}
+            <TabsContent value="realization" className="space-y-6">
+              <Card className="p-6">
+                <h2 className="text-xl font-semibold mb-4">Realization Phase</h2>
+                <p className="text-muted-foreground">
+                  Track value delivery and compare actual vs. predicted outcomes
+                </p>
+                {/* TODO: Implement realization tracking */}
+              </Card>
+            </TabsContent>
+
+            {/* Expansion Stage */}
+            <TabsContent value="expansion" className="space-y-6">
+              <Card className="p-6">
+                <h2 className="text-xl font-semibold mb-4">Expansion Phase</h2>
+                <p className="text-muted-foreground">
+                  Identify upsell and cross-sell opportunities based on realized
+                  value
+                </p>
+                {/* TODO: Implement expansion detection */}
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
 
       <DealImportModal
