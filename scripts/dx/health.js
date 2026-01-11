@@ -190,41 +190,46 @@ $ docker compose --env-file .env.ports -f ${composeFile} up -d\
  */
 async function checkEnvironment() {
   const projectRoot = path.resolve(__dirname, '../..');
+  const envLocalPath = path.join(projectRoot, '.env.local');
   const envPath = path.join(projectRoot, '.env');
+  const resolvedEnvPath = fs.existsSync(envLocalPath)
+    ? envLocalPath
+    : (fs.existsSync(envPath) ? envPath : null);
+  const envLabel = resolvedEnvPath === envLocalPath ? '.env.local' : '.env';
 
-  if (!fs.existsSync(envPath)) {
+  if (!resolvedEnvPath) {
     return {
       name: 'Environment',
-      url: '.env',
+      url: '.env.local',
       passed: false,
-      message: 'ERR Environment - .env file missing',
+      message: 'ERR Environment - .env.local or .env file missing',
       fix: `\
-Create .env file:\
+Create .env.local file:\
 $ npm run setup\
 `
     };
   }
 
   const required = ['NODE_ENV', 'DATABASE_URL', 'JWT_SECRET'];
-  const envContent = fs.readFileSync(envPath, 'utf8');
+  const envContent = fs.readFileSync(resolvedEnvPath, 'utf8');
   const missing = required.filter((key) => !envContent.includes(`${key}=`));
 
   if (missing.length > 0) {
     return {
       name: 'Environment',
-      url: '.env',
+      url: envLabel,
       passed: false,
       message: `ERR Environment - Missing vars: ${missing.join(', ')}`,
       fix: `\
-Regenerate .env file:\
-$ rm .env && npm run setup\
+Regenerate .env.local file:\
+$ rm .env.local && npm run setup\
 `
     };
   }
 
   return {
     name: 'Environment',
-    url: '.env',
+    url: envLabel,
     passed: true,
     message: 'OK  Environment (all required vars set)',
     fix: null

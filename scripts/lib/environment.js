@@ -247,7 +247,7 @@ export async function setupEnvironment(options = {}) {
     const env = await generateEnvironment(options);
 
     // Write to file
-    const envFile = options.envFile || '.env';
+    const envFile = options.envFile || '.env.local';
     const envPath = writeEnvFile(env, envFile);
     
     // Validate
