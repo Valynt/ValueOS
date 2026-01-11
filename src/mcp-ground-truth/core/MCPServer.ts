@@ -316,6 +316,26 @@ export class MCPFinancialGroundTruthServer {
           required: ["target_cik", "benchmark_naics", "driver_node_id"],
         },
       },
+      {
+        name: "get_industry_benchmark",
+        description:
+          "Retrieves industry benchmark data for a specific NAICS code or Occupation code.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            identifier: {
+              type: "string",
+              description:
+                "NAICS code (6 digits) or SOC Occupation code (XX-XXXX).",
+            },
+            metric: {
+              type: "string",
+              description: "Specific metric to retrieve (optional).",
+            },
+          },
+          required: ["identifier"],
+        },
+      },
       // ESO Module Tools
       ...(this.modules.eso?.getTools() || []),
     ];
@@ -350,6 +370,9 @@ export class MCPFinancialGroundTruthServer {
 
         case "populate_value_driver_tree":
           return await this.populateValueDriverTree(args);
+
+        case "get_industry_benchmark":
+          return await this.getIndustryBenchmark(args);
 
         // ESO Module tools
         case "eso_get_metric_value":
@@ -460,6 +483,46 @@ export class MCPFinancialGroundTruthServer {
         trace_id: `mcp-req-${Date.now()}`,
         timestamp: new Date().toISOString(),
         verification_hash: this.generateVerificationHash(results),
+      },
+    };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(response, null, 2),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Tool: get_industry_benchmark
+   */
+  private async getIndustryBenchmark(args: {
+    identifier: string;
+    metric?: string;
+  }): Promise<MCPToolResult> {
+    const { identifier, metric } = args;
+
+    const result = await this.truthLayer.resolve({
+      identifier,
+      metric: metric || "all_metrics",
+      prefer_tier: "tier3",
+      fallback_enabled: true,
+    });
+
+    const response = {
+      identifier,
+      metric: result.metric.metric_name,
+      value: result.metric.value,
+      unit: result.metric.metadata.unit,
+      source: result.metric.source,
+      confidence: result.metric.confidence,
+      metadata: result.metric.metadata,
+      audit: {
+        trace_id: `mcp-req-${Date.now()}`,
+        timestamp: new Date().toISOString(),
       },
     };
 
