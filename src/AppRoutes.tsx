@@ -6,6 +6,7 @@
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { TenantProvider } from "./contexts/TenantContext";
 import { DrawerProvider } from "./contexts/DrawerContext";
 import { ProtectedRoute } from "./components/Auth/ProtectedRoute";
 import { ToastProvider } from "./components/Common/Toast";
@@ -40,16 +41,12 @@ const ImpactCascade = lazy(() => import("./views/ImpactCascade"));
 const AgentDashboard = lazy(() => import("./views/AgentDashboard"));
 const ROICalculator = lazy(() => import("./views/ROICalculator"));
 const ConversationalAI = lazy(() => import("./views/ConversationalAI"));
-const LaunchReadinessDashboard = lazy(
-  () => import("./views/LaunchReadinessDashboard")
-);
+const LaunchReadinessDashboard = lazy(() => import("./views/LaunchReadinessDashboard"));
 const NotFound = lazy(() => import("./views/NotFound"));
 const MissionControl = lazy(() => import("./views/MissionControl"));
 
 // Sales Enablement Views
-const DealsView = lazy(() =>
-  import("./views/DealsView").then((m) => ({ default: m.DealsView }))
-);
+const DealsView = lazy(() => import("./views/DealsView").then((m) => ({ default: m.DealsView })));
 
 // Admin Views
 const CustomerAccessManagement = lazy(() =>
@@ -66,182 +63,174 @@ export function AppRoutes() {
     <BrowserRouter>
       <ErrorBoundary>
         <AuthProvider>
-          <DrawerProvider>
-            <ToastProvider>
-              <SDUIStateProvider
-                supabase={supabase}
-                persistence={true}
-                debug={true}
-              >
-              <Suspense fallback={<LoadingSpinner />}>
-                <Routes>
-                  {/* Root redirect to deals (sales enablement) */}
-                  <Route
-                    path="/"
-                    element={<Navigate to="/deals" replace />}
-                  />
+          <TenantProvider>
+            <DrawerProvider>
+              <ToastProvider>
+                <SDUIStateProvider supabase={supabase} persistence={true} debug={true}>
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <Routes>
+                      {/* Root redirect to deals (sales enablement) */}
+                      <Route path="/" element={<Navigate to="/deals" replace />} />
 
-                  {/* Public Auth Routes */}
-                  <Route path="/login" element={<LoginPage />} />
-                  <Route path="/signup" element={<SignupPage />} />
-                  <Route
-                    path="/reset-password"
-                    element={<ResetPasswordPage />}
-                  />
+                      {/* Public Auth Routes */}
+                      <Route path="/login" element={<LoginPage />} />
+                      <Route path="/signup" element={<SignupPage />} />
+                      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-                  {/* OAuth Callback */}
-                  <Route path="/auth/callback" element={<AuthCallback />} />
+                      {/* OAuth Callback */}
+                      <Route path="/auth/callback" element={<AuthCallback />} />
 
-                  {/* Sales Enablement - Deals View */}
-                  <Route
-                    path="/deals"
-                    element={
-                      <ProtectedRoute>
-                        <DealsView />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/deals/:dealId"
-                    element={
-                      <ProtectedRoute>
-                        <DealsView />
-                      </ProtectedRoute>
-                    }
-                  />
+                      {/* Sales Enablement - Deals View */}
+                      <Route
+                        path="/deals"
+                        element={
+                          <ProtectedRoute>
+                            <DealsView />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/deals/:dealId"
+                        element={
+                          <ProtectedRoute>
+                            <DealsView />
+                          </ProtectedRoute>
+                        }
+                      />
 
-                  <Route
-                    path="/admin/customer-access"
-                    element={
-                      <ProtectedRoute>
-                        <CustomerAccessManagement />
-                      </ProtectedRoute>
-                    }
-                  />
+                      <Route
+                        path="/admin/customer-access"
+                        element={
+                          <ProtectedRoute>
+                            <CustomerAccessManagement />
+                          </ProtectedRoute>
+                        }
+                      />
 
-                  {/* Mission Control (Zero State) */}
-                  <Route
-                    path="/launch"
-                    element={
-                      <ProtectedRoute>
-                        <MissionControl />
-                      </ProtectedRoute>
-                    }
-                  />
+                      {/* Mission Control (Zero State) */}
+                      <Route
+                        path="/launch"
+                        element={
+                          <ProtectedRoute>
+                            <MissionControl />
+                          </ProtectedRoute>
+                        }
+                      />
 
-                  {/* Launch Readiness Dashboard */}
-                  <Route
-                    path="/launch-readiness"
-                    element={
-                      <ProtectedRoute>
-                        <LaunchReadinessDashboard />
-                      </ProtectedRoute>
-                    }
-                  />
+                      {/* Launch Readiness Dashboard */}
+                      <Route
+                        path="/launch-readiness"
+                        element={
+                          <ProtectedRoute>
+                            <LaunchReadinessDashboard />
+                          </ProtectedRoute>
+                        }
+                      />
 
-                  {/* VALUI Routes - Modern UI */}
-                  <Route
-                    path="/home"
-                    element={
-                      <ProtectedRoute>
-                        <MainLayout />
-                      </ProtectedRoute>
-                    }
-                  >
-                    <Route index element={<Home />} />
-                  </Route>
+                      {/* VALUI Routes - Modern UI */}
+                      <Route
+                        path="/home"
+                        element={
+                          <ProtectedRoute>
+                            <MainLayout />
+                          </ProtectedRoute>
+                        }
+                      >
+                        <Route index element={<Home />} />
+                      </Route>
 
-                  <Route
-                    path="/canvas"
-                    element={
-                      <ProtectedRoute>
-                        <MainLayout />
-                      </ProtectedRoute>
-                    }
-                  >
-                    <Route index element={<ValueCanvas />} />
-                  </Route>
+                      <Route
+                        path="/canvas"
+                        element={
+                          <ProtectedRoute>
+                            <MainLayout />
+                          </ProtectedRoute>
+                        }
+                      >
+                        <Route index element={<ValueCanvas />} />
+                      </Route>
 
-                  <Route
-                    path="/cascade"
-                    element={
-                      <ProtectedRoute>
-                        <MainLayout />
-                      </ProtectedRoute>
-                    }
-                  >
-                    <Route index element={<ImpactCascade />} />
-                  </Route>
+                      <Route
+                        path="/cascade"
+                        element={
+                          <ProtectedRoute>
+                            <MainLayout />
+                          </ProtectedRoute>
+                        }
+                      >
+                        <Route index element={<ImpactCascade />} />
+                      </Route>
 
-                  <Route
-                    path="/calculator"
-                    element={
-                      <ProtectedRoute>
-                        <MainLayout />
-                      </ProtectedRoute>
-                    }
-                  >
-                    <Route index element={<ROICalculator />} />
-                  </Route>
+                      <Route
+                        path="/calculator"
+                        element={
+                          <ProtectedRoute>
+                            <MainLayout />
+                          </ProtectedRoute>
+                        }
+                      >
+                        <Route index element={<ROICalculator />} />
+                      </Route>
 
-                  <Route
-                    path="/dashboard"
-                    element={
-                      <ProtectedRoute>
-                        <MainLayout />
-                      </ProtectedRoute>
-                    }
-                  >
-                    <Route index element={<AgentDashboard />} />
-                  </Route>
+                      <Route
+                        path="/dashboard"
+                        element={
+                          <ProtectedRoute>
+                            <MainLayout />
+                          </ProtectedRoute>
+                        }
+                      >
+                        <Route index element={<AgentDashboard />} />
+                      </Route>
 
-                  <Route
-                    path="/chat"
-                    element={
-                      <ProtectedRoute>
-                        <MainLayout />
-                      </ProtectedRoute>
-                    }
-                  >
-                    <Route index element={<ConversationalAI />} />
-                  </Route>
+                      <Route
+                        path="/chat"
+                        element={
+                          <ProtectedRoute>
+                            <MainLayout />
+                          </ProtectedRoute>
+                        }
+                      >
+                        <Route index element={<ConversationalAI />} />
+                      </Route>
 
-                  {/* Documentation Portal Routes */}
-                  <Route
-                    path="/docs"
-                    element={
-                      <ProtectedRoute>
-                        <DocsPortal />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/docs/:sectionId"
-                    element={
-                      <ProtectedRoute>
-                        <DocsPortal />
-                      </ProtectedRoute>
-                    }
-                  />
+                      {/* Documentation Portal Routes */}
+                      <Route
+                        path="/docs"
+                        element={
+                          <ProtectedRoute>
+                            <DocsPortal />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/docs/:sectionId"
+                        element={
+                          <ProtectedRoute>
+                            <DocsPortal />
+                          </ProtectedRoute>
+                        }
+                      />
 
-                  {/* Main App (Chat+Canvas) - Default protected route */}
-                  <Route
-                    path="/app/*"
-                    element={
-                      <ProtectedRoute>
-                        <App />
-                      </ProtectedRoute>
-                    }
-                  />
+                      {/* Main App (Chat+Canvas) - Default protected route */}
+                      <Route
+                        path="/app/*"
+                        element={
+                          <ProtectedRoute>
+                            <App />
+                          </ProtectedRoute>
+                        }
+                      />
 
-                  {/* 404 Not Found - Must be last */}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </Suspense>
-            </SDUIStateProvider>
-            <BetaFeedbackWidget />
-          </ToastProvider>
-        </DrawerProvider>
+                      {/* 404 Not Found - Must be last */}
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </Suspense>
+                </SDUIStateProvider>
+                <BetaFeedbackWidget />
+              </ToastProvider>
+            </DrawerProvider>
+          </TenantProvider>
         </AuthProvider>
       </ErrorBoundary>
     </BrowserRouter>
