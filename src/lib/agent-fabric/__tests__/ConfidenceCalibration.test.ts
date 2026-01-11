@@ -23,7 +23,9 @@ describe('ConfidenceCalibrationService', () => {
       order: vi.fn(() => mockSupabase),
       limit: vi.fn(() => mockSupabase),
       single: vi.fn(() => ({ data: null, error: null })),
-      maybeSingle: vi.fn(() => ({ data: null, error: null }))
+      maybeSingle: vi.fn(() => ({ data: null, error: null })),
+      // Add then for await support on query chains
+      then: vi.fn((resolve) => resolve({ data: null, error: null }))
     };
 
     calibrationService = new ConfidenceCalibrationService(mockSupabase);
@@ -115,17 +117,75 @@ describe('ConfidenceCalibrationService', () => {
         error: null
       });
 
-      // Mock insufficient predictions
-      mockSupabase.maybeSingle.mockResolvedValueOnce({
+      // Mock insufficient predictions via then
+      mockSupabase.then.mockImplementationOnce((resolve) => resolve({
         data: [],
         error: null
-      });
+      }));
 
       const result = await calibrationService.calibrate('new-agent', 0.8);
 
       expect(result.calibratedConfidence).toBeDefined();
       expect(result.calibrationModel.sampleSize).toBe(0);
       expect(result.calibrationModel.calibrationError).toBe(0.5);  // High uncertainty
+    });
+
+    it('should compute calibration model from historical data', async () => {
+       // Mock no stored model (maybeSingle returns null)
+       mockSupabase.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
+
+       // Create synthetic historical predictions
+       // Group 1: High confidence (0.9), Correct (30 items)
+       // Group 2: Low confidence (0.6), Incorrect (30 items)
+       // This correlation should result in parameterA > 0 (positive slope)
+       const predictions = [
+         ...Array(30).fill(null).map((_, i) => ({
+           id: `pred-high-${i}`,
+           agent_id: 'test-agent',
+           confidence_score: 0.9,
+           actual_outcome: true,
+           variance_percentage: 5, // Correct
+           created_at: new Date().toISOString()
+         })),
+         ...Array(30).fill(null).map((_, i) => ({
+           id: `pred-low-${i}`,
+           agent_id: 'test-agent',
+           confidence_score: 0.6,
+           actual_outcome: false,
+           variance_percentage: 30, // Incorrect
+           created_at: new Date().toISOString()
+         }))
+       ];
+
+       // Mock historical predictions (via await chain -> then)
+       mockSupabase.then.mockImplementationOnce((resolve) => resolve({
+         data: predictions,
+         error: null
+       }));
+
+       // Mock agent type lookup (single)
+       mockSupabase.single.mockResolvedValueOnce({
+         data: { type: 'opportunity' },
+         error: null
+       });
+
+       // Mock insert (via then)
+       mockSupabase.then.mockImplementationOnce((resolve) => resolve({
+         data: {},
+         error: null
+       }));
+
+       const result = await calibrationService.calibrate('test-agent', 0.8);
+
+       expect(result.calibrationModel).toBeDefined();
+       expect(result.calibrationModel.sampleSize).toBe(60);
+       // Should have learned a positive relationship
+       expect(result.calibrationModel.parameterA).toBeGreaterThan(0.5);
+       // Should trigger database insert
+       expect(mockSupabase.insert).toHaveBeenCalledWith(expect.objectContaining({
+          agent_id: 'test-agent',
+          sample_size: 60
+       }));
     });
   });
 
@@ -221,7 +281,8 @@ describe('ConfidenceCalibrationService', () => {
 
   describe('triggerRetraining', () => {
     it('should insert retraining request', async () => {
-      mockSupabase.insert.mockResolvedValueOnce({ data: {}, error: null });
+      // Mock insert via then
+      mockSupabase.then.mockImplementationOnce((resolve) => resolve({ data: {}, error: null }));
 
       await calibrationService.triggerRetraining('test-agent', 'High calibration error');
 
@@ -255,8 +316,8 @@ describe('ConfidenceCalibrationService', () => {
         error: null
       });
 
-      // Mock recent predictions
-      mockSupabase.maybeSingle.mockResolvedValueOnce({
+      // Mock recent predictions via then
+      mockSupabase.then.mockImplementationOnce((resolve) => resolve({
         data: [
           { variance_percentage: 10 },  // Correct
           { variance_percentage: 15 },  // Correct
@@ -264,7 +325,7 @@ describe('ConfidenceCalibrationService', () => {
           { variance_percentage: 5 }    // Correct
         ],
         error: null
-      });
+      }));
 
       const stats = await calibrationService.getCalibrationStats('test-agent');
 
@@ -290,10 +351,11 @@ describe('ConfidenceCalibrationService', () => {
         error: null
       });
 
-      mockSupabase.maybeSingle.mockResolvedValueOnce({
+      // Mock recent predictions (via then)
+      mockSupabase.then.mockImplementationOnce((resolve) => resolve({
         data: [],
         error: null
-      });
+      }));
 
       const stats = await calibrationService.getCalibrationStats('test-agent');
 
@@ -319,10 +381,11 @@ describe('ConfidenceCalibrationService', () => {
         error: null
       });
 
-      mockSupabase.maybeSingle.mockResolvedValueOnce({
+      // Mock recent predictions (via then)
+      mockSupabase.then.mockImplementationOnce((resolve) => resolve({
         data: [],
         error: null
-      });
+      }));
 
       const stats = await calibrationService.getCalibrationStats('test-agent');
 
@@ -394,6 +457,12 @@ describe('ConfidenceCalibrationService', () => {
         data: null,
         error: new Error('Database connection failed')
       });
+
+      // Mock insufficient predictions via then (fallback)
+      mockSupabase.then.mockImplementationOnce((resolve) => resolve({
+        data: [],
+        error: null
+      }));
 
       // Should fall back to default model
       const result = await calibrationService.calibrate('test-agent', 0.8);
