@@ -13,11 +13,13 @@ This document outlines the remediation plan for 27 security vulnerabilities iden
 ## Vulnerability Summary
 
 ### Critical/High Priority (11 findings)
+
 - **Vite vulnerabilities**: 9 CVEs (exposure of sensitive information, path traversal, origin validation)
 - **pydantic**: 6 instances of CVE-2024-3772 (ReDoS)
 - **Other**: Various low-severity issues
 
 ### Medium Priority (16 findings)
+
 - cross-spawn, glob, scikit-learn, nanoid, esbuild, @babel/helpers, js-yaml, brace-expansion, @eslint/plugin-kit
 
 ---
@@ -36,6 +38,7 @@ npm audit fix
 ```
 
 **CVEs Addressed**:
+
 - CVE-2025-30208 (EPSS 88.1% - High)
 - CVE-2025-31125 (EPSS 4.1%)
 - CVE-2025-31486 (EPSS 3.5%)
@@ -47,6 +50,7 @@ npm audit fix
 - CVE-2024-24010 (WebSocket Origin Validation)
 
 **Mitigation (if update not possible)**:
+
 - Configure Vite with strict origin validation
 - Disable WebSocket in production if not needed
 - Use reverse proxy with proper security headers
@@ -64,6 +68,7 @@ pip install --upgrade scikit-learn>=1.5.2
 ```
 
 **Files to Update**:
+
 - `blueprint/infra/backend/services/.../requirements.txt`
 
 ### 3. Update Node.js Dependencies
@@ -178,30 +183,33 @@ npm list pydantic
 Add to `vite.config.ts`:
 
 ```typescript
-import { defineConfig } from 'vite';
+import { defineConfig } from "vite";
 
 export default defineConfig({
   server: {
     // Strict origin validation
     strictPort: true,
     // Disable WebSocket if not needed
-    hmr: process.env.NODE_ENV === 'development' ? {
-      protocol: 'ws',
-      host: 'localhost',
-    } : false,
+    hmr:
+      process.env.NODE_ENV === "development"
+        ? {
+            protocol: "ws",
+            host: "localhost",
+          }
+        : false,
     // Security headers
     headers: {
-      'X-Content-Type-Options': 'nosniff',
-      'X-Frame-Options': 'DENY',
-      'X-XSS-Protection': '1; mode=block',
-      'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+      "X-Content-Type-Options": "nosniff",
+      "X-Frame-Options": "DENY",
+      "X-XSS-Protection": "1; mode=block",
+      "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
     },
   },
   build: {
     // Enable source maps for debugging but not in production
-    sourcemap: process.env.NODE_ENV === 'development',
+    sourcemap: process.env.NODE_ENV === "development",
     // Minify for production
-    minify: 'terser',
+    minify: "terser",
     terserOptions: {
       compress: {
         drop_console: true,
@@ -219,7 +227,7 @@ Add CSP headers in your hosting configuration or via middleware:
 ```typescript
 // src/middleware/security.ts
 export const securityHeaders = {
-  'Content-Security-Policy': [
+  "Content-Security-Policy": [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
     "style-src 'self' 'unsafe-inline'",
@@ -227,12 +235,12 @@ export const securityHeaders = {
     "font-src 'self' data:",
     "connect-src 'self' https://api.supabase.co",
     "frame-ancestors 'none'",
-  ].join('; '),
-  'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'DENY',
-  'X-XSS-Protection': '1; mode=block',
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
+  ].join("; "),
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "X-XSS-Protection": "1; mode=block",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
 };
 ```
 
@@ -254,6 +262,7 @@ These vulnerabilities are in code paths that are not executed:
 Many vulnerabilities are in transitive dependencies (dependencies of dependencies).
 
 **Strategy**:
+
 1. Update direct dependencies first
 2. Use `npm audit fix` to update transitive dependencies
 3. If issues persist, use `npm audit fix --force` (with caution)
@@ -288,6 +297,7 @@ After applying updates:
    - Review PRs weekly
 
 2. **npm audit**:
+
    ```bash
    # Run weekly
    npm audit
@@ -295,6 +305,7 @@ After applying updates:
    ```
 
 3. **Snyk** (optional):
+
    ```bash
    npm install -g snyk
    snyk test
@@ -328,17 +339,20 @@ npm install
 ## Timeline
 
 ### Immediate (Today)
+
 - [ ] Update Vite to latest version
 - [ ] Run npm audit fix
 - [ ] Test application
 
 ### This Week
+
 - [ ] Update Python dependencies
 - [ ] Update remaining Node.js dependencies
 - [ ] Configure security headers
 - [ ] Run comprehensive tests
 
 ### Ongoing
+
 - [ ] Enable Dependabot
 - [ ] Set up weekly security scans
 - [ ] Document security procedures
@@ -348,11 +362,13 @@ npm install
 ## Risk Assessment
 
 ### Before Remediation
+
 - **Critical**: 1 (Vite CVE-2025-30208 with 88.1% EPSS)
 - **High**: 8 (Other Vite CVEs)
 - **Medium**: 18 (Various dependencies)
 
 ### After Remediation
+
 - **Critical**: 0
 - **High**: 0
 - **Medium**: 0-2 (unreachable vulnerabilities)
@@ -367,7 +383,7 @@ Ensure all user inputs are validated:
 
 ```typescript
 // Use Zod for validation
-import { z } from 'zod';
+import { z } from "zod";
 
 const userInputSchema = z.object({
   email: z.string().email(),
@@ -393,7 +409,7 @@ Consider adding rate limiting:
 
 ```typescript
 // Example with express-rate-limit
-import rateLimit from 'express-rate-limit';
+import rateLimit from "express-rate-limit";
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -406,12 +422,14 @@ const limiter = rateLimit({
 ## Compliance
 
 ### Standards Addressed
+
 - OWASP Top 10
 - CWE Top 25
 - NIST Cybersecurity Framework
 - SOC 2 Type II requirements
 
 ### Audit Trail
+
 - All security updates logged in git history
 - Vulnerability scan results archived
 - Remediation actions documented
