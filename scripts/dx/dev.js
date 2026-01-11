@@ -33,6 +33,7 @@ const colors = {
   magenta: "\x1b[35m",
 };
 
+const dxLockPath = path.join(projectRoot, ".dx-lock");
 const dxStatePath = path.join(projectRoot, ".dx-state.json");
 
 /**
@@ -69,6 +70,22 @@ function clearDxState() {
   if (fs.existsSync(dxStatePath)) {
     fs.unlinkSync(dxStatePath);
   }
+}
+
+function readDxLock() {
+  if (!fs.existsSync(dxLockPath)) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(fs.readFileSync(dxLockPath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function writeDxLock(state) {
+  fs.writeFileSync(dxLockPath, JSON.stringify(state, null, 2));
 }
 
 function assertNoActiveDx() {
@@ -249,8 +266,36 @@ async function main() {
     process.exit(1);
   }
 
+  const composeFile = mode === "docker" ? "docker-compose.full.yml" : "docker-compose.deps.yml";
   ensurePortsEnvFile();
   assertNoActiveDx();
+
+  const fullRunning = getRunningComposeServices("docker-compose.full.yml");
+  const depsRunning = getRunningComposeServices("docker-compose.deps.yml");
+  const runningSummary = [
+    `full=${fullRunning.length ? fullRunning.join(", ") : "none"}`,
+    `deps=${depsRunning.length ? depsRunning.join(", ") : "none"}`,
+  ].join("; ");
+
+  console.log(
+    formatLog(
+      "dx",
+      `Detected mode "${mode}" (${composeFile}). Compose state: ${runningSummary}.`,
+      colors.cyan
+    )
+  );
+
+  const lock = readDxLock();
+  if (lock && (lock.mode !== mode || lock.composeFile !== composeFile)) {
+    console.error(
+      formatLog(
+        "dx",
+        `DX lock indicates ${lock.mode} (${lock.composeFile}). Run "npm run dx:down" before starting ${mode}.`,
+        colors.yellow
+      )
+    );
+    process.exit(1);
+  }
 
   console.log("\n" + "=".repeat(60));
   console.log("🚀 Starting ValueOS development environment...");
@@ -260,14 +305,12 @@ async function main() {
   process.on("exit", clearDxState);
 
   if (mode === "docker") {
-    const fullRunning = getRunningComposeServices("docker-compose.full.yml");
     if (fullRunning.length > 0) {
       console.log(formatLog("dx", "Full Docker stack is already running.", colors.green));
       console.log(formatLog("dx", 'Use "npm run dx:down" to stop it.', colors.yellow));
       process.exit(0);
     }
 
-    const depsRunning = getRunningComposeServices("docker-compose.deps.yml");
     if (depsRunning.length > 0) {
       console.error(
         formatLog(
@@ -298,6 +341,7 @@ async function main() {
       process.exit(1);
     }
 
+    writeDxLock({ mode, composeFile, createdAt: new Date().toISOString() });
     writeDxState({ pid: process.pid, mode, startedAt: new Date().toISOString() });
     await runCommand(
       "docker",
@@ -311,7 +355,6 @@ async function main() {
   }
 
   // Start Docker dependency services first
-  const fullRunning = getRunningComposeServices("docker-compose.full.yml");
   if (fullRunning.length > 0) {
     console.error(
       formatLog(
@@ -323,6 +366,7 @@ async function main() {
     process.exit(1);
   }
 
+  writeDxLock({ mode, composeFile, createdAt: new Date().toISOString() });
   await runCommand(
     "docker",
     "docker compose --env-file .env.ports -f docker-compose.deps.yml up -d"

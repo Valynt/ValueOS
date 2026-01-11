@@ -9,7 +9,7 @@
     "dx": "node scripts/dx/doctor.js --mode local && node scripts/dx/dev.js --mode local",
     "dx:doctor": "node scripts/dx/doctor.js",
     "dx:docker": "node scripts/dx/doctor.js --mode docker && node scripts/dx/dev.js --mode docker",
-    "dx:down": "sh -c \"docker compose --env-file .env.ports -f docker-compose.full.yml down --remove-orphans || true; docker compose --env-file .env.ports -f docker-compose.deps.yml down --remove-orphans || true\"",
+    "dx:down": "sh -c \"docker compose --env-file .env.ports -f docker-compose.full.yml down --remove-orphans || true; docker compose --env-file .env.ports -f docker-compose.deps.yml down --remove-orphans || true; rm -f .dx-lock .dx-state.json\"",
     "dx:reset": "sh -c \"docker compose --env-file .env.ports -f docker-compose.full.yml down -v --remove-orphans || true; docker compose --env-file .env.ports -f docker-compose.deps.yml down -v --remove-orphans || true; rm -f .dx-lock .dx-state.json\"",
     "dev": "vite",
     "health": "node scripts/dx/health.js",
