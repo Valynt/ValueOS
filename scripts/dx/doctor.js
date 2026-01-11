@@ -43,7 +43,6 @@ const supabaseStudioPort = resolvePort(process.env.SUPABASE_STUDIO_PORT, ports.s
 
 const frontendUrl = process.env.VITE_APP_URL || `http://localhost:${frontendPort}`;
 const backendUrl = process.env.BACKEND_URL || `http://localhost:${backendPort}`;
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
 
 const failures = [];
 
@@ -256,7 +255,11 @@ function checkComposeState() {
 }
 
 function checkSupabase() {
-  const isLocalSupabase = supabaseUrl.includes('localhost') || supabaseUrl.includes('127.0.0.1');
+  const viteSupabaseUrl = process.env.VITE_SUPABASE_URL || '';
+  const isLocalSupabase =
+    process.env.DX_SUPABASE_LOCAL === '1' ||
+    viteSupabaseUrl.includes('localhost') ||
+    viteSupabaseUrl.includes('127.0.0.1');
   if (!isLocalSupabase) {
     return;
   }
