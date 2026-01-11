@@ -3,6 +3,7 @@
  * Verifies user sessions using Supabase auth
  */
 
+import { type IncomingHttpHeaders } from 'http';
 import { NextFunction, Request, Response } from 'express';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { authService } from '../services/AuthService';
@@ -34,13 +35,24 @@ function parseCookieHeader(raw?: string): Record<string, string> {
   }, {});
 }
 
-function getCookieToken(req: Request): string | null {
-  const cookies = (req as any).cookies ?? parseCookieHeader(req.headers.cookie);
+export function getCookieTokenFromHeader(raw?: string): string | null {
+  const cookies = parseCookieHeader(raw);
   for (const name of SUPABASE_COOKIE_NAMES) {
     const value = cookies?.[name];
     if (value) return value;
   }
   return null;
+}
+
+function getCookieToken(req: Request): string | null {
+  const cookies = (req as any).cookies;
+  if (cookies) {
+    for (const name of SUPABASE_COOKIE_NAMES) {
+      const value = cookies?.[name];
+      if (value) return value;
+    }
+  }
+  return getCookieTokenFromHeader(req.headers.cookie);
 }
 
 function decodeClaims(token: string): JwtPayload | null {
@@ -148,6 +160,17 @@ export async function verifyAccessToken(token: string) {
   }
 
   return verifyTokenLocally(token);
+}
+
+export function extractAccessTokenFromHeaders(
+  headers: IncomingHttpHeaders
+): string | null {
+  const bearerToken = parseBearerToken(headers.authorization);
+  if (bearerToken) {
+    return bearerToken;
+  }
+
+  return getCookieTokenFromHeader(headers.cookie);
 }
 
 /**

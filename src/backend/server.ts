@@ -27,7 +27,12 @@ import {
 } from "../middleware/metricsMiddleware";
 import { createRateLimiter } from "../middleware/rateLimiter";
 import { securityHeadersMiddleware } from "../middleware/securityHeaders";
-import { extractTenantId, requireAuth, verifyAccessToken } from "../middleware/auth";
+import {
+  extractAccessTokenFromHeaders,
+  extractTenantId,
+  requireAuth,
+  verifyAccessToken,
+} from "../middleware/auth";
 import { settings } from "../config/settings";
 import { isConsentRegistryConfigured } from "../services/consentRegistry";
 import { TenantContextResolver } from "../services/TenantContextResolver";
@@ -48,7 +53,6 @@ const agentExecutionLimiter = createRateLimiter("strict", {
 });
 const tenantContextResolver = new TenantContextResolver();
 const WS_UNAUTHORIZED_CODE = 1008;
-const SUPABASE_TOKEN_PREFIX = "Bearer ";
 
 type AuthenticatedWebSocket = WebSocket & {
   tenantId?: string;
@@ -56,12 +60,9 @@ type AuthenticatedWebSocket = WebSocket & {
 };
 
 function parseWebSocketToken(req: IncomingMessage): string | null {
-  const authHeader = req.headers.authorization;
-  if (authHeader?.startsWith(SUPABASE_TOKEN_PREFIX)) {
-    const token = authHeader.slice(SUPABASE_TOKEN_PREFIX.length).trim();
-    if (token) {
-      return token;
-    }
+  const headerToken = extractAccessTokenFromHeaders(req.headers);
+  if (headerToken) {
+    return headerToken;
   }
 
   const url = new URL(req.url ?? "", "http://localhost");
