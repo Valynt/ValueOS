@@ -7,7 +7,7 @@ services:
   # Docker Socket Proxy - Restricts Docker API access
   docker-proxy:
     image: tecnativa/docker-socket-proxy:latest
-    container_name: valuecanvas-docker-proxy
+    container_name: valueos-docker-proxy
     restart: unless-stopped
     
     # Security: Read-only root filesystem

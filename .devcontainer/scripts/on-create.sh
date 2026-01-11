@@ -73,7 +73,7 @@ print_success "Shell completions configured"
 print_status "Creating shell aliases..."
 cat >> ~/.zshrc << 'EOF'
 
-# ValueCanvas aliases
+# ValueOS aliases
 alias dc='docker-compose'
 alias k='kubectl'
 alias tf='terraform'

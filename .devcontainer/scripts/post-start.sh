@@ -3,6 +3,7 @@
 # Dev Container - Post Start Script
 # Runs every time the container starts
 # Performs quick health checks and starts services
+# Optimized for ValueOS
 ###############################################################################
 
 set -e
@@ -66,7 +67,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 # Show forwarded ports
 echo ""
 echo "🌐 Forwarded Ports:"
-echo "  3000  - Frontend (Vite)"
+echo "  5173  - Frontend (Vite)"
 echo "  8000  - Backend API"
 echo "  5432  - PostgreSQL"
 echo "  6379  - Redis"
