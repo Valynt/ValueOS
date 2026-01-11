@@ -19,6 +19,7 @@ npm run dev
 ## Why This Happens
 
 ValueOS needs Supabase running locally for:
+
 - Authentication
 - Database access
 - Real-time features
@@ -33,6 +34,7 @@ If this is your first time:
 
 ```bash
 # 1. Run setup (creates .env, installs dependencies)
+#    Runs scripts/dev/setup.sh (set START_DEV_SERVER=no to skip auto-start prompt)
 npm run setup
 
 # 2. Start Supabase
@@ -63,6 +65,7 @@ npx supabase status
 ```
 
 Should show:
+
 ```
 API URL: http://localhost:54321
 DB URL: postgresql://postgres:postgres@localhost:54322/postgres
@@ -93,6 +96,7 @@ We can create a script that starts both. Add to `package.json`:
 ```
 
 Then just run:
+
 ```bash
 npm run dev:all
 ```
