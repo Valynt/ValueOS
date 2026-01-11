@@ -9,6 +9,7 @@ import net from 'net';
 import path from 'path';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 import { loadPorts, resolvePort, formatPortsEnv, writePortsEnvFile } from './ports.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -81,6 +82,13 @@ function ensurePortsEnvFile() {
   const current = fs.readFileSync(portsPath, 'utf8');
   if (current.trim() !== desired.trim()) {
     writePortsEnvFile(portsPath);
+  }
+}
+
+function loadEnvLocal() {
+  const envLocalPath = path.join(projectRoot, '.env.local');
+  if (fs.existsSync(envLocalPath)) {
+    dotenv.config({ path: envLocalPath });
   }
 }
 
@@ -160,6 +168,27 @@ function isPortInUse(port, host = '127.0.0.1') {
   });
 }
 
+function isTcpReachable(port, host = '127.0.0.1', timeoutMs = 1500) {
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ port, host });
+    let settled = false;
+
+    const finalize = (result) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      socket.destroy();
+      resolve(result);
+    };
+
+    socket.setTimeout(timeoutMs);
+    socket.on('connect', () => finalize(true));
+    socket.on('timeout', () => finalize(false));
+    socket.on('error', () => finalize(false));
+  });
+}
+
 function isDockerPortPublished(port) {
   try {
     const output = runCommand('docker ps --format "{{.Ports}}"').trim();
@@ -171,6 +200,96 @@ function isDockerPortPublished(port) {
     return output.split('\n').some(line => matcher.test(line));
   } catch {
     return false;
+  }
+}
+
+function parseDatabaseUrl(databaseUrl) {
+  try {
+    return new URL(databaseUrl);
+  } catch {
+    return null;
+  }
+}
+
+function isLocalHost(hostname) {
+  return hostname === 'localhost' || hostname === '127.0.0.1';
+}
+
+function detectMigrationIssues(output) {
+  if (!output) {
+    return null;
+  }
+
+  const indicators = [
+    /drift detected/i,
+    /database schema is not in sync/i,
+    /migrations? have been modified/i,
+    /not been applied/i,
+    /pending migrations/i,
+    /following migration/i
+  ];
+
+  if (indicators.some(pattern => pattern.test(output))) {
+    return 'Migration drift detected';
+  }
+
+  return null;
+}
+
+async function checkDatabaseDrift() {
+  if (mode !== 'local') {
+    return;
+  }
+
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    return;
+  }
+
+  const parsedUrl = parseDatabaseUrl(databaseUrl);
+  if (!parsedUrl) {
+    reportFailure(
+      'Invalid DATABASE_URL',
+      'DATABASE_URL is not a valid URL.',
+      'Set DATABASE_URL in .env.local (e.g. postgres://user:pass@localhost:5432/valueos).'
+    );
+    return;
+  }
+
+  if (!isLocalHost(parsedUrl.hostname)) {
+    return;
+  }
+
+  const port = parsedUrl.port ? Number(parsedUrl.port) : postgresPort;
+  const reachable = await isTcpReachable(port, parsedUrl.hostname);
+  if (!reachable) {
+    reportFailure(
+      'Local database not reachable',
+      `No response from ${parsedUrl.hostname}:${port}.`,
+      'Start Postgres: docker compose --env-file .env.ports -f docker-compose.deps.yml up -d postgres'
+    );
+    return;
+  }
+
+  let output = '';
+  try {
+    output = runCommand('npx prisma migrate status --schema prisma/schema.prisma --no-color', {
+      env: { ...process.env, DATABASE_URL: databaseUrl }
+    });
+  } catch (error) {
+    output = [error.stdout, error.stderr].filter(Boolean).join('\n').trim();
+  }
+
+  const issue = detectMigrationIssues(output);
+  if (issue) {
+    reportFailure(
+      'Database migration drift',
+      output || 'Prisma reported migration drift.',
+      [
+        'Run: npx prisma migrate dev --schema prisma/schema.prisma',
+        'If drift persists: npx prisma migrate reset --schema prisma/schema.prisma'
+      ].join('\n  ')
+    );
   }
 }
 
@@ -290,11 +409,13 @@ async function main() {
   console.log(`\n🧪 DX Doctor (mode: ${mode})\n`);
 
   ensurePortsEnvFile();
+  loadEnvLocal();
   checkNodeVersion();
   checkDocker();
   checkEnvironment();
   checkComposeState();
   checkSupabase();
+  await checkDatabaseDrift();
   await checkPorts();
 
   if (failures.length > 0) {
