@@ -24,30 +24,48 @@ export default defineConfig(({ mode }) => {
     },
     // Exclude server-side secrets management and heavy telemetry from browser bundle
     build: {
+      chunkSizeWarningLimit: 500,
       rollupOptions: {
         external: [
           // Server-side code paths
           /src\/config\/secrets\/.*/,
           // Node.js specific OpenTelemetry packages
-          '@opentelemetry/sdk-node',
-          '@opentelemetry/auto-instrumentations-node',
-          '@opentelemetry/exporter-trace-otlp-http',
-          '@opentelemetry/exporter-metrics-otlp-http',
-          '@opentelemetry/sdk-metrics',
-          '@opentelemetry/resources',
-          '@opentelemetry/semantic-conventions',
+          "@opentelemetry/sdk-node",
+          "@opentelemetry/auto-instrumentations-node",
+          "@opentelemetry/exporter-trace-otlp-http",
+          "@opentelemetry/exporter-metrics-otlp-http",
+          "@opentelemetry/sdk-metrics",
+          "@opentelemetry/resources",
+          "@opentelemetry/semantic-conventions",
           // Other backend deps
-          'node-vault',
-          '@aws-sdk/client-secrets-manager',
-          'winston',
-          'winston-cloudwatch'
-        ]
-      }
-    }
+          "node-vault",
+          "@aws-sdk/client-secrets-manager",
+          "winston",
+          "winston-cloudwatch",
+        ],
+        output: {
+          manualChunks: {
+            // Core React vendor chunk
+            "vendor-react": ["react", "react-dom", "react-router-dom"],
+            // UI libraries
+            "vendor-ui": ["lucide-react", "clsx", "tailwind-merge"],
+            // Heavy export libraries - lazy loaded
+            "vendor-pdf": ["jspdf"],
+            "vendor-excel": ["exceljs"],
+            // Supabase client
+            "vendor-supabase": ["@supabase/supabase-js"],
+            // Charts and visualization
+            "vendor-charts": ["recharts"],
+            // Date utilities
+            "vendor-date": ["date-fns"],
+          },
+        },
+      },
+    },
   };
 
   // Bare Mode (No plugins, minimal server)
-  if (mode === 'bare') {
+  if (mode === "bare") {
     return {
       ...baseConfig,
       server: {
@@ -61,7 +79,7 @@ export default defineConfig(({ mode }) => {
   }
 
   // Ultra-Minimal Mode (Localhost only, no watch)
-  if (mode === 'ultra-minimal') {
+  if (mode === "ultra-minimal") {
     return {
       ...baseConfig,
       server: {
@@ -79,7 +97,7 @@ export default defineConfig(({ mode }) => {
   }
 
   // React-Only Mode (Basic React support, restricted deps)
-  if (mode === 'react-only') {
+  if (mode === "react-only") {
     return {
       ...baseConfig,
       plugins: [react()],
@@ -93,12 +111,12 @@ export default defineConfig(({ mode }) => {
       optimizeDeps: {
         noDiscovery: true,
         include: ["react", "react-dom"],
-      }
+      },
     };
   }
 
   // Debug Mode (Alternative port)
-  if (mode === 'debug') {
+  if (mode === "debug") {
     return {
       ...baseConfig,
       plugins: [react()],
@@ -110,7 +128,7 @@ export default defineConfig(({ mode }) => {
   }
 
   // Minimal Mode (Legacy minimal config, typically used for debugging imports)
-  if (mode === 'minimal') {
+  if (mode === "minimal") {
     return {
       ...baseConfig,
       plugins: [react()],

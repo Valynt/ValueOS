@@ -1,12 +1,12 @@
 /**
  * Unified Agent API
- * 
+ *
  * CONSOLIDATION: This module provides a unified entry point for all agent
  * invocations, consolidating:
  * - AgentAPI (HTTP client with circuit breaker)
  * - AgentFabricService (fabric processing)
  * - AgentQueryService (query handling)
- * 
+ *
  * Key Features:
  * - Single circuit breaker per agent type
  * - Automatic routing between HTTP and fabric agents
@@ -14,20 +14,20 @@
  * - Full observability and audit logging
  */
 
-import { logger } from '../lib/logger';
-import { v4 as uuidv4 } from 'uuid';
-import { CircuitBreakerManager } from './CircuitBreaker';
-import { AgentRecord, AgentRegistry } from './AgentRegistry';
-import { SDUIPageDefinition, validateSDUISchema } from '../sdui/schema';
-import { getAuditLogger, logAgentResponse } from './AgentAuditLogger';
-import { AgentType } from './agent-types';
-import { AgentHealthStatus, ConfidenceLevel } from '../types/agent';
-import { env, getEnvVar, getGroundtruthConfig } from '../lib/env';
+import { logger } from "../lib/logger";
+import { v4 as uuidv4 } from "uuid";
+import { CircuitBreakerManager } from "./CircuitBreaker";
+import { AgentRecord, AgentRegistry } from "./AgentRegistry";
+import { SDUIPageDefinition, validateSDUISchema } from "../sdui/schema";
+import { getAuditLogger, logAgentResponse } from "./AgentAuditLogger";
+import { AgentType } from "./agent-types";
+import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
+import { env, getEnvVar, getGroundtruthConfig } from "../lib/env";
 import GroundtruthAPI, {
   GroundtruthAPIConfig,
   GroundtruthRequestPayload,
   GroundtruthRequestOptions,
-} from './GroundtruthAPI';
+} from "./GroundtruthAPI";
 
 // ============================================================================
 // Types
@@ -53,6 +53,8 @@ export interface UnifiedAgentRequest {
   groundtruth?: GroundtruthInvocationOptions;
   /** Trace ID for observability */
   traceId?: string;
+  /** Idempotency key for duplicate request prevention */
+  idempotencyKey?: string;
 }
 
 /**
@@ -74,7 +76,7 @@ export interface UnifiedAgentResponse<T = any> {
   /** Next workflow stage */
   nextStage?: string;
   /** Response type */
-  type?: 'component' | 'message' | 'suggestion' | 'sdui-page';
+  type?: "component" | "message" | "suggestion" | "sdui-page";
   /** Response payload */
   payload?: any;
   /** Status (for workflow) */
@@ -133,25 +135,25 @@ const DEFAULT_CONFIG: UnifiedAPIConfig = {
 };
 
 const PRODUCTION_ROUTING_ERROR =
-  'Mock routing is disabled in production. Configure baseUrl or agent endpoints.';
+  "Mock routing is disabled in production. Configure baseUrl or agent endpoints.";
 
 /**
  * Sanitize user input for LLM prompts to prevent injection attacks
  */
 function sanitizeForPrompt(input: string): string {
-  if (!input || typeof input !== 'string') {
-    return '';
+  if (!input || typeof input !== "string") {
+    return "";
   }
 
   return input
-    .replace(/<system>/gi, '[SYSTEM]')
-    .replace(/<\/system>/gi, '[/SYSTEM]')
-    .replace(/<user_input>/gi, '[USER_INPUT]')
-    .replace(/<\/user_input>/gi, '[/USER_INPUT]')
-    .replace(/<instruction>/gi, '[INSTRUCTION]')
-    .replace(/<\/instruction>/gi, '[/INSTRUCTION]')
-    .replace(/ignore previous/gi, '[FILTERED]')
-    .replace(/system prompt/gi, '[FILTERED]')
+    .replace(/<system>/gi, "[SYSTEM]")
+    .replace(/<\/system>/gi, "[/SYSTEM]")
+    .replace(/<user_input>/gi, "[USER_INPUT]")
+    .replace(/<\/user_input>/gi, "[/USER_INPUT]")
+    .replace(/<instruction>/gi, "[INSTRUCTION]")
+    .replace(/<\/instruction>/gi, "[/INSTRUCTION]")
+    .replace(/ignore previous/gi, "[FILTERED]")
+    .replace(/system prompt/gi, "[FILTERED]")
     .substring(0, 2000); // Hard limit on input length
 }
 
@@ -159,12 +161,12 @@ function sanitizeForPrompt(input: string): string {
  * Validate and sanitize agent request
  */
 function validateAndSanitizeRequest(request: UnifiedAgentRequest): UnifiedAgentRequest {
-  if (!request.query || typeof request.query !== 'string' || request.query.trim().length === 0) {
-    throw new Error('Query is required and must be a non-empty string');
+  if (!request.query || typeof request.query !== "string" || request.query.trim().length === 0) {
+    throw new Error("Query is required and must be a non-empty string");
   }
 
   if (request.query.length > 2000) {
-    throw new Error('Query exceeds maximum length of 2000 characters');
+    throw new Error("Query exceeds maximum length of 2000 characters");
   }
 
   // Sanitize the query
@@ -182,7 +184,7 @@ function validateAndSanitizeRequest(request: UnifiedAgentRequest): UnifiedAgentR
 
 /**
  * Unified Agent API
- * 
+ *
  * Provides a single interface for invoking all agents with:
  * - Circuit breaker protection
  * - Automatic routing
@@ -195,6 +197,7 @@ export class UnifiedAgentAPI {
   private registry: AgentRegistry;
   private auditLogger: ReturnType<typeof getAuditLogger> | null = null;
   private groundtruthAPI: GroundtruthAPI | null = null;
+  private idempotencyCache: Map<string, UnifiedAgentResponse> = new Map();
 
   constructor(config: Partial<UnifiedAPIConfig> = {}) {
     // NOTE: Environment variable precedence for agent API base URL:
@@ -202,9 +205,7 @@ export class UnifiedAgentAPI {
     // - AGENT_API_URL: used in server-side / non-Vite contexts (e.g., Node services, tests)
     // If both are set, VITE_AGENT_API_URL takes precedence so client and server can share
     // a consistent default while still allowing explicit overrides via config.baseUrl.
-    const envBaseUrl =
-      getEnvVar('VITE_AGENT_API_URL') ||
-      getEnvVar('AGENT_API_URL');
+    const envBaseUrl = getEnvVar("VITE_AGENT_API_URL") || getEnvVar("AGENT_API_URL");
     const resolvedBaseUrl = config.baseUrl ?? envBaseUrl;
     this.config = {
       ...DEFAULT_CONFIG,
@@ -225,9 +226,7 @@ export class UnifiedAgentAPI {
       timeoutMs: groundtruthEnv.timeoutMs,
       ...config.groundtruth,
     };
-    this.groundtruthAPI = groundtruthConfig.baseUrl
-      ? new GroundtruthAPI(groundtruthConfig)
-      : null;
+    this.groundtruthAPI = groundtruthConfig.baseUrl ? new GroundtruthAPI(groundtruthConfig) : null;
   }
 
   // ==========================================================================
@@ -241,7 +240,7 @@ export class UnifiedAgentAPI {
     const traceId = request.traceId || uuidv4();
     const startTime = Date.now();
 
-    logger.info('Agent invocation started', {
+    logger.info("Agent invocation started", {
       traceId,
       agent: request.agent,
       sessionId: request.sessionId,
@@ -252,13 +251,13 @@ export class UnifiedAgentAPI {
     try {
       sanitizedRequest = validateAndSanitizeRequest(request);
     } catch (error) {
-      logger.warn('Request validation failed', error instanceof Error ? error : undefined, {
+      logger.warn("Request validation failed", error instanceof Error ? error : undefined, {
         traceId,
         agent: request.agent,
       });
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Invalid request',
+        error: error instanceof Error ? error.message : "Invalid request",
         metadata: {
           agent: request.agent,
           duration: 0,
@@ -270,6 +269,14 @@ export class UnifiedAgentAPI {
 
     try {
       this.assertRoutingConfigured(request.agent);
+
+      // Add idempotency check
+      if (request.idempotencyKey) {
+        const existingResponse = await this.checkIdempotency(request.idempotencyKey);
+        if (existingResponse) {
+          return existingResponse;
+        }
+      }
 
       // Get circuit breaker for this agent
       const circuitBreakerKey = `agent-${request.agent}`;
@@ -285,11 +292,7 @@ export class UnifiedAgentAPI {
         }
       );
 
-      const enrichedResponse = await this.attachGroundtruth(
-        sanitizedRequest,
-        response,
-        traceId
-      );
+      const enrichedResponse = await this.attachGroundtruth(sanitizedRequest, response, traceId);
       const duration = Date.now() - startTime;
 
       // Add metadata
@@ -316,18 +319,23 @@ export class UnifiedAgentAPI {
         );
       }
 
-      logger.info('Agent invocation completed', {
+      logger.info("Agent invocation completed", {
         traceId,
         agent: request.agent,
         duration,
         success: result.success,
       });
 
+      // Store response in idempotency cache if idempotency key was provided
+      if (request.idempotencyKey) {
+        this.storeIdempotencyResponse(request.idempotencyKey, result);
+      }
+
       return result;
     } catch (error) {
       const duration = Date.now() - startTime;
 
-      logger.error('Agent invocation failed', error instanceof Error ? error : undefined, {
+      logger.error("Agent invocation failed", error instanceof Error ? error : undefined, {
         traceId,
         agent: request.agent,
         duration,
@@ -335,7 +343,7 @@ export class UnifiedAgentAPI {
 
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : "Unknown error",
         metadata: {
           agent: request.agent,
           duration,
@@ -373,7 +381,7 @@ export class UnifiedAgentAPI {
       agent,
       query,
       context,
-      parameters: { outputType: 'sdui' },
+      parameters: { outputType: "sdui" },
     });
 
     // Validate SDUI schema if successful
@@ -401,22 +409,22 @@ export class UnifiedAgentAPI {
     try {
       const response = await this.invoke({
         agent,
-        query: 'health_check',
-        parameters: { type: 'health_check' },
+        query: "health_check",
+        parameters: { type: "health_check" },
       });
 
       const latencyMs = Date.now() - startTime;
 
       return {
-        status: response.success ? 'healthy' : 'degraded',
+        status: response.success ? "healthy" : "degraded",
         latencyMs,
-        circuitBreakerState: this.circuitBreakers.getState(circuitBreakerKey)?.state || 'closed',
+        circuitBreakerState: this.circuitBreakers.getState(circuitBreakerKey)?.state || "closed",
       };
     } catch (error) {
       return {
-        status: 'offline',
+        status: "offline",
         latencyMs: Date.now() - startTime,
-        circuitBreakerState: this.circuitBreakers.getState(circuitBreakerKey)?.state || 'open',
+        circuitBreakerState: this.circuitBreakers.getState(circuitBreakerKey)?.state || "open",
       };
     }
   }
@@ -455,7 +463,7 @@ export class UnifiedAgentAPI {
   /**
    * Register an agent
    */
-  registerAgent(registration: Parameters<AgentRegistry['registerAgent']>[0]): AgentRecord {
+  registerAgent(registration: Parameters<AgentRegistry["registerAgent"]>[0]): AgentRecord {
     return this.registry.registerAgent(registration);
   }
 
@@ -488,11 +496,11 @@ export class UnifiedAgentAPI {
     const routeType = this.determineRouteType(request.agent);
 
     switch (routeType) {
-      case 'groundtruth':
+      case "groundtruth":
         return this.executeGroundtruthRequest(request, traceId);
-      case 'http':
+      case "http":
         return this.executeHttpRequest(request, traceId);
-      case 'local':
+      case "local":
         return this.executeLocalAgent(request, traceId);
       default:
         return this.executeMockAgent(request, traceId);
@@ -502,26 +510,26 @@ export class UnifiedAgentAPI {
   /**
    * Determine how to route the request
    */
-  private determineRouteType(agent: AgentType): 'http' | 'local' | 'mock' | 'groundtruth' {
-    if (agent === 'groundtruth') {
+  private determineRouteType(agent: AgentType): "http" | "local" | "mock" | "groundtruth" {
+    if (agent === "groundtruth") {
       if (this.groundtruthAPI?.isConfigured()) {
-        return 'groundtruth';
+        return "groundtruth";
       }
       if (env.isProduction) {
-        throw new Error('Groundtruth API routing is not configured.');
+        throw new Error("Groundtruth API routing is not configured.");
       }
-      return 'mock';
+      return "mock";
     }
 
     // Check if we have an HTTP endpoint configured
     if (this.getResolvedBaseUrl()) {
-      return 'http';
+      return "http";
     }
 
     // Check if agent is registered locally
     const agentRecord = this.registry.getAgent(agent);
     if (agentRecord?.endpoint) {
-      return 'http';
+      return "http";
     }
 
     if (env.isProduction) {
@@ -529,7 +537,7 @@ export class UnifiedAgentAPI {
     }
 
     // For now, use mock for development/test
-    return 'mock';
+    return "mock";
   }
 
   /**
@@ -542,10 +550,10 @@ export class UnifiedAgentAPI {
     const url = this.resolveAgentInvokeUrl(request.agent);
 
     const response = await fetch(url, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'X-Trace-ID': traceId,
+        "Content-Type": "application/json",
+        "X-Trace-ID": traceId,
       },
       body: JSON.stringify({
         query: request.query,
@@ -584,38 +592,38 @@ export class UnifiedAgentAPI {
     traceId: string
   ): Promise<UnifiedAgentResponse> {
     // Simulate processing time
-    await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 500));
+    await new Promise((resolve) => setTimeout(resolve, 500 + Math.random() * 500));
 
     // Generate mock response based on agent type
     const mockResponses: Record<string, any> = {
       opportunity: {
-        painPoints: ['Inefficient manual processes', 'High operational costs'],
-        recommendations: ['Automation', 'Process optimization'],
+        painPoints: ["Inefficient manual processes", "High operational costs"],
+        recommendations: ["Automation", "Process optimization"],
         estimatedImpact: { roi: 0.25, paybackMonths: 12 },
       },
-      'financial-modeling': {
+      "financial-modeling": {
         roi: 0.35,
         npv: 1500000,
         paybackPeriod: 18,
         projections: { year1: 500000, year2: 750000, year3: 1000000 },
       },
       coordinator: {
-        taskPlan: { phases: ['Discovery', 'Analysis', 'Design'] },
-        assignedAgents: ['opportunity', 'system-mapper', 'intervention-designer'],
+        taskPlan: { phases: ["Discovery", "Analysis", "Design"] },
+        assignedAgents: ["opportunity", "system-mapper", "intervention-designer"],
       },
       groundtruth: {
         verified: false,
-        issues: ['Groundtruth API not configured'],
+        issues: ["Groundtruth API not configured"],
       },
     };
 
     return {
       success: true,
-      data: mockResponses[request.agent] || { message: 'Processed successfully' },
+      data: mockResponses[request.agent] || { message: "Processed successfully" },
       content: `Processed query for ${request.agent} agent`,
-      confidenceLevel: 'medium',
+      confidenceLevel: "medium",
       confidenceScore: 0.75,
-      type: 'message',
+      type: "message",
     };
   }
 
@@ -626,7 +634,7 @@ export class UnifiedAgentAPI {
     if (!this.groundtruthAPI) {
       return {
         success: false,
-        error: 'Groundtruth API is not configured',
+        error: "Groundtruth API is not configured",
         metadata: {
           agent: request.agent,
           duration: 0,
@@ -681,10 +689,7 @@ export class UnifiedAgentAPI {
     if (!this.groundtruthAPI) {
       return {
         ...response,
-        warnings: [
-          ...(response.warnings ?? []),
-          'Groundtruth API is not configured',
-        ],
+        warnings: [...(response.warnings ?? []), "Groundtruth API is not configured"],
       };
     }
 
@@ -706,13 +711,13 @@ export class UnifiedAgentAPI {
       request.groundtruth.requestOptions
     );
 
-    const mergeKey = request.groundtruth.mergeKey ?? 'groundtruth';
+    const mergeKey = request.groundtruth.mergeKey ?? "groundtruth";
     const existingPayload =
-      response.payload && typeof response.payload === 'object'
+      response.payload && typeof response.payload === "object"
         ? response.payload
         : response.payload !== undefined
-        ? { value: response.payload }
-        : {};
+          ? { value: response.payload }
+          : {};
 
     const mergedPayload = {
       ...existingPayload,
@@ -723,7 +728,7 @@ export class UnifiedAgentAPI {
       ? response.warnings
       : [
           ...(response.warnings ?? []),
-          groundtruthResult.error || 'Groundtruth verification failed',
+          groundtruthResult.error || "Groundtruth verification failed",
         ];
 
     return {
@@ -755,19 +760,41 @@ export class UnifiedAgentAPI {
     const agentEndpoint = this.registry.getAgent(agent)?.endpoint;
 
     if (agentEndpoint) {
-      const normalized = agentEndpoint.replace(/\/+$/, '');
-      return normalized.endsWith('/invoke') ? normalized : `${normalized}/invoke`;
+      const normalized = agentEndpoint.replace(/\/+$/, "");
+      return normalized.endsWith("/invoke") ? normalized : `${normalized}/invoke`;
     }
 
     if (baseUrl) {
-      const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
-      const basePrefix = normalizedBaseUrl.endsWith('/agents')
+      const normalizedBaseUrl = baseUrl.replace(/\/+$/, "");
+      const basePrefix = normalizedBaseUrl.endsWith("/agents")
         ? normalizedBaseUrl
         : `${normalizedBaseUrl}/agents`;
       return `${basePrefix}/${agent}/invoke`;
     }
 
-    throw new Error('Agent routing configuration missing. Set baseUrl or agent endpoints.');
+    throw new Error("Agent routing configuration missing. Set baseUrl or agent endpoints.");
+  }
+
+  /**
+   * Check idempotency cache for existing response
+   */
+  private async checkIdempotency(idempotencyKey: string): Promise<UnifiedAgentResponse | null> {
+    const cachedResponse = this.idempotencyCache.get(idempotencyKey);
+    if (cachedResponse) {
+      logger.info("Idempotency cache hit", { idempotencyKey });
+      return cachedResponse;
+    }
+    return null;
+  }
+
+  /**
+   * Store response in idempotency cache
+   */
+  private storeIdempotencyResponse(idempotencyKey: string, response: UnifiedAgentResponse): void {
+    if (idempotencyKey) {
+      this.idempotencyCache.set(idempotencyKey, response);
+      logger.debug("Stored idempotency response", { idempotencyKey });
+    }
   }
 }
 
