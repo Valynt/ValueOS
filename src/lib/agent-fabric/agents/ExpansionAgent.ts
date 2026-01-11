@@ -116,6 +116,23 @@ Return ONLY valid JSON:
 
     // SECURITY FIX: Use secureInvoke() for hallucination detection and circuit breaker
     const expansionSchema = z.object({
+      expansion_model: z.object({
+        name: z.string(),
+        opportunity_type: z.enum(['upsell', 'cross_sell', 'optimization', 'expansion']),
+        estimated_value: z.number(),
+        confidence_score: z.number()
+      }),
+      proposed_improvements: z.array(z.object({
+        kpi_name: z.string(),
+        current_value: z.number().optional(),
+        proposed_value: z.number(),
+        incremental_value: z.number(),
+        unit: z.string(),
+        confidence: z.number(),
+        rationale: z.string(),
+        required_capability: z.string().optional()
+      })),
+      executive_summary: z.string(),
       recommended_capabilities: z.array(z.object({
         capability_name: z.string(),
         value_proposition: z.string(),
@@ -136,7 +153,7 @@ Return ONLY valid JSON:
         confidenceThresholds: { low: 0.6, high: 0.85 },
         context: {
           agent: 'ExpansionAgent',
-          customerId: input.customerId
+          valueCaseId: input.valueCaseId
         }
       }
     );
@@ -169,7 +186,6 @@ Return ONLY valid JSON:
 
     const durationMs = Date.now() - startTime;
 
-    await this.logMetric(sessionId, 'tokens_used', response.tokens_used, 'tokens');
     await this.logMetric(sessionId, 'latency_ms', durationMs, 'ms');
     await this.logMetric(sessionId, 'opportunity_score', parsed.opportunity_score, 'score');
     await this.logMetric(sessionId, 'estimated_value', parsed.expansion_model.estimated_value, 'USD');
@@ -190,9 +206,7 @@ Return ONLY valid JSON:
       parsed.reasoning,
       parsed.confidence_level,
       [{
-        type: 'expansion_analysis',
-        model: response.model,
-        tokens: response.tokens_used
+        type: 'expansion_analysis'
       }]
     );
 
