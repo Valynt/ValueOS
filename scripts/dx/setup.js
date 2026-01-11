@@ -79,25 +79,25 @@ async function installDependencies() {
 async function setupDocker() {
   console.log('\n🐳 Setting up Docker services...\n');
   
-  // Check if docker-compose.yml exists
+  // Check if docker-compose.deps.yml exists
   const projectRoot = path.resolve(__dirname, '../..');
-  const composeFile = path.join(projectRoot, 'docker-compose.yml');
+  const composeFile = path.join(projectRoot, 'docker-compose.deps.yml');
   
   if (!fs.existsSync(composeFile)) {
-    console.log('⚠️  docker-compose.yml not found, skipping Docker setup');
+    console.log('⚠️  docker-compose.deps.yml not found, skipping Docker setup');
     return true;
   }
   
   // Pull images
   console.log('⬇️  Pulling Docker images...');
-  const pullSuccess = exec('docker-compose pull', 'Pull Docker images');
+  const pullSuccess = exec('docker-compose -f docker-compose.deps.yml pull', 'Pull Docker images');
   
   if (!pullSuccess) {
     console.log('⚠️  Failed to pull images, will try to build');
   }
   
   // Start services
-  return exec('docker-compose up -d', 'Start Docker services');
+  return exec('docker-compose -f docker-compose.deps.yml up -d', 'Start Docker services');
 }
 
 /**
@@ -112,7 +112,7 @@ async function waitForServices() {
   for (let i = 0; i < maxAttempts; i++) {
     try {
       // Check if Docker services are running
-      execSync('docker-compose ps', { 
+      execSync('docker-compose -f docker-compose.deps.yml ps', { 
         stdio: 'ignore',
         cwd: path.resolve(__dirname, '../..')
       });
@@ -148,7 +148,7 @@ function displaySuccess() {
   console.log('\n💡 Useful commands:');
   console.log('   npm run health     - Check system health');
   console.log('   npm run dev        - Start all services');
-  console.log('   docker-compose ps  - Check Docker services');
+  console.log('   docker-compose -f docker-compose.deps.yml ps  - Check Docker services');
   console.log('\n🚀 Happy coding!\n');
 }
 

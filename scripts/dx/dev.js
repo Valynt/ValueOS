@@ -115,7 +115,7 @@ async function main() {
 
   // Start Docker services first
   console.log(formatLog('docker', 'Starting Docker services...', colors.yellow));
-  const dockerProc = startService('docker', 'docker-compose up', colors.yellow);
+  const dockerProc = startService('docker', 'docker-compose -f docker-compose.deps.yml up', colors.yellow);
   services.push(dockerProc);
 
   // Wait a bit for Docker to start

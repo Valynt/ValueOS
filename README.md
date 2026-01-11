@@ -140,7 +140,9 @@ ValueOS/
 │   └── lib/             # Shared utilities
 ├── docs/                # Documentation
 ├── tests/               # Test files
-└── docker-compose.yml   # Docker services
+├── docker-compose.deps.yml   # Docker dependencies (Postgres/Redis)
+├── docker-compose.full.yml   # Full stack (deps + backend + frontend)
+└── docker-compose.yml        # Full-stack alias
 ```
 
 ---
@@ -176,10 +178,11 @@ npm test                 # Run tests
 ### Docker
 
 ```bash
-docker-compose up -d     # Start services
-docker-compose down      # Stop services
-docker-compose logs -f   # View logs
-docker-compose ps        # Check status
+docker-compose -f docker-compose.deps.yml up -d     # Start dependencies only
+docker-compose -f docker-compose.full.yml up -d     # Start full stack
+docker-compose -f docker-compose.full.yml down      # Stop full stack
+docker-compose -f docker-compose.full.yml logs -f   # View logs
+docker-compose -f docker-compose.full.yml ps        # Check status
 ```
 
 ### Staging/Production via Caddy

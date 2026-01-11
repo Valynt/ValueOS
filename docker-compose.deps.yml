@@ -1,0 +1,47 @@
+version: "3.9"
+
+services:
+  # PostgreSQL database for Supabase
+  postgres:
+    image: postgres:15-alpine
+    container_name: valueos-postgres
+    environment:
+      POSTGRES_DB: valuecanvas_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - valueos-network
+
+  # Redis cache layer
+  redis:
+    image: redis:7-alpine
+    container_name: valueos-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - valueos-network
+
+networks:
+  valueos-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
