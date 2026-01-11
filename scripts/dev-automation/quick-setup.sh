@@ -16,6 +16,20 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+if [ -f ".env.ports" ]; then
+    while IFS='=' read -r key value; do
+        if [[ -z "$key" || "$key" == \#* ]]; then
+            continue
+        fi
+        if [ -z "${!key}" ]; then
+            export "$key"="$value"
+        fi
+    done < ".env.ports"
+fi
+
+VITE_PORT="${VITE_PORT:-5173}"
+API_PORT="${API_PORT:-3001}"
+
 print_status() {
     echo -e "${BLUE}▶${NC} $1"
 }
@@ -82,7 +96,9 @@ echo ""
 echo "Next steps:"
 echo "  1. Review and update .env file"
 echo "  2. Start development server: npm run dev"
-echo "  3. Run tests: npm test"
+echo "  3. Frontend: http://localhost:${VITE_PORT}"
+echo "  4. Backend: http://localhost:${API_PORT}"
+echo "  5. Run tests: npm test"
 echo ""
 echo "Happy coding! 🎉"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

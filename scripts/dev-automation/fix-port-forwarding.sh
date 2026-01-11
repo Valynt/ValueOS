@@ -17,6 +17,20 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
+if [ -f ".env.ports" ]; then
+    while IFS='=' read -r key value; do
+        if [[ -z "$key" || "$key" == \#* ]]; then
+            continue
+        fi
+        if [ -z "${!key}" ]; then
+            export "$key"="$value"
+        fi
+    done < ".env.ports"
+fi
+
+VITE_PORT="${VITE_PORT:-5173}"
+API_PORT="${API_PORT:-3001}"
+
 print_status() {
     echo -e "${BLUE}▶${NC} $1"
 }
@@ -46,7 +60,7 @@ fi
 
 # 2. Check for port conflicts
 print_status "Checking for port conflicts..."
-for port in 3000 8000 5432 6379; do
+for port in "$VITE_PORT" "$API_PORT" 5432 6379; do
     if lsof -i :$port > /dev/null 2>&1; then
         PID=$(lsof -t -i :$port)
         PROCESS=$(ps -p $PID -o comm= 2>/dev/null || echo "unknown")
@@ -93,9 +107,9 @@ print_status "Checking firewall..."
 if command -v ufw > /dev/null 2>&1; then
     if sudo ufw status | grep -q "Status: active"; then
         print_warning "Firewall is active. Checking rules..."
-        if ! sudo ufw status | grep -q "3000"; then
-            print_status "Adding firewall rule for port 3000..."
-            sudo ufw allow 3000/tcp
+        if ! sudo ufw status | grep -q "${VITE_PORT}"; then
+            print_status "Adding firewall rule for port ${VITE_PORT}..."
+            sudo ufw allow "${VITE_PORT}/tcp"
             FIXES_APPLIED=$((FIXES_APPLIED + 1))
         fi
     fi
@@ -105,7 +119,7 @@ fi
 
 # 6. Test localhost connectivity
 print_status "Testing localhost connectivity..."
-if curl -s http://localhost:3000 > /dev/null 2>&1; then
+if curl -s "http://localhost:${VITE_PORT}" > /dev/null 2>&1; then
     print_success "Localhost is accessible"
 else
     print_warning "Localhost not accessible (server may not be running)"
@@ -115,8 +129,8 @@ fi
 print_status "Checking environment variables..."
 if [ -z "$VITE_API_URL" ]; then
     print_warning "VITE_API_URL not set"
-    echo "export VITE_API_URL=http://localhost:8000" >> ~/.bashrc
-    export VITE_API_URL=http://localhost:8000
+    echo "export VITE_API_URL=http://localhost:${API_PORT}" >> ~/.bashrc
+    export VITE_API_URL="http://localhost:${API_PORT}"
     FIXES_APPLIED=$((FIXES_APPLIED + 1))
 fi
 
@@ -156,7 +170,7 @@ echo "Fixes applied: $FIXES_APPLIED"
 echo ""
 echo "Next steps:"
 echo "  1. Run: npm run dev"
-echo "  2. Access: http://localhost:3000"
+echo "  2. Access: http://localhost:${VITE_PORT}"
 echo "  3. If in container/Codespace, use the forwarded URL"
 echo ""
 echo "For Playwright/browser testing:"
