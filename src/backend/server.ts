@@ -9,6 +9,7 @@ import { createServer } from "http";
 import { WebSocket, WebSocketServer } from "ws";
 import billingRouter from "../api/billing";
 import agentsRouter from "../api/agents";
+import groundtruthRouter from "../api/groundtruth";
 import workflowRouter from "../api/workflow";
 import documentRouter from "../api/documents";
 import healthRouter, { markAsShuttingDown } from "../api/health";
@@ -148,6 +149,14 @@ app.use(
   tenantContextMiddleware(),
   agentExecutionLimiter,
   agentsRouter
+);
+app.use(
+  "/api/groundtruth",
+  serviceIdentityMiddleware,
+  requireAuth,
+  tenantContextMiddleware(),
+  agentExecutionLimiter,
+  groundtruthRouter
 );
 app.use("/api", workflowRouter);
 app.use("/api/documents", requireAuth, tenantContextMiddleware(), documentRouter);
