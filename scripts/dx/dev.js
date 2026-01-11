@@ -191,7 +191,7 @@ async function main() {
   const services = [];
 
   if (mode === 'docker') {
-    await runCommand('docker', 'docker compose -f docker-compose.full.yml up -d');
+    await runCommand('docker', 'docker-compose -f docker-compose.full.yml up -d');
     console.log('\n' + '='.repeat(60));
     console.log('✅ Docker services are running!');
     console.log('='.repeat(60) + '\n');
@@ -200,7 +200,7 @@ async function main() {
   }
 
   // Start Docker dependency services first
-  await runCommand('docker', 'docker compose -f docker-compose.deps.yml up -d');
+  await runCommand('docker', 'docker-compose -f docker-compose.deps.yml up -d');
 
   const conflicts = [];
   if (isDockerPortPublished(3001)) {
