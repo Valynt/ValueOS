@@ -351,7 +351,6 @@ export function useUsageMetrics(organizationId: string) {
         // Prefer tenant-aware requests.
         const response = await fetch('/api/billing/usage', {
           headers: {
-            'x-tenant-id': organizationId,
             'Content-Type': 'application/json',
           },
         });

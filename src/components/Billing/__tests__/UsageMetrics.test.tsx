@@ -46,7 +46,6 @@ describe('useUsageMetrics', () => {
     // Check fetch call
     expect(global.fetch).toHaveBeenCalledWith('/api/billing/usage', {
       headers: {
-        'x-tenant-id': organizationId,
         'Content-Type': 'application/json',
       },
     });

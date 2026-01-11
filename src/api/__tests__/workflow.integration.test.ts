@@ -3,19 +3,40 @@
  * Tests the actual workflow explanation endpoint
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import express from 'express';
-import workflowRouter from '../workflow';
 import { Client } from 'pg';
 import { getDatabaseUrl } from '../../config/database';
 
+vi.mock('../../middleware/auth', () => ({
+  requireAuth: (req: any, _res: any, next: any) => {
+    const forcedTenantId = req.header('x-test-tenant-id');
+    const omitTenant = req.header('x-test-no-tenant') === 'true';
+    const tenantId = omitTenant ? undefined : (forcedTenantId || 'test-tenant-001');
+
+    req.user = {
+      id: 'user-123',
+      tenant_id: tenantId,
+      role: 'admin',
+    };
+    next();
+  },
+}));
+
+vi.mock('../../middleware/rbac', () => ({
+  requirePermission: () => (_req: any, _res: any, next: any) => next(),
+}));
+
+vi.mock('../../lib/tenantVerification', () => ({
+  getUserTenantId: vi.fn().mockResolvedValue(null),
+  verifyTenantMembership: vi.fn().mockResolvedValue(true),
+}));
+
+import workflowRouter from '../workflow';
+
 const app = express();
 app.use(express.json());
-app.use((req, _res, next) => {
-  (req as any).tenantId = req.header('x-tenant-id');
-  next();
-});
 app.use('/api', workflowRouter);
 
 describe('Workflow API Integration', () => {
@@ -88,13 +109,13 @@ describe('Workflow API Integration', () => {
 
   describe('GET /api/workflow/:executionId/step/:stepId/explain', () => {
     it('should require a tenant context', async () => {
-      if (!process.env.DATABASE_URL) {
-        console.warn('Skipping test - DATABASE_URL not set');
+      if (!resolveDatabaseUrl()) {
         return;
       }
 
       await request(app)
         .get(`/api/workflow/${testExecutionId}/step/${testStepId}/explain`)
+        .set('x-test-no-tenant', 'true')
         .expect(403);
     });
 
@@ -105,7 +126,6 @@ describe('Workflow API Integration', () => {
 
       const response = await request(app)
         .get(`/api/workflow/${testExecutionId}/step/${testStepId}/explain`)
-        .set('x-tenant-id', testTenantId)
         .expect(200);
 
       expect(response.body).toHaveProperty('success', true);
@@ -124,7 +144,6 @@ describe('Workflow API Integration', () => {
 
       const response = await request(app)
         .get('/api/workflow/non-existent/step/non-existent/explain')
-        .set('x-tenant-id', testTenantId)
         .expect(404);
 
       expect(response.body).toHaveProperty('error', 'not_found');
@@ -138,7 +157,6 @@ describe('Workflow API Integration', () => {
 
       const response = await request(app)
         .get(`/api/workflow/${testExecutionId}/step/${testStepId}/explain`)
-        .set('x-tenant-id', testTenantId)
         .expect(200);
 
       const { evidence } = response.body.data;
@@ -174,7 +192,6 @@ describe('Workflow API Integration', () => {
 
       const response = await request(app)
         .get(`/api/workflow/${noReasoningExecId}/step/${noReasoningStepId}/explain`)
-        .set('x-tenant-id', testTenantId)
         .expect(200);
 
       expect(response.body.data.reasoning).toBeDefined();
@@ -210,7 +227,6 @@ describe('Workflow API Integration', () => {
 
       const response = await request(app)
         .get(`/api/workflow/${noEvidenceExecId}/step/${noEvidenceStepId}/explain`)
-        .set('x-tenant-id', testTenantId)
         .expect(200);
 
       expect(response.body.data.evidence).toBeDefined();
@@ -246,7 +262,6 @@ describe('Workflow API Integration', () => {
 
       const response = await request(app)
         .get(`/api/workflow/${noConfidenceExecId}/step/${noConfidenceStepId}/explain`)
-        .set('x-tenant-id', testTenantId)
         .expect(200);
 
       expect(response.body.data).toHaveProperty('confidence_score');
@@ -262,8 +277,7 @@ describe('Workflow API Integration', () => {
     });
 
     it('should block cross-tenant access', async () => {
-      if (!process.env.DATABASE_URL) {
-        console.warn('Skipping test - DATABASE_URL not set');
+      if (!resolveDatabaseUrl()) {
         return;
       }
 
@@ -282,7 +296,7 @@ describe('Workflow API Integration', () => {
 
       await request(app)
         .get('/api/workflow/test-exec-foreign/step/test-step-foreign/explain')
-        .set('x-tenant-id', otherTenantId)
+        .set('x-test-tenant-id', otherTenantId)
         .expect(404);
 
       await dbClient.query(`
@@ -302,7 +316,6 @@ describe('Workflow API Integration', () => {
       // Use invalid characters that might cause SQL errors
       const response = await request(app)
         .get('/api/workflow/invalid%00id/step/invalid%00step/explain')
-        .set('x-tenant-id', testTenantId)
         .expect(404);
 
       expect(response.body).toHaveProperty('error');
@@ -326,6 +339,17 @@ describe('Workflow API Integration', () => {
   });
 
   describe('Security', () => {
+    it('should reject forged tenant headers', async () => {
+      if (!resolveDatabaseUrl()) {
+        return;
+      }
+
+      await request(app)
+        .get(`/api/workflow/${testExecutionId}/step/${testStepId}/explain`)
+        .set('x-tenant-id', 'forged-tenant')
+        .expect(403);
+    });
+
     it('should require authentication', async () => {
       // This test assumes authentication middleware is in place
       // The actual behavior depends on the middleware configuration
@@ -343,13 +367,10 @@ describe('Workflow API Integration', () => {
 
       const maliciousId = "'; DROP TABLE workflow_execution_logs; --";
       
-      const response = await request(app)
+      await request(app)
         .get(`/api/workflow/${encodeURIComponent(maliciousId)}/step/test/explain`)
-        .set('x-tenant-id', testTenantId);
+        .expect(404);
 
-      // Should return 404, not cause SQL injection
-      expect(response.status).toBe(404);
-      
       // Verify table still exists
       const tableCheck = await dbClient.query(`
         SELECT EXISTS (
@@ -371,7 +392,6 @@ describe('Workflow API Integration', () => {
       
       await request(app)
         .get(`/api/workflow/${testExecutionId}/step/${testStepId}/explain`)
-        .set('x-tenant-id', testTenantId)
         .expect(200);
 
       const duration = Date.now() - startTime;

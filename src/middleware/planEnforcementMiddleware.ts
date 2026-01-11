@@ -87,7 +87,7 @@ async function resolvePlanTier(req: Request, tenantId: string): Promise<PlanTier
 export function createPlanEnforcement(config: EnforcementConfig) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const tenantId = (req as any).tenantId || req.headers['x-tenant-id'] as string;
+      const tenantId = (req as any).tenantId;
       
       if (!tenantId) {
         // No tenant - skip enforcement (public endpoint)
