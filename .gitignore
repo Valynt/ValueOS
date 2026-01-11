@@ -120,6 +120,7 @@ infrastructure/terraform/environments/*/secrets.tfvars
 lint-report.txt
 TEST_TRIAGE.md
 .vitest-env.json
+impact.json
 
 *storybook.log
 storybook-static
