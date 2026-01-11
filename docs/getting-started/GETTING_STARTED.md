@@ -115,7 +115,7 @@ See [docs/platform/LINUX.md](platform/LINUX.md) for other distributions.
 
 ## Automated Setup
 
-The `npm run setup` command will:
+The `npm run setup` command (runs `scripts/dx/setup.js`) will:
 
 1. ✅ Detect your platform (macOS/Windows/Linux)
 2. ✅ Check prerequisites (Node, Docker, disk space)
