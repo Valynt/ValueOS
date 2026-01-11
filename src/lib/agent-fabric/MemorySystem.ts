@@ -470,9 +470,13 @@ export class MemorySystem {
   async searchSemanticMemory(
     sessionId: string,
     query: string,
-    limit: number = 5,
-    organizationId?: string
+    limit: number,
+    organizationId: string
   ): Promise<AgentMemory[]> {
+    if (!organizationId) {
+      throw new Error('organizationId is required for tenant isolation in semantic search');
+    }
+
     const queryEmbedding = await this.llmGateway.generateEmbedding(query);
 
     // SECURITY: Add organizationId to RPC call for tenant isolation
@@ -481,24 +485,21 @@ export class MemorySystem {
       match_threshold: 0.7,
       match_count: limit,
       p_session_id: sessionId,
-      p_organization_id: organizationId || null
+      p_organization_id: organizationId
     });
 
     if (error) {
       logger.warn('Semantic search RPC failed, falling back to text search:', { error, sessionId });
       
       // SECURITY: Fallback also enforces tenant isolation
-      let fallbackQuery = this.supabase
+      const fallbackQuery = this.supabase
         .from('agent_memory')
         .select('*')
         .eq('session_id', sessionId)
         .eq('memory_type', 'semantic')
         .ilike('content', `%${query}%`)
+        .eq('organization_id', organizationId)
         .limit(limit);
-
-      if (organizationId) {
-        fallbackQuery = fallbackQuery.eq('organization_id', organizationId);
-      }
 
       const { data: fallbackData, error: fallbackError } = await fallbackQuery;
 
