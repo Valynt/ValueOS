@@ -3,9 +3,10 @@
  * Reusable button with export menu for PDF, PNG, Excel
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Download, FileText, Image, Table, Loader2 } from "lucide-react";
 import { useExport, type ExportProgress } from "../utils/export";
+import { useToast } from "./Common/Toast";
 
 interface ExportButtonProps {
   elementId?: string;
@@ -26,6 +27,19 @@ export function ExportButton({
 }: ExportButtonProps) {
   const [showMenu, setShowMenu] = useState(false);
   const { exportElement, exportData, progress, isExporting } = useExport();
+  const toast = useToast();
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && showMenu) {
+        setShowMenu(false);
+      }
+    };
+    if (showMenu) {
+      document.addEventListener("keydown", handleKeyDown);
+    }
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [showMenu]);
 
   const handleExport = async (format: "pdf" | "png" | "excel") => {
     setShowMenu(false);
@@ -33,21 +47,24 @@ export function ExportButton({
     try {
       if (format === "excel") {
         if (!data || data.length === 0) {
-          alert("No data available to export");
+          toast.error("Export failed", "No data available to export");
           return;
         }
         await exportData(data, filename);
+        toast.success("Export complete", `Successfully exported to ${format}`);
       } else {
         if (!elementId) {
-          alert("Element ID not provided");
+          toast.error("Export failed", "Element ID not provided");
           return;
         }
         await exportElement(elementId, format, filename);
+        toast.success("Export complete", `Successfully exported to ${format}`);
       }
     } catch (error) {
       console.error("Export failed:", error);
-      alert(
-        `Export failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      toast.error(
+        "Export failed",
+        error instanceof Error ? error.message : "Unknown error"
       );
     }
   };
@@ -68,8 +85,12 @@ export function ExportButton({
     return (
       <div className={`relative ${className}`}>
         <button
+          type="button"
           onClick={() => setShowMenu(!showMenu)}
           disabled={isExporting}
+          aria-haspopup="true"
+          aria-expanded={showMenu}
+          aria-label="Export options"
           className="p-2 hover:bg-secondary rounded transition-colors disabled:opacity-50"
           title="Export"
         >
@@ -81,13 +102,18 @@ export function ExportButton({
         </button>
 
         {showMenu && !isExporting && (
-          <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-lg shadow-lg z-50">
+          <div
+            role="menu"
+            className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-lg shadow-lg z-50"
+          >
             <div className="p-1">
               {formats.map((format) => {
                 const Icon = formatIcons[format];
                 return (
                   <button
                     key={format}
+                    type="button"
+                    role="menuitem"
                     onClick={() => handleExport(format)}
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-secondary rounded transition-colors"
                   >
@@ -106,8 +132,11 @@ export function ExportButton({
   return (
     <div className={`relative ${className}`}>
       <button
+        type="button"
         onClick={() => setShowMenu(!showMenu)}
         disabled={isExporting}
+        aria-haspopup="true"
+        aria-expanded={showMenu}
         className="px-4 py-2 bg-primary text-primary-foreground rounded-md flex items-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50"
       >
         {isExporting ? (
@@ -140,7 +169,10 @@ export function ExportButton({
 
       {/* Export Menu */}
       {showMenu && !isExporting && (
-        <div className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-lg shadow-lg z-50">
+        <div
+          role="menu"
+          className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-lg shadow-lg z-50"
+        >
           <div className="p-2">
             <div className="text-xs font-semibold text-muted-foreground px-2 py-1 mb-1">
               Export Format
@@ -150,6 +182,8 @@ export function ExportButton({
               return (
                 <button
                   key={format}
+                  type="button"
+                  role="menuitem"
                   onClick={() => handleExport(format)}
                   className="w-full flex items-center gap-3 px-3 py-2 text-sm hover:bg-secondary rounded transition-colors"
                 >
