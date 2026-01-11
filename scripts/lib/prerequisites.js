@@ -134,6 +134,36 @@ export async function checkPackageManager() {
 }
 
 /**
+ * Check Supabase CLI availability
+ */
+export async function checkSupabaseCli() {
+  const supabaseVersion = exec('supabase --version');
+
+  if (!supabaseVersion) {
+    return {
+      name: 'Supabase CLI',
+      passed: false,
+      version: null,
+      required: 'Supabase CLI',
+      message: '❌ Supabase CLI not installed',
+      fix: `
+   Install Supabase CLI:
+
+   $ npm install -g supabase`
+    };
+  }
+
+  return {
+    name: 'Supabase CLI',
+    passed: true,
+    version: supabaseVersion,
+    required: 'Supabase CLI',
+    message: `✅ Supabase CLI ${supabaseVersion}`,
+    fix: null
+  };
+}
+
+/**
  * Check available disk space
  */
 export async function checkDiskSpace() {
@@ -246,6 +276,7 @@ export async function checkPrerequisites() {
     checkNode(),
     checkDocker(),
     checkPackageManager(),
+    checkSupabaseCli(),
     checkDiskSpace(),
     checkGit()
   ]);

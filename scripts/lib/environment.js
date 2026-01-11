@@ -245,9 +245,10 @@ export async function setupEnvironment(options = {}) {
   try {
     // Generate configuration
     const env = await generateEnvironment(options);
-    
+
     // Write to file
-    const envPath = writeEnvFile(env);
+    const envFile = options.envFile || '.env';
+    const envPath = writeEnvFile(env, envFile);
     
     // Validate
     const valid = validateEnv(env);
@@ -258,9 +259,9 @@ export async function setupEnvironment(options = {}) {
 
     console.log('\n✅ Environment setup complete!\n');
     console.log('Next steps:');
-    console.log('  1. Review .env file');
+    console.log(`  1. Review ${envFile} file`);
     console.log('  2. Run: npm install');
-    console.log('  3. Run: npm run dev\n');
+    console.log('  3. Run: npm run dx\n');
 
     return { env, envPath, valid };
   } catch (error) {

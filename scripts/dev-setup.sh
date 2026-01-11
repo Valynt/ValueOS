@@ -8,4 +8,4 @@ echo "⚠️  scripts/dev-setup.sh is deprecated."
 echo "   Use: bash scripts/dev/setup.sh (or npm run setup)"
 echo ""
 
-exec bash "${SCRIPT_DIR}/dev/setup.sh"
+exec bash "${SCRIPT_DIR}/dev/setup.sh" "$@"
