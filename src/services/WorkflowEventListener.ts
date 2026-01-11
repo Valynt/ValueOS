@@ -9,6 +9,7 @@ import { logger } from '../lib/logger';
 import { EventEmitter } from 'events';
 import { workflowSDUIAdapter } from './WorkflowSDUIAdapter';
 import { canvasSchemaService } from './CanvasSchemaService';
+import { getStageById } from './workflows/WorkflowDAGDefinitions';
 import {
   StageCompletionEvent,
   StageTransitionEvent,
@@ -205,11 +206,22 @@ export class WorkflowEventListener extends EventEmitter {
         this.workflowProgress.set(workflowId, progress);
       }
 
+      // Get stage definition to determine lifecycle stage
+      const stageDef = getStageById(workflowId, stageId);
+      const lifecycleStage = stageDef?.agent_type || 'opportunity';
+
+      if (!stageDef) {
+        logger.warn('Stage definition not found for completion event', {
+          workflowId,
+          stageId,
+        });
+      }
+
       const event: StageCompletionEvent = {
         workflowId,
         executionId: workflowId,
         stageId,
-        lifecycleStage: 'opportunity', // TODO: Get from stage definition
+        lifecycleStage,
         status,
         duration,
         output,
