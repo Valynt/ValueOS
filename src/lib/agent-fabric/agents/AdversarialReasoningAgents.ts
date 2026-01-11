@@ -9,11 +9,10 @@
  * Implements adversarial validation pattern for higher accuracy.
  */
 
-import { BaseAgent } from '../BaseAgent';
+import { BaseAgent } from './BaseAgent';
 import { AgentConfig } from '../../../types/agent';
 import { ValueDriver, ValueDriverValidationResult, ConfidenceScore } from '../../../types/valueDriverTaxonomy';
 import { logger } from '../../../lib/logger';
-import Handlebars from 'handlebars';
 import { z } from 'zod';
 
 // =====================================================
@@ -42,18 +41,16 @@ export interface ExtractionOutput {
   reasoning: string;
 }
 
-const EXTRACTION_PROMPT = `You are a value engineering expert extracting structured value drivers from discovery sources.
+const EXTRACTION_PROMPT = (data: ExtractionInput) => `You are a value engineering expert extracting structured value drivers from discovery sources.
 
-{{#if context.industry}}Industry: {{context.industry}}{{/if}}
-{{#if context.company_size}}Company Size: {{context.company_size}}{{/if}}
+${data.context?.industry ? `Industry: ${data.context.industry}` : ''}
+${data.context?.company_size ? `Company Size: ${data.context.company_size}` : ''}
 
-DISCOVERY SOURCES ({{discovery_sources.length}} documents):
-{{#each discovery_sources}}
----
-Source {{@index}}: {{type}} (ID: {{id}})
-{{content}}
----
-{{/each}}
+DISCOVERY SOURCES (${data.discovery_sources.length} documents):
+${data.discovery_sources.map((s, i) => `---
+Source ${i}: ${s.type} (ID: ${s.id})
+${s.content}
+---`).join('\n')}
 
 Extract structured value drivers using the Value Driver Taxonomy v2:
 
@@ -77,8 +74,8 @@ Return valid JSON:
       "confidence_score": 0.85,
       "evidence": [
         {
-          "source_id": "{{discovery_sources.0.id}}",
-          "source_type": "{{discovery_sources.0.type}}",
+          "source_id": "${data.discovery_sources[0]?.id || ''}",
+          "source_type": "${data.discovery_sources[0]?.type || ''}",
           "text": "<exact quote>",
           "relevance": 0.9
         }
@@ -112,8 +109,7 @@ export class ValueDriverExtractionAgent extends BaseAgent {
   }
 
   async execute(sessionId: string, input: ExtractionInput): Promise<ExtractionOutput> {
-    const template = Handlebars.compile(EXTRACTION_PROMPT);
-    const prompt = template(input);
+    const prompt = EXTRACTION_PROMPT(input);
 
     // Define schema for structured output validation
     const extractionSchema = z.object({
@@ -189,30 +185,26 @@ export interface ChallengeOutput {
   reasoning: string;
 }
 
-const CHALLENGE_PROMPT = `You are a critical auditor reviewing value driver claims for weaknesses, contradictions, and unsupported assumptions.
+const CHALLENGE_PROMPT = (data: ChallengeInput) => `You are a critical auditor reviewing value driver claims for weaknesses, contradictions, and unsupported assumptions.
 
-VALUE DRIVERS TO CHALLENGE ({{drivers.length}} drivers):
-{{#each drivers}}
----
-Driver {{@index}}: {{name}}
-Category: {{category}} / {{subcategory}}
-Claim: {{description}}
-Baseline: {{baseline_value}} {{baseline_unit}}
-Target: {{target_value}} {{target_unit}}
-Delta: {{expected_delta}} {{delta_unit}}
-Financial Impact: ${{financial_impact.annual_value}}
-Confidence: {{confidence_score}}
-Evidence Count: {{evidence.length}}
----
-{{/each}}
+VALUE DRIVERS TO CHALLENGE (${data.drivers.length} drivers):
+${data.drivers.map((d, i) => `---
+Driver ${i}: ${d.name}
+Category: ${d.category} / ${d.subcategory}
+Claim: ${d.description}
+Baseline: ${d.baseline_value} ${d.baseline_unit}
+Target: ${d.target_value} ${d.target_unit}
+Delta: ${d.expected_delta} ${d.delta_unit}
+Financial Impact: $${d.financial_impact?.annual_value}
+Confidence: ${d.confidence_score}
+Evidence Count: ${d.evidence?.length || 0}
+---`).join('\n')}
 
 ORIGINAL SOURCES:
-{{#each discovery_sources}}
----
-Source {{@index}}: {{type}}
-{{content}}
----
-{{/each}}
+${data.discovery_sources.map((s, i) => `---
+Source ${i}: ${s.type}
+${s.content}
+---`).join('\n')}
 
 For EACH driver, actively search for:
 1. **Contradicting Evidence**: Quotes that suggest the driver is weaker than claimed
@@ -225,7 +217,7 @@ Return valid JSON:
 {
   "validations": [
     {
-      "driver_id": "{{drivers.0.id}}",
+      "driver_id": "${data.drivers[0]?.id || ''}",
       "is_valid": true,
       "validation_issues": [
         "Baseline value not supported by evidence",
@@ -255,8 +247,7 @@ export class AdversarialChallengeAgent extends BaseAgent {
   }
 
   async execute(sessionId: string, input: ChallengeInput): Promise<ChallengeOutput> {
-    const template = Handlebars.compile(CHALLENGE_PROMPT);
-    const prompt = template(input);
+    const prompt = CHALLENGE_PROMPT(input);
 
     // Define schema for validation output
     const challengeSchema = z.object({
@@ -330,35 +321,31 @@ export interface ReconciliationOutput {
   reasoning: string;
 }
 
-const RECONCILIATION_PROMPT = `You are a senior value engineering consultant synthesizing adversarial analysis into final, audit-ready value drivers.
+const RECONCILIATION_PROMPT = (data: ReconciliationInput) => `You are a senior value engineering consultant synthesizing adversarial analysis into final, audit-ready value drivers.
 
 ORIGINAL EXTRACTION:
-{{extraction_reasoning}}
+${data.extraction_reasoning}
 
-DRIVERS ({{original_drivers.length}}):
-{{#each original_drivers}}
----
-Driver {{@index}}: {{name}}
-Original Confidence: {{confidence_score}}
-Financial Impact: ${{financial_impact.annual_value}}
----
-{{/each}}
+DRIVERS (${data.original_drivers.length}):
+${data.original_drivers.map((d, i) => `---
+Driver ${i}: ${d.name}
+Original Confidence: ${d.confidence_score}
+Financial Impact: $${d.financial_impact?.annual_value}
+---`).join('\n')}
 
 CHALLENGE FINDINGS:
-{{challenge_reasoning}}
+${data.challenge_reasoning}
 
 VALIDATION RESULTS:
-{{#each validations}}
----
-Driver: {{driver_id}}
-Valid: {{is_valid}}
-Issues: {{validation_issues}}
-Supporting Evidence: {{supporting_evidence_count}}
-Contradicting Evidence: {{contradicting_evidence_count}}
-Adjusted Confidence: {{final_confidence}}
-Recommendations: {{recommendations}}
----
-{{/each}}
+${data.validations.map(v => `---
+Driver: ${v.driver_id}
+Valid: ${v.is_valid}
+Issues: ${v.validation_issues.join(', ')}
+Supporting Evidence: ${v.supporting_evidence_count}
+Contradicting Evidence: ${v.contradicting_evidence_count}
+Adjusted Confidence: ${v.final_confidence}
+Recommendations: ${v.recommendations?.join(', ')}
+---`).join('\n')}
 
 Synthesize a final set of drivers by:
 1. **Accept**: Strong evidence, minimal contradictions → Keep as-is
@@ -375,7 +362,7 @@ Return valid JSON:
 {
   "final_drivers": [
     {
-      "id": "{{original_drivers.0.id}}",
+      "id": "${data.original_drivers[0]?.id || ''}",
       "category": "revenue",
       "subcategory": "conversion_rate",
       "name": "<adjusted name>",
@@ -396,7 +383,7 @@ Return valid JSON:
   },
   "audit_trail": [
     {
-      "driver_id": "{{original_drivers.0.id}}",
+      "driver_id": "${data.original_drivers[0]?.id || ''}",
       "action": "modified",
       "reason": "Reduced target from 150 to 120 due to adoption curve concerns",
       "original_confidence": 0.85,
@@ -416,8 +403,7 @@ export class ReconciliationAgent extends BaseAgent {
   }
 
   async execute(sessionId: string, input: ReconciliationInput): Promise<ReconciliationOutput> {
-    const template = Handlebars.compile(RECONCILIATION_PROMPT);
-    const prompt = template(input);
+    const prompt = RECONCILIATION_PROMPT(input);
 
     // Define schema for reconciliation output
     const reconciliationSchema = z.object({
