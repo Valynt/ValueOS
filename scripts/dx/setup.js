@@ -150,7 +150,7 @@ function displaySuccess() {
   console.log('\n💡 Useful commands:');
   console.log('   npm run health     - Check system health');
   console.log('   npm run dx         - Start all services');
-  console.log('   docker-compose ps  - Check Docker services');
+  console.log('   docker-compose -f docker-compose.deps.yml ps  - Check Docker services');
   console.log('\n🚀 Happy coding!\n');
 }
 

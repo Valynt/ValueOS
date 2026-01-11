@@ -89,7 +89,3 @@ networks:
 volumes:
   postgres_data:
   redis_data:
-  prometheus_data:
-  grafana_data:
-  node_modules:
-  valueos-node-modules:

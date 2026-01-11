@@ -154,7 +154,9 @@ ValueOS/
 │   └── lib/             # Shared utilities
 ├── docs/                # Documentation
 ├── tests/               # Test files
-└── docker-compose.yml   # Docker services
+├── docker-compose.full.yml # Full-stack Docker services
+├── docker-compose.deps.yml # Dependency-only Docker services
+└── docker-compose.yml   # Full-stack alias (backward compatibility)
 ```
 
 ---
