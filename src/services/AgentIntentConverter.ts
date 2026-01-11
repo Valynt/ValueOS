@@ -249,6 +249,134 @@ class CoordinatorConverter extends BaseAgentConverter {
 }
 
 /**
+ * GroundTruth converter
+ */
+class GroundTruthConverter extends BaseAgentConverter {
+  readonly supportedAgentTypes = ['groundtruth', 'ground-truth', 'ground_truth', 'benchmark'];
+
+  convert(output: GenericAgentOutput): UIIntent[] {
+    const intents: UIIntent[] = [];
+    const source = this.createSource(output);
+
+    const payload =
+      (getNestedValue(output, 'groundTruth') as Record<string, unknown> | undefined) ||
+      (getNestedValue(output, 'groundtruth') as Record<string, unknown> | undefined) ||
+      (getNestedValue(output, 'ground_truth') as Record<string, unknown> | undefined) ||
+      (output as Record<string, unknown>);
+
+    const benchmarks = (payload?.benchmarks || getNestedValue(output, 'benchmarks')) as
+      | Record<string, unknown>
+      | unknown[]
+      | undefined;
+    const validations = (payload?.validations || getNestedValue(output, 'validations')) as
+      | Record<string, unknown>
+      | unknown[]
+      | undefined;
+    const confidence = (payload?.overallConfidence || getNestedValue(output, 'overallConfidence')) as
+      | number
+      | undefined;
+    const sources = (payload?.sources || getNestedValue(output, 'sources')) as string[] | undefined;
+
+    const benchmarkRows = Array.isArray(benchmarks)
+      ? benchmarks.map((item, index) => ({
+          id: `benchmark-${index}`,
+          ...(item as Record<string, unknown>),
+        }))
+      : benchmarks
+      ? Object.entries(benchmarks).map(([metricId, item]) => ({
+          id: metricId,
+          metricId,
+          ...(item as Record<string, unknown>),
+        }))
+      : [];
+
+    const validationRows = Array.isArray(validations)
+      ? validations.map((item, index) => ({
+          id: `validation-${index}`,
+          ...(item as Record<string, unknown>),
+        }))
+      : validations
+      ? Object.entries(validations).map(([metricId, item]) => ({
+          id: metricId,
+          metricId,
+          ...(item as Record<string, unknown>),
+        }))
+      : [];
+
+    if (benchmarkRows.length > 0) {
+      intents.push(
+        createIntent(
+          'display_table',
+          {
+            rows: benchmarkRows,
+            columns: [
+              { id: 'metricId', header: 'Metric', accessor: 'metricId' },
+              { id: 'name', header: 'Name', accessor: 'name' },
+              { id: 'value', header: 'Value', accessor: 'value' },
+              { id: 'unit', header: 'Unit', accessor: 'unit' },
+              { id: 'percentile', header: 'Percentile', accessor: 'percentile' },
+              { id: 'confidence', header: 'Confidence', accessor: 'confidence' },
+              { id: 'source', header: 'Source', accessor: 'source' },
+            ],
+            title: 'Ground Truth Benchmarks',
+          },
+          { priority: 'high', size: 'large' },
+          source
+        )
+      );
+    }
+
+    if (validationRows.length > 0) {
+      intents.push(
+        createIntent(
+          'display_table',
+          {
+            rows: validationRows,
+            columns: [
+              { id: 'metricId', header: 'Metric', accessor: 'metricId' },
+              { id: 'valid', header: 'Valid', accessor: 'valid' },
+              { id: 'percentile', header: 'Percentile', accessor: 'percentile' },
+              { id: 'warning', header: 'Warning', accessor: 'warning' },
+              { id: 'citation', header: 'Citation', accessor: 'citation' },
+            ],
+            title: 'Ground Truth Validations',
+          },
+          { priority: 'medium', size: 'large' },
+          source
+        )
+      );
+    }
+
+    if (typeof confidence === 'number') {
+      intents.push(
+        createIntent(
+          'show_confidence',
+          {
+            confidence,
+            label: 'Ground Truth Confidence',
+          },
+          { priority: 'medium' },
+          source
+        )
+      );
+    }
+
+    if (sources && sources.length > 0) {
+      intents.push(
+        createIntent(
+          'display_list',
+          { items: sources, title: 'Ground Truth Sources' },
+          { priority: 'low', position: 'sidebar' },
+          source
+        )
+      );
+    }
+
+    return intents;
+  }
+}
+
+/**
  * Generic fallback converter for unknown agents
  */
 class GenericAgentConverter extends BaseAgentConverter {
@@ -295,6 +423,7 @@ export class AgentIntentConverterRegistry {
   
   private registerDefaults(): void {
     this.converters = [
+      new GroundTruthConverter(),
       new SystemMapperConverter(),
       new InterventionDesignerConverter(),
       new OutcomeEngineerConverter(),
