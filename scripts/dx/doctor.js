@@ -88,6 +88,14 @@ function parseMajor(version) {
   return Number(String(version).replace(/^v/, '').split('.')[0]);
 }
 
+function isTruthy(value) {
+  return ['1', 'true', 'yes', 'on'].includes(String(value).toLowerCase());
+}
+
+function isLocalSupabaseUrl(url) {
+  return url.includes('localhost') || url.includes('127.0.0.1');
+}
+
 function checkNodeVersion() {
   const nvmrcPath = path.join(projectRoot, '.nvmrc');
   if (!fs.existsSync(nvmrcPath)) {
@@ -256,8 +264,8 @@ function checkComposeState() {
 }
 
 function checkSupabase() {
-  const isLocalSupabase = supabaseUrl.includes('localhost') || supabaseUrl.includes('127.0.0.1');
-  if (!isLocalSupabase) {
+  const shouldCheckSupabase = isTruthy(process.env.DX_SUPABASE_LOCAL) || isLocalSupabaseUrl(supabaseUrl);
+  if (!shouldCheckSupabase) {
     return;
   }
 

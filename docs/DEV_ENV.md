@@ -26,6 +26,22 @@ This runbook is the canonical troubleshooting guide for ValueOS dev. It is desig
 
 ---
 
+## Local Supabase Checks (DX Doctor & Setup)
+
+The setup script and `dx:doctor` only validate the Supabase CLI and local Supabase runtime when you explicitly opt in:
+
+- **Enable local checks:** set `DX_SUPABASE_LOCAL=1` _or_ set `VITE_SUPABASE_URL` to a localhost URL (e.g., `http://localhost:54321`).
+- **Disable local checks:** unset `DX_SUPABASE_LOCAL` and point `VITE_SUPABASE_URL` at a hosted Supabase project.
+
+Example:
+
+```bash
+DX_SUPABASE_LOCAL=1 npm run dx:doctor
+DX_SUPABASE_LOCAL=1 npm run setup
+```
+
+---
+
 ## Common Failures + Exact Fixes
 
 ### 1) Port already in use

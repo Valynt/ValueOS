@@ -54,6 +54,23 @@ is_truthy() {
     esac
 }
 
+load_env_file() {
+    local env_file="$1"
+    if [ -f "$env_file" ]; then
+        set -a
+        # shellcheck disable=SC1090
+        source "$env_file"
+        set +a
+    fi
+}
+
+is_local_supabase_url() {
+    case "${1}" in
+        *localhost*|*127.0.0.1*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 # ============================================================================
 # Step 1: Check Prerequisites
 # ============================================================================
@@ -93,14 +110,22 @@ if ! docker info > /dev/null 2>&1; then
 fi
 echo -e "${GREEN}✅ Docker installed and running${NC}"
 
-# Check Supabase CLI
-if ! command -v supabase &> /dev/null; then
-    echo -e "${RED}❌ Supabase CLI not installed${NC}"
-    echo "   Install manually: npm install -g supabase"
-    exit 1
+# Check Supabase CLI (only for local Supabase usage)
+load_env_file ".env.local"
+load_env_file ".env"
+SUPABASE_URL="${VITE_SUPABASE_URL:-${SUPABASE_URL:-}}"
+
+if is_truthy "${DX_SUPABASE_LOCAL:-}" || is_local_supabase_url "${SUPABASE_URL}"; then
+    if ! command -v supabase &> /dev/null; then
+        echo -e "${RED}❌ Supabase CLI not installed${NC}"
+        echo "   Install manually: npm install -g supabase"
+        exit 1
+    else
+        SUPABASE_VERSION=$(supabase --version 2>&1 | head -n 1 || echo "unknown")
+        echo -e "${GREEN}✅ Supabase CLI ${SUPABASE_VERSION}${NC}"
+    fi
 else
-    SUPABASE_VERSION=$(supabase --version 2>&1 | head -n 1 || echo "unknown")
-    echo -e "${GREEN}✅ Supabase CLI ${SUPABASE_VERSION}${NC}"
+    echo -e "${YELLOW}ℹ️  Supabase CLI check skipped (set DX_SUPABASE_LOCAL=1 or VITE_SUPABASE_URL to localhost to enable)${NC}"
 fi
 
 echo ""
@@ -189,15 +214,6 @@ echo "   - Stop Supabase:        supabase stop"
 echo "   - View Supabase logs:   supabase logs"
 echo ""
 
-load_env_file() {
-    local env_file="$1"
-    if [ -f "$env_file" ]; then
-        set -a
-        # shellcheck disable=SC1090
-        source "$env_file"
-        set +a
-    fi
-}
 
 if is_truthy "$SEED_DB"; then
     echo -e "${BLUE}🌱 Seeding database${NC}"
