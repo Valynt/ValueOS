@@ -11,12 +11,28 @@ import { setupEnvironment } from '../lib/environment.js';
 import { progressTracker, spinner } from '../lib/progress.js';
 import { retryWithRecovery } from '../lib/recovery.js';
 import { execSync } from 'child_process';
+import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const args = new Set(process.argv.slice(2));
+const shouldStart =
+  args.has('--start') || /^(1|true|yes)$/i.test(process.env.START_DEV_SERVER || '');
+const shouldSeed =
+  args.has('--seed') || /^(1|true|yes)$/i.test(process.env.SEED_DB || '');
+
+if (args.has('--help') || args.has('-h')) {
+  console.log('Usage: node scripts/dx/setup.js [--start] [--seed]');
+  console.log('');
+  console.log('Options:');
+  console.log('  --start   Start the dev environment via npm run dx after setup');
+  console.log('  --seed    Seed the database after setup (requires a running database)');
+  process.exit(0);
+}
 
 // Track setup metrics
 const metrics = {
@@ -55,7 +71,33 @@ function exec(command, description) {
  */
 function envFileExists() {
   const projectRoot = path.resolve(__dirname, '../..');
-  return fs.existsSync(path.join(projectRoot, '.env'));
+  return fs.existsSync(path.join(projectRoot, '.env.local'));
+}
+
+/**
+ * Ensure .env exists for tooling that expects it
+ */
+function ensureDotEnvFromLocal() {
+  const projectRoot = path.resolve(__dirname, '../..');
+  const envLocalPath = path.join(projectRoot, '.env.local');
+  const envPath = path.join(projectRoot, '.env');
+
+  if (!fs.existsSync(envPath) && fs.existsSync(envLocalPath)) {
+    fs.copyFileSync(envLocalPath, envPath);
+    console.log('✅ Created .env from .env.local');
+  }
+}
+
+/**
+ * Load .env.local into process.env
+ */
+function loadEnvLocal() {
+  const projectRoot = path.resolve(__dirname, '../..');
+  const envLocalPath = path.join(projectRoot, '.env.local');
+
+  if (fs.existsSync(envLocalPath)) {
+    dotenv.config({ path: envLocalPath });
+  }
 }
 
 /**
@@ -74,60 +116,13 @@ async function installDependencies() {
 }
 
 /**
- * Setup Docker services
+ * Seed the database
  */
-async function setupDocker() {
-  console.log('\n🐳 Setting up Docker services...\n');
-  
-  // Check if docker-compose.yml exists
-  const projectRoot = path.resolve(__dirname, '../..');
-  const composeFile = path.join(projectRoot, 'docker-compose.yml');
-  
-  if (!fs.existsSync(composeFile)) {
-    console.log('⚠️  docker-compose.yml not found, skipping Docker setup');
-    return true;
-  }
-  
-  // Pull images
-  console.log('⬇️  Pulling Docker images...');
-  const pullSuccess = exec('docker-compose pull', 'Pull Docker images');
-  
-  if (!pullSuccess) {
-    console.log('⚠️  Failed to pull images, will try to build');
-  }
-  
-  // Start services
-  return exec('docker-compose up -d', 'Start Docker services');
+async function seedDatabase() {
+  loadEnvLocal();
+  return exec('bash scripts/db-seed.sh', 'Seed database');
 }
 
-/**
- * Wait for services to be healthy
- */
-async function waitForServices() {
-  console.log('\n⏳ Waiting for services to be ready...\n');
-  
-  const maxAttempts = 30;
-  const delay = 2000; // 2 seconds
-  
-  for (let i = 0; i < maxAttempts; i++) {
-    try {
-      // Check if Docker services are running
-      execSync('docker-compose ps', { 
-        stdio: 'ignore',
-        cwd: path.resolve(__dirname, '../..')
-      });
-      
-      console.log('✅ Services are ready!');
-      return true;
-    } catch {
-      process.stdout.write('.');
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-  }
-  
-  console.log('\n⚠️  Services may not be fully ready, but continuing...');
-  return true;
-}
 
 /**
  * Display success message
@@ -142,12 +137,12 @@ function displaySuccess() {
   console.log('='.repeat(60));
   console.log(`\n⏱️  Time: ${minutes}m ${seconds}s`);
   console.log('\n📋 Next steps:');
-  console.log('   1. Start development: npm run dev');
+  console.log('   1. Start development: npm run dx');
   console.log('   2. Open frontend: http://localhost:5173');
   console.log('   3. Read docs: docs/GETTING_STARTED.md');
   console.log('\n💡 Useful commands:');
   console.log('   npm run health     - Check system health');
-  console.log('   npm run dev        - Start all services');
+  console.log('   npm run dx         - Start all services');
   console.log('   docker-compose ps  - Check Docker services');
   console.log('\n🚀 Happy coding!\n');
 }
@@ -216,12 +211,15 @@ async function main() {
       await setupEnvironment({
         projectName: 'valueos-dev',
         environment: 'development',
-        enableDebug: true
+        enableDebug: true,
+        envFile: '.env.local'
       });
     } else {
-      console.log('\n✅ .env file already exists, skipping environment setup');
-      console.log('   To regenerate: rm .env && npm run setup\n');
+      console.log('\n✅ .env.local already exists, skipping environment setup');
+      console.log('   To regenerate: rm .env.local && npm run setup\n');
     }
+
+    ensureDotEnvFromLocal();
     
     // Step 4: Install dependencies
     const depsSuccess = await installDependencies();
@@ -229,14 +227,21 @@ async function main() {
       throw new Error('Dependency installation failed');
     }
     
-    // Step 5: Setup Docker
-    const dockerSuccess = await setupDocker();
-    if (!dockerSuccess) {
-      console.log('⚠️  Docker setup had issues, but continuing...');
+    // Step 5: Optional database seed
+    if (shouldSeed) {
+      const seedSuccess = await seedDatabase();
+      if (!seedSuccess) {
+        throw new Error('Database seed failed');
+      }
     }
-    
-    // Step 6: Wait for services
-    await waitForServices();
+
+    // Step 6: Optional start
+    if (shouldStart) {
+      const startSuccess = exec('npm run dx', 'Start development environment');
+      if (!startSuccess) {
+        throw new Error('Development start failed');
+      }
+    }
     
     // Success!
     metrics.success = true;
