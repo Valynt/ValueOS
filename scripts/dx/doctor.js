@@ -120,23 +120,29 @@ function checkDocker() {
     return;
   }
 
+  let dockerContext = 'unknown';
+  let contextError = null;
+  try {
+    dockerContext = runCommand('docker context show').trim();
+  } catch (error) {
+    contextError = error;
+  }
+
   try {
     runCommand('docker info');
   } catch (error) {
     reportFailure(
       'Docker not running',
-      'Docker daemon is not responding.',
+      `Docker daemon is not responding. Current context: ${dockerContext}.`,
       'Start Docker Desktop (or `sudo systemctl start docker`).'
     );
   }
 
-  try {
-    runCommand('docker context show');
-  } catch {
+  if (contextError) {
     reportFailure(
       'Docker context unavailable',
-      'Unable to read Docker context.',
-      'Run: docker context ls && docker context use default'
+      `Unable to read Docker context. Current context: ${dockerContext}.`,
+      'Run: docker context use default'
     );
   }
 }
