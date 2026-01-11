@@ -1,4 +1,4 @@
-**
+/**
  * Unified environment adapter for both server and browser runtimes.
  * All code should import helpers from this module instead of touching
  * `process.env` or `import.meta.env` directly.

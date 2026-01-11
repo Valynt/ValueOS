@@ -1,4 +1,6 @@
 import { logger } from '../../lib/logger';
+import { isDevelopment, isProduction } from '../../config/environment';
+import { captureException } from '../../lib/sentry';
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
 
@@ -110,9 +112,17 @@ export class ComponentErrorBoundary extends Component<
     onError?.(error, errorInfo);
 
     // Log to error tracking service in production
-    if (process.env.NODE_ENV === 'production') {
-      // TODO: Integrate with error tracking service (e.g., Sentry)
-      // logErrorToService(error, { componentName, errorInfo });
+    if (isProduction()) {
+      captureException(error, {
+        contexts: {
+          react: {
+            componentStack: errorInfo.componentStack,
+          },
+        },
+        extra: {
+          componentName,
+        },
+      });
     }
   }
 
@@ -141,7 +151,7 @@ export class ComponentErrorBoundary extends Component<
 
     // Determine if we should show error details
     const shouldShowDetails =
-      showErrorDetails ?? process.env.NODE_ENV === 'development';
+      showErrorDetails ?? isDevelopment();
 
     // Default fallback UI
     return (

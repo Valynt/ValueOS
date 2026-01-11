@@ -2,14 +2,20 @@ import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 import { ComponentErrorBoundary } from '../ComponentErrorBoundary';
-import { __setEnvSourceForTests, env } from '../../lib/env';
+import { __setEnvSourceForTests, env } from '../../../lib/env';
+import { captureException } from '../../../lib/sentry';
+
+// Mock Sentry
+vi.mock('../../../lib/sentry', () => ({
+  captureException: vi.fn(),
+}));
 
 const Thrower = () => {
   throw new Error('password=secret123');
 };
 
 describe('ComponentErrorBoundary secrecy + retry', () => {
-  it('hides sensitive error details outside development while keeping retry', () => {
+  it('hides sensitive error details outside development while keeping retry and logs to Sentry', () => {
     const originalMode = env.mode;
     __setEnvSourceForTests({ NODE_ENV: 'production' });
 
@@ -20,8 +26,24 @@ describe('ComponentErrorBoundary secrecy + retry', () => {
     );
 
     expect(screen.queryByText(/password=secret123/)).toBeNull();
-    const retry = screen.getByRole('button', { name: /try again/i });
+    const retry = screen.getByRole('button', { name: /retry rendering/i });
     expect(retry).toBeEnabled();
+
+    // Verify Sentry logging
+    expect(captureException).toHaveBeenCalledTimes(1);
+    expect(captureException).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({
+        contexts: expect.objectContaining({
+          react: expect.objectContaining({
+            componentStack: expect.any(String),
+          }),
+        }),
+        extra: {
+          componentName: 'Danger',
+        },
+      })
+    );
 
     __setEnvSourceForTests({ NODE_ENV: originalMode });
   });
