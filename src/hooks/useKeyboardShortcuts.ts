@@ -1,36 +1,36 @@
 /**
  * Keyboard Shortcuts Hook
- * 
+ *
  * Context-aware keyboard shortcuts that adapt based on current workflow stage.
  * Provides power users with fast access to common actions.
- * 
+ *
  * Shortcuts by Stage:
- * 
+ *
  * Opportunity:
  * - ⌘R: Run ROI calculation
  * - ⌘M: Open system map
  * - ⌘V: Validate hypothesis
- * 
+ *
  * Target:
  * - ⌘C: Create commitment
  * - ⌘T: Run target analysis
  * - ⌘D: View dependencies
- * 
+ *
  * Realization:
  * - ⌘E: Execute realization
  * - ⌘P: View progress
  * - ⌘I: View impact
- * 
+ *
  * Global:
  * - ⌘K: Command palette
  * - ⌘\: Toggle silent mode
  * - ⌘/: Show shortcuts
  */
 
-import { useEffect, useCallback } from 'react';
-import { logger } from '../lib/logger';
+import { useEffect, useCallback } from "react";
+import { logger } from "../lib/logger";
 
-export type WorkflowStage = 'opportunity' | 'target' | 'realization' | 'expansion';
+export type WorkflowStage = "opportunity" | "target" | "realization" | "expansion";
 
 export interface KeyboardShortcut {
   key: string;
@@ -42,7 +42,7 @@ export interface KeyboardShortcut {
   };
   action: () => void;
   description: string;
-  stage?: WorkflowStage | 'global';
+  stage?: WorkflowStage | "global";
 }
 
 interface UseKeyboardShortcutsOptions {
@@ -61,9 +61,9 @@ export function useKeyboardShortcuts({
       if (!enabled) return;
 
       // Find matching shortcut
-      const matchingShortcut = shortcuts.find(shortcut => {
+      const matchingShortcut = shortcuts.find((shortcut) => {
         // Check if stage matches (or is global)
-        if (shortcut.stage && shortcut.stage !== 'global' && shortcut.stage !== currentStage) {
+        if (shortcut.stage && shortcut.stage !== "global" && shortcut.stage !== currentStage) {
           return false;
         }
 
@@ -74,18 +74,18 @@ export function useKeyboardShortcuts({
 
         // Check modifiers
         const { meta, ctrl, shift, alt } = shortcut.modifiers;
-        
-        if (meta !== undefined && (e.metaKey !== meta)) return false;
-        if (ctrl !== undefined && (e.ctrlKey !== ctrl)) return false;
-        if (shift !== undefined && (e.shiftKey !== shift)) return false;
-        if (alt !== undefined && (e.altKey !== alt)) return false;
+
+        if (meta !== undefined && e.metaKey !== meta) return false;
+        if (ctrl !== undefined && e.ctrlKey !== ctrl) return false;
+        if (shift !== undefined && e.shiftKey !== shift) return false;
+        if (alt !== undefined && e.altKey !== alt) return false;
 
         return true;
       });
 
       if (matchingShortcut) {
         e.preventDefault();
-        logger.info('Keyboard shortcut triggered', {
+        logger.info("Keyboard shortcut triggered", {
           key: matchingShortcut.key,
           stage: currentStage,
           description: matchingShortcut.description,
@@ -99,14 +99,12 @@ export function useKeyboardShortcuts({
   useEffect(() => {
     if (!enabled) return;
 
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
   }, [handleKeyPress, enabled]);
 
   return {
-    shortcuts: shortcuts.filter(
-      s => s.stage === 'global' || s.stage === currentStage
-    ),
+    shortcuts: shortcuts.filter((s) => s.stage === "global" || s.stage === currentStage),
   };
 }
 
@@ -130,94 +128,94 @@ export function getDefaultShortcuts(
   const shortcuts: KeyboardShortcut[] = [];
 
   // Opportunity stage shortcuts
-  if (stage === 'opportunity') {
+  if (stage === "opportunity") {
     if (actions.runROI) {
       shortcuts.push({
-        key: 'r',
+        key: "r",
         modifiers: { meta: true },
         action: actions.runROI,
-        description: 'Run ROI calculation',
-        stage: 'opportunity',
+        description: "Run ROI calculation",
+        stage: "opportunity",
       });
     }
     if (actions.openSystemMap) {
       shortcuts.push({
-        key: 'm',
+        key: "m",
         modifiers: { meta: true },
         action: actions.openSystemMap,
-        description: 'Open system map',
-        stage: 'opportunity',
+        description: "Open system map",
+        stage: "opportunity",
       });
     }
     if (actions.validateHypothesis) {
       shortcuts.push({
-        key: 'v',
+        key: "v",
         modifiers: { meta: true },
         action: actions.validateHypothesis,
-        description: 'Validate hypothesis',
-        stage: 'opportunity',
+        description: "Validate hypothesis",
+        stage: "opportunity",
       });
     }
   }
 
   // Target stage shortcuts
-  if (stage === 'target') {
+  if (stage === "target") {
     if (actions.createCommitment) {
       shortcuts.push({
-        key: 'c',
+        key: "c",
         modifiers: { meta: true },
         action: actions.createCommitment,
-        description: 'Create commitment',
-        stage: 'target',
+        description: "Create commitment",
+        stage: "target",
       });
     }
     if (actions.runTargetAnalysis) {
       shortcuts.push({
-        key: 't',
+        key: "t",
         modifiers: { meta: true },
         action: actions.runTargetAnalysis,
-        description: 'Run target analysis',
-        stage: 'target',
+        description: "Run target analysis",
+        stage: "target",
       });
     }
     if (actions.viewDependencies) {
       shortcuts.push({
-        key: 'd',
+        key: "d",
         modifiers: { meta: true },
         action: actions.viewDependencies,
-        description: 'View dependencies',
-        stage: 'target',
+        description: "View dependencies",
+        stage: "target",
       });
     }
   }
 
   // Realization stage shortcuts
-  if (stage === 'realization') {
+  if (stage === "realization") {
     if (actions.executeRealization) {
       shortcuts.push({
-        key: 'e',
+        key: "e",
         modifiers: { meta: true },
         action: actions.executeRealization,
-        description: 'Execute realization',
-        stage: 'realization',
+        description: "Execute realization",
+        stage: "realization",
       });
     }
     if (actions.viewProgress) {
       shortcuts.push({
-        key: 'p',
+        key: "p",
         modifiers: { meta: true },
         action: actions.viewProgress,
-        description: 'View progress',
-        stage: 'realization',
+        description: "View progress",
+        stage: "realization",
       });
     }
     if (actions.viewImpact) {
       shortcuts.push({
-        key: 'i',
+        key: "i",
         modifiers: { meta: true },
         action: actions.viewImpact,
-        description: 'View impact',
-        stage: 'realization',
+        description: "View impact",
+        stage: "realization",
       });
     }
   }
@@ -231,12 +229,82 @@ export function getDefaultShortcuts(
 export function formatShortcut(shortcut: KeyboardShortcut): string {
   const parts: string[] = [];
 
-  if (shortcut.modifiers.meta) parts.push('⌘');
-  if (shortcut.modifiers.ctrl) parts.push('Ctrl');
-  if (shortcut.modifiers.shift) parts.push('⇧');
-  if (shortcut.modifiers.alt) parts.push('⌥');
+  if (shortcut.modifiers.meta) parts.push("⌘");
+  if (shortcut.modifiers.ctrl) parts.push("Ctrl");
+  if (shortcut.modifiers.shift) parts.push("⇧");
+  if (shortcut.modifiers.alt) parts.push("⌥");
 
   parts.push(shortcut.key.toUpperCase());
 
-  return parts.join(' + ');
+  return parts.join(" + ");
+}
+
+/**
+ * Agent workspace shortcuts
+ *
+ * - ⌘K: Open command palette
+ * - ⌘J: Toggle agent panel
+ * - Space: Pause/resume execution
+ * - Shift+Enter: Approve plan
+ */
+export function getAgentShortcuts(actions: {
+  openCommandPalette?: () => void;
+  toggleAgentPanel?: () => void;
+  pauseResume?: () => void;
+  approvePlan?: () => void;
+  cancelExecution?: () => void;
+}): KeyboardShortcut[] {
+  const shortcuts: KeyboardShortcut[] = [];
+
+  if (actions.openCommandPalette) {
+    shortcuts.push({
+      key: "k",
+      modifiers: { meta: true },
+      action: actions.openCommandPalette,
+      description: "Open command palette",
+      stage: "global",
+    });
+  }
+
+  if (actions.toggleAgentPanel) {
+    shortcuts.push({
+      key: "j",
+      modifiers: { meta: true },
+      action: actions.toggleAgentPanel,
+      description: "Toggle agent panel",
+      stage: "global",
+    });
+  }
+
+  if (actions.pauseResume) {
+    shortcuts.push({
+      key: " ",
+      modifiers: {},
+      action: actions.pauseResume,
+      description: "Pause/resume execution",
+      stage: "global",
+    });
+  }
+
+  if (actions.approvePlan) {
+    shortcuts.push({
+      key: "Enter",
+      modifiers: { shift: true },
+      action: actions.approvePlan,
+      description: "Approve plan",
+      stage: "global",
+    });
+  }
+
+  if (actions.cancelExecution) {
+    shortcuts.push({
+      key: "Escape",
+      modifiers: {},
+      action: actions.cancelExecution,
+      description: "Cancel execution",
+      stage: "global",
+    });
+  }
+
+  return shortcuts;
 }
