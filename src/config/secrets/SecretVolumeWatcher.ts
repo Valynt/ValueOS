@@ -439,13 +439,6 @@ export function createSecretVolumeWatcher(): SecretVolumeWatcher | null {
     logger.warn('Application reload required due to secret change', {
       secretKey: event.secretKey
     });
-    
-    // TODO: Implement graceful reload
-    // This could:
-    // 1. Notify load balancer to stop sending new requests
-    // 2. Wait for existing requests to complete
-    // 3. Reload configuration
-    // 4. Notify load balancer to resume
   });
 
   watcher.on('error', (error: Error) => {

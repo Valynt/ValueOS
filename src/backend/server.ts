@@ -11,9 +11,10 @@ import billingRouter from "../api/billing";
 import agentsRouter from "../api/agents";
 import workflowRouter from "../api/workflow";
 import documentRouter from "../api/documents";
-import healthRouter from "../api/health";
+import healthRouter, { markAsShuttingDown } from "../api/health";
 import authRouter from "../api/auth";
 import docsApiRouter from "./docs-api";
+import { initializeSecretVolumeWatcher, secretVolumeWatcher } from "../config/secrets/SecretVolumeWatcher";
 import { createLogger } from "../lib/logger";
 import { createVersionedApiRouter } from "./versioning";
 import { requestAuditMiddleware } from "../middleware/requestAuditMiddleware";
@@ -187,6 +188,33 @@ if (
     throw new Error(
       "Consent registry is not configured. Verify consent registry Supabase URL and authentication configuration."
     );
+  }
+
+  // Initialize secret watcher
+  await initializeSecretVolumeWatcher();
+
+  if (secretVolumeWatcher) {
+    secretVolumeWatcher.on("reload-required", (event) => {
+      logger.warn("Graceful shutdown initiated due to secret change", {
+        secretKey: event.secretKey,
+      });
+
+      // 1. Notify LB to stop sending traffic
+      markAsShuttingDown();
+
+      // 2. Stop accepting new connections
+      const SHUTDOWN_TIMEOUT = 10000; // 10 seconds
+      server.close(() => {
+        logger.info("Server closed, exiting process");
+        process.exit(0);
+      });
+
+      // 3. Force exit if connections don't drain in time
+      setTimeout(() => {
+        logger.error("Forcing exit after timeout");
+        process.exit(1);
+      }, SHUTDOWN_TIMEOUT);
+    });
   }
 
   server.listen(PORT, () => {
