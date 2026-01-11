@@ -19,6 +19,7 @@ New to ValueOS? Start here:
 For developers working on ValueOS:
 
 ### Developer Experience
+
 - **[DX Audit](development/DX_AUDIT_ENHANCED.md)** - Developer experience improvements
 - **[DX Implementation](development/DX_IMPLEMENTATION_COMPLETE.md)** - Implementation summary
 - **[DX Roadmap](development/DX_IMPLEMENTATION_ROADMAP.md)** - Implementation roadmap
@@ -26,6 +27,7 @@ For developers working on ValueOS:
 - **[DX Launch Checklist](development/DX_LAUNCH_CHECKLIST.md)** - Launch preparation
 
 ### Platform-Specific Guides
+
 - **[Windows Setup](platform/WINDOWS.md)** - Windows and WSL2 setup
 - **[macOS Setup](platform/MACOS.md)** - macOS Intel and Apple Silicon
 - **[Linux Setup](platform/LINUX.md)** - Linux distributions
@@ -37,11 +39,13 @@ For developers working on ValueOS:
 Infrastructure and deployment documentation:
 
 ### CI/CD
+
 - **[CI/CD Architecture](deployment/CICD_INFRASTRUCTURE_ARCHITECTURE.md)** - Complete CI/CD design
 - **[CI/CD Implementation](deployment/CICD_INFRASTRUCTURE_COMPLETE.md)** - Implementation guide
 - **[Deployment Guide](deployment/DEPLOYMENT.md)** - Deployment procedures
 
 ### Infrastructure
+
 - **[Infrastructure as Code](../infra/terraform-new/)** - Terraform modules
 - **[Observability Stack](deployment/OBSERVABILITY_STACK.md)** - Monitoring and observability
 
@@ -52,10 +56,12 @@ Infrastructure and deployment documentation:
 For operations and maintenance:
 
 ### Monitoring & Security
+
 - **[Metrics & Monitoring](operations/DX_METRICS.md)** - Metrics framework
 - **[Security Guide](operations/SECURITY_DEV_ENVIRONMENT.md)** - Security best practices
 
 ### Runbooks
+
 - **[Deployment Runbook](deployment/CICD_INFRASTRUCTURE_COMPLETE.md#deployment-strategies)** - Deployment procedures
 - **[Rollback Runbook](deployment/CICD_INFRASTRUCTURE_COMPLETE.md#rollback-strategy)** - Rollback procedures
 - **[Incident Response](operations/SECURITY_DEV_ENVIRONMENT.md#incident-response)** - Security incidents
@@ -65,11 +71,14 @@ For operations and maintenance:
 ## 📚 Additional Resources
 
 ### Contributing
+
 - **[Contributing Guide](../CONTRIBUTING.md)** - How to contribute
 - **[Code of Conduct](../CONTRIBUTING.md#code-of-conduct)** - Community guidelines
 
 ### Archive
-- **[Archive](archive/)** - Old implementation reports and status updates
+
+- **[Archive](archive/)** - Historical documentation and archived reports
+- **[Archived Reports](archive/reports/README.md)** - Past report snapshots and scorecards
 
 ---
 
@@ -107,7 +116,7 @@ docs/
 │   └── LINUX.md                       # Linux
 │
 └── archive/                            # Historical docs
-    └── [old implementation reports]
+    └── reports/                        # Archived reports and scorecards
 ```
 
 ---
@@ -117,6 +126,7 @@ docs/
 ### Most Common Tasks
 
 **Setup**:
+
 ```bash
 npm run setup          # Automated setup
 npm run health         # Check system health
@@ -124,6 +134,7 @@ npm run dev    # Start all services
 ```
 
 **Deployment**:
+
 ```bash
 npm run deploy:staging     # Deploy to staging
 npm run deploy:production  # Deploy to production
@@ -131,6 +142,7 @@ npm run deploy:rollback    # Rollback deployment
 ```
 
 **Development**:
+
 ```bash
 npm run dev            # Start frontend
 npm run backend:dev    # Start backend
