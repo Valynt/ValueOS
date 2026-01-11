@@ -3,15 +3,14 @@ version: "3.9"
 services:
   caddy:
     image: caddy:2-alpine
-    container_name: valueos-caddy-prod
-    restart: unless-stopped
+    container_name: valueos-caddy-staging
     ports:
       - "80:80"
       - "443:443"
     environment:
-      APP_DOMAIN: ${APP_DOMAIN:-app.example.com}
-      ACME_EMAIL: ${ACME_EMAIL:-security@example.com}
-      ACME_CA: ${ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
+      APP_DOMAIN: ${APP_DOMAIN:-staging.example.com}
+      ACME_EMAIL: ${ACME_EMAIL:-staging@example.com}
+      ACME_CA: ${ACME_CA:-https://acme-staging-v02.api.letsencrypt.org/directory}
       TLS_MODE: ${TLS_MODE:-}
       API_UPSTREAM: ${API_UPSTREAM:-http://backend:3001}
       STATIC_ROOT: /srv/www
@@ -24,7 +23,7 @@ services:
       - caddy-data:/data
       - caddy-config:/config
       - caddy-logs:/var/log/caddy
-    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile.prod", "--adapter", "caddyfile"]
+    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile.staging", "--adapter", "caddyfile"]
     networks:
       - valueos
     depends_on:
@@ -32,16 +31,22 @@ services:
         condition: service_healthy
       backend:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   frontend:
     image: node:20-alpine
-    container_name: valueos-frontend-prod
+    container_name: valueos-frontend-staging
     working_dir: /app
     command: ["sh", "-c", "npm ci --legacy-peer-deps && npm run build && cp -r dist/. /dist && tail -f /dev/null"]
     environment:
       NODE_ENV: production
       VITE_API_BASE_URL: /api
-      VITE_APP_URL: https://${APP_DOMAIN:-app.example.com}
+      VITE_APP_URL: https://${APP_DOMAIN:-staging.example.com}
       VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
       VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
     volumes:
@@ -61,21 +66,16 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    container_name: valueos-backend-prod
-    restart: unless-stopped
+    container_name: valueos-backend-staging
     environment:
-      NODE_ENV: production
+      NODE_ENV: staging
       API_PORT: 3001
+      CORS_ALLOWED_ORIGINS: https://${APP_DOMAIN:-staging.example.com}
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: redis://redis:6379
-      CORS_ALLOWED_ORIGINS: https://${APP_DOMAIN:-app.example.com}
-      SUPABASE_SERVICE_KEY_FILE: /run/secrets/supabase_service_key
-      OPENAI_API_KEY_FILE: /run/secrets/openai_api_key
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
       VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
       VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
-    secrets:
-      - supabase_service_key
-      - openai_api_key
     expose:
       - "3001"
     networks:
@@ -92,20 +92,14 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: valueos-redis-prod
-    restart: unless-stopped
-    command: >
-      redis-server
-      --requirepass ${REDIS_PASSWORD}
-      --appendonly yes
-      --maxmemory 256mb
-      --maxmemory-policy allkeys-lru
+    container_name: valueos-redis-staging
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
       - redis-data:/data
     networks:
       - valueos
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -121,9 +115,3 @@ volumes:
   redis-data:
   frontend-dist:
   frontend-node-modules:
-
-secrets:
-  supabase_service_key:
-    file: ./secrets/supabase_service_key.txt
-  openai_api_key:
-    file: ./secrets/openai_api_key.txt

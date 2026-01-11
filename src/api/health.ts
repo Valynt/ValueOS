@@ -291,7 +291,7 @@ async function checkRedis(): Promise<DependencyStatus> {
 /**
  * Comprehensive health check
  */
-router.get('/health', async (req: Request, res: Response) => {
+router.get(['/health', '/api/health'], async (req: Request, res: Response) => {
   const [database, supabase, togetherAI, openAI, redis] = await Promise.all([
     checkDatabase(),
     checkSupabase(),
