@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# ValueCanvas Dev Environment Setup
+# ValueOS Dev Environment Setup
 # Sets up dependencies and local environment (no services started by default)
 
 set -e  # Exit on error
@@ -36,7 +36,7 @@ for arg in "$@"; do
     esac
 done
 
-echo "🚀 ValueCanvas - Dev Environment Setup"
+echo "🚀 ValueOS - Dev Environment Setup"
 echo "================================================"
 echo ""
 
@@ -63,7 +63,7 @@ echo ""
 # Check Node.js
 if ! command -v node &> /dev/null; then
     echo -e "${RED}❌ Node.js not installed${NC}"
-    echo "   Install from: https://nodejs.org (v18 or higher)"
+    echo "   Install from: https://nodejs.org (v22)"
     exit 1
 fi
 NODE_VERSION=$(node --version)
@@ -155,6 +155,11 @@ if [ ! -f ".env" ]; then
     cp .env.local .env
     echo -e "${GREEN}✅ Created .env from .env.local${NC}"
 fi
+
+echo ""
+echo -e "${BLUE}🔌 Step 4: Syncing port registry${NC}"
+echo ""
+node scripts/dx/ports.js
 
 echo ""
 

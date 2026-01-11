@@ -15,6 +15,7 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { writePortsEnvFile } from './ports.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -86,6 +87,12 @@ function ensureDotEnvFromLocal() {
     fs.copyFileSync(envLocalPath, envPath);
     console.log('✅ Created .env from .env.local');
   }
+}
+
+function ensurePortsEnv() {
+  const projectRoot = path.resolve(__dirname, '../..');
+  const portsPath = path.join(projectRoot, '.env.ports');
+  writePortsEnvFile(portsPath);
 }
 
 /**
@@ -220,6 +227,7 @@ async function main() {
     }
 
     ensureDotEnvFromLocal();
+    ensurePortsEnv();
     
     // Step 4: Install dependencies
     const depsSuccess = await installDependencies();

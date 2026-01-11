@@ -6,10 +6,11 @@
  */
 
 import { execSync, spawn } from 'child_process';
+import fs from 'fs';
 import net from 'net';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { loadPorts, resolvePort } from './ports.js';
+import { loadPorts, resolvePort, writePortsEnvFile } from './ports.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,6 +36,8 @@ const colors = {
   magenta: '\x1b[35m'
 };
 
+const dxStatePath = path.join(projectRoot, '.dx-state.json');
+
 /**
  * Format log line with service prefix
  */
@@ -42,6 +45,55 @@ function formatLog(service, line, color) {
   const timestamp = new Date().toLocaleTimeString();
   const prefix = `${color}[${service}]${colors.reset}`;
   return `${colors.bright}${timestamp}${colors.reset} ${prefix} ${line}`;
+}
+
+function ensurePortsEnvFile() {
+  const portsFile = path.join(projectRoot, '.env.ports');
+  writePortsEnvFile(portsFile);
+}
+
+function readDxState() {
+  if (!fs.existsSync(dxStatePath)) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(fs.readFileSync(dxStatePath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function writeDxState(state) {
+  fs.writeFileSync(dxStatePath, JSON.stringify(state, null, 2));
+}
+
+function clearDxState() {
+  if (fs.existsSync(dxStatePath)) {
+    fs.unlinkSync(dxStatePath);
+  }
+}
+
+function assertNoActiveDx() {
+  const state = readDxState();
+  if (!state?.pid) {
+    return;
+  }
+
+  try {
+    process.kill(state.pid, 0);
+    console.error(
+      formatLog(
+        'dx',
+        `Another DX session is already running (pid ${state.pid}, mode ${state.mode}).`,
+        colors.yellow
+      )
+    );
+    console.error(formatLog('dx', 'Stop it first or run: npm run dx:down', colors.yellow));
+    process.exit(1);
+  } catch {
+    clearDxState();
+  }
 }
 
 /**
@@ -151,6 +203,18 @@ function resolveMode(args) {
   return 'local';
 }
 
+function getRunningComposeServices(composeFile) {
+  try {
+    const output = execSync(`docker compose --env-file .env.ports -f ${composeFile} ps --status running --services`, {
+      cwd: projectRoot,
+      encoding: 'utf8'
+    });
+    return output.trim().split('\n').filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Check whether Docker is publishing a host port.
  */
@@ -178,20 +242,64 @@ function isDockerPortPublished(port) {
  */
 async function main() {
   const mode = resolveMode(process.argv.slice(2));
+  process.env.DX_MODE = mode;
 
   if (!['local', 'docker'].includes(mode)) {
     console.error(`❌ Invalid mode "${mode}". Use --mode local or --mode docker.`);
     process.exit(1);
   }
 
+  ensurePortsEnvFile();
+  assertNoActiveDx();
+
   console.log('\n' + '='.repeat(60));
   console.log('🚀 Starting ValueOS development environment...');
   console.log('='.repeat(60) + '\n');
 
   const services = [];
+  process.on('exit', clearDxState);
 
   if (mode === 'docker') {
-    await runCommand('docker', 'docker compose -f docker-compose.full.yml up -d');
+    const fullRunning = getRunningComposeServices('docker-compose.full.yml');
+    if (fullRunning.length > 0) {
+      console.log(formatLog('dx', 'Full Docker stack is already running.', colors.green));
+      console.log(formatLog('dx', 'Use "npm run dx:down" to stop it.', colors.yellow));
+      process.exit(0);
+    }
+
+    const depsRunning = getRunningComposeServices('docker-compose.deps.yml');
+    if (depsRunning.length > 0) {
+      console.error(
+        formatLog(
+          'dx',
+          `Local deps are running (${depsRunning.join(', ')}). Stop them with "npm run dx:down".`,
+          colors.yellow
+        )
+      );
+      process.exit(1);
+    }
+
+    const dockerPortConflicts = [];
+    if ((await isPortInUse(frontendPort)) && !isDockerPortPublished(frontendPort)) {
+      dockerPortConflicts.push(`Frontend port ${frontendPort} is already in use`);
+    }
+    if ((await isPortInUse(backendPort)) && !isDockerPortPublished(backendPort)) {
+      dockerPortConflicts.push(`Backend port ${backendPort} is already in use`);
+    }
+
+    if (dockerPortConflicts.length > 0 && process.env.DX_ALLOW_PORT_IN_USE !== '1') {
+      console.error(
+        formatLog(
+          'dx',
+          `${dockerPortConflicts.join('. ')}. Free the ports or set DX_ALLOW_PORT_IN_USE=1.`,
+          colors.yellow
+        )
+      );
+      process.exit(1);
+    }
+
+    writeDxState({ pid: process.pid, mode, startedAt: new Date().toISOString() });
+    await runCommand('docker', 'docker compose --env-file .env.ports -f docker-compose.full.yml up -d');
     console.log('\n' + '='.repeat(60));
     console.log('✅ Docker services are running!');
     console.log('='.repeat(60) + '\n');
@@ -200,14 +308,26 @@ async function main() {
   }
 
   // Start Docker dependency services first
-  await runCommand('docker', 'docker compose -f docker-compose.deps.yml up -d');
+  const fullRunning = getRunningComposeServices('docker-compose.full.yml');
+  if (fullRunning.length > 0) {
+    console.error(
+      formatLog(
+        'dx',
+        `Full Docker stack already running (${fullRunning.join(', ')}). Stop it with "npm run dx:down" or use "npm run dx:docker".`,
+        colors.yellow
+      )
+    );
+    process.exit(1);
+  }
+
+  await runCommand('docker', 'docker compose --env-file .env.ports -f docker-compose.deps.yml up -d');
 
   const conflicts = [];
-  if (isDockerPortPublished(3001)) {
-    conflicts.push('Backend already running in Docker on 3001');
+  if (isDockerPortPublished(backendPort)) {
+    conflicts.push(`Backend already running in Docker on ${backendPort}`);
   }
-  if (isDockerPortPublished(5173)) {
-    conflicts.push('Frontend already running in Docker on 5173');
+  if (isDockerPortPublished(frontendPort)) {
+    conflicts.push(`Frontend already running in Docker on ${frontendPort}`);
   }
 
   if (conflicts.length > 0) {
@@ -222,7 +342,16 @@ async function main() {
   // Start backend
   const backendPortInUse = await isPortInUse(backendPort);
   if (backendPortInUse) {
-    logWarning('backend', `Port ${backendPort} already in use. Skipping local backend start.`);
+    if (process.env.DX_ALLOW_PORT_IN_USE === '1') {
+      logWarning('backend', `Port ${backendPort} already in use. Skipping local backend start.`);
+    } else {
+      console.error(formatLog(
+        'backend',
+        `Port ${backendPort} already in use. Stop the process or run with DX_ALLOW_PORT_IN_USE=1.`,
+        colors.yellow
+      ));
+      process.exit(1);
+    }
   } else {
     const backendProc = startService('backend', 'npm run backend:dev', colors.blue);
     services.push(backendProc);
@@ -234,10 +363,19 @@ async function main() {
   // Start frontend
   const frontendPortInUse = await isPortInUse(frontendPort);
   if (frontendPortInUse) {
-    logWarning(
-      'frontend',
-      `Port ${frontendPort} already in use. Skipping local frontend start.`
-    );
+    if (process.env.DX_ALLOW_PORT_IN_USE === '1') {
+      logWarning(
+        'frontend',
+        `Port ${frontendPort} already in use. Skipping local frontend start.`
+      );
+    } else {
+      console.error(formatLog(
+        'frontend',
+        `Port ${frontendPort} already in use. Stop the process or run with DX_ALLOW_PORT_IN_USE=1.`,
+        colors.yellow
+      ));
+      process.exit(1);
+    }
   } else {
     const frontendProc = startService('frontend', 'npm run dev', colors.green);
     services.push(frontendProc);
@@ -261,6 +399,8 @@ async function main() {
   );
   console.log('\n💡 Press Ctrl+C to stop all services\n');
 
+  writeDxState({ pid: process.pid, mode, startedAt: new Date().toISOString() });
+
   // Handle shutdown
   const shutdown = () => {
     console.log('\n\n🛑 Shutting down services...\n');
@@ -274,6 +414,7 @@ async function main() {
     
     setTimeout(() => {
       console.log('✅ All services stopped\n');
+      clearDxState();
       process.exit(0);
     }, 2000);
   };

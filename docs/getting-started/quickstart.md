@@ -1,10 +1,10 @@
-# ValueCanvas - Quick Start
+# ValueOS - Quick Start
 
 Get up and running in 5 minutes!
 
 ## Prerequisites
 
-- Node.js v18+ ([download](https://nodejs.org))
+- Node.js v22 (see `.nvmrc`) ([download](https://nodejs.org))
 - Docker ([download](https://www.docker.com/products/docker-desktop))
 - Supabase CLI: `npm install -g supabase`
 
@@ -19,7 +19,7 @@ cp .env.local .env
 # Edit .env and add your LLM API key
 
 # 3. Start everything
-./start.sh
+npm run dx
 ```
 
 That's it! Open http://localhost:5173
@@ -27,18 +27,21 @@ That's it! Open http://localhost:5173
 ## What You Get
 
 ✅ **LLM-MARL System**
+
 - CoordinatorAgent for task planning
 - MessageBus for agent communication
 - Episodic memory for learning
 - Simulation loop for "what-if" analysis
 
 ✅ **Generative UI**
+
 - Dynamic component selection
 - LLM-powered layout generation
 - Automatic refinement (3 iterations)
 - Continuous learning from interactions
 
 ✅ **SOF Framework**
+
 - System mapping
 - Intervention design
 - Outcome engineering
@@ -46,7 +49,7 @@ That's it! Open http://localhost:5173
 
 ## Manual Setup
 
-If `./start.sh` doesn't work:
+If `npm run dx` doesn't work:
 
 ```bash
 # Install dependencies
@@ -59,7 +62,7 @@ supabase start
 supabase db push
 
 # Start dev server
-npm run dev
+npm run dx
 ```
 
 ## Test Your Setup
@@ -75,11 +78,13 @@ npm test
 ## Get LLM API Key
 
 **Together.ai** (Recommended):
+
 1. Go to https://together.ai
 2. Sign up and get API key
 3. Add to `.env`: `VITE_LLM_API_KEY=your-key`
 
 **OpenAI** (Alternative):
+
 1. Go to https://platform.openai.com
 2. Get API key
 3. Set in `.env`: `VITE_LLM_PROVIDER=openai`
@@ -87,20 +92,24 @@ npm test
 ## Troubleshooting
 
 ### "npm not found"
+
 Install Node.js from https://nodejs.org
 
 ### "Docker not running"
+
 Start Docker Desktop
 
 ### "Supabase connection failed"
+
 ```bash
 supabase stop
 supabase start
 ```
 
 ### "Port 5173 in use"
+
 ```bash
-npm run dev -- --port 3000
+DX_ALLOW_PORT_IN_USE=1 npm run dx
 ```
 
 ## Documentation
@@ -113,8 +122,9 @@ npm run dev -- --port 3000
 ## Key Features
 
 ### Dynamic UI Generation
+
 ```typescript
-import { CoordinatorAgent } from './src/agents/CoordinatorAgent';
+import { CoordinatorAgent } from "./src/agents/CoordinatorAgent";
 
 const coordinator = new CoordinatorAgent();
 coordinator.setDynamicUIEnabled(true);
@@ -124,22 +134,21 @@ const layout = await coordinator.produceSDUILayout(subgoal);
 ```
 
 ### Agent Communication
-```typescript
-import { CommunicatorAgent } from './src/agents/CommunicatorAgent';
 
-const comm = new CommunicatorAgent('MyAgent');
-await comm.sendMessage('TargetAgent', 'task_assignment', data);
+```typescript
+import { CommunicatorAgent } from "./src/agents/CommunicatorAgent";
+
+const comm = new CommunicatorAgent("MyAgent");
+await comm.sendMessage("TargetAgent", "task_assignment", data);
 ```
 
 ### Workflow Simulation
-```typescript
-import { workflowOrchestrator } from './src/services/WorkflowOrchestrator';
 
-const simulation = await workflowOrchestrator.simulateWorkflow(
-  workflowId,
-  context
-);
-console.log('Success probability:', simulation.success_probability);
+```typescript
+import { workflowOrchestrator } from "./src/services/WorkflowOrchestrator";
+
+const simulation = await workflowOrchestrator.simulateWorkflow(workflowId, context);
+console.log("Success probability:", simulation.success_probability);
 ```
 
 ## Architecture
@@ -166,7 +175,7 @@ Metrics & Learning
 
 ```bash
 # Start dev server
-npm run dev
+npm run dx
 
 # Run tests
 npm test

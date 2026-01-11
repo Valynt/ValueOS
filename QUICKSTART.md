@@ -4,7 +4,7 @@
 
 ```bash
 npm run setup    # One-time setup (5 minutes)
-npm run dev      # Start development
+npm run dx       # Start development
 ```
 
 Open [http://localhost:5173](http://localhost:5173) (see `config/ports.json` for defaults)
@@ -22,7 +22,9 @@ Open [http://localhost:5173](http://localhost:5173) (see `config/ports.json` for
 ## Common Commands
 
 ```bash
-npm run dev      # Start development server
+npm run dx       # Start local app + Docker deps
+npm run dx:docker # Start full Docker stack
+npm run dx:doctor # Preflight checks
 npm run health   # Check if everything is working
 npm run setup    # Re-run setup if needed
 npm test         # Run tests

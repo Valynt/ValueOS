@@ -2,7 +2,10 @@
 
 /**
  * Shared port registry for DX scripts.
+ * Uses config/ports.json as the single source of truth.
  */
+
+import { loadPorts, resolvePort } from './ports.js';
 
 function parseUrl(value) {
   if (!value) {
@@ -45,36 +48,22 @@ function resolveHost(urlValue, fallback = 'localhost') {
 }
 
 export function getPortRegistry() {
-  const frontendPort = resolvePort({
-    envPort: process.env.VITE_PORT,
-    urlValue: process.env.VITE_APP_URL,
-    defaultPort: 5173
-  });
-  const backendPort = resolvePort({
-    envPort: process.env.API_PORT || process.env.BACKEND_PORT || process.env.PORT,
-    urlValue: process.env.BACKEND_URL,
-    defaultPort: 3001
-  });
-  const databasePort = resolvePort({
-    envPort: process.env.DB_PORT || process.env.POSTGRES_PORT,
-    urlValue: process.env.DATABASE_URL,
-    defaultPort: 5432
-  });
-  const redisPort = resolvePort({
-    envPort: process.env.REDIS_PORT,
-    urlValue: process.env.REDIS_URL,
-    defaultPort: 6379
-  });
-  const supabaseApiPort = resolvePort({
-    envPort: process.env.SUPABASE_API_PORT,
-    urlValue: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
-    defaultPort: 54321
-  });
-  const supabaseStudioPort = resolvePort({
-    envPort: process.env.SUPABASE_STUDIO_PORT,
-    urlValue: process.env.SUPABASE_STUDIO_URL,
-    defaultPort: 54323
-  });
+  const ports = loadPorts();
+  const frontendPort = resolvePort(process.env.VITE_PORT, ports.frontend.port);
+  const backendPort = resolvePort(
+    process.env.API_PORT || process.env.BACKEND_PORT || process.env.PORT,
+    ports.backend.port
+  );
+  const databasePort = resolvePort(
+    process.env.DB_PORT || process.env.POSTGRES_PORT,
+    ports.postgres.port
+  );
+  const redisPort = resolvePort(process.env.REDIS_PORT, ports.redis.port);
+  const supabaseApiPort = resolvePort(process.env.SUPABASE_API_PORT, ports.supabase.apiPort);
+  const supabaseStudioPort = resolvePort(
+    process.env.SUPABASE_STUDIO_PORT,
+    ports.supabase.studioPort
+  );
 
   const frontendUrl = process.env.VITE_APP_URL || `http://localhost:${frontendPort}`;
   const backendUrl = process.env.BACKEND_URL || `http://localhost:${backendPort}`;

@@ -93,7 +93,7 @@ services:
       dockerfile: Dockerfile.frontend
     container_name: valueos-frontend
     ports:
-      - "80:80"
+      - "${VITE_PORT:-5173}:80"
     environment:
       - VITE_SUPABASE_URL=${VITE_SUPABASE_URL:-http://host.docker.internal:54321}
       - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}

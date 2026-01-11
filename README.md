@@ -18,7 +18,7 @@ npm install
 npm run setup    # Runs scripts/dev/setup.sh
 
 # Start development
-npm run dev
+npm run dx
 ```
 
 Open [http://localhost:5173](http://localhost:5173) (or the port in `config/ports.json` / `.env.ports`) - you're ready to code! 🎉
@@ -40,7 +40,7 @@ Open [http://localhost:5173](http://localhost:5173) (or the port in `config/port
 
 ## 📋 Prerequisites
 
-- **Node.js** >= 18.0.0
+- **Node.js** 22 (see `.nvmrc`)
 - **Docker** Desktop or Engine
 - **Git**
 - **10 GB** free disk space
@@ -54,10 +54,22 @@ The setup script checks these automatically.
 ### Start Development
 
 ```bash
-npm run dev
+npm run dx
 ```
 
-This starts the Vite dev server with hot reload on [http://localhost:5173](http://localhost:5173) (or the port in `config/ports.json` / `.env.ports`)
+This starts the local app + Docker dependencies with hot reload on [http://localhost:5173](http://localhost:5173) (or the port in `config/ports.json` / `.env.ports`).
+
+For a full Docker stack (frontend + backend + deps), run:
+
+```bash
+npm run dx:docker
+```
+
+To preflight your environment without starting services:
+
+```bash
+npm run dx:doctor
+```
 
 ### Edge Proxy (Caddy)
 
@@ -82,7 +94,7 @@ npm run health
 
 ### Access Services (Local vs Container)
 
-**Local dev (direct)** uses the ports defined in `config/ports.json` (mirrored in `.env.ports`). Override via `.env.ports` (e.g., `docker compose --env-file .env.ports ...`) or shell env (`VITE_PORT`, `API_PORT`).
+**Local dev (direct)** uses the ports defined in `config/ports.json` (synced to `.env.ports`). Override via `.env.ports` (e.g., `docker compose --env-file .env.ports ...`) or shell env (`VITE_PORT`, `API_PORT`).
 
 - **Frontend**: [http://localhost:5173](http://localhost:5173)
 - **Backend API**: [http://localhost:3001](http://localhost:3001)
@@ -103,6 +115,7 @@ npm run health
 ### Quick Links
 
 - **[Getting Started](docs/getting-started/GETTING_STARTED.md)** - Complete setup guide
+- **[Dev Environment Runbook](docs/DEV_ENV.md)** - Failsafe troubleshooting
 - **[Troubleshooting](docs/getting-started/TROUBLESHOOTING.md)** - Common issues
 - **[CI/CD & Infrastructure](docs/deployment/CICD_INFRASTRUCTURE_COMPLETE.md)** - Deployment guide
 - **[Contributing](CONTRIBUTING.md)** - How to contribute
@@ -151,7 +164,11 @@ ValueOS/
 ### Development
 
 ```bash
-npm run dev              # Start development server
+npm run dx               # Start local app + Docker deps
+npm run dx:docker        # Start full Docker stack
+npm run dx:doctor        # Preflight checks (fail fast)
+npm run dx:down          # Stop dev services
+npm run dx:reset         # Clean slate (volumes + locks)
 npm run health           # Check system health
 npm run setup            # Re-run setup (scripts/dev/setup.sh)
 ```
@@ -177,10 +194,11 @@ npm test                 # Run tests
 ### Docker
 
 ```bash
-docker-compose up -d     # Start services
-docker-compose down      # Stop services
-docker-compose logs -f   # View logs
-docker-compose ps        # Check status
+npm run dx:docker        # Start full Docker stack
+npm run dx:down          # Stop dev services
+npm run dx:reset         # Reset dev services + volumes
+docker compose logs -f   # View logs
+docker compose ps        # Check status
 ```
 
 ### Staging/Production via Caddy
@@ -226,6 +244,12 @@ taskkill /PID <PID> /F
 ```bash
 rm .env
 npm run setup            # Runs scripts/dev/setup.sh
+```
+
+**Preflight check**:
+
+```bash
+npm run dx:doctor
 ```
 
 **More help**: See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)

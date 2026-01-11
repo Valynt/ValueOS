@@ -1,7 +1,7 @@
 # Quick Reference Guide
 
 **Purpose:** Fast lookup for common tasks and commands  
-**Audience:** Developers working with ValueCanvas
+**Audience:** Developers working with ValueOS
 
 ---
 
@@ -9,8 +9,8 @@
 
 ```bash
 # Clone repository
-git clone https://github.com/bmsull560/ValueCanvas.git
-cd ValueCanvas
+git clone https://github.com/Valynt/ValueOS.git
+cd ValueOS
 
 # Install dependencies
 npm install
@@ -20,7 +20,7 @@ cp .env.local .env
 # Edit .env and add your LLM API key
 
 # Start everything
-./start.sh
+npm run dx
 
 # Or manually:
 supabase start
@@ -34,7 +34,8 @@ npm run dev
 ### Development
 
 ```bash
-npm run dev              # Start dev server (port 5173)
+npm run dx               # Start local app + Docker deps
+npm run dev              # Start frontend dev server (port 5173)
 npm run build            # Build for production
 npm run preview          # Preview production build
 npm run lint             # Run ESLint

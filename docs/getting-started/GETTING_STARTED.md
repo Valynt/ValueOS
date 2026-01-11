@@ -15,14 +15,14 @@ cd ValueOS
 npm run setup
 
 # Start development
-npm run dev
+npm run dx
 ```
 
-Open [http://localhost:5173](http://localhost:5173) (or the port in `VITE_PORT`) to see the app!
+Open [http://localhost:5173](http://localhost:5173) (or the port in `config/ports.json` / `.env.ports`) to see the app!
 
 **Ports & modes**
 
-- **Local dev (direct)**: Frontend on `VITE_PORT` (default `5173`), backend on `API_PORT` (default `3001`).
+- **Local dev (direct)**: Ports from `config/ports.json` (synced to `.env.ports`).
 - **Container/Caddy dev**: Use the edge proxy (`https://localhost:8443` or `http://localhost:8080`) and Caddy routes to the same internal ports.
 
 ---
@@ -31,7 +31,7 @@ Open [http://localhost:5173](http://localhost:5173) (or the port in `VITE_PORT`)
 
 Before you begin, ensure you have:
 
-- **Node.js** >= 18.0.0 ([Download](https://nodejs.org/))
+- **Node.js** 22 (see `.nvmrc`) ([Download](https://nodejs.org/))
 - **Docker** Desktop or Engine ([Download](https://www.docker.com/))
 - **Git** ([Download](https://git-scm.com/))
 - **10 GB** free disk space
@@ -49,7 +49,7 @@ The setup script will check these for you.
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 # Install Node.js
-brew install node@18
+brew install node@22
 
 # Install Docker Desktop
 brew install --cask docker
@@ -77,7 +77,7 @@ wsl --install
 # Restart computer
 
 # Inside WSL2:
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt-get install -y nodejs
 sudo apt-get install -y docker.io
 ```
@@ -96,7 +96,7 @@ See [docs/platform/WINDOWS.md](platform/WINDOWS.md) for detailed instructions.
 
 ```bash
 # Ubuntu/Debian
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt-get install -y nodejs
 sudo apt-get install -y docker.io
 
@@ -121,7 +121,7 @@ The `npm run setup` command will:
 2. ✅ Check prerequisites (Node, Docker, disk space)
 3. ✅ Generate secure environment configuration
 4. ✅ Install dependencies
-5. ✅ Start Docker services
+5. ✅ Sync ports from `config/ports.json`
 6. ✅ Verify everything is working
 
 **Time**: ~3-5 minutes on most systems
@@ -153,7 +153,7 @@ npm install
 ### 3. Start Docker Services
 
 ```bash
-docker-compose up -d
+npm run dx:docker
 ```
 
 ### 4. Verify Setup
@@ -170,12 +170,12 @@ npm run health
 
 ```bash
 # Unified command (recommended)
-npm run dev
+npm run dx
 
 # Or start individually:
 npm run dev              # Frontend only
 npm run backend:dev      # Backend only
-docker-compose up        # Docker services
+docker compose -f docker-compose.deps.yml up -d  # Docker deps
 ```
 
 ### Check System Health
@@ -211,9 +211,12 @@ All systems operational! 🎉
 
 ```bash
 # Development
+npm run dx               # Start local app + Docker deps
+npm run dx:docker        # Start full Docker stack
+npm run dx:doctor        # Preflight checks (fail fast)
 npm run dev              # Start frontend dev server
 npm run backend:dev      # Start backend dev server
-npm run dev      # Start all services
+npm run dx               # Start all services
 
 # Testing
 npm test                 # Run tests
@@ -227,10 +230,11 @@ npm run db:reset         # Reset local database
 npm run db:types         # Generate TypeScript types
 
 # Docker
-docker-compose up -d     # Start services
-docker-compose down      # Stop services
-docker-compose logs -f   # View logs
-docker-compose ps        # Check status
+npm run dx:docker        # Start full Docker stack
+npm run dx:down          # Stop dev services
+npm run dx:reset         # Clean slate (volumes + locks)
+docker compose logs -f   # View logs
+docker compose ps        # Check status
 
 # Code Quality
 npm run lint             # Lint code
