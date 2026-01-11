@@ -12,7 +12,7 @@ services:
       ACME_EMAIL: ${ACME_EMAIL:-staging@example.com}
       ACME_CA: ${ACME_CA:-https://acme-staging-v02.api.letsencrypt.org/directory}
       TLS_MODE: ${TLS_MODE:-}
-      API_UPSTREAM: ${API_UPSTREAM:-http://backend:3001}
+      API_UPSTREAM: ${API_UPSTREAM:-http://backend:${API_PORT:-3001}}
       STATIC_ROOT: /srv/www
       CADDY_LOG_DIR: /var/log/caddy
       CADDY_STORAGE: /data
@@ -42,7 +42,12 @@ services:
     image: node:20-alpine
     container_name: valueos-frontend-staging
     working_dir: /app
-    command: ["sh", "-c", "npm ci --legacy-peer-deps && npm run build && cp -r dist/. /dist && tail -f /dev/null"]
+    command:
+      [
+        "sh",
+        "-c",
+        "npm ci --legacy-peer-deps && npm run build && cp -r dist/. /dist && tail -f /dev/null",
+      ]
     environment:
       NODE_ENV: production
       VITE_API_BASE_URL: /api
@@ -69,7 +74,7 @@ services:
     container_name: valueos-backend-staging
     environment:
       NODE_ENV: staging
-      API_PORT: 3001
+      API_PORT: ${API_PORT:-3001}
       CORS_ALLOWED_ORIGINS: https://${APP_DOMAIN:-staging.example.com}
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: redis://redis:6379
@@ -77,14 +82,20 @@ services:
       VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
       VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
     expose:
-      - "3001"
+      - "${API_PORT:-3001}"
     networks:
       - valueos
     depends_on:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:${API_PORT:-3001}/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))",
+        ]
       interval: 30s
       timeout: 5s
       retries: 3

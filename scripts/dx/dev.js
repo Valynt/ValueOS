@@ -9,11 +9,20 @@ import { execSync, spawn } from 'child_process';
 import net from 'net';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { loadPorts, resolvePort } from './ports.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const projectRoot = path.resolve(__dirname, '../..');
+const ports = loadPorts();
+const frontendPort = resolvePort(process.env.VITE_PORT, ports.frontend.port);
+const backendPort = resolvePort(process.env.API_PORT, ports.backend.port);
+const supabaseApiPort = resolvePort(process.env.SUPABASE_API_PORT, ports.supabase.apiPort);
+const supabaseStudioPort = resolvePort(
+  process.env.SUPABASE_STUDIO_PORT,
+  ports.supabase.studioPort
+);
 
 // ANSI color codes
 const colors = {
@@ -211,9 +220,9 @@ async function main() {
   }
 
   // Start backend
-  const backendPortInUse = await isPortInUse(3001);
+  const backendPortInUse = await isPortInUse(backendPort);
   if (backendPortInUse) {
-    logWarning('backend', 'Port 3001 already in use. Skipping local backend start.');
+    logWarning('backend', `Port ${backendPort} already in use. Skipping local backend start.`);
   } else {
     const backendProc = startService('backend', 'npm run backend:dev', colors.blue);
     services.push(backendProc);
@@ -223,9 +232,12 @@ async function main() {
   await new Promise(resolve => setTimeout(resolve, 2000));
 
   // Start frontend
-  const frontendPortInUse = await isPortInUse(5173);
+  const frontendPortInUse = await isPortInUse(frontendPort);
   if (frontendPortInUse) {
-    logWarning('frontend', 'Port 5173 already in use. Skipping local frontend start.');
+    logWarning(
+      'frontend',
+      `Port ${frontendPort} already in use. Skipping local frontend start.`
+    );
   } else {
     const frontendProc = startService('frontend', 'npm run dev', colors.green);
     services.push(frontendProc);
@@ -239,9 +251,14 @@ async function main() {
   console.log('✅ All services ready!');
   console.log('='.repeat(60) + '\n');
   console.log('📍 Service URLs:');
-  console.log(`   ${colors.green}Frontend:${colors.reset}  http://localhost:5173`);
-  console.log(`   ${colors.blue}Backend:${colors.reset}   http://localhost:3000`);
-  console.log(`   ${colors.yellow}Supabase:${colors.reset}  http://localhost:54323`);
+  console.log(`   ${colors.green}Frontend:${colors.reset}  http://localhost:${frontendPort}`);
+  console.log(`   ${colors.blue}Backend:${colors.reset}   http://localhost:${backendPort}`);
+  console.log(
+    `   ${colors.yellow}Supabase API:${colors.reset}     http://localhost:${supabaseApiPort}`
+  );
+  console.log(
+    `   ${colors.yellow}Supabase Studio:${colors.reset}  http://localhost:${supabaseStudioPort}`
+  );
   console.log('\n💡 Press Ctrl+C to stop all services\n');
 
   // Handle shutdown
