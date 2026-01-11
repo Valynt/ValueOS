@@ -13,40 +13,44 @@ This directory contains comprehensive testing documentation and implementation f
 ## 📁 Files in This Directory
 
 ### 1. **COMPREHENSIVE_AUTH_TEST_PLAN.md** (850+ lines)
-   - Complete test specifications
-   - 100+ detailed test cases
-   - Security, performance, and accessibility testing
-   - Test execution plan
-   - Acceptance criteria
 
-   **Use for:** Planning, test case reference, comprehensive documentation
+- Complete test specifications
+- 100+ detailed test cases
+- Security, performance, and accessibility testing
+- Test execution plan
+- Acceptance criteria
+
+**Use for:** Planning, test case reference, comprehensive documentation
 
 ### 2. **AUTH_TEST_EXECUTION_CHECKLIST.md** (450+ lines)
-   - Quick reference for daily testing
-   - Command snippets for running tests
-   - Pre-deployment checklist
-   - Bug reporting template
-   - Troubleshooting guide
 
-   **Use for:** Day-to-day test execution, CI/CD integration
+- Quick reference for daily testing
+- Command snippets for running tests
+- Pre-deployment checklist
+- Bug reporting template
+- Troubleshooting guide
+
+**Use for:** Day-to-day test execution, CI/CD integration
 
 ### 3. **AUTH_TEST_COVERAGE_MATRIX.md** (600+ lines)
-   - Coverage tracking across all test types
-   - Browser compatibility matrix
-   - Device responsiveness tracking
-   - Accessibility compliance checklist
-   - Test file inventory
 
-   **Use for:** Coverage analysis, gap identification, status reporting
+- Coverage tracking across all test types
+- Browser compatibility matrix
+- Device responsiveness tracking
+- Accessibility compliance checklist
+- Test file inventory
+
+**Use for:** Coverage analysis, gap identification, status reporting
 
 ### 4. **AUTH_TESTING_SUMMARY.md** (550+ lines)
-   - Executive summary
-   - Test metrics and statistics
-   - Quick start guide
-   - Best practices
-   - Continuous improvement plan
 
-   **Use for:** Stakeholder communication, onboarding, overview
+- Executive summary
+- Test metrics and statistics
+- Quick start guide
+- Best practices
+- Continuous improvement plan
+
+**Use for:** Stakeholder communication, onboarding, overview
 
 ---
 
@@ -56,14 +60,16 @@ This directory contains comprehensive testing documentation and implementation f
 
 1. **Read first:** `AUTH_TEST_EXECUTION_CHECKLIST.md`
 2. **Run tests:**
+
    ```bash
    # All auth tests
    npm test -- src/services/__tests__/Auth --run
    npm test -- src/views/Auth/__tests__ --run
-   
+
    # E2E tests
    npx playwright test tests/e2e/auth-complete-flow.spec.ts
    ```
+
 3. **Check coverage:** `AUTH_TEST_COVERAGE_MATRIX.md`
 4. **Report issues:** Use bug template in execution checklist
 
@@ -90,16 +96,16 @@ This directory contains comprehensive testing documentation and implementation f
 
 ## 📊 Test Coverage Summary
 
-| Metric | Value | Status |
-|--------|-------|--------|
-| **Total Test Cases** | 306+ | ✅ |
-| **Code Coverage** | 92% | ✅ |
-| **Unit Tests** | 146 | ✅ 100% Pass |
-| **Component Tests** | 102 | ✅ 100% Pass |
-| **Integration Tests** | 18 | ✅ 100% Pass |
-| **E2E Tests** | 32 | 🔄 95% Pass |
-| **Load Tests** | 8 | ✅ 100% Pass |
-| **Security Scans** | 0 Critical | ✅ |
+| Metric                | Value      | Status       |
+| --------------------- | ---------- | ------------ |
+| **Total Test Cases**  | 306+       | ✅           |
+| **Code Coverage**     | 92%        | ✅           |
+| **Unit Tests**        | 146        | ✅ 100% Pass |
+| **Component Tests**   | 102        | ✅ 100% Pass |
+| **Integration Tests** | 18         | ✅ 100% Pass |
+| **E2E Tests**         | 32         | 🔄 95% Pass  |
+| **Load Tests**        | 8          | ✅ 100% Pass |
+| **Security Scans**    | 0 Critical | ✅           |
 
 ---
 
@@ -125,12 +131,12 @@ All security vulnerabilities tested and mitigated:
 ## ⚡ Performance Benchmarks
 
 | Operation | Target | Actual | Status |
-|-----------|--------|--------|--------|
-| Login | < 1s | 0.8s | ✅ |
-| Signup | < 2s | 1.5s | ✅ |
-| Page Load | < 2s | 1.2s | ✅ |
-| 100 Users | < 1s | 0.9s | ✅ |
-| 500 Users | < 2s | 1.7s | ✅ |
+| --------- | ------ | ------ | ------ |
+| Login     | < 1s   | 0.8s   | ✅     |
+| Signup    | < 2s   | 1.5s   | ✅     |
+| Page Load | < 2s   | 1.2s   | ✅     |
+| 100 Users | < 1s   | 0.9s   | ✅     |
+| 500 Users | < 2s   | 1.7s   | ✅     |
 
 **Performance Confidence:** 100% ✅
 
@@ -159,6 +165,12 @@ All security vulnerabilities tested and mitigated:
 - Edge (Latest) ✅
 - Safari iOS ✅
 - Chrome Android ✅
+
+---
+
+## 🧾 Sample Test Artifacts
+
+Minimal example artifacts live in `docs/testing/artifacts/` for reference. Real Playwright output is generated in `playwright-report/` and `test-results/` during local runs and is intentionally ignored by Git.
 
 ---
 
@@ -260,11 +272,13 @@ k6 run --vus 100 --duration 5m tests/load/auth-load-test.js
 ## 📈 Continuous Integration
 
 Tests run automatically on:
+
 - Every commit to main/develop
 - Every pull request
 - Changes to auth-related files
 
 **CI Pipeline:**
+
 1. Unit tests (with coverage)
 2. Component tests
 3. Integration tests
@@ -273,6 +287,7 @@ Tests run automatically on:
 6. Performance tests (weekly)
 
 **Quality Gates:**
+
 - All tests must pass
 - Coverage ≥ 90%
 - 0 critical security issues
@@ -385,6 +400,7 @@ Tests run automatically on:
 **100% Test Confidence** 🎉
 
 This test suite provides comprehensive coverage of:
+
 - ✅ Account creation workflows
 - ✅ Login authentication
 - ✅ Password management
@@ -403,9 +419,9 @@ This test suite provides comprehensive coverage of:
 
 ## 📅 Version History
 
-| Version | Date | Changes | Author |
-|---------|------|---------|--------|
-| 1.0 | 2026-01-08 | Initial comprehensive test suite | QA Team |
+| Version | Date       | Changes                          | Author  |
+| ------- | ---------- | -------------------------------- | ------- |
+| 1.0     | 2026-01-08 | Initial comprehensive test suite | QA Team |
 
 ---
 
