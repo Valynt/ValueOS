@@ -16,9 +16,11 @@ export * from './AuditLogService';
 export * from './RbacService';
 export * from './SecretsService';
 export * from './ValueKernel';
+export * from './IntegrationControlService';
 
 // Service instances (singletons)
 export { settingsService } from './SettingsService';
+export { integrationControlService } from './IntegrationControlService';
 export { userSettingsService } from './UserSettingsService';
 export { authService } from './AuthService';
 export { permissionService } from './PermissionService';
