@@ -200,6 +200,14 @@ function cleanJSONString(json: string, warnings: string[]): string {
   // Remove control characters
   cleaned = cleaned.replace(/[\x00-\x1F\x7F]/g, '');
 
+  // Fix escaped backslashes that shouldn't be escaped (common in regex/paths)
+  // We match valid escapes first and preserve them, otherwise we escape the backslash.
+  // Valid escapes: \" \\ \/ \b \f \n \r \t \' (single quote allowed for later fix) \uXXXX
+  cleaned = cleaned.replace(/(\\(?:["\\/bfnrt']|u[0-9a-fA-F]{4}))|(\\)/g, (match, valid, invalid) => {
+    if (valid) return valid;
+    return '\\\\';
+  });
+
   // Fix common LLM escape issues
   cleaned = cleaned.replace(/\\'/g, "'"); // Single quotes don't need escaping in JSON
 
