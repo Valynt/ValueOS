@@ -59,6 +59,21 @@ npm run dev
 
 This starts the Vite dev server with hot reload on [http://localhost:5173](http://localhost:5173)
 
+### Edge Proxy (Caddy)
+
+Run the full stack through the Caddy edge layer (HTTPS, SPA routing, API proxy):
+
+```bash
+cp .env.dev.example .env.dev
+docker compose -f docker-compose.dev.yml up --build
+```
+
+* **Edge (HTTPS)**: [https://localhost:8443](https://localhost:8443)
+* **Edge (HTTP → HTTPS redirect)**: [http://localhost:8080](http://localhost:8080)
+* **Caddy Admin**: [http://localhost:2019](http://localhost:2019)
+
+> To trust the local TLS certificate, see the runbook: [docs/edge-caddy.md](docs/edge-caddy.md)
+
 ### Check System Health
 
 ```bash
@@ -159,6 +174,18 @@ docker-compose down      # Stop services
 docker-compose logs -f   # View logs
 docker-compose ps        # Check status
 ```
+
+### Staging/Production via Caddy
+
+```bash
+cp .env.staging.example .env.staging
+docker compose -f docker-compose.staging.yml up --build
+
+cp .env.prod.example .env.prod
+docker compose -f docker-compose.prod.yml up --build
+```
+
+See [docs/edge-caddy.md](docs/edge-caddy.md) for promotion workflow, TLS modes, and rollback steps.
 
 ---
 

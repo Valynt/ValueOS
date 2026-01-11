@@ -1,0 +1,53 @@
+(access_log) {
+  log {
+    output file {$CADDY_LOG_DIR:/var/log/caddy}/access.log {
+      roll_size 100MiB
+      roll_keep 10
+      roll_keep_for 720h
+    }
+    format json
+    level {$CADDY_LOG_LEVEL:INFO}
+  }
+}
+
+(common_site) {
+  encode zstd gzip
+  request_body {
+    max_size {$MAX_REQUEST_BODY:25MB}
+  }
+}
+
+(api_proxy) {
+  reverse_proxy {$API_UPSTREAM} {
+    header_up Host {host}
+    header_up X-Real-IP {remote_host}
+    header_up X-Forwarded-For {remote_host}
+    header_up X-Forwarded-Proto {scheme}
+    header_up X-Request-ID {uuid}
+    transport http {
+      dial_timeout 10s
+      response_header_timeout 30s
+      read_buffer 32KB
+      write_buffer 32KB
+    }
+  }
+}
+
+(frontend_proxy) {
+  reverse_proxy {$FRONTEND_UPSTREAM} {
+    header_up Host {host}
+    header_up X-Real-IP {remote_host}
+    header_up X-Forwarded-For {remote_host}
+    header_up X-Forwarded-Proto {scheme}
+  }
+}
+
+(spa_static) {
+  root * {$STATIC_ROOT:/srv/www}
+  file_server
+  try_files {path} /index.html
+}
+
+(healthz) {
+  respond "ok" 200
+}

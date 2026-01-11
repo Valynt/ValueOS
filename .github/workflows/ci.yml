@@ -121,6 +121,32 @@ jobs:
           path: dist/
           retention-days: 7
 
+  edge-proxy:
+    name: Edge Proxy Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Caddyfiles
+        run: |
+          docker run --rm -v "$PWD/infra/caddy:/etc/caddy" caddy:2-alpine \
+            caddy validate --config /etc/caddy/Caddyfile.dev --adapter caddyfile
+          docker run --rm -v "$PWD/infra/caddy:/etc/caddy" caddy:2-alpine \
+            caddy validate --config /etc/caddy/Caddyfile.staging --adapter caddyfile
+          docker run --rm -v "$PWD/infra/caddy:/etc/caddy" caddy:2-alpine \
+            caddy validate --config /etc/caddy/Caddyfile.prod --adapter caddyfile
+
+      - name: Validate docker compose configs
+        run: |
+          docker compose -f docker-compose.dev.yml config
+          docker compose -f docker-compose.staging.yml config
+          docker compose -f docker-compose.prod.yml config
+
+      - name: Build frontend and backend images
+        run: |
+          docker build -f Dockerfile.frontend -t valueos-frontend .
+          docker build -f Dockerfile.backend -t valueos-backend .
+
   # Deploy preview for PRs
   deploy-preview:
     name: Deploy Preview
