@@ -13,6 +13,7 @@ import { ToastProvider } from "./components/Common/Toast";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { LoadingSpinner } from "./components/Common/LoadingSpinner";
 import { BetaFeedbackWidget } from "./components/Feedback/BetaFeedbackWidget";
+import { EnvironmentBanner } from "./components/Common/EnvironmentBanner";
 import { SDUIStateProvider } from "./lib/state/SDUIStateProvider";
 import { supabase } from "./lib/supabase";
 
@@ -228,6 +229,7 @@ export function AppRoutes() {
                   </Suspense>
                 </SDUIStateProvider>
                 <BetaFeedbackWidget />
+                <EnvironmentBanner />
               </ToastProvider>
             </DrawerProvider>
           </TenantProvider>
