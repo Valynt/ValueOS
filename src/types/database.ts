@@ -247,6 +247,48 @@ export interface Database {
         };
       };
 
+      user_tenants: {
+        Row: {
+          user_id: string;
+          tenant_id: string;
+          role: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          tenant_id: string;
+          role?: string;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          tenant_id?: string;
+          role?: string;
+          created_at?: string;
+        };
+      };
+
+      user_roles: {
+        Row: {
+          user_id: string;
+          role: string;
+          tenant_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          role: string;
+          tenant_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          role?: string;
+          tenant_id?: string | null;
+          created_at?: string;
+        };
+      };
+
       agent_performance_summary: {
         Row: {
           id: string;
@@ -425,6 +467,8 @@ export type AgentMemory = Database['public']['Tables']['agent_memory']['Row'];
 export type ValueCase = Database['public']['Tables']['value_cases']['Row'];
 export type Organization = Database['public']['Tables']['organizations']['Row'];
 export type User = Database['public']['Tables']['users']['Row'];
+export type UserTenant = Database['public']['Tables']['user_tenants']['Row'];
+export type UserRole = Database['public']['Tables']['user_roles']['Row'];
 export type AgentPerformanceSummary = Database['public']['Tables']['agent_performance_summary']['Row'];
 export type LLMGating = Database['public']['Tables']['llm_gating']['Row'];
 export type ProgressiveRollout = Database['public']['Tables']['progressive_rollouts']['Row'];
@@ -438,6 +482,8 @@ export type AgentMemoryInsert = Database['public']['Tables']['agent_memory']['In
 export type ValueCaseInsert = Database['public']['Tables']['value_cases']['Insert'];
 export type OrganizationInsert = Database['public']['Tables']['organizations']['Insert'];
 export type UserInsert = Database['public']['Tables']['users']['Insert'];
+export type UserTenantInsert = Database['public']['Tables']['user_tenants']['Insert'];
+export type UserRoleInsert = Database['public']['Tables']['user_roles']['Insert'];
 export type AgentPerformanceSummaryInsert = Database['public']['Tables']['agent_performance_summary']['Insert'];
 export type LLMGatingInsert = Database['public']['Tables']['llm_gating']['Insert'];
 export type ProgressiveRolloutInsert = Database['public']['Tables']['progressive_rollouts']['Insert'];
@@ -451,6 +497,8 @@ export type AgentMemoryUpdate = Database['public']['Tables']['agent_memory']['Up
 export type ValueCaseUpdate = Database['public']['Tables']['value_cases']['Update'];
 export type OrganizationUpdate = Database['public']['Tables']['organizations']['Update'];
 export type UserUpdate = Database['public']['Tables']['users']['Update'];
+export type UserTenantUpdate = Database['public']['Tables']['user_tenants']['Update'];
+export type UserRoleUpdate = Database['public']['Tables']['user_roles']['Update'];
 export type AgentPerformanceSummaryUpdate = Database['public']['Tables']['agent_performance_summary']['Update'];
 export type LLMGatingUpdate = Database['public']['Tables']['llm_gating']['Update'];
 export type ProgressiveRolloutUpdate = Database['public']['Tables']['progressive_rollouts']['Update'];

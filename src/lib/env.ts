@@ -1,5 +1,7 @@
 /**
  * Unified environment adapter for both server and browser runtimes.
+ *
+ * @remarks
  * All code should import helpers from this module instead of touching
  * `process.env` or `import.meta.env` directly.
  */
@@ -90,6 +92,24 @@ export function getLLMCostTrackerConfig(): {
     supabaseServiceRoleKey: supabase.serviceRoleKey,
     slackWebhookUrl: getEnvVar("SLACK_WEBHOOK_URL"),
     alertEmail: getEnvVar("ALERT_EMAIL"),
+  };
+}
+
+export function getGroundtruthConfig(): {
+  apiUrl?: string;
+  apiKey?: string;
+  timeoutMs: number;
+} {
+  const timeoutCandidate =
+    getEnvVar("VITE_GROUNDTRUTH_API_TIMEOUT") ||
+    getEnvVar("GROUNDTRUTH_API_TIMEOUT") ||
+    "15000";
+  const parsedTimeout = Number.parseInt(timeoutCandidate, 10);
+
+  return {
+    apiUrl: getEnvVar("VITE_GROUNDTRUTH_API_URL") || getEnvVar("GROUNDTRUTH_API_URL"),
+    apiKey: getEnvVar("GROUNDTRUTH_API_KEY"),
+    timeoutMs: Number.isNaN(parsedTimeout) ? 15000 : parsedTimeout,
   };
 }
 

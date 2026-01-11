@@ -54,9 +54,7 @@ describe('planEnforcementMiddleware', () => {
     } as any);
 
     const req = {
-      headers: {
-        'x-tenant-id': tenantId,
-      },
+      tenantId,
     } as any;
     const res = mockRes();
     const next = vi.fn();
@@ -89,9 +87,7 @@ describe('planEnforcementMiddleware', () => {
     vi.mocked(GracePeriodService.getGracePeriodExpiration).mockResolvedValue(graceExpiry);
 
     const req = {
-      headers: {
-        'x-tenant-id': tenantId,
-      },
+      tenantId,
     } as any;
     const res = mockRes();
     const next = vi.fn();

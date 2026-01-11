@@ -2,6 +2,7 @@ import { logger } from '../../lib/logger';
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { captureException } from '../../lib/sentry';
+import { isDevelopment, isProduction } from '../../config/environment';
 
 /**
  * Props for ComponentErrorBoundary
@@ -111,7 +112,7 @@ export class ComponentErrorBoundary extends Component<
     onError?.(error, errorInfo);
 
     // Log to error tracking service in production
-    if (process.env.NODE_ENV === 'production') {
+    if (isProduction()) {
       captureException(error, {
         extra: {
           componentName,
@@ -145,8 +146,7 @@ export class ComponentErrorBoundary extends Component<
     }
 
     // Determine if we should show error details
-    const shouldShowDetails =
-      showErrorDetails ?? process.env.NODE_ENV === 'development';
+    const shouldShowDetails = showErrorDetails ?? isDevelopment();
 
     // Default fallback UI
     return (

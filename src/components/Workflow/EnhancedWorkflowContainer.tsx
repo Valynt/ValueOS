@@ -16,6 +16,7 @@ import { WorkflowValidation } from './WorkflowValidation';
 import { AgentStatusIndicator } from './AgentStatusIndicator';
 import { BusinessMetricsPanel } from './BusinessMetricsPanel';
 import { StageContent } from './StageContent';
+import { extractGroundTruthPayload, mergeGroundTruthIntoStageData } from './groundTruth';
 import { 
   AlertCircle, Clock, Save, Users
 } from 'lucide-react';
@@ -303,15 +304,20 @@ export const EnhancedWorkflowContainer: React.FC<EnhancedWorkflowContainerProps>
       }
       
       if (response?.success && response.data) {
+        const groundTruthPayload = extractGroundTruthPayload(response.data) || extractGroundTruthPayload(response);
+        const mergedStageData = mergeGroundTruthIntoStageData(response.data, groundTruthPayload);
+        const normalizedResponse = groundTruthPayload
+          ? { ...response, groundTruth: groundTruthPayload }
+          : response;
         const updatedState = {
           ...workflowState,
           stageData: {
             ...workflowState.stageData,
-            [stage]: response.data
+            [stage]: mergedStageData
           },
           agentResponses: {
             ...workflowState.agentResponses,
-            [stage]: response
+            [stage]: normalizedResponse
           },
           validationStatus: {
             ...workflowState.validationStatus,

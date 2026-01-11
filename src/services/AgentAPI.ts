@@ -212,6 +212,7 @@ export class AgentAPI {
         'research',
         'benchmark',
         'narrative',
+        'groundtruth',
       ];
 
       agentTypes.forEach((agent) => {

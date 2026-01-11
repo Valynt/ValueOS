@@ -1,21 +1,20 @@
 /**
  * Workflow Event Listener
- * 
+ *
  * Listens to workflow events and triggers SDUI updates.
  * Integrates Workflow Orchestrator with SDUI system.
  */
 
-import { logger } from '../lib/logger';
 import { EventEmitter } from 'events';
-import { workflowSDUIAdapter } from './WorkflowSDUIAdapter';
+import { logger } from '../lib/logger';
 import { canvasSchemaService } from './CanvasSchemaService';
+import { workflowSDUIAdapter } from './WorkflowSDUIAdapter';
+import { getStageById } from './workflows/WorkflowDAGDefinitions';
 import {
   StageCompletionEvent,
-  StageTransitionEvent,
   WorkflowProgress,
 } from '../types/workflow-sdui';
-import { StageStatus, WorkflowStatus } from '../types/workflow';
-import { getStageById } from './workflows/WorkflowDAGDefinitions';
+import { StageStatus } from '../types/workflow';
 
 /**
  * Workflow event types
@@ -140,9 +139,9 @@ export class WorkflowEventListener extends EventEmitter {
       if (progress) {
         progress.currentStage = toStage;
         progress.currentStageIndex += 1;
-        progress.percentComplete = Math.round(
-          (progress.currentStageIndex / progress.totalStages) * 100
-        );
+        progress.percentComplete = progress.totalStages
+          ? Math.round((progress.currentStageIndex / progress.totalStages) * 100)
+          : progress.percentComplete;
         this.workflowProgress.set(workflowId, progress);
       }
 
@@ -206,9 +205,16 @@ export class WorkflowEventListener extends EventEmitter {
         this.workflowProgress.set(workflowId, progress);
       }
 
-      // Get lifecycle stage from definition
+      // Get stage definition to determine lifecycle stage
       const stageDef = getStageById(workflowId, stageId);
       const lifecycleStage = stageDef?.agent_type || 'opportunity';
+
+      if (!stageDef) {
+        logger.warn('Stage definition not found for completion event', {
+          workflowId,
+          stageId,
+        });
+      }
 
       const event: StageCompletionEvent = {
         workflowId,
@@ -380,7 +386,7 @@ export class WorkflowEventListener extends EventEmitter {
    * Trigger SDUI update for workflow
    */
   private async triggerSDUIUpdate(
-    workflowId: string,
+    _workflowId: string,
     context: any
   ): Promise<void> {
     const workspaceId = context.workspaceId || context.workspace_id;
