@@ -1,6 +1,7 @@
 import { logger } from '../../lib/logger';
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
+import { captureException } from '../../lib/sentry';
 
 /**
  * Props for ComponentErrorBoundary
@@ -111,8 +112,12 @@ export class ComponentErrorBoundary extends Component<
 
     // Log to error tracking service in production
     if (process.env.NODE_ENV === 'production') {
-      // TODO: Integrate with error tracking service (e.g., Sentry)
-      // logErrorToService(error, { componentName, errorInfo });
+      captureException(error, {
+        extra: {
+          componentName,
+          componentStack: errorInfo.componentStack,
+        },
+      });
     }
   }
 
