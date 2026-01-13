@@ -1,4 +1,4 @@
-# ValueOS
+x# ValueOS
 
 Enterprise-grade value management platform built with modern web technologies.
 
@@ -15,13 +15,11 @@ cd ValueOS
 npm install
 
 # Automated setup (takes ~5 minutes)
-npm run setup    # Runs scripts/dx/setup.js
+npm run setup    # Runs scripts/dev/setup.sh
 
 # Start development
 npm run dx
 ```
-
-> **Supported entrypoints:** Use `npm run dx` (local app + Docker deps) or `npm run dx:docker` (full Docker stack). Other entrypoints are unsupported.
 
 Open [http://localhost:5173](http://localhost:5173) (or the port in `config/ports.json` / `.env.ports`) - you're ready to code! 🎉
 
@@ -61,8 +59,6 @@ npm run dx
 
 This starts the local app + Docker dependencies with hot reload on [http://localhost:5173](http://localhost:5173) (or the port in `config/ports.json` / `.env.ports`).
 
-> **Only supported entrypoints:** `npm run dx` and `npm run dx:docker`.
-
 For a full Docker stack (frontend + backend + deps), run:
 
 ```bash
@@ -77,7 +73,7 @@ npm run dx:doctor
 
 ### Edge Proxy (Caddy)
 
-Run the full stack through the Caddy edge layer (HTTPS, SPA routing, API proxy). This is an advanced flow and **not** a supported entrypoint; the supported entrypoints are `npm run dx` and `npm run dx:docker`:
+Run the full stack through the Caddy edge layer (HTTPS, SPA routing, API proxy):
 
 ```bash
 cp .env.dev.example .env.dev
@@ -104,13 +100,11 @@ npm run health
 - **Backend API**: [http://localhost:3001](http://localhost:3001)
 - **Supabase API**: [http://localhost:54321](http://localhost:54321)
 - **Supabase Studio**: [http://localhost:54323](http://localhost:54323)
-- **VITE_API_BASE_URL**: `http://localhost:${API_PORT}` (direct mode)
 
 **Container/Caddy dev** (via `docker-compose.dev.yml`) fronts the stack:
 
 - **Edge (HTTPS)**: [https://localhost:8443](https://localhost:8443)
 - **Edge (HTTP → HTTPS redirect)**: [http://localhost:8080](http://localhost:8080)
-- **VITE_API_BASE_URL**: `/api` (edge mode via Caddy)
 
 ---
 
@@ -178,7 +172,7 @@ npm run dx:doctor        # Preflight checks (fail fast)
 npm run dx:down          # Stop dev services
 npm run dx:reset         # Clean slate (volumes + locks)
 npm run health           # Check system health
-npm run setup            # Re-run setup (scripts/dx/setup.js)
+npm run setup            # Re-run setup (scripts/dev/setup.sh)
 ```
 
 ### Database
@@ -251,7 +245,7 @@ taskkill /PID <PID> /F
 
 ```bash
 rm .env
-npm run setup            # Runs scripts/dx/setup.js
+npm run setup            # Runs scripts/dev/setup.sh
 ```
 
 **Preflight check**:
