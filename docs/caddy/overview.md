@@ -5,15 +5,15 @@ This document explains how the new Caddy layer is wired for dev/stage/prod, the 
 ## Assumptions
 
 - Frontend: Vite + React/TS (SPA) with SDUI fallbacks.
-- Backend: Express + WebSockets at `/ws/sdui` (HTTP on `:${API_PORT:-3001}`).
+- Backend: Express + WebSockets at `/ws/sdui` (HTTP on `:3001` via `API_PORT`).
 - API prefix: `/api/*` (same-origin preferred).
-- Dev origin: `http://localhost:8080` via Caddy → Vite `:5173` and API `:${API_PORT:-3001}`.
+- Dev origin: `http://localhost:8080` via Caddy → Vite `:5173` and API `:3001`.
 - Stage/Prod: public DNS on `APP_DOMAIN` with Caddy terminating TLS by default.
 
 ## Topology by environment
 
-- **Dev (`docker-compose.dev.yml`)**
-  - Caddy on port 8080 → `/` proxied to Vite dev server (`frontend:5173`), `/api/*` + `/ws/*` → API (`backend:${API_PORT:-3001}`).
+- **Dev (`infra/docker/docker-compose.dev-caddy.yml`)**
+  - Caddy on port 8080 → `/` proxied to Vite dev server (`frontend:5173`), `/api/*` + `/ws/*` → API (`backend:3001`).
   - HTTP only; admin API exposed on `:2019` for live reloads.
   - HMR stays same-origin via Caddy to avoid CORS.
 
@@ -52,7 +52,7 @@ This document explains how the new Caddy layer is wired for dev/stage/prod, the 
 
 ## Docker Compose integration
 
-- **Dev:** `docker compose -f docker-compose.dev.yml up --build` → browse `http://localhost:8080`. Caddy upstreams are auto-wired to `frontend:5173` and `backend:${API_PORT:-3001}`.
+- **Dev:** `docker compose -f infra/docker/docker-compose.dev-caddy.yml up --build` → browse `http://localhost:8080`. Caddy upstreams are auto-wired to `frontend:5173` and `backend:3001`.
 - **Stage/Prod:** build the SPA (`npm run build` to populate `dist/`), then:
   - Stage: `APP_DOMAIN=staging.example.com ACME_EMAIL=ops@example.com docker compose -f docker-compose.staging.yml up -d`
   - Prod: `APP_DOMAIN=app.example.com ACME_EMAIL=security@example.com docker compose -f docker-compose.prod.yml up -d`

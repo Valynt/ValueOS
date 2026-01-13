@@ -7,13 +7,13 @@
  * Single source of truth for ports comes from ./ports.js (loadPorts/resolvePort).
  */
 
-import http from 'http';
-import { execSync } from 'child_process';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { resolveMode } from './lib/mode.js';
-import { loadPorts, resolvePort } from './ports.js';
+import http from "http";
+import { execSync } from "child_process";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { resolveMode } from "./lib/mode.js";
+import { loadPorts, resolvePort } from "./ports.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,24 +33,26 @@ const frontendPort = resolvePort(process.env.VITE_PORT, portConfig.frontend.port
 const postgresPort = resolvePort(process.env.POSTGRES_PORT, portConfig.postgres.port);
 const redisPort = resolvePort(process.env.REDIS_PORT, portConfig.redis.port);
 const supabaseApiPort = resolvePort(process.env.SUPABASE_API_PORT, portConfig.supabase.apiPort);
-const supabaseStudioPort = resolvePort(process.env.SUPABASE_STUDIO_PORT, portConfig.supabase.studioPort);
+const supabaseStudioPort = resolvePort(
+  process.env.SUPABASE_STUDIO_PORT,
+  portConfig.supabase.studioPort
+);
 
 const backendBaseUrl = process.env.BACKEND_URL || `http://localhost:${backendPort}`;
 const frontendBaseUrl = process.env.VITE_APP_URL || `http://localhost:${frontendPort}`;
-const appComposeFile = process.env.DX_MODE === 'docker'
-  ? 'docker-compose.full.yml'
-  : 'docker-compose.dev.yml';
+const appComposeFile =
+  process.env.DX_MODE === "docker" ? "docker-compose.full.yml" : "docker-compose.deps.yml";
 
 const backendContainerCandidates = [
   process.env.BACKEND_CONTAINER_NAME,
-  'valueos-backend-dev',
-  'valueos-backend'
+  "valueos-backend-dev",
+  "valueos-backend",
 ].filter(Boolean);
 
 const frontendContainerCandidates = [
   process.env.FRONTEND_CONTAINER_NAME,
-  'valueos-frontend-dev',
-  'valueos-frontend'
+  "valueos-frontend-dev",
+  "valueos-frontend",
 ].filter(Boolean);
 
 /**
@@ -61,23 +63,23 @@ async function checkUrl(url, timeout = 5000) {
     const urlObj = new URL(url);
     const options = {
       hostname: urlObj.hostname,
-      port: urlObj.port || (urlObj.protocol === 'https:' ? 443 : 80),
+      port: urlObj.port || (urlObj.protocol === "https:" ? 443 : 80),
       path: `${urlObj.pathname}${urlObj.search}`,
-      method: 'GET',
-      timeout
+      method: "GET",
+      timeout,
     };
 
     const req = http.request(options, (res) => {
       resolve({ success: true, status: res.statusCode });
     });
 
-    req.on('error', (error) => {
+    req.on("error", (error) => {
       resolve({ success: false, error: error.message });
     });
 
-    req.on('timeout', () => {
+    req.on("timeout", () => {
       req.destroy();
-      resolve({ success: false, error: 'Timeout' });
+      resolve({ success: false, error: "Timeout" });
     });
 
     req.end();
@@ -85,8 +87,8 @@ async function checkUrl(url, timeout = 5000) {
 }
 
 function normalizeHealthStatus(status) {
-  if (!status || status === '<no value>') {
-    return 'unknown';
+  if (!status || status === "<no value>") {
+    return "unknown";
   }
 
   return status;
@@ -97,7 +99,7 @@ function getContainerHealth(containerNames) {
     try {
       const status = execSync(
         `docker inspect --format='{{.State.Health.Status}}' ${containerName}`,
-        { encoding: 'utf8' }
+        { encoding: "utf8" }
       ).trim();
 
       return { name: containerName, status: normalizeHealthStatus(status) };
@@ -115,11 +117,11 @@ function isHealthMismatch(httpPassed, containerHealth) {
   }
 
   const status = containerHealth.status;
-  if (!['healthy', 'unhealthy', 'starting'].includes(status)) {
+  if (!["healthy", "unhealthy", "starting"].includes(status)) {
     return false;
   }
 
-  return (status === 'healthy') !== httpPassed;
+  return (status === "healthy") !== httpPassed;
 }
 
 function buildMismatchFix({ name, status, serviceCommand }) {
@@ -145,20 +147,20 @@ async function checkBackend() {
 
   if (isHealthMismatch(httpPassed, containerHealth)) {
     return {
-      name: 'Backend API',
+      name: "Backend API",
       url: healthUrl,
       passed: false,
-      message: `ERR Backend API - HTTP ${httpPassed ? 'ready' : 'failed'} but container ${containerHealth.name} is ${containerHealth.status}`,
+      message: `ERR Backend API - HTTP ${httpPassed ? "ready" : "failed"} but container ${containerHealth.name} is ${containerHealth.status}`,
       fix: buildMismatchFix({
         name: containerHealth.name,
         status: containerHealth.status,
-        serviceCommand: 'backend'
-      })
+        serviceCommand: "backend",
+      }),
     };
   }
 
   return {
-    name: 'Backend API',
+    name: "Backend API",
     url: healthUrl,
     passed: httpPassed,
     message: result.success
@@ -174,7 +176,7 @@ Possible causes:\
 \
 Debug:\
 $ npm run backend:dev\
-`
+`,
   };
 }
 
@@ -188,20 +190,20 @@ async function checkFrontend() {
 
   if (isHealthMismatch(httpPassed, containerHealth)) {
     return {
-      name: 'Frontend',
+      name: "Frontend",
       url: frontendBaseUrl,
       passed: false,
-      message: `ERR Frontend - HTTP ${httpPassed ? 'ready' : 'failed'} but container ${containerHealth.name} is ${containerHealth.status}`,
+      message: `ERR Frontend - HTTP ${httpPassed ? "ready" : "failed"} but container ${containerHealth.name} is ${containerHealth.status}`,
       fix: buildMismatchFix({
         name: containerHealth.name,
         status: containerHealth.status,
-        serviceCommand: 'frontend'
-      })
+        serviceCommand: "frontend",
+      }),
     };
   }
 
   return {
-    name: 'Frontend',
+    name: "Frontend",
     url: frontendBaseUrl,
     passed: httpPassed,
     message: result.success
@@ -216,7 +218,7 @@ Possible causes:\
 \
 Debug:\
 $ npm run dev\
-`
+`,
   };
 }
 
@@ -224,33 +226,31 @@ $ npm run dev\
  * Check PostgreSQL (via docker compose service status)
  */
 async function checkDatabase() {
-  const composeFile = mode === 'docker'
-    ? 'docker-compose.full.yml'
-    : 'docker-compose.deps.yml';
+  const composeFile = mode === "docker" ? "docker-compose.full.yml" : "docker-compose.deps.yml";
 
   try {
     execSync(`docker compose --env-file .env.ports -f ${composeFile} ps postgres`, {
-      stdio: 'ignore',
-      cwd: path.resolve(__dirname, '../..')
+      stdio: "ignore",
+      cwd: path.resolve(__dirname, "../.."),
     });
 
     return {
-      name: 'PostgreSQL',
+      name: "PostgreSQL",
       url: `localhost:${postgresPort}`,
       passed: true,
       message: `OK  PostgreSQL (localhost:${postgresPort})`,
-      fix: null
+      fix: null,
     };
   } catch {
     return {
-      name: 'PostgreSQL',
+      name: "PostgreSQL",
       url: `localhost:${postgresPort}`,
       passed: false,
-      message: 'ERR PostgreSQL - Not running',
+      message: "ERR PostgreSQL - Not running",
       fix: `\
 Start Docker services:\
 $ docker compose --env-file .env.ports -f ${composeFile} up -d\
-`
+`,
     };
   }
 }
@@ -259,33 +259,31 @@ $ docker compose --env-file .env.ports -f ${composeFile} up -d\
  * Check Redis (via docker compose service status)
  */
 async function checkRedis() {
-  const composeFile = mode === 'docker'
-    ? 'docker-compose.full.yml'
-    : 'docker-compose.deps.yml';
+  const composeFile = mode === "docker" ? "docker-compose.full.yml" : "docker-compose.deps.yml";
 
   try {
     execSync(`docker compose --env-file .env.ports -f ${composeFile} ps redis`, {
-      stdio: 'ignore',
-      cwd: path.resolve(__dirname, '../..')
+      stdio: "ignore",
+      cwd: path.resolve(__dirname, "../.."),
     });
 
     return {
-      name: 'Redis',
+      name: "Redis",
       url: `localhost:${redisPort}`,
       passed: true,
       message: `OK  Redis (localhost:${redisPort})`,
-      fix: null
+      fix: null,
     };
   } catch {
     return {
-      name: 'Redis',
+      name: "Redis",
       url: `localhost:${redisPort}`,
       passed: false,
-      message: 'ERR Redis - Not running',
+      message: "ERR Redis - Not running",
       fix: `\
 Start Docker services:\
 $ docker compose --env-file .env.ports -f ${composeFile} up -d\
-`
+`,
     };
   }
 }
@@ -294,50 +292,52 @@ $ docker compose --env-file .env.ports -f ${composeFile} up -d\
  * Check environment variables
  */
 async function checkEnvironment() {
-  const projectRoot = path.resolve(__dirname, '../..');
-  const envLocalPath = path.join(projectRoot, '.env.local');
-  const envPath = path.join(projectRoot, '.env');
+  const projectRoot = path.resolve(__dirname, "../..");
+  const envLocalPath = path.join(projectRoot, ".env.local");
+  const envPath = path.join(projectRoot, ".env");
   const resolvedEnvPath = fs.existsSync(envLocalPath)
     ? envLocalPath
-    : (fs.existsSync(envPath) ? envPath : null);
-  const envLabel = resolvedEnvPath === envLocalPath ? '.env.local' : '.env';
+    : fs.existsSync(envPath)
+      ? envPath
+      : null;
+  const envLabel = resolvedEnvPath === envLocalPath ? ".env.local" : ".env";
 
   if (!resolvedEnvPath) {
     return {
-      name: 'Environment',
-      url: '.env.local',
+      name: "Environment",
+      url: ".env.local",
       passed: false,
-      message: 'ERR Environment - .env.local or .env file missing',
+      message: "ERR Environment - .env.local or .env file missing",
       fix: `\
 Create .env.local file:\
 $ npm run setup\
-`
+`,
     };
   }
 
-  const required = ['NODE_ENV', 'DATABASE_URL', 'JWT_SECRET'];
-  const envContent = fs.readFileSync(resolvedEnvPath, 'utf8');
+  const required = ["NODE_ENV", "DATABASE_URL", "JWT_SECRET"];
+  const envContent = fs.readFileSync(resolvedEnvPath, "utf8");
   const missing = required.filter((key) => !envContent.includes(`${key}=`));
 
   if (missing.length > 0) {
     return {
-      name: 'Environment',
+      name: "Environment",
       url: envLabel,
       passed: false,
-      message: `ERR Environment - Missing vars: ${missing.join(', ')}`,
+      message: `ERR Environment - Missing vars: ${missing.join(", ")}`,
       fix: `\
 Regenerate .env.local file:\
 $ rm .env.local && npm run setup\
-`
+`,
     };
   }
 
   return {
-    name: 'Environment',
+    name: "Environment",
     url: envLabel,
     passed: true,
-    message: 'OK  Environment (all required vars set)',
-    fix: null
+    message: "OK  Environment (all required vars set)",
+    fix: null,
   };
 }
 
@@ -346,14 +346,14 @@ $ rm .env.local && npm run setup\
  */
 async function runHealthChecks() {
   // Keep output simple and consistent for CI.
-  console.log('\nRunning health checks...\n');
+  console.log("\nRunning health checks...\n");
 
   const checks = await Promise.all([
     checkBackend(),
     checkFrontend(),
     checkDatabase(),
     checkRedis(),
-    checkEnvironment()
+    checkEnvironment(),
   ]);
 
   // Display results
@@ -365,7 +365,7 @@ async function runHealthChecks() {
   const failures = checks.filter((c) => !c.passed);
 
   if (!allPassed) {
-    console.log('\nSome checks failed\n');
+    console.log("\nSome checks failed\n");
     for (const check of failures) {
       if (check.fix) {
         console.log(`${check.name}:`);
@@ -375,7 +375,7 @@ async function runHealthChecks() {
     return false;
   }
 
-  console.log('\nAll systems operational\n');
+  console.log("\nAll systems operational\n");
   return true;
 }
 
@@ -383,12 +383,12 @@ async function runHealthChecks() {
  * Display service URLs
  */
 function displayServiceUrls() {
-  console.log('Service URLs:');
+  console.log("Service URLs:");
   console.log(`  Frontend:         ${frontendBaseUrl}`);
   console.log(`  Backend:          ${backendBaseUrl}`);
   console.log(`  Supabase API:     http://localhost:${supabaseApiPort}`);
   console.log(`  Supabase Studio:  http://localhost:${supabaseStudioPort}`);
-  console.log('');
+  console.log("");
 }
 
 // CLI usage
@@ -405,5 +405,5 @@ export {
   checkFrontend,
   checkDatabase,
   checkRedis,
-  checkEnvironment
+  checkEnvironment,
 };

@@ -4,18 +4,18 @@
  * DX Doctor: fail-fast preflight checks for dev environment.
  */
 
-import fs from 'fs';
-import https from 'https';
-import net from 'net';
-import path from 'path';
-import { execSync } from 'child_process';
-import { fileURLToPath } from 'url';
-import { resolveMode } from './lib/mode.js';
-import { loadPorts, resolvePort, formatPortsEnv, writePortsEnvFile } from './ports.js';
+import fs from "fs";
+import https from "https";
+import net from "net";
+import path from "path";
+import { execSync } from "child_process";
+import { fileURLToPath } from "url";
+import { resolveMode } from "./lib/mode.js";
+import { loadPorts, resolvePort, formatPortsEnv, writePortsEnvFile } from "./ports.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const projectRoot = path.resolve(__dirname, '../..');
+const projectRoot = path.resolve(__dirname, "../..");
 
 const args = process.argv.slice(2);
 let mode;
@@ -47,15 +47,15 @@ function reportFailure(title, details, fix) {
 function runCommand(command, options = {}) {
   return execSync(command, {
     cwd: projectRoot,
-    stdio: 'pipe',
-    encoding: 'utf8',
-    ...options
+    stdio: "pipe",
+    encoding: "utf8",
+    ...options,
   });
 }
 
 function commandExists(command) {
   try {
-    execSync(`command -v ${command}`, { stdio: 'ignore' });
+    execSync(`command -v ${command}`, { stdio: "ignore" });
     return true;
   } catch {
     return false;
@@ -63,7 +63,7 @@ function commandExists(command) {
 }
 
 function ensurePortsEnvFile() {
-  const portsPath = path.join(projectRoot, '.env.ports');
+  const portsPath = path.join(projectRoot, ".env.ports");
   const desired = formatPortsEnv(ports);
 
   if (!fs.existsSync(portsPath)) {
@@ -71,23 +71,23 @@ function ensurePortsEnvFile() {
     return;
   }
 
-  const current = fs.readFileSync(portsPath, 'utf8');
+  const current = fs.readFileSync(portsPath, "utf8");
   if (current.trim() !== desired.trim()) {
     writePortsEnvFile(portsPath);
   }
 }
 
 function parseMajor(version) {
-  return Number(String(version).replace(/^v/, '').split('.')[0]);
+  return Number(String(version).replace(/^v/, "").split(".")[0]);
 }
 
 function checkNodeVersion() {
-  const nvmrcPath = path.join(projectRoot, '.nvmrc');
+  const nvmrcPath = path.join(projectRoot, ".nvmrc");
   if (!fs.existsSync(nvmrcPath)) {
     return;
   }
 
-  const expected = fs.readFileSync(nvmrcPath, 'utf8').trim();
+  const expected = fs.readFileSync(nvmrcPath, "utf8").trim();
   if (!expected) {
     return;
   }
@@ -97,62 +97,84 @@ function checkNodeVersion() {
 
   if (expectedMajor && actualMajor !== expectedMajor) {
     reportFailure(
-      'Node.js version mismatch',
+      "Node.js version mismatch",
       `Expected Node ${expectedMajor} from .nvmrc, found ${process.version}.`,
-      'Run: nvm install && nvm use'
+      "Run: nvm install && nvm use"
     );
   }
 }
 
 function checkDocker() {
-  if (!commandExists('docker')) {
+  if (!commandExists("docker")) {
     reportFailure(
-      'Docker missing',
-      'Docker CLI not found in PATH.',
-      'Install Docker Desktop: https://www.docker.com/products/docker-desktop'
+      "Docker missing",
+      "Docker CLI not found in PATH.",
+      "Install Docker Desktop: https://www.docker.com/products/docker-desktop"
     );
     return;
   }
 
-  let dockerContext = 'unknown';
+  let dockerContext = "unknown";
   let contextError = null;
+  let contextDetails = "";
+
   try {
-    dockerContext = runCommand('docker context show').trim();
+    dockerContext = runCommand("docker context show").trim();
   } catch (error) {
     contextError = error;
   }
 
   try {
-    runCommand('docker info');
+    const contextList = runCommand(
+      'docker context ls --format "{{.Name}}: {{.DockerEndpoint}}"'
+    ).trim();
+    contextDetails = contextList.split("\n").slice(0, 3).join("; ");
+  } catch {
+    // Ignore context list errors
+  }
+
+  try {
+    runCommand("docker info");
   } catch (error) {
-    reportFailure(
-      'Docker not running',
-      `Docker daemon is not responding. Current context: ${dockerContext}.`,
-      'Start Docker Desktop (or `sudo systemctl start docker`).'
-    );
+    const errorMsg = error.message || "";
+    let fix = "Start Docker Desktop (or `sudo systemctl start docker`).";
+    let details = `Docker daemon is not responding. Current context: ${dockerContext}.`;
+
+    if (errorMsg.includes("permission denied")) {
+      fix = "Add your user to the docker group: sudo usermod -aG docker $USER && newgrp docker";
+      details = `Docker permission denied. Current context: ${dockerContext}.`;
+    } else if (errorMsg.includes("Cannot connect") || errorMsg.includes("connection refused")) {
+      details = `Cannot connect to Docker daemon. Context: ${dockerContext}. Available: ${contextDetails || "unknown"}.`;
+      fix =
+        dockerContext !== "default"
+          ? `Try: docker context use default (current: ${dockerContext})`
+          : "Start Docker Desktop (or `sudo systemctl start docker`).";
+    }
+
+    reportFailure("Docker not running", details, fix);
   }
 
   if (contextError) {
     reportFailure(
-      'Docker context unavailable',
-      `Unable to read Docker context. Current context: ${dockerContext}.`,
-      'Run: docker context use default'
+      "Docker context unavailable",
+      `Unable to read Docker context. This may indicate a Docker configuration issue.`,
+      "Run: docker context use default"
     );
   }
 }
 
-function isPortInUse(port, host = '127.0.0.1') {
+function isPortInUse(port, host = "127.0.0.1") {
   return new Promise((resolve) => {
     const tester = net
       .createServer()
-      .once('error', (error) => {
-        if (error.code === 'EADDRINUSE') {
+      .once("error", (error) => {
+        if (error.code === "EADDRINUSE") {
           resolve(true);
         } else {
           resolve(false);
         }
       })
-      .once('listening', () => {
+      .once("listening", () => {
         tester.close(() => resolve(false));
       })
       .listen(port, host);
@@ -167,7 +189,7 @@ function isDockerPortPublished(port) {
     }
 
     const matcher = new RegExp(`(^|,\\s*)(?:[^\\s,]+:)?${port}->`);
-    return output.split('\n').some(line => matcher.test(line));
+    return output.split("\n").some((line) => matcher.test(line));
   } catch {
     return false;
   }
@@ -175,20 +197,17 @@ function isDockerPortPublished(port) {
 
 async function checkPorts() {
   const portChecks = [
-    { name: 'Frontend', port: frontendPort },
-    { name: 'Backend', port: backendPort }
+    { name: "Frontend", port: frontendPort },
+    { name: "Backend", port: backendPort },
   ];
 
-  if (mode === 'local') {
-    portChecks.push(
-      { name: 'Postgres', port: postgresPort },
-      { name: 'Redis', port: redisPort }
-    );
+  if (mode === "local") {
+    portChecks.push({ name: "Postgres", port: postgresPort }, { name: "Redis", port: redisPort });
   }
 
   for (const { name, port } of portChecks) {
     const inUse = await isPortInUse(port);
-    if (inUse && !isDockerPortPublished(port) && process.env.DX_ALLOW_PORT_IN_USE !== '1') {
+    if (inUse && !isDockerPortPublished(port) && process.env.DX_ALLOW_PORT_IN_USE !== "1") {
       reportFailure(
         `${name} port in use`,
         `Port ${port} is already bound on localhost.`,
@@ -199,12 +218,12 @@ async function checkPorts() {
 }
 
 function checkEnvironment() {
-  const envLocalPath = path.join(projectRoot, '.env.local');
+  const envLocalPath = path.join(projectRoot, ".env.local");
   if (!fs.existsSync(envLocalPath)) {
     reportFailure(
-      '.env.local missing',
-      'Local environment file is required.',
-      'Run: npm run setup'
+      ".env.local missing",
+      "Local environment file is required.",
+      "Run: npm run setup"
     );
   }
 }
@@ -213,49 +232,55 @@ function checkComposeState() {
   let fullRunning = [];
   let depsRunning = [];
 
-  if (commandExists('docker')) {
+  if (commandExists("docker")) {
     try {
-      fullRunning = runCommand('docker compose --env-file .env.ports -f docker-compose.full.yml ps --status running --services', {
-        stdio: 'pipe'
-      })
+      fullRunning = runCommand(
+        "docker compose --env-file .env.ports -f docker-compose.full.yml ps --status running --services",
+        {
+          stdio: "pipe",
+        }
+      )
         .trim()
-        .split('\n')
+        .split("\n")
         .filter(Boolean);
     } catch {
       fullRunning = [];
     }
 
     try {
-      depsRunning = runCommand('docker compose --env-file .env.ports -f docker-compose.deps.yml ps --status running --services', {
-        stdio: 'pipe'
-      })
+      depsRunning = runCommand(
+        "docker compose --env-file .env.ports -f docker-compose.deps.yml ps --status running --services",
+        {
+          stdio: "pipe",
+        }
+      )
         .trim()
-        .split('\n')
+        .split("\n")
         .filter(Boolean);
     } catch {
       depsRunning = [];
     }
   }
 
-  if (mode === 'local' && fullRunning.length > 0) {
+  if (mode === "local" && fullRunning.length > 0) {
     reportFailure(
-      'Full Docker stack already running',
-      `Running services: ${fullRunning.join(', ')}`,
-      'Stop it with: npm run dx:down (or use npm run dx:docker)'
+      "Full Docker stack already running",
+      `Running services: ${fullRunning.join(", ")}`,
+      "Stop it with: npm run dx:down (or use npm run dx:docker)"
     );
   }
 
-  if (mode === 'docker' && depsRunning.length > 0) {
+  if (mode === "docker" && depsRunning.length > 0) {
     reportFailure(
-      'Local deps already running',
-      `Running services: ${depsRunning.join(', ')}`,
-      'Stop it with: npm run dx:down (or use npm run dx)'
+      "Local deps already running",
+      `Running services: ${depsRunning.join(", ")}`,
+      "Stop it with: npm run dx:down (or use npm run dx)"
     );
   }
 }
 
 function checkDockerContainerHealth() {
-  if (!commandExists('docker')) {
+  if (!commandExists("docker")) {
     return;
   }
 
@@ -263,10 +288,10 @@ function checkDockerContainerHealth() {
   try {
     containers = runCommand('docker ps -a --format "{{.ID}}\t{{.Names}}"')
       .trim()
-      .split('\n')
+      .split("\n")
       .filter(Boolean)
       .map((line) => {
-        const [id, name] = line.split('\t');
+        const [id, name] = line.split("\t");
         return { id, name };
       });
   } catch {
@@ -286,16 +311,16 @@ function checkDockerContainerHealth() {
         `docker inspect --format "{{.State.Status}}\t{{.State.RestartCount}}\t{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}" ${id}`
       )
         .trim()
-        .split('\t');
+        .split("\t");
 
       const [status, restartCountRaw, healthStatus] = statusLine;
       const restartCount = Number(restartCountRaw);
-      const isRestarting = status === 'restarting';
-      if (healthStatus === 'unhealthy') {
+      const isRestarting = status === "restarting";
+      if (healthStatus === "unhealthy") {
         unhealthy.push(name);
       }
       if (isRestarting || restartCount > 1) {
-        const detail = `${name} (restarts: ${Number.isNaN(restartCount) ? 'unknown' : restartCount}${isRestarting ? ', restarting' : ''})`;
+        const detail = `${name} (restarts: ${Number.isNaN(restartCount) ? "unknown" : restartCount}${isRestarting ? ", restarting" : ""})`;
         restartLoops.push(detail);
       }
     } catch {
@@ -309,101 +334,163 @@ function checkDockerContainerHealth() {
 
   const detailParts = [];
   if (unhealthy.length > 0) {
-    detailParts.push(`Unhealthy containers: ${unhealthy.join(', ')}.`);
+    detailParts.push(`Unhealthy containers: ${unhealthy.join(", ")}.`);
   }
   if (restartLoops.length > 0) {
-    detailParts.push(`Repeated restarts detected: ${restartLoops.join(', ')}.`);
+    detailParts.push(`Repeated restarts detected: ${restartLoops.join(", ")}.`);
   }
 
   reportFailure(
-    'Docker containers unhealthy or restarting',
-    detailParts.join(' '),
-    'Run: npm run dx:reset'
+    "Docker containers unhealthy or restarting",
+    detailParts.join(" "),
+    "Run: npm run dx:reset"
   );
 }
 
 function checkSupabase() {
-  const viteSupabaseUrl = process.env.VITE_SUPABASE_URL || '';
+  const viteSupabaseUrl = process.env.VITE_SUPABASE_URL || "";
+  const localFlag = process.env.DX_SUPABASE_LOCAL;
+
+  // Explicit opt-out
+  if (localFlag === "0" || localFlag === "false") {
+    return;
+  }
+
   const isLocalSupabase =
-    process.env.DX_SUPABASE_LOCAL === '1' ||
-    viteSupabaseUrl.includes('localhost') ||
-    viteSupabaseUrl.includes('127.0.0.1');
+    localFlag === "1" ||
+    localFlag === "true" ||
+    viteSupabaseUrl.includes("localhost") ||
+    viteSupabaseUrl.includes("127.0.0.1");
   if (!isLocalSupabase) {
     return;
   }
 
-  if (!commandExists('supabase')) {
+  if (!commandExists("supabase")) {
     reportFailure(
-      'Supabase CLI missing',
-      'Supabase URL is local but CLI is not installed.',
-      'Install with: npm install -g supabase'
+      "Supabase CLI missing",
+      "Supabase URL is local but CLI is not installed.",
+      "Install with: npm install -g supabase (or set DX_SUPABASE_LOCAL=0 to skip)"
     );
     return;
   }
 
   try {
-    runCommand('supabase status');
+    runCommand("supabase status");
   } catch {
     reportFailure(
-      'Supabase local not running',
+      "Supabase local not running",
       `Expected Supabase at http://localhost:${supabaseApiPort}`,
-      'Start it with: supabase start'
+      "Start it with: supabase start"
     );
+  }
+}
+
+function checkMigrationDrift() {
+  if (mode !== "local") {
+    return;
+  }
+
+  // Only check if postgres container is running
+  try {
+    runCommand(
+      "docker compose --env-file .env.ports -f docker-compose.deps.yml ps postgres --status running",
+      { stdio: "pipe" }
+    );
+  } catch {
+    return; // Postgres not running, skip migration check
+  }
+
+  // Check if supabase migrations directory exists
+  const migrationsDir = path.join(projectRoot, "supabase", "migrations");
+  if (!fs.existsSync(migrationsDir)) {
+    return;
+  }
+
+  // Count local migration files
+  let localMigrations = [];
+  try {
+    localMigrations = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
+  } catch {
+    return;
+  }
+
+  if (localMigrations.length === 0) {
+    return;
+  }
+
+  // Try to check applied migrations via supabase CLI if available
+  if (commandExists("supabase")) {
+    try {
+      const status = runCommand(
+        'supabase migration list --local 2>/dev/null || echo "unavailable"'
+      );
+      if (status.includes("unavailable")) {
+        return;
+      }
+
+      // Count pending migrations (lines with "not applied" or similar)
+      const pendingCount = (status.match(/pending|not applied/gi) || []).length;
+      if (pendingCount > 0) {
+        reportFailure(
+          "Database migrations pending",
+          `${pendingCount} migration(s) not applied to local database.`,
+          "Run: supabase db push (or npm run db:push)"
+        );
+      }
+    } catch {
+      // Supabase CLI check failed, skip
+    }
   }
 }
 
 function checkHttpsEndpoint(url) {
   return new Promise((resolve) => {
-    const request = https.get(
-      url,
-      { rejectUnauthorized: false, timeout: 3000 },
-      (response) => {
-        const { statusCode } = response;
-        response.resume();
-        resolve({
-          ok: Number.isInteger(statusCode) && statusCode >= 200 && statusCode < 400,
-          statusCode
-        });
-      }
-    );
+    const request = https.get(url, { rejectUnauthorized: false, timeout: 3000 }, (response) => {
+      const { statusCode } = response;
+      response.resume();
+      resolve({
+        ok: Number.isInteger(statusCode) && statusCode >= 200 && statusCode < 400,
+        statusCode,
+      });
+    });
 
-    request.on('error', (error) => {
+    request.on("error", (error) => {
       resolve({ ok: false, error: error.message });
     });
 
-    request.on('timeout', () => {
-      request.destroy(new Error('timeout'));
+    request.on("timeout", () => {
+      request.destroy(new Error("timeout"));
     });
   });
 }
 
 async function checkDevEdgeRouting() {
-  if (!commandExists('docker')) {
+  if (!commandExists("docker")) {
     return;
   }
 
-  const composeFile = path.join(projectRoot, 'infra', 'docker', 'docker-compose.dev-caddy.yml');
+  const composeFile = path.join(projectRoot, "infra", "docker", "docker-compose.dev-caddy.yml");
   let runningServices = [];
 
   try {
     runningServices = runCommand(
       `docker compose -f ${composeFile} ps --status running --services`,
-      { stdio: 'pipe' }
+      { stdio: "pipe" }
     )
       .trim()
-      .split('\n')
+      .split("\n")
       .filter(Boolean);
   } catch {
     return;
   }
 
-  if (!runningServices.includes('caddy')) {
+  if (!runningServices.includes("caddy")) {
     return;
   }
 
   const endpoints = [
     `https://localhost:${caddyHttpsPort}/healthz`,
-    `https://localhost:${caddyHttpsPort}/api/health`
+    `https://localhost:${caddyHttpsPort}/api/health`,
   ];
   const restartCommand = `docker compose -f ${composeFile} restart`;
   const restartFix = `${restartCommand} (or: docker compose -f ${composeFile} down && docker compose -f ${composeFile} up -d)`;
@@ -411,9 +498,11 @@ async function checkDevEdgeRouting() {
   for (const endpoint of endpoints) {
     const result = await checkHttpsEndpoint(endpoint);
     if (!result.ok) {
-      const statusDetail = result.statusCode ? `status ${result.statusCode}` : result.error || 'unknown error';
+      const statusDetail = result.statusCode
+        ? `status ${result.statusCode}`
+        : result.error || "unknown error";
       reportFailure(
-        'Dev edge routing error',
+        "Dev edge routing error",
         `Failed to reach ${endpoint} (${statusDetail}).`,
         `Restart the dev edge stack: ${restartFix}`
       );
@@ -422,7 +511,7 @@ async function checkDevEdgeRouting() {
 }
 
 async function main() {
-  if (!['local', 'docker'].includes(mode)) {
+  if (!["local", "docker"].includes(mode)) {
     console.error(`❌ Invalid mode "${mode}". Use --mode local or --mode docker.`);
     process.exit(1);
   }
@@ -436,24 +525,25 @@ async function main() {
   checkComposeState();
   checkDockerContainerHealth();
   checkSupabase();
+  checkMigrationDrift();
   await checkDevEdgeRouting();
   await checkPorts();
 
   if (failures.length > 0) {
-    console.log('❌ Preflight checks failed:\n');
+    console.log("❌ Preflight checks failed:\n");
     failures.forEach((failure) => {
       console.log(`- ${failure.title}`);
       console.log(`  ${failure.details}`);
       if (failure.fix) {
         console.log(`  Fix: ${failure.fix}`);
       }
-      console.log('');
+      console.log("");
     });
     process.exit(1);
   }
 
-  console.log('✅ All preflight checks passed.\n');
-  console.log('Ports:');
+  console.log("✅ All preflight checks passed.\n");
+  console.log("Ports:");
   console.log(`  Frontend:        ${frontendUrl}`);
   console.log(`  Backend:         ${backendUrl}`);
   console.log(`  Supabase API:    http://localhost:${supabaseApiPort}`);
@@ -461,6 +551,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error('❌ Doctor failed:', error.message);
+  console.error("❌ Doctor failed:", error.message);
   process.exit(1);
 });

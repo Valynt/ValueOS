@@ -93,6 +93,7 @@
     "dev:fix": "bash scripts/dev-automation/fix-port-forwarding.sh",
     "dev:diagnose": "bash scripts/dev-automation/diagnose-network.sh",
     "dev:test-ports": "bash scripts/dev-automation/test-ports.sh",
+    "dx:lint-ports": "node scripts/dx/lint-ports.js",
     "dev:health": "bash scripts/dev-automation/dev-health-check.sh",
     "dev:auto-fix": "bash scripts/dev-automation/auto-fix.sh",
     "chaos:pipeline": "bash scripts/run-chaos-pipeline.sh",

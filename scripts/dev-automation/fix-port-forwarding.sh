@@ -2,11 +2,25 @@
 ###############################################################################
 # Fix Port Forwarding and Browser Access Issues
 # Resolves common issues with dev server not being accessible
+#
+# Usage:
+#   bash scripts/dev-automation/fix-port-forwarding.sh          # Advisory mode (default)
+#   bash scripts/dev-automation/fix-port-forwarding.sh --apply  # Apply fixes
 ###############################################################################
 
 set -e
 
-echo "🔧 Fixing Port Forwarding and Browser Access"
+APPLY_MODE=false
+if [[ "$1" == "--apply" ]]; then
+    APPLY_MODE=true
+fi
+
+if [ "$APPLY_MODE" = true ]; then
+    echo "🔧 Fixing Port Forwarding and Browser Access (APPLY MODE)"
+else
+    echo "🔍 Diagnosing Port Forwarding and Browser Access (ADVISORY MODE)"
+    echo "   Run with --apply to make changes"
+fi
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
@@ -52,10 +66,14 @@ FIXES_APPLIED=0
 # 1. Check if dev server is running
 print_status "Checking dev server status..."
 if pgrep -f "vite" > /dev/null; then
-    print_warning "Dev server is running. Stopping it..."
-    pkill -f "vite" || true
-    sleep 2
-    FIXES_APPLIED=$((FIXES_APPLIED + 1))
+    if [ "$APPLY_MODE" = true ]; then
+        print_warning "Dev server is running. Stopping it..."
+        pkill -f "vite" || true
+        sleep 2
+        FIXES_APPLIED=$((FIXES_APPLIED + 1))
+    else
+        print_warning "Dev server is running. Would stop it with --apply"
+    fi
 fi
 
 # 2. Check for port conflicts
@@ -67,12 +85,16 @@ for port in "$VITE_PORT" "$API_PORT" 5432 6379; do
         print_warning "Port $port is in use by $PROCESS (PID: $PID)"
         
         if [ "$PROCESS" != "vite" ] && [ "$PROCESS" != "node" ]; then
-            read -p "Kill process on port $port? (y/n): " -n 1 -r
-            echo
-            if [[ $REPLY =~ ^[Yy]$ ]]; then
-                kill -9 $PID 2>/dev/null || true
-                print_success "Killed process on port $port"
-                FIXES_APPLIED=$((FIXES_APPLIED + 1))
+            if [ "$APPLY_MODE" = true ]; then
+                read -p "Kill process on port $port? (y/n): " -n 1 -r
+                echo
+                if [[ $REPLY =~ ^[Yy]$ ]]; then
+                    kill -9 $PID 2>/dev/null || true
+                    print_success "Killed process on port $port"
+                    FIXES_APPLIED=$((FIXES_APPLIED + 1))
+                fi
+            else
+                print_warning "Would prompt to kill process on port $port with --apply"
             fi
         fi
     fi
@@ -80,18 +102,11 @@ done
 
 # 3. Verify Vite configuration
 print_status "Verifying Vite configuration..."
-if grep -q "host: '0.0.0.0'" vite.config.ts; then
+if grep -q "host: '0.0.0.0'" vite.config.ts 2>/dev/null || grep -q "host: true" vite.config.ts 2>/dev/null; then
     print_success "Vite is configured to listen on all interfaces"
 else
-    print_warning "Vite configuration needs update"
-    print_status "Updating vite.config.ts..."
-    
-    # Backup original
-    cp vite.config.ts vite.config.ts.backup
-    
-    # This should already be done by the previous fix
-    print_success "Vite configuration updated"
-    FIXES_APPLIED=$((FIXES_APPLIED + 1))
+    print_warning "Vite may need host configuration for external access"
+    echo "   Suggestion: Add 'server: { host: true }' to vite.config.ts"
 fi
 
 # 4. Check network connectivity
@@ -129,9 +144,14 @@ fi
 print_status "Checking environment variables..."
 if [ -z "$VITE_API_URL" ]; then
     print_warning "VITE_API_URL not set"
-    echo "export VITE_API_URL=http://localhost:${API_PORT}" >> ~/.bashrc
-    export VITE_API_URL="http://localhost:${API_PORT}"
-    FIXES_APPLIED=$((FIXES_APPLIED + 1))
+    if [ "$APPLY_MODE" = true ]; then
+        echo "export VITE_API_URL=http://localhost:${API_PORT}" >> ~/.bashrc
+        export VITE_API_URL="http://localhost:${API_PORT}"
+        print_success "Added VITE_API_URL to ~/.bashrc"
+        FIXES_APPLIED=$((FIXES_APPLIED + 1))
+    else
+        echo "   Suggestion: export VITE_API_URL=http://localhost:${API_PORT}"
+    fi
 fi
 
 # 8. Verify package.json scripts
@@ -139,24 +159,20 @@ print_status "Verifying package.json scripts..."
 if grep -q '"dev":.*--host' package.json; then
     print_success "Dev script includes --host flag"
 else
-    print_warning "Dev script missing --host flag"
-    print_status "Updating package.json..."
-    
-    # Backup
-    cp package.json package.json.backup
-    
-    # Update dev script
-    sed -i 's/"dev": "vite"/"dev": "vite --host"/' package.json
-    print_success "Package.json updated"
-    FIXES_APPLIED=$((FIXES_APPLIED + 1))
+    print_warning "Dev script missing --host flag (optional for external access)"
+    echo "   Suggestion: Update dev script to include --host if external access needed"
 fi
 
 # 9. Clear Vite cache
-print_status "Clearing Vite cache..."
+print_status "Checking Vite cache..."
 if [ -d "node_modules/.vite" ]; then
-    rm -rf node_modules/.vite
-    print_success "Vite cache cleared"
-    FIXES_APPLIED=$((FIXES_APPLIED + 1))
+    if [ "$APPLY_MODE" = true ]; then
+        rm -rf node_modules/.vite
+        print_success "Vite cache cleared"
+        FIXES_APPLIED=$((FIXES_APPLIED + 1))
+    else
+        print_warning "Vite cache exists. Would clear with --apply"
+    fi
 fi
 
 # 10. Restart dev server

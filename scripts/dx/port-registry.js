@@ -5,7 +5,7 @@
  * Uses config/ports.json as the single source of truth.
  */
 
-import { loadPorts, resolvePort } from './ports.js';
+import { loadPorts } from "./ports.js";
 
 function parseUrl(value) {
   if (!value) {
@@ -42,7 +42,7 @@ function resolvePortFromSources({ envPort, urlValue, defaultPort }) {
   return defaultPort;
 }
 
-function resolveHost(urlValue, fallback = 'localhost') {
+function resolveHost(urlValue, fallback = "localhost") {
   const parsedUrl = parseUrl(urlValue);
   return parsedUrl?.hostname || fallback;
 }
@@ -56,24 +56,32 @@ export function getPortRegistry() {
   const frontendPort = resolvePortFromSources({
     envPort: process.env.VITE_PORT,
     urlValue: frontendEnvUrl,
-    defaultPort: ports.frontend.port
+    defaultPort: ports.frontend.port,
   });
   const backendPort = resolvePortFromSources({
     envPort: process.env.API_PORT || process.env.BACKEND_PORT || process.env.PORT,
     urlValue: backendEnvUrl,
-    defaultPort: ports.backend.port
+    defaultPort: ports.backend.port,
   });
-  const databasePort = resolvePort(process.env.DB_PORT || process.env.POSTGRES_PORT, ports.postgres.port);
-  const redisPort = resolvePort(process.env.REDIS_PORT, ports.redis.port);
+  const databasePort = resolvePortFromSources({
+    envPort: process.env.DB_PORT || process.env.POSTGRES_PORT,
+    urlValue: process.env.DATABASE_URL,
+    defaultPort: ports.postgres.port,
+  });
+  const redisPort = resolvePortFromSources({
+    envPort: process.env.REDIS_PORT,
+    urlValue: process.env.REDIS_URL,
+    defaultPort: ports.redis.port,
+  });
   const supabaseApiPort = resolvePortFromSources({
     envPort: process.env.SUPABASE_API_PORT,
     urlValue: supabaseApiEnvUrl,
-    defaultPort: ports.supabase.apiPort
+    defaultPort: ports.supabase.apiPort,
   });
   const supabaseStudioPort = resolvePortFromSources({
     envPort: process.env.SUPABASE_STUDIO_PORT,
     urlValue: supabaseStudioEnvUrl,
-    defaultPort: ports.supabase.studioPort
+    defaultPort: ports.supabase.studioPort,
   });
 
   const frontendUrl = frontendEnvUrl || `http://localhost:${frontendPort}`;
@@ -85,33 +93,33 @@ export function getPortRegistry() {
     frontend: {
       port: frontendPort,
       url: frontendUrl,
-      host: resolveHost(frontendUrl)
+      host: resolveHost(frontendUrl),
     },
     backend: {
       port: backendPort,
       url: backendUrl,
-      host: resolveHost(backendUrl)
+      host: resolveHost(backendUrl),
     },
     database: {
       port: databasePort,
       host: resolveHost(process.env.DATABASE_URL),
-      address: `${resolveHost(process.env.DATABASE_URL)}:${databasePort}`
+      address: `${resolveHost(process.env.DATABASE_URL)}:${databasePort}`,
     },
     redis: {
       port: redisPort,
       host: resolveHost(process.env.REDIS_URL),
-      address: `${resolveHost(process.env.REDIS_URL)}:${redisPort}`
+      address: `${resolveHost(process.env.REDIS_URL)}:${redisPort}`,
     },
     supabase: {
       api: {
         port: supabaseApiPort,
-        url: supabaseApiUrl
+        url: supabaseApiUrl,
       },
       studio: {
         port: supabaseStudioPort,
-        url: supabaseStudioUrl
-      }
-    }
+        url: supabaseStudioUrl,
+      },
+    },
   };
 }
 
