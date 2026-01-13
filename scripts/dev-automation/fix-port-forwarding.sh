@@ -6,6 +6,21 @@
 
 set -e
 
+APPLY_FIXES=false
+API_PORT="${API_PORT:-8000}"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --apply)
+            APPLY_FIXES=true
+            shift
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
 echo "🔧 Fixing Port Forwarding and Browser Access"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
@@ -115,9 +130,15 @@ fi
 print_status "Checking environment variables..."
 if [ -z "$VITE_API_URL" ]; then
     print_warning "VITE_API_URL not set"
-    echo "export VITE_API_URL=http://localhost:8000" >> ~/.bashrc
-    export VITE_API_URL=http://localhost:8000
-    FIXES_APPLIED=$((FIXES_APPLIED + 1))
+    if [ "$APPLY_FIXES" = true ]; then
+        echo "export VITE_API_URL=http://localhost:${API_PORT}" >> ~/.bashrc
+        export VITE_API_URL=http://localhost:${API_PORT}
+        print_success "VITE_API_URL set for this session and ~/.bashrc"
+        FIXES_APPLIED=$((FIXES_APPLIED + 1))
+    else
+        print_warning "VITE_API_URL not set. Export manually:"
+        echo "  export VITE_API_URL=http://localhost:${API_PORT}"
+    fi
 fi
 
 # 8. Verify package.json scripts
@@ -126,15 +147,20 @@ if grep -q '"dev":.*--host' package.json; then
     print_success "Dev script includes --host flag"
 else
     print_warning "Dev script missing --host flag"
-    print_status "Updating package.json..."
-    
-    # Backup
-    cp package.json package.json.backup
-    
-    # Update dev script
-    sed -i 's/"dev": "vite"/"dev": "vite --host"/' package.json
-    print_success "Package.json updated"
-    FIXES_APPLIED=$((FIXES_APPLIED + 1))
+    if [ "$APPLY_FIXES" = true ]; then
+        print_status "Updating package.json..."
+
+        # Backup
+        cp package.json package.json.backup
+
+        # Update dev script
+        sed -i 's/"dev": "vite"/"dev": "vite --host"/' package.json
+        print_success "Package.json updated"
+        FIXES_APPLIED=$((FIXES_APPLIED + 1))
+    else
+        print_warning "Dev script missing --host. Run manually:"
+        echo "  npm pkg set scripts.dev=\"vite --host\""
+    fi
 fi
 
 # 9. Clear Vite cache

@@ -6,6 +6,20 @@
 
 set -e
 
+RUN_CHECKS=false
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --run-checks)
+            RUN_CHECKS=true
+            shift
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
 echo "🚀 ValueCanvas Quick Setup"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
@@ -68,12 +82,22 @@ if [ -d ".husky" ]; then
 fi
 
 # 6. Build project
-print_status "Building project..."
-npm run build 2>/dev/null || print_warning "Build failed (this is OK for initial setup)"
+if [ "$RUN_CHECKS" = true ]; then
+    print_status "Building project..."
+    npm run build 2>/dev/null || print_warning "Build failed (this is OK for initial setup)"
+else
+    print_warning "Skipping build. Run manually with --run-checks."
+    echo "  npm run build"
+fi
 
 # 7. Run tests
-print_status "Running tests..."
-npm test 2>/dev/null || print_warning "Some tests failed (review and fix)"
+if [ "$RUN_CHECKS" = true ]; then
+    print_status "Running tests..."
+    npm test 2>/dev/null || print_warning "Some tests failed (review and fix)"
+else
+    print_warning "Skipping tests. Run manually with --run-checks."
+    echo "  npm test"
+fi
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
