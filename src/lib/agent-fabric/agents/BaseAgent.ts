@@ -2,24 +2,28 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { LLMGateway, LLMMessage } from "../LLMGateway";
 import { MemorySystem } from "../MemorySystem";
 import { AuditLogger } from "../AuditLogger";
-import secureLLMInvoke from "../../llm/secureLLMWrapper";
+import secureLLMInvoke from "../../llm/secureLLMInvoke";
 import { z } from "zod";
 import { AgentConfig, ConfidenceLevel } from "../../../types/agent";
-import { getTracer } from "../../observability";
-import { SpanStatusCode } from "@opentelemetry/api";
 import { AgentCircuitBreaker, SafetyLimits, withCircuitBreaker } from "../CircuitBreaker";
 import { enforceRules } from "../../rules";
 import { logger } from "../../../lib/logger";
 import { sanitizeUserInput } from "../../../utils/security";
 // VOS-SEC-004: Secure Inter-Agent Communication
-import {
-  SecureMessageBus,
-  secureMessageBus,
-  SecureMessage,
-  MessagePriority,
-} from "../SecureMessageBus";
+import { secureMessageBus, SecureMessage, MessagePriority } from "../SecureMessageBus";
 // PII Filter for LLM input sanitization
 import { sanitizeForLogging } from "../../../lib/piiFilter";
+// Secure Agent Output schemas and types
+import {
+  SecureAgentOutput,
+  ConfidenceThresholds,
+  DEFAULT_CONFIDENCE_THRESHOLDS,
+  createSecureAgentSchema,
+  getSecureAgentSystemPrompt,
+  validateAgentOutput,
+} from "../schemas/SecureAgentOutput";
+// Provenance types
+import type { LifecycleArtifactLink, ProvenanceAuditEntry } from "../../../types/vos";
 // VOS-SEC-001: Agent Identity System
 import {
   AgentIdentity,
@@ -28,11 +32,9 @@ import {
   createAgentIdentity,
   hasPermission,
   requirePermission,
-  requiresHITL,
-  PermissionDeniedError,
 } from "../../auth/AgentIdentity";
 // VOS-SEC-002: Permission Middleware
-import { permissionMiddleware, withPermissionScope } from "../../auth/PermissionMiddleware";
+import { withPermissionScope } from "../../auth/PermissionMiddleware";
 // VOS-HITL-001: HITL Framework
 import { hitlFramework, ApprovalRequest } from "../../hitl/HITLFramework";
 // 4-Layer Truth Architecture
@@ -302,9 +304,9 @@ export abstract class BaseAgent {
     if (this.supabase) {
       await this.recordLifecycleLink(context.sessionId, {
         source_type: `${this.lifecycleStage}_output`,
-        source_id: this.agentId,
+        source_artifact_id: this.agentId,
         target_type: `${context.lifecycleStage}_input`,
-        target_id: targetAgentId,
+        target_artifact_id: targetAgentId,
         relationship_type: "agent_handoff",
         reasoning_trace: context.reasoningTrace || `Handoff from ${this.name} to ${targetAgentId}`,
       });
@@ -401,13 +403,11 @@ export abstract class BaseAgent {
 
     // CRITICAL FIX: Wrap execution in circuit breaker
     const { result: output, metrics } = await withCircuitBreaker(
-      async (breaker: AgentCircuitBreaker) => {
+      async (_breaker: AgentCircuitBreaker) => {
         // GOVERNANCE ENFORCEMENT: Check GR/LR rules before LLM execution
         const governanceCheck = await this.checkGovernanceRules(sessionId, input, options);
         if (!governanceCheck.allowed) {
-          throw new Error(
-            `Governance violation: ${governanceCheck.violations.map((v) => v.message).join(", ")}`
-          );
+          throw new Error(`Governance violation: ${governanceCheck.violations.join(", ")}`);
         }
 
         // Sanitize input
@@ -428,24 +428,13 @@ export abstract class BaseAgent {
           },
         ];
 
-        // Invoke LLM with structured output + circuit breaker
-        const taskContext = {
-          sessionId,
-          organizationId: this.organizationId,
-          userId: this.userId,
-          agentId: this.agentId,
-          estimatedPromptTokens: 0,
-          estimatedCompletionTokens: 0,
-        };
-
         // Use secureLLMInvoke to ensure sanitization, schema validation, provenance and telemetry
         const promptStr = messages.map((m) => `${m.role}:\n${m.content}`).join("\n\n");
 
         const secureResult = await secureLLMInvoke(promptStr, {
           tenantId: this.organizationId || "unknown",
-          traceId: taskContext?.traceId,
-          requestId: taskContext?.requestId,
           model: undefined,
+          userId: this.userId,
           temperature: 0.7,
           maxTokens: 4000,
           schema: fullSchema,
@@ -455,8 +444,8 @@ export abstract class BaseAgent {
 
         if (!secureResult.ok) {
           // Log and surface validation failures; fail-closed semantics
-          logger.error("secureLLMInvoke failed", {
-            agent: this.agentId,
+          logger.error("secureLLMInvoke failed", undefined, {
+            agentId: this.agentId,
             sessionId,
             reason: secureResult.reason,
             details: secureResult.details,
@@ -478,8 +467,8 @@ export abstract class BaseAgent {
 
         // Handle errors
         if (!validation.valid) {
-          logger.error("Agent output validation failed", {
-            agent: this.agentId,
+          logger.error("Agent output validation failed", undefined, {
+            agentId: this.agentId,
             sessionId,
             errors: validation.errors,
           });
@@ -559,8 +548,8 @@ export abstract class BaseAgent {
       });
 
       if (!governanceResult.allowed) {
-        logger.error("GOVERNANCE VIOLATION - LLM EXECUTION BLOCKED", {
-          agent: this.agentId,
+        logger.error("GOVERNANCE VIOLATION - LLM EXECUTION BLOCKED", undefined, {
+          agentId: this.agentId,
           sessionId,
           violations: governanceResult.violations.map((v) => `${v.ruleId}: ${v.message}`),
         });
@@ -579,11 +568,14 @@ export abstract class BaseAgent {
 
       return { allowed: true, violations: [] };
     } catch (error) {
-      logger.error("CRITICAL: Governance check failed - BLOCKING LLM EXECUTION", {
-        agent: this.agentId,
-        sessionId,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error(
+        "CRITICAL: Governance check failed - BLOCKING LLM EXECUTION",
+        error instanceof Error ? error : undefined,
+        {
+          agentId: this.agentId,
+          sessionId,
+        }
+      );
 
       // FAIL-CLOSED: Block execution on governance system failure
       return {
@@ -668,10 +660,9 @@ export abstract class BaseAgent {
         created_at: new Date().toISOString(),
       });
     } catch (error) {
-      logger.error("Failed to store prediction", {
-        agent: this.agentId,
+      logger.error("Failed to store prediction", error instanceof Error ? error : undefined, {
+        agentId: this.agentId,
         sessionId,
-        error: error.message,
       });
     }
   }
@@ -772,12 +763,15 @@ export abstract class BaseAgent {
         maxSize: 5 * 1024 * 1024, // 5 MB limit
         allowPartial: !schema, // Allow partial recovery if no schema validation
       });
-    } catch (error: any) {
-      logger.error("JSON extraction failed in BaseAgent", {
-        agent: this.agentId,
-        error: error.message,
-        contentPreview: content.substring(0, 200),
-      });
+    } catch (error: unknown) {
+      logger.error(
+        "JSON extraction failed in BaseAgent",
+        error instanceof Error ? error : undefined,
+        {
+          agentId: this.agentId,
+          contentPreview: content.substring(0, 200),
+        }
+      );
 
       // Graceful degradation: return empty object for backward compatibility
       // but log the failure for monitoring
@@ -809,9 +803,9 @@ export abstract class BaseAgent {
       source_stage: link.source_type?.split("_")?.[0] || null,
       target_stage: link.target_type?.split("_")?.[0] || null,
       source_type: link.source_type,
-      source_artifact_id: link.source_id,
+      source_artifact_id: link.source_artifact_id,
       target_type: link.target_type,
-      target_artifact_id: link.target_id,
+      target_artifact_id: link.target_artifact_id,
       relationship_type: link.relationship_type || "derived_from",
       reasoning_trace: link.reasoning_trace || null,
       chain_depth: link.chain_depth || null,
@@ -825,16 +819,16 @@ export abstract class BaseAgent {
       session_id: sessionId,
       agent_id: this.agentId,
       artifact_type: link.target_type,
-      artifact_id: link.target_id,
+      artifact_id: link.target_artifact_id,
       action: "lifecycle_link_created",
       reasoning_trace: link.reasoning_trace,
       artifact_data: {
-        source: { type: link.source_type, id: link.source_id },
-        target: { type: link.target_type, id: link.target_id },
+        source: { type: link.source_type, id: link.source_artifact_id },
+        target: { type: link.target_type, id: link.target_artifact_id },
       },
       metadata: {
         source_type: link.source_type,
-        source_id: link.source_id,
+        source_artifact_id: link.source_artifact_id,
         relationship_type: link.relationship_type || "derived_from",
         chain_depth: link.chain_depth ?? undefined,
       },
@@ -905,7 +899,7 @@ export abstract class BaseAgent {
   protected async withPermissionScope<T>(action: string, executor: () => Promise<T>): Promise<T> {
     return withPermissionScope(
       this.agentIdentity,
-      { action, resource: "agent_action", metadata: { agentId: this.agentId } },
+      { action, resource: "agent_action", data: { agentId: this.agentId } },
       executor
     );
   }
@@ -1072,7 +1066,7 @@ export abstract class BaseAgent {
 
       // 4. Block if integrity check fails
       if (!integrityCheck.passed) {
-        logger.error("Integrity check failed - blocking output", {
+        logger.error("Integrity check failed - blocking output", undefined, {
           agentId: this.agentId,
           sessionId,
           issues: integrityCheck.issues.length,

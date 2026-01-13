@@ -234,6 +234,14 @@ export class SecurityAutomationService extends TenantAwareService {
       status: "pending",
     });
 
+    // Transform database results to match TypeScript interface
+    const transformedResponses = (responses as any[]).map((r: any) => ({
+      ...r,
+      incidentId: r.incident_id,
+      actionType: r.action_type,
+      executedAt: r.executed_at,
+    }));
+
     const details: string[] = [];
     let completed = 0;
 
