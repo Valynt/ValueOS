@@ -172,10 +172,8 @@ npm run health
 # Unified command (recommended)
 npm run dx
 
-# Or start individually:
-npm run dev              # Frontend only
-npm run backend:dev      # Backend only
-docker compose -f docker-compose.deps.yml up -d  # Docker deps
+# Or start the full Docker stack:
+npm run dx:docker
 ```
 
 ### Check System Health
@@ -214,8 +212,6 @@ All systems operational! 🎉
 npm run dx               # Start local app + Docker deps
 npm run dx:docker        # Start full Docker stack
 npm run dx:doctor        # Preflight checks (fail fast)
-npm run dev              # Start frontend dev server
-npm run backend:dev      # Start backend dev server
 npm run dx               # Start all services
 
 # Testing
@@ -233,8 +229,6 @@ npm run db:types         # Generate TypeScript types
 npm run dx:docker        # Start full Docker stack
 npm run dx:down          # Stop dev services
 npm run dx:reset         # Clean slate (volumes + locks)
-docker compose logs -f   # View logs
-docker compose ps        # Check status
 
 # Code Quality
 npm run lint             # Lint code
@@ -295,8 +289,8 @@ Restart Docker Desktop
 **Check Docker status**:
 
 ```bash
-docker-compose ps
-docker-compose logs
+npm run dx:ps
+npm run dx:logs
 ```
 
 ### Environment Variables Missing
@@ -386,7 +380,7 @@ npm run db:types
 
 - Check terminal output
 - Use `console.log()` or debugger
-- View logs: `docker-compose logs backend`
+- View logs: `npm run dx:logs -- backend`
 
 ### Performance
 

@@ -76,9 +76,11 @@ npm run dx:doctor
 Run the full stack through the Caddy edge layer (HTTPS, SPA routing, API proxy):
 
 ```bash
-cp .env.dev.example .env.dev
-docker compose -f docker-compose.dev.yml up --build
+npm run dx:caddy:start
+npm run dx:caddy:trust
 ```
+
+See [docs/edge-caddy.md](docs/edge-caddy.md) for the full DX-powered Caddy workflow.
 
 - **Edge (HTTPS)**: [https://localhost:8443](https://localhost:8443)
 - **Edge (HTTP → HTTPS redirect)**: [http://localhost:8080](http://localhost:8080)
@@ -94,7 +96,7 @@ npm run health
 
 ### Access Services (Local vs Container)
 
-**Local dev (direct)** uses the ports defined in `config/ports.json` (synced to `.env.ports`). Override via `.env.ports` (e.g., `docker compose --env-file .env.ports ...`) or shell env (`VITE_PORT`, `API_PORT`).
+**Local dev (direct)** uses the ports defined in `config/ports.json` (synced to `.env.ports`). Override via `.env.ports` or shell env (`VITE_PORT`, `API_PORT`).
 
 - **Frontend**: [http://localhost:5173](http://localhost:5173)
 - **Backend API**: [http://localhost:3001](http://localhost:3001)
@@ -156,7 +158,7 @@ ValueOS/
 ├── tests/               # Test files
 ├── docker-compose.full.yml # Full-stack Docker services
 ├── docker-compose.deps.yml # Dependency-only Docker services
-└── docker-compose.yml   # Full-stack alias (backward compatibility)
+└── docker-compose.yml   # Deprecated alias of docker-compose.full.yml (backward compatibility)
 ```
 
 ---
@@ -199,21 +201,11 @@ npm test                 # Run tests
 npm run dx:docker        # Start full Docker stack
 npm run dx:down          # Stop dev services
 npm run dx:reset         # Reset dev services + volumes
-docker compose logs -f   # View logs
-docker compose ps        # Check status
 ```
 
 ### Staging/Production via Caddy
 
-```bash
-cp .env.staging.example .env.staging
-docker compose -f docker-compose.staging.yml up --build
-
-cp .env.prod.example .env.prod
-docker compose -f docker-compose.prod.yml up --build
-```
-
-See [docs/edge-caddy.md](docs/edge-caddy.md) for promotion workflow, TLS modes, and rollback steps.
+See [docs/edge-caddy.md](docs/edge-caddy.md) for the DX-driven promotion workflow, TLS modes, and rollback steps.
 
 ---
 

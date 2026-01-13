@@ -25,11 +25,11 @@ Caddy (TLS termination + security headers + routing)
 
 ## TLS Modes
 
-| Environment | Default | Notes |
-| --- | --- | --- |
-| DEV | `tls internal` | Self-signed certs (Caddy local CA). Trust required. |
-| STAGING | ACME staging | `ACME_CA` points to Let’s Encrypt staging. |
-| PROD | ACME production | Uses Let’s Encrypt production CA. |
+| Environment | Default         | Notes                                               |
+| ----------- | --------------- | --------------------------------------------------- |
+| DEV         | `tls internal`  | Self-signed certs (Caddy local CA). Trust required. |
+| STAGING     | ACME staging    | `ACME_CA` points to Let’s Encrypt staging.          |
+| PROD        | ACME production | Uses Let’s Encrypt production CA.                   |
 
 ## Environment & Secrets
 
@@ -51,11 +51,11 @@ TLS_MODE=/etc/caddy/certs/tls.crt /etc/caddy/certs/tls.key
 
 1. Start the dev stack:
    ```bash
-   docker compose -f docker-compose.dev.yml up --build
+   npm run dx:caddy:start
    ```
 2. Trust the local CA:
    ```bash
-   docker compose -f docker-compose.dev.yml exec caddy caddy trust
+   npm run dx:caddy:trust
    ```
 3. Restart your browser and visit `https://localhost:8443`.
 
@@ -64,12 +64,11 @@ TLS_MODE=/etc/caddy/certs/tls.crt /etc/caddy/certs/tls.key
 - Logs are JSON and rotated at `/var/log/caddy/access.log`.
 - Inspect logs:
   ```bash
-  docker compose -f docker-compose.dev.yml logs -f caddy
+  npm run dx:caddy:logs
   ```
 - Validate config:
   ```bash
-  docker run --rm -v "$PWD/infra/caddy:/etc/caddy" caddy:2-alpine \
-    caddy validate --config /etc/caddy/Caddyfile.dev --adapter caddyfile
+  npm run dx:caddy:validate
   ```
 
 ## Zero-Downtime Reloads
@@ -77,8 +76,7 @@ TLS_MODE=/etc/caddy/certs/tls.crt /etc/caddy/certs/tls.key
 Caddy supports in-place reloads without dropping active connections:
 
 ```bash
-docker compose -f docker-compose.prod.yml exec caddy \
-  caddy reload --config /etc/caddy/Caddyfile.prod --adapter caddyfile
+npm run dx:caddy:reload:prod
 ```
 
 ## Rollback Steps
@@ -86,15 +84,14 @@ docker compose -f docker-compose.prod.yml exec caddy \
 1. Revert the Caddyfile or compose changes.
 2. Reload Caddy:
    ```bash
-   docker compose -f docker-compose.prod.yml exec caddy \
-     caddy reload --config /etc/caddy/Caddyfile.prod --adapter caddyfile
+   npm run dx:caddy:reload:prod
    ```
 3. Confirm `/healthz` and `/api/health` are healthy.
 
 ## Incident Checklist
 
 - Verify DNS points to the edge IP.
-- Confirm certificates: `docker compose exec caddy caddy list-certificates`.
+- Confirm certificates: `npm run dx:caddy:certs`.
 - Check `access.log` for 4xx/5xx spikes.
 - Validate upstream health:
   - `curl https://$APP_DOMAIN/healthz`
