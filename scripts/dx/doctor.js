@@ -43,6 +43,7 @@ const supabaseStudioPort = resolvePort(process.env.SUPABASE_STUDIO_PORT, ports.s
 
 const frontendUrl = process.env.VITE_APP_URL || `http://localhost:${frontendPort}`;
 const backendUrl = process.env.BACKEND_URL || `http://localhost:${backendPort}`;
+const apiBaseUrl = process.env.VITE_API_BASE_URL || '/api';
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
 
 const failures = [];
@@ -281,9 +282,24 @@ function checkSupabase() {
   }
 }
 
+function checkApiBaseUrl() {
+  if (mode === 'local') {
+    return;
+  }
+
+  if (apiBaseUrl !== '/api') {
+    const modeLabel = mode === 'docker' ? 'docker' : 'edge';
+    reportFailure(
+      'API base URL must be relative in non-local modes',
+      `VITE_API_BASE_URL must be "/api" when running in ${modeLabel} mode.`,
+      'Update .env.local to set VITE_API_BASE_URL=/api.'
+    );
+  }
+}
+
 async function main() {
-  if (!['local', 'docker'].includes(mode)) {
-    console.error(`❌ Invalid mode "${mode}". Use --mode local or --mode docker.`);
+  if (!['local', 'docker', 'edge'].includes(mode)) {
+    console.error(`❌ Invalid mode "${mode}". Use --mode local, --mode docker, or --mode edge.`);
     process.exit(1);
   }
 
@@ -295,6 +311,7 @@ async function main() {
   checkEnvironment();
   checkComposeState();
   checkSupabase();
+  checkApiBaseUrl();
   await checkPorts();
 
   if (failures.length > 0) {
