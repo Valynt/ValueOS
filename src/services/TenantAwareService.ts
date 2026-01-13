@@ -36,10 +36,10 @@ export class TenantAwareService extends BaseService {
 
     if (!data || data.length === 0) {
       logger.warn("User has no active tenants", { userId });
-      throw new AuthorizationError("No active tenant membership", { userId });
+      throw new AuthorizationError(`No active tenant membership for user ${userId}`);
     }
 
-    return data.map((row) => row.tenant_id);
+    return data.map((row: { tenant_id: string }) => row.tenant_id);
   }
 
   /**
@@ -60,11 +60,7 @@ export class TenantAwareService extends BaseService {
       // Log to audit trail
       await this.auditCrossTenantAttempt(userId, resourceTenantId);
 
-      throw new AuthorizationError("Access denied: Resource belongs to different tenant", {
-        userId,
-        attemptedTenant: resourceTenantId,
-        // DO NOT expose user's actual tenants in error
-      });
+      throw new AuthorizationError("Access denied: Resource belongs to different tenant");
     }
   }
 
@@ -267,7 +263,8 @@ export class TenantAwareService extends BaseService {
     const tenantIds = await this.getUserTenants(userId);
 
     // Default to first tenant if user has multiple
-    const tenantId = tenantIds[0];
+    // tenantIds is guaranteed non-empty from getUserTenants()
+    const tenantId = tenantIds[0]!;
 
     return {
       userId,

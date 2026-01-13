@@ -92,7 +92,7 @@ export class RealizationFeedbackLoop {
       );
 
       // Step 3: Record feedback
-      const { data: feedback, error } = await this.supabase
+      const { data: feedback, error } = await (this.supabase as any)
         .from("feedback_loops")
         .insert({
           value_commit_id: valueCommitId,
@@ -109,7 +109,7 @@ export class RealizationFeedbackLoop {
 
       if (error) throw error;
 
-      this.compensations.get(loopId)!.push(() => this.deleteFeedback(feedback.id));
+      this.compensations.get(loopId)!.push(() => this.deleteFeedback((feedback as any).id));
 
       // Step 4: Update agent accuracy metrics
       await this.updateAgentAccuracy(valueCommit.agent_type, variance, context);
@@ -126,7 +126,7 @@ export class RealizationFeedbackLoop {
 
       return {
         success: true,
-        feedbackId: feedback.id,
+        feedbackId: (feedback as any).id,
         variance,
         accuracy: this.calculateAccuracy(variance),
         recommendations: await this.generateRecommendations(variance, valueCommit),
@@ -136,7 +136,10 @@ export class RealizationFeedbackLoop {
       const compensations = this.compensations.get(loopId) || [];
       for (const compensate of compensations.reverse()) {
         await compensate().catch((e) =>
-          logger.error("Feedback compensation failed", { loopId, error: e })
+          logger.error("Feedback compensation failed", e instanceof Error ? e : undefined, {
+            loopId,
+            errorMsg: String(e),
+          })
         );
       }
 
@@ -200,7 +203,7 @@ export class RealizationFeedbackLoop {
       variance: variance.percentage,
     });
 
-    await this.supabase.from("agent_accuracy_metrics").insert({
+    await (this.supabase as any).from("agent_accuracy_metrics").insert({
       agent_type: agentType,
       variance_percentage: variance.percentage,
       variance_absolute: variance.absolute,
@@ -211,7 +214,7 @@ export class RealizationFeedbackLoop {
 
   private async shouldRetrain(agentType: LifecycleStage): Promise<boolean> {
     // Get recent accuracy for this agent
-    const { data: recentFeedback } = await this.supabase
+    const { data: recentFeedback } = await (this.supabase as any)
       .from("feedback_loops")
       .select("variance_percentage")
       .eq("agent_type", agentType)
@@ -225,7 +228,7 @@ export class RealizationFeedbackLoop {
 
     // Calculate average accuracy
     const avgVariance =
-      recentFeedback.reduce((sum, f) => sum + Math.abs(f.variance_percentage), 0) /
+      recentFeedback.reduce((sum: number, f: any) => sum + Math.abs(f.variance_percentage), 0) /
       recentFeedback.length;
 
     // Retrain if average variance > 25%
@@ -237,7 +240,7 @@ export class RealizationFeedbackLoop {
       agentType,
     });
 
-    await this.supabase.from("agent_retraining_queue").insert({
+    await (this.supabase as any).from("agent_retraining_queue").insert({
       agent_type: agentType,
       scheduled_at: new Date().toISOString(),
       status: "pending",
@@ -248,7 +251,7 @@ export class RealizationFeedbackLoop {
   private async updateValueTreeActuals(
     valueTreeId: string,
     actualOutcome: ActualOutcome,
-    context: FeedbackContext
+    _context: FeedbackContext
   ): Promise<void> {
     logger.info("Updating value tree with actuals", {
       valueTreeId,

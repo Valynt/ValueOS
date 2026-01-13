@@ -57,8 +57,8 @@ router.post(
       const result = await authService.login({ email, password, otpCode });
 
       logger.info("User login successful", {
-        userId: sanitizeForLogging(result.user.id),
-        email: sanitizeForLogging(email),
+        userId: String(sanitizeForLogging(result.user.id)),
+        email: String(sanitizeForLogging(email)),
       });
 
       await auditLogService.logAudit({
@@ -86,14 +86,18 @@ router.post(
           email: result.user.email,
           user_metadata: result.user.user_metadata,
         },
-        session: {
-          access_token: result.session.access_token,
-          refresh_token: result.session.refresh_token,
-          expires_at: result.session.expires_at,
-        },
+        session: result.session
+          ? {
+              access_token: result.session.access_token,
+              refresh_token: result.session.refresh_token,
+              expires_at: result.session.expires_at,
+            }
+          : null,
       });
     } catch (error) {
-      logger.error("Login failed", sanitizeForLogging(error));
+      logger.error("Login failed", error instanceof Error ? error : undefined, {
+        errorMsg: String(error),
+      });
 
       if (error instanceof AuthenticationError) {
         return res.status(401).json({ error: error.message });
@@ -123,8 +127,8 @@ router.post(
       const result = await authService.signup({ email, password, fullName });
 
       logger.info("User signup successful", {
-        userId: sanitizeForLogging(result.user.id),
-        email: sanitizeForLogging(email),
+        userId: String(sanitizeForLogging(result.user.id)),
+        email: String(sanitizeForLogging(email)),
       });
 
       await auditLogService.logAudit({
@@ -170,7 +174,9 @@ router.post(
         },
       });
     } catch (error) {
-      logger.error("Signup failed", sanitizeForLogging(error));
+      logger.error("Signup failed", error instanceof Error ? error : undefined, {
+        errorMsg: String(error),
+      });
 
       if (error instanceof ValidationError) {
         return res.status(400).json({ error: error.message });
@@ -207,7 +213,7 @@ router.post(
 
       try {
         const supabaseAdmin = getServerSupabase();
-        const { data: resetUser } = await supabaseAdmin.auth.admin.getUserByEmail(email);
+        const { data: resetUser } = await (supabaseAdmin.auth.admin as any).getUserByEmail(email);
         if (resetUser?.user) {
           await auditLogService.logAudit({
             userId: resetUser.user.id,
@@ -227,7 +233,7 @@ router.post(
           });
         }
       } catch (auditError) {
-        logger.warn("Password reset audit lookup failed", sanitizeForLogging(auditError));
+        logger.warn("Password reset audit lookup failed", { errorMsg: String(auditError) });
       }
 
       // Always return success to prevent email enumeration
@@ -235,7 +241,9 @@ router.post(
         message: "If an account with that email exists, a password reset link has been sent.",
       });
     } catch (error) {
-      logger.error("Password reset request failed", sanitizeForLogging(error));
+      logger.error("Password reset request failed", error instanceof Error ? error : undefined, {
+        errorMsg: String(error),
+      });
       // Don't expose internal errors for security
       res.status(500).json({ error: "Internal server error" });
     }
@@ -268,7 +276,9 @@ router.post(
       }
 
       try {
-        const { data: verifyUser } = await getServerSupabase().auth.admin.getUserByEmail(email);
+        const { data: verifyUser } = await (getServerSupabase().auth.admin as any).getUserByEmail(
+          email
+        );
         if (verifyUser?.user) {
           await auditLogService.logAudit({
             userId: verifyUser.user.id,
@@ -288,12 +298,14 @@ router.post(
           });
         }
       } catch (auditError) {
-        logger.warn("Verification audit lookup failed", sanitizeForLogging(auditError));
+        logger.warn("Verification audit lookup failed", { errorMsg: String(auditError) });
       }
 
       res.json({ message: "Verification email resent" });
     } catch (error) {
-      logger.error("Verification resend failed", sanitizeForLogging(error));
+      logger.error("Verification resend failed", error instanceof Error ? error : undefined, {
+        errorMsg: String(error),
+      });
       res.status(500).json({ error: "Internal server error" });
     }
   }
@@ -312,7 +324,7 @@ router.post("/password/update", requireAuth, async (req: Request, res: Response)
     await authService.updatePassword(newPassword);
 
     logger.info("Password updated successfully", {
-      userId: sanitizeForLogging((req as any).user.id),
+      userId: String(sanitizeForLogging((req as any).user?.id)),
     });
 
     const actor = resolveActor((req as any).user);
@@ -335,7 +347,9 @@ router.post("/password/update", requireAuth, async (req: Request, res: Response)
       message: "Password updated successfully",
     });
   } catch (error) {
-    logger.error("Password update failed", sanitizeForLogging(error));
+    logger.error("Password update failed", error instanceof Error ? error : undefined, {
+      errorMsg: String(error),
+    });
 
     if (error instanceof ValidationError) {
       return res.status(400).json({ error: error.message });
@@ -374,13 +388,15 @@ router.post("/logout", requireAuth, async (req: Request, res: Response) => {
       message: "Logged out successfully",
     });
   } catch (error) {
-    logger.error("Logout failed", sanitizeForLogging(error));
+    logger.error("Logout failed", error instanceof Error ? error : undefined, {
+      errorMsg: String(error),
+    });
     // Logout should always succeed on client side
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-router.get("/session", async (req: Request, res: Response) => {
+router.get("/session", async (_req: Request, res: Response) => {
   try {
     const session = await authService.getSession();
 
@@ -401,17 +417,19 @@ router.get("/session", async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    logger.error("Session retrieval failed", sanitizeForLogging(error));
+    logger.error("Session retrieval failed", error instanceof Error ? error : undefined, {
+      errorMsg: String(error),
+    });
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-router.post("/refresh", async (req: Request, res: Response) => {
+router.post("/refresh", async (_req: Request, res: Response) => {
   try {
     const result = await authService.refreshSession();
 
     logger.info("Session refresh successful", {
-      userId: sanitizeForLogging(result.user.id),
+      userId: String(sanitizeForLogging(result.user.id)),
     });
 
     res.json({
@@ -420,14 +438,18 @@ router.post("/refresh", async (req: Request, res: Response) => {
         email: result.user.email,
         user_metadata: result.user.user_metadata,
       },
-      session: {
-        access_token: result.session.access_token,
-        refresh_token: result.session.refresh_token,
-        expires_at: result.session.expires_at,
-      },
+      session: result.session
+        ? {
+            access_token: result.session.access_token,
+            refresh_token: result.session.refresh_token,
+            expires_at: result.session.expires_at,
+          }
+        : null,
     });
   } catch (error) {
-    logger.error("Session refresh failed", sanitizeForLogging(error));
+    logger.error("Session refresh failed", error instanceof Error ? error : undefined, {
+      errorMsg: String(error),
+    });
 
     if (error instanceof AuthenticationError) {
       return res.status(401).json({ error: error.message });
