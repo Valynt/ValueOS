@@ -1,16 +1,16 @@
-import { SupabaseClient } from '@supabase/supabase-js';
-import { TenantAwareService } from './TenantAwareService';
-import { AdvancedThreatDetectionService } from './AdvancedThreatDetectionService';
-import { log } from '../lib/logger';
-import { auditLogService } from './AuditLogService';
+import { SupabaseClient } from "@supabase/supabase-js";
+import { TenantAwareService } from "./TenantAwareService";
+import { AdvancedThreatDetectionService, SecurityEvent } from "./AdvancedThreatDetectionService";
+import { log } from "../lib/logger";
+import { auditLogService, AuditLogService } from "./AuditLogService";
 
 export interface SecurityIncident {
   id: string;
   tenantId: string;
   title: string;
   description: string;
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  status: 'detected' | 'investigating' | 'contained' | 'resolved' | 'false_positive';
+  severity: "low" | "medium" | "high" | "critical";
+  status: "detected" | "investigating" | "contained" | "resolved" | "false_positive";
   incidentType: string;
   affectedResources: string[];
   detectedAt: Date;
@@ -28,13 +28,13 @@ export interface SecurityIncident {
 export interface AutomatedResponse {
   id: string;
   incidentId: string;
-  actionType: 'alert' | 'block' | 'quarantine' | 'isolate' | 'notify' | 'remediate';
+  actionType: "alert" | "block" | "quarantine" | "isolate" | "notify" | "remediate";
   description: string;
-  status: 'pending' | 'executing' | 'completed' | 'failed';
+  status: "pending" | "executing" | "completed" | "failed";
   executedAt?: Date;
   result?: string;
   automated: boolean;
-  priority: 'low' | 'medium' | 'high' | 'critical';
+  priority: "low" | "medium" | "high" | "critical";
 }
 
 export interface SecurityPolicy {
@@ -42,10 +42,10 @@ export interface SecurityPolicy {
   tenantId: string;
   name: string;
   description: string;
-  category: 'access_control' | 'data_protection' | 'network_security' | 'compliance' | 'monitoring';
+  category: "access_control" | "data_protection" | "network_security" | "compliance" | "monitoring";
   rules: PolicyRule[];
-  enforcement: 'prevent' | 'detect' | 'alert';
-  priority: 'low' | 'medium' | 'high' | 'critical';
+  enforcement: "prevent" | "detect" | "alert";
+  priority: "low" | "medium" | "high" | "critical";
   enabled: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -61,21 +61,25 @@ export interface PolicyRule {
     threshold?: number;
   };
   action: {
-    type: 'allow' | 'deny' | 'alert' | 'quarantine' | 'notify';
+    type: "allow" | "deny" | "alert" | "quarantine" | "notify";
     parameters?: Record<string, any>;
   };
 }
 
 export class SecurityAutomationService extends TenantAwareService {
   private threatDetectionService: AdvancedThreatDetectionService;
+  private auditLog: AuditLogService;
 
   constructor(supabase: SupabaseClient, threatDetectionService: AdvancedThreatDetectionService) {
-    super(supabase);
+    super("SecurityAutomationService");
+    this.supabase = supabase;
     this.threatDetectionService = threatDetectionService;
+    this.auditLog = auditLogService;
   }
 
   /**
    * Processes security events and triggers automated responses
+   * Supports both user-initiated and system-initiated events
    */
   async processSecurityEvent(event: {
     tenantId: string;
@@ -88,7 +92,27 @@ export class SecurityAutomationService extends TenantAwareService {
     incident?: SecurityIncident;
     responsesTriggered: AutomatedResponse[];
   }> {
-    await this.validateTenantAccess(event.userId || 'system', event.tenantId);
+    // For system-initiated events (no userId), verify tenant exists instead of user access
+    // This allows automated security processing without a user context
+    if (event.userId) {
+      await this.validateTenantAccess(event.userId, event.tenantId);
+    } else {
+      // System-initiated event: verify tenant is valid
+      const { data: tenant, error } = await this.supabase
+        .from("tenants")
+        .select("id")
+        .eq("id", event.tenantId)
+        .eq("status", "active")
+        .maybeSingle();
+
+      if (error || !tenant) {
+        log.error("System security event for invalid tenant", undefined, {
+          tenantId: event.tenantId,
+          eventType: event.eventType,
+        });
+        throw new Error(`Invalid tenant for system security event: ${event.tenantId}`);
+      }
+    }
 
     // Analyze the event for threats
     const threatAnalysis = await this.threatDetectionService.analyzeSecurityEvent({
@@ -96,10 +120,10 @@ export class SecurityAutomationService extends TenantAwareService {
       userId: event.userId,
       eventType: event.eventType,
       severity: this.determineSeverity(event),
-      source: 'security_automation',
+      source: "security_automation",
       details: event.details,
       timestamp: new Date(),
-      riskScore: 0
+      riskScore: 0,
     });
 
     let incident: SecurityIncident | undefined;
@@ -110,24 +134,24 @@ export class SecurityAutomationService extends TenantAwareService {
       incident = await this.createSecurityIncident({
         tenantId: event.tenantId,
         title: this.generateIncidentTitle(threatAnalysis.threats[0], event),
-        description: `Automated detection: ${threatAnalysis.threats.map(t => t.name).join(', ')}`,
+        description: `Automated detection: ${threatAnalysis.threats.map((t) => t.name).join(", ")}`,
         severity: threatAnalysis.threats[0].severity,
         incidentType: threatAnalysis.threats[0].category,
-        affectedResources: [event.resourceId || 'unknown'],
-        threatIndicators: threatAnalysis.threats.map(t => t.id),
-        riskScore: threatAnalysis.riskScore
+        affectedResources: [event.resourceId || "unknown"],
+        threatIndicators: threatAnalysis.threats.map((t) => t.id),
+        riskScore: threatAnalysis.riskScore,
       });
       incidentCreated = true;
     }
 
     // Generate incident response actions
-    const responsesTriggered = incident ?
-      await this.generateIncidentResponse(threatAnalysis.threats, {
-        ...event,
-        id: incident.id,
-        severity: incident.severity
-      } as SecurityIncident) :
-      [];
+    const responsesTriggered = incident
+      ? await this.generateIncidentResponse(threatAnalysis.threats, {
+          ...event,
+          id: incident.id,
+          severity: incident.severity,
+        } as SecurityIncident)
+      : [];
 
     // Execute automated responses
     for (const response of responsesTriggered) {
@@ -139,18 +163,18 @@ export class SecurityAutomationService extends TenantAwareService {
     // Enforce security policies
     await this.enforceSecurityPolicies(event);
 
-    log.info('Security event processed', {
+    log.info("Security event processed", {
       tenantId: event.tenantId,
       eventType: event.eventType,
       incidentCreated,
       responsesTriggered: responsesTriggered.length,
-      threatCount: threatAnalysis.threats.length
+      threatCount: threatAnalysis.threats.length,
     });
 
     return {
       incidentCreated,
       incident,
-      responsesTriggered
+      responsesTriggered,
     };
   }
 
@@ -183,7 +207,7 @@ export class SecurityAutomationService extends TenantAwareService {
 
     return {
       policiesApplied: policies.length,
-      actionsTaken
+      actionsTaken,
     };
   }
 
@@ -198,23 +222,22 @@ export class SecurityAutomationService extends TenantAwareService {
     successRate: number;
     details: string[];
   }> {
-    await this.validateTenantAccess('system', tenantId);
+    await this.validateTenantAccess("system", tenantId);
 
-    const incident = await this.queryWithTenantCheck(
-      'security_incidents',
-      'system',
-      { id: incidentId, tenant_id: tenantId }
-    );
+    const incident = await this.queryWithTenantCheck("security_incidents", "system", {
+      id: incidentId,
+      tenant_id: tenantId,
+    });
 
     if (!incident || incident.length === 0) {
-      throw new Error('Incident not found');
+      throw new Error("Incident not found");
     }
 
-    const responses = await this.queryWithTenantCheck(
-      'automated_responses',
-      'system',
-      { incident_id: incidentId, automated: true, status: 'pending' }
-    );
+    const responses = await this.queryWithTenantCheck("automated_responses", "system", {
+      incident_id: incidentId,
+      automated: true,
+      status: "pending",
+    });
 
     const details: string[] = [];
     let completed = 0;
@@ -233,44 +256,46 @@ export class SecurityAutomationService extends TenantAwareService {
 
     // Update incident status if all automated responses completed
     if (completed === responses.length && responses.length > 0) {
-      await this.updateIncidentStatus(incidentId, tenantId, 'contained');
+      await this.updateIncidentStatus(incidentId, tenantId, "contained");
     }
 
     await this.auditLog.log({
-      userId: 'system',
-      action: 'remediation.executed',
-      resourceType: 'security_incident',
+      userId: "system",
+      action: "remediation.executed",
+      resourceType: "security_incident",
       resourceId: incidentId,
       details: {
         tenantId,
         actionsCompleted: completed,
         successRate,
-        totalActions: responses.length
+        totalActions: responses.length,
       },
-      status: successRate === 100 ? 'success' : 'warning'
+      status: successRate === 100 ? "success" : "warning",
     });
 
     return {
       actionsCompleted: completed,
       successRate,
-      details
+      details,
     };
   }
 
   /**
    * Creates and manages security policies
    */
-  async createSecurityPolicy(policy: Omit<SecurityPolicy, 'id' | 'createdAt' | 'updatedAt'>): Promise<SecurityPolicy> {
-    await this.validateTenantAccess('system', policy.tenantId);
+  async createSecurityPolicy(
+    policy: Omit<SecurityPolicy, "id" | "createdAt" | "updatedAt">
+  ): Promise<SecurityPolicy> {
+    await this.validateTenantAccess("system", policy.tenantId);
 
     const newPolicy: SecurityPolicy = {
       ...policy,
       id: crypto.randomUUID(),
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
-    await this.insertWithTenantCheck('security_policies', 'system', policy.tenantId, {
+    await this.insertWithTenantCheck("security_policies", "system", policy.tenantId, {
       id: newPolicy.id,
       tenant_id: newPolicy.tenantId,
       name: newPolicy.name,
@@ -281,26 +306,26 @@ export class SecurityAutomationService extends TenantAwareService {
       priority: newPolicy.priority,
       enabled: newPolicy.enabled,
       created_at: newPolicy.createdAt,
-      updated_at: newPolicy.updatedAt
+      updated_at: newPolicy.updatedAt,
     });
 
     await this.auditLog.log({
-      userId: 'system',
-      action: 'policy.created',
-      resourceType: 'security_policy',
+      userId: "system",
+      action: "policy.created",
+      resourceType: "security_policy",
       resourceId: newPolicy.id,
       details: {
         tenantId: policy.tenantId,
         policyName: policy.name,
-        category: policy.category
+        category: policy.category,
       },
-      status: 'success'
+      status: "success",
     });
 
-    log.info('Security policy created', {
+    log.info("Security policy created", {
       policyId: newPolicy.id,
       tenantId: policy.tenantId,
-      name: policy.name
+      name: policy.name,
     });
 
     return newPolicy;
@@ -325,61 +350,57 @@ export class SecurityAutomationService extends TenantAwareService {
       incidentResolutionTime: number;
     };
   }> {
-    await this.validateTenantAccess('system', tenantId);
+    await this.validateTenantAccess("system", tenantId);
 
     // Get incidents in time range
-    const incidents = await this.queryWithTenantCheck(
-      'security_incidents',
-      'system',
-      {
-        tenant_id: tenantId,
-        detected_at: { gte: timeRange.start, lte: timeRange.end }
-      }
-    );
+    const incidents = await this.queryWithTenantCheck("security_incidents", "system", {
+      tenant_id: tenantId,
+      detected_at: { gte: timeRange.start, lte: timeRange.end },
+    });
 
     // Get automated responses
-    const responses = await this.queryWithTenantCheck(
-      'automated_responses',
-      'system',
-      {
-        tenant_id: tenantId,
-        executed_at: { gte: timeRange.start, lte: timeRange.end }
-      }
-    );
+    const responses = await this.queryWithTenantCheck("automated_responses", "system", {
+      tenant_id: tenantId,
+      executed_at: { gte: timeRange.start, lte: timeRange.end },
+    });
 
     // Calculate metrics
     const incidentsDetected = incidents.length;
     const automatedResponses = responses.filter((r: any) => r.automated).length;
     const manualInterventions = responses.filter((r: any) => !r.automated).length;
-    const falsePositives = incidents.filter((i: any) => i.status === 'false_positive').length;
+    const falsePositives = incidents.filter((i: any) => i.status === "false_positive").length;
 
     const responseTimes = responses
       .filter((r: any) => r.executed_at)
       .map((r: any) => new Date(r.executed_at).getTime() - new Date(r.created_at).getTime());
 
-    const averageResponseTime = responseTimes.length > 0
-      ? responseTimes.reduce((a: number, b: number) => a + b, 0) / responseTimes.length
-      : 0;
+    const averageResponseTime =
+      responseTimes.length > 0
+        ? responseTimes.reduce((a: number, b: number) => a + b, 0) / responseTimes.length
+        : 0;
 
     // Get policy enforcement data
     const policies = await this.getActivePolicies(tenantId);
     const policiesEnforced = policies.length;
 
     // Calculate effectiveness metrics
-    const resolvedIncidents = incidents.filter((i: any) => i.status === 'resolved');
-    const detectionAccuracy = incidents.length > 0
-      ? (incidents.length - falsePositives) / incidents.length * 100
-      : 100;
+    const resolvedIncidents = incidents.filter((i: any) => i.status === "resolved");
+    const detectionAccuracy =
+      incidents.length > 0 ? ((incidents.length - falsePositives) / incidents.length) * 100 : 100;
 
-    const automationSuccessRate = responses.length > 0
-      ? responses.filter((r: any) => r.status === 'completed').length / responses.length * 100
-      : 100;
+    const automationSuccessRate =
+      responses.length > 0
+        ? (responses.filter((r: any) => r.status === "completed").length / responses.length) * 100
+        : 100;
 
-    const incidentResolutionTime = resolvedIncidents.length > 0
-      ? resolvedIncidents.reduce((acc: number, i: any) =>
-          acc + (new Date(i.resolvedAt).getTime() - new Date(i.detectedAt).getTime()), 0
-        ) / resolvedIncidents.length
-      : 0;
+    const incidentResolutionTime =
+      resolvedIncidents.length > 0
+        ? resolvedIncidents.reduce(
+            (acc: number, i: any) =>
+              acc + (new Date(i.resolvedAt).getTime() - new Date(i.detectedAt).getTime()),
+            0
+          ) / resolvedIncidents.length
+        : 0;
 
     return {
       incidentsDetected,
@@ -391,8 +412,8 @@ export class SecurityAutomationService extends TenantAwareService {
       effectiveness: {
         detectionAccuracy,
         automationSuccessRate,
-        incidentResolutionTime
-      }
+        incidentResolutionTime,
+      },
     };
   }
 
@@ -401,7 +422,7 @@ export class SecurityAutomationService extends TenantAwareService {
     tenantId: string;
     title: string;
     description: string;
-    severity: 'low' | 'medium' | 'high' | 'critical';
+    severity: "low" | "medium" | "high" | "critical";
     incidentType: string;
     affectedResources: string[];
     threatIndicators: string[];
@@ -413,7 +434,7 @@ export class SecurityAutomationService extends TenantAwareService {
       title: incidentData.title,
       description: incidentData.description,
       severity: incidentData.severity,
-      status: 'detected',
+      status: "detected",
       incidentType: incidentData.incidentType,
       affectedResources: incidentData.affectedResources,
       detectedAt: new Date(),
@@ -422,46 +443,44 @@ export class SecurityAutomationService extends TenantAwareService {
       impact: {
         usersAffected: 0,
         dataCompromised: false,
-        serviceDisruption: false
-      }
+        serviceDisruption: false,
+      },
     };
 
-    await this.supabase
-      .from('security_incidents')
-      .insert({
-        id: incident.id,
-        tenant_id: incident.tenantId,
-        title: incident.title,
-        description: incident.description,
-        severity: incident.severity,
-        status: incident.status,
-        incident_type: incident.incidentType,
-        affected_resources: incident.affectedResources,
-        detected_at: incident.detectedAt,
-        threat_indicators: incident.threatIndicators,
-        risk_score: incident.riskScore,
-        impact: incident.impact
-      });
+    await this.supabase.from("security_incidents").insert({
+      id: incident.id,
+      tenant_id: incident.tenantId,
+      title: incident.title,
+      description: incident.description,
+      severity: incident.severity,
+      status: incident.status,
+      incident_type: incident.incidentType,
+      affected_resources: incident.affectedResources,
+      detected_at: incident.detectedAt,
+      threat_indicators: incident.threatIndicators,
+      risk_score: incident.riskScore,
+      impact: incident.impact,
+    });
 
     await this.auditLog.log({
-      userId: 'system',
-      action: 'incident.created',
-      resourceType: 'security_incident',
+      userId: "system",
+      action: "incident.created",
+      resourceType: "security_incident",
       resourceId: incident.id,
       details: {
         tenantId: incident.tenantId,
         severity: incident.severity,
         incidentType: incident.incidentType,
-        riskScore: incident.riskScore
+        riskScore: incident.riskScore,
       },
-      status: incident.severity === 'critical' ? 'critical' : 'warning'
+      status: incident.severity === "critical" ? "critical" : "warning",
     });
 
-    log.warn('Security incident created', {
+    log.warn("Security incident created", {
       incidentId: incident.id,
       tenantId: incident.tenantId,
       severity: incident.severity,
-      title: incident.title
+      title: incident.title,
     });
 
     return incident;
@@ -474,7 +493,10 @@ export class SecurityAutomationService extends TenantAwareService {
     const responses: AutomatedResponse[] = [];
 
     for (const threat of threats) {
-      const responseActions = await this.threatDetectionService.generateIncidentResponse(threat, event as SecurityEvent);
+      const responseActions = await this.threatDetectionService.generateIncidentResponse(
+        threat,
+        event as SecurityEvent
+      );
 
       if (responseActions && responseActions.actions) {
         for (const action of responseActions.actions) {
@@ -483,26 +505,24 @@ export class SecurityAutomationService extends TenantAwareService {
             incidentId: event.id,
             actionType: action.type as any,
             description: action.description,
-            status: 'pending',
+            status: "pending",
             automated: action.automated,
-            priority: action.priority as any
+            priority: action.priority as any,
           };
 
           responses.push(response);
 
           // Store the response
-          await this.supabase
-            .from('automated_responses')
-            .insert({
-              id: response.id,
-              incident_id: response.incidentId,
-              action_type: response.actionType,
-              description: response.description,
-              status: response.status,
-              automated: response.automated,
-              priority: response.priority,
-              created_at: new Date()
-            });
+          await this.supabase.from("automated_responses").insert({
+            id: response.id,
+            incident_id: response.incidentId,
+            action_type: response.actionType,
+            description: response.description,
+            status: response.status,
+            automated: response.automated,
+            priority: response.priority,
+            created_at: new Date(),
+          });
         }
       }
     }
@@ -512,67 +532,65 @@ export class SecurityAutomationService extends TenantAwareService {
 
   private async executeAutomatedResponse(response: AutomatedResponse): Promise<void> {
     try {
-      response.status = 'executing';
+      response.status = "executing";
 
       // Update status in database
       await this.supabase
-        .from('automated_responses')
+        .from("automated_responses")
         .update({
           status: response.status,
-          executed_at: new Date()
+          executed_at: new Date(),
         })
-        .eq('id', response.id);
+        .eq("id", response.id);
 
       // Execute the specific action
       switch (response.actionType) {
-        case 'alert':
+        case "alert":
           await this.executeAlertAction(response);
           break;
-        case 'block':
+        case "block":
           await this.executeBlockAction(response);
           break;
-        case 'quarantine':
+        case "quarantine":
           await this.executeQuarantineAction(response);
           break;
-        case 'notify':
+        case "notify":
           await this.executeNotifyAction(response);
           break;
         default:
           throw new Error(`Unknown action type: ${response.actionType}`);
       }
 
-      response.status = 'completed';
-      response.result = 'Action completed successfully';
-
+      response.status = "completed";
+      response.result = "Action completed successfully";
     } catch (error) {
-      response.status = 'failed';
+      response.status = "failed";
       response.result = `Action failed: ${(error as Error).message}`;
 
-      log.error('Automated response failed', {
+      log.error("Automated response failed", {
         responseId: response.id,
         incidentId: response.incidentId,
         actionType: response.actionType,
-        error: (error as Error).message
+        error: (error as Error).message,
       });
     }
 
     // Update final status
     await this.supabase
-      .from('automated_responses')
+      .from("automated_responses")
       .update({
         status: response.status,
         result: response.result,
-        executed_at: new Date()
+        executed_at: new Date(),
       })
-      .eq('id', response.id);
+      .eq("id", response.id);
   }
 
   private async getActivePolicies(tenantId: string): Promise<SecurityPolicy[]> {
-    const policies = await this.queryWithTenantCheck(
-      'security_policies',
-      'system',
-      { tenant_id: tenantId, enabled: true }
-    );
+    const policies = await this.queryWithTenantCheck("security_policies", "system", {
+      tenant_id: tenantId,
+      enabled: true,
+    });
 
     return policies.map((p: any) => ({
       id: p.id,
@@ -585,7 +603,7 @@ export class SecurityAutomationService extends TenantAwareService {
       priority: p.priority,
       enabled: p.enabled,
       createdAt: new Date(p.created_at),
-      updatedAt: new Date(p.updated_at)
+      updatedAt: new Date(p.updated_at),
     }));
   }
 
@@ -611,19 +629,22 @@ export class SecurityAutomationService extends TenantAwareService {
     return false;
   }
 
-  private async executePolicyAction(policy: SecurityPolicy, event: any): Promise<AutomatedResponse | null> {
+  private async executePolicyAction(
+    policy: SecurityPolicy,
+    event: any
+  ): Promise<AutomatedResponse | null> {
     // Find the matching rule
-    const matchingRule = policy.rules.find(_rule => this.evaluatePolicyRules(policy, event));
+    const matchingRule = policy.rules.find((_rule) => this.evaluatePolicyRules(policy, event));
     if (!matchingRule) return null;
 
     const response: AutomatedResponse = {
       id: crypto.randomUUID(),
-      incidentId: 'policy_enforcement',
+      incidentId: "policy_enforcement",
       actionType: matchingRule.action.type as any,
       description: `Policy enforcement: ${policy.name} - ${matchingRule.action.type}`,
-      status: 'pending',
+      status: "pending",
       automated: true,
-      priority: policy.priority as any
+      priority: policy.priority as any,
     };
 
     // Execute the action
@@ -635,16 +656,16 @@ export class SecurityAutomationService extends TenantAwareService {
   private async updateIncidentStatus(
     incidentId: string,
     tenantId: string,
-    status: SecurityIncident['status']
+    status: SecurityIncident["status"]
   ): Promise<void> {
     await this.updateWithTenantCheck(
-      'security_incidents',
-      'system',
+      "security_incidents",
+      "system",
       tenantId,
       {
         id: incidentId,
         status,
-        resolved_at: status === 'resolved' ? new Date() : undefined
+        resolved_at: status === "resolved" ? new Date() : undefined,
       },
       { id: incidentId }
     );
@@ -653,9 +674,9 @@ export class SecurityAutomationService extends TenantAwareService {
   // Action execution methods
   private async executeAlertAction(response: AutomatedResponse): Promise<void> {
     // Send alert to security team
-    log.warn('Security alert triggered', {
+    log.warn("Security alert triggered", {
       responseId: response.id,
-      description: response.description
+      description: response.description,
     });
 
     // In a real implementation, this would send emails, Slack notifications, etc.
@@ -663,38 +684,38 @@ export class SecurityAutomationService extends TenantAwareService {
 
   private async executeBlockAction(response: AutomatedResponse): Promise<void> {
     // Implement blocking logic (IP block, user suspension, etc.)
-    log.warn('Blocking action executed', {
+    log.warn("Blocking action executed", {
       responseId: response.id,
-      description: response.description
+      description: response.description,
     });
   }
 
   private async executeQuarantineAction(response: AutomatedResponse): Promise<void> {
     // Implement quarantine logic
-    log.warn('Quarantine action executed', {
+    log.warn("Quarantine action executed", {
       responseId: response.id,
-      description: response.description
+      description: response.description,
     });
   }
 
   private async executeNotifyAction(response: AutomatedResponse): Promise<void> {
     // Send notifications to stakeholders
-    log.info('Notification sent', {
+    log.info("Notification sent", {
       responseId: response.id,
-      description: response.description
+      description: response.description,
     });
   }
 
   // Utility methods
-  private determineSeverity(event: any): 'low' | 'medium' | 'high' | 'critical' {
+  private determineSeverity(event: any): "low" | "medium" | "high" | "critical" {
     // Simple severity determination - can be enhanced
-    if (event.eventType.includes('brute_force') || event.eventType.includes('exploit')) {
-      return 'critical';
+    if (event.eventType.includes("brute_force") || event.eventType.includes("exploit")) {
+      return "critical";
     }
-    if (event.eventType.includes('failed') || event.eventType.includes('suspicious')) {
-      return 'high';
+    if (event.eventType.includes("failed") || event.eventType.includes("suspicious")) {
+      return "high";
     }
-    return 'medium';
+    return "medium";
   }
 
   private generateIncidentTitle(threat: any, _event: any): string {

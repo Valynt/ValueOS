@@ -32,6 +32,7 @@ export interface AuditLogCreateInput {
 }
 
 export interface AuditLogQuery {
+  tenantId?: string;
   userId?: string;
   action?: string;
   resourceType?: string;
@@ -51,6 +52,7 @@ export interface AuditLogExportOptions {
 export class AuditLogService extends BaseService {
   private lastHash: string | null = null;
   private initialized: boolean = false;
+  private hashChainLock: Promise<void> = Promise.resolve();
 
   constructor() {
     super("AuditLogService");
@@ -87,7 +89,12 @@ export class AuditLogService extends BaseService {
         hasExistingChain: !!this.lastHash,
       });
     } catch (error) {
-      logger.error("Failed to initialize audit hash chain", error as Error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error(
+        "Failed to initialize audit hash chain",
+        error instanceof Error ? error : undefined,
+        { errorMsg }
+      );
       this.initialized = true; // Prevent retry loops, start fresh chain
     }
   }
@@ -117,59 +124,70 @@ export class AuditLogService extends BaseService {
     // Ensure hash chain is initialized before creating entries
     await this.initializeHashChain();
 
-    return this.executeRequest(
-      async () => {
-        // Sanitize sensitive data
-        const sanitizedDetails = input.details
-          ? (sanitizeForLogging(input.details) as Record<string, unknown>)
-          : {};
+    // Use lock to serialize hash chain operations and prevent race conditions
+    // This ensures each entry correctly references the previous hash
+    return new Promise<AuditLogEntry>((resolve, reject) => {
+      this.hashChainLock = this.hashChainLock.then(async () => {
+        try {
+          const result = await this.executeRequest(
+            async () => {
+              // Sanitize sensitive data
+              const sanitizedDetails = input.details
+                ? (sanitizeForLogging(input.details) as Record<string, unknown>)
+                : {};
 
-        // Calculate integrity hash (using secure SHA-256)
-        const hash = await this.calculateHash({
-          userId: input.userId,
-          action: input.action,
-          resourceType: input.resourceType,
-          resourceId: input.resourceId,
-          details: sanitizedDetails,
-          previousHash: this.lastHash,
-        });
+              // Calculate integrity hash (using secure SHA-256)
+              const hash = await this.calculateHash({
+                userId: input.userId,
+                action: input.action,
+                resourceType: input.resourceType,
+                resourceId: input.resourceId,
+                details: sanitizedDetails,
+                previousHash: this.lastHash,
+              });
 
-        const logEntry = {
-          user_id: input.userId,
-          user_name: input.userName,
-          user_email: input.userEmail,
-          action: input.action,
-          resource_type: input.resourceType,
-          resource_id: input.resourceId,
-          details: sanitizedDetails,
-          ip_address: input.ipAddress || "",
-          user_agent: input.userAgent || "",
-          status: input.status || "success",
-          timestamp: new Date().toISOString(),
-          integrity_hash: hash,
-          previous_hash: this.lastHash || undefined,
-        };
+              const logEntry = {
+                user_id: input.userId,
+                user_name: input.userName,
+                user_email: input.userEmail,
+                action: input.action,
+                resource_type: input.resourceType,
+                resource_id: input.resourceId,
+                details: sanitizedDetails,
+                ip_address: input.ipAddress || "",
+                user_agent: input.userAgent || "",
+                status: input.status || "success",
+                timestamp: new Date().toISOString(),
+                integrity_hash: hash,
+                previous_hash: this.lastHash || undefined,
+              };
 
-        const { data, error } = await this.supabase
-          .from("audit_logs" as any)
-          .insert(logEntry as any)
-          .select()
-          .single();
+              const { data, error } = await this.supabase
+                .from("audit_logs" as any)
+                .insert(logEntry as any)
+                .select()
+                .single();
 
-        if (error) {
-          // CRITICAL: Audit logging failure must be escalated
-          logger.error("CRITICAL: Audit logging failed", error, {
-            action: input.action,
-            resourceType: input.resourceType,
-          });
-          throw error;
+              if (error) {
+                // CRITICAL: Audit logging failure must be escalated
+                logger.error("CRITICAL: Audit logging failed", error, {
+                  action: input.action,
+                  resourceType: input.resourceType,
+                });
+                throw error;
+              }
+
+              this.lastHash = hash;
+              return data as unknown as AuditLogEntry;
+            },
+            { skipCache: true }
+          );
+          resolve(result);
+        } catch (error) {
+          reject(error);
         }
-
-        this.lastHash = hash;
-        return data as unknown as AuditLogEntry;
-      },
-      { skipCache: true }
-    );
+      });
+    });
   }
 
   /**
@@ -191,9 +209,19 @@ export class AuditLogService extends BaseService {
   async query(query: AuditLogQuery = {}): Promise<AuditLogEntry[]> {
     super.log("info", "Querying audit logs", query);
 
+    // SECURITY: Tenant filtering is required for multi-tenant isolation
+    if (!query.tenantId) {
+      logger.warn("Audit log query without tenant filter - this may expose cross-tenant data");
+    }
+
     return this.executeRequest(
       async () => {
         let dbQuery = this.supabase.from("audit_logs" as any).select("*");
+
+        // CRITICAL: Apply tenant filter first for security
+        if (query.tenantId) {
+          dbQuery = dbQuery.eq("tenant_id" as any, query.tenantId as any);
+        }
 
         if (query.userId) {
           dbQuery = dbQuery.eq("user_id" as any, query.userId as any);
@@ -345,6 +373,18 @@ export class AuditLogService extends BaseService {
   /**
    * Convert logs to CSV format
    */
+  /**
+   * Escape a CSV field value to prevent injection and handle special characters
+   */
+  private escapeCsvField(value: unknown): string {
+    const str = String(value ?? "");
+    // If field contains comma, quote, or newline, wrap in quotes and escape internal quotes
+    if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  }
+
   private exportToCsv(logs: AuditLogEntry[]): string {
     const headers = [
       "ID",
@@ -359,15 +399,15 @@ export class AuditLogService extends BaseService {
     ];
 
     const rows = logs.map((log) => [
-      log.id,
-      log.timestamp,
-      log.userName,
-      log.userEmail,
-      log.action,
-      log.resourceType,
-      log.resourceId,
-      log.status,
-      log.ipAddress,
+      this.escapeCsvField(log.id),
+      this.escapeCsvField(log.timestamp),
+      this.escapeCsvField(log.userName),
+      this.escapeCsvField(log.userEmail),
+      this.escapeCsvField(log.action),
+      this.escapeCsvField(log.resourceType),
+      this.escapeCsvField(log.resourceId),
+      this.escapeCsvField(log.status),
+      this.escapeCsvField(log.ipAddress),
     ]);
 
     return [headers, ...rows].map((row) => row.join(",")).join("\n");

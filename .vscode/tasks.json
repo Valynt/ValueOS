@@ -128,6 +128,41 @@
         "reveal": "always",
         "panel": "new"
       }
+    },
+    {
+      "label": "Codemap: Refresh All Maps",
+      "type": "shell",
+      "command": "echo '🗺️  Refreshing ValueOS Codemaps...' && touch .codemap-refresh-trigger && echo '{\"event\": \"codemap_refresh\", \"timestamp\": \"'$(date -Iseconds)'\", \"maps\": [\"opportunity-flow-map\", \"value-fabric-map\", \"infra-map\", \"security-map\", \"agent-comm-map\", \"master-system-map\"], \"trigger\": \"manual\"}' >> /tmp/valueos-codemap-audit.log 2>/dev/null && echo '✓ Triggered refresh for 6 core maps:' && echo '  • Opportunity Flow Map' && echo '  • Value Fabric Data Flow Map' && echo '  • Infrastructure Map' && echo '  • Security Flow Map' && echo '  • Agent Communication Map' && echo '  • Master System Map' && echo '' && echo '📋 Rules: .windsurfrules.md' && echo '📖 Workflows: .vscode-extension/valueos-codemap/CODEMAP_WORKFLOWS.md'",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "group": "none"
+    },
+    {
+      "label": "Codemap: Refresh on Container Start",
+      "type": "shell",
+      "command": "touch .codemap-refresh-trigger && echo 'Codemap refresh triggered on container start'",
+      "problemMatcher": [],
+      "runOptions": {
+        "runOn": "folderOpen"
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Codemap: Validate Deployment Maps",
+      "type": "shell",
+      "command": "bash scripts/validate-deployment.sh prod",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "dependsOn": ["Codemap: Refresh All Maps"]
     }
   ]
 }
