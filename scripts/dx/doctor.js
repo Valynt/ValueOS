@@ -216,7 +216,7 @@ function checkComposeState() {
 
   if (commandExists('docker')) {
     try {
-      fullRunning = runCommand('docker compose -f docker-compose.full.yml ps --status running --services', {
+      fullRunning = runCommand('docker compose --env-file .env.ports -f docker-compose.full.yml ps --status running --services', {
         stdio: 'pipe'
       })
         .trim()
@@ -227,7 +227,7 @@ function checkComposeState() {
     }
 
     try {
-      depsRunning = runCommand('docker compose -f docker-compose.deps.yml ps --status running --services', {
+      depsRunning = runCommand('docker compose --env-file .env.ports -f docker-compose.deps.yml ps --status running --services', {
         stdio: 'pipe'
       })
         .trim()
