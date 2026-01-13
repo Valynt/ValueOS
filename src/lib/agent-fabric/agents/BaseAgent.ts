@@ -1,16 +1,25 @@
-import { SupabaseClient } from '@supabase/supabase-js';
-import { LLMGateway, LLMMessage } from '../LLMGateway';
-import { MemorySystem } from '../MemorySystem';
-import { AuditLogger } from '../AuditLogger';
-import secureLLMInvoke from '../../llm/secureLLMWrapper';
-import { z } from 'zod';
-import { AgentConfig, ConfidenceLevel } from '../../../types/agent';
-import { getTracer } from '../../observability';
-import { SpanStatusCode } from '@opentelemetry/api';
-import { AgentCircuitBreaker, SafetyLimits, withCircuitBreaker } from '../CircuitBreaker';
-import { enforceRules } from '../../rules';
-import { logger } from '../../../lib/logger';
-import { sanitizeUserInput } from '../../../utils/security';
+import { SupabaseClient } from "@supabase/supabase-js";
+import { LLMGateway, LLMMessage } from "../LLMGateway";
+import { MemorySystem } from "../MemorySystem";
+import { AuditLogger } from "../AuditLogger";
+import secureLLMInvoke from "../../llm/secureLLMWrapper";
+import { z } from "zod";
+import { AgentConfig, ConfidenceLevel } from "../../../types/agent";
+import { getTracer } from "../../observability";
+import { SpanStatusCode } from "@opentelemetry/api";
+import { AgentCircuitBreaker, SafetyLimits, withCircuitBreaker } from "../CircuitBreaker";
+import { enforceRules } from "../../rules";
+import { logger } from "../../../lib/logger";
+import { sanitizeUserInput } from "../../../utils/security";
+// VOS-SEC-004: Secure Inter-Agent Communication
+import {
+  SecureMessageBus,
+  secureMessageBus,
+  SecureMessage,
+  MessagePriority,
+} from "../SecureMessageBus";
+// PII Filter for LLM input sanitization
+import { sanitizeForLogging } from "../../../lib/piiFilter";
 // VOS-SEC-001: Agent Identity System
 import {
   AgentIdentity,
@@ -21,11 +30,11 @@ import {
   requirePermission,
   requiresHITL,
   PermissionDeniedError,
-} from '../../auth/AgentIdentity';
+} from "../../auth/AgentIdentity";
 // VOS-SEC-002: Permission Middleware
-import { permissionMiddleware, withPermissionScope } from '../../auth/PermissionMiddleware';
+import { permissionMiddleware, withPermissionScope } from "../../auth/PermissionMiddleware";
 // VOS-HITL-001: HITL Framework
-import { hitlFramework, ApprovalRequest } from '../../hitl/HITLFramework';
+import { hitlFramework, ApprovalRequest } from "../../hitl/HITLFramework";
 // 4-Layer Truth Architecture
 import {
   IIntegrityAgent,
@@ -41,7 +50,7 @@ import {
   createReasoningChain,
   addReasoningStep,
   finalizeReasoningChain,
-} from '../../truth/GroundTruthEngine';
+} from "../../truth/GroundTruthEngine";
 
 export interface SecureInvocationOptions {
   /** Custom confidence thresholds */
@@ -65,13 +74,13 @@ export abstract class BaseAgent {
   protected llmGateway: LLMGateway;
   protected memorySystem: MemorySystem;
   protected auditLogger: AuditLogger;
-  
+
   /** VOS-SEC-001: Agent Identity for RBAC enforcement */
   protected agentIdentity: AgentIdentity;
-  
+
   /** 4-Layer Truth: Integrity Agent for adversarial peer review */
   protected integrityAgent: IIntegrityAgent;
-  
+
   /** 4-Layer Truth: Current reasoning chain for transparency */
   protected currentReasoningChain: ReasoningChain | null = null;
 
@@ -81,7 +90,9 @@ export abstract class BaseAgent {
 
   constructor(config: AgentConfig) {
     if (!config.llmGateway || !config.memorySystem || !config.auditLogger) {
-      throw new Error('Agent requires llmGateway, memorySystem, and auditLogger in its configuration.');
+      throw new Error(
+        "Agent requires llmGateway, memorySystem, and auditLogger in its configuration."
+      );
     }
     this.agentId = config.id;
     this.organizationId = config.organizationId;
@@ -91,48 +102,285 @@ export abstract class BaseAgent {
     this.llmGateway = config.llmGateway;
     this.memorySystem = config.memorySystem;
     this.auditLogger = config.auditLogger;
-    
+
     // VOS-SEC-001: Initialize agent identity for RBAC
     this.agentIdentity = createAgentIdentity({
       role: this.mapNameToAgentRole(),
-      organizationId: config.organizationId || 'default',
+      organizationId: config.organizationId || "default",
       parentSessionId: config.sessionId,
       initiatingUserId: config.userId,
       expirationSeconds: 7200, // 2 hours
     });
-    
+
     // 4-Layer Truth: Initialize integrity agent for adversarial peer review
     this.integrityAgent = getIntegrityAgent();
-    
-    logger.info('Agent initialized with identity and integrity check', {
+
+    logger.info("Agent initialized with identity and integrity check", {
       agentId: this.agentIdentity.id,
       role: this.agentIdentity.role,
       permissions: this.agentIdentity.permissions.length,
       integrityEnabled: true,
     });
+
+    // VOS-SEC-004: Register agent with SecureMessageBus for inter-agent communication
+    this.registerWithMessageBus();
   }
-  
+
+  // =========================================================================
+  // VOS-SEC-004: Secure Inter-Agent Communication via SecureMessageBus
+  // =========================================================================
+
+  /**
+   * Register this agent with the SecureMessageBus
+   * Enables secure, signed, and audited inter-agent communication
+   */
+  private registerWithMessageBus(): void {
+    try {
+      secureMessageBus.registerAgent(this.agentIdentity);
+      secureMessageBus.subscribe(
+        this.agentIdentity.id,
+        this.handleIncomingMessage.bind(this),
+        ["*"] // Subscribe to all message patterns
+      );
+      logger.debug("Agent registered with SecureMessageBus", {
+        agentId: this.agentIdentity.id,
+        role: this.agentIdentity.role,
+      });
+    } catch (error) {
+      logger.warn("Failed to register with SecureMessageBus", {
+        agentId: this.agentId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /**
+   * Handle incoming messages from other agents
+   * Override in subclasses to implement custom message handling
+   */
+  protected async handleIncomingMessage(
+    message: SecureMessage,
+    sender: AgentIdentity
+  ): Promise<void> {
+    logger.debug("Agent received message", {
+      to: this.agentIdentity.id,
+      from: sender.id,
+      messageId: message.id,
+      priority: message.priority,
+    });
+
+    // Default implementation logs the message
+    // Subclasses should override for specific handling
+    await this.auditLogger.logAction(
+      this.sessionId || "unknown",
+      this.agentId,
+      "message_received",
+      {
+        metadata: {
+          messageId: message.id,
+          from: sender.id,
+          priority: message.priority,
+          timestamp: message.timestamp,
+        },
+      }
+    );
+  }
+
+  /**
+   * Send a secure message to another agent via SecureMessageBus
+   * All inter-agent communication MUST use this method per .windsurfrules.md
+   *
+   * @param targetAgentId - The ID of the target agent
+   * @param payload - The message payload (will be sanitized for PII)
+   * @param options - Message options (priority, encryption, etc.)
+   */
+  protected async sendToAgent<T>(
+    targetAgentId: string,
+    payload: T,
+    options: {
+      priority?: MessagePriority;
+      encrypted?: boolean;
+      correlationId?: string;
+    } = {}
+  ): Promise<SecureMessage<T>> {
+    // Sanitize payload for PII before sending
+    const sanitizedPayload = this.sanitizePayloadForPII(payload);
+
+    const message = await secureMessageBus.send(
+      this.agentIdentity,
+      targetAgentId,
+      sanitizedPayload as T,
+      {
+        priority: options.priority || "normal",
+        encrypted: options.encrypted || false,
+        correlationId: options.correlationId,
+        replyTo: this.agentIdentity.id,
+      }
+    );
+
+    // Log the inter-agent communication for audit trail
+    await this.auditLogger.logAction(this.sessionId || "unknown", this.agentId, "message_sent", {
+      metadata: {
+        messageId: message.id,
+        to: targetAgentId,
+        priority: message.priority,
+        encrypted: message.encrypted,
+      },
+    });
+
+    logger.info("Agent sent secure message", {
+      from: this.agentIdentity.id,
+      to: targetAgentId,
+      messageId: message.id,
+      priority: message.priority,
+    });
+
+    return message;
+  }
+
+  /**
+   * Broadcast a message to all registered agents
+   */
+  protected async broadcastToAgents<T>(
+    payload: T,
+    options: { priority?: MessagePriority } = {}
+  ): Promise<SecureMessage<T>> {
+    const sanitizedPayload = this.sanitizePayloadForPII(payload);
+
+    const message = await secureMessageBus.broadcast(this.agentIdentity, sanitizedPayload as T, {
+      priority: options.priority || "normal",
+    });
+
+    await this.auditLogger.logAction(
+      this.sessionId || "unknown",
+      this.agentId,
+      "message_broadcast",
+      {
+        metadata: {
+          messageId: message.id,
+          priority: message.priority,
+        },
+      }
+    );
+
+    return message;
+  }
+
+  /**
+   * Hand off data to another agent in the VOS lifecycle
+   * Implements the Opportunity → Target → ValueMapping flow per .windsurfrules.md
+   *
+   * @param targetAgentId - The target agent (e.g., 'target-agent', 'value-mapping-agent')
+   * @param handoffData - The data to hand off
+   * @param context - Additional context for the handoff
+   */
+  protected async handoffToAgent<T>(
+    targetAgentId: string,
+    handoffData: T,
+    context: {
+      sessionId: string;
+      lifecycleStage: string;
+      reasoningTrace?: string;
+    }
+  ): Promise<SecureMessage<{ handoff: T; context: typeof context }>> {
+    const payload = {
+      handoff: handoffData,
+      context: {
+        ...context,
+        sourceAgent: this.agentIdentity.id,
+        sourceStage: this.lifecycleStage,
+        timestamp: new Date().toISOString(),
+      },
+    };
+
+    const message = await this.sendToAgent(targetAgentId, payload, {
+      priority: "high",
+      correlationId: context.sessionId,
+    });
+
+    // Record lifecycle link for provenance tracking
+    if (this.supabase) {
+      await this.recordLifecycleLink(context.sessionId, {
+        source_type: `${this.lifecycleStage}_output`,
+        source_id: this.agentId,
+        target_type: `${context.lifecycleStage}_input`,
+        target_id: targetAgentId,
+        relationship_type: "agent_handoff",
+        reasoning_trace: context.reasoningTrace || `Handoff from ${this.name} to ${targetAgentId}`,
+      });
+    }
+
+    logger.info("Agent lifecycle handoff completed", {
+      from: this.agentIdentity.id,
+      fromStage: this.lifecycleStage,
+      to: targetAgentId,
+      toStage: context.lifecycleStage,
+      messageId: message.id,
+    });
+
+    return message;
+  }
+
+  // =========================================================================
+  // PII Filtering for LLM Inputs (MEDIUM Priority Remediation)
+  // =========================================================================
+
+  /**
+   * Sanitize payload for PII before inter-agent communication or LLM invocation
+   * Implements the .windsurfrules.md requirement for PII masking
+   */
+  private sanitizePayloadForPII<T>(payload: T): T {
+    if (payload === null || payload === undefined) {
+      return payload;
+    }
+
+    // Use sanitizeForLogging from piiFilter.ts
+    const sanitized = sanitizeForLogging(payload);
+    return sanitized as T;
+  }
+
+  /**
+   * Sanitize input specifically for LLM prompts
+   * Called before any LLM invocation to ensure PII is masked
+   */
+  protected sanitizeInputForLLM(input: any): any {
+    // First apply standard input sanitization (XSS prevention)
+    const xssSanitized = this.sanitizeInput(input);
+
+    // Then apply PII filtering
+    const piiSanitized = sanitizeForLogging(xssSanitized);
+
+    logger.debug("Input sanitized for LLM", {
+      agent: this.agentId,
+      originalType: typeof input,
+      sanitized: true,
+    });
+
+    return piiSanitized;
+  }
+
   /**
    * Map agent name to AgentRole enum (VOS-SEC-001)
    */
   private mapNameToAgentRole(): AgentRole {
-    const name = (this.constructor.name || '').toLowerCase();
-    
-    if (name.includes('coordinator') || name.includes('orchestrator')) return AgentRole.COORDINATOR;
-    if (name.includes('opportunity')) return AgentRole.OPPORTUNITY;
-    if (name.includes('target')) return AgentRole.TARGET;
-    if (name.includes('realization')) return AgentRole.REALIZATION;
-    if (name.includes('expansion')) return AgentRole.EXPANSION;
-    if (name.includes('integrity')) return AgentRole.INTEGRITY;
-    if (name.includes('communicator')) return AgentRole.COMMUNICATOR;
-    if (name.includes('benchmark')) return AgentRole.BENCHMARK;
-    if (name.includes('narrative')) return AgentRole.NARRATIVE;
-    if (name.includes('adversarial')) return AgentRole.ADVERSARIAL;
-    if (name.includes('financial')) return AgentRole.FINANCIAL_MODELING;
-    if (name.includes('company') || name.includes('intelligence')) return AgentRole.COMPANY_INTELLIGENCE;
-    if (name.includes('value') && name.includes('map')) return AgentRole.VALUE_MAPPING;
-    if (name.includes('research')) return AgentRole.RESEARCH;
-    
+    const name = (this.constructor.name || "").toLowerCase();
+
+    if (name.includes("coordinator") || name.includes("orchestrator")) return AgentRole.COORDINATOR;
+    if (name.includes("opportunity")) return AgentRole.OPPORTUNITY;
+    if (name.includes("target")) return AgentRole.TARGET;
+    if (name.includes("realization")) return AgentRole.REALIZATION;
+    if (name.includes("expansion")) return AgentRole.EXPANSION;
+    if (name.includes("integrity")) return AgentRole.INTEGRITY;
+    if (name.includes("communicator")) return AgentRole.COMMUNICATOR;
+    if (name.includes("benchmark")) return AgentRole.BENCHMARK;
+    if (name.includes("narrative")) return AgentRole.NARRATIVE;
+    if (name.includes("adversarial")) return AgentRole.ADVERSARIAL;
+    if (name.includes("financial")) return AgentRole.FINANCIAL_MODELING;
+    if (name.includes("company") || name.includes("intelligence"))
+      return AgentRole.COMPANY_INTELLIGENCE;
+    if (name.includes("value") && name.includes("map")) return AgentRole.VALUE_MAPPING;
+    if (name.includes("research")) return AgentRole.RESEARCH;
+
     return AgentRole.SYSTEM; // Default for unknown agents
   }
 
@@ -157,7 +405,9 @@ export abstract class BaseAgent {
         // GOVERNANCE ENFORCEMENT: Check GR/LR rules before LLM execution
         const governanceCheck = await this.checkGovernanceRules(sessionId, input, options);
         if (!governanceCheck.allowed) {
-          throw new Error(`Governance violation: ${governanceCheck.violations.map(v => v.message).join(', ')}`);
+          throw new Error(
+            `Governance violation: ${governanceCheck.violations.map((v) => v.message).join(", ")}`
+          );
         }
 
         // Sanitize input
@@ -169,13 +419,13 @@ export abstract class BaseAgent {
         // Build messages with XML sandboxing
         const messages: LLMMessage[] = [
           {
-            role: 'system',
-            content: getSecureAgentSystemPrompt(this.name, this.lifecycleStage)
+            role: "system",
+            content: getSecureAgentSystemPrompt(this.name, this.lifecycleStage),
           },
           {
-            role: 'user',
-            content: this.buildSandboxedPrompt(sanitizedInput)
-          }
+            role: "user",
+            content: this.buildSandboxedPrompt(sanitizedInput),
+          },
         ];
 
         // Invoke LLM with structured output + circuit breaker
@@ -185,14 +435,14 @@ export abstract class BaseAgent {
           userId: this.userId,
           agentId: this.agentId,
           estimatedPromptTokens: 0,
-          estimatedCompletionTokens: 0
+          estimatedCompletionTokens: 0,
         };
 
         // Use secureLLMInvoke to ensure sanitization, schema validation, provenance and telemetry
-        const promptStr = messages.map(m => `${m.role}:\n${m.content}`).join('\n\n');
+        const promptStr = messages.map((m) => `${m.role}:\n${m.content}`).join("\n\n");
 
         const secureResult = await secureLLMInvoke(promptStr, {
-          tenantId: this.organizationId || 'unknown',
+          tenantId: this.organizationId || "unknown",
           traceId: taskContext?.traceId,
           requestId: taskContext?.requestId,
           model: undefined,
@@ -205,7 +455,12 @@ export abstract class BaseAgent {
 
         if (!secureResult.ok) {
           // Log and surface validation failures; fail-closed semantics
-          logger.error('secureLLMInvoke failed', { agent: this.agentId, sessionId, reason: secureResult.reason, details: secureResult.details });
+          logger.error("secureLLMInvoke failed", {
+            agent: this.agentId,
+            sessionId,
+            reason: secureResult.reason,
+            details: secureResult.details,
+          });
           throw new Error(`secureLLMInvoke failed: ${secureResult.reason}`);
         }
 
@@ -214,30 +469,30 @@ export abstract class BaseAgent {
 
         // Log warnings
         if (validation.warnings.length > 0) {
-          logger.warn('Agent output validation warnings', {
+          logger.warn("Agent output validation warnings", {
             agent: this.agentId,
             sessionId,
-            warnings: validation.warnings
+            warnings: validation.warnings,
           });
         }
 
         // Handle errors
         if (!validation.valid) {
-          logger.error('Agent output validation failed', {
+          logger.error("Agent output validation failed", {
             agent: this.agentId,
             sessionId,
-            errors: validation.errors
+            errors: validation.errors,
           });
 
           if (options.throwOnLowConfidence) {
-            throw new Error(`Agent output validation failed: ${validation.errors.join(', ')}`);
+            throw new Error(`Agent output validation failed: ${validation.errors.join(", ")}`);
           }
         }
 
         const processingTime = Date.now() - startTime;
         const enhancedOutput = {
           ...validation.enhanced,
-          processing_time_ms: processingTime
+          processing_time_ms: processingTime,
         };
 
         // Store prediction for accuracy tracking
@@ -248,10 +503,10 @@ export abstract class BaseAgent {
         // Log execution
         await this.logExecution(
           sessionId,
-          'secure_invoke',
+          "secure_invoke",
           sanitizedInput,
           enhancedOutput.result,
-          enhancedOutput.reasoning || 'No reasoning provided',
+          enhancedOutput.reasoning || "No reasoning provided",
           enhancedOutput.confidence_level,
           enhancedOutput.evidence || []
         );
@@ -262,12 +517,12 @@ export abstract class BaseAgent {
     );
 
     // Log circuit breaker metrics
-    logger.info('Agent execution metrics', {
+    logger.info("Agent execution metrics", {
       agent: this.agentId,
       sessionId,
       llmCalls: metrics.llmCallCount,
       duration: metrics.duration,
-      completed: metrics.completed
+      completed: metrics.completed,
     });
 
     return output;
@@ -289,33 +544,34 @@ export abstract class BaseAgent {
       const governanceResult = await enforceRules({
         agentId: this.agentId,
         agentType,
-        userId: this.userId || 'system',
-        tenantId: this.organizationId || 'default',
+        userId: this.userId || "system",
+        tenantId: this.organizationId || "default",
         sessionId,
-        action: 'llm_invoke',
+        action: "llm_invoke",
         payload: {
           input,
           agent: this.name,
           lifecycleStage: this.lifecycleStage,
           context: options.context,
         },
-        environment: process.env.NODE_ENV as 'development' | 'staging' | 'production' || 'development',
+        environment:
+          (process.env.NODE_ENV as "development" | "staging" | "production") || "development",
       });
 
       if (!governanceResult.allowed) {
-        logger.error('GOVERNANCE VIOLATION - LLM EXECUTION BLOCKED', {
+        logger.error("GOVERNANCE VIOLATION - LLM EXECUTION BLOCKED", {
           agent: this.agentId,
           sessionId,
-          violations: governanceResult.violations.map(v => `${v.ruleId}: ${v.message}`),
+          violations: governanceResult.violations.map((v) => `${v.ruleId}: ${v.message}`),
         });
 
         return {
           allowed: false,
-          violations: governanceResult.violations.map(v => v.message),
+          violations: governanceResult.violations.map((v) => v.message),
         };
       }
 
-      logger.debug('Governance rules passed for LLM execution', {
+      logger.debug("Governance rules passed for LLM execution", {
         agent: this.agentId,
         globalRulesChecked: governanceResult.metadata.globalRulesChecked,
         localRulesChecked: governanceResult.metadata.localRulesChecked,
@@ -323,7 +579,7 @@ export abstract class BaseAgent {
 
       return { allowed: true, violations: [] };
     } catch (error) {
-      logger.error('CRITICAL: Governance check failed - BLOCKING LLM EXECUTION', {
+      logger.error("CRITICAL: Governance check failed - BLOCKING LLM EXECUTION", {
         agent: this.agentId,
         sessionId,
         error: error instanceof Error ? error.message : String(error),
@@ -332,7 +588,7 @@ export abstract class BaseAgent {
       // FAIL-CLOSED: Block execution on governance system failure
       return {
         allowed: false,
-        violations: ['Governance system error - execution blocked for safety'],
+        violations: ["Governance system error - execution blocked for safety"],
       };
     }
   }
@@ -340,33 +596,40 @@ export abstract class BaseAgent {
   /**
    * Map agent name to governance agent type
    */
-  private mapAgentToType(): 'coordinator' | 'system_mapper' | 'intervention_designer' | 'outcome_engineer' | 'realization_loop' | 'value_eval' | 'communicator' {
+  private mapAgentToType():
+    | "coordinator"
+    | "system_mapper"
+    | "intervention_designer"
+    | "outcome_engineer"
+    | "realization_loop"
+    | "value_eval"
+    | "communicator" {
     const name = this.name.toLowerCase();
-    
-    if (name.includes('coordinator') || name.includes('orchestrator')) return 'coordinator';
-    if (name.includes('system') || name.includes('mapper')) return 'system_mapper';
-    if (name.includes('intervention') || name.includes('design')) return 'intervention_designer';
-    if (name.includes('outcome') || name.includes('engineer')) return 'outcome_engineer';
-    if (name.includes('realization') || name.includes('loop')) return 'realization_loop';
-    if (name.includes('value') || name.includes('eval')) return 'value_eval';
-    if (name.includes('communicator') || name.includes('message')) return 'communicator';
-    
-    return 'coordinator'; // Default
+
+    if (name.includes("coordinator") || name.includes("orchestrator")) return "coordinator";
+    if (name.includes("system") || name.includes("mapper")) return "system_mapper";
+    if (name.includes("intervention") || name.includes("design")) return "intervention_designer";
+    if (name.includes("outcome") || name.includes("engineer")) return "outcome_engineer";
+    if (name.includes("realization") || name.includes("loop")) return "realization_loop";
+    if (name.includes("value") || name.includes("eval")) return "value_eval";
+    if (name.includes("communicator") || name.includes("message")) return "communicator";
+
+    return "coordinator"; // Default
   }
 
   /**
    * Sanitize user input to prevent prompt injection
    */
   private sanitizeInput(input: any): any {
-    if (typeof input === 'string') {
+    if (typeof input === "string") {
       return sanitizeUserInput(input);
     }
 
     if (Array.isArray(input)) {
-      return input.map(item => this.sanitizeInput(item));
+      return input.map((item) => this.sanitizeInput(item));
     }
 
-    if (typeof input === 'object' && input !== null) {
+    if (typeof input === "object" && input !== null) {
       const sanitized: any = {};
       for (const [key, value] of Object.entries(input)) {
         sanitized[key] = this.sanitizeInput(value);
@@ -388,7 +651,7 @@ export abstract class BaseAgent {
     if (!this.supabase) return;
 
     try {
-      await this.supabase.from('agent_predictions').insert({
+      await this.supabase.from("agent_predictions").insert({
         session_id: sessionId,
         agent_id: this.agentId,
         agent_type: this.lifecycleStage,
@@ -402,13 +665,13 @@ export abstract class BaseAgent {
         data_gaps: output.data_gaps,
         evidence: output.evidence,
         reasoning: output.reasoning,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
       });
     } catch (error) {
-      logger.error('Failed to store prediction', {
+      logger.error("Failed to store prediction", {
         agent: this.agentId,
         sessionId,
-        error: error.message
+        error: error.message,
       });
     }
   }
@@ -421,7 +684,7 @@ export abstract class BaseAgent {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash;
     }
     return hash.toString(36);
@@ -431,8 +694,8 @@ export abstract class BaseAgent {
    * Build sandboxed prompt with XML tags
    */
   private buildSandboxedPrompt(input: any): string {
-    const inputStr = typeof input === 'string' ? input : JSON.stringify(input);
-    
+    const inputStr = typeof input === "string" ? input : JSON.stringify(input);
+
     // Apply XML sandboxing to clearly delineate user input
     return `<user_input>${this.escapeXml(inputStr)}</user_input>`;
   }
@@ -442,11 +705,11 @@ export abstract class BaseAgent {
    */
   private escapeXml(text: string): string {
     return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&apos;');
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&apos;");
   }
 
   protected async logExecution(
@@ -463,7 +726,7 @@ export abstract class BaseAgent {
       inputData,
       outputData,
       confidenceLevel: confidence,
-      evidence
+      evidence,
     });
 
     await this.memorySystem.storeEpisodicMemory(
@@ -472,7 +735,7 @@ export abstract class BaseAgent {
       `${action}: ${reasoning}`,
       { input: inputData, output: outputData },
       this.organizationId,
-      { source: 'agent_execution', trace_id: sessionId }
+      { source: "agent_execution", trace_id: sessionId }
     );
   }
 
@@ -502,68 +765,68 @@ export abstract class BaseAgent {
 
   protected async extractJSON(content: string, schema?: z.ZodSchema): Promise<any> {
     // Use new comprehensive SafeJSONParser with error handling
-    const { extractJSON: safeExtractJSON } = await import('../SafeJSONParser');
-    
+    const { extractJSON: safeExtractJSON } = await import("../SafeJSONParser");
+
     try {
       return await safeExtractJSON(content, schema, {
         maxSize: 5 * 1024 * 1024, // 5 MB limit
-        allowPartial: !schema // Allow partial recovery if no schema validation
+        allowPartial: !schema, // Allow partial recovery if no schema validation
       });
     } catch (error: any) {
-      logger.error('JSON extraction failed in BaseAgent', {
+      logger.error("JSON extraction failed in BaseAgent", {
         agent: this.agentId,
         error: error.message,
-        contentPreview: content.substring(0, 200)
+        contentPreview: content.substring(0, 200),
       });
-      
+
       // Graceful degradation: return empty object for backward compatibility
       // but log the failure for monitoring
       if (schema) {
         throw error; // Re-throw if schema validation was requested
       }
-      
+
       return {};
     }
   }
 
   protected determineConfidence(
     hasEvidence: boolean,
-    dataQuality: 'high' | 'medium' | 'low'
+    dataQuality: "high" | "medium" | "low"
   ): ConfidenceLevel {
-    if (!hasEvidence || dataQuality === 'low') return 'low';
-    if (dataQuality === 'medium') return 'medium';
-    return 'high';
+    if (!hasEvidence || dataQuality === "low") return "low";
+    if (dataQuality === "medium") return "medium";
+    return "high";
   }
 
   protected async recordLifecycleLink(
     sessionId: string,
-    link: Omit<LifecycleArtifactLink, 'id' | 'created_at'>
+    link: Omit<LifecycleArtifactLink, "id" | "created_at">
   ): Promise<void> {
     if (!this.supabase) return;
 
     const payload = {
       session_id: sessionId,
-      source_stage: link.source_type?.split('_')?.[0] || null,
-      target_stage: link.target_type?.split('_')?.[0] || null,
+      source_stage: link.source_type?.split("_")?.[0] || null,
+      target_stage: link.target_type?.split("_")?.[0] || null,
       source_type: link.source_type,
       source_artifact_id: link.source_id,
       target_type: link.target_type,
       target_artifact_id: link.target_id,
-      relationship_type: link.relationship_type || 'derived_from',
+      relationship_type: link.relationship_type || "derived_from",
       reasoning_trace: link.reasoning_trace || null,
       chain_depth: link.chain_depth || null,
       metadata: link.metadata || {},
-      created_by: this.agentId
+      created_by: this.agentId,
     };
 
-    await this.supabase.from('lifecycle_artifact_links').insert(payload);
+    await this.supabase.from("lifecycle_artifact_links").insert(payload);
 
     await this.logProvenanceAudit({
       session_id: sessionId,
       agent_id: this.agentId,
       artifact_type: link.target_type,
       artifact_id: link.target_id,
-      action: 'lifecycle_link_created',
+      action: "lifecycle_link_created",
       reasoning_trace: link.reasoning_trace,
       artifact_data: {
         source: { type: link.source_type, id: link.source_id },
@@ -572,19 +835,19 @@ export abstract class BaseAgent {
       metadata: {
         source_type: link.source_type,
         source_id: link.source_id,
-        relationship_type: link.relationship_type || 'derived_from',
-        chain_depth: link.chain_depth ?? undefined
-      }
+        relationship_type: link.relationship_type || "derived_from",
+        chain_depth: link.chain_depth ?? undefined,
+      },
     });
   }
 
   protected async logProvenanceAudit(entry: ProvenanceAuditEntry): Promise<void> {
     if (!this.supabase) return;
 
-    await this.supabase.from('provenance_audit_log').insert({
+    await this.supabase.from("provenance_audit_log").insert({
       ...entry,
       created_at: new Date().toISOString(),
-      metadata: entry.metadata || {}
+      metadata: entry.metadata || {},
     });
   }
 
@@ -639,13 +902,10 @@ export abstract class BaseAgent {
    * Execute an action with permission scope validation
    * Uses middleware for caching and consistent enforcement (VOS-SEC-002)
    */
-  protected async withPermissionScope<T>(
-    action: string,
-    executor: () => Promise<T>
-  ): Promise<T> {
+  protected async withPermissionScope<T>(action: string, executor: () => Promise<T>): Promise<T> {
     return withPermissionScope(
       this.agentIdentity,
-      { action, resource: 'agent_action', metadata: { agentId: this.agentId } },
+      { action, resource: "agent_action", metadata: { agentId: this.agentId } },
       executor
     );
   }
@@ -714,8 +974,8 @@ export abstract class BaseAgent {
     const request = await this.requestHITLApproval(action, details);
 
     // Check if auto-approved
-    if (request.status === 'auto_approved') {
-      logger.info('HITL auto-approved, executing action', {
+    if (request.status === "auto_approved") {
+      logger.info("HITL auto-approved, executing action", {
         requestId: request.id,
         action,
       });
@@ -725,8 +985,8 @@ export abstract class BaseAgent {
     // For pending requests, throw to indicate async approval needed
     throw new Error(
       `HITL approval required. Request ID: ${request.id}. ` +
-      `Risk level: ${request.gate.riskLevel}. ` +
-      `Required approvers: ${request.gate.requiredApprovers}`
+        `Risk level: ${request.gate.riskLevel}. ` +
+        `Required approvers: ${request.gate.requiredApprovers}`
     );
   }
 
@@ -757,48 +1017,47 @@ export abstract class BaseAgent {
     sessionId: string,
     task: {
       input: Record<string, unknown>;
-      riskLevel: 'low' | 'medium' | 'high' | 'critical';
+      riskLevel: "low" | "medium" | "high" | "critical";
       requiresCitations: boolean;
     },
     executor: () => Promise<{ output: T; sources?: Citation[]; reasoning?: string }>
   ): Promise<T> {
     // Start reasoning chain for transparency (Layer 3)
     this.currentReasoningChain = createReasoningChain(this.agentId, sessionId);
-    
+
     // 1. Perform the primary work
     const result = await executor();
-    
+
     // 2. Verify citations if required (Layer 2)
     if (task.requiresCitations) {
-      const outputText = typeof result.output === 'string' 
-        ? result.output 
-        : JSON.stringify(result.output);
-      
+      const outputText =
+        typeof result.output === "string" ? result.output : JSON.stringify(result.output);
+
       const citationIssues = this.verifySource(outputText);
-      
+
       if (citationIssues.length > 0) {
-        logger.warn('Citation verification failed', {
+        logger.warn("Citation verification failed", {
           agentId: this.agentId,
           sessionId,
           issues: citationIssues.length,
         });
-        
+
         // For high/critical risk, fail immediately on citation issues
-        if (task.riskLevel === 'high' || task.riskLevel === 'critical') {
+        if (task.riskLevel === "high" || task.riskLevel === "critical") {
           throw new IntegrityError(citationIssues, {
             passed: false,
             confidence: 0,
             issues: citationIssues,
-            recommendations: ['Add citations for all numerical claims'],
+            recommendations: ["Add citations for all numerical claims"],
             checkedAt: new Date().toISOString(),
-            checkedBy: 'citation_validator',
+            checkedBy: "citation_validator",
           });
         }
       }
     }
-    
+
     // 3. For high/critical risk, invoke IntegrityAgent for peer review (Layer 1)
-    if (task.riskLevel === 'high' || task.riskLevel === 'critical') {
+    if (task.riskLevel === "high" || task.riskLevel === "critical") {
       const integrityCheck = await this.requestPeerReview({
         originalPrompt: JSON.stringify(task.input),
         agentOutput: result.output as Record<string, unknown>,
@@ -810,18 +1069,18 @@ export abstract class BaseAgent {
           role: this.agentIdentity.role,
         },
       });
-      
+
       // 4. Block if integrity check fails
       if (!integrityCheck.passed) {
-        logger.error('Integrity check failed - blocking output', {
+        logger.error("Integrity check failed - blocking output", {
           agentId: this.agentId,
           sessionId,
           issues: integrityCheck.issues.length,
           confidence: integrityCheck.confidence,
         });
-        
+
         // Log to audit trail (Layer 4)
-        await this.auditLogger.logAction(sessionId, this.agentId, 'integrity_check_failed', {
+        await this.auditLogger.logAction(sessionId, this.agentId, "integrity_check_failed", {
           reasoning: result.reasoning,
           inputData: task.input,
           outputData: result.output as Record<string, unknown>,
@@ -831,12 +1090,12 @@ export abstract class BaseAgent {
             checkedBy: integrityCheck.checkedBy,
           },
         });
-        
+
         throw new IntegrityError(integrityCheck.issues, integrityCheck);
       }
-      
+
       // Log successful integrity check
-      await this.auditLogger.logAction(sessionId, this.agentId, 'integrity_check_passed', {
+      await this.auditLogger.logAction(sessionId, this.agentId, "integrity_check_passed", {
         reasoning: result.reasoning,
         metadata: {
           riskLevel: task.riskLevel,
@@ -845,16 +1104,16 @@ export abstract class BaseAgent {
         },
       });
     }
-    
+
     // Finalize reasoning chain
     if (this.currentReasoningChain) {
       this.currentReasoningChain = finalizeReasoningChain(
         this.currentReasoningChain,
-        typeof result.output === 'string' ? result.output : JSON.stringify(result.output),
+        typeof result.output === "string" ? result.output : JSON.stringify(result.output),
         true
       );
     }
-    
+
     return result.output;
   }
 
@@ -876,15 +1135,13 @@ export abstract class BaseAgent {
   /**
    * Request peer review from IntegrityAgent (Layer 1)
    */
-  protected async requestPeerReview(
-    request: IntegrityCheckRequest
-  ): Promise<IntegrityCheckResult> {
-    logger.info('Requesting peer review from IntegrityAgent', {
+  protected async requestPeerReview(request: IntegrityCheckRequest): Promise<IntegrityCheckResult> {
+    logger.info("Requesting peer review from IntegrityAgent", {
       producingAgent: request.producingAgent.id,
       riskLevel: request.riskLevel,
       citationCount: request.citedSources.length,
     });
-    
+
     return this.integrityAgent.audit(request);
   }
 
@@ -906,7 +1163,7 @@ export abstract class BaseAgent {
         output,
         citations,
         verified,
-        verificationMethod: verified ? 'data_match' : undefined,
+        verificationMethod: verified ? "data_match" : undefined,
       });
     }
   }
@@ -921,14 +1178,10 @@ export abstract class BaseAgent {
   /**
    * Create a citation for a VMRT source
    */
-  protected createVMRTCitation(
-    id: string,
-    field: string,
-    value: string | number
-  ): Citation {
+  protected createVMRTCitation(id: string, field: string, value: string | number): Citation {
     return {
       id: `VMRT-${id}`,
-      type: 'VMRT',
+      type: "VMRT",
       field,
       value,
       accessedAt: new Date().toISOString(),
@@ -938,14 +1191,10 @@ export abstract class BaseAgent {
   /**
    * Create a citation for a CRM source
    */
-  protected createCRMCitation(
-    recordId: string,
-    field: string,
-    value: string | number
-  ): Citation {
+  protected createCRMCitation(recordId: string, field: string, value: string | number): Citation {
     return {
       id: `CRM-${recordId}`,
-      type: 'CRM',
+      type: "CRM",
       field,
       value,
       accessedAt: new Date().toISOString(),
@@ -962,7 +1211,7 @@ export abstract class BaseAgent {
   ): Citation {
     return {
       id: `BENCHMARK-${benchmarkId}`,
-      type: 'BENCHMARK',
+      type: "BENCHMARK",
       field,
       value,
       accessedAt: new Date().toISOString(),
@@ -973,6 +1222,6 @@ export abstract class BaseAgent {
    * Format a value with its citation for output
    */
   protected formatWithCitation(value: string | number, citation: Citation): string {
-    return `${value} [Source: ${citation.id}${citation.field ? ':' + citation.field : ''}]`;
+    return `${value} [Source: ${citation.id}${citation.field ? ":" + citation.field : ""}]`;
   }
 }

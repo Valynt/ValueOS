@@ -122,8 +122,6 @@ export class SecurityAutomationService extends TenantAwareService {
       severity: this.determineSeverity(event),
       source: "security_automation",
       details: event.details,
-      timestamp: new Date(),
-      riskScore: 0,
     });
 
     let incident: SecurityIncident | undefined;
@@ -131,12 +129,13 @@ export class SecurityAutomationService extends TenantAwareService {
 
     // Create incident if threats detected
     if (threatAnalysis.threats.length > 0) {
+      const firstThreat = threatAnalysis.threats[0]!;
       incident = await this.createSecurityIncident({
         tenantId: event.tenantId,
-        title: this.generateIncidentTitle(threatAnalysis.threats[0], event),
+        title: this.generateIncidentTitle(firstThreat, event),
         description: `Automated detection: ${threatAnalysis.threats.map((t) => t.name).join(", ")}`,
-        severity: threatAnalysis.threats[0].severity,
-        incidentType: threatAnalysis.threats[0].category,
+        severity: firstThreat.severity,
+        incidentType: firstThreat.category,
         affectedResources: [event.resourceId || "unknown"],
         threatIndicators: threatAnalysis.threats.map((t) => t.id),
         riskScore: threatAnalysis.riskScore,
@@ -146,11 +145,7 @@ export class SecurityAutomationService extends TenantAwareService {
 
     // Generate incident response actions
     const responsesTriggered = incident
-      ? await this.generateIncidentResponse(threatAnalysis.threats, {
-          ...event,
-          id: incident.id,
-          severity: incident.severity,
-        } as SecurityIncident)
+      ? await this.generateIncidentResponse(threatAnalysis.threats, incident)
       : [];
 
     // Execute automated responses
@@ -242,13 +237,14 @@ export class SecurityAutomationService extends TenantAwareService {
     const details: string[] = [];
     let completed = 0;
 
-    for (const response of responses) {
+    for (const response of responses as AutomatedResponse[]) {
       try {
         await this.executeAutomatedResponse(response);
         completed++;
-        details.push(`✅ ${response.action_type}: ${response.description}`);
+        details.push(`✅ ${response.actionType}: ${response.description}`);
       } catch (error) {
-        details.push(`❌ ${response.action_type}: ${error.message}`);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        details.push(`❌ ${response.actionType}: ${errorMsg}`);
       }
     }
 
@@ -259,8 +255,10 @@ export class SecurityAutomationService extends TenantAwareService {
       await this.updateIncidentStatus(incidentId, tenantId, "contained");
     }
 
-    await this.auditLog.log({
+    await this.auditLog.logAudit({
       userId: "system",
+      userName: "System",
+      userEmail: "system@valueos.internal",
       action: "remediation.executed",
       resourceType: "security_incident",
       resourceId: incidentId,
@@ -270,7 +268,7 @@ export class SecurityAutomationService extends TenantAwareService {
         successRate,
         totalActions: responses.length,
       },
-      status: successRate === 100 ? "success" : "warning",
+      status: successRate === 100 ? "success" : "failed",
     });
 
     return {
@@ -309,8 +307,10 @@ export class SecurityAutomationService extends TenantAwareService {
       updated_at: newPolicy.updatedAt,
     });
 
-    await this.auditLog.log({
+    await this.auditLog.logAudit({
       userId: "system",
+      userName: "System",
+      userEmail: "system@valueos.internal",
       action: "policy.created",
       resourceType: "security_policy",
       resourceId: newPolicy.id,
@@ -462,8 +462,10 @@ export class SecurityAutomationService extends TenantAwareService {
       impact: incident.impact,
     });
 
-    await this.auditLog.log({
+    await this.auditLog.logAudit({
       userId: "system",
+      userName: "System",
+      userEmail: "system@valueos.internal",
       action: "incident.created",
       resourceType: "security_incident",
       resourceId: incident.id,
@@ -473,7 +475,7 @@ export class SecurityAutomationService extends TenantAwareService {
         incidentType: incident.incidentType,
         riskScore: incident.riskScore,
       },
-      status: incident.severity === "critical" ? "critical" : "warning",
+      status: incident.severity === "critical" ? "failed" : "success",
     });
 
     log.warn("Security incident created", {
@@ -488,21 +490,31 @@ export class SecurityAutomationService extends TenantAwareService {
 
   private async generateIncidentResponse(
     threats: any[],
-    event: SecurityIncident
+    incident: SecurityIncident
   ): Promise<AutomatedResponse[]> {
     const responses: AutomatedResponse[] = [];
 
     for (const threat of threats) {
+      const securityEvent: SecurityEvent = {
+        id: incident.id,
+        tenantId: incident.tenantId,
+        eventType: incident.incidentType,
+        severity: incident.severity,
+        source: "security_incident",
+        details: { incidentTitle: incident.title },
+        timestamp: incident.detectedAt,
+        riskScore: incident.riskScore,
+      };
       const responseActions = await this.threatDetectionService.generateIncidentResponse(
         threat,
-        event as SecurityEvent
+        securityEvent
       );
 
       if (responseActions && responseActions.actions) {
         for (const action of responseActions.actions) {
           const response: AutomatedResponse = {
             id: crypto.randomUUID(),
-            incidentId: event.id,
+            incidentId: incident.id,
             actionType: action.type as any,
             description: action.description,
             status: "pending",
@@ -567,11 +579,11 @@ export class SecurityAutomationService extends TenantAwareService {
       response.status = "failed";
       response.result = `Action failed: ${(error as Error).message}`;
 
-      log.error("Automated response failed", {
+      log.error("Automated response failed", undefined, {
         responseId: response.id,
         incidentId: response.incidentId,
         actionType: response.actionType,
-        error: (error as Error).message,
+        errorMsg: (error as Error).message,
       });
     }
 
@@ -655,20 +667,13 @@ export class SecurityAutomationService extends TenantAwareService {
 
   private async updateIncidentStatus(
     incidentId: string,
-    tenantId: string,
+    _tenantId: string,
     status: SecurityIncident["status"]
   ): Promise<void> {
-    await this.updateWithTenantCheck(
-      "security_incidents",
-      "system",
-      tenantId,
-      {
-        id: incidentId,
-        status,
-        resolved_at: status === "resolved" ? new Date() : undefined,
-      },
-      { id: incidentId }
-    );
+    await this.updateWithTenantCheck("security_incidents", "system", incidentId, {
+      status,
+      resolved_at: status === "resolved" ? new Date() : undefined,
+    });
   }
 
   // Action execution methods
