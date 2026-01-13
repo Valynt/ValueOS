@@ -5,7 +5,7 @@
  * Uses config/ports.json as the single source of truth.
  */
 
-import { loadPorts, resolvePort } from './ports.js';
+import { loadPorts, resolvePort as resolvePortFromConfig } from './ports.js';
 
 function parseUrl(value) {
   if (!value) {
@@ -28,8 +28,8 @@ function parsePort(value) {
   return Number.isNaN(port) ? null : port;
 }
 
-function resolvePort({ envPort, urlValue, defaultPort }) {
-  const parsedEnvPort = parsePort(envPort);
+function resolvePortFromEnvUrl({ envPort, urlValue, defaultPort }) {
+  const parsedEnvPort = resolvePortFromConfig(envPort, null);
   if (parsedEnvPort) {
     return parsedEnvPort;
   }
@@ -49,21 +49,36 @@ function resolveHost(urlValue, fallback = 'localhost') {
 
 export function getPortRegistry() {
   const ports = loadPorts();
-  const frontendPort = resolvePort(process.env.VITE_PORT, ports.frontend.port);
-  const backendPort = resolvePort(
-    process.env.API_PORT || process.env.BACKEND_PORT || process.env.PORT,
-    ports.backend.port
-  );
-  const databasePort = resolvePort(
-    process.env.DB_PORT || process.env.POSTGRES_PORT,
-    ports.postgres.port
-  );
-  const redisPort = resolvePort(process.env.REDIS_PORT, ports.redis.port);
-  const supabaseApiPort = resolvePort(process.env.SUPABASE_API_PORT, ports.supabase.apiPort);
-  const supabaseStudioPort = resolvePort(
-    process.env.SUPABASE_STUDIO_PORT,
-    ports.supabase.studioPort
-  );
+  const frontendPort = resolvePortFromEnvUrl({
+    envPort: process.env.VITE_PORT,
+    urlValue: process.env.VITE_APP_URL,
+    defaultPort: ports.frontend.port
+  });
+  const backendPort = resolvePortFromEnvUrl({
+    envPort: process.env.API_PORT || process.env.BACKEND_PORT || process.env.PORT,
+    urlValue: process.env.BACKEND_URL,
+    defaultPort: ports.backend.port
+  });
+  const databasePort = resolvePortFromEnvUrl({
+    envPort: process.env.DB_PORT || process.env.POSTGRES_PORT,
+    urlValue: process.env.DATABASE_URL,
+    defaultPort: ports.postgres.port
+  });
+  const redisPort = resolvePortFromEnvUrl({
+    envPort: process.env.REDIS_PORT,
+    urlValue: process.env.REDIS_URL,
+    defaultPort: ports.redis.port
+  });
+  const supabaseApiPort = resolvePortFromEnvUrl({
+    envPort: process.env.SUPABASE_API_PORT,
+    urlValue: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
+    defaultPort: ports.supabase.apiPort
+  });
+  const supabaseStudioPort = resolvePortFromEnvUrl({
+    envPort: process.env.SUPABASE_STUDIO_PORT,
+    urlValue: process.env.SUPABASE_STUDIO_URL,
+    defaultPort: ports.supabase.studioPort
+  });
 
   const frontendUrl = process.env.VITE_APP_URL || `http://localhost:${frontendPort}`;
   const backendUrl = process.env.BACKEND_URL || `http://localhost:${backendPort}`;
