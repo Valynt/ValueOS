@@ -7,9 +7,8 @@
  * - Error handling
  */
 
-import { logger } from '../lib/logger';
-import { supabase } from '../lib/supabase';
-import { handleServiceError, NetworkError, ServiceError, TimeoutError } from './errors';
+import { supabase } from "../lib/supabase";
+import { ErrorCode, handleServiceError, NetworkError, ServiceError, TimeoutError } from "./errors";
 
 export interface RetryConfig {
   maxRetries: number;
@@ -63,7 +62,7 @@ export abstract class BaseService {
     if (deduplicationKey) {
       const pending = this.pendingRequests.get(deduplicationKey);
       if (pending && Date.now() - pending.timestamp < this.DEDUP_TIMEOUT) {
-        this.log('debug', `Deduplicating request: ${deduplicationKey}`);
+        this.log("debug", `Deduplicating request: ${deduplicationKey}`);
         return pending.promise;
       }
     }
@@ -72,7 +71,7 @@ export abstract class BaseService {
     if (deduplicationKey && !config.skipCache) {
       const cached = this.cache.get(deduplicationKey);
       if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-        this.log('debug', `Cache hit: ${deduplicationKey}`);
+        this.log("debug", `Cache hit: ${deduplicationKey}`);
         return cached.data;
       }
     }
@@ -139,7 +138,7 @@ export abstract class BaseService {
             config.maxDelay
           );
 
-          this.log('warn', `Attempt ${attempt + 1} failed, retrying in ${delay}ms`, {
+          this.log("warn", `Attempt ${attempt + 1} failed, retrying in ${delay}ms`, {
             error: lastError.message,
           });
 
@@ -148,8 +147,8 @@ export abstract class BaseService {
       }
     }
 
-    this.log('error', `All retry attempts failed`, { error: lastError?.message });
-    throw new NetworkError('Operation failed after multiple retries', lastError);
+    this.log("error", `All retry attempts failed`, { error: lastError?.message });
+    throw new NetworkError("Operation failed after multiple retries", lastError);
   }
 
   /**
@@ -158,9 +157,7 @@ export abstract class BaseService {
   private withTimeout<T>(promise: Promise<T>, timeout: number): Promise<T> {
     return Promise.race([
       promise,
-      new Promise<T>((_, reject) =>
-        setTimeout(() => reject(new TimeoutError()), timeout)
-      ),
+      new Promise<T>((_, reject) => setTimeout(() => reject(new TimeoutError()), timeout)),
     ]);
   }
 
@@ -170,10 +167,10 @@ export abstract class BaseService {
   private shouldNotRetry(error: unknown): boolean {
     if (error instanceof ServiceError) {
       const nonRetryableCodes = [
-        'VALIDATION_ERROR',
-        'AUTHENTICATION_ERROR',
-        'AUTHORIZATION_ERROR',
-        'NOT_FOUND',
+        "VALIDATION_ERROR",
+        "AUTHENTICATION_ERROR",
+        "AUTHORIZATION_ERROR",
+        "NOT_FOUND",
       ];
       return nonRetryableCodes.includes(error.code);
     }
@@ -201,11 +198,7 @@ export abstract class BaseService {
   /**
    * Logging utility
    */
-  protected log(
-    level: 'debug' | 'info' | 'warn' | 'error',
-    message: string,
-    data?: any
-  ): void {
+  protected log(level: "debug" | "info" | "warn" | "error", message: string, data?: any): void {
     const logData = {
       service: this.serviceName,
       timestamp: new Date().toISOString(),
@@ -213,28 +206,49 @@ export abstract class BaseService {
       ...data,
     };
 
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === "development") {
       console[level](logData);
     }
 
     // In production, send to logging service
-    if (process.env.NODE_ENV === 'production' && level === 'error') {
-      // Send to error tracking service (e.g., Sentry)
+    if (process.env.NODE_ENV === "production" && level === "error") {
+      this.reportToErrorTracking(logData);
     }
+  }
+
+  /**
+   * Report errors to external tracking service
+   * Override in subclasses or configure via environment
+   */
+  private reportToErrorTracking(logData: Record<string, unknown>): void {
+    // Sentry integration (if available)
+    if (typeof globalThis !== "undefined" && (globalThis as any).Sentry) {
+      (globalThis as any).Sentry.captureMessage(logData.message as string, {
+        level: "error",
+        extra: logData,
+      });
+      return;
+    }
+
+    // Fallback: structured logging for log aggregation (e.g., CloudWatch, Datadog)
+    console.error(
+      JSON.stringify({
+        ...logData,
+        _type: "error_report",
+        _timestamp: Date.now(),
+      })
+    );
   }
 
   /**
    * Validate required fields
    */
-  protected validateRequired<T extends Record<string, any>>(
-    data: T,
-    fields: (keyof T)[]
-  ): void {
+  protected validateRequired<T extends Record<string, any>>(data: T, fields: (keyof T)[]): void {
     const missing = fields.filter((field) => !data[field]);
     if (missing.length > 0) {
       throw new ServiceError(
-        `Missing required fields: ${missing.join(', ')}`,
-        'VALIDATION_ERROR'
+        `Missing required fields: ${missing.join(", ")}`,
+        ErrorCode.VALIDATION_ERROR
       );
     }
   }

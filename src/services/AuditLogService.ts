@@ -1,8 +1,8 @@
 /**
  * Audit Log Service
- * 
+ *
  * AUD-301: Immutable audit logging for compliance (SOC 2, GDPR)
- * 
+ *
  * Features:
  * - Immutable logs (INSERT only, no UPDATE/DELETE)
  * - Cryptographic integrity (hash chain)
@@ -12,11 +12,11 @@
  */
 
 // Browser-compatible hash function (replaces Node.js crypto)
-import { logger } from '../lib/logger';
-import { sanitizeForLogging } from '../lib/piiFilter';
-import { BaseService } from './BaseService';
-import { createServerSupabaseClient } from '../lib/supabase';
-import { AuditLogEntry } from '../types';
+import { logger } from "../lib/logger";
+import { sanitizeForLogging } from "../lib/piiFilter";
+import { BaseService } from "./BaseService";
+import { createServerSupabaseClient } from "../lib/supabase";
+import { AuditLogEntry } from "../types";
 
 export interface AuditLogCreateInput {
   userId: string;
@@ -28,7 +28,7 @@ export interface AuditLogCreateInput {
   details?: Record<string, unknown>;
   ipAddress?: string;
   userAgent?: string;
-  status?: 'success' | 'failed';
+  status?: "success" | "failed";
 }
 
 export interface AuditLogQuery {
@@ -38,27 +38,57 @@ export interface AuditLogQuery {
   resourceId?: string;
   startDate?: string;
   endDate?: string;
-  status?: 'success' | 'failed';
+  status?: "success" | "failed";
   limit?: number;
   offset?: number;
 }
 
 export interface AuditLogExportOptions {
-  format: 'csv' | 'json';
+  format: "csv" | "json";
   query?: AuditLogQuery;
 }
 
 export class AuditLogService extends BaseService {
   private lastHash: string | null = null;
+  private initialized: boolean = false;
 
   constructor() {
-    super('AuditLogService');
-    if (typeof window === 'undefined') {
+    super("AuditLogService");
+    if (typeof window === "undefined") {
       try {
         this.supabase = createServerSupabaseClient();
       } catch (error) {
-        logger.warn('Failed to initialize server Supabase client for audit logs', error as Error);
+        logger.warn("Failed to initialize server Supabase client for audit logs", {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
+    }
+  }
+
+  /**
+   * Initialize hash chain from database
+   * CRITICAL: Must be called before first audit log entry to maintain chain integrity
+   */
+  private async initializeHashChain(): Promise<void> {
+    if (this.initialized) return;
+
+    try {
+      const { data } = await this.supabase
+        .from("audit_logs" as any)
+        .select("integrity_hash")
+        .order("timestamp", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      this.lastHash = data?.integrity_hash || null;
+      this.initialized = true;
+
+      logger.info("Audit hash chain initialized", {
+        hasExistingChain: !!this.lastHash,
+      });
+    } catch (error) {
+      logger.error("Failed to initialize audit hash chain", error as Error);
+      this.initialized = true; // Prevent retry loops, start fresh chain
     }
   }
 
@@ -66,7 +96,7 @@ export class AuditLogService extends BaseService {
    * Convenience wrapper used by middleware hooks
    * Ensures all audit events persist through the immutable pipeline
    */
-  async log(input: AuditLogCreateInput): Promise<AuditLogEntry> {
+  async logAudit(input: AuditLogCreateInput): Promise<AuditLogEntry> {
     return this.createEntry(input);
   }
 
@@ -76,13 +106,16 @@ export class AuditLogService extends BaseService {
    */
   async createEntry(input: AuditLogCreateInput): Promise<AuditLogEntry> {
     this.validateRequired(input, [
-      'userId',
-      'userName',
-      'userEmail',
-      'action',
-      'resourceType',
-      'resourceId',
+      "userId",
+      "userName",
+      "userEmail",
+      "action",
+      "resourceType",
+      "resourceId",
     ]);
+
+    // Ensure hash chain is initialized before creating entries
+    await this.initializeHashChain();
 
     return this.executeRequest(
       async () => {
@@ -109,23 +142,23 @@ export class AuditLogService extends BaseService {
           resource_type: input.resourceType,
           resource_id: input.resourceId,
           details: sanitizedDetails,
-          ip_address: input.ipAddress || '',
-          user_agent: input.userAgent || '',
-          status: input.status || 'success',
+          ip_address: input.ipAddress || "",
+          user_agent: input.userAgent || "",
+          status: input.status || "success",
           timestamp: new Date().toISOString(),
           integrity_hash: hash,
           previous_hash: this.lastHash || undefined,
         };
 
         const { data, error } = await this.supabase
-          .from('audit_logs' as any)
+          .from("audit_logs" as any)
           .insert(logEntry as any)
           .select()
           .single();
 
         if (error) {
           // CRITICAL: Audit logging failure must be escalated
-          logger.error('CRITICAL: Audit logging failed', error, {
+          logger.error("CRITICAL: Audit logging failed", error, {
             action: input.action,
             resourceType: input.resourceType,
           });
@@ -147,50 +180,50 @@ export class AuditLogService extends BaseService {
     const encoder = new TextEncoder();
     const dataBuffer = encoder.encode(content);
     // Use Web Crypto API for secure SHA-256 hash (browser-compatible)
-    const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", dataBuffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
   }
 
   /**
    * Query audit logs with filters
    */
   async query(query: AuditLogQuery = {}): Promise<AuditLogEntry[]> {
-    super.log('info', 'Querying audit logs', query);
+    super.log("info", "Querying audit logs", query);
 
     return this.executeRequest(
       async () => {
-        let dbQuery = this.supabase.from('audit_logs' as any).select('*');
+        let dbQuery = this.supabase.from("audit_logs" as any).select("*");
 
         if (query.userId) {
-          dbQuery = dbQuery.eq('user_id' as any, query.userId as any);
+          dbQuery = dbQuery.eq("user_id" as any, query.userId as any);
         }
 
         if (query.action) {
-          dbQuery = dbQuery.eq('action' as any, query.action as any);
+          dbQuery = dbQuery.eq("action" as any, query.action as any);
         }
 
         if (query.resourceType) {
-          dbQuery = dbQuery.eq('resource_type' as any, query.resourceType as any);
+          dbQuery = dbQuery.eq("resource_type" as any, query.resourceType as any);
         }
 
         if (query.resourceId) {
-          dbQuery = dbQuery.eq('resource_id' as any, query.resourceId as any);
+          dbQuery = dbQuery.eq("resource_id" as any, query.resourceId as any);
         }
 
         if (query.status) {
-          dbQuery = dbQuery.eq('status' as any, query.status as any);
+          dbQuery = dbQuery.eq("status" as any, query.status as any);
         }
 
         if (query.startDate) {
-          dbQuery = dbQuery.gte('timestamp', query.startDate);
+          dbQuery = dbQuery.gte("timestamp", query.startDate);
         }
 
         if (query.endDate) {
-          dbQuery = dbQuery.lte('timestamp', query.endDate);
+          dbQuery = dbQuery.lte("timestamp", query.endDate);
         }
 
-        dbQuery = dbQuery.order('timestamp', { ascending: false });
+        dbQuery = dbQuery.order("timestamp", { ascending: false });
 
         if (query.limit) {
           dbQuery = dbQuery.limit(query.limit);
@@ -218,9 +251,9 @@ export class AuditLogService extends BaseService {
     return this.executeRequest(
       async () => {
         const { data, error } = await this.supabase
-          .from('audit_logs' as any)
-          .select('*')
-          .eq('id' as any, id as any)
+          .from("audit_logs" as any)
+          .select("*")
+          .eq("id" as any, id as any)
           .maybeSingle();
 
         if (error) throw error;
@@ -236,11 +269,11 @@ export class AuditLogService extends BaseService {
    * Export audit logs
    */
   async export(options: AuditLogExportOptions): Promise<string> {
-    super.log('info', 'Exporting audit logs', options);
+    super.log("info", "Exporting audit logs", options);
 
     const logs = await this.query(options.query);
 
-    if (options.format === 'csv') {
+    if (options.format === "csv") {
       return this.exportToCsv(logs);
     } else {
       return JSON.stringify(logs, null, 2);
@@ -265,8 +298,8 @@ export class AuditLogService extends BaseService {
         const logs = await this.query({ startDate, endDate });
 
         const totalEvents = logs.length;
-        const successfulEvents = logs.filter((l) => l.status === 'success').length;
-        const failedEvents = logs.filter((l) => l.status === 'failed').length;
+        const successfulEvents = logs.filter((l) => l.status === "success").length;
+        const failedEvents = logs.filter((l) => l.status === "failed").length;
 
         const actionCounts = new Map<string, number>();
         logs.forEach((log) => {
@@ -314,15 +347,15 @@ export class AuditLogService extends BaseService {
    */
   private exportToCsv(logs: AuditLogEntry[]): string {
     const headers = [
-      'ID',
-      'Timestamp',
-      'User',
-      'Email',
-      'Action',
-      'Resource Type',
-      'Resource ID',
-      'Status',
-      'IP Address',
+      "ID",
+      "Timestamp",
+      "User",
+      "Email",
+      "Action",
+      "Resource Type",
+      "Resource ID",
+      "Status",
+      "IP Address",
     ];
 
     const rows = logs.map((log) => [
@@ -337,7 +370,7 @@ export class AuditLogService extends BaseService {
       log.ipAddress,
     ]);
 
-    return [headers, ...rows].map((row) => row.join(',')).join('\n');
+    return [headers, ...rows].map((row) => row.join(",")).join("\n");
   }
 
   /**
@@ -345,21 +378,21 @@ export class AuditLogService extends BaseService {
    * AUD-301: Logs are immutable - archive instead of delete
    */
   async archiveOldLogs(olderThan: string): Promise<number> {
-    logger.warn('Archiving old audit logs', { olderThan });
+    logger.warn("Archiving old audit logs", { olderThan });
 
     return this.executeRequest(
       async () => {
         // Mark as archived instead of deleting
         const { data, error } = await this.supabase
-          .from('audit_logs' as any)
+          .from("audit_logs" as any)
           .update({ archived: true } as any)
-          .lt('timestamp', olderThan)
-          .select('id');
+          .lt("timestamp", olderThan)
+          .select("id");
 
         if (error) throw error;
 
         const archivedCount = data?.length || 0;
-        logger.info('Archived old audit logs', { count: archivedCount });
+        logger.info("Archived old audit logs", { count: archivedCount });
 
         this.clearCache();
         return archivedCount;
@@ -377,7 +410,7 @@ export class AuditLogService extends BaseService {
     errors: string[];
     checked: number;
   }> {
-    logger.info('Verifying audit log integrity', { limit });
+    logger.info("Verifying audit log integrity", { limit });
 
     const logs = await this.query({ limit });
     const errors: string[] = [];
@@ -416,12 +449,12 @@ export class AuditLogService extends BaseService {
     const valid = errors.length === 0;
 
     if (!valid) {
-      logger.error('Audit log integrity verification failed', undefined, {
+      logger.error("Audit log integrity verification failed", undefined, {
         errors: errors.length,
         checked: logs.length,
       });
     } else {
-      logger.info('Audit log integrity verified', {
+      logger.info("Audit log integrity verified", {
         checked: logs.length,
       });
     }

@@ -1,16 +1,15 @@
 /**
  * Tenant-Aware Service Base Class
- * 
+ *
  * CRITICAL: All services handling multi-tenant data MUST extend this class.
  * Provides defense-in-depth tenant isolation even if RLS fails.
  */
 
-import { logger } from '../lib/logger';
-import { BaseService } from './BaseService';
-import { AuthorizationError, ValidationError } from './errors';
-import { createLogger } from '../lib/logger';
+import { BaseService } from "./BaseService";
+import { AuthorizationError, ValidationError } from "./errors";
+import { createLogger } from "../lib/logger";
 
-const logger = createLogger({ component: 'TenantAwareService' });
+const logger = createLogger({ component: "TenantAwareService" });
 
 export interface TenantContext {
   userId: string;
@@ -25,53 +24,47 @@ export class TenantAwareService extends BaseService {
    */
   protected async getUserTenants(userId: string): Promise<string[]> {
     const { data, error } = await this.supabase
-      .from('user_tenants')
-      .select('tenant_id')
-      .eq('user_id', userId)
-      .eq('status', 'active');
+      .from("user_tenants")
+      .select("tenant_id")
+      .eq("user_id", userId)
+      .eq("status", "active");
 
     if (error) {
-      logger.error('Failed to fetch user tenants', error, { userId });
+      logger.error("Failed to fetch user tenants", error, { userId });
       throw error;
     }
 
     if (!data || data.length === 0) {
-      logger.warn('User has no active tenants', { userId });
-      throw new AuthorizationError('No active tenant membership', { userId });
+      logger.warn("User has no active tenants", { userId });
+      throw new AuthorizationError("No active tenant membership", { userId });
     }
 
-    return data.map(row => row.tenant_id);
+    return data.map((row) => row.tenant_id);
   }
 
   /**
    * Validate that a user has access to a specific tenant
    * CRITICAL: Call this before ANY tenant-scoped operation
    */
-  protected async validateTenantAccess(
-    userId: string,
-    resourceTenantId: string
-  ): Promise<void> {
+  protected async validateTenantAccess(userId: string, resourceTenantId: string): Promise<void> {
     const userTenants = await this.getUserTenants(userId);
-    
+
     if (!userTenants.includes(resourceTenantId)) {
-      logger.error('Cross-tenant access attempt blocked', undefined, {
+      logger.error("Cross-tenant access attempt blocked", undefined, {
         userId,
         attemptedTenant: resourceTenantId,
         userTenants,
-        severity: 'CRITICAL'
+        severity: "CRITICAL",
       });
 
       // Log to audit trail
       await this.auditCrossTenantAttempt(userId, resourceTenantId);
 
-      throw new AuthorizationError(
-        'Access denied: Resource belongs to different tenant',
-        { 
-          userId, 
-          attemptedTenant: resourceTenantId,
-          // DO NOT expose user's actual tenants in error
-        }
-      );
+      throw new AuthorizationError("Access denied: Resource belongs to different tenant", {
+        userId,
+        attemptedTenant: resourceTenantId,
+        // DO NOT expose user's actual tenants in error
+      });
     }
   }
 
@@ -86,22 +79,22 @@ export class TenantAwareService extends BaseService {
   ): Promise<T[]> {
     // Get user's tenants
     const tenants = await this.getUserTenants(userId);
-    
-    logger.debug('Querying with tenant check', {
+
+    logger.debug("Querying with tenant check", {
       table,
       userId,
-      tenantCount: tenants.length
+      tenantCount: tenants.length,
     });
 
     // ALWAYS add tenant filter - defense in depth
     const { data, error } = await this.supabase
       .from(table)
-      .select('*')
-      .in('tenant_id', tenants)
+      .select("*")
+      .in("tenant_id", tenants)
       .match(filters);
-      
+
     if (error) {
-      logger.error('Tenant-aware query failed', error, { table, userId });
+      logger.error("Tenant-aware query failed", error, { table, userId });
       throw error;
     }
 
@@ -129,10 +122,10 @@ export class TenantAwareService extends BaseService {
       created_at: new Date().toISOString(),
     };
 
-    logger.debug('Inserting with tenant check', {
+    logger.debug("Inserting with tenant check", {
       table,
       userId,
-      tenantId
+      tenantId,
     });
 
     const { data: result, error } = await this.supabase
@@ -142,7 +135,7 @@ export class TenantAwareService extends BaseService {
       .single();
 
     if (error) {
-      logger.error('Tenant-aware insert failed', error, { table, userId, tenantId });
+      logger.error("Tenant-aware insert failed", error, { table, userId, tenantId });
       throw error;
     }
 
@@ -162,12 +155,12 @@ export class TenantAwareService extends BaseService {
     // First, fetch the resource to get its tenant_id
     const { data: existing, error: fetchError } = await this.supabase
       .from(table)
-      .select('tenant_id')
-      .eq('id', resourceId)
+      .select("tenant_id")
+      .eq("id", resourceId)
       .single();
 
     if (fetchError || !existing) {
-      throw new ValidationError('Resource not found', { resourceId });
+      throw new ValidationError("Resource not found", { resourceId });
     }
 
     // Validate user has access to this tenant
@@ -181,22 +174,22 @@ export class TenantAwareService extends BaseService {
       updated_at: new Date().toISOString(),
     };
 
-    logger.debug('Updating with tenant check', {
+    logger.debug("Updating with tenant check", {
       table,
       userId,
       resourceId,
-      tenantId: existing.tenant_id
+      tenantId: existing.tenant_id,
     });
 
     const { data: result, error } = await this.supabase
       .from(table)
       .update(safeUpdates)
-      .eq('id', resourceId)
+      .eq("id", resourceId)
       .select()
       .single();
 
     if (error) {
-      logger.error('Tenant-aware update failed', error, { table, userId, resourceId });
+      logger.error("Tenant-aware update failed", error, { table, userId, resourceId });
       throw error;
     }
 
@@ -215,31 +208,28 @@ export class TenantAwareService extends BaseService {
     // First, fetch the resource to get its tenant_id
     const { data: existing, error: fetchError } = await this.supabase
       .from(table)
-      .select('tenant_id')
-      .eq('id', resourceId)
+      .select("tenant_id")
+      .eq("id", resourceId)
       .single();
 
     if (fetchError || !existing) {
-      throw new ValidationError('Resource not found', { resourceId });
+      throw new ValidationError("Resource not found", { resourceId });
     }
 
     // Validate user has access to this tenant
     await this.validateTenantAccess(userId, existing.tenant_id);
 
-    logger.warn('Deleting with tenant check', {
+    logger.warn("Deleting with tenant check", {
       table,
       userId,
       resourceId,
-      tenantId: existing.tenant_id
+      tenantId: existing.tenant_id,
     });
 
-    const { error } = await this.supabase
-      .from(table)
-      .delete()
-      .eq('id', resourceId);
+    const { error } = await this.supabase.from(table).delete().eq("id", resourceId);
 
     if (error) {
-      logger.error('Tenant-aware delete failed', error, { table, userId, resourceId });
+      logger.error("Tenant-aware delete failed", error, { table, userId, resourceId });
       throw error;
     }
   }
@@ -248,28 +238,23 @@ export class TenantAwareService extends BaseService {
    * Audit cross-tenant access attempts
    * CRITICAL: Log all blocked attempts for security monitoring
    */
-  private async auditCrossTenantAttempt(
-    userId: string,
-    attemptedTenantId: string
-  ): Promise<void> {
+  private async auditCrossTenantAttempt(userId: string, attemptedTenantId: string): Promise<void> {
     try {
-      await this.supabase
-        .from('security_events')
-        .insert({
-          event_type: 'cross_tenant_access_attempt',
-          user_id: userId,
-          severity: 'critical',
-          details: {
-            attempted_tenant: attemptedTenantId,
-            timestamp: new Date().toISOString(),
-            blocked: true
-          }
-        });
+      await this.supabase.from("security_events").insert({
+        event_type: "cross_tenant_access_attempt",
+        user_id: userId,
+        severity: "critical",
+        details: {
+          attempted_tenant: attemptedTenantId,
+          timestamp: new Date().toISOString(),
+          blocked: true,
+        },
+      });
     } catch (error) {
       // Don't fail the request if audit fails, but log it
-      logger.error('Failed to audit cross-tenant attempt', error as Error, {
+      logger.error("Failed to audit cross-tenant attempt", error as Error, {
         userId,
-        attemptedTenantId
+        attemptedTenantId,
       });
     }
   }
@@ -280,14 +265,14 @@ export class TenantAwareService extends BaseService {
    */
   protected async getTenantContext(userId: string): Promise<TenantContext> {
     const tenantIds = await this.getUserTenants(userId);
-    
+
     // Default to first tenant if user has multiple
     const tenantId = tenantIds[0];
 
     return {
       userId,
       tenantId,
-      tenantIds
+      tenantIds,
     };
   }
 }

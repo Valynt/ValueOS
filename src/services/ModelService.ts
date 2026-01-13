@@ -2,18 +2,18 @@
  * Service for managing Value Models, Business Cases, and their related artifacts.
  * This service encapsulates business logic and uses repositories for data access.
  */
-import { LifecycleContext } from '../types/agent';
-import { TargetAgentOutput } from '../types/vos';
-import { RoiModelRepository } from '../repositories/RoiModelRepository';
-import { KpiTargetRepository } from '../repositories/KpiTargetRepository';
-import { ValueTreeRepository } from '../repositories/ValueTreeRepository';
-import { ValueTreeNodeRepository } from '../repositories/ValueTreeNodeRepository';
-import { ValueTreeLinkRepository } from '../repositories/ValueTreeLinkRepository';
-import { RoiModelCalculationRepository } from '../repositories/RoiModelCalculationRepository';
-import { ValueCommitRepository } from '../repositories/ValueCommitRepository';
-import { auditLogService } from './AuditLogService';
-import { userSettingsService } from './UserSettingsService';
-import { logger } from '../lib/logger';
+import { LifecycleContext } from "../types/agent";
+import { TargetAgentOutput } from "../types/vos";
+import { RoiModelRepository } from "../repositories/RoiModelRepository";
+import { KpiTargetRepository } from "../repositories/KpiTargetRepository";
+import { ValueTreeRepository } from "../repositories/ValueTreeRepository";
+import { ValueTreeNodeRepository } from "../repositories/ValueTreeNodeRepository";
+import { ValueTreeLinkRepository } from "../repositories/ValueTreeLinkRepository";
+import { RoiModelCalculationRepository } from "../repositories/RoiModelCalculationRepository";
+import { ValueCommitRepository } from "../repositories/ValueCommitRepository";
+import { auditLogService } from "./AuditLogService";
+import { userSettingsService } from "./UserSettingsService";
+import { logger } from "../lib/logger";
 
 export class ModelService {
   private context: LifecycleContext;
@@ -28,7 +28,7 @@ export class ModelService {
   constructor(context: LifecycleContext) {
     const tenantId = context.tenantId || context.organizationId;
     if (!tenantId) {
-      throw new Error('Tenant ID is required to initialize ModelService');
+      throw new Error("Tenant ID is required to initialize ModelService");
     }
     this.context = context;
     this.roiModelRepo = new RoiModelRepository(tenantId);
@@ -43,25 +43,29 @@ export class ModelService {
   /**
    * Helper to resolve audit actor details with fallback
    */
-  private async resolveAuditActor(): Promise<{ userId: string; userName: string; userEmail: string }> {
+  private async resolveAuditActor(): Promise<{
+    userId: string;
+    userName: string;
+    userEmail: string;
+  }> {
     const { userId } = this.context;
     const tenantId = this.context.tenantId || this.context.organizationId;
 
     try {
-      if (!tenantId) throw new Error('No tenant ID in context');
+      if (!tenantId) throw new Error("No tenant ID in context");
 
       const profile = await userSettingsService.getProfile(userId, tenantId);
       return {
         userId,
-        userName: profile.fullName || 'Unknown User',
-        userEmail: profile.email || 'unknown@local'
+        userName: profile.fullName || "Unknown User",
+        userEmail: profile.email || "unknown@local",
       };
     } catch (error) {
-      logger.warn('Failed to resolve user profile for audit logging', { userId, error });
+      logger.warn("Failed to resolve user profile for audit logging", { userId, error });
       return {
         userId,
-        userName: 'Unknown User',
-        userEmail: 'unknown@local'
+        userName: "Unknown User",
+        userEmail: "unknown@local",
       };
     }
   }
@@ -72,7 +76,10 @@ export class ModelService {
    * @param output The output from the TargetAgent.
    * @param valueCaseId The ID of the value case.
    */
-  async persistBusinessCase(output: TargetAgentOutput, valueCaseId: string): Promise<{
+  async persistBusinessCase(
+    output: TargetAgentOutput,
+    valueCaseId: string
+  ): Promise<{
     valueTreeId: string;
     roiModelId: string;
     valueCommitId: string;
@@ -87,32 +94,38 @@ export class ModelService {
       resourceId: string,
       details?: Record<string, unknown>
     ) => {
-      const promise = auditLogService.log({
-        userId: auditActor.userId,
-        userName: auditActor.userName,
-        userEmail: auditActor.userEmail,
-        action: 'create',
-        resourceType,
-        resourceId,
-        details,
-      }).catch(err => {
-        logger.error('Failed to write audit log', err instanceof Error ? err : new Error(String(err)), { resourceType, resourceId });
-      });
+      const promise = auditLogService
+        .logAudit({
+          userId: auditActor.userId,
+          userName: auditActor.userName,
+          userEmail: auditActor.userEmail,
+          action: "create",
+          resourceType,
+          resourceId,
+          details,
+        })
+        .catch((err) => {
+          logger.error(
+            "Failed to write audit log",
+            err instanceof Error ? err : new Error(String(err)),
+            { resourceType, resourceId }
+          );
+        });
       auditPromises.push(promise);
     };
 
     // 1. Create Value Tree
     const { data: valueTreeData, error: treeError } = await this.valueTreeRepo.create({
       ...output.valueTree,
-      value_case_id: valueCaseId
+      value_case_id: valueCaseId,
     });
     if (treeError) throw new Error(`Failed to create value tree: ${treeError.message}`);
     const valueTreeId = valueTreeData.id;
 
     // Log provenance for value_tree creation
-    logAudit('value_tree', valueTreeId, {
+    logAudit("value_tree", valueTreeId, {
       name: output.valueTree.name,
-      value_case_id: valueCaseId
+      value_case_id: valueCaseId,
     });
 
     // 2. Create Value Tree Nodes and Links
@@ -123,58 +136,64 @@ export class ModelService {
         label: node.label,
         type: node.type,
         reference_id: node.reference_id,
-        properties: {}
+        properties: {},
       });
     }
     for (const link of output.businessCase.links) {
       // Cast link to any because the agent output type definition mismatches with runtime data (node_id vs id)
       const agentLink = link as any;
-      const { data: parentNode } = await this.valueTreeNodeRepo.findByNodeId(valueTreeId, agentLink.parent_node_id);
-      const { data: childNode } = await this.valueTreeNodeRepo.findByNodeId(valueTreeId, agentLink.child_node_id);
+      const { data: parentNode } = await this.valueTreeNodeRepo.findByNodeId(
+        valueTreeId,
+        agentLink.parent_node_id
+      );
+      const { data: childNode } = await this.valueTreeNodeRepo.findByNodeId(
+        valueTreeId,
+        agentLink.child_node_id
+      );
 
       if (parentNode && childNode) {
         await this.valueTreeLinkRepo.create({
           value_tree_id: valueTreeId,
           parent_id: parentNode.id,
           child_id: childNode.id,
-          link_type: 'drives',
+          link_type: "drives",
           weight: link.weight || 1.0,
-          metadata: {}
+          metadata: {},
         } as any);
       }
     }
 
     // 3. Create ROI Model
     const { data: roiModelData, error: roiError } = await this.roiModelRepo.create({
-        ...output.roiModel,
-        value_tree_id: valueTreeId,
+      ...output.roiModel,
+      value_tree_id: valueTreeId,
     });
     if (roiError) throw new Error(`Failed to create ROI model: ${roiError.message}`);
     const roiModelId = roiModelData.id;
 
     // Log provenance for roi_model creation
-    logAudit('roi_model', roiModelId, {
+    logAudit("roi_model", roiModelId, {
       name: output.roiModel.name,
-      value_tree_id: valueTreeId
+      value_tree_id: valueTreeId,
     });
 
     // 4. Create ROI Model Calculations
     for (const calc of output.businessCase.calculations) {
       const { data: calcData } = await this.roiModelCalcRepo.create({
-          roi_model_id: roiModelId,
-          ...calc,
-          input_variables: calc.input_variables || [],
-          source_references: calc.source_references || {},
-          reasoning_trace: calc.reasoning_trace || output.businessCase.reasoning
+        roi_model_id: roiModelId,
+        ...calc,
+        input_variables: calc.input_variables || [],
+        source_references: calc.source_references || {},
+        reasoning_trace: calc.reasoning_trace || output.businessCase.reasoning,
       });
 
       // Log provenance for calculation creation
       if (calcData && calcData.id) {
-         logAudit('calculation', calcData.id, {
-           name: calc.name,
-           roi_model_id: roiModelId,
-           formula: calc.formula
-         });
+        logAudit("calculation", calcData.id, {
+          name: calc.name,
+          roi_model_id: roiModelId,
+          formula: calc.formula,
+        });
       }
     }
 
@@ -182,23 +201,23 @@ export class ModelService {
     const { data: commitData, error: commitError } = await this.valueCommitRepo.create({
       ...output.valueCommit,
       value_tree_id: valueTreeId,
-      value_case_id: valueCaseId
+      value_case_id: valueCaseId,
     });
     if (commitError) throw new Error(`Failed to create value commit: ${commitError.message}`);
     const valueCommitId = commitData.id;
 
     // Log provenance for value_commit creation
-    logAudit('value_commit', valueCommitId, {
+    logAudit("value_commit", valueCommitId, {
       value_tree_id: valueTreeId,
-      value_case_id: valueCaseId
+      value_case_id: valueCaseId,
     });
 
     // 6. Create KPI Targets
     for (const target of output.businessCase.kpi_targets) {
       await this.kpiTargetRepo.create({
         value_commit_id: valueCommitId,
-        kpi_hypothesis_id: '', // This seems to be missing from the agent output
-        ...target
+        kpi_hypothesis_id: "", // This seems to be missing from the agent output
+        ...target,
       });
     }
 

@@ -103,17 +103,14 @@ export class AdminUserService {
     const existingMetadata = data.user?.user_metadata || {};
     const metadataRole = ROLE_METADATA_MAP[role];
 
-    const { error: updateError } = await this.getSupabase().auth.admin.updateUserById(
-      userId,
-      {
-        user_metadata: {
-          ...existingMetadata,
-          roles: [metadataRole],
-          role,
-          org_id: existingMetadata.org_id || tenantId,
-        },
-      }
-    );
+    const { error: updateError } = await this.getSupabase().auth.admin.updateUserById(userId, {
+      user_metadata: {
+        ...existingMetadata,
+        roles: [metadataRole],
+        role,
+        org_id: existingMetadata.org_id || tenantId,
+      },
+    });
 
     if (updateError) {
       logger.warn("Failed to update user metadata", updateError, { userId });
@@ -133,9 +130,7 @@ export class AdminUserService {
     const rows = data ?? [];
     const userRecords = await Promise.all(
       rows.map(async (row) => {
-        const { data: userData } = await this.getSupabase().auth.admin.getUserById(
-          row.user_id
-        );
+        const { data: userData } = await this.getSupabase().auth.admin.getUserById(row.user_id);
         const user = userData?.user;
         const fullName =
           (user?.user_metadata?.full_name as string | undefined) ||
@@ -174,16 +169,13 @@ export class AdminUserService {
     let invited = false;
 
     if (!user) {
-      const { data, error } = await this.getSupabase().auth.admin.inviteUserByEmail(
-        payload.email,
-        {
-          data: {
-            roles: [ROLE_METADATA_MAP[role]],
-            role,
-            org_id: payload.tenantId,
-          },
-        }
-      );
+      const { data, error } = await this.getSupabase().auth.admin.inviteUserByEmail(payload.email, {
+        data: {
+          roles: [ROLE_METADATA_MAP[role]],
+          role,
+          org_id: payload.tenantId,
+        },
+      });
 
       if (error || !data?.user) {
         throw new ValidationError(`Failed to invite user: ${error?.message}`);
@@ -229,7 +221,7 @@ export class AdminUserService {
 
     await this.updateUserMetadata(user.id, role, payload.tenantId);
 
-    await this.auditLogService.log({
+    await this.auditLogService.logAudit({
       userId: actor.id,
       userName: actor.name,
       userEmail: actor.email,
@@ -248,8 +240,7 @@ export class AdminUserService {
       id: user.id,
       email: user.email || payload.email,
       fullName:
-        (user.user_metadata?.full_name as string | undefined) ||
-        payload.email.split("@")[0],
+        (user.user_metadata?.full_name as string | undefined) || payload.email.split("@")[0],
       role: this.formatRoleLabel(role),
       status: invited ? "invited" : "active",
       lastLoginAt: user.last_sign_in_at || undefined,
@@ -258,10 +249,7 @@ export class AdminUserService {
     };
   }
 
-  async updateUserRole(
-    actor: AdminActor,
-    payload: UpdateRolePayload
-  ): Promise<void> {
+  async updateUserRole(actor: AdminActor, payload: UpdateRolePayload): Promise<void> {
     const role = this.normalizeRole(payload.role);
 
     const { error: updateMembershipError } = await this.getSupabase()
@@ -299,7 +287,7 @@ export class AdminUserService {
 
     await this.updateUserMetadata(payload.userId, role, payload.tenantId);
 
-    await this.auditLogService.log({
+    await this.auditLogService.logAudit({
       userId: actor.id,
       userName: actor.name,
       userEmail: actor.email,
@@ -314,10 +302,7 @@ export class AdminUserService {
     });
   }
 
-  async removeUserFromTenant(
-    actor: AdminActor,
-    payload: RemoveUserPayload
-  ): Promise<void> {
+  async removeUserFromTenant(actor: AdminActor, payload: RemoveUserPayload): Promise<void> {
     const { error: removeError } = await this.getSupabase()
       .from("user_tenants")
       .update({
@@ -343,7 +328,7 @@ export class AdminUserService {
 
     await this.getSupabase().auth.admin.signOut(payload.userId);
 
-    await this.auditLogService.log({
+    await this.auditLogService.logAudit({
       userId: actor.id,
       userName: actor.name,
       userEmail: actor.email,

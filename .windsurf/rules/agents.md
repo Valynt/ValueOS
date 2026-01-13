@@ -1,11 +1,11 @@
 ---
 trigger: glob
-glob: src/lib/agent-fabric/agents/**/*.ts
+glob: src/lib/agent-fabric/**/*.ts
 ---
 
 # AI Agent Modules
 
-**Path:** `src/lib/agent-fabric/agents/*`
+**Path:** `src/lib/agent-fabric/*`
 
 - Each agent = single class in `[AgentName]Agent.ts`
 - MUST extend `BaseAgent`
