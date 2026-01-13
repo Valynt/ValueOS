@@ -58,6 +58,7 @@ npm run dx
 ```
 
 This starts the local app + Docker dependencies with hot reload on [http://localhost:5173](http://localhost:5173) (or the port in `config/ports.json` / `.env.ports`).
+Local environment variables should live in `.env.local` (preferred) with `.env` as a fallback.
 
 For a full Docker stack (frontend + backend + deps), run:
 
@@ -244,7 +245,7 @@ taskkill /PID <PID> /F
 **Environment issues**:
 
 ```bash
-rm .env
+rm .env.local .env
 npm run setup            # Runs scripts/dev/setup.sh
 ```
 
