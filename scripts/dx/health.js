@@ -29,6 +29,21 @@ const supabaseStudioPort = resolvePort(process.env.SUPABASE_STUDIO_PORT, portCon
 
 const backendBaseUrl = process.env.BACKEND_URL || `http://localhost:${backendPort}`;
 const frontendBaseUrl = process.env.VITE_APP_URL || `http://localhost:${frontendPort}`;
+const appComposeFile = process.env.DX_MODE === 'docker'
+  ? 'docker-compose.full.yml'
+  : 'docker-compose.dev.yml';
+
+const backendContainerCandidates = [
+  process.env.BACKEND_CONTAINER_NAME,
+  'valueos-backend-dev',
+  'valueos-backend'
+].filter(Boolean);
+
+const frontendContainerCandidates = [
+  process.env.FRONTEND_CONTAINER_NAME,
+  'valueos-frontend-dev',
+  'valueos-frontend'
+].filter(Boolean);
 
 /**
  * Check if a URL is accessible
@@ -61,17 +76,83 @@ async function checkUrl(url, timeout = 5000) {
   });
 }
 
+function normalizeHealthStatus(status) {
+  if (!status || status === '<no value>') {
+    return 'unknown';
+  }
+
+  return status;
+}
+
+function getContainerHealth(containerNames) {
+  for (const containerName of containerNames) {
+    try {
+      const status = execSync(
+        `docker inspect --format='{{.State.Health.Status}}' ${containerName}`,
+        { encoding: 'utf8' }
+      ).trim();
+
+      return { name: containerName, status: normalizeHealthStatus(status) };
+    } catch {
+      continue;
+    }
+  }
+
+  return { name: null, status: null };
+}
+
+function isHealthMismatch(httpPassed, containerHealth) {
+  if (!containerHealth.name) {
+    return false;
+  }
+
+  const status = containerHealth.status;
+  if (!['healthy', 'unhealthy', 'starting'].includes(status)) {
+    return false;
+  }
+
+  return (status === 'healthy') !== httpPassed;
+}
+
+function buildMismatchFix({ name, status, serviceCommand }) {
+  return `\
+Mismatch between HTTP readiness and container health.
+Container: ${name} (${status})
+
+Recovery:
+- Inspect health details: docker inspect --format='{{json .State.Health}}' ${name}
+- Check container logs: docker logs ${name}
+- Restart the service: docker compose -f ${appComposeFile} restart ${serviceCommand}
+`;
+}
+
 /**
  * Check backend API
  */
 async function checkBackend() {
   const healthUrl = `${backendBaseUrl}/health`;
   const result = await checkUrl(healthUrl);
+  const containerHealth = getContainerHealth(backendContainerCandidates);
+  const httpPassed = result.success && result.status === 200;
+
+  if (isHealthMismatch(httpPassed, containerHealth)) {
+    return {
+      name: 'Backend API',
+      url: healthUrl,
+      passed: false,
+      message: `ERR Backend API - HTTP ${httpPassed ? 'ready' : 'failed'} but container ${containerHealth.name} is ${containerHealth.status}`,
+      fix: buildMismatchFix({
+        name: containerHealth.name,
+        status: containerHealth.status,
+        serviceCommand: 'backend'
+      })
+    };
+  }
 
   return {
     name: 'Backend API',
     url: healthUrl,
-    passed: result.success && result.status === 200,
+    passed: httpPassed,
     message: result.success
       ? `OK  Backend API (${healthUrl})`
       : `ERR Backend API - ${result.error}`,
@@ -94,11 +175,27 @@ $ npm run backend:dev\
  */
 async function checkFrontend() {
   const result = await checkUrl(frontendBaseUrl);
+  const containerHealth = getContainerHealth(frontendContainerCandidates);
+  const httpPassed = result.success;
+
+  if (isHealthMismatch(httpPassed, containerHealth)) {
+    return {
+      name: 'Frontend',
+      url: frontendBaseUrl,
+      passed: false,
+      message: `ERR Frontend - HTTP ${httpPassed ? 'ready' : 'failed'} but container ${containerHealth.name} is ${containerHealth.status}`,
+      fix: buildMismatchFix({
+        name: containerHealth.name,
+        status: containerHealth.status,
+        serviceCommand: 'frontend'
+      })
+    };
+  }
 
   return {
     name: 'Frontend',
     url: frontendBaseUrl,
-    passed: result.success,
+    passed: httpPassed,
     message: result.success
       ? `OK  Frontend (${frontendBaseUrl})`
       : `ERR Frontend - ${result.error}`,
