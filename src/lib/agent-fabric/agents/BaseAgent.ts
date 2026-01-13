@@ -10,6 +10,7 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import { AgentCircuitBreaker, SafetyLimits, withCircuitBreaker } from '../CircuitBreaker';
 import { enforceRules } from '../../rules';
 import { logger } from '../../../lib/logger';
+import { sanitizeUserInput } from '../../../utils/security';
 // VOS-SEC-001: Agent Identity System
 import {
   AgentIdentity,

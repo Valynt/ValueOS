@@ -195,7 +195,7 @@ function cleanJSONString(json: string, warnings: string[]): string {
   }
 
   // Fix unescaped newlines in strings
-  cleaned = cleaned.replace(/(?<!\\)\n/g, '\\n');
+  cleaned = fixNewlinesInStrings(cleaned);
 
   // Remove control characters
   cleaned = cleaned.replace(/[\x00-\x1F\x7F]/g, '');
@@ -212,6 +212,49 @@ function cleanJSONString(json: string, warnings: string[]): string {
   cleaned = cleaned.replace(/\\'/g, "'"); // Single quotes don't need escaping in JSON
 
   return cleaned;
+}
+
+/**
+ * Intelligently fix unescaped newlines only when inside strings.
+ * Preserves structural newlines (whitespace) which are valid in JSON.
+ */
+function fixNewlinesInStrings(json: string): string {
+  let result = '';
+  let inString: "'" | '"' | null = null;
+  let escaped = false;
+
+  for (let i = 0; i < json.length; i++) {
+    const char = json[i];
+
+    if (inString) {
+      if (escaped) {
+        result += char;
+        escaped = false;
+      } else {
+        if (char === '\\') {
+          escaped = true;
+          result += char;
+        } else if (char === inString) {
+          inString = null;
+          result += char;
+        } else if (char === '\n') {
+          // Unescaped newline INSIDE string -> escape it
+          result += '\\n';
+        } else {
+          result += char;
+        }
+      }
+    } else {
+      // Not in string
+      if (char === '"') {
+        inString = '"';
+      } else if (char === "'") {
+        inString = "'";
+      }
+      result += char;
+    }
+  }
+  return result;
 }
 
 /**
