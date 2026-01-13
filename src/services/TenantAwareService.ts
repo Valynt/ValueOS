@@ -248,10 +248,16 @@ export class TenantAwareService extends BaseService {
       });
     } catch (error) {
       // Don't fail the request if audit fails, but log it
-      logger.error("Failed to audit cross-tenant attempt", error as Error, {
-        userId,
-        attemptedTenantId,
-      });
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error(
+        "Failed to audit cross-tenant attempt",
+        error instanceof Error ? error : undefined,
+        {
+          userId,
+          attemptedTenantId,
+          errorMsg,
+        }
+      );
     }
   }
 
