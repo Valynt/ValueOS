@@ -13,9 +13,11 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { loadPorts, resolvePort } from './ports.js';
+import { resolveMode } from './mode.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const mode = resolveMode(process.argv.slice(2));
 
 // Port registry (single source of truth)
 const portConfig = loadPorts();
@@ -119,12 +121,12 @@ $ npm run dev\
  * Check PostgreSQL (via docker compose service status)
  */
 async function checkDatabase() {
-  const composeFile = process.env.DX_MODE === 'docker'
+  const composeFile = mode === 'docker'
     ? 'docker-compose.full.yml'
     : 'docker-compose.deps.yml';
 
   try {
-    execSync(`docker compose -f ${composeFile} ps postgres`, {
+    execSync(`docker compose --env-file .env.ports -f ${composeFile} ps postgres`, {
       stdio: 'ignore',
       cwd: path.resolve(__dirname, '../..')
     });
@@ -154,12 +156,12 @@ $ docker compose -f ${composeFile} up -d\
  * Check Redis (via docker compose service status)
  */
 async function checkRedis() {
-  const composeFile = process.env.DX_MODE === 'docker'
+  const composeFile = mode === 'docker'
     ? 'docker-compose.full.yml'
     : 'docker-compose.deps.yml';
 
   try {
-    execSync(`docker compose -f ${composeFile} ps redis`, {
+    execSync(`docker compose --env-file .env.ports -f ${composeFile} ps redis`, {
       stdio: 'ignore',
       cwd: path.resolve(__dirname, '../..')
     });

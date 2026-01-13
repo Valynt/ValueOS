@@ -11,6 +11,7 @@ import net from "net";
 import path from "path";
 import { fileURLToPath } from "url";
 import { loadPorts, resolvePort, writePortsEnvFile } from "./ports.js";
+import { resolveMode } from "./mode.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -181,23 +182,6 @@ function runCommand(name, command) {
       }
     });
   });
-}
-
-/**
- * Parse CLI args for --mode.
- */
-function resolveMode(args) {
-  const modeArg = args.find((arg) => arg.startsWith("--mode="));
-  if (modeArg) {
-    return modeArg.split("=")[1];
-  }
-
-  const modeIndex = args.indexOf("--mode");
-  if (modeIndex !== -1 && args[modeIndex + 1]) {
-    return args[modeIndex + 1];
-  }
-
-  return "local";
 }
 
 function getRunningComposeServices(composeFile) {

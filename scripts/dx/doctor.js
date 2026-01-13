@@ -10,27 +10,13 @@ import path from 'path';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { loadPorts, resolvePort, formatPortsEnv, writePortsEnvFile } from './ports.js';
+import { resolveMode } from './mode.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '../..');
 
 const args = process.argv.slice(2);
-
-function resolveMode(cliArgs) {
-  const modeArg = cliArgs.find(arg => arg.startsWith('--mode='));
-  if (modeArg) {
-    return modeArg.split('=')[1];
-  }
-
-  const modeIndex = cliArgs.indexOf('--mode');
-  if (modeIndex !== -1 && cliArgs[modeIndex + 1]) {
-    return cliArgs[modeIndex + 1];
-  }
-
-  return process.env.DX_MODE || 'local';
-}
-
 const mode = resolveMode(args);
 
 const ports = loadPorts();
@@ -216,7 +202,7 @@ function checkComposeState() {
 
   if (commandExists('docker')) {
     try {
-      fullRunning = runCommand('docker compose -f docker-compose.full.yml ps --status running --services', {
+      fullRunning = runCommand('docker compose --env-file .env.ports -f docker-compose.full.yml ps --status running --services', {
         stdio: 'pipe'
       })
         .trim()
@@ -227,7 +213,7 @@ function checkComposeState() {
     }
 
     try {
-      depsRunning = runCommand('docker compose -f docker-compose.deps.yml ps --status running --services', {
+      depsRunning = runCommand('docker compose --env-file .env.ports -f docker-compose.deps.yml ps --status running --services', {
         stdio: 'pipe'
       })
         .trim()
