@@ -1,5 +1,6 @@
 ---
-trigger: always_on
+trigger: glob
+glob: src/tools/**/*.ts, src/services/tools/**/*.ts
 ---
 
 # Tool Libraries

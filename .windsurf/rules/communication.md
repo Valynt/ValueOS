@@ -1,5 +1,6 @@
 ---
-trigger: always_on
+trigger: glob
+glob: src/services/MessageBus.ts, src/types/CommunicationEvent.ts
 ---
 
 # Agent Communication

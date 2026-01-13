@@ -1,5 +1,6 @@
 ---
-trigger: always_on
+trigger: glob
+glob: src/lib/agent-fabric/MemorySystem.ts
 ---
 
 # Memory Management

@@ -1,5 +1,6 @@
 ---
-trigger: always_on
+trigger: glob
+glob: src/services/WorkflowOrchestrator.ts, src/lib/orchestration/**/*.ts
 ---
 
 # Orchestration Layer

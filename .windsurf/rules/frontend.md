@@ -1,5 +1,6 @@
 ---
-trigger: always_on
+trigger: glob
+glob: src/sdui/**/*.tsx, src/components/Agent/**/*.tsx
 ---
 
 # Frontend Components
