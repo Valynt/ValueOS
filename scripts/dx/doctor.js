@@ -5,6 +5,7 @@
  */
 
 import fs from 'fs';
+import https from 'https';
 import net from 'net';
 import path from 'path';
 import { execSync } from 'child_process';
@@ -40,6 +41,7 @@ const postgresPort = resolvePort(process.env.POSTGRES_PORT, ports.postgres.port)
 const redisPort = resolvePort(process.env.REDIS_PORT, ports.redis.port);
 const supabaseApiPort = resolvePort(process.env.SUPABASE_API_PORT, ports.supabase.apiPort);
 const supabaseStudioPort = resolvePort(process.env.SUPABASE_STUDIO_PORT, ports.supabase.studioPort);
+const caddyHttpsPort = resolvePort(process.env.CADDY_HTTPS_PORT, ports.edge.httpsPort);
 
 const frontendUrl = process.env.VITE_APP_URL || `http://localhost:${frontendPort}`;
 const backendUrl = process.env.BACKEND_URL || `http://localhost:${backendPort}`;
@@ -281,6 +283,75 @@ function checkSupabase() {
   }
 }
 
+function checkHttpsEndpoint(url) {
+  return new Promise((resolve) => {
+    const request = https.get(
+      url,
+      { rejectUnauthorized: false, timeout: 3000 },
+      (response) => {
+        const { statusCode } = response;
+        response.resume();
+        resolve({
+          ok: Number.isInteger(statusCode) && statusCode >= 200 && statusCode < 400,
+          statusCode
+        });
+      }
+    );
+
+    request.on('error', (error) => {
+      resolve({ ok: false, error: error.message });
+    });
+
+    request.on('timeout', () => {
+      request.destroy(new Error('timeout'));
+    });
+  });
+}
+
+async function checkDevEdgeRouting() {
+  if (!commandExists('docker')) {
+    return;
+  }
+
+  const composeFile = path.join(projectRoot, 'infra', 'docker', 'docker-compose.dev-caddy.yml');
+  let runningServices = [];
+
+  try {
+    runningServices = runCommand(
+      `docker compose -f ${composeFile} ps --status running --services`,
+      { stdio: 'pipe' }
+    )
+      .trim()
+      .split('\n')
+      .filter(Boolean);
+  } catch {
+    return;
+  }
+
+  if (!runningServices.includes('caddy')) {
+    return;
+  }
+
+  const endpoints = [
+    `https://localhost:${caddyHttpsPort}/healthz`,
+    `https://localhost:${caddyHttpsPort}/api/health`
+  ];
+  const restartCommand = `docker compose -f ${composeFile} restart`;
+  const restartFix = `${restartCommand} (or: docker compose -f ${composeFile} down && docker compose -f ${composeFile} up -d)`;
+
+  for (const endpoint of endpoints) {
+    const result = await checkHttpsEndpoint(endpoint);
+    if (!result.ok) {
+      const statusDetail = result.statusCode ? `status ${result.statusCode}` : result.error || 'unknown error';
+      reportFailure(
+        'Dev edge routing error',
+        `Failed to reach ${endpoint} (${statusDetail}).`,
+        `Restart the dev edge stack: ${restartFix}`
+      );
+    }
+  }
+}
+
 async function main() {
   if (!['local', 'docker'].includes(mode)) {
     console.error(`❌ Invalid mode "${mode}". Use --mode local or --mode docker.`);
@@ -295,6 +366,7 @@ async function main() {
   checkEnvironment();
   checkComposeState();
   checkSupabase();
+  await checkDevEdgeRouting();
   await checkPorts();
 
   if (failures.length > 0) {
