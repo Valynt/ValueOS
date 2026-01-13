@@ -235,7 +235,7 @@ export class SecurityAutomationService extends TenantAwareService {
     });
 
     // Transform database results to match TypeScript interface
-    const transformedResponses = (responses as any[]).map((r: any) => ({
+    const transformedResponses: AutomatedResponse[] = (responses as any[]).map((r: any) => ({
       ...r,
       incidentId: r.incident_id,
       actionType: r.action_type,
@@ -245,7 +245,7 @@ export class SecurityAutomationService extends TenantAwareService {
     const details: string[] = [];
     let completed = 0;
 
-    for (const response of responses as AutomatedResponse[]) {
+    for (const response of transformedResponses) {
       try {
         await this.executeAutomatedResponse(response);
         completed++;
