@@ -1,12 +1,12 @@
 ---
 trigger: glob
-glob: src/services/WorkflowOrchestrator.ts, src/lib/orchestration/**/*.ts
+glob: src/lib/orchestration/**/*.ts, src/services/*Orchestrator*.ts
 ---
 
 # Orchestration Layer
 
-**Paths:** `src/services/WorkflowOrchestrator.ts` & `src/lib/orchestration/*`
+**Paths:** `src/lib/orchestration/*` & `src/services/*Orchestrator*.ts`
 
-- Workflows = DAGs using `WorkflowDAGDefinitions.ts` (cycles FORBIDDEN)
+- Workflows = DAGs (cycles FORBIDDEN)
 - Saga Pattern: compensation function required for every state mutation
 - Persist `WorkflowState` to Supabase after EVERY node transition
