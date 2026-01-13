@@ -326,6 +326,28 @@ if [ $FAILED_CHECKS -eq 0 ]; then
     log_success "All validation checks passed!"
     echo ""
     echo "✅ Deployment is healthy and ready"
+    
+    # ============================================================================
+    # Codemap Auto-Audit Hook
+    # ============================================================================
+    # Triggers Windsurf Codemap refresh after successful deployment validation
+    # See: .vscode-extension/valueos-codemap/CODEMAP_WORKFLOWS.md
+    
+    if [[ "$ENVIRONMENT" == "prod" ]]; then
+        echo ""
+        log_info "Running Production Codemap Audit..."
+        
+        # Trigger codemap refresh for the extension to pick up
+        touch .codemap-refresh-trigger
+        
+        # Log audit request for observability
+        echo "{\"event\": \"codemap_audit\", \"environment\": \"$ENVIRONMENT\", \"timestamp\": \"$(date -Iseconds)\", \"maps\": [\"Value Fabric Data Flow\", \"Security Flow Map\", \"Master System Map\"]}" >> /tmp/valueos-codemap-audit.log 2>/dev/null || true
+        
+        log_success "Codemap audit triggered. Extension will refresh core maps."
+        log_info "Maps to verify: Value Fabric Data Flow, Security Flow Map, Master System Map"
+        log_info "Rules file: .windsurfrules.md"
+    fi
+    
     exit 0
 else
     log_error "$FAILED_CHECKS validation check(s) failed"

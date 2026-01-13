@@ -56,7 +56,7 @@ router.post(
 
       const result = await authService.login({ email, password, otpCode });
 
-      logger.info(fo"User login successful", {
+      logger.info("User login successful", {
         userId: String(sanitizeForLogging(result.user.id)),
         email: String(sanitizeForLogging(email)),
       });
