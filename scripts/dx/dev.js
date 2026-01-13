@@ -34,6 +34,7 @@ const colors = {
 };
 
 const dxStatePath = path.join(projectRoot, ".dx-state.json");
+const dxLockPath = path.join(projectRoot, ".dx-lock");
 
 /**
  * Format log line with service prefix
@@ -71,7 +72,56 @@ function clearDxState() {
   }
 }
 
+function readDxLock() {
+  if (!fs.existsSync(dxLockPath)) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(fs.readFileSync(dxLockPath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function writeDxLock(state) {
+  fs.writeFileSync(dxLockPath, JSON.stringify(state, null, 2));
+}
+
+function clearDxLock() {
+  if (fs.existsSync(dxLockPath)) {
+    fs.unlinkSync(dxLockPath);
+  }
+}
+
 function assertNoActiveDx() {
+  const lock = readDxLock();
+  if (lock?.pid) {
+    if (process.env.DX_FORCE === "1") {
+      console.log(formatLog("dx", "DX_FORCE=1 set. Ignoring existing lock.", colors.yellow));
+      clearDxLock();
+      clearDxState();
+    } else {
+      try {
+        process.kill(lock.pid, 0);
+        console.error(
+          formatLog(
+            "dx",
+            `Another DX session is already running (pid ${lock.pid}, mode ${lock.mode}).`,
+            colors.yellow
+          )
+        );
+        console.error(
+          formatLog("dx", "Stop it first or re-run with DX_FORCE=1.", colors.yellow)
+        );
+        process.exit(1);
+      } catch {
+        clearDxLock();
+        clearDxState();
+      }
+    }
+  }
+
   const state = readDxState();
   if (!state?.pid) {
     return;
@@ -243,6 +293,7 @@ function isDockerPortPublished(port) {
 async function main() {
   const mode = resolveMode(process.argv.slice(2));
   process.env.DX_MODE = mode;
+  const composeFile = mode === "docker" ? "docker-compose.full.yml" : "docker-compose.deps.yml";
 
   if (!["local", "docker"].includes(mode)) {
     console.error(`❌ Invalid mode "${mode}". Use --mode local or --mode docker.`);
@@ -257,7 +308,10 @@ async function main() {
   console.log("=".repeat(60) + "\n");
 
   const services = [];
-  process.on("exit", clearDxState);
+  process.on("exit", () => {
+    clearDxState();
+    clearDxLock();
+  });
 
   if (mode === "docker") {
     const fullRunning = getRunningComposeServices("docker-compose.full.yml");
@@ -298,7 +352,9 @@ async function main() {
       process.exit(1);
     }
 
-    writeDxState({ pid: process.pid, mode, startedAt: new Date().toISOString() });
+    const lock = { pid: process.pid, mode, composeFile, startedAt: new Date().toISOString() };
+    writeDxState(lock);
+    writeDxLock(lock);
     await runCommand(
       "docker",
       "docker compose --env-file .env.ports -f docker-compose.full.yml up -d"
@@ -408,7 +464,9 @@ async function main() {
   );
   console.log("\n💡 Press Ctrl+C to stop all services\n");
 
-  writeDxState({ pid: process.pid, mode, startedAt: new Date().toISOString() });
+  const lock = { pid: process.pid, mode, composeFile, startedAt: new Date().toISOString() };
+  writeDxState(lock);
+  writeDxLock(lock);
 
   // Handle shutdown
   const shutdown = () => {
@@ -424,6 +482,7 @@ async function main() {
     setTimeout(() => {
       console.log("✅ All services stopped\n");
       clearDxState();
+      clearDxLock();
       process.exit(0);
     }, 2000);
   };
