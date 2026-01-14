@@ -229,7 +229,6 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
     logger.info("\n📊 Step 5: Initializing Sentry");
     try {
       await initializeSentry(config.monitoring.sentry);
-      await initializeSentry();
       logger.info("   ✅ Sentry initialized");
     } catch (error) {
       const errorMsg = `Failed to initialize Sentry: ${error instanceof Error ? error.message : "Unknown error"}`;
@@ -327,174 +326,130 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
       ? "Agent Fabric health check skipped (fast startup in dev mode)"
       : "Agent Fabric disabled or skipped";
     logger.info(`\n🤖 Step 6: ${skipReason}`);
-  }
 
-  // Step 7: Database connection check
-  if (config.database.url) {
-    onProgress?.("Checking database connection...");
-    logger.info("\n💾 Step 7: Database connection");
-    try {
-      await checkDatabaseConnection();
-      // Use shorter retry strategy for development to improve startup time
-      const maxRetries = isDevelopment() ? 3 : 5;
-      const retryDelay = isDevelopment() ? 500 : 1000;
+    // Step 7: Database connection check (skipped in development for performance)
+    if (config.database.url && !isDevelopment()) {
+      onProgress?.("Checking database connection...");
+      logger.info("\n💾 Step 7: Database connection");
+      try {
+        const maxRetries = 10;
+        const retryDelay = 1000;
+        const dbHealth = await checkDatabaseConnection(maxRetries, retryDelay);
 
-      const dbHealth = await checkDatabaseConnection(maxRetries, retryDelay);
-
-      if (dbHealth.connected) {
-        logger.info(`   ✅ Database connected (${dbHealth.latency}ms)`);
-      } else {
-        const errorMsg = `Database connection failed: ${dbHealth.error || "Unknown error"}`;
-
-        if (failFast) {
+        if (dbHealth.connected) {
+          logger.info(`   ✅ Database connected (${dbHealth.latency}ms)`);
+        } else {
+          const errorMsg = `Database connection failed: ${dbHealth.error || "Unknown error"}`;
           errors.push(errorMsg);
           onError?.(errorMsg);
           logger.error(`   ❌ ${errorMsg}`);
+        }
+      } catch (error) {
+        const errorMsg = `Database connection error: ${error instanceof Error ? error.message : String(error)}`;
+        errors.push(errorMsg);
+        onError?.(errorMsg);
+        logger.error(`   ❌ ${errorMsg}`);
+      }
+    } else {
+      logger.info("\n💾 Step 7: Database connection skipped (development mode)");
+    }
 
-          return {
-            success: false,
-            config,
-            agentHealth,
-            errors,
-            warnings,
-            duration: Date.now() - startTime,
-          };
+    // Step 8: Cache initialization (skipped in development for performance)
+    if (config.cache.enabled && typeof window === "undefined" && !isDevelopment()) {
+      onProgress?.("Initializing cache...");
+      logger.info("\n🗄️  Step 8: Cache initialization");
+      try {
+        // Dynamic import to avoid bundling Redis in browser
+        const { initializeRedisCache } = await import("./lib/redis");
+        const cacheResult = await initializeRedisCache(config.cache);
+
+        if (cacheResult.connected) {
+          logger.info(`   ✅ Cache initialized (${cacheResult.latency}ms)`);
         } else {
+          const errorMsg = `Cache initialization failed: ${cacheResult.error || "Unknown error"}`;
           warnings.push(errorMsg);
           onWarning?.(errorMsg);
           logger.warn(`   ⚠️  ${errorMsg}`);
         }
-      }
-    } catch (error) {
-      const errorMsg = `Database connection check failed: ${error instanceof Error ? error.message : "Unknown error"}`;
-
-      if (failFast) {
-        errors.push(errorMsg);
-        onError?.(errorMsg);
-        logger.error(`   ❌ ${errorMsg}`);
-
-        return {
-          success: false,
-          config,
-          agentHealth,
-          errors,
-          warnings,
-          duration: Date.now() - startTime,
-        };
-      } else {
+      } catch (error) {
+        const errorMsg = `Cache initialization failed: ${error instanceof Error ? error.message : "Unknown error"}`;
         warnings.push(errorMsg);
         onWarning?.(errorMsg);
         logger.warn(`   ⚠️  ${errorMsg}`);
       }
+    } else {
+      logger.info("\n🗄️  Step 8: Cache disabled (development mode)");
     }
-  } else {
-    logger.info("\n💾 Step 7: Database not configured");
+
+    // Calculate duration
+    const duration = Date.now() - startTime;
+
+    // Final summary
+    logger.debug("\n" + "=".repeat(50));
+    logger.info("🎉 Bootstrap Complete!");
+    logger.debug("=".repeat(50));
+    logger.info(`Duration: ${duration}ms`);
+    logger.info(`Errors: ${errors.length}`);
+    logger.info(`Warnings: ${warnings.length}`);
+    logger.info(`Status: ${errors.length === 0 ? "✅ SUCCESS" : "❌ FAILED"}`);
+    logger.info("=".repeat(50) + "\n");
+
+    const success = errors.length === 0;
+
+    return {
+      success,
+      config,
+      agentHealth,
+      errors,
+      warnings,
+      duration,
+    };
   }
 
-  // Step 8: Cache initialization
-  if (config.cache.enabled && typeof window === "undefined") {
-    onProgress?.("Initializing cache...");
-    logger.info("\n🗄️  Step 8: Cache initialization");
-    try {
-      // Dynamic import to avoid bundling Redis in browser
-      const { initializeRedisCache } = await import("./lib/redis");
-      const cacheResult = await initializeRedisCache(config.cache);
-
-      if (cacheResult.connected) {
-        logger.info(`   ✅ Cache initialized (${cacheResult.latency}ms)`);
-      } else {
-        const errorMsg = `Cache initialization failed: ${cacheResult.error || "Unknown error"}`;
-        // In development, treat cache failures as warnings
-        if (isDevelopment()) {
-          warnings.push(errorMsg);
-          onWarning?.(errorMsg);
-          logger.warn(`   ⚠️  ${errorMsg} (continuing anyway in development)`);
-        } else {
-          // In production, we might want to fail fast or just warn depending on criticality
-          // For now, following existing pattern of warning but continuing
-          warnings.push(errorMsg);
-          onWarning?.(errorMsg);
-          logger.warn(`   ⚠️  ${errorMsg}`);
-        }
-      }
-    } catch (error) {
-      const errorMsg = `Cache initialization failed: ${error instanceof Error ? error.message : "Unknown error"}`;
-      warnings.push(errorMsg);
-      onWarning?.(errorMsg);
-      logger.warn(`   ⚠️  ${errorMsg}`);
-    }
-  } else {
-    logger.info("\n🗄️  Step 8: Cache disabled");
+  /**
+   * Bootstrap with default options
+   */
+  export async function bootstrapDefault(): Promise<BootstrapResult> {
+    return bootstrap({
+      onProgress: (message) => globalLogger.debug(`⏳ ${message}`),
+      onWarning: (warning) => globalLogger.warn(`⚠️  ${warning}`),
+      onError: (error) => globalLogger.error(`❌ ${error}`),
+    });
   }
 
-  // Calculate duration
-  const duration = Date.now() - startTime;
+  /**
+   * Bootstrap for production
+   */
+  export async function bootstrapProduction(): Promise<BootstrapResult> {
+    return bootstrap({
+      skipAgentCheck: false,
+      failFast: true,
+      onProgress: (message) => globalLogger.debug(`⏳ ${message}`),
+      onWarning: (warning) => globalLogger.warn(`⚠️  ${warning}`),
+      onError: (error) => globalLogger.error(`❌ ${error}`),
+    });
+  }
 
-  // Final summary
-  logger.debug("\n" + "=".repeat(50));
-  logger.info("🎉 Bootstrap Complete!");
-  logger.debug("=".repeat(50));
-  logger.info(`Duration: ${duration}ms`);
-  logger.info(`Errors: ${errors.length}`);
-  logger.info(`Warnings: ${warnings.length}`);
-  logger.info(`Status: ${errors.length === 0 ? "✅ SUCCESS" : "❌ FAILED"}`);
-  logger.info("=".repeat(50) + "\n");
+  /**
+   * Bootstrap for development
+   */
+  export async function bootstrapDevelopment(): Promise<BootstrapResult> {
+    return bootstrap({
+      skipAgentCheck: true, // Skip agent checks in dev for fast startup
+      failFast: false,
+      onProgress: (message) => globalLogger.debug(`⏳ ${message}`),
+      onWarning: (warning) => globalLogger.warn(`⚠️  ${warning}`),
+      onError: (error) => globalLogger.error(`❌ ${error}`),
+    });
+  }
 
-  const success = errors.length === 0;
-
-  return {
-    success,
-    config,
-    agentHealth,
-    errors,
-    warnings,
-    duration,
-  };
-}
-
-/**
- * Bootstrap with default options
- */
-export async function bootstrapDefault(): Promise<BootstrapResult> {
-  return bootstrap({
-    onProgress: (message) => globalLogger.debug(`⏳ ${message}`),
-    onWarning: (warning) => globalLogger.warn(`⚠️  ${warning}`),
-    onError: (error) => globalLogger.error(`❌ ${error}`),
-  });
-}
-
-/**
- * Bootstrap for production
- */
-export async function bootstrapProduction(): Promise<BootstrapResult> {
-  return bootstrap({
-    skipAgentCheck: false,
-    failFast: true,
-    onProgress: (message) => globalLogger.debug(`⏳ ${message}`),
-    onWarning: (warning) => globalLogger.warn(`⚠️  ${warning}`),
-    onError: (error) => globalLogger.error(`❌ ${error}`),
-  });
-}
-
-/**
- * Bootstrap for development
- */
-export async function bootstrapDevelopment(): Promise<BootstrapResult> {
-  return bootstrap({
-    skipAgentCheck: true, // Skip agent checks in dev for fast startup
-    failFast: false,
-    onProgress: (message) => globalLogger.debug(`⏳ ${message}`),
-    onWarning: (warning) => globalLogger.warn(`⚠️  ${warning}`),
-    onError: (error) => globalLogger.error(`❌ ${error}`),
-  });
-}
-
-/**
- * Bootstrap for testing
- */
-export async function bootstrapTest(): Promise<BootstrapResult> {
-  return bootstrap({
-    skipAgentCheck: true,
-    failFast: false,
-  });
+  /**
+   * Bootstrap for testing
+   */
+  export async function bootstrapTest(): Promise<BootstrapResult> {
+    return bootstrap({
+      skipAgentCheck: true,
+      failFast: false,
+    });
+  }
 }

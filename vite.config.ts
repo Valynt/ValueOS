@@ -17,13 +17,7 @@ export default defineConfig({
       "@types": path.resolve(__dirname, "./src/types"),
       "@config": path.resolve(__dirname, "./src/config"),
       "@security": path.resolve(__dirname, "./src/security"),
-      buffer: "buffer",
     },
-  },
-  define: {
-    global: "globalThis",
-    Buffer: "Buffer",
-    process: "process",
   },
   server: {
     host: "0.0.0.0",
@@ -64,8 +58,16 @@ export default defineConfig({
           vendor: ["react", "react-dom"],
           vendorRouter: ["react-router-dom"],
           vendorSupabase: ["@supabase/supabase-js"],
+          vendorUI: ["lucide-react", "clsx", "tailwind-merge"],
+          vendorCharts: ["recharts"],
+          vendorUtils: ["date-fns"],
         },
       },
     },
+    minify: "terser",
+    sourcemap: false,
+  },
+  optimizeDeps: {
+    include: ["react", "react-dom", "react-router-dom"],
   },
 });
