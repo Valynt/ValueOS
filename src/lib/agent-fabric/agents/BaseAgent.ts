@@ -36,7 +36,7 @@ import {
 // VOS-SEC-002: Permission Middleware
 import { withPermissionScope } from "../../auth/PermissionMiddleware";
 // VOS-HITL-001: HITL Framework
-import { hitlFramework } from "../../hitl";
+import { hitlFramework, ApprovalRequest } from "../../hitl";
 import { getAgentPerformanceMonitor } from "../../../services/monitoring/AgentPerformanceMonitor";
 import { getAgentCache } from "../../../services/cache/AgentCache";
 // 4-Layer Truth Architecture

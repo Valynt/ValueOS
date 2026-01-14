@@ -17,19 +17,26 @@
 import { BaseAgent } from "./BaseAgent";
 import { ModelService } from "../../../services/ModelService";
 import { getCausalTruthService, CausalTruthService } from "../../../services/CausalTruthService";
+import {
+  getAdvancedCausalEngine,
+  AdvancedCausalEngine,
+} from "../../../services/reasoning/AdvancedCausalEngine";
 import { z } from "zod";
+import { logger } from "../../../lib/logger";
 import type {
   ROIModel,
   TargetAgentInput,
   TargetAgentOutput,
   ValueCommit,
   ValueTree,
+  ConfidenceLevel,
 } from "../../../types/vos";
 
 import { AgentConfig } from "../../../types/agent";
 
 export class TargetAgent extends BaseAgent {
   private causalTruthService: CausalTruthService;
+  private advancedCausalEngine: AdvancedCausalEngine;
 
   public lifecycleStage = "target";
   public version = "1.0";
@@ -41,10 +48,12 @@ export class TargetAgent extends BaseAgent {
       throw new Error("Supabase client is required for TargetAgent");
     }
     this.causalTruthService = getCausalTruthService();
+    this.advancedCausalEngine = getAdvancedCausalEngine();
 
-    // Note: CausalTruthService must be initialized at application startup via:
-    // await getCausalTruthService().initialize();
-    // The null check is removed since getCausalTruthService() always returns an instance
+    // Initialize causal truth service if not already done
+    if (!this.causalTruthService) {
+      throw new Error("CausalTruthService initialization failed");
+    }
   }
 
   async execute(sessionId: string, input: TargetAgentInput): Promise<TargetAgentOutput> {
@@ -213,9 +222,15 @@ Return ONLY valid JSON in this exact format:
       organization_id: this.organizationId || "",
       financial_model_id: undefined,
       name: parsed.roi_model.name,
-      assumptions: parsed.roi_model.assumptions,
+      assumptions: await this.groundROIAssumptions(
+        parsed.roi_model.assumptions,
+        input.capabilities
+      ),
       version: "1.0",
-      confidence_level: parsed.roi_model.confidence_level,
+      confidence_level: await this.validateROIConfidence(
+        parsed.roi_model.confidence_level as ConfidenceLevel,
+        input.capabilities
+      ),
     };
 
     const valueCommit: Omit<ValueCommit, "id" | "value_tree_id" | "created_at"> = {
@@ -319,5 +334,361 @@ Return ONLY valid JSON in this exact format:
     // on moving the core persistence logic.
 
     return modelService.persistBusinessCase(output, valueCaseId);
+  }
+
+  // ============================================================================
+  // ROI Grounding Methods
+  // ============================================================================
+
+  /**
+   * Ground ROI assumptions in causal evidence
+   */
+  private async groundROIAssumptions(assumptions: any[], capabilities: any[]): Promise<any[]> {
+    const groundedAssumptions = [];
+
+    for (const assumption of assumptions) {
+      try {
+        // Find causal evidence for this assumption
+        const causalEvidence = await this.findCausalEvidenceForAssumption(assumption, capabilities);
+
+        // Calculate risk-adjusted assumption
+        const riskAdjusted = await this.calculateRiskAdjustedAssumption(assumption, causalEvidence);
+
+        // Add provenance tracking
+        const groundedAssumption = {
+          ...assumption,
+          causalEvidence: causalEvidence.map((evidence) => ({
+            action: evidence.action,
+            targetKpi: evidence.targetKpi,
+            confidence: evidence.confidence,
+            evidenceSources: evidence.evidence.map((src: any) => src.source_name),
+            methodology: evidence.methodology,
+          })),
+          riskAdjustment: riskAdjusted,
+          provenance: {
+            originalAssumption: assumption,
+            groundedAt: Date.now(),
+            evidenceCount: causalEvidence.length,
+            confidenceAdjustment: riskAdjusted.confidenceAdjustment,
+          },
+        };
+
+        groundedAssumptions.push(groundedAssumption);
+      } catch (error) {
+        logger.warn("Failed to ground ROI assumption", {
+          assumption: assumption.description || assumption.name,
+          error: error instanceof Error ? error.message : String(error),
+        });
+
+        // Keep original assumption if grounding fails
+        groundedAssumptions.push(assumption);
+      }
+    }
+
+    return groundedAssumptions;
+  }
+
+  /**
+   * Validate ROI confidence against causal evidence
+   */
+  private async validateROIConfidence(
+    originalConfidence: ConfidenceLevel,
+    capabilities: any[]
+  ): Promise<ConfidenceLevel> {
+    try {
+      // Get causal evidence for all capabilities
+      const allEvidence = [];
+
+      for (const capability of capabilities) {
+        const evidence = this.causalTruthService.search({
+          action: capability.name,
+          minConfidence: 0.6,
+        });
+        allEvidence.push(...evidence);
+      }
+
+      // Calculate evidence-based confidence
+      const avgEvidenceConfidence =
+        allEvidence.length > 0
+          ? allEvidence.reduce((sum, e) => sum + e.confidence, 0) / allEvidence.length
+          : 0.5;
+
+      // Map confidence levels
+      const confidenceMap = {
+        low: 0.3,
+        medium: 0.6,
+        high: 0.8,
+        very_high: 0.9,
+      };
+
+      const originalNumeric = confidenceMap[originalConfidence] || 0.5;
+
+      // Adjust confidence based on evidence
+      const adjustedConfidence = (originalNumeric + avgEvidenceConfidence) / 2;
+
+      // Convert back to confidence level
+      if (adjustedConfidence >= 0.85) return "very_high";
+      if (adjustedConfidence >= 0.7) return "high";
+      if (adjustedConfidence >= 0.5) return "medium";
+      return "low";
+    } catch (error) {
+      logger.warn("Failed to validate ROI confidence", {
+        originalConfidence,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      return originalConfidence;
+    }
+  }
+
+  /**
+   * Find causal evidence for a specific assumption
+   */
+  private async findCausalEvidenceForAssumption(
+    assumption: any,
+    capabilities: any[]
+  ): Promise<any[]> {
+    const evidence = [];
+
+    // Extract key metrics from assumption
+    const assumptionMetrics = this.extractMetricsFromAssumption(assumption);
+
+    for (const metric of assumptionMetrics) {
+      for (const capability of capabilities) {
+        try {
+          // Use advanced causal engine for probabilistic inference
+          const inference = await this.advancedCausalEngine.inferCausalRelationship(
+            capability.name,
+            metric,
+            {
+              industry: assumption.context?.industry,
+              companySize: assumption.context?.companySize,
+            }
+          );
+
+          if (inference.confidence >= 0.6) {
+            evidence.push(inference);
+          }
+        } catch (error) {
+          // Fall back to basic causal truth service
+          const basicEvidence = this.causalTruthService.search({
+            action: capability.name,
+            kpi: metric,
+            minConfidence: 0.6,
+          });
+
+          evidence.push(...basicEvidence);
+        }
+      }
+    }
+
+    return evidence;
+  }
+
+  /**
+   * Calculate risk-adjusted assumption values
+   */
+  private async calculateRiskAdjustedAssumption(assumption: any, evidence: any[]): Promise<any> {
+    if (evidence.length === 0) {
+      return {
+        originalValue: assumption.value,
+        adjustedValue: assumption.value,
+        confidenceAdjustment: 0,
+        riskLevel: "high",
+      };
+    }
+
+    // Calculate average confidence from evidence
+    const avgConfidence = evidence.reduce((sum, e) => sum + e.confidence, 0) / evidence.length;
+
+    // Calculate confidence adjustment
+    const confidenceAdjustment = (avgConfidence - 0.5) * 0.4; // Max 20% adjustment
+
+    // Apply risk adjustment to assumption value
+    let adjustedValue = assumption.value;
+    if (typeof assumption.value === "number") {
+      adjustedValue = assumption.value * (1 + confidenceAdjustment);
+    }
+
+    // Determine risk level
+    let riskLevel: "low" | "medium" | "high";
+    if (avgConfidence >= 0.8) riskLevel = "low";
+    else if (avgConfidence >= 0.6) riskLevel = "medium";
+    else riskLevel = "high";
+
+    return {
+      originalValue: assumption.value,
+      adjustedValue,
+      confidenceAdjustment,
+      riskLevel,
+      evidenceStrength: evidence.length,
+    };
+  }
+
+  /**
+   * Extract relevant metrics from assumption text
+   */
+  private extractMetricsFromAssumption(assumption: any): string[] {
+    const metrics = [];
+    const text = (assumption.description || assumption.name || "").toLowerCase();
+
+    // Common business metrics
+    const metricPatterns = [
+      "revenue",
+      "profit",
+      "cost",
+      "efficiency",
+      "productivity",
+      "satisfaction",
+      "retention",
+      "conversion",
+      "engagement",
+      "growth",
+      "margin",
+      "roi",
+      "npv",
+      "payback",
+    ];
+
+    for (const metric of metricPatterns) {
+      if (text.includes(metric)) {
+        metrics.push(metric);
+      }
+    }
+
+    return metrics;
+  }
+
+  /**
+   * Perform scenario-based sensitivity analysis
+   */
+  async performSensitivityAnalysis(
+    roiModel: any,
+    scenarios: Array<{
+      name: string;
+      assumptions: Record<string, any>;
+      probability: number;
+    }>
+  ): Promise<any[]> {
+    const results = [];
+
+    for (const scenario of scenarios) {
+      try {
+        // Apply scenario assumptions
+        const adjustedModel = this.applyScenarioToModel(roiModel, scenario);
+
+        // Calculate ROI under scenario
+        const scenarioRoi = await this.calculateScenarioROI(adjustedModel);
+
+        // Assess scenario risk
+        const riskAssessment = await this.assessScenarioRisk(scenario, adjustedModel);
+
+        results.push({
+          scenario: scenario.name,
+          probability: scenario.probability,
+          roi: scenarioRoi,
+          risk: riskAssessment,
+          assumptions: scenario.assumptions,
+        });
+      } catch (error) {
+        logger.warn("Failed to analyze scenario", {
+          scenario: scenario.name,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Apply scenario assumptions to ROI model
+   */
+  private applyScenarioToModel(model: any, scenario: any): any {
+    const adjustedModel = JSON.parse(JSON.stringify(model)); // Deep clone
+
+    // Apply scenario adjustments to assumptions
+    for (const [key, value] of Object.entries(scenario.assumptions)) {
+      const assumption = adjustedModel.assumptions.find((a: any) => a.name === key);
+      if (assumption) {
+        assumption.value = value;
+      }
+    }
+
+    return adjustedModel;
+  }
+
+  /**
+   * Calculate ROI for a specific scenario
+   */
+  private async calculateScenarioROI(model: any): Promise<any> {
+    // Simplified ROI calculation - in practice would use sophisticated financial modeling
+    let totalBenefits = 0;
+    let totalCosts = 0;
+
+    for (const assumption of model.assumptions) {
+      if (assumption.type === "benefit") {
+        totalBenefits += assumption.value || 0;
+      } else if (assumption.type === "cost") {
+        totalCosts += assumption.value || 0;
+      }
+    }
+
+    const roi = totalCosts > 0 ? ((totalBenefits - totalCosts) / totalCosts) * 100 : 0;
+
+    return {
+      totalBenefits,
+      totalCosts,
+      netBenefit: totalBenefits - totalCosts,
+      roi,
+      paybackPeriod: totalCosts > 0 ? totalCosts / (totalBenefits / 12) : 0, // months
+    };
+  }
+
+  /**
+   * Assess scenario risk based on causal evidence
+   */
+  private async assessScenarioRisk(scenario: any, model: any): Promise<any> {
+    const riskFactors = [];
+    let overallRisk = 0;
+
+    for (const assumption of model.assumptions) {
+      try {
+        // Check causal evidence for assumption
+        const evidence = await this.findCausalEvidenceForAssumption(assumption, []);
+
+        if (evidence.length === 0) {
+          riskFactors.push({
+            assumption: assumption.name,
+            risk: "high",
+            reason: "No causal evidence found",
+          });
+          overallRisk += 0.3;
+        } else if (evidence[0].confidence < 0.7) {
+          riskFactors.push({
+            assumption: assumption.name,
+            risk: "medium",
+            reason: "Low confidence in causal evidence",
+          });
+          overallRisk += 0.15;
+        }
+      } catch (error) {
+        riskFactors.push({
+          assumption: assumption.name,
+          risk: "unknown",
+          reason: "Failed to assess evidence",
+        });
+        overallRisk += 0.2;
+      }
+    }
+
+    // Normalize risk score
+    overallRisk = Math.min(1, overallRisk / model.assumptions.length);
+
+    return {
+      overallRisk,
+      riskLevel: overallRisk >= 0.7 ? "high" : overallRisk >= 0.4 ? "medium" : "low",
+      riskFactors,
+    };
   }
 }

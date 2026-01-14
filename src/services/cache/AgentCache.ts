@@ -427,8 +427,11 @@ export class AgentCache extends EventEmitter {
     const evictCount = Math.max(1, Math.floor(entries.length * 0.25));
 
     for (let i = 0; i < evictCount; i++) {
-      this.l1Cache.delete(entries[i][0]);
-      this.stats.evictions++;
+      const key = entries[i]?.[0];
+      if (key) {
+        this.l1Cache.delete(key);
+        this.stats.evictions++;
+      }
     }
   }
 
@@ -440,8 +443,11 @@ export class AgentCache extends EventEmitter {
     const evictCount = Math.max(1, Math.floor(entries.length * 0.25));
 
     for (let i = 0; i < evictCount; i++) {
-      this.l1Cache.delete(entries[i][0]);
-      this.stats.evictions++;
+      const key = entries[i]?.[0];
+      if (key) {
+        this.l1Cache.delete(key);
+        this.stats.evictions++;
+      }
     }
   }
 
@@ -453,8 +459,11 @@ export class AgentCache extends EventEmitter {
     const evictCount = Math.max(1, Math.floor(entries.length * 0.25));
 
     for (let i = 0; i < evictCount; i++) {
-      this.l1Cache.delete(entries[i][0]);
-      this.stats.evictions++;
+      const key = entries[i]?.[0];
+      if (key) {
+        this.l1Cache.delete(key);
+        this.stats.evictions++;
+      }
     }
   }
 
@@ -464,8 +473,11 @@ export class AgentCache extends EventEmitter {
 
     for (let i = 0; i < evictCount; i++) {
       const randomIndex = Math.floor(Math.random() * entries.length);
-      this.l1Cache.delete(entries[randomIndex][0]);
-      this.stats.evictions++;
+      const key = entries[randomIndex]?.[0];
+      if (key) {
+        this.l1Cache.delete(key);
+        this.stats.evictions++;
+      }
     }
   }
 
