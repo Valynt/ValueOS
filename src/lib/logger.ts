@@ -1,8 +1,8 @@
 /**
  * Structured Logging Utility with PII Protection
- * 
+ *
  * SEC-004: Production-ready logger with automatic PII sanitization
- * 
+ *
  * Provides consistent, environment-aware logging across the application.
  * Replaces console.log/error with structured logging that:
  * - Automatically sanitizes PII (GDPR/SOC 2 compliant)
@@ -10,25 +10,25 @@
  * - Sends to monitoring services
  * - Formats consistently
  * - Prevents sensitive data leakage
- * 
+ *
  * USAGE:
  *   import { logger } from '@/lib/logger';
  *   logger.info('User action', { userId: '123', action: 'login' });
  *   logger.error('Operation failed', error, { context: data });
  */
 
-import { isDevelopment, isProduction, isTest } from '../config/environment';
-import { getTraceContextForLogging } from '../config/telemetry';
-import { 
-  sanitizeError, 
-  sanitizeForLogging, 
-  sanitizeRequest, 
+import { isDevelopment, isProduction, isTest } from "../config/environment";
+import { getTraceContextForLogging } from "../config/telemetry";
+import {
+  sanitizeError,
+  sanitizeForLogging,
+  sanitizeRequest,
   sanitizeUser,
-  validateLogMessage 
-} from './piiFilter';
-import { getContext } from './context';
+  validateLogMessage,
+} from "./piiFilter";
+import { getContext } from "./context";
 
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+export type LogLevel = "debug" | "info" | "warn" | "error";
 
 export interface LogContext {
   component?: string;
@@ -53,11 +53,11 @@ class Logger {
   constructor() {
     // Set minimum log level based on environment
     if (isProduction()) {
-      this.minLevel = 'warn';
+      this.minLevel = "warn";
     } else if (isTest()) {
-      this.minLevel = 'error';
+      this.minLevel = "error";
     } else {
-      this.minLevel = 'debug';
+      this.minLevel = "debug";
     }
   }
 
@@ -79,8 +79,10 @@ class Logger {
    */
   debug(message: string, context?: LogContext): void {
     validateLogMessage(message, context);
-    const sanitizedContext = context ? sanitizeForLogging(context) as LogContext : undefined;
-    this.log('debug', message, sanitizedContext);
+    const sanitizedContext = context
+      ? (sanitizeForLogging(context) as LogContext)
+      : undefined;
+    this.log("debug", message, sanitizedContext);
   }
 
   /**
@@ -88,8 +90,10 @@ class Logger {
    */
   info(message: string, context?: LogContext): void {
     validateLogMessage(message, context);
-    const sanitizedContext = context ? sanitizeForLogging(context) as LogContext : undefined;
-    this.log('info', message, sanitizedContext);
+    const sanitizedContext = context
+      ? (sanitizeForLogging(context) as LogContext)
+      : undefined;
+    this.log("info", message, sanitizedContext);
   }
 
   /**
@@ -97,8 +101,10 @@ class Logger {
    */
   warn(message: string, context?: LogContext): void {
     validateLogMessage(message, context);
-    const sanitizedContext = context ? sanitizeForLogging(context) as LogContext : undefined;
-    this.log('warn', message, sanitizedContext);
+    const sanitizedContext = context
+      ? (sanitizeForLogging(context) as LogContext)
+      : undefined;
+    this.log("warn", message, sanitizedContext);
   }
 
   /**
@@ -106,18 +112,24 @@ class Logger {
    */
   error(message: string, error?: Error, context?: LogContext): void {
     validateLogMessage(message, context);
-    const sanitizedContext = context ? sanitizeForLogging(context) as LogContext : undefined;
+    const sanitizedContext = context
+      ? (sanitizeForLogging(context) as LogContext)
+      : undefined;
     const sanitizedError = error ? sanitizeError(error) : undefined;
-    this.log('error', message, { 
-      ...sanitizedContext, 
-      error: sanitizedError as any 
+    this.log("error", message, {
+      ...sanitizedContext,
+      error: sanitizedError as any,
     });
   }
 
   /**
    * Core logging method
    */
-  private log(level: LogLevel, message: string, context?: LogContext & { error?: Error }): void {
+  private log(
+    level: LogLevel,
+    message: string,
+    context?: LogContext & { error?: Error }
+  ): void {
     if (!this.shouldLog(level)) {
       return;
     }
@@ -126,26 +138,29 @@ class Logger {
     const requestContext = getContext();
     const mergedContext = {
       ...requestContext,
-      ...context
+      ...context,
     };
 
     const entry: LogEntry = {
       level,
       message,
       timestamp: new Date().toISOString(),
-      context: Object.keys(mergedContext).length > 0 ? { ...mergedContext, error: undefined } : undefined,
+      context:
+        Object.keys(mergedContext).length > 0
+          ? { ...mergedContext, error: undefined }
+          : undefined,
       error: context?.error,
     };
 
     // Notify listeners (for monitoring services)
-    this.listeners.forEach(listener => {
+    this.listeners.forEach((listener) => {
       try {
         listener(entry);
       } catch (err) {
         // Don't let listener errors break logging
         // Use console.error to avoid recursion and type issues
-         
-        console.error('Logger listener error:', err);
+
+        console.error("Logger listener error:", err);
       }
     });
 
@@ -155,7 +170,7 @@ class Logger {
     }
 
     // In production, only log errors to console
-    if (isProduction() && level === 'error') {
+    if (isProduction() && level === "error") {
       this.consoleOutput(entry);
     }
   }
@@ -164,7 +179,7 @@ class Logger {
    * Check if a log level should be output
    */
   private shouldLog(level: LogLevel): boolean {
-    const levels: LogLevel[] = ['debug', 'info', 'warn', 'error'];
+    const levels: LogLevel[] = ["debug", "info", "warn", "error"];
     const minIndex = levels.indexOf(this.minLevel);
     const levelIndex = levels.indexOf(level);
     return levelIndex >= minIndex;
@@ -174,24 +189,46 @@ class Logger {
    * Output log entry to console
    */
   private consoleOutput(entry: LogEntry): void {
+    // In production, output structured JSON for log ingestion
+    if (isProduction()) {
+      console.log(
+        JSON.stringify({
+          timestamp: entry.timestamp,
+          level: entry.level,
+          message: entry.message,
+          component: entry.context?.component,
+          action: entry.context?.action,
+          userId: entry.context?.userId,
+          sessionId: entry.context?.sessionId,
+          ...entry.context,
+          ...(entry.error && {
+            error: {
+              name: entry.error.name,
+              message: entry.error.message,
+              stack: entry.error.stack,
+            },
+          }),
+        })
+      );
+      return;
+    }
+
+    // Development/Test: formatted output
     const prefix = `[${entry.timestamp}] [${entry.level.toUpperCase()}]`;
-    const contextStr = entry.context ? ` ${JSON.stringify(entry.context)}` : '';
+    const contextStr = entry.context ? ` ${JSON.stringify(entry.context)}` : "";
     const fullMessage = `${prefix} ${entry.message}${contextStr}`;
 
-     
     switch (entry.level) {
-      case 'debug':
-         
+      case "debug":
         console.debug(fullMessage);
         break;
-      case 'info':
-         
+      case "info":
         console.info(fullMessage);
         break;
-      case 'warn':
+      case "warn":
         console.warn(fullMessage);
         break;
-      case 'error':
+      case "error":
         console.error(fullMessage, entry.error);
         break;
     }
@@ -210,10 +247,14 @@ export const logger = new Logger();
 
 // Export convenience functions
 export const log = {
-  debug: (message: string, context?: LogContext) => logger.debug(message, context),
-  info: (message: string, context?: LogContext) => logger.info(message, context),
-  warn: (message: string, context?: LogContext) => logger.warn(message, context),
-  error: (message: string, error?: Error, context?: LogContext) => logger.error(message, error, context),
+  debug: (message: string, context?: LogContext) =>
+    logger.debug(message, context),
+  info: (message: string, context?: LogContext) =>
+    logger.info(message, context),
+  warn: (message: string, context?: LogContext) =>
+    logger.warn(message, context),
+  error: (message: string, error?: Error, context?: LogContext) =>
+    logger.error(message, error, context),
 };
 
 /**
@@ -243,19 +284,20 @@ export const secureLog = {
   user: (message: string, user: any, context?: LogContext) => {
     logger.info(message, { ...sanitizeUser(user), ...context });
   },
-  
+
   /**
    * Log request-related actions (automatically sanitizes requests)
    */
   request: (message: string, req: any, context?: LogContext) => {
     logger.info(message, { ...sanitizeRequest(req), ...context });
   },
-  
+
   /**
    * Log errors with automatic sanitization
    */
   error: (message: string, error: unknown, context?: LogContext) => {
-    const sanitizedError = error instanceof Error ? error : new Error(String(error));
+    const sanitizedError =
+      error instanceof Error ? error : new Error(String(error));
     logger.error(message, sanitizedError, context);
   },
 };
@@ -270,22 +312,25 @@ export function setupMonitoring() {
     try {
       // Dynamically import Sentry to avoid dependency errors in minimal builds
       // @ts-expect-error - `require` is available in the Node.js production runtime, but may not be typed in all build targets
-      const Sentry = typeof window === 'undefined' ? require('@sentry/node') : null;
+      const Sentry =
+        typeof window === "undefined" ? require("@sentry/node") : null;
 
       if (Sentry) {
         logger.addListener((entry) => {
-          if (entry.level === 'error' && entry.error) {
-          const trace = getTraceContextForLogging();
-          Sentry.withScope((scope: any) => {
-            scope.setExtras({ ...entry.context, ...trace });
-            scope.setTag('component', entry.context?.component || 'unknown');
-            Sentry.captureException(entry.error);
-          });
-        }
+          if (entry.level === "error" && entry.error) {
+            const trace = getTraceContextForLogging();
+            Sentry.withScope((scope: any) => {
+              scope.setExtras({ ...entry.context, ...trace });
+              scope.setTag("component", entry.context?.component || "unknown");
+              Sentry.captureException(entry.error);
+            });
+          }
         });
       }
     } catch (err) {
-      logger.warn('Sentry not installed; skipping error forwarding', { error: err instanceof Error ? err.message : String(err) });
+      logger.warn("Sentry not installed; skipping error forwarding", {
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 }

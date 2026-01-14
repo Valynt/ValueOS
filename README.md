@@ -147,31 +147,7 @@ Every value calculation and workflow execution maintains a cryptographic audit t
 
 ## Prerequisites
 
-### System Requirements
-
-- **Node.js**: 20+ (LTS recommended, managed via `.nvmrc`)
-- **Docker**: Desktop 4.0+ with Docker Compose V2
-- **Git**: 2.30+
-- **RAM**: 8GB minimum, 16GB recommended
-- **Storage**: 10GB free space for containers and dependencies
-
-### Development Environment
-
-```bash
-# Install Node Version Manager (recommended)
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-source ~/.bashrc
-
-# Install required Node.js version
-nvm install
-nvm use
-
-# Verify installations
-node --version
-npm --version
-docker --version
-docker compose version
-```
+See [Setup Guide](docs/guides/setup.md) for detailed system requirements and development environment setup.
 
 The repository follows an opinionated structure optimized for developer experience and operational excellence:
 
@@ -218,137 +194,7 @@ ValueOS/
 
 ## Development Workflow
 
-### Local Development Setup
-
-ValueOS provides a deterministic local development environment with automated setup:
-
-```bash
-# First-time setup
-npm install
-npm run env:dev          # Setup environment with real keys
-npm run dx               # Start development stack
-npm run db:reset         # Reset database
-npm run seed:demo        # Create demo user
-
-# Daily development
-npm run dx               # Start stack
-npm run dx:down          # Stop stack
-
-# Health verification
-npm run dx:check         # Comprehensive health check
-```
-
-**Quick Start (5 minutes):**
-
-1. Install Docker Desktop and ensure it's running
-2. Run: `npm install && npm run env:dev && npm run dx`
-3. Run: `npm run db:reset && npm run seed:demo`
-4. Open: `http://localhost:5173`
-5. Login with credentials from `seed:demo` output
-
-### Environment Configuration
-
-Environment management is handled through dedicated scripts:
-
-```bash
-# Setup local development environment
-npm run env:dev           # Configures local dev with real keys
-
-# Switch to staging environment
-npm run env:staging
-
-# Switch to production environment
-npm run env:production
-
-# Check current environment
-npm run env:status
-
-# Validate environment configuration
-npm run env:validate
-```
-
-### Port Management
-
-Services are configured to avoid port conflicts:
-
-- Frontend: 5173 (Vite dev server)
-- Backend API: 3001 (Backend services)
-- Supabase API: 54321 (Local development)
-- Supabase Studio: 54323 (Database admin)
-- PostgreSQL: 5432 (Database)
-- Redis: 6379 (Cache)
-
-### Development Stack Management
-
-```bash
-# Stack operations
-npm run dx                # Start full development stack
-npm run dx:down           # Stop development stack
-npm run dx:reset          # Full reset (removes volumes)
-npm run dx:clean          # Complete cleanup
-npm run dx:check          # Health verification
-npm run dx:doctor         # Preflight checks
-npm run dx:logs           # View logs
-npm run dx:ps             # Show containers
-```
-
-### Quality Gates
-
-All changes must pass automated quality checks:
-
-```bash
-# Run all quality checks
-npm run ci:verify
-
-# Individual checks
-npm run lint              # Code quality (ESLint)
-npm run typecheck         # TypeScript validation
-npm run test              # Unit test suite
-npm run test:integration  # Database and API integration
-npm run test:e2e          # End-to-end user flows
-npm run build             # Build validation
-npm run test:performance  # Load testing
-npm run test:accessibility # WCAG compliance
-```
-
-### Test Architecture
-
-**Unit Tests** (`npm run test:unit`)
-
-- Isolated component and service testing
-- Mock external dependencies (database, APIs, agents)
-- Fast feedback for development changes
-
-**Integration Tests** (`npm run test:integration`)
-
-- Database operations and API endpoints
-- Agent workflow coordination
-- External service integrations
-
-**End-to-End Tests** (`npm run test:e2e`)
-
-- Complete user workflows through the UI
-- Multi-agent orchestration scenarios
-- Cross-service data flow validation
-
-**Performance Tests** (`npm run test:performance`)
-
-- Load testing with k6
-- Response time validation
-- Resource usage monitoring
-
-**Chaos Tests** (`npm run test:chaos`)
-
-- Agent workflow failure scenarios
-- Circuit breaker validation
-- Recovery mechanism testing
-
-### Coverage Requirements
-
-- **Unit Coverage**: >90% for core business logic
-- **Integration Coverage**: >80% for API endpoints and workflows
-- **E2E Coverage**: 100% for critical user journeys
-- **Performance Baselines**: <500ms for API responses, <2s for complex workflows
+See [Setup Guide](docs/guides/setup.md) for detailed development workflow and quality gates.
 
 ## Security & Compliance
 
@@ -430,115 +276,7 @@ ValueOS implements enterprise-grade security controls:
 
 ## Deployment & CI/CD
 
-### Environment Strategy
-
-ValueOS maintains four distinct environments with progressive promotion:
-
-**Development** (`npm run dx`)
-
-- Local development with hot reload
-- Full debugging capabilities
-- Isolated development databases
-
-**Staging** (`npm run env:staging`)
-
-- Production mirror for testing
-- Automated deployment from main branch
-- Pre-production data validation
-
-**Production** (`npm run env:production`)
-
-- Customer-facing environment
-- Blue-green deployment strategy
-- Comprehensive monitoring and alerting
-
-**DR/Backup** (Automated)
-
-- Point-in-time database recovery
-- Cross-region failover capabilities
-- Encrypted backup storage
-
-### Build Process
-
-**Development Build:**
-
-```bash
-npm run build:dev     # Development build with source maps
-```
-
-**Production Build:**
-
-```bash
-npm run build         # Optimized production build
-npm run build:analyze # Bundle size analysis
-```
-
-**Container Build:**
-
-```bash
-npm run docker:build  # Multi-stage container build
-npm run docker:push   # Push to container registry
-```
-
-### CI/CD Pipeline
-
-**Automated Quality Gates:**
-
-- Branch protection with required status checks
-- Automated security scanning (SAST/DAST)
-- Dependency vulnerability assessment
-- License compliance validation
-
-**Deployment Automation:**
-
-- Infrastructure as Code with Terraform
-- Helm charts for Kubernetes deployment
-- Automated database migrations
-- Rolling update strategies with zero downtime
-
-### Infrastructure Components
-
-**Application Layer:**
-
-- Kubernetes cluster with horizontal pod autoscaling
-- NGINX ingress with SSL termination
-- Redis cluster for session and cache management
-- PostgreSQL with automated backups and failover
-
-**Security Layer:**
-
-- AWS WAF with custom rulesets
-- VPC isolation with security groups
-- End-to-end encryption (TLS 1.3)
-- Database encryption at rest
-
-**Monitoring Stack:**
-
-- Prometheus metrics collection
-- Grafana dashboards for observability
-- ELK stack for log aggregation
-- Sentry for error tracking and alerting
-
-### Database Management
-
-**Migration Strategy:**
-
-```bash
-# Development migrations
-npm run db:reset      # Reset local database
-npm run db:migrate    # Apply pending migrations
-
-# Production migrations
-npm run db:migrate:prod  # Safe production migration
-npm run db:rollback      # Emergency rollback
-```
-
-**Backup & Recovery:**
-
-- Automated daily backups with retention policies
-- Point-in-time recovery capabilities
-- Cross-region replication for disaster recovery
-- Encrypted backup storage with access controls
+See [Deployment Guide](docs/guides/deployment.md) for detailed deployment strategies and CI/CD pipelines.
 
 ## Contribution Guidelines
 
@@ -740,8 +478,9 @@ build: optimize bundle size reduction strategy
 
 **📚 Getting Started:**
 
-- [Local Development Guide](docs/getting-started/local-setup.md) - Complete setup and workflow guide
-- [Architecture Decision Records](docs/engineering/adr/) - System design decisions and rationale
+- [Setup Guide](docs/guides/setup.md) - Complete setup and development workflow
+- [Architecture Decision Records](docs/architecture/) - System design decisions and rationale
+- [Active Architectural Decisions](docs/architecture/active-architectural-decisions.md) - Current production requirements
 - [API Documentation](docs/engineering/api/) - REST API specifications and examples
 
 **🛠️ Development Resources:**
@@ -752,7 +491,8 @@ build: optimize bundle size reduction strategy
 
 **🚀 Operational Resources:**
 
-- [Deployment Runbooks](docs/ops/deployment.md) - Production deployment procedures
+- [Deployment Guide](docs/guides/deployment.md) - Production deployment procedures
+- [Troubleshooting Guide](docs/guides/troubleshooting.md) - Common issues and solutions
 - [Monitoring & Alerting](docs/ops/monitoring.md) - Observability and incident response
 - [Backup & Recovery](docs/ops/backup.md) - Data protection and disaster recovery
 
@@ -778,13 +518,14 @@ build: optimize bundle size reduction strategy
 
 ### Quick Reference Matrix
 
-| Task              | Command                                        | Documentation                                          |
-| ----------------- | ---------------------------------------------- | ------------------------------------------------------ |
-| Local setup       | `npm install && npm run env:dev && npm run dx` | [Local Dev Guide](docs/getting-started/local-setup.md) |
-| Run tests         | `npm run ci:verify`                            | [Testing Strategy](docs/engineering/testing.md)        |
-| Deploy to staging | `npm run env:staging`                          | [Deployment Guide](docs/ops/deployment.md)             |
-| Database reset    | `npm run db:reset`                             | [Database Guide](docs/engineering/database.md)         |
-| Health check      | `npm run dx:check`                             | [Monitoring Guide](docs/ops/monitoring.md)             |
+| Task              | Command                                        | Documentation                                           |
+| ----------------- | ---------------------------------------------- | ------------------------------------------------------- |
+| Local setup       | `npm install && npm run env:dev && npm run dx` | [Setup Guide](docs/guides/setup.md)                     |
+| Run tests         | `npm run ci:verify`                            | [Testing Strategy](docs/engineering/testing.md)         |
+| Deploy to staging | `npm run env:staging`                          | [Deployment Guide](docs/guides/deployment.md)           |
+| Database reset    | `npm run db:reset`                             | [Database Guide](docs/engineering/database.md)          |
+| Health check      | `npm run dx:check`                             | [Monitoring Guide](docs/ops/monitoring.md)              |
+| Troubleshooting   | -                                              | [Troubleshooting Guide](docs/guides/troubleshooting.md) |
 
 ---
 
@@ -849,4 +590,4 @@ build: optimize bundle size reduction strategy
 
 _ValueOS represents the next generation of enterprise SaaS platforms, combining the power of multi-agent AI with rigorous enterprise-grade architecture. Built for scale, security, and reliability, it enables organizations to unlock the full potential of their economic value data._
 
-**Ready to get started?** Follow the [Local Development Guide](docs/local-dev.md) to set up your development environment in under 5 minutes.
+**Ready to get started?** Follow the [Setup Guide](docs/guides/setup.md) to set up your development environment in under 5 minutes.

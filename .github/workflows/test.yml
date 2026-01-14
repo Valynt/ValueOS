@@ -254,9 +254,27 @@ jobs:
           path: playwright-report/
 
   # ============================================================================
-  # Security Scan
+  # Developer Experience Checks
   # ============================================================================
-  security:
+  dx-check:
+    name: Developer Experience Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Developer Experience checks
+        run: npm run dx:check
+        env:
+          NODE_ENV: test
     name: Security Scan
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -314,15 +332,15 @@ jobs:
               const total = report.total;
               console.log(total.lines.pct);
             ")
-            
+
             echo "Current coverage: $COVERAGE%"
-            
+
             # Fail if below threshold
             if (( $(echo "$COVERAGE < 50" | bc -l) )); then
               echo "❌ Coverage $COVERAGE% is below 50% threshold"
               exit 1
             fi
-            
+
             echo "✅ Coverage $COVERAGE% meets threshold"
           else
             echo "⚠️  Coverage report not found"
@@ -351,6 +369,7 @@ jobs:
         rls-leakage-test,
         accessibility-tests,
         e2e-tests,
+        dx-check,
         coverage-check,
       ]
     runs-on: ubuntu-latest

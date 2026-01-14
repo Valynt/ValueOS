@@ -415,13 +415,41 @@ router.get(["/health", "/api/health"], async (req: Request, res: Response) => {
 
 /**
  * Liveness probe (for Kubernetes) - legacy compatibility
+ * Now checks critical dependencies for Docker healthcheck
  */
-router.get("/healthz", (req: Request, res: Response) => {
-  res.status(200).json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV,
-  });
+router.get("/healthz", async (req: Request, res: Response) => {
+  try {
+    // Check critical dependencies: Supabase and Redis
+    const [supabaseCheck, redisCheck] = await Promise.all([
+      checkSupabase(),
+      checkRedis(),
+    ]);
+
+    // Determine if healthy based on critical dependencies
+    const isHealthy =
+      supabaseCheck.status !== "unhealthy" && redisCheck.status !== "unhealthy";
+
+    const result = {
+      status: isHealthy ? "healthy" : "unhealthy",
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV,
+      checks: {
+        supabase: supabaseCheck,
+        redis: redisCheck,
+      },
+    };
+
+    // Return 200 if healthy, 503 if unhealthy
+    res.status(isHealthy ? 200 : 503).json(result);
+  } catch (error) {
+    // If checks fail entirely, return unhealthy
+    res.status(503).json({
+      status: "unhealthy",
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV,
+      error: error instanceof Error ? error.message : "Health check failed",
+    });
+  }
 });
 
 /**
