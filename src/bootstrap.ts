@@ -14,7 +14,6 @@ import {
 import { initializeAgents, SystemHealth } from "./services/AgentInitializer";
 import { initializeSecurity, validateSecurity } from "./security";
 import { createLogger, logger as globalLogger, setupMonitoring } from "./lib/logger";
-import { initializeRedisCache } from "./lib/redis";
 import { initializeSentry } from "./lib/sentry";
 import { checkDatabaseConnection } from "./lib/database";
 
@@ -393,10 +392,12 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
   }
 
   // Step 8: Cache initialization
-  if (config.cache.enabled) {
+  if (config.cache.enabled && typeof window === "undefined") {
     onProgress?.("Initializing cache...");
     logger.info("\n🗄️  Step 8: Cache initialization");
     try {
+      // Dynamic import to avoid bundling Redis in browser
+      const { initializeRedisCache } = await import("./lib/redis");
       const cacheResult = await initializeRedisCache(config.cache);
 
       if (cacheResult.connected) {

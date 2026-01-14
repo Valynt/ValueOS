@@ -17,7 +17,13 @@ export default defineConfig({
       "@types": path.resolve(__dirname, "./src/types"),
       "@config": path.resolve(__dirname, "./src/config"),
       "@security": path.resolve(__dirname, "./src/security"),
+      buffer: "buffer",
     },
+  },
+  define: {
+    global: "globalThis",
+    Buffer: "Buffer",
+    process: "process",
   },
   server: {
     host: "0.0.0.0",
@@ -42,6 +48,7 @@ export default defineConfig({
         "@aws-sdk/client-secrets-manager",
         "winston",
         "winston-cloudwatch",
+        "redis",
         // Node.js built-ins
         "zlib",
         "stream",
@@ -50,6 +57,7 @@ export default defineConfig({
         "crypto",
         "util",
         "os",
+        "buffer",
       ],
       output: {
         manualChunks: {
