@@ -273,7 +273,7 @@ src/components/ui/Button.tsx. Include:
 
 ### Iterate on Workflows
 
-Update `.agent/workflows/` when you discover better approaches.
+Update `.windsurf/workflows/` when you discover better approaches.
 
 ---
 

@@ -62,7 +62,7 @@ npx vitest run services/mcp-<name>/
 
 ## Integration
 
-9. Register with Antigravity (if applicable):
+9. Register with Windsurf (if applicable):
    - Add to mcp_servers configuration
    - Test resource/tool access
 

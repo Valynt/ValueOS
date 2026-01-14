@@ -4,7 +4,7 @@ description: Add a new feature to ValueOS following best practices
 
 # New Feature Development Workflow
 
-## Planning Phase (Use Planning Mode in Antigravity)
+## Planning Phase (Use Planning Mode in Windsurf)
 
 1. Define the feature scope and acceptance criteria
 2. Identify affected components:
