@@ -220,7 +220,7 @@ export function generateMyStagePage(
 }
 ```
 
-1. Register in `chat-templates.ts`:
+3. Register in `chat-templates.ts`:
 
 ```typescript
 export const CHAT_TEMPLATES: Record<LifecycleStage, TemplateGenerator> = {
