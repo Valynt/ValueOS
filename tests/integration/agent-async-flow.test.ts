@@ -27,6 +27,7 @@ vi.mock("../../src/services/EventProducer");
 vi.mock("../../src/services/UnifiedAgentAPI");
 vi.mock("../../src/services/EventSourcingService");
 vi.mock("../../src/lib/logger");
+vi.mock("../../src/services/AgentMessageQueue");
 
 import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
 import request from "supertest";

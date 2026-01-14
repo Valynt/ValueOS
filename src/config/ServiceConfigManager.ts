@@ -314,73 +314,85 @@ export class ServiceConfigManager {
   private loadFromEnvironment(): Partial<ServiceConfiguration> {
     const env = process.env;
 
-    return {
-      agentAPI: {
-        enabled: env.AGENT_API_ENABLED !== "false",
-        timeout: env.AGENT_API_TIMEOUT
-          ? parseInt(env.AGENT_API_TIMEOUT)
-          : undefined,
-        maxConcurrentRequests: env.AGENT_API_MAX_CONCURRENT
-          ? parseInt(env.AGENT_API_MAX_CONCURRENT)
-          : undefined,
-        rateLimitWindow: env.AGENT_API_RATE_LIMIT_WINDOW
-          ? parseInt(env.AGENT_API_RATE_LIMIT_WINDOW)
-          : undefined,
-        rateLimitMax: env.AGENT_API_RATE_LIMIT_MAX
-          ? parseInt(env.AGENT_API_RATE_LIMIT_MAX)
-          : undefined,
-      },
+    const agentAPIEnv: Partial<ServiceConfiguration["agentAPI"]> = {
+      enabled: env.AGENT_API_ENABLED !== "false",
+      ...(env.AGENT_API_TIMEOUT && {
+        timeout: parseInt(env.AGENT_API_TIMEOUT),
+      }),
+      ...(env.AGENT_API_MAX_CONCURRENT && {
+        maxConcurrentRequests: parseInt(env.AGENT_API_MAX_CONCURRENT),
+      }),
+      ...(env.AGENT_API_RATE_LIMIT_WINDOW && {
+        rateLimitWindow: parseInt(env.AGENT_API_RATE_LIMIT_WINDOW),
+      }),
+      ...(env.AGENT_API_RATE_LIMIT_MAX && {
+        rateLimitMax: parseInt(env.AGENT_API_RATE_LIMIT_MAX),
+      }),
+    };
 
-      eventExecutor: {
-        enabled: env.EVENT_EXECUTOR_ENABLED !== "false",
-        kafka: {
-          brokers: env.KAFKA_BROKERS ? env.KAFKA_BROKERS.split(",") : undefined,
-          groupId: env.KAFKA_GROUP_ID,
-          topics: {
+    const eventExecutorEnv: Partial<ServiceConfiguration["eventExecutor"]> = {
+      enabled: env.EVENT_EXECUTOR_ENABLED !== "false",
+      kafka: {
+        ...(env.KAFKA_BROKERS && { brokers: env.KAFKA_BROKERS.split(",") }),
+        ...(env.KAFKA_GROUP_ID && { groupId: env.KAFKA_GROUP_ID }),
+        topics: {
+          ...(env.KAFKA_TOPIC_AGENT_REQUESTS && {
             agentRequests: env.KAFKA_TOPIC_AGENT_REQUESTS,
+          }),
+          ...(env.KAFKA_TOPIC_AGENT_RESPONSES && {
             agentResponses: env.KAFKA_TOPIC_AGENT_RESPONSES,
-          },
+          }),
         },
-        circuitBreaker: {
-          failureThreshold: env.EXECUTOR_CB_FAILURE_THRESHOLD
-            ? parseInt(env.EXECUTOR_CB_FAILURE_THRESHOLD)
-            : undefined,
-          resetTimeout: env.EXECUTOR_CB_RESET_TIMEOUT
-            ? parseInt(env.EXECUTOR_CB_RESET_TIMEOUT)
-            : undefined,
-        },
-      },
+      } as any,
+      circuitBreaker: {
+        ...(env.EXECUTOR_CB_FAILURE_THRESHOLD && {
+          failureThreshold: parseInt(env.EXECUTOR_CB_FAILURE_THRESHOLD),
+        }),
+        ...(env.EXECUTOR_CB_RESET_TIMEOUT && {
+          resetTimeout: parseInt(env.EXECUTOR_CB_RESET_TIMEOUT),
+        }),
+      } as any,
+    };
 
-      agentMessageQueue: {
-        enabled: env.AGENT_QUEUE_ENABLED !== "false",
-        redis: {
-          url: env.AGENT_QUEUE_REDIS_URL,
-        },
-        queue: {
-          concurrency: env.AGENT_QUEUE_CONCURRENCY
-            ? parseInt(env.AGENT_QUEUE_CONCURRENCY)
-            : undefined,
-          rateLimitMax: env.AGENT_QUEUE_RATE_LIMIT_MAX
-            ? parseInt(env.AGENT_QUEUE_RATE_LIMIT_MAX)
-            : undefined,
-        },
-      },
+    const agentMessageQueueEnv: Partial<
+      ServiceConfiguration["agentMessageQueue"]
+    > = {
+      enabled: env.AGENT_QUEUE_ENABLED !== "false",
+      redis: {
+        ...(env.AGENT_QUEUE_REDIS_URL && { url: env.AGENT_QUEUE_REDIS_URL }),
+      } as any,
+      queue: {
+        ...(env.AGENT_QUEUE_CONCURRENCY && {
+          concurrency: parseInt(env.AGENT_QUEUE_CONCURRENCY),
+        }),
+        ...(env.AGENT_QUEUE_RATE_LIMIT_MAX && {
+          rateLimitMax: parseInt(env.AGENT_QUEUE_RATE_LIMIT_MAX),
+        }),
+      } as any,
+    };
 
-      rateLimiter: {
-        redis: {
-          enabled: env.RATE_LIMITER_REDIS_ENABLED === "true",
-          url: env.RATE_LIMITER_REDIS_URL,
-        },
-      },
+    const rateLimiterEnv: Partial<ServiceConfiguration["rateLimiter"]> = {
+      redis: {
+        enabled: env.RATE_LIMITER_REDIS_ENABLED === "true",
+        ...(env.RATE_LIMITER_REDIS_URL && { url: env.RATE_LIMITER_REDIS_URL }),
+      } as any,
+    };
 
-      eventSourcing: {
-        enabled: env.EVENT_SOURCING_ENABLED !== "false",
-        database: {
-          maxConnections: env.EVENT_SOURCING_MAX_CONNECTIONS
-            ? parseInt(env.EVENT_SOURCING_MAX_CONNECTIONS)
-            : undefined,
-        },
-      },
+    const eventSourcingEnv: Partial<ServiceConfiguration["eventSourcing"]> = {
+      enabled: env.EVENT_SOURCING_ENABLED !== "false",
+      database: {
+        ...(env.EVENT_SOURCING_MAX_CONNECTIONS && {
+          maxConnections: parseInt(env.EVENT_SOURCING_MAX_CONNECTIONS),
+        }),
+      } as any,
+    };
+
+    return {
+      agentAPI: agentAPIEnv as any,
+      eventExecutor: eventExecutorEnv as any,
+      agentMessageQueue: agentMessageQueueEnv as any,
+      rateLimiter: rateLimiterEnv as any,
+      eventSourcing: eventSourcingEnv as any,
     };
   }
 
@@ -419,7 +431,7 @@ export class ServiceConfigManager {
 
       // Validate the updated configuration
       const schema = this.getServiceSchema(service);
-      const validated = schema.parse(updated);
+      const validated = schema.parse(updated) as ServiceConfiguration[T];
 
       this.config[service] = validated;
 
@@ -452,7 +464,9 @@ export class ServiceConfigManager {
   /**
    * Get validation schema for a service
    */
-  private getServiceSchema(service: keyof ServiceConfiguration) {
+  private getServiceSchema<T extends keyof ServiceConfiguration>(
+    service: T
+  ): z.ZodType<ServiceConfiguration[T]> {
     const schemas = {
       agentAPI: AgentAPIConfigSchema,
       eventExecutor: EventExecutorConfigSchema,
@@ -461,9 +475,9 @@ export class ServiceConfigManager {
       circuitBreaker: CircuitBreakerConfigSchema,
       rateLimiter: RateLimiterConfigSchema,
       eventSourcing: EventSourcingConfigSchema,
-    };
+    } as const;
 
-    return schemas[service];
+    return schemas[service] as unknown as z.ZodType<ServiceConfiguration[T]>;
   }
 
   /**

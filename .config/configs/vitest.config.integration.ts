@@ -12,24 +12,19 @@ export default defineConfig({
     globals: true,
     environment: "jsdom", // DOM environment for React component testing
     setupFiles: [
+      "./tests/integration/vitest.setup.ts",
       "./tests/setup.ts",
       "./src/test/setup.ts",
       "./src/test/setup-integration.ts",
       "./src/sdui/__tests__/setup.ts",
     ],
     globalSetup: "./src/test/vitest-global-setup.ts", // Use testcontainers
-    globalTeardown: "./src/test/vitest-global-teardown.ts",
     include: [
       "**/*.integration.test.{ts,tsx}",
       "src/repositories/**/*.test.{ts,tsx}",
       "tests/integration/**/*.test.{ts,tsx}",
     ],
-    exclude: [
-      "node_modules",
-      "dist",
-      ".storybook",
-      "storybook-static",
-    ],
+    exclude: ["node_modules", "dist", ".storybook", "storybook-static"],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html", "lcov"],
@@ -67,4 +62,3 @@ export default defineConfig({
     },
   },
 });
-
