@@ -75,7 +75,7 @@ npm --version
 brew install --cask docker
 ```
 
-**Or download**: https://docs.docker.com/desktop/mac/install/
+**Or download**: <https://docs.docker.com/desktop/mac/install/>
 
 **First Launch**:
 
@@ -379,10 +379,10 @@ brew upgrade --cask docker
 
 ## Additional Resources
 
-- **Homebrew**: https://brew.sh/
-- **Docker Desktop for Mac**: https://docs.docker.com/desktop/mac/install/
-- **Node.js on macOS**: https://nodejs.org/en/download/package-manager/#macos
-- **Apple Silicon**: https://support.apple.com/en-us/HT211814
+- **Homebrew**: <https://brew.sh/>
+- **Docker Desktop for Mac**: <https://docs.docker.com/desktop/mac/install/>
+- **Node.js on macOS**: <https://nodejs.org/en/download/package-manager/#macos>
+- **Apple Silicon**: <https://support.apple.com/en-us/HT211814>
 
 ---
 

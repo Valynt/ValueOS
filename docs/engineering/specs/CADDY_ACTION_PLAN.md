@@ -1,7 +1,7 @@
 # Caddy Action Plan - Next Steps
 
-**Date:** 2025-12-08  
-**Timeline:** 6 weeks  
+**Date:** 2025-12-08
+**Timeline:** 6 weeks
 **Approach:** Strategic implementation, not reimplementation
 
 ---
@@ -14,8 +14,8 @@ ValueCanvas has **production-ready Caddy infrastructure**. Focus on 3 strategic 
 2. **Subdomain Multi-Tenancy** (2 weeks) - Implement subdomain routing
 3. **Advanced Features** (2 weeks) - Per-tenant rate limiting & observability
 
-**Total Timeline:** 6 weeks  
-**Estimated Cost:** $65/month infrastructure + development time  
+**Total Timeline:** 6 weeks
+**Estimated Cost:** $65/month infrastructure + development time
 **Expected ROI:** 10-20x in first year
 
 ---
@@ -24,15 +24,15 @@ ValueCanvas has **production-ready Caddy infrastructure**. Focus on 3 strategic 
 
 ### 1. Team Review
 
-**Who:** Engineering team, Product, DevOps  
-**What:** Review `docs/CADDY_STRATEGIC_ROADMAP.md`  
-**When:** This week  
+**Who:** Engineering team, Product, DevOps
+**What:** Review `docs/CADDY_STRATEGIC_ROADMAP.md`
+**When:** This week
 **Outcome:** Approval to proceed with Phase 1
 
 ### 2. Prioritize Phase 1
 
-**Focus:** Custom Domain Management  
-**Why:** Highest business value, enables premium tier  
+**Focus:** Custom Domain Management
+**Why:** Highest business value, enables premium tier
 **Deliverables:**
 
 - Database schema for `custom_domains`
@@ -53,8 +53,8 @@ ValueCanvas has **production-ready Caddy infrastructure**. Focus on 3 strategic 
 
 ### 4. Sprint Planning
 
-**Duration:** 2-week sprints  
-**Team:** 2 developers + 1 DevOps  
+**Duration:** 2-week sprints
+**Team:** 2 developers + 1 DevOps
 **Tools:** Jira/Linear for tracking
 
 ---
@@ -248,9 +248,9 @@ ValueCanvas has **production-ready Caddy infrastructure**. Focus on 3 strategic 
 
 ### Weekly Updates
 
-**When:** Every Friday  
-**Format:** Written update + demo  
-**Audience:** Engineering team, Product, Leadership  
+**When:** Every Friday
+**Format:** Written update + demo
+**Audience:** Engineering team, Product, Leadership
 **Content:**
 
 - Progress this week
@@ -260,9 +260,9 @@ ValueCanvas has **production-ready Caddy infrastructure**. Focus on 3 strategic 
 
 ### Phase Completion
 
-**When:** End of each 2-week phase  
-**Format:** Demo + retrospective  
-**Audience:** Full team  
+**When:** End of each 2-week phase
+**Format:** Demo + retrospective
+**Audience:** Full team
 **Content:**
 
 - Demo of new features
@@ -333,7 +333,7 @@ ValueCanvas has **production-ready Caddy infrastructure**. Focus on 3 strategic 
 
 ## Resources
 
-### Documentation
+### Documentation References
 
 - **Strategic Roadmap:** `docs/CADDY_STRATEGIC_ROADMAP.md`
 - **Implementation Summary:** `docs/CADDY_IMPLEMENTATION_SUMMARY.md`
@@ -347,9 +347,11 @@ ValueCanvas has **production-ready Caddy infrastructure**. Focus on 3 strategic 
 
 ### References
 
-- Caddy Documentation: https://caddyserver.com/docs/
-- Let's Encrypt Rate Limits: https://letsencrypt.org/docs/rate-limits/
-- On-Demand TLS: https://caddyserver.com/docs/automatic-https#on-demand-tls
+- **Caddy Documentation:** <https://caddyserver.com/docs/>
+- **Caddy Docker:** <https://caddyserver.com/docs/install/docker>
+- **Caddy Kubernetes:** <https://caddyserver.com/docs/running-kubernetes>
+- **Let's Encrypt Rate Limits:** <https://letsencrypt.org/docs/rate-limits/>
+- **On-Demand TLS:** <https://caddyserver.com/docs/automatic-https#on-demand-tls>
 
 ---
 
@@ -363,6 +365,6 @@ ValueCanvas has **production-ready Caddy infrastructure**. Focus on 3 strategic 
 
 ---
 
-**Status:** Ready for Team Review  
-**Next Review:** [Date]  
+**Status:** Ready for Team Review
+**Next Review:** [Date]
 **Version:** 1.0

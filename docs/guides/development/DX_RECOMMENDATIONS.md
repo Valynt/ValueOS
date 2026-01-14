@@ -445,7 +445,7 @@ Happy coding! 🚀
 
 **Documentation Structure**:
 
-```
+```text
 docs/
 ├── GETTING_STARTED.md          # Quick start guide
 ├── TROUBLESHOOTING.md          # Common issues
@@ -755,7 +755,7 @@ docs/
 
 - **Strategy**: #dx-improvements
 - **Technical**: #engineering
-- **Feedback**: dx-feedback@valueos.com
+- **Feedback**: [dx-feedback@valueos.com](mailto:dx-feedback@valueos.com)
 
 ### Resources
 

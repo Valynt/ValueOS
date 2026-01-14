@@ -123,7 +123,7 @@ Successfully implemented comprehensive Developer Experience improvements for Val
 
 ## File Structure
 
-```
+```text
 ValueOS/
 ├── scripts/
 │   ├── dx/
@@ -500,10 +500,12 @@ Successfully implemented a world-class developer experience for ValueOS in a fra
 
 - **Questions**: #engineering on Slack
 - **Issues**: [GitHub Issues](https://github.com/Valynt/ValueOS/issues)
-- **Feedback**: dx-feedback@valueos.com
+- **Feedback**: [dx-feedback@valueos.com](mailto:dx-feedback@valueos.com)
 
 ---
 
-**Made with ❤️ by Ona and the ValueOS team**
+### Team
+
+Made with ❤️ by Ona and the ValueOS team
 
 **Date**: December 31, 2024

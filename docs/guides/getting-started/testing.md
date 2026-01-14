@@ -282,7 +282,7 @@ Tests run against real database, so:
 
 ## Support
 
-- **Database Dashboard:** https://supabase.com/dashboard/project/bxaiabnqalurloblfwua
+- **Database Dashboard:** <https://supabase.com/dashboard/project/bxaiabnqalurloblfwua>
 - **Migration Guide:** `supabase/migrations/ROLLBACK_GUIDE.md`
 - **Database Setup:** `DATABASE_SETUP.md`
 - **December Fixes:** `test/DECEMBER_1_FIXES_TESTS.md`

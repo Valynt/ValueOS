@@ -52,7 +52,7 @@ wsl -l -v
 
 ### 2. Docker Desktop
 
-**Download**: https://docs.docker.com/desktop/windows/install/
+**Download**: <https://docs.docker.com/desktop/windows/install/>
 
 **Settings**:
 
@@ -221,7 +221,7 @@ Add WSL2 filesystem to exclusions:
 
 ### VS Code (Recommended)
 
-**Install**: https://code.visualstudio.com/
+**Install**: <https://code.visualstudio.com/>
 
 **Extensions**:
 
@@ -284,10 +284,10 @@ npm run setup
 
 ## Additional Resources
 
-- **WSL2 Docs**: https://docs.microsoft.com/en-us/windows/wsl/
-- **Docker Desktop**: https://docs.docker.com/desktop/windows/wsl/
-- **VS Code + WSL**: https://code.visualstudio.com/docs/remote/wsl
-- **Node.js on WSL**: https://docs.microsoft.com/en-us/windows/dev-environment/javascript/nodejs-on-wsl
+- **WSL2 Docs**: <https://docs.microsoft.com/en-us/windows/wsl/>
+- **Docker Desktop**: <https://docs.docker.com/desktop/windows/wsl/>
+- **VS Code + WSL**: <https://code.visualstudio.com/docs/remote/wsl>
+- **Node.js on WSL**: <https://docs.microsoft.com/en-us/windows/dev-environment/javascript/nodejs-on-wsl>
 
 ---
 

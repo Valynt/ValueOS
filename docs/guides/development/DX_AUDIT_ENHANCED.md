@@ -51,7 +51,7 @@ function detectPlatform() {
         "⚠️  Windows detected. We strongly recommend WSL2 for Docker stability.",
       );
       console.log(
-        "📖 Setup guide: https://docs.microsoft.com/en-us/windows/wsl/install",
+        "📖 Setup guide: <https://docs.microsoft.com/en-us/windows/wsl/install>",
       );
       return "windows";
     }
@@ -119,9 +119,11 @@ function checkDockerCompatibility(platform: string) {
   } catch (error) {
     console.error("❌ Docker not found or not running");
     console.log("\n📖 Installation guides:");
-    console.log("   Windows: https://docs.docker.com/desktop/windows/install/");
-    console.log("   macOS: https://docs.docker.com/desktop/mac/install/");
-    console.log("   Linux: https://docs.docker.com/engine/install/");
+    console.log(
+      "   Windows: <https://docs.docker.com/desktop/windows/install/>",
+    );
+    console.log("   macOS: <https://docs.docker.com/desktop/mac/install/>");
+    console.log("   Linux: <https://docs.docker.com/engine/install/>");
     return false;
   }
 }
@@ -426,7 +428,7 @@ function recordSetupMetrics(metrics: SetupMetrics) {
   // Anonymous telemetry (opt-in)
   if (process.env.TELEMETRY_ENABLED === "true") {
     // Send to analytics endpoint
-    fetch("https://analytics.valueos.com/setup", {
+    fetch("<https://analytics.valueos.com/setup>", {
       method: "POST",
       body: JSON.stringify(metrics),
     }).catch(() => {
@@ -495,7 +497,7 @@ function recordSetupMetrics(metrics: SetupMetrics) {
 
 ## 📂 File Structure
 
-```
+```text
 ValueOS/
 ├── scripts/
 │   ├── setup.ts              # P0: Master orchestrator
@@ -603,9 +605,9 @@ The current friction is costing significant engineering hours every time:
 
 **Platform Docs**:
 
-- WSL2: https://docs.microsoft.com/en-us/windows/wsl/install
-- Docker Desktop: https://docs.docker.com/desktop/
-- Node.js: https://nodejs.org/en/download/
+- WSL2: <https://docs.microsoft.com/en-us/windows/wsl/install>
+- Docker Desktop: <https://docs.docker.com/desktop/>
+- Node.js: <https://nodejs.org/en/download/>
 
 ---
 

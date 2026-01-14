@@ -5,7 +5,7 @@
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
-    "types": ["vitest/globals"],
+    "types": ["vitest/globals", "node"],
 
     /* Bundler mode */
     "moduleResolution": "bundler",
@@ -16,10 +16,10 @@
     "jsx": "react-jsx",
 
     /* Path Aliases */
-    "baseUrl": ".",
+    "baseUrl": "../..",
     "paths": {
-      "@/*": ["./src/*"],
-      "@mcp-common/*": ["./src/mcp-common/*"]
+      "@/*": ["../../src/*"],
+      "@mcp-common/*": ["../../src/mcp-common/*"]
     },
 
     /* Linting */
@@ -29,12 +29,12 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"],
+  "include": ["../../src"],
   "exclude": [
-    "src/**/*.test.ts",
-    "src/**/*.test.tsx",
-    "src/**/*.spec.ts",
-    "src/**/*.spec.tsx",
-    "src/test/**/*"
+    "../../src/**/*.test.ts",
+    "../../src/**/*.test.tsx",
+    "../../src/**/*.spec.ts",
+    "../../src/**/*.spec.tsx",
+    "../../src/test/**/*"
   ]
 }

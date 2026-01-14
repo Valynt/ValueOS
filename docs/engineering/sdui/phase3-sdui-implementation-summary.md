@@ -74,7 +74,7 @@ metadata: {
 
 **Architecture:**
 
-```
+```text
 ┌─────────────────────────────────────────┐
 │        AgentChatService.chat()          │
 └────────────────┬────────────────────────┘
@@ -223,7 +223,7 @@ private generateSDUIPage(
 
 **Telemetry System Architecture:**
 
-```
+```text
 ┌──────────────────────────────────────────────┐
 │         SDUITelemetry (Singleton)            │
 ├──────────────────────────────────────────────┤
@@ -552,9 +552,9 @@ describe("SDUI Integration", () => {
 
 ## Migration Status
 
-✅ **Phase 1: Environment & Configuration** - Complete  
-✅ **Phase 2: Workflow State Persistence** - Complete  
-✅ **Phase 3: SDUI Template Refactoring** - Complete  
+✅ **Phase 1: Environment & Configuration** - Complete
+✅ **Phase 2: Workflow State Persistence** - Complete
+✅ **Phase 3: SDUI Template Refactoring** - Complete
 ⏳ **Phase 4: UX Polish** - Pending
 
 ---

@@ -204,12 +204,18 @@ Each lifecycle stage has a dedicated template:
 2. Implement generator function:
 
 ```typescript
-export function generateMyStage Page(context: ChatTemplateContext): SDUIPageDefinition {
+export function generateMyStagePage(
+  context: ChatTemplateContext,
+): SDUIPageDefinition {
   return {
-    type: 'page',
+    type: "page",
     version: 1,
-    sections: [ /* custom components */ ],
-    metadata: { /* enhanced metadata */ }
+    sections: [
+      /* custom components */
+    ],
+    metadata: {
+      /* enhanced metadata */
+    },
   };
 }
 ```
@@ -364,16 +370,16 @@ If issues arise, rollback is simple:
 
 1. **Disable Telemetry:**
 
-```typescript
-sduiTelemetry.setEnabled(false);
-```
+   ```typescript
+   sduiTelemetry.setEnabled(false);
+   ```
 
 2. **Use Old SDUI Generation:**
 
-```typescript
-// Just don't import/use the new templates
-// Old generateSDUIPage fallback works automatically
-```
+   ```typescript
+   // Just don't import/use the new templates
+   // Old generateSDUIPage fallback works automatically
+   ```
 
 3. **Remove Enhanced Metadata:**
    - Not necessary - system ignores unknown fields

@@ -4,9 +4,9 @@
 
 The Server-Driven UI (SDUI) implementation for ValueCanvas is **95% complete**. All core infrastructure, agent integration, and advanced features have been implemented. Only view migration and final optimization remain.
 
-**Status**: ✅ Core Implementation Complete  
-**Date**: 2025-11-27  
-**Total Duration**: 3 days (vs. estimated 6-8 weeks)  
+**Status**: ✅ Core Implementation Complete
+**Date**: 2025-11-27
+**Total Duration**: 3 days (vs. estimated 6-8 weeks)
 **Completion**: 95%
 
 ---
@@ -25,8 +25,8 @@ The Server-Driven UI (SDUI) implementation for ValueCanvas is **95% complete**. 
 4. **Type Definitions** - Complete type system
 5. **Integration Tests** - End-to-end flow testing
 
-**Files Created**: 7 files, ~2,500 lines of code  
-**Test Coverage**: 27 test cases  
+**Files Created**: 7 files, ~2,500 lines of code
+**Test Coverage**: 27 test cases
 **Documentation**: Complete
 
 **Key Achievement**: Server now controls UI composition and behavior
@@ -44,8 +44,8 @@ The Server-Driven UI (SDUI) implementation for ValueCanvas is **95% complete**. 
 3. **Server-Side State Management** - Centralized workspace state
 4. **Event-Driven Architecture** - Decoupled agent/workflow integration
 
-**Files Created**: 13 files, ~3,500 lines of code  
-**Test Coverage**: 45+ test cases  
+**Files Created**: 13 files, ~3,500 lines of code
+**Test Coverage**: 45+ test cases
 **Documentation**: Complete
 
 **Key Achievement**: Agents and workflows automatically update UI in real-time
@@ -62,8 +62,8 @@ The Server-Driven UI (SDUI) implementation for ValueCanvas is **95% complete**. 
 2. **Atomic UI Actions** - Surgical updates with optimistic rendering
 3. **Real-Time Updates** - WebSocket-based collaboration
 
-**Files Created**: 6 files, ~2,800 lines of code  
-**Test Coverage**: 60+ test cases (pending)  
+**Files Created**: 6 files, ~2,800 lines of code
+**Test Coverage**: 60+ test cases (pending)
 **Documentation**: Complete
 
 **Key Achievement**: Production-ready governance, performance, and collaboration
@@ -81,7 +81,7 @@ The Server-Driven UI (SDUI) implementation for ValueCanvas is **95% complete**. 
 3. **Testing** - Comprehensive test suite
 4. **Documentation** - Developer guides and training
 
-**Estimated Effort**: 2 weeks  
+**Estimated Effort**: 2 weeks
 **Priority**: Medium (core functionality complete)
 
 ---
@@ -90,7 +90,7 @@ The Server-Driven UI (SDUI) implementation for ValueCanvas is **95% complete**. 
 
 ### Complete System Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                         User Action                          │
 └─────────────────────────────────────────────────────────────┘
@@ -314,7 +314,7 @@ The Server-Driven UI (SDUI) implementation for ValueCanvas is **95% complete**. 
 
 ### Example 1: Agent Output → UI Update
 
-```
+```text
 1. SystemMapperAgent completes analysis
 2. AgentOutputListener receives output
 3. AgentSDUIAdapter analyzes impact
@@ -333,7 +333,7 @@ The Server-Driven UI (SDUI) implementation for ValueCanvas is **95% complete**. 
 
 ### Example 2: Workflow Transition → UI Update
 
-```
+```text
 1. Workflow transitions from opportunity → target
 2. WorkflowEventListener receives event
 3. WorkflowSDUIAdapter generates stage transition actions
@@ -349,7 +349,7 @@ The Server-Driven UI (SDUI) implementation for ValueCanvas is **95% complete**. 
 
 ### Example 3: User Action with Manifesto Violation
 
-```
+```text
 1. User attempts to update value tree without proper structure
 2. ActionRouter receives action
 3. ManifestoEnforcer checks rules
@@ -538,36 +538,36 @@ The Server-Driven UI (SDUI) implementation for ValueCanvas is **95% complete**. 
 
 ### 1. WebSocket Server Endpoint
 
-**Status**: Client infrastructure complete, server endpoint needed  
-**Impact**: Real-time updates require server implementation  
-**Workaround**: Polling as fallback  
+**Status**: Client infrastructure complete, server endpoint needed
+**Impact**: Real-time updates require server implementation
+**Workaround**: Polling as fallback
 **Priority**: High (deployment requirement)
 
 ---
 
 ### 2. View Migration
 
-**Status**: Infrastructure complete, views not migrated  
-**Impact**: Traditional React views still in use  
-**Workaround**: Feature flag allows gradual migration  
+**Status**: Infrastructure complete, views not migrated
+**Impact**: Traditional React views still in use
+**Workaround**: Feature flag allows gradual migration
 **Priority**: Medium (Phase 4)
 
 ---
 
 ### 3. Test Coverage
 
-**Status**: Core functionality tested, comprehensive suite pending  
-**Impact**: Some edge cases may not be covered  
-**Workaround**: Manual testing  
+**Status**: Core functionality tested, comprehensive suite pending
+**Impact**: Some edge cases may not be covered
+**Workaround**: Manual testing
 **Priority**: High (Phase 4)
 
 ---
 
 ### 4. Data Fetching Stubs
 
-**Status**: Canvas Schema Service has stub methods  
-**Impact**: Real data not fetched from Supabase  
-**Workaround**: Templates work with empty data  
+**Status**: Canvas Schema Service has stub methods
+**Impact**: Real data not fetched from Supabase
+**Workaround**: Templates work with empty data
 **Priority**: Medium (Phase 4)
 
 ---
@@ -583,7 +583,7 @@ VITE_ENABLE_SDUI=true
 
 ### Migrating a View
 
-**Step 1: Analyze Current View**
+## Step 1: Analyze Current View
 
 ```typescript
 // Current: OpportunityWorkspace.tsx
@@ -593,7 +593,7 @@ function OpportunityWorkspace() {
 }
 ```
 
-**Step 2: Create/Update SDUI Template**
+## Step 2: Create/Update SDUI Template
 
 ```typescript
 // Already exists: sof-opportunity-template.ts
@@ -608,7 +608,7 @@ export function generateSOFOpportunityPage(data: any): SDUIPageDefinition {
 }
 ```
 
-**Step 3: Implement Data Fetching**
+## Step 3: Implement Data Fetching
 
 ```typescript
 // In CanvasSchemaService
@@ -621,7 +621,7 @@ private async fetchOpportunityData(workspaceId: string) {
 }
 ```
 
-**Step 4: Add Action Handlers**
+## Step 4: Add Action Handlers
 
 ```typescript
 // In ActionRouter
@@ -630,7 +630,7 @@ this.registerHandler("createSystemMap", async (action, context) => {
 });
 ```
 
-**Step 5: Test End-to-End**
+## Step 5: Test End-to-End
 
 ```typescript
 // Enable SDUI, navigate to opportunity view
@@ -638,7 +638,7 @@ this.registerHandler("createSystemMap", async (action, context) => {
 // Test all actions work
 ```
 
-**Step 6: Remove Old Component**
+## Step 6: Remove Old Component
 
 ```bash
 # Once verified, remove old file
@@ -651,7 +651,7 @@ rm src/views/OpportunityWorkspace.tsx
 
 ### Creating a New SDUI Component
 
-**Step 1: Register Component**
+#### Step 1: Register Component
 
 ```typescript
 // In src/sdui/registry.tsx
@@ -661,7 +661,7 @@ export const COMPONENT_REGISTRY = {
 };
 ```
 
-**Step 2: Define Props Schema**
+#### Step 2: Define Props Schema
 
 ```typescript
 // In component file
@@ -672,7 +672,7 @@ export interface MyNewComponentProps {
 }
 ```
 
-**Step 3: Use in Template**
+#### Step 3: Use in Template
 
 ```typescript
 // In template file
@@ -689,7 +689,7 @@ export interface MyNewComponentProps {
 
 ### Creating a New Canonical Action
 
-**Step 1: Define Action Type**
+#### Step 1: Define Action Type
 
 ```typescript
 // In src/types/sdui-integration.ts
@@ -698,7 +698,7 @@ export type CanonicalAction =
   | // ... existing actions
 ```
 
-**Step 2: Register Handler**
+#### Step 2: Register Handler
 
 ```typescript
 // In ActionRouter
@@ -709,7 +709,7 @@ this.registerHandler("myNewAction", async (action, context) => {
 });
 ```
 
-**Step 3: Add Manifesto Rules (if needed)**
+#### Step 3: Add Manifesto Rules (if needed)
 
 ```typescript
 // In ManifestoEnforcer
@@ -724,19 +724,19 @@ if (action.type === "myNewAction") {
 
 ### Common Issues
 
-**Issue**: SDUI not rendering  
+**Issue**: SDUI not rendering
 **Solution**: Check `VITE_ENABLE_SDUI` environment variable
 
-**Issue**: Schema generation fails  
+**Issue**: Schema generation fails
 **Solution**: Check Canvas Schema Service logs, verify data fetching
 
-**Issue**: Actions not working  
+**Issue**: Actions not working
 **Solution**: Check Action Router logs, verify handler registration
 
-**Issue**: Real-time updates not received  
+**Issue**: Real-time updates not received
 **Solution**: Check WebSocket connection, verify server endpoint
 
-**Issue**: Manifesto violations not showing  
+**Issue**: Manifesto violations not showing
 **Solution**: Check IntegrityWarningGenerator, verify component registry
 
 ---
@@ -783,12 +783,12 @@ if (action.type === "myNewAction") {
 
 The SDUI implementation for ValueCanvas is **95% complete** with all core infrastructure in place:
 
-✅ **Server-Driven Architecture** - Server controls UI composition  
-✅ **Agent Integration** - Agents automatically update UI  
-✅ **Workflow Integration** - Workflows drive UI transitions  
-✅ **Governance** - Manifesto rules enforced on all actions  
-✅ **Performance** - Optimistic updates feel instant  
-✅ **Collaboration** - Real-time updates enable teamwork  
+✅ **Server-Driven Architecture** - Server controls UI composition
+✅ **Agent Integration** - Agents automatically update UI
+✅ **Workflow Integration** - Workflows drive UI transitions
+✅ **Governance** - Manifesto rules enforced on all actions
+✅ **Performance** - Optimistic updates feel instant
+✅ **Collaboration** - Real-time updates enable teamwork
 ✅ **Reliability** - Rollback prevents bad states
 
 **What's Left**: View migration, testing, and optimization (Phase 4)
@@ -805,6 +805,6 @@ The SDUI implementation for ValueCanvas is **95% complete** with all core infras
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: 2025-11-27  
+**Document Version**: 1.0
+**Last Updated**: 2025-11-27
 **Author**: Ona (AI Software Engineering Agent)

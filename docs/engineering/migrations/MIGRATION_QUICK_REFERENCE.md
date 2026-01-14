@@ -341,9 +341,9 @@ CREATE POLICY "service_role_bypass" ON table_name FOR ALL TO service_role USING 
 
 ---
 
-## 🎯 **Decision Tree**
+## 🎯 Decision Tree
 
-```
+```text
 Need to change schema?
   │
   ├─ Adding something? → Low risk, just do it
@@ -360,19 +360,19 @@ Need to change schema?
 
 ## 📞 **Quick Help**
 
-**Issue:** Migration fails  
+**Issue:** Migration fails
 **Fix:** Check error message, verify syntax, ensure prerequisites met
 
-**Issue:** Rollback needed  
+**Issue:** Rollback needed
 **Fix:** Run rollback SQL, verify with queries
 
-**Issue:** Performance slow  
+**Issue:** Performance slow
 **Fix:** Check indexes, use EXPLAIN ANALYZE, add WHERE clauses
 
-**Issue:** RLS blocking access  
+**Issue:** RLS blocking access
 **Fix:** Check policies, ensure service role bypass exists
 
-**Issue:** Can't undo change  
+**Issue:** Can't undo change
 **Fix:** Restore from backup (always backup first!)
 
 ---
@@ -386,5 +386,5 @@ Need to change schema?
 
 ---
 
-**Last Updated:** December 1, 2025  
+**Last Updated:** December 1, 2025
 **Print this page and keep it visible!** 🖨️

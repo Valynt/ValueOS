@@ -1,7 +1,6 @@
 # Supabase CLI
 
-[![Coverage Status](https://coveralls.io/repos/github/supabase/cli/badge.svg?branch=main)](https://coveralls.io/github/supabase/cli?branch=main) [![Bitbucket Pipelines](https://img.shields.io/bitbucket/pipelines/supabase-cli/setup-cli/master?style=flat-square&label=Bitbucket%20Canary)](https://bitbucket.org/supabase-cli/setup-cli/pipelines) [![Gitlab Pipeline Status](https://img.shields.io/gitlab/pipeline-status/sweatybridge%2Fsetup-cli?label=Gitlab%20Canary)
-](https://gitlab.com/sweatybridge/setup-cli/-/pipelines)
+[![Coverage Status](https://coveralls.io/repos/github/supabase/cli/badge.svg?branch=main)](https://coveralls.io/github/supabase/cli?branch=main) [![Bitbucket Pipelines](https://img.shields.io/bitbucket/pipelines/supabase-cli/setup-cli/master?style=flat-square&label=Bitbucket%20Canary)](https://bitbucket.org/supabase-cli/setup-cli/pipelines) [![Gitlab Pipeline Status](https://img.shields.io/gitlab/pipeline-status/sweatybridge%2Fsetup-cli?label=Gitlab%20Canary)](https://gitlab.com/sweatybridge/setup-cli/-/pipelines)
 
 [Supabase](https://supabase.io) is an open source Firebase alternative. We're building the features of Firebase using enterprise-grade open source tools.
 
@@ -25,15 +24,14 @@ npm i supabase --save-dev
 
 When installing with yarn 4, you need to disable experimental fetch with the following nodejs config.
 
-```
+```bash
 NODE_OPTIONS=--no-experimental-fetch yarn add supabase
 ```
 
 > **Note**
 > For Bun versions below v1.0.17, you must add `supabase` as a [trusted dependency](https://bun.sh/guides/install/trusted) before running `bun add -D supabase`.
 
-<details>
-  <summary><b>macOS</b></summary>
+### macOS
 
 Available via [Homebrew](https://brew.sh). To install:
 
@@ -54,10 +52,7 @@ To upgrade:
 brew upgrade supabase
 ```
 
-</details>
-
-<details>
-  <summary><b>Windows</b></summary>
+### Windows
 
 Available via [Scoop](https://scoop.sh). To install:
 
@@ -72,10 +67,7 @@ To upgrade:
 scoop update supabase
 ```
 
-</details>
-
-<details>
-  <summary><b>Linux</b></summary>
+### Linux
 
 Available via [Homebrew](https://brew.sh) and Linux packages.
 
@@ -113,10 +105,7 @@ sudo rpm -i <...>.rpm
 sudo pacman -U <...>.pkg.tar.zst
 ```
 
-</details>
-
-<details>
-  <summary><b>Other Platforms</b></summary>
+### Other Platforms
 
 You can also install the CLI via [go modules](https://go.dev/ref/mod#go-install) without the help of package managers.
 
@@ -132,21 +121,16 @@ ln -s "$(go env GOPATH)/bin/cli" /usr/bin/supabase
 
 This works on other non-standard Linux distros.
 
-</details>
+### Community Maintained Packages
 
-<details>
-  <summary><b>Community Maintained Packages</b></summary>
-
-Available via [pkgx](https://pkgx.sh/). Package script [here](https://github.com/pkgxdev/pantry/blob/main/projects/supabase.com/cli/package.yml).
+Available via [pkgx](https://pkgx.sh/). View the [package script](https://github.com/pkgxdev/pantry/blob/main/projects/supabase.com/cli/package.yml).
 To install in your working directory:
 
 ```bash
 pkgx install supabase
 ```
 
-Available via [Nixpkgs](https://nixos.org/). Package script [here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/supabase-cli/default.nix).
-
-</details>
+Available via [Nixpkgs](https://nixos.org/). View the [package script](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/supabase-cli/default.nix).
 
 ### Run the CLI
 
@@ -164,7 +148,7 @@ The bootstrap command will guide you through the process of setting up a Supabas
 
 ## Docs
 
-Command & config reference can be found [here](https://supabase.com/docs/reference/cli/about).
+Command & config reference can be found in the [Supabase CLI documentation](https://supabase.com/docs/reference/cli/about).
 
 ## Breaking changes
 

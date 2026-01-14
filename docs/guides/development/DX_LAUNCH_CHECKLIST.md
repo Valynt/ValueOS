@@ -136,8 +136,7 @@ Ask in #engineering - we're here to help!
 
 Happy coding! 🚀
 
-````
-
+````text
 ---
 
 ## Success Criteria
@@ -302,7 +301,7 @@ All tests passing, no known blockers.
 ### Support Channels
 
 - **Slack**: #engineering
-- **Email**: dx-feedback@valueos.com
+- **Email**: [dx-feedback@valueos.com](mailto:dx-feedback@valueos.com)
 - **GitHub**: [Issues](https://github.com/Valynt/ValueOS/issues)
 
 ### DX Team
@@ -325,7 +324,7 @@ All tests passing, no known blockers.
 - [ ] Team briefed
 - [ ] Announcement drafted
 
-### Launch Day
+### Launch Day Tasks
 
 - [ ] Announcement posted
 - [ ] Monitoring active
@@ -343,7 +342,7 @@ All tests passing, no known blockers.
 
 ## Celebration Plan
 
-### Launch Day
+### Launch Day Celebration
 
 - 🎉 Announcement in #engineering
 - 🎉 Demo in team meeting

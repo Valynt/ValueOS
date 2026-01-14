@@ -1,7 +1,7 @@
 # VALYNT Design Token Validation
 
-**Version**: 1.0  
-**Last Updated**: January 5, 2026  
+**Version**: 1.0
+**Last Updated**: January 5, 2026
 **Status**: Active in CI/CD
 
 ---
@@ -18,7 +18,7 @@ Automated validation ensures all code follows VALYNT design system rules. The va
 
 ### 1. No Raw Hex Colors
 
-**Severity**: Error  
+**Severity**: Error
 **Rule**: Use semantic color tokens instead of hex values
 
 ❌ **Bad**:
@@ -43,7 +43,7 @@ const color = '#18C3A5';
 
 ### 2. No Raw RGB Colors
 
-**Severity**: Error  
+**Severity**: Error
 **Rule**: Use semantic color tokens instead of rgb/rgba values
 
 ❌ **Bad**:
@@ -64,7 +64,7 @@ const color = '#18C3A5';
 
 ### 3. No Raw Pixel Values
 
-**Severity**: Warning  
+**Severity**: Warning
 **Rule**: Use spacing tokens instead of raw px values
 
 ❌ **Bad**:
@@ -86,7 +86,7 @@ const color = '#18C3A5';
 
 ### 4. No Inline Styles
 
-**Severity**: Warning  
+**Severity**: Warning
 **Rule**: Use className with Tailwind/CSS instead of inline styles
 
 ❌ **Bad**:
@@ -107,7 +107,7 @@ const color = '#18C3A5';
 
 ### 5. No Non-Semantic Color Classes
 
-**Severity**: Error  
+**Severity**: Error
 **Rule**: Use VALYNT semantic tokens instead of Tailwind color scales
 
 ❌ **Bad**:
@@ -239,20 +239,20 @@ Sometimes you need to use raw values (e.g., third-party libraries, dynamic color
 
 ### Jobs
 
-**1. validate-design-tokens**
+#### 1. validate-design-tokens
 
 - Runs validation script
 - Reports violations
 - Fails on errors (blocks merge)
 - Warns on warnings (doesn't block)
 
-**2. check-token-drift**
+#### 2. check-token-drift
 
 - Detects changes to CSS variables
 - Detects changes to Tailwind config
 - Warns if design tokens are modified
 
-**3. generate-token-report**
+#### 3. generate-token-report
 
 - Counts token usage
 - Reports non-compliant patterns

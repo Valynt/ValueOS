@@ -1,6 +1,6 @@
 # Quick Reference Guide
 
-**Purpose:** Fast lookup for common tasks and commands  
+**Purpose:** Fast lookup for common tasks and commands
 **Audience:** Developers working with ValueOS
 
 ---
@@ -366,7 +366,7 @@ function isUser(obj: unknown): obj is User {
 
 ## File Structure
 
-```
+```text
 src/
 ├── agents/           # Agent implementations
 ├── components/       # React components
@@ -561,5 +561,5 @@ const result = schema.safeParse(input);
 
 ---
 
-**Last Updated:** November 22, 2024  
+**Last Updated:** November 22, 2024
 **Print this for quick reference!**

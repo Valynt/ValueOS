@@ -1,7 +1,7 @@
 # Enterprise Settings Architecture
 
-**Version**: 2.0  
-**Last Updated**: January 5, 2026  
+**Version**: 2.0
+**Last Updated**: January 5, 2026
 **Status**: Production Ready
 
 ---
@@ -18,7 +18,7 @@ ValueOS settings system has evolved into a resilient, enterprise-grade architect
 
 ## Architecture Diagram
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                     Settings Architecture                    │
 ├─────────────────────────────────────────────────────────────┤
@@ -49,7 +49,7 @@ ValueOS settings system has evolved into a resilient, enterprise-grade architect
 
 ## 1. Zod Validation: Runtime Type Safety
 
-### Problem
+### Zod Validation Problem
 
 Settings are stored in JSONB columns. TypeScript alone cannot guarantee that database data matches expected format.
 
@@ -64,7 +64,7 @@ const settings: OrgSecurity = await fetchSettings();
 // { "passwordPolicy": null } ← missing required field
 ```
 
-### Solution
+### Zod Validation Solution
 
 Zod validates payloads at API boundaries and inside the application.
 
@@ -89,7 +89,7 @@ export type OrgSecurity = z.infer<typeof OrgSecuritySchema>;
 
 ### Implementation Strategy
 
-**1. Centralized Schemas**
+### 1. Centralized Schemas
 
 All schemas in one file for consistency:
 
@@ -97,7 +97,7 @@ All schemas in one file for consistency:
 - `TeamWorkflowSchema`, `TeamNotificationsSchema`
 - `OrgSecuritySchema`, `OrgBrandingSchema`, `OrgBillingSchema`
 
-**2. Strict Transformation**
+### 2. Strict Transformation
 
 ```typescript
 // Fetching data: Use .parse() to ensure valid data
@@ -107,7 +107,7 @@ const settings = OrgSecuritySchema.parse(dbData);
 const update = OrgSecuritySchema.partial().parse(userInput);
 ```
 
-**3. Inferred Types**
+### 3. Inferred Types
 
 Let Zod drive TypeScript types:
 
@@ -143,19 +143,19 @@ if (!result.success) {
 const settings = parseSettingsWithDefaults(OrgSecuritySchema, dbData);
 ```
 
-### Benefits
+### Zod Validation Benefits
 
-✅ **Runtime Safety**: Catches invalid data before it reaches UI  
-✅ **Type Inference**: Single source of truth for types  
-✅ **Detailed Errors**: Know exactly what's wrong  
-✅ **Default Values**: Automatic fallback to safe defaults  
+✅ **Runtime Type Safety**: Catches invalid data before it reaches UI
+✅ **Type Inference**: Single source of truth for types
+✅ **Detailed Errors**: Know exactly what's wrong
+✅ **Default Values**: Automatic fallback to safe defaults
 ✅ **Validation Rules**: Min/max, regex, custom validators
 
 ---
 
 ## 2. Optimistic UI: Zero-Latency Interactions
 
-### Problem
+### Optimistic UI Problem
 
 Traditional approach waits for server confirmation before updating UI:
 
@@ -175,7 +175,7 @@ const handleToggle = async () => {
 - Poor user experience
 - Feels unresponsive
 
-### Solution
+### Optimistic UI Solution
 
 Update UI immediately, rollback on failure.
 
@@ -199,7 +199,7 @@ await actions.update({ enforceMFA: true });
 
 ### Implementation Steps
 
-**1. Capture Current State**
+### 1. Capture Current State
 
 Before update, save current state for potential rollback:
 
@@ -207,7 +207,7 @@ Before update, save current state for potential rollback:
 const previousData = { ...data };
 ```
 
-**2. Update Local State**
+### 2. Update Local State
 
 Immediately update UI with new value:
 
@@ -215,7 +215,7 @@ Immediately update UI with new value:
 setData(mergedData); // UI updates instantly
 ```
 
-**3. Execute & Catch**
+### 3. Execute & Catch
 
 Perform API call in background:
 
@@ -230,7 +230,7 @@ try {
 }
 ```
 
-**4. Revalidation**
+### 4. Revalidation
 
 Optionally use TanStack Query to ensure eventual consistency:
 
@@ -288,19 +288,19 @@ const [value, setValue, { isUpdating, error }] = useOptimisticValue(
 );
 ```
 
-### Benefits
+### Optimistic UI Benefits
 
-✅ **Instant Feedback**: UI updates immediately  
-✅ **Automatic Rollback**: No manual error handling  
-✅ **Better UX**: Feels responsive and fast  
-✅ **Error Recovery**: Graceful handling of failures  
+✅ **Instant Feedback**: UI updates immediately
+✅ **Automatic Rollback**: No manual error handling
+✅ **Better UX**: Feels responsive and fast
+✅ **Error Recovery**: Graceful handling of failures
 ✅ **Queue Management**: Handles rapid updates correctly
 
 ---
 
 ## 3. Settings Templates: Rapid Tenant Onboarding
 
-### Problem
+### Templates Problem
 
 New organization admins face "decision fatigue" when configuring settings:
 
@@ -309,7 +309,7 @@ New organization admins face "decision fatigue" when configuring settings:
 - Industry-specific requirements
 - Time-consuming setup
 
-### Solution
+### Templates Solution
 
 Pre-configured templates based on industry and security needs.
 
@@ -426,12 +426,12 @@ Features:
 - Real-time feature comparison
 - Disabled state during application
 
-### Benefits
+### Template Benefits
 
-✅ **Reduced Onboarding Time**: 5 minutes instead of 30+  
-✅ **Industry Best Practices**: Pre-configured for specific needs  
-✅ **Decision Fatigue Reduction**: Clear, simple choices  
-✅ **Compliance Ready**: Strict template meets common requirements  
+✅ **Reduced Onboarding Time**: 5 minutes instead of 30+
+✅ **Industry Best Practices**: Pre-configured for specific needs
+✅ **Decision Fatigue Reduction**: Clear, simple choices
+✅ **Compliance Ready**: Strict template meets common requirements
 ✅ **Customizable**: Templates are starting points, not restrictions
 
 ---

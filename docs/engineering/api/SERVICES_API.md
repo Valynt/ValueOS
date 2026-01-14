@@ -88,7 +88,7 @@ enum ErrorCode {
 
 Centralized settings management with strong typing and validation.
 
-#### **Features**:
+#### Features
 
 - Type-safe setting storage (string, number, boolean, object, array)
 - Scope-based isolation (user, team, organization)
@@ -97,7 +97,7 @@ Centralized settings management with strong typing and validation.
 - Upsert functionality
 - Validation on type mismatch
 
-#### **Usage**:
+#### Usage
 
 ```typescript
 import { settingsService } from "./services";
@@ -144,7 +144,7 @@ await settingsService.bulkUpdateSettings("user", userId, {
 await settingsService.deleteSetting("theme", "user", userId);
 ```
 
-#### **Database Schema**:
+#### Database Schema
 
 ```sql
 CREATE TABLE settings (
@@ -168,13 +168,13 @@ CREATE TABLE settings (
 
 User profile and preference management.
 
-#### **Features**:
+#### UserSettingsService Features
 
 - Profile CRUD operations
 - Preference management with defaults
 - Account deletion
 
-#### **Usage**:
+#### UserSettingsService Usage
 
 ```typescript
 import { userSettingsService } from "./services";
@@ -203,7 +203,7 @@ await userSettingsService.updatePreferences(userId, {
 await userSettingsService.deleteAccount(userId);
 ```
 
-#### **Interfaces**:
+#### Interfaces
 
 ```typescript
 interface UserProfile {
@@ -235,14 +235,14 @@ interface UserPreferences {
 
 Session management and authentication operations using Supabase Auth.
 
-#### **Features**:
+#### AuthService Features
 
 - Email/password authentication
 - Session management
 - Password reset
 - Token refresh
 
-#### **Usage**:
+#### AuthService Usage
 
 ```typescript
 import { authService } from "./services";
@@ -282,7 +282,7 @@ await authService.updatePassword("newpassword");
 const isAuth = await authService.isAuthenticated();
 ```
 
-#### **Security**:
+#### Security
 
 - Minimum 8-character passwords
 - Secure session storage
@@ -297,7 +297,7 @@ const isAuth = await authService.isAuthenticated();
 
 Role-based access control (RBAC) implementation.
 
-#### **Features**:
+#### PermissionService Features
 
 - Fine-grained permissions
 - Role-based authorization
@@ -305,7 +305,7 @@ Role-based access control (RBAC) implementation.
 - Permission caching
 - Bulk permission checks
 
-#### **Usage**:
+#### PermissionService Usage
 
 ```typescript
 import { permissionService } from "./services";
@@ -352,7 +352,7 @@ await permissionService.assignRole(userId, roleId, "team", teamId);
 await permissionService.removeRole(userId, roleId, "team", teamId);
 ```
 
-#### **Available Permissions**:
+#### Available Permissions
 
 ```typescript
 type Permission =
@@ -376,7 +376,7 @@ type Permission =
 
 Comprehensive audit logging with advanced querying and export capabilities.
 
-#### **Features**:
+#### AuditLogService Features
 
 - Automatic event logging
 - Advanced filtering
@@ -384,7 +384,7 @@ Comprehensive audit logging with advanced querying and export capabilities.
 - Statistics and analytics
 - Data retention management
 
-#### **Usage**:
+#### AuditLogService Usage
 
 ```typescript
 import { auditLogService } from "./services";
@@ -446,7 +446,7 @@ const deletedCount = await auditLogService.deleteOldLogs(
 );
 ```
 
-#### **Query Interface**:
+#### Query Interface
 
 ```typescript
 interface AuditLogQuery {

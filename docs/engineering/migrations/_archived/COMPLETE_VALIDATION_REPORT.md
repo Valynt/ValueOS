@@ -1,7 +1,7 @@
 # Complete High-Priority Migration Validation Report
 
-**Date:** December 1, 2025  
-**Total Migrations Validated:** 45  
+**Date:** December 1, 2025
+**Total Migrations Validated:** 45
 **Validation Status:** 🔴 **CRITICAL ISSUES FOUND**
 
 ---
@@ -23,25 +23,21 @@
 | **11. Policy Permissiveness** | 🔴 FAIL | 15       | 0    | 0      | 0   |
 | **12. Vector Indexes**        | 🟢 PASS | 0        | 0    | 0      | 0   |
 
-**Total Issues: 51**
-
-- 🔴 **Critical:** 31 (Must fix before production)
-- 🟡 **High:** 17 (Should fix)
-- 🟠 **Medium:** 3 (Nice to have)
+## Total Issues: 51
 
 ---
 
 ## 🔴 CRITICAL ISSUES (Must Fix)
 
-### **1. Forward Reference Violations (9 issues)**
+### 1. Forward Reference Violations (9 issues)
 
-#### **Issue 1.1: auth.users References**
+#### Issue 1.1: auth.users References
 
 **Severity:** 🔴 CRITICAL
 
 **Affected Files (5):**
 
-```
+```text
 20241123110000_add_llm_monitoring.sql
 20241123120000_add_prompt_version_control.sql
 20241123130000_add_feature_flags.sql
@@ -70,13 +66,13 @@ END $$;
 
 ---
 
-#### **Issue 1.2: agent_sessions Forward Reference**
+#### Issue 1.2: agent_sessions References
 
 **Severity:** 🔴 CRITICAL
 
 **Affected Files (2):**
 
-```
+```text
 20241123110000_add_llm_monitoring.sql
 20241127120000_observability_tables.sql
 ```
@@ -90,7 +86,7 @@ END $$;
 
 ---
 
-#### **Issue 1.3: value_cases Forward Reference**
+#### Issue 1.3: value_cases Forward Reference
 
 **Severity:** 🔴 CRITICAL (Already Fixed ✅)
 
@@ -100,9 +96,9 @@ END $$;
 
 ---
 
-### **2. Missing RLS on Critical Tables (20 issues)**
+### 2. Missing RLS on Critical Tables (20 issues)
 
-#### **Issue 2.1: Agent Predictions Missing RLS**
+#### Issue 2.1: Agent Predictions Missing RLS
 
 **Severity:** 🔴 CRITICAL
 
@@ -237,7 +233,8 @@ CREATE POLICY "Service role only"
 
 ---
 
-####Issue 2.6: Provenance Tables Missing RLS\*\*
+#### Issue 2.6: Provenance Tables Missing RLS
+
 **Severity:** 🟡 HIGH
 
 **File:** `20251118000000_add_provenance_tracking.sql`
@@ -259,7 +256,7 @@ CREATE POLICY "Service role only"
 
 **Affected Tables:**
 
-```
+```text
 audit_logs (enterprise_saas_settings)
 security_audit_log (strict_rls_policies)
 agent_audit_log (agent_fabric)
@@ -374,7 +371,7 @@ CREATE POLICY "Service role can insert"
 
 **Affected:**
 
-```
+```text
 prediction_id (2 occurrences)
 user_id (tenant_integrations)
 second_approver_id (approval_system)
@@ -532,6 +529,7 @@ GRANT EXECUTE ON FUNCTION my_function() TO authenticated;
    ```
 
 4. **Make Audit Logs Immutable:**
+
    ```sql
    -- Add to each audit table migration:
    REVOKE UPDATE, DELETE ON audit_logs FROM PUBLIC;
@@ -540,34 +538,34 @@ GRANT EXECUTE ON FUNCTION my_function() TO authenticated;
 
 ---
 
-### **🟡 BEFORE PRODUCTION (High Priority)**
+### 🟡 BEFORE PRODUCTION (High Priority)
 
-5. **Review All USING(true) Policies:**
+1. **Review All USING(true) Policies:**
    - Scope to service_role where needed
    - Add proper role checks
 
-6. **Add Missing FK Indexes:**
+2. **Add Missing FK Indexes:**
    - prediction_id
    - user_id
    - owner_id
 
-7. **Secure SECURITY DEFINER Functions:**
+3. **Secure SECURITY DEFINER Functions:**
    - Add SET search_path
    - Review permissions
 
-8. **Enable RLS on Remaining Tables:**
+4. **Enable RLS on Remaining Tables:**
    - integration_usage_log
    - webhook_events
    - provenance tables
 
 ---
 
-### **🟢 POST-DEPLOYMENT (Monitoring)**
+### 🟢 POST-DEPLOYMENT (Monitoring)
 
-9. Monitor query performance
-10. Verify RLS enforcement with test queries
-11. Check audit log immutability
-12. Validate billing webhook security
+1. Monitor query performance
+2. Verify RLS enforcement with test queries
+3. Check audit log immutability
+4. Validate billing webhook security
 
 ---
 
@@ -635,7 +633,7 @@ WHERE tgrelid = 'audit_logs'::regclass;
 
 ## 📊 Validation Summary
 
-```
+```text
 Total Validations Run:     18
 Critical Issues Found:     31
 High Priority Warnings:    17
@@ -667,6 +665,6 @@ TOTAL:                     7-10 hours
 
 ---
 
-**Validation Complete**  
-**Report Generated:** December 1, 2025  
+**Validation Complete**
+**Report Generated:** December 1, 2025
 **Validator:** Automated Migration Analysis Tool
