@@ -1,8 +1,14 @@
 /**
  * Integration Tests for Canvas Workspace Pipeline
  *
- * Tests the complete flow from user command to canvas rendering.
- * Covers session management, command processing, AI integration, and SDUI rendering.
+ * Comprehensive test suite covering the complete flow from user command submission
+ * through AI processing to SDUI rendering. Tests session management, command processing,
+ * AI integration, and SDUI rendering with proper error handling and accessibility.
+ *
+ * @testSuite Canvas Workflow Integration
+ * @coverage End-to-end pipeline testing
+ * @author ValueOS Testing Team
+ * @since 2024-01-01
  */
 
 import React, { useState } from 'react';
@@ -105,7 +111,22 @@ describe('Canvas Workspace Pipeline Integration Tests', () => {
     Object.assign(mockAgentChatService, testSetup.agentChatService);
   });
 
+  /**
+   * Test suite for Session Management functionality
+   *
+   * Covers user authentication, session creation, resuming existing sessions,
+   * and proper session cleanup. Ensures that session state is properly maintained
+   * across component interactions and page refreshes.
+   */
   describe('Session Management', () => {
+    /**
+     * Tests basic user session initialization and case loading
+     *
+     * Verifies that:
+     * - User authentication is properly validated
+     * - Session data is correctly loaded from storage
+     * - UI components receive proper session context
+     */
     it('should initialize user session and load cases', async () => {
       render(
         <TestWrapper>
@@ -118,6 +139,15 @@ describe('Canvas Workspace Pipeline Integration Tests', () => {
       });
     });
 
+    /**
+     * Tests new session creation when a case is selected
+     *
+     * Verifies that:
+     * - Session service is called with correct parameters
+     * - Initial workflow state is properly configured
+     * - Case context is correctly passed to the session
+     * - Session ID is properly generated and stored
+     */
     it('should create new session when case is selected', async () => {
       const mockWorkflowStateService = new WorkflowStateService(mockSupabase);
       const mockCreateSession = vi.spyOn(mockWorkflowStateService, 'loadOrCreateSession');
@@ -151,6 +181,15 @@ describe('Canvas Workspace Pipeline Integration Tests', () => {
       });
     });
 
+    /**
+     * Tests resuming existing sessions when available
+     *
+     * Verifies that:
+     * - Existing sessions are properly detected and resumed
+     * - Workflow state is correctly restored
+     * - Session continuity is maintained across interactions
+     * - No duplicate sessions are created
+     */
     it('should resume existing session when available', async () => {
       const mockWorkflowStateService = new WorkflowStateService(mockSupabase);
       const mockCreateSession = vi.spyOn(mockWorkflowStateService, 'loadOrCreateSession');
@@ -177,7 +216,23 @@ describe('Canvas Workspace Pipeline Integration Tests', () => {
     });
   });
 
+  /**
+   * Test suite for Command Processing functionality
+   *
+   * Covers user command submission, AI agent processing, error handling,
+   * and retry mechanisms. Ensures commands are processed reliably with
+   * proper feedback and error recovery.
+   */
   describe('Command Processing', () => {
+    /**
+     * Tests successful command processing through AI agent
+     *
+     * Verifies that:
+     * - User commands are properly formatted and sent
+     * - AI agent receives correct context and parameters
+     * - Processing state is properly managed
+     * - Success responses are handled correctly
+     */
     it('should process user command through AI agent', async () => {
       const TestComponent = () => {
         const { processCommand, isProcessing } = useCanvasCommand({
@@ -234,6 +289,16 @@ describe('Canvas Workspace Pipeline Integration Tests', () => {
       });
     });
 
+    /**
+     * Tests graceful error handling for command processing failures
+     *
+     * Verifies that:
+     * - Errors are caught and handled without crashing
+     * - User feedback is provided for error conditions
+     * - Processing state is properly reset after errors
+     * - Error telemetry is properly recorded
+     * - UI remains responsive during error conditions
+     */
     it('should handle command processing errors gracefully', async () => {
       const errorMessage = 'AI service unavailable';
       const errorSetup = createErrorTestSetup(errorMessage);
@@ -302,6 +367,16 @@ describe('Canvas Workspace Pipeline Integration Tests', () => {
       expect(screen.queryByText('Processing...')).not.toBeInTheDocument();
     });
 
+    /**
+     * Tests network error handling and retry capabilities
+     *
+     * Verifies that:
+     * - Network timeouts are properly detected
+     * - Retry mechanisms work as expected
+     * - Multiple failures don't cause UI lockup
+     * - Success after retry is handled correctly
+     * - Retry count is properly tracked
+     */
     it('should handle network errors with retry capability', async () => {
       const networkError = new Error('Network timeout');
       const retrySetup = createErrorTestSetup('Network timeout');
