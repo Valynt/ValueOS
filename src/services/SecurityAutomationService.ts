@@ -256,10 +256,11 @@ export class SecurityAutomationService extends TenantAwareService {
       }
     }
 
-    const successRate = responses.length > 0 ? (completed / responses.length) * 100 : 100;
+    const successRate =
+      transformedResponses.length > 0 ? (completed / transformedResponses.length) * 100 : 100;
 
     // Update incident status if all automated responses completed
-    if (completed === responses.length && responses.length > 0) {
+    if (completed === transformedResponses.length && transformedResponses.length > 0) {
       await this.updateIncidentStatus(incidentId, tenantId, "contained");
     }
 

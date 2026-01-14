@@ -183,7 +183,7 @@ export default defineConfig(({ mode }) => {
       },
       hmr: {
         port: 5173,
-        clientPort: 5174,
+        clientPort: 5173,
       },
       fs: {
         strict: true,
