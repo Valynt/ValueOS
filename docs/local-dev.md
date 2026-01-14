@@ -44,6 +44,50 @@ Login with the credentials displayed after running `npm run seed:demo`.
 - `npm run env:status` - Show current environment
 - `npm run env:validate` - Validate environment configuration
 
+### Devcontainer & Codespaces
+
+- The repository includes a preconfigured development container in `.devcontainer/` that works with VS Code Dev Containers and GitHub Codespaces. It provides Docker-in-Docker support, common tooling, and port forwarding for the full local stack.
+- To open in VS Code (local devcontainer): Command Palette → "Dev Containers: Reopen in Container". To use Codespaces: click the green "Code" button in GitHub and choose "Open with Codespaces".
+- Inside the container run the usual setup commands:
+
+```bash
+npm install
+npm run env:dev
+npm run dx
+```
+
+- Common forwarded ports: `5173` (frontend), `3001` (backend), `5432` (Postgres), `6379` (Redis), `54321`/`54323` (Supabase API/Studio).
+- If you only need to work on the frontend, you can point `.env.local` at a staging backend/Supabase and run `npm run dev` for a fast iteration loop.
+
+Quick setup script
+
+We include a small helper script to run the common bootstrap commands from inside the devcontainer or Codespace. The script is non-destructive by default — it prints the `db:reset`/`seed:demo` commands and prompts before running them.
+
+Usage inside the container or Codespace:
+
+```bash
+# make executable once
+chmod +x scripts/devcontainer-setup.sh
+
+# run the helper (will prompt before destructive actions)
+./scripts/devcontainer-setup.sh
+```
+
+If you prefer to run the commands manually, the sequence is:
+
+```bash
+npm install
+npm run env:dev
+npm run dx
+# wait for services to be healthy, then (optional, destructive)
+npm run db:reset
+npm run seed:demo
+```
+
+Open the app in your browser using the forwarded port (container/Codespaces Ports view): `http://localhost:5173` or use the Codespaces public preview for port `5173`.
+
+If you want to share the running app externally, use an HTTP tunnel (ngrok/cloudflared) on port `5173`.
+
 ### Development Stack (DX)
 
 - `npm run dx` - Start local development stack
