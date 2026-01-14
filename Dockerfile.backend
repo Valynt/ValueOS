@@ -1,0 +1,70 @@
+# Multi-stage production build for Backend API Server
+# Stage 1: Build environment (using same base as dev for consistency)
+FROM mcr.microsoft.com/devcontainers/typescript-node:1-20-bookworm AS builder
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json .npmrc ./
+
+# Install all dependencies for build (including dev dependencies)
+ENV npm_config_ignore_scripts=true
+RUN npm ci
+
+# Copy source files
+COPY . .
+
+# Build the backend application
+RUN npm run build:backend || npx tsc -p tsconfig.backend.json
+
+# Prune dev dependencies for production
+RUN npm prune --production
+
+# Stage 2: Security scanning
+FROM builder AS security-scan
+
+# Install trivy for vulnerability scanning
+RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+# Scan filesystem for vulnerabilities
+RUN trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /app
+
+# Stage 3: Production runtime
+FROM node:20-bookworm-slim AS production
+
+# Install dumb-init for proper signal handling
+RUN apt-get update && apt-get install -y --no-install-recommends dumb-init && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Create non-root user (matching dev environment security)
+RUN groupadd -r nodejs -g 1001 && \
+    useradd -r nodejs -u 1001 -g nodejs && \
+    chown -R nodejs:nodejs /app
+
+# Copy built application and production dependencies
+COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
+
+# Runtime security scan (final check)
+RUN apt-get update && apt-get install -y curl && \
+    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin && \
+    trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /app && \
+    apt-get remove -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/* && \
+    rm /usr/local/bin/trivy
+
+# Switch to non-root user
+USER nodejs
+
+# Add healthcheck
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+EXPOSE 3001
+
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
+
+CMD ["npx", "tsx", "src/backend/server.ts"]
