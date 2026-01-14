@@ -5,9 +5,18 @@
  * Provides automatic background updates, stale-while-revalidate, and optimistic updates.
  */
 
+import React from 'react';
 import { useQuery, useMutation, useQueryClient, QueryClient } from '@tanstack/react-query';
 import { valueCaseService } from '../services/ValueCaseService';
 import { ValueCase } from '../components/ChatCanvas/types';
+
+interface ValueCaseCreate {
+  name: string;
+  description?: string;
+  company: string;
+  stage: 'opportunity' | 'target' | 'realization' | 'expansion';
+  status: 'in-progress' | 'completed' | 'paused';
+}
 
 // Create a query client instance
 export const queryClient = new QueryClient({
@@ -66,6 +75,9 @@ export function useValueCase(id: string) {
     queryKey: queryKeys.valueCase(id),
     queryFn: async () => {
       const caseData = await valueCaseService.getValueCase(id);
+      if (!caseData) {
+        throw new Error('Case not found');
+      }
       return {
         id: caseData.id,
         name: caseData.name,
@@ -97,7 +109,10 @@ export function useCreateValueCase() {
         ...caseData,
       };
 
-      const newCase = await valueCaseService.createValueCase(requiredCase);
+      const newCase = await valueCaseService.createValueCase(requiredCaseData);
+      if (!newCase) {
+        throw new Error('Failed to create case');
+      }
       return {
         id: newCase.id,
         name: newCase.name,
@@ -107,7 +122,7 @@ export function useCreateValueCase() {
         updatedAt: newCase.updated_at,
       };
     },
-    onSuccess: (newCase) => {
+    onSuccess: (newCase: ValueCase) => {
       // Update the cases list cache
       queryClient.setQueryData(queryKeys.valueCases, (old: ValueCase[] | undefined) => {
         return old ? [newCase, ...old] : [newCase];
@@ -131,6 +146,9 @@ export function useUpdateValueCase() {
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<ValueCase> }) => {
       const updatedCase = await valueCaseService.updateValueCase(id, updates);
+      if (!updatedCase) {
+        throw new Error('Failed to update case');
+      }
       return {
         id: updatedCase.id,
         name: updatedCase.name,
@@ -159,14 +177,14 @@ export function useUpdateValueCase() {
 
       return { previousCase };
     },
-    onError: (error, variables, context) => {
+    onError: (error: unknown, variables: { id: string; updates: Partial<ValueCase> }, context: { previousCase?: ValueCase } | undefined) => {
       // Rollback on error
       if (context?.previousCase) {
         queryClient.setQueryData(queryKeys.valueCase(variables.id), context.previousCase);
       }
       console.error('Failed to update value case:', error);
     },
-    onSettled: (data, error, variables) => {
+    onSettled: (data: ValueCase | undefined, error: unknown, variables: { id: string; updates: Partial<ValueCase> }) => {
       // Refetch to ensure server state
       queryClient.invalidateQueries({ queryKey: queryKeys.valueCase(variables.id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.valueCases });
@@ -185,7 +203,7 @@ export function useDeleteValueCase() {
       await valueCaseService.deleteValueCase(id);
       return id;
     },
-    onSuccess: (deletedId) => {
+    onSuccess: (deletedId: string) => {
       // Remove from cases list cache
       queryClient.setQueryData(queryKeys.valueCases, (old: ValueCase[] | undefined) => {
         return old?.filter(c => c.id !== deletedId);
@@ -210,4 +228,17 @@ export function usePrefetchValueCases() {
     queryClient.prefetchQuery({
       queryKey: queryKeys.valueCases,
       queryFn: async () => {
-        const cases = await valueCaseService.getValueCase
+        const cases = await valueCaseService.getValueCases();
+        return cases.map(c => ({
+          id: c.id,
+          name: c.name,
+          company: c.company,
+          stage: c.stage,
+          status: c.status,
+          updatedAt: c.updated_at,
+        }));
+      },
+      staleTime: 2 * 60 * 1000,
+    });
+  }, [queryClient]);
+}

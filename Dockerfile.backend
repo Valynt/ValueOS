@@ -23,8 +23,10 @@ RUN npm prune --production
 # Stage 2: Security scanning
 FROM builder AS security-scan
 
-# Install trivy for vulnerability scanning
-RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+# Install trivy for vulnerability scanning with pinned version
+RUN TRIVY_VERSION=v0.50.4 && \
+    curl -sfL "https://raw.githubusercontent.com/aquasecurity/trivy/${TRIVY_VERSION}/contrib/install.sh" | sh -s -- -b /usr/local/bin && \
+    trivy --version
 
 # Scan filesystem for vulnerabilities
 RUN trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /app
@@ -49,8 +51,10 @@ COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
 
 # Runtime security scan (final check)
-RUN apt-get update && apt-get install -y curl && \
-    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin && \
+RUN TRIVY_VERSION=v0.50.4 && \
+    apt-get update && apt-get install -y curl && \
+    curl -sfL "https://raw.githubusercontent.com/aquasecurity/trivy/${TRIVY_VERSION}/contrib/install.sh" | sh -s -- -b /usr/local/bin && \
+    trivy --version && \
     trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /app && \
     apt-get remove -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/* && \
     rm /usr/local/bin/trivy

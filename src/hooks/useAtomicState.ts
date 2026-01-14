@@ -155,7 +155,7 @@ export function useConcurrentOperations<T>() {
   const operationQueue = useRef<Array<() => Promise<T>>>([]);
   const isProcessing = useRef(false);
 
-  const enqueue = useCallback(async (operation: () => Promise<T>): Promise<T> => {
+  const enqueue = useCallback(async <T>(operation: () => Promise<T>): Promise<T> => {
     return new Promise((resolve, reject) => {
       operationQueue.current.push(async () => {
         try {

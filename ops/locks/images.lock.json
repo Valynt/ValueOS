@@ -18,6 +18,10 @@
       "digest": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm@sha256:7c2e711a4f7b02f32d2da16192d5e05aa7c95279be4ce889cff5df316f251c1d",
       "source": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm"
     },
+    "node:22-alpine": {
+      "digest": "node:22-alpine@sha256:25b3eb23a00590b7499f2a2ce939322727fcce1b15fdd69754fcd09536a3ae2c",
+      "source": "docker.io/library/node:22-alpine"
+    },
     "node:22-bookworm-slim": {
       "digest": "node:22-bookworm-slim@sha256:25b3eb23a00590b7499f2a2ce939322727fcce1b15fdd69754fcd09536a3ae2c",
       "source": "docker.io/library/node:22-bookworm-slim"

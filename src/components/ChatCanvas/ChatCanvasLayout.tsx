@@ -17,7 +17,6 @@ import {
   useState,
   useMemo,
   memo,
-  DragEvent,
   ReactNode,
   FC,
 } from "react";
@@ -56,7 +55,7 @@ import { WorkflowState } from "../../repositories/WorkflowStateRepository";
 import { WorkflowStateService } from "../../services/WorkflowStateService";
 import { supabase } from "../../lib/supabase";
 import { valueCaseService } from "../../services/ValueCaseService";
-import { logger } from "../../lib/logger";
+import { logger, LogContext } from "../../lib/logger";
 import { analyticsClient } from "../../lib/analyticsClient";
 import { randomUUID } from "crypto";
 import {
@@ -74,6 +73,9 @@ import { CRMSyncModal } from "../Modals/CRMSyncModal";
 import { useSubscriptionManager, useSafeAsync } from "../../hooks/useSubscriptionManager";
 import { useBatchedState, useSmartMemo } from "../../hooks/useBatchedState";
 import { useValueCases, useCreateValueCase, queryClient } from "../../hooks/useValueCaseQuery";
+import { useCanvasState } from './hooks/useCanvasStateHook';
+import { useSessionManagement } from './hooks/useSessionManagement';
+import { useAgentChatService } from './services/ServiceLocator';
 
 // ============================================================================
 // Custom Hooks
@@ -232,7 +234,7 @@ const EmptyCanvas: FC<{
 }> = ({ onNewCase, onStarterAction }) => {
   const [isDragging, setIsDragging] = useState(false);
 
-  const handleDragOver = useCallback((e: DragEvent) => {
+  const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
   }, []);
@@ -242,7 +244,7 @@ const EmptyCanvas: FC<{
   }, []);
 
   const handleDrop = useCallback(
-    (e: DragEvent) => {
+    (e: React.DragEvent) => {
       e.preventDefault();
       setIsDragging(false);
 
@@ -568,10 +570,15 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
   const [isBetaHubOpen, setIsBetaHubOpen] = useState(false);
 
   // Workflow state service (initialized once)
+  // OLD: Individual service instantiation
   const workflowStateService = useMemo(
     () => new WorkflowStateService(supabase),
     []
   );
+
+  // NEW: Session management provides the service (gradual migration)
+  // This will eventually replace the workflowStateService above
+  // const workflowStateService = sessionManagement.workflowStateService;
 
   // Phase 3: Telemetry tracking
   const [renderStartTime, setRenderStartTime] = useState<number | null>(
@@ -583,13 +590,51 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
+  // NEW: Gradual Migration - Enhanced State Management
+  // ========================================================================
+  // These new hooks will gradually replace the individual useState hooks above
+  // ========================================================================
+
+  // Consolidated state management (will replace individual useState hooks)
+  const canvasState = useCanvasState();
+  const sessionManagement = useSessionManagement();
+  const agentChatServiceNew = useAgentChatService();
+
+  // For now, we'll keep both systems running in parallel for gradual migration
+  // TODO: Remove old state hooks once migration is complete
+  const {
+    state: newState,
+    actions: newActions,
+    hasSelectedCase: newHasSelectedCase,
+    canSubmitCommand: newCanSubmitCommand,
+    isStreaming: newIsStreaming,
+    anyModalOpen: newAnyModalOpen,
+    isAuthenticated: newIsAuthenticated,
+    currentStage: newCurrentStage,
+  } = canvasState;
+
+  const {
+    sessionState: newSessionState,
+    loadOrCreateSession: newLoadOrCreateSession,
+    saveWorkflowState: newSaveWorkflowState,
+    hasActiveSession: newHasActiveSession,
+    validateSession: newValidateSession,
+  } = sessionManagement;
+
   // Handle command submission
   const handleCommand = useEvent(async (query: string) => {
+    // OLD: Individual state checks
     if (!selectedCaseId) {
-      // No case selected, prompt user to create one first
       setIsNewCaseModalOpen(true);
       return;
     }
+
+    // NEW: Consolidated state checks (gradual migration)
+    // This will eventually replace the logic above
+    // if (!newHasSelectedCase) {
+    //   newActions.openModal('isNewCaseModalOpen');
+    //   return;
+    // }
 
     // Initialize workflow state if not set
     if (!workflowState && selectedCase) {
@@ -604,11 +649,17 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
       });
     }
 
+    // OLD: Individual state management
     setIsLoading(true);
     setStreamingUpdate({
       stage: "analyzing",
       message: "Understanding your request...",
     });
+
+    // NEW: Consolidated state management (gradual migration)
+    // This will eventually replace the logic above
+    // newActions.startStreaming("Understanding your request...", "analyzing");
+    // newActions.setLoading(true);
 
     try {
       // Get user info from Supabase auth
@@ -617,10 +668,15 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
       const sessionId =
         sessionData?.session?.access_token?.slice(0, 36) || randomUUID();
 
+      // OLD: Individual state management
       setStreamingUpdate({
         stage: "processing",
         message: "Consulting AI agent...",
       });
+
+      // NEW: Consolidated state management (gradual migration)
+      // This will eventually replace the logic above
+      // newActions.updateStreamingMessage("Consulting AI agent...", "processing");
 
       // Use current session ID or fall back to access token
       const actualSessionId = currentSessionId || sessionId;
@@ -638,13 +694,24 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
       );
 
       // Process through AgentChatService (uses Together.ai LLM)
+      // OLD: Direct service usage
       const result = await agentChatService.chat({
         query,
         caseId: selectedCaseId,
         userId,
         sessionId: actualSessionId,
-        workflowState: workflowState || undefined,
+        workflowState: workflowState ?? undefined,
       });
+
+      // NEW: Service locator usage (gradual migration)
+      // This will eventually replace the call above
+      // const result = await agentChatServiceNew.chat({
+      //   query,
+      //   caseId: selectedCaseId,
+      //   userId,
+      //   sessionId: actualSessionId,
+      //   workflowState: workflowState ?? undefined,
+      // });
 
       // Track chat completion
       sduiTelemetry.endSpan(
@@ -676,11 +743,16 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
             throw new Error("Tenant ID is required to persist workflow state");
           }
 
+          // OLD: Individual service call
           await workflowStateService.saveWorkflowState(
             currentSessionId,
             result.nextState,
             currentTenantId
           );
+
+          // NEW: Session management call (gradual migration)
+          // This will eventually replace the call above
+          // await newSaveWorkflowState(result.nextState);
           logger.debug("Workflow state persisted after chat", {
             sessionId: currentSessionId,
             stage: result.nextState.currentStage,
@@ -703,10 +775,15 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
         }
       }
 
+      // OLD: Individual state management
       setStreamingUpdate({
         stage: "generating",
         message: "Generating response...",
       });
+
+      // NEW: Consolidated state management (gradual migration)
+      // This will eventually replace the logic above
+      // newActions.updateStreamingMessage("Generating response...", "generating");
 
       // Render SDUI page if available
       if (result.sduiPage) {
@@ -766,8 +843,14 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
         refetchCases();
       }
 
+      // OLD: Individual state management
       setStreamingUpdate({ stage: "complete", message: "Done!" });
       setTimeout(() => setStreamingUpdate(null), 1000);
+
+      // NEW: Consolidated state management (gradual migration)
+      // This will eventually replace the logic above
+      // newActions.updateStreamingMessage("Done!", "complete");
+      // setTimeout(() => newActions.stopStreaming(), 1000);
     } catch (error) {
       // Phase 3: Track chat error
       sduiTelemetry.recordEvent({
@@ -795,16 +878,33 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
         friendlyError.action
       );
 
+      // OLD: Individual state management
       setIsLoading(false);
       setStreamingUpdate(null);
+
+      // NEW: Consolidated state management (gradual migration)
+      // This will eventually replace the logic above
+      // newActions.setLoading(false);
+      // newActions.stopStreaming();
     } finally {
+      // OLD: Individual state management
       setIsLoading(false);
+
+      // NEW: Consolidated state management (gradual migration)
+      // This will eventually replace the logic above
+      // newActions.setLoading(false);
     }
   });
 
   // Replaced direct logic with Modal openers
+  // OLD: Individual state management
   const handleOpenSync = () => setIsSyncModalOpen(true);
   const handleOpenExport = () => setIsExportModalOpen(true);
+
+  // NEW: Consolidated state management (gradual migration)
+  // This will eventually replace the logic above
+  // const handleOpenSync = () => newActions.openModal('isSyncModalOpen');
+  // const handleOpenExport = () => newActions.openModal('isExportModalOpen');
 
   // Canvas store for undo/redo
   const { undo, redo, canUndo, canRedo } = useCanvasStore();
@@ -817,27 +917,37 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
   // Toast notifications
   const { error: showError, success: showSuccess, info: showInfo } = useToast();
 
-  // Derived state (optimized with smart memoization)
-  const selectedCase = useSmartMemo(
-    () => cases.find((c) => c.id === selectedCaseId),
-    [cases, selectedCaseId],
-    { equalityFn: (a, b) => a?.id === b?.id }
+  // Optimized derived state using Maps for O(1) lookups
+  const caseStatusMap = useMemo(() =>
+    new Map(cases.map((c: ValueCase) => [c.id, c.status])),
+    [cases]
   );
 
-  const inProgressCases = useSmartMemo(
-    () => cases.filter((c) => c.status === "in-progress"),
-    [cases],
-    { equalityFn: (a, b) => a.length === b.length && a.every(c => b.some(bc => bc.id === c.id)) }
+  const selectedCase = useMemo(() =>
+    selectedCaseId ? cases.find((c: ValueCase) => c.id === selectedCaseId) : undefined,
+    [cases, selectedCaseId]
   );
 
-  const completedCases = useSmartMemo(
-    () => cases.filter((c) => c.status === "completed"),
-    [cases],
-    { equalityFn: (a, b) => a.length === b.length && a.every(c => b.some(bc => bc.id === c.id)) }
+  const inProgressCases = useMemo(() =>
+    cases.filter((c: ValueCase) => caseStatusMap.get(c.id) === "in-progress"),
+    [cases, caseStatusMap]
+  );
+
+  const completedCases = useMemo(() =>
+    cases.filter((c: ValueCase) => caseStatusMap.get(c.id) === "completed"),
+    [cases, caseStatusMap]
   );
 
   const handleCaseSelect = useCallback((id: string) => {
+    // OLD: Individual state management
     setSelectedCaseId(id);
+
+    // NEW: Consolidated state management (gradual migration)
+    // This will eventually replace the line above
+    // newActions.selectCaseAndReset(id);
+
+    // TODO: Switch to new state management completely
+    // For now, we keep both to ensure backward compatibility
   }, []);
 
   const trackAssetCreated = useCallback(
@@ -905,11 +1015,18 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
         }
 
         // Define handleSDUIAction early so we can use it (though specific interaction logic is below)
-        const handleSDUIAction = (action: string, payload: any) => {
+        // OLD: Using any type
+        // const handleSDUIAction = (action: string, payload: any) => {
+
+        // NEW: Using enhanced types (gradual migration)
+        const handleSDUIAction = (action: string, payload: unknown) => {
           if (action === "select_hypothesis") {
-            handleCommand(
-              `I want to explore the hypothesis: "${payload.title}". ${payload.description}. Please analyze this potential value driver deeper.`
-            );
+            // Type guard for hypothesis payload
+            if (payload && typeof payload === 'object' && 'title' in payload && 'description' in payload) {
+              handleCommand(
+                `I want to explore the hypothesis: "${payload.title}". ${payload.description}. Please analyze this potential value driver deeper.`
+              );
+            }
           } else {
             logger.info("Unknown SDUI Action", { action, payload });
           }
@@ -943,7 +1060,7 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
               });
               setRenderedPage(renderedInitial);
             } catch (e) {
-              logger.warn("Failed to render initial artifact", e);
+              logger.warn("Failed to render initial artifact", e as LogContext | undefined);
             }
 
             setTimeout(() => {
@@ -1014,115 +1131,168 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
     getSession();
   }, []);
 
+  // NEW: Session Management Integration (Gradual Migration)
+  // This demonstrates how to use the new session management
+  // This will eventually replace the old session logic above
+  useEffect(() => {
+    // OLD: Keep existing session logic for now
+    // NEW: Demonstrate new session management approach
+
+    if (selectedCase && currentUserId && currentTenantId && !currentSessionId) {
+      // This is how the new session management would work:
+      newLoadOrCreateSession({
+        caseId: selectedCase.id,
+        userId: currentUserId,
+        tenantId: currentTenantId,
+        initialStage: selectedCase.stage,
+        context: { company: selectedCase.company },
+      }).then(({ sessionId, state }) => {
+        newActions.setSessionId(sessionId);
+        newActions.setWorkflowState(state);
+        setCurrentSessionId(sessionId); // Keep old state for compatibility
+        setWorkflowState(state); // Keep old state for compatibility
+      }).catch(error => {
+        logger.warn('Failed to load/create session with new management', error);
+        // Fall back to existing behavior
+      });
+    }
+  }, [selectedCase, currentUserId, currentTenantId, currentSessionId, newLoadOrCreateSession, newActions]);
+
   // Initialize workflow state for selected case
   useEffect(() => {
-    if (selectedCase && currentUserId && currentTenantId) {
-      // Load or create session for this case
-      workflowStateService
-        .loadOrCreateSession({
-          caseId: selectedCase.id,
-          userId: currentUserId,
-          tenantId: currentTenantId,
-          initialStage: selectedCase.stage as any,
-          context: {
-            company: selectedCase.company,
-          },
-        })
-        .then(({ sessionId, state }) => {
-          safeSetState(setCurrentSessionId)(sessionId);
-          safeSetState(setWorkflowState)(state);
-          logger.info("Workflow session initialized", {
-            sessionId,
-            caseId: selectedCase.id,
-            stage: state.currentStage,
-          });
-        })
-        .catch((error) => {
-          logger.error("Failed to initialize workflow session", error);
-          // Fallback to in-memory state
-          safeSetState(setWorkflowState)({
-            currentStage: selectedCase.stage,
-            status: "in_progress",
-            completedStages: [],
-            context: {
-              caseId: selectedCase.id,
-              company: selectedCase.company,
-            },
-          });
-        });
-
-      // Subscribe to workflow state changes
-      const unsubscribe = workflowStateService.subscribeToState(
-        currentSessionId || '',
-        (state) => {
-          safeSetState(setWorkflowState)(state);
-        }
-      );
-
-      subscriptionManager.add('workflowState', unsubscribe);
-
-      // If case has cached SDUI page, render it
-      if (selectedCase.sduiPage) {
-        // Phase 3: Track SDUI rendering
-        const renderStart = Date.now();
-        setRenderStartTime(renderStart);
-        sduiTelemetry.startSpan(
-          `render-${selectedCase.id}`,
-          TelemetryEventType.RENDER_START,
-          {
-            caseId: selectedCase.id,
-            stage: selectedCase.stage,
-          }
-        );
-
-        try {
-          // Define handleSDUIAction for cached pages
-          const handleSDUIAction = (action: string, payload: any) => {
-            if (action === "select_hypothesis") {
-              handleCommand(
-                `I want to explore the hypothesis: "${payload.title}". ${payload.description}. Please analyze this potential value driver deeper.`
-              );
-            }
-          };
-
-          const result = renderPage(selectedCase.sduiPage, {
-            onAction: handleSDUIAction,
-          });
-          setRenderedPage(result);
-          setIsInitialCanvasLoad(false);
-
-          sduiTelemetry.endSpan(
-            `render-${selectedCase.id}`,
-            TelemetryEventType.RENDER_COMPLETE,
-            {
-              componentCount: result.metadata?.componentCount,
-              warnings: result.warnings?.length || 0,
-            }
-          );
-        } catch (error) {
-          setIsInitialCanvasLoad(false);
-          sduiTelemetry.endSpan(
-            `render-${selectedCase.id}`,
-            TelemetryEventType.RENDER_ERROR,
-            { caseId: selectedCase.id },
-            {
-              message: error instanceof Error ? error.message : "Render error",
-              stack: error instanceof Error ? error.stack : undefined,
-            }
-          );
-          setRenderedPage(null);
-        }
-      } else {
-        setRenderedPage(null);
-        setIsInitialCanvasLoad(false);
-      }
-    } else {
+    if (!selectedCase || !currentUserId || !currentTenantId) {
+      // Clear state when case is deselected
       setWorkflowState(null);
       setRenderedPage(null);
       setCurrentSessionId(null);
       setIsInitialCanvasLoad(false);
+      return;
     }
-  }, [selectedCaseId, currentUserId, currentTenantId, workflowStateService]);
+
+    let isMounted = true;
+    let unsubscribe: (() => void) | undefined;
+
+    // Load or create session for this case
+    workflowStateService
+      .loadOrCreateSession({
+        caseId: selectedCase.id,
+        userId: currentUserId,
+        tenantId: currentTenantId,
+        initialStage: selectedCase.stage as any,
+        context: {
+          company: selectedCase.company,
+        },
+      })
+      .then(({ sessionId, state }) => {
+        if (!isMounted) return; // Prevent state updates if component unmounted
+
+        safeSetState(setCurrentSessionId)(sessionId);
+        safeSetState(setWorkflowState)(state);
+        logger.info("Workflow session initialized", {
+          sessionId,
+          caseId: selectedCase.id,
+          stage: state.currentStage,
+        });
+
+        // Subscribe to workflow state changes using the actual session ID
+        unsubscribe = workflowStateService.subscribeToState(
+          sessionId,
+          (newState) => {
+            if (!isMounted) return; // Prevent state updates if component unmounted
+            safeSetState(setWorkflowState)(newState);
+          }
+        );
+
+        subscriptionManager.add('workflowState', unsubscribe);
+      })
+      .catch((error) => {
+        if (!isMounted) return; // Prevent state updates if component unmounted
+        logger.error("Failed to initialize workflow session", error);
+        // Fallback to in-memory state
+        safeSetState(setWorkflowState)({
+          currentStage: selectedCase.stage,
+          status: "in_progress",
+          completedStages: [],
+          context: {
+            caseId: selectedCase.id,
+            company: selectedCase.company,
+          },
+        });
+      });
+
+    // If case has cached SDUI page, render it
+    if (selectedCase.sduiPage) {
+      // Phase 3: Track SDUI rendering
+      const renderStart = Date.now();
+      setRenderStartTime(renderStart);
+      sduiTelemetry.startSpan(
+        `render-${selectedCase.id}`,
+        TelemetryEventType.RENDER_START,
+        {
+          caseId: selectedCase.id,
+          stage: workflowState?.currentStage || 'unknown',
+          source: 'cached',
+        }
+      );
+
+      try {
+        const rendered = renderPage(selectedCase.sduiPage, {
+          // OLD: Using any type
+          // onAction: (action: string, payload: any) => {
+
+          // NEW: Using enhanced types (gradual migration)
+          onAction: (action: string, payload: unknown) => {
+            if (action === "select_hypothesis") {
+              // Type guard for hypothesis payload
+              if (payload && typeof payload === 'object' && 'title' in payload && 'description' in payload) {
+                handleCommand(
+                  `I want to explore the hypothesis: "${payload.title}". ${payload.description}. Please analyze this potential value driver deeper.`
+                );
+              }
+            }
+          },
+        });
+
+        if (!isMounted) return; // Prevent state updates if component unmounted
+
+        setRenderedPage(rendered);
+        setIsInitialCanvasLoad(false);
+
+        sduiTelemetry.endSpan(
+          `render-${selectedCase.id}`,
+          TelemetryEventType.RENDER_COMPLETE,
+          {
+            componentCount: rendered.metadata?.componentCount,
+            warnings: rendered.warnings?.length || 0,
+          }
+        );
+      } catch (error) {
+        if (!isMounted) return; // Prevent state updates if component unmounted
+        logger.error("Failed to render cached SDUI page", error);
+        sduiTelemetry.endSpan(
+          `render-${selectedCase.id}`,
+          TelemetryEventType.RENDER_ERROR,
+          {},
+          {
+            message: error instanceof Error ? error.message : "Render error",
+            stack: error instanceof Error ? error.stack : undefined,
+          }
+        );
+        setRenderedPage(null);
+      }
+    } else {
+      if (!isMounted) return; // Prevent state updates if component unmounted
+      setRenderedPage(null);
+      setIsInitialCanvasLoad(false);
+    }
+
+    // Cleanup function
+    return () => {
+      isMounted = false;
+      unsubscribe?.();
+      subscriptionManager.remove('workflowState');
+    };
+  }, [selectedCase?.id, currentUserId, currentTenantId, selectedCase?.stage, selectedCase?.company, selectedCase?.sduiPage]);
 
   // Keyboard shortcuts (⌘K for command bar, ⌘Z/⌘⇧Z for undo/redo)
   useEffect(() => {
@@ -1644,7 +1814,7 @@ Based on this call analysis, help me:
                 Recent
               </p>
               <div className="space-y-0.5">
-                {inProgressCases.map((case_) => (
+                {inProgressCases.map((case_: ValueCase) => (
                   <CaseItem
                     key={case_.id}
                     case_={case_}
@@ -1663,7 +1833,7 @@ Based on this call analysis, help me:
                 Previous 30 Days
               </p>
               <div className="space-y-0.5">
-                {completedCases.map((case_) => (
+                {completedCases.map((case_: ValueCase) => (
                   <CaseItem
                     key={case_.id}
                     case_={case_}
@@ -1729,7 +1899,7 @@ Based on this call analysis, help me:
               </div>
               <div className="flex items-center gap-2">
                 {/* Phase 6: Sync & Export Actions */}
-                {workflowState.context?.lastAnalysis && (
+                {workflowState?.context?.lastAnalysis && (
                   <>
                     {initialAction?.type === "crm" && (
                       <button
@@ -2097,7 +2267,7 @@ Based on this call analysis, help me:
 
       {/* Phase 6: Hidden Print Layout */}
       {/* Phase 6: Interactive Modals */}
-      {selectedCase && workflowState.context?.lastAnalysis && (
+      {selectedCase && workflowState?.context?.lastAnalysis && (
         <>
           <ExportPreviewModal
             isOpen={isExportModalOpen}

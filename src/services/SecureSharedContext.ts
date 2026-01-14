@@ -662,20 +662,156 @@ export class SecureSharedContext {
   private assessDataSensitivity(data: any): 'low' | 'medium' | 'high' {
     if (!data || typeof data !== 'object') return 'low';
 
-    const sensitiveKeywords = [
-      'password', 'token', 'key', 'secret', 'confidential',
-      'proprietary', 'sensitive', 'private', 'personal'
-    ];
-
     const dataString = JSON.stringify(data).toLowerCase();
 
-    if (sensitiveKeywords.some(keyword => dataString.includes(keyword))) {
-      return 'high';
+    // High sensitivity patterns - PII, credentials, secrets
+    const highSensitivityPatterns = [
+      // PII patterns
+      /\b(social security|ssn|tax id)\b/,
+      /\b(driver's license|license number)\b/,
+      /\b(passport|passport number)\b/,
+      /\b(birth date|dob|date of birth)\b/,
+      /\b(phone number|mobile|telephone)\b/,
+      /\b(email address|email)\b/,
+      /\b(home address|street address|address)\b/,
+
+      // Financial PII
+      /\b(credit card|card number|cvv|expiry)\b/,
+      /\b(bank account|account number|routing)\b/,
+      /\b(debit card|atm card)\b/,
+      /\b(credit score|fico|credit report)\b/,
+
+      // Authentication secrets
+      /\b(password|passwd|pwd)\b/,
+      /\b(secret|token|key|api_key)\b/,
+      /\b(private key|public key|certificate)\b/,
+      /\b(session|session id|jwt|oauth)\b/,
+      /\b(two factor|2fa|mfa|totp)\b/,
+
+      // Medical/Health information
+      /\b(medical|health|diagnosis|treatment)\b/,
+      /\b(patient|doctor|hospital|clinic)\b/,
+      /\b(prescription|medication|drug)\b/,
+      /\b(hipaa|phi|protected health)\b/,
+
+      // Personal demographics
+      /\b(age|gender|sex|race|ethnicity)\b/,
+      /\b(marital status|family|children)\b/,
+      /\b(income|salary|wages|employment)\b/,
+      /\b(education|school|university|degree)\b/,
+
+      // Confidential business data
+      /\b(confidential|proprietary|trade secret)\b/,
+      /\b(internal only|company confidential)\b/,
+      /\b(do not distribute|restricted)\b/,
+      /\b(executive|board|leadership)\b/,
+    ];
+
+    // Medium sensitivity patterns - Financial, business operational data
+    const mediumSensitivityPatterns = [
+      // Financial data (non-PII)
+      /\b(revenue|profit|loss|income)\b/,
+      /\b(cost|expense|budget|forecast)\b/,
+      /\b(salary|wage|compensation|payroll)\b/,
+      /\b(invoice|billing|payment|transaction)\b/,
+      /\b(tax|deduction|withholding)\b/,
+      /\b(investment|portfolio|stock|equity)\b/,
+
+      // Business operational data
+      /\b(customer|client|user account)\b/,
+      /\b(sales|leads|opportunities|deals)\b/,
+      /\b(inventory|product|service|pricing)\b/,
+      /\b(contract|agreement|proposal|quote)\b/,
+      /\b(performance|metrics|kpi|analytics)\b/,
+      /\b(employee|staff|team|organization)\b/,
+
+      // System data
+      /\b(server|database|network|infrastructure)\b/,
+      /\b(log|error|exception|debug)\b/,
+      /\b(configuration|settings|parameters)\b/,
+      /\b(admin|administrator|root)\b/,
+    ];
+
+    // Check for high sensitivity patterns first
+    for (const pattern of highSensitivityPatterns) {
+      if (pattern.test(dataString)) {
+        return 'high';
+      }
     }
 
-    const financialKeywords = ['salary', 'revenue', 'profit', 'cost', 'budget'];
-    if (financialKeywords.some(keyword => dataString.includes(keyword))) {
+    // Check for medium sensitivity patterns
+    for (const pattern of mediumSensitivityPatterns) {
+      if (pattern.test(dataString)) {
+        return 'medium';
+      }
+    }
+
+    // Additional heuristic checks
+    const highSensitivityKeywords = [
+      'confidential', 'secret', 'private', 'sensitive', 'personal',
+      'protected', 'classified', 'restricted', 'internal'
+    ];
+
+    const mediumSensitivityKeywords = [
+      'financial', 'business', 'operational', 'strategic', 'analytical',
+      'performance', 'metrics', 'statistics', 'reports', 'data'
+    ];
+
+    // Check for high sensitivity keywords
+    if (highSensitivityKeywords.some(keyword => dataString.includes(keyword))) {
+      // Additional context check - if keyword appears with other sensitive terms
+      const contextWords = ['information', 'data', 'details', 'records', 'files'];
+      if (contextWords.some(word => dataString.includes(word))) {
+        return 'high';
+      }
+    }
+
+    // Check for medium sensitivity keywords
+    if (mediumSensitivityKeywords.some(keyword => dataString.includes(keyword))) {
       return 'medium';
+    }
+
+    // Check for structured data patterns that might indicate sensitivity
+    try {
+      const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+
+      // Check for arrays of objects that might contain PII
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const firstItem = parsed[0];
+        if (typeof firstItem === 'object' && firstItem !== null) {
+          const keys = Object.keys(firstItem).join(' ').toLowerCase();
+
+          // Check for PII-like field names
+          const piiFieldPatterns = [
+            /(name|fname|lname|firstname|lastname)/,
+            /(email|e-mail|mail)/,
+            /(phone|mobile|tel|telephone)/,
+            /(address|addr|street|city|state|zip)/,
+            /(id|identifier|ssn|taxid)/,
+            /(birth|dob|age|gender)/,
+          ];
+
+          for (const pattern of piiFieldPatterns) {
+            if (pattern.test(keys)) {
+              return 'high';
+            }
+          }
+        }
+      }
+
+      // Check for numeric data that might be financial
+      const numericValues = JSON.stringify(parsed).match(/\b\d{4,}\b/g);
+      if (numericValues && numericValues.length > 0) {
+        // Look for patterns that suggest financial data
+        const hasLargeNumbers = numericValues.some(n => parseInt(n) > 10000);
+        const hasDecimalNumbers = JSON.stringify(parsed).match(/\b\d+\.\d{2}\b/g);
+
+        if (hasLargeNumbers || hasDecimalNumbers) {
+          return 'medium';
+        }
+      }
+    } catch (e) {
+      // If parsing fails, continue with string-based analysis
     }
 
     return 'low';

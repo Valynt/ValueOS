@@ -3,12 +3,17 @@
 # Dev Container - Post Start Script
 # Runs every time the container starts
 # Performs quick health checks and starts services
-# Optimized for ValueOS
+# Optimized for ValueOS with Windows compatibility
 ###############################################################################
 
 set -e
 
-echo "🚦 Running post-start checks..."
+# Windows compatibility: Use proper shebang and handle paths
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]]; then
+    echo "🚦 Running post-start checks on Windows..."
+else
+    echo "🚦 Running post-start checks..."
+fi
 
 # Colors
 BLUE='\033[0;34m'
@@ -33,9 +38,21 @@ print_error() {
     echo -e "${RED}✗${NC} $1"
 }
 
-# 1. Check disk space
+# 1. Check disk space (Windows compatible)
 print_status "Checking disk space..."
-DISK_USAGE=$(df -h /workspace | awk 'NR==2 {print $5}' | tr -d '%')
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]]; then
+    # Windows: Use df with proper path handling
+    DISK_USAGE=$(df /workspace 2>/dev/null | awk 'NR==2 {print $5}' | tr -d '%' || echo "0")
+else
+    # Unix/Linux: Standard df command
+    DISK_USAGE=$(df -h /workspace | awk 'NR==2 {print $5}' | tr -d '%' || echo "0")
+fi
+
+# Validate that we got a number
+if ! [[ "$DISK_USAGE" =~ ^[0-9]+$ ]]; then
+    print_warning "Could not determine disk usage"
+    DISK_USAGE=0
+fi
 if [ "$DISK_USAGE" -lt 80 ]; then
     print_success "Disk space: ${DISK_USAGE}% used"
 elif [ "$DISK_USAGE" -lt 90 ]; then

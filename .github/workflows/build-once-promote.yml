@@ -28,6 +28,7 @@ env:
   AWS_REGION: us-east-1
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  ERROR_RATE_THRESHOLD: ${{ vars.ERROR_RATE_THRESHOLD || '10' }}
 
 jobs:
   # Job 0: Pre-build validation and testing
@@ -117,10 +118,10 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            ${{ steps.login-ecr.outputs.registry }}/valuecanvas
+            ${{ steps.login-ecr.outputs.registry }}/valueos
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=sha,format=long,prefix=
+            type=sha,format=long,prefix=valueos-
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push immutable image
@@ -203,14 +204,14 @@ jobs:
 
       - name: Deploy to dev (promote artifact)
         run: |
-          kubectl set image deployment/valuecanvas-app \
+          kubectl set image deployment/valueos-app \
             app=${{ steps.image.outputs.digest }} \
             --namespace=dev \
             --record
 
       - name: Wait for rollout
         run: |
-          kubectl rollout status deployment/valuecanvas-app \
+          kubectl rollout status deployment/valueos-app \
             --namespace=dev \
             --timeout=5m
 
@@ -274,19 +275,19 @@ jobs:
 
       - name: Run database migrations (staging)
         run: |
-          kubectl exec -n staging deployment/valuecanvas-app -- \
+          kubectl exec -n staging deployment/valueos-app -- \
             npx supabase db push
 
       - name: Deploy to staging (promote artifact)
         run: |
-          kubectl set image deployment/valuecanvas-app \
+          kubectl set image deployment/valueos-app \
             app=${{ steps.image.outputs.digest }} \
             --namespace=staging \
             --record
 
       - name: Wait for rollout
         run: |
-          kubectl rollout status deployment/valuecanvas-app \
+          kubectl rollout status deployment/valueos-app \
             --namespace=staging \
             --timeout=10m
 
@@ -363,19 +364,19 @@ jobs:
 
       - name: Run database migrations (production)
         run: |
-          kubectl exec -n production deployment/valuecanvas-app -- \
+          kubectl exec -n production deployment/valueos-app -- \
             npx supabase db push
 
       - name: Deploy to production (promote artifact)
         run: |
-          kubectl set image deployment/valuecanvas-app \
+          kubectl set image deployment/valueos-app \
             app=${{ steps.image.outputs.digest }} \
             --namespace=production \
             --record
 
       - name: Wait for rollout
         run: |
-          kubectl rollout status deployment/valuecanvas-app \
+          kubectl rollout status deployment/valueos-app \
             --namespace=production \
             --timeout=15m
 
@@ -399,8 +400,8 @@ jobs:
             --query 'Datapoints[0].Sum' \
             --output text)
 
-          if [ "$ERROR_RATE" -gt 10 ]; then
-            echo "❌ High error rate detected: $ERROR_RATE"
+          if [ "$ERROR_RATE" -gt "$ERROR_RATE_THRESHOLD" ]; then
+            echo "❌ High error rate detected: $ERROR_RATE (threshold: $ERROR_RATE_THRESHOLD)"
             exit 1
           fi
 
@@ -445,7 +446,7 @@ jobs:
         if: failure()
         run: |
           echo "❌ Deployment failed, rolling back..."
-          kubectl rollout undo deployment/valuecanvas-app \
+          kubectl rollout undo deployment/valueos-app \
             --namespace=production
 
           curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \

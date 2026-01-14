@@ -63,8 +63,8 @@
   "onCreateCommand": "bash .devcontainer/scripts/on-create.sh",
   "updateContentCommand": "bash .devcontainer/scripts/update-content.sh",
   "postCreateCommand": "bash .devcontainer/scripts/post-create.sh",
-  // Disable post-start to avoid startup race conditions on Windows
-  // "postStartCommand": "bash .devcontainer/scripts/post-start.sh",
+  // Re-enabled post-start with Windows compatibility fixes
+  "postStartCommand": "bash .devcontainer/scripts/post-start.sh",
 
   // Port forwarding with labels
   "forwardPorts": [5173, 3001, 5432, 6379, 54321, 54323, 9090, 3000],

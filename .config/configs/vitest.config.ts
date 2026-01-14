@@ -21,6 +21,19 @@ export default defineConfig({
           lines: 75,
           statements: 75,
         },
+        // Accessibility-specific coverage thresholds
+        './tests/accessibility/': {
+          branches: 90,
+          functions: 95,
+          lines: 90,
+          statements: 90,
+        },
+        './src/components/': {
+          branches: 70,
+          functions: 75,
+          lines: 80,
+          statements: 80,
+        },
       },
     },
   },

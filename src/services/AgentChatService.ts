@@ -12,6 +12,7 @@
 
 import { logger } from "../lib/logger";
 import { v4 as uuidv4 } from "uuid";
+import { z } from "zod";
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
 import { llmConfig } from "../config/llm";
 import {
@@ -41,22 +42,32 @@ import { detectIndustry } from "../data/industryTemplates";
 import { geminiProxyService } from "./GeminiProxyService";
 import { FallbackAIService } from "./FallbackAIService";
 
-export interface AIResponseSchema {
-  analysisSummary: string;
-  identifiedIndustry: string;
-  valueHypotheses: {
-    title: string;
-    description: string;
-    impact: string; // e.g., "High", "Medium"
-    confidence: number; // 0-100
-  }[];
-  keyMetrics: {
-    label: string;
-    value: string;
-    trend: "up" | "down" | "neutral";
-  }[];
-  recommendedActions: string[];
-}
+// ============================================================================
+// Type-Safe Schemas with Zod
+// ============================================================================
+
+const ValueHypothesisSchema = z.object({
+  title: z.string(),
+  description: z.string(),
+  impact: z.enum(["High", "Medium", "Low"]),
+  confidence: z.number().min(0).max(100),
+});
+
+const KeyMetricSchema = z.object({
+  label: z.string(),
+  value: z.string(),
+  trend: z.enum(["up", "down", "neutral"]),
+});
+
+export const AIResponseSchema = z.object({
+  analysisSummary: z.string(),
+  identifiedIndustry: z.string(),
+  valueHypotheses: z.array(ValueHypothesisSchema),
+  keyMetrics: z.array(KeyMetricSchema),
+  recommendedActions: z.array(z.string()),
+});
+
+export type AIResponseSchema = z.infer<typeof AIResponseSchema>;
 
 // ============================================================================
 // Types
@@ -240,13 +251,13 @@ class AgentChatService {
           },
         });
 
-        parsedData = JSON.parse(textResponse);
+        parsedData = AIResponseSchema.parse(JSON.parse(textResponse));
 
         // Cache successful analysis for fallback use
         FallbackAIService.cacheAnalysis(request.caseId, parsedData);
 
       } catch (apiError) {
-        logger.error("Gemini API Error, attempting fallback", apiError);
+        logger.error("Gemini API Error, attempting fallback", apiError instanceof Error ? apiError : new Error(String(apiError)));
 
         // Check if we should use fallback service
         if (FallbackAIService.shouldUseFallback(apiError)) {
@@ -305,7 +316,7 @@ class AgentChatService {
         traceId,
       };
     } catch (error) {
-      logger.error("Agent Error:", error);
+      logger.error("Agent Error:", error instanceof Error ? error : new Error(String(error)));
       // Fallback SDUI if API fails
       return {
         message: {
@@ -345,7 +356,7 @@ class AgentChatService {
           type: "layout",
           layout: "Grid",
           props: { columns: 2, gap: 4, className: "mb-6" },
-          children: data.keyMetrics.map((m, i) => ({
+          children: data.keyMetrics.map((m: any, i: number) => ({
             type: "component",
             component: "MetricBadge", // Using MetricBadge mapping
             version: 1,
@@ -370,7 +381,7 @@ class AgentChatService {
           type: "layout",
           layout: "Grid", // Stack via 1 col grid
           props: { columns: 1, gap: 4 },
-          children: data.valueHypotheses.map((h, i) => ({
+          children: data.valueHypotheses.map((h: any, i: number) => ({
             type: "component",
             component: "ValueHypothesisCard",
             version: 1,
