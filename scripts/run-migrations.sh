@@ -23,7 +23,7 @@ max_attempts=30
 attempt=1
 
 while [ $attempt -le $max_attempts ]; do
-    if docker exec ${PROJECT_NAME}-postgres-1 pg_isready -U $POSTGRES_USER -d $POSTGRES_DB &> /dev/null; then
+    if docker exec valueos-postgres pg_isready -U $POSTGRES_USER -d $POSTGRES_DB &> /dev/null; then
         echo -e "${GREEN}✅ Database is ready${NC}"
         break
     fi

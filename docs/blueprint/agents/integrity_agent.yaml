@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: AgentManifest
+metadata:
+  name: integrity-agent
+  description: "Ensures manifesto compliance, validates outputs, and resolves conflicts across agents."
+  version: "1.0.0"
+spec:
+  schema:
+    input:
+      type: object
+      required:
+        - artifact
+        - manifestoRules
+      properties:
+        artifact:
+          type: object
+          description: Output from any agent to be validated.
+        manifestoRules:
+          type: array
+          items:
+            type: string
+          description: Set of manifesto principles to enforce.
+    output:
+      type: object
+      required:
+        - validatedArtifact
+        - corrections
+      properties:
+        validatedArtifact:
+          type: object
+          description: Artifact with necessary corrections applied to comply with manifesto rules.
+        corrections:
+          type: array
+          items:
+            type: string
+          description: List of issues found and corresponding remediation suggestions.
+  entrypoint:
+    module: agents/integrity/main.py
+    class: IntegrityAgent
+    method: handle
+    httpEndpoint: "/api/integrity/process"
+  runtime:
+    language: python
+    memory: "512Mi"
+    cpu: "250m"
+    dependencies:
+      - name: jsonschema
+        version: "^4.0"
+      - name: neo4j
+        version: "^5.0.0"
+      - name: pydantic
+        version: "^1.10.0"
+  permissions:
+    roles:
+      - reader: ["valueFabric.manifesto", "valueFabric.models"]
+      - writer: ["valueFabric.validation"]
+      - publisher: ["events.value.validation.updated"]
+    securityPolicies:
+      - enforceInputSanitization: true
+      - logAllDecisions: true
+  communication:
+    subscribe:
+      - topic: "events.value.target.defined"
+      - topic: "events.value.realization.updated"
+      - topic: "events.value.expansion.triggered"
+    publish:
+      - topic: "events.value.validation.updated"
+  health:
+    livenessProbe:
+      httpGet:
+        path: "/health/live"
+        port: 8084
+      intervalSeconds: 30
+    readinessProbe:
+      httpGet:
+        path: "/health/ready"
+        port: 8084
+      intervalSeconds: 30
+  monitoring:
+    metricsEndpoint: "/metrics"
+    logLevel: INFO

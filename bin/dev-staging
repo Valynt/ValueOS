@@ -8,14 +8,14 @@ RED='\033[0;31m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-echo -e "${GREEN}🚀 Starting ValueOS Ephemeral Environment...${NC}"
+echo -e "${GREEN}🚀 Starting ValueOS Staging Environment...${NC}"
 echo "============================================="
 
 # Configuration
 COMPOSE_FILE="config/docker/docker-compose.unified.yml"
-PROJECT_NAME="valueos"
+PROJECT_NAME="valueos-staging"
 ENVIRONMENTS_DIR="config/environments"
-ENVIRONMENT="development"
+ENVIRONMENT="staging"
 
 # 1. Environment Check
 echo -e "${BLUE}🔍 Checking environment...${NC}"
@@ -35,7 +35,7 @@ fi
 echo -e "${GREEN}✅ Docker environment ready${NC}"
 
 # 2. Environment Configuration Loading
-echo -e "${BLUE}🔧 Loading environment configuration...${NC}"
+echo -e "${BLUE}🔧 Loading staging environment configuration...${NC}"
 
 # Load base environment first
 if [ -f "$ENVIRONMENTS_DIR/base.env" ]; then
@@ -48,7 +48,7 @@ else
     exit 1
 fi
 
-# Load environment-specific overrides
+# Load staging-specific overrides
 if [ -f "$ENVIRONMENTS_DIR/$ENVIRONMENT.env" ]; then
     echo -e "${GREEN}✅ Loading $ENVIRONMENT environment overrides${NC}"
     set -a
@@ -62,7 +62,7 @@ fi
 export NODE_ENV=$ENVIRONMENT
 
 # 3. Secret Management
-echo -e "${BLUE}🔐 Setting up secrets...${NC}"
+echo -e "${BLUE}🔐 Setting up staging secrets...${NC}"
 
 if [ -f ".env.local" ]; then
     echo -e "${GREEN}✅ Using existing .env.local${NC}"
@@ -71,37 +71,36 @@ else
 
     # Try Doppler if available
     if command -v doppler &> /dev/null && doppler whoami &> /dev/null; then
-        echo -e "${BLUE}☁️ Fetching secrets from Doppler...${NC}"
-        if doppler secrets download --project valueos-dev --config dev --no-file --format env > .env.local 2>/dev/null; then
-            echo -e "${GREEN}✅ Secrets loaded from Doppler${NC}"
+        echo -e "${BLUE}☁️ Fetching staging secrets from Doppler...${NC}"
+        if doppler secrets download --project valueos-staging --config staging --no-file --format env > .env.local 2>/dev/null; then
+            echo -e "${GREEN}✅ Staging secrets loaded from Doppler${NC}"
         else
-            echo -e "${YELLOW}⚠️ Doppler secrets not configured, creating template...${NC}"
+            echo -e "${YELLOW}⚠️ Doppler staging secrets not configured, creating template...${NC}"
             cp .env.example .env.local
         fi
     else
-        echo -e "${YELLOW}⚠️ Doppler secrets not configured, creating template...${NC}"
+        echo -e "${YELLOW}📋 Creating template .env.local from .env.example${NC}"
         cp .env.example .env.local
-        echo -e "${YELLOW}💡 Consider setting up Doppler for secret management${NC}"
     fi
 fi
 
-# Override with environment-specific secrets if available
+# Override with staging-specific configuration
 if [ -f "$ENVIRONMENTS_DIR/$ENVIRONMENT.env" ]; then
-    echo -e "${BLUE}🔧 Merging environment-specific configuration...${NC}"
+    echo -e "${BLUE}🔧 Merging staging-specific configuration...${NC}"
     # Environment variables from config files take precedence over Doppler secrets
     set -a
     source "$ENVIRONMENTS_DIR/$ENVIRONMENT.env"
     set +a
 fi
 
-# 3. Port Management
+# 4. Port Management
 echo -e "${BLUE}🔌 Checking port availability...${NC}"
 
-# Load ports from environment or use defaults
-VITE_PORT=${VITE_PORT:-5173}
-API_PORT=${API_PORT:-3001}
-POSTGRES_PORT=${POSTGRES_PORT:-5432}
-REDIS_PORT=${REDIS_PORT:-6379}
+# Load ports from environment or use staging defaults
+VITE_PORT=${VITE_PORT:-5174}
+API_PORT=${API_PORT:-3002}
+POSTGRES_PORT=${POSTGRES_PORT:-5433}
+REDIS_PORT=${REDIS_PORT:-6380}
 
 # Function to check if port is in use
 check_port() {
@@ -137,24 +136,24 @@ else
     echo -e "${GREEN}✅ All required ports are available${NC}"
 fi
 
-# 4. Container Orchestration
-echo -e "${BLUE}🐳 Starting containers...${NC}"
+# 5. Container Orchestration
+echo -e "${BLUE}🐳 Starting staging containers...${NC}"
 
 # Stop any existing containers
 echo -e "${YELLOW}🔄 Stopping existing containers...${NC}"
 docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME down --remove-orphans 2>/dev/null || true
 
 # Start the services
-echo -e "${YELLOW}🚀 Bringing up services...${NC}"
+echo -e "${YELLOW}🚀 Bringing up staging services...${NC}"
 if docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME up -d --remove-orphans; then
-    echo -e "${GREEN}✅ Containers started successfully${NC}"
+    echo -e "${GREEN}✅ Staging containers started successfully${NC}"
 else
-    echo -e "${RED}❌ Failed to start containers${NC}"
+    echo -e "${RED}❌ Failed to start staging containers${NC}"
     exit 1
 fi
 
-# 5. Health Check Wait
-echo -e "${BLUE}⏳ Waiting for services to be healthy...${NC}"
+# 6. Health Check Wait
+echo -e "${BLUE}⏳ Waiting for staging services to be healthy...${NC}"
 
 # Function to wait for service health
 wait_for_service() {
@@ -189,44 +188,34 @@ if [ $services_failed -gt 0 ]; then
     echo -e "${RED}❌ $services_failed services failed to become healthy${NC}"
     echo -e "${YELLOW}💡 Check logs: docker-compose -f $COMPOSE_FILE logs${NC}"
 else
-    echo -e "${GREEN}✅ All services are healthy${NC}"
+    echo -e "${GREEN}✅ All staging services are healthy${NC}"
 fi
 
-# 6. Database Setup
-echo -e "${BLUE}🗄️ Setting up database...${NC}"
+# 7. Database Setup
+echo -e "${BLUE}🗄️ Setting up staging database...${NC}"
 
 # Wait a bit more for database to be fully ready
 sleep 5
 
 # Check if database is accessible
-if docker exec valueos-postgres pg_isready -U postgres -d valuecanvas_dev &> /dev/null; then
-    echo -e "${GREEN}✅ Database is ready${NC}"
+if docker exec ${PROJECT_NAME}-postgres-1 pg_isready -U postgres -d valueos_staging &> /dev/null; then
+    echo -e "${GREEN}✅ Staging database is ready${NC}"
 
     # Run migrations if they exist
     if [ -f "package.json" ] && grep -q "db:push" package.json; then
-        echo -e "${YELLOW}🔄 Running database migrations...${NC}"
+        echo -e "${YELLOW}🔄 Running staging database migrations...${NC}"
         if npm run db:push &> /dev/null; then
-            echo -e "${GREEN}✅ Migrations completed${NC}"
+            echo -e "${GREEN}✅ Staging migrations completed${NC}"
         else
             echo -e "${YELLOW}⚠️ Migration failed (may be normal for first run)${NC}"
         fi
     fi
-
-    # Seed data if script exists
-    if [ -f "scripts/seed-development-data.sh" ]; then
-        echo -e "${YELLOW}🌱 Seeding development data...${NC}"
-        if bash scripts/seed-development-data.sh &> /dev/null; then
-            echo -e "${GREEN}✅ Development data seeded${NC}"
-        else
-            echo -e "${YELLOW}⚠️ Data seeding failed${NC}"
-        fi
-    fi
 else
-    echo -e "${RED}❌ Database is not accessible${NC}"
+    echo -e "${RED}❌ Staging database is not accessible${NC}"
 fi
 
-# 7. Final Health Check
-echo -e "${BLUE}🏥 Running final health check...${NC}"
+# 8. Final Health Check
+echo -e "${BLUE}🏥 Running final staging health check...${NC}"
 
 # Function to check HTTP endpoint
 check_endpoint() {
@@ -256,24 +245,24 @@ check_endpoint() {
 check_endpoint "http://localhost:$API_PORT/health" "Backend API"
 check_endpoint "http://localhost:$VITE_PORT" "Frontend"
 
-# 8. Success Summary
+# 9. Success Summary
 echo ""
-echo -e "${GREEN}⭐ ValueOS is ready!${NC}"
-echo "=================="
-echo -e "${BLUE}🌐 Services:${NC}"
+echo -e "${GREEN}⭐ ValueOS Staging is ready!${NC}"
+echo "========================"
+echo -e "${BLUE}🌐 Staging Services:${NC}"
 echo "  Frontend:    http://localhost:$VITE_PORT"
 echo "  Backend:     http://localhost:$API_PORT"
 echo "  Database:    localhost:$POSTGRES_PORT"
 echo "  Redis:       localhost:$REDIS_PORT"
 echo ""
 echo -e "${BLUE}🔧 Management commands:${NC}"
-echo "  dev-down     - Stop all services"
-echo "  dev-logs     - View service logs"
-echo "  dev-ps       - Show service status"
-echo "  health-check - Run health check"
+echo "  staging-down     - Stop all staging services"
+echo "  staging-logs     - View staging service logs"
+echo "  staging-ps       - Show staging service status"
+echo "  staging-health   - Run staging health check"
 echo ""
 echo -e "${BLUE}🔗 Useful links:${NC}"
 echo "  API Health:  http://localhost:$API_PORT/health"
 echo "  API Docs:    http://localhost:$API_PORT/api-docs"
 echo ""
-echo -e "${GREEN}🎉 Happy coding!${NC}"
+echo -e "${GREEN}🎉 Staging environment ready for testing!${NC}"

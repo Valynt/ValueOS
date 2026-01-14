@@ -1,6 +1,10 @@
+# ValueOS Production Docker Configuration
+# Extends docker-compose.base.yml with production-specific services and configurations
+
 version: "3.9"
 
 services:
+  # Caddy reverse proxy for production
   caddy:
     image: caddy:2-alpine
     container_name: valueos-caddy-prod
@@ -41,6 +45,7 @@ services:
       backend:
         condition: service_healthy
 
+  # Frontend production build
   frontend:
     image: node:20-alpine
     container_name: valueos-frontend-prod
@@ -69,7 +74,9 @@ services:
       timeout: 5s
       retries: 3
       start_period: 60s
+    restart: unless-stopped
 
+  # Backend production service
   backend:
     build:
       context: .
@@ -109,8 +116,11 @@ services:
       retries: 3
       start_period: 30s
 
+  # Extend base services with production-specific configurations
   redis:
-    image: redis:7-alpine
+    extends:
+      file: docker-compose.base.yml
+      service: redis
     container_name: valueos-redis-prod
     restart: unless-stopped
     command: >
@@ -119,10 +129,6 @@ services:
       --appendonly yes
       --maxmemory 256mb
       --maxmemory-policy allkeys-lru
-    volumes:
-      - redis-data:/data
-    networks:
-      - valueos-network
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
@@ -131,7 +137,7 @@ services:
 
 networks:
   valueos-network:
-    driver: bridge
+    external: true
 
 volumes:
   caddy-data:

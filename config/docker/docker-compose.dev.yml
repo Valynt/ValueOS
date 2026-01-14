@@ -1,6 +1,10 @@
+# ValueOS Development Docker Configuration
+# Extends docker-compose.base.yml with development-specific services and configurations
+
 version: "3.9"
 
 services:
+  # Caddy reverse proxy for development
   caddy:
     image: caddy:2-alpine
     container_name: valueos-caddy-dev
@@ -51,7 +55,9 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+    restart: unless-stopped
 
+  # Frontend development server
   frontend:
     image: node:20-alpine
     container_name: valueos-frontend-dev
@@ -68,6 +74,8 @@ services:
       VITE_APP_URL: https://${DEV_DOMAIN:-localhost}:${CADDY_HTTPS_PORT:-8443}
       VITE_HMR_HOST: ${DEV_DOMAIN:-localhost}
       VITE_HMR_PORT: ${VITE_HMR_PORT:-24678}
+      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-http://localhost:54321}
+      VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
     volumes:
       - ./:/app
       - frontend-node-modules:/app/node_modules
@@ -82,7 +90,9 @@ services:
       timeout: 5s
       retries: 3
       start_period: 40s
+    restart: unless-stopped
 
+  # Backend development server
   backend:
     image: node:20-alpine
     container_name: valueos-backend-dev
@@ -94,9 +104,12 @@ services:
       CORS_ALLOWED_ORIGINS: https://${DEV_DOMAIN:-localhost}:${CADDY_HTTPS_PORT:-8443},http://localhost:${VITE_PORT:-5173}
       REDIS_URL: redis://redis:6379
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-dev_password}@postgres:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-valuecanvas_dev}
-      SUPABASE_URL: ${SUPABASE_URL:-http://host.docker.internal:${SUPABASE_API_PORT:-54321}}
+      DB_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-dev_password}@postgres:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-valuecanvas_dev}
+      SUPABASE_URL: ${SUPABASE_URL:-http://localhost:54321}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
       TOGETHER_API_KEY: ${TOGETHER_API_KEY}
+      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-http://localhost:54321}
+      VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
     env_file:
       - .env.ports
       - .env.local
@@ -124,45 +137,24 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
+    restart: unless-stopped
 
+  # Extend base services with development-specific configurations
   postgres:
-    image: postgres:15-alpine
+    extends:
+      file: docker-compose.base.yml
+      service: postgres
     container_name: valueos-postgres-dev
-    environment:
-      POSTGRES_DB: valuecanvas_dev
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: dev_password
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - valueos-network
 
   redis:
-    image: redis:7-alpine
+    extends:
+      file: docker-compose.base.yml
+      service: redis
     container_name: valueos-redis-dev
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis-data:/data
-    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-    networks:
-      - valueos-network
 
 networks:
   valueos-network:
-    driver: bridge
+    external: true
 
 volumes:
   caddy-data:

@@ -8,17 +8,17 @@ RED='\033[0;31m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-echo -e "${GREEN}🚀 Starting ValueOS Ephemeral Environment...${NC}"
-echo "============================================="
+echo -e "${GREEN}🧪 Starting ValueOS Test Environment...${NC}"
+echo "=========================================="
 
 # Configuration
 COMPOSE_FILE="config/docker/docker-compose.unified.yml"
-PROJECT_NAME="valueos"
+PROJECT_NAME="valueos-test"
 ENVIRONMENTS_DIR="config/environments"
-ENVIRONMENT="development"
+ENVIRONMENT="test"
 
 # 1. Environment Check
-echo -e "${BLUE}🔍 Checking environment...${NC}"
+echo -e "${BLUE}🔍 Checking test environment...${NC}"
 
 # Check if docker-compose is available
 if ! command -v docker-compose &> /dev/null; then
@@ -35,7 +35,7 @@ fi
 echo -e "${GREEN}✅ Docker environment ready${NC}"
 
 # 2. Environment Configuration Loading
-echo -e "${BLUE}🔧 Loading environment configuration...${NC}"
+echo -e "${BLUE}🔧 Loading test environment configuration...${NC}"
 
 # Load base environment first
 if [ -f "$ENVIRONMENTS_DIR/base.env" ]; then
@@ -48,7 +48,7 @@ else
     exit 1
 fi
 
-# Load environment-specific overrides
+# Load test-specific overrides
 if [ -f "$ENVIRONMENTS_DIR/$ENVIRONMENT.env" ]; then
     echo -e "${GREEN}✅ Loading $ENVIRONMENT environment overrides${NC}"
     set -a
@@ -61,47 +61,46 @@ fi
 # Export NODE_ENV explicitly
 export NODE_ENV=$ENVIRONMENT
 
-# 3. Secret Management
-echo -e "${BLUE}🔐 Setting up secrets...${NC}"
+# 3. Test Secret Management
+echo -e "${BLUE}🔐 Setting up test secrets...${NC}"
 
+# Use test secrets from environment or create mock secrets
 if [ -f ".env.local" ]; then
     echo -e "${GREEN}✅ Using existing .env.local${NC}"
 else
-    echo -e "${YELLOW}⚠️ No .env.local found${NC}"
+    echo -e "${YELLOW}⚠️ No .env.local found, creating test secrets...${NC}"
 
-    # Try Doppler if available
-    if command -v doppler &> /dev/null && doppler whoami &> /dev/null; then
-        echo -e "${BLUE}☁️ Fetching secrets from Doppler...${NC}"
-        if doppler secrets download --project valueos-dev --config dev --no-file --format env > .env.local 2>/dev/null; then
-            echo -e "${GREEN}✅ Secrets loaded from Doppler${NC}"
-        else
-            echo -e "${YELLOW}⚠️ Doppler secrets not configured, creating template...${NC}"
-            cp .env.example .env.local
-        fi
-    else
-        echo -e "${YELLOW}⚠️ Doppler secrets not configured, creating template...${NC}"
-        cp .env.example .env.local
-        echo -e "${YELLOW}💡 Consider setting up Doppler for secret management${NC}"
-    fi
+    # Create test secrets (not using Doppler for test environment)
+    cat > .env.local << EOF
+# Test Environment Secrets (Mock Values)
+JWT_SECRET=test-jwt-secret-for-testing-only
+ENCRYPTION_KEY=test-encryption-key-for-testing-only
+VITE_SUPABASE_URL=http://localhost:54322
+VITE_SUPABASE_ANON_KEY=test-supabase-anon-key
+SUPABASE_SERVICE_ROLE_KEY=test-service-role-key
+TOGETHER_API_KEY=test-together-api-key
+OPENAI_API_KEY=test-openai-api-key
+ANTHROPIC_API_KEY=test-anthropic-api-key
+EOF
+    echo -e "${GREEN}✅ Test secrets created${NC}"
 fi
 
-# Override with environment-specific secrets if available
+# Override with test-specific configuration
 if [ -f "$ENVIRONMENTS_DIR/$ENVIRONMENT.env" ]; then
-    echo -e "${BLUE}🔧 Merging environment-specific configuration...${NC}"
-    # Environment variables from config files take precedence over Doppler secrets
+    echo -e "${BLUE}🔧 Merging test-specific configuration...${NC}"
     set -a
     source "$ENVIRONMENTS_DIR/$ENVIRONMENT.env"
     set +a
 fi
 
-# 3. Port Management
-echo -e "${BLUE}🔌 Checking port availability...${NC}"
+# 4. Test Port Management
+echo -e "${BLUE}🔌 Checking test port availability...${NC}"
 
-# Load ports from environment or use defaults
-VITE_PORT=${VITE_PORT:-5173}
-API_PORT=${API_PORT:-3001}
-POSTGRES_PORT=${POSTGRES_PORT:-5432}
-REDIS_PORT=${REDIS_PORT:-6379}
+# Load ports from environment or use test defaults
+VITE_PORT=${VITE_PORT:-5175}
+API_PORT=${API_PORT:-3003}
+POSTGRES_PORT=${POSTGRES_PORT:-5434}
+REDIS_PORT=${REDIS_PORT:-6381}
 
 # Function to check if port is in use
 check_port() {
@@ -110,14 +109,14 @@ check_port() {
 
     if lsof -i :$port &> /dev/null; then
         echo -e "${YELLOW}⚠️ Port $port ($service) is already in use${NC}"
-        echo -e "${YELLOW}💡 Run: lsof -i :$port | grep LISTEN to see what's using it${NC}"
+        echo -e "${YELLOW}💡 Test environment requires isolated ports${NC}"
         return 1
     else
         return 0
     fi
 }
 
-# Check critical ports
+# Check critical test ports
 port_conflicts=0
 check_port $VITE_PORT "Frontend" || port_conflicts=$((port_conflicts + 1))
 check_port $API_PORT "Backend API" || port_conflicts=$((port_conflicts + 1))
@@ -125,41 +124,36 @@ check_port $POSTGRES_PORT "PostgreSQL" || port_conflicts=$((port_conflicts + 1))
 check_port $REDIS_PORT "Redis" || port_conflicts=$((port_conflicts + 1))
 
 if [ $port_conflicts -gt 0 ]; then
-    echo -e "${RED}❌ $port_conflicts port conflicts detected${NC}"
-    echo -e "${YELLOW}💡 Resolve conflicts or use DX_ALLOW_PORT_IN_USE=1 to force start${NC}"
-
-    if [ "$DX_ALLOW_PORT_IN_USE" = "1" ]; then
-        echo -e "${YELLOW}⚠️ Starting despite port conflicts (DX_ALLOW_PORT_IN_USE=1)${NC}"
-    else
-        exit 1
-    fi
+    echo -e "${RED}❌ $port_conflicts test port conflicts detected${NC}"
+    echo -e "${YELLOW}💡 Test environment requires isolated ports. Resolve conflicts or use different ports.${NC}"
+    exit 1
 else
-    echo -e "${GREEN}✅ All required ports are available${NC}"
+    echo -e "${GREEN}✅ All test ports are available${NC}"
 fi
 
-# 4. Container Orchestration
-echo -e "${BLUE}🐳 Starting containers...${NC}"
+# 5. Test Container Orchestration
+echo -e "${BLUE}🐳 Starting test containers...${NC}"
 
-# Stop any existing containers
-echo -e "${YELLOW}🔄 Stopping existing containers...${NC}"
+# Stop any existing test containers
+echo -e "${YELLOW}🔄 Stopping existing test containers...${NC}"
 docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME down --remove-orphans 2>/dev/null || true
 
 # Start the services
-echo -e "${YELLOW}🚀 Bringing up services...${NC}"
+echo -e "${YELLOW}🚀 Bringing up test services...${NC}"
 if docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME up -d --remove-orphans; then
-    echo -e "${GREEN}✅ Containers started successfully${NC}"
+    echo -e "${GREEN}✅ Test containers started successfully${NC}"
 else
-    echo -e "${RED}❌ Failed to start containers${NC}"
+    echo -e "${RED}❌ Failed to start test containers${NC}"
     exit 1
 fi
 
-# 5. Health Check Wait
-echo -e "${BLUE}⏳ Waiting for services to be healthy...${NC}"
+# 6. Test Health Check Wait
+echo -e "${BLUE}⏳ Waiting for test services to be healthy...${NC}"
 
-# Function to wait for service health
+# Function to wait for service health (shorter timeout for tests)
 wait_for_service() {
     local service_name=$1
-    local max_attempts=30
+    local max_attempts=15  # Shorter wait for test environment
     local attempt=1
 
     echo -n "  Waiting for $service_name..."
@@ -171,7 +165,7 @@ wait_for_service() {
         fi
 
         echo -n "."
-        sleep 2
+        sleep 1  # Faster wait for test environment
         attempt=$((attempt + 1))
     done
 
@@ -186,53 +180,54 @@ wait_for_service "redis" || services_failed=$((services_failed + 1))
 wait_for_service "backend" || services_failed=$((services_failed + 1))
 
 if [ $services_failed -gt 0 ]; then
-    echo -e "${RED}❌ $services_failed services failed to become healthy${NC}"
+    echo -e "${RED}❌ $services_failed test services failed to become healthy${NC}"
     echo -e "${YELLOW}💡 Check logs: docker-compose -f $COMPOSE_FILE logs${NC}"
 else
-    echo -e "${GREEN}✅ All services are healthy${NC}"
+    echo -e "${GREEN}✅ All test services are healthy${NC}"
 fi
 
-# 6. Database Setup
-echo -e "${BLUE}🗄️ Setting up database...${NC}"
+# 7. Test Database Setup
+echo -e "${BLUE}🗄️ Setting up test database...${NC}"
 
-# Wait a bit more for database to be fully ready
-sleep 5
+# Wait for database to be ready
+sleep 3
 
-# Check if database is accessible
-if docker exec valueos-postgres pg_isready -U postgres -d valuecanvas_dev &> /dev/null; then
-    echo -e "${GREEN}✅ Database is ready${NC}"
+# Check if test database is accessible
+if docker exec ${PROJECT_NAME}-postgres-1 pg_isready -U postgres -d valueos_test &> /dev/null; then
+    echo -e "${GREEN}✅ Test database is ready${NC}"
 
-    # Run migrations if they exist
+    # Run test migrations
     if [ -f "package.json" ] && grep -q "db:push" package.json; then
-        echo -e "${YELLOW}🔄 Running database migrations...${NC}"
+        echo -e "${YELLOW}🔄 Running test database migrations...${NC}"
         if npm run db:push &> /dev/null; then
-            echo -e "${GREEN}✅ Migrations completed${NC}"
+            echo -e "${GREEN}✅ Test migrations completed${NC}"
         else
-            echo -e "${YELLOW}⚠️ Migration failed (may be normal for first run)${NC}"
+            echo -e "${YELLOW}⚠️ Migration failed (may be normal for test setup)${NC}"
         fi
     fi
 
-    # Seed data if script exists
-    if [ -f "scripts/seed-development-data.sh" ]; then
-        echo -e "${YELLOW}🌱 Seeding development data...${NC}"
-        if bash scripts/seed-development-data.sh &> /dev/null; then
-            echo -e "${GREEN}✅ Development data seeded${NC}"
+    # Seed test data if script exists
+    if [ -f "scripts/seed-test-data.sh" ]; then
+        echo -e "${YELLOW}🌱 Seeding test data...${NC}"
+        if bash scripts/seed-test-data.sh &> /dev/null; then
+            echo -e "${GREEN}✅ Test data seeded${NC}"
         else
-            echo -e "${YELLOW}⚠️ Data seeding failed${NC}"
+            echo -e "${YELLOW}⚠️ Test data seeding failed${NC}"
         fi
     fi
 else
-    echo -e "${RED}❌ Database is not accessible${NC}"
+    echo -e "${RED}❌ Test database is not accessible${NC}"
+    exit 1
 fi
 
-# 7. Final Health Check
-echo -e "${BLUE}🏥 Running final health check...${NC}"
+# 8. Test Final Health Check
+echo -e "${BLUE}🏥 Running test final health check...${NC}"
 
 # Function to check HTTP endpoint
 check_endpoint() {
     local url=$1
     local name=$2
-    local max_attempts=10
+    local max_attempts=5  # Very fast wait for test environment
     local attempt=1
 
     echo -n "  Checking $name..."
@@ -244,7 +239,7 @@ check_endpoint() {
         fi
 
         echo -n "."
-        sleep 2
+        sleep 1  # Very fast wait for test environment
         attempt=$((attempt + 1))
     done
 
@@ -256,24 +251,25 @@ check_endpoint() {
 check_endpoint "http://localhost:$API_PORT/health" "Backend API"
 check_endpoint "http://localhost:$VITE_PORT" "Frontend"
 
-# 8. Success Summary
+# 9. Test Success Summary
 echo ""
-echo -e "${GREEN}⭐ ValueOS is ready!${NC}"
-echo "=================="
-echo -e "${BLUE}🌐 Services:${NC}"
+echo -e "${GREEN}⭐ ValueOS Test Environment Ready!${NC}"
+echo "================================="
+echo -e "${BLUE}🧪 Test Services:${NC}"
 echo "  Frontend:    http://localhost:$VITE_PORT"
 echo "  Backend:     http://localhost:$API_PORT"
 echo "  Database:    localhost:$POSTGRES_PORT"
 echo "  Redis:       localhost:$REDIS_PORT"
 echo ""
-echo -e "${BLUE}🔧 Management commands:${NC}"
-echo "  dev-down     - Stop all services"
-echo "  dev-logs     - View service logs"
-echo "  dev-ps       - Show service status"
-echo "  health-check - Run health check"
+echo -e "${BLUE}🔧 Test Management:${NC}"
+echo "  test-down     - Stop all test services"
+echo "  test-logs     - View test service logs"
+echo "  test-ps       - Show test service status"
+echo "  test-health   - Run test health check"
 echo ""
-echo -e "${BLUE}🔗 Useful links:${NC}"
+echo -e "${BLUE}🔗 Test Links:${NC}"
 echo "  API Health:  http://localhost:$API_PORT/health"
 echo "  API Docs:    http://localhost:$API_PORT/api-docs"
 echo ""
-echo -e "${GREEN}🎉 Happy coding!${NC}"
+echo -e "${GREEN}🧪 Test environment ready for testing!${NC}"
+echo -e "${BLUE}💡 Run tests with: npm test${NC}"
