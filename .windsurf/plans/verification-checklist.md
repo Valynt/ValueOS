@@ -85,14 +85,14 @@ npm run db:reset
 
 ```bash
 npm run seed:demo
-# Expected: "🎉 Demo data seeded successfully!" + login credentials
+# Expected: "Demo data seeded successfully!" + login credentials
 ```
 
-## 🔐 Authentication Verification
+## Authentication Verification
 
 ### 10. Login Flow
 
-1. Open http://localhost:5173
+1. Open `http://localhost:5173`
 2. Use credentials from seed:demo output
 3. Expected: Successful login, redirect to dashboard
 

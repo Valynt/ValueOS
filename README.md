@@ -87,27 +87,40 @@ ValueOS/
 
 ### Local Development Setup
 
-ValueOS uses DevContainers for consistent development environments:
+ValueOS provides a deterministic local development environment with automated setup:
 
 ```bash
-# Initialize development environment
-npm run setup
+# First-time setup
+npm install
+npm run env:dev          # Setup environment with real keys
+npm run dx               # Start development stack
+npm run db:reset         # Reset database
+npm run seed:demo        # Create demo user
 
-# Start full development stack (Docker + Supabase + Frontend)
-npm run dx
+# Daily development
+npm run dx               # Start stack
+npm run dx:down          # Stop stack
 
-# Start with Docker services only
-npm run dx:docker
-
-# Health check all services
-npm run health
+# Health verification
+npm run dx:check         # Comprehensive health check
 ```
+
+**Quick Start (5 minutes):**
+
+1. Install Docker Desktop and ensure it's running
+2. Run: `npm install && npm run env:dev && npm run dx`
+3. Run: `npm run db:reset && npm run seed:demo`
+4. Open: `http://localhost:5173`
+5. Login with credentials from `seed:demo` output
 
 ### Environment Configuration
 
 Environment management is handled through dedicated scripts:
 
 ```bash
+# Setup local development environment
+npm run env:dev           # Configures local dev with real keys
+
 # Switch to staging environment
 npm run env:staging
 
@@ -116,6 +129,9 @@ npm run env:production
 
 # Check current environment
 npm run env:status
+
+# Validate environment configuration
+npm run env:validate
 ```
 
 ### Port Management
@@ -123,9 +139,25 @@ npm run env:status
 Services are configured to avoid port conflicts:
 
 - Frontend: 5173 (Vite dev server)
-- API: 3000 (Backend services)
-- Supabase: 54321 (Local development)
-- Caddy: 80/443 (Reverse proxy)
+- Backend API: 3001 (Backend services)
+- Supabase API: 54321 (Local development)
+- Supabase Studio: 54323 (Database admin)
+- PostgreSQL: 5432 (Database)
+- Redis: 6379 (Cache)
+
+### Development Stack Management
+
+```bash
+# Stack operations
+npm run dx                # Start full development stack
+npm run dx:down           # Stop development stack
+npm run dx:reset          # Full reset (removes volumes)
+npm run dx:clean          # Complete cleanup
+npm run dx:check          # Health verification
+npm run dx:doctor         # Preflight checks
+npm run dx:logs           # View logs
+npm run dx:ps             # Show containers
+```
 
 ### Quality Gates
 
@@ -229,14 +261,17 @@ NODE_ENV=production npm run build
 Database changes are managed through Supabase migrations:
 
 ```bash
-# Create new migration
-npx supabase migration new <name>
-
-# Apply migrations
-npm run db:push
-
-# Reset database (development only)
+# Reset local database (development)
 npm run db:reset
+
+# Create demo user and tenant
+npm run seed:demo
+
+# Generate TypeScript types from local schema
+npm run db:types
+
+# For remote project migrations (staging/production)
+npm run db:push
 ```
 
 ### Observability
@@ -308,39 +343,51 @@ The system follows evolutionary architecture principles:
 ### Essential Commands
 
 ```bash
-# Development
-npm run dx                    # Full development stack
-npm run dev                   # Frontend only
-npm run backend:dev           # Backend services
+# Development Setup
+npm run env:dev           # Setup environment with real keys
+npm run dx               # Start full development stack
+npm run dx:down          # Stop development stack
+npm run dx:check         # Comprehensive health check
+
+# Database Operations
+npm run db:reset         # Reset local database
+npm run seed:demo        # Create demo user and tenant
+npm run db:types         # Generate TypeScript types
 
 # Testing
-npm run test:unit             # Unit tests
-npm run test:integration      # Integration tests
-npm run test:all              # Full test suite
-
-# Database
-npm run db:setup              # Initialize Supabase
-npm run db:push               # Apply migrations
-npm run db:types              # Generate TypeScript types
+npm run test:unit         # Unit tests
+npm run test:integration  # Integration tests
+npm run test:all          # Full test suite
 
 # Production
-npm run build                 # Production build
-npm run staging:start         # Staging environment
-npm run docker:prod:up        # Production deployment
+npm run build             # Production build
+npm run staging:start     # Staging environment
+npm run docker:prod:up    # Production deployment
 ```
 
 ### Troubleshooting
 
 ```bash
 # Service health
-npm run health                # Check all services
-npm run dev:diagnose          # Network diagnostics
-npm run dx:logs               # Development logs
+npm run dx:doctor        # Preflight checks
+npm run dx:check         # Comprehensive health check
+npm run dx:logs          # Development logs
 
-# Port conflicts
-npm run dev:test-ports        # Test port availability
-npm run dev:fix               # Auto-fix common issues
+# Environment issues
+npm run env:validate     # Validate configuration
+npm run env:status       # Check current environment
+
+# Port conflicts or cleanup
+npm run dx:clean         # Complete cleanup
+npm run dx:reset         # Full reset with volume removal
 ```
+
+### Service URLs (Development)
+
+- Frontend: `http://localhost:5173`
+- Backend API: `http://localhost:3001`
+- Supabase Studio: `http://localhost:54323`
+- API Health: `http://localhost:3001/health`
 
 **Documentation**
 
