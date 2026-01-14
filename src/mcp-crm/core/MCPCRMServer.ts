@@ -9,6 +9,14 @@ import { logger } from "../../lib/logger";
 import { supabase } from "../../lib/supabase";
 import { HubSpotModule } from "../modules/HubSpotModule";
 import { SalesforceModule } from "../modules/SalesforceModule";
+import { CRMConfigManager } from "../config/CRMConfigManager";
+import {
+  mcpRateLimiter,
+  ParallelInitializer,
+  MCPCRMError,
+  MCPErrorCodes,
+  MCPResponseBuilder,
+} from "@mcp-common/index";
 import {
   CRMConnection,
   CRMModule,
@@ -17,13 +25,6 @@ import {
   MCPCRMConfig,
   MCPCRMToolResult,
 } from "../types";
-import {
-  MCPCRMError,
-  MCPErrorCodes,
-  MCPResponseBuilder,
-  MCPCRMToolResponse,
-  createErrorResponseFromError,
-} from "../../../mcp-common";
 
 // ============================================================================
 // Tool Definitions for LLM
@@ -246,16 +247,176 @@ export class MCPCRMServer {
   private config: MCPCRMConfig;
   private modules: Map<CRMProvider, CRMModule> = new Map();
   private connections: Map<CRMProvider, CRMConnection> = new Map();
+  private configManager: CRMConfigManager;
+  public parallelInitializer: ParallelInitializer;
 
   constructor(config: MCPCRMConfig) {
     this.config = config;
+    this.configManager = CRMConfigManager.getInstance();
+    this.parallelInitializer = new ParallelInitializer({
+      maxConcurrency: 5,
+      defaultTimeout: 30000,
+      enableBatching: true,
+      enableConnectionPooling: true,
+      poolSize: 3,
+    });
   }
 
   /**
-   * Initialize the server by loading tenant connections
+   * Initialize the server using parallel initialization
    */
   async initialize(): Promise<void> {
-    await this.loadConnections();
+    const startTime = Date.now();
+    // Add initialization tasks
+    this.addInitializationTasks();
+
+    // Execute all tasks in parallel
+    const results = await this.parallelInitializer.execute();
+
+    // Check for any failures
+    const failures = Array.from(results.values()).filter((r) => !r.success);
+    if (failures.length > 0) {
+      logger.error("Some initialization tasks failed", {
+        failures: failures.map((f) => ({
+          taskId: f.taskId,
+          error: f.error?.message || "Unknown error",
+        })),
+      });
+    }
+
+    const duration = Date.now() - startTime;
+    logger.info("CRM server initialization completed", {
+      duration,
+      totalTasks: results.size,
+      failures: failures.length,
+    });
+  }
+
+  /**
+   * Add parallel initialization tasks
+   */
+  private addInitializationTasks(): void {
+    // Task 1: Load configuration (high priority, no dependencies)
+    this.parallelInitializer.addTask({
+      id: "load-config",
+      name: "Load CRM Configuration",
+      priority: "high",
+      timeout: 10000,
+      retryAttempts: 3,
+      retryDelay: 1000,
+      executor: async () => {
+        await this.configManager.loadConfig();
+        return this.configManager.getConfig();
+      },
+    });
+
+    // Task 2: Register rate limiters (medium priority, depends on config)
+    this.parallelInitializer.addTask({
+      id: "register-rate-limiters",
+      name: "Register Rate Limiters",
+      priority: "medium",
+      dependencies: ["load-config"],
+      timeout: 5000,
+      retryAttempts: 2,
+      retryDelay: 500,
+      executor: async () => {
+        this.registerRateLimiters();
+        return this.configManager.getEnabledProviders();
+      },
+    });
+
+    // Task 3: Load database connections (medium priority, depends on config)
+    this.parallelInitializer.addTask({
+      id: "load-connections",
+      name: "Load CRM Connections",
+      priority: "medium",
+      dependencies: ["load-config"],
+      timeout: 15000,
+      retryAttempts: 3,
+      retryDelay: 1000,
+      executor: async () => {
+        await this.loadConnections();
+        return Array.from(this.connections.keys());
+      },
+    });
+
+    // Task 4: Initialize modules (low priority, depends on connections and rate limiters)
+    this.parallelInitializer.addTask({
+      id: "initialize-modules",
+      name: "Initialize CRM Modules",
+      priority: "low",
+      dependencies: ["load-connections", "register-rate-limiters"],
+      timeout: 20000,
+      retryAttempts: 2,
+      retryDelay: 1000,
+      executor: async () => {
+        const modulePromises = Array.from(this.connections.values()).map((connection) =>
+          this.initializeModule(connection)
+        );
+        await Promise.all(modulePromises);
+        return Array.from(this.modules.keys());
+      },
+    });
+
+    // Task 5: Health check (low priority, depends on all modules)
+    this.parallelInitializer.addTask({
+      id: "health-check",
+      name: "Perform Health Check",
+      priority: "low",
+      dependencies: ["initialize-modules"],
+      timeout: 10000,
+      retryAttempts: 1,
+      retryDelay: 500,
+      executor: async () => {
+        const healthResults = await Promise.allSettled(
+          Array.from(this.modules.entries()).map(async ([provider, module]) => {
+            try {
+              // Simple health check - try to get a small amount of data
+              await module.searchDeals({ limit: 1 });
+              return { provider, status: "healthy" };
+            } catch (error) {
+              return {
+                provider,
+                status: "unhealthy",
+                error: error instanceof Error ? error.message : "Unknown error",
+              };
+            }
+          })
+        );
+
+        return healthResults.map((result) =>
+          result.status === "fulfilled" ? result.value : result.reason
+        );
+      },
+    });
+  }
+
+  /**
+   * Register rate limiters for all enabled providers
+   */
+  private registerRateLimiters(): void {
+    const enabledProviders = this.configManager.getEnabledProviders();
+
+    for (const provider of enabledProviders) {
+      const rateLimitConfig = this.configManager.getRateLimitConfig(provider);
+
+      mcpRateLimiter.registerProvider({
+        provider,
+        requestsPerSecond: rateLimitConfig.requestsPerSecond,
+        burstCapacity: rateLimitConfig.burstCapacity,
+        windowMs: 60000, // 1 minute window
+        retryAfterBase: 60,
+        maxRetries: 3,
+        backoffMultiplier: 2,
+        adaptiveThrottling: true,
+        circuitBreaker: {
+          enabled: true,
+          failureThreshold: 5,
+          recoveryTimeout: 300000, // 5 minutes
+          monitoringPeriod: 600000, // 10 minutes
+        },
+      });
+    }
   }
 
   /**
@@ -446,6 +607,22 @@ export class MCPCRMServer {
     responseBuilder: MCPResponseBuilder,
     startTime: number
   ): Promise<MCPCRMToolResult> {
+    // Check rate limit
+    const rateLimitResult = await mcpRateLimiter.checkLimit(module.provider);
+    if (!rateLimitResult.allowed) {
+      return {
+        success: false,
+        error: rateLimitResult.circuitBreakerOpen
+          ? `CRM provider ${module.provider} is temporarily unavailable due to high error rates`
+          : `Rate limit exceeded for ${module.provider}. Please try again in ${rateLimitResult.retryAfter} seconds.`,
+      };
+    }
+
+    // Apply adaptive throttling delay if needed
+    if (rateLimitResult.adaptiveDelay && rateLimitResult.adaptiveDelay > 0) {
+      await new Promise((resolve) => setTimeout(resolve, rateLimitResult.adaptiveDelay));
+    }
+
     const params: DealSearchParams = {
       query: args.query as string | undefined,
       companyName: args.company_name as string | undefined,
@@ -454,28 +631,43 @@ export class MCPCRMServer {
       limit: (args.limit as number) || 10,
     };
 
-    const result = await module.searchDeals(params);
+    try {
+      const result = await module.searchDeals(params);
 
-    return {
-      success: true,
-      data: {
-        deals: result.deals.map((d) => ({
-          id: d.id,
-          name: d.name,
-          company: d.companyName,
-          amount: d.amount,
-          stage: d.stage,
-          closeDate: d.closeDate?.toISOString(),
-          owner: d.ownerName,
-        })),
-        total: result.total,
-        hasMore: result.hasMore,
-      },
-      metadata: {
-        provider: module.provider,
-        requestDurationMs: Date.now() - startTime,
-      },
-    };
+      // Record successful request
+      mcpRateLimiter.recordSuccess(module.provider, Date.now() - startTime);
+
+      return {
+        success: true,
+        data: {
+          deals: result.deals.map((d) => ({
+            id: d.id,
+            name: d.name,
+            company: d.companyName,
+            amount: d.amount,
+            stage: d.stage,
+            closeDate: d.closeDate?.toISOString(),
+            owner: d.ownerName,
+          })),
+          total: result.total,
+          hasMore: result.hasMore,
+        },
+        metadata: {
+          provider: module.provider,
+          requestDurationMs: Date.now() - startTime,
+          rateLimitRemaining: rateLimitResult.remaining,
+        },
+      };
+    } catch (error) {
+      // Record failed request
+      mcpRateLimiter.recordFailure(module.provider, error instanceof Error ? error : undefined);
+
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Unknown error occurred while searching deals",
+      };
+    }
   }
 
   private async handleGetDealDetails(
@@ -891,26 +1083,35 @@ export class MCPCRMServer {
   }
 
   private getMetricsFieldMapping(provider: CRMProvider): Record<string, string> {
-    // Default field mappings - would be loaded from config in production
-    if (provider === "salesforce") {
+    try {
+      return this.configManager.getFieldMappings(provider);
+    } catch (error) {
+      logger.error("Failed to get field mappings from config, using defaults", {
+        provider,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+
+      // Fallback to hard-coded mappings if config fails
+      if (provider === "salesforce") {
+        return {
+          roi: "Calculated_ROI__c",
+          npv: "Net_Present_Value__c",
+          payback_months: "Payback_Period_Months__c",
+          total_value: "Total_Projected_Value__c",
+          confidence_score: "Value_Confidence__c",
+          last_calculated: "ValueCanvas_Last_Sync__c",
+        };
+      }
+      // HubSpot
       return {
-        roi: "Calculated_ROI__c",
-        npv: "Net_Present_Value__c",
-        payback_months: "Payback_Period_Months__c",
-        total_value: "Total_Projected_Value__c",
-        confidence_score: "Value_Confidence__c",
-        last_calculated: "ValueCanvas_Last_Sync__c",
+        roi: "calculated_roi",
+        npv: "net_present_value",
+        payback_months: "payback_period_months",
+        total_value: "total_projected_value",
+        confidence_score: "value_confidence",
+        last_calculated: "valuecanvas_last_sync",
       };
     }
-    // HubSpot
-    return {
-      roi: "calculated_roi",
-      npv: "net_present_value",
-      payback_months: "payback_period_months",
-      total_value: "total_projected_value",
-      confidence_score: "value_confidence",
-      last_calculated: "valuecanvas_last_sync",
-    };
   }
 
   private getObjectSchema(

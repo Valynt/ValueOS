@@ -56,7 +56,7 @@ const pluginConfig = {
 
 // Base config
 const baseConfig = {
-  files: ["**/*.{ts,tsx,js,jsx}"],
+  files: ["**/*.{ts,tsx,js,jsx,mjs,cjs}"],
   languageOptions: {
     ecmaVersion: 2020,
     globals: {
@@ -150,8 +150,7 @@ const baseConfig = {
       {
         selector:
           "CallExpression[callee.object.name='llmGateway'][callee.property.name='complete']",
-        message:
-          "Direct calls to llmGateway.complete are forbidden; use secureLLMInvoke instead.",
+        message: "Direct calls to llmGateway.complete are forbidden; use secureLLMInvoke instead.",
       },
     ],
 
@@ -252,10 +251,8 @@ const srcOverrides = {
     "no-restricted-syntax": [
       "error",
       {
-        selector:
-          "MemberExpression[object.name='process'][property.name='env']",
-        message:
-          "Direct access to process.env is forbidden in src/, use src/lib/env.ts instead",
+        selector: "MemberExpression[object.name='process'][property.name='env']",
+        message: "Direct access to process.env is forbidden in src/, use src/lib/env.ts instead",
       },
     ],
   },
@@ -291,5 +288,5 @@ export default [
   srcOverrides,
   envOverrides,
   testcafeOverrides,
-  ...storybook.configs["flat/recommended"]
+  ...storybook.configs["flat/recommended"],
 ];

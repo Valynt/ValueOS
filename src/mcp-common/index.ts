@@ -41,3 +41,36 @@ export {
   type MCPCRMToolResponse,
   type MCPResponseMetadata,
 } from "./types/Response";
+
+// Configuration management
+export {
+  ConfigurationManager,
+  ConfigurationValidator,
+  type MCPBaseConfig,
+  type MCPCRMServerConfig,
+  type MCPFinancialServerConfig,
+  type MCPIntegratedServerConfig,
+  type CRMProviderConfig,
+  type FinancialModuleConfig,
+  type MCPServerConfig,
+} from "./config/ConfigurationManager";
+
+// Rate limiting
+export {
+  MCPRateLimiter,
+  mcpRateLimiter,
+  type MCPRateLimitConfig,
+  type MCPRateLimitResult,
+  type MCPRateLimitState,
+} from "./rate-limiting/MCPRateLimiter";
+
+// Performance optimization
+export {
+  ParallelInitializer,
+  type InitializationTask,
+  type InitializationResult,
+  type ParallelInitConfig,
+} from "./performance/ParallelInitializer";
+
+// Connection Pool (separate export)
+export { ConnectionPool } from "./performance/ParallelInitializer";

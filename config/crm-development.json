@@ -1,0 +1,144 @@
+{
+  "environment": "development",
+  "debug": true,
+  "logLevel": "debug",
+  "timeout": {
+    "default": 30000,
+    "external": 60000,
+    "database": 10000
+  },
+  "cache": {
+    "enabled": true,
+    "ttl": {
+      "tier1": 86400,
+      "tier2": 7200,
+      "tier3": 1800
+    },
+    "maxSize": 100
+  },
+  "crm": {
+    "providers": [
+      {
+        "provider": "hubspot",
+        "enabled": true,
+        "apiEndpoint": "https://api.hubapi.com",
+        "rateLimit": {
+          "requestsPerSecond": 10,
+          "burstCapacity": 100
+        },
+        "fieldMappings": {
+          "roi": "calculated_roi",
+          "npv": "net_present_value",
+          "payback_months": "payback_period_months",
+          "total_value": "total_projected_value",
+          "confidence_score": "value_confidence",
+          "last_calculated": "valuecanvas_last_sync"
+        },
+        "customFields": [
+          {
+            "name": "calculated_roi",
+            "type": "number",
+            "required": false,
+            "editable": true
+          },
+          {
+            "name": "net_present_value",
+            "type": "number",
+            "required": false,
+            "editable": true
+          },
+          {
+            "name": "payback_period_months",
+            "type": "number",
+            "required": false,
+            "editable": true
+          },
+          {
+            "name": "total_projected_value",
+            "type": "number",
+            "required": false,
+            "editable": true
+          },
+          {
+            "name": "value_confidence",
+            "type": "number",
+            "required": false,
+            "editable": true
+          }
+        ],
+        "oauth": {
+          "scopes": [
+            "crm.objects.deals.read",
+            "crm.objects.deals.write",
+            "crm.objects.contacts.read",
+            "crm.objects.companies.read"
+          ],
+          "tokenRefreshThreshold": 300
+        }
+      },
+      {
+        "provider": "salesforce",
+        "enabled": true,
+        "apiEndpoint": "https://login.salesforce.com",
+        "rateLimit": {
+          "requestsPerSecond": 5,
+          "burstCapacity": 50
+        },
+        "fieldMappings": {
+          "roi": "Calculated_ROI__c",
+          "npv": "Net_Present_Value__c",
+          "payback_months": "Payback_Period_Months__c",
+          "total_value": "Total_Projected_Value__c",
+          "confidence_score": "Value_Confidence__c",
+          "last_calculated": "ValueCanvas_Last_Sync__c"
+        },
+        "customFields": [
+          {
+            "name": "Calculated_ROI__c",
+            "type": "number",
+            "required": false,
+            "editable": true
+          },
+          {
+            "name": "Net_Present_Value__c",
+            "type": "currency",
+            "required": false,
+            "editable": true
+          },
+          {
+            "name": "Payback_Period_Months__c",
+            "type": "number",
+            "required": false,
+            "editable": true
+          },
+          {
+            "name": "Total_Projected_Value__c",
+            "type": "currency",
+            "required": false,
+            "editable": true
+          },
+          {
+            "name": "Value_Confidence__c",
+            "type": "number",
+            "required": false,
+            "editable": true
+          }
+        ],
+        "oauth": {
+          "scopes": [
+            "api",
+            "refresh_token",
+            "offline_access"
+          ],
+          "tokenRefreshThreshold": 600
+        }
+      }
+    ],
+    "defaultProvider": "hubspot",
+    "sync": {
+      "batchSize": 50,
+      "retryAttempts": 3,
+      "retryDelay": 1000
+    }
+  }
+}

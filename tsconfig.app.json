@@ -18,7 +18,8 @@
     /* Path Aliases */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@mcp-common/*": ["./src/mcp-common/*"]
     },
 
     /* Linting */

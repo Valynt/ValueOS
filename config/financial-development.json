@@ -1,0 +1,107 @@
+{
+  "environment": "development",
+  "debug": true,
+  "logLevel": "debug",
+  "timeout": {
+    "default": 30000,
+    "external": 60000,
+    "database": 10000
+  },
+  "cache": {
+    "enabled": true,
+    "ttl": {
+      "tier1": 86400,
+      "tier2": 7200,
+      "tier3": 1800
+    },
+    "maxSize": 100
+  },
+  "financial": {
+    "modules": {
+      "edgar": {
+        "name": "edgar",
+        "tier": "tier1",
+        "enabled": true,
+        "apiEndpoint": "https://www.sec.gov/Archives/edgar/data",
+        "rateLimit": {
+          "requestsPerSecond": 10,
+          "burstCapacity": 100
+        },
+        "timeout": 30000,
+        "retryAttempts": 3,
+        "cache": {
+          "enabled": true,
+          "ttl": 86400
+        }
+      },
+      "xbrl": {
+        "name": "xbrl",
+        "tier": "tier1",
+        "enabled": true,
+        "rateLimit": {
+          "requestsPerSecond": 5,
+          "burstCapacity": 50
+        },
+        "timeout": 45000,
+        "retryAttempts": 2,
+        "cache": {
+          "enabled": true,
+          "ttl": 86400
+        }
+      },
+      "marketData": {
+        "name": "marketData",
+        "tier": "tier2",
+        "enabled": true,
+        "apiEndpoint": "https://api.marketdata.com/v1",
+        "rateLimit": {
+          "requestsPerSecond": 20,
+          "burstCapacity": 200
+        },
+        "timeout": 15000,
+        "retryAttempts": 3,
+        "cache": {
+          "enabled": true,
+          "ttl": 3600
+        }
+      },
+      "privateCompany": {
+        "name": "privateCompany",
+        "tier": "tier2",
+        "enabled": true,
+        "rateLimit": {
+          "requestsPerSecond": 5,
+          "burstCapacity": 50
+        },
+        "timeout": 20000,
+        "retryAttempts": 2,
+        "cache": {
+          "enabled": true,
+          "ttl": 7200
+        }
+      },
+      "industryBenchmark": {
+        "name": "industryBenchmark",
+        "tier": "tier3",
+        "enabled": true,
+        "apiEndpoint": "https://api.benchmarks.com/v1",
+        "rateLimit": {
+          "requestsPerSecond": 15,
+          "burstCapacity": 150
+        },
+        "timeout": 25000,
+        "retryAttempts": 3,
+        "cache": {
+          "enabled": true,
+          "ttl": 1800
+        }
+      }
+    },
+    "truthLayer": {
+      "enableFallback": true,
+      "strictMode": false,
+      "maxResolutionTime": 60000,
+      "parallelQuery": true
+    }
+  }
+}
