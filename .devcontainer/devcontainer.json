@@ -1,7 +1,7 @@
 {
   "name": "ValueOS Ephemeral Development Environment",
   "build": {
-    "dockerfile": "Dockerfile",
+    "dockerfile": "Dockerfile.optimized",
     "context": "..",
     "args": {
       "NODE_VERSION": "22",

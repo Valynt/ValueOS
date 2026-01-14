@@ -47,13 +47,13 @@ Both are hardened following **Operation Fortress** security standards while main
    ```bash
    # Copy environment template
    cp .env.dev.example .env.local
-   
+
    # Edit .env.local with your credentials
    # IMPORTANT: Update Supabase URL, API keys, etc.
-   
+
    # Start services
    docker-compose -f docker-compose.dev.yml up
-   
+
    # Access the app at http://localhost:5173
    ```
 
@@ -103,9 +103,10 @@ Both development environments include:
 
 ```
 .devcontainer/
-├── Dockerfile          # Dev container image (VS Code)
-├── devcontainer.json   # VS Code configuration
-└── README.md          # This file
+├── Dockerfile.optimized  # Full multi-stage optimized dev container image (preferred)
+├── Dockerfile             # Minimal fallback Dockerfile (placeholder for quick starts)
+├── devcontainer.json      # VS Code configuration (points to Dockerfile.optimized)
+└── README.md              # This file
 
 (Root directory)
 ├── Dockerfile.dev              # Development Dockerfile (Docker Compose)
