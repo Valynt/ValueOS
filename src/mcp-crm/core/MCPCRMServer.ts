@@ -21,6 +21,8 @@ import {
   CRMConnection,
   CRMModule,
   CRMProvider,
+  CRMContact,
+  CRMActivity,
   DealSearchParams,
   MCPCRMConfig,
   MCPCRMToolResult,
@@ -270,6 +272,59 @@ export class MCPCRMServer {
   private configManager: CRMConfigManager;
   public parallelInitializer: ParallelInitializer;
 
+  // Monitoring and metrics
+  private metrics = {
+    requests: {
+      total: 0,
+      successful: 0,
+      failed: 0,
+      byTool: new Map<
+        string,
+        {
+          total: number;
+          successful: number;
+          failed: number;
+          avgDuration: number;
+        }
+      >(),
+      byProvider: new Map<
+        string,
+        {
+          total: number;
+          successful: number;
+          failed: number;
+          avgDuration: number;
+        }
+      >(),
+    },
+    rateLimits: {
+      hits: 0,
+      blocks: 0,
+      adaptiveDelays: 0,
+      byProvider: new Map<
+        string,
+        { hits: number; blocks: number; adaptiveDelays: number }
+      >(),
+    },
+    errors: {
+      total: 0,
+      byType: new Map<string, number>(),
+      byProvider: new Map<string, number>(),
+      recent: [] as Array<{
+        timestamp: number;
+        tool: string;
+        provider: string;
+        error: string;
+      }>,
+    },
+    performance: {
+      avgRequestDuration: 0,
+      p95RequestDuration: 0,
+      totalRequestDuration: 0,
+      requestDurations: [] as number[],
+    },
+  };
+
   constructor(config: MCPCRMConfig) {
     this.config = config;
     this.configManager = CRMConfigManager.getInstance();
@@ -280,6 +335,9 @@ export class MCPCRMServer {
       enableConnectionPooling: true,
       poolSize: 3,
     });
+
+    // Start metrics collection
+    this.startMetricsCollection();
   }
 
   /**
@@ -302,8 +360,8 @@ export class MCPCRMServer {
       }));
 
       logger.error("Some initialization tasks failed", {
-        errorDetails,
         totalFailures: failures.length,
+        errorDetails,
       });
     }
 
@@ -439,76 +497,6 @@ export class MCPCRMServer {
           monitoringPeriod: 600000, // 10 minutes
         },
       });
-    }
-  }
-
-  /**
-   * Load CRM connections for the tenant from database
-   * Note: Uses 'any' type until tenant_integrations migration is run
-   */
-  private async loadConnections(): Promise<void> {
-    try {
-      // Type assertion needed because tenant_integrations table
-      // may not be in generated Supabase types yet
-      const { data: integrations, error } = await (supabase as any)
-        .from("tenant_integrations")
-        .select("*")
-        .eq("tenant_id", this.config.tenantId)
-        .eq("status", "active");
-
-      if (error) {
-        logger.warn("Failed to load tenant integrations", { error });
-        return;
-      }
-
-      for (const integration of (integrations || []) as any[]) {
-        const connection: CRMConnection = {
-          id: integration.id,
-          tenantId: integration.tenant_id,
-          provider: integration.provider as CRMProvider,
-          accessToken: integration.access_token,
-          refreshToken: integration.refresh_token,
-          tokenExpiresAt: integration.token_expires_at
-            ? new Date(integration.token_expires_at)
-            : undefined,
-          instanceUrl: integration.instance_url,
-          hubId: integration.hub_id,
-          scopes: integration.scopes || [],
-          status: integration.status,
-        };
-
-        this.connections.set(connection.provider, connection);
-        this.initializeModule(connection);
-      }
-
-      logger.info("Loaded CRM connections", {
-        tenantId: this.config.tenantId,
-        providers: Array.from(this.connections.keys()),
-      });
-    } catch (error) {
-      logger.error(
-        "Error loading CRM connections",
-        error instanceof Error ? error : undefined
-      );
-    }
-  }
-
-  /**
-   * Initialize a CRM module for a connection
-   */
-  private initializeModule(connection: CRMConnection): void {
-    switch (connection.provider) {
-      case "hubspot":
-        this.modules.set("hubspot", new HubSpotModule(connection));
-        break;
-      case "salesforce":
-        this.modules.set("salesforce", new SalesforceModule(connection));
-        break;
-      default:
-        logger.warn(`Unknown CRM provider: ${connection.provider}`);
-    }
-  }
-
   /**
    * Get available tools based on connected CRMs
    */
@@ -684,9 +672,57 @@ export class MCPCRMServer {
     responseBuilder: MCPResponseBuilder,
     startTime: number
   ): Promise<MCPCRMToolResult> {
+    const toolName = 'crm_search_deals';
+    const provider = module.provider;
+
+    // Track request start
+    this.metrics.requests.total++;
+    const toolMetrics = this.metrics.requests.byTool.get(toolName) || {
+      total: 0, successful: 0, failed: 0, avgDuration: 0
+    };
+    const providerMetrics = this.metrics.requests.byProvider.get(provider) || {
+      total: 0, successful: 0, failed: 0, avgDuration: 0
+    };
+    toolMetrics.total++;
+    providerMetrics.total++;
+    this.metrics.requests.byTool.set(toolName, toolMetrics);
+    this.metrics.requests.byProvider.set(provider, providerMetrics);
+
     // Check rate limit
     const rateLimitResult = await mcpRateLimiter.checkLimit(module.provider);
     if (!rateLimitResult.allowed) {
+      // Track rate limit blocks
+      this.metrics.rateLimits.blocks++;
+      const rateLimitMetrics = this.metrics.rateLimits.byProvider.get(provider) || {
+        hits: 0, blocks: 0, adaptiveDelays: 0
+      };
+      rateLimitMetrics.blocks++;
+      this.metrics.rateLimits.byProvider.set(provider, rateLimitMetrics);
+
+      // Track failed request
+      this.metrics.requests.failed++;
+      toolMetrics.failed++;
+      providerMetrics.failed++;
+      this.metrics.requests.byTool.set(toolName, toolMetrics);
+      this.metrics.requests.byProvider.set(provider, providerMetrics);
+
+      // Track error
+      this.metrics.errors.total++;
+      const errorType = 'RATE_LIMIT_EXCEEDED';
+      const errorCount = this.metrics.errors.byType.get(errorType) || 0;
+      this.metrics.errors.byType.set(errorType, errorCount + 1);
+      const providerErrorCount = this.metrics.errors.byProvider.get(provider) || 0;
+      this.metrics.errors.byProvider.set(provider, providerErrorCount + 1);
+
+      this.metrics.errors.recent.push({
+        timestamp: Date.now(),
+        tool: toolName,
+        provider,
+        error: rateLimitResult.circuitBreakerOpen
+          ? `CRM provider ${module.provider} is temporarily unavailable due to high error rates`
+          : `Rate limit exceeded for ${module.provider}`,
+      });
+
       return {
         success: false,
         error: rateLimitResult.circuitBreakerOpen
@@ -695,8 +731,20 @@ export class MCPCRMServer {
       };
     }
 
+    // Track rate limit hits
+    this.metrics.rateLimits.hits++;
+    const rateLimitMetrics = this.metrics.rateLimits.byProvider.get(provider) || {
+      hits: 0, blocks: 0, adaptiveDelays: 0
+    };
+    rateLimitMetrics.hits++;
+    this.metrics.rateLimits.byProvider.set(provider, rateLimitMetrics);
+
     // Apply adaptive throttling delay if needed
     if (rateLimitResult.adaptiveDelay && rateLimitResult.adaptiveDelay > 0) {
+      this.metrics.rateLimits.adaptiveDelays++;
+      rateLimitMetrics.adaptiveDelays++;
+      this.metrics.rateLimits.byProvider.set(provider, rateLimitMetrics);
+
       await new Promise((resolve) =>
         setTimeout(resolve, rateLimitResult.adaptiveDelay)
       );
@@ -712,6 +760,20 @@ export class MCPCRMServer {
 
     try {
       const result = await module.searchDeals(params);
+      const duration = Date.now() - startTime;
+
+      // Track successful request
+      this.metrics.requests.successful++;
+      toolMetrics.successful++;
+      providerMetrics.successful++;
+      this.updateAverageDuration(toolMetrics, duration);
+      this.updateAverageDuration(providerMetrics, duration);
+      this.metrics.requests.byTool.set(toolName, toolMetrics);
+      this.metrics.requests.byProvider.set(provider, providerMetrics);
+
+      // Track performance
+      this.metrics.performance.totalRequestDuration += duration;
+      this.metrics.performance.requestDurations.push(duration);
 
       // Record successful request
       mcpRateLimiter.recordSuccess(module.provider, Date.now() - startTime);
@@ -733,11 +795,37 @@ export class MCPCRMServer {
         },
         metadata: {
           provider: module.provider,
-          requestDurationMs: Date.now() - startTime,
+          requestDurationMs: duration,
           rateLimitRemaining: rateLimitResult.remaining,
         },
       };
     } catch (error) {
+      const duration = Date.now() - startTime;
+
+      // Track failed request
+      this.metrics.requests.failed++;
+      toolMetrics.failed++;
+      providerMetrics.failed++;
+      this.updateAverageDuration(toolMetrics, duration);
+      this.updateAverageDuration(providerMetrics, duration);
+      this.metrics.requests.byTool.set(toolName, toolMetrics);
+      this.metrics.requests.byProvider.set(provider, providerMetrics);
+
+      // Track error
+      this.metrics.errors.total++;
+      const errorType = 'SEARCH_DEALS_FAILED';
+      const errorCount = this.metrics.errors.byType.get(errorType) || 0;
+      this.metrics.errors.byType.set(errorType, errorCount + 1);
+      const providerErrorCount = this.metrics.errors.byProvider.get(provider) || 0;
+      this.metrics.errors.byProvider.set(provider, providerErrorCount + 1);
+
+      this.metrics.errors.recent.push({
+        timestamp: Date.now(),
+        tool: toolName,
+        provider,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+
       // Record failed request
       mcpRateLimiter.recordFailure(
         module.provider,
@@ -1083,7 +1171,7 @@ export class MCPCRMServer {
       (normalizedContext as any).history = {
         recentActivityCount: activities.length,
         lastActivityDate: activities[0]?.occurredAt?.toISOString() || null,
-        activityTypes: [...new Set(activities.map((a) => a.type))],
+        activityTypes: Array.from(new Set(activities.map((a) => a.type))),
       };
     }
 

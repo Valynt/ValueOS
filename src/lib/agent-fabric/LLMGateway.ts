@@ -33,6 +33,7 @@ import { trackUsage } from "../../services/UsageTrackingService";
 import { logger } from "../../lib/logger";
 import { clientRateLimit } from "../../services/ClientRateLimit";
 import { CircuitBreakerManager } from "../../services/CircuitBreaker";
+import { llmSanitizer } from "../../services/LLMSanitizer";
 
 export class LLMGateway {
   private provider: LLMProvider;
@@ -282,15 +283,44 @@ export class LLMGateway {
     circuitBreaker?: AgentCircuitBreaker
   ): Promise<LLMResponse> {
     const rawContent = response.content;
-    const sanitizedContent = sanitizeLLMContent(rawContent);
 
-    if (sanitizedContent !== rawContent) {
+    // Enhanced sanitization using LLMSanitizer for comprehensive security
+    const sanitizationResult = llmSanitizer.sanitizeResponse(rawContent, {
+      allowHtml: false,
+      allowScripts: false,
+      maxLength: 50000,
+      contentPolicies: [
+        "no-credentials",
+        "no-personal-data",
+        "no-malicious-code",
+      ],
+    });
+
+    const sanitizedContent = sanitizationResult.content;
+
+    // Log security violations if any
+    if (
+      sanitizationResult.wasModified ||
+      sanitizationResult.violations.length > 0
+    ) {
       securityLogger.log({
         category: "llm",
-        action: "response-sanitized",
-        severity: "info",
-        metadata: { provider: this.provider },
+        action: "response-enhanced-sanitized",
+        severity: sanitizationResult.violations.length > 0 ? "warn" : "info",
+        metadata: {
+          provider: this.provider,
+          violations: sanitizationResult.violations,
+          wasModified: sanitizationResult.wasModified,
+        },
       });
+
+      if (sanitizationResult.violations.length > 0) {
+        logger.warn("LLM response sanitization violations detected", {
+          provider: this.provider,
+          model: selectedModel,
+          violations: sanitizationResult.violations,
+        });
+      }
     }
 
     // Calculate and record cost if circuit breaker provided

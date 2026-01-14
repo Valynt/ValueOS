@@ -84,7 +84,7 @@ run_migration() {
     echo -e "${YELLOW}📄 Running migration: $filename${NC}"
 
     # Check if migration already executed
-    executed=$(docker exec ${PROJECT_NAME}-postgres-1 psql -U $POSTGRES_USER -d $POSTGRES_DB -t -c "SELECT COUNT(*) FROM schema_migrations WHERE filename = '$filename';" 2>/dev/null | tr -d ' ')
+    executed=$(docker exec valueos-postgres psql -U $POSTGRES_USER -d $POSTGRES_DB -t -c "SELECT COUNT(*) FROM schema_migrations WHERE filename = '$filename';" 2>/dev/null | tr -d ' ')
 
     if [ "$executed" = "1" ]; then
         echo -e "${GREEN}⏭️ Migration already executed, skipping${NC}"
@@ -94,10 +94,18 @@ run_migration() {
     # Calculate checksum
     checksum=$(sha256sum "$migration_file" | cut -d' ' -f1)
 
-    # Execute migration
-    if docker exec -i ${PROJECT_NAME}-postgres-1 psql -U $POSTGRES_USER -d $POSTGRES_DB < "$migration_file"; then
+    # Execute migration in transaction
+    temp_migration="/tmp/migration_$$.sql"
+    echo "BEGIN;" > "$temp_migration"
+    cat "$migration_file" >> "$temp_migration"
+    echo "COMMIT;" >> "$temp_migration"
+
+    if docker exec -i valueos-postgres psql -U $POSTGRES_USER -d $POSTGRES_DB -f "$temp_migration"; then
+        # Clean up temp file
+        rm -f "$temp_migration"
+
         # Record migration
-        docker exec ${PROJECT_NAME}-postgres-1 psql -U $POSTGRES_USER -d $POSTGRES_DB -c "
+        docker exec valueos-postgres psql -U $POSTGRES_USER -d $POSTGRES_DB -c "
             INSERT INTO schema_migrations (filename, checksum)
             VALUES ('$filename', '$checksum');
         " 2>/dev/null
@@ -105,6 +113,9 @@ run_migration() {
         echo -e "${GREEN}✅ Migration executed successfully${NC}"
         return 0
     else
+        # Clean up temp file
+        rm -f "$temp_migration"
+
         echo -e "${RED}❌ Migration failed: $filename${NC}"
         return 1
     fi
@@ -163,11 +174,11 @@ fi
 echo -e "${YELLOW}🔍 Verifying database schema...${NC}"
 
 # Count tables
-table_count=$(docker exec ${PROJECT_NAME}-postgres-1 psql -U $POSTGRES_USER -d $POSTGRES_DB -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" 2>/dev/null | tr -d ' ' || echo "0")
+table_count=$(docker exec valueos-postgres psql -U $POSTGRES_USER -d $POSTGRES_DB -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" 2>/dev/null | tr -d ' ' || echo "0")
 echo -e "${GREEN}✅ Tables found: $table_count${NC}"
 
 # Show migration status
-migration_count=$(docker exec ${PROJECT_NAME}-postgres-1 psql -U $POSTGRES_USER -d $POSTGRES_DB -t -c "SELECT COUNT(*) FROM schema_migrations;" 2>/dev/null | tr -d ' ' || echo "0")
+migration_count=$(docker exec valueos-postgres psql -U $POSTGRES_USER -d $POSTGRES_DB -t -c "SELECT COUNT(*) FROM schema_migrations;" 2>/dev/null | tr -d ' ' || echo "0")
 echo -e "${GREEN}✅ Migrations executed: $migration_count${NC}"
 
 # 8. Summary

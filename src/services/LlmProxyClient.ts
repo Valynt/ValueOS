@@ -35,6 +35,7 @@ class LlmProxyClient {
     messages,
     config,
     provider,
+    maxResponseLength = 4000,
   }: ProxyChatRequest): Promise<LLMResponse> {
     if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
       return {
@@ -81,7 +82,7 @@ class LlmProxyClient {
     const result = llmSanitizer.sanitizeResponse(legacySanitized, {
       allowHtml: false,
     });
-    const boundedContent = result.content.slice(0, 4000);
+    const boundedContent = result.content.slice(0, maxResponseLength);
 
     if (
       result.wasModified ||

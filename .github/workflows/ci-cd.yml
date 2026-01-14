@@ -16,7 +16,7 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
 
 permissions:
   contents: read
@@ -175,7 +175,7 @@ jobs:
   promote:
     name: Promote to Production
     runs-on: ubuntu-latest
-    needs: [build-and-scan, stage]
+    needs: build-and-scan
     if: github.ref == 'refs/heads/main' || github.event.inputs.environment == 'production'
     environment:
       name: production

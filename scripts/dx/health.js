@@ -1,10 +1,3 @@
-#!/usr/bin/env node
-
-/**
- * Simple Health Check: Core service availability validation
- * Focused on essential checks without complex monitoring features
- */
-
 import http from "http";
 import { execSync } from "child_process";
 import path from "path";

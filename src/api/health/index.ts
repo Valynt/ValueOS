@@ -16,6 +16,8 @@ import { securityHeadersMiddleware } from "../middleware/securityMiddleware";
 import { serviceIdentityMiddleware } from "../middleware/serviceIdentityMiddleware";
 import { rateLimiters } from "../middleware/rateLimiter";
 import { requestAuditMiddleware } from "../middleware/requestAuditMiddleware";
+import { healthMetrics } from "../../lib/health/metrics";
+import { alertManager } from "../../lib/health/alerts";
 
 const router = Router();
 router.use(requestAuditMiddleware());
@@ -273,7 +275,13 @@ async function checkRedis(): Promise<HealthStatus> {
   try {
     const { redisClient } = await import("../middleware/llmRateLimiter");
 
-    await redisClient.ping();
+    // Add timeout to prevent hanging on unresponsive Redis
+    const pingPromise = redisClient.ping();
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Redis ping timeout")), 5000)
+    );
+
+    await Promise.race([pingPromise, timeoutPromise]);
 
     const latency = Date.now() - startTime;
 
@@ -297,24 +305,41 @@ async function checkRedis(): Promise<HealthStatus> {
  * Comprehensive health check
  */
 router.get(["/health", "/api/health"], async (req: Request, res: Response) => {
-  const [database, supabase, togetherAI, openAI, redis] = await Promise.all([
-    checkDatabase(),
-    checkSupabase(),
-    checkTogetherAI(),
-    checkOpenAI(),
-    checkRedis(),
-  ]);
-
-  const checks = {
-    database,
-    supabase,
-    togetherAI,
-    openAI,
-    redis,
+  // Configuration from environment variables
+  const enabledChecks = {
+    database: process.env.HEALTH_CHECK_DATABASE !== "false",
+    supabase: process.env.HEALTH_CHECK_SUPABASE !== "false",
+    togetherAI: process.env.HEALTH_CHECK_TOGETHER_AI !== "false",
+    openAI: process.env.HEALTH_CHECK_OPENAI !== "false",
+    redis: process.env.HEALTH_CHECK_REDIS !== "false",
   };
 
+  const checkPromises: Promise<HealthStatus>[] = [];
+
+  if (enabledChecks.database) checkPromises.push(checkDatabase());
+  if (enabledChecks.supabase) checkPromises.push(checkSupabase());
+  if (enabledChecks.togetherAI) checkPromises.push(checkTogetherAI());
+  if (enabledChecks.openAI) checkPromises.push(checkOpenAI());
+  if (enabledChecks.redis) checkPromises.push(checkRedis());
+
+  const results = await Promise.all(checkPromises);
+
+  // Map results back to check names
+  const checks: { [key: string]: HealthStatus } = {};
+  let idx = 0;
+  if (enabledChecks.database) checks.database = results[idx++];
+  if (enabledChecks.supabase) checks.supabase = results[idx++];
+  if (enabledChecks.togetherAI) checks.togetherAI = results[idx++];
+  if (enabledChecks.openAI) checks.openAI = results[idx++];
+  if (enabledChecks.redis) checks.redis = results[idx++];
+
   // Determine overall status
-  const criticalChecks = [database, supabase, togetherAI];
+  const criticalChecks = [
+    enabledChecks.database ? checks.database : null,
+    enabledChecks.supabase ? checks.supabase : null,
+    enabledChecks.togetherAI ? checks.togetherAI : null,
+  ].filter(Boolean) as HealthStatus[];
+
   const hasUnhealthy = criticalChecks.some(
     (check) => check.status === "unhealthy"
   );
@@ -488,24 +513,51 @@ router.get("/health/startup", async (req: Request, res: Response) => {
  * Detailed dependency status
  */
 router.get("/health/dependencies", async (req: Request, res: Response) => {
-  const [database, supabase, togetherAI, openAI, redis] = await Promise.all([
-    checkDatabase(),
-    checkSupabase(),
-    checkTogetherAI(),
-    checkOpenAI(),
-    checkRedis(),
-  ]);
+  // Configuration from environment variables
+  const enabledChecks = {
+    database: process.env.HEALTH_CHECK_DATABASE !== "false",
+    supabase: process.env.HEALTH_CHECK_SUPABASE !== "false",
+    togetherAI: process.env.HEALTH_CHECK_TOGETHER_AI !== "false",
+    openAI: process.env.HEALTH_CHECK_OPENAI !== "false",
+    redis: process.env.HEALTH_CHECK_REDIS !== "false",
+  };
+
+  const checkPromises: Promise<HealthStatus>[] = [];
+
+  if (enabledChecks.database) checkPromises.push(checkDatabase());
+  if (enabledChecks.supabase) checkPromises.push(checkSupabase());
+  if (enabledChecks.togetherAI) checkPromises.push(checkTogetherAI());
+  if (enabledChecks.openAI) checkPromises.push(checkOpenAI());
+  if (enabledChecks.redis) checkPromises.push(checkRedis());
+
+  const results = await Promise.all(checkPromises);
+
+  // Map results back to check names
+  const checks: { [key: string]: HealthStatus } = {};
+  let idx = 0;
+  if (enabledChecks.database) checks.database = results[idx++];
+  if (enabledChecks.supabase) checks.supabase = results[idx++];
+  if (enabledChecks.togetherAI) checks.togetherAI = results[idx++];
+  if (enabledChecks.openAI) checks.openAI = results[idx++];
+  if (enabledChecks.redis) checks.redis = results[idx++];
 
   res.json({
     timestamp: new Date().toISOString(),
-    checks: {
-      database,
-      supabase,
-      togetherAI,
-      openAI,
-      redis,
-    },
+    checks,
   });
 });
 
-export default router;
+/**
+ * Health check metrics endpoint
+ */
+router.get("/health/metrics", (req: Request, res: Response) => {
+  const timeWindowMs = parseInt(req.query.timeWindow as string) || 3600000; // Default 1 hour
+
+  const serviceStats = healthMetrics.getServiceStats(timeWindowMs);
+
+  res.json({
+    timestamp: new Date().toISOString(),
+    timeWindowMs,
+    services: serviceStats,
+  });
+});

@@ -517,35 +517,253 @@ export class PrivateCompanyModule extends BaseModule {
       );
     }
 
-    // Placeholder: Would integrate with ZoomInfo API
+    // ZoomInfo API integration
+    const url = `https://api.zoominfo.com/lookup/organization/enrich`;
 
-    if (organizations.length === 0) {
-      return {}; // No data found, but not an error
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.zoomInfoApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          matchPersonInput: [
+            {
+              companyName: domain.split(".")[0],
+              website: domain,
+            },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        throw new GroundTruthError(
+          ErrorCodes.UPSTREAM_FAILURE,
+          `ZoomInfo API returned ${response.status}: ${response.statusText}`
+        );
+      }
+
+      const data = await response.json();
+      const results = data.data || [];
+
+      if (results.length === 0) {
+        return {}; // No data found
+      }
+
+      const result = results[0];
+      const profile: Partial<PrivateCompanyProfile> = {};
+
+      profile.company_name = result.companyName;
+      profile.description = result.companyDescription;
+
+      // Employee count
+      if (result.employeeCount) {
+        profile.employee_count = result.employeeCount;
+      }
+
+      // Revenue range
+      if (result.revenueRange) {
+        profile.revenue_range = result.revenueRange;
+      }
+
+      profile.headquarters = result.hqAddress;
+
+      logger.info("ZoomInfo data retrieved", {
+        domain,
+        companyName: profile.company_name,
+        hasEmployeeData: !!profile.employee_count,
+      });
+
+      return profile;
+    } catch (error) {
+      if (error instanceof GroundTruthError) {
+        throw error;
+      }
+      logger.error("ZoomInfo API error", { domain, error });
+      return {}; // Return empty object on error
+    }
+  }
+
+  private async getLinkedInData(
+    domain: string
+  ): Promise<Partial<PrivateCompanyProfile>> {
+    if (!this.linkedInApiKey) {
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        "LinkedIn API key not configured"
+      );
     }
 
-    // Take the first (most relevant) result
-    const org = organizations[0];
-    const profile: Partial<PrivateCompanyProfile> = {};
+    // LinkedIn Company API integration
+    // Note: LinkedIn API access is restricted and may require enterprise partnership
+    const companyName = domain.split(".")[0];
+    const url = `https://api.linkedin.com/v2/organizations?q=vanityName&vanityName=${encodeURIComponent(companyName)}`;
 
-    profile.company_name =
-      org.properties?.name || org.properties?.identifier?.value;
-    profile.description = org.properties?.description;
+    try {
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${this.linkedInApiKey}`,
+          "X-Restli-Protocol-Version": "2.0.0",
+          "Content-Type": "application/json",
+        },
+      });
 
-    if (org.properties?.founded_on) {
-      profile.founded_year = new Date(org.properties.founded_on).getFullYear();
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new GroundTruthError(
+            ErrorCodes.UNAUTHORIZED,
+            "LinkedIn API authentication failed"
+          );
+        }
+        if (response.status === 403) {
+          throw new GroundTruthError(
+            ErrorCodes.UNAUTHORIZED,
+            "LinkedIn API access forbidden - insufficient permissions"
+          );
+        }
+        throw new GroundTruthError(
+          ErrorCodes.UPSTREAM_FAILURE,
+          `LinkedIn API returned ${response.status}: ${response.statusText}`
+        );
+      }
+
+      const data = await response.json();
+      const organizations = data.elements || [];
+
+      if (organizations.length === 0) {
+        return {}; // No data found
+      }
+
+      const org = organizations[0];
+      const profile: Partial<PrivateCompanyProfile> = {};
+
+      // Basic company info
+      profile.company_name = org.localizedName || org.vanityName;
+
+      // Employee count from staff count range
+      if (org.staffCountRange) {
+        const start = org.staffCountRange.start || 0;
+        const end = org.staffCountRange.end || 0;
+        if (start > 0 && end > 0) {
+          profile.employee_count = [start, end];
+        }
+      }
+
+      // Industry classification
+      if (org.industry) {
+        profile.description = `${org.industry.localizedName} company`;
+      }
+
+      // Headquarters location
+      if (org.headquarter && org.headquarter.geographicArea) {
+        profile.headquarters = org.headquarter.geographicArea.localizedName;
+      }
+
+      // Company size category (alternative to headcount)
+      if (org.companySize && !profile.employee_count) {
+        const sizeCode = org.companySize.code;
+        // Convert LinkedIn company size codes to approximate ranges
+        switch (sizeCode) {
+          case "B":
+            profile.employee_count = [1, 10];
+            break;
+          case "C":
+            profile.employee_count = [11, 50];
+            break;
+          case "D":
+            profile.employee_count = [51, 200];
+            break;
+          case "E":
+            profile.employee_count = [201, 500];
+            break;
+          case "F":
+            profile.employee_count = [501, 1000];
+            break;
+          case "G":
+            profile.employee_count = [1001, 5000];
+            break;
+          case "H":
+            profile.employee_count = [5001, 10000];
+            break;
+          case "I":
+            profile.employee_count = [10001, 100000];
+            break;
+        }
+      }
+
+      logger.info("LinkedIn data retrieved", {
+        domain,
+        companyName: profile.company_name,
+        hasEmployeeData: !!profile.employee_count,
+      });
+
+      return profile;
+    } catch (error) {
+      if (error instanceof GroundTruthError) {
+        throw error;
+      }
+      logger.error("LinkedIn API error", { domain, error });
+      return {}; // Return empty object on error
+    }
+  }
+
+  private async scrapeCompanyWebsite(
+    domain: string
+  ): Promise<Partial<PrivateCompanyProfile>> {
+    if (!this.enableWebScraping) {
       throw new GroundTruthError(
         ErrorCodes.INVALID_REQUEST,
         "Web scraping not enabled"
       );
     }
 
-    // Placeholder: Would implement web scraping with proper rate limiting
-    // and robots.txt compliance
-    logger.debug("Web scraping", { domain });
+    // Web scraping implementation (simplified)
+    // In production, would use libraries like Puppeteer or Cheerio
+    // with proper robots.txt compliance and rate limiting
+    const url = `https://${domain}`;
 
-    return {
-      company_name: domain.split(".")[0],
-    };
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (compatible; MCP Ground Truth Bot)",
+        },
+      });
+
+      if (!response.ok) {
+        return {}; // Website not accessible
+      }
+
+      const html = await response.text();
+      const profile: Partial<PrivateCompanyProfile> = {};
+
+      // Simple regex-based extraction (very basic)
+      // Production would use proper HTML parsing
+
+      // Extract company name from title or meta tags
+      const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+      if (titleMatch) {
+        profile.company_name = titleMatch[1].trim();
+      }
+
+      // Extract description from meta tags
+      const descMatch = html.match(
+        /<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["'][^>]*>/i
+      );
+      if (descMatch) {
+        profile.description = descMatch[1];
+      }
+
+      logger.info("Web scraping completed", {
+        domain,
+        companyName: profile.company_name,
+      });
+
+      return profile;
+    } catch (error) {
+      logger.error("Web scraping error", { domain, error });
+      return {}; // Return empty object on error
+    }
   }
 
   /**

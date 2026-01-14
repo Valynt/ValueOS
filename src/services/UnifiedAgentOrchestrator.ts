@@ -28,12 +28,21 @@ import GroundtruthAPI, {
   GroundtruthRequestPayload,
   GroundtruthRequestOptions,
 } from "./GroundtruthAPI";
-import { getAgentMessageBroker, AgentMessageBroker } from "./AgentMessageBroker";
+import {
+  getAgentMessageBroker,
+  AgentMessageBroker,
+} from "./AgentMessageBroker";
+import { getAgentMessageQueue, AgentMessageQueue } from "./AgentMessageQueue";
+import { AgentType } from "./agent-types";
 import { WorkflowStatus } from "../types";
 import { WorkflowExecutionRecord } from "../types/workflowExecution";
 import { ExecutionRequest } from "../types/execution";
 import { WorkflowState } from "../repositories/WorkflowStateRepository";
-import { AgentContext, AgentResponse as APIAgentResponse, getAgentAPI } from "./AgentAPI";
+import {
+  AgentContext,
+  AgentResponse as APIAgentResponse,
+  getAgentAPI,
+} from "./AgentAPI";
 import { renderPage, RenderPageOptions } from "../sdui/renderPage";
 import { WorkflowDAG, WorkflowEvent, WorkflowStage } from "../types/workflow";
 import { AgentRoutingLayer, StageRoute } from "./AgentRoutingLayer";
@@ -231,6 +240,7 @@ export class UnifiedAgentOrchestrator {
   private memorySystem: MemorySystem;
   private llmGateway: LLMGateway;
   private messageBroker: AgentMessageBroker;
+  private agentMessageQueue: AgentMessageQueue;
   private executionStartTimes: Map<string, number> = new Map();
 
   constructor(config: Partial<OrchestratorConfig> = {}) {
@@ -238,9 +248,13 @@ export class UnifiedAgentOrchestrator {
     this.registry = new AgentRegistry();
     this.routingLayer = new AgentRoutingLayer(this.registry);
     this.circuitBreakers = new CircuitBreakerManager();
-    this.llmGateway = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
+    this.llmGateway = new LLMGateway(
+      llmConfig.provider,
+      llmConfig.gatingEnabled
+    );
     this.memorySystem = new MemorySystem(supabase, this.llmGateway);
     this.messageBroker = getAgentMessageBroker();
+    this.agentMessageQueue = getAgentMessageQueue();
   }
 
   private deriveFiscalQuarter(date: Date): string {
@@ -255,10 +269,13 @@ export class UnifiedAgentOrchestrator {
     userId: string,
     traceId: string
   ): WorkflowExecutionRecord {
-    const persona = context.persona || context.buyer_persona?.role || context.role;
+    const persona =
+      context.persona || context.buyer_persona?.role || context.role;
     const industry = context.industry || context.companyProfile?.industry;
     const fiscalQuarter =
-      context.fiscal_quarter || context.quarter || this.deriveFiscalQuarter(new Date());
+      context.fiscal_quarter ||
+      context.quarter ||
+      this.deriveFiscalQuarter(new Date());
 
     return {
       workflowDefinitionId,
@@ -297,9 +314,194 @@ export class UnifiedAgentOrchestrator {
     };
   }
 
-  // ==========================================================================
-  // Query Processing (from StatelessAgentOrchestrator)
-  // ==========================================================================
+  /**
+   * Process a user query asynchronously using message queue
+   *
+   * @param query User query
+   * @param currentState Current workflow state
+   * @param userId User identifier
+   * @param sessionId Session identifier
+   * @param traceId Trace ID for logging
+   * @returns Job ID for tracking async execution
+   */
+  async processQueryAsync(
+    envelope: ExecutionEnvelope,
+    query: string,
+    currentState: WorkflowState,
+    userId: string,
+    sessionId: string,
+    traceId: string = uuidv4()
+  ): Promise<{ jobId: string; traceId: string }> {
+    this.validateExecutionIntent(envelope);
+
+    if (
+      currentState.context?.organizationId &&
+      currentState.context.organizationId !== envelope.organizationId
+    ) {
+      throw new Error(
+        "Execution envelope organization does not match workflow state"
+      );
+    }
+
+    logger.info("Processing query asynchronously", {
+      traceId,
+      sessionId,
+      userId,
+      currentStage: currentState.currentStage,
+      queryLength: query.length,
+    });
+
+    // Determine which agent to use based on query and current stage
+    const agentType = this.selectAgent(query, currentState);
+
+    logger.debug("Agent selected for async execution", {
+      traceId,
+      agentType,
+      currentStage: currentState.currentStage,
+    });
+
+    // Build agent context
+    const agentContext: AgentContext = {
+      userId: envelope.actor.id || userId,
+      sessionId,
+      organizationId: envelope.organizationId,
+      metadata: {
+        companyProfile: currentState.context.companyProfile,
+        currentStage: currentState.currentStage,
+      },
+    };
+
+    // Queue agent invocation for async processing
+    const jobId = await this.agentMessageQueue.queueAgentInvocation({
+      agent: agentType,
+      query,
+      context: agentContext,
+      sessionId,
+      organizationId: envelope.organizationId,
+      userId,
+      traceId,
+      correlationId: traceId,
+    });
+
+    logger.info("Agent invocation queued asynchronously", {
+      jobId,
+      traceId,
+      agentType,
+      sessionId,
+    });
+
+    return { jobId, traceId };
+  }
+
+  /**
+   * Get the result of an asynchronous query
+   *
+   * @param jobId The job ID returned from processQueryAsync
+   * @param currentState Current workflow state to update if result is ready
+   * @returns Result with response and next state, or null if still processing
+   */
+  async getAsyncQueryResult(
+    jobId: string,
+    currentState: WorkflowState
+  ): Promise<ProcessQueryResult | null> {
+    const result = await this.agentMessageQueue.getJobResult(jobId);
+
+    if (!result) {
+      // Job is still processing
+      return null;
+    }
+
+    if (!result.success) {
+      logger.error("Async agent invocation failed", {
+        jobId,
+        error: result.error,
+        traceId: result.traceId,
+      });
+
+      // Return error state
+      const errorState: WorkflowState = {
+        ...currentState,
+        status: "error",
+        context: {
+          ...currentState.context,
+          lastError: result.error || "Agent invocation failed",
+          errorTimestamp: new Date().toISOString(),
+        },
+      };
+
+      return {
+        response: {
+          type: "message",
+          payload: {
+            message: result.error || "Agent request failed",
+            error: true,
+          },
+        },
+        nextState: errorState,
+        traceId: result.traceId,
+      };
+    }
+
+    // Job completed successfully
+    logger.info("Async agent invocation completed", {
+      jobId,
+      traceId: result.traceId,
+      executionTime: result.executionTime,
+    });
+
+    // Create immutable copy of state
+    const nextState: WorkflowState = {
+      ...currentState,
+      context: { ...currentState.context },
+      completedStages: [...currentState.completedStages],
+    };
+
+    // Update state based on response
+    if (result.data) {
+      nextState.context.conversationHistory = [
+        ...(nextState.context.conversationHistory || []),
+        {
+          role: "user",
+          content: "Async query", // We don't have the original query here
+          timestamp: new Date().toISOString(),
+        },
+        {
+          role: "assistant",
+          content:
+            typeof result.data === "string"
+              ? result.data
+              : JSON.stringify(result.data),
+          timestamp: new Date().toISOString(),
+        },
+      ];
+    }
+
+    // Update status
+    nextState.status = "in_progress";
+
+    // Build response
+    const response: AgentResponse = {
+      type: "message",
+      payload: {
+        message:
+          typeof result.data === "string"
+            ? result.data
+            : JSON.stringify(result.data),
+      },
+    };
+
+    logger.info("Async query result processed", {
+      jobId,
+      traceId: result.traceId,
+      responseType: response.type,
+    });
+
+    return {
+      response,
+      nextState,
+      traceId: result.traceId,
+    };
+  }
 
   /**
    * Process a user query with given workflow state
@@ -325,7 +527,9 @@ export class UnifiedAgentOrchestrator {
       currentState.context?.organizationId &&
       currentState.context.organizationId !== envelope.organizationId
     ) {
-      throw new Error("Execution envelope organization does not match workflow state");
+      throw new Error(
+        "Execution envelope organization does not match workflow state"
+      );
     }
     logger.info("Processing query", {
       traceId,
@@ -428,11 +632,15 @@ export class UnifiedAgentOrchestrator {
         traceId,
       };
     } catch (error) {
-      logger.error("Error processing query", error instanceof Error ? error : undefined, {
-        traceId,
-        sessionId,
-        userId,
-      });
+      logger.error(
+        "Error processing query",
+        error instanceof Error ? error : undefined,
+        {
+          traceId,
+          sessionId,
+          userId,
+        }
+      );
 
       // Return error state
       const errorState: WorkflowState = {
@@ -449,7 +657,8 @@ export class UnifiedAgentOrchestrator {
         response: {
           type: "message",
           payload: {
-            message: "I encountered an error processing your request. Please try again.",
+            message:
+              "I encountered an error processing your request. Please try again.",
             error: true,
           },
         },
@@ -468,9 +677,15 @@ export class UnifiedAgentOrchestrator {
    */
   createInitialState(
     initialStage: string,
-    execution: ExecutionRequest = { intent: "FullValueAnalysis", environment: "production" }
+    execution: ExecutionRequest = {
+      intent: "FullValueAnalysis",
+      environment: "production",
+    }
   ): WorkflowState {
-    const normalizedExecution = normalizeExecutionRequest("agent-query", execution);
+    const normalizedExecution = normalizeExecutionRequest(
+      "agent-query",
+      execution
+    );
 
     return {
       currentStage: initialStage,
@@ -495,7 +710,11 @@ export class UnifiedAgentOrchestrator {
   /**
    * Update workflow stage (pure function)
    */
-  updateStage(currentState: WorkflowState, stage: string, status: WorkflowStatus): WorkflowState {
+  updateStage(
+    currentState: WorkflowState,
+    stage: string,
+    status: WorkflowStatus
+  ): WorkflowState {
     const nextState: WorkflowState = {
       ...currentState,
       currentStage: stage,
@@ -503,7 +722,10 @@ export class UnifiedAgentOrchestrator {
       completedStages: [...currentState.completedStages],
     };
 
-    if (status === "completed" && !nextState.completedStages.includes(currentState.currentStage)) {
+    if (
+      status === "completed" &&
+      !nextState.completedStages.includes(currentState.currentStage)
+    ) {
       nextState.completedStages.push(currentState.currentStage);
     }
 
@@ -545,10 +767,15 @@ export class UnifiedAgentOrchestrator {
         .maybeSingle();
 
       if (defError || !definition) {
-        throw new Error(`Workflow definition not found: ${workflowDefinitionId}`);
+        throw new Error(
+          `Workflow definition not found: ${workflowDefinitionId}`
+        );
       }
 
-      if (definition.organization_id && definition.organization_id !== envelope.organizationId) {
+      if (
+        definition.organization_id &&
+        definition.organization_id !== envelope.organizationId
+      ) {
         throw new Error("Workflow not authorized for this organization");
       }
 
@@ -586,10 +813,15 @@ export class UnifiedAgentOrchestrator {
         throw new Error("Failed to create workflow execution");
       }
 
-      await this.recordWorkflowEvent(executionId, "workflow_initiated", dag.initial_stage, {
-        envelope,
-        stageExecutionId: initialStageExecutionId,
-      });
+      await this.recordWorkflowEvent(
+        executionId,
+        "workflow_initiated",
+        dag.initial_stage,
+        {
+          envelope,
+          stageExecutionId: initialStageExecutionId,
+        }
+      );
 
       // Execute DAG asynchronously
       this.executeDAGAsync(
@@ -608,10 +840,14 @@ export class UnifiedAgentOrchestrator {
         completedStages: [],
       };
     } catch (error) {
-      logger.error("Workflow execution failed", error instanceof Error ? error : undefined, {
-        traceId,
-        workflowDefinitionId,
-      });
+      logger.error(
+        "Workflow execution failed",
+        error instanceof Error ? error : undefined,
+        {
+          traceId,
+          workflowDefinitionId,
+        }
+      );
       throw error;
     }
   }
@@ -659,8 +895,13 @@ export class UnifiedAgentOrchestrator {
     const dag: WorkflowDAG = definition.dag_schema as WorkflowDAG;
 
     // Retrieve similar past episodes for prediction
-    const orgId = (context as any)?.organizationId || (context as any)?.tenantId;
-    const similarEpisodes = await this.memorySystem.retrieveSimilarEpisodes(context, 5, orgId);
+    const orgId =
+      (context as any)?.organizationId || (context as any)?.tenantId;
+    const similarEpisodes = await this.memorySystem.retrieveSimilarEpisodes(
+      context,
+      5,
+      orgId
+    );
 
     // Simulate each stage
     const stepsSimulated: any[] = [];
@@ -678,7 +919,11 @@ export class UnifiedAgentOrchestrator {
       stepNumber++;
 
       // Predict stage outcome using LLM
-      const prediction = await this.predictStageOutcome(stage, simulationContext, similarEpisodes);
+      const prediction = await this.predictStageOutcome(
+        stage,
+        simulationContext,
+        similarEpisodes
+      );
 
       stepsSimulated.push({
         stage_id: currentStageId,
@@ -714,14 +959,17 @@ export class UnifiedAgentOrchestrator {
     }
 
     const duration = Date.now() - startTime;
-    const avgConfidence = stepsSimulated.length > 0 ? totalConfidence / stepsSimulated.length : 0;
+    const avgConfidence =
+      stepsSimulated.length > 0 ? totalConfidence / stepsSimulated.length : 0;
 
     // Assess risks
     const riskAssessment = {
-      low_confidence_steps: stepsSimulated.filter((s) => s.confidence < 0.7).length,
+      low_confidence_steps: stepsSimulated.filter((s) => s.confidence < 0.7)
+        .length,
       estimated_cost_usd: stepsSimulated.length * 0.01,
       requires_approval: stepsSimulated.some(
-        (s) => s.stage_name.includes("delete") || s.stage_name.includes("remove")
+        (s) =>
+          s.stage_name.includes("delete") || s.stage_name.includes("remove")
       ),
     };
 
@@ -772,10 +1020,13 @@ Provide a JSON response with:
 - estimatedDuration: seconds`;
 
     try {
-      const response = await this.llmGateway.chat([{ role: "user", content: prompt }], {
-        maxTokens: 500,
-        temperature: 0.3,
-      });
+      const response = await this.llmGateway.chat(
+        [{ role: "user", content: prompt }],
+        {
+          maxTokens: 500,
+          temperature: 0.3,
+        }
+      );
 
       const parsed = JSON.parse(response.content);
       return {
@@ -816,11 +1067,20 @@ Provide a JSON response with:
       visitedStages.add(currentStageId);
 
       // Route to appropriate agent
-      const route = this.routingLayer.routeStage(dag, currentStageId, executionContext);
+      const route = this.routingLayer.routeStage(
+        dag,
+        currentStageId,
+        executionContext
+      );
       const stage = route.stage;
 
       // Update execution status
-      await this.updateExecutionStatus(executionId, "in_progress", currentStageId, recordSnapshot);
+      await this.updateExecutionStatus(
+        executionId,
+        "in_progress",
+        currentStageId,
+        recordSnapshot
+      );
 
       const stageStart = new Date();
 
@@ -871,7 +1131,8 @@ Provide a JSON response with:
             [stage.id]: stageResult.output || {},
           },
         },
-        economicDeltas: stageResult.output?.economic_deltas || recordSnapshot.economicDeltas,
+        economicDeltas:
+          stageResult.output?.economic_deltas || recordSnapshot.economicDeltas,
       };
 
       await this.recordStageRun(
@@ -886,12 +1147,19 @@ Provide a JSON response with:
       await this.persistExecutionRecord(executionId, recordSnapshot);
 
       // Move to next stage
-      const nextTransition = dag.transitions.find((t) => t.from_stage === currentStageId);
+      const nextTransition = dag.transitions.find(
+        (t) => t.from_stage === currentStageId
+      );
       if (!nextTransition) break;
       currentStageId = nextTransition.to_stage;
     }
 
-    await this.updateExecutionStatus(executionId, "completed", null, recordSnapshot);
+    await this.updateExecutionStatus(
+      executionId,
+      "completed",
+      null,
+      recordSnapshot
+    );
   }
 
   /**
@@ -1034,10 +1302,16 @@ Provide a JSON response with:
           response = await this.agentAPI.generateValueCase(query, context);
           break;
         case "realization":
-          response = await this.agentAPI.generateRealizationDashboard(query, context);
+          response = await this.agentAPI.generateRealizationDashboard(
+            query,
+            context
+          );
           break;
         case "expansion":
-          response = await this.agentAPI.generateExpansionOpportunities(query, context);
+          response = await this.agentAPI.generateExpansionOpportunities(
+            query,
+            context
+          );
           break;
         default:
           response = await this.agentAPI.invokeAgent({ agent, query, context });
@@ -1065,10 +1339,14 @@ Provide a JSON response with:
         sduiPage: response.data,
       };
     } catch (error) {
-      logger.error("SDUI generation failed", error instanceof Error ? error : undefined, {
-        traceId,
-        agent,
-      });
+      logger.error(
+        "SDUI generation failed",
+        error instanceof Error ? error : undefined,
+        {
+          traceId,
+          agent,
+        }
+      );
       throw error;
     }
   }
@@ -1086,7 +1364,12 @@ Provide a JSON response with:
     response: AgentResponse;
     rendered: ReturnType<typeof renderPage>;
   }> {
-    const response = await this.generateSDUIPage(envelope, agent, query, context);
+    const response = await this.generateSDUIPage(
+      envelope,
+      agent,
+      query,
+      context
+    );
 
     if (response.sduiPage) {
       const rendered = renderPage(response.sduiPage, renderOptions);
@@ -1115,7 +1398,12 @@ Provide a JSON response with:
     const taskId = uuidv4();
 
     // Generate subgoals based on intent type
-    const subgoals = this.generateSubgoals(taskId, intentType, description, context);
+    const subgoals = this.generateSubgoals(
+      taskId,
+      intentType,
+      description,
+      context
+    );
 
     // Determine execution order
     const executionOrder = this.determineExecutionOrder(subgoals);
@@ -1124,7 +1412,8 @@ Provide a JSON response with:
     const complexityScore = this.calculateComplexity(subgoals);
 
     // Determine if simulation is needed
-    const requiresSimulation = this.config.enableSimulation && complexityScore > 0.7;
+    const requiresSimulation =
+      this.config.enableSimulation && complexityScore > 0.7;
 
     return {
       taskId,
@@ -1157,17 +1446,30 @@ Provide a JSON response with:
       ],
       financial_modeling: [
         { type: "data_collection", agent: "company-intelligence", deps: [] },
-        { type: "modeling", agent: "financial-modeling", deps: ["data_collection"] },
+        {
+          type: "modeling",
+          agent: "financial-modeling",
+          deps: ["data_collection"],
+        },
         { type: "reporting", agent: "coordinator", deps: ["modeling"] },
       ],
       expansion_planning: [
         { type: "analysis", agent: "expansion", deps: [] },
-        { type: "opportunity_mapping", agent: "opportunity", deps: ["analysis"] },
-        { type: "planning", agent: "coordinator", deps: ["opportunity_mapping"] },
+        {
+          type: "opportunity_mapping",
+          agent: "opportunity",
+          deps: ["analysis"],
+        },
+        {
+          type: "planning",
+          agent: "coordinator",
+          deps: ["opportunity_mapping"],
+        },
       ],
     };
 
-    const pattern = subgoalPatterns[intentType] || subgoalPatterns.value_assessment;
+    const pattern =
+      subgoalPatterns[intentType] || subgoalPatterns.value_assessment;
     const subgoalIdMap = new Map<string, string>();
 
     return pattern.map((step, index) => {
@@ -1199,7 +1501,9 @@ Provide a JSON response with:
     const remaining = [...subgoals];
 
     while (remaining.length > 0) {
-      const ready = remaining.filter((sg) => sg.dependencies.every((dep) => completed.has(dep)));
+      const ready = remaining.filter((sg) =>
+        sg.dependencies.every((dep) => completed.has(dep))
+      );
 
       if (ready.length === 0 && remaining.length > 0) {
         throw new Error("Circular dependency detected in subgoals");
@@ -1223,9 +1527,13 @@ Provide a JSON response with:
     if (subgoals.length === 0) return 0;
 
     const avgComplexity =
-      subgoals.reduce((sum, sg) => sum + sg.estimatedComplexity, 0) / subgoals.length;
+      subgoals.reduce((sum, sg) => sum + sg.estimatedComplexity, 0) /
+      subgoals.length;
     const countFactor = Math.min(subgoals.length / 10, 1);
-    const totalDeps = subgoals.reduce((sum, sg) => sum + sg.dependencies.length, 0);
+    const totalDeps = subgoals.reduce(
+      (sum, sg) => sum + sg.dependencies.length,
+      0
+    );
     const depFactor = Math.min(totalDeps / (subgoals.length * 2), 1);
 
     return Math.min((avgComplexity + countFactor + depFactor) / 3, 1);
@@ -1298,7 +1606,10 @@ Provide a JSON response with:
       return "system-mapper";
     }
 
-    if (lowerQuery.includes("intervention") || lowerQuery.includes("solution")) {
+    if (
+      lowerQuery.includes("intervention") ||
+      lowerQuery.includes("solution")
+    ) {
       return "intervention-designer";
     }
 
@@ -1350,7 +1661,9 @@ Provide a JSON response with:
   /**
    * Register an agent
    */
-  registerAgent(registration: Parameters<AgentRegistry["registerAgent"]>[0]): AgentRecord {
+  registerAgent(
+    registration: Parameters<AgentRegistry["registerAgent"]>[0]
+  ): AgentRecord {
     return this.registry.registerAgent(registration);
   }
 
@@ -1358,7 +1671,9 @@ Provide a JSON response with:
   // Helper Methods
   // ==========================================================================
 
-  private validateExecutionIntent(envelope: ExecutionEnvelope): ExecutionEnvelope {
+  private validateExecutionIntent(
+    envelope: ExecutionEnvelope
+  ): ExecutionEnvelope {
     const parsed = executionIntentSchema.safeParse(envelope);
     if (!parsed.success) {
       throw new Error(`Invalid execution envelope: ${parsed.error.message}`);
@@ -1374,10 +1689,14 @@ Provide a JSON response with:
 
     const stageIds = new Set(parsed.data.stages.map((stage) => stage.id));
     if (!stageIds.has(parsed.data.initial_stage)) {
-      throw new Error("Workflow DAG initial_stage must reference an existing stage");
+      throw new Error(
+        "Workflow DAG initial_stage must reference an existing stage"
+      );
     }
 
-    const missingFinals = parsed.data.final_stages.filter((stage) => !stageIds.has(stage));
+    const missingFinals = parsed.data.final_stages.filter(
+      (stage) => !stageIds.has(stage)
+    );
     if (missingFinals.length > 0) {
       throw new Error(
         `Workflow DAG final_stages reference missing stages: ${missingFinals.join(", ")}`
@@ -1385,7 +1704,9 @@ Provide a JSON response with:
     }
 
     const invalidTransitions = parsed.data.transitions.filter(
-      (transition) => !stageIds.has(transition.from_stage) || !stageIds.has(transition.to_stage)
+      (transition) =>
+        !stageIds.has(transition.from_stage) ||
+        !stageIds.has(transition.to_stage)
     );
     if (invalidTransitions.length > 0) {
       throw new Error("Workflow DAG transitions reference missing stages");
@@ -1403,7 +1724,9 @@ Provide a JSON response with:
       .limit(1);
 
     if (error) {
-      throw new Error(`Failed to fetch workflow event sequence: ${error.message}`);
+      throw new Error(
+        `Failed to fetch workflow event sequence: ${error.message}`
+      );
     }
 
     const lastSequence = data?.[0]?.sequence ?? 0;
@@ -1472,23 +1795,38 @@ Provide a JSON response with:
     // Check duration limit
     const elapsed = Date.now() - startTime;
     if (elapsed > autonomy.maxDurationMs) {
-      await this.handleWorkflowFailure(executionId, "Autonomy guard: max duration exceeded");
+      await this.handleWorkflowFailure(
+        executionId,
+        "Autonomy guard: max duration exceeded"
+      );
       throw new Error("Autonomy guard: max duration exceeded");
     }
 
     // Check cost limit
     const cost = context.cost_accumulated_usd || 0;
     if (cost > autonomy.maxCostUsd) {
-      await this.handleWorkflowFailure(executionId, "Autonomy guard: max cost exceeded");
+      await this.handleWorkflowFailure(
+        executionId,
+        "Autonomy guard: max cost exceeded"
+      );
       throw new Error("Autonomy guard: max cost exceeded");
     }
 
     // Check destructive action approval
     if (autonomy.requireApprovalForDestructive) {
       const approvalState = context.approvals || {};
-      const destructivePending = context.destructive_actions_pending as string[] | undefined;
-      if (destructivePending && destructivePending.length > 0 && !approvalState[executionId]) {
-        await this.handleWorkflowFailure(executionId, "Approval required for destructive actions");
+      const destructivePending = context.destructive_actions_pending as
+        | string[]
+        | undefined;
+      if (
+        destructivePending &&
+        destructivePending.length > 0 &&
+        !approvalState[executionId]
+      ) {
+        await this.handleWorkflowFailure(
+          executionId,
+          "Approval required for destructive actions"
+        );
         throw new Error("Approval required for destructive actions");
       }
     }
@@ -1517,7 +1855,9 @@ Provide a JSON response with:
 
     // Check iteration limits
     const agentMaxIterations = autonomy.agentMaxIterations || {};
-    const maxIterations = stageAgentId ? agentMaxIterations[stageAgentId] : undefined;
+    const maxIterations = stageAgentId
+      ? agentMaxIterations[stageAgentId]
+      : undefined;
     if (maxIterations !== undefined) {
       const executed = (context.executed_steps || []).filter(
         (s: any) => s.agent_id === stageAgentId
@@ -1561,7 +1901,8 @@ Provide a JSON response with:
       inputs: executionRecord.io.inputs,
       assumptions: executionRecord.io.assumptions,
       outputs: output || {},
-      economic_deltas: output?.economic_deltas || executionRecord.economicDeltas,
+      economic_deltas:
+        output?.economic_deltas || executionRecord.economicDeltas,
       persona: executionRecord.persona,
       industry: executionRecord.industry,
       fiscal_quarter: executionRecord.fiscalQuarter,
@@ -1589,11 +1930,18 @@ Provide a JSON response with:
       update.fiscal_quarter = executionRecord.fiscalQuarter;
     }
 
-    if (status === "completed" || status === "failed" || status === "rolled_back") {
+    if (
+      status === "completed" ||
+      status === "failed" ||
+      status === "rolled_back"
+    ) {
       update.completed_at = new Date().toISOString();
     }
 
-    await supabase.from("workflow_executions").update(update).eq("id", executionId);
+    await supabase
+      .from("workflow_executions")
+      .update(update)
+      .eq("id", executionId);
   }
 
   /**
@@ -1630,7 +1978,10 @@ Provide a JSON response with:
     return data || [];
   }
 
-  private async handleWorkflowFailure(executionId: string, errorMessage: string): Promise<void> {
+  private async handleWorkflowFailure(
+    executionId: string,
+    errorMessage: string
+  ): Promise<void> {
     await supabase
       .from("workflow_executions")
       .update({

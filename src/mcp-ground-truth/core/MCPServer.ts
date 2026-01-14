@@ -25,6 +25,9 @@ import { ESOModule } from "../modules/StructuralTruthModule";
 import { ErrorCodes, GroundTruthError } from "../types";
 import { logger } from "../../lib/logger";
 import { sha256 } from "../../lib/contentHash";
+import { SentimentAnalysisService } from "../services/SentimentAnalysisService";
+import { PredictiveModelingService } from "../services/PredictiveModelingService";
+import { AutomatedInsightsService } from "../services/AutomatedInsightsService";
 
 interface MCPServerConfig {
   // Module configurations
@@ -336,6 +339,222 @@ export class MCPFinancialGroundTruthServer {
             },
           },
           required: ["identifier"],
+        },
+      },
+      {
+        name: "analyze_financial_sentiment",
+        description:
+          "Analyze sentiment and qualitative factors from financial documents (earnings calls, SEC filings, press releases) using AI-powered natural language processing.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            document_type: {
+              type: "string",
+              description: "Type of document to analyze",
+              enum: [
+                "earnings_call",
+                "sec_filing",
+                "press_release",
+                "analyst_report",
+              ],
+            },
+            content: {
+              type: "string",
+              description: "The document content to analyze",
+            },
+            company_name: {
+              type: "string",
+              description: "Name of the company (optional, for context)",
+            },
+            filing_type: {
+              type: "string",
+              description: "SEC filing type (10-K, 10-Q, 8-K, etc.)",
+            },
+            period: {
+              type: "string",
+              description: "Reporting period (FY2024, Q3-2024, etc.)",
+            },
+          },
+          required: ["document_type", "content"],
+        },
+      },
+      {
+        name: "generate_financial_forecast",
+        description:
+          "Generate statistical forecasts and predictive models for financial metrics using time series analysis and machine learning.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            metric_name: {
+              type: "string",
+              description:
+                "The financial metric to forecast (revenue, earnings, etc.)",
+            },
+            historical_data: {
+              type: "object",
+              description: "Historical time series data",
+              properties: {
+                periods: {
+                  type: "array",
+                  items: { type: "string" },
+                  description:
+                    "Time periods (e.g., ['FY2020', 'FY2021', 'FY2022'])",
+                },
+                values: {
+                  type: "array",
+                  items: { type: "number" },
+                  description: "Corresponding metric values",
+                },
+              },
+              required: ["periods", "values"],
+            },
+            forecast_periods: {
+              type: "number",
+              description: "Number of periods to forecast",
+              default: 4,
+              minimum: 1,
+              maximum: 12,
+            },
+            confidence_level: {
+              type: "number",
+              description: "Confidence level for intervals (0.8, 0.9, 0.95)",
+              default: 0.95,
+              minimum: 0.8,
+              maximum: 0.99,
+            },
+          },
+          required: ["metric_name", "historical_data"],
+        },
+      },
+      {
+        name: "detect_financial_anomalies",
+        description:
+          "Detect unusual patterns and anomalies in financial time series data using statistical analysis and machine learning.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            metric_name: {
+              type: "string",
+              description: "The financial metric being analyzed",
+            },
+            data: {
+              type: "object",
+              description: "Time series data to analyze",
+              properties: {
+                periods: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: "Time periods",
+                },
+                values: {
+                  type: "array",
+                  items: { type: "number" },
+                  description: "Metric values",
+                },
+              },
+              required: ["periods", "values"],
+            },
+            sensitivity: {
+              type: "string",
+              description: "Anomaly detection sensitivity",
+              enum: ["low", "medium", "high"],
+              default: "medium",
+            },
+          },
+          required: ["metric_name", "data"],
+        },
+      },
+      {
+        name: "analyze_financial_trends",
+        description:
+          "Analyze trends, patterns, and statistical properties in financial data with peer comparisons and forecast implications.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            metric_name: {
+              type: "string",
+              description: "The financial metric to analyze",
+            },
+            data: {
+              type: "object",
+              description: "Time series data to analyze",
+              properties: {
+                periods: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: "Time periods",
+                },
+                values: {
+                  type: "array",
+                  items: { type: "number" },
+                  description: "Metric values",
+                },
+              },
+              required: ["periods", "values"],
+            },
+            comparison_data: {
+              type: "array",
+              description: "Optional peer company data for comparison",
+              items: {
+                type: "object",
+                properties: {
+                  periods: { type: "array", items: { type: "string" } },
+                  values: { type: "array", items: { type: "number" } },
+                },
+                required: ["periods", "values"],
+              },
+            },
+          },
+          required: ["metric_name", "data"],
+        },
+      },
+      {
+        name: "generate_business_intelligence",
+        description:
+          "Generate comprehensive business intelligence reports with value drivers, competitive analysis, risk assessment, and strategic recommendations.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            company_name: {
+              type: "string",
+              description: "Name of the company to analyze",
+            },
+            cik: {
+              type: "string",
+              description: "SEC CIK number (optional)",
+            },
+            industry: {
+              type: "string",
+              description: "Industry classification",
+            },
+            time_range: {
+              type: "object",
+              description: "Analysis time range",
+              properties: {
+                start: {
+                  type: "string",
+                  description: "Start date (ISO format)",
+                },
+                end: { type: "string", description: "End date (ISO format)" },
+              },
+            },
+            include_sentiment: {
+              type: "boolean",
+              description: "Include sentiment analysis",
+              default: true,
+            },
+            include_forecasting: {
+              type: "boolean",
+              description: "Include forecasting analysis",
+              default: true,
+            },
+            peer_companies: {
+              type: "array",
+              description: "List of peer companies for comparison",
+              items: { type: "string" },
+            },
+          },
+          required: ["company_name"],
         },
       },
       // ESO Module Tools

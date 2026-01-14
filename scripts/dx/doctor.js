@@ -292,7 +292,9 @@ function checkEnvironment() {
 
   if (supabaseUrlLine) {
     const value = supabaseUrlLine.split("=")[1];
-    if (!value || value.includes("localhost") === false) {
+    const isLocalUrl =
+      value && (value.includes("localhost") || value.includes("127.0.0.1"));
+    if (!isLocalUrl) {
       reportFailure(
         "Invalid Supabase URL",
         "VITE_SUPABASE_URL should point to local Supabase instance.",
