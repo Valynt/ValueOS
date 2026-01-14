@@ -13,15 +13,21 @@ import {
 } from "./CircuitBreakerInterface";
 import { RedisCircuitBreaker } from "./RedisCircuitBreaker";
 
+enum CircuitState {
+  CLOSED = "closed",
+  OPEN = "open",
+  HALF_OPEN = "half-open",
+}
+
 export class CircuitBreaker extends EventEmitter implements ICircuitBreaker {
   private state: CircuitState = CircuitState.CLOSED;
   private failureCount = 0;
   private successCount = 0;
   private totalCalls = 0;
-  private lastFailureTime: string | null = null;
-  private lastSuccessTime: string | null = null;
-  private openedAt: string | null = null;
-  private halfOpenedAt: string | null = null;
+  private lastFailureTime: string | undefined = undefined;
+  private lastSuccessTime: string | undefined = undefined;
+  private openedAt: string | undefined = undefined;
+  private halfOpenedAt: string | undefined = undefined;
   private nextAttemptTime: number = 0;
   private recentResults: boolean[] = [];
   private latencies: number[] = [];
@@ -30,7 +36,10 @@ export class CircuitBreaker extends EventEmitter implements ICircuitBreaker {
   private redisBreaker: RedisCircuitBreaker | null = null;
   private redisAvailable = false;
 
-  constructor(config: CircuitBreakerConfig, private readonly name: string = 'default') {
+  constructor(
+    config: CircuitBreakerConfig,
+    private readonly name: string = "default"
+  ) {
     // Validate configuration
     CircuitBreaker.validateConfig(config);
 
@@ -58,9 +67,12 @@ export class CircuitBreaker extends EventEmitter implements ICircuitBreaker {
       logger.info(`Circuit breaker ${this.name} using Redis`);
     } catch (error) {
       this.redisAvailable = false;
-      logger.warn(`Circuit breaker ${this.name} falling back to in-memory (Redis unavailable)`, {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.warn(
+        `Circuit breaker ${this.name} falling back to in-memory (Redis unavailable)`,
+        {
+          error: error instanceof Error ? error.message : String(error),
+        }
+      );
     }
   }
 
@@ -176,8 +188,8 @@ export class CircuitBreaker extends EventEmitter implements ICircuitBreaker {
     this.successCount = 0;
     this.recentResults = [];
     this.latencies = [];
-    this.openedAt = null;
-    this.halfOpenedAt = null;
+    this.openedAt = undefined;
+    this.halfOpenedAt = undefined;
     this.nextAttemptTime = 0;
     this.config.onClose();
     logger.info("Circuit breaker closed");
@@ -243,6 +255,12 @@ export class CircuitBreaker extends EventEmitter implements ICircuitBreaker {
       : 0;
   }
 
+  private getFailureRate(): number {
+    return this.recentResults.length > 0
+      ? this.recentResults.filter((r) => !r).length / this.recentResults.length
+      : 0;
+  }
+
   private calculateUptime(): number {
     if (!this.openedAt) return 100; // Never opened, 100% uptime
 
@@ -302,80 +320,126 @@ export class CircuitBreaker extends EventEmitter implements ICircuitBreaker {
   private static validateConfig(config: CircuitBreakerConfig): void {
     // Validate failureThreshold
     if (config.failureThreshold !== undefined) {
-      if (!Number.isInteger(config.failureThreshold) || config.failureThreshold < 1) {
-        throw new Error(`failureThreshold must be a positive integer, got: ${config.failureThreshold}`);
+      if (
+        !Number.isInteger(config.failureThreshold) ||
+        config.failureThreshold < 1
+      ) {
+        throw new Error(
+          `failureThreshold must be a positive integer, got: ${config.failureThreshold}`
+        );
       }
       if (config.failureThreshold > 1000) {
-        throw new Error(`failureThreshold too high, maximum allowed: 1000, got: ${config.failureThreshold}`);
+        throw new Error(
+          `failureThreshold too high, maximum allowed: 1000, got: ${config.failureThreshold}`
+        );
       }
     }
 
     // Validate resetTimeoutMs
     if (config.resetTimeoutMs !== undefined) {
-      if (!Number.isInteger(config.resetTimeoutMs) || config.resetTimeoutMs < 1000) {
-        throw new Error(`resetTimeoutMs must be at least 1000ms, got: ${config.resetTimeoutMs}`);
+      if (
+        !Number.isInteger(config.resetTimeoutMs) ||
+        config.resetTimeoutMs < 1000
+      ) {
+        throw new Error(
+          `resetTimeoutMs must be at least 1000ms, got: ${config.resetTimeoutMs}`
+        );
       }
-      if (config.resetTimeoutMs > 3600000) { // 1 hour
-        throw new Error(`resetTimeoutMs too high, maximum allowed: 3600000ms (1 hour), got: ${config.resetTimeoutMs}`);
+      if (config.resetTimeoutMs > 3600000) {
+        // 1 hour
+        throw new Error(
+          `resetTimeoutMs too high, maximum allowed: 3600000ms (1 hour), got: ${config.resetTimeoutMs}`
+        );
       }
     }
 
     // Validate halfOpenSuccessThreshold
     if (config.halfOpenSuccessThreshold !== undefined) {
-      if (!Number.isInteger(config.halfOpenSuccessThreshold) || config.halfOpenSuccessThreshold < 1) {
-        throw new Error(`halfOpenSuccessThreshold must be a positive integer, got: ${config.halfOpenSuccessThreshold}`);
+      if (
+        !Number.isInteger(config.halfOpenSuccessThreshold) ||
+        config.halfOpenSuccessThreshold < 1
+      ) {
+        throw new Error(
+          `halfOpenSuccessThreshold must be a positive integer, got: ${config.halfOpenSuccessThreshold}`
+        );
       }
       if (config.halfOpenSuccessThreshold > 100) {
-        throw new Error(`halfOpenSuccessThreshold too high, maximum allowed: 100, got: ${config.halfOpenSuccessThreshold}`);
+        throw new Error(
+          `halfOpenSuccessThreshold too high, maximum allowed: 100, got: ${config.halfOpenSuccessThreshold}`
+        );
       }
     }
 
     // Validate rollingWindowSize
     if (config.rollingWindowSize !== undefined) {
-      if (!Number.isInteger(config.rollingWindowSize) || config.rollingWindowSize < 5) {
-        throw new Error(`rollingWindowSize must be at least 5, got: ${config.rollingWindowSize}`);
+      if (
+        !Number.isInteger(config.rollingWindowSize) ||
+        config.rollingWindowSize < 5
+      ) {
+        throw new Error(
+          `rollingWindowSize must be at least 5, got: ${config.rollingWindowSize}`
+        );
       }
       if (config.rollingWindowSize > 1000) {
-        throw new Error(`rollingWindowSize too high, maximum allowed: 1000, got: ${config.rollingWindowSize}`);
+        throw new Error(
+          `rollingWindowSize too high, maximum allowed: 1000, got: ${config.rollingWindowSize}`
+        );
       }
     }
 
     // Validate failureRateThreshold
     if (config.failureRateThreshold !== undefined) {
       if (config.failureRateThreshold < 0 || config.failureRateThreshold > 1) {
-        throw new Error(`failureRateThreshold must be between 0 and 1, got: ${config.failureRateThreshold}`);
+        throw new Error(
+          `failureRateThreshold must be between 0 and 1, got: ${config.failureRateThreshold}`
+        );
       }
     }
 
     // Validate latencyThresholdMs
     if (config.latencyThresholdMs !== undefined) {
       if (config.latencyThresholdMs < 100) {
-        throw new Error(`latencyThresholdMs must be at least 100ms, got: ${config.latencyThresholdMs}`);
+        throw new Error(
+          `latencyThresholdMs must be at least 100ms, got: ${config.latencyThresholdMs}`
+        );
       }
-      if (config.latencyThresholdMs > 300000) { // 5 minutes
-        throw new Error(`latencyThresholdMs too high, maximum allowed: 300000ms (5 minutes), got: ${config.latencyThresholdMs}`);
+      if (config.latencyThresholdMs > 300000) {
+        // 5 minutes
+        throw new Error(
+          `latencyThresholdMs too high, maximum allowed: 300000ms (5 minutes), got: ${config.latencyThresholdMs}`
+        );
       }
     }
 
     // Validate minimumSamples
     if (config.minimumSamples !== undefined) {
-      if (!Number.isInteger(config.minimumSamples) || config.minimumSamples < 1) {
-        throw new Error(`minimumSamples must be a positive integer, got: ${config.minimumSamples}`);
+      if (
+        !Number.isInteger(config.minimumSamples) ||
+        config.minimumSamples < 1
+      ) {
+        throw new Error(
+          `minimumSamples must be a positive integer, got: ${config.minimumSamples}`
+        );
       }
       if (config.minimumSamples > 100) {
-        throw new Error(`minimumSamples too high, maximum allowed: 100, got: ${config.minimumSamples}`);
+        throw new Error(
+          `minimumSamples too high, maximum allowed: 100, got: ${config.minimumSamples}`
+        );
       }
     }
 
     // Validate callback functions
-    if (config.onOpen !== undefined && typeof config.onOpen !== 'function') {
-      throw new Error('onOpen must be a function');
+    if (config.onOpen !== undefined && typeof config.onOpen !== "function") {
+      throw new Error("onOpen must be a function");
     }
-    if (config.onClose !== undefined && typeof config.onClose !== 'function') {
-      throw new Error('onClose must be a function');
+    if (config.onClose !== undefined && typeof config.onClose !== "function") {
+      throw new Error("onClose must be a function");
     }
-    if (config.onHalfOpen !== undefined && typeof config.onHalfOpen !== 'function') {
-      throw new Error('onHalfOpen must be a function');
+    if (
+      config.onHalfOpen !== undefined &&
+      typeof config.onHalfOpen !== "function"
+    ) {
+      throw new Error("onHalfOpen must be a function");
     }
   }
 }
@@ -497,7 +561,10 @@ export class LLMCircuitBreaker implements ICircuitBreaker {
       totalRequests,
       failureRate,
       averageResponseTime: 0, // LLM requests don't track response time in this implementation
-      lastFailureTime: this.requests.find(r => !r.success)?.timestamp,
+      lastFailureTime: (() => {
+        const failure = this.requests.find((r) => !r.success);
+        return failure ? new Date(failure.timestamp) : undefined;
+      })(),
       uptime: this.calculateUptime(),
       healthScore: this.calculateHealthScore(),
     };
@@ -515,7 +582,7 @@ export class LLMCircuitBreaker implements ICircuitBreaker {
   }
 
   getLastFailureTime(): Date | null {
-    const lastFailure = this.requests.find(r => !r.success);
+    const lastFailure = this.requests.find((r) => !r.success);
     return lastFailure ? new Date(lastFailure.timestamp) : null;
   }
 
@@ -534,3 +601,4 @@ export class LLMCircuitBreaker implements ICircuitBreaker {
     if (this.state === CircuitState.HALF_OPEN) return 0.5;
     return 0.0; // OPEN state
   }
+}

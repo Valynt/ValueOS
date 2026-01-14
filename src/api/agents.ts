@@ -6,6 +6,7 @@ import { validateRequest } from "../middleware/inputValidation";
 import { logger } from "../lib/logger";
 import { requirePermission } from "../middleware/rbac";
 import { getEventProducer } from "../services/EventProducer";
+import { getEventSourcingService } from "../services/EventSourcingService";
 import {
   createBaseEvent,
   EVENT_TOPICS,
@@ -13,12 +14,16 @@ import {
 } from "../types/events";
 import { AgentType } from "../services/agent-types";
 import { v4 as uuidv4 } from "uuid";
-import { getServiceConfigManager, getAgentAPIConfig } from "../config/ServiceConfigManager";
+import {
+  getServiceConfigManager,
+  getAgentAPIConfig,
+} from "../config/ServiceConfigManager";
 
 const router = Router();
 router.use(securityHeadersMiddleware);
 router.use(requirePermission("agents.execute"));
 
+// ... rest of the code remains the same ...
 router.get(
   "/:agentId/info",
   rateLimiters.loose,
@@ -84,7 +89,11 @@ router.post(
 
       // Create agent request event
       const agentRequestEvent: AgentRequestEvent = {
-        ...createBaseEvent("agent.request", correlationId, "agent-api"),
+        ...createBaseEvent(
+          "agent.request" as const,
+          correlationId,
+          "agent-api"
+        ),
         payload: {
           agentId,
           userId,
@@ -168,7 +177,9 @@ router.get(
 
       // Check if we have a response event
       const events = auditTrail.data?.events || [];
-      const responseEvent = events.find((e: any) => e.eventType === 'agent.response');
+      const responseEvent = events.find(
+        (e: any) => e.eventType === "agent.response"
+      );
 
       if (responseEvent) {
         // Job completed
@@ -176,7 +187,7 @@ router.get(
           success: true,
           data: {
             jobId,
-            status: 'completed',
+            status: "completed",
             result: responseEvent.payload.response,
             error: responseEvent.payload.error,
             latency: responseEvent.payload.latency,
@@ -185,23 +196,29 @@ router.get(
         });
       } else {
         // Job still processing or queued
-        const requestEvent = events.find((e: any) => e.eventType === 'agent.request');
+        const requestEvent = events.find(
+          (e: any) => e.eventType === "agent.request"
+        );
         res.json({
           success: true,
           data: {
             jobId,
-            status: 'processing',
+            status: "processing",
             agentId: requestEvent?.payload?.agentId,
             queuedAt: requestEvent?.timestamp,
-            estimatedDuration: '30s',
-            message: 'Agent request is being processed',
+            estimatedDuration: "30s",
+            message: "Agent request is being processed",
           },
         });
       }
     } catch (error) {
-      logger.error("Job status check failed", error instanceof Error ? error : undefined, {
-        jobId,
-      });
+      logger.error(
+        "Job status check failed",
+        error instanceof Error ? error : undefined,
+        {
+          jobId,
+        }
+      );
 
       res.status(500).json({
         success: false,
@@ -211,14 +228,5 @@ router.get(
     }
   }
 );
-  logger.error(
-    "Agent info endpoint failed",
-    err instanceof Error ? err : undefined
-  );
-  res.status(500).json({
-    error: "agent_info_error",
-    message: "Unable to load model card information",
-  });
-});
 
 export default router;

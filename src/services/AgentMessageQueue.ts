@@ -1,4 +1,4 @@
-import { Queue, Worker, QueueScheduler, Job } from "bullmq";
+import { Queue, Worker, Job } from "bullmq";
 import { logger } from "../lib/logger";
 import { getAgentAPI } from "./AgentAPI";
 import { getUnifiedOrchestrator } from "./UnifiedAgentOrchestrator";
@@ -30,14 +30,14 @@ export interface AgentInvocationResult {
 export class AgentMessageQueue {
   private queue: Queue<AgentInvocationJob>;
   private worker: Worker<AgentInvocationJob>;
-  private scheduler: QueueScheduler;
   private agentAPI = getAgentAPI();
 
   constructor(redisUrl?: string) {
     const config = getAgentMessageQueueConfig();
 
     // Use provided redisUrl or config default
-    const finalRedisUrl = redisUrl || config.redis.url;
+    const finalRedisUrl =
+      redisUrl || config.redis.url || "redis://localhost:6379";
 
     // Create queue with Redis connection
     this.queue = new Queue<AgentInvocationJob>("agent-invocations", {
@@ -52,13 +52,6 @@ export class AgentMessageQueue {
           type: "exponential",
           delay: config.retryDelay,
         },
-      },
-    });
-
-    // Create scheduler for delayed jobs
-    this.scheduler = new QueueScheduler("agent-invocations", {
-      connection: {
-        url: finalRedisUrl,
       },
     });
 
@@ -84,7 +77,9 @@ export class AgentMessageQueue {
         jobId: job.id,
         agent: job.data.agent,
         sessionId: job.data.sessionId,
-        executionTime: job.finishedOn! - job.processedOn!,
+        executionTime: job.finishedOn
+          ? job.finishedOn - (job.processedOn || 0)
+          : 0,
       });
     });
 
@@ -103,7 +98,7 @@ export class AgentMessageQueue {
     });
 
     logger.info("Agent Message Queue initialized", {
-      redisUrl: redisUrl.replace(/:[^:]*@/, ":***@"), // Hide password in logs
+      redisUrl: redisUrl ? redisUrl.replace(/:[^:]*@/, ":***@") : "default",
     });
   }
 
@@ -167,9 +162,9 @@ export class AgentMessageQueue {
     }
 
     try {
-      // Use BullMQ's job.finished() promise with timeout race
+      // Use BullMQ's job completion promise with timeout race
       const result = await Promise.race([
-        job.finished(),
+        job.finished,
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error(`Job ${jobId} timeout`)), timeoutMs)
         ),
@@ -221,7 +216,6 @@ export class AgentMessageQueue {
 
     await this.worker.close();
     await this.queue.close();
-    await this.scheduler.close();
 
     logger.info("Agent Message Queue shut down");
   }
@@ -310,9 +304,6 @@ export class AgentMessageQueue {
     }
   }
 
-  /**
-   * Get job priority based on agent type
-   */
   private getJobPriority(agent: AgentType): number {
     // Higher numbers = higher priority in BullMQ
     const priorities: Record<AgentType, number> = {
@@ -331,6 +322,9 @@ export class AgentMessageQueue {
       "outcome-engineer": 6,
       "financial-modeling": 6,
       narrative: 5,
+      "value-mapping": 7,
+      "value-eval": 6,
+      groundtruth: 8, // High priority for validation
     };
 
     return priorities[agent] || 5;

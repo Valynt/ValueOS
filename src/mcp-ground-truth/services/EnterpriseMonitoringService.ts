@@ -200,7 +200,7 @@ export class EnterpriseMonitoringService {
     });
 
     if (span.status === "error") {
-      logger.error("Trace span completed with error", {
+      logger.error("Trace span completed with error", undefined, {
         traceId: span.traceId,
         spanId: span.id,
         operation: span.name,
@@ -250,8 +250,10 @@ export class EnterpriseMonitoringService {
     this.cache.set(`log_entry:${logEntry.id}`, logEntry, "tier2");
 
     // Forward to logger with appropriate level
-    const logMethod = logger[entry.level] || logger.info;
-    logMethod(entry.message, entry.fields);
+    const level = entry.level === "fatal" ? "error" : entry.level;
+    const logMethod =
+      logger[level as "debug" | "info" | "warn" | "error"] || logger.info;
+    logMethod(entry.message, undefined, entry.fields);
   }
 
   queryLogs(query: {
@@ -832,6 +834,8 @@ export class TraceContext {
     service: string,
     tags: Record<string, any> = {}
   ) {
+    this.traceId = `trace_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    this.spanId = `span_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     this.operation = operation;
     this.service = service;
     this.tags = tags;

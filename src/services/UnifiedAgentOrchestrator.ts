@@ -16,6 +16,7 @@
 
 import { logger } from "../lib/logger";
 import { v4 as uuidv4 } from "uuid";
+import * as z from "zod";
 import { CircuitBreakerManager } from "./CircuitBreaker";
 import { AgentRecord, AgentRegistry } from "./AgentRegistry";
 import { SDUIPageDefinition, validateSDUISchema } from "../sdui/schema";
@@ -240,18 +241,11 @@ export class UnifiedAgentOrchestrator {
   private agentInvocationTimes: Map<string, number[]> = new Map();
   private maxAgentInvocationsPerMinute = 20; // Conservative limit per agent type
 
-  constructor(config: Partial<OrchestratorConfig> = {}) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
-    this.registry = new AgentRegistry();
-    this.routingLayer = new AgentRoutingLayer(this.registry);
-    this.circuitBreakers = new CircuitBreakerManager();
-    this.llmGateway = new LLMGateway(
-      llmConfig.provider,
-      llmConfig.gatingEnabled
-    );
-    this.memorySystem = new MemorySystem(supabase, this.llmGateway);
-    this.messageBroker = getAgentMessageBroker();
-    this.agentMessageQueue = getAgentMessageQueue();
+  private normalizeExecutionRequest(
+    intent: string,
+    execution: ExecutionRequest
+  ) {
+    return { ...execution, intent };
   }
 
   private deriveFiscalQuarter(date: Date): string {
@@ -320,7 +314,7 @@ export class UnifiedAgentOrchestrator {
     const times = this.agentInvocationTimes.get(agentType) || [];
 
     // Remove invocations outside the window
-    const validTimes = times.filter(time => now - time < windowMs);
+    const validTimes = times.filter((time) => now - time < windowMs);
 
     // Check if we're within limits
     if (validTimes.length >= this.maxAgentInvocationsPerMinute) {
@@ -338,6 +332,9 @@ export class UnifiedAgentOrchestrator {
 
     return true;
   }
+
+  /**
+   * Process a user query with given workflow state
    *
    * @param query User query
    * @param currentState Current workflow state
@@ -533,13 +530,6 @@ export class UnifiedAgentOrchestrator {
   /**
    * Process a user query with given workflow state
    *
-   * @param query User query
-   * @param currentState Current workflow state
-   * @param userId User identifier
-   * @param sessionId Session identifier
-   * @param traceId Trace ID for logging
-   * @returns Result with response and next state
-   */
   async processQuery(
     envelope: ExecutionEnvelope,
     query: string,
@@ -1875,6 +1865,16 @@ Provide a JSON response with:
 
     // Check kill switch
     if (autonomy.killSwitchEnabled) {
+      securityLogger.log({
+        category: "autonomy",
+        action: "kill_switch_activated",
+        severity: "error",
+        metadata: {
+          executionId,
+          stageId,
+          reason: "Global autonomy kill switch is enabled",
+        },
+      });
       throw new Error("Autonomy kill switch is enabled");
     }
 
@@ -1885,6 +1885,17 @@ Provide a JSON response with:
         executionId,
         "Autonomy guard: max duration exceeded"
       );
+      securityLogger.log({
+        category: "autonomy",
+        action: "duration_limit_exceeded",
+        severity: "error",
+        metadata: {
+          executionId,
+          stageId,
+          elapsedMs: elapsed,
+          limitMs: autonomy.maxDurationMs,
+        },
+      });
       throw new Error("Autonomy guard: max duration exceeded");
     }
 
@@ -1895,6 +1906,17 @@ Provide a JSON response with:
         executionId,
         "Autonomy guard: max cost exceeded"
       );
+      securityLogger.log({
+        category: "autonomy",
+        action: "cost_limit_exceeded",
+        severity: "error",
+        metadata: {
+          executionId,
+          stageId,
+          costUsd: cost,
+          limitUsd: autonomy.maxCostUsd,
+        },
+      });
       throw new Error("Autonomy guard: max cost exceeded");
     }
 
@@ -1913,6 +1935,17 @@ Provide a JSON response with:
           executionId,
           "Approval required for destructive actions"
         );
+        securityLogger.log({
+          category: "autonomy",
+          action: "destructive_action_unapproved",
+          severity: "error",
+          metadata: {
+            executionId,
+            stageId,
+            destructiveActions: destructivePending,
+            requiresApproval: true,
+          },
+        });
         throw new Error("Approval required for destructive actions");
       }
     }
@@ -1926,6 +1959,18 @@ Provide a JSON response with:
         executionId,
         `Agent ${stageAgentId} restricted to observe-only`
       );
+      securityLogger.log({
+        category: "autonomy",
+        action: "agent_autonomy_violation",
+        severity: "error",
+        metadata: {
+          executionId,
+          stageId,
+          agentId: stageAgentId,
+          autonomyLevel: level,
+          violation: "observe-only agent attempted action",
+        },
+      });
       throw new Error("Autonomy guard: observe-only agent attempted action");
     }
 
@@ -1936,6 +1981,17 @@ Provide a JSON response with:
         executionId,
         `Agent ${stageAgentId} is disabled by kill switch`
       );
+      securityLogger.log({
+        category: "autonomy",
+        action: "agent_kill_switch_activated",
+        severity: "error",
+        metadata: {
+          executionId,
+          stageId,
+          agentId: stageAgentId,
+          killSwitchEnabled: true,
+        },
+      });
       throw new Error("Autonomy guard: agent disabled");
     }
 
@@ -1953,6 +2009,18 @@ Provide a JSON response with:
           executionId,
           `Agent ${stageAgentId} exceeded iteration limit`
         );
+        securityLogger.log({
+          category: "autonomy",
+          action: "iteration_limit_exceeded",
+          severity: "error",
+          metadata: {
+            executionId,
+            stageId,
+            agentId: stageAgentId,
+            iterationsExecuted: executed,
+            maxIterations,
+          },
+        });
         throw new Error("Autonomy guard: iteration limit exceeded");
       }
     }
@@ -2085,7 +2153,7 @@ Provide a JSON response with:
   // ==========================================================================
 
   isWorkflowComplete(state: WorkflowState): boolean {
-    return state.status === "completed" || state.status === "error";
+    return state.status === "completed";
   }
 
   getProgress(state: WorkflowState, totalStages: number = 5): number {

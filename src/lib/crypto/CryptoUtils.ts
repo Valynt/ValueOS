@@ -5,9 +5,14 @@
  * using Node.js built-in crypto module for enterprise security.
  */
 
-import { createHash, createHmac, randomBytes, createCipheriv, createDecipheriv } from 'crypto';
-import { ed25519 } from '@noble/curves/ed25519';
-import { x25519 } from '@noble/curves/ed25519';
+import {
+  createHash,
+  createHmac,
+  randomBytes,
+  createCipheriv,
+  createDecipheriv,
+} from "crypto";
+import { ed25519 } from "@noble/ed25519";
 
 // ============================================================================
 // Types
@@ -57,9 +62,9 @@ export function generateEd25519KeyPair(): Ed25519KeyPair {
   const publicKey = ed25519.getPublicKey(privateKey);
 
   return {
-    publicKey: Buffer.from(publicKey).toString('base64'),
-    privateKey: Buffer.from(privateKey).toString('base64'),
-    keyId: `key_${Date.now()}_${randomBytes(8).toString('hex')}`,
+    publicKey: Buffer.from(publicKey).toString("base64"),
+    privateKey: Buffer.from(privateKey).toString("base64"),
+    keyId: `key_${Date.now()}_${randomBytes(8).toString("hex")}`,
     createdAt: new Date(),
   };
 }
@@ -72,8 +77,8 @@ export function generateX25519KeyPair(): KeyPair {
   const publicKey = x25519.getPublicKey(privateKey);
 
   return {
-    publicKey: Buffer.from(publicKey).toString('base64'),
-    privateKey: Buffer.from(privateKey).toString('base64')
+    publicKey: Buffer.from(publicKey).toString("base64"),
+    privateKey: Buffer.from(privateKey).toString("base64"),
   };
 }
 
@@ -82,13 +87,15 @@ export function generateX25519KeyPair(): KeyPair {
  * Legacy HMAC key pair generation - kept for backward compatibility
  */
 export function generateKeyPair(): KeyPair {
-  console.warn('generateKeyPair() is deprecated. Use generateEd25519KeyPair() for proper security.');
-  const privateKey = randomBytes(32).toString('base64');
-  const publicKey = createHash('sha256').update(privateKey).digest('base64');
+  console.warn(
+    "generateKeyPair() is deprecated. Use generateEd25519KeyPair() for proper security."
+  );
+  const privateKey = randomBytes(32).toString("base64");
+  const publicKey = createHash("sha256").update(privateKey).digest("base64");
 
   return {
     publicKey,
-    privateKey
+    privateKey,
   };
 }
 
@@ -101,21 +108,24 @@ export function signMessageEd25519(
   privateKey: string
 ): SignatureResult {
   try {
-    const messageString = typeof message === 'string' ? message : JSON.stringify(message);
+    const messageString =
+      typeof message === "string" ? message : JSON.stringify(message);
     const timestamp = Date.now();
     const dataToSign = `${messageString}:${timestamp}`;
 
-    const messageBytes = Buffer.from(dataToSign, 'utf8');
-    const privateKeyBytes = Buffer.from(privateKey, 'base64');
+    const messageBytes = Buffer.from(dataToSign, "utf8");
+    const privateKeyBytes = Buffer.from(privateKey, "base64");
 
     const signature = ed25519.sign(messageBytes, privateKeyBytes);
 
     return {
-      signature: Buffer.from(signature).toString('base64'),
-      timestamp
+      signature: Buffer.from(signature).toString("base64"),
+      timestamp,
     };
   } catch (error) {
-    throw new Error(`Ed25519 signing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Ed25519 signing failed: ${error instanceof Error ? error.message : "Unknown error"}`
+    );
   }
 }
 
@@ -127,18 +137,21 @@ export function signMessage(
   message: string | object,
   privateKey: string
 ): SignatureResult {
-  console.warn('signMessage() is deprecated. Use signMessageEd25519() for proper security.');
-  const messageString = typeof message === 'string' ? message : JSON.stringify(message);
+  console.warn(
+    "signMessage() is deprecated. Use signMessageEd25519() for proper security."
+  );
+  const messageString =
+    typeof message === "string" ? message : JSON.stringify(message);
   const timestamp = Date.now();
 
   const dataToSign = `${messageString}:${timestamp}`;
-  const signature = createHmac('sha256', Buffer.from(privateKey, 'base64'))
+  const signature = createHmac("sha256", Buffer.from(privateKey, "base64"))
     .update(dataToSign)
-    .digest('base64');
+    .digest("base64");
 
   return {
     signature,
-    timestamp
+    timestamp,
   };
 }
 
@@ -153,17 +166,21 @@ export function verifySignatureEd25519(
   publicKey: string
 ): boolean {
   try {
-    const messageString = typeof message === 'string' ? message : JSON.stringify(message);
+    const messageString =
+      typeof message === "string" ? message : JSON.stringify(message);
     const dataToVerify = `${messageString}:${timestamp}`;
 
-    const messageBytes = Buffer.from(dataToVerify, 'utf8');
-    const signatureBytes = Buffer.from(signature, 'base64');
-    const publicKeyBytes = Buffer.from(publicKey, 'base64');
+    const messageBytes = Buffer.from(dataToVerify, "utf8");
+    const signatureBytes = Buffer.from(signature, "base64");
+    const publicKeyBytes = Buffer.from(publicKey, "base64");
 
     return ed25519.verify(signatureBytes, messageBytes, publicKeyBytes);
   } catch (error) {
     // Log error but don't expose details
-    console.error('Ed25519 verification error:', error instanceof Error ? error.message : 'Unknown error');
+    console.error(
+      "Ed25519 verification error:",
+      error instanceof Error ? error.message : "Unknown error"
+    );
     return false;
   }
 }
@@ -178,14 +195,20 @@ export function verifySignature(
   timestamp: number,
   publicKey: string
 ): boolean {
-  console.warn('verifySignature() is deprecated. Use verifySignatureEd25519() for proper security.');
+  console.warn(
+    "verifySignature() is deprecated. Use verifySignatureEd25519() for proper security."
+  );
   try {
-    const messageString = typeof message === 'string' ? message : JSON.stringify(message);
+    const messageString =
+      typeof message === "string" ? message : JSON.stringify(message);
     const dataToSign = `${messageString}:${timestamp}`;
 
-    const expectedSignature = createHmac('sha256', Buffer.from(publicKey, 'base64'))
+    const expectedSignature = createHmac(
+      "sha256",
+      Buffer.from(publicKey, "base64")
+    )
       .update(dataToSign)
-      .digest('base64');
+      .digest("base64");
 
     // Constant-time comparison to prevent timing attacks
     return constantTimeCompare(signature, expectedSignature);
@@ -247,46 +270,49 @@ export function constantTimeCompareObjects(a: any, b: any): boolean {
  * Generate a random encryption key
  */
 export function generateEncryptionKey(): string {
-  return randomBytes(32).toString('base64');
+  return randomBytes(32).toString("base64");
 }
 
 /**
  * Encrypt data using AES-256-GCM
  */
 export function encrypt(data: string | object, key: string): EncryptedData {
-  const dataString = typeof data === 'string' ? data : JSON.stringify(data);
-  const keyBuffer = Buffer.from(key, 'base64');
+  const dataString = typeof data === "string" ? data : JSON.stringify(data);
+  const keyBuffer = Buffer.from(key, "base64");
   const iv = randomBytes(16);
 
-  const cipher = createCipheriv('aes-256-gcm', keyBuffer, iv);
+  const cipher = createCipheriv("aes-256-gcm", keyBuffer, iv);
 
-  let encrypted = cipher.update(dataString, 'utf8', 'base64');
-  encrypted += cipher.final('base64');
+  let encrypted = cipher.update(dataString, "utf8", "base64");
+  encrypted += cipher.final("base64");
 
   const tag = cipher.getAuthTag();
 
   return {
     data: encrypted,
-    iv: iv.toString('base64'),
-    tag: tag.toString('base64'),
-    algorithm: 'aes-256-gcm'
+    iv: iv.toString("base64"),
+    tag: tag.toString("base64"),
+    algorithm: "aes-256-gcm",
   };
 }
 
 /**
  * Decrypt data using AES-256-GCM
  */
-export function decrypt(encryptedData: EncryptedData, key: string): string | object {
+export function decrypt(
+  encryptedData: EncryptedData,
+  key: string
+): string | object {
   try {
-    const keyBuffer = Buffer.from(key, 'base64');
-    const iv = Buffer.from(encryptedData.iv, 'base64');
-    const tag = Buffer.from(encryptedData.tag, 'base64');
+    const keyBuffer = Buffer.from(key, "base64");
+    const iv = Buffer.from(encryptedData.iv, "base64");
+    const tag = Buffer.from(encryptedData.tag, "base64");
 
-    const decipher = createDecipheriv('aes-256-gcm', keyBuffer, iv);
+    const decipher = createDecipheriv("aes-256-gcm", keyBuffer, iv);
     decipher.setAuthTag(tag);
 
-    let decrypted = decipher.update(encryptedData.data, 'base64', 'utf8');
-    decrypted += decipher.final('utf8');
+    let decrypted = decipher.update(encryptedData.data, "base64", "utf8");
+    decrypted += decipher.final("utf8");
 
     // Try to parse as JSON, fallback to string
     try {
@@ -295,7 +321,7 @@ export function decrypt(encryptedData: EncryptedData, key: string): string | obj
       return decrypted;
     }
   } catch (error) {
-    throw new Error('Decryption failed: Invalid data or key');
+    throw new Error("Decryption failed: Invalid data or key");
   }
 }
 
@@ -303,24 +329,26 @@ export function decrypt(encryptedData: EncryptedData, key: string): string | obj
  * Generate a secure nonce for message signing
  */
 export function generateNonce(): string {
-  return `${Date.now()}:${randomBytes(16).toString('base64')}`;
+  return `${Date.now()}:${randomBytes(16).toString("base64")}`;
 }
 
 /**
  * Hash data using SHA-256
  */
 export function hash(data: string | object): string {
-  const dataString = typeof data === 'string' ? data : JSON.stringify(data);
-  return createHash('sha256').update(dataString).digest('base64');
+  const dataString = typeof data === "string" ? data : JSON.stringify(data);
+  return createHash("sha256").update(dataString).digest("base64");
 }
 
 /**
  * Derive a key from a password using PBKDF2
  */
-export function deriveKey(password: string, salt: string, iterations: number = 100000): string {
-  return createHmac('sha256', password)
-    .update(salt)
-    .digest('base64');
+export function deriveKey(
+  password: string,
+  salt: string,
+  iterations: number = 100000
+): string {
+  return createHmac("sha256", password).update(salt).digest("base64");
 }
 
 // ============================================================================
@@ -331,27 +359,29 @@ export function deriveKey(password: string, salt: string, iterations: number = 1
  * Check if data is encrypted
  */
 export function isEncrypted(data: any): data is EncryptedData {
-  return data &&
-         typeof data === 'object' &&
-         typeof data.data === 'string' &&
-         typeof data.iv === 'string' &&
-         typeof data.tag === 'string' &&
-         typeof data.algorithm === 'string';
+  return (
+    data &&
+    typeof data === "object" &&
+    typeof data.data === "string" &&
+    typeof data.iv === "string" &&
+    typeof data.tag === "string" &&
+    typeof data.algorithm === "string"
+  );
 }
 
 /**
  * Generate a random salt
  */
 export function generateSalt(): string {
-  return randomBytes(16).toString('base64');
+  return randomBytes(16).toString("base64");
 }
 
 /**
  * Securely compare two values
  */
 export function secureCompare(a: any, b: any): boolean {
-  const aString = typeof a === 'string' ? a : JSON.stringify(a);
-  const bString = typeof b === 'string' ? b : JSON.stringify(b);
+  const aString = typeof a === "string" ? a : JSON.stringify(a);
+  const bString = typeof b === "string" ? b : JSON.stringify(b);
 
   return constantTimeCompare(hash(aString), hash(bString));
 }
