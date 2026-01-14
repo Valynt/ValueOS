@@ -141,9 +141,6 @@ up_services() {
         compose_cmd+=("up")
     fi
 
-    # Add explicit service ordering for deterministic startup
-    compose_cmd+=("--scale")
-
     log_info "Starting services with deterministic ordering..."
 
     # Execute compose up

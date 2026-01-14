@@ -46,6 +46,9 @@ show_usage() {
     echo "  --no-cache - Disable Docker build cache"
     echo "  --push     - Push images to registry after build"
     echo "  --dry-run  - Show what would be built without executing"
+    echo "  --parallel - Build backend and frontend in parallel"
+    echo "  --sign     - Sign images with cosign after build"
+    echo "  --verify   - Verify signatures after signing"
     echo ""
     echo "Examples:"
     echo "  $0 backend          # Build backend with locked digests"
@@ -56,6 +59,12 @@ show_usage() {
 
 # Load image digests from lockfile
 load_digests() {
+    local build_id="${1:-}"
+
+    if [ -n "$build_id" ] && [ -f "$SCRIPT_DIR/scripts/metrics-collector.sh" ]; then
+        "$SCRIPT_DIR/scripts/metrics-collector.sh" stage_start "$build_id" load_digests
+    fi
+
     local lockfile="$PROJECT_ROOT/ops/locks/images.lock.json"
 
     if [ ! -f "$lockfile" ]; then
@@ -91,6 +100,10 @@ load_digests() {
     fi
 
     log_success "Loaded digests from lockfile"
+
+    if [ -n "$build_id" ] && [ -f "$SCRIPT_DIR/scripts/metrics-collector.sh" ]; then
+        "$SCRIPT_DIR/scripts/metrics-collector.sh" stage_end "$build_id" load_digests
+    fi
 }
 
 # Get git information for labels
@@ -110,10 +123,19 @@ build_backend() {
     local no_cache=${1:-false}
     local push=${2:-false}
     local dry_run=${3:-false}
+    local sign=${4:-false}
+    local verify=${5:-false}
+    local build_id="${6:-$(date +%s)}"
 
     log_info "Building backend image..."
 
-    load_digests
+    # Initialize metrics
+    if [ -f "$SCRIPT_DIR/scripts/metrics-collector.sh" ]; then
+        "$SCRIPT_DIR/scripts/metrics-collector.sh" init "$build_id" backend
+        "$SCRIPT_DIR/scripts/metrics-collector.sh" stage_start "$build_id" build
+    fi
+
+    load_digests "$build_id"
     get_git_info
 
     local build_args=(
@@ -151,13 +173,61 @@ build_backend() {
     if docker build "${build_args[@]}" -t "valueos-backend:${APP_VERSION:-latest}" -f Dockerfile.backend .; then
         log_success "Backend image built successfully"
 
+        # Record build completion metrics
+        if [ -f "$SCRIPT_DIR/scripts/metrics-collector.sh" ]; then
+            "$SCRIPT_DIR/scripts/metrics-collector.sh" stage_end "$build_id" build
+            "$SCRIPT_DIR/scripts/metrics-collector.sh" image_metrics "$build_id" "valueos-backend:${APP_VERSION:-latest}"
+        fi
+
         if [ "$push" = true ]; then
             log_info "Pushing backend image..."
-            docker push "valueos-backend:${APP_VERSION:-latest}"
-            log_success "Backend image pushed"
+            if [ -f "$SCRIPT_DIR/scripts/metrics-collector.sh" ]; then
+                "$SCRIPT_DIR/scripts/metrics-collector.sh" stage_start "$build_id" push
+            fi
+
+            if docker push "valueos-backend:${APP_VERSION:-latest}"; then
+                log_success "Backend image pushed"
+                if [ -f "$SCRIPT_DIR/scripts/metrics-collector.sh" ]; then
+                    "$SCRIPT_DIR/scripts/metrics-collector.sh" stage_end "$build_id" push
+                fi
+            else
+                log_error "Backend push failed"
+                if [ -f "$SCRIPT_DIR/scripts/metrics-collector.sh" ]; then
+                    "$SCRIPT_DIR/scripts/metrics-collector.sh" finalize "failed"
+                fi
+                exit 1
+            fi
         fi
+
+        if [ "$sign" = true ]; then
+            if [ -f "$SCRIPT_DIR/scripts/metrics-collector.sh" ]; then
+                "$SCRIPT_DIR/scripts/metrics-collector.sh" stage_start "$build_id" sign
+            fi
+
+            if sign_image "valueos-backend:${APP_VERSION:-latest}" "$verify"; then
+                if [ -f "$SCRIPT_DIR/scripts/metrics-collector.sh" ]; then
+                    "$SCRIPT_DIR/scripts/metrics-collector.sh" stage_end "$build_id" sign
+                fi
+            else
+                log_error "Backend signing failed"
+                if [ -f "$SCRIPT_DIR/scripts/metrics-collector.sh" ]; then
+                    "$SCRIPT_DIR/scripts/metrics-collector.sh" finalize "failed"
+                fi
+                exit 1
+            fi
+        fi
+
+        # Finalize metrics
+        if [ -f "$SCRIPT_DIR/scripts/metrics-collector.sh" ]; then
+            "$SCRIPT_DIR/scripts/metrics-collector.sh" finalize "success"
+        fi
+
+        return 0
     else
         log_error "Backend build failed"
+        if [ -f "$SCRIPT_DIR/scripts/metrics-collector.sh" ]; then
+            "$SCRIPT_DIR/scripts/metrics-collector.sh" finalize "failed"
+        fi
         exit 1
     fi
 }
@@ -167,6 +237,8 @@ build_frontend() {
     local no_cache=${1:-false}
     local push=${2:-false}
     local dry_run=${3:-false}
+    local sign=${4:-false}
+    local verify=${5:-false}
 
     log_info "Building frontend image..."
 
@@ -213,9 +285,103 @@ build_frontend() {
             docker push "valueos-frontend:${APP_VERSION:-latest}"
             log_success "Frontend image pushed"
         fi
+
+        if [ "$sign" = true ]; then
+            sign_image "valueos-frontend:${APP_VERSION:-latest}" "$verify"
+        fi
     else
         log_error "Frontend build failed"
         exit 1
+    fi
+}
+
+# Sign image with cosign
+sign_image() {
+    local image_ref="$1"
+    local verify_after="${2:-false}"
+
+    if ! command -v cosign > /dev/null 2>&1; then
+        log_warning "cosign not found, skipping image signing"
+        return 0
+    fi
+
+    log_info "Signing image: $image_ref"
+
+    # Check if key exists
+    local key_file="$PROJECT_ROOT/ops/keys/cosign.key"
+    if [ ! -f "$key_file" ]; then
+        log_warning "Cosign key not found, skipping image signing"
+        return 0
+    fi
+
+    # Sign the image
+    if cosign sign --key "$key_file" "$image_ref"; then
+        log_success "Image signed successfully: $image_ref"
+
+        # Verify if requested
+        if [ "$verify_after" = true ]; then
+            log_info "Verifying signature..."
+            if cosign verify --key "$key_file" "$image_ref"; then
+                log_success "Signature verified successfully"
+            else
+                log_error "Signature verification failed"
+                return 1
+            fi
+        fi
+
+        return 0
+    else
+        log_error "Failed to sign image: $image_ref"
+        return 1
+    fi
+}
+
+# Build backend and frontend in parallel
+build_parallel() {
+    local no_cache=${1:-false}
+    local push=${2:-false}
+    local dry_run=${3:-false}
+    local sign=${4:-false}
+    local verify=${5:-false}
+
+    log_info "Building backend and frontend in parallel..."
+
+    # Load digests and git info once
+    load_digests
+    get_git_info
+
+    # Build processes
+    local backend_pid frontend_pid
+
+    # Start backend build in background
+    (
+        build_backend "$no_cache" "$push" "$dry_run" "$sign" "$verify"
+    ) &
+    backend_pid=$!
+
+    # Start frontend build in background
+    (
+        build_frontend "$no_cache" "$push" "$dry_run" "$sign" "$verify"
+    ) &
+    frontend_pid=$!
+
+    # Wait for both builds to complete
+    local backend_result frontend_result
+    wait $backend_pid
+    backend_result=$?
+
+    wait $frontend_pid
+    frontend_result=$?
+
+    # Check results
+    if [ $backend_result -eq 0 ] && [ $frontend_result -eq 0 ]; then
+        log_success "Parallel build completed successfully!"
+        return 0
+    else
+        log_error "Parallel build failed"
+        [ $backend_result -ne 0 ] && log_error "Backend build failed"
+        [ $frontend_result -ne 0 ] && log_error "Frontend build failed"
+        return 1
     fi
 }
 
@@ -225,6 +391,9 @@ main() {
     local no_cache=false
     local push=false
     local dry_run=false
+    local parallel=false
+    local sign=false
+    local verify=false
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -243,6 +412,18 @@ main() {
                 ;;
             --dry-run)
                 dry_run=true
+                shift
+                ;;
+            --parallel)
+                parallel=true
+                shift
+                ;;
+            --sign)
+                sign=true
+                shift
+                ;;
+            --verify)
+                verify=true
                 shift
                 ;;
             *)
@@ -266,6 +447,9 @@ main() {
     echo "No Cache: $no_cache"
     echo "Push: $push"
     echo "Dry Run: $dry_run"
+    echo "Parallel: $parallel"
+    echo "Sign: $sign"
+    echo "Verify: $verify"
     echo ""
 
     # Check Docker daemon
@@ -276,15 +460,19 @@ main() {
 
     case "$target" in
         backend)
-            build_backend "$no_cache" "$push" "$dry_run"
+            build_backend "$no_cache" "$push" "$dry_run" "$sign" "$verify"
             ;;
         frontend)
-            build_frontend "$no_cache" "$push" "$dry_run"
+            build_frontend "$no_cache" "$push" "$dry_run" "$sign" "$verify"
             ;;
         all)
-            build_backend "$no_cache" "$push" "$dry_run"
-            echo ""
-            build_frontend "$no_cache" "$push" "$dry_run"
+            if [ "$parallel" = true ]; then
+                build_parallel "$no_cache" "$push" "$dry_run" "$sign" "$verify"
+            else
+                build_backend "$no_cache" "$push" "$dry_run" "$sign" "$verify"
+                echo ""
+                build_frontend "$no_cache" "$push" "$dry_run" "$sign" "$verify"
+            fi
             ;;
     esac
 

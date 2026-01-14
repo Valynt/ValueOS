@@ -1,0 +1,238 @@
+#!/usr/bin/env bash
+
+# ValueOS Image Verification Script
+# Verifies container image signatures for immutable verification
+
+set -euo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Logging functions
+log_info() {
+    echo -e "${BLUE}🔍 $1${NC}"
+}
+
+log_success() {
+    echo -e "${GREEN}✅ $1${NC}"
+}
+
+log_warning() {
+    echo -e "${YELLOW}⚠️  $1${NC}"
+}
+
+log_error() {
+    echo -e "${RED}❌ $1${NC}"
+}
+
+# Script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Load environment
+load_env() {
+    local env_file="$PROJECT_ROOT/deploy/envs/.env.cosign"
+    if [ -f "$env_file" ]; then
+        source "$env_file"
+    fi
+
+    # Set defaults
+    export COSIGN_EXPERIMENTAL=${COSIGN_EXPERIMENTAL:-1}
+}
+
+# Show usage
+show_usage() {
+    echo "Usage: $0 <image> [options]"
+    echo ""
+    echo "Images:"
+    echo "  backend    - Verify backend image"
+    echo "  frontend   - Verify frontend image"
+    echo "  all        - Verify both images"
+    echo "  <custom>   - Verify custom image reference"
+    echo ""
+    echo "Options:"
+    echo "  --key <path> - Use specific key file"
+    echo "  --sbom      - Verify SBOM attachment"
+    echo "  --local     - Verify local image only"
+    echo ""
+    echo "Examples:"
+    echo "  $0 backend"
+    echo "  $0 ghcr.io/valueos/backend:sha256:abc123"
+    echo "  $0 all --sbom"
+}
+
+# Verify image signature
+verify_image() {
+    local image_ref="$1"
+    local key_file="${2:-}"
+    local check_sbom="${3:-false}"
+    local local_only="${4:-false}"
+
+    log_info "Verifying image signature: $image_ref"
+
+    # Prepare cosign verify command
+    local cosign_cmd=("cosign" "verify")
+
+    if [ -n "$key_file" ]; then
+        cosign_cmd+=("--key" "$key_file")
+    elif [ -n "${COSIGN_KEY_LOCATION:-}" ]; then
+        cosign_cmd+=("--key" "$COSIGN_KEY_LOCATION")
+    else
+        cosign_cmd+=("--key" "$PROJECT_ROOT/ops/keys/cosign.key")
+    fi
+
+    if [ "$check_sbom" = true ]; then
+        cosign_cmd+=("--attachment" "sbom")
+    fi
+
+    if [ "$local_only" = true ]; then
+        cosign_cmd+=("--insecure-ignore-tlog")
+    fi
+
+    cosign_cmd+=("$image_ref")
+
+    # Verify the image
+    if "${cosign_cmd[@]}"; then
+        log_success "Image signature verified: $image_ref"
+
+        # Get verification details
+        if [ "$check_sbom" = true ]; then
+            log_info "Checking SBOM attachment..."
+            if cosign attest "$image_ref" --key "$PROJECT_ROOT/ops/keys/cosign.key" > /dev/null 2>&1; then
+                log_success "SBOM attachment verified"
+            else
+                log_warning "SBOM attachment not found"
+            fi
+        fi
+
+        return 0
+    else
+        log_error "Failed to verify image signature: $image_ref"
+        return 1
+    fi
+}
+
+# Get image reference
+get_image_ref() {
+    local target="$1"
+    local version="${APP_VERSION:-latest}"
+
+    case "$target" in
+        backend)
+            echo "valueos-backend:$version"
+            ;;
+        frontend)
+            echo "valueos-frontend:$version"
+            ;;
+        *)
+            echo "$target"
+            ;;
+    esac
+}
+
+# Check if image exists locally
+check_image_exists() {
+    local image_ref="$1"
+
+    if docker image inspect "$image_ref" > /dev/null 2>&1; then
+        return 0
+    else
+        log_warning "Image not found locally: $image_ref"
+        log_info "Attempting to pull from registry..."
+        if docker pull "$image_ref" > /dev/null 2>&1; then
+            log_success "Image pulled successfully"
+            return 0
+        else
+            log_error "Image not found in registry: $image_ref"
+            return 1
+        fi
+    fi
+}
+
+# Main execution
+main() {
+    local target=""
+    local key_file=""
+    local check_sbom=false
+    local local_only=false
+
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            backend|frontend|all)
+                target="$1"
+                shift
+                ;;
+            --key)
+                key_file="$2"
+                shift 2
+                ;;
+            --sbom)
+                check_sbom=true
+                shift
+                ;;
+            --local)
+                local_only=true
+                shift
+                ;;
+            --help|-h)
+                show_usage
+                exit 0
+                ;;
+            *)
+                # Assume it's a custom image reference
+                target="$1"
+                shift
+                ;;
+        esac
+    done
+
+    if [ -z "$target" ]; then
+        log_error "No target specified"
+        show_usage
+        exit 1
+    fi
+
+    # Load environment
+    load_env
+
+    echo "🔍 ValueOS Image Verification"
+    echo "Target: $target"
+    echo "SBOM: $check_sbom"
+    echo "Local: $local_only"
+    echo ""
+
+    # Check cosign
+    if ! command -v cosign > /dev/null 2>&1; then
+        log_error "cosign is not installed. Run './ops/scripts/cosign-setup.sh' first."
+        exit 1
+    fi
+
+    case "$target" in
+        all)
+            verify_image "$(get_image_ref backend)" "$key_file" "$check_sbom" "$local_only"
+            echo ""
+            verify_image "$(get_image_ref frontend)" "$key_file" "$check_sbom" "$local_only"
+            ;;
+        *)
+            local image_ref="$(get_image_ref "$target")"
+            if check_image_exists "$image_ref"; then
+                verify_image "$image_ref" "$key_file" "$check_sbom" "$local_only"
+            else
+                exit 1
+            fi
+            ;;
+    esac
+
+    echo ""
+    log_success "Verification completed!"
+}
+
+# Run if executed directly
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

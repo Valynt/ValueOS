@@ -59,7 +59,7 @@ check_node() {
         log_error "Node.js not found"
         return $EXIT_FAILURE
     fi
-    
+
     local version=$(node --version)
     log_verbose "Node.js: $version"
     return $EXIT_SUCCESS
@@ -70,7 +70,7 @@ check_npm() {
         log_error "npm not found"
         return $EXIT_FAILURE
     fi
-    
+
     local version=$(npm --version)
     log_verbose "npm: $version"
     return $EXIT_SUCCESS
@@ -81,12 +81,12 @@ check_docker() {
         log_warn "Docker CLI not found"
         return $EXIT_WARNING
     fi
-    
+
     if ! docker ps &> /dev/null 2>&1; then
         log_warn "Docker daemon not accessible"
         return $EXIT_WARNING
     fi
-    
+
     log_verbose "Docker: accessible"
     return $EXIT_SUCCESS
 }
@@ -96,7 +96,7 @@ check_workspace() {
         log_error "Workspace directory not found"
         return $EXIT_FAILURE
     fi
-    
+
     log_verbose "Workspace: /workspace"
     return $EXIT_SUCCESS
 }
@@ -107,12 +107,12 @@ check_workspace() {
 
 check_disk_space() {
     local usage=$(df /workspace 2>/dev/null | tail -1 | awk '{print $5}' | sed 's/%//')
-    
+
     if [ -z "$usage" ]; then
         log_warn "Could not check disk space"
         return $EXIT_WARNING
     fi
-    
+
     if [ "$usage" -gt 90 ]; then
         log_error "Disk usage critical: ${usage}%"
         return $EXIT_FAILURE
@@ -120,7 +120,7 @@ check_disk_space() {
         log_warn "Disk usage high: ${usage}%"
         return $EXIT_WARNING
     fi
-    
+
     log_verbose "Disk space: ${usage}% used"
     return $EXIT_SUCCESS
 }
@@ -130,14 +130,14 @@ check_memory() {
         log_verbose "Memory check skipped (free not available)"
         return $EXIT_SUCCESS
     fi
-    
+
     local mem_available=$(free 2>/dev/null | grep Mem | awk '{print int($7/$2 * 100)}')
-    
+
     if [ -z "$mem_available" ]; then
         log_verbose "Memory check skipped"
         return $EXIT_SUCCESS
     fi
-    
+
     if [ "$mem_available" -lt 10 ]; then
         log_error "Memory critical: ${mem_available}% available"
         return $EXIT_FAILURE
@@ -145,7 +145,7 @@ check_memory() {
         log_warn "Memory low: ${mem_available}% available"
         return $EXIT_WARNING
     fi
-    
+
     log_verbose "Memory: ${mem_available}% available"
     return $EXIT_SUCCESS
 }
@@ -158,12 +158,12 @@ check_service() {
     local name=$1
     local url=$2
     local timeout=${3:-5}
-    
+
     if ! command -v curl &> /dev/null; then
         log_verbose "Service check skipped (curl not available)"
         return $EXIT_SUCCESS
     fi
-    
+
     if curl -sf --max-time "$timeout" "$url" > /dev/null 2>&1; then
         log_verbose "Service $name: healthy"
         return $EXIT_SUCCESS
@@ -177,11 +177,10 @@ check_services() {
     if [ "$CHECK_SERVICES" != "true" ]; then
         return $EXIT_SUCCESS
     fi
-    
+
     # Check common development services (non-critical)
-    check_service "Frontend" "http://localhost:3000" 2 || true
-    check_service "Backend" "http://localhost:8000/health" 2 || true
-    
+    check_service "Frontend" "http://localhost:5173" 2 || true
+    check_service "Backend" "http://localhost:3001/health" 2 || true
     return $EXIT_SUCCESS
 }
 
@@ -193,17 +192,17 @@ main() {
     local exit_code=$EXIT_SUCCESS
     local warnings=0
     local errors=0
-    
+
     # Core checks (critical)
     check_node || { errors=$((errors + 1)); exit_code=$EXIT_FAILURE; }
     check_npm || { errors=$((errors + 1)); exit_code=$EXIT_FAILURE; }
     check_workspace || { errors=$((errors + 1)); exit_code=$EXIT_FAILURE; }
-    
+
     # Docker check (warning only)
     check_docker || warnings=$((warnings + 1))
-    
+
     # Resource checks
-    check_disk_space || { 
+    check_disk_space || {
         local result=$?
         if [ $result -eq $EXIT_FAILURE ]; then
             errors=$((errors + 1))
@@ -212,7 +211,7 @@ main() {
             warnings=$((warnings + 1))
         fi
     }
-    
+
     check_memory || {
         local result=$?
         if [ $result -eq $EXIT_FAILURE ]; then
@@ -222,10 +221,10 @@ main() {
             warnings=$((warnings + 1))
         fi
     }
-    
+
     # Service checks (non-critical)
     check_services || true
-    
+
     # Summary
     if [ $exit_code -eq $EXIT_SUCCESS ]; then
         if [ $warnings -gt 0 ]; then
@@ -236,7 +235,7 @@ main() {
     else
         log_error "Container health check failed (${errors} errors, ${warnings} warnings)"
     fi
-    
+
     exit $exit_code
 }
 

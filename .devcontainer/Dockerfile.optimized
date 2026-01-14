@@ -2,7 +2,7 @@
 # Reduces image size and improves build caching
 
 ARG VARIANT=ubuntu-22.04
-ARG NODE_VERSION=20
+ARG NODE_VERSION=22
 
 # Stage 1: Base image with system dependencies
 FROM mcr.microsoft.com/vscode/devcontainers/base:${VARIANT} AS base

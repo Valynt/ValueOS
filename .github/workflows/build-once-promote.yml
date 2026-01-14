@@ -30,6 +30,54 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  # Job 0: Pre-build validation and testing
+  validate:
+    name: Validate and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linting
+        run: npm run lint
+
+      - name: Run unit tests
+        run: npm run test:unit
+
+      - name: Run type checking
+        run: npm run type-check
+
+      - name: Security audit
+        run: npm audit --audit-level=moderate
+
+      - name: Build applications (for testing)
+        run: |
+          npm run build:backend
+          npm run build:frontend
+
+      - name: Run integration tests
+        run: npm run test:integration
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: |
+            coverage/
+            test-results/
+          retention-days: 30
+
   # Job 1: Build immutable artifacts (only once)
   build:
     name: Build Immutable Artifacts
@@ -38,7 +86,7 @@ jobs:
     outputs:
       image_sha: ${{ steps.build.outputs.digest }}
       image_tag: ${{ steps.meta.outputs.tags }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -126,7 +174,7 @@ jobs:
     environment:
       name: development
       url: https://dev.valuecanvas.app
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -197,7 +245,7 @@ jobs:
     environment:
       name: staging
       url: https://staging.valuecanvas.app
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -279,7 +327,7 @@ jobs:
     environment:
       name: production
       url: https://app.valuecanvas.app
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -349,7 +397,7 @@ jobs:
             --statistics Sum \
             --query 'Datapoints[0].Sum' \
             --output text)
-          
+
           if [ "$ERROR_RATE" -gt 10 ]; then
             echo "❌ High error rate detected: $ERROR_RATE"
             exit 1
@@ -398,7 +446,7 @@ jobs:
           echo "❌ Deployment failed, rolling back..."
           kubectl rollout undo deployment/valuecanvas-app \
             --namespace=production
-          
+
           curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
             -H 'Content-Type: application/json' \
             -d '{
@@ -420,7 +468,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build, promote-to-dev, promote-to-staging, promote-to-production]
     if: always()
-    
+
     steps:
       - name: Download all promotion records
         uses: actions/download-artifact@v4
@@ -431,26 +479,26 @@ jobs:
         run: |
           cat > deployment-report.md <<EOF
           # Deployment Report
-          
+
           **Date:** $(date -u +%Y-%m-%dT%H:%M:%SZ)
           **Commit:** ${{ github.sha }}
           **Triggered by:** ${{ github.actor }}
-          
+
           ## Artifact
-          
+
           - **Image Digest:** \`${{ needs.build.outputs.image_sha }}\`
           - **Tags:** \`${{ needs.build.outputs.image_tag }}\`
-          
+
           ## Promotion Status
-          
+
           | Environment | Status | Time |
           |-------------|--------|------|
           | Dev | ${{ needs.promote-to-dev.result }} | $(date -u +%H:%M:%S) |
           | Staging | ${{ needs.promote-to-staging.result }} | $(date -u +%H:%M:%S) |
           | Production | ${{ needs.promote-to-production.result }} | $(date -u +%H:%M:%S) |
-          
+
           ## Key Principle
-          
+
           ✅ **Same artifact deployed to all environments**
           - No rebuilds between environments
           - Config-only differences
@@ -469,7 +517,7 @@ jobs:
           script: |
             const fs = require('fs');
             const report = fs.readFileSync('deployment-report.md', 'utf8');
-            
+
             github.rest.repos.createCommitComment({
               owner: context.repo.owner,
               repo: context.repo.repo,

@@ -10,6 +10,14 @@ services:
     container_name: valuecanvas-prometheus
     ports:
       - "9090:9090"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus-data:/prometheus
@@ -29,8 +37,16 @@ services:
     ports:
       - "3001:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_ADMIN_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     volumes:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
@@ -52,6 +68,14 @@ services:
       - "6831:6831/udp"  # UDP agent
     environment:
       - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     networks:
       - valuecanvas-dev
     restart: unless-stopped
@@ -65,6 +89,14 @@ services:
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
     networks:
       - valuecanvas-dev
     restart: unless-stopped
@@ -86,6 +118,14 @@ services:
       - POSTGRES_DB=valuecanvas_dev
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
     networks:
       - valuecanvas-dev
     restart: unless-stopped
@@ -102,6 +142,14 @@ services:
     ports:
       - "1025:1025"  # SMTP
       - "8025:8025"  # UI
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
     networks:
       - valuecanvas-dev
     restart: unless-stopped
