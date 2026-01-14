@@ -85,7 +85,7 @@ jobs:
 
       - name: Update image tags in kustomization
         run: |
-          cd infra/infra/k8s/overlays/staging
+          cd infra/k8s/overlays/staging
           IMAGE_TAG=${{ github.event.inputs.image_tag || 'develop' }}
           ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
 
@@ -95,7 +95,7 @@ jobs:
 
       - name: Deploy to staging
         run: |
-          cd infra/infra/k8s/overlays/staging
+          cd infra/k8s/overlays/staging
           kustomize build . | kubectl apply -f -
 
       - name: Wait for rollout
@@ -116,16 +116,15 @@ jobs:
 
       - name: Run smoke tests
         run: |
-          # Wait for ingress to be ready
-          sleep 30
-
-          # Get ingress URL
-          INGRESS_URL=$(kubectl get ingress valuecanvas-staging -n valuecanvas-staging -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          # Wait for ingress to be ready and perform health checks
+          INGRESS_URL=$(kubectl get ingress valuecanvas-staging -n valuecanvas-staging -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
 
           if [ -n "$INGRESS_URL" ]; then
-            echo "Testing health endpoints..."
-            curl -f http://${INGRESS_URL}/health || echo "Health check failed"
-            curl -f http://${INGRESS_URL}/api/health || echo "API health check failed"
+            echo "Performing health checks for staging deployment..."
+            ./scripts/health-check.sh "http://${INGRESS_URL}/health" 300 10
+            ./scripts/health-check.sh "http://${INGRESS_URL}/api/health" 60 5
+          else
+            echo "Warning: Could not determine ingress URL, skipping health checks"
           fi
 
       - name: Notify Slack
@@ -205,7 +204,7 @@ jobs:
 
       - name: Update image tags in kustomization
         run: |
-          cd infra/infra/k8s/overlays/production
+          cd infra/k8s/overlays/production
           IMAGE_TAG=${{ github.event.inputs.image_tag || 'latest' }}
           ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
 
@@ -215,7 +214,7 @@ jobs:
 
       - name: Deploy to production
         run: |
-          cd infra/infra/k8s/overlays/production
+          cd infra/k8s/overlays/production
           kustomize build . | kubectl apply -f -
 
       - name: Wait for rollout
@@ -240,9 +239,9 @@ jobs:
           INGRESS_URL=$(kubectl get ingress valuecanvas-production -n valuecanvas-production -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 
           if [ -n "$INGRESS_URL" ]; then
-            echo "Testing production endpoints..."
-            curl -f https://${INGRESS_URL}/health || echo "Health check failed"
-            curl -f https://${INGRESS_URL}/api/health || echo "API health check failed"
+            echo "Performing health checks for production deployment..."
+            ./scripts/health-check.sh "https://${INGRESS_URL}/health" 300 10
+            ./scripts/health-check.sh "https://${INGRESS_URL}/api/health" 60 5
           fi
 
       - name: Notify Slack

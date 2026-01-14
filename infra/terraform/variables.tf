@@ -10,6 +10,12 @@ variable "environment" {
   }
 }
 
+variable "additional_tags" {
+  description = "Additional tags to apply to all resources"
+  type        = map(string)
+  default     = {}
+}
+
 variable "aws_region" {
   description = "AWS region"
   type        = string

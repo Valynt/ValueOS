@@ -1,38 +1,49 @@
 # Multi-stage production build for Backend API Server
-# Stage 1: Build environment (using same base as dev for consistency)
-FROM mcr.microsoft.com/devcontainers/typescript-node:1-20-bookworm AS builder
+# Optimized for layer caching and build performance
+
+# Stage 1: Dependencies (cached when package files don't change)
+FROM node:20-bookworm-slim AS deps
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files first for better caching
 COPY package*.json .npmrc ./
 
 # Install all dependencies for build (including dev dependencies)
 ENV npm_config_ignore_scripts=true
-RUN npm ci
+RUN npm ci --only=production=false && npm cache clean --force
 
-# Copy source files
-COPY . .
+# Stage 2: Builder (rebuilds when source changes)
+FROM deps AS builder
+
+WORKDIR /app
+
+# Copy source code after dependencies are installed
+COPY src/ ./src/
+COPY tsconfig*.json ./
+COPY scripts/ ./scripts/
 
 # Build the backend application
 RUN npm run build:backend || npx tsc -p tsconfig.backend.json
 
-# Prune dev dependencies for production
+# Remove dev dependencies for production
 RUN npm prune --production
 
-# Stage 2: Security scanning
+# Stage 3: Security scanning (cached when built files don't change)
 FROM builder AS security-scan
 
-# Install trivy for vulnerability scanning
-RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+# Install trivy for vulnerability scanning (cached)
+RUN apt-get update && apt-get install -y --no-install-recommends curl && \
+    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin && \
+    apt-get remove -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
 # Scan filesystem for vulnerabilities
 RUN trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /app
 
-# Stage 3: Production runtime
+# Stage 4: Production runtime (minimal final image)
 FROM node:20-bookworm-slim AS production
 
-# Install dumb-init for proper signal handling
+# Install dumb-init for proper signal handling (cached)
 RUN apt-get update && apt-get install -y --no-install-recommends dumb-init && \
     rm -rf /var/lib/apt/lists/*
 
@@ -43,17 +54,10 @@ RUN groupadd -r nodejs -g 1001 && \
     useradd -r nodejs -u 1001 -g nodejs && \
     chown -R nodejs:nodejs /app
 
-# Copy built application and production dependencies
+# Copy built application and production dependencies (only changes when build changes)
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
-
-# Runtime security scan (final check)
-RUN apt-get update && apt-get install -y curl && \
-    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin && \
-    trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /app && \
-    apt-get remove -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/* && \
-    rm /usr/local/bin/trivy
 
 # Switch to non-root user
 USER nodejs

@@ -474,15 +474,11 @@ export class SecretValidator {
 }
 
 /**
- * Global secret validator instance
- */
-export const secretValidator = new SecretValidator();
-
-/**
  * Validate secrets at application startup
  */
 export async function validateSecretsOnStartup(): Promise<void> {
   try {
+    const secretValidator = new SecretValidator();
     const result = await secretValidator.validateAllSecrets();
 
     // Fail startup if critical secrets are missing

@@ -28,10 +28,41 @@ services:
     networks:
       - valueos-network
 
+  # Redis cache layer
+  redis:
+    image: redis:7-alpine
+    container_name: valueos-redis
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 1G
+        reservations:
+          memory: 256M
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 1gb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - valueos-network
+
   # Zookeeper for Kafka coordination
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
     container_name: valueos-zookeeper
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -47,6 +78,13 @@ services:
   kafka:
     image: confluentinc/cp-kafka:7.4.0
     container_name: valueos-kafka
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 2G
+        reservations:
+          memory: 512M
     depends_on:
       - zookeeper
     ports:
@@ -56,7 +94,7 @@ services:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9092
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
@@ -85,13 +123,20 @@ services:
   schema-registry:
     image: confluentinc/cp-schema-registry:7.4.0
     container_name: valueos-schema-registry
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          memory: 128M
     depends_on:
       - kafka
     ports:
       - "8081:8081"
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
-      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/subjects"]
@@ -105,6 +150,13 @@ services:
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: valueos-kafka-ui
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256M
+        reservations:
+          memory: 64M
     depends_on:
       - kafka
       - schema-registry
@@ -112,7 +164,7 @@ services:
       - "8080:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: valueos-dev
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
       KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
       DYNAMIC_CONFIG_ENABLED: "true"
     networks:
@@ -143,7 +195,7 @@ services:
       - SUPABASE_URL=${SUPABASE_URL:-http://host.docker.internal:${SUPABASE_API_PORT:-54321}}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - TOGETHER_API_KEY=${TOGETHER_API_KEY}
-      - KAFKA_BROKERS=kafka:29092
+      - KAFKA_BROKERS=kafka:9092
       - SCHEMA_REGISTRY_URL=http://schema-registry:8081
     env_file:
       - ../deploy/envs/.env.ports
@@ -249,9 +301,16 @@ services:
       - "--storage.tsdb.path=/prometheus"
       - "--web.console.libraries=/usr/share/prometheus/console_libraries"
       - "--web.console.templates=/usr/share/prometheus/consoles"
+    environment:
+      - ISTIO_META_MESH_ID=valueos-mesh
+      - ISTIO_META_CLUSTER_ID=valueos-cluster
+      - ISTIO_META_AUTO_REGISTER_GROUP=workloads
+      - ISTIO_METAJSON_ANNOTATIONS={"security.alpha.kubernetes.io/credential-provider":"istio"}
     networks:
       - valueos-network
-    profiles: ["observability"]
+    profiles: ["istio"]
+    depends_on:
+      - istiod
     restart: unless-stopped
 
   # Grafana (Visualization)
@@ -279,6 +338,98 @@ services:
     profiles: ["observability"]
     restart: unless-stopped
 
+  # Istio control plane
+  istiod:
+    image: istio/pilot:latest
+    container_name: valueos-istiod
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          memory: 256M
+    ports:
+      - "15010:15010"
+      - "15017:15017"
+    volumes:
+      - istiod_data:/var/lib/istio/data
+    command:
+      - "discovery"
+      - "--mesh"
+      - "valueos-mesh"
+    environment:
+      - ISTIO_META_MESH_ID=valueos-mesh
+      - ISTIO_META_CLUSTER_ID=valueos-cluster
+      - ISTIO_META_AUTO_REGISTER_GROUP=workloads
+      - ISTIO_METAJSON_ANNOTATIONS={"security.alpha.kubernetes.io/credential-provider":"istio"}
+    networks:
+      - valueos-network
+    profiles: ["istio"]
+    restart: unless-stopped
+
+  # Istio gateway
+  istio-gateway:
+    image: istio/proxyv2:latest
+    container_name: valueos-istio-gateway
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          memory: 128M
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - istio_gateway_data:/var/lib/istio/data
+    command:
+      - "proxy"
+      - "router"
+      - "--mesh"
+      - "valueos-mesh"
+    environment:
+      - ISTIO_META_MESH_ID=valueos-mesh
+      - ISTIO_META_CLUSTER_ID=valueos-cluster
+      - ISTIO_META_AUTO_REGISTER_GROUP=workloads
+      - ISTIO_METAJSON_ANNOTATIONS={"security.alpha.kubernetes.io/credential-provider":"istio"}
+    networks:
+      - valueos-network
+    profiles: ["istio"]
+    depends_on:
+      - istiod
+    restart: unless-stopped
+
+  # Istio CA
+  istio-ca:
+    image: istio/citadel:latest
+    container_name: valueos-istio-ca
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          memory: 128M
+    volumes:
+      - istio_ca_data:/var/lib/istio/data
+    command:
+      - "ca"
+      - "--mesh"
+      - "valueos-mesh"
+    environment:
+      - ISTIO_META_MESH_ID=valueos-mesh
+      - ISTIO_META_CLUSTER_ID=valueos-cluster
+      - ISTIO_META_AUTO_REGISTER_GROUP=workloads
+      - ISTIO_METAJSON_ANNOTATIONS={"security.alpha.kubernetes.io/credential-provider":"istio"}
+    networks:
+      - valueos-network
+    profiles: ["istio"]
+    depends_on:
+      - istiod
+    restart: unless-stopped
+
 networks:
   valueos-network:
     driver: bridge
@@ -294,3 +445,6 @@ volumes:
   caddy_data:
   caddy_logs:
   node_modules:
+  istiod_data:
+  istio_gateway_data:
+  istio_ca_data:

@@ -1,14 +1,15 @@
 /**
  * SEC EDGAR Module - Tier 1 Authoritative Data Source
- * 
+ *
  * Provides deterministic access to SEC filings with zero-hallucination guarantees.
  * All data is sourced directly from sec.gov with full provenance tracking.
- * 
+ *
  * Security: IL4 (Impact Level 4 - Controlled Unclassified Information)
  * Compliance: SOX, RegTech, Zero-Trust Architecture
  */
 
-import { BaseModule } from '../core/BaseModule';
+import { BaseModule } from "../core/BaseModule";
+import { getCache } from "../core/Cache";
 import {
   EDGARExtraction,
   EDGARFiling,
@@ -18,8 +19,8 @@ import {
   GroundTruthError,
   ModuleRequest,
   ModuleResponse,
-} from '../types';
-import { logger } from '../../lib/logger';
+} from "../types";
+import { logger } from "../../lib/logger";
 
 interface EDGARConfig {
   userAgent: string; // Required by SEC: "Company Name contact@email.com"
@@ -30,52 +31,70 @@ interface EDGARConfig {
 
 /**
  * EDGAR Module - Tier 1 Canonical Source
- * 
+ *
  * Implements MCP tool: get_authoritative_financials
  * Node Mapping: [NODE: Tier_1_Canonical], [NODE: EDGAR_API]
  */
 export class EDGARModule extends BaseModule {
-  name = 'sec-edgar';
-  tier = 'tier1' as const;
-  description = 'SEC EDGAR filing retrieval and extraction - Tier 1 authoritative source';
+  name = "sec-edgar";
+  tier = "tier1" as const;
+  description =
+    "SEC EDGAR filing retrieval and extraction - Tier 1 authoritative source";
 
-  private userAgent: string = '';
-  private baseUrl: string = 'https://data.sec.gov';
-  private rateLimit: number = 10; // SEC enforces 10 requests/second
-  private lastRequestTime: number = 0;
+  protected userAgent: string = "";
+  protected baseUrl: string = "https://data.sec.gov";
+  protected rateLimit: number = 10; // SEC enforces 10 requests/second
+  protected lastRequestTime: number = 0;
 
   async initialize(config: Record<string, any>): Promise<void> {
     await super.initialize(config);
-    
+
     const edgarConfig = config as EDGARConfig;
-    this.userAgent = edgarConfig.userAgent || 'ValueCanvas contact@valuecanvas.com';
+    this.userAgent =
+      edgarConfig.userAgent || "ValueCanvas contact@valuecanvas.com";
     this.baseUrl = edgarConfig.baseUrl || this.baseUrl;
     this.rateLimit = edgarConfig.rateLimit || this.rateLimit;
 
-    if (!this.userAgent.includes('@')) {
+    if (!this.userAgent.includes("@")) {
       throw new GroundTruthError(
         ErrorCodes.INVALID_REQUEST,
-        'SEC requires User-Agent with valid email address'
+        "SEC requires User-Agent with valid email address"
       );
     }
 
-    logger.info('EDGAR Module initialized', {
+    logger.info("EDGAR Module initialized", {
       baseUrl: this.baseUrl,
       rateLimit: this.rateLimit,
     });
   }
 
   canHandle(request: ModuleRequest): boolean {
-    // Can handle CIK or ticker lookups
-    return !!(request.identifier && (
-      request.identifier.match(/^\d{10}$/) || // CIK format
-      request.identifier.match(/^[A-Z]{1,5}$/) // Ticker format
-    ));
+    // Validate identifier presence and format
+    if (!request.identifier || typeof request.identifier !== "string") {
+      return false;
+    }
+
+    // Length limits to prevent DoS
+    if (request.identifier.length > 20) {
+      return false;
+    }
+
+    // Sanitize input - escape regex special characters
+    const sanitizedIdentifier = request.identifier.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      "\\$&"
+    );
+
+    // Can handle CIK or ticker lookups with improved validation
+    return !!(
+      sanitizedIdentifier.match(/^\d{10}$/) || // CIK format (exactly 10 digits)
+      sanitizedIdentifier.match(/^[A-Z]{1,5}(\.[A-Z]{1,2})?$/) // Ticker format (1-5 letters, optional .class)
+    );
   }
 
   async query(request: ModuleRequest): Promise<ModuleResponse> {
     return this.executeWithMetrics(request, async () => {
-      this.validateRequest(request, ['identifier']);
+      this.validateRequest(request, ["identifier"]);
 
       const { identifier, metric, period, options } = request;
 
@@ -93,7 +112,7 @@ export class EDGARModule extends BaseModule {
       // Search for relevant filings
       const filings = await this.searchFilings({
         cik,
-        filing_type: options?.filing_type || '10-K',
+        filing_type: options?.filing_type || "10-K",
         date_from: options?.date_from,
         date_to: options?.date_to,
       });
@@ -115,12 +134,12 @@ export class EDGARModule extends BaseModule {
           metric,
           extraction.value,
           {
-            source_type: 'sec-edgar',
+            source_type: "sec-edgar",
             source_url: filing.file_url,
             filing_type: filing.filing_type,
             accession_number: filing.accession_number,
             period: period || filing.report_date,
-            extraction_method: 'text-extract',
+            extraction_method: "text-extract",
           },
           {
             company_name: filing.company_name,
@@ -133,14 +152,14 @@ export class EDGARModule extends BaseModule {
 
       // Return filing metadata if no specific metric requested
       return this.createMetric(
-        'filing_metadata',
+        "filing_metadata",
         filing.accession_number,
         {
-          source_type: 'sec-edgar',
+          source_type: "sec-edgar",
           source_url: filing.file_url,
           filing_type: filing.filing_type,
           accession_number: filing.accession_number,
-          extraction_method: 'api',
+          extraction_method: "api",
         },
         {
           company_name: filing.company_name,
@@ -154,25 +173,48 @@ export class EDGARModule extends BaseModule {
 
   /**
    * Search for SEC filings
-   * 
+   *
    * Uses SEC EDGAR API to find filings matching criteria
    */
-  private async searchFilings(params: EDGARSearchParams): Promise<EDGARFiling[]> {
+  private async searchFilings(
+    params: EDGARSearchParams
+  ): Promise<EDGARFiling[]> {
     await this.enforceRateLimit();
 
-    const { cik, filing_type = '10-K', date_from, date_to } = params;
-    
+    const { cik, filing_type = "10-K", date_from, date_to } = params;
+
+    if (!cik) {
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        "CIK parameter is required for filing search"
+      );
+    }
+
     // Pad CIK to 10 digits
-    const paddedCIK = cik.padStart(10, '0');
-    
+    const paddedCIK = cik.padStart(10, "0");
+
+    // Create cache key
+    const cacheKey = `edgar:filings:${paddedCIK}:${filing_type}`;
+    const cache = getCache();
+
+    // Check cache first
+    const cachedFilings = await cache.get<EDGARFiling[]>(cacheKey);
+    if (cachedFilings) {
+      logger.debug("Using cached EDGAR filings", {
+        cik: paddedCIK,
+        filing_type,
+      });
+      return cachedFilings;
+    }
+
     // SEC submissions endpoint
     const url = `${this.baseUrl}/submissions/CIK${paddedCIK}.json`;
 
     try {
       const response = await fetch(url, {
         headers: {
-          'User-Agent': this.userAgent,
-          'Accept': 'application/json',
+          "User-Agent": this.userAgent,
+          Accept: "application/json",
         },
       });
 
@@ -220,7 +262,7 @@ export class EDGARModule extends BaseModule {
           }
 
           // Construct filing URL
-          const accessionNumberClean = accessionNumber.replace(/-/g, '');
+          const accessionNumberClean = accessionNumber.replace(/-/g, "");
           const fileUrl = `${this.baseUrl}/Archives/edgar/data/${paddedCIK}/${accessionNumberClean}/${accessionNumber}.txt`;
 
           filings.push({
@@ -228,7 +270,7 @@ export class EDGARModule extends BaseModule {
             filing_type: form,
             filing_date: filingDate,
             report_date: reportDate,
-            company_name: data.name || '',
+            company_name: data.name || "",
             cik: paddedCIK,
             file_url: fileUrl,
           });
@@ -238,7 +280,10 @@ export class EDGARModule extends BaseModule {
       // Sort by filing date (most recent first)
       filings.sort((a, b) => b.filing_date.localeCompare(a.filing_date));
 
-      logger.info('EDGAR filings retrieved', {
+      // Cache the results (Tier 1 data - long TTL)
+      await cache.set(cacheKey, filings, "tier1");
+
+      logger.info("EDGAR filings retrieved", {
         cik: paddedCIK,
         filing_type,
         count: filings.length,
@@ -251,14 +296,14 @@ export class EDGARModule extends BaseModule {
       }
       throw new GroundTruthError(
         ErrorCodes.UPSTREAM_FAILURE,
-        `Failed to fetch EDGAR data: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to fetch EDGAR data: ${error instanceof Error ? error.message : "Unknown error"}`
       );
     }
   }
 
   /**
    * Extract specific metric from filing
-   * 
+   *
    * Implements deterministic extraction with pattern matching
    */
   private async extractMetric(
@@ -271,7 +316,7 @@ export class EDGARModule extends BaseModule {
     try {
       const response = await fetch(filing.file_url, {
         headers: {
-          'User-Agent': this.userAgent,
+          "User-Agent": this.userAgent,
         },
       });
 
@@ -301,14 +346,14 @@ export class EDGARModule extends BaseModule {
       }
       throw new GroundTruthError(
         ErrorCodes.UPSTREAM_FAILURE,
-        `Failed to extract metric: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to extract metric: ${error instanceof Error ? error.message : "Unknown error"}`
       );
     }
   }
 
   /**
    * Extract metric value from filing text using pattern matching
-   * 
+   *
    * This is a simplified implementation. Production would use:
    * - XBRL parsing for structured data
    * - NLP-based extraction for unstructured sections
@@ -352,14 +397,17 @@ export class EDGARModule extends BaseModule {
     for (const pattern of metricPatterns) {
       const match = text.match(pattern);
       if (match && match[1]) {
-        const valueStr = match[1].replace(/,/g, '');
+        const valueStr = match[1].replace(/,/g, "");
         const value = parseFloat(valueStr);
-        
+
         if (!isNaN(value)) {
           // Extract surrounding context (100 chars before and after)
           const matchIndex = text.indexOf(match[0]);
           const contextStart = Math.max(0, matchIndex - 100);
-          const contextEnd = Math.min(text.length, matchIndex + match[0].length + 100);
+          const contextEnd = Math.min(
+            text.length,
+            matchIndex + match[0].length + 100
+          );
           const rawText = text.substring(contextStart, contextEnd);
 
           return { value, raw_text: rawText };
@@ -372,7 +420,7 @@ export class EDGARModule extends BaseModule {
 
   /**
    * Convert ticker symbol to CIK
-   * 
+   *
    * Uses SEC ticker lookup API
    */
   private async tickerToCIK(ticker: string): Promise<string | null> {
@@ -381,11 +429,11 @@ export class EDGARModule extends BaseModule {
     try {
       // SEC company tickers JSON
       const url = `${this.baseUrl}/files/company_tickers.json`;
-      
+
       const response = await fetch(url, {
         headers: {
-          'User-Agent': this.userAgent,
-          'Accept': 'application/json',
+          "User-Agent": this.userAgent,
+          Accept: "application/json",
         },
       });
 
@@ -397,23 +445,25 @@ export class EDGARModule extends BaseModule {
       }
 
       const data = await response.json();
-      
+
       // Find matching ticker
       for (const key in data) {
         const company = data[key];
-        if (company.ticker && company.ticker.toUpperCase() === ticker.toUpperCase()) {
+        if (
+          company.ticker &&
+          company.ticker.toUpperCase() === ticker.toUpperCase()
+        ) {
           // Pad CIK to 10 digits
-          return company.cik_str.toString().padStart(10, '0');
+          return company.cik_str.toString().padStart(10, "0");
         }
       }
 
       return null;
     } catch (error) {
-      logger.error('Failed to convert ticker to CIK', {
-        ticker,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-      return null;
+      throw new GroundTruthError(
+        ErrorCodes.UPSTREAM_FAILURE,
+        `Failed to convert ticker ${ticker} to CIK: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     }
   }
 
@@ -427,7 +477,7 @@ export class EDGARModule extends BaseModule {
 
     if (timeSinceLastRequest < minInterval) {
       const waitTime = minInterval - timeSinceLastRequest;
-      await new Promise(resolve => setTimeout(resolve, waitTime));
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
 
     this.lastRequestTime = Date.now();
@@ -444,7 +494,7 @@ export class EDGARModule extends BaseModule {
     // This is a placeholder for the full implementation
     throw new GroundTruthError(
       ErrorCodes.INVALID_REQUEST,
-      'Section extraction not yet implemented'
+      "Section extraction not yet implemented"
     );
   }
 
@@ -459,7 +509,7 @@ export class EDGARModule extends BaseModule {
     // This is a placeholder for the full implementation
     throw new GroundTruthError(
       ErrorCodes.INVALID_REQUEST,
-      'Keyword extraction not yet implemented'
+      "Keyword extraction not yet implemented"
     );
   }
 }

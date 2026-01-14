@@ -1,6 +1,6 @@
 /**
  * MCP Financial Ground Truth Server - Type Definitions
- * 
+ *
  * Defines all core types for the tiered truth model, data contracts,
  * and module interfaces.
  */
@@ -9,9 +9,9 @@
 // Core Data Contract Types
 // ============================================================================
 
-export type MetricType = 'metric' | 'range' | 'text' | 'narrative';
+export type MetricType = "metric" | "range" | "text" | "narrative";
 
-export type ConfidenceTier = 'tier1' | 'tier2' | 'tier3';
+export type ConfidenceTier = "tier1" | "tier2" | "tier3";
 
 export interface FinancialMetric {
   type: MetricType;
@@ -27,12 +27,18 @@ export interface FinancialMetric {
 }
 
 export interface ProvenanceInfo {
-  source_type: 'sec-edgar' | 'xbrl' | 'market-api' | 'private-data' | 'benchmark' | 'narrative';
+  source_type:
+    | "sec-edgar"
+    | "xbrl"
+    | "market-api"
+    | "private-data"
+    | "benchmark"
+    | "narrative";
   source_url?: string;
   filing_type?: string;
   accession_number?: string;
   period?: string;
-  extraction_method: 'api' | 'xbrl-parse' | 'text-extract' | 'inference';
+  extraction_method: "api" | "xbrl-parse" | "text-extract" | "inference";
   extracted_at: string;
   fingerprint?: string; // Hash of raw extract
 }
@@ -219,8 +225,8 @@ export interface CacheEntry {
   value: any;
   tier: ConfidenceTier;
   ttl: number; // Seconds
-  created_at: string;
-  accessed_at: string;
+  created_at: number; // Unix timestamp in milliseconds
+  accessed_at: number; // Unix timestamp in milliseconds
   access_count: number;
 }
 
@@ -284,22 +290,22 @@ export interface GroundTruthModule {
   name: string;
   tier: ConfidenceTier;
   description: string;
-  
+
   /**
    * Initialize the module with configuration
    */
   initialize(config: Record<string, any>): Promise<void>;
-  
+
   /**
    * Execute a query against this module
    */
   query(request: ModuleRequest): Promise<ModuleResponse>;
-  
+
   /**
    * Check if this module can handle the given request
    */
   canHandle(request: ModuleRequest): boolean;
-  
+
   /**
    * Get module health status
    */
@@ -336,17 +342,17 @@ export class GroundTruthError extends Error {
     public details?: any
   ) {
     super(message);
-    this.name = 'GroundTruthError';
+    this.name = "GroundTruthError";
   }
 }
 
 export const ErrorCodes = {
-  NO_DATA_FOUND: 'NO_DATA_FOUND',
-  UPSTREAM_FAILURE: 'UPSTREAM_FAILURE',
-  RATE_LIMIT_EXCEEDED: 'RATE_LIMIT_EXCEEDED',
-  INVALID_REQUEST: 'INVALID_REQUEST',
-  UNAUTHORIZED: 'UNAUTHORIZED',
-  CACHE_ERROR: 'CACHE_ERROR',
-  PARSE_ERROR: 'PARSE_ERROR',
-  TIMEOUT: 'TIMEOUT',
+  NO_DATA_FOUND: "NO_DATA_FOUND",
+  UPSTREAM_FAILURE: "UPSTREAM_FAILURE",
+  RATE_LIMIT_EXCEEDED: "RATE_LIMIT_EXCEEDED",
+  INVALID_REQUEST: "INVALID_REQUEST",
+  UNAUTHORIZED: "UNAUTHORIZED",
+  CACHE_ERROR: "CACHE_ERROR",
+  PARSE_ERROR: "PARSE_ERROR",
+  TIMEOUT: "TIMEOUT",
 } as const;

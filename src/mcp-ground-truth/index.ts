@@ -96,6 +96,13 @@ export async function createMCPServer(config: {
     },
   };
 
+  // Validate required API keys
+  if (!serverConfig.marketData.apiKey) {
+    throw new Error(
+      "ALPHA_VANTAGE_API_KEY environment variable is required for market data functionality"
+    );
+  }
+
   const server = new MCPFinancialGroundTruthServer(serverConfig);
   await server.initialize();
 

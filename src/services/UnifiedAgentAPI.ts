@@ -28,6 +28,7 @@ import GroundtruthAPI, {
   GroundtruthRequestPayload,
   GroundtruthRequestOptions,
 } from "./GroundtruthAPI";
+import { cacheService } from "./CacheService";
 
 // ============================================================================
 // Types
@@ -160,8 +161,14 @@ function sanitizeForPrompt(input: string): string {
 /**
  * Validate and sanitize agent request
  */
-function validateAndSanitizeRequest(request: UnifiedAgentRequest): UnifiedAgentRequest {
-  if (!request.query || typeof request.query !== "string" || request.query.trim().length === 0) {
+function validateAndSanitizeRequest(
+  request: UnifiedAgentRequest
+): UnifiedAgentRequest {
+  if (
+    !request.query ||
+    typeof request.query !== "string" ||
+    request.query.trim().length === 0
+  ) {
     throw new Error("Query is required and must be a non-empty string");
   }
 
@@ -205,7 +212,8 @@ export class UnifiedAgentAPI {
     // - AGENT_API_URL: used in server-side / non-Vite contexts (e.g., Node services, tests)
     // If both are set, VITE_AGENT_API_URL takes precedence so client and server can share
     // a consistent default while still allowing explicit overrides via config.baseUrl.
-    const envBaseUrl = getEnvVar("VITE_AGENT_API_URL") || getEnvVar("AGENT_API_URL");
+    const envBaseUrl =
+      getEnvVar("VITE_AGENT_API_URL") || getEnvVar("AGENT_API_URL");
     const resolvedBaseUrl = config.baseUrl ?? envBaseUrl;
     this.config = {
       ...DEFAULT_CONFIG,
@@ -226,7 +234,9 @@ export class UnifiedAgentAPI {
       timeoutMs: groundtruthEnv.timeoutMs,
       ...config.groundtruth,
     };
-    this.groundtruthAPI = groundtruthConfig.baseUrl ? new GroundtruthAPI(groundtruthConfig) : null;
+    this.groundtruthAPI = groundtruthConfig.baseUrl
+      ? new GroundtruthAPI(groundtruthConfig)
+      : null;
   }
 
   // ==========================================================================
@@ -236,7 +246,9 @@ export class UnifiedAgentAPI {
   /**
    * Invoke an agent with unified request/response format
    */
-  async invoke<T = any>(request: UnifiedAgentRequest): Promise<UnifiedAgentResponse<T>> {
+  async invoke<T = any>(
+    request: UnifiedAgentRequest
+  ): Promise<UnifiedAgentResponse<T>> {
     const traceId = request.traceId || uuidv4();
     const startTime = Date.now();
 
@@ -271,9 +283,48 @@ export class UnifiedAgentAPI {
     try {
       this.assertRoutingConfigured(request.agent);
 
+      // Generate cache key for cache-aside pattern
+      const cacheKey = this.generateAgentCacheKey(sanitizedRequest);
+
+      // Check cache first (cache-aside pattern)
+      const cachedResponse = await cacheService.get<UnifiedAgentResponse<T>>(
+        cacheKey,
+        {
+          storage: "redis",
+          namespace: "agent-outputs",
+          ttl: 10 * 60 * 1000, // 10 minutes for agent outputs
+        }
+      );
+
+      if (cachedResponse) {
+        logger.info("Agent output cache hit", {
+          traceId,
+          agent: request.agent,
+          cacheKey,
+        });
+
+        // Update metadata with cache info
+        cachedResponse.metadata = {
+          ...cachedResponse.metadata,
+          traceId,
+          cached: true,
+          cacheHitAt: new Date().toISOString(),
+        };
+
+        return cachedResponse;
+      }
+
+      logger.info("Agent output cache miss, executing agent", {
+        traceId,
+        agent: request.agent,
+        cacheKey,
+      });
+
       // Add idempotency check
       if (request.idempotencyKey) {
-        const existingResponse = await this.checkIdempotency(request.idempotencyKey);
+        const existingResponse = await this.checkIdempotency(
+          request.idempotencyKey
+        );
         if (existingResponse) {
           return existingResponse;
         }
@@ -293,7 +344,11 @@ export class UnifiedAgentAPI {
         }
       );
 
-      const enrichedResponse = await this.attachGroundtruth(sanitizedRequest, response, traceId);
+      const enrichedResponse = await this.attachGroundtruth(
+        sanitizedRequest,
+        response,
+        traceId
+      );
       const duration = Date.now() - startTime;
 
       // Add metadata
@@ -304,9 +359,36 @@ export class UnifiedAgentAPI {
           duration,
           timestamp: new Date().toISOString(),
           traceId,
+          cached: false,
           ...enrichedResponse.metadata,
         },
       };
+
+      // Cache successful responses (only if not already cached by idempotency)
+      if (result.success && !request.idempotencyKey) {
+        try {
+          await cacheService.set(cacheKey, result, {
+            storage: "redis",
+            namespace: "agent-outputs",
+            ttl: 10 * 60 * 1000, // 10 minutes
+          });
+          logger.debug("Agent output cached", {
+            traceId,
+            agent: request.agent,
+            cacheKey,
+          });
+        } catch (cacheError) {
+          logger.warn("Failed to cache agent output", {
+            traceId,
+            agent: request.agent,
+            cacheKey,
+            error:
+              cacheError instanceof Error
+                ? cacheError.message
+                : String(cacheError),
+          });
+        }
+      }
 
       // Log to audit
       if (this.auditLogger) {
@@ -325,6 +407,7 @@ export class UnifiedAgentAPI {
         agent: request.agent,
         duration,
         success: result.success,
+        cached: false,
       });
 
       // Store response in idempotency cache if idempotency key was provided
@@ -336,11 +419,15 @@ export class UnifiedAgentAPI {
     } catch (error) {
       const duration = Date.now() - startTime;
 
-      logger.error("Agent invocation failed", error instanceof Error ? error : undefined, {
-        traceId,
-        agent: request.agent,
-        duration,
-      });
+      logger.error(
+        "Agent invocation failed",
+        error instanceof Error ? error : undefined,
+        {
+          traceId,
+          agent: request.agent,
+          duration,
+        }
+      );
 
       return {
         success: false,
@@ -350,11 +437,13 @@ export class UnifiedAgentAPI {
           duration,
           timestamp: new Date().toISOString(),
           traceId,
+          cached: false,
         },
       };
     }
   }
 
+  // ... rest of the code remains the same ...
   /**
    * Call agent (alias for invoke with simplified response)
    */
@@ -419,13 +508,15 @@ export class UnifiedAgentAPI {
       return {
         status: response.success ? "healthy" : "degraded",
         latencyMs,
-        circuitBreakerState: this.circuitBreakers.getState(circuitBreakerKey)?.state || "closed",
+        circuitBreakerState:
+          this.circuitBreakers.getState(circuitBreakerKey)?.state || "closed",
       };
     } catch (error) {
       return {
         status: "offline",
         latencyMs: Date.now() - startTime,
-        circuitBreakerState: this.circuitBreakers.getState(circuitBreakerKey)?.state || "open",
+        circuitBreakerState:
+          this.circuitBreakers.getState(circuitBreakerKey)?.state || "open",
       };
     }
   }
@@ -464,7 +555,9 @@ export class UnifiedAgentAPI {
   /**
    * Register an agent
    */
-  registerAgent(registration: Parameters<AgentRegistry["registerAgent"]>[0]): AgentRecord {
+  registerAgent(
+    registration: Parameters<AgentRegistry["registerAgent"]>[0]
+  ): AgentRecord {
     return this.registry.registerAgent(registration);
   }
 
@@ -511,7 +604,9 @@ export class UnifiedAgentAPI {
   /**
    * Determine how to route the request
    */
-  private determineRouteType(agent: AgentType): "http" | "local" | "mock" | "groundtruth" {
+  private determineRouteType(
+    agent: AgentType
+  ): "http" | "local" | "mock" | "groundtruth" {
     if (agent === "groundtruth") {
       if (this.groundtruthAPI?.isConfigured()) {
         return "groundtruth";
@@ -567,7 +662,9 @@ export class UnifiedAgentAPI {
     });
 
     if (!response.ok) {
-      throw new Error(`Agent request failed: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `Agent request failed: ${response.status} ${response.statusText}`
+      );
     }
 
     return response.json();
@@ -593,7 +690,9 @@ export class UnifiedAgentAPI {
     _traceId: string
   ): Promise<UnifiedAgentResponse> {
     // Simulate processing time
-    await new Promise((resolve) => setTimeout(resolve, 500 + Math.random() * 500));
+    await new Promise((resolve) =>
+      setTimeout(resolve, 500 + Math.random() * 500)
+    );
 
     // Generate mock response based on agent type
     const mockResponses: Record<string, any> = {
@@ -610,7 +709,11 @@ export class UnifiedAgentAPI {
       },
       coordinator: {
         taskPlan: { phases: ["Discovery", "Analysis", "Design"] },
-        assignedAgents: ["opportunity", "system-mapper", "intervention-designer"],
+        assignedAgents: [
+          "opportunity",
+          "system-mapper",
+          "intervention-designer",
+        ],
       },
       groundtruth: {
         verified: false,
@@ -620,7 +723,9 @@ export class UnifiedAgentAPI {
 
     return {
       success: true,
-      data: mockResponses[request.agent] || { message: "Processed successfully" },
+      data: mockResponses[request.agent] || {
+        message: "Processed successfully",
+      },
       content: `Processed query for ${request.agent} agent`,
       confidenceLevel: "medium",
       confidenceScore: 0.75,
@@ -690,7 +795,10 @@ export class UnifiedAgentAPI {
     if (!this.groundtruthAPI) {
       return {
         ...response,
-        warnings: [...(response.warnings ?? []), "Groundtruth API is not configured"],
+        warnings: [
+          ...(response.warnings ?? []),
+          "Groundtruth API is not configured",
+        ],
       };
     }
 
@@ -762,7 +870,9 @@ export class UnifiedAgentAPI {
 
     if (agentEndpoint) {
       const normalized = agentEndpoint.replace(/\/+$/, "");
-      return normalized.endsWith("/invoke") ? normalized : `${normalized}/invoke`;
+      return normalized.endsWith("/invoke")
+        ? normalized
+        : `${normalized}/invoke`;
     }
 
     if (baseUrl) {
@@ -773,13 +883,17 @@ export class UnifiedAgentAPI {
       return `${basePrefix}/${agent}/invoke`;
     }
 
-    throw new Error("Agent routing configuration missing. Set baseUrl or agent endpoints.");
+    throw new Error(
+      "Agent routing configuration missing. Set baseUrl or agent endpoints."
+    );
   }
 
   /**
    * Check idempotency cache for existing response
    */
-  private async checkIdempotency(idempotencyKey: string): Promise<UnifiedAgentResponse | null> {
+  private async checkIdempotency(
+    idempotencyKey: string
+  ): Promise<UnifiedAgentResponse | null> {
     const cachedResponse = this.idempotencyCache.get(idempotencyKey);
     if (cachedResponse) {
       logger.info("Idempotency cache hit", { idempotencyKey });
@@ -791,11 +905,64 @@ export class UnifiedAgentAPI {
   /**
    * Store response in idempotency cache
    */
-  private storeIdempotencyResponse(idempotencyKey: string, response: UnifiedAgentResponse): void {
+  private storeIdempotencyResponse(
+    idempotencyKey: string,
+    response: UnifiedAgentResponse
+  ): void {
     if (idempotencyKey) {
       this.idempotencyCache.set(idempotencyKey, response);
       logger.debug("Stored idempotency response", { idempotencyKey });
     }
+  }
+
+  /**
+   * Generate a cache key for agent requests
+   */
+  private generateAgentCacheKey(request: UnifiedAgentRequest): string {
+    // Create a deterministic key from agent type, query, and normalized context
+    const normalizedContext = this.normalizeContextForCache(request.context);
+    const contextStr = JSON.stringify(normalizedContext);
+
+    // Simple hash of the combined inputs
+    const combined = `${request.agent}:${request.query}:${contextStr}`;
+    return this.simpleHash(combined);
+  }
+
+  /**
+   * Normalize context for cache key generation (remove non-deterministic fields)
+   */
+  private normalizeContextForCache(
+    context?: Record<string, any>
+  ): Record<string, any> {
+    if (!context) return {};
+
+    // Remove fields that shouldn't affect caching
+    const { sessionId, userId, traceId, idempotencyKey, ...normalized } =
+      context;
+
+    // Sort keys for consistent hashing
+    return Object.keys(normalized)
+      .sort()
+      .reduce(
+        (acc, key) => {
+          acc[key] = normalized[key];
+          return acc;
+        },
+        {} as Record<string, any>
+      );
+  }
+
+  /**
+   * Simple hash function for cache keys
+   */
+  private simpleHash(str: string): string {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash).toString(36);
   }
 }
 
@@ -808,7 +975,9 @@ let instance: UnifiedAgentAPI | null = null;
 /**
  * Get singleton instance of UnifiedAgentAPI
  */
-export function getUnifiedAgentAPI(config?: Partial<UnifiedAPIConfig>): UnifiedAgentAPI {
+export function getUnifiedAgentAPI(
+  config?: Partial<UnifiedAPIConfig>
+): UnifiedAgentAPI {
   if (!instance) {
     instance = new UnifiedAgentAPI(config);
   }

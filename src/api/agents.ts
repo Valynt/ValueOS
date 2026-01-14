@@ -143,7 +143,73 @@ router.post(
   }
 );
 
-router.use((err: unknown, _req: Request, res: Response) => {
+/**
+ * Get agent job status
+ */
+router.get(
+  "/jobs/:jobId",
+  rateLimiters.loose,
+  async (req: Request, res: Response) => {
+    const { jobId } = req.params;
+
+    try {
+      const eventSourcing = getEventSourcingService();
+
+      // Get audit trail for this job
+      const auditTrail = await eventSourcing.getAuditTrail(jobId);
+
+      if (!auditTrail) {
+        return res.status(404).json({
+          error: "Job not found",
+          message: `No job found with ID ${jobId}`,
+        });
+      }
+
+      // Check if we have a response event
+      const events = auditTrail.data?.events || [];
+      const responseEvent = events.find((e: any) => e.eventType === 'agent.response');
+
+      if (responseEvent) {
+        // Job completed
+        res.json({
+          success: true,
+          data: {
+            jobId,
+            status: 'completed',
+            result: responseEvent.payload.response,
+            error: responseEvent.payload.error,
+            latency: responseEvent.payload.latency,
+            completedAt: responseEvent.timestamp,
+          },
+        });
+      } else {
+        // Job still processing or queued
+        const requestEvent = events.find((e: any) => e.eventType === 'agent.request');
+        res.json({
+          success: true,
+          data: {
+            jobId,
+            status: 'processing',
+            agentId: requestEvent?.payload?.agentId,
+            queuedAt: requestEvent?.timestamp,
+            estimatedDuration: '30s',
+            message: 'Agent request is being processed',
+          },
+        });
+      }
+    } catch (error) {
+      logger.error("Job status check failed", error instanceof Error ? error : undefined, {
+        jobId,
+      });
+
+      res.status(500).json({
+        success: false,
+        error: "Job status check failed",
+        message: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+);
   logger.error(
     "Agent info endpoint failed",
     err instanceof Error ? err : undefined

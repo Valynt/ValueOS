@@ -154,3 +154,12 @@ export function createProviderCircuitBreaker(): CircuitBreaker {
     successThreshold: 3, // Need 3 successes to close
   });
 }
+
+/**
+ * Create a circuit breaker with configurable settings
+ */
+export function createConfigurableCircuitBreaker(
+  config: CircuitBreakerConfig
+): CircuitBreaker {
+  return new CircuitBreaker(config);
+}

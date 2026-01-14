@@ -117,5 +117,3 @@ Documentation lives alongside the code in the `docs/` directory. To contribute:
 - **Version control** - Archive old versions, don't delete
 
 ---
-
-_Last updated: 2026-01-13_

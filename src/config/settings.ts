@@ -16,7 +16,7 @@ const SettingsSchema = z.object({
   NODE_ENV: z
     .enum(["development", "staging", "production", "test"])
     .default("development"),
-  API_PORT: z.string().optional().default("3000"),
+  API_PORT: z.string().optional().default("3001"),
   SUPABASE_SERVICE_KEY: z.string().optional(), // Only available on the server
   REDIS_URL: z.string().url().optional(),
   CORS_ALLOWED_ORIGINS: z.string().optional(),
@@ -30,7 +30,7 @@ const SettingsSchema = z.object({
 });
 
 // Determine if we are in a server-side (Node.js) or client-side (browser) environment
-const isServer = typeof window === 'undefined';
+const isServer = typeof window === "undefined";
 
 // Load managed secrets on the server before parsing the environment
 // Use dynamic import to avoid bundling Node.js-only code in the browser
@@ -44,8 +44,9 @@ if ((isViteSsrBuild || isServer) && !runtimeEnv.isDevelopment) {
   try {
     // Use a variable to prevent Vite from analyzing this as a static import in client build
     const hydratorPath = "./secrets/SecretHydrator";
-    const { hydrateServerSecretsFromManager } =
-      await import(/* @vite-ignore */ hydratorPath);
+    const { hydrateServerSecretsFromManager } = await import(
+      /* @vite-ignore */ hydratorPath
+    );
     managedSecrets = await hydrateServerSecretsFromManager();
   } catch {
     // SecretHydrator not available in browser or failed to load
@@ -69,7 +70,7 @@ const resolvedEnv = {
   VITE_APP_URL: readEnv("VITE_APP_URL"),
   VITE_SENTRY_DSN: readEnv("VITE_SENTRY_DSN") || readEnv("SENTRY_DSN"),
   NODE_ENV: readEnv("NODE_ENV"),
-  API_PORT: readEnv("API_PORT", "3000"),
+  API_PORT: readEnv("API_PORT", "3001"),
   SUPABASE_SERVICE_KEY: readEnv("SUPABASE_SERVICE_KEY"),
   REDIS_URL: readEnv("REDIS_URL"),
   CORS_ALLOWED_ORIGINS: readEnv("CORS_ALLOWED_ORIGINS"),
@@ -98,7 +99,7 @@ const defaultCorsOrigins = [
   "http://localhost:3000",
 ];
 
-const DEFAULT_API_PORT = 3000;
+const DEFAULT_API_PORT = 3001;
 
 const parseCorsOrigins = (value?: string) =>
   (value ? value.split(",") : defaultCorsOrigins)

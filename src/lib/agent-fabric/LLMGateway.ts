@@ -60,12 +60,10 @@ export class LLMGateway {
     }
   }
 
-  async complete(
-    messages: LLMMessage[],
-    config: LLMConfig = {},
-    taskContext?: TaskContext,
-    circuitBreaker?: AgentCircuitBreaker
-  ): Promise<LLMResponse> {
+  /**
+   * Validate tracing context and set up initial checks
+   */
+  private validateAndSetupTracing(taskContext?: TaskContext): void {
     const strictTracing =
       (process.env.VITE_STRICT_TRACING_ENFORCE || "false") === "true";
     const currentTrace = getCurrentTraceContext();
@@ -76,7 +74,14 @@ export class LLMGateway {
       );
       throw new Error("LLM call aborted: missing trace/span context");
     }
+  }
 
+  /**
+   * Perform pre-call safety checks (rate limiting, circuit breaker)
+   */
+  private async performPreCallChecks(
+    circuitBreaker?: AgentCircuitBreaker
+  ): Promise<void> {
     // Apply rate limiting to prevent LLM API abuse
     const rateLimitAllowed = await clientRateLimit.checkLimit("llm-calls");
     if (!rateLimitAllowed) {
@@ -92,7 +97,15 @@ export class LLMGateway {
         throw new Error("LLM call aborted by circuit breaker");
       }
     }
-    // Apply LLM gating if enabled
+  }
+
+  /**
+   * Apply LLM gating logic to determine model selection
+   */
+  private async applyGatingLogic(
+    config: LLMConfig,
+    taskContext?: TaskContext
+  ): Promise<string> {
     let selectedModel = config.force_model || config.model || this.defaultModel;
 
     if (
@@ -104,17 +117,25 @@ export class LLMGateway {
       if (!shouldInvoke.invoke) {
         // Use low-cost model or heuristic
         if (shouldInvoke.useHeuristic) {
-          return {
-            content: shouldInvoke.heuristicResult || "",
-            tokens_used: 0,
-            latency_ms: 0,
-            model: "heuristic",
-          };
+          return "heuristic";
         }
         selectedModel = this.lowCostModel;
       }
     }
 
+    return selectedModel;
+  }
+
+  /**
+   * Execute the actual LLM call with tracing and metrics
+   */
+  private async executeLLMCall(
+    messages: LLMMessage[],
+    config: LLMConfig,
+    selectedModel: string,
+    taskContext?: TaskContext,
+    circuitBreaker?: AgentCircuitBreaker
+  ): Promise<LLMResponse> {
     // Run operation in a tracing span to capture metrics and trace context
     const spanResult = await traceLLMOperation(
       "complete",
@@ -171,9 +192,11 @@ export class LLMGateway {
         // Estimate prompt / completion tokens if we only have total
         const totalTokens = response.tokens_used || 0;
         const promptTokens =
-          taskContext?.estimatedPromptTokens ?? Math.round(totalTokens * 0.4);
+          taskContext?.estimatedPromptTokens ??
+          this.estimatePromptTokens(messages, selectedModel);
         const completionTokens =
-          taskContext?.estimatedCompletionTokens ?? totalTokens - promptTokens;
+          taskContext?.estimatedCompletionTokens ??
+          Math.max(0, totalTokens - promptTokens);
 
         if (totalTokens > 0) {
           metrics.llmTokensTotal.add(totalTokens, {
@@ -213,7 +236,6 @@ export class LLMGateway {
             tenant_id:
               taskContext?.organizationId || taskContext?.userId || "unknown",
           });
-
           // Track as usage event per-tenant
           if (taskContext?.organizationId) {
             await trackUsage({
@@ -242,6 +264,23 @@ export class LLMGateway {
 
     const response = spanResult;
 
+    return this.processResponse(
+      response,
+      messages,
+      taskContext,
+      circuitBreaker
+    );
+  }
+
+  /**
+   * Process the LLM response with sanitization and tracking
+   */
+  private async processResponse(
+    response: LLMResponse,
+    messages: LLMMessage[],
+    taskContext?: TaskContext,
+    circuitBreaker?: AgentCircuitBreaker
+  ): Promise<LLMResponse> {
     const rawContent = response.content;
     const sanitizedContent = sanitizeLLMContent(rawContent);
 
@@ -266,9 +305,11 @@ export class LLMGateway {
       // Estimate prompt/completion tokens from total tokens (following existing pattern)
       const totalTokens = response.tokens_used;
       const promptTokens =
-        taskContext?.estimatedPromptTokens ?? Math.round(totalTokens * 0.4);
+        taskContext?.estimatedPromptTokens ??
+        this.estimatePromptTokens(messages, response.model);
       const completionTokens =
-        taskContext?.estimatedCompletionTokens ?? totalTokens - promptTokens;
+        taskContext?.estimatedCompletionTokens ??
+        Math.max(0, totalTokens - promptTokens);
 
       const cost = llmCostTracker.calculateCost(
         response.model,
@@ -292,6 +333,176 @@ export class LLMGateway {
     }
 
     return finalResponse;
+  }
+
+  /**
+   * Validate LLM messages and config parameters
+   */
+  private validateInputs(
+    messages: LLMMessage[],
+    config: LLMConfig,
+    operation: string
+  ): void {
+    // Validate messages
+    if (!Array.isArray(messages) || messages.length === 0) {
+      throw new Error(`${operation}: messages must be a non-empty array`);
+    }
+
+    for (let i = 0; i < messages.length; i++) {
+      const message = messages[i];
+
+      if (!message || typeof message !== "object") {
+        throw new Error(
+          `${operation}: message at index ${i} must be an object`
+        );
+      }
+
+      if (!message.role || typeof message.role !== "string") {
+        throw new Error(
+          `${operation}: message at index ${i} must have a valid role`
+        );
+      }
+
+      if (!["user", "assistant", "system", "tool"].includes(message.role)) {
+        throw new Error(
+          `${operation}: message at index ${i} has invalid role: ${message.role}`
+        );
+      }
+
+      if (
+        message.content !== undefined &&
+        typeof message.content !== "string"
+      ) {
+        throw new Error(
+          `${operation}: message at index ${i} content must be a string or undefined`
+        );
+      }
+
+      // Validate tool_calls if present
+      if (message.tool_calls !== undefined) {
+        if (!Array.isArray(message.tool_calls)) {
+          throw new Error(
+            `${operation}: message at index ${i} tool_calls must be an array`
+          );
+        }
+
+        for (const toolCall of message.tool_calls) {
+          if (
+            !toolCall.id ||
+            !toolCall.function ||
+            !toolCall.function.name ||
+            !toolCall.function.arguments
+          ) {
+            throw new Error(
+              `${operation}: message at index ${i} has invalid tool_call structure`
+            );
+          }
+        }
+      }
+
+      // Validate tool_call_id if present
+      if (
+        message.tool_call_id !== undefined &&
+        typeof message.tool_call_id !== "string"
+      ) {
+        throw new Error(
+          `${operation}: message at index ${i} tool_call_id must be a string`
+        );
+      }
+    }
+
+    // Validate config
+    if (config.temperature !== undefined) {
+      if (
+        typeof config.temperature !== "number" ||
+        config.temperature < 0 ||
+        config.temperature > 2
+      ) {
+        throw new Error(
+          `${operation}: temperature must be a number between 0 and 2`
+        );
+      }
+    }
+
+    if (config.max_tokens !== undefined) {
+      if (
+        typeof config.max_tokens !== "number" ||
+        config.max_tokens < 1 ||
+        config.max_tokens > 32768
+      ) {
+        throw new Error(
+          `${operation}: max_tokens must be a number between 1 and 32768`
+        );
+      }
+    }
+
+    if (config.top_p !== undefined) {
+      if (
+        typeof config.top_p !== "number" ||
+        config.top_p < 0 ||
+        config.top_p > 1
+      ) {
+        throw new Error(`${operation}: top_p must be a number between 0 and 1`);
+      }
+    }
+
+    if (config.model !== undefined && typeof config.model !== "string") {
+      throw new Error(`${operation}: model must be a string`);
+    }
+
+    if (
+      config.force_model !== undefined &&
+      typeof config.force_model !== "string"
+    ) {
+      throw new Error(`${operation}: force_model must be a string`);
+    }
+  }
+
+  async complete(
+    messages: LLMMessage[],
+    config: LLMConfig = {},
+    taskContext?: TaskContext,
+    circuitBreaker?: AgentCircuitBreaker
+  ): Promise<LLMResponse> {
+    // Validate inputs
+    this.validateInputs(messages, config, "LLMGateway.complete");
+
+    // Validate tracing context
+    this.validateAndSetupTracing(taskContext);
+
+    // Perform pre-call safety checks
+    await this.performPreCallChecks(circuitBreaker);
+
+    // Apply gating logic
+    const selectedModel = await this.applyGatingLogic(config, taskContext);
+
+    // Handle heuristic case
+    if (selectedModel === "heuristic") {
+      const heuristicResult = this.applyHeuristic(taskContext);
+      return {
+        content: heuristicResult || "",
+        tokens_used: 0,
+        latency_ms: 0,
+        model: "heuristic",
+      };
+    }
+
+    // Execute LLM call
+    const response = await this.executeLLMCall(
+      messages,
+      config,
+      selectedModel,
+      taskContext,
+      circuitBreaker
+    );
+
+    // Process response with sanitization and tracking
+    return this.processResponse(
+      response,
+      messages,
+      taskContext,
+      circuitBreaker
+    );
   }
 
   /**
@@ -369,10 +580,14 @@ export class LLMGateway {
           // Track cost as in `complete()`
           const totalTokens = response.tokens_used || 0;
           const promptTokens =
-            taskContext?.estimatedPromptTokens ?? Math.round(totalTokens * 0.4);
+            taskContext?.estimatedPromptTokens ??
+            this.estimatePromptTokens(
+              currentMessages,
+              config.model || this.defaultModel
+            );
           const completionTokens =
             taskContext?.estimatedCompletionTokens ??
-            totalTokens - promptTokens;
+            Math.max(0, totalTokens - promptTokens);
           if (totalTokens > 0) {
             metrics.llmTokensTotal.add(totalTokens, {
               provider: this.provider,
@@ -686,8 +901,145 @@ export class LLMGateway {
   /**
    * Enable/disable gating
    */
-  setGatingEnabled(enabled: boolean): void {
-    this.gatingEnabled = enabled;
+  /**
+   * Record streaming metrics with proper error handling
+   */
+  private async recordStreamingMetrics(
+    model: string,
+    latency: number,
+    totalTokens: number,
+    promptTokens: number,
+    completionTokens: number,
+    estimatedCost: number,
+    taskContext?: TaskContext
+  ): Promise<void> {
+    const tenantId =
+      taskContext?.organizationId || taskContext?.userId || "unknown";
+
+    try {
+      await Promise.all([
+        metrics.llmRequestsTotal.then((m) =>
+          m.add(1, {
+            provider: this.provider,
+            model,
+            tenant_id: tenantId,
+          })
+        ),
+        metrics.llmRequestDuration.then((m) =>
+          m.record(latency, {
+            provider: this.provider,
+            model,
+            tenant_id: tenantId,
+          })
+        ),
+        metrics.llmTokensTotal.then((m) =>
+          m.add(totalTokens, {
+            provider: this.provider,
+            model,
+            type: "total",
+            tenant_id: tenantId,
+          })
+        ),
+        metrics.llmTokensTotal.then((m) =>
+          m.add(promptTokens, {
+            provider: this.provider,
+            model,
+            type: "prompt",
+            tenant_id: tenantId,
+          })
+        ),
+        metrics.llmTokensTotal.then((m) =>
+          m.add(completionTokens, {
+            provider: this.provider,
+            model,
+            type: "completion",
+            tenant_id: tenantId,
+          })
+        ),
+        metrics.llmCostTotal.then((m) =>
+          m.add(estimatedCost, {
+            provider: this.provider,
+            model,
+            tenant_id: tenantId,
+          })
+        ),
+      ]);
+    } catch (err) {
+      // Re-throw to be caught by the caller
+      throw new Error(
+        `Failed to record streaming metrics: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  }
+
+  /**
+   * Track streaming usage with proper error handling
+   */
+  private async trackStreamingUsage(
+    taskContext: TaskContext,
+    model: string,
+    estimatedCost: number,
+    promptTokens: number,
+    completionTokens: number,
+    latency: number
+  ): Promise<void> {
+    if (!taskContext.organizationId) {
+      return;
+    }
+
+    try {
+      await trackUsage({
+        organizationId: taskContext.organizationId,
+        type: "agent_call",
+        amount: estimatedCost,
+        metadata: {
+          provider: this.provider,
+          model,
+          promptTokens,
+          completionTokens,
+          sessionId: taskContext.sessionId || null,
+          latencyMs: latency,
+        },
+        timestamp: new Date(),
+      });
+    } catch (err) {
+      // Re-throw to be caught by the caller
+      throw new Error(
+        `Failed to track streaming usage: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  }
+
+  getSupportedModels(): string[] {
+    let totalChars = 0;
+
+    for (const message of messages) {
+      // Add role overhead
+      totalChars += message.role.length + 10; // ": " + quotes + comma
+
+      // Add content length
+      const content =
+        typeof message.content === "string" ? message.content : "";
+      totalChars += content.length;
+
+      // Add tool_calls overhead if present
+      if (message.tool_calls) {
+        totalChars += JSON.stringify(message.tool_calls).length;
+      }
+
+      // Add tool_call_id overhead if present
+      if (message.tool_call_id) {
+        totalChars += message.tool_call_id.length + 20;
+      }
+    }
+
+    // Model-specific token estimation (rough approximation)
+    // GPT models: ~4 chars per token, Llama models: ~3.5 chars per token
+    const charsPerToken = model.includes("gpt") ? 4 : 3.5;
+    const estimatedTokens = Math.ceil(totalChars / charsPerToken);
+
+    // Add 10% overhead for formatting and special tokens
+    return Math.ceil(estimatedTokens * 1.1);
   }
 
   getSupportedModels(): string[] {
@@ -802,11 +1154,11 @@ export class LLMGateway {
             const promptTokens =
               typeof taskContext?.estimatedPromptTokens === "number"
                 ? taskContext.estimatedPromptTokens
-                : Math.round(totalTokens * 0.4);
+                : this.estimatePromptTokens(messages, selectedModel);
             const completionTokens =
               typeof taskContext?.estimatedCompletionTokens === "number"
                 ? taskContext.estimatedCompletionTokens
-                : totalTokens - promptTokens;
+                : Math.max(0, totalTokens - promptTokens);
 
             // Calculate and track cost
             const estimatedCost = llmCostTracker.calculateCost(
@@ -823,73 +1175,19 @@ export class LLMGateway {
             if (totalTokens > 0) {
               // Note: metrics are async but we're in callback context
               // For streaming, metrics are recorded per chunk
-              Promise.all([
-                metrics.llmRequestsTotal.then((m) =>
-                  m.add(1, {
-                    provider: this.provider,
-                    model: selectedModel,
-                    tenant_id:
-                      taskContext?.organizationId ||
-                      taskContext?.userId ||
-                      "unknown",
-                  })
-                ),
-                metrics.llmRequestDuration.then((m) =>
-                  m.record(latency, {
-                    provider: this.provider,
-                    model: selectedModel,
-                    tenant_id:
-                      taskContext?.organizationId ||
-                      taskContext?.userId ||
-                      "unknown",
-                  })
-                ),
-                metrics.llmTokensTotal.then((m) =>
-                  m.add(totalTokens, {
-                    provider: this.provider,
-                    model: selectedModel,
-                    type: "total",
-                    tenant_id:
-                      taskContext?.organizationId ||
-                      taskContext?.userId ||
-                      "unknown",
-                  })
-                ),
-                metrics.llmTokensTotal.then((m) =>
-                  m.add(promptTokens, {
-                    provider: this.provider,
-                    model: selectedModel,
-                    type: "prompt",
-                    tenant_id:
-                      taskContext?.organizationId ||
-                      taskContext?.userId ||
-                      "unknown",
-                  })
-                ),
-                metrics.llmTokensTotal.then((m) =>
-                  m.add(completionTokens, {
-                    provider: this.provider,
-                    model: selectedModel,
-                    type: "completion",
-                    tenant_id:
-                      taskContext?.organizationId ||
-                      taskContext?.userId ||
-                      "unknown",
-                  })
-                ),
-                metrics.llmCostTotal.then((m) =>
-                  m.add(estimatedCost, {
-                    provider: this.provider,
-                    model: selectedModel,
-                    tenant_id:
-                      taskContext?.organizationId ||
-                      taskContext?.userId ||
-                      "unknown",
-                  })
-                ),
-              ]).catch((err) => {
-                logger.error("Failed to record metrics", {
+              this.recordStreamingMetrics(
+                selectedModel,
+                latency,
+                totalTokens,
+                promptTokens,
+                completionTokens,
+                estimatedCost,
+                taskContext
+              ).catch((err) => {
+                logger.error("Failed to record streaming metrics", {
                   err: err instanceof Error ? err.message : err,
+                  model: selectedModel,
+                  totalTokens,
                 });
               });
             }
@@ -898,21 +1196,17 @@ export class LLMGateway {
             if (taskContext?.organizationId) {
               // Note: trackUsage is async but we're in a callback context
               // For streaming, cost tracking happens per chunk, not at completion
-              trackUsage({
-                organizationId: taskContext.organizationId,
-                type: "agent_call",
-                amount: estimatedCost,
-                metadata: {
-                  provider: this.provider,
-                  model: selectedModel,
-                  promptTokens,
-                  completionTokens,
-                  sessionId: taskContext.sessionId || null,
-                },
-                timestamp: new Date(),
-              }).catch((err) => {
-                logger.error("Failed to track LLM cost/usage", {
+              this.trackStreamingUsage(
+                taskContext,
+                selectedModel,
+                estimatedCost,
+                promptTokens,
+                completionTokens,
+                latency
+              ).catch((err) => {
+                logger.error("Failed to track streaming usage", {
                   err: err instanceof Error ? err.message : err,
+                  model: selectedModel,
                 });
               });
             }

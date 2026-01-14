@@ -3,7 +3,7 @@
 
 terraform {
   required_version = ">= 1.5.0"
-  
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -11,11 +11,11 @@ terraform {
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "~> 2.23"
+      version = "~> 2.25"
     }
     helm = {
       source  = "hashicorp/helm"
-      version = "~> 2.11"
+      version = "~> 2.12"
     }
   }
 
@@ -120,11 +120,23 @@ resource "aws_s3_bucket_public_access_block" "backups" {
 # Local Variables
 locals {
   name_prefix = "valuecanvas-${var.environment}"
-  
-  common_tags = {
-    Project     = "ValueCanvas"
-    Environment = var.environment
-    ManagedBy   = "Terraform"
+
+  # Enhanced tagging strategy
+  common_tags = merge(
+    {
+      Project     = "ValueCanvas"
+      Environment = var.environment
+      ManagedBy   = "Terraform"
+      Owner       = "DevOps"
+      CreatedAt   = formatdate("YYYY-MM-DD", timestamp())
+    },
+    var.additional_tags
+  )
+
+  # Cost allocation tags
+  cost_tags = {
+    CostCenter = "engineering"
+    Application = "valuecanvas"
   }
 
   agent_services = {
@@ -146,10 +158,10 @@ module "vpc" {
   public_subnet_cidrs = var.public_subnet_cidrs
   private_subnet_cidrs = var.private_subnet_cidrs
   database_subnet_cidrs = var.database_subnet_cidrs
-  
+
   enable_nat_gateway = true
   single_nat_gateway = var.environment != "production"
-  
+
   tags = local.common_tags
 }
 
@@ -159,10 +171,10 @@ module "eks" {
 
   cluster_name    = "${local.name_prefix}-cluster"
   cluster_version = var.kubernetes_version
-  
+
   vpc_id          = module.vpc.vpc_id
   subnet_ids      = module.vpc.private_subnet_ids
-  
+
   node_groups = {
     general = {
       desired_size = var.eks_node_desired_size
@@ -185,25 +197,25 @@ module "rds" {
   identifier     = "${local.name_prefix}-postgres"
   engine_version = "14.10"
   instance_class = var.db_instance_class
-  
+
   allocated_storage     = var.db_allocated_storage
   max_allocated_storage = var.db_max_allocated_storage
-  
+
   database_name = "valuecanvas"
   username      = var.db_username
   password      = var.db_password
-  
+
   vpc_id                = module.vpc.vpc_id
   subnet_ids            = module.vpc.database_subnet_ids
   allowed_security_groups = [module.eks.cluster_security_group_id]
-  
+
   backup_retention_period = var.environment == "production" ? 30 : 7
   backup_window          = "03:00-04:00"
   maintenance_window     = "sun:04:00-sun:05:00"
-  
+
   multi_az               = var.environment == "production"
   deletion_protection    = var.environment == "production"
-  
+
   tags = local.common_tags
 }
 
@@ -215,13 +227,13 @@ module "redis" {
   engine_version       = "7.0"
   node_type            = var.redis_node_type
   num_cache_nodes      = var.environment == "production" ? 2 : 1
-  
+
   vpc_id               = module.vpc.vpc_id
   subnet_ids           = module.vpc.private_subnet_ids
   allowed_security_groups = [module.eks.cluster_security_group_id]
-  
+
   automatic_failover_enabled = var.environment == "production"
-  
+
   tags = local.common_tags
 }
 
@@ -232,9 +244,9 @@ module "alb" {
   name            = "${local.name_prefix}-alb"
   vpc_id          = module.vpc.vpc_id
   subnet_ids      = module.vpc.public_subnet_ids
-  
+
   certificate_arn = var.acm_certificate_arn
-  
+
   tags = local.common_tags
 }
 
@@ -272,7 +284,7 @@ resource "aws_secretsmanager_secret" "app_secrets" {
 
 resource "aws_secretsmanager_secret_version" "app_secrets" {
   secret_id = aws_secretsmanager_secret.app_secrets.id
-  
+
   secret_string = jsonencode({
     database_url       = var.use_supabase ? var.supabase_url : module.rds[0].connection_string
     supabase_anon_key  = var.supabase_anon_key

@@ -23,6 +23,10 @@ import {
   SecretAuditEvent,
 } from "./SecretAuditLogger";
 import { randomBytes, createCipheriv, createDecipheriv } from "crypto";
+import {
+  CircuitBreaker,
+  createConfigurableCircuitBreaker,
+} from "./CircuitBreaker";
 
 // Type definitions for node-vault (simplified)
 interface VaultClient {
@@ -50,6 +54,7 @@ export class VaultSecretProvider implements ISecretProvider {
   private kubernetesRole?: string;
   private auditLogger: StructuredSecretAuditLogger;
   private encryptionKey: Buffer;
+  private circuitBreaker: CircuitBreaker;
 
   constructor(
     vaultAddress: string,
@@ -65,6 +70,13 @@ export class VaultSecretProvider implements ISecretProvider {
     this.auditLogger = new StructuredSecretAuditLogger();
     // Generate a random encryption key for cache encryption
     this.encryptionKey = randomBytes(32);
+    // Initialize circuit breaker for external API calls
+    this.circuitBreaker = createConfigurableCircuitBreaker({
+      failureThreshold: config.circuitBreaker.failureThreshold,
+      recoveryTimeout: config.circuitBreaker.recoveryTimeout,
+      monitoringPeriod: config.circuitBreaker.monitoringPeriod,
+      successThreshold: config.circuitBreaker.successThreshold,
+    });
 
     logger.info("Vault Secret Provider initialized", {
       provider: "vault",
@@ -236,7 +248,9 @@ export class VaultSecretProvider implements ISecretProvider {
         path += `?version=${version}`;
       }
 
-      const response = await client.read(path);
+      const response = await this.circuitBreaker.execute(() =>
+        client.read(path)
+      );
       const secretValue = response.data.data as SecretValue;
 
       // Remove internal metadata if present
@@ -316,7 +330,9 @@ export class VaultSecretProvider implements ISecretProvider {
         },
       };
 
-      await client.write(path, secretWithMetadata);
+      await this.circuitBreaker.execute(() =>
+        client.write(path, secretWithMetadata)
+      );
 
       // Invalidate cache
       const cacheKey = this.getCacheKey(tenantId, secretKey);
@@ -456,7 +472,7 @@ export class VaultSecretProvider implements ISecretProvider {
 
     try {
       // Delete all versions and metadata
-      await client.delete(metadataPath);
+      await this.circuitBreaker.execute(() => client.delete(metadataPath));
 
       // Invalidate cache
       const cacheKey = this.getCacheKey(tenantId, secretKey);
@@ -498,7 +514,9 @@ export class VaultSecretProvider implements ISecretProvider {
     const listPath = `secret/metadata/${this.environment}/tenants/${tenantId}`;
 
     try {
-      const response = await client.list(listPath);
+      const response = await this.circuitBreaker.execute(() =>
+        client.list(listPath)
+      );
       const secretKeys = response.data.keys || [];
 
       await this.auditAccess(
@@ -637,7 +655,7 @@ export class VaultSecretProvider implements ISecretProvider {
   async healthCheck(): Promise<boolean> {
     try {
       const client = this.ensureClient();
-      await client.health();
+      await this.circuitBreaker.execute(() => client.health());
       return true;
     } catch (error) {
       logger.error(

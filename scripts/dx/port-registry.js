@@ -28,6 +28,15 @@ function parsePort(value) {
   return Number.isNaN(port) ? null : port;
 }
 
+/**
+ * Resolves a port from multiple sources with priority ordering.
+ * Priority: envPort > urlValue (extracted port) > defaultPort
+ * @param {Object} params
+ * @param {*} params.envPort - Environment variable port value
+ * @param {string} params.urlValue - URL string to extract port from
+ * @param {number} params.defaultPort - Default port from ports.json
+ * @returns {number} The resolved port number
+ */
 function resolvePortFromSources({ envPort, urlValue, defaultPort }) {
   const parsedEnvPort = parsePort(envPort);
   if (parsedEnvPort) {
@@ -51,7 +60,8 @@ export function getPortRegistry() {
   const ports = loadPorts();
   const frontendEnvUrl = process.env.VITE_APP_URL;
   const backendEnvUrl = process.env.BACKEND_URL;
-  const supabaseApiEnvUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseApiEnvUrl =
+    process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
   const supabaseStudioEnvUrl = process.env.SUPABASE_STUDIO_URL;
   const frontendPort = resolvePortFromSources({
     envPort: process.env.VITE_PORT,
@@ -59,7 +69,8 @@ export function getPortRegistry() {
     defaultPort: ports.frontend.port,
   });
   const backendPort = resolvePortFromSources({
-    envPort: process.env.API_PORT || process.env.BACKEND_PORT || process.env.PORT,
+    envPort:
+      process.env.API_PORT || process.env.BACKEND_PORT || process.env.PORT,
     urlValue: backendEnvUrl,
     defaultPort: ports.backend.port,
   });
@@ -86,8 +97,10 @@ export function getPortRegistry() {
 
   const frontendUrl = frontendEnvUrl || `http://localhost:${frontendPort}`;
   const backendUrl = backendEnvUrl || `http://localhost:${backendPort}`;
-  const supabaseApiUrl = supabaseApiEnvUrl || `http://localhost:${supabaseApiPort}`;
-  const supabaseStudioUrl = supabaseStudioEnvUrl || `http://localhost:${supabaseStudioPort}`;
+  const supabaseApiUrl =
+    supabaseApiEnvUrl || `http://localhost:${supabaseApiPort}`;
+  const supabaseStudioUrl =
+    supabaseStudioEnvUrl || `http://localhost:${supabaseStudioPort}`;
 
   return {
     frontend: {

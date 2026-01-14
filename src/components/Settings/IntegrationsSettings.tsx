@@ -1,11 +1,11 @@
 /**
  * Integrations Settings Component
- * 
+ *
  * Admin UI for managing CRM integrations (HubSpot, Salesforce).
  * Only admins can connect/disconnect; all members can view status.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
@@ -15,13 +15,13 @@ import {
   RefreshCw,
   Unlink,
   XCircle,
-} from 'lucide-react';
+} from "lucide-react";
 import {
   CRMConnectionStatus,
   CRMIntegrationsStatus,
   crmOAuthService,
   CRMProvider,
-} from '../../services/CRMOAuthService';
+} from "../../services/CRMOAuthService";
 
 // ============================================================================
 // Types
@@ -46,18 +46,18 @@ interface ProviderConfig {
 
 const PROVIDERS: ProviderConfig[] = [
   {
-    id: 'hubspot',
-    name: 'HubSpot',
-    description: 'Sync deals, contacts, and activities from HubSpot CRM',
-    logo: '🟠', // Replace with actual logo
-    docsUrl: 'https://developers.hubspot.com/',
+    id: "hubspot",
+    name: "HubSpot",
+    description: "Sync deals, contacts, and activities from HubSpot CRM",
+    logo: "🟠", // Replace with actual logo
+    docsUrl: "https://developers.hubspot.com/",
   },
   {
-    id: 'salesforce',
-    name: 'Salesforce',
-    description: 'Sync opportunities, contacts, and activities from Salesforce',
-    logo: '☁️', // Replace with actual logo
-    docsUrl: 'https://developer.salesforce.com/',
+    id: "salesforce",
+    name: "Salesforce",
+    description: "Sync opportunities, contacts, and activities from Salesforce",
+    logo: "☁️", // Replace with actual logo
+    docsUrl: "https://developer.salesforce.com/",
   },
 ];
 
@@ -73,15 +73,23 @@ const IntegrationCard: React.FC<{
   onConnect: () => void;
   onDisconnect: () => void;
   onRefresh: () => void;
-}> = ({ provider, status, isAdmin, isLoading, onConnect, onDisconnect, onRefresh }) => {
+}> = ({
+  provider,
+  status,
+  isAdmin,
+  isLoading,
+  onConnect,
+  onDisconnect,
+  onRefresh,
+}) => {
   const getStatusIcon = () => {
     switch (status.status) {
-      case 'active':
+      case "active":
         return <CheckCircle2 className="w-5 h-5 text-green-500" />;
-      case 'expired':
+      case "expired":
         return <AlertCircle className="w-5 h-5 text-yellow-500" />;
-      case 'error':
-      case 'revoked':
+      case "error":
+      case "revoked":
         return <XCircle className="w-5 h-5 text-red-500" />;
       default:
         return <div className="w-5 h-5 rounded-full bg-gray-300" />;
@@ -90,25 +98,25 @@ const IntegrationCard: React.FC<{
 
   const getStatusText = () => {
     switch (status.status) {
-      case 'active':
-        return 'Connected';
-      case 'expired':
-        return 'Token Expired';
-      case 'error':
-        return status.error || 'Connection Error';
-      case 'revoked':
-        return 'Disconnected';
+      case "active":
+        return "Connected";
+      case "expired":
+        return "Token Expired";
+      case "error":
+        return status.error || "Connection Error";
+      case "revoked":
+        return "Disconnected";
       default:
-        return 'Not Connected';
+        return "Not Connected";
     }
   };
 
   const formatDate = (dateStr?: string) => {
-    if (!dateStr) return '';
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
+    if (!dateStr) return "";
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
   };
 
@@ -127,12 +135,17 @@ const IntegrationCard: React.FC<{
         {/* Status */}
         <div className="flex items-center gap-2">
           {getStatusIcon()}
-          <span className={`text-sm font-medium ${
-            status.status === 'active' ? 'text-green-600' :
-            status.status === 'expired' ? 'text-yellow-600' :
-            status.status === 'error' ? 'text-red-600' :
-            'text-gray-500'
-          }`}>
+          <span
+            className={`text-sm font-medium ${
+              status.status === "active"
+                ? "text-green-600"
+                : status.status === "expired"
+                  ? "text-yellow-600"
+                  : status.status === "error"
+                    ? "text-red-600"
+                    : "text-gray-500"
+            }`}
+          >
             {getStatusText()}
           </span>
         </div>
@@ -158,7 +171,7 @@ const IntegrationCard: React.FC<{
       <div className="mt-4 flex items-center gap-3">
         {status.connected ? (
           <>
-            {status.status === 'expired' && isAdmin && (
+            {status.status === "expired" && isAdmin && (
               <button
                 onClick={onRefresh}
                 disabled={isLoading}
@@ -226,12 +239,10 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({
   tenantId,
   isAdmin,
 }) => {
-  const [status, setStatus] = useState<CRMIntegrationsStatus>({
-    hubspot: { connected: false, status: 'not_connected' },
-    salesforce: { connected: false, status: 'not_connected' },
-  });
-  const [loading, setLoading] = useState<CRMProvider | null>(null);
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [disconnectModal, setDisconnectModal] = useState<{
+    provider: CRMProvider;
+    isOpen: boolean;
+  } | null>(null);
 
   // Fetch status on mount
   const fetchStatus = useCallback(async () => {
@@ -250,18 +261,18 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({
     const handleOAuthComplete = () => {
       fetchStatus();
     };
-    window.addEventListener('crm-oauth-complete', handleOAuthComplete);
+    window.addEventListener("crm-oauth-complete", handleOAuthComplete);
 
     // Check URL for callback status
     const params = new URLSearchParams(window.location.search);
-    if (params.get('connected') || params.get('error')) {
+    if (params.get("connected") || params.get("error")) {
       fetchStatus();
       // Clean up URL
-      window.history.replaceState({}, '', window.location.pathname);
+      window.history.replaceState({}, "", window.location.pathname);
     }
 
     return () => {
-      window.removeEventListener('crm-oauth-complete', handleOAuthComplete);
+      window.removeEventListener("crm-oauth-complete", handleOAuthComplete);
     };
   }, [fetchStatus]);
 
@@ -274,28 +285,25 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({
     }
   };
 
-  const handleDisconnect = async (provider: CRMProvider) => {
-    if (!confirm(`Are you sure you want to disconnect ${provider}?`)) {
-      return;
-    }
+  const handleDisconnect = (provider: CRMProvider) => {
+    setDisconnectModal({ provider, isOpen: true });
+  };
 
-    setLoading(provider);
+  const handleDisconnectConfirm = async () => {
+    if (!disconnectModal) return;
+
+    setLoading(disconnectModal.provider);
     try {
-      await crmOAuthService.disconnect(provider, tenantId);
+      await crmOAuthService.disconnect(disconnectModal.provider, tenantId);
       await fetchStatus();
     } finally {
       setLoading(null);
+      setDisconnectModal(null);
     }
   };
 
-  const handleRefresh = async (provider: CRMProvider) => {
-    setLoading(provider);
-    try {
-      await crmOAuthService.refreshTokens(provider, tenantId);
-      await fetchStatus();
-    } finally {
-      setLoading(null);
-    }
+  const handleDisconnectCancel = () => {
+    setDisconnectModal(null);
   };
 
   if (isInitialLoading) {
@@ -310,16 +318,19 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-xl font-semibold text-gray-900">CRM Integrations</h2>
+        <h2 className="text-xl font-semibold text-gray-900">
+          CRM Integrations
+        </h2>
         <p className="text-sm text-gray-500 mt-1">
-          Connect your CRM to automatically sync deals, contacts, and activities.
-          {!isAdmin && ' Contact an admin to manage connections.'}
+          Connect your CRM to automatically sync deals, contacts, and
+          activities.
+          {!isAdmin && " Contact an admin to manage connections."}
         </p>
       </div>
 
       {/* Integration Cards */}
       <div className="grid gap-4">
-        {PROVIDERS.map(provider => (
+        {PROVIDERS.map((provider) => (
           <IntegrationCard
             key={provider.id}
             provider={provider}
@@ -333,20 +344,47 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({
         ))}
       </div>
 
-      {/* Info Banner */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <div className="flex gap-3">
-          <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-blue-700">
-            <p className="font-medium">How it works</p>
-            <ul className="mt-1 space-y-1 text-blue-600">
-              <li>• Connect once, all team members can access CRM data</li>
-              <li>• AI automatically queries your CRM when relevant</li>
-              <li>• Value insights can be synced back to your CRM</li>
-            </ul>
+      {/* Disconnect Confirmation Modal */}
+      {disconnectModal?.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <AlertCircle className="w-6 h-6 text-red-500" />
+              <h3 className="text-lg font-semibold text-gray-900">
+                Disconnect {disconnectModal.provider}?
+              </h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to disconnect your{" "}
+              {disconnectModal.provider} integration? This will stop all CRM
+              data synchronization and AI queries will no longer work.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={handleDisconnectCancel}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                disabled={loading === disconnectModal.provider}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDisconnectConfirm}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+                disabled={loading === disconnectModal.provider}
+              >
+                {loading === disconnectModal.provider ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Disconnecting...
+                  </div>
+                ) : (
+                  "Disconnect"
+                )}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

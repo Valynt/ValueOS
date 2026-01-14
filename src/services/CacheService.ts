@@ -1,6 +1,6 @@
 /**
  * Cache Service
- * 
+ *
  * Provides a unified caching interface with:
  * - Browser-side caching (localStorage/sessionStorage)
  * - Redis-compatible API for future server-side caching
@@ -10,12 +10,13 @@
  * - LRU eviction for browser storage
  */
 
-import { logger } from '../lib/logger';
+import { logger } from "../lib/logger";
+import { createClient, RedisClientType } from "redis";
 
 export interface CacheOptions {
   ttl?: number; // Time to live in milliseconds
   namespace?: string; // Cache namespace for organization
-  storage?: 'memory' | 'local' | 'session'; // Storage backend
+  storage?: "memory" | "local" | "session" | "redis"; // Storage backend
 }
 
 export interface CacheEntry<T> {
@@ -25,12 +26,19 @@ export interface CacheEntry<T> {
   hits: number;
 }
 
-export interface CacheStats {
-  hits: number;
-  misses: number;
-  hitRate: number;
-  size: number;
-  maxSize: number;
+export interface CacheInvalidationOptions {
+  pattern?: string;
+  namespace?: string;
+  dependencies?: string[]; // Other cache keys that depend on this one
+  cascade?: boolean; // Whether to invalidate dependencies recursively
+  storage?: "memory" | "local" | "session" | "redis";
+  reason?: string; // Reason for invalidation (for logging)
+}
+
+export interface CacheDependency {
+  key: string;
+  dependsOn: string[];
+  version: number;
 }
 
 // ============================================================================
@@ -39,6 +47,7 @@ export interface CacheStats {
 
 export class CacheService {
   private memoryCache: Map<string, CacheEntry<any>> = new Map();
+  private redisClient: RedisClientType | null = null;
   private stats = {
     hits: 0,
     misses: 0,
@@ -46,36 +55,73 @@ export class CacheService {
   private readonly DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes
   private readonly MAX_MEMORY_SIZE = 1000; // Max entries in memory
   private readonly MAX_STORAGE_SIZE = 100; // Max entries in localStorage/sessionStorage
+  private cacheDependencies: Map<string, CacheDependency> = new Map();
+  private invalidationListeners: Map<
+    string,
+    ((key: string, reason: string) => void)[]
+  > = new Map();
 
-  constructor(private defaultNamespace: string = 'app') {}
+  constructor(private defaultNamespace: string = "app") {
+    this.initializeRedis();
+  }
 
-  // ==========================================================================
-  // Core Cache Operations
-  // ==========================================================================
+  /**
+   * Initialize Redis client
+   */
+  private async initializeRedis(): Promise<void> {
+    try {
+      if (typeof window === "undefined") {
+        // Only initialize Redis on server-side
+        const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
+        this.redisClient = createClient({ url: redisUrl });
+
+        this.redisClient.on("error", (err) => {
+          logger.error(
+            "Redis Client Error",
+            err instanceof Error ? err : undefined
+          );
+        });
+
+        this.redisClient.on("connect", () => {
+          logger.info("Connected to Redis");
+        });
+
+        await this.redisClient.connect();
+      }
+    } catch (error) {
+      logger.error(
+        "Failed to initialize Redis client",
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
 
   /**
    * Get value from cache
    */
   async get<T>(key: string, options: CacheOptions = {}): Promise<T | null> {
     const fullKey = this.getFullKey(key, options.namespace);
-    const storage = options.storage || 'memory';
+    const storage = options.storage || "memory";
 
     let entry: CacheEntry<T> | null = null;
 
     // Try to get from appropriate storage
     switch (storage) {
-      case 'memory':
+      case "memory":
         entry = this.memoryCache.get(fullKey) || null;
         break;
-      case 'local':
-        if (this.isStorageAvailable('local')) {
+      case "local":
+        if (this.isStorageAvailable("local")) {
           entry = this.getFromStorage(fullKey, localStorage);
         }
         break;
-      case 'session':
-        if (this.isStorageAvailable('session')) {
+      case "session":
+        if (this.isStorageAvailable("session")) {
           entry = this.getFromStorage(fullKey, sessionStorage);
         }
+        break;
+      case "redis":
+        entry = await this.getFromRedis<T>(fullKey);
         break;
     }
 
@@ -85,12 +131,16 @@ export class CacheService {
         // Update hit count
         entry.hits++;
         this.stats.hits++;
-        
+
         // Update entry in storage
-        if (storage === 'memory') {
+        if (storage === "memory") {
           this.memoryCache.set(fullKey, entry);
         } else {
-          this.setToStorage(fullKey, entry, storage === 'local' ? localStorage : sessionStorage);
+          this.setToStorage(
+            fullKey,
+            entry,
+            storage === "local" ? localStorage : sessionStorage
+          );
         }
 
         return entry.value;
@@ -114,7 +164,7 @@ export class CacheService {
   ): Promise<void> {
     const fullKey = this.getFullKey(key, options.namespace);
     const ttl = options.ttl || this.DEFAULT_TTL;
-    const storage = options.storage || 'memory';
+    const storage = options.storage || "memory";
 
     const entry: CacheEntry<T> = {
       value,
@@ -124,7 +174,7 @@ export class CacheService {
     };
 
     switch (storage) {
-      case 'memory':
+      case "memory":
         // Check size and evict if necessary
         if (this.memoryCache.size >= this.MAX_MEMORY_SIZE) {
           this.evictLRU(this.memoryCache);
@@ -132,18 +182,22 @@ export class CacheService {
         this.memoryCache.set(fullKey, entry);
         break;
 
-      case 'local':
-        if (this.isStorageAvailable('local')) {
+      case "local":
+        if (this.isStorageAvailable("local")) {
           this.setToStorage(fullKey, entry, localStorage);
           this.evictStorageIfNeeded(localStorage, this.MAX_STORAGE_SIZE);
         }
         break;
 
-      case 'session':
-        if (this.isStorageAvailable('session')) {
+      case "session":
+        if (this.isStorageAvailable("session")) {
           this.setToStorage(fullKey, entry, sessionStorage);
           this.evictStorageIfNeeded(sessionStorage, this.MAX_STORAGE_SIZE);
         }
+        break;
+
+      case "redis":
+        await this.setToRedis(fullKey, entry, ttl);
         break;
     }
   }
@@ -153,21 +207,24 @@ export class CacheService {
    */
   async delete(key: string, options: CacheOptions = {}): Promise<void> {
     const fullKey = this.getFullKey(key, options.namespace);
-    const storage = options.storage || 'memory';
+    const storage = options.storage || "memory";
 
     switch (storage) {
-      case 'memory':
+      case "memory":
         this.memoryCache.delete(fullKey);
         break;
-      case 'local':
-        if (this.isStorageAvailable('local')) {
+      case "local":
+        if (this.isStorageAvailable("local")) {
           localStorage.removeItem(fullKey);
         }
         break;
-      case 'session':
-        if (this.isStorageAvailable('session')) {
+      case "session":
+        if (this.isStorageAvailable("session")) {
           sessionStorage.removeItem(fullKey);
         }
+        break;
+      case "redis":
+        await this.deleteFromRedis(fullKey);
         break;
     }
   }
@@ -183,12 +240,17 @@ export class CacheService {
   /**
    * Clear all cache entries
    */
-  async clear(options: { namespace?: string; storage?: 'memory' | 'local' | 'session' } = {}): Promise<void> {
-    const storage = options.storage || 'memory';
+  async clear(
+    options: {
+      namespace?: string;
+      storage?: "memory" | "local" | "session" | "redis";
+    } = {}
+  ): Promise<void> {
+    const storage = options.storage || "memory";
     const namespace = options.namespace || this.defaultNamespace;
 
     switch (storage) {
-      case 'memory':
+      case "memory":
         if (options.namespace) {
           // Clear only entries in this namespace
           const prefix = `${namespace}:`;
@@ -202,16 +264,20 @@ export class CacheService {
         }
         break;
 
-      case 'local':
-        if (this.isStorageAvailable('local')) {
+      case "local":
+        if (this.isStorageAvailable("local")) {
           this.clearStorage(localStorage, namespace);
         }
         break;
 
-      case 'session':
-        if (this.isStorageAvailable('session')) {
+      case "session":
+        if (this.isStorageAvailable("session")) {
           this.clearStorage(sessionStorage, namespace);
         }
+        break;
+
+      case "redis":
+        await this.clearRedis(namespace);
         break;
     }
   }
@@ -276,10 +342,7 @@ export class CacheService {
   /**
    * Delete multiple keys at once
    */
-  async deleteMany(
-    keys: string[],
-    options: CacheOptions = {}
-  ): Promise<void> {
+  async deleteMany(keys: string[], options: CacheOptions = {}): Promise<void> {
     await Promise.all(keys.map((key) => this.delete(key, options)));
   }
 
@@ -288,14 +351,17 @@ export class CacheService {
    */
   async invalidatePattern(
     pattern: string,
-    options: { namespace?: string; storage?: 'memory' | 'local' | 'session' } = {}
+    options: {
+      namespace?: string;
+      storage?: "memory" | "local" | "session" | "redis";
+    } = {}
   ): Promise<void> {
-    const storage = options.storage || 'memory';
+    const storage = options.storage || "memory";
     const namespace = options.namespace || this.defaultNamespace;
     const fullPattern = `${namespace}:${pattern}`;
 
     switch (storage) {
-      case 'memory':
+      case "memory":
         for (const key of this.memoryCache.keys()) {
           if (this.matchPattern(key, fullPattern)) {
             this.memoryCache.delete(key);
@@ -303,13 +369,323 @@ export class CacheService {
         }
         break;
 
-      case 'local':
+      case "local":
         this.invalidateStoragePattern(localStorage, fullPattern);
         break;
 
-      case 'session':
+      case "session":
         this.invalidateStoragePattern(sessionStorage, fullPattern);
         break;
+
+      case "redis":
+        await this.invalidateRedisPattern(fullPattern);
+        break;
+    }
+  }
+
+  // ==========================================================================
+  // Advanced Cache Invalidation
+  // ==========================================================================
+
+  /**
+   * Set cache dependencies for a key
+   */
+  setCacheDependency(
+    key: string,
+    dependsOn: string[],
+    options: CacheOptions = {}
+  ): void {
+    const fullKey = this.getFullKey(key, options.namespace);
+    const dependency: CacheDependency = {
+      key: fullKey,
+      dependsOn: dependsOn.map((dep) =>
+        this.getFullKey(dep, options.namespace)
+      ),
+      version: Date.now(),
+    };
+    this.cacheDependencies.set(fullKey, dependency);
+  }
+
+  /**
+   * Invalidate cache with dependencies (advanced invalidation)
+   */
+  async invalidateWithDependencies(
+    key: string,
+    options: CacheInvalidationOptions = {}
+  ): Promise<void> {
+    const fullKey = this.getFullKey(key, options.namespace);
+    const storage = options.storage || "memory";
+
+    logger.info("Invalidating cache with dependencies", {
+      key: fullKey,
+      reason: options.reason || "manual invalidation",
+      cascade: options.cascade,
+    });
+
+    // Invalidate the main key
+    await this.delete(key, { namespace: options.namespace, storage });
+
+    // Invalidate dependencies if cascade is enabled
+    if (options.cascade) {
+      const dependency = this.cacheDependencies.get(fullKey);
+      if (dependency) {
+        for (const depKey of dependency.dependsOn) {
+          const shortKey = depKey.substring(
+            (options.namespace || this.defaultNamespace).length + 1
+          );
+          await this.delete(shortKey, {
+            namespace: options.namespace,
+            storage,
+          });
+
+          // Recursively invalidate if cascade is enabled
+          await this.invalidateWithDependencies(shortKey, {
+            ...options,
+            cascade: true,
+            reason: `cascaded from ${key}`,
+          });
+        }
+      }
+    }
+
+    // Notify invalidation listeners
+    this.notifyInvalidationListeners(
+      fullKey,
+      options.reason || "manual invalidation"
+    );
+  }
+
+  /**
+   * Register invalidation listener
+   */
+  onInvalidation(
+    pattern: string,
+    callback: (key: string, reason: string) => void
+  ): void {
+    if (!this.invalidationListeners.has(pattern)) {
+      this.invalidationListeners.set(pattern, []);
+    }
+    this.invalidationListeners.get(pattern)!.push(callback);
+  }
+
+  /**
+   * Remove invalidation listener
+   */
+  offInvalidation(
+    pattern: string,
+    callback: (key: string, reason: string) => void
+  ): void {
+    const listeners = this.invalidationListeners.get(pattern);
+    if (listeners) {
+      const index = listeners.indexOf(callback);
+      if (index !== -1) {
+        listeners.splice(index, 1);
+      }
+    }
+  }
+
+  /**
+   * Smart cache invalidation based on statistics and patterns
+   */
+  async smartInvalidate(
+    strategy: "low-hit-rate" | "expired-only" | "size-based",
+    options: {
+      threshold?: number;
+      namespace?: string;
+      storage?: "memory" | "local" | "session" | "redis";
+    } = {}
+  ): Promise<number> {
+    const storage = options.storage || "memory";
+    const namespace = options.namespace || this.defaultNamespace;
+    let invalidatedCount = 0;
+
+    logger.info("Running smart cache invalidation", {
+      strategy,
+      storage,
+      namespace,
+    });
+
+    switch (strategy) {
+      case "low-hit-rate":
+        invalidatedCount = await this.invalidateLowHitRate(
+          options.threshold || 0.1,
+          storage,
+          namespace
+        );
+        break;
+      case "expired-only":
+        invalidatedCount = await this.invalidateExpiredOnly(storage, namespace);
+        break;
+      case "size-based":
+        invalidatedCount = await this.invalidateSizeBased(
+          options.threshold || 0.8,
+          storage,
+          namespace
+        );
+        break;
+    }
+
+    logger.info("Smart invalidation completed", { strategy, invalidatedCount });
+    return invalidatedCount;
+  }
+
+  /**
+   * Get cache analytics for optimization
+   */
+  getCacheAnalytics(
+    options: {
+      namespace?: string;
+      storage?: "memory" | "local" | "session";
+    } = {}
+  ): {
+    totalEntries: number;
+    expiredEntries: number;
+    lowHitRateEntries: number;
+    averageTTL: number;
+    hitRate: number;
+    memoryUsage: number;
+  } {
+    const storage = options.storage || "memory";
+    const namespace = options.namespace || this.defaultNamespace;
+
+    let totalEntries = 0;
+    let expiredEntries = 0;
+    let lowHitRateEntries = 0;
+    let totalTTL = 0;
+    let totalHits = 0;
+
+    const prefix = `${namespace}:`;
+    const now = Date.now();
+
+    switch (storage) {
+      case "memory":
+        for (const [key, entry] of this.memoryCache.entries()) {
+          if (key.startsWith(prefix)) {
+            totalEntries++;
+            totalTTL += entry.expiresAt - entry.createdAt;
+            totalHits += entry.hits;
+
+            if (entry.expiresAt < now) expiredEntries++;
+            if (entry.hits < 2) lowHitRateEntries++; // Less than 2 hits
+          }
+        }
+        break;
+    }
+
+    return {
+      totalEntries,
+      expiredEntries,
+      lowHitRateEntries,
+      averageTTL: totalEntries > 0 ? totalTTL / totalEntries : 0,
+      hitRate: this.stats.hits / (this.stats.hits + this.stats.misses) || 0,
+      memoryUsage: this.memoryCache.size,
+    };
+  }
+
+  // ==========================================================================
+  // Private Helper Methods for Advanced Invalidation
+  // ==========================================================================
+
+  private notifyInvalidationListeners(key: string, reason: string): void {
+    for (const [pattern, listeners] of this.invalidationListeners.entries()) {
+      if (this.matchPattern(key, pattern)) {
+        listeners.forEach((callback) => {
+          try {
+            callback(key, reason);
+          } catch (error) {
+            logger.error(
+              "Invalidation listener failed",
+              error instanceof Error ? error : undefined
+            );
+          }
+        });
+      }
+    }
+  }
+
+  private async invalidateLowHitRate(
+    threshold: number,
+    storage: string,
+    namespace: string
+  ): Promise<number> {
+    let invalidated = 0;
+    const prefix = `${namespace}:`;
+
+    if (storage === "memory") {
+      for (const [key, entry] of this.memoryCache.entries()) {
+        if (key.startsWith(prefix)) {
+          const hitRate =
+            entry.hits / (this.stats.hits + this.stats.misses) || 0;
+          if (hitRate < threshold) {
+            this.memoryCache.delete(key);
+            invalidated++;
+          }
+        }
+      }
+    }
+
+    return invalidated;
+  }
+
+  private async invalidateExpiredOnly(
+    storage: string,
+    namespace: string
+  ): Promise<number> {
+    let invalidated = 0;
+    const prefix = `${namespace}:`;
+    const now = Date.now();
+
+    if (storage === "memory") {
+      for (const [key, entry] of this.memoryCache.entries()) {
+        if (key.startsWith(prefix) && entry.expiresAt < now) {
+          this.memoryCache.delete(key);
+          invalidated++;
+        }
+      }
+    }
+
+    return invalidated;
+  }
+
+  private async invalidateSizeBased(
+    threshold: number,
+    storage: string,
+    namespace: string
+  ): Promise<number> {
+    let invalidated = 0;
+
+    if (storage === "memory") {
+      const maxSize = Math.floor(this.MAX_MEMORY_SIZE * threshold);
+      if (this.memoryCache.size > maxSize) {
+        // Evict oldest entries
+        const entries = Array.from(this.memoryCache.entries())
+          .filter(([key]) => key.startsWith(`${namespace}:`))
+          .sort(([, a], [, b]) => a.createdAt - b.createdAt);
+
+        const toEvict = entries.slice(0, this.memoryCache.size - maxSize);
+        for (const [key] of toEvict) {
+          this.memoryCache.delete(key);
+          invalidated++;
+        }
+      }
+    }
+
+    return invalidated;
+  }
+
+  private async invalidateRedisPattern(pattern: string): Promise<void> {
+    if (!this.redisClient) return;
+
+    try {
+      const keys = await this.redisClient.keys(pattern);
+      if (keys.length > 0) {
+        await this.redisClient.del(keys);
+      }
+    } catch (error) {
+      logger.error(
+        "Failed to invalidate Redis pattern",
+        error instanceof Error ? error : undefined
+      );
     }
   }
 
@@ -344,22 +720,31 @@ export class CacheService {
   /**
    * Get all keys in cache
    */
-  async keys(options: { namespace?: string; storage?: 'memory' | 'local' | 'session' } = {}): Promise<string[]> {
-    const storage = options.storage || 'memory';
+  async keys(
+    options: {
+      namespace?: string;
+      storage?: "memory" | "local" | "session";
+    } = {}
+  ): Promise<string[]> {
+    const storage = options.storage || "memory";
     const namespace = options.namespace || this.defaultNamespace;
     const prefix = `${namespace}:`;
 
     switch (storage) {
-      case 'memory':
+      case "memory":
         return Array.from(this.memoryCache.keys())
-          .filter(key => key.startsWith(prefix))
-          .map(key => key.substring(prefix.length));
+          .filter((key) => key.startsWith(prefix))
+          .map((key) => key.substring(prefix.length));
 
-      case 'local':
-        return this.isStorageAvailable('local') ? this.getStorageKeys(localStorage, prefix) : [];
+      case "local":
+        return this.isStorageAvailable("local")
+          ? this.getStorageKeys(localStorage, prefix)
+          : [];
 
-      case 'session':
-        return this.isStorageAvailable('session') ? this.getStorageKeys(sessionStorage, prefix) : [];
+      case "session":
+        return this.isStorageAvailable("session")
+          ? this.getStorageKeys(sessionStorage, prefix)
+          : [];
 
       default:
         return [];
@@ -369,7 +754,12 @@ export class CacheService {
   /**
    * Get cache size
    */
-  async size(options: { namespace?: string; storage?: 'memory' | 'local' | 'session' } = {}): Promise<number> {
+  async size(
+    options: {
+      namespace?: string;
+      storage?: "memory" | "local" | "session";
+    } = {}
+  ): Promise<number> {
     const keys = await this.keys(options);
     return keys.length;
   }
@@ -383,29 +773,39 @@ export class CacheService {
     return `${ns}:${key}`;
   }
 
-  private getFromStorage<T>(key: string, storage: Storage): CacheEntry<T> | null {
+  private getFromStorage<T>(
+    key: string,
+    storage: Storage
+  ): CacheEntry<T> | null {
     try {
       const item = storage.getItem(key);
       if (!item) return null;
 
       return JSON.parse(item) as CacheEntry<T>;
     } catch (error) {
-      logger.error('Failed to get from storage', error instanceof Error ? error : undefined);
+      logger.error(
+        "Failed to get from storage",
+        error instanceof Error ? error : undefined
+      );
       return null;
     }
   }
 
-  private setToStorage<T>(key: string, entry: CacheEntry<T>, storage: Storage): void {
+  private setToStorage<T>(
+    key: string,
+    entry: CacheEntry<T>,
+    storage: Storage
+  ): void {
     try {
       storage.setItem(key, JSON.stringify(entry));
     } catch (error) {
       // Storage quota exceeded, evict and retry
-      logger.warn('Storage quota exceeded, evicting entries');
+      logger.warn("Storage quota exceeded, evicting entries");
       this.evictStorageIfNeeded(storage, 1);
       try {
         storage.setItem(key, JSON.stringify(entry));
       } catch (retryError) {
-        logger.error('Failed to set to storage after eviction:', retryError);
+        logger.error("Failed to set to storage after eviction:", retryError);
       }
     }
   }
@@ -421,7 +821,7 @@ export class CacheService {
       }
     }
 
-    keysToRemove.forEach(key => storage.removeItem(key));
+    keysToRemove.forEach((key) => storage.removeItem(key));
   }
 
   private getStorageKeys(storage: Storage, prefix: string): string[] {
@@ -458,8 +858,8 @@ export class CacheService {
   }
 
   private evictStorageIfNeeded(storage: Storage, maxSize: number): void {
-    const keys = this.getStorageKeys(storage, this.defaultNamespace + ':');
-    
+    const keys = this.getStorageKeys(storage, this.defaultNamespace + ":");
+
     if (keys.length <= maxSize) return;
 
     // Get all entries with their scores
@@ -491,14 +891,14 @@ export class CacheService {
       }
     }
 
-    keysToRemove.forEach(key => storage.removeItem(key));
+    keysToRemove.forEach((key) => storage.removeItem(key));
   }
 
   private matchPattern(key: string, pattern: string): boolean {
     // Simple wildcard matching (* matches any characters)
     const regexPattern = pattern
-      .replace(/[.+?^${}()|[\]\\]/g, '\\$&') // Escape special chars
-      .replace(/\*/g, '.*'); // Replace * with .*
+      .replace(/[.+?^${}()|[\]\\]/g, "\\$&") // Escape special chars
+      .replace(/\*/g, ".*"); // Replace * with .*
 
     const regex = new RegExp(`^${regexPattern}$`);
     return regex.test(key);
@@ -515,7 +915,10 @@ export class CacheService {
   async setCAS<T>(
     hash: string,
     content: T,
-    options: { namespace?: string; storage?: 'memory' | 'local' | 'session' } = {}
+    options: {
+      namespace?: string;
+      storage?: "memory" | "local" | "session";
+    } = {}
   ): Promise<void> {
     const casKey = `cas:${hash}`;
     // CAS entries are immutable - use 1 year TTL
@@ -528,7 +931,10 @@ export class CacheService {
    */
   async getCAS<T>(
     hash: string,
-    options: { namespace?: string; storage?: 'memory' | 'local' | 'session' } = {}
+    options: {
+      namespace?: string;
+      storage?: "memory" | "local" | "session";
+    } = {}
   ): Promise<T | null> {
     const casKey = `cas:${hash}`;
     return this.get<T>(casKey, options);
@@ -539,7 +945,10 @@ export class CacheService {
    */
   async hasCAS(
     hash: string,
-    options: { namespace?: string; storage?: 'memory' | 'local' | 'session' } = {}
+    options: {
+      namespace?: string;
+      storage?: "memory" | "local" | "session";
+    } = {}
   ): Promise<boolean> {
     const casKey = `cas:${hash}`;
     return this.has(casKey, options);
@@ -552,12 +961,19 @@ export class CacheService {
   async setHead(
     resourceId: string,
     hash: string,
-    options: { namespace?: string; storage?: 'memory' | 'local' | 'session' } = {}
+    options: {
+      namespace?: string;
+      storage?: "memory" | "local" | "session";
+    } = {}
   ): Promise<void> {
     const headKey = `head:${resourceId}`;
     // Head pointers have very short TTL - must be fetched fresh
     const ttl = 10 * 1000; // 10 seconds
-    await this.set(headKey, { hash, updatedAt: Date.now() }, { ...options, ttl });
+    await this.set(
+      headKey,
+      { hash, updatedAt: Date.now() },
+      { ...options, ttl }
+    );
   }
 
   /**
@@ -565,7 +981,10 @@ export class CacheService {
    */
   async getHead(
     resourceId: string,
-    options: { namespace?: string; storage?: 'memory' | 'local' | 'session' } = {}
+    options: {
+      namespace?: string;
+      storage?: "memory" | "local" | "session";
+    } = {}
   ): Promise<{ hash: string; updatedAt: number } | null> {
     const headKey = `head:${resourceId}`;
     return this.get(headKey, options);
@@ -577,7 +996,10 @@ export class CacheService {
    */
   async getByResourceId<T>(
     resourceId: string,
-    options: { namespace?: string; storage?: 'memory' | 'local' | 'session' } = {}
+    options: {
+      namespace?: string;
+      storage?: "memory" | "local" | "session";
+    } = {}
   ): Promise<{ content: T; hash: string; updatedAt: number } | null> {
     // Step 1: Get head pointer
     const head = await this.getHead(resourceId, options);
@@ -597,25 +1019,114 @@ export class CacheService {
   /**
    * Determine if browser storage is available (guards SSR/test)
    */
-  private isStorageAvailable(type: 'local' | 'session'): boolean {
-    if (typeof window === 'undefined') return false;
+  private isStorageAvailable(type: "local" | "session"): boolean {
+    if (typeof window === "undefined") return false;
     try {
-      const storage = type === 'local' ? window.localStorage : window.sessionStorage;
+      const storage =
+        type === "local" ? window.localStorage : window.sessionStorage;
       const testKey = `${this.defaultNamespace}:__cache_test__`;
-      storage.setItem(testKey, '1');
+      storage.setItem(testKey, "1");
       storage.removeItem(testKey);
       return true;
     } catch {
       return false;
     }
   }
+
+  // ==========================================================================
+  // Redis Helper Methods
+  // ==========================================================================
+
+  /**
+   * Get value from Redis
+   */
+  private async getFromRedis<T>(key: string): Promise<CacheEntry<T> | null> {
+    if (!this.redisClient) return null;
+
+    try {
+      const data = await this.redisClient.get(key);
+      if (!data) return null;
+
+      return JSON.parse(data) as CacheEntry<T>;
+    } catch (error) {
+      logger.error(
+        "Failed to get from Redis",
+        error instanceof Error ? error : undefined
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Set value to Redis with TTL
+   */
+  private async setToRedis<T>(
+    key: string,
+    entry: CacheEntry<T>,
+    ttl: number
+  ): Promise<void> {
+    if (!this.redisClient) return;
+
+    try {
+      await this.redisClient.setEx(
+        key,
+        Math.ceil(ttl / 1000),
+        JSON.stringify(entry)
+      );
+    } catch (error) {
+      logger.error(
+        "Failed to set to Redis",
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Delete value from Redis
+   */
+  private async deleteFromRedis(key: string): Promise<void> {
+    if (!this.redisClient) return;
+
+    try {
+      await this.redisClient.del(key);
+    } catch (error) {
+      logger.error(
+        "Failed to delete from Redis",
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Clear Redis entries by pattern
+   */
+  private async clearRedis(namespace: string): Promise<void> {
+    if (!this.redisClient) return;
+
+    try {
+      // Get all keys matching the namespace pattern
+      const pattern = `${namespace}:*`;
+      const keys = await this.redisClient.keys(pattern);
+
+      if (keys.length > 0) {
+        await this.redisClient.del(keys);
+      }
+    } catch (error) {
+      logger.error(
+        "Failed to clear Redis",
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  // ...
 }
 
 // ============================================================================
 // Singleton Instance
 // ============================================================================
 
-export const cacheService = new CacheService('valuecanvas');
+export const cacheService = new CacheService("valuecanvas");
 
 // ============================================================================
 // Specialized Cache Instances
@@ -629,8 +1140,8 @@ export const settingsCache = {
     const cacheKey = userId ? `settings:${userId}:${key}` : `settings:${key}`;
     return cacheService.get<T>(cacheKey, {
       ttl: 5 * 60 * 1000, // 5 minutes
-      namespace: 'settings',
-      storage: 'memory',
+      namespace: "settings",
+      storage: "memory",
     });
   },
 
@@ -638,23 +1149,23 @@ export const settingsCache = {
     const cacheKey = userId ? `settings:${userId}:${key}` : `settings:${key}`;
     return cacheService.set(cacheKey, value, {
       ttl: 5 * 60 * 1000,
-      namespace: 'settings',
-      storage: 'memory',
+      namespace: "settings",
+      storage: "memory",
     });
   },
 
   async invalidate(key: string, userId?: string): Promise<void> {
     const cacheKey = userId ? `settings:${userId}:${key}` : `settings:${key}`;
     return cacheService.delete(cacheKey, {
-      namespace: 'settings',
-      storage: 'memory',
+      namespace: "settings",
+      storage: "memory",
     });
   },
 
   async invalidateUser(userId: string): Promise<void> {
     return cacheService.invalidatePattern(`settings:${userId}:*`, {
-      namespace: 'settings',
-      storage: 'memory',
+      namespace: "settings",
+      storage: "memory",
     });
   },
 };
@@ -667,32 +1178,36 @@ export const agentCache = {
     const cacheKey = this.getCacheKey(query, context);
     return cacheService.get(cacheKey, {
       ttl: 10 * 60 * 1000, // 10 minutes
-      namespace: 'agent',
-      storage: 'memory',
+      namespace: "agent",
+      storage: "memory",
     });
   },
 
-  async set(query: string, context: Record<string, any>, response: any): Promise<void> {
+  async set(
+    query: string,
+    context: Record<string, any>,
+    response: any
+  ): Promise<void> {
     const cacheKey = this.getCacheKey(query, context);
     return cacheService.set(cacheKey, response, {
       ttl: 10 * 60 * 1000,
-      namespace: 'agent',
-      storage: 'memory',
+      namespace: "agent",
+      storage: "memory",
     });
   },
 
   async invalidate(query: string, context: Record<string, any>): Promise<void> {
     const cacheKey = this.getCacheKey(query, context);
     return cacheService.delete(cacheKey, {
-      namespace: 'agent',
-      storage: 'memory',
+      namespace: "agent",
+      storage: "memory",
     });
   },
 
   async invalidateAgent(agentType: string): Promise<void> {
     return cacheService.invalidatePattern(`${agentType}:*`, {
-      namespace: 'agent',
-      storage: 'memory',
+      namespace: "agent",
+      storage: "memory",
     });
   },
 
@@ -700,7 +1215,7 @@ export const agentCache = {
     // Create deterministic cache key from query + context
     const contextStr = JSON.stringify(this.normalizeContext(context));
     const hash = this.simpleHash(query + contextStr);
-    return `${context.agentType || 'unknown'}:${hash}`;
+    return `${context.agentType || "unknown"}:${hash}`;
   },
 
   normalizeContext(context: Record<string, any>): Record<string, any> {
@@ -727,30 +1242,30 @@ export const workflowCache = {
   async get(workflowId: string): Promise<any | null> {
     return cacheService.get(workflowId, {
       ttl: 30 * 60 * 1000, // 30 minutes
-      namespace: 'workflow',
-      storage: 'memory',
+      namespace: "workflow",
+      storage: "memory",
     });
   },
 
   async set(workflowId: string, workflow: any): Promise<void> {
     return cacheService.set(workflowId, workflow, {
       ttl: 30 * 60 * 1000,
-      namespace: 'workflow',
-      storage: 'memory',
+      namespace: "workflow",
+      storage: "memory",
     });
   },
 
   async invalidate(workflowId: string): Promise<void> {
     return cacheService.delete(workflowId, {
-      namespace: 'workflow',
-      storage: 'memory',
+      namespace: "workflow",
+      storage: "memory",
     });
   },
 
   async invalidateAll(): Promise<void> {
     return cacheService.clear({
-      namespace: 'workflow',
-      storage: 'memory',
+      namespace: "workflow",
+      storage: "memory",
     });
   },
 };

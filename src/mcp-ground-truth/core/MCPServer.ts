@@ -153,7 +153,9 @@ export class MCPFinancialGroundTruthServer {
 
       // Initialize Industry Benchmark module (Tier 3)
       this.modules.industryBenchmark = new IndustryBenchmarkModule();
-      await this.modules.industryBenchmark.initialize(this.config.industryBenchmark);
+      await this.modules.industryBenchmark.initialize(
+        this.config.industryBenchmark
+      );
       this.truthLayer.registerModule(this.modules.industryBenchmark);
 
       // Initialize ESO module (Economic Structure Ontology)
@@ -192,7 +194,8 @@ export class MCPFinancialGroundTruthServer {
             },
             period: {
               type: "string",
-              description: "Fiscal period normalized to Calendar Quarters or Annual format.",
+              description:
+                "Fiscal period normalized to Calendar Quarters or Annual format.",
               enum: ["FY2023", "FY2024", "CQ1_2024", "CQ2_2024", "LTM"],
             },
             metrics: {
@@ -214,7 +217,8 @@ export class MCPFinancialGroundTruthServer {
             },
             currency: {
               type: "string",
-              description: "ISO 4217 currency code. Defaults to reporting currency if omitted.",
+              description:
+                "ISO 4217 currency code. Defaults to reporting currency if omitted.",
               default: "USD",
               pattern: "^[A-Z]{3}$",
             },
@@ -242,7 +246,8 @@ export class MCPFinancialGroundTruthServer {
             },
             industry_code: {
               type: "string",
-              description: "NAICS or SIC code to select appropriate productivity benchmarks.",
+              description:
+                "NAICS or SIC code to select appropriate productivity benchmarks.",
             },
           },
           required: ["domain"],
@@ -257,7 +262,8 @@ export class MCPFinancialGroundTruthServer {
           properties: {
             claim_text: {
               type: "string",
-              description: "The sentence or assertion containing a financial fact to verify.",
+              description:
+                "The sentence or assertion containing a financial fact to verify.",
             },
             context_entity: {
               type: "string",
@@ -265,7 +271,8 @@ export class MCPFinancialGroundTruthServer {
             },
             context_date: {
               type: "string",
-              description: "ISO 8601 date string for the point-in-time of the claim.",
+              description:
+                "ISO 8601 date string for the point-in-time of the claim.",
             },
             strict_mode: {
               type: "boolean",
@@ -295,11 +302,17 @@ export class MCPFinancialGroundTruthServer {
             driver_node_id: {
               type: "string",
               description: "ID of the value tree node to populate.",
-              enum: ["revenue_uplift", "cost_reduction", "risk_mitigation", "productivity_delta"],
+              enum: [
+                "revenue_uplift",
+                "cost_reduction",
+                "risk_mitigation",
+                "productivity_delta",
+              ],
             },
             simulation_period: {
               type: "string",
-              description: "The forward-looking period for the value realization model.",
+              description:
+                "The forward-looking period for the value realization model.",
             },
           },
           required: ["target_cik", "benchmark_naics", "driver_node_id"],
@@ -314,7 +327,8 @@ export class MCPFinancialGroundTruthServer {
           properties: {
             identifier: {
               type: "string",
-              description: "NAICS code (6 digits) or SOC Occupation code (XX-XXXX).",
+              description:
+                "NAICS code (6 digits) or SOC Occupation code (XX-XXXX).",
             },
             metric: {
               type: "string",
@@ -332,10 +346,19 @@ export class MCPFinancialGroundTruthServer {
   /**
    * Execute an MCP tool
    */
-  async executeTool(toolName: string, args: Record<string, any>): Promise<MCPToolResult> {
+  async executeTool(
+    toolName: string,
+    args: Record<string, any>
+  ): Promise<MCPToolResult> {
     if (!this.initialized) {
-      throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "MCP server not initialized");
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        "MCP server not initialized"
+      );
     }
+
+    // Input validation and sanitization
+    this.validateToolArguments(toolName, args);
 
     logger.info("MCP tool execution started", { toolName, args });
 
@@ -343,12 +366,21 @@ export class MCPFinancialGroundTruthServer {
       switch (toolName) {
         case "get_authoritative_financials":
           return await this.getAuthoritativeFinancials(
-            args as { entity_id: string; period?: string; metrics: string[]; currency?: string }
+            args as {
+              entity_id: string;
+              period?: string;
+              metrics: string[];
+              currency?: string;
+            }
           );
 
         case "get_private_entity_estimates":
           return await this.getPrivateEntityEstimates(
-            args as { domain: string; proxy_metric?: string; industry_code?: string }
+            args as {
+              domain: string;
+              proxy_metric?: string;
+              industry_code?: string;
+            }
           );
 
         case "verify_claim_aletheia":
@@ -372,7 +404,9 @@ export class MCPFinancialGroundTruthServer {
           );
 
         case "get_industry_benchmark":
-          return await this.getIndustryBenchmark(args as { identifier: string; metric?: string });
+          return await this.getIndustryBenchmark(
+            args as { identifier: string; metric?: string }
+          );
 
         // ESO Module tools
         case "eso_get_metric_value":
@@ -381,15 +415,26 @@ export class MCPFinancialGroundTruthServer {
         case "eso_get_similar_traces":
         case "eso_get_persona_kpis":
           if (this.modules.eso) {
-            const result = await this.modules.eso.handleToolCall(toolName, args);
+            const result = await this.modules.eso.handleToolCall(
+              toolName,
+              args
+            );
             return {
-              content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+              content: [
+                { type: "text", text: JSON.stringify(result, null, 2) },
+              ],
             };
           }
-          throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "ESO module not initialized");
+          throw new GroundTruthError(
+            ErrorCodes.INVALID_REQUEST,
+            "ESO module not initialized"
+          );
 
         default:
-          throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, `Unknown tool: ${toolName}`);
+          throw new GroundTruthError(
+            ErrorCodes.INVALID_REQUEST,
+            `Unknown tool: ${toolName}`
+          );
       }
     } catch (error) {
       logger.error(
@@ -408,8 +453,11 @@ export class MCPFinancialGroundTruthServer {
               {
                 error: {
                   code:
-                    error instanceof GroundTruthError ? error.code : ErrorCodes.UPSTREAM_FAILURE,
-                  message: error instanceof Error ? error.message : "Unknown error",
+                    error instanceof GroundTruthError
+                      ? error.code
+                      : ErrorCodes.UPSTREAM_FAILURE,
+                  message:
+                    error instanceof Error ? error.message : "Unknown error",
                 },
               },
               null,
@@ -582,7 +630,12 @@ export class MCPFinancialGroundTruthServer {
     context_date?: string;
     strict_mode?: boolean;
   }): Promise<MCPToolResult> {
-    const { claim_text, context_entity, context_date, strict_mode = true } = args;
+    const {
+      claim_text,
+      context_entity,
+      context_date,
+      strict_mode = true,
+    } = args;
 
     const verification = await this.truthLayer.verifyClaim(
       claim_text,
@@ -631,7 +684,8 @@ export class MCPFinancialGroundTruthServer {
     driver_node_id: string;
     simulation_period: string;
   }): Promise<MCPToolResult> {
-    const { target_cik, benchmark_naics, driver_node_id, simulation_period } = args;
+    const { target_cik, benchmark_naics, driver_node_id, simulation_period } =
+      args;
 
     const result = await this.truthLayer.populateValueDriverTree(
       target_cik,
@@ -692,6 +746,148 @@ export class MCPFinancialGroundTruthServer {
   // ============================================================================
   // Helper Methods
   // ============================================================================
+
+  private validateToolArguments(
+    toolName: string,
+    args: Record<string, any>
+  ): void {
+    // Common input sanitization
+    const sanitizedArgs = { ...args };
+
+    // Sanitize string inputs to prevent injection
+    Object.keys(sanitizedArgs).forEach((key) => {
+      if (typeof sanitizedArgs[key] === "string") {
+        // Remove null bytes and control characters
+        sanitizedArgs[key] = sanitizedArgs[key].replace(/[\x00-\x1F\x7F]/g, "");
+        // Limit length to prevent DoS
+        if (sanitizedArgs[key].length > 1000) {
+          sanitizedArgs[key] = sanitizedArgs[key].substring(0, 1000);
+        }
+      }
+    });
+
+    // Tool-specific validation
+    switch (toolName) {
+      case "get_authoritative_financials":
+        this.validateAuthoritativeFinancialsArgs(sanitizedArgs);
+        break;
+      case "get_private_entity_estimates":
+        this.validatePrivateEntityEstimatesArgs(sanitizedArgs);
+        break;
+      case "verify_claim_aletheia":
+        this.validateVerifyClaimArgs(sanitizedArgs);
+        break;
+      case "populate_value_driver_tree":
+        this.validateValueDriverTreeArgs(sanitizedArgs);
+        break;
+      case "get_industry_benchmark":
+        this.validateIndustryBenchmarkArgs(sanitizedArgs);
+        break;
+    }
+
+    // Replace original args with sanitized versions
+    Object.assign(args, sanitizedArgs);
+  }
+
+  private validateAuthoritativeFinancialsArgs(args: Record<string, any>): void {
+    if (!args.entity_id || typeof args.entity_id !== "string") {
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        "entity_id is required and must be a string"
+      );
+    }
+    if (args.entity_id.length > 20) {
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        "entity_id too long"
+      );
+    }
+    if (!Array.isArray(args.metrics) || args.metrics.length === 0) {
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        "metrics must be a non-empty array"
+      );
+    }
+    if (args.metrics.length > 10) {
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        "too many metrics requested"
+      );
+    }
+  }
+
+  private validatePrivateEntityEstimatesArgs(args: Record<string, any>): void {
+    if (!args.domain || typeof args.domain !== "string") {
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        "domain is required and must be a string"
+      );
+    }
+    if (args.domain.length > 253) {
+      // Max domain length per RFC
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        "domain name too long"
+      );
+    }
+  }
+
+  private validateVerifyClaimArgs(args: Record<string, any>): void {
+    if (!args.claim_text || typeof args.claim_text !== "string") {
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        "claim_text is required and must be a string"
+      );
+    }
+    if (!args.context_entity || typeof args.context_entity !== "string") {
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        "context_entity is required and must be a string"
+      );
+    }
+    if (args.claim_text.length > 2000) {
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        "claim_text too long"
+      );
+    }
+  }
+
+  private validateValueDriverTreeArgs(args: Record<string, any>): void {
+    if (!args.target_cik || typeof args.target_cik !== "string") {
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        "target_cik is required and must be a string"
+      );
+    }
+    if (!args.benchmark_naics || typeof args.benchmark_naics !== "string") {
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        "benchmark_naics is required and must be a string"
+      );
+    }
+    if (!args.driver_node_id || typeof args.driver_node_id !== "string") {
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        "driver_node_id is required and must be a string"
+      );
+    }
+  }
+
+  private validateIndustryBenchmarkArgs(args: Record<string, any>): void {
+    if (!args.identifier || typeof args.identifier !== "string") {
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        "identifier is required and must be a string"
+      );
+    }
+    if (args.identifier.length > 20) {
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        "identifier too long"
+      );
+    }
+  }
 
   private async generateVerificationHash(results: any[]): Promise<string> {
     try {

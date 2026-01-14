@@ -42,7 +42,8 @@ export const CRM_TOOLS = [
         properties: {
           query: {
             type: "string",
-            description: "Free text search query (e.g., company name, deal name)",
+            description:
+              "Free text search query (e.g., company name, deal name)",
           },
           company_name: {
             type: "string",
@@ -51,7 +52,8 @@ export const CRM_TOOLS = [
           stages: {
             type: "array",
             items: { type: "string" },
-            description: 'Filter by deal stages (e.g., ["qualified", "proposal"])',
+            description:
+              'Filter by deal stages (e.g., ["qualified", "proposal"])',
           },
           min_amount: {
             type: "number",
@@ -135,7 +137,8 @@ export const CRM_TOOLS = [
     type: "function" as const,
     function: {
       name: "crm_add_note",
-      description: "Add a note to a deal in the CRM with value case insights or analysis results.",
+      description:
+        "Add a note to a deal in the CRM with value case insights or analysis results.",
       parameters: {
         type: "object",
         properties: {
@@ -191,16 +194,32 @@ export const CRM_TOOLS = [
             type: "object",
             description: "Metrics to sync to CRM",
             properties: {
-              roi: { type: "number", description: "ROI percentage (e.g., 245 for 245%)" },
-              npv: { type: "number", description: "Net Present Value in deal currency" },
-              payback_months: { type: "number", description: "Payback period in months" },
-              total_value: { type: "number", description: "Total projected value" },
-              confidence_score: { type: "number", description: "Confidence score 0-100" },
+              roi: {
+                type: "number",
+                description: "ROI percentage (e.g., 245 for 245%)",
+              },
+              npv: {
+                type: "number",
+                description: "Net Present Value in deal currency",
+              },
+              payback_months: {
+                type: "number",
+                description: "Payback period in months",
+              },
+              total_value: {
+                type: "number",
+                description: "Total projected value",
+              },
+              confidence_score: {
+                type: "number",
+                description: "Confidence score 0-100",
+              },
             },
           },
           dry_run: {
             type: "boolean",
-            description: "If true, validate permissions without writing (default false)",
+            description:
+              "If true, validate permissions without writing (default false)",
           },
         },
         required: ["deal_id", "metrics"],
@@ -230,7 +249,8 @@ export const CRM_TOOLS = [
     type: "function" as const,
     function: {
       name: "crm_check_connection",
-      description: "Check which CRM systems are connected and available for this tenant.",
+      description:
+        "Check which CRM systems are connected and available for this tenant.",
       parameters: {
         type: "object",
         properties: {},
@@ -282,7 +302,7 @@ export class MCPCRMServer {
       }));
 
       logger.error("Some initialization tasks failed", {
-        taskFailures: errorDetails,
+        errorDetails,
         totalFailures: failures.length,
       });
     }
@@ -353,8 +373,8 @@ export class MCPCRMServer {
       retryAttempts: 2,
       retryDelay: 1000,
       executor: async () => {
-        const modulePromises = Array.from(this.connections.values()).map((connection) =>
-          this.initializeModule(connection)
+        const modulePromises = Array.from(this.connections.values()).map(
+          (connection) => this.initializeModule(connection)
         );
         await Promise.all(modulePromises);
         return Array.from(this.modules.keys());
@@ -466,7 +486,10 @@ export class MCPCRMServer {
         providers: Array.from(this.connections.keys()),
       });
     } catch (error) {
-      logger.error("Error loading CRM connections", error instanceof Error ? error : undefined);
+      logger.error(
+        "Error loading CRM connections",
+        error instanceof Error ? error : undefined
+      );
     }
   }
 
@@ -492,7 +515,9 @@ export class MCPCRMServer {
   getTools(): typeof CRM_TOOLS {
     if (this.connections.size === 0) {
       // Return only the connection check tool if no CRMs connected
-      return CRM_TOOLS.filter((t) => t.function.name === "crm_check_connection");
+      return CRM_TOOLS.filter(
+        (t) => t.function.name === "crm_check_connection"
+      );
     }
     return CRM_TOOLS;
   }
@@ -514,14 +539,22 @@ export class MCPCRMServer {
   /**
    * Execute a CRM tool
    */
-  async executeTool(toolName: string, args: Record<string, unknown>): Promise<MCPCRMToolResult> {
+  async executeTool(
+    toolName: string,
+    args: Record<string, unknown>
+  ): Promise<MCPCRMToolResult> {
     const startTime = Date.now();
     const requestId = `crm-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const responseBuilder = new MCPResponseBuilder(toolName, undefined, requestId);
+    const responseBuilder = new MCPResponseBuilder(
+      toolName,
+      undefined,
+      requestId
+    );
 
     try {
       // Get the first available module (prefer HubSpot for now)
-      const module = this.modules.get("hubspot") || this.modules.get("salesforce");
+      const module =
+        this.modules.get("hubspot") || this.modules.get("salesforce");
 
       switch (toolName) {
         case "crm_check_connection":
@@ -529,19 +562,39 @@ export class MCPCRMServer {
 
         case "crm_search_deals":
           if (!module) return this.noConnectionResult(responseBuilder);
-          return this.handleSearchDeals(module, args, responseBuilder, startTime);
+          return this.handleSearchDeals(
+            module,
+            args,
+            responseBuilder,
+            startTime
+          );
 
         case "crm_get_deal_details":
           if (!module) return this.noConnectionResult(responseBuilder);
-          return this.handleGetDealDetails(module, args, responseBuilder, startTime);
+          return this.handleGetDealDetails(
+            module,
+            args,
+            responseBuilder,
+            startTime
+          );
 
         case "crm_get_stakeholders":
           if (!module) return this.noConnectionResult(responseBuilder);
-          return this.handleGetStakeholders(module, args, responseBuilder, startTime);
+          return this.handleGetStakeholders(
+            module,
+            args,
+            responseBuilder,
+            startTime
+          );
 
         case "crm_get_recent_activities":
           if (!module) return this.noConnectionResult(responseBuilder);
-          return this.handleGetActivities(module, args, responseBuilder, startTime);
+          return this.handleGetActivities(
+            module,
+            args,
+            responseBuilder,
+            startTime
+          );
 
         case "crm_add_note":
           if (!module) return this.noConnectionResult(responseBuilder);
@@ -549,15 +602,30 @@ export class MCPCRMServer {
 
         case "crm_get_deal_context":
           if (!module) return this.noConnectionResult(responseBuilder);
-          return this.handleGetDealContext(module, args, responseBuilder, startTime);
+          return this.handleGetDealContext(
+            module,
+            args,
+            responseBuilder,
+            startTime
+          );
 
         case "crm_sync_metrics":
           if (!module) return this.noConnectionResult(responseBuilder);
-          return this.handleSyncMetrics(module, args, responseBuilder, startTime);
+          return this.handleSyncMetrics(
+            module,
+            args,
+            responseBuilder,
+            startTime
+          );
 
         case "crm_inspect_schema":
           if (!module) return this.noConnectionResult(responseBuilder);
-          return this.handleInspectSchema(module, args, responseBuilder, startTime);
+          return this.handleInspectSchema(
+            module,
+            args,
+            responseBuilder,
+            startTime
+          );
 
         default:
           const error = new MCPCRMError(
@@ -568,7 +636,10 @@ export class MCPCRMServer {
           return responseBuilder.error(error) as any;
       }
     } catch (error) {
-      logger.error("CRM tool execution failed", error instanceof Error ? error : undefined);
+      logger.error(
+        "CRM tool execution failed",
+        error instanceof Error ? error : undefined
+      );
       return responseBuilder.error(
         new MCPCRMError(
           MCPErrorCodes.INTERNAL_ERROR,
@@ -626,7 +697,9 @@ export class MCPCRMServer {
 
     // Apply adaptive throttling delay if needed
     if (rateLimitResult.adaptiveDelay && rateLimitResult.adaptiveDelay > 0) {
-      await new Promise((resolve) => setTimeout(resolve, rateLimitResult.adaptiveDelay));
+      await new Promise((resolve) =>
+        setTimeout(resolve, rateLimitResult.adaptiveDelay)
+      );
     }
 
     const params: DealSearchParams = {
@@ -666,12 +739,17 @@ export class MCPCRMServer {
       };
     } catch (error) {
       // Record failed request
-      mcpRateLimiter.recordFailure(module.provider, error instanceof Error ? error : undefined);
+      mcpRateLimiter.recordFailure(
+        module.provider,
+        error instanceof Error ? error : undefined
+      );
 
       return {
         success: false,
         error:
-          error instanceof Error ? error.message : "Unknown error occurred while searching deals",
+          error instanceof Error
+            ? error.message
+            : "Unknown error occurred while searching deals",
       };
     }
   }
@@ -686,13 +764,74 @@ export class MCPCRMServer {
     const includeContacts = args.include_contacts !== false;
     const includeActivities = args.include_activities !== false;
 
-    const deal = await module.getDeal(dealId);
-    if (!deal) {
-      return { success: false, error: `Deal not found: ${dealId}` };
+    if (!dealId) {
+      return {
+        success: false,
+        error: "deal_id parameter is required",
+        metadata: {
+          provider: module.provider,
+          requestDurationMs: Date.now() - startTime,
+        },
+      };
     }
 
-    const contacts = includeContacts ? await module.getDealContacts(dealId) : [];
-    const activities = includeActivities ? await module.getDealActivities(dealId, 5) : [];
+    // Get deal details
+    let deal;
+    try {
+      deal = await module.getDeal(dealId);
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to fetch deal details: ${error instanceof Error ? error.message : "Unknown error"}`,
+        metadata: {
+          provider: module.provider,
+          requestDurationMs: Date.now() - startTime,
+        },
+      };
+    }
+
+    if (!deal) {
+      return {
+        success: false,
+        error: `Deal not found: ${dealId}. Please verify the deal ID and ensure you have access to this deal.`,
+        metadata: {
+          provider: module.provider,
+          requestDurationMs: Date.now() - startTime,
+        },
+      };
+    }
+
+    // Get contacts if requested
+    let contacts: CRMContact[] = [];
+    if (includeContacts) {
+      try {
+        contacts = await module.getDealContacts(dealId);
+      } catch (error) {
+        logger.warn("Failed to fetch deal contacts", {
+          dealId,
+          provider: module.provider,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+        // Don't fail the entire request, just log and continue with empty contacts
+        contacts = [];
+      }
+    }
+
+    // Get activities if requested
+    let activities: CRMActivity[] = [];
+    if (includeActivities) {
+      try {
+        activities = await module.getDealActivities(dealId, 5);
+      } catch (error) {
+        logger.warn("Failed to fetch deal activities", {
+          dealId,
+          provider: module.provider,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+        // Don't fail the entire request, just log and continue with empty activities
+        activities = [];
+      }
+    }
 
     return {
       success: true,
@@ -738,26 +877,50 @@ export class MCPCRMServer {
     startTime: number
   ): Promise<MCPCRMToolResult> {
     const dealId = args.deal_id as string;
-    const contacts = await module.getDealContacts(dealId);
 
-    return {
-      success: true,
-      data: {
-        stakeholders: contacts.map((c) => ({
-          name: `${c.firstName || ""} ${c.lastName || ""}`.trim() || "Unknown",
-          email: c.email,
-          phone: c.phone,
-          title: c.title,
-          role: c.role || "Contact",
-          company: c.companyName,
-        })),
-        count: contacts.length,
-      },
-      metadata: {
-        provider: module.provider,
-        requestDurationMs: Date.now() - startTime,
-      },
-    };
+    if (!dealId) {
+      return {
+        success: false,
+        error: "deal_id parameter is required",
+        metadata: {
+          provider: module.provider,
+          requestDurationMs: Date.now() - startTime,
+        },
+      };
+    }
+
+    try {
+      const contacts = await module.getDealContacts(dealId);
+
+      return {
+        success: true,
+        data: {
+          stakeholders: contacts.map((c) => ({
+            name:
+              `${c.firstName || ""} ${c.lastName || ""}`.trim() || "Unknown",
+            email: c.email,
+            phone: c.phone,
+            title: c.title,
+            role: c.role || "Contact",
+            company: c.companyName,
+          })),
+          count: contacts.length,
+        },
+        metadata: {
+          provider: module.provider,
+          requestDurationMs: Date.now() - startTime,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to fetch stakeholders: ${error instanceof Error ? error.message : "Unknown error"}`,
+        metadata: {
+          provider: module.provider,
+          requestDurationMs: Date.now() - startTime,
+        },
+      };
+    }
   }
 
   private async handleGetActivities(
@@ -768,25 +931,59 @@ export class MCPCRMServer {
   ): Promise<MCPCRMToolResult> {
     const dealId = args.deal_id as string;
     const limit = (args.limit as number) || 10;
-    const activities = await module.getDealActivities(dealId, limit);
 
-    return {
-      success: true,
-      data: {
-        activities: activities.map((a) => ({
-          type: a.type,
-          subject: a.subject,
-          body: a.body?.substring(0, 200),
-          date: a.occurredAt.toISOString(),
-          durationMinutes: a.durationMinutes,
-        })),
-        count: activities.length,
-      },
-      metadata: {
-        provider: module.provider,
-        requestDurationMs: Date.now() - startTime,
-      },
-    };
+    if (!dealId) {
+      return {
+        success: false,
+        error: "deal_id parameter is required",
+        metadata: {
+          provider: module.provider,
+          requestDurationMs: Date.now() - startTime,
+        },
+      };
+    }
+
+    if (limit < 1 || limit > 50) {
+      return {
+        success: false,
+        error: "limit parameter must be between 1 and 50",
+        metadata: {
+          provider: module.provider,
+          requestDurationMs: Date.now() - startTime,
+        },
+      };
+    }
+
+    try {
+      const activities = await module.getDealActivities(dealId, limit);
+
+      return {
+        success: true,
+        data: {
+          activities: activities.map((a) => ({
+            type: a.type,
+            subject: a.subject,
+            body: a.body?.substring(0, 200),
+            date: a.occurredAt.toISOString(),
+            durationMinutes: a.durationMinutes,
+          })),
+          count: activities.length,
+        },
+        metadata: {
+          provider: module.provider,
+          requestDurationMs: Date.now() - startTime,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to fetch activities: ${error instanceof Error ? error.message : "Unknown error"}`,
+        metadata: {
+          provider: module.provider,
+          requestDurationMs: Date.now() - startTime,
+        },
+      };
+    }
   }
 
   private async handleAddNote(
@@ -853,7 +1050,9 @@ export class MCPCRMServer {
         normalized: normalizedStage,
         closeDate: deal.closeDate?.toISOString(),
         daysInStage: this.calculateDaysInStage(deal.updatedAt),
-        daysToClose: deal.closeDate ? this.calculateDaysToClose(deal.closeDate) : null,
+        daysToClose: deal.closeDate
+          ? this.calculateDaysToClose(deal.closeDate)
+          : null,
       },
 
       // Stakeholders summary
@@ -928,13 +1127,18 @@ export class MCPCRMServer {
     if (metrics.total_value !== undefined && fieldMapping.total_value) {
       propertiesToUpdate[fieldMapping.total_value] = metrics.total_value;
     }
-    if (metrics.confidence_score !== undefined && fieldMapping.confidence_score) {
-      propertiesToUpdate[fieldMapping.confidence_score] = metrics.confidence_score;
+    if (
+      metrics.confidence_score !== undefined &&
+      fieldMapping.confidence_score
+    ) {
+      propertiesToUpdate[fieldMapping.confidence_score] =
+        metrics.confidence_score;
     }
 
     // Add metadata fields
-    propertiesToUpdate[fieldMapping.last_calculated || "valuecanvas_last_sync"] =
-      new Date().toISOString();
+    propertiesToUpdate[
+      fieldMapping.last_calculated || "valuecanvas_last_sync"
+    ] = new Date().toISOString();
 
     if (dryRun) {
       // Validate by attempting to read the deal first
@@ -959,7 +1163,10 @@ export class MCPCRMServer {
     }
 
     // Actually write the metrics
-    const success = await module.updateDealProperties(dealId, propertiesToUpdate);
+    const success = await module.updateDealProperties(
+      dealId,
+      propertiesToUpdate
+    );
 
     return {
       success,
@@ -971,7 +1178,9 @@ export class MCPCRMServer {
             message: `Successfully synced ${Object.keys(metrics).length} metrics to CRM.`,
           }
         : undefined,
-      error: success ? undefined : "Failed to update deal properties. Check field permissions.",
+      error: success
+        ? undefined
+        : "Failed to update deal properties. Check field permissions.",
       metadata: {
         provider: module.provider,
         requestDurationMs: Date.now() - startTime,
@@ -1069,7 +1278,9 @@ export class MCPCRMServer {
     return Math.floor(diffMs / (1000 * 60 * 60 * 24));
   }
 
-  private extractRelevantProperties(props: Record<string, unknown>): Record<string, unknown> {
+  private extractRelevantProperties(
+    props: Record<string, unknown>
+  ): Record<string, unknown> {
     // Filter for value-relevant properties
     const relevantKeys = [
       "annual_revenue",
@@ -1095,7 +1306,9 @@ export class MCPCRMServer {
     return result;
   }
 
-  private getMetricsFieldMapping(provider: CRMProvider): Record<string, string> {
+  private getMetricsFieldMapping(
+    provider: CRMProvider
+  ): Record<string, string> {
     try {
       return this.configManager.getFieldMappings(provider);
     } catch (error) {
@@ -1131,7 +1344,12 @@ export class MCPCRMServer {
     provider: CRMProvider,
     objectType: string
   ): {
-    fields: Array<{ name: string; type: string; editable: boolean; required: boolean }>;
+    fields: Array<{
+      name: string;
+      type: string;
+      editable: boolean;
+      required: boolean;
+    }>;
     customFieldsCount: number;
     requiredFields: string[];
     writableFields: string[];
@@ -1150,14 +1368,44 @@ export class MCPCRMServer {
     const customFields =
       provider === "salesforce"
         ? [
-            { name: "Calculated_ROI__c", type: "number", editable: true, required: false },
-            { name: "Net_Present_Value__c", type: "currency", editable: true, required: false },
-            { name: "Payback_Period_Months__c", type: "number", editable: true, required: false },
+            {
+              name: "Calculated_ROI__c",
+              type: "number",
+              editable: true,
+              required: false,
+            },
+            {
+              name: "Net_Present_Value__c",
+              type: "currency",
+              editable: true,
+              required: false,
+            },
+            {
+              name: "Payback_Period_Months__c",
+              type: "number",
+              editable: true,
+              required: false,
+            },
           ]
         : [
-            { name: "calculated_roi", type: "number", editable: true, required: false },
-            { name: "net_present_value", type: "number", editable: true, required: false },
-            { name: "payback_period_months", type: "number", editable: true, required: false },
+            {
+              name: "calculated_roi",
+              type: "number",
+              editable: true,
+              required: false,
+            },
+            {
+              name: "net_present_value",
+              type: "number",
+              editable: true,
+              required: false,
+            },
+            {
+              name: "payback_period_months",
+              type: "number",
+              editable: true,
+              required: false,
+            },
           ];
 
     const allFields = [...dealFields, ...customFields];
@@ -1170,7 +1418,9 @@ export class MCPCRMServer {
     };
   }
 
-  private noConnectionResult(responseBuilder: MCPResponseBuilder): MCPCRMToolResult {
+  private noConnectionResult(
+    responseBuilder: MCPResponseBuilder
+  ): MCPCRMToolResult {
     return {
       success: false,
       error:
@@ -1185,7 +1435,10 @@ export class MCPCRMServer {
 
 let serverInstance: MCPCRMServer | null = null;
 
-export async function getMCPCRMServer(tenantId: string, userId: string): Promise<MCPCRMServer> {
+export async function getMCPCRMServer(
+  tenantId: string,
+  userId: string
+): Promise<MCPCRMServer> {
   // In production, you'd cache by tenantId
   if (!serverInstance || serverInstance["config"].tenantId !== tenantId) {
     serverInstance = new MCPCRMServer({

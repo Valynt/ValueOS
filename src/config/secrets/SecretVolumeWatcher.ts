@@ -16,11 +16,12 @@
  * Updated: 2025-01-14
  */
 
-import { promises as fs, FSWatcher, watch } from 'fs';
-import { join } from 'path';
-import { logger } from '../../lib/logger';
-import { EventEmitter } from 'events';
-import { promisify } from 'util';
+import { promises as fs, FSWatcher, watch } from "fs";
+import { join } from "path";
+import { logger } from "../../lib/logger";
+import { EventEmitter } from "events";
+import { promisify } from "util";
+import { config } from "./SecretConfig";
 
 /**
  * Secret file change event
@@ -64,7 +65,7 @@ export interface SecretWatcherMetrics {
  * Health check result
  */
 export interface WatcherHealthCheck {
-  status: 'healthy' | 'degraded' | 'unhealthy';
+  status: "healthy" | "degraded" | "unhealthy";
   details: {
     mountPathAccessible: boolean;
     secretCount: number;
@@ -110,19 +111,31 @@ export class SecretVolumeWatcher extends EventEmitter {
     healthCheckFailures: 0,
   };
 
-  constructor(config: WatcherConfig) {
+  constructor(config?: WatcherConfig) {
     super();
 
-    this.mountPath = config.mountPath;
-    this.pollInterval = config.pollInterval || 5000; // 5 seconds
-    this.debounceMs = config.debounceMs || 1000; // 1 second
-    this.healthCheckInterval = config.healthCheckInterval || 30000; // 30 seconds
-    this.maxRetries = config.maxRetries || 5;
-    this.retryBackoffMs = config.retryBackoffMs || 1000;
-    this.enableMetrics = config.enableMetrics ?? true;
-    this.gracefulRestartTimeout = config.gracefulRestartTimeout || 10000; // 10 seconds
+    // Use provided config or fall back to global config
+    const watcherConfig = config || {
+      mountPath: config.volumeWatcher.mountPath,
+      pollInterval: config.volumeWatcher.pollInterval,
+      debounceMs: config.volumeWatcher.debounceMs,
+      healthCheckInterval: config.volumeWatcher.healthCheckInterval,
+      maxRetries: config.volumeWatcher.maxRetries,
+      retryBackoffMs: 1000, // Keep as configurable
+      enableMetrics: true,
+      gracefulRestartTimeout: config.volumeWatcher.gracefulRestartTimeout,
+    };
 
-    logger.info('Enhanced secret volume watcher initialized', {
+    this.mountPath = watcherConfig.mountPath;
+    this.pollInterval = watcherConfig.pollInterval || 5000; // 5 seconds
+    this.debounceMs = watcherConfig.debounceMs || 1000; // 1 second
+    this.healthCheckInterval = watcherConfig.healthCheckInterval || 30000; // 30 seconds
+    this.maxRetries = watcherConfig.maxRetries || 5;
+    this.retryBackoffMs = watcherConfig.retryBackoffMs || 1000;
+    this.enableMetrics = watcherConfig.enableMetrics ?? true;
+    this.gracefulRestartTimeout = watcherConfig.gracefulRestartTimeout || 10000; // 10 seconds
+
+    logger.info("Enhanced secret volume watcher initialized", {
       mountPath: this.mountPath,
       pollInterval: this.pollInterval,
       debounceMs: this.debounceMs,
@@ -130,7 +143,7 @@ export class SecretVolumeWatcher extends EventEmitter {
       productionFeatures: {
         maxRetries: this.maxRetries,
         gracefulRestartTimeout: this.gracefulRestartTimeout,
-      }
+      },
     });
   }
 
@@ -139,7 +152,7 @@ export class SecretVolumeWatcher extends EventEmitter {
    */
   async start(): Promise<void> {
     if (this.isWatching) {
-      logger.warn('Secret volume watcher already started');
+      logger.warn("Secret volume watcher already started");
       return;
     }
 
@@ -158,16 +171,20 @@ export class SecretVolumeWatcher extends EventEmitter {
 
       this.isWatching = true;
 
-      logger.info('Secret volume watcher started successfully', {
+      logger.info("Secret volume watcher started successfully", {
         mountPath: this.mountPath,
-        secretCount: this.secretCache.size
+        secretCount: this.secretCache.size,
       });
 
-      this.emit('started');
+      this.emit("started");
     } catch (error) {
-      logger.error('Failed to start secret volume watcher', error instanceof Error ? error : new Error(String(error)), {
-        mountPath: this.mountPath
-      });
+      logger.error(
+        "Failed to start secret volume watcher",
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          mountPath: this.mountPath,
+        }
+      );
       throw error;
     }
   }
@@ -200,8 +217,8 @@ export class SecretVolumeWatcher extends EventEmitter {
 
     this.isWatching = false;
 
-    logger.info('Secret volume watcher stopped');
-    this.emit('stopped');
+    logger.info("Secret volume watcher stopped");
+    this.emit("stopped");
   }
 
   /**
@@ -218,12 +235,15 @@ export class SecretVolumeWatcher extends EventEmitter {
       // Try to read directory
       await fs.readdir(this.mountPath);
 
-      logger.info('Mount path verified', { mountPath: this.mountPath });
+      logger.info("Mount path verified", { mountPath: this.mountPath });
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        logger.warn('Mount path does not exist - CSI driver may not be configured', {
-          mountPath: this.mountPath
-        });
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        logger.warn(
+          "Mount path does not exist - CSI driver may not be configured",
+          {
+            mountPath: this.mountPath,
+          }
+        );
       }
       throw error;
     }
@@ -238,7 +258,7 @@ export class SecretVolumeWatcher extends EventEmitter {
 
       for (const file of files) {
         // Skip hidden files and directories
-        if (file.startsWith('.') || file.startsWith('..')) {
+        if (file.startsWith(".") || file.startsWith("..")) {
           continue;
         }
 
@@ -246,17 +266,20 @@ export class SecretVolumeWatcher extends EventEmitter {
         const stats = await fs.stat(filePath);
 
         if (stats.isFile()) {
-          const content = await fs.readFile(filePath, 'utf8');
+          const content = await fs.readFile(filePath, "utf8");
           this.secretCache.set(file, content);
         }
       }
 
-      logger.info('Loaded secrets from mount path', {
+      logger.info("Loaded secrets from mount path", {
         mountPath: this.mountPath,
-        secretCount: this.secretCache.size
+        secretCount: this.secretCache.size,
       });
     } catch (error) {
-      logger.error('Failed to load secrets', error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        "Failed to load secrets",
+        error instanceof Error ? error : new Error(String(error))
+      );
       throw error;
     }
   }
@@ -266,29 +289,36 @@ export class SecretVolumeWatcher extends EventEmitter {
    */
   private startWatching(): void {
     try {
-      this.watcher = watch(this.mountPath, { recursive: false }, (eventType, filename) => {
-        if (!filename) {
-          return;
+      this.watcher = watch(
+        this.mountPath,
+        { recursive: false },
+        (eventType, filename) => {
+          if (!filename) {
+            return;
+          }
+
+          // Skip hidden files
+          if (filename.startsWith(".")) {
+            return;
+          }
+
+          logger.debug("File change detected", {
+            eventType,
+            filename,
+            mountPath: this.mountPath,
+          });
+
+          // Debounce file changes
+          this.debounceChange(filename);
         }
+      );
 
-        // Skip hidden files
-        if (filename.startsWith('.')) {
-          return;
-        }
-
-        logger.debug('File change detected', {
-          eventType,
-          filename,
-          mountPath: this.mountPath
-        });
-
-        // Debounce file changes
-        this.debounceChange(filename);
-      });
-
-      logger.info('File watcher started', { mountPath: this.mountPath });
+      logger.info("File watcher started", { mountPath: this.mountPath });
     } catch (error) {
-      logger.error('Failed to start file watcher', error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        "Failed to start file watcher",
+        error instanceof Error ? error : new Error(String(error))
+      );
       throw error;
     }
   }
@@ -324,19 +354,22 @@ export class SecretVolumeWatcher extends EventEmitter {
         await fs.access(filePath);
       } catch {
         // File was deleted
-        logger.info('Secret file deleted', { filename });
+        logger.info("Secret file deleted", { filename });
         this.secretCache.delete(filename);
-        this.emit('secret-deleted', { secretKey: filename, timestamp: new Date() });
+        this.emit("secret-deleted", {
+          secretKey: filename,
+          timestamp: new Date(),
+        });
         return;
       }
 
       // Read new content
-      const newContent = await fs.readFile(filePath, 'utf8');
+      const newContent = await fs.readFile(filePath, "utf8");
       const oldContent = this.secretCache.get(filename);
 
       // Check if content actually changed
       if (oldContent === newContent) {
-        logger.debug('Secret content unchanged', { filename });
+        logger.debug("Secret content unchanged", { filename });
         return;
       }
 
@@ -352,31 +385,35 @@ export class SecretVolumeWatcher extends EventEmitter {
         secretKey: filename,
         oldValue: oldContent,
         newValue: newContent,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
-      logger.info('Secret changed', {
+      logger.info("Secret changed", {
         secretKey: filename,
         hasOldValue: !!oldContent,
-        newValueLength: newContent.length
+        newValueLength: newContent.length,
       });
 
-      this.emit('secret-changed', changeEvent);
+      this.emit("secret-changed", changeEvent);
 
       // Check if this is a critical secret that requires reload
       if (this.isCriticalSecret(filename)) {
-        logger.warn('Critical secret changed - application reload required', {
-          secretKey: filename
+        logger.warn("Critical secret changed - application reload required", {
+          secretKey: filename,
         });
         this.metrics.reloadsTriggered++;
-        this.emit('reload-required', changeEvent);
+        this.emit("reload-required", changeEvent);
       }
     } catch (error) {
       this.metrics.errors++;
-      logger.error('Error handling file change', error instanceof Error ? error : new Error(String(error)), {
-        filename
-      });
-      this.emit('error', error);
+      logger.error(
+        "Error handling file change",
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          filename,
+        }
+      );
+      this.emit("error", error);
     }
   }
 
@@ -395,21 +432,22 @@ export class SecretVolumeWatcher extends EventEmitter {
 
       // Count secrets
       const files = await fs.readdir(this.mountPath);
-      secretCount = files.filter(f => !f.startsWith('.')).length;
-
+      secretCount = files.filter((f) => !f.startsWith(".")).length;
     } catch (error) {
-      errors.push(`Mount path inaccessible: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      errors.push(
+        `Mount path inaccessible: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     }
 
     // Determine status
-    let status: 'healthy' | 'degraded' | 'unhealthy';
+    let status: "healthy" | "degraded" | "unhealthy";
 
     if (!mountPathAccessible) {
-      status = 'unhealthy';
+      status = "unhealthy";
     } else if (errors.length > 0 || this.metrics.errors > 5) {
-      status = 'degraded';
+      status = "degraded";
     } else {
-      status = 'healthy';
+      status = "healthy";
     }
 
     // Update uptime
@@ -440,26 +478,29 @@ export class SecretVolumeWatcher extends EventEmitter {
    * Enhanced graceful restart with timeout
    */
   async triggerGracefulRestart(reason: string): Promise<void> {
-    logger.warn('Initiating graceful restart', {
+    logger.warn("Initiating graceful restart", {
       reason,
       timeout: this.gracefulRestartTimeout,
     });
 
-    this.emit('restart-initiated', { reason, timestamp: new Date() });
+    this.emit("restart-initiated", { reason, timestamp: new Date() });
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        logger.error('Graceful restart timeout - forcing exit');
+        logger.error("Graceful restart timeout - forcing exit");
         process.exit(1);
       }, this.gracefulRestartTimeout);
 
       // Notify listeners to prepare for shutdown
-      this.emit('graceful-shutdown', { reason, timeout: this.gracefulRestartTimeout });
+      this.emit("graceful-shutdown", {
+        reason,
+        timeout: this.gracefulRestartTimeout,
+      });
 
       // Give some time for graceful shutdown
       setTimeout(() => {
         clearTimeout(timeout);
-        logger.info('Graceful restart completed');
+        logger.info("Graceful restart completed");
         resolve();
       }, 2000); // 2 second grace period
     });
@@ -468,7 +509,10 @@ export class SecretVolumeWatcher extends EventEmitter {
   /**
    * Enhanced error recovery with exponential backoff
    */
-  private async handleErrorWithRetry(error: Error, operation: string): Promise<void> {
+  private async handleErrorWithRetry(
+    error: Error,
+    operation: string
+  ): Promise<void> {
     this.metrics.errors++;
     this.retryCount++;
 
@@ -488,7 +532,7 @@ export class SecretVolumeWatcher extends EventEmitter {
       delay: backoffDelay,
     });
 
-    await new Promise(resolve => setTimeout(resolve, backoffDelay));
+    await new Promise((resolve) => setTimeout(resolve, backoffDelay));
   }
 
   /**
@@ -496,10 +540,10 @@ export class SecretVolumeWatcher extends EventEmitter {
    */
   private isCriticalSecret(secretKey: string): boolean {
     const criticalSecrets = [
-      'database-password',
-      'database-url',
-      'jwt-secret',
-      'supabase-service-key'
+      "database-password",
+      "database-url",
+      "jwt-secret",
+      "supabase-service-key",
     ];
 
     return criticalSecrets.includes(secretKey);
@@ -513,13 +557,16 @@ export class SecretVolumeWatcher extends EventEmitter {
       try {
         await this.performHealthCheck();
       } catch (error) {
-        logger.error('Health check failed', error instanceof Error ? error : new Error(String(error)));
-        this.emit('health-check-failed', error);
+        logger.error(
+          "Health check failed",
+          error instanceof Error ? error : new Error(String(error))
+        );
+        this.emit("health-check-failed", error);
       }
     }, this.healthCheckInterval);
 
-    logger.info('Health check started', {
-      interval: this.healthCheckInterval
+    logger.info("Health check started", {
+      interval: this.healthCheckInterval,
     });
   }
 
@@ -533,23 +580,27 @@ export class SecretVolumeWatcher extends EventEmitter {
 
       // Verify can still read secrets
       const files = await fs.readdir(this.mountPath);
-      const fileCount = files.filter(f => !f.startsWith('.')).length;
+      const fileCount = files.filter((f) => !f.startsWith(".")).length;
 
       if (fileCount === 0) {
-        logger.warn('No secrets found in mount path', {
-          mountPath: this.mountPath
+        logger.warn("No secrets found in mount path", {
+          mountPath: this.mountPath,
         });
       }
 
-      this.emit('health-check-success', {
+      this.emit("health-check-success", {
         mountPath: this.mountPath,
         secretCount: fileCount,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
     } catch (error) {
-      logger.error('Health check failed', error instanceof Error ? error : new Error(String(error)), {
-        mountPath: this.mountPath
-      });
+      logger.error(
+        "Health check failed",
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          mountPath: this.mountPath,
+        }
+      );
       throw error;
     }
   }
@@ -588,7 +639,7 @@ export class SecretVolumeWatcher extends EventEmitter {
       isWatching: this.isWatching,
       mountPath: this.mountPath,
       secretCount: this.secretCache.size,
-      watchedFiles: Array.from(this.secretCache.keys())
+      watchedFiles: Array.from(this.secretCache.keys()),
     };
   }
 }
@@ -597,37 +648,43 @@ export class SecretVolumeWatcher extends EventEmitter {
  * Create and start secret volume watcher from environment
  */
 export function createSecretVolumeWatcher(): SecretVolumeWatcher | null {
-  const mountPath = process.env.SECRETS_MOUNT_PATH || '/mnt/secrets';
-  const enabled = process.env.SECRETS_VOLUME_WATCH_ENABLED !== 'false';
+  const mountPath = process.env.SECRETS_MOUNT_PATH || "/mnt/secrets";
+  const enabled = process.env.SECRETS_VOLUME_WATCH_ENABLED !== "false";
 
   if (!enabled) {
-    logger.info('Secret volume watching disabled');
+    logger.info("Secret volume watching disabled");
     return null;
   }
 
   const watcher = new SecretVolumeWatcher({
     mountPath,
-    pollInterval: parseInt(process.env.SECRETS_WATCH_POLL_INTERVAL || '5000', 10),
-    debounceMs: parseInt(process.env.SECRETS_WATCH_DEBOUNCE_MS || '1000', 10),
-    healthCheckInterval: parseInt(process.env.SECRETS_HEALTH_CHECK_INTERVAL || '30000', 10)
+    pollInterval: parseInt(
+      process.env.SECRETS_WATCH_POLL_INTERVAL || "5000",
+      10
+    ),
+    debounceMs: parseInt(process.env.SECRETS_WATCH_DEBOUNCE_MS || "1000", 10),
+    healthCheckInterval: parseInt(
+      process.env.SECRETS_HEALTH_CHECK_INTERVAL || "30000",
+      10
+    ),
   });
 
   // Handle events
-  watcher.on('secret-changed', (event: SecretChangeEvent) => {
-    logger.info('Secret changed event', {
+  watcher.on("secret-changed", (event: SecretChangeEvent) => {
+    logger.info("Secret changed event", {
       secretKey: event.secretKey,
-      timestamp: event.timestamp
+      timestamp: event.timestamp,
     });
   });
 
-  watcher.on('reload-required', (event: SecretChangeEvent) => {
-    logger.warn('Application reload required due to secret change', {
-      secretKey: event.secretKey
+  watcher.on("reload-required", (event: SecretChangeEvent) => {
+    logger.warn("Application reload required due to secret change", {
+      secretKey: event.secretKey,
     });
   });
 
-  watcher.on('error', (error: Error) => {
-    logger.error('Secret watcher error', error);
+  watcher.on("error", (error: Error) => {
+    logger.error("Secret watcher error", error);
   });
 
   return watcher;
@@ -643,7 +700,7 @@ export let secretVolumeWatcher: SecretVolumeWatcher | null = null;
  */
 export async function initializeSecretVolumeWatcher(): Promise<void> {
   if (secretVolumeWatcher) {
-    logger.warn('Secret volume watcher already initialized');
+    logger.warn("Secret volume watcher already initialized");
     return;
   }
 
@@ -652,9 +709,12 @@ export async function initializeSecretVolumeWatcher(): Promise<void> {
   if (secretVolumeWatcher) {
     try {
       await secretVolumeWatcher.start();
-      logger.info('Secret volume watcher initialized and started');
+      logger.info("Secret volume watcher initialized and started");
     } catch (error) {
-      logger.error('Failed to start secret volume watcher', error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        "Failed to start secret volume watcher",
+        error instanceof Error ? error : new Error(String(error))
+      );
       // Don't throw - app can still run without watcher
     }
   }
@@ -667,6 +727,6 @@ export async function shutdownSecretVolumeWatcher(): Promise<void> {
   if (secretVolumeWatcher) {
     await secretVolumeWatcher.stop();
     secretVolumeWatcher = null;
-    logger.info('Secret volume watcher shutdown');
+    logger.info("Secret volume watcher shutdown");
   }
 }

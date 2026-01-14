@@ -190,11 +190,11 @@ services:
 
 secrets:
   postgres_password:
-    external: true
+    file: ./prod/secrets/postgres_password.txt
   jwt_secret:
-    external: true
+    file: ./prod/secrets/jwt_secret.txt
   api_keys:
-    external: true
+    file: ./prod/secrets/api_keys.txt
 
 volumes:
   postgres_data:

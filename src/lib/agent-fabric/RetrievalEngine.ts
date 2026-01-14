@@ -171,41 +171,51 @@ export class RetrievalEngine {
 
     if (mergedConfig.use_semantic_memory) {
       retrievalPromises.push(
-        this.retrieveSemanticSnippets(sessionId, query, mergedConfig).then((snippets) => {
-          context.semantic_snippets = snippets;
-        })
+        this.retrieveSemanticSnippets(sessionId, query, mergedConfig).then(
+          (snippets) => {
+            context.semantic_snippets = snippets;
+          }
+        )
       );
     }
 
     if (mergedConfig.use_episodic_memory) {
       retrievalPromises.push(
-        this.retrieveEpisodicContext(sessionId, mergedConfig).then((episodes) => {
-          context.episodic_context = episodes;
-        })
+        this.retrieveEpisodicContext(sessionId, mergedConfig).then(
+          (episodes) => {
+            context.episodic_context = episodes;
+          }
+        )
       );
     }
 
     if (mergedConfig.use_document_metadata) {
       retrievalPromises.push(
-        this.retrieveDocumentMetadata(sessionId, mergedConfig).then((metadata) => {
-          context.document_metadata = metadata;
-        })
+        this.retrieveDocumentMetadata(sessionId, mergedConfig).then(
+          (metadata) => {
+            context.document_metadata = metadata;
+          }
+        )
       );
     }
 
     if (mergedConfig.use_web_content) {
       retrievalPromises.push(
-        this.retrieveWebContent(sessionId, query, mergedConfig).then((webData) => {
-          context.web_content = webData;
-        })
+        this.retrieveWebContent(sessionId, query, mergedConfig).then(
+          (webData) => {
+            context.web_content = webData;
+          }
+        )
       );
     }
 
     if (mergedConfig.use_benchmark_context) {
       retrievalPromises.push(
-        this.retrieveBenchmarkContext(query, mergedConfig).then((benchmarks) => {
-          context.benchmark_context = benchmarks;
-        })
+        this.retrieveBenchmarkContext(query, mergedConfig).then(
+          (benchmarks) => {
+            context.benchmark_context = benchmarks;
+          }
+        )
       );
     }
 
@@ -278,7 +288,8 @@ export class RetrievalEngine {
         agent_id: m.agent_id,
         execution_time: m.created_at || new Date().toISOString(),
         input_summary: m.metadata?.input_summary || "N/A",
-        output_summary: m.metadata?.output_summary || m.content.substring(0, 100),
+        output_summary:
+          m.metadata?.output_summary || m.content.substring(0, 100),
         success: m.metadata?.success ?? true,
       }));
     } catch (error) {
@@ -299,7 +310,9 @@ export class RetrievalEngine {
     config: Required<RetrievalConfig>
   ): Promise<RetrievalContext["document_metadata"]> {
     try {
-      const files = await this.memorySystem.listStoredDocuments(this.organizationId);
+      const files = await this.memorySystem.listStoredDocuments(
+        this.organizationId
+      );
 
       return files.map((f) => ({
         source_id: f.id,
@@ -334,18 +347,30 @@ export class RetrievalEngine {
         // Limit to 3 URLs to avoid long waits
         const targetUrls = urls.slice(0, 3);
 
-        const scrapePromises = targetUrls.map((url) => webScraperService.scrape(url));
+        const scrapePromises = targetUrls.map((url) =>
+          webScraperService.scrape(url)
+        );
         const results = await Promise.all(scrapePromises);
 
         // Filter out nulls
         return results.filter((r): r is NonNullable<typeof r> => r !== null);
       }
 
-      // 2. If no URLs in query, we would typically use a search engine (Google/Bing)
-      // to find relevant pages, then scrape them.
-      // Since we don't have a live search API integration here yet, we return empty.
+      // 2. If no URLs in query, search for relevant pages
+      logger.debug("No URLs found in query, performing web search", {
+        sessionId,
+      });
+      const searchResults = await this.searchWeb(query, 3);
 
-      return [];
+      if (searchResults.length === 0) {
+        logger.debug("No search results found", { sessionId });
+        return [];
+      }
+
+      logger.debug("Found URLs via search", { sessionId, urls: searchResults });
+
+      // Limit to 3 URLs from search results
+      const targetUrls = searchResults.slice(0, 3);
     } catch (error) {
       logger.error("Web content retrieval failed", { sessionId, error });
       return [];
@@ -353,12 +378,53 @@ export class RetrievalEngine {
   }
 
   /**
-   * Helper to extract URLs from text
+   * Search for relevant web pages using Google Custom Search API
    */
+  private async searchWeb(
+    query: string,
+    maxResults: number = 3
+  ): Promise<string[]> {
+    try {
+      // Get Google Custom Search API key and CX from environment/config
+      const apiKey = process.env.GOOGLE_SEARCH_API_KEY;
+      const searchEngineId = process.env.GOOGLE_SEARCH_ENGINE_ID;
+
+      if (!apiKey || !searchEngineId) {
+        logger.warn("Google Search API not configured, skipping web search");
+        return [];
+      }
+
+      const searchUrl = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${searchEngineId}&q=${encodeURIComponent(query)}&num=${maxResults}`;
+
+      const response = await fetch(searchUrl);
+      if (!response.ok) {
+        throw new Error(`Search API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.items || data.items.length === 0) {
+        return [];
+      }
+
+      // Extract URLs from search results
+      return data.items
+        .map((item: any) => item.link)
+        .filter((url: string) => url && typeof url === "string");
+    } catch (error) {
+      logger.warn("Web search failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
+  }
   private extractUrls(text: string): string[] {
-    // Regex to extract URLs, excluding trailing punctuation common in sentences
-    const urlRegex = /(https?:\/\/[^\s.,;:)]+)/g;
-    return text.match(urlRegex) || [];
+    // Improved regex to extract URLs, handling common edge cases
+    // Matches http/https URLs and stops at whitespace or certain boundary characters
+    const urlRegex = /(https?:\/\/[^\s<>"{}|\\^`[\]])/g;
+    const matches = text.match(urlRegex) || [];
+    // Clean up any trailing punctuation that might have been included
+    return matches.map((url) => url.replace(/[.,;:!?)]+$/, ""));
   }
 
   /**
@@ -381,27 +447,35 @@ export class RetrievalEngine {
         try {
           // Determine which tool to use based on intent type
           if (intent.type === "industry") {
-            const result = await mcpServer.executeTool("get_industry_benchmark", {
-              identifier: intent.identifier,
-            });
+            const result = await mcpServer.executeTool(
+              "get_industry_benchmark",
+              {
+                identifier: intent.identifier,
+              }
+            );
 
             if (!result.isError && result.content[0]?.text) {
               const data = JSON.parse(result.content[0].text);
               return {
                 metric_name: data.metric,
                 industry: data.metadata?.industry_name || intent.label,
-                value: Array.isArray(data.value) ? (data.value[0] + data.value[1]) / 2 : data.value,
+                value: Array.isArray(data.value)
+                  ? (data.value[0] + data.value[1]) / 2
+                  : data.value,
                 unit: data.unit || "unit",
                 source: "internal", // Default to internal/MCP
                 confidence: data.confidence || 0.8,
               };
             }
           } else if (intent.type === "entity") {
-            const result = await mcpServer.executeTool("get_authoritative_financials", {
-              entity_id: intent.identifier,
-              metrics: ["revenue_total", "gross_profit"], // Default metrics
-              period: "LTM",
-            });
+            const result = await mcpServer.executeTool(
+              "get_authoritative_financials",
+              {
+                entity_id: intent.identifier,
+                metrics: ["revenue_total", "gross_profit"], // Default metrics
+                period: "LTM",
+              }
+            );
 
             if (!result.isError && result.content[0]?.text) {
               const data = JSON.parse(result.content[0].text);
@@ -418,9 +492,12 @@ export class RetrievalEngine {
             }
           }
         } catch (toolError) {
-          logger.warn(`Failed to execute MCP tool for intent ${intent.identifier}`, {
-            error: toolError,
-          });
+          logger.warn(
+            `Failed to execute MCP tool for intent ${intent.identifier}`,
+            {
+              error: toolError,
+            }
+          );
         }
         return null;
       });
@@ -453,7 +530,11 @@ export class RetrievalEngine {
   private extractBenchmarkIntents(
     query: string
   ): Array<{ type: "industry" | "entity"; identifier: string; label: string }> {
-    const intents: Array<{ type: "industry" | "entity"; identifier: string; label: string }> = [];
+    const intents: Array<{
+      type: "industry" | "entity";
+      identifier: string;
+      label: string;
+    }> = [];
     const lowerQuery = query.toLowerCase();
 
     // Map common keywords to NAICS codes (Sample mapping)
@@ -496,7 +577,11 @@ export class RetrievalEngine {
     // Matches 15-1252 etc.
     const occupationMatch = query.match(/\d{2}-\d{4}/);
     if (occupationMatch) {
-      intents.push({ type: "industry", identifier: occupationMatch[0], label: "occupation" });
+      intents.push({
+        type: "industry",
+        identifier: occupationMatch[0],
+        label: "occupation",
+      });
     }
 
     return intents;
@@ -575,7 +660,10 @@ export class RetrievalEngine {
   /**
    * Truncate context to fit token limit
    */
-  truncateContext(context: RetrievalContext, maxTokens: number): RetrievalContext {
+  truncateContext(
+    context: RetrievalContext,
+    maxTokens: number
+  ): RetrievalContext {
     const formatted = this.formatContextForPrompt(context);
     const currentTokens = this.estimateTokens(formatted);
 
@@ -599,7 +687,10 @@ export class RetrievalEngine {
         0,
         Math.floor(context.document_metadata.length * ratio)
       ),
-      web_content: context.web_content.slice(0, Math.floor(context.web_content.length * ratio)),
+      web_content: context.web_content.slice(
+        0,
+        Math.floor(context.web_content.length * ratio)
+      ),
       benchmark_context: context.benchmark_context.slice(
         0,
         Math.floor(context.benchmark_context.length * ratio)
@@ -637,7 +728,9 @@ const RETRIEVAL_CONDITIONED_PROMPT = (input: {
   contextHint?: string;
   retrievedContext: string;
 }): string => {
-  const contextHintSection = input.contextHint ? `\n## CONTEXT HINT\n${input.contextHint}\n` : "";
+  const contextHintSection = input.contextHint
+    ? `\n## CONTEXT HINT\n${input.contextHint}\n`
+    : "";
 
   return `You are an expert analyst answering questions using ONLY retrieved context.
 
@@ -669,7 +762,10 @@ export class RetrievalConditionedAgent extends BaseAgent {
 
   constructor(config: AgentConfig, organizationId: string) {
     super(config);
-    this.retrievalEngine = new RetrievalEngine(this.memorySystem, organizationId);
+    this.retrievalEngine = new RetrievalEngine(
+      this.memorySystem,
+      organizationId
+    );
   }
 
   async execute(
@@ -686,11 +782,13 @@ export class RetrievalConditionedAgent extends BaseAgent {
     // STEP 2: Truncate to fit token budget
     const truncatedContext = this.retrievalEngine.truncateContext(
       rawContext,
-      input.retrieval_config?.max_context_tokens || DEFAULT_RETRIEVAL_CONFIG.max_context_tokens
+      input.retrieval_config?.max_context_tokens ||
+        DEFAULT_RETRIEVAL_CONFIG.max_context_tokens
     );
 
     // STEP 3: Format context for injection
-    const formattedContext = this.retrievalEngine.formatContextForPrompt(truncatedContext);
+    const formattedContext =
+      this.retrievalEngine.formatContextForPrompt(truncatedContext);
 
     // STEP 4: Inject context into prompt
     const prompt = RETRIEVAL_CONDITIONED_PROMPT({
@@ -707,15 +805,20 @@ export class RetrievalConditionedAgent extends BaseAgent {
     });
 
     // SECURITY FIX: Use secureInvoke() instead of direct llmGateway.complete()
-    const secureResult = await this.secureInvoke(sessionId, prompt, retrievalSchema, {
-      trackPrediction: true,
-      confidenceThresholds: { low: 0.5, high: 0.8 },
-      context: {
-        agent: "RetrievalConditionedAgent",
-        contextTokens: this.retrievalEngine.estimateTokens(formattedContext),
-        semanticCount: truncatedContext.semantic_snippets.length,
-      },
-    });
+    const secureResult = await this.secureInvoke(
+      sessionId,
+      prompt,
+      retrievalSchema,
+      {
+        trackPrediction: true,
+        confidenceThresholds: { low: 0.5, high: 0.8 },
+        context: {
+          agent: "RetrievalConditionedAgent",
+          contextTokens: this.retrievalEngine.estimateTokens(formattedContext),
+          semanticCount: truncatedContext.semantic_snippets.length,
+        },
+      }
+    );
 
     const parsed = secureResult.result;
 

@@ -1,0 +1,228 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: valueos-system
+  labels:
+    name: valueos-system
+    security: zero-trust
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: valueos-tenants
+  labels:
+    name: valueos-tenants
+    security: zero-trust
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zero-trust-config
+  namespace: valueos-system
+data:
+  # Zero-trust security configuration
+  security-config.yaml: |
+    zeroTrust:
+      enabled: true
+      defaultMode: "strict"
+      monitoring:
+        enabled: true
+        alertThreshold: 80
+      encryption:
+        atRest: true
+        inTransit: true
+        algorithm: "AES-256-GCM"
+      isolation:
+        tenantIsolation: true
+        networkSegmentation: true
+      policies:
+        abacEnabled: true
+        rbacEnabled: true
+        defaultDeny: true
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: zero-trust-secrets
+  namespace: valueos-system
+type: Opaque
+data:
+  # Base64 encoded secrets would go here
+  ca-cert.pem: ""
+  ca-key.pem: ""
+  jwt-signing-key: ""
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zero-trust-monitor
+  namespace: valueos-system
+  labels:
+    app: zero-trust-monitor
+    security: monitoring
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: zero-trust-monitor
+  template:
+    metadata:
+      labels:
+        app: zero-trust-monitor
+        security: monitoring
+    spec:
+      serviceAccountName: zero-trust-monitor-sa
+      containers:
+        - name: monitor
+          image: valueos/zero-trust-monitor:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: MONITORING_ENABLED
+              value: "true"
+            - name: ALERT_THRESHOLD
+              value: "80"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          volumeMounts:
+            - name: config-volume
+              mountPath: /app/config
+            - name: secrets-volume
+              mountPath: /app/secrets
+              readOnly: true
+      volumes:
+        - name: config-volume
+          configMap:
+            name: zero-trust-config
+        - name: secrets-volume
+          secret:
+            secretName: zero-trust-secrets
+        # eBPF monitoring volume
+        - name: bpf-volume
+          hostPath:
+            path: /sys/fs/bpf
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: zero-trust-monitor-sa
+  namespace: valueos-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: zero-trust-monitor-role
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "endpoints", "secrets", "configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["security.istio.io"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["networking.istio.io"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: zero-trust-monitor-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: zero-trust-monitor-role
+subjects:
+  - kind: ServiceAccount
+    name: zero-trust-monitor-sa
+    namespace: valueos-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zero-trust-monitor
+  namespace: valueos-system
+  labels:
+    app: zero-trust-monitor
+spec:
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: zero-trust-monitor
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zero-trust-network-policy
+  namespace: valueos-system
+spec:
+  podSelector:
+    matchLabels:
+      security: zero-trust
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              security: zero-trust
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              security: zero-trust
+      ports:
+        - protocol: TCP
+          port: 15012 # Istio control plane
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 53 # DNS
+        - protocol: UDP
+          port: 53
+---
+apiVersion: policy/v1
+kind: PodSecurityPolicy
+metadata:
+  name: zero-trust-psp
+spec:
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+    - ALL
+  volumes:
+    - "configMap"
+    - "secret"
+    - "hostPath"
+  hostNetwork: false
+  hostIPC: false
+  hostPID: false
+  runAsUser:
+    rule: "MustRunAsNonRoot"
+  seLinux:
+    rule: "RunAsAny"
+  supplementalGroups:
+    rule: "MustRunAs"
+    ranges:
+      - min: 1
+        max: 65535
+  fsGroup:
+    rule: "MustRunAs"
+    ranges:
+      - min: 1
+        max: 65535

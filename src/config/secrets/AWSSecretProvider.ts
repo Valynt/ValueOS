@@ -34,7 +34,13 @@ import {
 } from "./SecretAuditLogger";
 import { getRedisClient } from "../../lib/redisClient";
 import { RedisClientType } from "redis";
-import { CircuitBreaker, createProviderCircuitBreaker } from "./CircuitBreaker";
+import {
+  CircuitBreaker,
+  createConfigurableCircuitBreaker,
+} from "./CircuitBreaker";
+import { config } from "./SecretConfig";
+import { InputValidator } from "./InputValidator";
+import { awsCacheMonitor } from "./CachePerformanceMonitor";
 
 /**
  * AWS Secrets Manager provider implementation
@@ -73,6 +79,13 @@ export class AWSSecretProvider implements ISecretProvider {
     this.redisEnabled = process.env.REDIS_URL ? true : false;
     // Generate a random encryption key for cache encryption
     this.encryptionKey = randomBytes(32);
+    // Initialize circuit breaker for external API calls
+    this.circuitBreaker = createConfigurableCircuitBreaker({
+      failureThreshold: config.circuitBreaker.failureThreshold,
+      recoveryTimeout: config.circuitBreaker.recoveryTimeout,
+      monitoringPeriod: config.circuitBreaker.monitoringPeriod,
+      successThreshold: config.circuitBreaker.successThreshold,
+    });
 
     // Initialize Redis client for distributed caching
     if (this.redisEnabled) {
@@ -156,9 +169,19 @@ export class AWSSecretProvider implements ISecretProvider {
       return null;
     }
 
+    const startTime = Date.now();
+
     try {
       const cached = await this.redisClient.get(`secret:${cacheKey}`);
+      const latency = Date.now() - startTime;
+
       if (!cached) {
+        awsCacheMonitor.recordOperation({
+          operation: "get",
+          cacheType: "redis",
+          hit: false,
+          latency,
+        });
         return null;
       }
 
@@ -167,13 +190,38 @@ export class AWSSecretProvider implements ISecretProvider {
         const decryptedValue = JSON.parse(
           this.decrypt(parsed.value)
         ) as SecretValue;
+
+        awsCacheMonitor.recordOperation({
+          operation: "get",
+          cacheType: "redis",
+          hit: true,
+          latency,
+        });
+
         return decryptedValue;
       } else {
         // Cache expired, remove it
         await this.redisClient.del(`secret:${cacheKey}`);
+
+        awsCacheMonitor.recordOperation({
+          operation: "get",
+          cacheType: "redis",
+          hit: false,
+          latency,
+        });
+
         return null;
       }
     } catch (error) {
+      const latency = Date.now() - startTime;
+      awsCacheMonitor.recordOperation({
+        operation: "get",
+        cacheType: "redis",
+        hit: false,
+        latency,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
       logger.warn(
         "Failed to get secret from Redis cache",
         error instanceof Error ? error : new Error(String(error))
@@ -287,8 +335,37 @@ export class AWSSecretProvider implements ISecretProvider {
     version?: string,
     userId?: string
   ): Promise<SecretValue> {
+    // Validate inputs
+    const validatedTenantId = InputValidator.validateOrThrow(
+      tenantId,
+      InputValidator.validateTenantId,
+      "tenantId"
+    );
+    const validatedSecretKey = InputValidator.validateOrThrow(
+      secretKey,
+      InputValidator.validateSecretKey,
+      "secretKey"
+    );
+    const validatedUserId = userId
+      ? InputValidator.validateOrThrow(
+          userId,
+          InputValidator.validateUserId,
+          "userId"
+        )
+      : undefined;
+    const validatedVersion = version
+      ? InputValidator.validateOrThrow(
+          version,
+          InputValidator.validateVersion,
+          "version"
+        )
+      : undefined;
+
     const startTime = Date.now();
-    const secretPath = this.getTenantSecretPath(tenantId, secretKey);
+    const secretPath = this.getTenantSecretPath(
+      validatedTenantId,
+      validatedSecretKey
+    );
 
     // Check Redis cache first
     const cacheKey = this.getCacheKey(tenantId, secretKey);
@@ -316,6 +393,14 @@ export class AWSSecretProvider implements ISecretProvider {
       const decryptedValue = JSON.parse(
         this.decrypt(inMemoryCached.value)
       ) as SecretValue;
+
+      awsCacheMonitor.recordOperation({
+        operation: "get",
+        cacheType: "memory",
+        hit: true,
+        latency: Date.now() - startTime,
+      });
+
       await this.auditAccess(
         tenantId,
         secretKey,
@@ -337,11 +422,13 @@ export class AWSSecretProvider implements ISecretProvider {
         VersionId: version,
       });
 
-      const response = await this.retryWithBackoff(
-        () => this.client.send(command),
-        "GetSecretValue",
-        tenantId,
-        secretKey
+      const response = await this.circuitBreaker.execute(() =>
+        this.retryWithBackoff(
+          () => this.client.send(command),
+          "GetSecretValue",
+          tenantId,
+          secretKey
+        )
       );
 
       if (!response.SecretString) {
@@ -403,7 +490,34 @@ export class AWSSecretProvider implements ISecretProvider {
     metadata: SecretMetadata,
     userId?: string
   ): Promise<boolean> {
-    const secretPath = this.getTenantSecretPath(tenantId, secretKey);
+    // Validate inputs
+    const validatedTenantId = InputValidator.validateOrThrow(
+      tenantId,
+      InputValidator.validateTenantId,
+      "tenantId"
+    );
+    const validatedSecretKey = InputValidator.validateOrThrow(
+      secretKey,
+      InputValidator.validateSecretKey,
+      "secretKey"
+    );
+    const validatedValue = InputValidator.validateOrThrow(
+      value,
+      InputValidator.validateSecretValue,
+      "value"
+    );
+    const validatedUserId = userId
+      ? InputValidator.validateOrThrow(
+          userId,
+          InputValidator.validateUserId,
+          "userId"
+        )
+      : undefined;
+
+    const secretPath = this.getTenantSecretPath(
+      validatedTenantId,
+      validatedSecretKey
+    );
 
     try {
       // Add metadata to secret
@@ -424,11 +538,13 @@ export class AWSSecretProvider implements ISecretProvider {
         SecretString: JSON.stringify(secretWithMetadata),
       });
 
-      await this.retryWithBackoff(
-        () => this.client.send(command),
-        "PutSecretValue",
-        tenantId,
-        secretKey
+      await this.circuitBreaker.execute(() =>
+        this.retryWithBackoff(
+          () => this.client.send(command),
+          "PutSecretValue",
+          tenantId,
+          secretKey
+        )
       );
 
       // Invalidate both Redis and memory cache
@@ -480,7 +596,7 @@ export class AWSSecretProvider implements ISecretProvider {
         SecretId: secretPath,
       });
 
-      await this.client.send(command);
+      await this.circuitBreaker.execute(() => this.client.send(command));
 
       // Invalidate cache
       const cacheKey = this.getCacheKey(tenantId, secretKey);
@@ -531,11 +647,13 @@ export class AWSSecretProvider implements ISecretProvider {
         RecoveryWindowInDays: 30,
       });
 
-      await this.retryWithBackoff(
-        () => this.client.send(command),
-        "DeleteSecret",
-        tenantId,
-        secretKey
+      await this.circuitBreaker.execute(() =>
+        this.retryWithBackoff(
+          () => this.client.send(command),
+          "DeleteSecret",
+          tenantId,
+          secretKey
+        )
       );
 
       // Invalidate both Redis and memory cache
@@ -588,7 +706,13 @@ export class AWSSecretProvider implements ISecretProvider {
         ],
       });
 
-      const response = await this.client.send(command);
+      const response = await this.circuitBreaker.execute(() =>
+        this.retryWithBackoff(
+          () => this.client.send(command),
+          "ListSecrets",
+          tenantId
+        )
+      );
       const secrets = response.SecretList || [];
 
       // Extract secret keys from full paths
@@ -643,7 +767,12 @@ export class AWSSecretProvider implements ISecretProvider {
         SecretId: secretPath,
       });
 
-      const response = await this.client.send(command);
+      const response = await this.retryWithBackoff(
+        () => this.client.send(command),
+        "DescribeSecret",
+        tenantId,
+        secretKey
+      );
 
       if (!response.Name) {
         return null;
