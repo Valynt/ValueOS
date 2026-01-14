@@ -414,11 +414,10 @@ Return ONLY valid JSON in this exact format:
           : 0.5;
 
       // Map confidence levels
-      const confidenceMap = {
-        low: 0.3,
+      const confidenceMap: Record<ConfidenceLevel, number> = {
+        low: 0.4,
         medium: 0.6,
         high: 0.8,
-        very_high: 0.9,
       };
 
       const originalNumeric = confidenceMap[originalConfidence] || 0.5;
@@ -427,7 +426,7 @@ Return ONLY valid JSON in this exact format:
       const adjustedConfidence = (originalNumeric + avgEvidenceConfidence) / 2;
 
       // Convert back to confidence level
-      if (adjustedConfidence >= 0.85) return "very_high";
+      if (adjustedConfidence >= 0.85) return "high";
       if (adjustedConfidence >= 0.7) return "high";
       if (adjustedConfidence >= 0.5) return "medium";
       return "low";
@@ -684,6 +683,10 @@ Return ONLY valid JSON in this exact format:
 
     // Normalize risk score
     overallRisk = Math.min(1, overallRisk / model.assumptions.length);
+
+    // Adjust risk based on scenario probability - lower probability scenarios are riskier
+    const probabilityAdjustment = scenario.probability ? 1 - scenario.probability : 0.5;
+    overallRisk = Math.min(1, overallRisk + probabilityAdjustment);
 
     return {
       overallRisk,

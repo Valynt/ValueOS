@@ -1046,7 +1046,7 @@ export class AgentSecurityService extends EventEmitter {
       }
     }
 
-    return { allowed: true, conditions: [] };
+    return { allowed: true, reason: "All policies passed", conditions: [], requiresMFA: false };
   }
 
   private async evaluatePolicy(
@@ -1071,7 +1071,7 @@ export class AgentSecurityService extends EventEmitter {
       }
     }
 
-    return { allowed: true, conditions: [] };
+    return { allowed: true, reason: "All policies passed", conditions: [], requiresMFA: false };
   }
 
   private calculateRiskScore(context: SecurityContext): number {

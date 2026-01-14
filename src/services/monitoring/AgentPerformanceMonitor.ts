@@ -216,6 +216,7 @@ export class AgentPerformanceMonitor extends EventEmitter {
 
     for (const history of this.metricsHistory.values()) {
       if (history.length > 0) {
+        const latest = history[history.length - 1];
         if (latest) {
           totalLatency += latest.latency;
           totalMemoryUsage += latest.memoryUsage;

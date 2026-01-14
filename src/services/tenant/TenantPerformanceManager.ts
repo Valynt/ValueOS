@@ -385,7 +385,11 @@ export class TenantPerformanceManager extends EventEmitter {
 
       if (canReallocate) {
         await this.reallocateResources(tenantId, resourceType, amount);
-        return { available: true, availableAmount: amount };
+        return {
+          available: true,
+          reason: "Available",
+          availableAmount: amount,
+        };
       }
     }
 
@@ -580,6 +584,15 @@ export class TenantPerformanceManager extends EventEmitter {
     }
 
     const latest = metrics[metrics.length - 1];
+    if (!latest) {
+      return {
+        availability: 0,
+        responseTimeCompliance: false,
+        throughputCompliance: false,
+        errorRateCompliance: false,
+        overallCompliance: 0,
+      };
+    }
     const sla = tenant.sla;
 
     // Calculate compliance metrics
