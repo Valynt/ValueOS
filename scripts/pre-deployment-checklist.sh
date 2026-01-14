@@ -1,14 +1,24 @@
 #!/bin/bash
 ###############################################################################
-# Pre-Deployment Checklist Automation
-# Validates all requirements before production deployment
+
+# ValueOS Pre-Deployment Checklist Automation
+#
+# Enhanced checklist that validates all requirements before deployment
+# including secrets management, environment consistency, and security checks
+#
+# Usage: ./scripts/pre-deployment-checklist.sh [environment]
+# Environment: development, staging, production (default: staging)
 ###############################################################################
 
 set -e
 
-echo "🚀 Pre-Deployment Checklist"
+echo "🚀 ValueOS Pre-Deployment Checklist"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
+
+# Configuration
+ENVIRONMENT=${1:-staging}
+NODE_ENV=${ENVIRONMENT}
 
 # Colors
 GREEN='\033[0;32m'
@@ -28,6 +38,304 @@ check_pass() {
 
 check_fail() {
     echo -e "${RED}✗${NC} $1"
+    CHECKS_FAILED=$((CHECKS_FAILED + 1))
+}
+
+check_warn() {
+    echo -e "${YELLOW}⚠${NC} $1"
+    CHECKS_WARNING=$((CHECKS_WARNING + 1))
+}
+
+check_info() {
+    echo -e "${BLUE}ℹ${NC} $1"
+}
+
+echo "Environment: ${ENVIRONMENT}"
+echo "Node Version: $(node --version)"
+echo "NPM Version: $(npm --version)"
+echo ""
+
+# ============================================================================
+# 1. Code Quality and Validation
+# ============================================================================
+echo "📋 Code Quality Checks"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check if working directory is clean
+if git diff-index --quiet HEAD --; then
+    check_pass "Working directory is clean"
+else
+    check_fail "Working directory has uncommitted changes"
+fi
+
+# Run linting
+if npm run lint > /dev/null 2>&1; then
+    check_pass "Linting passed"
+else
+    check_fail "Linting failed"
+fi
+
+# Run type checking
+if npm run typecheck > /dev/null 2>&1; then
+    check_pass "Type checking passed"
+else
+    check_fail "Type checking failed"
+fi
+
+# Run unit tests
+if npm run test:unit > /dev/null 2>&1; then
+    check_pass "Unit tests passed"
+else
+    check_fail "Unit tests failed"
+fi
+
+# ============================================================================
+# 2. Build Validation
+# ============================================================================
+echo ""
+echo "🏗️ Build Validation"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check if build artifacts exist
+if [ -d "dist" ]; then
+    check_warn "Build artifacts already exist (will be rebuilt)"
+fi
+
+# Run build
+if npm run build > /dev/null 2>&1; then
+    check_pass "Application build successful"
+else
+    check_fail "Application build failed"
+fi
+
+# Check build output
+if [ -f "dist/index.html" ] && [ -d "dist/assets" ]; then
+    check_pass "Build artifacts generated correctly"
+else
+    check_fail "Build artifacts missing or incomplete"
+fi
+
+# ============================================================================
+# 3. Secrets Management Validation
+# ============================================================================
+echo ""
+echo "🔐 Secrets Management"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check if secrets validation script exists
+if [ -f "scripts/validate-deployment.ts" ]; then
+    check_pass "Secrets validation script exists"
+else
+    check_fail "Secrets validation script missing"
+fi
+
+# Run secrets validation
+if npx tsx scripts/validate-deployment.ts > /dev/null 2>&1; then
+    check_pass "Secrets validation passed"
+else
+    check_fail "Secrets validation failed"
+fi
+
+# Check environment-specific secrets file
+ENV_FILE="deploy/envs/.env.${ENVIRONMENT}.example"
+if [ -f "$ENV_FILE" ]; then
+    check_pass "Environment configuration file exists: $ENV_FILE"
+else
+    check_fail "Environment configuration file missing: $ENV_FILE"
+fi
+
+# ============================================================================
+# 4. Security Configuration
+# ============================================================================
+echo ""
+echo "🔒 Security Configuration"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check security audit
+if npm audit --audit-level=high > /dev/null 2>&1; then
+    check_pass "Security audit passed (no high vulnerabilities)"
+else
+    check_fail "Security audit found high vulnerabilities"
+fi
+
+# Check environment-specific security settings
+if [ "$ENVIRONMENT" = "production" ]; then
+    # Check that dev tools are disabled in production
+    if grep -q "VITE_DEV_TOOLS=false" "$ENV_FILE" 2>/dev/null; then
+        check_pass "Development tools disabled in production"
+    else
+        check_fail "Development tools not disabled in production"
+    fi
+
+    # Check that security features are enabled
+    if grep -q "VITE_ENABLE_CIRCUIT_BREAKER=true" "$ENV_FILE" 2>/dev/null; then
+        check_pass "Circuit breaker enabled in production"
+    else
+        check_fail "Circuit breaker not enabled in production"
+    fi
+
+    if grep -q "VITE_ENABLE_RATE_LIMITING=true" "$ENV_FILE" 2>/dev/null; then
+        check_pass "Rate limiting enabled in production"
+    else
+        check_fail "Rate limiting not enabled in production"
+    fi
+fi
+
+# ============================================================================
+# 5. Infrastructure Validation
+# ============================================================================
+echo ""
+echo "🏛️ Infrastructure Configuration"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check Terraform configuration
+if [ -d "infra/terraform" ]; then
+    check_pass "Terraform configuration exists"
+
+    # Validate Terraform
+    if cd infra/terraform && terraform fmt -check > /dev/null 2>&1 && terraform validate > /dev/null 2>&1; then
+        check_pass "Terraform configuration is valid"
+    else
+        check_fail "Terraform configuration validation failed"
+    fi
+    cd - > /dev/null
+else
+    check_warn "Terraform configuration not found"
+fi
+
+# Check Kubernetes manifests
+if [ -d "infra/k8s" ]; then
+    check_pass "Kubernetes manifests exist"
+
+    # Validate Kubernetes manifests
+    if kubectl apply --dry-run=client -f infra/k8s/ > /dev/null 2>&1; then
+        check_pass "Kubernetes manifests are valid"
+    else
+        check_fail "Kubernetes manifests validation failed"
+    fi
+else
+    check_warn "Kubernetes manifests not found"
+fi
+
+# ============================================================================
+# 6. Database and Service Configuration
+# ============================================================================
+echo ""
+echo "🗄️ Database and Services"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check database configuration
+if grep -q "DATABASE_URL" "$ENV_FILE" 2>/dev/null; then
+    check_pass "Database URL configured"
+else
+    check_fail "Database URL not configured"
+fi
+
+# Check Redis configuration
+if grep -q "REDIS_URL" "$ENV_FILE" 2>/dev/null; then
+    check_pass "Redis URL configured"
+else
+    check_warn "Redis URL not configured (degraded mode)"
+fi
+
+# Check Supabase configuration
+if grep -q "SUPABASE_URL" "$ENV_FILE" 2>/dev/null; then
+    check_pass "Supabase URL configured"
+else
+    check_fail "Supabase URL not configured"
+fi
+
+# ============================================================================
+# 7. Performance and Monitoring
+# ============================================================================
+echo ""
+echo "📊 Performance and Monitoring"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check monitoring configuration
+if grep -q "PROMETHEUS_METRICS_ENABLED=true" "$ENV_FILE" 2>/dev/null; then
+    check_pass "Prometheus metrics enabled"
+else
+    check_warn "Prometheus metrics not enabled"
+fi
+
+# Check Sentry configuration
+if grep -q "SENTRY_DSN" "$ENV_FILE" 2>/dev/null; then
+    check_pass "Sentry DSN configured"
+else
+    check_warn "Sentry DSN not configured"
+fi
+
+# Check performance settings
+if grep -q "UV_THREADPOOL_SIZE" "$ENV_FILE" 2>/dev/null; then
+    check_pass "Thread pool size configured"
+else
+    check_warn "Thread pool size not configured (using default)"
+fi
+
+# ============================================================================
+# 8. Deployment Readiness
+# ============================================================================
+echo ""
+echo "🚀 Deployment Readiness"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check Docker images
+if [ -f "Dockerfile.frontend" ] && [ -f "Dockerfile.backend" ]; then
+    check_pass "Docker files exist"
+else
+    check_fail "Docker files missing"
+fi
+
+# Check unified deployment pipeline
+if [ -f ".github/workflows/unified-deployment-pipeline.yml" ]; then
+    check_pass "Unified deployment pipeline exists"
+else
+    check_warn "Unified deployment pipeline not found"
+fi
+
+# Environment-specific checks
+case $ENVIRONMENT in
+    "production")
+        check_info "Production deployment requires manual approval in GitHub Actions"
+        ;;
+    "staging")
+        check_pass "Staging deployment ready for automated deployment"
+        ;;
+    *)
+        check_warn "Unknown environment: $ENVIRONMENT"
+        ;;
+esac
+
+# ============================================================================
+# Results Summary
+# ============================================================================
+echo ""
+echo "📊 Checklist Results"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${GREEN}Passed:${NC} $CHECKS_PASSED"
+echo -e "${RED}Failed:${NC} $CHECKS_FAILED"
+echo -e "${YELLOW}Warnings:${NC} $CHECKS_WARNING"
+echo ""
+
+TOTAL_CHECKS=$((CHECKS_PASSED + CHECKS_FAILED + CHECKS_WARNING))
+
+if [ $CHECKS_FAILED -gt 0 ]; then
+    echo -e "${RED}❌ DEPLOYMENT BLOCKED: $CHECKS_FAILED critical issues must be resolved${NC}"
+    echo ""
+    echo "Please fix the failed checks above before proceeding with deployment."
+    exit 1
+elif [ $CHECKS_WARNING -gt 5 ]; then
+    echo -e "${YELLOW}⚠️ DEPLOYMENT CAUTION: $CHECKS_WARNING warnings detected${NC}"
+    echo ""
+    echo "Consider reviewing the warnings above, but deployment can proceed."
+    exit 0
+else
+    echo -e "${GREEN}✅ DEPLOYMENT APPROVED: All checks passed${NC}"
+    echo ""
+    echo "Ready to deploy to $ENVIRONMENT environment!"
+    exit 0
+fi
     CHECKS_FAILED=$((CHECKS_FAILED + 1))
 }
 

@@ -1,17 +1,26 @@
 /**
  * Secret Volume Watcher
- * 
+ *
+ * Enhanced production-ready secret volume watcher with:
+ * - Comprehensive error handling and recovery
+ * - Metrics and monitoring integration
+ * - Graceful restart capabilities
+ * - Health check endpoints
+ *
  * Watches mounted secret volumes for changes and triggers application reload
  * Enables zero-downtime secret rotation in Kubernetes
- * 
+ *
  * Sprint 3: Kubernetes Integration
+ * Enhanced: Production Readiness Improvements
  * Created: 2024-11-29
+ * Updated: 2025-01-14
  */
 
 import { promises as fs, FSWatcher, watch } from 'fs';
 import { join } from 'path';
 import { logger } from '../../lib/logger';
 import { EventEmitter } from 'events';
+import { promisify } from 'util';
 
 /**
  * Secret file change event
@@ -24,18 +33,51 @@ export interface SecretChangeEvent {
 }
 
 /**
- * Watcher configuration
+ * Enhanced watcher configuration with production features
  */
 export interface WatcherConfig {
   mountPath: string;
   pollInterval?: number;
   debounceMs?: number;
   healthCheckInterval?: number;
+  maxRetries?: number;
+  retryBackoffMs?: number;
+  enableMetrics?: boolean;
+  gracefulRestartTimeout?: number;
+}
+
+/**
+ * Production metrics for secret monitoring
+ */
+export interface SecretWatcherMetrics {
+  totalSecrets: number;
+  changesDetected: number;
+  reloadsTriggered: number;
+  errors: number;
+  lastChangeTime?: Date;
+  uptime: number;
+  healthCheckPasses: number;
+  healthCheckFailures: number;
+}
+
+/**
+ * Health check result
+ */
+export interface WatcherHealthCheck {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  details: {
+    mountPathAccessible: boolean;
+    secretCount: number;
+    lastChange?: Date;
+    errors: string[];
+    uptime: number;
+  };
+  metrics: SecretWatcherMetrics;
 }
 
 /**
  * Secret volume watcher for Kubernetes CSI driver
- * 
+ *
  * Monitors /mnt/secrets for file changes and emits events
  * Triggers graceful application reload on secret rotation
  */
@@ -44,25 +86,51 @@ export class SecretVolumeWatcher extends EventEmitter {
   private pollInterval: number;
   private debounceMs: number;
   private healthCheckInterval: number;
-  
+  private maxRetries: number;
+  private retryBackoffMs: number;
+  private enableMetrics: boolean;
+  private gracefulRestartTimeout: number;
+
   private watcher: FSWatcher | null = null;
   private healthCheckTimer: NodeJS.Timeout | null = null;
   private debounceTimers: Map<string, NodeJS.Timeout> = new Map();
   private secretCache: Map<string, string> = new Map();
   private isWatching: boolean = false;
+  private startTime: Date = new Date();
+  private retryCount: number = 0;
+
+  // Production metrics
+  private metrics: SecretWatcherMetrics = {
+    totalSecrets: 0,
+    changesDetected: 0,
+    reloadsTriggered: 0,
+    errors: 0,
+    uptime: 0,
+    healthCheckPasses: 0,
+    healthCheckFailures: 0,
+  };
 
   constructor(config: WatcherConfig) {
     super();
-    
+
     this.mountPath = config.mountPath;
     this.pollInterval = config.pollInterval || 5000; // 5 seconds
     this.debounceMs = config.debounceMs || 1000; // 1 second
     this.healthCheckInterval = config.healthCheckInterval || 30000; // 30 seconds
+    this.maxRetries = config.maxRetries || 5;
+    this.retryBackoffMs = config.retryBackoffMs || 1000;
+    this.enableMetrics = config.enableMetrics ?? true;
+    this.gracefulRestartTimeout = config.gracefulRestartTimeout || 10000; // 10 seconds
 
-    logger.info('Secret volume watcher initialized', {
+    logger.info('Enhanced secret volume watcher initialized', {
       mountPath: this.mountPath,
       pollInterval: this.pollInterval,
-      debounceMs: this.debounceMs
+      debounceMs: this.debounceMs,
+      enableMetrics: this.enableMetrics,
+      productionFeatures: {
+        maxRetries: this.maxRetries,
+        gracefulRestartTimeout: this.gracefulRestartTimeout,
+      }
     });
   }
 
@@ -142,7 +210,7 @@ export class SecretVolumeWatcher extends EventEmitter {
   private async verifyMountPath(): Promise<void> {
     try {
       const stats = await fs.stat(this.mountPath);
-      
+
       if (!stats.isDirectory()) {
         throw new Error(`Mount path is not a directory: ${this.mountPath}`);
       }
@@ -250,7 +318,7 @@ export class SecretVolumeWatcher extends EventEmitter {
   private async handleFileChange(filename: string): Promise<void> {
     try {
       const filePath = join(this.mountPath, filename);
-      
+
       // Check if file exists
       try {
         await fs.access(filePath);
@@ -275,6 +343,10 @@ export class SecretVolumeWatcher extends EventEmitter {
       // Update cache
       this.secretCache.set(filename, newContent);
 
+      // Update metrics
+      this.metrics.changesDetected++;
+      this.metrics.lastChangeTime = new Date();
+
       // Emit change event
       const changeEvent: SecretChangeEvent = {
         secretKey: filename,
@@ -296,14 +368,127 @@ export class SecretVolumeWatcher extends EventEmitter {
         logger.warn('Critical secret changed - application reload required', {
           secretKey: filename
         });
+        this.metrics.reloadsTriggered++;
         this.emit('reload-required', changeEvent);
       }
     } catch (error) {
-      logger.error('Failed to handle file change', error instanceof Error ? error : new Error(String(error)), {
+      this.metrics.errors++;
+      logger.error('Error handling file change', error instanceof Error ? error : new Error(String(error)), {
         filename
       });
       this.emit('error', error);
     }
+  }
+
+  /**
+   * Get comprehensive health check for monitoring
+   */
+  async getHealthCheck(): Promise<WatcherHealthCheck> {
+    const errors: string[] = [];
+    let mountPathAccessible = false;
+    let secretCount = 0;
+
+    try {
+      // Check if mount path is accessible
+      await fs.access(this.mountPath);
+      mountPathAccessible = true;
+
+      // Count secrets
+      const files = await fs.readdir(this.mountPath);
+      secretCount = files.filter(f => !f.startsWith('.')).length;
+
+    } catch (error) {
+      errors.push(`Mount path inaccessible: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+
+    // Determine status
+    let status: 'healthy' | 'degraded' | 'unhealthy';
+
+    if (!mountPathAccessible) {
+      status = 'unhealthy';
+    } else if (errors.length > 0 || this.metrics.errors > 5) {
+      status = 'degraded';
+    } else {
+      status = 'healthy';
+    }
+
+    // Update uptime
+    this.metrics.uptime = Date.now() - this.startTime.getTime();
+
+    return {
+      status,
+      details: {
+        mountPathAccessible,
+        secretCount,
+        lastChange: this.metrics.lastChangeTime,
+        errors,
+        uptime: this.metrics.uptime,
+      },
+      metrics: this.metrics,
+    };
+  }
+
+  /**
+   * Get current metrics
+   */
+  getMetrics(): SecretWatcherMetrics {
+    this.metrics.uptime = Date.now() - this.startTime.getTime();
+    return { ...this.metrics };
+  }
+
+  /**
+   * Enhanced graceful restart with timeout
+   */
+  async triggerGracefulRestart(reason: string): Promise<void> {
+    logger.warn('Initiating graceful restart', {
+      reason,
+      timeout: this.gracefulRestartTimeout,
+    });
+
+    this.emit('restart-initiated', { reason, timestamp: new Date() });
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        logger.error('Graceful restart timeout - forcing exit');
+        process.exit(1);
+      }, this.gracefulRestartTimeout);
+
+      // Notify listeners to prepare for shutdown
+      this.emit('graceful-shutdown', { reason, timeout: this.gracefulRestartTimeout });
+
+      // Give some time for graceful shutdown
+      setTimeout(() => {
+        clearTimeout(timeout);
+        logger.info('Graceful restart completed');
+        resolve();
+      }, 2000); // 2 second grace period
+    });
+  }
+
+  /**
+   * Enhanced error recovery with exponential backoff
+   */
+  private async handleErrorWithRetry(error: Error, operation: string): Promise<void> {
+    this.metrics.errors++;
+    this.retryCount++;
+
+    if (this.retryCount > this.maxRetries) {
+      logger.error(`Max retries exceeded for ${operation}`, error, {
+        retryCount: this.retryCount,
+        maxRetries: this.maxRetries,
+      });
+      throw error;
+    }
+
+    const backoffDelay = this.retryBackoffMs * Math.pow(2, this.retryCount - 1);
+
+    logger.warn(`Retrying ${operation} after error`, {
+      error: error.message,
+      retryCount: this.retryCount,
+      delay: backoffDelay,
+    });
+
+    await new Promise(resolve => setTimeout(resolve, backoffDelay));
   }
 
   /**

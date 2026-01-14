@@ -1,0 +1,596 @@
+# ============================================================================
+# ValueOS Unified Deployment Pipeline
+# ============================================================================
+# Consolidates all deployment workflows into a single, standardized pipeline
+# with environment consistency, deployment gates, and canary capabilities
+# ============================================================================
+
+name: Unified Deployment Pipeline
+
+on:
+  push:
+    branches: [main, develop, staging]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      force_deploy:
+        description: 'Force deployment (bypasses some checks)'
+        required: false
+        default: false
+        type: boolean
+      canary_percentage:
+        description: 'Canary deployment percentage (0-100)'
+        required: false
+        default: '0'
+        type: string
+
+env:
+  NODE_VERSION: "18"
+  AWS_REGION: us-east-1
+  REGISTRY: ghcr.io
+  IMAGE_NAME: valueos
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+  id-token: write  # For OIDC authentication
+
+jobs:
+  # ============================================================================
+  # Phase 1: Validation and Quality Gates
+  # ============================================================================
+  validate:
+    name: Validate Code Quality
+    runs-on: ubuntu-latest
+    outputs:
+      should_deploy: ${{ steps.gates.outputs.should_deploy }}
+      environment: ${{ steps.env.outputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linting
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Type checking
+        run: npm run typecheck
+
+      - name: Run security audit
+        run: npm run security:scan
+
+      - name: Run unit tests
+        run: npm run test:unit
+
+      - name: Run integration tests
+        run: npm run test:integration
+
+      - name: Validate design tokens
+        run: npm run lint:design-tokens
+
+      - name: Determine target environment
+        id: env
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "environment=preview" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+            echo "environment=staging" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/staging" ]]; then
+            echo "environment=staging" >> $GITHUB_OUTPUT
+          else
+            echo "environment=${{ github.event.inputs.environment || 'staging' }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deployment gates
+        id: gates
+        run: |
+          SHOULD_DEPLOY="true"
+
+          # Skip deployment for PRs
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            SHOULD_DEPLOY="false"
+          fi
+
+          # Production deployment requires main branch
+          if [[ "${{ steps.env.outputs.environment }}" == "production" && "${{ github.ref }}" != "refs/heads/main" ]]; then
+            SHOULD_DEPLOY="false"
+          fi
+
+          # Force deploy can bypass some checks
+          if [[ "${{ github.event.inputs.force_deploy }}" == "true" ]]; then
+            SHOULD_DEPLOY="true"
+          fi
+
+          echo "should_deploy=${SHOULD_DEPLOY}" >> $GITHUB_OUTPUT
+          echo "Environment: ${{ steps.env.outputs.environment }}"
+          echo "Should deploy: ${SHOULD_DEPLOY}"
+
+  # ============================================================================
+  # Phase 2: Build and Security Scanning
+  # ============================================================================
+  build:
+    name: Build and Scan
+    runs-on: ubuntu-latest
+    needs: validate
+    if: needs.validate.outputs.should_deploy == 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Run comprehensive security scan
+        run: |
+          npm run security:scan:all
+          npm run lint:all
+
+      - name: Generate SBOM
+        run: npm run security:sbom
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.frontend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.backend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}-backend
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: |
+            dist/
+            sbom.json
+            coverage/
+
+  # ============================================================================
+  # Phase 3: Environment Validation
+  # ============================================================================
+  validate-environment:
+    name: Validate Environment
+    runs-on: ubuntu-latest
+    needs: [validate, build]
+    if: needs.validate.outputs.should_deploy == 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate environment configuration
+        run: |
+          npm run env:validate
+          npm run build:validate
+
+      - name: Test database connectivity
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          npm run db:test:setup
+          npm run db:validate
+
+      - name: Validate secrets configuration
+        env:
+          SECRET_PROVIDER: ${{ secrets.SECRET_PROVIDER }}
+          VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
+          VAULT_ROLE: ${{ secrets.VAULT_ROLE }}
+        run: |
+          npm run env:validate
+
+      - name: Run environment-specific tests
+        run: |
+          if [[ "${{ needs.validate.outputs.environment }}" == "production" ]]; then
+            npm run test:staging
+            npm run security:scan
+          else
+            npm run test:integration
+          fi
+
+  # ============================================================================
+  # Phase 4: Infrastructure Validation
+  # ============================================================================
+  validate-infrastructure:
+    name: Validate Infrastructure
+    runs-on: ubuntu-latest
+    needs: [validate, build]
+    if: needs.validate.outputs.should_deploy == 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.5.0"
+
+      - name: Terraform Format Check
+        run: terraform fmt -check
+        working-directory: infra/terraform
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: infra/terraform
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: infra/terraform
+
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+        working-directory: infra/terraform
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Terraform Security Scan
+        run: |
+          npm run terraform:security:scan
+        working-directory: infra/terraform
+
+      - name: Save Terraform Plan
+        uses: actions/upload-artifact@v3
+        with:
+          name: terraform-plan
+          path: infra/terraform/tfplan
+
+  # ============================================================================
+  # Phase 5: Deployment Gates and Approvals
+  # ============================================================================
+  deployment-gates:
+    name: Deployment Gates
+    runs-on: ubuntu-latest
+    needs: [validate, build, validate-environment, validate-infrastructure]
+    if: needs.validate.outputs.should_deploy == 'true'
+
+    environment:
+      name: ${{ needs.validate.outputs.environment }}
+      url: ${{ steps.deployment.outputs.url }}
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifacts
+
+      - name: Production approval check
+        if: needs.validate.outputs.environment == 'production'
+        run: |
+          echo "🚨 Production deployment requires manual approval"
+          echo "Check the Environment tab above for approval"
+
+      - name: Canary deployment check
+        id: canary
+        run: |
+          CANARY_PERCENTAGE="${{ github.event.inputs.canary_percentage || '0' }}"
+          echo "canary_percentage=${CANARY_PERCENTAGE}" >> $GITHUB_OUTPUT
+
+          if [[ "${CANARY_PERCENTAGE}" != "0" ]]; then
+            echo "🚀 Canary deployment enabled: ${CANARY_PERCENTAGE}%"
+          fi
+
+      - name: Final deployment check
+        id: deployment
+        run: |
+          ENVIRONMENT="${{ needs.validate.outputs.environment }}"
+          CANARY="${{ steps.canary.outputs.canary_percentage }}"
+
+          # Set deployment URL based on environment
+          case $ENVIRONMENT in
+            "production")
+              URL="https://valueos.com"
+              ;;
+            "staging")
+              URL="https://staging.valueos.com"
+              ;;
+            "preview")
+              URL="https://pr-${{ github.event.number }}.preview.valueos.com"
+              ;;
+            *)
+              URL="https://${ENVIRONMENT}.valueos.com"
+              ;;
+          esac
+
+          echo "url=${URL}" >> $GITHUB_OUTPUT
+          echo "environment=${ENVIRONMENT}" >> $GITHUB_OUTPUT
+          echo "canary_percentage=${CANARY}" >> $GITHUB_OUTPUT
+
+  # ============================================================================
+  # Phase 6: Deploy to Environment
+  # ============================================================================
+  deploy:
+    name: Deploy to ${{ needs.deployment-gates.outputs.environment }}
+    runs-on: ubuntu-latest
+    needs: [validate, build, validate-environment, validate-infrastructure, deployment-gates]
+    if: needs.validate.outputs.should_deploy == 'true'
+
+    environment:
+      name: ${{ needs.deployment-gates.outputs.environment }}
+      url: ${{ needs.deployment-gates.outputs.url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --name valuecanvas-${{ needs.deployment-gates.outputs.environment }}-cluster --region ${{ env.AWS_REGION }}
+
+      - name: Download Terraform plan
+        uses: actions/download-artifact@v3
+        with:
+          name: terraform-plan
+          path: infra/terraform/
+
+      - name: Apply Terraform changes
+        run: terraform apply -auto-approve tfplan
+        working-directory: infra/terraform
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Deploy application
+        run: |
+          ENVIRONMENT="${{ needs.deployment-gates.outputs.environment }}"
+          CANARY="${{ needs.deployment-gates.outputs.canary_percentage }}"
+
+          # Set environment-specific values
+          case $ENVIRONMENT in
+            "production")
+              NAMESPACE="valueos-production"
+              REPLICAS="3"
+              ;;
+            "staging")
+              NAMESPACE="valueos-staging"
+              REPLICAS="2"
+              ;;
+            *)
+              NAMESPACE="valueos-${ENVIRONMENT}"
+              REPLICAS="1"
+              ;;
+          esac
+
+          # Apply Kubernetes manifests
+          kubectl apply -f infra/k8s/ -n $NAMESPACE
+
+          # Handle canary deployment
+          if [[ "$CANARY" != "0" ]]; then
+            echo "🚀 Deploying canary: ${CANARY}%"
+            kubectl patch deployment valueos-frontend -n $NAMESPACE -p '{"spec":{"template":{"metadata":{"annotations":{"canary":"true"}}}}}'
+            kubectl patch deployment valueos-frontend -n $NAMESPACE -p '{"spec":{"replicas":'$(($REPLICAS * $CANARY / 100))'}}'
+          else
+            echo "🚀 Full deployment to $ENVIRONMENT"
+            kubectl set image deployment/valueos-frontend valueos-frontend=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main -n $NAMESPACE
+            kubectl set image deployment/valueos-backend valueos-backend=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main-backend -n $NAMESPACE
+          fi
+
+      - name: Wait for deployment rollout
+        run: |
+          ENVIRONMENT="${{ needs.deployment-gates.outputs.environment }}"
+          NAMESPACE="valueos-${ENVIRONMENT}"
+
+          kubectl rollout status deployment/valueos-frontend -n $NAMESPACE --timeout=300s
+          kubectl rollout status deployment/valueos-backend -n $NAMESPACE --timeout=300s
+
+      - name: Verify deployment health
+        run: |
+          ENVIRONMENT="${{ needs.deployment-gates.outputs.environment }}"
+          NAMESPACE="valueos-${ENVIRONMENT}"
+          URL="${{ needs.deployment-gates.outputs.url }}"
+
+          # Wait for pods to be ready
+          kubectl wait --for=condition=ready pod -l app=valueos-frontend -n $NAMESPACE --timeout=300s
+          kubectl wait --for=condition=ready pod -l app=valueos-backend -n $NAMESPACE --timeout=300s
+
+          # Health check
+          for i in {1..10}; do
+            if curl -f "$URL/health" > /dev/null 2>&1; then
+              echo "✅ Health check passed"
+              break
+            else
+              echo "⏳ Waiting for health check... ($i/10)"
+              sleep 30
+            fi
+          done
+
+  # ============================================================================
+  # Phase 7: Post-Deployment Validation
+  # ============================================================================
+  post-deploy:
+    name: Post-Deployment Validation
+    runs-on: ubuntu-latest
+    needs: [validate, build, validate-environment, validate-infrastructure, deployment-gates, deploy]
+    if: needs.validate.outputs.should_deploy == 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run smoke tests
+        env:
+          BASE_URL: ${{ needs.deployment-gates.outputs.url }}
+        run: npm run test:smoke
+
+      - name: Run accessibility tests
+        env:
+          BASE_URL: ${{ needs.deployment-gates.outputs.url }}
+        run: npm run test:a11y
+
+      - name: Validate secrets in production
+        if: needs.deployment-gates.outputs.environment == 'production'
+        env:
+          BASE_URL: ${{ needs.deployment-gates.outputs.url }}
+        run: |
+          curl -f "$BASE_URL/health/secrets" || exit 1
+
+      - name: Performance monitoring check
+        run: |
+          ENVIRONMENT="${{ needs.deployment-gates.outputs.environment }}"
+          URL="${{ needs.deployment_gates.outputs.url }}"
+
+          # Basic performance check
+          RESPONSE_TIME=$(curl -o /dev/null -s -w '%{time_total}' "$URL" || echo "999")
+          if (( $(echo "$RESPONSE_TIME > 2.0" | bc -l) )); then
+            echo "⚠️ Slow response time: ${RESPONSE_TIME}s"
+            exit 1
+          else
+            echo "✅ Response time acceptable: ${RESPONSE_TIME}s"
+          fi
+
+      - name: Update deployment status
+        if: success()
+        run: |
+          echo "🎉 Deployment to ${{ needs.deployment-gates.outputs.environment }} completed successfully!"
+          echo "📊 Environment: ${{ needs.deployment-gates.outputs.url }}"
+          echo "🕐 Deployed at: $(date -u)"
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "🚨 Deployment failed! Initiating rollback..."
+          ENVIRONMENT="${{ needs.deployment-gates.outputs.environment }}"
+          NAMESPACE="valueos-${ENVIRONMENT}"
+
+          kubectl rollout undo deployment/valueos-frontend -n $NAMESPACE
+          kubectl rollout undo deployment/valueos-backend -n $NAMESPACE
+
+          echo "🔄 Rollback initiated"
+
+  # ============================================================================
+  # Phase 8: Cleanup and Notification
+  # ============================================================================
+  cleanup:
+    name: Cleanup and Notify
+    runs-on: ubuntu-latest
+    needs: [validate, build, validate-environment, validate-infrastructure, deployment-gates, deploy, post-deploy]
+    if: always() && needs.validate.outputs.should_deploy == 'true'
+
+    steps:
+      - name: Cleanup artifacts
+        if: always()
+        run: |
+          echo "🧹 Cleaning up deployment artifacts..."
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: ${{ needs.deployment-gates.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: ${{ needs.deployment-gates.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Canary**: ${{ needs.deployment-gates.outputs.canary_percentage }}%" >> $GITHUB_STEP_SUMMARY
+          echo "- **Completed**: $(date -u)" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify team
+        if: success()
+        run: |
+          echo "✅ ValueOS deployment to ${{ needs.deployment-gates.outputs.environment }} completed successfully"
+          # Add Slack/Teams notification here if needed
+
+      - name: Notify failure
+        if: failure()
+        run: |
+          echo "❌ ValueOS deployment to ${{ needs.deployment-gates.outputs.environment }} failed"
+          # Add Slack/Teams notification here if needed

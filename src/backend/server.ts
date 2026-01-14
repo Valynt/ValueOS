@@ -20,6 +20,7 @@ import {
   initializeSecretVolumeWatcher,
   secretVolumeWatcher,
 } from "../config/secrets/SecretVolumeWatcher";
+import { validateSecretsOnStartup, secretHealthMiddleware } from "../config/secrets/SecretValidator";
 import { createLogger } from "../lib/logger";
 import { createVersionedApiRouter } from "./versioning";
 import { initializeContext } from "../lib/context";
@@ -243,6 +244,9 @@ app.get("/metrics/latency", (_req, res) => {
 // CSP Reporting Endpoint
 app.post("/api/csp-report", express.json({ type: "application/csp-report" }), cspReportHandler);
 
+// Secret Health Check Endpoint
+app.get("/health/secrets", secretHealthMiddleware());
+
 // Mount routes
 apiRouter.use("/billing", billingRouter);
 app.use("/api", apiRouter);
@@ -289,13 +293,19 @@ app.use(
 );
 
 async function startServer(): Promise<void> {
+  // 1. Validate all secrets before starting any services
+  logger.info("🔒 Validating secrets before server startup");
+  await validateSecretsOnStartup();
+  logger.info("✅ Secret validation completed successfully");
+
+  // 2. Validate production requirements
   if (settings.NODE_ENV === "production" && !isConsentRegistryConfigured()) {
     throw new Error(
       "Consent registry is not configured. Verify consent registry Supabase URL and authentication configuration."
     );
   }
 
-  // Initialize infrastructure
+  // 3. Initialize infrastructure
   await initializeContext();
   await initializeSecretVolumeWatcher();
 

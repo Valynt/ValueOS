@@ -1,6 +1,11 @@
 /**
- * App Routes with Authentication
- * Centralized routing configuration with lazy loading and error boundaries
+ * App Routes with Authentication and Comprehensive Error Boundaries
+ *
+ * Enhanced routing configuration with:
+ * - Multi-level error boundary hierarchy
+ * - Route-specific error handling
+ * - Async operation error boundaries
+ * - Lazy loading with error recovery
  */
 
 import { lazy, Suspense } from "react";
@@ -11,6 +16,8 @@ import { DrawerProvider } from "./contexts/DrawerContext";
 import { ProtectedRoute } from "./components/Auth/ProtectedRoute";
 import { ToastProvider } from "./components/Common/Toast";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { RouteErrorBoundary } from "./components/error-boundaries/RouteErrorBoundary";
+import { AsyncErrorBoundary } from "./components/error-boundaries/AsyncErrorBoundary";
 import { LoadingSpinner } from "./components/Common/LoadingSpinner";
 import { BetaFeedbackWidget } from "./components/Feedback/BetaFeedbackWidget";
 import { EnvironmentBanner } from "./components/Common/EnvironmentBanner";
@@ -75,13 +82,188 @@ export function AppRoutes() {
                         {/* Root redirect to deals (sales enablement) */}
                         <Route path="/" element={<Navigate to="/deals" replace />} />
 
-                        {/* Public Auth Routes */}
-                        <Route path="/login" element={<LoginPage />} />
-                        <Route path="/signup" element={<SignupPage />} />
-                        <Route path="/reset-password" element={<ResetPasswordPage />} />
+                        {/* Authentication Routes with Route-Level Error Boundaries */}
+                        <Route
+                          path="/login"
+                          element={
+                            <RouteErrorBoundary routeName="Login">
+                              <AsyncErrorBoundary>
+                                <LoginPage />
+                              </AsyncErrorBoundary>
+                            </RouteErrorBoundary>
+                          }
+                        />
+                        <Route
+                          path="/signup"
+                          element={
+                            <RouteErrorBoundary routeName="Signup">
+                              <AsyncErrorBoundary>
+                                <SignupPage />
+                              </AsyncErrorBoundary>
+                            </RouteErrorBoundary>
+                          }
+                        />
+                        <Route
+                          path="/reset-password"
+                          element={
+                            <RouteErrorBoundary routeName="Reset Password">
+                              <AsyncErrorBoundary>
+                                <ResetPasswordPage />
+                              </AsyncErrorBoundary>
+                            </RouteErrorBoundary>
+                          }
+                        />
+                        <Route
+                          path="/auth/callback"
+                          element={
+                            <RouteErrorBoundary routeName="Auth Callback">
+                              <AsyncErrorBoundary>
+                                <AuthCallback />
+                              </AsyncErrorBoundary>
+                            </RouteErrorBoundary>
+                          }
+                        />
 
-                        {/* OAuth Callback */}
-                        <Route path="/auth/callback" element={<AuthCallback />} />
+                        {/* Protected Application Routes with Error Boundaries */}
+                        <Route element={<ProtectedRoute />}>
+                          <RouteErrorBoundary routeName="Main Application">
+                            <AsyncErrorBoundary>
+                              <MainLayout>
+                                <Routes>
+                                  {/* Home Dashboard */}
+                                  <Route
+                                    path="/"
+                                    element={
+                                      <RouteErrorBoundary routeName="Home">
+                                        <Home />
+                                      </RouteErrorBoundary>
+                                    }
+                                  />
+
+                                  {/* Value Canvas */}
+                                  <Route
+                                    path="/canvas"
+                                    element={
+                                      <RouteErrorBoundary routeName="Value Canvas">
+                                        <ValueCanvas />
+                                      </RouteErrorBoundary>
+                                    }
+                                  />
+
+                                  {/* Impact Cascade */}
+                                  <Route
+                                    path="/cascade"
+                                    element={
+                                      <RouteErrorBoundary routeName="Impact Cascade">
+                                        <ImpactCascade />
+                                      </RouteErrorBoundary>
+                                    }
+                                  />
+
+                                  {/* ROI Calculator */}
+                                  <Route
+                                    path="/calculator"
+                                    element={
+                                      <RouteErrorBoundary routeName="ROI Calculator">
+                                        <ROICalculator />
+                                      </RouteErrorBoundary>
+                                    }
+                                  />
+
+                                  {/* Agent Dashboard */}
+                                  <Route
+                                    path="/dashboard"
+                                    element={
+                                      <RouteErrorBoundary routeName="Agent Dashboard">
+                                        <AgentDashboard />
+                                      </RouteErrorBoundary>
+                                    }
+                                  />
+
+                                  {/* Conversational AI */}
+                                  <Route
+                                    path="/chat"
+                                    element={
+                                      <RouteErrorBoundary routeName="Conversational AI">
+                                        <ConversationalAI />
+                                      </RouteErrorBoundary>
+                                    }
+                                  />
+
+                                  {/* Launch Readiness Dashboard */}
+                                  <Route
+                                    path="/launch-readiness"
+                                    element={
+                                      <RouteErrorBoundary routeName="Launch Readiness">
+                                        <LaunchReadinessDashboard />
+                                      </RouteErrorBoundary>
+                                    }
+                                  />
+
+                                  {/* Mission Control */}
+                                  <Route
+                                    path="/mission-control"
+                                    element={
+                                      <RouteErrorBoundary routeName="Mission Control">
+                                        <MissionControl />
+                                      </RouteErrorBoundary>
+                                    }
+                                  />
+
+                                  {/* Sales Enablement Routes */}
+                                  <Route
+                                    path="/sales"
+                                    element={
+                                      <RouteErrorBoundary routeName="Sales Enablement">
+                                        <DealsView />
+                                      </RouteErrorBoundary>
+                                    }
+                                  >
+                                    <Route
+                                      index
+                                      element={
+                                        <RouteErrorBoundary routeName="Sales Dashboard">
+                                          <DealsView />
+                                        </RouteErrorBoundary>
+                                      }
+                                    />
+                                  </Route>
+
+                                  {/* Documentation Portal */}
+                                  <Route
+                                    path="/docs"
+                                    element={
+                                      <RouteErrorBoundary routeName="Documentation Portal">
+                                        <DocsPortal />
+                                      </RouteErrorBoundary>
+                                    }
+                                  />
+                                  <Route
+                                    path="/docs/:sectionId"
+                                    element={
+                                      <RouteErrorBoundary routeName="Documentation Section">
+                                        <DocsPortal />
+                                      </RouteErrorBoundary>
+                                    }
+                                  />
+
+                                  {/* Main App (Chat+Canvas) - Default protected route */}
+                                  <Route
+                                    path="/app/*"
+                                    element={
+                                      <RouteErrorBoundary routeName="Main App">
+                                        <App />
+                                      </RouteErrorBoundary>
+                                    }
+                                  />
+
+                                  {/* 404 Not Found - Must be last */}
+                                  <Route path="*" element={<NotFound />} />
+                                </Routes>
+                              </MainLayout>
+                            </AsyncErrorBoundary>
+                          </RouteErrorBoundary>
+                        </Route>
 
                         {/* Sales Enablement - Deals View */}
                         <Route
@@ -106,16 +288,6 @@ export function AppRoutes() {
                           element={
                             <ProtectedRoute>
                               <CustomerAccessManagement />
-                            </ProtectedRoute>
-                          }
-                        />
-
-                        {/* Mission Control (Zero State) */}
-                        <Route
-                          path="/launch"
-                          element={
-                            <ProtectedRoute>
-                              <MissionControl />
                             </ProtectedRoute>
                           }
                         />

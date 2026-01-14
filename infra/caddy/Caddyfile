@@ -4,6 +4,7 @@
   storage file_system {$CADDY_STORAGE:/data}
   acme_ca {$ACME_CA:https://acme-v02.api.letsencrypt.org/directory}
   auto_https {$AUTO_HTTPS:on}
+  metrics /metrics
   servers {
     max_header_size 1MB
     timeouts {
