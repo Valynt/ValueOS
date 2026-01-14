@@ -1,10 +1,10 @@
 {
-  "name": "ValueOS",
+  "name": "ValueOS Ephemeral Development Environment",
   "build": {
-    "dockerfile": "Dockerfile.optimized",
+    "dockerfile": "Dockerfile",
     "context": "..",
     "args": {
-      "NODE_VERSION": "20",
+      "NODE_VERSION": "22",
       "VARIANT": "ubuntu-22.04"
     }
   },
@@ -19,6 +19,28 @@
     // GitHub CLI for automation
     "ghcr.io/devcontainers/features/github-cli:1": {
       "version": "latest"
+    },
+    // Node.js for development
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22",
+      "nodeGypDependencies": true
+    },
+    // Python for additional tooling
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.11",
+      "installTools": "true"
+    },
+    // Go for backend services
+    "ghcr.io/devcontainers/features/go:1": {
+      "version": "1.21"
+    },
+    // Common utilities
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "configureZshAsDefaultShell": true,
+      "username": "vscode",
+      "userUid": "1000",
+      "userGid": "1000"
     }
   },
 
@@ -28,9 +50,13 @@
   "containerEnv": {
     "NODE_ENV": "development",
     "ENVIRONMENT": "development",
+    "CONTAINER": "true",
     // Optimize npm
     "NPM_CONFIG_UPDATE_NOTIFIER": "false",
-    "NPM_CONFIG_FUND": "false"
+    "NPM_CONFIG_FUND": "false",
+    "NPM_CONFIG_AUDIT": "false",
+    // Docker environment
+    "DOCKER_HOST": "unix:///var/run/docker.sock"
   },
 
   // Lifecycle scripts for automation
@@ -40,32 +66,18 @@
   "postStartCommand": "bash .devcontainer/scripts/post-start.sh",
 
   // Port forwarding with labels
-  "forwardPorts": [
-    5173, 8000, 5432, 16686, 9090, 3001, 6379, 54321, 54322, 54323, 54324
-  ],
+  "forwardPorts": [5173, 3001, 5432, 6379, 54321, 54323, 9090, 3000],
   "portsAttributes": {
     "5173": {
       "label": "Frontend (Vite)",
       "onAutoForward": "notify"
     },
-    "8000": {
+    "3001": {
       "label": "Backend API",
       "onAutoForward": "notify"
     },
     "5432": {
       "label": "PostgreSQL",
-      "onAutoForward": "silent"
-    },
-    "16686": {
-      "label": "Jaeger UI",
-      "onAutoForward": "silent"
-    },
-    "9090": {
-      "label": "Prometheus",
-      "onAutoForward": "silent"
-    },
-    "3001": {
-      "label": "Storybook",
       "onAutoForward": "silent"
     },
     "6379": {
@@ -76,16 +88,16 @@
       "label": "Supabase API",
       "onAutoForward": "notify"
     },
-    "54322": {
-      "label": "Supabase DB",
-      "onAutoForward": "silent"
-    },
     "54323": {
       "label": "Supabase Studio",
       "onAutoForward": "notify"
     },
-    "54324": {
-      "label": "Supabase Mailpit",
+    "9090": {
+      "label": "Prometheus",
+      "onAutoForward": "silent"
+    },
+    "3000": {
+      "label": "Grafana",
       "onAutoForward": "silent"
     }
   },
@@ -99,7 +111,9 @@
     // Cache build artifacts
     "source=valueos-build-cache,target=${containerWorkspaceFolder}/.cache,type=volume",
     // Cache playwright browsers
-    "source=valueos-playwright,target=/home/vscode/.cache/ms-playwright,type=volume"
+    "source=valueos-playwright,target=/home/vscode/.cache/ms-playwright,type=volume",
+    // Cache Docker layers
+    "source=valueos-docker,target=/var/lib/docker,type=volume"
   ],
 
   // Container configuration for performance
@@ -110,7 +124,10 @@
     "--shm-size=2gb",
     // Add labels for identification
     "--label=project=valueos",
-    "--label=environment=development"
+    "--label=environment=development",
+    "--label=type=ephemeral",
+    // Enable privileged mode for Docker-in-Docker
+    "--privileged"
   ],
 
   // Host requirements
@@ -124,17 +141,38 @@
   "customizations": {
     "vscode": {
       "extensions": [
-        // Essential extensions only (loaded on-demand)
+        // Core development
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
         "bradlc.vscode-tailwindcss",
+
+        // TypeScript/React
+        "ms-vscode.vscode-typescript-next",
+        "ms-vscode.vscode-json",
+
+        // Docker
         "ms-azuretools.vscode-docker",
         "ms-vscode-remote.remote-containers",
+
+        // Database
+        "ms-mssql.mssql",
+        "cweijan.vscode-redis-client",
+
+        // Git
+        "eamodio.gitlens",
+
+        // Testing
+        "ms-playwright.playwright",
+
+        // AI/LLM
         "GitHub.copilot",
         "GitHub.copilot-chat",
-        "ms-playwright.playwright",
+
+        // Utilities
+        "ms-vscode.hexeditor",
+        "redhat.vscode-yaml",
         "Prisma.prisma",
-        "redhat.vscode-yaml"
+        "ms-vscode.vscode-json"
       ],
       "settings": {
         // Editor performance
@@ -162,7 +200,8 @@
           "source.fixAll.eslint": "explicit"
         },
         // Terminal
-        "terminal.integrated.defaultProfile.linux": "zsh",
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "terminal.integrated.shell.linux": "/bin/bash",
         // Git
         "git.autofetch": true,
         "git.enableSmartCommit": true,
@@ -170,7 +209,11 @@
         "docker.dockerPath": "docker",
         // TypeScript
         "typescript.tsdk": "node_modules/typescript/lib",
-        "typescript.enablePromptUseWorkspaceTsdk": true
+        "typescript.enablePromptUseWorkspaceTsdk": true,
+        // Environment
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "go.gopath": "/home/vscode/go",
+        "go.goroot": "/usr/local/go"
       }
     }
   },
@@ -179,5 +222,11 @@
   "waitFor": "onCreateCommand",
 
   // Update remote user UID/GID to match host (for file permissions)
-  "updateRemoteUserUID": true
+  "updateRemoteUserUID": true,
+
+  // Additional configuration
+  "remoteEnv": {
+    "PATH": "${containerWorkspaceFolder}/node_modules/.bin:${containerEnv:PATH}",
+    "PROMPT_COMMAND": "echo -e '\\033[0;32mValueOS DevContainer\\033[0m\\n'"
+  }
 }

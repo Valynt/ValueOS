@@ -69,11 +69,36 @@ if command -v kubectl &> /dev/null; then
 fi
 print_success "Shell completions configured"
 
-# 7. Create useful aliases
+# 7. Install Doppler CLI for secret management
+print_status "Installing Doppler CLI..."
+if ! command -v doppler &> /dev/null; then
+    curl -Ls https://cli.doppler.com/install.sh | sh
+    export PATH="/root/bin:$PATH"
+    print_success "Doppler CLI installed"
+else
+    print_success "Doppler CLI already available"
+fi
+
+# 8. Create useful aliases
 print_status "Creating shell aliases..."
 cat >> ~/.zshrc << 'EOF'
 
-# ValueOS aliases
+# ValueOS Development Aliases
+alias dev-up="./bin/dev-up"
+alias dev-down="docker-compose -f docker-compose.unified.yml down"
+alias dev-logs="docker-compose -f docker-compose.unified.yml logs -f"
+alias dev-ps="docker-compose -f docker-compose.unified.yml ps"
+alias dev-restart="docker-compose -f docker-compose.unified.yml restart"
+
+# Database aliases
+alias db-connect="docker exec -it valueos-postgres psql -U postgres -d valuecanvas_dev"
+alias redis-connect="docker exec -it valueos-redis redis-cli"
+
+# Development helpers
+alias health-check="curl -f http://localhost:3001/health"
+alias frontend="curl -f http://localhost:5173"
+
+# Legacy aliases
 alias dc='docker-compose'
 alias k='kubectl'
 alias tf='terraform'
@@ -93,8 +118,51 @@ alias gl='git log --oneline --graph --decorate'
 
 # Quick navigation
 alias ws='cd /workspace'
+
+# ValueOS prompt
+VALUEOS_PROMPT="%F{green}ValueOS%f %F{blue}%~%f $ "
+PROMPT=$VALUEOS_PROMPT
 EOF
 print_success "Aliases created"
+
+# 9. Create health check script
+print_status "Creating health check script..."
+mkdir -p /workspace/.local/bin
+cat > /workspace/.local/bin/health-check << 'EOF'
+#!/bin/bash
+echo "🏥 ValueOS Health Check"
+echo "===================="
+
+# Check frontend
+if curl -f -s http://localhost:5173 > /dev/null 2>&1; then
+    echo "✅ Frontend: http://localhost:5173"
+else
+    echo "❌ Frontend: Not responding"
+fi
+
+# Check backend
+if curl -f -s http://localhost:3001/health > /dev/null 2>&1; then
+    echo "✅ Backend: http://localhost:3001"
+else
+    echo "❌ Backend: Not responding"
+fi
+
+# Check PostgreSQL
+if docker exec valueos-postgres pg_isready -U postgres -d valuecanvas_dev > /dev/null 2>&1; then
+    echo "✅ PostgreSQL: Ready"
+else
+    echo "❌ PostgreSQL: Not ready"
+fi
+
+# Check Redis
+if docker exec valueos-redis redis-cli ping > /dev/null 2>&1; then
+    echo "✅ Redis: Ready"
+else
+    echo "❌ Redis: Not ready"
+fi
+EOF
+chmod +x /workspace/.local/bin/health-check
+print_success "Health check script created"
 
 echo ""
 echo "✅ On-create setup complete!"
