@@ -160,14 +160,19 @@ export class ExternalAPIAdapter {
       : null;
 
     try {
+      const isFormData = options.body instanceof FormData;
+      const headers: Record<string, string> = {
+        "User-Agent": `${this.serviceName}/1.0`,
+        ...options.headers,
+      };
+      // Only set Content-Type for JSON - let browser set it for FormData
+      if (!isFormData) {
+        headers["Content-Type"] = "application/json";
+      }
       const response = await fetch(endpoint, {
         method: options.method || "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": `${this.serviceName}/1.0`,
-          ...options.headers,
-        },
-        body: options.body ? JSON.stringify(options.body) : undefined,
+        headers,
+        body: options.body ? (isFormData ? options.body : JSON.stringify(options.body)) : undefined,
         signal: controller.signal,
       });
 

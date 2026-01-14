@@ -23,7 +23,7 @@ import {
   MCPResponseBuilder,
   MCPCRMToolResponse,
   createErrorResponseFromError,
-} from "../../mcp-common";
+} from "../../../mcp-common";
 
 // ============================================================================
 // Tool Definitions for LLM
