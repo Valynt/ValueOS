@@ -1,0 +1,30 @@
+{
+  "version": "1.0.0",
+  "timestamp": "2026-01-14T10:43:21Z",
+  "images": {
+    "postgres:15-alpine": {
+      "digest": "postgres:15-alpine@sha256:b3968e348b48f1198cc6de6611d055dbad91cd561b7990c406c3fc28d7095b21",
+      "source": "docker.io/library/postgres:15-alpine"
+    },
+    "redis:7-alpine": {
+      "digest": "redis:7-alpine@sha256:ee64a64eaab618d88051c3ade8f6352d11531fcf79d9a4818b9b183d8c1d18ba",
+      "source": "docker.io/library/redis:7-alpine"
+    },
+    "caddy:2-alpine": {
+      "digest": "caddy:2-alpine@sha256:953131cfea8e12bfe1c631a36308e9660e4389f0c3dfb3be957044d3ac92d446",
+      "source": "docker.io/library/caddy:2-alpine"
+    },
+    "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm": {
+      "digest": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm@sha256:PLACEHOLDER_BUILDER_SHA256",
+      "source": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm"
+    },
+    "node:22-bookworm-slim": {
+      "digest": "node:22-bookworm-slim@sha256:PLACEHOLDER_RUNTIME_SHA256",
+      "source": "docker.io/library/node:22-bookworm-slim"
+    },
+    "nginx:bookworm": {
+      "digest": "nginx:bookworm@sha256:PLACEHOLDER_NGINX_SHA256",
+      "source": "docker.io/library/nginx:bookworm"
+    }
+  }
+}

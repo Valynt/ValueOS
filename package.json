@@ -297,9 +297,6 @@
     "*.{ts,tsx}": [
       "eslint --fix"
     ],
-    "*.sh": [
-      "git update-index --chmod=+x"
-    ],
     "*.{json,md,yml,yaml}": [
       "prettier --write"
     ]

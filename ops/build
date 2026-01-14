@@ -1,0 +1,302 @@
+#!/usr/bin/env bash
+
+# ValueOS Build Script
+# Canonical build wrapper that ensures digest pinning and proper labeling
+
+set -euo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Logging functions
+log_info() {
+    echo -e "${BLUE}🔨 $1${NC}"
+}
+
+log_success() {
+    echo -e "${GREEN}✅ $1${NC}"
+}
+
+log_warning() {
+    echo -e "${YELLOW}⚠️  $1${NC}"
+}
+
+log_error() {
+    echo -e "${RED}❌ $1${NC}"
+}
+
+# Show usage
+show_usage() {
+    echo "Usage: $0 <target> [options]"
+    echo ""
+    echo "Targets:"
+    echo "  backend    - Build backend image"
+    echo "  frontend   - Build frontend image"
+    echo "  all        - Build both images"
+    echo ""
+    echo "Options:"
+    echo "  --no-cache - Disable Docker build cache"
+    echo "  --push     - Push images to registry after build"
+    echo "  --dry-run  - Show what would be built without executing"
+    echo ""
+    echo "Examples:"
+    echo "  $0 backend          # Build backend with locked digests"
+    echo "  $0 frontend         # Build frontend with locked digests"
+    echo "  $0 all              # Build both images"
+    echo "  $0 backend --push   # Build and push backend"
+}
+
+# Load image digests from lockfile
+load_digests() {
+    local lockfile="$PROJECT_ROOT/ops/locks/images.lock.json"
+
+    if [ ! -f "$lockfile" ]; then
+        log_error "Image lockfile not found: $lockfile"
+        log_info "Run './ops bootstrap' to create lockfile"
+        exit 1
+    fi
+
+    if ! jq empty "$lockfile" > /dev/null 2>&1; then
+        log_error "Image lockfile is corrupted: $lockfile"
+        exit 1
+    fi
+
+    # Extract digests for build args
+    BUILDER_DIGEST=$(jq -r '.images["mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm"].digest' "$lockfile" | cut -d'@' -f2)
+    RUNTIME_DIGEST=$(jq -r '.images["node:22-bookworm-slim"].digest' "$lockfile" | cut -d'@' -f2)
+    NGINX_DIGEST=$(jq -r '.images["nginx:bookworm"].digest' "$lockfile" | cut -d'@' -f2)
+
+    # Validate digests are available
+    if [ -z "$BUILDER_DIGEST" ] || [ "$BUILDER_DIGEST" = "null" ]; then
+        log_error "BUILDER_SHA256 not found in lockfile"
+        exit 1
+    fi
+
+    if [ -z "$RUNTIME_DIGEST" ] || [ "$RUNTIME_DIGEST" = "null" ]; then
+        log_error "RUNTIME_SHA256 not found in lockfile"
+        exit 1
+    fi
+
+    if [ -z "$NGINX_DIGEST" ] || [ "$NGINX_DIGEST" = "null" ]; then
+        log_error "NGINX_SHA256 not found in lockfile"
+        exit 1
+    fi
+
+    log_success "Loaded digests from lockfile"
+}
+
+# Get git information for labels
+get_git_info() {
+    GIT_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+    GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+    GIT_URL=$(git config --get remote.origin.url 2>/dev/null || echo "unknown")
+
+    # Clean up git URL for OCI label
+    if [[ "$GIT_URL" == git@* ]]; then
+        GIT_URL=$(echo "$GIT_URL" | sed 's/:/\//g' | sed 's/git@/https:\/\//')
+    fi
+}
+
+# Build backend
+build_backend() {
+    local no_cache=${1:-false}
+    local push=${2:-false}
+    local dry_run=${3:-false}
+
+    log_info "Building backend image..."
+
+    load_digests
+    get_git_info
+
+    local build_args=(
+        "--build-arg" "BUILDER_SHA256=$BUILDER_DIGEST"
+        "--build-arg" "RUNTIME_SHA256=$RUNTIME_DIGEST"
+        "--build-arg" "GIT_COMMIT=$GIT_COMMIT"
+        "--build-arg" "GIT_BRANCH=$GIT_BRANCH"
+        "--build-arg" "GIT_URL=$GIT_URL"
+        "--build-arg" "BUILD_TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        "--build-arg" "BUILD_PROFILE=${BUILD_PROFILE:-core}"
+        "--build-arg" "APP_ENV=${APP_ENV:-dev}"
+    )
+
+    if [ "$no_cache" = true ]; then
+        build_args+=("--no-cache")
+    fi
+
+    # Add labels
+    build_args+=(
+        "--label" "org.opencontainers.image.revision=$GIT_COMMIT"
+        "--label" "org.opencontainers.image.source=$GIT_URL"
+        "--label" "org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        "--label" "org.opencontainers.image.version=${APP_VERSION:-latest}"
+        "--label" "com.valueos.env=${APP_ENV:-dev}"
+        "--label" "com.valueos.build_profile=${BUILD_PROFILE:-core}"
+    )
+
+    if [ "$dry_run" = true ]; then
+        log_info "DRY RUN: Would execute:"
+        echo "docker build ${build_args[*]} -t valueos-backend:${APP_VERSION:-latest} -f Dockerfile.backend ."
+        return 0
+    fi
+
+    # Execute build
+    if docker build "${build_args[@]}" -t "valueos-backend:${APP_VERSION:-latest}" -f Dockerfile.backend .; then
+        log_success "Backend image built successfully"
+
+        if [ "$push" = true ]; then
+            log_info "Pushing backend image..."
+            docker push "valueos-backend:${APP_VERSION:-latest}"
+            log_success "Backend image pushed"
+        fi
+    else
+        log_error "Backend build failed"
+        exit 1
+    fi
+}
+
+# Build frontend
+build_frontend() {
+    local no_cache=${1:-false}
+    local push=${2:-false}
+    local dry_run=${3:-false}
+
+    log_info "Building frontend image..."
+
+    load_digests
+    get_git_info
+
+    local build_args=(
+        "--build-arg" "BUILDER_SHA256=$BUILDER_DIGEST"
+        "--build-arg" "RUNTIME_SHA256=$NGINX_DIGEST"
+        "--build-arg" "GIT_COMMIT=$GIT_COMMIT"
+        "--build-arg" "GIT_BRANCH=$GIT_BRANCH"
+        "--build-arg" "GIT_URL=$GIT_URL"
+        "--build-arg" "BUILD_TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        "--build-arg" "BUILD_PROFILE=${BUILD_PROFILE:-core}"
+        "--build-arg" "APP_ENV=${APP_ENV:-dev}"
+    )
+
+    if [ "$no_cache" = true ]; then
+        build_args+=("--no-cache")
+    fi
+
+    # Add labels
+    build_args+=(
+        "--label" "org.opencontainers.image.revision=$GIT_COMMIT"
+        "--label" "org.opencontainers.image.source=$GIT_URL"
+        "--label" "org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        "--label" "org.opencontainers.image.version=${APP_VERSION:-latest}"
+        "--label" "com.valueos.env=${APP_ENV:-dev}"
+        "--label" "com.valueos.build_profile=${BUILD_PROFILE:-core}"
+    )
+
+    if [ "$dry_run" = true ]; then
+        log_info "DRY RUN: Would execute:"
+        echo "docker build ${build_args[*]} -t valueos-frontend:${APP_VERSION:-latest} -f Dockerfile.frontend ."
+        return 0
+    fi
+
+    # Execute build
+    if docker build "${build_args[@]}" -t "valueos-frontend:${APP_VERSION:-latest}" -f Dockerfile.frontend .; then
+        log_success "Frontend image built successfully"
+
+        if [ "$push" = true ]; then
+            log_info "Pushing frontend image..."
+            docker push "valueos-frontend:${APP_VERSION:-latest}"
+            log_success "Frontend image pushed"
+        fi
+    else
+        log_error "Frontend build failed"
+        exit 1
+    fi
+}
+
+# Main execution
+main() {
+    local target=""
+    local no_cache=false
+    local push=false
+    local dry_run=false
+
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            backend|frontend|all)
+                target="$1"
+                shift
+                ;;
+            --no-cache)
+                no_cache=true
+                shift
+                ;;
+            --push)
+                push=true
+                shift
+                ;;
+            --dry-run)
+                dry_run=true
+                shift
+                ;;
+            *)
+                log_error "Unknown option: $1"
+                echo ""
+                show_usage
+                exit 1
+                ;;
+        esac
+    done
+
+    if [ -z "$target" ]; then
+        log_error "No target specified"
+        echo ""
+        show_usage
+        exit 1
+    fi
+
+    echo "🚀 ValueOS Build - Container Image Builder"
+    echo "Target: $target"
+    echo "No Cache: $no_cache"
+    echo "Push: $push"
+    echo "Dry Run: $dry_run"
+    echo ""
+
+    # Check Docker daemon
+    if ! docker info > /dev/null 2>&1; then
+        log_error "Docker daemon is not running"
+        exit 1
+    fi
+
+    case "$target" in
+        backend)
+            build_backend "$no_cache" "$push" "$dry_run"
+            ;;
+        frontend)
+            build_frontend "$no_cache" "$push" "$dry_run"
+            ;;
+        all)
+            build_backend "$no_cache" "$push" "$dry_run"
+            echo ""
+            build_frontend "$no_cache" "$push" "$dry_run"
+            ;;
+    esac
+
+    echo ""
+    log_success "Build completed successfully!"
+
+    if [ "$dry_run" = true ]; then
+        log_info "This was a dry run. No actual build was performed."
+    fi
+}
+
+# Run if executed directly
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi
