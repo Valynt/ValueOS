@@ -156,6 +156,9 @@ class GuestAccessService {
 
   /**
    * Create a guest user
+   *
+   * Creates a guest user account for temporary access to value cases without requiring full registration,
+   * enabling secure sharing of analysis results while maintaining audit trails and permission controls.
    */
   public async createGuestUser(
     options: CreateGuestUserOptions
