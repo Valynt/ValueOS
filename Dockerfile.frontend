@@ -1,6 +1,6 @@
 # Multi-stage production build for Frontend
 # Stage 1: Build environment (consistent with dev environment)
-FROM mcr.microsoft.com/devcontainers/typescript-node:1-20-bookworm AS builder
+FROM mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm AS builder
 
 WORKDIR /app
 
