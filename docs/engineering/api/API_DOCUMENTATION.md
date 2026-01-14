@@ -1,18 +1,107 @@
-# Services & API Integration Layer Documentation
+# ValueOS API Documentation
 
 ## Overview
 
-This document describes the comprehensive Services & API Integration Layer for the application. All services follow SOLID principles, implement proper error handling, caching, retry logic, and request deduplication.
+This guide provides comprehensive documentation for ValueOS APIs, including both external integrations and internal service APIs.
 
 ---
 
-## Architecture
+## External API Documentation
 
-### Base Infrastructure
+### Authentication
 
-#### **BaseService**
+- **Method**: Bearer tokens generated per workspace
+- **Header**: `Authorization: Bearer <token>`
+- **Token source**: Use the `access_token` returned by `POST /auth/login` or the Supabase session `access_token` issued to your workspace users
+- **Scopes**:
+  - `lifecycle:trigger` — run agents and orchestrations
+  - `docs:read` — fetch documentation pages and metadata
+  - `telemetry:write` — push realization/telemetry events
 
-**Location**: `/src/services/BaseService.ts`
+### Base URLs
+
+- **Production**: `https://api.valuecanvas.com/v1`
+- **Sandbox**: `https://sandbox-api.valuecanvas.com/v1`
+
+### Endpoints
+
+#### Trigger Lifecycle Workflow
+
+`POST /lifecycle/runs`
+
+- **Payload**:
+
+```json
+{
+  "stage": "opportunity|target|realization|expansion",
+  "accountId": "uuid",
+  "inputs": { "discoveryNotes": "...", "persona": "CFO", "benchmarks": [...] }
+}
+```
+
+- **Behavior**: Enqueues a workflow in the orchestrator and returns `runId` plus status URL
+- **Idempotency**: Provide `Idempotency-Key` header to avoid duplicate runs
+
+#### Fetch Documentation Page
+
+`GET /docs/pages/{slug}`
+
+- **Query params**: `version` (optional, defaults to latest)
+- **Response**: Page metadata, HTML/MD content, and related links
+
+#### Submit Telemetry Event
+
+`POST /telemetry/events`
+
+- **Payload**:
+
+```json
+{
+  "accountId": "uuid",
+  "kpi": "response_time_ms",
+  "value": 123,
+  "timestamp": "2025-11-17T12:00:00Z",
+  "metadata": { "source": "app" }
+}
+```
+
+- **Behavior**: Writes to `telemetry_events` and triggers Realization Agent refresh
+
+### Error Handling
+
+- Standardized error envelope:
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR|AUTHENTICATION_ERROR|RATE_LIMIT_EXCEEDED|SERVER_ERROR",
+    "message": "human-readable detail",
+    "traceId": "..."
+  }
+}
+```
+
+- Rate limits return `429` with `Retry-After`
+
+### Webhooks
+
+- **Run status updates**: Configure a webhook endpoint to receive `run.started`, `run.completed`, and `run.failed` events
+- **Security**: HMAC signatures via `X-VC-Signature`; rotate secrets quarterly
+
+### Versioning & Stability
+
+- All endpoints are versioned under `/v1`; breaking changes will be introduced via `/v2` with at least 90 days' notice
+- Schema changes include `deprecationNotice` fields in responses for forward planning
+
+---
+
+## Internal Services API
+
+### Architecture
+
+#### Base Infrastructure
+
+**BaseService** (`/src/services/BaseService.ts`)
 
 Abstract base class providing common functionality for all services:
 
@@ -43,9 +132,7 @@ interface RequestConfig {
 }
 ```
 
----
-
-#### **Error Types**
+#### Error Types
 
 **Location**: `/src/services/errors.ts`
 
@@ -78,17 +165,15 @@ enum ErrorCode {
 - `RateLimitError` - Rate limit exceeded (429)
 - `TimeoutError` - Request timeout (408)
 
----
+### Core Services
 
-## Core Services
-
-### 1. SettingsService
+#### 1. SettingsService
 
 **Location**: `/src/services/SettingsService.ts`
 
 Centralized settings management with strong typing and validation.
 
-#### Features
+**Features**:
 
 - Type-safe setting storage (string, number, boolean, object, array)
 - Scope-based isolation (user, team, organization)
@@ -97,7 +182,7 @@ Centralized settings management with strong typing and validation.
 - Upsert functionality
 - Validation on type mismatch
 
-#### Usage
+**Usage**:
 
 ```typescript
 import { settingsService } from "./services";
@@ -144,37 +229,19 @@ await settingsService.bulkUpdateSettings("user", userId, {
 await settingsService.deleteSetting("theme", "user", userId);
 ```
 
-#### Database Schema
-
-```sql
-CREATE TABLE settings (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  key TEXT NOT NULL,
-  value TEXT NOT NULL,
-  type TEXT NOT NULL,
-  scope TEXT NOT NULL,
-  scope_id TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(key, scope, scope_id)
-);
-```
-
----
-
-### 2. UserSettingsService
+#### 2. UserSettingsService
 
 **Location**: `/src/services/UserSettingsService.ts`
 
 User profile and preference management.
 
-#### UserSettingsService Features
+**Features**:
 
 - Profile CRUD operations
 - Preference management with defaults
 - Account deletion
 
-#### UserSettingsService Usage
+**Usage**:
 
 ```typescript
 import { userSettingsService } from "./services";
@@ -203,46 +270,20 @@ await userSettingsService.updatePreferences(userId, {
 await userSettingsService.deleteAccount(userId);
 ```
 
-#### Interfaces
-
-```typescript
-interface UserProfile {
-  id: string;
-  email: string;
-  fullName: string;
-  avatar?: string;
-  bio?: string;
-  timezone: string;
-  language: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface UserPreferences {
-  theme: "light" | "dark" | "auto";
-  emailNotifications: boolean;
-  desktopNotifications: boolean;
-  weeklyDigest: boolean;
-  compactMode: boolean;
-}
-```
-
----
-
-### 3. AuthService
+#### 3. AuthService
 
 **Location**: `/src/services/AuthService.ts`
 
 Session management and authentication operations using Supabase Auth.
 
-#### AuthService Features
+**Features**:
 
 - Email/password authentication
 - Session management
 - Password reset
 - Token refresh
 
-#### AuthService Usage
+**Usage**:
 
 ```typescript
 import { authService } from "./services";
@@ -282,22 +323,13 @@ await authService.updatePassword("newpassword");
 const isAuth = await authService.isAuthenticated();
 ```
 
-#### Security
-
-- Minimum 8-character passwords
-- Secure session storage
-- Automatic token refresh
-- Email verification support
-
----
-
-### 4. PermissionService
+#### 4. PermissionService
 
 **Location**: `/src/services/PermissionService.ts`
 
 Role-based access control (RBAC) implementation.
 
-#### PermissionService Features
+**Features**:
 
 - Fine-grained permissions
 - Role-based authorization
@@ -305,7 +337,7 @@ Role-based access control (RBAC) implementation.
 - Permission caching
 - Bulk permission checks
 
-#### PermissionService Usage
+**Usage**:
 
 ```typescript
 import { permissionService } from "./services";
@@ -315,7 +347,7 @@ const canManage = await permissionService.hasPermission(
   userId,
   "team.manage",
   "team",
-  teamId,
+  teamId
 );
 
 // Check multiple permissions (ALL required)
@@ -323,7 +355,7 @@ const hasAll = await permissionService.hasAllPermissions(
   userId,
   ["team.manage", "members.manage"],
   "team",
-  teamId,
+  teamId
 );
 
 // Check any permission (ONE required)
@@ -331,7 +363,7 @@ const hasAny = await permissionService.hasAnyPermission(
   userId,
   ["team.view", "team.manage"],
   "team",
-  teamId,
+  teamId
 );
 
 // Require permission (throws if unauthorized)
@@ -339,7 +371,7 @@ await permissionService.requirePermission(
   userId,
   "billing.manage",
   "organization",
-  orgId,
+  orgId
 );
 
 // Get user roles
@@ -352,7 +384,7 @@ await permissionService.assignRole(userId, roleId, "team", teamId);
 await permissionService.removeRole(userId, roleId, "team", teamId);
 ```
 
-#### Available Permissions
+**Available Permissions**:
 
 ```typescript
 type Permission =
@@ -368,15 +400,13 @@ type Permission =
   | "audit.view";
 ```
 
----
-
-### 5. AuditLogService
+#### 5. AuditLogService
 
 **Location**: `/src/services/AuditLogService.ts`
 
 Comprehensive audit logging with advanced querying and export capabilities.
 
-#### AuditLogService Features
+**Features**:
 
 - Automatic event logging
 - Advanced filtering
@@ -384,7 +414,7 @@ Comprehensive audit logging with advanced querying and export capabilities.
 - Statistics and analytics
 - Data retention management
 
-#### AuditLogService Usage
+**Usage**:
 
 ```typescript
 import { auditLogService } from "./services";
@@ -430,7 +460,7 @@ const csv = await auditLogService.export({
 // Get statistics
 const stats = await auditLogService.getStatistics(
   "2024-01-01T00:00:00Z",
-  "2024-12-31T23:59:59Z",
+  "2024-12-31T23:59:59Z"
 );
 // Returns: {
 //   totalEvents,
@@ -442,23 +472,8 @@ const stats = await auditLogService.getStatistics(
 
 // Delete old logs (data retention)
 const deletedCount = await auditLogService.deleteOldLogs(
-  "2023-01-01T00:00:00Z", // Older than this date
+  "2023-01-01T00:00:00Z" // Older than this date
 );
-```
-
-#### Query Interface
-
-```typescript
-interface AuditLogQuery {
-  userId?: string;
-  action?: string;
-  resourceType?: string;
-  startDate?: string;
-  endDate?: string;
-  status?: "success" | "failed";
-  limit?: number;
-  offset?: number;
-}
 ```
 
 ---
@@ -501,7 +516,7 @@ const settings = await service.executeRequest(
   async () => {
     /* ... */
   },
-  { skipCache: true },
+  { skipCache: true }
 );
 
 // Manual cache clearing
@@ -536,77 +551,43 @@ await service.executeRequest(
       maxDelay: 30000,
       backoffMultiplier: 2,
     },
-  },
+  }
 );
 ```
 
 ---
 
-## Database Requirements
+## API Versioning Policy
 
-### Required Tables
+### Versioning Strategy
 
-```sql
--- Settings
-CREATE TABLE settings (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  key TEXT NOT NULL,
-  value TEXT NOT NULL,
-  type TEXT NOT NULL CHECK (type IN ('string', 'number', 'boolean', 'object', 'array')),
-  scope TEXT NOT NULL CHECK (scope IN ('user', 'team', 'organization')),
-  scope_id TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(key, scope, scope_id)
-);
+- **Semantic versioning** for API endpoints
+- **Backward compatibility** maintained within major versions
+- **Deprecation notices** provided for breaking changes
+- **Migration guides** provided for version upgrades
 
-CREATE INDEX idx_settings_scope ON settings(scope, scope_id);
-CREATE INDEX idx_settings_key ON settings(key);
+### Version Lifecycle
 
--- Audit Logs
-CREATE TABLE audit_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id TEXT NOT NULL,
-  user_name TEXT NOT NULL,
-  user_email TEXT NOT NULL,
-  action TEXT NOT NULL,
-  resource_type TEXT NOT NULL,
-  resource_id TEXT NOT NULL,
-  details JSONB DEFAULT '{}',
-  ip_address TEXT,
-  user_agent TEXT,
-  status TEXT DEFAULT 'success' CHECK (status IN ('success', 'failed')),
-  timestamp TIMESTAMPTZ DEFAULT now()
-);
+1. **Development**: New features in development version
+2. **Stable**: Production-ready version with SLA
+3. **Deprecated**: Version scheduled for removal
+4. **Retired**: Version no longer supported
 
-CREATE INDEX idx_audit_logs_user ON audit_logs(user_id);
-CREATE INDEX idx_audit_logs_timestamp ON audit_logs(timestamp DESC);
-CREATE INDEX idx_audit_logs_action ON audit_logs(action);
-CREATE INDEX idx_audit_logs_resource ON audit_logs(resource_type, resource_id);
+### Breaking Changes
 
--- Roles
-CREATE TABLE roles (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT UNIQUE NOT NULL,
-  permissions TEXT[] NOT NULL,
-  is_system BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+Breaking changes include:
 
--- User Roles
-CREATE TABLE user_roles (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id TEXT NOT NULL,
-  role_id UUID REFERENCES roles(id) ON DELETE CASCADE,
-  scope TEXT NOT NULL CHECK (scope IN ('user', 'team', 'organization')),
-  scope_id TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(user_id, role_id, scope, scope_id)
-);
+- Removing or renaming endpoints
+- Changing request/response formats
+- Modifying authentication requirements
+- Changing behavior of existing endpoints
 
-CREATE INDEX idx_user_roles_user ON user_roles(user_id);
-CREATE INDEX idx_user_roles_scope ON user_roles(scope, scope_id);
-```
+Non-breaking changes include:
+
+- Adding new endpoints
+- Adding optional fields to responses
+- Adding new query parameters
+- Improving error messages
 
 ---
 
@@ -642,7 +623,7 @@ describe("SettingsService", () => {
     const retrieved = await settingsService.getSetting(
       "test",
       "user",
-      "test-user",
+      "test-user"
     );
 
     expect(retrieved).toBe("value");
@@ -656,7 +637,7 @@ describe("SettingsService", () => {
         type: "string", // Type mismatch
         scope: "user",
         scopeId: "test-user",
-      }),
+      })
     ).rejects.toThrow(ValidationError);
   });
 });
@@ -675,28 +656,6 @@ describe("SettingsService", () => {
 
 ---
 
-## Build Status
-
-✅ **Successfully compiled**
-
-- All services type-safe
-- Zero build errors
-- Production-ready
-- Comprehensive error handling
-- Full TypeScript support
-
----
-
-## Next Steps
-
-Additional services can be implemented following the same patterns:
-
-- `TeamSettingsService` - Team/workspace management
-- `OrganizationSettingsService` - Organization operations
-- `IntegrationService` - Third-party integrations
-- `BillingService` - Subscription and billing
-- `NotificationService` - Notification delivery
-- `WebhookService` - Webhook management
-- `APIKeyService` - API key management
-
-All follow the established patterns in BaseService and can be added incrementally.
+**Last Updated**: 2026-01-14
+**Maintained By**: API Team
+**Review Frequency**: Monthly

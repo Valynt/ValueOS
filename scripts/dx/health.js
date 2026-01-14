@@ -29,19 +29,32 @@ try {
 const portConfig = loadPorts();
 
 const backendPort = resolvePort(process.env.API_PORT, portConfig.backend.port);
-const frontendPort = resolvePort(process.env.VITE_PORT, portConfig.frontend.port);
-const postgresPort = resolvePort(process.env.POSTGRES_PORT, portConfig.postgres.port);
+const frontendPort = resolvePort(
+  process.env.VITE_PORT,
+  portConfig.frontend.port
+);
+const postgresPort = resolvePort(
+  process.env.POSTGRES_PORT,
+  portConfig.postgres.port
+);
 const redisPort = resolvePort(process.env.REDIS_PORT, portConfig.redis.port);
-const supabaseApiPort = resolvePort(process.env.SUPABASE_API_PORT, portConfig.supabase.apiPort);
+const supabaseApiPort = resolvePort(
+  process.env.SUPABASE_API_PORT,
+  portConfig.supabase.apiPort
+);
 const supabaseStudioPort = resolvePort(
   process.env.SUPABASE_STUDIO_PORT,
   portConfig.supabase.studioPort
 );
 
-const backendBaseUrl = process.env.BACKEND_URL || `http://localhost:${backendPort}`;
-const frontendBaseUrl = process.env.VITE_APP_URL || `http://localhost:${frontendPort}`;
+const backendBaseUrl =
+  process.env.BACKEND_URL || `http://localhost:${backendPort}`;
+const frontendBaseUrl =
+  process.env.VITE_APP_URL || `http://localhost:${frontendPort}`;
 const appComposeFile =
-  process.env.DX_MODE === "docker" ? "docker-compose.full.yml" : "docker-compose.deps.yml";
+  process.env.DX_MODE === "docker"
+    ? "infra/docker/docker-compose.dev.yml"
+    : "docker-compose.deps.yml";
 
 const backendContainerCandidates = [
   process.env.BACKEND_CONTAINER_NAME,
@@ -226,13 +239,19 @@ $ npm run dev\
  * Check PostgreSQL (via docker compose service status)
  */
 async function checkDatabase() {
-  const composeFile = mode === "docker" ? "docker-compose.full.yml" : "docker-compose.deps.yml";
+  const composeFile =
+    mode === "docker"
+      ? "infra/docker/docker-compose.dev.yml"
+      : "docker-compose.deps.yml";
 
   try {
-    execSync(`docker compose --env-file .env.ports -f ${composeFile} ps postgres`, {
-      stdio: "ignore",
-      cwd: path.resolve(__dirname, "../.."),
-    });
+    execSync(
+      `docker compose --env-file .env.ports -f ${composeFile} ps postgres`,
+      {
+        stdio: "ignore",
+        cwd: path.resolve(__dirname, "../.."),
+      }
+    );
 
     return {
       name: "PostgreSQL",
@@ -259,13 +278,19 @@ $ docker compose --env-file .env.ports -f ${composeFile} up -d\
  * Check Redis (via docker compose service status)
  */
 async function checkRedis() {
-  const composeFile = mode === "docker" ? "docker-compose.full.yml" : "docker-compose.deps.yml";
+  const composeFile =
+    mode === "docker"
+      ? "infra/docker/docker-compose.dev.yml"
+      : "docker-compose.deps.yml";
 
   try {
-    execSync(`docker compose --env-file .env.ports -f ${composeFile} ps redis`, {
-      stdio: "ignore",
-      cwd: path.resolve(__dirname, "../.."),
-    });
+    execSync(
+      `docker compose --env-file .env.ports -f ${composeFile} ps redis`,
+      {
+        stdio: "ignore",
+        cwd: path.resolve(__dirname, "../.."),
+      }
+    );
 
     return {
       name: "Redis",
