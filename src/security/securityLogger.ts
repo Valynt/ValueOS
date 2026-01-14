@@ -1,10 +1,17 @@
-import { logger } from '../lib/logger';
+import { logger } from "../lib/logger";
 
 export interface SecurityEvent {
   type: string;
   outcome: "allowed" | "blocked" | "error";
   reason?: string;
   metadata?: Record<string, unknown>;
+}
+
+export interface CSPViolation {
+  violatedDirective: string;
+  blockedUri?: string;
+  sourceFile?: string;
+  [key: string]: unknown; // Allow additional properties
 }
 
 /**
@@ -17,7 +24,7 @@ export function logSecurityEvent(event: SecurityEvent): void {
     outcome: event.outcome,
     reason: event.reason,
     metadata: sanitizeMetadata(event.metadata),
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   };
 
   // Use appropriate log level based on outcome
@@ -26,7 +33,7 @@ export function logSecurityEvent(event: SecurityEvent): void {
       logger.warn("SECURITY_EVENT", sanitizedEvent);
       break;
     case "error":
-      logger.error("SECURITY_EVENT", sanitizedEvent);
+      logger.error("SECURITY_EVENT", undefined, sanitizedEvent);
       break;
     default:
       logger.info("SECURITY_EVENT", sanitizedEvent);
@@ -36,22 +43,33 @@ export function logSecurityEvent(event: SecurityEvent): void {
 /**
  * Sanitize metadata to prevent accidental secret leakage
  */
-function sanitizeMetadata(metadata?: Record<string, unknown>): Record<string, unknown> | undefined {
+function sanitizeMetadata(
+  metadata?: Record<string, unknown>
+): Record<string, unknown> | undefined {
   if (!metadata) return undefined;
 
   const sanitized = { ...metadata };
 
   // List of keys that should be redacted
   const redactKeys = [
-    'password', 'token', 'secret', 'key', 'auth',
-    'authorization', 'bearer', 'apikey', 'api_key',
-    'session', 'cookie', 'credential'
+    "password",
+    "token",
+    "secret",
+    "key",
+    "auth",
+    "authorization",
+    "bearer",
+    "apikey",
+    "api_key",
+    "session",
+    "cookie",
+    "credential",
   ];
 
   for (const [key, value] of Object.entries(sanitized)) {
-    if (redactKeys.some(redactKey => key.toLowerCase().includes(redactKey))) {
+    if (redactKeys.some((redactKey) => key.toLowerCase().includes(redactKey))) {
       sanitized[key] = "[REDACTED]";
-    } else if (typeof value === 'string' && value.length > 100) {
+    } else if (typeof value === "string" && value.length > 100) {
       // Truncate long strings
       sanitized[key] = value.substring(0, 100) + "...";
     }
@@ -69,19 +87,19 @@ export const securityEvents = {
       type: "SSRF_CHECK",
       outcome,
       reason,
-      metadata: { hostname: new URL(url).hostname }
+      metadata: { hostname: new URL(url).hostname },
     });
   },
 
-  cspViolation: (violation: any) => {
+  cspViolation: (violation: CSPViolation) => {
     logSecurityEvent({
       type: "CSP_VIOLATION",
       outcome: "blocked",
       metadata: {
         violatedDirective: violation.violatedDirective,
         blockedUri: violation.blockedUri,
-        sourceFile: violation.sourceFile
-      }
+        sourceFile: violation.sourceFile,
+      },
     });
   },
 
@@ -90,7 +108,7 @@ export const securityEvents = {
       type: "DESERIALIZATION_FAILURE",
       outcome: "error",
       reason: error,
-      metadata: { dataType: type }
+      metadata: { dataType: type },
     });
   },
 
@@ -99,7 +117,7 @@ export const securityEvents = {
       type: "AUTH_FAILURE",
       outcome: "blocked",
       reason,
-      metadata
+      metadata,
     });
-  }
+  },
 };
