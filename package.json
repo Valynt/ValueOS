@@ -25,7 +25,7 @@
     "health": "node scripts/dx/health.js",
     "env:validate": "tsx scripts/env-validate.ts",
     "env:dev": "node scripts/setup-dev-env.js",
-    "build": "vite --config .config/configs/vite.config.ts",
+    "build": "tsc && vite build --config .config/configs/vite.config.ts",
     "build:minimal": "vite build --config .config/configs/vite.config.ts --mode minimal",
     "build:bare": "vite build --config .config/configs/vite.config.ts --mode bare",
     "debug": "vite --config .config/configs/vite.config.ts --mode debug",
