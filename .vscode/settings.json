@@ -4,16 +4,11 @@
     "source.fixAll.eslint": "explicit"
   },
   "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "eslint.validate": [
-    "javascript",
-    "javascriptreact",
-    "typescript",
-    "typescriptreact"
-  ],
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
   "files.associations": {
     "*.css": "tailwindcss"
   },
-  "typescript.tsdk": "node_modules/typescript/lib"
+  "typescript.tsdk": "node_modules/typescript/lib",
   "telemetry.editStats.enabled": false,
   "telemetry.feedback.enabled": false
 }

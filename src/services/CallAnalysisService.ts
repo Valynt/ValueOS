@@ -11,6 +11,7 @@ import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
 import { llmConfig } from "../config/llm";
 import { sanitizeForLogging } from "../lib/piiFilter";
 import { secureLLMComplete } from "../lib/llm/secureLLMWrapper";
+import { createExternalAPIAdapter } from "../lib/agent-fabric/ExternalAPIAdapter";
 
 // ============================================================================
 // Types
@@ -72,11 +73,13 @@ export interface CallAnalysis {
 class CallAnalysisService {
   private llm: LLMGateway;
   private functionUrl: string;
+  private apiAdapter: ReturnType<typeof createExternalAPIAdapter>;
 
   constructor() {
     this.llm = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
     this.functionUrl = `${supabaseUrl}/functions/v1/transcribe-audio`;
+    this.apiAdapter = createExternalAPIAdapter("CallAnalysisService", "call-analysis");
   }
 
   /**
@@ -91,22 +94,28 @@ class CallAnalysisService {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch(this.functionUrl, {
+      // SECURITY FIX: Use ExternalAPIAdapter instead of direct fetch
+      const response = await this.apiAdapter.call("transcribe-audio", this.functionUrl, {
         method: "POST",
         headers: session
           ? {
               Authorization: `Bearer ${session.access_token}`,
             }
           : {},
-        body: formData,
+        body: formData, // FormData will be handled appropriately
+        timeout: 60000, // 60 second timeout
+        auditContext: {
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+        },
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Transcription failed");
+      if (!response.success) {
+        throw new Error(response.error || "Transcription failed");
       }
 
-      const result = await response.json();
+      const result = response.data as any;
 
       if (!result.success) {
         throw new Error(result.error || "Transcription failed");

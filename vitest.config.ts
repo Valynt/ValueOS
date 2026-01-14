@@ -10,17 +10,19 @@ export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
-    environment: "happy-dom", // Use happy-dom for React component tests (was "node")
-    setupFiles: [
-      "./tests/setup.ts",
-      "./src/test/setup.ts",
-      "./src/test/setup-integration.ts",
-      "./src/sdui/__tests__/setup.ts",
-    ],
-    globalSetup: "./src/test/vitest-global-setup.ts",
-    include: [
-      "src/**/*.{test,spec}.{ts,tsx}",
-      "tests/**/*.{test,spec}.{ts,tsx}",
+    environment: "happy-dom",
+    setupFiles: ["./tests/setup.ts", "./src/test/setup-unit.ts", "./src/sdui/__tests__/setup.ts"],
+    include: ["src/**/*.{test,spec}.{ts,tsx}", "tests/**/*.{test,spec}.{ts,tsx}"],
+    exclude: [
+      "node_modules",
+      "dist",
+      ".storybook",
+      "storybook-static",
+      "test/performance/**",
+      "src/sdui/__tests__/security.pure-unit.test.ts",
+      "**/*.int.test.ts",
+      "**/*.integration.test.ts",
+      "**/integration/**/*.{test,spec}.{ts,tsx}",
     ],
     coverage: {
       provider: "v8",
@@ -39,7 +41,6 @@ export default defineConfig({
         ".storybook/",
         "storybook-static/",
       ],
-      // Enforce coverage thresholds
       thresholds: {
         lines: 75,
         functions: 70,
@@ -47,20 +48,9 @@ export default defineConfig({
         statements: 75,
       },
     },
-    exclude: [
-      "node_modules",
-      "dist",
-      ".storybook",
-      "storybook-static",
-      "test/performance/**",
-      "src/sdui/__tests__/security.pure-unit.test.ts", // Standalone test, not for Vitest
-    ],
-    // Reduce timeouts for faster feedback
     testTimeout: 15000,
     hookTimeout: 60000,
-    // Isolate tests to prevent cross-contamination
     isolate: true,
-    // Reliability options
     retry: process.env.CI ? 2 : 0,
     bail: process.env.CI ? 1 : 0,
   },

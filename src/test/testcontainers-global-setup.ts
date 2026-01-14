@@ -1,7 +1,4 @@
-import {
-  PostgreSqlContainer,
-  StartedPostgreSqlContainer,
-} from "@testcontainers/postgresql";
+import { PostgreSqlContainer, StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { GenericContainer, StartedTestContainer } from "testcontainers";
 import { Client } from "pg";
 import fs from "fs";
@@ -16,14 +13,6 @@ let container: StartedPostgreSqlContainer;
 let redisContainer: StartedTestContainer | undefined;
 
 export async function setup() {
-  // Allow skipping heavy testcontainers setup for fast local unit tests
-  if (getEnvVar("SKIP_TESTCONTAINERS") === "1") {
-    console.warn(
-      "⚠️ SKIP_TESTCONTAINERS set — skipping Postgres/Redis testcontainers setup"
-    );
-    return;
-  }
-
   console.warn("🐳 Starting Postgres Testcontainer...");
 
   // 1. Start the container (matching Supabase's Postgres version approx)
@@ -42,11 +31,7 @@ export async function setup() {
 
   // 3. Write to temp file for worker processes to read (globalSetup runs in separate process)
   const envFilePath = path.resolve(__dirname, "../../.vitest-env.json");
-  fs.writeFileSync(
-    envFilePath,
-    JSON.stringify({ DATABASE_URL: dbUrl }),
-    "utf8"
-  );
+  fs.writeFileSync(envFilePath, JSON.stringify({ DATABASE_URL: dbUrl }), "utf8");
 
   // Ensure coverage folders exist (vitest coverage reporter writes here)
   try {
@@ -60,19 +45,14 @@ export async function setup() {
   // Start Redis testcontainer and set REDIS_URL for tests
   try {
     console.warn("🐳 Starting Redis Testcontainer...");
-    redisContainer = await new GenericContainer("redis:7.0")
-      .withExposedPorts(6379)
-      .start();
+    redisContainer = await new GenericContainer("redis:7.0").withExposedPorts(6379).start();
     const redisHost = redisContainer.getHost();
     const redisPort = redisContainer.getMappedPort(6379);
     const redisUrl = `redis://${redisHost}:${redisPort}`;
     setEnvVarForTests("REDIS_URL", redisUrl);
     console.warn(`✅ Redis started at ${redisUrl}`);
   } catch (err) {
-    console.warn(
-      "⚠️ Failed to start Redis testcontainer, continuing without it:",
-      err
-    );
+    console.warn("⚠️ Failed to start Redis testcontainer, continuing without it:", err);
   }
 
   // 3. Connect to apply migrations
@@ -157,9 +137,7 @@ export async function setup() {
                 _err.message?.includes("extension") ||
                 _err.message?.includes("vector.control"))
             ) {
-              console.warn(
-                `   ⚠️ Skipping ${file} due to missing DB extension: ${_err.message}`
-              );
+              console.warn(`   ⚠️ Skipping ${file} due to missing DB extension: ${_err.message}`);
               continue;
             }
             // For other errors, log but don't throw - we'll use fallback schema

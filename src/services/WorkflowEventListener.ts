@@ -3,30 +3,28 @@
  *
  * Listens to workflow events and triggers SDUI updates.
  * Integrates Workflow Orchestrator with SDUI system.
+ * SECURITY: Now uses SecureMessageBus for all event communication
  */
 
-import { EventEmitter } from 'events';
-import { logger } from '../lib/logger';
-import { canvasSchemaService } from './CanvasSchemaService';
-import { workflowSDUIAdapter } from './WorkflowSDUIAdapter';
-import { getStageById } from './workflows/WorkflowDAGDefinitions';
-import {
-  StageCompletionEvent,
-  WorkflowProgress,
-} from '../types/workflow-sdui';
-import { StageStatus } from '../types/workflow';
+import { ServiceMessageBusAdapter } from "../lib/agent-fabric/ServiceMessageBusAdapter";
+import { logger } from "../lib/logger";
+import { canvasSchemaService } from "./CanvasSchemaService";
+import { workflowSDUIAdapter } from "./WorkflowSDUIAdapter";
+import { getStageById } from "./workflows/WorkflowDAGDefinitions";
+import { StageCompletionEvent, WorkflowProgress } from "../types/workflow-sdui";
+import { StageStatus } from "../types/workflow";
 
 /**
  * Workflow event types
  */
 export type WorkflowEventType =
-  | 'workflow:started'
-  | 'workflow:stage_transition'
-  | 'workflow:stage_completed'
-  | 'workflow:progress_update'
-  | 'workflow:completed'
-  | 'workflow:failed'
-  | 'workflow:error';
+  | "workflow:started"
+  | "workflow:stage_transition"
+  | "workflow:stage_completed"
+  | "workflow:progress_update"
+  | "workflow:completed"
+  | "workflow:failed"
+  | "workflow:error";
 
 /**
  * Workflow event callback
@@ -36,13 +34,13 @@ export type WorkflowEventCallback = (event: any) => void | Promise<void>;
 /**
  * Workflow Event Listener Service
  */
-export class WorkflowEventListener extends EventEmitter {
+export class WorkflowEventListener extends ServiceMessageBusAdapter {
   private listeners: Map<WorkflowEventType, WorkflowEventCallback[]>;
   private enabled: boolean;
   private workflowProgress: Map<string, WorkflowProgress>;
 
   constructor() {
-    super();
+    super("workflow-listener", "workflow-system");
     this.listeners = new Map();
     this.enabled = true;
     this.workflowProgress = new Map();
@@ -53,7 +51,7 @@ export class WorkflowEventListener extends EventEmitter {
    */
   enable(): void {
     this.enabled = true;
-    logger.info('Workflow event listener enabled');
+    logger.info("Workflow event listener enabled");
   }
 
   /**
@@ -61,7 +59,7 @@ export class WorkflowEventListener extends EventEmitter {
    */
   disable(): void {
     this.enabled = false;
-    logger.info('Workflow event listener disabled');
+    logger.info("Workflow event listener disabled");
   }
 
   /**
@@ -72,7 +70,7 @@ export class WorkflowEventListener extends EventEmitter {
       this.listeners.set(eventType, []);
     }
     this.listeners.get(eventType)!.push(callback);
-    logger.debug('Registered workflow event callback', { eventType });
+    logger.debug("Registered workflow event callback", { eventType });
     return super.on(eventType, callback);
   }
 
@@ -86,33 +84,33 @@ export class WorkflowEventListener extends EventEmitter {
   ): Promise<void> {
     if (!this.enabled) return;
 
-    logger.info('Handling workflow started', { workflowId, executionId });
+    logger.info("Handling workflow started", { workflowId, executionId });
 
     try {
       // Initialize progress tracking
       this.workflowProgress.set(workflowId, {
         workflowId,
-        currentStage: context.initialStage || 'initial',
+        currentStage: context.initialStage || "initial",
         currentStageIndex: 0,
         totalStages: context.totalStages || 0,
         completedStages: [],
-        status: 'in_progress',
+        status: "in_progress",
         percentComplete: 0,
       });
 
-      // Emit event
-      this.emit('workflow:started', { workflowId, executionId, context });
+      // Emit event via SecureMessageBus
+      await this.emitSecure("workflow:started", { workflowId, executionId, context });
 
       // Trigger SDUI update
       await this.triggerSDUIUpdate(workflowId, context);
 
-      logger.info('Workflow started event handled', { workflowId });
+      logger.info("Workflow started event handled", { workflowId });
     } catch (error) {
-      logger.error('Failed to handle workflow started', {
+      logger.error("Failed to handle workflow started", {
         workflowId,
         error: error instanceof Error ? error.message : String(error),
       });
-      this.emit('workflow:error', { workflowId, error });
+      await this.emitSecure("workflow:error", { workflowId, error });
     }
   }
 
@@ -127,7 +125,7 @@ export class WorkflowEventListener extends EventEmitter {
   ): Promise<void> {
     if (!this.enabled) return;
 
-    logger.info('Handling stage transition', {
+    logger.info("Handling stage transition", {
       workflowId,
       fromStage,
       toStage,
@@ -145,8 +143,8 @@ export class WorkflowEventListener extends EventEmitter {
         this.workflowProgress.set(workflowId, progress);
       }
 
-      // Emit event
-      this.emit('workflow:stage_transition', {
+      // Emit event via SecureMessageBus
+      await this.emitSecure("workflow:stage_transition", {
         workflowId,
         fromStage,
         toStage,
@@ -162,20 +160,20 @@ export class WorkflowEventListener extends EventEmitter {
       );
 
       // Apply SDUI update
-      if (sduiUpdate.type === 'full_schema') {
+      if (sduiUpdate.type === "full_schema") {
         const workspaceId = context.workspaceId || context.workspace_id;
         if (workspaceId) {
           canvasSchemaService.invalidateCache(workspaceId);
         }
       }
 
-      logger.info('Stage transition handled', { workflowId, toStage });
+      logger.info("Stage transition handled", { workflowId, toStage });
     } catch (error) {
-      logger.error('Failed to handle stage transition', {
+      logger.error("Failed to handle stage transition", {
         workflowId,
         error: error instanceof Error ? error.message : String(error),
       });
-      this.emit('workflow:error', { workflowId, error });
+      await this.emitSecure("workflow:error", { workflowId, error });
     }
   }
 
@@ -191,7 +189,7 @@ export class WorkflowEventListener extends EventEmitter {
   ): Promise<void> {
     if (!this.enabled) return;
 
-    logger.info('Handling stage completion', {
+    logger.info("Handling stage completion", {
       workflowId,
       stageId,
       status,
@@ -200,17 +198,17 @@ export class WorkflowEventListener extends EventEmitter {
     try {
       // Update progress
       const progress = this.workflowProgress.get(workflowId);
-      if (progress && status === 'completed') {
+      if (progress && status === "completed") {
         progress.completedStages.push(stageId);
         this.workflowProgress.set(workflowId, progress);
       }
 
       // Get stage definition to determine lifecycle stage
       const stageDef = getStageById(workflowId, stageId);
-      const lifecycleStage = stageDef?.agent_type || 'opportunity';
+      const lifecycleStage = stageDef?.agent_type || "opportunity";
 
       if (!stageDef) {
-        logger.warn('Stage definition not found for completion event', {
+        logger.warn("Stage definition not found for completion event", {
           workflowId,
           stageId,
         });
@@ -228,22 +226,22 @@ export class WorkflowEventListener extends EventEmitter {
       };
 
       // Emit event
-      this.emit('workflow:stage_completed', event);
+      await this.emitSecure("workflow:stage_completed", event);
 
       // Generate SDUI update
       const actions = await workflowSDUIAdapter.onStageCompletion(event);
 
-      logger.info('Stage completion handled', {
+      logger.info("Stage completion handled", {
         workflowId,
         stageId,
         actionCount: actions.length,
       });
     } catch (error) {
-      logger.error('Failed to handle stage completion', {
+      logger.error("Failed to handle stage completion", {
         workflowId,
         error: error instanceof Error ? error.message : String(error),
       });
-      this.emit('workflow:error', { workflowId, error });
+      await this.emitSecure("workflow:error", { workflowId, error });
     }
   }
 
@@ -256,7 +254,7 @@ export class WorkflowEventListener extends EventEmitter {
   ): Promise<void> {
     if (!this.enabled) return;
 
-    logger.info('Handling progress update', { workflowId });
+    logger.info("Handling progress update", { workflowId });
 
     try {
       // Update progress
@@ -266,25 +264,22 @@ export class WorkflowEventListener extends EventEmitter {
         this.workflowProgress.set(workflowId, updatedProgress);
 
         // Emit event
-        this.emit('workflow:progress_update', updatedProgress);
+        await this.emitSecure("workflow:progress_update", updatedProgress);
 
         // Generate SDUI update
-        const actions = await workflowSDUIAdapter.updateProgress(
-          workflowId,
-          updatedProgress
-        );
+        const actions = await workflowSDUIAdapter.updateProgress(workflowId, updatedProgress);
 
-        logger.info('Progress update handled', {
+        logger.info("Progress update handled", {
           workflowId,
           actionCount: actions.length,
         });
       }
     } catch (error) {
-      logger.error('Failed to handle progress update', {
+      logger.error("Failed to handle progress update", {
         workflowId,
         error: error instanceof Error ? error.message : String(error),
       });
-      this.emit('workflow:error', { workflowId, error });
+      await this.emitSecure("workflow:error", { workflowId, error });
     }
   }
 
@@ -298,19 +293,19 @@ export class WorkflowEventListener extends EventEmitter {
   ): Promise<void> {
     if (!this.enabled) return;
 
-    logger.info('Handling workflow completion', { workflowId, executionId });
+    logger.info("Handling workflow completion", { workflowId, executionId });
 
     try {
       // Update progress
       const progress = this.workflowProgress.get(workflowId);
       if (progress) {
-        progress.status = 'completed';
+        progress.status = "completed";
         progress.percentComplete = 100;
         this.workflowProgress.set(workflowId, progress);
       }
 
       // Emit event
-      this.emit('workflow:completed', { workflowId, executionId, context });
+      await this.emitSecure("workflow:completed", { workflowId, executionId, context });
 
       // Generate SDUI update
       const actions = await workflowSDUIAdapter.onWorkflowComplete(
@@ -322,16 +317,16 @@ export class WorkflowEventListener extends EventEmitter {
       // Clean up progress tracking
       this.workflowProgress.delete(workflowId);
 
-      logger.info('Workflow completion handled', {
+      logger.info("Workflow completion handled", {
         workflowId,
         actionCount: actions.length,
       });
     } catch (error) {
-      logger.error('Failed to handle workflow completion', {
+      logger.error("Failed to handle workflow completion", {
         workflowId,
         error: error instanceof Error ? error.message : String(error),
       });
-      this.emit('workflow:error', { workflowId, error });
+      await this.emitSecure("workflow:error", { workflowId, error });
     }
   }
 
@@ -346,7 +341,7 @@ export class WorkflowEventListener extends EventEmitter {
   ): Promise<void> {
     if (!this.enabled) return;
 
-    logger.error('Handling workflow failure', {
+    logger.error("Handling workflow failure", {
       workflowId,
       executionId,
       error: error.message,
@@ -356,19 +351,19 @@ export class WorkflowEventListener extends EventEmitter {
       // Update progress
       const progress = this.workflowProgress.get(workflowId);
       if (progress) {
-        progress.status = 'failed';
+        progress.status = "failed";
         this.workflowProgress.set(workflowId, progress);
       }
 
       // Emit event
-      this.emit('workflow:failed', { workflowId, executionId, error, context });
+      await this.emitSecure("workflow:failed", { workflowId, executionId, error, context });
 
       // Clean up progress tracking
       this.workflowProgress.delete(workflowId);
 
-      logger.info('Workflow failure handled', { workflowId });
+      logger.info("Workflow failure handled", { workflowId });
     } catch (err) {
-      logger.error('Failed to handle workflow failure', {
+      logger.error("Failed to handle workflow failure", {
         workflowId,
         error: err instanceof Error ? err.message : String(err),
       });
@@ -385,10 +380,7 @@ export class WorkflowEventListener extends EventEmitter {
   /**
    * Trigger SDUI update for workflow
    */
-  private async triggerSDUIUpdate(
-    _workflowId: string,
-    context: any
-  ): Promise<void> {
+  private async triggerSDUIUpdate(_workflowId: string, context: any): Promise<void> {
     const workspaceId = context.workspaceId || context.workspace_id;
     if (workspaceId) {
       canvasSchemaService.invalidateCache(workspaceId);
@@ -400,7 +392,7 @@ export class WorkflowEventListener extends EventEmitter {
    */
   clearProgress(): void {
     this.workflowProgress.clear();
-    logger.info('Cleared all workflow progress tracking');
+    logger.info("Cleared all workflow progress tracking");
   }
 }
 
