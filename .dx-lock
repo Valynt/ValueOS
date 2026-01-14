@@ -1,0 +1,5 @@
+{
+  "mode": "local",
+  "composeFile": "docker-compose.deps.yml",
+  "createdAt": "2026-01-14T00:18:17.506Z"
+}
