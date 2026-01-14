@@ -20,6 +20,7 @@ import { sanitizeForLogging } from "../lib/piiFilter";
 import { auditLogService } from "../services/AuditLogService";
 import { createServerSupabaseClient } from "../lib/supabase";
 import { sanitizeErrorMessage } from "../utils/security";
+import { getConfig } from "../config/environment";
 
 const logger = createLogger({ component: "AuthAPI" });
 const router = createSecureRouter("strict");
@@ -267,7 +268,7 @@ router.post(
         type: "signup",
         email,
         options: {
-          emailRedirectTo: `${req.protocol}://${req.get("host")}/auth/callback`,
+          emailRedirectTo: `${getConfig().app.url}/auth/callback`,
         },
       });
 
