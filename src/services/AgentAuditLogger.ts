@@ -397,6 +397,75 @@ export class AgentAuditLogger {
   }
 
   /**
+   * Encrypt sensitive data if encryption is enabled
+   */
+  private encryptSensitiveData(data: any): any {
+    if (!this.isEncryptionEnabled()) {
+      // Fall back to sanitization if encryption is not available
+      return this.sanitizeAndZeroMemory(data);
+    }
+
+    if (data === null || data === undefined) {
+      return null;
+    }
+
+    try {
+      // Encrypt the entire data structure
+      const dataString = JSON.stringify(data);
+      const encryptedData = encrypt(dataString, this.encryptionKey!);
+
+      // Return encrypted data with encryption marker
+      return {
+        __encrypted__: true,
+        data: encryptedData.data,
+        iv: encryptedData.iv,
+        tag: encryptedData.tag,
+        algorithm: encryptedData.algorithm,
+      };
+    } catch (error) {
+      logger.error(
+        "Failed to encrypt sensitive data, falling back to sanitization",
+        error instanceof Error ? error : undefined
+      );
+      // Fall back to sanitization if encryption fails
+      return this.sanitizeAndZeroMemory(data);
+    }
+  }
+
+  /**
+   * Decrypt sensitive data if it's encrypted
+   */
+  private decryptSensitiveData(data: any): any {
+    if (!this.isEncryptionEnabled() || !data || typeof data !== "object") {
+      return data;
+    }
+
+    // Check if data is encrypted
+    if (!data.__encrypted__) {
+      return data;
+    }
+
+    try {
+      const encryptedData = {
+        data: data.data,
+        iv: data.iv,
+        tag: data.tag,
+        algorithm: data.algorithm,
+      };
+
+      const decryptedString = decrypt(encryptedData, this.encryptionKey!);
+      return JSON.parse(decryptedString);
+    } catch (error) {
+      logger.error(
+        "Failed to decrypt sensitive data",
+        error instanceof Error ? error : undefined
+      );
+      // Return encrypted data as-is if decryption fails
+      return data;
+    }
+  }
+
+  /**
    * Sanitize and zero out sensitive data from memory
    */
   private sanitizeAndZeroMemory(data: any): any {
@@ -709,7 +778,16 @@ export class AgentAuditLogger {
       return [];
     }
 
-    return data || [];
+    // Decrypt sensitive data in retrieved logs
+    const decryptedLogs = data.map((log: AgentAuditLog) => ({
+      ...log,
+      response_data: this.decryptSensitiveData(log.response_data),
+      context: this.decryptSensitiveData(log.context),
+      metadata: this.decryptSensitiveData(log.metadata),
+      response_metadata: this.decryptSensitiveData(log.response_metadata),
+    }));
+
+    return decryptedLogs;
   }
 
   /**

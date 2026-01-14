@@ -173,10 +173,12 @@ class AuditEncryptionManager {
 
 export class AuditLogger {
   private traceAnchors: Map<string, string> = new Map();
-  private encryptionManager: AuditEncryptionManager;
+  private encryptionManager?: AuditEncryptionManager;
 
   constructor(private supabase: SupabaseClient) {
-    this.encryptionManager = new AuditEncryptionManager();
+    if (process.env.AUDIT_ENCRYPTION_KEY) {
+      this.encryptionManager = new AuditEncryptionManager();
+    }
   }
 
   async logAction(
@@ -192,18 +194,24 @@ export class AuditLogger {
       metadata?: Record<string, any>;
     } = {}
   ): Promise<void> {
-    // Encrypt sensitive data before storing
+    // Encrypt sensitive data before storing (if encryption is enabled)
     const encryptedInputData = options.inputData
-      ? this.encryptionManager.encryptSensitiveFields(options.inputData)
+      ? this.encryptionManager
+        ? this.encryptionManager.encryptSensitiveFields(options.inputData)
+        : options.inputData
       : undefined;
 
     const encryptedOutputData = options.outputData
-      ? this.encryptionManager.encryptSensitiveFields(options.outputData)
+      ? this.encryptionManager
+        ? this.encryptionManager.encryptSensitiveFields(options.outputData)
+        : options.outputData
       : undefined;
 
     const encryptedMetadata = options.metadata
-      ? this.encryptionManager.encryptSensitiveFields(options.metadata)
-      : undefined;
+      ? this.encryptionManager
+        ? this.encryptionManager.encryptSensitiveFields(options.metadata)
+        : options.metadata
+      : options.metadata || {};
 
     await this.supabase.from("agent_audit_log").insert({
       session_id: sessionId,
