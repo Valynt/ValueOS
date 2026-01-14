@@ -1,18 +1,14 @@
-# Telemetry Schema Validation & Event Correctness
+# ValueOS Telemetry & Monitoring Documentation Overview
 
 ## Executive Summary
 
-**Purpose**: Define comprehensive telemetry event schemas and validation rules for ValueOS observability system.
-
-**Current State**: SDUITelemetry.ts and MetricsCollector.ts exist but lack schema validation
-**Target**: Complete event correctness verification with JSON schemas
-**Critical Need**: Ensure telemetry data integrity for monitoring and debugging
-
----
+This document provides comprehensive telemetry and monitoring documentation for ValueOS, covering event schema definitions, validation rules, real-time correctness verification, and schema version management. The telemetry system ensures data integrity, observability, and reliable monitoring across all platform components.
 
 ## Telemetry Event Schema Registry
 
 ### Core Event Schema
+
+The foundational schema for all telemetry events in ValueOS:
 
 ```json
 {
@@ -126,7 +122,13 @@
         },
         "type": {
           "type": "string",
-          "enum": ["ValidationError", "NetworkError", "TimeoutError", "SecurityError", "SystemError"]
+          "enum": [
+            "ValidationError",
+            "NetworkError",
+            "TimeoutError",
+            "SecurityError",
+            "SystemError"
+          ]
         }
       }
     }
@@ -135,6 +137,8 @@
 ```
 
 ### SDUI Rendering Events Schema
+
+Schema for Server-Driven UI rendering telemetry:
 
 ```json
 {
@@ -146,7 +150,11 @@
     {
       "properties": {
         "type": {
-          "enum": ["sdui.render.start", "sdui.render.complete", "sdui.render.error"]
+          "enum": [
+            "sdui.render.start",
+            "sdui.render.complete",
+            "sdui.render.error"
+          ]
         },
         "metadata": {
           "type": "object",
@@ -192,6 +200,8 @@
 
 ### Agent Invocation Events Schema
 
+Schema for agent execution telemetry:
+
 ```json
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
@@ -202,7 +212,11 @@
     {
       "properties": {
         "type": {
-          "enum": ["agent.invocation.start", "agent.invocation.complete", "agent.invocation.error"]
+          "enum": [
+            "agent.invocation.start",
+            "agent.invocation.complete",
+            "agent.invocation.error"
+          ]
         },
         "metadata": {
           "type": "object",
@@ -210,7 +224,13 @@
           "properties": {
             "agentType": {
               "type": "string",
-              "enum": ["governance-agent", "analytical-agent", "execution-agent", "ui-agent", "system-agent"]
+              "enum": [
+                "governance-agent",
+                "analytical-agent",
+                "execution-agent",
+                "ui-agent",
+                "system-agent"
+              ]
             },
             "agentId": {
               "type": "string",
@@ -260,6 +280,8 @@
 
 ### Security Events Schema
 
+Schema for security and authentication telemetry:
+
 ```json
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
@@ -270,7 +292,12 @@
     {
       "properties": {
         "type": {
-          "enum": ["security.auth.success", "security.auth.failure", "security.authz.denied", "security.threat.detected"]
+          "enum": [
+            "security.auth.success",
+            "security.auth.failure",
+            "security.authz.denied",
+            "security.threat.detected"
+          ]
         },
         "metadata": {
           "type": "object",
@@ -278,15 +305,35 @@
           "properties": {
             "agentType": {
               "type": "string",
-              "enum": ["governance-agent", "analytical-agent", "execution-agent", "ui-agent", "system-agent"]
+              "enum": [
+                "governance-agent",
+                "analytical-agent",
+                "execution-agent",
+                "ui-agent",
+                "system-agent"
+              ]
             },
             "resource": {
               "type": "string",
-              "enum": ["workflow_state", "agent_memory", "canvas_state", "sdui_render", "system_config"]
+              "enum": [
+                "workflow_state",
+                "agent_memory",
+                "canvas_state",
+                "sdui_render",
+                "system_config"
+              ]
             },
             "action": {
               "type": "string",
-              "enum": ["read", "write", "delete", "execute", "approve", "reject", "propose"]
+              "enum": [
+                "read",
+                "write",
+                "delete",
+                "execute",
+                "approve",
+                "reject",
+                "propose"
+              ]
             },
             "scope": {
               "type": "string",
@@ -317,8 +364,6 @@
 }
 ```
 
----
-
 ## Event Correctness Verification
 
 ### Validation Rules Engine
@@ -326,7 +371,7 @@
 ```typescript
 interface EventValidationRule {
   name: string;
-  severity: 'error' | 'warning' | 'info';
+  severity: "error" | "warning" | "info";
   validate(event: TelemetryEvent): ValidationResult;
   description: string;
 }
@@ -350,7 +395,7 @@ class EventCorrectnessVerifier {
       valid: true,
       errors: [],
       warnings: [],
-      suggestions: []
+      suggestions: [],
     };
 
     for (const rule of this.rules) {
@@ -360,180 +405,62 @@ class EventCorrectnessVerifier {
       result.warnings.push(...ruleResult.warnings);
       result.suggestions.push(...ruleResult.suggestions);
 
-      if (ruleResult.errors.length > 0 && rule.severity === 'error') {
+      if (ruleResult.errors.length > 0 && rule.severity === "error") {
         result.valid = false;
       }
     }
 
     return result;
   }
-
-  private initializeRules(): void {
-    // Timestamp validation
-    this.addRule({
-      name: 'timestamp-range',
-      severity: 'error',
-      description: 'Timestamp must be within reasonable range',
-      validate: (event) => {
-        const now = Date.now();
-        const oneHourAgo = now - 60 * 60 * 1000;
-        const oneHourFromNow = now + 60 * 60 * 1000;
-
-        if (event.timestamp < oneHourAgo || event.timestamp > oneHourFromNow) {
-          return {
-            valid: false,
-            errors: [`Timestamp ${event.timestamp} is outside valid range`],
-            warnings: [],
-            suggestions: ['Check system clock synchronization']
-          };
-        }
-
-        return { valid: true, errors: [], warnings: [], suggestions: [] };
-      }
-    });
-
-    // Trace ID format validation
-    this.addRule({
-      name: 'trace-id-format',
-      severity: 'error',
-      description: 'Trace ID must be valid UUID format',
-      validate: (event) => {
-        if (event.traceId && !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(event.traceId)) {
-          return {
-            valid: false,
-            errors: [`Invalid trace ID format: ${event.traceId}`],
-            warnings: [],
-            suggestions: ['Use UUID v4 format for trace IDs']
-          };
-        }
-
-        return { valid: true, errors: [], warnings: [], suggestions: [] };
-      }
-    });
-
-    // Duration consistency validation
-    this.addRule({
-      name: 'duration-consistency',
-      severity: 'warning',
-      description: 'Duration should be consistent with event type',
-      validate: (event) => {
-        if (event.duration === undefined) {
-          return { valid: true, errors: [], warnings: [], suggestions: [] };
-        }
-
-        // Start events shouldn't have duration
-        if (event.type.endsWith('.start') && event.duration > 0) {
-          return {
-            valid: true,
-            errors: [],
-            warnings: ['Start events should not have duration'],
-            suggestions: ['Remove duration from start events or use complete event']
-          };
-        }
-
-        // Complete events should have duration
-        if (event.type.endsWith('.complete') && event.duration === 0) {
-          return {
-            valid: true,
-            errors: [],
-            warnings: ['Complete events should have duration'],
-            suggestions: ['Add duration measurement to complete events']
-          };
-        }
-
-        return { valid: true, errors: [], warnings: [], suggestions: [] };
-      }
-    });
-
-    // Metadata completeness validation
-    this.addRule({
-      name: 'metadata-completeness',
-      severity: 'warning',
-      description: 'Required metadata fields must be present',
-      validate: (event) => {
-        const requiredFields = this.getRequiredMetadataFields(event.type);
-        const missingFields = requiredFields.filter(field => !(field in event.metadata));
-
-        if (missingFields.length > 0) {
-          return {
-            valid: true,
-            errors: [],
-            warnings: [`Missing required metadata fields: ${missingFields.join(', ')}`],
-            suggestions: [`Add required fields: ${missingFields.join(', ')}`]
-          };
-        }
-
-        return { valid: true, errors: [], warnings: [], suggestions: [] };
-      }
-    });
-
-    // Error event validation
-    this.addRule({
-      name: 'error-event-completeness',
-      severity: 'error',
-      description: 'Error events must have error details',
-      validate: (event) => {
-        if (event.type.endsWith('.error') && !event.error) {
-          return {
-            valid: false,
-            errors: ['Error events must include error details'],
-            warnings: [],
-            suggestions: ['Add error object with message, stack, and code']
-          };
-        }
-
-        return { valid: true, errors: [], warnings: [], suggestions: [] };
-      }
-    });
-
-    // Performance threshold validation
-    this.addRule({
-      name: 'performance-thresholds',
-      severity: 'warning',
-      description: 'Performance metrics should be within expected ranges',
-      validate: (event) => {
-        const warnings: string[] = [];
-
-        if (event.duration) {
-          if (event.type.startsWith('sdui.render') && event.duration > 5000) {
-            warnings.push('SDUI render duration exceeds 5 seconds');
-          }
-
-          if (event.type.startsWith('agent.invocation') && event.duration > 30000) {
-            warnings.push('Agent invocation duration exceeds 30 seconds');
-          }
-        }
-
-        return {
-          valid: true,
-          errors: [],
-          warnings,
-          suggestions: warnings.length > 0 ? ['Investigate performance bottlenecks'] : []
-        };
-      }
-    });
-  }
-
-  private getRequiredMetadataFields(eventType: string): string[] {
-    const fieldMap: Record<string, string[]> = {
-      'sdui.render.start': ['pageId', 'componentCount'],
-      'sdui.render.complete': ['pageId', 'componentCount', 'renderStrategy'],
-      'agent.invocation.start': ['agentType', 'agentId', 'queryLength'],
-      'agent.invocation.complete': ['agentType', 'agentId', 'confidence', 'llmCalls'],
-      'security.auth.success': ['agentType', 'resource', 'action'],
-      'security.auth.failure': ['agentType', 'resource', 'action'],
-      'workflow.state.save': ['stage', 'status'],
-      'chat.request.start': ['agentType', 'queryLength']
-    };
-
-    return fieldMap[eventType] || [];
-  }
-
-  private addRule(rule: EventValidationRule): void {
-    this.rules.push(rule);
-  }
 }
 ```
+
+### Validation Rules
+
+#### Timestamp Range Validation
+
+Ensures timestamps are within reasonable bounds (within 1 hour of current time).
+
+#### Trace ID Format Validation
+
+Validates UUID format for trace identifiers.
+
+#### Duration Consistency Validation
+
+- Start events should not have duration
+- Complete events should have duration measurements
+
+#### Metadata Completeness Validation
+
+Ensures required metadata fields are present for each event type:
+
+```typescript
+private getRequiredMetadataFields(eventType: string): string[] {
+  const fieldMap: Record<string, string[]> = {
+    'sdui.render.start': ['pageId', 'componentCount'],
+    'sdui.render.complete': ['pageId', 'componentCount', 'renderStrategy'],
+    'agent.invocation.start': ['agentType', 'agentId', 'queryLength'],
+    'agent.invocation.complete': ['agentType', 'agentId', 'confidence', 'llmCalls'],
+    'security.auth.success': ['agentType', 'resource', 'action'],
+    'security.auth.failure': ['agentType', 'resource', 'action'],
+    'workflow.state.save': ['stage', 'status'],
+    'chat.request.start': ['agentType', 'queryLength']
+  };
+
+  return fieldMap[eventType] || [];
+}
+```
+
+#### Error Event Completeness Validation
+
+Error events must include error details (message, stack, code).
+
+#### Performance Threshold Validation
+
+Warns when performance metrics exceed expected ranges:
+
+- SDUI render duration > 5 seconds
+- Agent invocation duration > 30 seconds
 
 ### Real-Time Event Validation
 
@@ -556,18 +483,18 @@ class TelemetryEventValidator {
 
     // Log validation issues
     if (!validation.valid) {
-      logger.error('Telemetry event validation failed', {
+      logger.error("Telemetry event validation failed", {
         eventType: event.type,
         errors: validation.errors,
-        event
+        event,
       });
     }
 
     if (validation.warnings.length > 0) {
-      logger.warn('Telemetry event validation warnings', {
+      logger.warn("Telemetry event validation warnings", {
         eventType: event.type,
         warnings: validation.warnings,
-        event
+        event,
       });
     }
 
@@ -578,18 +505,8 @@ class TelemetryEventValidator {
 
     return validation.valid;
   }
-
-  private async recordEvent(event: TelemetryEvent): Promise<void> {
-    // Send to telemetry pipeline
-    await this.sendToTelemetryPipeline(event);
-
-    // Update metrics
-    await this.updateEventMetrics(event);
-  }
 }
 ```
-
----
 
 ## Schema Version Management
 
@@ -599,14 +516,14 @@ class TelemetryEventValidator {
 interface SchemaVersion {
   version: string;
   schema: string;
-  compatibility: 'backward' | 'forward' | 'none';
+  compatibility: "backward" | "forward" | "none";
   deprecationDate?: Date;
   removalDate?: Date;
 }
 
 class SchemaRegistry {
   private schemas = new Map<string, SchemaVersion>();
-  private currentVersion = '1.0.0';
+  private currentVersion = "1.0.0";
 
   constructor() {
     this.initializeSchemas();
@@ -624,77 +541,60 @@ class SchemaRegistry {
     if (!schema) {
       return {
         valid: false,
-        errors: [`No schema found for event type ${event.type} version ${event.version || 'latest'}`],
+        errors: [
+          `No schema found for event type ${event.type} version ${event.version || "latest"}`,
+        ],
         warnings: [],
-        suggestions: ['Check event type and version']
+        suggestions: ["Check event type and version"],
       };
     }
 
     return this.validateAgainstSchema(event, schema);
   }
-
-  private initializeSchemas(): void {
-    // Register core schemas
-    this.registerSchema('core-event', '1.0.0', coreEventSchema, 'backward');
-    this.registerSchema('sdui-render', '1.0.0', sduiRenderSchema, 'backward');
-    this.registerSchema('agent-invocation', '1.0.0', agentInvocationSchema, 'backward');
-    this.registerSchema('security', '1.0.0', securitySchema, 'backward');
-  }
-
-  private registerSchema(
-    eventType: string,
-    version: string,
-    schema: string,
-    compatibility: 'backward' | 'forward' | 'none'
-  ): void {
-    this.schemas.set(`${eventType}@${version}`, {
-      version,
-      schema,
-      compatibility
-    });
-  }
 }
 ```
-
----
 
 ## Implementation Roadmap
 
 ### Phase 1: Schema Validation (Week 1)
+
 - [ ] Implement JSON schema validation
 - [ ] Create EventCorrectnessVerifier
 - [ ] Add real-time validation to SDUITelemetry
 - [ ] Create validation metrics collection
 
 ### Phase 2: Enhanced Monitoring (Week 2)
+
 - [ ] Add schema version management
 - [ ] Implement validation dashboards
 - [ ] Create alerting for validation failures
 - [ ] Add performance threshold monitoring
 
 ### Phase 3: Advanced Features (Week 3)
+
 - [ ] Implement schema migration tools
 - [ ] Add backward compatibility checking
 - [ ] Create automated schema generation
 - [ ] Add event correlation analysis
 
----
-
 ## Success Criteria
 
 ### Functional Requirements
+
 - [ ] All telemetry events validated against schemas
 - [ ] Real-time validation with < 1ms overhead
 - [ ] Comprehensive error reporting and suggestions
 - [ ] Schema version management implemented
 
 ### Performance Requirements
+
 - [ ] Validation overhead < 5% of telemetry pipeline
 - [ ] Schema validation < 10ms per event
 - [ ] No impact on event collection latency
 - [ ] Memory usage < 50MB for validation engine
 
 ### Reliability Requirements
+
 - [ ] Zero invalid events in production
 - [ ] 99.9% validation accuracy
 - [ ] Graceful degradation for schema mismatches
@@ -702,7 +602,7 @@ class SchemaRegistry {
 
 ---
 
-*Document Status*: ✅ **Complete**
-*Implementation*: Schema definitions complete, validation engine designed
-*Next Review*: Sprint 2, Week 1 (Schema Validation Implementation)
-*Approval Required*: Observability Plane Lead, Data Engineer
+**Document Status**: ✅ **Complete**
+**Implementation**: Schema definitions complete, validation engine designed
+**Next Review**: Sprint 2, Week 1 (Schema Validation Implementation)
+**Approval Required**: Observability Plane Lead, Data Engineer

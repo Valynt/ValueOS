@@ -13,6 +13,7 @@ import {
 } from "../types/events";
 import { AgentType } from "../services/agent-types";
 import { v4 as uuidv4 } from "uuid";
+import { getServiceConfigManager, getAgentAPIConfig } from "../config/ServiceConfigManager";
 
 const router = Router();
 router.use(securityHeadersMiddleware);

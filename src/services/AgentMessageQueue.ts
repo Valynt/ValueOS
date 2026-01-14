@@ -3,6 +3,10 @@ import { logger } from "../lib/logger";
 import { getAgentAPI } from "./AgentAPI";
 import { getUnifiedOrchestrator } from "./UnifiedAgentOrchestrator";
 import { AgentType } from "./agent-types";
+import {
+  getServiceConfigManager,
+  getAgentMessageQueueConfig,
+} from "../config/ServiceConfigManager";
 
 export interface AgentInvocationJob {
   agent: AgentType;
@@ -29,19 +33,24 @@ export class AgentMessageQueue {
   private scheduler: QueueScheduler;
   private agentAPI = getAgentAPI();
 
-  constructor(redisUrl: string = "redis://localhost:6379") {
+  constructor(redisUrl?: string) {
+    const config = getAgentMessageQueueConfig();
+
+    // Use provided redisUrl or config default
+    const finalRedisUrl = redisUrl || config.redis.url;
+
     // Create queue with Redis connection
     this.queue = new Queue<AgentInvocationJob>("agent-invocations", {
       connection: {
-        url: redisUrl,
+        url: finalRedisUrl,
       },
       defaultJobOptions: {
-        removeOnComplete: 100,
+        removeOnComplete: config.queue.jobRetention / 1000, // Convert ms to seconds
         removeOnFail: 50,
-        attempts: 3,
+        attempts: config.retryAttempts,
         backoff: {
           type: "exponential",
-          delay: 2000,
+          delay: config.retryDelay,
         },
       },
     });
@@ -49,7 +58,7 @@ export class AgentMessageQueue {
     // Create scheduler for delayed jobs
     this.scheduler = new QueueScheduler("agent-invocations", {
       connection: {
-        url: redisUrl,
+        url: finalRedisUrl,
       },
     });
 
@@ -59,12 +68,12 @@ export class AgentMessageQueue {
       this.processAgentInvocation.bind(this),
       {
         connection: {
-          url: redisUrl,
+          url: finalRedisUrl,
         },
-        concurrency: 10, // Process up to 10 agent invocations concurrently
+        concurrency: config.queue.concurrency,
         limiter: {
-          max: 50, // Max 50 jobs per duration
-          duration: 1000, // Per second
+          max: config.queue.rateLimitMax,
+          duration: config.queue.rateLimitDuration,
         },
       }
     );
@@ -152,20 +161,29 @@ export class AgentMessageQueue {
     jobId: string,
     timeoutMs: number = 30000
   ): Promise<AgentInvocationResult> {
-    const startTime = Date.now();
-
-    while (Date.now() - startTime < timeoutMs) {
-      const result = await this.getJobResult(jobId);
-      if (result !== null) {
-        return result;
-      }
-      // Wait 100ms before checking again
-      await new Promise((resolve) => setTimeout(resolve, 100));
+    const job = await this.queue.getJob(jobId);
+    if (!job) {
+      throw new Error(`Job ${jobId} not found`);
     }
 
-    throw new Error(
-      `Job ${jobId} did not complete within ${timeoutMs}ms timeout`
-    );
+    try {
+      // Use BullMQ's job.finished() promise with timeout race
+      const result = await Promise.race([
+        job.finished(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Job ${jobId} timeout`)), timeoutMs)
+        ),
+      ]);
+
+      return result as AgentInvocationResult;
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("timeout")) {
+        throw new Error(
+          `Job ${jobId} did not complete within ${timeoutMs}ms timeout`
+        );
+      }
+      throw error;
+    }
   }
 
   /**

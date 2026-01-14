@@ -152,7 +152,7 @@ export class MultiTenantService {
   /**
    * Get tenant by ID
    */
-  async getTenant(tenantId: string): Promise<Tenant | null> {
+  async getTenant(tenantId: string): Promise<Tenant | undefined> {
     let tenant = this.tenants.get(tenantId);
 
     if (!tenant) {
@@ -163,7 +163,7 @@ export class MultiTenantService {
       }
     }
 
-    return tenant || null;
+    return tenant;
   }
 
   /**
@@ -173,9 +173,9 @@ export class MultiTenantService {
     tenantId: string,
     updates: Partial<Tenant>,
     updatedBy: string
-  ): Promise<Tenant | null> {
+  ): Promise<Tenant | undefined> {
     const tenant = await this.getTenant(tenantId);
-    if (!tenant) return null;
+    if (!tenant) return undefined;
 
     const updatedTenant = {
       ...tenant,
@@ -307,7 +307,9 @@ export class MultiTenantService {
 
     if (!users) {
       // Try to load from cache/storage
-      users = await this.cache.get<TenantUser[]>(`tenant_users:${tenantId}`);
+      users =
+        (await this.cache.get<TenantUser[]>(`tenant_users:${tenantId}`)) ||
+        undefined;
       if (users) {
         this.tenantUsers.set(tenantId, users);
       }

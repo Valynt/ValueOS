@@ -11,14 +11,15 @@
  * Uses in-memory store with Redis fallback for production
  */
 
-import { NextFunction, Request, Response } from 'express';
-import { logger } from '../lib/logger';
-import { RateLimitKeyService } from '../services/RateLimitKeyService';
+import { Request, Response, NextFunction } from "express";
+import { logger } from "../lib/logger";
+import { RateLimitKeyService } from "../services/RateLimitKeyService";
+import { RedisRateLimitStore, RateLimitEntry } from "./redisRateLimitStore";
 
 /**
  * Rate limit tier
  */
-export type RateLimitTier = 'strict' | 'standard' | 'loose';
+export type RateLimitTier = "strict" | "standard" | "loose";
 
 /**
  * Rate limit configuration
@@ -50,43 +51,87 @@ const TIER_CONFIGS: Record<RateLimitTier, RateLimitConfig> = {
   strict: {
     windowMs: 60 * 1000, // 1 minute
     max: 5,
-    message: 'Too many requests to expensive endpoints. Please try again later.',
+    message:
+      "Too many requests to expensive endpoints. Please try again later.",
     statusCode: 429,
   },
   standard: {
     windowMs: 60 * 1000, // 1 minute
     max: 60,
-    message: 'Too many requests. Please try again later.',
+    message: "Too many requests. Please try again later.",
     statusCode: 429,
   },
   loose: {
     windowMs: 60 * 1000, // 1 minute
     max: 300,
-    message: 'Too many requests. Please try again later.',
+    message: "Too many requests. Please try again later.",
     statusCode: 429,
   },
 };
 
 /**
- * In-memory rate limit store
+ * Hybrid Rate Limit Store with Redis and In-Memory Fallback
  */
-class RateLimitStore {
-  private store: Map<string, { count: number; resetTime: number }> = new Map();
+class HybridRateLimitStore {
+  private redisStore: RedisRateLimitStore;
+  private memoryStore: Map<string, { count: number; resetTime: number }> =
+    new Map();
   private cleanupInterval: NodeJS.Timeout;
+  private redisAvailable = false;
 
   constructor() {
-    // Cleanup expired entries every minute
+    this.redisStore = new RedisRateLimitStore();
+    this.redisAvailable = false; // Will be set by Redis store initialization
+
+    // Cleanup expired entries every minute for memory fallback
     this.cleanupInterval = setInterval(() => {
       this.cleanup();
     }, 60 * 1000);
+
+    // Check Redis availability
+    this.checkRedisAvailability();
+  }
+
+  private async checkRedisAvailability(): Promise<void> {
+    try {
+      // Try a simple operation to check if Redis is available
+      await this.redisStore.getStats();
+      this.redisAvailable = true;
+      logger.info("Rate limit store using Redis");
+    } catch (error) {
+      this.redisAvailable = false;
+      logger.warn(
+        "Rate limit store falling back to in-memory (Redis unavailable)",
+        {
+          error: error instanceof Error ? error.message : String(error),
+        }
+      );
+    }
   }
 
   /**
    * Increment request count for a key
    */
-  increment(key: string, windowMs: number): { count: number; resetTime: number } {
+  async increment(
+    key: string,
+    windowMs: number
+  ): Promise<{ count: number; resetTime: number }> {
+    if (this.redisAvailable) {
+      try {
+        return await this.redisStore.increment(key, windowMs);
+      } catch (error) {
+        logger.warn("Redis increment failed, falling back to memory", {
+          key,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        this.redisAvailable = false;
+        // Fall through to memory implementation
+      }
+    }
+
+    // In-memory fallback
     const now = Date.now();
-    const entry = this.store.get(key);
+    const entry = this.memoryStore.get(key);
 
     if (!entry || entry.resetTime < now) {
       // Create new entry
@@ -94,26 +139,42 @@ class RateLimitStore {
         count: 1,
         resetTime: now + windowMs,
       };
-      this.store.set(key, newEntry);
+      this.memoryStore.set(key, newEntry);
       return newEntry;
     }
 
     // Increment existing entry
     entry.count++;
-    this.store.set(key, entry);
+    this.memoryStore.set(key, entry);
     return entry;
   }
 
   /**
    * Get current count for a key
    */
-  get(key: string): { count: number; resetTime: number } | undefined {
-    const entry = this.store.get(key);
+  async get(
+    key: string
+  ): Promise<{ count: number; resetTime: number } | undefined> {
+    if (this.redisAvailable) {
+      try {
+        return await this.redisStore.get(key);
+      } catch (error) {
+        logger.warn("Redis get failed, falling back to memory", {
+          key,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        this.redisAvailable = false;
+        // Fall through to memory implementation
+      }
+    }
+
+    // In-memory fallback
+    const entry = this.memoryStore.get(key);
     if (!entry) return undefined;
 
     const now = Date.now();
     if (entry.resetTime < now) {
-      this.store.delete(key);
+      this.memoryStore.delete(key);
       return undefined;
     }
 
@@ -123,26 +184,41 @@ class RateLimitStore {
   /**
    * Reset count for a key
    */
-  reset(key: string): void {
-    this.store.delete(key);
+  async reset(key: string): Promise<void> {
+    if (this.redisAvailable) {
+      try {
+        await this.redisStore.reset(key);
+        return;
+      } catch (error) {
+        logger.warn("Redis reset failed, falling back to memory", {
+          key,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        this.redisAvailable = false;
+        // Fall through to memory implementation
+      }
+    }
+
+    // In-memory fallback
+    this.memoryStore.delete(key);
   }
 
   /**
-   * Cleanup expired entries
+   * Cleanup expired entries (memory only)
    */
   private cleanup(): void {
     const now = Date.now();
     let cleaned = 0;
 
-    for (const [key, entry] of this.store.entries()) {
+    for (const [key, entry] of this.memoryStore.entries()) {
       if (entry.resetTime < now) {
-        this.store.delete(key);
+        this.memoryStore.delete(key);
         cleaned++;
       }
     }
 
     if (cleaned > 0) {
-      logger.debug('Rate limit store cleanup', { cleaned });
+      logger.debug("Rate limit store cleanup", { cleaned, store: "memory" });
     }
   }
 
@@ -151,20 +227,20 @@ class RateLimitStore {
    */
   destroy(): void {
     clearInterval(this.cleanupInterval);
-    this.store.clear();
+    this.memoryStore.clear();
   }
 }
 
 // Global store instance
-const store = new RateLimitStore();
+const store = new HybridRateLimitStore();
 
 /**
  * Default key generator using unified service
  */
 export function getRateLimitKey(req: Request): string {
   return RateLimitKeyService.generateSecureKey(req, {
-    service: 'general',
-    tier: 'standard' // Will be overridden in createRateLimiter
+    service: "general",
+    tier: "standard", // Will be overridden in createRateLimiter
   });
 }
 
@@ -178,7 +254,7 @@ export function createRateLimiter(
   const config = { ...TIER_CONFIGS[tier], ...customConfig };
   const keyGenerator = config.keyGenerator || getRateLimitKey;
 
-  return (req: Request, res: Response, next: NextFunction) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
     // Skip if configured
     if (config.skip && config.skip(req)) {
       return next();
@@ -186,39 +262,56 @@ export function createRateLimiter(
 
     // Use unified key service
     const key = RateLimitKeyService.generateSecureKey(req, {
-      service: 'general',
-      tier: tier
+      service: "general",
+      tier: tier,
     });
 
-    const entry = store.increment(key, config.windowMs);
+    try {
+      const entry = await store.increment(key, config.windowMs);
 
-    // Set rate limit headers
-    res.setHeader('X-RateLimit-Limit', config.max);
-    res.setHeader('X-RateLimit-Remaining', Math.max(0, config.max - entry.count));
-    res.setHeader('X-RateLimit-Reset', new Date(entry.resetTime).toISOString());
+      // Set rate limit headers
+      res.setHeader("X-RateLimit-Limit", config.max);
+      res.setHeader(
+        "X-RateLimit-Remaining",
+        Math.max(0, config.max - entry.count)
+      );
+      res.setHeader(
+        "X-RateLimit-Reset",
+        new Date(entry.resetTime).toISOString()
+      );
 
-    // Check if limit exceeded
-    if (entry.count > config.max) {
-      const retryAfter = Math.ceil((entry.resetTime - Date.now()) / 1000);
-      res.setHeader('Retry-After', retryAfter);
+      // Check if limit exceeded
+      if (entry.count > config.max) {
+        const retryAfter = Math.ceil((entry.resetTime - Date.now()) / 1000);
+        res.setHeader("Retry-After", retryAfter);
 
-      logger.warn('Rate limit exceeded', {
+        logger.warn("Rate limit exceeded", {
+          key,
+          count: entry.count,
+          limit: config.max,
+          tier,
+          path: req.path,
+          method: req.method,
+        });
+
+        return res.status(config.statusCode || 429).json({
+          error: "Too Many Requests",
+          message: config.message,
+          retryAfter,
+        });
+      }
+
+      next();
+    } catch (error) {
+      logger.error("Rate limit check failed", error as Error, {
         key,
-        count: entry.count,
-        limit: config.max,
         tier,
         path: req.path,
-        method: req.method,
       });
 
-      return res.status(config.statusCode || 429).json({
-        error: 'Too Many Requests',
-        message: config.message,
-        retryAfter,
-      });
+      // On rate limit failure, allow request to proceed to prevent blocking
+      next();
     }
-
-    next();
   };
 }
 
@@ -230,34 +323,34 @@ export const rateLimiters = {
    * Strict rate limiter for expensive operations
    * 5 requests per minute
    */
-  strict: createRateLimiter('strict'),
+  strict: createRateLimiter("strict"),
 
   /**
    * Standard rate limiter for regular API calls
    * 60 requests per minute
    */
-  standard: createRateLimiter('standard'),
+  standard: createRateLimiter("standard"),
 
   /**
    * Loose rate limiter for read-only operations
    * 300 requests per minute
    */
-  loose: createRateLimiter('loose'),
+  loose: createRateLimiter("loose"),
 
   /**
    * Agent execution rate limiter
    * 5 requests per minute (expensive LLM calls)
    */
-  agentExecution: createRateLimiter('strict', {
-    message: 'Too many agent executions. Please wait before trying again.',
+  agentExecution: createRateLimiter("strict", {
+    message: "Too many agent executions. Please wait before trying again.",
   }),
 
   /**
    * Agent query rate limiter
    * 60 requests per minute (standard queries)
    */
-  agentQuery: createRateLimiter('standard', {
-    message: 'Too many agent queries. Please slow down.',
+  agentQuery: createRateLimiter("standard", {
+    message: "Too many agent queries. Please slow down.",
   }),
 };
 
@@ -266,30 +359,35 @@ export const rateLimiters = {
  */
 export function resetRateLimit(userId: string): void {
   // Reset for all tiers
-  const tiers: RateLimitTier[] = ['strict', 'standard', 'loose'];
-  tiers.forEach(tier => {
+  const tiers: RateLimitTier[] = ["strict", "standard", "loose"];
+  tiers.forEach((tier) => {
     store.reset(`${tier}:user:${userId}`);
   });
-  logger.info('Rate limit reset', { userId });
+  logger.info("Rate limit reset", { userId });
 }
 
 /**
  * Get rate limit status for a user
  */
-export function getRateLimitStatus(userId: string): {
+export async function getRateLimitStatus(userId: string): Promise<{
   count: number;
   limit: number;
   resetTime: Date;
-} | null {
+} | null> {
   // Default to standard tier status
-  const entry = store.get(`standard:user:${userId}`);
-  if (!entry) return null;
+  try {
+    const entry = await store.get(`standard:user:${userId}`);
+    if (!entry) return null;
 
-  return {
-    count: entry.count,
-    limit: TIER_CONFIGS.standard.max,
-    resetTime: new Date(entry.resetTime),
-  };
+    return {
+      count: entry.count,
+      limit: TIER_CONFIGS.standard.max,
+      resetTime: new Date(entry.resetTime),
+    };
+  } catch (error) {
+    logger.error("Failed to get rate limit status", error as Error, { userId });
+    return null;
+  }
 }
 
 /**

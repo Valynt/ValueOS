@@ -11,6 +11,7 @@ import {
   CircuitBreakerConfig,
   CircuitBreakerMetrics,
 } from "./CircuitBreakerInterface";
+import { RedisCircuitBreaker } from "./RedisCircuitBreaker";
 
 export class CircuitBreaker extends EventEmitter implements ICircuitBreaker {
   private state: CircuitState = CircuitState.CLOSED;
@@ -26,8 +27,10 @@ export class CircuitBreaker extends EventEmitter implements ICircuitBreaker {
   private latencies: number[] = [];
   private readonly config: Required<CircuitBreakerConfig>;
   private windowStartTime: number = Date.now();
+  private redisBreaker: RedisCircuitBreaker | null = null;
+  private redisAvailable = false;
 
-  constructor(config: CircuitBreakerConfig) {
+  constructor(config: CircuitBreakerConfig, private readonly name: string = 'default') {
     // Validate configuration
     CircuitBreaker.validateConfig(config);
 
@@ -43,9 +46,38 @@ export class CircuitBreaker extends EventEmitter implements ICircuitBreaker {
       onHalfOpen: () => {},
       ...config,
     };
+
+    // Initialize Redis circuit breaker
+    this.initializeRedisBreaker();
+  }
+
+  private async initializeRedisBreaker(): Promise<void> {
+    try {
+      this.redisBreaker = new RedisCircuitBreaker(this.name, this.config);
+      this.redisAvailable = true;
+      logger.info(`Circuit breaker ${this.name} using Redis`);
+    } catch (error) {
+      this.redisAvailable = false;
+      logger.warn(`Circuit breaker ${this.name} falling back to in-memory (Redis unavailable)`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   async execute<T>(operation: () => Promise<T>): Promise<T> {
+    // Use Redis circuit breaker if available
+    if (this.redisAvailable && this.redisBreaker) {
+      try {
+        const result = await this.redisBreaker.execute(operation);
+        this.emit("success");
+        return result;
+      } catch (error) {
+        this.emit("failure", error);
+        throw error;
+      }
+    }
+
+    // Fallback to in-memory implementation
     const startTime = Date.now();
     this.totalCalls++;
 
@@ -165,6 +197,30 @@ export class CircuitBreaker extends EventEmitter implements ICircuitBreaker {
   }
 
   getMetrics(): CircuitBreakerMetrics {
+    // Use Redis circuit breaker metrics if available
+    if (this.redisAvailable && this.redisBreaker) {
+      // For synchronous compatibility, return cached or default metrics
+      // Real async metrics should be accessed via getMetricsAsync()
+      return this.getDefaultMetrics();
+    }
+
+    // Fallback to in-memory metrics
+    return this.getDefaultMetrics();
+  }
+
+  /**
+   * Get async metrics from Redis circuit breaker
+   */
+  async getMetricsAsync(): Promise<CircuitBreakerMetrics> {
+    if (this.redisAvailable && this.redisBreaker) {
+      return await this.redisBreaker.getMetrics();
+    }
+
+    // Fallback to synchronous metrics
+    return this.getMetrics();
+  }
+
+  private getDefaultMetrics(): CircuitBreakerMetrics {
     return {
       state: this.state,
       failureCount: this.failureCount,
@@ -172,7 +228,7 @@ export class CircuitBreaker extends EventEmitter implements ICircuitBreaker {
       totalRequests: this.totalCalls,
       failureRate: this.getFailureRate(),
       averageResponseTime: this.getAverageLatency(),
-      lastFailureTime: this.getLastFailureTime() || undefined,
+      lastFailureTime: this.getLastFailureTime(),
       lastSuccessTime: this.lastSuccessTime
         ? new Date(this.lastSuccessTime)
         : undefined,

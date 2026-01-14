@@ -93,3 +93,127 @@ export const circuitBreakerAlerts = new Counter({
   labelNames: ["type", "severity", "service"],
   registers: [registry],
 });
+
+// 11. Agent Queue Depth Gauge
+export const agentQueueDepth = new Gauge({
+  name: "agent_queue_depth",
+  help: "Current depth of agent processing queues",
+  labelNames: ["queue_type", "agent_type"],
+  registers: [registry],
+});
+
+// 12. Agent Queue Processing Rate
+export const agentQueueProcessingRate = new Gauge({
+  name: "agent_queue_processing_rate",
+  help: "Rate of agent queue processing (jobs per second)",
+  labelNames: ["queue_type"],
+  registers: [registry],
+});
+
+// 13. Agent Request Error Rate
+export const agentRequestErrorRate = new Gauge({
+  name: "agent_request_error_rate",
+  help: "Error rate for agent requests (0.0-1.0)",
+  labelNames: ["agent_type", "error_type"],
+  registers: [registry],
+});
+
+// 14. Agent Request Latency Histogram
+export const agentRequestLatency = new Histogram({
+  name: "agent_request_latency_seconds",
+  help: "End-to-end latency of agent requests",
+  labelNames: ["agent_type", "status", "priority"],
+  buckets: [0.1, 0.5, 1, 2, 5, 10, 30, 60, 120], // Up to 2 minutes
+  registers: [registry],
+});
+
+// 15. Rate Limit Hits Counter
+export const rateLimitHits = new Counter({
+  name: "rate_limit_hits_total",
+  help: "Total number of rate limit hits",
+  labelNames: ["tier", "service"],
+  registers: [registry],
+});
+
+// 16. Rate Limit Current Usage Gauge
+export const rateLimitCurrentUsage = new Gauge({
+  name: "rate_limit_current_usage",
+  help: "Current usage of rate limits",
+  labelNames: ["tier", "service"],
+  registers: [registry],
+});
+
+// 17. Message Bus Message Count
+export const messageBusMessageCount = new Counter({
+  name: "message_bus_messages_total",
+  help: "Total number of messages processed by message bus",
+  labelNames: ["direction", "priority", "encrypted"],
+  registers: [registry],
+});
+
+// 18. Message Bus Latency Histogram
+export const messageBusLatency = new Histogram({
+  name: "message_bus_latency_seconds",
+  help: "Message processing latency in the message bus",
+  labelNames: ["operation", "priority"],
+  buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1],
+  registers: [registry],
+});
+
+// 19. Redis Connection Health
+export const redisConnectionHealth = new Gauge({
+  name: "redis_connection_health",
+  help: "Redis connection health status (1=healthy, 0=unhealthy)",
+  labelNames: ["service"],
+  registers: [registry],
+});
+
+// 20. Distributed State Synchronization Lag
+export const distributedStateSyncLag = new Histogram({
+  name: "distributed_state_sync_lag_seconds",
+  help: "Lag in distributed state synchronization",
+  labelNames: ["component"],
+  buckets: [0.001, 0.01, 0.1, 1, 5],
+  registers: [registry],
+});
+
+// 21. Agent Performance Score
+export const agentPerformanceScore = new Gauge({
+  name: "agent_performance_score",
+  help: "Agent performance score based on latency and error rate (0.0-1.0)",
+  labelNames: ["agent_type"],
+  registers: [registry],
+});
+
+// 22. System Load Average
+export const systemLoadAverage = new Gauge({
+  name: "system_load_average",
+  help: "System load average (1min, 5min, 15min)",
+  labelNames: ["period"],
+  registers: [registry],
+});
+
+// 23. Memory Usage Gauge
+export const memoryUsage = new Gauge({
+  name: "memory_usage_bytes",
+  help: "Memory usage in bytes",
+  labelNames: ["type"], // heap, external, rss
+  registers: [registry],
+});
+
+// 24. Event Sourcing Lag
+export const eventSourcingLag = new Histogram({
+  name: "event_sourcing_lag_seconds",
+  help: "Lag between event occurrence and storage",
+  labelNames: ["event_type"],
+  buckets: [0.001, 0.01, 0.1, 1, 10],
+  registers: [registry],
+});
+
+// 25. Active Agent Sessions
+export const activeAgentSessions = new Gauge({
+  name: "active_agent_sessions",
+  help: "Number of currently active agent sessions",
+  labelNames: ["agent_type"],
+  registers: [registry],
+});

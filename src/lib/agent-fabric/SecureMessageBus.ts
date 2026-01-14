@@ -12,9 +12,13 @@
  * @version 1.0.0
  */
 
-import { v4 as uuidv4 } from 'uuid';
-import { createLogger } from '../logger';
-import { AgentIdentity, hasPermission, Permission } from '../auth/AgentIdentity';
+import { v4 as uuidv4 } from "uuid";
+import { createLogger } from "../logger";
+import {
+  AgentIdentity,
+  hasPermission,
+  Permission,
+} from "../auth/AgentIdentity";
 import {
   signMessageEd25519,
   verifySignatureEd25519,
@@ -23,11 +27,11 @@ import {
   generateNonce,
   isEncrypted,
   generateEncryptionKey,
-  constantTimeCompareBuffers
-} from '../crypto/CryptoUtils';
-import { getKMS, KMSConfig } from '../crypto/KeyManagementService';
+  constantTimeCompareBuffers,
+} from "../crypto/CryptoUtils";
+import { getKMS, KMSConfig } from "../crypto/KeyManagementService";
 
-const logger = createLogger({ component: 'SecureMessageBus' });
+const logger = createLogger({ component: "SecureMessageBus" });
 
 // ============================================================================
 // Types
@@ -36,12 +40,17 @@ const logger = createLogger({ component: 'SecureMessageBus' });
 /**
  * Message priority levels
  */
-export type MessagePriority = 'low' | 'normal' | 'high' | 'critical';
+export type MessagePriority = "low" | "normal" | "high" | "critical";
 
 /**
  * Message delivery status
  */
-export type DeliveryStatus = 'pending' | 'delivered' | 'acknowledged' | 'failed' | 'expired';
+export type DeliveryStatus =
+  | "pending"
+  | "delivered"
+  | "acknowledged"
+  | "failed"
+  | "expired";
 
 /**
  * Secure message envelope
@@ -210,7 +219,7 @@ export class SecureMessageBus {
   private kms: ReturnType<typeof getKMS>;
 
   /** Message version */
-  private readonly MESSAGE_VERSION = '2.0.0';
+  private readonly MESSAGE_VERSION = "2.0.0";
 
   /** Default TTL in seconds */
   private readonly DEFAULT_TTL_SECONDS = 300; // 5 minutes
@@ -225,8 +234,8 @@ export class SecureMessageBus {
 
     // Initialize KMS with fallback to local provider
     const defaultKmsConfig: KMSConfig = {
-      provider: 'local',
-      region: 'us-east-1'
+      provider: "local",
+      region: "us-east-1",
     };
     this.kms = getKMS(kmsConfig || defaultKmsConfig);
 
@@ -243,7 +252,11 @@ export class SecureMessageBus {
     kmsConfig?: KMSConfig
   ): SecureMessageBus {
     if (!SecureMessageBus.instance) {
-      SecureMessageBus.instance = new SecureMessageBus(circuitConfig, rateLimitConfig, kmsConfig);
+      SecureMessageBus.instance = new SecureMessageBus(
+        circuitConfig,
+        rateLimitConfig,
+        kmsConfig
+      );
     }
     return SecureMessageBus.instance;
   }
@@ -259,7 +272,7 @@ export class SecureMessageBus {
       incidentCount: 0,
       circuitOpen: false,
     });
-    logger.info('Agent registered with message bus', { agentId: identity.id });
+    logger.info("Agent registered with message bus", { agentId: identity.id });
   }
 
   /**
@@ -269,7 +282,7 @@ export class SecureMessageBus {
     this.registeredAgents.delete(agentId);
     this.subscriptions.delete(agentId);
     this.agentSecurityStatus.delete(agentId);
-    logger.info('Agent unregistered from message bus', { agentId });
+    logger.info("Agent unregistered from message bus", { agentId });
   }
 
   /**
@@ -278,7 +291,7 @@ export class SecureMessageBus {
   subscribe(
     agentId: string,
     handler: MessageHandler,
-    patterns: string[] = ['*']
+    patterns: string[] = ["*"]
   ): void {
     if (!this.registeredAgents.has(agentId)) {
       throw new Error(`Agent ${agentId} is not registered`);
@@ -291,7 +304,7 @@ export class SecureMessageBus {
       createdAt: new Date(),
     });
 
-    logger.debug('Agent subscribed to messages', { agentId, patterns });
+    logger.debug("Agent subscribed to messages", { agentId, patterns });
   }
 
   /**
@@ -320,7 +333,10 @@ export class SecureMessageBus {
 
     // Check per-second limit
     const timeSinceLastMessage = now - limiter.lastSent;
-    if (timeSinceLastMessage < 1000 && limiter.messageCount >= this.rateLimitConfig.maxMessagesPerSecond) {
+    if (
+      timeSinceLastMessage < 1000 &&
+      limiter.messageCount >= this.rateLimitConfig.maxMessagesPerSecond
+    ) {
       return false;
     }
 
@@ -382,8 +398,10 @@ export class SecureMessageBus {
     }
 
     // Verify sender has permission to execute LLM/communicate
-    if (!hasPermission(sender, 'execute:llm')) {
-      logger.warn('Agent lacks permission to send messages', { agentId: sender.id });
+    if (!hasPermission(sender, "execute:llm")) {
+      logger.warn("Agent lacks permission to send messages", {
+        agentId: sender.id,
+      });
     }
 
     // Create the message
@@ -395,8 +413,8 @@ export class SecureMessageBus {
       timestamp: new Date().toISOString(),
       nonce: this.generateNonce(),
       payload,
-      priority: options.priority || 'normal',
-      signature: '', // Will be set by signMessage
+      priority: options.priority || "normal",
+      signature: "", // Will be set by signMessage
       encrypted: options.encrypted || false,
       ttlSeconds: options.ttlSeconds || this.DEFAULT_TTL_SECONDS,
       correlationId: options.correlationId,
@@ -415,7 +433,10 @@ export class SecureMessageBus {
       }
 
       // Encrypt the payload
-      const encryptedPayload = this.encryptPayload(message.payload, recipient.keys.encryptionKey);
+      const encryptedPayload = this.encryptPayload(
+        message.payload,
+        recipient.keys.encryptionKey
+      );
       message.payload = encryptedPayload.data as T;
       message.encryption = {
         algorithm: encryptedPayload.algorithm,
@@ -431,7 +452,7 @@ export class SecureMessageBus {
     // Deliver the message
     await this.deliverMessage(message);
 
-    logger.debug('Secure message sent', {
+    logger.debug("Secure message sent", {
       messageId: message.id,
       from: sender.id,
       to,
@@ -452,7 +473,7 @@ export class SecureMessageBus {
       pattern?: string;
     } = {}
   ): Promise<SecureMessage<T>> {
-    return this.send(sender, 'broadcast', payload, {
+    return this.send(sender, "broadcast", payload, {
       ...options,
       encrypted: false, // Broadcasts are not encrypted
     });
@@ -464,15 +485,17 @@ export class SecureMessageBus {
   async receive<T>(message: SecureMessage<T>): Promise<T> {
     // Check if message has expired
     const messageTime = new Date(message.timestamp);
-    const expiresAt = new Date(messageTime.getTime() + message.ttlSeconds * 1000);
+    const expiresAt = new Date(
+      messageTime.getTime() + message.ttlSeconds * 1000
+    );
     if (new Date() > expiresAt) {
-      throw new Error('Message has expired');
+      throw new Error("Message has expired");
     }
 
     // Check for replay attack
     if (await this.isReplay(message.nonce)) {
-      this.recordSecurityIncident(message.from, 'replay_attack');
-      throw new Error('Replay attack detected');
+      this.recordSecurityIncident(message.from, "replay_attack");
+      throw new Error("Replay attack detected");
     }
 
     // Get sender identity
@@ -484,8 +507,8 @@ export class SecureMessageBus {
     // Verify signature
     const isValid = await this.verifySignature(message, sender);
     if (!isValid) {
-      this.recordSecurityIncident(message.from, 'invalid_signature');
-      throw new Error('Invalid message signature');
+      this.recordSecurityIncident(message.from, "invalid_signature");
+      throw new Error("Invalid message signature");
     }
 
     // Record nonce
@@ -495,25 +518,31 @@ export class SecureMessageBus {
     let payload = message.payload;
     if (message.encrypted && message.encryption) {
       // Get recipient (this agent) for decryption key
-      const recipientId = message.to === 'broadcast' ? message.from : message.to;
+      const recipientId =
+        message.to === "broadcast" ? message.from : message.to;
       const recipient = this.registeredAgents.get(recipientId);
 
       if (!recipient?.keys?.encryptionKey) {
-        throw new Error(`Recipient ${recipientId} has no encryption key for decryption`);
+        throw new Error(
+          `Recipient ${recipientId} has no encryption key for decryption`
+        );
       }
 
       // Decrypt the payload
       const encryptedData = {
         data: message.payload as string,
         iv: message.encryption.iv,
-        tag: message.encryption.tag || '',
-        algorithm: message.encryption.algorithm
+        tag: message.encryption.tag || "",
+        algorithm: message.encryption.algorithm,
       };
 
-      payload = this.decryptPayload(encryptedData, recipient.keys.encryptionKey);
+      payload = this.decryptPayload(
+        encryptedData,
+        recipient.keys.encryptionKey
+      );
     }
 
-    logger.debug('Secure message received', {
+    logger.debug("Secure message received", {
       messageId: message.id,
       from: message.from,
       to: message.to,
@@ -534,7 +563,7 @@ export class SecureMessageBus {
       status.circuitOpenedAt = new Date();
     }
 
-    logger.error('Agent marked as compromised', { agentId, reason });
+    logger.error("Agent marked as compromised", { agentId, reason });
 
     // Unsubscribe the compromised agent
     this.subscriptions.delete(agentId);
@@ -551,7 +580,7 @@ export class SecureMessageBus {
       status.circuitOpen = false;
       status.circuitOpenedAt = undefined;
     }
-    logger.info('Agent security status reset', { agentId });
+    logger.info("Agent security status reset", { agentId });
   }
 
   /**
@@ -560,16 +589,18 @@ export class SecureMessageBus {
   getDeliveryStatus(messageId: string): DeliveryStatus {
     const message = this.pendingMessages.get(messageId);
     if (!message) {
-      return 'failed';
+      return "failed";
     }
 
     const messageTime = new Date(message.timestamp);
-    const expiresAt = new Date(messageTime.getTime() + message.ttlSeconds * 1000);
+    const expiresAt = new Date(
+      messageTime.getTime() + message.ttlSeconds * 1000
+    );
     if (new Date() > expiresAt) {
-      return 'expired';
+      return "expired";
     }
 
-    return 'pending';
+    return "pending";
   }
 
   /**
@@ -609,7 +640,7 @@ export class SecureMessageBus {
    */
   private recordSecurityIncident(
     agentId: string,
-    incidentType: 'replay_attack' | 'invalid_signature' | 'unauthorized'
+    incidentType: "replay_attack" | "invalid_signature" | "unauthorized"
   ): void {
     const status = this.agentSecurityStatus.get(agentId);
     if (!status) return;
@@ -620,7 +651,7 @@ export class SecureMessageBus {
     if (status.incidentCount >= this.circuitConfig.failureThreshold) {
       status.circuitOpen = true;
       status.circuitOpenedAt = new Date();
-      logger.warn('Circuit opened for agent due to security incidents', {
+      logger.warn("Circuit opened for agent due to security incidents", {
         agentId,
         incidentCount: status.incidentCount,
         lastIncident: incidentType,
@@ -631,7 +662,10 @@ export class SecureMessageBus {
   /**
    * Sign a message with Ed25519 for proper non-repudiation
    */
-  private async signMessage<T>(message: SecureMessage<T>, sender: AgentIdentity): Promise<string> {
+  private async signMessage<T>(
+    message: SecureMessage<T>,
+    sender: AgentIdentity
+  ): Promise<string> {
     try {
       // Prefer KMS-managed keys, fallback to local keys
       let signature: Buffer;
@@ -647,7 +681,10 @@ export class SecureMessageBus {
           payload: message.payload,
         };
 
-        signature = await this.kms.sign(sender.keys.keyId, JSON.stringify(content));
+        signature = await this.kms.sign(
+          sender.keys.keyId,
+          JSON.stringify(content)
+        );
       } else if (sender.keys?.privateKey) {
         // Use local Ed25519 signing
         const content = {
@@ -660,20 +697,24 @@ export class SecureMessageBus {
         };
 
         const result = signMessageEd25519(content, sender.keys.privateKey);
-        signature = Buffer.from(result.signature, 'base64');
+        signature = Buffer.from(result.signature, "base64");
       } else {
         throw new Error(`Agent ${sender.id} has no signing key available`);
       }
 
-      return signature.toString('base64');
+      return signature.toString("base64");
     } catch (error) {
-      logger.error('Message signing failed', error instanceof Error ? error : undefined, {
-        messageId: message.id,
-        senderId: sender.id,
-      });
+      logger.error(
+        "Message signing failed",
+        error instanceof Error ? error : undefined,
+        {
+          messageId: message.id,
+          senderId: sender.id,
+        }
+      );
 
       // Don't expose cryptographic errors to caller
-      throw new Error('Failed to sign message');
+      throw new Error("Failed to sign message");
     }
   }
 
@@ -699,8 +740,12 @@ export class SecureMessageBus {
           payload: message.payload,
         };
 
-        const signature = Buffer.from(message.signature, 'base64');
-        isValid = await this.kms.verify(sender.keys.keyId, JSON.stringify(content), signature);
+        const signature = Buffer.from(message.signature, "base64");
+        isValid = await this.kms.verify(
+          sender.keys.keyId,
+          JSON.stringify(content),
+          signature
+        );
       } else if (sender.keys?.publicKey) {
         // Use local Ed25519 verification
         const content = {
@@ -715,7 +760,12 @@ export class SecureMessageBus {
         // Extract timestamp from signature if available
         const signatureTimestamp = 0; // In production, extract from signature metadata
 
-        isValid = verifySignatureEd25519(content, message.signature, signatureTimestamp, sender.keys.publicKey);
+        isValid = verifySignatureEd25519(
+          content,
+          message.signature,
+          signatureTimestamp,
+          sender.keys.publicKey
+        );
       } else {
         logger.warn(`Agent ${sender.id} has no public key for verification`);
         return false;
@@ -723,10 +773,14 @@ export class SecureMessageBus {
 
       return isValid;
     } catch (error) {
-      logger.error('Failed to verify signature', error instanceof Error ? error : undefined, {
-        messageId: message.id,
-        senderId: sender.id,
-      });
+      logger.error(
+        "Failed to verify signature",
+        error instanceof Error ? error : undefined,
+        {
+          messageId: message.id,
+          senderId: sender.id,
+        }
+      );
       return false;
     }
   }
@@ -734,7 +788,10 @@ export class SecureMessageBus {
   /**
    * Encrypt payload with proper error handling
    */
-  private encryptPayload<T>(payload: T, recipientKey: string): {
+  private encryptPayload<T>(
+    payload: T,
+    recipientKey: string
+  ): {
     data: string;
     algorithm: string;
     iv: string;
@@ -742,13 +799,17 @@ export class SecureMessageBus {
   } {
     try {
       if (!recipientKey) {
-        throw new Error('Recipient encryption key is required');
+        throw new Error("Recipient encryption key is required");
       }
 
       const encryptedPayload = encrypt(JSON.stringify(payload), recipientKey);
 
-      if (!encryptedPayload.data || !encryptedPayload.iv || !encryptedPayload.algorithm) {
-        throw new Error('Encryption produced invalid result');
+      if (
+        !encryptedPayload.data ||
+        !encryptedPayload.iv ||
+        !encryptedPayload.algorithm
+      ) {
+        throw new Error("Encryption produced invalid result");
       }
 
       return {
@@ -758,37 +819,46 @@ export class SecureMessageBus {
         tag: encryptedPayload.tag,
       };
     } catch (error) {
-      logger.error('Payload encryption failed', error instanceof Error ? error : undefined);
-      throw new Error('Failed to encrypt payload');
+      logger.error(
+        "Payload encryption failed",
+        error instanceof Error ? error : undefined
+      );
+      throw new Error("Failed to encrypt payload");
     }
   }
 
   /**
    * Decrypt payload with proper error handling
    */
-  private decryptPayload(encryptedData: {
-    data: string;
-    iv: string;
-    tag?: string;
-    algorithm: string;
-  }, recipientKey: string): any {
+  private decryptPayload(
+    encryptedData: {
+      data: string;
+      iv: string;
+      tag?: string;
+      algorithm: string;
+    },
+    recipientKey: string
+  ): any {
     try {
       if (!recipientKey) {
-        throw new Error('Recipient decryption key is required');
+        throw new Error("Recipient decryption key is required");
       }
 
       const decryptedPayload = decrypt(encryptedData, recipientKey);
 
       if (!decryptedPayload) {
-        throw new Error('Decryption returned empty result');
+        throw new Error("Decryption returned empty result");
       }
 
-      return typeof decryptedPayload === 'string'
+      return typeof decryptedPayload === "string"
         ? JSON.parse(decryptedPayload)
         : decryptedPayload;
     } catch (error) {
-      logger.error('Payload decryption failed', error instanceof Error ? error : undefined);
-      throw new Error('Failed to decrypt payload');
+      logger.error(
+        "Payload decryption failed",
+        error instanceof Error ? error : undefined
+      );
+      throw new Error("Failed to decrypt payload");
     }
   }
 
@@ -825,14 +895,14 @@ export class SecureMessageBus {
     const sender = this.registeredAgents.get(message.from);
     if (!sender) return;
 
-    if (message.to === 'broadcast') {
+    if (message.to === "broadcast") {
       // Deliver to all subscribers
       for (const [agentId, subscription] of this.subscriptions) {
         if (agentId !== message.from) {
           try {
             await subscription.handler(message as SecureMessage, sender);
           } catch (error) {
-            logger.error('Error delivering broadcast message', {
+            logger.error("Error delivering broadcast message", {
               messageId: message.id,
               recipientId: agentId,
               error,
@@ -847,7 +917,7 @@ export class SecureMessageBus {
         try {
           await subscription.handler(message as SecureMessage, sender);
         } catch (error) {
-          logger.error('Error delivering message', {
+          logger.error("Error delivering message", {
             messageId: message.id,
             recipientId: message.to,
             error,
@@ -858,17 +928,71 @@ export class SecureMessageBus {
   }
 
   /**
-   * Start nonce cleanup interval
+   * Start nonce cleanup with adaptive intervals
    */
   private startNonceCleanup(): void {
-    this.nonceCleanupInterval = setInterval(() => {
-      const now = new Date();
-      for (const [nonce, entry] of this.seenNonces) {
-        if (entry.expiresAt < now) {
-          this.seenNonces.delete(nonce);
-        }
+    // Start the adaptive cleanup process
+    this.scheduleAdaptiveCleanup();
+  }
+
+  /**
+   * Schedule next cleanup with adaptive interval based on nonce traffic
+   */
+  private scheduleAdaptiveCleanup(): void {
+    // Clear any existing interval
+    if (this.nonceCleanupInterval) {
+      clearTimeout(this.nonceCleanupInterval);
+    }
+
+    // Determine cleanup interval based on nonce traffic
+    const nonceCount = this.seenNonces.size;
+    let intervalMs: number;
+
+    if (nonceCount > 1000) {
+      intervalMs = 30000; // High traffic: cleanup every 30 seconds
+    } else if (nonceCount > 500) {
+      intervalMs = 60000; // Medium traffic: cleanup every minute
+    } else if (nonceCount > 100) {
+      intervalMs = 120000; // Low traffic: cleanup every 2 minutes
+    } else {
+      intervalMs = 300000; // Very low traffic: cleanup every 5 minutes
+    }
+
+    this.nonceCleanupInterval = setTimeout(() => {
+      this.performNonceCleanup();
+    }, intervalMs);
+
+    logger.debug("Scheduled adaptive nonce cleanup", {
+      nonceCount,
+      nextCleanupMs: intervalMs,
+    });
+  }
+
+  /**
+   * Perform nonce cleanup and reschedule
+   */
+  private performNonceCleanup(): void {
+    const now = new Date();
+    const beforeCount = this.seenNonces.size;
+    let removedCount = 0;
+
+    for (const [nonce, entry] of this.seenNonces) {
+      if (entry.expiresAt < now) {
+        this.seenNonces.delete(nonce);
+        removedCount++;
       }
-    }, 60000); // Cleanup every minute
+    }
+
+    if (removedCount > 0) {
+      logger.debug("Nonce cleanup completed", {
+        removedCount,
+        remainingCount: this.seenNonces.size,
+        beforeCount,
+      });
+    }
+
+    // Schedule next cleanup adaptively
+    this.scheduleAdaptiveCleanup();
   }
 
   /**

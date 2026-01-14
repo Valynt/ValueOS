@@ -195,10 +195,12 @@ export class DataEncryptionService {
       encryptedAt: new Date(),
     };
 
-    return await this.decryptAES256GCM(
-      encryptedData,
-      (await this.getKeyByVersion(keyVersion, tenantId)) || key
-    );
+    const key = await this.getKeyByVersion(keyVersion, tenantId);
+    if (!key) {
+      throw new Error(`Encryption key not found: version ${keyVersion}`);
+    }
+
+    return await this.decryptAES256GCM(encryptedData, key);
   }
 
   /**
@@ -285,12 +287,33 @@ export class DataEncryptionService {
     const cachedKey = await this.cache.get<EncryptionKey>(
       `encryption_key_v${version}_${tenantId || "global"}`
     );
+
     if (cachedKey) {
       this.keys.set(cachedKey.id, cachedKey);
       return cachedKey;
     }
 
     return null;
+  }
+
+  /**
+   * AES-256-GCM decryption
+   */
+  private async decryptAES256GCM(
+    encryptedData: EncryptedData,
+    key: EncryptionKey
+  ): Promise<string> {
+    const decipher = crypto.createDecipher("aes-256-gcm", key.key);
+    decipher.setAAD(Buffer.from("")); // Additional authenticated data
+
+    if (encryptedData.tag) {
+      (decipher as any).setAuthTag(Buffer.from(encryptedData.tag, "hex"));
+    }
+
+    let decrypted = decipher.update(encryptedData.ciphertext, "hex", "utf8");
+    decrypted += decipher.final("utf8");
+
+    return decrypted;
   }
 
   /**
@@ -301,42 +324,22 @@ export class DataEncryptionService {
     key: EncryptionKey
   ): Promise<EncryptedData> {
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipherGCM("aes-256-gcm", key.key);
-    cipher.setIV(iv);
+    const cipher = crypto.createCipher("aes-256-gcm", key.key);
+    cipher.setAAD(Buffer.from("")); // Additional authenticated data
 
     let encrypted = cipher.update(data, "utf8", "hex");
     encrypted += cipher.final("hex");
 
-    const tag = cipher.getAuthTag();
+    const tag = (cipher as any).getAuthTag();
 
     return {
       ciphertext: encrypted,
       iv: iv.toString("hex"),
-      tag: tag.toString("hex"),
+      tag: tag ? tag.toString("hex") : undefined,
       keyVersion: key.version,
       algorithm: "AES-256-GCM",
       encryptedAt: new Date(),
     };
-  }
-
-  /**
-   * AES-256-GCM decryption
-   */
-  private async decryptAES256GCM(
-    encryptedData: EncryptedData,
-    key: EncryptionKey
-  ): Promise<string> {
-    const decipher = crypto.createDecipherGCM("aes-256-gcm", key.key);
-    decipher.setIV(Buffer.from(encryptedData.iv, "hex"));
-
-    if (encryptedData.tag) {
-      decipher.setAuthTag(Buffer.from(encryptedData.tag, "hex"));
-    }
-
-    let decrypted = decipher.update(encryptedData.ciphertext, "hex", "utf8");
-    decrypted += decipher.final("utf8");
-
-    return decrypted;
   }
 
   /**
@@ -347,8 +350,7 @@ export class DataEncryptionService {
     key: EncryptionKey
   ): Promise<EncryptedData> {
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipher("aes-256-cbc", key.key);
-    cipher.setIV(iv);
+    const cipher = crypto.createCipheriv("aes-256-cbc", key.key, iv);
 
     let encrypted = cipher.update(data, "utf8", "hex");
     encrypted += cipher.final("hex");
@@ -369,8 +371,11 @@ export class DataEncryptionService {
     encryptedData: EncryptedData,
     key: EncryptionKey
   ): Promise<string> {
-    const decipher = crypto.createDecipher("aes-256-cbc", key.key);
-    decipher.setIV(Buffer.from(encryptedData.iv, "hex"));
+    const decipher = crypto.createDecipheriv(
+      "aes-256-cbc",
+      key.key,
+      Buffer.from(encryptedData.iv, "hex")
+    );
 
     let decrypted = decipher.update(encryptedData.ciphertext, "hex", "utf8");
     decrypted += decipher.final("utf8");

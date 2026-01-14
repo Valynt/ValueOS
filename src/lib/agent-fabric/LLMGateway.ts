@@ -65,19 +65,33 @@ class KeyRotationManager {
     for (const prefix of keyPrefixes) {
       const key = process.env[prefix];
       if (key && key.trim()) {
-        this.keys.push(key.trim());
+        // Basic validation: API keys should be non-empty strings
+        const trimmedKey = key.trim();
+        if (trimmedKey.length < 10) {
+          logger.warn(
+            `API key for ${prefix} appears too short, may be invalid`,
+            {
+              keyLength: trimmedKey.length,
+            }
+          );
+        }
+        this.keys.push(trimmedKey);
       }
     }
 
+    // Validate that at least one key was loaded
     if (this.keys.length === 0) {
-      logger.warn(`No API keys found for provider ${this.provider}`, {
-        keyPrefixes: keyPrefixes.map((p) => p.replace(/_.*$/, "_***")),
+      const errorMsg = `No valid API keys found for provider ${this.provider}. Please set environment variables: ${keyPrefixes.join(", ")}`;
+      logger.error("LLM Gateway startup failed: no API keys", {
+        provider: this.provider,
+        requiredEnvVars: keyPrefixes,
       });
-    } else {
-      logger.info(
-        `Loaded ${this.keys.length} API keys for provider ${this.provider}`
-      );
+      throw new Error(errorMsg);
     }
+
+    logger.info(
+      `Loaded ${this.keys.length} API keys for provider ${this.provider}`
+    );
   }
 
   /**
