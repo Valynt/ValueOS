@@ -24,7 +24,11 @@ npm run test:unit
 npm run test:integration
 ```
 
-4. Run Playwright E2E tests:
+**Windows/PowerShell**: To limit output (equivalent to `head -50`):
+
+```powershell
+npx vitest --config .config/configs/vitest.config.integration.ts --run --reporter=verbose 2>&1 | Select-Object -First 50
+```
 
 ```bash
 npx playwright test
