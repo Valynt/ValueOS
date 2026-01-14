@@ -5,9 +5,33 @@
  * HTTP Request → Kafka Event → Agent Execution → Response
  */
 
+// Extend Express Request interface for authentication
+declare global {
+  namespace Express {
+    interface Request {
+      user?: { id: string; tenantId: string };
+      tenantId?: string;
+    }
+  }
+}
+
+// Set environment variables for ServiceConfigManager before imports
+process.env.KAFKA_BROKERS = "localhost:9092";
+process.env.EVENT_EXECUTOR_ENABLED = "true";
+process.env.AGENT_QUEUE_ENABLED = "true";
+process.env.AGENT_QUEUE_REDIS_URL = "redis://localhost:6379";
+
+// Mock external services for integration testing
+vi.mock("../../src/lib/redisClient");
+vi.mock("../../src/services/EventProducer");
+vi.mock("../../src/services/UnifiedAgentAPI");
+vi.mock("../../src/services/EventSourcingService");
+vi.mock("../../src/lib/logger");
+vi.mock("../../src/services/AgentMessageQueue");
+
 import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
 import request from "supertest";
-import { Express } from "express";
+import { Express, Request, Response, NextFunction } from "express";
 import {
   AgentMessageQueue,
   getAgentMessageQueue,
@@ -16,16 +40,106 @@ import { getEventProducer } from "../../src/services/EventProducer";
 import { getUnifiedAgentAPI } from "../../src/services/UnifiedAgentAPI";
 import { getEventSourcingService } from "../../src/services/EventSourcingService";
 import { AgentType } from "../../src/services/agent-types";
-import { createTestApp } from "../test/testcontainers-global-setup";
+import { createTestApp } from "./testcontainers-global-setup";
 import { getRedisClient } from "../../src/lib/redisClient";
 import { logger } from "../../src/lib/logger";
 
-// Mock external services for integration testing
-vi.mock("../../src/lib/redisClient");
-vi.mock("../../src/services/EventProducer");
-vi.mock("../../src/services/UnifiedAgentAPI");
-vi.mock("../../src/services/EventSourcingService");
-vi.mock("../../src/lib/logger");
+// Import and mock ServiceConfigManager functions
+import {
+  getAgentMessageQueueConfig,
+  getEventExecutorConfig,
+} from "../../src/config/ServiceConfigManager";
+
+// Setup mock implementations at module level
+vi.mocked(getRedisClient).mockResolvedValue({
+  set: vi.fn().mockResolvedValue("OK"),
+  get: vi.fn().mockResolvedValue(null),
+  del: vi.fn().mockResolvedValue(1),
+  expire: vi.fn().mockResolvedValue(1),
+  incr: vi.fn().mockResolvedValue(1),
+  disconnect: vi.fn(),
+  connect: vi.fn(),
+} as any);
+
+vi.mocked(getEventProducer).mockReturnValue({
+  publish: vi.fn().mockResolvedValue(undefined),
+} as any);
+
+vi.mocked(getUnifiedAgentAPI).mockReturnValue({
+  invoke: vi.fn().mockResolvedValue({
+    success: true,
+    data: "Paris is the capital of France.",
+    tokens: 150,
+    cost: 0.002,
+    cached: false,
+  }),
+} as any);
+
+vi.mocked(getEventSourcingService).mockReturnValue({
+  storeEvent: vi.fn().mockResolvedValue(undefined),
+  updateProjection: vi.fn().mockResolvedValue(undefined),
+  getAuditTrail: vi.fn().mockResolvedValue({
+    events: [
+      {
+        eventType: "agent.request",
+        payload: {
+          agentId: "research",
+          query: "What is the capital of France?",
+        },
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  }),
+} as any);
+
+// Mock ServiceConfigManager functions
+const mockConfig = {
+  enabled: true,
+  timeout: 30000,
+  retryAttempts: 3,
+  retryDelay: 1000,
+  healthCheckInterval: 10000,
+  redis: {
+    url: "redis://localhost:6379",
+    keyPrefix: "agent:queue",
+  },
+  queue: {
+    concurrency: 10,
+    rateLimitMax: 50,
+    rateLimitDuration: 1000,
+    jobRetention: 3600000,
+  },
+  scheduler: {
+    enabled: true,
+    checkInterval: 5000,
+  },
+  kafka: {
+    brokers: ["localhost:9092"],
+    groupId: "agent-executor",
+    topics: {
+      agentRequests: "agent.requests",
+      agentResponses: "agent.responses",
+    },
+  },
+  circuitBreaker: {
+    failureThreshold: 5,
+    resetTimeout: 60000,
+    monitoringPeriod: 300000,
+  },
+  agentExecution: {
+    maxConcurrency: 10,
+    timeout: 30000,
+    retryOnFailure: true,
+  },
+};
+
+vi.mocked(getAgentMessageQueueConfig).mockReturnValue(mockConfig);
+vi.mocked(getEventExecutorConfig).mockReturnValue({
+  ...mockConfig,
+  kafka: mockConfig.kafka,
+  circuitBreaker: mockConfig.circuitBreaker,
+  agentExecution: mockConfig.agentExecution,
+});
 
 describe("Integration - Async Agent Execution Flow", () => {
   let app: Express;
@@ -83,17 +197,17 @@ describe("Integration - Async Agent Execution Flow", () => {
       }),
     };
 
-    vi.mocked(getRedisClient).mockResolvedValue(redisClient);
-    vi.mocked(getEventProducer).mockReturnValue(eventProducer);
-    vi.mocked(getUnifiedAgentAPI).mockReturnValue(agentAPI);
-    vi.mocked(getEventSourcingService).mockReturnValue(eventSourcing);
+    vi.mocked(getRedisClient).mockResolvedValue(redisClient as any);
+    vi.mocked(getEventProducer).mockReturnValue(eventProducer as any);
+    vi.mocked(getUnifiedAgentAPI).mockReturnValue(agentAPI as any);
+    vi.mocked(getEventSourcingService).mockReturnValue(eventSourcing as any);
 
     // Create test app and services
     app = await createTestApp();
     messageQueue = getAgentMessageQueue();
 
     // Mock authentication middleware
-    app.use((req: any, res, next) => {
+    app.use((req: any, res: any, next: any) => {
       req.user = testUser;
       req.tenantId = testUser.tenantId;
       next();
@@ -280,9 +394,9 @@ describe("Integration - Async Agent Execution Flow", () => {
       const user2 = { id: "user-2", tenantId: "tenant-2" };
 
       // Mock different users
-      const createAppWithUser = (user: any) => {
-        const testApp = createTestApp();
-        testApp.use((req: any, res, next) => {
+      const createAppWithUser = async (user: any) => {
+        const testApp = await createTestApp();
+        testApp.use((req: Request, res: Response, next: NextFunction) => {
           req.user = user;
           req.tenantId = user.tenantId;
           next();

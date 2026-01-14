@@ -28,6 +28,7 @@ import {
   isEncrypted,
   generateEncryptionKey,
   constantTimeCompareBuffers,
+  EncryptedData,
 } from "../crypto/CryptoUtils";
 import { getKMS, KMSConfig } from "../crypto/KeyManagementService";
 
@@ -563,7 +564,7 @@ export class SecureMessageBus {
       status.circuitOpenedAt = new Date();
     }
 
-    logger.error("Agent marked as compromised", { agentId, reason });
+    logger.error("Agent marked as compromised", undefined, { agentId, reason });
 
     // Unsubscribe the compromised agent
     this.subscriptions.delete(agentId);
@@ -795,7 +796,7 @@ export class SecureMessageBus {
     data: string;
     algorithm: string;
     iv: string;
-    tag?: string;
+    tag: string;
   } {
     try {
       if (!recipientKey) {
@@ -831,12 +832,7 @@ export class SecureMessageBus {
    * Decrypt payload with proper error handling
    */
   private decryptPayload(
-    encryptedData: {
-      data: string;
-      iv: string;
-      tag?: string;
-      algorithm: string;
-    },
+    encryptedData: EncryptedData,
     recipientKey: string
   ): any {
     try {
@@ -902,11 +898,14 @@ export class SecureMessageBus {
           try {
             await subscription.handler(message as SecureMessage, sender);
           } catch (error) {
-            logger.error("Error delivering broadcast message", {
-              messageId: message.id,
-              recipientId: agentId,
-              error,
-            });
+            logger.error(
+              "Error delivering broadcast message",
+              error instanceof Error ? error : undefined,
+              {
+                messageId: message.id,
+                recipientId: agentId,
+              }
+            );
           }
         }
       }
@@ -917,11 +916,14 @@ export class SecureMessageBus {
         try {
           await subscription.handler(message as SecureMessage, sender);
         } catch (error) {
-          logger.error("Error delivering message", {
-            messageId: message.id,
-            recipientId: message.to,
-            error,
-          });
+          logger.error(
+            "Error delivering message",
+            error instanceof Error ? error : undefined,
+            {
+              messageId: message.id,
+              recipientId: message.to,
+            }
+          );
         }
       }
     }

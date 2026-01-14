@@ -163,14 +163,15 @@ export class AgentMessageQueue {
 
     try {
       // Use BullMQ's job completion promise with timeout race
-      const result = await Promise.race([
+      await Promise.race([
+        // @ts-ignore - BullMQ types may not include finished getter
         job.finished,
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error(`Job ${jobId} timeout`)), timeoutMs)
         ),
       ]);
 
-      return result as AgentInvocationResult;
+      return job.returnvalue as AgentInvocationResult;
     } catch (error) {
       if (error instanceof Error && error.message.includes("timeout")) {
         throw new Error(

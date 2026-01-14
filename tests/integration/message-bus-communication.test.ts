@@ -10,7 +10,7 @@ import {
   SecureMessageBus,
   secureMessageBus,
 } from "../../src/lib/agent-fabric/SecureMessageBus";
-import { AgentIdentity } from "../../src/lib/auth/AgentIdentity";
+import { AgentIdentity, AgentRole } from "../../src/lib/auth/AgentIdentity";
 import { CircuitBreaker } from "../../src/lib/resilience/CircuitBreaker";
 import { getRedisClient } from "../../src/lib/redisClient";
 import { logger } from "../../src/lib/logger";
@@ -43,7 +43,7 @@ describe("Integration - Message Bus Communication", () => {
     vi.mocked(getRedisClient).mockResolvedValue(redisClient);
 
     // Create message bus instance
-    messageBus = new SecureMessageBus();
+    messageBus = secureMessageBus;
 
     // Create test agent identities
     agent1 = {
@@ -51,10 +51,18 @@ describe("Integration - Message Bus Communication", () => {
       keys: {
         publicKey: "mock-public-key-1",
         privateKey: "mock-private-key-1",
-        signingKey: "mock-signing-key-1",
         encryptionKey: "mock-encryption-key-1",
       },
-      permissions: ["execute:llm", "send:messages"],
+      permissions: ["execute:llm"],
+      type: "agent",
+      role: "CoordinatorAgent",
+      name: "agent1",
+      version: "1.0",
+      lifecycleStage: "development",
+      organizationId: "test-org-123",
+      issuedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours from now
+      auditToken: "mock-audit-token-1",
       metadata: { type: "research", version: "1.0" },
     };
 
@@ -63,10 +71,18 @@ describe("Integration - Message Bus Communication", () => {
       keys: {
         publicKey: "mock-public-key-2",
         privateKey: "mock-private-key-2",
-        signingKey: "mock-signing-key-2",
         encryptionKey: "mock-encryption-key-2",
       },
-      permissions: ["execute:llm", "send:messages"],
+      permissions: ["execute:llm"],
+      type: "agent",
+      role: "CoordinatorAgent",
+      name: "agent2",
+      version: "1.0",
+      lifecycleStage: "development",
+      organizationId: "test-org-123",
+      issuedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours from now
+      auditToken: "mock-audit-token-2",
       metadata: { type: "analysis", version: "1.0" },
     };
 
@@ -238,6 +254,16 @@ describe("Integration - Message Bus Communication", () => {
           privateKey: "mock-private-key-3",
         },
         permissions: ["execute:llm"],
+        type: "agent",
+        role: "SystemAgent",
+        name: "agent3",
+        version: "1.0",
+        lifecycleStage: "development",
+        organizationId: "test-org-123",
+        issuedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours from now
+        auditToken: "mock-audit-token-3",
+        metadata: { type: "system", version: "1.0" },
       };
 
       messageBus.registerAgent(agent3);

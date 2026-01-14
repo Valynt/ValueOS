@@ -9,10 +9,10 @@
  * @version 1.0.0
  */
 
-import { v4 as uuidv4 } from 'uuid';
-import { createLogger } from '../logger';
+import { v4 as uuidv4 } from "uuid";
+import { createLogger } from "../logger";
 
-const logger = createLogger({ component: 'AgentIdentity' });
+const logger = createLogger({ component: "AgentIdentity" });
 
 // ============================================================================
 // Core Types
@@ -23,23 +23,23 @@ const logger = createLogger({ component: 'AgentIdentity' });
  * Maps to the Agent Fabric architecture
  */
 export enum AgentRole {
-  COORDINATOR = 'CoordinatorAgent',
-  OPPORTUNITY = 'OpportunityAgent',
-  TARGET = 'TargetAgent',
-  REALIZATION = 'RealizationAgent',
-  EXPANSION = 'ExpansionAgent',
-  INTEGRITY = 'IntegrityAgent',
-  COMMUNICATOR = 'CommunicatorAgent',
+  COORDINATOR = "CoordinatorAgent",
+  OPPORTUNITY = "OpportunityAgent",
+  TARGET = "TargetAgent",
+  REALIZATION = "RealizationAgent",
+  EXPANSION = "ExpansionAgent",
+  INTEGRITY = "IntegrityAgent",
+  COMMUNICATOR = "CommunicatorAgent",
   // Extended agents
-  BENCHMARK = 'BenchmarkAgent',
-  NARRATIVE = 'NarrativeAgent',
-  ADVERSARIAL = 'AdversarialReasoningAgent',
-  FINANCIAL_MODELING = 'FinancialModelingAgent',
-  COMPANY_INTELLIGENCE = 'CompanyIntelligenceAgent',
-  VALUE_MAPPING = 'ValueMappingAgent',
-  RESEARCH = 'ResearchAgent',
+  BENCHMARK = "BenchmarkAgent",
+  NARRATIVE = "NarrativeAgent",
+  ADVERSARIAL = "AdversarialReasoningAgent",
+  FINANCIAL_MODELING = "FinancialModelingAgent",
+  COMPANY_INTELLIGENCE = "CompanyIntelligenceAgent",
+  VALUE_MAPPING = "ValueMappingAgent",
+  RESEARCH = "ResearchAgent",
   // System agents
-  SYSTEM = 'SystemAgent',
+  SYSTEM = "SystemAgent",
 }
 
 /**
@@ -48,29 +48,29 @@ export enum AgentRole {
  */
 export type Permission =
   // Read permissions
-  | 'read:customers'
-  | 'read:benchmarks'
-  | 'read:vmrt'
-  | 'read:workflows'
-  | 'read:audit'
+  | "read:customers"
+  | "read:benchmarks"
+  | "read:vmrt"
+  | "read:workflows"
+  | "read:audit"
   // Write permissions
-  | 'write:vmrt'
-  | 'write:crm'
-  | 'write:workflows'
-  | 'write:audit'
+  | "write:vmrt"
+  | "write:crm"
+  | "write:workflows"
+  | "write:audit"
   // Execute permissions
-  | 'execute:workflow'
-  | 'execute:external_api'
-  | 'execute:llm'
+  | "execute:workflow"
+  | "execute:external_api"
+  | "execute:llm"
   // Admin permissions
-  | 'admin:system'
-  | 'admin:agents'
-  | 'admin:security';
+  | "admin:system"
+  | "admin:agents"
+  | "admin:security";
 
 /**
  * Risk levels for agent actions requiring HITL
  */
-export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
+export type RiskLevel = "low" | "medium" | "high" | "critical";
 
 /**
  * Agent Identity - OIDC-compatible structure for non-human actors
@@ -79,7 +79,7 @@ export interface AgentIdentity {
   /** Unique agent identifier, format: agent:{role}:{instance_id} */
   id: string;
   /** Actor type - always 'agent' for non-human actors */
-  type: 'agent';
+  type: "agent";
   /** Agent role from the 7-Agent Taxonomy */
   role: AgentRole;
   /** Human-readable agent name */
@@ -111,6 +111,8 @@ export interface AgentIdentity {
     privateKey?: string;
     /** Encryption key for AES-256-GCM (base64 encoded) */
     encryptionKey?: string;
+    /** Key ID for KMS-managed keys */
+    keyId?: string;
   };
 }
 
@@ -177,106 +179,99 @@ export interface CreateAgentIdentityOptions {
  */
 export const AGENT_PERMISSION_MATRIX: Record<AgentRole, Permission[]> = {
   [AgentRole.COORDINATOR]: [
-    'read:customers',
-    'read:benchmarks',
-    'read:workflows',
-    'execute:workflow',
-    'execute:llm',
+    "read:customers",
+    "read:benchmarks",
+    "read:workflows",
+    "execute:workflow",
+    "execute:llm",
   ],
-  [AgentRole.OPPORTUNITY]: [
-    'read:customers',
-    'read:benchmarks',
-    'execute:llm',
-  ],
+  [AgentRole.OPPORTUNITY]: ["read:customers", "read:benchmarks", "execute:llm"],
   [AgentRole.TARGET]: [
-    'read:customers',
-    'read:benchmarks',
-    'write:vmrt',
-    'execute:llm',
+    "read:customers",
+    "read:benchmarks",
+    "write:vmrt",
+    "execute:llm",
   ],
   [AgentRole.REALIZATION]: [
-    'read:customers',
-    'read:benchmarks',
-    'read:vmrt',
-    'write:vmrt',
-    'write:crm',
-    'execute:llm',
+    "read:customers",
+    "read:benchmarks",
+    "read:vmrt",
+    "write:vmrt",
+    "write:crm",
+    "execute:llm",
   ],
   [AgentRole.EXPANSION]: [
-    'read:customers',
-    'read:benchmarks',
-    'read:vmrt',
-    'execute:llm',
+    "read:customers",
+    "read:benchmarks",
+    "read:vmrt",
+    "execute:llm",
   ],
   [AgentRole.INTEGRITY]: [
-    'read:customers',
-    'read:benchmarks',
-    'read:vmrt',
-    'read:workflows',
-    'read:audit',
-    'write:vmrt',
-    'write:audit',
-    'admin:system',
-    'execute:llm',
+    "read:customers",
+    "read:benchmarks",
+    "read:vmrt",
+    "read:workflows",
+    "read:audit",
+    "write:vmrt",
+    "write:audit",
+    "admin:system",
+    "execute:llm",
   ],
   [AgentRole.COMMUNICATOR]: [
-    'read:customers',
-    'read:benchmarks',
-    'read:vmrt',
-    'execute:llm',
+    "read:customers",
+    "read:benchmarks",
+    "read:vmrt",
+    "execute:llm",
   ],
   // Extended agents inherit base permissions
-  [AgentRole.BENCHMARK]: [
-    'read:benchmarks',
-    'execute:llm',
-  ],
+  [AgentRole.BENCHMARK]: ["read:benchmarks", "execute:llm"],
   [AgentRole.NARRATIVE]: [
-    'read:customers',
-    'read:benchmarks',
-    'read:vmrt',
-    'execute:llm',
+    "read:customers",
+    "read:benchmarks",
+    "read:vmrt",
+    "execute:llm",
   ],
   [AgentRole.ADVERSARIAL]: [
-    'read:customers',
-    'read:benchmarks',
-    'read:vmrt',
-    'execute:llm',
+    "read:customers",
+    "read:benchmarks",
+    "read:vmrt",
+    "execute:llm",
   ],
   [AgentRole.FINANCIAL_MODELING]: [
-    'read:customers',
-    'read:benchmarks',
-    'write:vmrt',
-    'execute:llm',
+    "read:customers",
+    "read:benchmarks",
+    "write:vmrt",
+    "execute:llm",
   ],
   [AgentRole.COMPANY_INTELLIGENCE]: [
-    'read:customers',
-    'execute:external_api',
-    'execute:llm',
+    "read:customers",
+    "execute:external_api",
+    "execute:llm",
   ],
   [AgentRole.VALUE_MAPPING]: [
-    'read:customers',
-    'read:benchmarks',
-    'execute:llm',
+    "read:customers",
+    "read:benchmarks",
+    "execute:llm",
   ],
   [AgentRole.RESEARCH]: [
-    'read:customers',
-    'read:benchmarks',
-    'execute:external_api',
-    'execute:llm',
+    "read:customers",
+    "read:benchmarks",
+    "execute:external_api",
+    "execute:llm",
   ],
   [AgentRole.SYSTEM]: [
-    'read:customers',
-    'read:benchmarks',
-    'read:vmrt',
-    'read:workflows',
-    'read:audit',
-    'write:vmrt',
-    'write:workflows',
-    'write:audit',
-    'execute:workflow',
-    'execute:llm',
-    'admin:system',
-    'admin:agents',
+    "read:customers",
+    "read:benchmarks",
+    "read:vmrt",
+    "read:workflows",
+    "read:audit",
+    "write:vmrt",
+    "write:workflows",
+    "write:audit",
+    "execute:workflow",
+    "execute:llm",
+    "admin:system",
+    "admin:agents",
   ],
 };
 
@@ -284,48 +279,51 @@ export const AGENT_PERMISSION_MATRIX: Record<AgentRole, Permission[]> = {
  * Actions requiring Human-in-the-Loop approval
  * Maps action types to their risk levels and required approvers
  */
-export const HITL_ACTION_REGISTRY: Record<string, {
-  riskLevel: RiskLevel;
-  requiredApprovers: number;
-  approverRoles: string[];
-  timeoutSeconds: number;
-  autoApproveConditions?: Record<string, unknown>;
-}> = {
-  'crm:sync_contacts': {
-    riskLevel: 'medium',
+export const HITL_ACTION_REGISTRY: Record<
+  string,
+  {
+    riskLevel: RiskLevel;
+    requiredApprovers: number;
+    approverRoles: string[];
+    timeoutSeconds: number;
+    autoApproveConditions?: Record<string, unknown>;
+  }
+> = {
+  "crm:sync_contacts": {
+    riskLevel: "medium",
     requiredApprovers: 1,
-    approverRoles: ['admin', 'sales_manager'],
+    approverRoles: ["admin", "sales_manager"],
     timeoutSeconds: 3600,
     autoApproveConditions: { maxRecords: 50 },
   },
-  'crm:bulk_update': {
-    riskLevel: 'high',
+  "crm:bulk_update": {
+    riskLevel: "high",
     requiredApprovers: 1,
-    approverRoles: ['admin', 'sales_director'],
+    approverRoles: ["admin", "sales_director"],
     timeoutSeconds: 7200,
   },
-  'workflow:execute': {
-    riskLevel: 'high',
+  "workflow:execute": {
+    riskLevel: "high",
     requiredApprovers: 1,
-    approverRoles: ['admin', 'workflow_manager'],
+    approverRoles: ["admin", "workflow_manager"],
     timeoutSeconds: 7200,
   },
-  'data:bulk_delete': {
-    riskLevel: 'critical',
+  "data:bulk_delete": {
+    riskLevel: "critical",
     requiredApprovers: 2,
-    approverRoles: ['super_admin'],
+    approverRoles: ["super_admin"],
     timeoutSeconds: 86400,
   },
-  'external:api_call': {
-    riskLevel: 'medium',
+  "external:api_call": {
+    riskLevel: "medium",
     requiredApprovers: 1,
-    approverRoles: ['admin', 'integration_manager'],
+    approverRoles: ["admin", "integration_manager"],
     timeoutSeconds: 1800,
   },
-  'admin:config_change': {
-    riskLevel: 'critical',
+  "admin:config_change": {
+    riskLevel: "critical",
     requiredApprovers: 2,
-    approverRoles: ['super_admin', 'cto'],
+    approverRoles: ["super_admin", "cto"],
     timeoutSeconds: 86400,
   },
 };
@@ -345,9 +343,12 @@ const DEFAULT_TOKEN_EXPIRATION_SECONDS = 3600;
  * @param options - Configuration for the new agent identity
  * @returns A fully constructed AgentIdentity object
  */
-export function createAgentIdentity(options: CreateAgentIdentityOptions): AgentIdentity {
+export function createAgentIdentity(
+  options: CreateAgentIdentityOptions
+): AgentIdentity {
   const now = new Date();
-  const expirationSeconds = options.expirationSeconds ?? DEFAULT_TOKEN_EXPIRATION_SECONDS;
+  const expirationSeconds =
+    options.expirationSeconds ?? DEFAULT_TOKEN_EXPIRATION_SECONDS;
   const expiresAt = new Date(now.getTime() + expirationSeconds * 1000);
 
   // Get default permissions for the role
@@ -360,11 +361,12 @@ export function createAgentIdentity(options: CreateAgentIdentityOptions): AgentI
 
   const identity: AgentIdentity = {
     id: `agent:${options.role.toLowerCase()}:${uuidv4().slice(0, 8)}`,
-    type: 'agent',
+    type: "agent",
     role: options.role,
     name: options.name || options.role,
-    version: options.version || '1.0.0',
-    lifecycleStage: options.lifecycleStage || mapRoleToLifecycleStage(options.role),
+    version: options.version || "1.0.0",
+    lifecycleStage:
+      options.lifecycleStage || mapRoleToLifecycleStage(options.role),
     permissions,
     organizationId: options.organizationId,
     parentSessionId: options.parentSessionId,
@@ -375,7 +377,7 @@ export function createAgentIdentity(options: CreateAgentIdentityOptions): AgentI
     metadata: options.metadata || {},
   };
 
-  logger.info('Agent identity created', {
+  logger.info("Agent identity created", {
     agentId: identity.id,
     role: identity.role,
     organizationId: identity.organizationId,
@@ -391,23 +393,23 @@ export function createAgentIdentity(options: CreateAgentIdentityOptions): AgentI
  */
 function mapRoleToLifecycleStage(role: AgentRole): string {
   const stageMap: Record<AgentRole, string> = {
-    [AgentRole.COORDINATOR]: 'orchestration',
-    [AgentRole.OPPORTUNITY]: 'discovery',
-    [AgentRole.TARGET]: 'definition',
-    [AgentRole.REALIZATION]: 'realization',
-    [AgentRole.EXPANSION]: 'expansion',
-    [AgentRole.INTEGRITY]: 'governance',
-    [AgentRole.COMMUNICATOR]: 'interface',
-    [AgentRole.BENCHMARK]: 'discovery',
-    [AgentRole.NARRATIVE]: 'interface',
-    [AgentRole.ADVERSARIAL]: 'governance',
-    [AgentRole.FINANCIAL_MODELING]: 'definition',
-    [AgentRole.COMPANY_INTELLIGENCE]: 'discovery',
-    [AgentRole.VALUE_MAPPING]: 'discovery',
-    [AgentRole.RESEARCH]: 'discovery',
-    [AgentRole.SYSTEM]: 'system',
+    [AgentRole.COORDINATOR]: "orchestration",
+    [AgentRole.OPPORTUNITY]: "discovery",
+    [AgentRole.TARGET]: "definition",
+    [AgentRole.REALIZATION]: "realization",
+    [AgentRole.EXPANSION]: "expansion",
+    [AgentRole.INTEGRITY]: "governance",
+    [AgentRole.COMMUNICATOR]: "interface",
+    [AgentRole.BENCHMARK]: "discovery",
+    [AgentRole.NARRATIVE]: "interface",
+    [AgentRole.ADVERSARIAL]: "governance",
+    [AgentRole.FINANCIAL_MODELING]: "definition",
+    [AgentRole.COMPANY_INTELLIGENCE]: "discovery",
+    [AgentRole.VALUE_MAPPING]: "discovery",
+    [AgentRole.RESEARCH]: "discovery",
+    [AgentRole.SYSTEM]: "system",
   };
-  return stageMap[role] || 'unknown';
+  return stageMap[role] || "unknown";
 }
 
 /**
@@ -416,8 +418,8 @@ function mapRoleToLifecycleStage(role: AgentRole): string {
 export function toTokenClaims(identity: AgentIdentity): AgentTokenClaims {
   return {
     sub: identity.id,
-    iss: 'valueos-auth',
-    aud: 'valueos-api',
+    iss: "valueos-auth",
+    aud: "valueos-api",
     scope: identity.permissions,
     org_id: identity.organizationId,
     agent_role: identity.role,
@@ -437,10 +439,10 @@ export function toTokenClaims(identity: AgentIdentity): AgentTokenClaims {
 export function fromTokenClaims(claims: AgentTokenClaims): AgentIdentity {
   return {
     id: claims.sub,
-    type: 'agent',
+    type: "agent",
     role: claims.agent_role,
     name: claims.agent_type,
-    version: '1.0.0',
+    version: "1.0.0",
     lifecycleStage: claims.agent_type,
     permissions: claims.scope,
     organizationId: claims.org_id,
@@ -466,8 +468,10 @@ export class PermissionDeniedError extends Error {
     public readonly action: Permission,
     public readonly context?: Record<string, unknown>
   ) {
-    super(`Permission denied: Agent ${agentId} cannot perform action '${action}'`);
-    this.name = 'PermissionDeniedError';
+    super(
+      `Permission denied: Agent ${agentId} cannot perform action '${action}'`
+    );
+    this.name = "PermissionDeniedError";
   }
 }
 
@@ -479,12 +483,15 @@ export class PermissionDeniedError extends Error {
  * @param action - The permission to verify
  * @returns true if the agent has the permission
  */
-export function hasPermission(identity: AgentIdentity, action: Permission): boolean {
+export function hasPermission(
+  identity: AgentIdentity,
+  action: Permission
+): boolean {
   // Check expiration
   const now = new Date();
   const expiresAt = new Date(identity.expiresAt);
   if (now > expiresAt) {
-    logger.warn('Agent identity expired', {
+    logger.warn("Agent identity expired", {
       agentId: identity.id,
       expiresAt: identity.expiresAt,
     });
@@ -495,7 +502,7 @@ export function hasPermission(identity: AgentIdentity, action: Permission): bool
   const hasIt = identity.permissions.includes(action);
 
   if (!hasIt) {
-    logger.debug('Permission check failed', {
+    logger.debug("Permission check failed", {
       agentId: identity.id,
       action,
       grantedPermissions: identity.permissions,
@@ -512,9 +519,12 @@ export function hasPermission(identity: AgentIdentity, action: Permission): bool
  * @param action - The permission to require
  * @throws PermissionDeniedError if permission is not granted
  */
-export function requirePermission(identity: AgentIdentity, action: Permission): void {
+export function requirePermission(
+  identity: AgentIdentity,
+  action: Permission
+): void {
   if (!hasPermission(identity, action)) {
-    logger.error('Permission denied', {
+    logger.error("Permission denied", undefined, {
       agentId: identity.id,
       action,
       auditToken: identity.auditToken,
@@ -532,7 +542,9 @@ export function requirePermission(identity: AgentIdentity, action: Permission): 
  * @param actionType - The action type to check
  * @returns HITL gate configuration if required, undefined otherwise
  */
-export function requiresHITL(actionType: string): typeof HITL_ACTION_REGISTRY[string] | undefined {
+export function requiresHITL(
+  actionType: string
+): (typeof HITL_ACTION_REGISTRY)[string] | undefined {
   return HITL_ACTION_REGISTRY[actionType];
 }
 
@@ -549,13 +561,13 @@ export function validateIdentity(identity: AgentIdentity): {
   const errors: string[] = [];
 
   // Check required fields
-  if (!identity.id) errors.push('Missing agent ID');
-  if (!identity.role) errors.push('Missing agent role');
-  if (!identity.organizationId) errors.push('Missing organization ID');
-  if (!identity.auditToken) errors.push('Missing audit token');
+  if (!identity.id) errors.push("Missing agent ID");
+  if (!identity.role) errors.push("Missing agent role");
+  if (!identity.organizationId) errors.push("Missing organization ID");
+  if (!identity.auditToken) errors.push("Missing audit token");
 
   // Check ID format
-  if (identity.id && !identity.id.startsWith('agent:')) {
+  if (identity.id && !identity.id.startsWith("agent:")) {
     errors.push('Agent ID must start with "agent:"');
   }
 
@@ -563,18 +575,20 @@ export function validateIdentity(identity: AgentIdentity): {
   const now = new Date();
   const expiresAt = new Date(identity.expiresAt);
   if (isNaN(expiresAt.getTime())) {
-    errors.push('Invalid expiration timestamp');
+    errors.push("Invalid expiration timestamp");
   } else if (expiresAt <= now) {
-    errors.push('Agent identity has expired');
+    errors.push("Agent identity has expired");
   }
 
   // Check permissions against role matrix
   const allowedPermissions = AGENT_PERMISSION_MATRIX[identity.role] || [];
   const invalidPermissions = identity.permissions.filter(
-    p => !allowedPermissions.includes(p)
+    (p) => !allowedPermissions.includes(p)
   );
   if (invalidPermissions.length > 0) {
-    errors.push(`Invalid permissions for role ${identity.role}: ${invalidPermissions.join(', ')}`);
+    errors.push(
+      `Invalid permissions for role ${identity.role}: ${invalidPermissions.join(", ")}`
+    );
   }
 
   return {
