@@ -27,7 +27,6 @@ vi.mock("../../src/services/EventProducer");
 vi.mock("../../src/services/UnifiedAgentAPI");
 vi.mock("../../src/services/EventSourcingService");
 vi.mock("../../src/lib/logger");
-vi.mock("../../src/services/AgentMessageQueue");
 
 import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
 import request from "supertest";
@@ -91,6 +90,19 @@ vi.mocked(getEventSourcingService).mockReturnValue({
     ],
   }),
 } as any);
+
+// Mock AgentMessageQueue
+const mockMessageQueue = {
+  getJobResult: vi.fn().mockResolvedValue({
+    success: true,
+    data: "Mock response",
+    executionTime: 100,
+    traceId: "mock-trace",
+  }),
+  shutdown: vi.fn().mockResolvedValue(undefined),
+};
+
+vi.mocked(getAgentMessageQueue).mockReturnValue(mockMessageQueue as any);
 
 // Mock ServiceConfigManager functions
 const mockConfig = {

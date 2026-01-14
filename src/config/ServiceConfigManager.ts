@@ -31,72 +31,132 @@ const AgentAPIConfigSchema = z.object({
 // Event Executor configuration
 const EventExecutorConfigSchema = z.object({
   ...BaseServiceConfigSchema.shape,
-  kafka: z.object({
-    brokers: z.array(z.string()).default(["localhost:9092"]),
-    groupId: z.string().default("agent-executor"),
-    topics: z.object({
-      agentRequests: z.string().default("agent.requests"),
-      agentResponses: z.string().default("agent.responses"),
+  kafka: z
+    .object({
+      brokers: z.array(z.string()).default(["localhost:9092"]),
+      groupId: z.string().default("agent-executor"),
+      topics: z.object({
+        agentRequests: z.string().default("agent.requests"),
+        agentResponses: z.string().default("agent.responses"),
+      }),
+    })
+    .default({
+      brokers: ["localhost:9092"],
+      groupId: "agent-executor",
+      topics: {
+        agentRequests: "agent.requests",
+        agentResponses: "agent.responses",
+      },
     }),
-  }),
-  circuitBreaker: z.object({
-    failureThreshold: z.number().min(1).max(100).default(5),
-    resetTimeout: z.number().min(1000).max(300000).default(60000),
-    monitoringPeriod: z.number().min(1000).max(300000).default(300000),
-  }),
-  agentExecution: z.object({
-    maxConcurrency: z.number().min(1).max(50).default(10),
-    timeout: z.number().min(5000).max(300000).default(30000),
-    retryOnFailure: z.boolean().default(true),
-  }),
+  circuitBreaker: z
+    .object({
+      failureThreshold: z.number().min(1).max(100).default(5),
+      resetTimeout: z.number().min(1000).max(300000).default(60000),
+      monitoringPeriod: z.number().min(1000).max(300000).default(300000),
+    })
+    .default({
+      failureThreshold: 5,
+      resetTimeout: 60000,
+      monitoringPeriod: 300000,
+    }),
+  agentExecution: z
+    .object({
+      maxConcurrency: z.number().min(1).max(50).default(10),
+      timeout: z.number().min(5000).max(300000).default(30000),
+      retryOnFailure: z.boolean().default(true),
+    })
+    .default({
+      maxConcurrency: 10,
+      timeout: 30000,
+      retryOnFailure: true,
+    }),
 });
 
 // Agent Message Queue configuration
 const AgentMessageQueueConfigSchema = z.object({
   ...BaseServiceConfigSchema.shape,
-  redis: z.object({
-    url: z.string().default("redis://localhost:6379"),
-    keyPrefix: z.string().default("agent:queue"),
-  }),
-  queue: z.object({
-    concurrency: z.number().min(1).max(50).default(10),
-    rateLimitMax: z.number().min(1).max(1000).default(50),
-    rateLimitDuration: z.number().min(100).max(60000).default(1000),
-    jobRetention: z.number().min(1000).max(86400000).default(3600000), // 1 hour
-  }),
-  scheduler: z.object({
-    enabled: z.boolean().default(true),
-    checkInterval: z.number().min(1000).max(60000).default(5000),
-  }),
+  redis: z
+    .object({
+      url: z.string().default("redis://localhost:6379"),
+      keyPrefix: z.string().default("agent:queue"),
+    })
+    .default({
+      url: "redis://localhost:6379",
+      keyPrefix: "agent:queue",
+    }),
+  queue: z
+    .object({
+      concurrency: z.number().min(1).max(50).default(10),
+      rateLimitMax: z.number().min(1).max(1000).default(50),
+      rateLimitDuration: z.number().min(100).max(60000).default(1000),
+      jobRetention: z.number().min(1000).max(86400000).default(3600000), // 1 hour
+    })
+    .default({
+      concurrency: 10,
+      rateLimitMax: 50,
+      rateLimitDuration: 1000,
+      jobRetention: 3600000,
+    }),
+  scheduler: z
+    .object({
+      enabled: z.boolean().default(true),
+      checkInterval: z.number().min(1000).max(60000).default(5000),
+    })
+    .default({
+      enabled: true,
+      checkInterval: 5000,
+    }),
 });
 
 // Secure Message Bus configuration
 const SecureMessageBusConfigSchema = z.object({
   ...BaseServiceConfigSchema.shape,
-  crypto: z.object({
-    keyRotationInterval: z
-      .number()
-      .min(3600000)
-      .max(2592000000)
-      .default(604800000), // 7 days
-    signatureAlgorithm: z.enum(["Ed25519", "RSA"]).default("Ed25519"),
-    encryptionAlgorithm: z
-      .enum(["AES-256-GCM", "ChaCha20-Poly1305"])
-      .default("AES-256-GCM"),
-  }),
-  rateLimiting: z.object({
-    maxMessagesPerSecond: z.number().min(1).max(1000).default(10),
-    maxMessagesPerMinute: z.number().min(10).max(10000).default(100),
-    burstLimit: z.number().min(1).max(100).default(20),
-  }),
-  circuitBreaker: z.object({
-    failureThreshold: z.number().min(1).max(50).default(5),
-    resetTimeout: z.number().min(1000).max(300000).default(60000),
-  }),
-  replayProtection: z.object({
-    nonceTTL: z.number().min(1000).max(3600000).default(300000), // 5 minutes
-    cleanupInterval: z.number().min(10000).max(300000).default(60000), // 1 minute
-  }),
+  crypto: z
+    .object({
+      keyRotationInterval: z
+        .number()
+        .min(3600000)
+        .max(2592000000)
+        .default(604800000), // 7 days
+      signatureAlgorithm: z.enum(["Ed25519", "RSA"]).default("Ed25519"),
+      encryptionAlgorithm: z
+        .enum(["AES-256-GCM", "ChaCha20-Poly1305"])
+        .default("AES-256-GCM"),
+    })
+    .default({
+      keyRotationInterval: 604800000,
+      signatureAlgorithm: "Ed25519",
+      encryptionAlgorithm: "AES-256-GCM",
+    }),
+  rateLimiting: z
+    .object({
+      maxMessagesPerSecond: z.number().min(1).max(1000).default(10),
+      maxMessagesPerMinute: z.number().min(10).max(10000).default(100),
+      burstLimit: z.number().min(1).max(100).default(20),
+    })
+    .default({
+      maxMessagesPerSecond: 10,
+      maxMessagesPerMinute: 100,
+      burstLimit: 20,
+    }),
+  circuitBreaker: z
+    .object({
+      failureThreshold: z.number().min(1).max(50).default(5),
+      resetTimeout: z.number().min(1000).max(300000).default(60000),
+    })
+    .default({
+      failureThreshold: 5,
+      resetTimeout: 60000,
+    }),
+  replayProtection: z
+    .object({
+      nonceTTL: z.number().min(1000).max(3600000).default(300000), // 5 minutes
+      cleanupInterval: z.number().min(10000).max(300000).default(60000), // 1 minute
+    })
+    .default({
+      nonceTTL: 300000,
+      cleanupInterval: 60000,
+    }),
 });
 
 // Circuit Breaker configuration
@@ -115,46 +175,85 @@ const CircuitBreakerConfigSchema = z.object({
 // Rate Limiter configuration
 const RateLimiterConfigSchema = z.object({
   ...BaseServiceConfigSchema.shape,
-  redis: z.object({
-    enabled: z.boolean().default(false),
-    url: z.string().optional(),
-    keyPrefix: z.string().default("ratelimit"),
-    retryAttempts: z.number().min(0).max(5).default(3),
-  }),
-  tiers: z.object({
-    strict: z.object({
-      windowMs: z.number().default(60000),
-      max: z.number().default(5),
+  redis: z
+    .object({
+      enabled: z.boolean().default(false),
+      url: z.string().optional(),
+      keyPrefix: z.string().default("ratelimit"),
+      retryAttempts: z.number().min(0).max(5).default(3),
+    })
+    .default({
+      enabled: false,
+      keyPrefix: "ratelimit",
+      retryAttempts: 3,
     }),
-    standard: z.object({
-      windowMs: z.number().default(60000),
-      max: z.number().default(60),
+  tiers: z
+    .object({
+      strict: z.object({
+        windowMs: z.number().default(60000),
+        max: z.number().default(5),
+      }),
+      standard: z.object({
+        windowMs: z.number().default(60000),
+        max: z.number().default(60),
+      }),
+      loose: z.object({
+        windowMs: z.number().default(60000),
+        max: z.number().default(300),
+      }),
+    })
+    .default({
+      strict: {
+        windowMs: 60000,
+        max: 5,
+      },
+      standard: {
+        windowMs: 60000,
+        max: 60,
+      },
+      loose: {
+        windowMs: 60000,
+        max: 300,
+      },
     }),
-    loose: z.object({
-      windowMs: z.number().default(60000),
-      max: z.number().default(300),
-    }),
-  }),
 });
 
 // Event Sourcing configuration
 const EventSourcingConfigSchema = z.object({
   ...BaseServiceConfigSchema.shape,
-  database: z.object({
-    tableName: z.string().default("event_store"),
-    projectionTableName: z.string().default("projections"),
-    maxConnections: z.number().min(1).max(50).default(10),
-  }),
-  projections: z.object({
-    enabled: z.boolean().default(true),
-    updateBatchSize: z.number().min(1).max(100).default(10),
-    rebuildOnStartup: z.boolean().default(false),
-  }),
-  audit: z.object({
-    retentionDays: z.number().min(1).max(3650).default(365),
-    compression: z.boolean().default(true),
-    encryption: z.boolean().default(true),
-  }),
+  database: z
+    .object({
+      tableName: z.string().default("event_store"),
+      projectionTableName: z.string().default("projections"),
+      maxConnections: z.number().min(1).max(50).default(10),
+    })
+    .default({
+      tableName: "event_store",
+      projectionTableName: "projections",
+      maxConnections: 10,
+    }),
+  projections: z
+    .object({
+      enabled: z.boolean().default(true),
+      updateBatchSize: z.number().min(1).max(100).default(10),
+      rebuildOnStartup: z.boolean().default(false),
+    })
+    .default({
+      enabled: true,
+      updateBatchSize: 10,
+      rebuildOnStartup: false,
+    }),
+  audit: z
+    .object({
+      retentionDays: z.number().min(1).max(3650).default(365),
+      compression: z.boolean().default(true),
+      encryption: z.boolean().default(true),
+    })
+    .default({
+      retentionDays: 365,
+      compression: true,
+      encryption: true,
+    }),
 });
 
 // Master configuration schema
