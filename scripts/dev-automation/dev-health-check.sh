@@ -175,8 +175,8 @@ else
 fi
 
 # Prettier
-if [ -f ".prettierrc" ] || [ -f ".prettierrc.json" ] || [ -f "prettier.config.js" ]; then
-    check_pass "Prettier config: Found"
+if [ -f ".config/.prettierrc" ]; then
+    check_pass "Prettier config: Found (.config/)"
 else
     check_warn "Prettier config: Not found"
 fi

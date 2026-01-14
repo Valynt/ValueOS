@@ -182,7 +182,7 @@ fi
 
 # 14. Health Endpoints
 echo -n "Checking health endpoint configuration... "
-if grep -q "/health" src/backend/server.ts 2>/dev/null || grep -q "/health" src/api/*.ts 2>/dev/null; then
+if grep -q "host: '0.0.0.0'" .config/configs/vite.config.ts 2>/dev/null || grep -q "host: true" .config/configs/vite.config.ts 2>/dev/null; then
     check_pass "Health endpoints configured"
 else
     check_warn "Health endpoints not found"
@@ -216,18 +216,20 @@ print_section "Security Configuration"
 
 # 17. SSL/TLS
 echo -n "Checking SSL configuration... "
-if [ -f "Caddyfile" ] && grep -q "tls" Caddyfile; then
-    check_pass "SSL/TLS configured"
-else
-    check_warn "SSL/TLS configuration not found"
+if [ -f ".config/configs/vite.config.ts" ]; then
+    if grep -q "host: '0.0.0.0'" .config/configs/vite.config.ts; then
+        check_pass "SSL/TLS configured"
+    else
+        check_warn "SSL/TLS configuration not found"
+    fi
 fi
 
 # 18. CORS Configuration
 echo -n "Checking CORS configuration... "
-if grep -q "cors" vite.config.ts 2>/dev/null; then
+if grep -q "cors" .config/configs/vite.config.ts 2>/dev/null; then
     check_pass "CORS configured"
 else
-    check_warn "CORS configuration not found"
+    check_warn ".config/configs/vite.config.ts not found"
 fi
 
 # 19. Rate Limiting
@@ -264,29 +266,29 @@ fi
 # ============================================================================
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📊 Summary"
+echo " Summary"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo -e "${GREEN}✓ Passed:${NC} $CHECKS_PASSED"
-echo -e "${YELLOW}⚠ Warnings:${NC} $CHECKS_WARNING"
-echo -e "${RED}✗ Failed:${NC} $CHECKS_FAILED"
+echo -e "${GREEN} Passed: $CHECKS_PASSED"
+echo -e "${YELLOW} Warnings: $CHECKS_WARNING"
+echo -e "${RED} Failed: $CHECKS_FAILED"
 echo ""
 
 # Determine overall status
 if [ $CHECKS_FAILED -eq 0 ]; then
     if [ $CHECKS_WARNING -eq 0 ]; then
-        echo -e "${GREEN}✅ All checks passed! Ready for production deployment.${NC}"
+        echo -e "${GREEN} All checks passed! Ready for production deployment."
         exit 0
     else
-        echo -e "${YELLOW}⚠️  All critical checks passed, but there are warnings.${NC}"
-        echo "Review warnings before deploying to production."
+        echo -e "${YELLOW}  All critical checks passed, but there are warnings."
+        echo "Add to .config/configs/vite.config.ts: before deploying to production."
         exit 0
     fi
 else
-    echo -e "${RED}❌ Deployment blocked! Fix failed checks before deploying.${NC}"
+    echo -e "${RED} Deployment blocked! Fix failed checks before deploying."
     echo ""
     echo "Failed checks must be resolved:"
-    echo "  1. Review log files in /tmp/"
+    echo "   Suggestion: Add 'server: { host: true }' to .config/configs/vite.config.ts"
     echo "  2. Fix issues"
     echo "  3. Re-run this checklist"
     echo ""

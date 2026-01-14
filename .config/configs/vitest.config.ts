@@ -4,7 +4,7 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 
 // Re-export unit test configuration with added coverage thresholds for CI
-const unitConfig = await import("./.config/configs/vitest.config.unit.ts");
+const unitConfig = await import("./vitest.config.unit.ts");
 
 export default defineConfig({
   ...unitConfig.default,
