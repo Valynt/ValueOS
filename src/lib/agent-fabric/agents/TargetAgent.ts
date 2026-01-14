@@ -42,10 +42,9 @@ export class TargetAgent extends BaseAgent {
     }
     this.causalTruthService = getCausalTruthService();
 
-    // Initialize causal truth service if not already done
-    if (!this.causalTruthService) {
-      throw new Error("CausalTruthService initialization failed");
-    }
+    // Note: CausalTruthService must be initialized at application startup via:
+    // await getCausalTruthService().initialize();
+    // The null check is removed since getCausalTruthService() always returns an instance
   }
 
   async execute(sessionId: string, input: TargetAgentInput): Promise<TargetAgentOutput> {
@@ -192,10 +191,9 @@ Return ONLY valid JSON in this exact format:
 
     const secureResult = await this.secureInvoke(sessionId, prompt, targetSchema, {
       trackPrediction: true,
-      confidenceThresholds: { low: 0.6, high: 0.85 },
+      confidenceThresholds: { minimum: 0.6, acceptable: 0.85, review_required: 0.7 },
       context: {
         agent: "TargetAgent",
-        opportunityId: input.opportunityId,
       },
     });
 
@@ -278,6 +276,7 @@ Return ONLY valid JSON in this exact format:
       valueTree: valueTree as ValueTree,
       roiModel: roiModel as ROIModel,
       valueCommit: valueCommit as ValueCommit,
+      kpiTargets: parsed.kpi_targets,
       businessCase: {
         summary: parsed.business_case_summary,
         nodes: parsed.value_tree.nodes,

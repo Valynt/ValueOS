@@ -5,8 +5,14 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { BootstrapGuard } from "../components/Common/BootstrapGuard";
 import { MemoryRouter } from "react-router-dom";
 import * as bootstrapModule from "../bootstrap";
+import * as useBootstrapModule from "../hooks/useBootstrap";
 
-// Mock the bootstrap implementation to return immediately
+// Mock the useBootstrap hook to control its behavior
+vi.mock("../hooks/useBootstrap", () => ({
+  useBootstrap: vi.fn(),
+}));
+
+// Mock the bootstrap implementation
 vi.mock("../bootstrap", () => ({
   bootstrap: vi.fn(),
   getConfig: vi.fn(() => ({
@@ -33,12 +39,23 @@ describe("App Mounting Regression", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    // Successful bootstrap mock
-    (bootstrapModule.bootstrap as any).mockResolvedValue({
+    // Mock useBootstrap to return successful state
+    const mockStartBootstrap = vi.fn().mockResolvedValue({
       success: true,
       errors: [],
       warnings: [],
       duration: 10,
+    });
+
+    (useBootstrapModule.useBootstrap as any).mockReturnValue({
+      status: "complete",
+      progress: "Bootstrap complete",
+      step: 8,
+      errors: [],
+      warnings: [],
+      result: { success: true, errors: [], warnings: [], duration: 10 },
+      startBootstrap: mockStartBootstrap,
+      reset: vi.fn(),
     });
 
     render(
@@ -49,24 +66,18 @@ describe("App Mounting Regression", () => {
       </MemoryRouter>
     );
 
-    // Should initially show loading
-    expect(screen.getByText(/VALYNT/i)).toBeInTheDocument();
+    // Children should render immediately since BootstrapGuard doesn't block UI
+    expect(screen.getByTestId("main-content")).toBeInTheDocument();
 
-    // Wait for bootstrap to complete and children to render
-    await waitFor(() => {
-      expect(screen.getByTestId("main-content")).toBeInTheDocument();
-    });
+    // Verify bootstrap was started
+    expect(mockStartBootstrap).toHaveBeenCalled();
 
     // CRITICAL: Ensure no errors were logged during the entire render/mount cycle
-    // We check specifically for "ReferenceError" in call arguments if we want to be precise,
-    // but usually any console.error is a failure in this hygiene test.
     expect(errorSpy).not.toHaveBeenCalled();
 
     // We might allow some warnings, but let's check for "ReferenceError" specifically
     const hasReferenceError = errorSpy.mock.calls.some((call) =>
-      call.some(
-        (arg) => typeof arg === "string" && arg.includes("ReferenceError")
-      )
+      call.some((arg) => typeof arg === "string" && arg.includes("ReferenceError"))
     );
     expect(hasReferenceError).toBe(false);
 
@@ -74,12 +85,23 @@ describe("App Mounting Regression", () => {
     warnSpy.mockRestore();
   });
 
-  it("should show error screen if bootstrap fails", async () => {
-    (bootstrapModule.bootstrap as any).mockResolvedValue({
+  it("should show error screen if bootstrap fails with critical errors", async () => {
+    const mockStartBootstrap = vi.fn().mockResolvedValue({
       success: false,
-      errors: ["Critical Failure"],
+      errors: ["VITE_SUPABASE_URL is required"],
       warnings: [],
       duration: 10,
+    });
+
+    (useBootstrapModule.useBootstrap as any).mockReturnValue({
+      status: "error",
+      progress: "Bootstrap failed",
+      step: 0,
+      errors: ["VITE_SUPABASE_URL is required"],
+      warnings: [],
+      result: null,
+      startBootstrap: mockStartBootstrap,
+      reset: vi.fn(),
     });
 
     render(
@@ -91,10 +113,40 @@ describe("App Mounting Regression", () => {
     );
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/Application Initialization Failed/i)
-      ).toBeInTheDocument();
-      expect(screen.getByText(/Critical Failure/i)).toBeInTheDocument();
+      expect(screen.getByText(/Critical Configuration Error/i)).toBeInTheDocument();
+      expect(screen.getByText(/VITE_SUPABASE_URL is required/i)).toBeInTheDocument();
     });
+  });
+
+  it("should render children immediately for non-critical errors", async () => {
+    const mockStartBootstrap = vi.fn().mockResolvedValue({
+      success: false,
+      errors: ["Agent health check failed"], // Non-critical error
+      warnings: [],
+      duration: 10,
+    });
+
+    (useBootstrapModule.useBootstrap as any).mockReturnValue({
+      status: "error",
+      progress: "Bootstrap failed",
+      step: 0,
+      errors: ["Agent health check failed"],
+      warnings: [],
+      result: null,
+      startBootstrap: mockStartBootstrap,
+      reset: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter>
+        <BootstrapGuard>
+          <div data-testid="main-content">Should see this despite error</div>
+        </BootstrapGuard>
+      </MemoryRouter>
+    );
+
+    // Children should still render for non-critical errors
+    expect(screen.getByTestId("main-content")).toBeInTheDocument();
+    expect(screen.getByText(/Should see this despite error/i)).toBeInTheDocument();
   });
 });

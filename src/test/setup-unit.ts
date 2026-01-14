@@ -28,6 +28,14 @@ vi.mock("../config/featureFlags", () => ({
   isFeatureEnabled: () => false,
   getEnabledFeatures: () => [],
   getDisabledFeatures: () => [],
+  shouldEnableForUser: (userId: string, percentage: number) => {
+    // Simple deterministic implementation for testing
+    if (percentage >= 100) return true;
+    if (percentage <= 0) return false;
+    // Use a simple hash based on user ID for consistency
+    const hash = userId.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return hash % 100 < percentage;
+  },
 }));
 
 // Mock external services that unit tests should never need

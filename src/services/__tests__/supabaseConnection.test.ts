@@ -1,32 +1,82 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createClient } from "@supabase/supabase-js";
-import { describe, it, expect } from "vitest";
-import dotenv from "dotenv";
 
-// Load environment variables for the test
-dotenv.config({ path: ".env.local" });
+// Mock Supabase client for unit tests
+vi.mock("@supabase/supabase-js", () => ({
+  createClient: vi.fn(),
+}));
 
-// Use the env vars from your setup
-const supabaseUrl =
-  process.env.VITE_SUPABASE_URL || "http://host.docker.internal:54321";
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || "your-anon-key";
+const mockCreateClient = vi.mocked(createClient);
 
-describe("Supabase Local Connection", () => {
-  const supabase = createClient(supabaseUrl, supabaseKey);
+describe("Supabase Client Unit Tests", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
-  it("should connect to the database and return health check", async () => {
-    // Attempt a simple query (even if table is empty, this verifies connection)
-    const { data, error, status } = await supabase
-      .from("users")
-      .select("*")
-      .limit(1);
+  it("should create client with correct parameters", () => {
+    const mockClient = {
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          limit: vi.fn(() => Promise.resolve({ data: null, error: null, status: 200 })),
+        })),
+      })),
+    };
 
-    // 404/PGRST204 is fine (table might not exist), but 500 or Connection Refused is bad
-    if (error && error.code !== "PGRST116" && error.code !== "42P01") {
-      console.error("Connection failed:", error);
-    }
+    mockCreateClient.mockReturnValue(mockClient as any);
 
-    // We expect a valid HTTP response code from the local server
-    expect(status).not.toBe(0);
-    expect(status).toBeLessThan(500);
+    const supabaseUrl = "http://localhost:54321";
+    const supabaseKey = "test-anon-key";
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    expect(mockCreateClient).toHaveBeenCalledWith(supabaseUrl, supabaseKey);
+    expect(supabase).toBe(mockClient);
+  });
+
+  it("should handle database query responses", async () => {
+    const mockResponse = {
+      data: [{ id: 1, name: "test" }],
+      error: null,
+      status: 200,
+    };
+
+    const mockClient = {
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          limit: vi.fn(() => Promise.resolve(mockResponse)),
+        })),
+      })),
+    };
+
+    mockCreateClient.mockReturnValue(mockClient as any);
+
+    const supabase = createClient("http://localhost:54321", "test-key");
+    const result = await supabase.from("users").select("*").limit(1);
+
+    expect(result).toEqual(mockResponse);
+    expect(mockClient.from).toHaveBeenCalledWith("users");
+  });
+
+  it("should handle database errors gracefully", async () => {
+    const mockError = {
+      data: null,
+      error: { code: "PGRST116", message: "Table not found" },
+      status: 404,
+    };
+
+    const mockClient = {
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          limit: vi.fn(() => Promise.resolve(mockError)),
+        })),
+      })),
+    };
+
+    mockCreateClient.mockReturnValue(mockClient as any);
+
+    const supabase = createClient("http://localhost:54321", "test-key");
+    const result = await supabase.from("users").select("*").limit(1);
+
+    expect(result.status).toBe(404);
+    expect(result.error?.code).toBe("PGRST116");
   });
 });

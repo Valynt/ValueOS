@@ -145,7 +145,7 @@ Return ONLY valid JSON in this exact format:
 
     const secureResult = await this.secureInvoke(sessionId, prompt, opportunitySchema, {
       trackPrediction: true,
-      confidenceThresholds: { low: 0.5, high: 0.8 },
+      confidenceThresholds: { minimum: 0.5, acceptable: 0.8, review_required: 0.6 },
       context: {
         agent: "OpportunityAgent",
         discoveryDocuments: input.discoveryData.length,
@@ -156,7 +156,6 @@ Return ONLY valid JSON in this exact format:
     const response = { content: JSON.stringify(parsed), tokens_used: 0, model: "gpt-4" }; // Placeholder for metrics
 
     // Ensure required arrays exist with defaults
-    const painPoints = parsed.pain_points || [];
     const businessObjectives = parsed.business_objectives || [];
     const recommendedCapabilityTags = parsed.recommended_capability_tags || [];
 
@@ -168,14 +167,14 @@ Return ONLY valid JSON in this exact format:
 
     const capabilities = await this.findRelevantCapabilities(
       recommendedCapabilityTags,
-      painPoints.map((p: any) => p.description).join(" ")
+      validatedPainPoints.map((p: any) => p.description).join(" ")
     );
 
     const durationMs = Date.now() - startTime;
 
     await this.logMetric(sessionId, "tokens_used", response.tokens_used, "tokens");
     await this.logMetric(sessionId, "latency_ms", durationMs, "ms");
-    await this.logMetric(sessionId, "pain_points_identified", painPoints.length, "count");
+    await this.logMetric(sessionId, "pain_points_identified", validatedPainPoints.length, "count");
     await this.logMetric(sessionId, "capabilities_matched", capabilities.length, "count");
     await this.logPerformanceMetric(sessionId, "opportunity_execute", durationMs, {
       discovery_documents: input.discoveryData.length,
@@ -208,7 +207,7 @@ Return ONLY valid JSON in this exact format:
       {
         persona_fit: parsed.persona_fit,
         business_objectives: businessObjectives,
-        pain_points: parsed.pain_points,
+        pain_points: validatedPainPoints,
       },
       this.organizationId // SECURITY: Tenant isolation
     );
@@ -350,9 +349,9 @@ Return ONLY valid JSON in this exact format:
 
         await this.recordLifecycleLink(sessionId, {
           source_type: "value_case",
-          source_id: valueCaseId,
+          source_artifact_id: valueCaseId,
           target_type: "business_objective",
-          target_id: data.id,
+          target_artifact_id: data.id,
           relationship_type: "opportunity_to_target",
           reasoning_trace: "Objective captured during opportunity analysis",
         });

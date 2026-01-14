@@ -14,7 +14,7 @@ import {
   SecureMessage,
   MessagePriority,
 } from "../lib/agent-fabric/SecureMessageBus";
-import { AgentIdentity } from "../lib/agent-fabric/auth/AgentIdentity";
+import { AgentIdentity } from "../lib/auth/AgentIdentity";
 
 // ============================================================================
 // Types
@@ -60,9 +60,24 @@ export class AgentMessageBroker {
     }
   >();
 
+  // Performance optimizations
+  private messageQueue: AgentMessageRequest[] = [];
+  private batchProcessing = false;
+  private batchSize = 10;
+  private batchTimeout = 50; // ms
+  private batchTimer: NodeJS.Timeout | null = null;
+
+  // Connection pooling
+  private connectionPool = new Map<string, { lastUsed: number; inUse: boolean }>();
+  private maxConnections = 50;
+  private connectionTimeout = 30000; // 30 seconds
+
   constructor() {
-    // Set up message bus subscription for handling responses
+    // Set up message bus subscription
     this.setupMessageHandling();
+
+    // Start batch processing
+    this.startBatchProcessing();
   }
 
   /**
@@ -152,7 +167,7 @@ export class AgentMessageBroker {
       const deliveryTime = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);
 
-      logger.error("Message sending failed", {
+      logger.error("Message sending failed", error instanceof Error ? error : undefined, {
         fromAgentId: request.fromAgentId,
         toAgentId: request.toAgentId,
         message: errorMessage,
@@ -227,16 +242,64 @@ export class AgentMessageBroker {
   getStats(): {
     registeredAgents: number;
     pendingMessages: number;
+    queuedMessages: number;
+    activeConnections: number;
   } {
+    const activeConnections = Array.from(this.connectionPool.values()).filter(
+      (conn) => conn.inUse
+    ).length;
+
     return {
       registeredAgents: this.agentRegistry.size,
       pendingMessages: this.pendingMessages.size,
+      queuedMessages: this.messageQueue.length,
+      activeConnections,
     };
   }
 
   // ============================================================================
   // Private Methods
   // ============================================================================
+
+  private startBatchProcessing(): void {
+    // Process batched messages periodically
+    this.batchTimer = setInterval(() => {
+      if (this.messageQueue.length > 0 && !this.batchProcessing) {
+        this.processBatch();
+      }
+    }, this.batchTimeout);
+  }
+
+  private async processBatch(): Promise<void> {
+    if (this.batchProcessing || this.messageQueue.length === 0) {
+      return;
+    }
+
+    this.batchProcessing = true;
+    const batch = this.messageQueue.splice(0, this.batchSize);
+
+    try {
+      // Process messages in parallel
+      await Promise.all(batch.map((request) => this.processMessage(request)));
+    } catch (error) {
+      logger.error("Error processing message batch", error instanceof Error ? error : undefined, {
+        batchSize: batch.length,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      this.batchProcessing = false;
+    }
+  }
+
+  private async processMessage(request: AgentMessageRequest): Promise<void> {
+    // Add to queue for batch processing
+    this.messageQueue.push(request);
+
+    // Trigger immediate processing if queue is getting full
+    if (this.messageQueue.length >= this.batchSize) {
+      setImmediate(() => this.processBatch());
+    }
+  }
 
   private setupMessageHandling(): void {
     // Subscribe to all messages for the broker
@@ -286,7 +349,7 @@ export class AgentMessageBroker {
       // Note: We need to use a public method or create a message interface
       await (recipient.agentInstance as any).handleIncomingMessage?.(message, sender);
     } catch (error) {
-      logger.error("Error handling incoming message", {
+      logger.error("Error handling incoming message", error instanceof Error ? error : undefined, {
         errorMessage: error instanceof Error ? error.message : String(error),
       });
     }

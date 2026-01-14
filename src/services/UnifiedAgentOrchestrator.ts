@@ -30,6 +30,8 @@ import GroundtruthAPI, {
 } from "./GroundtruthAPI";
 import { getAgentMessageBroker, AgentMessageBroker } from "./AgentMessageBroker";
 import { WorkflowStatus } from "../types";
+import { WorkflowExecutionRecord } from "../types/workflowExecution";
+import { ExecutionRequest } from "../types/execution";
 import { WorkflowState } from "../repositories/WorkflowStateRepository";
 import { AgentContext, AgentResponse as APIAgentResponse, getAgentAPI } from "./AgentAPI";
 import { renderPage, RenderPageOptions } from "../sdui/renderPage";
@@ -354,49 +356,63 @@ export class UnifiedAgentOrchestrator {
       const agentContext: AgentContext = {
         userId: envelope.actor.id || userId,
         sessionId,
-        conversationHistory: currentState.context.conversationHistory || [],
-        companyProfile: currentState.context.companyProfile,
-        currentStage: currentState.currentStage,
+        organizationId: envelope.organizationId,
+        metadata: {
+          companyProfile: currentState.context.companyProfile,
+          currentStage: currentState.currentStage,
+        },
       };
 
       // Call agent with circuit breaker protection
       const circuitBreakerKey = `query-${agentType}`;
       const agentResponse = await this.circuitBreakers.execute(
         circuitBreakerKey,
-        () => this.agentAPI.callAgent(agentType, query, agentContext),
+        () =>
+          this.agentAPI.invokeAgent({
+            agent: agentType,
+            query,
+            context: agentContext,
+          }),
         { timeoutMs: this.config.defaultTimeoutMs }
       );
 
       // Update state based on response
-      nextState.context.conversationHistory = [
-        ...(nextState.context.conversationHistory || []),
-        {
-          role: "user",
-          content: query,
-          timestamp: new Date().toISOString(),
-        },
-        {
-          role: "assistant",
-          content: agentResponse.content,
-          timestamp: new Date().toISOString(),
-        },
-      ];
-
-      // Update stage if needed
-      if (agentResponse.nextStage) {
-        if (!nextState.completedStages.includes(currentState.currentStage)) {
-          nextState.completedStages.push(currentState.currentStage);
-        }
-        nextState.currentStage = agentResponse.nextStage;
+      if (agentResponse.success && agentResponse.data) {
+        nextState.context.conversationHistory = [
+          ...(nextState.context.conversationHistory || []),
+          {
+            role: "user",
+            content: query,
+            timestamp: new Date().toISOString(),
+          },
+          {
+            role: "assistant",
+            content:
+              typeof agentResponse.data === "string"
+                ? agentResponse.data
+                : JSON.stringify(agentResponse.data),
+            timestamp: new Date().toISOString(),
+          },
+        ];
       }
 
-      // Update status
-      nextState.status = agentResponse.status || currentState.status;
+      // Update status based on response
+      nextState.status = agentResponse.success ? "in_progress" : "completed";
 
       // Build response
       const response: AgentResponse = {
-        type: agentResponse.type || "message",
-        payload: agentResponse.payload || { message: agentResponse.content },
+        type: "message",
+        payload: agentResponse.success
+          ? {
+              message:
+                typeof agentResponse.data === "string"
+                  ? agentResponse.data
+                  : JSON.stringify(agentResponse.data),
+            }
+          : {
+              message: agentResponse.error || "Agent request failed",
+              error: true,
+            },
       };
 
       logger.info("Query processed successfully", {

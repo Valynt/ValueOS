@@ -36,7 +36,9 @@ import {
 // VOS-SEC-002: Permission Middleware
 import { withPermissionScope } from "../../auth/PermissionMiddleware";
 // VOS-HITL-001: HITL Framework
-import { hitlFramework, ApprovalRequest } from "../../hitl/HITLFramework";
+import { hitlFramework } from "../../hitl";
+import { getAgentPerformanceMonitor } from "../../../services/monitoring/AgentPerformanceMonitor";
+import { getAgentCache } from "../../../services/cache/AgentCache";
 // 4-Layer Truth Architecture
 import {
   IIntegrityAgent,
@@ -73,12 +75,16 @@ export abstract class BaseAgent {
   protected organizationId?: string;
   protected userId?: string;
   protected sessionId?: string;
+  protected auditLogger: AuditLogger;
   protected llmGateway: LLMGateway;
   protected memorySystem: MemorySystem;
-  protected auditLogger: AuditLogger;
 
-  /** VOS-SEC-001: Agent Identity for RBAC enforcement */
+  // VOS-SEC-001: Agent Identity for RBAC enforcement
   protected agentIdentity: AgentIdentity;
+
+  // Performance monitoring and caching
+  protected performanceMonitor = getAgentPerformanceMonitor();
+  protected agentCache = getAgentCache();
 
   /** 4-Layer Truth: Integrity Agent for adversarial peer review */
   protected integrityAgent: IIntegrityAgent;
@@ -401,6 +407,17 @@ export abstract class BaseAgent {
     const startTime = Date.now();
     const thresholds = options.confidenceThresholds || DEFAULT_CONFIDENCE_THRESHOLDS;
 
+    // Check cache first
+    const cacheKey = `${this.agentId}-${sessionId}-${JSON.stringify(input).slice(0, 100)}`;
+    const cachedResult = await this.agentCache.get<SecureAgentOutput & { result: z.infer<T> }>(
+      cacheKey
+    );
+
+    if (cachedResult) {
+      logger.debug("Cache hit for secureInvoke", { agentId: this.agentId, sessionId });
+      return cachedResult;
+    }
+
     // CRITICAL FIX: Wrap execution in circuit breaker
     const { result: output, metrics } = await withCircuitBreaker(
       async (_breaker: AgentCircuitBreaker) => {
@@ -488,6 +505,40 @@ export abstract class BaseAgent {
         if (options.trackPrediction && this.supabase) {
           await this.storePrediction(sessionId, sanitizedInput, enhancedOutput);
         }
+
+        // Cache the result
+        await this.agentCache.set(cacheKey, enhancedOutput, {
+          ttl: 300, // 5 minutes
+          tags: [this.agentId, "secureInvoke"],
+          metadata: {
+            sessionId,
+            confidence: enhancedOutput.confidence_level,
+            hasHallucination: enhancedOutput.hallucination_check,
+          },
+        });
+
+        // Record performance metrics
+        const executionTime = Date.now() - startTime;
+        this.performanceMonitor.recordMetrics({
+          agentId: this.agentId,
+          agentType: this.lifecycleStage,
+          sessionId,
+          executionTime,
+          latency: executionTime,
+          memoryUsage: this.estimateMemoryUsage(),
+          cpuUsage: 0, // Could be enhanced with actual CPU monitoring
+          successRate: enhancedOutput.hallucination_check ? 0.9 : 0.95,
+          errorRate: 0,
+          confidenceScore:
+            enhancedOutput.confidence_level === "high"
+              ? 0.9
+              : enhancedOutput.confidence_level === "medium"
+                ? 0.7
+                : 0.5,
+          responseQuality: enhancedOutput.hallucination_check ? 0.8 : 0.95,
+          requestsPerMinute: 0, // Could be calculated from metrics
+          messagesPerMinute: 0,
+        });
 
         // Log execution
         await this.logExecution(
@@ -1192,6 +1243,35 @@ export abstract class BaseAgent {
       field,
       value,
       accessedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Estimate memory usage for the agent
+   */
+  protected estimateMemoryUsage(): number {
+    // Rough estimation based on object properties
+    const baseSize = 50 * 1024; // 50KB base
+    const propertySize = Object.keys(this).length * 1024; // 1KB per property
+    const reasoningChainSize = this.currentReasoningChain
+      ? JSON.stringify(this.currentReasoningChain).length * 2
+      : 0;
+
+    return baseSize + propertySize + reasoningChainSize;
+  }
+
+  /**
+   * Get agent health status for monitoring
+   */
+  public getHealthStatus() {
+    const healthScore = this.performanceMonitor.getHealthScore(this.agentId);
+    return {
+      agentId: this.agentId,
+      agentType: this.lifecycleStage,
+      healthy: healthScore?.isHealthy || false,
+      score: healthScore?.overallScore || 0,
+      lastActivity: Date.now(),
+      memoryUsage: this.estimateMemoryUsage(),
     };
   }
 
