@@ -1,9 +1,9 @@
 /**
  * Agent Identity System (VOS-SEC-001)
- * 
+ *
  * OIDC-compatible identity system for non-human actors (agents)
  * Enables proper RBAC and SOC 2 compliant audit trailing.
- * 
+ *
  * @see /docs/PHASE4_PLUS_ENTERPRISE_TICKETS.md - VOS-SEC-001
  * @author Enterprise Agentic Architect
  * @version 1.0.0
@@ -103,6 +103,15 @@ export interface AgentIdentity {
   auditToken: string;
   /** Additional metadata */
   metadata: Record<string, unknown>;
+  /** Cryptographic keys for secure messaging */
+  keys?: {
+    /** Public key for signature verification (base64 encoded) */
+    publicKey?: string;
+    /** Private key for signing (base64 encoded) - should be kept secure */
+    privateKey?: string;
+    /** Encryption key for AES-256-GCM (base64 encoded) */
+    encryptionKey?: string;
+  };
 }
 
 /**
@@ -163,7 +172,7 @@ export interface CreateAgentIdentityOptions {
 /**
  * Default permission matrix for the 7-Agent Taxonomy
  * Implements deny-by-default with explicit grants
- * 
+ *
  * @see VOS-SEC-002 for full matrix specification
  */
 export const AGENT_PERMISSION_MATRIX: Record<AgentRole, Permission[]> = {
@@ -332,7 +341,7 @@ const DEFAULT_TOKEN_EXPIRATION_SECONDS = 3600;
 
 /**
  * Create a new Agent Identity
- * 
+ *
  * @param options - Configuration for the new agent identity
  * @returns A fully constructed AgentIdentity object
  */
@@ -340,15 +349,15 @@ export function createAgentIdentity(options: CreateAgentIdentityOptions): AgentI
   const now = new Date();
   const expirationSeconds = options.expirationSeconds ?? DEFAULT_TOKEN_EXPIRATION_SECONDS;
   const expiresAt = new Date(now.getTime() + expirationSeconds * 1000);
-  
+
   // Get default permissions for the role
   const rolePermissions = AGENT_PERMISSION_MATRIX[options.role] || [];
-  
+
   // Merge with any additional permissions (if explicitly granted)
-  const permissions = options.permissions 
+  const permissions = options.permissions
     ? [...new Set([...rolePermissions, ...options.permissions])]
     : rolePermissions;
-  
+
   const identity: AgentIdentity = {
     id: `agent:${options.role.toLowerCase()}:${uuidv4().slice(0, 8)}`,
     type: 'agent',
@@ -365,7 +374,7 @@ export function createAgentIdentity(options: CreateAgentIdentityOptions): AgentI
     auditToken: `audit:${uuidv4()}`,
     metadata: options.metadata || {},
   };
-  
+
   logger.info('Agent identity created', {
     agentId: identity.id,
     role: identity.role,
@@ -373,7 +382,7 @@ export function createAgentIdentity(options: CreateAgentIdentityOptions): AgentI
     permissions: identity.permissions.length,
     expiresAt: identity.expiresAt,
   });
-  
+
   return identity;
 }
 
@@ -465,7 +474,7 @@ export class PermissionDeniedError extends Error {
 /**
  * Check if an agent has a specific permission
  * Implements deny-by-default
- * 
+ *
  * @param identity - The agent identity to check
  * @param action - The permission to verify
  * @returns true if the agent has the permission
@@ -481,10 +490,10 @@ export function hasPermission(identity: AgentIdentity, action: Permission): bool
     });
     return false;
   }
-  
+
   // Check if permission is explicitly granted
   const hasIt = identity.permissions.includes(action);
-  
+
   if (!hasIt) {
     logger.debug('Permission check failed', {
       agentId: identity.id,
@@ -492,13 +501,13 @@ export function hasPermission(identity: AgentIdentity, action: Permission): bool
       grantedPermissions: identity.permissions,
     });
   }
-  
+
   return hasIt;
 }
 
 /**
  * Require a permission, throwing if not granted
- * 
+ *
  * @param identity - The agent identity to check
  * @param action - The permission to require
  * @throws PermissionDeniedError if permission is not granted
@@ -519,7 +528,7 @@ export function requirePermission(identity: AgentIdentity, action: Permission): 
 
 /**
  * Check if an action requires Human-in-the-Loop approval
- * 
+ *
  * @param actionType - The action type to check
  * @returns HITL gate configuration if required, undefined otherwise
  */
@@ -529,7 +538,7 @@ export function requiresHITL(actionType: string): typeof HITL_ACTION_REGISTRY[st
 
 /**
  * Validate an agent identity
- * 
+ *
  * @param identity - The identity to validate
  * @returns Validation result with any errors
  */
@@ -538,18 +547,18 @@ export function validateIdentity(identity: AgentIdentity): {
   errors: string[];
 } {
   const errors: string[] = [];
-  
+
   // Check required fields
   if (!identity.id) errors.push('Missing agent ID');
   if (!identity.role) errors.push('Missing agent role');
   if (!identity.organizationId) errors.push('Missing organization ID');
   if (!identity.auditToken) errors.push('Missing audit token');
-  
+
   // Check ID format
   if (identity.id && !identity.id.startsWith('agent:')) {
     errors.push('Agent ID must start with "agent:"');
   }
-  
+
   // Check expiration
   const now = new Date();
   const expiresAt = new Date(identity.expiresAt);
@@ -558,7 +567,7 @@ export function validateIdentity(identity: AgentIdentity): {
   } else if (expiresAt <= now) {
     errors.push('Agent identity has expired');
   }
-  
+
   // Check permissions against role matrix
   const allowedPermissions = AGENT_PERMISSION_MATRIX[identity.role] || [];
   const invalidPermissions = identity.permissions.filter(
@@ -567,7 +576,7 @@ export function validateIdentity(identity: AgentIdentity): {
   if (invalidPermissions.length > 0) {
     errors.push(`Invalid permissions for role ${identity.role}: ${invalidPermissions.join(', ')}`);
   }
-  
+
   return {
     valid: errors.length === 0,
     errors,

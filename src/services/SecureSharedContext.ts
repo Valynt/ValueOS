@@ -565,13 +565,72 @@ export class SecureSharedContext {
   }
 
   private getAllowedAgentPairs(): string[] {
-    // Define which agents can share context
-    // '*' means all agents can communicate
+    // Define specific allowed agent communication pairs
+    // Format: 'fromAgent-toAgent'
+    // Only explicitly allowed pairs can communicate
     return [
-      '*',
-      // Add specific restrictions if needed
-      // 'integrity-groundtruth',
-      // 'coordinator-*',
+      // Core workflow agents can communicate with coordinator
+      'coordinator-opportunity',
+      'coordinator-target',
+      'coordinator-realization',
+      'coordinator-expansion',
+      'coordinator-integrity',
+      'opportunity-coordinator',
+      'target-coordinator',
+      'realization-coordinator',
+      'expansion-coordinator',
+      'integrity-coordinator',
+
+      // Sequential workflow communication
+      'opportunity-target',
+      'target-realization',
+      'realization-expansion',
+      'expansion-integrity',
+
+      // Integrity agents can communicate with all for audit purposes
+      'integrity-opportunity',
+      'integrity-target',
+      'integrity-realization',
+      'integrity-expansion',
+      'integrity-groundtruth',
+      'integrity-financial-modeling',
+      'integrity-company-intelligence',
+
+      // Research and benchmark agents can share data
+      'research-benchmark',
+      'benchmark-research',
+      'research-company-intelligence',
+      'company-intelligence-research',
+
+      // Value mapping agents can communicate with financial modeling
+      'value-mapping-financial-modeling',
+      'financial-modeling-value-mapping',
+
+      // Communication agents can receive from any agent for output
+      'opportunity-communicator',
+      'target-communicator',
+      'realization-communicator',
+      'expansion-communicator',
+      'integrity-communicator',
+      'research-communicator',
+      'benchmark-communicator',
+      'narrative-communicator',
+
+      // System mapper can communicate with most agents for analysis
+      'system-mapper-opportunity',
+      'system-mapper-target',
+      'system-mapper-realization',
+      'system-mapper-expansion',
+      'system-mapper-integrity',
+
+      // Value evaluation can receive from all agents for assessment
+      'opportunity-value-eval',
+      'target-value-eval',
+      'realization-value-eval',
+      'expansion-value-eval',
+      'integrity-value-eval',
+      'research-value-eval',
+      'benchmark-value-eval',
     ];
   }
 

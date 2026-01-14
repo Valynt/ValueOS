@@ -1,9 +1,9 @@
 /**
  * Workflow State Repository
- * 
+ *
  * CRITICAL FIX: Provides database-backed state persistence
  * Replaces singleton in-memory state to enable concurrent request isolation
- * 
+ *
  * Pattern: Repository pattern for clean separation of concerns
  */
 
@@ -55,7 +55,7 @@ export class WorkflowStateRepository {
 
   /**
    * Get workflow state for a session
-   * 
+   *
    * @param sessionId Session identifier
    * @returns Workflow state or null if not found
    */
@@ -89,12 +89,37 @@ export class WorkflowStateRepository {
   }
 
   /**
-   * Save workflow state for a session
-   * 
+   * Save workflow state with atomic update by default
+   *
    * @param sessionId Session identifier
    * @param state Workflow state to save
    */
   async saveState(sessionId: string, state: WorkflowState, tenantId: string): Promise<void> {
+    // First try atomic update, fall back to regular update if no version info
+    if (state.metadata?.lastUpdatedAt) {
+      const success = await this.atomicStateUpdate(
+        sessionId,
+        state.metadata.lastUpdatedAt,
+        state,
+        tenantId
+      );
+
+      if (success) {
+        return;
+      }
+
+      // If atomic update failed, try regular update
+      logger.warn('Atomic update failed, falling back to regular update', { sessionId });
+    }
+
+    // Regular update as fallback
+    await this.saveStateRegular(sessionId, state, tenantId);
+  }
+
+  /**
+   * Regular save state (non-atomic)
+   */
+  private async saveStateRegular(sessionId: string, state: WorkflowState, tenantId: string): Promise<void> {
     try {
       const resolvedTenantId = this.requireTenantId(tenantId);
       // Add metadata
@@ -135,7 +160,7 @@ export class WorkflowStateRepository {
 
   /**
    * Create a new session with initial workflow state
-   * 
+   *
    * @param userId User identifier
    * @param initialState Initial workflow state
    * @returns Session ID
@@ -191,7 +216,7 @@ export class WorkflowStateRepository {
 
   /**
    * Get full session data
-   * 
+   *
    * @param sessionId Session identifier
    * @returns Session data or null if not found
    */
@@ -221,7 +246,7 @@ export class WorkflowStateRepository {
 
   /**
    * Update session status
-   * 
+   *
    * @param sessionId Session identifier
    * @param status New status
    */
@@ -258,7 +283,7 @@ export class WorkflowStateRepository {
 
   /**
    * Increment error count for a session
-   * 
+   *
    * @param sessionId Session identifier
    */
   async incrementErrorCount(sessionId: string, tenantId: string): Promise<void> {
@@ -287,8 +312,49 @@ export class WorkflowStateRepository {
   }
 
   /**
+   * Get active session for a specific case (database-level filtering)
+   *
+   * @param userId User identifier
+   * @param tenantId Tenant identifier
+   * @param caseId Case identifier
+   * @returns Session data or null if not found
+   */
+  async getActiveSessionForCase(
+    userId: string,
+    tenantId: string,
+    caseId: string
+  ): Promise<SessionData | null> {
+    try {
+      const resolvedTenantId = this.requireTenantId(tenantId);
+      const { data, error } = await this.supabase
+        .from('agent_sessions')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('tenant_id', resolvedTenantId)
+        .eq('status', 'active')
+        .eq('workflow_state->>context->>caseId', caseId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) {
+        logger.error('Failed to get active session for case', error, { userId, caseId });
+        return null;
+      }
+
+      return data as SessionData;
+    } catch (error) {
+      logger.error('Error getting active session for case', error instanceof Error ? error : undefined, {
+        userId,
+        caseId,
+      });
+      return null;
+    }
+  }
+
+  /**
    * Get active sessions for a user
-   * 
+   *
    * @param userId User identifier
    * @param limit Maximum number of sessions to return
    * @returns Array of session data
@@ -321,7 +387,7 @@ export class WorkflowStateRepository {
 
   /**
    * Clean up old sessions
-   * 
+   *
    * @param olderThanDays Delete sessions older than this many days
    * @returns Number of sessions deleted
    */
@@ -357,9 +423,9 @@ export class WorkflowStateRepository {
 
   /**
    * Atomic state update with optimistic locking
-   * 
+   *
    * Prevents race conditions by checking updated_at timestamp
-   * 
+   *
    * @param sessionId Session identifier
    * @param expectedUpdatedAt Expected last update timestamp
    * @param newState New workflow state

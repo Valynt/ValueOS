@@ -1,12 +1,12 @@
 /**
  * Secure Message Bus (VOS-SEC-004)
- * 
+ *
  * Implements secure inter-agent communication with:
  * - Message signing for authenticity
  * - Encryption for sensitive payloads
  * - Replay protection (nonce + timestamp)
  * - Circuit breaker for compromised agents
- * 
+ *
  * @see /docs/PHASE4_PLUS_ENTERPRISE_TICKETS.md - VOS-SEC-004
  * @author Enterprise Agentic Architect
  * @version 1.0.0
@@ -15,6 +15,15 @@
 import { v4 as uuidv4 } from 'uuid';
 import { createLogger } from '../logger';
 import { AgentIdentity, hasPermission, Permission } from '../auth/AgentIdentity';
+import {
+  signMessage,
+  verifySignature,
+  encrypt,
+  decrypt,
+  generateNonce,
+  isEncrypted,
+  generateEncryptionKey
+} from '../crypto/CryptoUtils';
 
 const logger = createLogger({ component: 'SecureMessageBus' });
 
@@ -61,6 +70,7 @@ export interface SecureMessage<T = unknown> {
     algorithm: string;
     keyId: string;
     iv: string;
+    tag?: string;
   };
   /** Time-to-live in seconds */
   ttlSeconds: number;
@@ -137,39 +147,39 @@ interface NonceEntry {
  */
 export class SecureMessageBus {
   private static instance: SecureMessageBus;
-  
+
   /** Registered agent identities */
   private registeredAgents: Map<string, AgentIdentity> = new Map();
-  
+
   /** Message subscriptions */
   private subscriptions: Map<string, MessageSubscription> = new Map();
-  
+
   /** Pending messages */
   private pendingMessages: Map<string, SecureMessage> = new Map();
-  
+
   /** Agent security status */
   private agentSecurityStatus: Map<string, AgentSecurityStatus> = new Map();
-  
+
   /** Seen nonces for replay protection */
   private seenNonces: Map<string, NonceEntry> = new Map();
-  
+
   /** Circuit breaker configuration */
   private circuitConfig: CircuitBreakerConfig;
-  
+
   /** Nonce cleanup interval */
   private nonceCleanupInterval: NodeJS.Timeout | null = null;
-  
+
   /** Message version */
   private readonly MESSAGE_VERSION = '1.0.0';
-  
+
   /** Default TTL in seconds */
   private readonly DEFAULT_TTL_SECONDS = 300; // 5 minutes
-  
+
   private constructor(circuitConfig: Partial<CircuitBreakerConfig> = {}) {
     this.circuitConfig = { ...DEFAULT_CIRCUIT_CONFIG, ...circuitConfig };
     this.startNonceCleanup();
   }
-  
+
   /**
    * Get singleton instance
    */
@@ -179,7 +189,7 @@ export class SecureMessageBus {
     }
     return SecureMessageBus.instance;
   }
-  
+
   /**
    * Register an agent with the message bus
    */
@@ -193,7 +203,7 @@ export class SecureMessageBus {
     });
     logger.info('Agent registered with message bus', { agentId: identity.id });
   }
-  
+
   /**
    * Unregister an agent
    */
@@ -203,7 +213,7 @@ export class SecureMessageBus {
     this.agentSecurityStatus.delete(agentId);
     logger.info('Agent unregistered from message bus', { agentId });
   }
-  
+
   /**
    * Subscribe to messages
    */
@@ -215,17 +225,17 @@ export class SecureMessageBus {
     if (!this.registeredAgents.has(agentId)) {
       throw new Error(`Agent ${agentId} is not registered`);
     }
-    
+
     this.subscriptions.set(agentId, {
       agentId,
       handler,
       patterns,
       createdAt: new Date(),
     });
-    
+
     logger.debug('Agent subscribed to messages', { agentId, patterns });
   }
-  
+
   /**
    * Send a secure message
    */
@@ -245,17 +255,17 @@ export class SecureMessageBus {
     if (!this.registeredAgents.has(sender.id)) {
       throw new Error(`Sender ${sender.id} is not registered`);
     }
-    
+
     // Check circuit breaker for sender
     if (this.isCircuitOpen(sender.id)) {
       throw new Error(`Circuit is open for agent ${sender.id}`);
     }
-    
+
     // Verify sender has permission to execute LLM/communicate
     if (!hasPermission(sender, 'execute:llm')) {
       logger.warn('Agent lacks permission to send messages', { agentId: sender.id });
     }
-    
+
     // Create the message
     const message: SecureMessage<T> = {
       id: uuidv4(),
@@ -272,36 +282,45 @@ export class SecureMessageBus {
       correlationId: options.correlationId,
       replyTo: options.replyTo,
     };
-    
+
     // Sign the message
     message.signature = await this.signMessage(message, sender);
-    
+
     // Encrypt if requested
     if (message.encrypted) {
-      // In production, encrypt with recipient's public key
+      // Get recipient's encryption key
+      const recipient = this.registeredAgents.get(to);
+      if (!recipient?.keys?.encryptionKey) {
+        throw new Error(`Recipient ${to} has no encryption key`);
+      }
+
+      // Encrypt the payload
+      const encryptedPayload = encrypt(JSON.stringify(message.payload), recipient.keys.encryptionKey);
+      message.payload = encryptedPayload.data as T;
       message.encryption = {
-        algorithm: 'AES-256-GCM',
+        algorithm: encryptedPayload.algorithm,
         keyId: `key:${to}`,
-        iv: this.generateNonce(),
+        iv: encryptedPayload.iv,
+        tag: encryptedPayload.tag,
       };
     }
-    
+
     // Store for delivery
     this.pendingMessages.set(message.id, message as SecureMessage);
-    
+
     // Deliver the message
     await this.deliverMessage(message);
-    
+
     logger.debug('Secure message sent', {
       messageId: message.id,
       from: sender.id,
       to,
       priority: message.priority,
     });
-    
+
     return message;
   }
-  
+
   /**
    * Broadcast a message to all agents
    */
@@ -318,7 +337,7 @@ export class SecureMessageBus {
       encrypted: false, // Broadcasts are not encrypted
     });
   }
-  
+
   /**
    * Receive and validate a message
    */
@@ -329,45 +348,61 @@ export class SecureMessageBus {
     if (new Date() > expiresAt) {
       throw new Error('Message has expired');
     }
-    
+
     // Check for replay attack
     if (await this.isReplay(message.nonce)) {
       this.recordSecurityIncident(message.from, 'replay_attack');
       throw new Error('Replay attack detected');
     }
-    
+
     // Get sender identity
     const sender = this.registeredAgents.get(message.from);
     if (!sender) {
       throw new Error(`Unknown sender: ${message.from}`);
     }
-    
+
     // Verify signature
     const isValid = await this.verifySignature(message, sender);
     if (!isValid) {
       this.recordSecurityIncident(message.from, 'invalid_signature');
       throw new Error('Invalid message signature');
     }
-    
+
     // Record nonce
     this.recordNonce(message.nonce, message.ttlSeconds);
-    
+
     // Decrypt if encrypted
     let payload = message.payload;
-    if (message.encrypted) {
-      // In production, decrypt with recipient's private key
-      payload = message.payload; // Placeholder
+    if (message.encrypted && message.encryption) {
+      // Get recipient (this agent) for decryption key
+      const recipientId = message.to === 'broadcast' ? message.from : message.to;
+      const recipient = this.registeredAgents.get(recipientId);
+
+      if (!recipient?.keys?.encryptionKey) {
+        throw new Error(`Recipient ${recipientId} has no encryption key for decryption`);
+      }
+
+      // Decrypt the payload
+      const encryptedData = {
+        data: message.payload as string,
+        iv: message.encryption.iv,
+        tag: message.encryption.tag || '',
+        algorithm: message.encryption.algorithm
+      };
+
+      const decryptedPayload = decrypt(encryptedData, recipient.keys.encryptionKey);
+      payload = typeof decryptedPayload === 'string' ? JSON.parse(decryptedPayload) : decryptedPayload;
     }
-    
+
     logger.debug('Secure message received', {
       messageId: message.id,
       from: message.from,
       to: message.to,
     });
-    
+
     return payload;
   }
-  
+
   /**
    * Mark an agent as compromised
    */
@@ -379,13 +414,13 @@ export class SecureMessageBus {
       status.circuitOpen = true;
       status.circuitOpenedAt = new Date();
     }
-    
+
     logger.error('Agent marked as compromised', { agentId, reason });
-    
+
     // Unsubscribe the compromised agent
     this.subscriptions.delete(agentId);
   }
-  
+
   /**
    * Reset agent security status
    */
@@ -399,7 +434,7 @@ export class SecureMessageBus {
     }
     logger.info('Agent security status reset', { agentId });
   }
-  
+
   /**
    * Get message delivery status
    */
@@ -408,37 +443,37 @@ export class SecureMessageBus {
     if (!message) {
       return 'failed';
     }
-    
+
     const messageTime = new Date(message.timestamp);
     const expiresAt = new Date(messageTime.getTime() + message.ttlSeconds * 1000);
     if (new Date() > expiresAt) {
       return 'expired';
     }
-    
+
     return 'pending';
   }
-  
+
   /**
    * Get registered agent count
    */
   getRegisteredAgentCount(): number {
     return this.registeredAgents.size;
   }
-  
+
   /**
    * Get pending message count
    */
   getPendingMessageCount(): number {
     return this.pendingMessages.size;
   }
-  
+
   /**
    * Check if circuit is open for an agent
    */
   private isCircuitOpen(agentId: string): boolean {
     const status = this.agentSecurityStatus.get(agentId);
     if (!status) return false;
-    
+
     if (status.circuitOpen && status.circuitOpenedAt) {
       const elapsed = Date.now() - status.circuitOpenedAt.getTime();
       if (elapsed > this.circuitConfig.resetTimeoutMs) {
@@ -446,10 +481,10 @@ export class SecureMessageBus {
         status.circuitOpen = false;
       }
     }
-    
+
     return status.circuitOpen || status.isCompromised;
   }
-  
+
   /**
    * Record a security incident
    */
@@ -459,10 +494,10 @@ export class SecureMessageBus {
   ): void {
     const status = this.agentSecurityStatus.get(agentId);
     if (!status) return;
-    
+
     status.incidentCount++;
     status.lastIncident = new Date();
-    
+
     if (status.incidentCount >= this.circuitConfig.failureThreshold) {
       status.circuitOpen = true;
       status.circuitOpenedAt = new Date();
@@ -473,62 +508,58 @@ export class SecureMessageBus {
       });
     }
   }
-  
-  /**
-   * Sign a message
-   */
-  private async signMessage<T>(
-    message: SecureMessage<T>,
-    _sender: AgentIdentity
-  ): Promise<string> {
-    // In production, use Ed25519 signing
-    // For now, create a simple hash-based signature
-    const content = JSON.stringify({
-      id: message.id,
-      from: message.from,
-      to: message.to,
-      timestamp: message.timestamp,
-      nonce: message.nonce,
-      payload: message.payload,
-    });
-    
-    // Simple hash for development
-    let hash = 0;
-    for (let i = 0; i < content.length; i++) {
-      const char = content.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
-    }
-    
-    return `sig:${Math.abs(hash).toString(16)}`;
-  }
-  
-  /**
+
+    /**
    * Verify message signature
    */
   private async verifySignature<T>(
     message: SecureMessage<T>,
     sender: AgentIdentity
   ): Promise<boolean> {
-    // In production, verify Ed25519 signature
-    const expectedSignature = await this.signMessage(message, sender);
-    return message.signature === expectedSignature;
+    try {
+      // Create the canonical message content for verification
+      const content = {
+        id: message.id,
+        from: message.from,
+        to: message.to,
+        timestamp: message.timestamp,
+        nonce: message.nonce,
+        payload: message.payload,
+      };
+
+      // Extract timestamp from signature if available
+      const signatureTimestamp = 0; // In production, extract from signature metadata
+
+      // Use the sender's public key for verification
+      if (!sender.keys?.publicKey) {
+        logger.warn(`Agent ${sender.id} has no public key for verification`);
+        return false;
+      }
+
+      return verifySignature(content, message.signature, signatureTimestamp, sender.keys.publicKey);
+    } catch (error) {
+      logger.error('Failed to verify signature', error instanceof Error ? error : undefined, {
+        messageId: message.id,
+        senderId: sender.id,
+      });
+      return false;
+    }
   }
-  
+
   /**
    * Generate a unique nonce
    */
   private generateNonce(): string {
     return `${Date.now()}:${uuidv4()}`;
   }
-  
+
   /**
    * Check if nonce has been seen (replay attack)
    */
   private async isReplay(nonce: string): Promise<boolean> {
     return this.seenNonces.has(nonce);
   }
-  
+
   /**
    * Record a nonce
    */
@@ -540,14 +571,14 @@ export class SecureMessageBus {
       expiresAt: new Date(now.getTime() + ttlSeconds * 1000),
     });
   }
-  
+
   /**
    * Deliver a message to recipient(s)
    */
   private async deliverMessage<T>(message: SecureMessage<T>): Promise<void> {
     const sender = this.registeredAgents.get(message.from);
     if (!sender) return;
-    
+
     if (message.to === 'broadcast') {
       // Deliver to all subscribers
       for (const [agentId, subscription] of this.subscriptions) {
@@ -579,7 +610,7 @@ export class SecureMessageBus {
       }
     }
   }
-  
+
   /**
    * Start nonce cleanup interval
    */
@@ -593,7 +624,7 @@ export class SecureMessageBus {
       }
     }, 60000); // Cleanup every minute
   }
-  
+
   /**
    * Destroy the message bus
    */

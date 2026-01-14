@@ -61,8 +61,6 @@ export default defineConfig({
           vendorRouter: ["react-router-dom"],
           vendorSupabase: ["@supabase/supabase-js"],
           vendorUI: ["lucide-react", "clsx", "tailwind-merge"],
-          vendorCharts: ["recharts"],
-          vendorUtils: ["date-fns"],
         },
       },
     },

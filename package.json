@@ -207,6 +207,7 @@
     "rate-limit-redis": "^4.3.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "@tanstack/react-query": "^5.0.0",
     "react-hotkeys-hook": "^5.2.1",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^6.30.3",
@@ -254,8 +255,7 @@
     "@types/react-syntax-highlighter": "^15.5.13",
     "@types/speakeasy": "^2.0.10",
     "@types/supertest": "^6.0.3",
-    "@types/uuid": "^11.0.0",
-    "@vitejs/plugin-react": "^4.7.0",
+        "@vitejs/plugin-react": "^4.7.0",
     "@vitest/browser-playwright": "^4.0.17",
     "@vitest/coverage-v8": "^4.0.17",
     "@vitest/runner": "^4.0.15",
@@ -304,6 +304,9 @@
     ]
   },
   "overrides": {
-    "qs": "^6.14.1"
+    "qs": "^6.14.1",
+    "rimraf": "^5.0.0",
+    "glob": "^10.0.0",
+    "inflight": "npm:lru-cache@^10.0.0"
   }
 }

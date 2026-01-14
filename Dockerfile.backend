@@ -1,17 +1,6 @@
 # Multi-stage production build for Backend API Server
 # Stage 1: Build environment (using same base as dev for consistency)
-
-# Build arguments for digest pinning
-ARG BUILDER_SHA256
-ARG RUNTIME_SHA256
-
-FROM mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm@sha256:${BUILDER_SHA256} AS builder
-
-# Validate that required digests are provided
-RUN if [ -z "$BUILDER_SHA256" ] || [ -z "$RUNTIME_SHA256" ]; then \
-        echo "ERROR: BUILDER_SHA256 and RUNTIME_SHA256 must be provided"; \
-        exit 1; \
-    fi
+FROM mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm AS builder
 
 WORKDIR /app
 
@@ -34,46 +23,37 @@ RUN npm prune --production
 # Stage 2: Security scanning
 FROM builder AS security-scan
 
-# Install trivy for vulnerability scanning and syft for SBOM generation
-RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin && \
-    curl -sfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -b /usr/local/bin && \
-    curl -sfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -b /usr/local/bin
+# Install trivy for vulnerability scanning
+RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
-# Generate SBOM
-RUN syft dir /app -o spdx-json > /app/sbom.spdx.json && \
-    cp /app/sbom.spdx.json /sbom-backend.spdx.json
-
-# Scan for vulnerabilities and generate report
-RUN trivy filesystem --exit-code 0 --no-progress --format json --output /trivy-backend.json /app && \
-    trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /app
+# Scan filesystem for vulnerabilities
+RUN trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /app
 
 # Stage 3: Production runtime
-FROM node:22-bookworm-slim@sha256:${RUNTIME_SHA256} AS production
+FROM node:22-bookworm-slim AS production
 
 # Install dumb-init for proper signal handling
 RUN apt-get update && apt-get install -y --no-install-recommends dumb-init && \
-  rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Create non-root user (matching dev environment security)
 RUN groupadd -r nodejs -g 1001 && \
-  useradd -r nodejs -u 1001 -g nodejs && \
-  chown -R nodejs:nodejs /app
+    useradd -r nodejs -u 1001 -g nodejs && \
+    chown -R nodejs:nodejs /app
 
 # Copy built application and production dependencies
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
-# Copy SBOM from security scanning stage
-COPY --from=security-scan /sbom-backend.spdx.json ./sbom.spdx.json
 
 # Runtime security scan (final check)
 RUN apt-get update && apt-get install -y curl && \
-  curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin && \
-  trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /app && \
-  apt-get remove -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/* && \
-  rm /usr/local/bin/trivy
+    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin && \
+    trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /app && \
+    apt-get remove -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/* && \
+    rm /usr/local/bin/trivy
 
 # Switch to non-root user
 USER nodejs

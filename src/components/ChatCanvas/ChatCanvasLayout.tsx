@@ -9,12 +9,17 @@
  * This is the simplified UI following the chat + canvas pattern.
  */
 
-import React, {
+import {
   useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
   useState,
+  useMemo,
+  memo,
+  DragEvent,
+  ReactNode,
+  FC,
 } from "react";
 import {
   Building2,
@@ -53,7 +58,7 @@ import { supabase } from "../../lib/supabase";
 import { valueCaseService } from "../../services/ValueCaseService";
 import { logger } from "../../lib/logger";
 import { analyticsClient } from "../../lib/analyticsClient";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "crypto";
 import {
   sduiTelemetry,
   TelemetryEventType,
@@ -67,6 +72,8 @@ import { PrintReportLayout } from "../Report/PrintReportLayout";
 import { ExportPreviewModal } from "../Modals/ExportPreviewModal";
 import { CRMSyncModal } from "../Modals/CRMSyncModal";
 import { useSubscriptionManager, useSafeAsync } from "../../hooks/useSubscriptionManager";
+import { useBatchedState, useSmartMemo } from "../../hooks/useBatchedState";
+import { useValueCases, useCreateValueCase, queryClient } from "../../hooks/useValueCaseQuery";
 
 // ============================================================================
 // Custom Hooks
@@ -142,7 +149,7 @@ const FALLBACK_CASES: ValueCase[] = [
 // Sub-Components
 // ============================================================================
 
-const StageIndicator: React.FC<{ stage: ValueCase["stage"] }> = ({ stage }) => {
+const StageIndicator: FC<{ stage: ValueCase["stage"] }> = ({ stage }) => {
   const stageConfig = {
     opportunity: { color: "bg-blue-500", label: "Opportunity" },
     target: { color: "bg-amber-500", label: "Target" },
@@ -162,7 +169,7 @@ const StageIndicator: React.FC<{ stage: ValueCase["stage"] }> = ({ stage }) => {
 };
 
 // Condensed case item (like screenshot)
-const CaseItem = React.memo(
+const CaseItem = memo(
   ({
     case_,
     isSelected,
@@ -191,8 +198,8 @@ const CaseItem = React.memo(
 CaseItem.displayName = "CaseItem";
 
 // Starter card component
-const StarterCard: React.FC<{
-  icon: React.ReactNode;
+const StarterCard: FC<{
+  icon: ReactNode;
   title: string;
   description: string;
   onClick: () => void;
@@ -219,13 +226,13 @@ const StarterCard: React.FC<{
   </button>
 );
 
-const EmptyCanvas: React.FC<{
+const EmptyCanvas: FC<{
   onNewCase: () => void;
   onStarterAction: (action: string, data?: any) => void;
 }> = ({ onNewCase, onStarterAction }) => {
   const [isDragging, setIsDragging] = useState(false);
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  const handleDragOver = useCallback((e: DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
   }, []);
@@ -235,7 +242,7 @@ const EmptyCanvas: React.FC<{
   }, []);
 
   const handleDrop = useCallback(
-    (e: React.DragEvent) => {
+    (e: DragEvent) => {
       e.preventDefault();
       setIsDragging(false);
 
@@ -341,7 +348,7 @@ const EmptyCanvas: React.FC<{
   );
 };
 
-const CanvasContent: React.FC<{
+const CanvasContent: FC<{
   renderedPage: RenderPageResult | null;
   isLoading: boolean;
   streamingUpdate: StreamingUpdate | null;
@@ -506,29 +513,31 @@ const betaReleaseNotes = [
 // Main Component
 // ============================================================================
 
-export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
+export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
   onSettingsClick,
   onHelpClick,
   initialAction,
 }) => {
+  // Use React Query for value cases with caching
+  const {
+    data: cases = [],
+    isLoading: isFetchingCases,
+    error: casesError,
+    refetch: refetchCases
+  } = useValueCases();
+
+  const createValueCase = useCreateValueCase();
+
   // State
-  const [cases, setCases] = useState<ValueCase[]>(FALLBACK_CASES);
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [isCommandBarOpen, setIsCommandBarOpen] = useState(false);
-  const [renderedPage, setRenderedPage] = useState<RenderPageResult | null>(
-    null
-  );
+  const [renderedPage, setRenderedPage] = useState<RenderPageResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isFetchingCases, setIsFetchingCases] = useState(true);
   const [isInitialCanvasLoad, setIsInitialCanvasLoad] = useState(false);
-  const [streamingUpdate, setStreamingUpdate] =
-    useState<StreamingUpdate | null>(null);
-  const [workflowState, setWorkflowState] = useState<WorkflowState | null>(
-    null
-  );
+  const [streamingUpdate, setStreamingUpdate] = useState<StreamingUpdate | null>(null);
+  const [workflowState, setWorkflowState] = useState<WorkflowState | null>(null);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-  const [hasProcessedInitialAction, setHasProcessedInitialAction] =
-    useState(false);
+  const [hasProcessedInitialAction, setHasProcessedInitialAction] = useState(false);
 
   // New case modal state
   const [isNewCaseModalOpen, setIsNewCaseModalOpen] = useState(false);
@@ -559,13 +568,13 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
   const [isBetaHubOpen, setIsBetaHubOpen] = useState(false);
 
   // Workflow state service (initialized once)
-  const workflowStateService = React.useMemo(
+  const workflowStateService = useMemo(
     () => new WorkflowStateService(supabase),
     []
   );
 
   // Phase 3: Telemetry tracking
-  const [renderStartTime, setRenderStartTime] = React.useState<number | null>(
+  const [renderStartTime, setRenderStartTime] = useState<number | null>(
     null
   );
 
@@ -573,6 +582,225 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
   // Phase 6: Sync & Export State
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+
+  // Handle command submission
+  const handleCommand = useEvent(async (query: string) => {
+    if (!selectedCaseId) {
+      // No case selected, prompt user to create one first
+      setIsNewCaseModalOpen(true);
+      return;
+    }
+
+    // Initialize workflow state if not set
+    if (!workflowState && selectedCase) {
+      setWorkflowState({
+        currentStage: selectedCase.stage,
+        status: "in_progress",
+        completedStages: [],
+        context: {
+          caseId: selectedCase.id,
+          company: selectedCase.company,
+        },
+      });
+    }
+
+    setIsLoading(true);
+    setStreamingUpdate({
+      stage: "analyzing",
+      message: "Understanding your request...",
+    });
+
+    try {
+      // Get user info from Supabase auth
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData?.session?.user?.id || "anonymous";
+      const sessionId =
+        sessionData?.session?.access_token?.slice(0, 36) || randomUUID();
+
+      setStreamingUpdate({
+        stage: "processing",
+        message: "Consulting AI agent...",
+      });
+
+      // Use current session ID or fall back to access token
+      const actualSessionId = currentSessionId || sessionId;
+
+      // Phase 3: Track chat request
+      const chatSpanId = `chat-${Date.now()}`;
+      sduiTelemetry.startSpan(
+        chatSpanId,
+        TelemetryEventType.CHAT_REQUEST_START,
+        {
+          caseId: selectedCaseId,
+          stage: workflowState?.currentStage || 'unknown',
+          queryLength: query.length,
+        }
+      );
+
+      // Process through AgentChatService (uses Together.ai LLM)
+      const result = await agentChatService.chat({
+        query,
+        caseId: selectedCaseId,
+        userId,
+        sessionId: actualSessionId,
+        workflowState: workflowState || undefined,
+      });
+
+      // Track chat completion
+      sduiTelemetry.endSpan(
+        chatSpanId,
+        TelemetryEventType.CHAT_REQUEST_COMPLETE,
+        {
+          hasSDUI: !!result.sduiPage,
+          stageTransitioned:
+            workflowState ? result.nextState.currentStage !== workflowState.currentStage : false,
+        }
+      );
+
+      // Update workflow state in memory
+      setWorkflowState(result.nextState);
+
+      // Persist workflow state to database
+      if (currentSessionId) {
+        try {
+          // Track state save
+          sduiTelemetry.recordEvent({
+            type: TelemetryEventType.WORKFLOW_STATE_SAVE,
+            metadata: {
+              sessionId: currentSessionId,
+              stage: result.nextState.currentStage,
+            },
+          });
+
+          if (!currentTenantId) {
+            throw new Error("Tenant ID is required to persist workflow state");
+          }
+
+          await workflowStateService.saveWorkflowState(
+            currentSessionId,
+            result.nextState,
+            currentTenantId
+          );
+          logger.debug("Workflow state persisted after chat", {
+            sessionId: currentSessionId,
+            stage: result.nextState.currentStage,
+          });
+
+          // Track stage transition if occurred
+          if (workflowState && result.nextState.currentStage !== workflowState.currentStage) {
+            sduiTelemetry.recordWorkflowStateChange(
+              currentSessionId,
+              workflowState?.currentStage || 'unknown',
+              result.nextState.currentStage,
+              {
+                caseId: selectedCaseId,
+              }
+            );
+          }
+        } catch (error) {
+          logger.warn("Failed to persist workflow state", { error });
+          // Continue even if persistence fails
+        }
+      }
+
+      setStreamingUpdate({
+        stage: "generating",
+        message: "Generating response...",
+      });
+
+      // Render SDUI page if available
+      if (result.sduiPage) {
+        // Phase 3: Track SDUI rendering
+        const renderSpanId = `render-response-${Date.now()}`;
+        sduiTelemetry.startSpan(renderSpanId, TelemetryEventType.RENDER_START, {
+          caseId: selectedCaseId,
+          stage: result.nextState.currentStage,
+        });
+
+        try {
+          // Define handleSDUIAction for new pages
+          const handleSDUIAction = (action: string, payload: any) => {
+            if (action === "select_hypothesis") {
+              handleCommand(
+                `I want to explore the hypothesis: "${payload.title}". ${payload.description}. Please analyze this potential value driver deeper.`
+              );
+            }
+          };
+
+          const rendered = renderPage(result.sduiPage, {
+            onAction: handleSDUIAction,
+          });
+          setRenderedPage(rendered);
+
+          sduiTelemetry.endSpan(
+            renderSpanId,
+            TelemetryEventType.RENDER_COMPLETE,
+            {
+              componentCount: rendered.metadata?.componentCount,
+              warnings: rendered.warnings?.length || 0,
+            }
+          );
+        } catch (renderError) {
+          sduiTelemetry.endSpan(
+            renderSpanId,
+            TelemetryEventType.RENDER_ERROR,
+            {},
+            {
+              message:
+                renderError instanceof Error
+                  ? renderError.message
+                  : "Render error",
+              stack:
+                renderError instanceof Error ? renderError.stack : undefined,
+            }
+          );
+          throw renderError;
+        }
+
+        // Cache in case
+        refetchCases();
+      }
+
+      // Update case stage if changed
+      if (result.nextState.currentStage !== workflowState?.currentStage) {
+        refetchCases();
+      }
+
+      setStreamingUpdate({ stage: "complete", message: "Done!" });
+      setTimeout(() => setStreamingUpdate(null), 1000);
+    } catch (error) {
+      // Phase 3: Track chat error
+      sduiTelemetry.recordEvent({
+        type: TelemetryEventType.CHAT_REQUEST_ERROR,
+        metadata: {
+          caseId: selectedCaseId,
+          stage: workflowState?.currentStage,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+
+      logger.error(
+        "Agent chat failed",
+        error instanceof Error ? error : new Error(String(error))
+      );
+
+      // Show user-friendly error with retry action
+      const friendlyError = toUserFriendlyError(error, "AI Analysis", () =>
+        handleCommand(query)
+      );
+
+      showError(
+        friendlyError.title,
+        friendlyError.message,
+        friendlyError.action
+      );
+
+      setIsLoading(false);
+      setStreamingUpdate(null);
+    } finally {
+      setIsLoading(false);
+    }
+  });
 
   // Replaced direct logic with Modal openers
   const handleOpenSync = () => setIsSyncModalOpen(true);
@@ -584,22 +812,28 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
   // Subscription manager for preventing memory leaks
   const subscriptionManager = useSubscriptionManager();
   const { safeSetState } = useSafeAsync();
+  const batchedState = useBatchedState();
 
   // Toast notifications
   const { error: showError, success: showSuccess, info: showInfo } = useToast();
 
-  // Derived state (memoized to prevent recalculation on every render)
-  const selectedCase = React.useMemo(
+  // Derived state (optimized with smart memoization)
+  const selectedCase = useSmartMemo(
     () => cases.find((c) => c.id === selectedCaseId),
-    [cases, selectedCaseId]
+    [cases, selectedCaseId],
+    { equalityFn: (a, b) => a?.id === b?.id }
   );
-  const inProgressCases = React.useMemo(
+
+  const inProgressCases = useSmartMemo(
     () => cases.filter((c) => c.status === "in-progress"),
-    [cases]
+    [cases],
+    { equalityFn: (a, b) => a.length === b.length && a.every(c => b.some(bc => bc.id === c.id)) }
   );
-  const completedCases = React.useMemo(
+
+  const completedCases = useSmartMemo(
     () => cases.filter((c) => c.status === "completed"),
-    [cases]
+    [cases],
+    { equalityFn: (a, b) => a.length === b.length && a.every(c => b.some(bc => bc.id === c.id)) }
   );
 
   const handleCaseSelect = useCallback((id: string) => {
@@ -685,7 +919,7 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
         try {
           // For now, we mock creating it in the local state if Supabase isn't saving it yet
           const newCase: ValueCase = {
-            id: uuidv4(),
+            id: randomUUID(),
             name: caseName,
             company: initialAction.data.company || "Unknown",
             stage: "opportunity",
@@ -693,7 +927,7 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
             updatedAt: new Date(),
           };
 
-          setCases((prev) => [newCase, ...prev]);
+          refetchCases();
           setSelectedCaseId(newCase.id);
 
           // If there's a query to run, trigger it after a brief delay to allow state to settle
@@ -736,22 +970,13 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
       try {
         const fetchedCases = await valueCaseService.getValueCases();
         if (fetchedCases.length > 0) {
-          setCases(
-            fetchedCases.map((c) => ({
-              id: c.id,
-              name: c.name,
-              company: c.company,
-              stage: c.stage,
-              status: c.status,
-              updatedAt: c.updated_at,
-            }))
-          );
+          refetchCases();
         }
         // If no cases fetched, keep fallback
       } catch (error) {
         logger.warn("Failed to fetch cases, using fallback data");
       } finally {
-        setIsFetchingCases(false);
+        // React Query handles loading state
       }
     };
 
@@ -759,16 +984,7 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
 
     // Subscribe to real-time updates with memory leak prevention
     const unsubscribe = valueCaseService.subscribe(async (updatedCases) => {
-      safeSetState(setCases)(
-        updatedCases.map((c) => ({
-          id: c.id,
-          name: c.name,
-          company: c.company,
-          stage: c.stage,
-          status: c.status,
-          updatedAt: c.updated_at,
-        }))
-      );
+      refetchCases();
     });
 
     subscriptionManager.add('valueCases', unsubscribe);
@@ -938,246 +1154,11 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [undo, redo, canUndo, canRedo]);
 
-  // Handle command submission
-  const handleCommand = useEvent(async (query: string) => {
-    if (!selectedCaseId) {
-      // No case selected, prompt user to create one first
-      setIsNewCaseModalOpen(true);
-      return;
-    }
-
-    // Initialize workflow state if not set
-    if (!workflowState && selectedCase) {
-      setWorkflowState({
-        currentStage: selectedCase.stage,
-        status: "in_progress",
-        completedStages: [],
-        context: {
-          caseId: selectedCase.id,
-          company: selectedCase.company,
-        },
-      });
-    }
-
-    setIsLoading(true);
-    setStreamingUpdate({
-      stage: "analyzing",
-      message: "Understanding your request...",
-    });
-
-    try {
-      // Get user info from Supabase auth
-      const { data: sessionData } = await supabase.auth.getSession();
-      const userId = sessionData?.session?.user?.id || "anonymous";
-      const sessionId =
-        sessionData?.session?.access_token?.slice(0, 36) || uuidv4();
-
-      setStreamingUpdate({
-        stage: "processing",
-        message: "Consulting AI agent...",
-      });
-
-      // Use current session ID or fall back to access token
-      const actualSessionId = currentSessionId || sessionId;
-
-      // Phase 3: Track chat request
-      const chatSpanId = `chat-${Date.now()}`;
-      sduiTelemetry.startSpan(
-        chatSpanId,
-        TelemetryEventType.CHAT_REQUEST_START,
-        {
-          caseId: selectedCaseId,
-          stage: workflowState.currentStage,
-          queryLength: query.length,
-        }
-      );
-
-      // Process through AgentChatService (uses Together.ai LLM)
-      const result = await agentChatService.chat({
-        query,
-        caseId: selectedCaseId,
-        userId,
-        sessionId: actualSessionId,
-        workflowState,
-      });
-
-      // Track chat completion
-      sduiTelemetry.endSpan(
-        chatSpanId,
-        TelemetryEventType.CHAT_REQUEST_COMPLETE,
-        {
-          hasSDUI: !!result.sduiPage,
-          stageTransitioned:
-            result.nextState.currentStage !== workflowState.currentStage,
-        }
-      );
-
-      // Update workflow state in memory
-      setWorkflowState(result.nextState);
-
-      // Persist workflow state to database
-      if (currentSessionId) {
-        try {
-          // Track state save
-          sduiTelemetry.recordEvent({
-            type: TelemetryEventType.WORKFLOW_STATE_SAVE,
-            metadata: {
-              sessionId: currentSessionId,
-              stage: result.nextState.currentStage,
-            },
-          });
-
-          if (!currentTenantId) {
-            throw new Error("Tenant ID is required to persist workflow state");
-          }
-
-          await workflowStateService.saveWorkflowState(
-            currentSessionId,
-            result.nextState,
-            currentTenantId
-          );
-          logger.debug("Workflow state persisted after chat", {
-            sessionId: currentSessionId,
-            stage: result.nextState.currentStage,
-          });
-
-          // Track stage transition if occurred
-          if (result.nextState.currentStage !== workflowState.currentStage) {
-            sduiTelemetry.recordWorkflowStateChange(
-              currentSessionId,
-              workflowState.currentStage,
-              result.nextState.currentStage,
-              {
-                caseId: selectedCaseId,
-              }
-            );
-          }
-        } catch (error) {
-          logger.warn("Failed to persist workflow state", { error });
-          // Continue even if persistence fails
-        }
-      }
-
-      setStreamingUpdate({
-        stage: "generating",
-        message: "Generating response...",
-      });
-
-      // Render SDUI page if available
-      if (result.sduiPage) {
-        // Phase 3: Track SDUI rendering
-        const renderSpanId = `render-response-${Date.now()}`;
-        sduiTelemetry.startSpan(renderSpanId, TelemetryEventType.RENDER_START, {
-          caseId: selectedCaseId,
-          stage: result.nextState.currentStage,
-        });
-
-        try {
-          // Define handleSDUIAction for new pages
-          const handleSDUIAction = (action: string, payload: any) => {
-            if (action === "select_hypothesis") {
-              handleCommand(
-                `I want to explore the hypothesis: "${payload.title}". ${payload.description}. Please analyze this potential value driver deeper.`
-              );
-            }
-          };
-
-          const rendered = renderPage(result.sduiPage, {
-            onAction: handleSDUIAction,
-          });
-          setRenderedPage(rendered);
-
-          sduiTelemetry.endSpan(
-            renderSpanId,
-            TelemetryEventType.RENDER_COMPLETE,
-            {
-              componentCount: rendered.metadata?.componentCount,
-              warnings: rendered.warnings?.length || 0,
-            }
-          );
-        } catch (renderError) {
-          sduiTelemetry.endSpan(
-            renderSpanId,
-            TelemetryEventType.RENDER_ERROR,
-            {},
-            {
-              message:
-                renderError instanceof Error
-                  ? renderError.message
-                  : "Render error",
-              stack:
-                renderError instanceof Error ? renderError.stack : undefined,
-            }
-          );
-          throw renderError;
-        }
-
-        // Cache in case
-        setCases((prev) =>
-          prev.map((c) =>
-            c.id === selectedCaseId
-              ? { ...c, sduiPage: result.sduiPage, updatedAt: new Date() }
-              : c
-          )
-        );
-      }
-
-      // Update case stage if changed
-      if (result.nextState.currentStage !== workflowState.currentStage) {
-        setCases((prev) =>
-          prev.map((c) =>
-            c.id === selectedCaseId
-              ? {
-                  ...c,
-                  stage: result.nextState.currentStage as any,
-                  updatedAt: new Date(),
-                }
-              : c
-          )
-        );
-      }
-
-      setStreamingUpdate({ stage: "complete", message: "Done!" });
-      setTimeout(() => setStreamingUpdate(null), 1000);
-    } catch (error) {
-      // Phase 3: Track chat error
-      sduiTelemetry.recordEvent({
-        type: TelemetryEventType.CHAT_REQUEST_ERROR,
-        metadata: {
-          caseId: selectedCaseId,
-          stage: workflowState?.currentStage,
-          error: error instanceof Error ? error.message : String(error),
-        },
-      });
-
-      logger.error(
-        "Agent chat failed",
-        error instanceof Error ? error : new Error(String(error))
-      );
-
-      // Show user-friendly error with retry action
-      const friendlyError = toUserFriendlyError(error, "AI Analysis", () =>
-        handleCommand(query)
-      );
-
-      showError(
-        friendlyError.title,
-        friendlyError.message,
-        friendlyError.action
-      );
-
-      setIsLoading(false);
-      setStreamingUpdate(null);
-    } finally {
-      setIsLoading(false);
-    }
-  });
-
   // Handle new case creation
   const handleNewCase = useCallback((companyName: string, website: string) => {
     const domain = website.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
     const newCase: ValueCase = {
-      id: uuidv4(),
+      id: randomUUID(),
       name: `${companyName} - Value Case`,
       company: companyName,
       stage: "opportunity",
@@ -1185,7 +1166,7 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
       updatedAt: new Date(),
     };
 
-    setCases((prev) => [newCase, ...prev]);
+    refetchCases();
     setSelectedCaseId(newCase.id);
     setIsNewCaseModalOpen(false);
     setNewCaseCompany("");
@@ -1280,7 +1261,7 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
         : `${companyName} - Imported Notes`;
 
       const newCase: ValueCase = {
-        id: uuidv4(),
+        id: randomUUID(),
         name: caseName,
         company: companyName,
         stage: "opportunity",
@@ -1288,7 +1269,7 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
         updatedAt: new Date(),
       };
 
-      setCases((prev) => [newCase, ...prev]);
+      refetchCases();
       setSelectedCaseId(newCase.id);
       closeUploadNotesModal();
 
@@ -1369,7 +1350,7 @@ Please analyze these notes and help me build a value hypothesis. What key value 
       const caseName = `${companyName} - Email Analysis`;
 
       const newCase: ValueCase = {
-        id: uuidv4(),
+        id: randomUUID(),
         name: caseName,
         company: companyName,
         stage: "opportunity",
@@ -1377,7 +1358,7 @@ Please analyze these notes and help me build a value hypothesis. What key value 
         updatedAt: new Date(),
       };
 
-      setCases((prev) => [newCase, ...prev]);
+      refetchCases();
       setSelectedCaseId(newCase.id);
       setIsEmailAnalysisModalOpen(false);
 
@@ -1456,7 +1437,7 @@ Based on this email analysis, help me create a value hypothesis and action plan.
   const handleCRMImportComplete = useCallback(
     (mappedCase: MappedValueCase, deal: CRMDeal) => {
       const newCase: ValueCase = {
-        id: uuidv4(),
+        id: randomUUID(),
         name: mappedCase.name,
         company: mappedCase.company,
         stage: mappedCase.stage,
@@ -1464,7 +1445,7 @@ Based on this email analysis, help me create a value hypothesis and action plan.
         updatedAt: new Date(),
       };
 
-      setCases((prev) => [newCase, ...prev]);
+      refetchCases();
       setSelectedCaseId(newCase.id);
       setIsCRMImportModalOpen(false);
 
@@ -1546,7 +1527,7 @@ Based on this deal information, help me:
         "Unknown Prospect";
 
       const newCase: ValueCase = {
-        id: uuidv4(),
+        id: randomUUID(),
         name: caseName,
         company: companyName,
         stage: "opportunity",
@@ -1554,7 +1535,7 @@ Based on this deal information, help me:
         updatedAt: new Date(),
       };
 
-      setCases((prev) => [newCase, ...prev]);
+      refetchCases();
       setSelectedCaseId(newCase.id);
       setIsSalesCallModalOpen(false);
 

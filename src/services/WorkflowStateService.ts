@@ -1,9 +1,9 @@
 /**
  * Workflow State Service
- * 
+ *
  * Client-side bridge to WorkflowStateRepository for chat workflows.
  * Provides session management and state persistence for ChatCanvas.
- * 
+ *
  * Architecture:
  * - Separates UI concerns from persistence logic
  * - Handles session lifecycle (create, load, save, cleanup)
@@ -33,7 +33,7 @@ export type StateChangeCallback = (state: WorkflowState) => void;
 
 /**
  * Workflow State Service
- * 
+ *
  * Provides high-level API for chat workflow state management
  */
 export class WorkflowStateService {
@@ -45,8 +45,8 @@ export class WorkflowStateService {
   }
 
   /**
-   * Load existing session or create new one
-   * 
+   * Load existing session or create new one with database-level filtering
+   *
    * @param options Session initialization options
    * @returns Session ID and initial workflow state
    */
@@ -56,10 +56,11 @@ export class WorkflowStateService {
     const { caseId, userId, tenantId, initialStage = 'opportunity', context = {} } = options;
 
     try {
-      // Try to find existing active session for this case
-      const existingSessions = await this.repository.getActiveSessions(userId, tenantId, 10);
-      const existingSession = existingSessions.find(
-        session => session.workflow_state?.context?.caseId === caseId
+      // Query for specific case at database level (more efficient)
+      const existingSession = await this.repository.getActiveSessionForCase(
+        userId,
+        tenantId,
+        caseId
       );
 
       if (existingSession) {
@@ -111,14 +112,14 @@ export class WorkflowStateService {
 
   /**
    * Save workflow state
-   * 
+   *
    * @param sessionId Session identifier
    * @param state Updated workflow state
    */
   async saveWorkflowState(sessionId: string, state: WorkflowState, tenantId: string): Promise<void> {
     try {
       await this.repository.saveState(sessionId, state, tenantId);
-      
+
       logger.debug('Workflow state saved', {
         sessionId,
         stage: state.currentStage,
@@ -137,7 +138,7 @@ export class WorkflowStateService {
 
   /**
    * Get workflow state
-   * 
+   *
    * @param sessionId Session identifier
    * @returns Workflow state or null if not found
    */
@@ -154,7 +155,7 @@ export class WorkflowStateService {
 
   /**
    * Get full session data
-   * 
+   *
    * @param sessionId Session identifier
    * @returns Session data or null if not found
    */
@@ -171,7 +172,7 @@ export class WorkflowStateService {
 
   /**
    * Update session status
-   * 
+   *
    * @param sessionId Session identifier
    * @param status New status
    */
@@ -182,7 +183,7 @@ export class WorkflowStateService {
   ): Promise<void> {
     try {
       await this.repository.updateSessionStatus(sessionId, status, tenantId);
-      
+
       logger.info('Session status updated', { sessionId, status });
     } catch (error) {
       logger.error('Failed to update session status', error instanceof Error ? error : undefined, {
@@ -195,10 +196,10 @@ export class WorkflowStateService {
 
   /**
    * Subscribe to state changes for a session
-   * 
+   *
    * Note: This is a client-side subscription model.
    * For real-time DB updates, consider Supabase realtime subscriptions.
-   * 
+   *
    * @param sessionId Session identifier
    * @param callback Callback function
    * @returns Unsubscribe function
@@ -245,7 +246,7 @@ export class WorkflowStateService {
 
   /**
    * Cleanup old sessions
-   * 
+   *
    * @param olderThanDays Delete sessions older than this many days
    * @returns Number of sessions deleted
    */

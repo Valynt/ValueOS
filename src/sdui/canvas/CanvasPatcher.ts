@@ -1,8 +1,8 @@
 /**
  * Canvas Delta Update System
- * 
+ *
  * Allows agents to make surgical updates without re-rendering entire canvas
- * 
+ *
  * @example
  * ```typescript
  * const delta: CanvasDelta = {
@@ -12,20 +12,21 @@
  *   reason: 'User updated retention assumption',
  *   timestamp: Date.now(),
  * };
- * 
+ *
  * const newLayout = CanvasPatcher.applyDelta(currentLayout, delta);
  * ```
  */
 
 import { CanvasDelta, CanvasLayout } from './types';
 import { logger } from '../../lib/logger';
+import { immutableUpdate, immutableNestedUpdate } from '../../utils/immutableUtils';
 
 export class CanvasPatcher {
   /**
    * Apply delta patches to existing canvas state
    */
   static applyDelta(currentLayout: CanvasLayout, delta: CanvasDelta): CanvasLayout {
-    let newLayout = JSON.parse(JSON.stringify(currentLayout)) as CanvasLayout;
+    let newLayout = currentLayout;
 
     logger.info('Applying canvas delta', {
       operationCount: delta.operations.length,
@@ -36,22 +37,32 @@ export class CanvasPatcher {
       try {
         switch (op.op) {
           case 'replace':
-            newLayout = this.replaceAtPath(newLayout, op.path, op.value);
+            newLayout = immutableNestedUpdate(newLayout, op.path.split('/').filter(Boolean), () => op.value);
             break;
           case 'add':
-            newLayout = this.addAtPath(newLayout, op.path, op.value);
+            newLayout = immutableNestedUpdate(newLayout, op.path.split('/').filter(Boolean), (current) => {
+              if (Array.isArray(current)) {
+                return [...current, op.value];
+              }
+              return op.value;
+            });
             break;
           case 'remove':
-            newLayout = this.removeAtPath(newLayout, op.path);
+            newLayout = immutableNestedUpdate(newLayout, op.path.split('/').filter(Boolean), (current) => {
+              if (Array.isArray(current)) {
+                return current.filter((_, index) => index !== parseInt(op.path.split('/').pop() || '-1'));
+              }
+              return current;
+            });
             break;
           case 'update_props':
-            newLayout = this.updateComponentProps(newLayout, op.componentId, op.props);
+            newLayout = this.updateComponentPropsImmutable(newLayout, op.componentId, op.props);
             break;
           case 'update_data':
-            newLayout = this.updateComponentData(newLayout, op.componentId, op.data);
+            newLayout = this.updateComponentDataImmutable(newLayout, op.componentId, op.data);
             break;
           case 'reorder':
-            newLayout = this.reorderChildren(newLayout, op.parentPath, op.fromIndex, op.toIndex);
+            newLayout = this.reorderChildrenImmutable(newLayout, op.parentPath, op.fromIndex, op.toIndex);
             break;
         }
       } catch (error) {
@@ -67,91 +78,55 @@ export class CanvasPatcher {
   }
 
   /**
-   * Update component props by ID (deep search)
+   * Update component props by ID (deep search) - Immutable version
    */
-  private static updateComponentProps(
+  private static updateComponentPropsImmutable(
     layout: CanvasLayout,
     componentId: string,
     newProps: Record<string, any>
   ): CanvasLayout {
     if (layout.type === 'Component' && layout.componentId === componentId) {
-      return {
-        ...layout,
-        props: { ...layout.props, ...newProps },
-      };
+      return immutableUpdate(layout, { props: { ...layout.props, ...newProps } });
     }
 
     if ('children' in layout && layout.children) {
-      return {
-        ...layout,
+      return immutableUpdate(layout, {
         children: layout.children.map((child: CanvasLayout) =>
-          this.updateComponentProps(child, componentId, newProps)
-        ),
-      } as CanvasLayout;
+          this.updateComponentPropsImmutable(child, componentId, newProps)
+        )
+      });
     }
 
     return layout;
   }
 
   /**
-   * Update component data by ID (replaces entire data object)
+   * Update component data by ID (replaces entire data object) - Immutable version
    */
-  private static updateComponentData(
+  private static updateComponentDataImmutable(
     layout: CanvasLayout,
     componentId: string,
     newData: any
   ): CanvasLayout {
     if (layout.type === 'Component' && layout.componentId === componentId) {
-      return {
-        ...layout,
-        props: { ...layout.props, data: newData },
-      };
+      return immutableUpdate(layout, { props: { ...layout.props, data: newData } });
     }
 
     if ('children' in layout && layout.children) {
-      return {
-        ...layout,
+      return immutableUpdate(layout, {
         children: layout.children.map((child: CanvasLayout) =>
-          this.updateComponentData(child, componentId, newData)
-        ),
-      } as CanvasLayout;
+          this.updateComponentDataImmutable(child, componentId, newData)
+        )
+      });
     }
 
     return layout;
   }
 
   /**
-   * Replace value at JSONPath
+   * Reorder children of a container - Immutable version
    */
-  private static replaceAtPath(
-    layout: CanvasLayout,
-    path: string,
-    value: any
-  ): CanvasLayout {
-    const parts = path.split('/').filter(Boolean);
-    return this.setValueAtPath(layout, parts, value);
-  }
-
-  /**
-   * Add value at JSONPath
-   */
-  private static addAtPath(layout: CanvasLayout, path: string, value: any): CanvasLayout {
-    const parts = path.split('/').filter(Boolean);
-    return this.setValueAtPath(layout, parts, value);
-  }
-
-  /**
-   * Remove value at JSONPath
-   */
-  private static removeAtPath(layout: CanvasLayout, path: string): CanvasLayout {
-    const parts = path.split('/').filter(Boolean);
-    return this.deleteAtPath(layout, parts);
-  }
-
-  /**
-   * Reorder children of a container
-   */
-  private static reorderChildren(
+  private static reorderChildrenImmutable(
     layout: CanvasLayout,
     parentPath: string,
     fromIndex: number,
@@ -160,7 +135,6 @@ export class CanvasPatcher {
     const parts = parentPath.split('/').filter(Boolean);
 
     const reorder = (node: any, remainingPath: string[]): any => {
-      // Base: reached target container (or its children array)
       if (remainingPath.length === 0) {
         const children = Array.isArray(node)
           ? node
@@ -183,8 +157,7 @@ export class CanvasPatcher {
         const [moved] = newChildren.splice(fromIndex, 1);
         newChildren.splice(toIndex, 0, moved);
 
-        // If we're reordering the array itself, return it; otherwise update the node
-        return Array.isArray(node) ? newChildren : { ...node, children: newChildren };
+        return Array.isArray(node) ? newChildren : immutableUpdate(node, { children: newChildren });
       }
 
       const [head, ...tail] = remainingPath;
@@ -205,85 +178,15 @@ export class CanvasPatcher {
       }
 
       if (node && typeof node === 'object' && head in node) {
-        return {
-          ...node,
-          [head]: reorder(node[head], tail),
-        };
+        return immutableUpdate(node, {
+          [head]: reorder(node[head], tail)
+        });
       }
 
       throw new Error(`Cannot traverse path: ${head}`);
     };
 
     return reorder(layout, parts);
-  }
-
-  /**
-   * Helper: Set value at path recursively
-   */
-  private static setValueAtPath(node: any, path: string[], value: any): any {
-    if (path.length === 0) {
-      return value;
-    }
-
-    const [head, ...tail] = path;
-
-    if (!head) {
-      throw new Error('Invalid path: empty segment');
-    }
-
-    if (Array.isArray(node)) {
-      const index = parseInt(head);
-      return node.map((item, i) => (i === index ? this.setValueAtPath(item, tail, value) : item));
-    }
-
-    if (typeof node === 'object' && node !== null) {
-      return {
-        ...node,
-        [head]: this.setValueAtPath(node[head], tail, value),
-      };
-    }
-
-    throw new Error(`Cannot set value at path: ${path.join('/')}`);
-  }
-
-  /**
-   * Helper: Delete at path recursively
-   */
-  private static deleteAtPath(node: any, path: string[]): any {
-    if (path.length === 0) {
-      return undefined;
-    }
-
-    const [head, ...tail] = path;
-
-    if (!head) {
-      throw new Error('Invalid path: empty segment');
-    }
-
-    if (tail.length === 0) {
-      if (Array.isArray(node)) {
-        const index = parseInt(head);
-        return node.filter((_, i) => i !== index);
-      }
-
-       
-      const { [head]: _, ...rest } = node;
-      return rest;
-    }
-
-    if (Array.isArray(node)) {
-      const index = parseInt(head);
-      return node.map((item, i) => (i === index ? this.deleteAtPath(item, tail) : item));
-    }
-
-    if (typeof node === 'object' && node !== null) {
-      return {
-        ...node,
-        [head]: this.deleteAtPath(node[head], tail),
-      };
-    }
-
-    throw new Error(`Cannot delete at path: ${path.join('/')}`);
   }
 
   /**
