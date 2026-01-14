@@ -11,6 +11,7 @@
 
 - **Type Safety**: Replaced loose `any` types with specific interfaces in mapper functions and hook parameters, reducing potential runtime errors and improving IDE support. Added proper null/undefined handling for optional fields.
 - **Error Handling**: Added explicit error logging to empty catch blocks to prevent silent failures.
+- **Documentation**: Enhanced JSDoc comments to explain why certain functionality exists, not just what it does.
 - **Code Robustness**: Fixed logger method calls to match expected signatures, preventing type mismatches.
 
 ## Potential Issues or Code Smells Discovered but Not Fixed
