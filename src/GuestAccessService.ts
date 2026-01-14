@@ -123,7 +123,7 @@ export interface GuestActivity {
   guestAccessTokenId: string;
   valueCaseId: string;
   activityType: GuestActivityType;
-  activityData?: Record<string, any>;
+  activityData?: Record<string, unknown>;
   ipAddress?: string;
   userAgent?: string;
   createdAt: string;
@@ -415,7 +415,7 @@ class GuestAccessService {
     tokenId: string,
     valueCaseId: string,
     activityType: GuestActivityType,
-    activityData?: Record<string, any>,
+    activityData?: Record<string, unknown>,
     ipAddress?: string,
     userAgent?: string
   ): Promise<void> {
