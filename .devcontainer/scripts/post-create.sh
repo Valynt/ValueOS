@@ -39,7 +39,7 @@ else
 fi
 
 # 2. Generate Prisma client
-if [ -f "prisma/schema.prisma" ]; then
+if [ -f "scripts/prisma/schema.prisma" ]; then
     print_status "Generating Prisma client..."
     npx prisma generate
     print_success "Prisma client generated"

@@ -47,7 +47,7 @@ if [ ! -f ".env" ] && [ -f ".env.example" ]; then
 fi
 
 # 3. Fix Prisma client
-if [ -f "prisma/schema.prisma" ] && [ ! -d "node_modules/.prisma" ]; then
+if [ -f "scripts/prisma/schema.prisma" ] && [ ! -d "node_modules/.prisma" ]; then
     print_status "Generating Prisma client..."
     npx prisma generate
     print_success "Prisma client generated"
@@ -74,7 +74,7 @@ fi
 if [ -f "package-lock.json" ]; then
     PACKAGE_MODIFIED=$(stat -c %Y package.json 2>/dev/null || stat -f %m package.json)
     LOCK_MODIFIED=$(stat -c %Y package-lock.json 2>/dev/null || stat -f %m package-lock.json)
-    
+
     if [ "$PACKAGE_MODIFIED" -gt "$LOCK_MODIFIED" ]; then
         print_status "Updating stale package-lock.json..."
         npm install
@@ -113,13 +113,13 @@ fi
 DISK_USAGE=$(df -h . | awk 'NR==2 {print $5}' | tr -d '%')
 if [ "$DISK_USAGE" -gt 90 ]; then
     print_warning "Disk usage is high ($DISK_USAGE%). Cleaning caches..."
-    
+
     # Clean npm cache
     npm cache clean --force >/dev/null 2>&1
-    
+
     # Clean build artifacts
     rm -rf dist build .cache .vite
-    
+
     print_success "Caches cleaned"
     FIXES_APPLIED=$((FIXES_APPLIED + 1))
 fi

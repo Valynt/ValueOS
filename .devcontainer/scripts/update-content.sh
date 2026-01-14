@@ -25,7 +25,7 @@ print_success() {
 # Check if package.json changed
 if [ -f "package.json" ]; then
     print_status "Checking for dependency changes..."
-    
+
     # Install dependencies if package.json changed
     if [ ! -d "node_modules" ] || [ "package.json" -nt "node_modules" ]; then
         print_status "Installing dependencies..."
@@ -37,8 +37,8 @@ if [ -f "package.json" ]; then
 fi
 
 # Update Prisma client if schema changed
-if [ -f "prisma/schema.prisma" ]; then
-    if [ ! -d "node_modules/.prisma" ] || [ "prisma/schema.prisma" -nt "node_modules/.prisma" ]; then
+if [ -f "scripts/prisma/schema.prisma" ]; then
+    if [ ! -d "node_modules/.prisma" ] || [ "scripts/prisma/schema.prisma" -nt "node_modules/.prisma" ]; then
         print_status "Generating Prisma client..."
         npx prisma generate
         print_success "Prisma client generated"

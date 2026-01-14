@@ -102,8 +102,8 @@ else
 fi
 
 # tsconfig.json
-if [ -f "tsconfig.json" ]; then
-    check_pass "tsconfig.json: Found"
+if [ -f ".config/configs/tsconfig.json" ]; then
+    check_pass "tsconfig.json: Found (.config/configs/)"
 else
     check_warn "tsconfig.json: Missing"
 fi
@@ -113,9 +113,9 @@ echo "🗄️  Database"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Prisma
-if [ -f "prisma/schema.prisma" ]; then
+if [ -f "scripts/prisma/schema.prisma" ]; then
     check_pass "Prisma schema: Found"
-    
+
     if [ -d "node_modules/.prisma" ]; then
         check_pass "Prisma client: Generated"
     else
@@ -146,7 +146,7 @@ fi
 # Playwright
 if [ -f "playwright.config.ts" ]; then
     check_pass "Playwright config: Found"
-    
+
     if [ -d "$HOME/.cache/ms-playwright" ]; then
         check_pass "Playwright browsers: Installed"
     else
@@ -161,15 +161,15 @@ echo "🔧 Build Tools"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Vite
-if [ -f "vite.config.ts" ]; then
-    check_pass "Vite config: Found"
+if [ -f ".config/configs/vite.config.ts" ]; then
+    check_pass "Vite config: Found (.config/configs/)"
 else
     check_warn "Vite config: Not found"
 fi
 
 # ESLint
-if [ -f ".eslintrc.json" ] || [ -f ".eslintrc.js" ] || [ -f "eslint.config.js" ]; then
-    check_pass "ESLint config: Found"
+if [ -f ".config/configs/eslint.config.js" ]; then
+    check_pass "ESLint config: Found (.config/configs/)"
 else
     check_warn "ESLint config: Not found"
 fi

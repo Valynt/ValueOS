@@ -73,7 +73,7 @@ jobs:
       - name: Check coverage thresholds
         run: |
           # Vitest will fail if coverage is below thresholds
-          # Thresholds defined in vitest.config.ts
+          # Thresholds defined in vitest.config.ts (re-exports from .config/configs/vitest.config.unit.ts)
           echo "Coverage thresholds enforced: 75% lines, 70% functions, 65% branches"
 
       - name: Upload coverage to Codecov

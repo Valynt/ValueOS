@@ -38,6 +38,10 @@
     "json",
     "jsonc"
   ],
+  "eslint.options": {
+    "configFile": ".config/configs/eslint.config.js"
+  },
+  "tailwindCSS.experimental.configFile": ".config/configs/tailwind.config.js",
   "files.associations": {
     "*.css": "tailwindcss"
   },

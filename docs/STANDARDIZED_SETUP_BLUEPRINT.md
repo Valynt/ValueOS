@@ -10,7 +10,7 @@ The root directory is now strictly for entry points. All complex configuration i
 
 ```
 ValueOS/
-├── bin/                   # ENTRY POINTS (The only files you run)
+├── scripts/bin/           # ENTRY POINTS (The only files you run)
 │   ├── dev-up             # Local development
 │   ├── dev-staging        # Staging / QA
 │   └── dev-production     # Production / Deployment
