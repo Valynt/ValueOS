@@ -11,29 +11,29 @@
 // CORE VOS TYPES
 // =====================================================
 
-export type ConfidenceLevel = 'high' | 'medium' | 'low';
+export type ConfidenceLevel = "high" | "medium" | "low";
 
-export type LifecycleStage = 'opportunity' | 'target' | 'realization' | 'expansion';
+export type LifecycleStage = "opportunity" | "target" | "realization" | "expansion";
 
-export type ValueCommitStatus = 'active' | 'achieved' | 'at_risk' | 'missed' | 'cancelled';
+export type ValueCommitStatus = "active" | "achieved" | "at_risk" | "missed" | "cancelled";
 
-export type RealizationStatus = 'on_track' | 'at_risk' | 'achieved' | 'missed';
+export type RealizationStatus = "on_track" | "at_risk" | "achieved" | "missed";
 
-export type ResultStatus = 'exceeded' | 'achieved' | 'on_track' | 'at_risk' | 'missed';
+export type ResultStatus = "exceeded" | "achieved" | "on_track" | "at_risk" | "missed";
 
-export type ExpansionOpportunityType = 'upsell' | 'cross_sell' | 'optimization' | 'expansion';
+export type ExpansionOpportunityType = "upsell" | "cross_sell" | "optimization" | "expansion";
 
-export type ExpansionStatus = 'proposed' | 'under_review' | 'approved' | 'rejected' | 'implemented';
+export type ExpansionStatus = "proposed" | "under_review" | "approved" | "rejected" | "implemented";
 
-export type KPIMeasurement = 'percentage' | 'currency' | 'time' | 'count';
+export type KPIMeasurement = "percentage" | "currency" | "time" | "count";
 
-export type KPITargetDirection = 'increase' | 'decrease';
+export type KPITargetDirection = "increase" | "decrease";
 
-export type FinancialMetricType = 'revenue' | 'cost' | 'risk';
+export type FinancialMetricType = "revenue" | "cost" | "risk";
 
-export type ValueTreeNodeType = 'capability' | 'outcome' | 'kpi' | 'financialMetric' | 'driver';
+export type ValueTreeNodeType = "capability" | "outcome" | "kpi" | "financialMetric" | "driver";
 
-export type ROICalculationType = 'revenue' | 'cost' | 'risk' | 'intermediate';
+export type ROICalculationType = "revenue" | "cost" | "risk" | "intermediate";
 
 // =====================================================
 // OPPORTUNITY STAGE TYPES
@@ -189,10 +189,10 @@ export interface ValueCommit {
 export interface LifecycleArtifactLink {
   id: string;
   session_id?: string;
-  source_stage?: 'opportunity' | 'target' | 'realization' | 'expansion';
+  source_stage?: "opportunity" | "target" | "realization" | "expansion";
   source_type: string;
   source_artifact_id: string;
-  target_stage?: 'opportunity' | 'target' | 'realization' | 'expansion';
+  target_stage?: "opportunity" | "target" | "realization" | "expansion";
   target_type: string;
   target_artifact_id: string;
   relationship_type: string;
@@ -350,7 +350,7 @@ export interface SensitivityAnalysis {
 export interface SensitivityScenario {
   label: string;
   adjustment: number;
-  adjustmentType: 'percentage' | 'absolute';
+  adjustmentType: "percentage" | "absolute";
   result: number;
   variance: number;
 }
@@ -363,7 +363,7 @@ export interface ManifestoRule {
   id: string;
   name: string;
   description: string;
-  rule_type: 'value_reduction' | 'assumption_validation' | 'kpi_existence' | 'explainability';
+  rule_type: "value_reduction" | "assumption_validation" | "kpi_existence" | "explainability";
   validation_function: string;
   is_active: boolean;
 }
@@ -450,7 +450,7 @@ export interface MetricBadgeProps {
   unit: string;
   target?: number;
   status?: ResultStatus;
-  trend?: 'up' | 'down' | 'neutral';
+  trend?: "up" | "down" | "neutral";
   confidenceLevel?: ConfidenceLevel;
 }
 
@@ -474,7 +474,7 @@ export interface RealizationDashboardProps {
 export interface ExpansionOpportunityListProps {
   expansionModels: ExpansionModel[];
   onSelectOpportunity: (model: ExpansionModel) => void;
-  sortBy?: 'estimated_value' | 'confidence_score' | 'created_at';
+  sortBy?: "estimated_value" | "confidence_score" | "created_at";
 }
 
 export interface AssumptionTraceViewProps {
@@ -588,6 +588,32 @@ export interface ExpansionAgentOutput {
   executiveSummary: string;
 }
 
+export interface ResearchAgentInput {
+  /** Type of research to conduct */
+  researchType: "company" | "market" | "industry" | "competitive";
+  /** Target of research (company name, market segment, etc.) */
+  target: string;
+  /** Depth of research required */
+  depth?: "quick" | "standard" | "comprehensive";
+  /** Specific research questions or focus areas */
+  focusAreas?: string[];
+  /** Additional context for research */
+  context?: Record<string, any>;
+}
+
+export interface ResearchAgentOutput {
+  research: {
+    summary: string;
+    findings: any[];
+    sources: any[];
+    confidence: ConfidenceLevel;
+  };
+  confidence: ConfidenceLevel;
+  evidence: any[];
+  processingTime: number;
+  insights: string;
+}
+
 // =====================================================
 // API RESPONSE TYPES
 // =====================================================
@@ -645,5 +671,5 @@ export type {
   ValueMap,
   KPIHypothesis,
   FinancialModel,
-  Assumption
-} from '../lib/agent-fabric/types';
+  Assumption,
+} from "../lib/agent-fabric/types";

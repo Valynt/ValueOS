@@ -1,6 +1,6 @@
 /**
  * Secure LLM Wrapper for Non-Agent Services
- * 
+ *
  * Provides security controls for LLM calls outside of the agent framework:
  * - Tenant isolation
  * - Budget tracking
@@ -9,13 +9,13 @@
  * - Input sanitization
  */
 
-import { LLMGateway, LLMMessage, LLMOptions } from '../agent-fabric/LLMGateway';
-import type TaskContext from '../agent-fabric/TaskContext';
-import { logger } from '../logger';
-import { getTracer } from '../observability';
-import { SpanStatusCode } from '@opentelemetry/api';
+import { LLMGateway, LLMMessage, LLMConfig } from "../agent-fabric/LLMGateway";
+import type TaskContext from "../agent-fabric/TaskContext";
+import { logger } from "../logger";
+import { getTracer } from "../observability";
+import { SpanStatusCode } from "@opentelemetry/api";
 
-export interface SecureLLMOptions extends LLMOptions {
+export interface SecureLLMOptions extends LLMConfig {
   /** Organization/Tenant ID for isolation and budget tracking */
   organizationId?: string;
   /** User ID for audit trail */
@@ -36,11 +36,12 @@ export interface SecureLLMResult {
     totalTokens: number;
   };
   model?: string;
+  tokens_used?: number; // Add tokens_used from LLMResponse
 }
 
 /**
  * Secure wrapper for LLM gateway calls
- * 
+ *
  * Use this instead of direct llmGateway.complete() calls to ensure:
  * - Proper tenant isolation
  * - Budget tracking
@@ -53,27 +54,27 @@ export async function secureLLMComplete(
   options: SecureLLMOptions
 ): Promise<SecureLLMResult> {
   const tracer = getTracer();
-  const span = tracer.startSpan('secure_llm_complete', {
+  const span = tracer.startSpan("secure_llm_complete", {
     attributes: {
-      'llm.service': options.serviceName,
-      'llm.operation': options.operation,
-      'llm.organization_id': options.organizationId || 'unknown',
-      'llm.user_id': options.userId || 'unknown',
-      'llm.model': options.model || 'default',
+      "llm.service": options.serviceName,
+      "llm.operation": options.operation,
+      "llm.organization_id": options.organizationId || "unknown",
+      "llm.user_id": options.userId || "unknown",
+      "llm.model": options.model || "default",
     },
   });
 
   try {
     // Validate required security context
     if (!options.organizationId) {
-      logger.warn('LLM call without organization_id', {
+      logger.warn("LLM call without organization_id", {
         service: options.serviceName,
         operation: options.operation,
       });
     }
 
     // Sanitize messages
-    const sanitizedMessages = messages.map(msg => ({
+    const sanitizedMessages = messages.map((msg) => ({
       ...msg,
       content: sanitizeContent(msg.content),
     }));
@@ -89,7 +90,7 @@ export async function secureLLMComplete(
     };
 
     // Log the call
-    logger.info('Secure LLM call initiated', {
+    logger.info("Secure LLM call initiated", {
       service: options.serviceName,
       operation: options.operation,
       organizationId: options.organizationId,
@@ -113,12 +114,12 @@ export async function secureLLMComplete(
     );
 
     // Log successful completion
-    logger.info('Secure LLM call completed', {
+    logger.info("Secure LLM call completed", {
       service: options.serviceName,
       operation: options.operation,
       organizationId: options.organizationId,
       responseLength: response.content.length,
-      usage: response.usage,
+      tokens_used: response.tokens_used,
     });
 
     span.setStatus({ code: SpanStatusCode.OK });
@@ -126,11 +127,18 @@ export async function secureLLMComplete(
 
     return {
       content: response.content,
-      usage: response.usage,
+      usage: response.tokens_used
+        ? {
+            promptTokens: Math.floor(response.tokens_used * 0.7), // Estimate
+            completionTokens: Math.floor(response.tokens_used * 0.3), // Estimate
+            totalTokens: response.tokens_used,
+          }
+        : undefined,
       model: response.model,
+      tokens_used: response.tokens_used,
     };
   } catch (error) {
-    logger.error('Secure LLM call failed', error instanceof Error ? error : undefined, {
+    logger.error("Secure LLM call failed", error instanceof Error ? error : undefined, {
       service: options.serviceName,
       operation: options.operation,
       organizationId: options.organizationId,
@@ -138,7 +146,7 @@ export async function secureLLMComplete(
 
     span.setStatus({
       code: SpanStatusCode.ERROR,
-      message: error instanceof Error ? error.message : 'Unknown error',
+      message: error instanceof Error ? error.message : "Unknown error",
     });
     span.end();
 
@@ -154,13 +162,13 @@ function sanitizeContent(content: string): string {
   let sanitized = content;
 
   // Remove system prompt injection attempts
-  sanitized = sanitized.replace(/\[SYSTEM\]|\[\/SYSTEM\]/gi, '');
-  sanitized = sanitized.replace(/\[INST\]|\[\/INST\]/gi, '');
-  
+  sanitized = sanitized.replace(/\[SYSTEM\]|\[\/SYSTEM\]/gi, "");
+  sanitized = sanitized.replace(/\[INST\]|\[\/INST\]/gi, "");
+
   // Remove potential command injection
   sanitized = sanitized.replace(/```[\s\S]*?```/g, (match) => {
     // Keep code blocks but remove dangerous commands
-    return match.replace(/rm -rf|sudo|eval|exec/gi, '[REDACTED]');
+    return match.replace(/rm -rf|sudo|eval|exec/gi, "[REDACTED]");
   });
 
   return sanitized;

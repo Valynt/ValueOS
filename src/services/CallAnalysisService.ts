@@ -1,14 +1,16 @@
 /**
  * Call Analysis Service
- * 
+ *
  * Transcribes sales calls using OpenAI Whisper and analyzes
  * the transcript using Together.ai LLM.
  */
 
-import { supabase } from '../lib/supabase';
-import { logger } from '../lib/logger';
-import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
-import { llmConfig } from '../config/llm';
+import { supabase } from "../lib/supabase";
+import { logger } from "../lib/logger";
+import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
+import { llmConfig } from "../config/llm";
+import { sanitizeForLogging } from "../lib/piiFilter";
+import { secureLLMComplete } from "../lib/llm/secureLLMWrapper";
 
 // ============================================================================
 // Types
@@ -22,9 +24,9 @@ export interface TranscriptionResult {
 
 export interface CallParticipant {
   name: string;
-  role: 'sales_rep' | 'prospect' | 'unknown';
+  role: "sales_rep" | "prospect" | "unknown";
   talkTimePercent?: number;
-  sentiment: 'positive' | 'neutral' | 'negative';
+  sentiment: "positive" | "neutral" | "negative";
 }
 
 export interface CallAnalysis {
@@ -73,7 +75,7 @@ class CallAnalysisService {
 
   constructor() {
     this.llm = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
     this.functionUrl = `${supabaseUrl}/functions/v1/transcribe-audio`;
   }
 
@@ -82,37 +84,41 @@ class CallAnalysisService {
    */
   async transcribe(file: File): Promise<TranscriptionResult> {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append("file", file);
 
       const response = await fetch(this.functionUrl, {
-        method: 'POST',
-        headers: session ? {
-          'Authorization': `Bearer ${session.access_token}`,
-        } : {},
+        method: "POST",
+        headers: session
+          ? {
+              Authorization: `Bearer ${session.access_token}`,
+            }
+          : {},
         body: formData,
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Transcription failed');
+        throw new Error(error.error || "Transcription failed");
       }
 
       const result = await response.json();
-      
+
       if (!result.success) {
-        throw new Error(result.error || 'Transcription failed');
+        throw new Error(result.error || "Transcription failed");
       }
 
       return {
         transcript: result.transcript,
         duration: result.duration || 0,
-        language: result.language || 'en',
+        language: result.language || "en",
       };
     } catch (error) {
-      logger.error('Transcription failed', error instanceof Error ? error : undefined);
+      logger.error("Transcription failed", error instanceof Error ? error : undefined);
       throw error;
     }
   }
@@ -122,31 +128,43 @@ class CallAnalysisService {
    */
   async analyzeTranscript(transcript: string, duration: number): Promise<CallAnalysis> {
     // Truncate if too long (keep ~12000 chars for context window)
-    const truncatedTranscript = transcript.length > 12000
-      ? transcript.slice(0, 12000) + '\n\n[Transcript truncated...]'
-      : transcript;
+    const truncatedTranscript =
+      transcript.length > 12000
+        ? transcript.slice(0, 12000) + "\n\n[Transcript truncated...]"
+        : transcript;
+
+    // SECURITY: Sanitize transcript for PII before LLM processing
+    const sanitizedTranscript = sanitizeForLogging(truncatedTranscript);
 
     const prompt = `Analyze this sales call transcript:
 
 Duration: ${Math.round(duration / 60)} minutes
 
 TRANSCRIPT:
-${truncatedTranscript}
+${sanitizedTranscript}
 
 Provide comprehensive analysis as JSON.`;
 
     try {
-      const response = await this.llm.complete([
-        { role: 'system', content: CALL_ANALYSIS_PROMPT },
-        { role: 'user', content: prompt },
-      ], {
-        temperature: 0.3,
-        max_tokens: 3000,
-      });
+      // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete()
+      const response = await secureLLMComplete(
+        this.llm,
+        [
+          { role: "system", content: CALL_ANALYSIS_PROMPT },
+          { role: "user", content: prompt },
+        ],
+        {
+          serviceName: "CallAnalysisService",
+          operation: "analyze-transcript",
+          organizationId: "call-analysis", // Default fallback
+          temperature: 0.3,
+          max_tokens: 3000, // Corrected parameter name
+        }
+      );
 
       return this.parseAnalysisResponse(response.content, duration);
     } catch (error) {
-      logger.error('Call analysis failed', error instanceof Error ? error : undefined);
+      logger.error("Call analysis failed", error instanceof Error ? error : undefined);
       return this.fallbackAnalysis(transcript, duration);
     }
   }
@@ -160,12 +178,9 @@ Provide comprehensive analysis as JSON.`;
   }> {
     // Step 1: Transcribe
     const transcription = await this.transcribe(file);
-    
+
     // Step 2: Analyze
-    const analysis = await this.analyzeTranscript(
-      transcription.transcript,
-      transcription.duration
-    );
+    const analysis = await this.analyzeTranscript(transcription.transcript, transcription.duration);
 
     return { transcription, analysis };
   }
@@ -183,15 +198,15 @@ Provide comprehensive analysis as JSON.`;
       }
 
       // Try direct JSON parse
-      if (content.trim().startsWith('{')) {
+      if (content.trim().startsWith("{")) {
         const parsed = JSON.parse(content);
         return this.validateAnalysis(parsed, duration);
       }
 
       // Fallback
-      return this.fallbackAnalysis('', duration);
+      return this.fallbackAnalysis("", duration);
     } catch {
-      return this.fallbackAnalysis('', duration);
+      return this.fallbackAnalysis("", duration);
     }
   }
 
@@ -200,7 +215,7 @@ Provide comprehensive analysis as JSON.`;
    */
   private validateAnalysis(parsed: Partial<CallAnalysis>, duration: number): CallAnalysis {
     return {
-      summary: parsed.summary || 'Sales call analysis',
+      summary: parsed.summary || "Sales call analysis",
       duration,
       participants: parsed.participants || [],
       painPoints: parsed.painPoints || [],
@@ -233,15 +248,17 @@ Provide comprehensive analysis as JSON.`;
    */
   private fallbackAnalysis(transcript: string, duration: number): CallAnalysis {
     return {
-      summary: 'Call analysis could not be completed. Please review the transcript manually.',
+      summary: "Call analysis could not be completed. Please review the transcript manually.",
       duration,
       participants: [],
       painPoints: [],
       objections: [],
       competitorsMentioned: [],
-      pricingDiscussed: transcript.toLowerCase().includes('price') || transcript.toLowerCase().includes('cost'),
-      budgetMentioned: transcript.toLowerCase().includes('budget'),
-      timelineMentioned: transcript.toLowerCase().includes('timeline') || transcript.toLowerCase().includes('when'),
+      pricingDiscussed:
+        transcript.toLowerCase().includes("price") || transcript.toLowerCase().includes("cost"),
+      budgetMentioned: transcript.toLowerCase().includes("budget"),
+      timelineMentioned:
+        transcript.toLowerCase().includes("timeline") || transcript.toLowerCase().includes("when"),
       nextSteps: [],
       buyingSignals: [],
       warningFlags: [],
@@ -253,7 +270,7 @@ Provide comprehensive analysis as JSON.`;
         nextStepsClarity: 5,
       },
       keyQuotes: [],
-      coachingTips: ['Review the full transcript for detailed insights'],
+      coachingTips: ["Review the full transcript for detailed insights"],
     };
   }
 
@@ -263,7 +280,7 @@ Provide comprehensive analysis as JSON.`;
   formatDuration(seconds: number): string {
     const mins = Math.floor(seconds / 60);
     const secs = Math.round(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   }
 }
 
