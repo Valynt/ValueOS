@@ -631,6 +631,11 @@ export class UnifiedAgentOrchestrator {
       // Determine which agent to use based on query and current stage
       const agentType = this.selectAgent(query, currentState);
 
+      // Check inter-agent rate limit
+      if (!this.checkAgentRateLimit(agentType)) {
+        throw new Error(`Agent ${agentType} rate limit exceeded`);
+      }
+
       logger.debug("Agent selected", {
         traceId,
         agentType,

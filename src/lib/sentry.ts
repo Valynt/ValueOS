@@ -1,15 +1,13 @@
 /**
  * Sentry Integration
- * 
+ *
  * Provides error tracking and performance monitoring for production.
  * Only initializes in production environment.
  */
 
-import { logger } from './logger';
-import { getConfig, isDevelopment, isProduction } from '../config/environment';
-import * as Sentry from '@sentry/react';
-import { logger } from './logger';
-import { getConfig, isProduction } from '../config/environment';
+import { logger } from "./logger";
+import { getConfig, isDevelopment, isProduction } from "../config/environment";
+import * as Sentry from "@sentry/react";
 
 // Type-safe Sentry interface (will be replaced with actual SDK)
 interface SentryContext {
@@ -25,11 +23,11 @@ interface SentryExtra {
 
 /**
  * Initialize Sentry for error tracking
- * 
+ *
  * @example
  * ```typescript
  * import { initializeSentry } from './lib/sentry';
- * 
+ *
  * // In bootstrap
  * if (config.monitoring.sentry.enabled) {
  *   await initializeSentry();
@@ -41,17 +39,17 @@ export async function initializeSentry(): Promise<void> {
 
   // Always allow initialization check, let internal logic decide to skip
   if (!isProduction() && !config.monitoring.sentry.enabled) {
-    logger.debug('[Sentry] Skipping initialization (not in production)');
+    logger.debug("[Sentry] Skipping initialization (not in production)");
     return;
   }
 
   if (!config.monitoring.sentry.enabled) {
-    logger.debug('[Sentry] Disabled in configuration');
+    logger.debug("[Sentry] Disabled in configuration");
     return;
   }
 
   if (!config.monitoring.sentry.dsn) {
-    logger.error('[Sentry] DSN not configured');
+    logger.error("[Sentry] DSN not configured");
     return;
   }
 
@@ -73,7 +71,7 @@ export async function initializeSentry(): Promise<void> {
       // Performance monitoring
       beforeSend(event) {
         // Filter out development errors
-        if (event.environment === 'development') {
+        if (event.environment === "development") {
           return null;
         }
         return event;
@@ -81,21 +79,20 @@ export async function initializeSentry(): Promise<void> {
 
       // Ignore common non-critical errors
       ignoreErrors: [
-        'ResizeObserver loop limit exceeded',
-        'Non-Error promise rejection captured',
+        "ResizeObserver loop limit exceeded",
+        "Non-Error promise rejection captured",
       ],
     });
 
-    logger.debug('[Sentry] Initialized successfully');
-
+    logger.debug("[Sentry] Initialized successfully");
   } catch (error) {
-    logger.error('[Sentry] Initialization failed:', error);
+    logger.error("[Sentry] Initialization failed:", error);
   }
 }
 
 /**
  * Capture an exception manually
- * 
+ *
  * @example
  * ```typescript
  * try {
@@ -115,7 +112,7 @@ export function captureException(
   }
 ): void {
   if (!isProduction()) {
-    logger.error('[Sentry] Would capture exception:', error, options);
+    logger.error("[Sentry] Would capture exception:", error, options);
     return;
   }
 
@@ -125,7 +122,7 @@ export function captureException(
 
 /**
  * Capture a message manually
- * 
+ *
  * @example
  * ```typescript
  * captureMessage('User completed onboarding', {
@@ -137,23 +134,23 @@ export function captureException(
 export function captureMessage(
   message: string,
   options?: {
-    level?: 'fatal' | 'error' | 'warning' | 'log' | 'info' | 'debug';
+    level?: "fatal" | "error" | "warning" | "log" | "info" | "debug";
     extra?: SentryExtra;
   }
 ): void {
   if (!isProduction()) {
-    logger.debug('[Sentry] Would capture message:', message, options);
+    logger.debug("[Sentry] Would capture message:", message, options);
     return;
   }
 
   // Handle level conversion if necessary, though Sentry types usually match
   // @ts-ignore - Sentry types are strict about the context object
-  Sentry.captureMessage(message, { level: (options?.level || 'info') as any });
+  Sentry.captureMessage(message, { level: (options?.level || "info") as any });
 }
 
 /**
  * Set user context for error tracking
- * 
+ *
  * @example
  * ```typescript
  * setUser({
@@ -163,14 +160,16 @@ export function captureMessage(
  * });
  * ```
  */
-export function setUser(user: {
-  id: string;
-  email?: string;
-  username?: string;
-  [key: string]: unknown;
-} | null): void {
+export function setUser(
+  user: {
+    id: string;
+    email?: string;
+    username?: string;
+    [key: string]: unknown;
+  } | null
+): void {
   if (!isProduction()) {
-    logger.debug('[Sentry] Would set user:', user);
+    logger.debug("[Sentry] Would set user:", user);
     return;
   }
 
@@ -179,7 +178,7 @@ export function setUser(user: {
 
 /**
  * Add breadcrumb for debugging
- * 
+ *
  * @example
  * ```typescript
  * addBreadcrumb({
@@ -192,11 +191,11 @@ export function setUser(user: {
 export function addBreadcrumb(breadcrumb: {
   category?: string;
   message: string;
-  level?: 'fatal' | 'error' | 'warning' | 'log' | 'info' | 'debug';
+  level?: "fatal" | "error" | "warning" | "log" | "info" | "debug";
   data?: Record<string, unknown>;
 }): void {
   if (!isProduction()) {
-    logger.debug('[Sentry] Would add breadcrumb:', breadcrumb);
+    logger.debug("[Sentry] Would add breadcrumb:", breadcrumb);
     return;
   }
 
@@ -205,31 +204,30 @@ export function addBreadcrumb(breadcrumb: {
 
 /**
  * Start a performance transaction
- * 
+ *
  * @example
  * ```typescript
  * const transaction = startTransaction({
  *   name: 'Load Dashboard',
  *   op: 'navigation'
  * });
- * 
+ *
  * // ... do work ...
- * 
+ *
  * transaction.finish();
  * ```
  */
-export function startTransaction(options: {
-  name: string;
-  op: string;
-}): {
+export function startTransaction(options: { name: string; op: string }): {
   finish: () => void;
   setStatus: (status: string) => void;
 } {
   if (!isProduction()) {
-    logger.debug('[Sentry] Would start transaction:', options);
+    logger.debug("[Sentry] Would start transaction:", options);
     return {
-      finish: () => logger.debug('[Sentry] Transaction finished:', { name: options.name }),
-      setStatus: (status) => logger.debug('[Sentry] Transaction status:', { status }),
+      finish: () =>
+        logger.debug("[Sentry] Transaction finished:", { name: options.name }),
+      setStatus: (status) =>
+        logger.debug("[Sentry] Transaction status:", { status }),
     };
   }
 
@@ -245,7 +243,7 @@ export function startTransaction(options: {
     finish: () => span.end(),
     setStatus: (status: string) => {
       // Map string status to SpanStatusCode (1=OK, 2=ERROR)
-      const code = status === 'ok' ? 1 : 2;
+      const code = status === "ok" ? 1 : 2;
       // @ts-ignore - OpenTelemetry types mismatch
       span.setStatus({ code, message: status });
     },

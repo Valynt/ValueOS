@@ -70,7 +70,7 @@ RUN syft dir /app/dist -o spdx-json > sbom-full.spdx.json 2>/dev/null || \
     (syft dir /app -o spdx-json > sbom-full.spdx.json)
 
 # Security scan
-RUN trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /app || true
+RUN trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /app
 
 # ============================================================================
 # Stage 5: Backend Production Runtime

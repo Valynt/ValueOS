@@ -12,6 +12,7 @@ import {
 } from "../CircuitBreaker";
 import { enforceRules } from "../../rules";
 import { logger } from "../../../lib/logger";
+import { sanitizeLLMOutput } from "../../../utils/sanitization";
 import { sanitizeUserInput } from "../../../utils/security";
 // VOS-SEC-004: Secure Inter-Agent Communication
 import {
@@ -592,6 +593,220 @@ export abstract class BaseAgent {
         violations: ["Governance system error - execution blocked for safety"],
       };
     }
+  }
+
+  /**
+   * Prepare LLM request with input sanitization and message building
+   */
+  private prepareLLMRequest<T extends z.ZodType>(
+    input: any,
+    resultSchema: T,
+    options: SecureInvocationOptions
+  ): { messages: LLMMessage[]; fullSchema: z.ZodType; promptStr: string } {
+    // Sanitize input
+    const sanitizedInput = this.sanitizeInput(input);
+
+    // Create full schema with result type
+    const fullSchema = createSecureAgentSchema(resultSchema);
+
+    // Build messages with XML sandboxing
+    const messages: LLMMessage[] = [
+      {
+        role: "system",
+        content: getSecureAgentSystemPrompt(this.name, this.lifecycleStage),
+      },
+      {
+        role: "user",
+        content: this.buildSandboxedPrompt(sanitizedInput),
+      },
+    ];
+
+    // Prepare prompt string
+    const promptStr = messages
+      .map((m) => `${m.role}:\n${m.content}`)
+      .join("\n\n");
+
+    return { messages, fullSchema, promptStr };
+  }
+
+  /**
+   * Execute the LLM call with secure invocation
+   */
+  private async executeLLMCall(
+    sessionId: string,
+    llmRequest: {
+      messages: LLMMessage[];
+      fullSchema: z.ZodType;
+      promptStr: string;
+    }
+  ): Promise<any> {
+    const secureResult = await secureLLMInvoke(llmRequest.promptStr, {
+      tenantId: this.organizationId || "unknown",
+      model: undefined,
+      userId: this.userId,
+      temperature: 0.7,
+      maxTokens: 4000,
+      schema: llmRequest.fullSchema,
+      deterministicParse: true,
+      executor: this.llmGateway as any,
+    });
+
+    if (!secureResult.ok) {
+      // Log and surface validation failures; fail-closed semantics
+      logger.error("secureLLMInvoke failed", undefined, {
+        agentId: this.agentId,
+        sessionId,
+        reason: secureResult.reason,
+        details: secureResult.details,
+      });
+      throw new Error(`secureLLMInvoke failed: ${secureResult.reason}`);
+    }
+
+    return secureResult.data;
+  }
+
+  /**
+   * Validate and process the LLM response
+   */
+  private async validateAndProcessResponse<T extends z.ZodType>(
+    sessionId: string,
+    llmResponse: any,
+    thresholds: ConfidenceThresholds,
+    options: SecureInvocationOptions,
+    startTime: number
+  ): Promise<SecureAgentOutput & { result: z.infer<T> }> {
+    // Apply enhanced LLM output sanitization
+    const sanitizationResult = sanitizeLLMOutput(
+      typeof llmResponse === "string"
+        ? llmResponse
+        : JSON.stringify(llmResponse),
+      {
+        maxLength: 50000,
+        checkForHallucinations: true,
+        validateStructure: true,
+        maxJsonDepth: 10,
+      }
+    );
+
+    // Log sanitization issues
+    if (sanitizationResult.securityFlags.length > 0) {
+      logger.warn("LLM output sanitization detected issues", {
+        agentId: this.agentId,
+        sessionId,
+        securityFlags: sanitizationResult.securityFlags,
+        hallucinationRisk: sanitizationResult.hallucinationRisk,
+        structuralIntegrity: sanitizationResult.structuralIntegrity,
+      });
+
+      // Audit the sanitization issues
+      await this.auditLogger.logAction(
+        sessionId,
+        this.agentId,
+        "llm_output_sanitization_issue",
+        {
+          reasoning: "LLM output contained security issues and was sanitized",
+          inputData: { rawResponse: llmResponse },
+          outputData: sanitizationResult.sanitized,
+          metadata: {
+            securityFlags: sanitizationResult.securityFlags,
+            hallucinationRisk: sanitizationResult.hallucinationRisk,
+            structuralIntegrity: sanitizationResult.structuralIntegrity,
+            originalLength: sanitizationResult.originalLength,
+            sanitizedLength: sanitizationResult.sanitizedLength,
+          },
+        }
+      );
+    }
+
+    const parsed = llmResponse as any;
+    const validation = validateAgentOutput(parsed, thresholds);
+
+    // Log warnings
+    if (validation.warnings.length > 0) {
+      logger.warn("Agent output validation warnings", {
+        agent: this.agentId,
+        sessionId,
+        warnings: validation.warnings,
+      });
+    }
+
+    // Handle errors
+    if (!validation.valid) {
+      logger.error("Agent output validation failed", undefined, {
+        agentId: this.agentId,
+        sessionId,
+        errors: validation.errors,
+      });
+
+      if (options.throwOnLowConfidence) {
+        throw new Error(
+          `Agent output validation failed: ${validation.errors.join(", ")}`
+        );
+      }
+    }
+
+    const processingTime = Date.now() - startTime;
+    const enhancedOutput = {
+      ...validation.enhanced,
+      processing_time_ms: processingTime,
+    };
+
+    // Store prediction for accuracy tracking
+    if (options.trackPrediction && this.supabase) {
+      await this.storePrediction(
+        sessionId,
+        this.sanitizeInput(options.context || {}),
+        enhancedOutput
+      );
+    }
+
+    // Cache the result
+    const cacheKey = this.generateCacheKey(sessionId, options.context || {});
+    await this.agentCache.set(cacheKey, enhancedOutput, {
+      ttl: 300, // 5 minutes
+      tags: [this.agentId, "secureInvoke"],
+      metadata: {
+        sessionId,
+        confidence: enhancedOutput.confidence_level,
+        hasHallucination: enhancedOutput.hallucination_check,
+      },
+    });
+
+    // Record performance metrics
+    const executionTime = Date.now() - startTime;
+    this.performanceMonitor.recordMetrics({
+      agentId: this.agentId,
+      agentType: this.lifecycleStage,
+      sessionId,
+      executionTime,
+      latency: executionTime,
+      memoryUsage: this.estimateMemoryUsage(),
+      cpuUsage: 0, // Could be enhanced with actual CPU monitoring
+      successRate: enhancedOutput.hallucination_check ? 0.9 : 0.95,
+      errorRate: 0,
+      confidenceScore:
+        enhancedOutput.confidence_level === "high"
+          ? 0.9
+          : enhancedOutput.confidence_level === "medium"
+            ? 0.7
+            : 0.5,
+      responseQuality: enhancedOutput.hallucination_check ? 0.8 : 0.95,
+      requestsPerMinute: 0, // Could be calculated from metrics
+      messagesPerMinute: 0,
+    });
+
+    // Log execution
+    await this.logExecution(
+      sessionId,
+      "secure_invoke",
+      options.context || {},
+      enhancedOutput.result,
+      enhancedOutput.reasoning || "No reasoning provided",
+      enhancedOutput.confidence_level,
+      enhancedOutput.evidence || []
+    );
+
+    return enhancedOutput as SecureAgentOutput & { result: z.infer<T> };
   }
 
   /**

@@ -194,10 +194,17 @@ EOF
     fi
 
     # Add breaches to report
+    local breach_items=""
     if [ ${#breaches[@]} -gt 0 ]; then
-        local IFS=','
-        report+="${breaches[*]}"
+        for breach in "${breaches[@]}"; do
+            if [ -n "$breach_items" ]; then
+                breach_items+=","
+            fi
+            breach_items+="$breach"
+        done
     fi
+
+    report+="$breach_items"
 
     report+="$(cat <<EOF
   ]

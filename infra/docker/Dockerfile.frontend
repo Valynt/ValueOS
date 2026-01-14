@@ -11,8 +11,14 @@ COPY package*.json .npmrc ./
 ENV npm_config_ignore_scripts=true
 RUN npm ci
 
-# Copy source files
-COPY . .
+# Copy source files (excluding unnecessary files)
+COPY package*.json .npmrc ./
+COPY src/ ./src/
+COPY public/ ./public/
+COPY index.html ./
+COPY vite.config.ts ./
+COPY tsconfig*.json ./
+COPY .env* ./
 
 # Build the application
 RUN npm run build
@@ -20,16 +26,7 @@ RUN npm run build
 # Prune dev dependencies
 RUN npm prune --production
 
-# Stage 2: Security scanning
-FROM builder AS security-scan
-
-# Install trivy for vulnerability scanning
-RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
-
-# Scan built assets
-RUN trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /app/dist
-
-# Stage 3: Production runtime
+# Stage 2: Production runtime
 FROM nginx:bookworm
 
 # Install trivy for final security check
