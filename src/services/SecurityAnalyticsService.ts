@@ -438,7 +438,7 @@ export class SecurityAnalyticsService extends TenantAwareService {
         .limit(10000);
 
       if (events) {
-        this.events = events.map(e => ({
+        this.events = events.map((e: any) => ({
           ...e,
           timestamp: new Date(e.timestamp)
         }));
@@ -534,16 +534,16 @@ export class SecurityAnalyticsService extends TenantAwareService {
     // Use appropriate log level based on severity
     switch (event.severity) {
       case 'critical':
-        log.error('Security event', event.title, logData);
+        log.error('Security event', undefined, { ...logData, title: event.title });
         break;
       case 'high':
-        log.warn('Security event', event.title, logData);
+        log.warn('Security event', { ...logData, title: event.title });
         break;
       case 'medium':
-        log.info('Security event', event.title, logData);
+        log.info('Security event', { ...logData, title: event.title });
         break;
       default:
-        log.debug('Security event', event.title, logData);
+        log.debug('Security event', { ...logData, title: event.title });
     }
   }
 

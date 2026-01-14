@@ -417,7 +417,7 @@ export class RateLimitEscalationService extends TenantAwareService {
     // Schedule recovery
     this.scheduleRecovery(key, action.rule.duration);
 
-    log.error('Extended block applied', {
+    log.error('Extended block applied', undefined, {
       actionId: action.id,
       target: key,
       duration: action.rule.duration,
@@ -447,7 +447,7 @@ export class RateLimitEscalationService extends TenantAwareService {
     // Notify security team immediately
     await this.notifySecurityTeam(action);
 
-    log.error('Permanent block applied', {
+    log.error('Permanent block applied', undefined, {
       actionId: action.id,
       target: key,
       riskScore: action.context.riskScore
@@ -673,7 +673,7 @@ export class RateLimitEscalationService extends TenantAwareService {
 
   private async notifySecurityTeam(action: EscalationAction): Promise<void> {
     // This would integrate with notification systems
-    log.error('Security team notification', {
+    log.error('Security team notification', undefined, {
       actionId: action.id,
       type: action.type,
       target: action.target,
