@@ -126,9 +126,10 @@ npm run dx:check
 
 - Frontend changes auto-reload via Vite HMR
 - Backend changes require container restart:
-  ```bash
+
+```bash
   docker restart valueos-backend
-  ```
+```
 
 ### Database Changes
 
@@ -282,10 +283,13 @@ npm run env:validate
 **Solution**:
 
 1. Check user has tenant assignment:
+
    ```sql
    SELECT * FROM user_tenants WHERE user_id = '<user_id>';
    ```
+
 2. Verify RLS policies allow tenant access
+
 3. Run `npm run seed:demo` to ensure proper setup
 
 ## Architecture
