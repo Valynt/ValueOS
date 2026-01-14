@@ -74,7 +74,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./infra/docker/frontend.Dockerfile
+          file: ./infra/docker/Dockerfile.frontend
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ${{ steps.login-ecr.outputs.registry }}/valuecanvas-frontend:${{ steps.image-tag.outputs.tag }}
@@ -131,7 +131,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./infra/docker/backend.Dockerfile
+          file: ./infra/docker/Dockerfile.backend
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ${{ steps.login-ecr.outputs.registry }}/valuecanvas-backend:${{ steps.image-tag.outputs.tag }}
@@ -182,7 +182,7 @@ jobs:
           image-ref: ${{ steps.login-ecr.outputs.registry }}/valuecanvas-${{ matrix.component }}:${{ steps.image-tag.outputs.tag }}
           format: "sarif"
           output: "trivy-results-${{ matrix.component }}.sarif"
-          severity: "CRITICAL,HIGH"
+          severity: "CRITICAL,HIGH,MEDIUM,LOW"
 
       - name: Upload Trivy results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3

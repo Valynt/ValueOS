@@ -35,6 +35,149 @@ import { clientRateLimit } from "../../services/ClientRateLimit";
 import { CircuitBreakerManager } from "../../services/CircuitBreaker";
 import { llmSanitizer } from "../../services/LLMSanitizer";
 
+/**
+ * API Key Rotation Manager for LLM providers
+ * Provides automatic key rotation for enhanced security and rate limit management
+ */
+class KeyRotationManager {
+  private provider: LLMProvider;
+  private keys: string[] = [];
+  private currentKeyIndex = 0;
+  private keyUsageCounts: Map<string, number> = new Map();
+  private keyLastUsed: Map<string, number> = new Map();
+  private maxRequestsPerKey = 1000; // Rotate after 1000 requests
+  private maxKeyAgeHours = 24; // Rotate after 24 hours
+
+  constructor(provider: LLMProvider) {
+    this.provider = provider;
+    this.loadKeys();
+  }
+
+  /**
+   * Load API keys from environment variables
+   */
+  private loadKeys(): void {
+    const keyPrefixes =
+      this.provider === "together"
+        ? ["TOGETHER_API_KEY", "TOGETHER_API_KEY_2", "TOGETHER_API_KEY_3"]
+        : ["OPENAI_API_KEY", "OPENAI_API_KEY_2", "OPENAI_API_KEY_3"];
+
+    for (const prefix of keyPrefixes) {
+      const key = process.env[prefix];
+      if (key && key.trim()) {
+        this.keys.push(key.trim());
+      }
+    }
+
+    if (this.keys.length === 0) {
+      logger.warn(`No API keys found for provider ${this.provider}`, {
+        keyPrefixes: keyPrefixes.map((p) => p.replace(/_.*$/, "_***")),
+      });
+    } else {
+      logger.info(
+        `Loaded ${this.keys.length} API keys for provider ${this.provider}`
+      );
+    }
+  }
+
+  /**
+   * Get the next available API key with rotation logic
+   */
+  getNextKey(): string {
+    if (this.keys.length === 0) {
+      throw new Error(`No API keys available for provider ${this.provider}`);
+    }
+
+    if (this.keys.length === 1) {
+      // Only one key available, return it
+      return this.keys[0];
+    }
+
+    // Find the best key to use (least recently used, within limits)
+    let bestKeyIndex = this.currentKeyIndex;
+    let bestKeyScore = this.calculateKeyScore(this.keys[bestKeyIndex]);
+
+    for (let i = 0; i < this.keys.length; i++) {
+      const score = this.calculateKeyScore(this.keys[i]);
+      if (score > bestKeyScore) {
+        bestKeyIndex = i;
+        bestKeyScore = score;
+      }
+    }
+
+    this.currentKeyIndex = bestKeyIndex;
+    const selectedKey = this.keys[bestKeyIndex];
+
+    // Update usage tracking
+    const currentCount = this.keyUsageCounts.get(selectedKey) || 0;
+    this.keyUsageCounts.set(selectedKey, currentCount + 1);
+    this.keyLastUsed.set(selectedKey, Date.now());
+
+    logger.debug(`Selected API key for ${this.provider}`, {
+      keyIndex: bestKeyIndex,
+      usageCount: currentCount + 1,
+      totalKeys: this.keys.length,
+    });
+
+    return selectedKey;
+  }
+
+  /**
+   * Calculate a score for key selection (higher is better)
+   * Considers usage count and time since last use
+   */
+  private calculateKeyScore(key: string): number {
+    const usageCount = this.keyUsageCounts.get(key) || 0;
+    const lastUsed = this.keyLastUsed.get(key) || 0;
+    const hoursSinceLastUse = (Date.now() - lastUsed) / (1000 * 60 * 60);
+
+    // Penalize heavily used keys and recently used keys
+    const usagePenalty = Math.min(usageCount / this.maxRequestsPerKey, 1);
+    const recencyPenalty = Math.max(
+      0,
+      1 - hoursSinceLastUse / this.maxKeyAgeHours
+    );
+
+    return 1 - (usagePenalty * 0.7 + recencyPenalty * 0.3);
+  }
+
+  /**
+   * Mark a key as failed (for circuit breaker pattern)
+   */
+  markKeyFailed(key: string): void {
+    logger.warn(`Marking API key as failed for provider ${this.provider}`, {
+      keyIndex: this.keys.indexOf(key),
+      usageCount: this.keyUsageCounts.get(key) || 0,
+    });
+
+    // Could implement exponential backoff or key quarantine here
+    // For now, just log and continue with rotation
+  }
+
+  /**
+   * Get key rotation statistics
+   */
+  getRotationStats(): {
+    totalKeys: number;
+    currentKeyIndex: number;
+    keyUsageStats: Array<{
+      index: number;
+      usageCount: number;
+      lastUsed: number;
+    }>;
+  } {
+    return {
+      totalKeys: this.keys.length,
+      currentKeyIndex: this.currentKeyIndex,
+      keyUsageStats: this.keys.map((key, index) => ({
+        index,
+        usageCount: this.keyUsageCounts.get(key) || 0,
+        lastUsed: this.keyLastUsed.get(key) || 0,
+      })),
+    };
+  }
+}
+
 export class LLMGateway {
   private provider: LLMProvider;
   private defaultModel: string;
@@ -42,6 +185,7 @@ export class LLMGateway {
   private lowCostModel: string;
   private highCostModel: string;
   private static circuitBreakerManager = new CircuitBreakerManager();
+  private keyRotationManager: KeyRotationManager;
 
   constructor(
     provider: LLMProvider = "together",
@@ -49,6 +193,7 @@ export class LLMGateway {
   ) {
     this.provider = provider;
     this.gatingEnabled = enableGating;
+    this.keyRotationManager = new KeyRotationManager(provider);
 
     if (provider === "together") {
       this.defaultModel = "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo";

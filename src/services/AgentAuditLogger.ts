@@ -5,9 +5,14 @@
  * database persistence and query capabilities.
  */
 
-import { logger } from '../lib/logger';
-import { supabase } from '../lib/supabase';
-import { AgentContext, AgentType } from './agent-types';
+import { logger } from "../lib/logger";
+import { supabase } from "../lib/supabase";
+import { AgentContext, AgentType } from "./agent-types";
+import {
+  encrypt,
+  decrypt,
+  generateEncryptionKey,
+} from "../lib/crypto/CryptoUtils";
 
 /**
  * Audit log entry
@@ -140,7 +145,7 @@ export interface AuditLogFilters {
   /**
    * Sort order
    */
-  sortOrder?: 'asc' | 'desc';
+  sortOrder?: "asc" | "desc";
 }
 
 /**
@@ -251,29 +256,43 @@ export class AgentAuditLogger {
     };
 
     // Sanitize string fields to prevent injection
-    if (sanitized.input_query && typeof sanitized.input_query === 'string') {
+    if (sanitized.input_query && typeof sanitized.input_query === "string") {
       sanitized.input_query = this.sanitizeString(sanitized.input_query, 1000);
     }
 
-    if (sanitized.error_message && typeof sanitized.error_message === 'string') {
-      sanitized.error_message = this.sanitizeString(sanitized.error_message, 500);
+    if (
+      sanitized.error_message &&
+      typeof sanitized.error_message === "string"
+    ) {
+      sanitized.error_message = this.sanitizeString(
+        sanitized.error_message,
+        500
+      );
     }
 
-    if (sanitized.user_id && typeof sanitized.user_id === 'string') {
+    if (sanitized.user_id && typeof sanitized.user_id === "string") {
       sanitized.user_id = this.sanitizeString(sanitized.user_id, 100);
     }
 
-    if (sanitized.organization_id && typeof sanitized.organization_id === 'string') {
-      sanitized.organization_id = this.sanitizeString(sanitized.organization_id, 100);
+    if (
+      sanitized.organization_id &&
+      typeof sanitized.organization_id === "string"
+    ) {
+      sanitized.organization_id = this.sanitizeString(
+        sanitized.organization_id,
+        100
+      );
     }
 
-    if (sanitized.session_id && typeof sanitized.session_id === 'string') {
+    if (sanitized.session_id && typeof sanitized.session_id === "string") {
       sanitized.session_id = this.sanitizeString(sanitized.session_id, 100);
     }
 
     // Sanitize response data with memory zeroing
     if (sanitized.response_data) {
-      sanitized.response_data = this.sanitizeAndZeroMemory(sanitized.response_data);
+      sanitized.response_data = this.sanitizeAndZeroMemory(
+        sanitized.response_data
+      );
     }
 
     // Sanitize context with memory zeroing
@@ -288,7 +307,9 @@ export class AgentAuditLogger {
 
     // Sanitize response metadata with memory zeroing
     if (sanitized.response_metadata) {
-      sanitized.response_metadata = this.sanitizeAndZeroMemory(sanitized.response_metadata);
+      sanitized.response_metadata = this.sanitizeAndZeroMemory(
+        sanitized.response_metadata
+      );
     }
 
     return sanitized;
@@ -298,15 +319,15 @@ export class AgentAuditLogger {
    * Sanitize string to prevent injection and limit length
    */
   private sanitizeString(str: string, maxLength: number): string {
-    if (!str || typeof str !== 'string') {
-      return '';
+    if (!str || typeof str !== "string") {
+      return "";
     }
 
     return str
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/javascript:/gi, '')
-      .replace(/on\w+\s*=/gi, '')
-      .replace(/[<>\"'&]/g, '')
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+      .replace(/javascript:/gi, "")
+      .replace(/on\w+\s*=/gi, "")
+      .replace(/[<>\"'&]/g, "")
       .substring(0, maxLength);
   }
 
@@ -318,7 +339,7 @@ export class AgentAuditLogger {
       return null;
     }
 
-    if (typeof data === 'string') {
+    if (typeof data === "string") {
       const sanitized = this.sanitizeString(data, 10000);
       // Zero out original string reference if it contains sensitive patterns
       if (this.containsSensitiveData(data)) {
@@ -329,7 +350,7 @@ export class AgentAuditLogger {
       return sanitized;
     }
 
-    if (typeof data === 'number' || typeof data === 'boolean') {
+    if (typeof data === "number" || typeof data === "boolean") {
       return data;
     }
 
@@ -345,7 +366,7 @@ export class AgentAuditLogger {
       return sanitizedArray;
     }
 
-    if (typeof data === 'object') {
+    if (typeof data === "object") {
       const sanitized: any = {};
       let keyCount = 0;
       const maxKeys = 50;
@@ -378,7 +399,8 @@ export class AgentAuditLogger {
   private containsSensitiveData(data: any): boolean {
     if (!data) return false;
 
-    const dataString = typeof data === 'string' ? data : JSON.stringify(data).toLowerCase();
+    const dataString =
+      typeof data === "string" ? data : JSON.stringify(data).toLowerCase();
 
     // Sensitive patterns to detect
     const sensitivePatterns = [
@@ -398,10 +420,10 @@ export class AgentAuditLogger {
       /\b(driver's license|license number)\b/i,
       /\b(passport|passport number)\b/i,
       /\b(income|salary|wages|employment)\b/i,
-      /\b(hipaa|phi|protected health)\b/i
+      /\b(hipaa|phi|protected health)\b/i,
     ];
 
-    return sensitivePatterns.some(pattern => pattern.test(dataString));
+    return sensitivePatterns.some((pattern) => pattern.test(dataString));
   }
 
   /**
@@ -409,24 +431,65 @@ export class AgentAuditLogger {
    */
   private isSensitiveField(fieldName: string): boolean {
     const sensitiveFields = [
-      'password', 'passwd', 'pwd', 'secret', 'token', 'key', 'api_key',
-      'private_key', 'public_key', 'certificate', 'session', 'session_id',
-      'jwt', 'oauth', 'authorization', 'auth', 'credentials',
-      'ssn', 'social_security', 'tax_id', 'credit_card', 'card_number',
-      'cvv', 'expiry', 'bank_account', 'account_number', 'routing',
-      'medical', 'health', 'diagnosis', 'treatment', 'patient',
-      'confidential', 'proprietary', 'trade_secret', 'internal',
-      'phone', 'mobile', 'telephone', 'email', 'address', 'birth_date',
-      'dob', 'license', 'passport', 'income', 'salary', 'wages'
+      "password",
+      "passwd",
+      "pwd",
+      "secret",
+      "token",
+      "key",
+      "api_key",
+      "private_key",
+      "public_key",
+      "certificate",
+      "session",
+      "session_id",
+      "jwt",
+      "oauth",
+      "authorization",
+      "auth",
+      "credentials",
+      "ssn",
+      "social_security",
+      "tax_id",
+      "credit_card",
+      "card_number",
+      "cvv",
+      "expiry",
+      "bank_account",
+      "account_number",
+      "routing",
+      "medical",
+      "health",
+      "diagnosis",
+      "treatment",
+      "patient",
+      "confidential",
+      "proprietary",
+      "trade_secret",
+      "internal",
+      "phone",
+      "mobile",
+      "telephone",
+      "email",
+      "address",
+      "birth_date",
+      "dob",
+      "license",
+      "passport",
+      "income",
+      "salary",
+      "wages",
     ];
 
-    return sensitiveFields.some(field => fieldName.toLowerCase().includes(field));
+    return sensitiveFields.some((field) =>
+      fieldName.toLowerCase().includes(field)
+    );
   }
 
   /**
    * Log agent interaction
    */
-  async log(entry: Omit<AgentAuditLog, 'id' | 'timestamp'>): Promise<void> {
+  async log(entry: Omit<AgentAuditLog, "id" | "timestamp">): Promise<void> {
     if (!this.enableLogging) {
       return;
     }
@@ -459,12 +522,13 @@ export class AgentAuditLogger {
     this.logQueue = [];
 
     try {
-      const { error } = await supabase
-        .from('agent_audit_logs')
-        .insert(entries);
+      const { error } = await supabase.from("agent_audit_logs").insert(entries);
 
       if (error) {
-        logger.error('Failed to flush audit logs', error instanceof Error ? error : undefined);
+        logger.error(
+          "Failed to flush audit logs",
+          error instanceof Error ? error : undefined
+        );
         // Re-add to queue on failure
         this.logQueue.unshift(...entries);
       } else {
@@ -472,7 +536,10 @@ export class AgentAuditLogger {
         this.securelyZeroEntries(entries);
       }
     } catch (error) {
-      logger.error('Error flushing audit logs', error instanceof Error ? error : undefined);
+      logger.error(
+        "Error flushing audit logs",
+        error instanceof Error ? error : undefined
+      );
       // Re-add to queue on failure
       this.logQueue.unshift(...entries);
     }
@@ -482,14 +549,17 @@ export class AgentAuditLogger {
    * Securely zero out sensitive data in flushed entries
    */
   private securelyZeroEntries(entries: AgentAuditLog[]): void {
-    entries.forEach(entry => {
+    entries.forEach((entry) => {
       // Zero out sensitive fields
       if (entry.input_query && this.containsSensitiveData(entry.input_query)) {
-        entry.input_query = '[REDACTED]';
+        entry.input_query = "[REDACTED]";
       }
 
-      if (entry.error_message && this.containsSensitiveData(entry.error_message)) {
-        entry.error_message = '[REDACTED]';
+      if (
+        entry.error_message &&
+        this.containsSensitiveData(entry.error_message)
+      ) {
+        entry.error_message = "[REDACTED]";
       }
 
       if (entry.response_data) {
@@ -505,7 +575,9 @@ export class AgentAuditLogger {
       }
 
       if (entry.response_metadata) {
-        entry.response_metadata = this.sanitizeAndZeroMemory(entry.response_metadata);
+        entry.response_metadata = this.sanitizeAndZeroMemory(
+          entry.response_metadata
+        );
       }
     });
   }
@@ -514,42 +586,40 @@ export class AgentAuditLogger {
    * Query audit logs
    */
   async query(filters: AuditLogFilters = {}): Promise<AgentAuditLog[]> {
-    let query = supabase
-      .from('agent_audit_logs')
-      .select('*');
+    let query = supabase.from("agent_audit_logs").select("*");
 
     // Apply filters
     if (filters.agent) {
-      query = query.eq('agent_name', filters.agent);
+      query = query.eq("agent_name", filters.agent);
     }
 
     if (filters.userId) {
-      query = query.eq('user_id', filters.userId);
+      query = query.eq("user_id", filters.userId);
     }
 
     if (filters.organizationId) {
-      query = query.eq('organization_id', filters.organizationId);
+      query = query.eq("organization_id", filters.organizationId);
     }
 
     if (filters.sessionId) {
-      query = query.eq('session_id', filters.sessionId);
+      query = query.eq("session_id", filters.sessionId);
     }
 
     if (filters.success !== undefined) {
-      query = query.eq('success', filters.success);
+      query = query.eq("success", filters.success);
     }
 
     if (filters.startDate) {
-      query = query.gte('timestamp', filters.startDate.toISOString());
+      query = query.gte("timestamp", filters.startDate.toISOString());
     }
 
     if (filters.endDate) {
-      query = query.lte('timestamp', filters.endDate.toISOString());
+      query = query.lte("timestamp", filters.endDate.toISOString());
     }
 
     // Sort
-    query = query.order('timestamp', {
-      ascending: filters.sortOrder === 'asc',
+    query = query.order("timestamp", {
+      ascending: filters.sortOrder === "asc",
     });
 
     // Pagination
@@ -558,13 +628,19 @@ export class AgentAuditLogger {
     }
 
     if (filters.offset) {
-      query = query.range(filters.offset, filters.offset + (filters.limit || 10) - 1);
+      query = query.range(
+        filters.offset,
+        filters.offset + (filters.limit || 10) - 1
+      );
     }
 
     const { data, error } = await query;
 
     if (error) {
-      logger.error('Failed to query audit logs', error instanceof Error ? error : undefined);
+      logger.error(
+        "Failed to query audit logs",
+        error instanceof Error ? error : undefined
+      );
       return [];
     }
 
@@ -574,7 +650,9 @@ export class AgentAuditLogger {
   /**
    * Get audit log statistics
    */
-  async getStats(filters: Omit<AuditLogFilters, 'limit' | 'offset' | 'sortOrder'> = {}): Promise<AuditLogStats> {
+  async getStats(
+    filters: Omit<AuditLogFilters, "limit" | "offset" | "sortOrder"> = {}
+  ): Promise<AuditLogStats> {
     const logs = await this.query({ ...filters, limit: 10000 });
 
     const stats: AuditLogStats = {
@@ -609,7 +687,7 @@ export class AgentAuditLogger {
       // Timeline (group by date)
       const timelineMap = new Map<string, number>();
       logs.forEach((log) => {
-        const date = log.timestamp?.split('T')[0] || '';
+        const date = log.timestamp?.split("T")[0] || "";
         timelineMap.set(date, (timelineMap.get(date) || 0) + 1);
       });
 
@@ -625,28 +703,34 @@ export class AgentAuditLogger {
    * Get recent logs
    */
   async getRecent(limit: number = 50): Promise<AgentAuditLog[]> {
-    return this.query({ limit, sortOrder: 'desc' });
+    return this.query({ limit, sortOrder: "desc" });
   }
 
   /**
    * Get logs for a specific agent
    */
-  async getByAgent(agent: AgentType, limit: number = 50): Promise<AgentAuditLog[]> {
-    return this.query({ agent, limit, sortOrder: 'desc' });
+  async getByAgent(
+    agent: AgentType,
+    limit: number = 50
+  ): Promise<AgentAuditLog[]> {
+    return this.query({ agent, limit, sortOrder: "desc" });
   }
 
   /**
    * Get logs for a specific user
    */
-  async getByUser(userId: string, limit: number = 50): Promise<AgentAuditLog[]> {
-    return this.query({ userId, limit, sortOrder: 'desc' });
+  async getByUser(
+    userId: string,
+    limit: number = 50
+  ): Promise<AgentAuditLog[]> {
+    return this.query({ userId, limit, sortOrder: "desc" });
   }
 
   /**
    * Get logs for a specific session
    */
   async getBySession(sessionId: string): Promise<AgentAuditLog[]> {
-    return this.query({ sessionId, sortOrder: 'asc' });
+    return this.query({ sessionId, sortOrder: "asc" });
   }
 
   /**
@@ -657,13 +741,16 @@ export class AgentAuditLogger {
     cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
 
     const { data, error } = await supabase
-      .from('agent_audit_logs')
+      .from("agent_audit_logs")
       .delete()
-      .lt('timestamp', cutoffDate.toISOString())
-      .select('id');
+      .lt("timestamp", cutoffDate.toISOString())
+      .select("id");
 
     if (error) {
-      logger.error('Failed to delete old logs', error instanceof Error ? error : undefined);
+      logger.error(
+        "Failed to delete old logs",
+        error instanceof Error ? error : undefined
+      );
       return 0;
     }
 
