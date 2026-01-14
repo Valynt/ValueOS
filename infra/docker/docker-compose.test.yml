@@ -17,7 +17,7 @@ services:
       - "${TEST_POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres_test_data:/var/lib/postgresql/data
-      - ../scripts/test-db-init.sql:/docker-entrypoint-initdb.d/01-test-init.sql
+      - ../../scripts/test-db-init.sql:/docker-entrypoint-initdb.d/01-test-init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d valueos_test"]
       interval: 5s

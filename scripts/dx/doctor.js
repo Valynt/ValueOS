@@ -327,7 +327,7 @@ function checkComposeState() {
   if (commandExists("docker")) {
     try {
       fullRunning = runCommand(
-        'docker compose --env-file .env.ports -f docker-compose.full.yml ps --filter "status=running" --services',
+        'docker compose --env-file .env.ports -f infra/docker/docker-compose.dev.yml ps --filter "status=running" --services',
         {
           stdio: "pipe",
         }
@@ -341,7 +341,7 @@ function checkComposeState() {
 
     try {
       depsRunning = runCommand(
-        'docker compose --env-file .env.ports -f docker-compose.deps.yml ps --filter "status=running" --services',
+        'docker compose --env-file .env.ports -f infra/docker/docker-compose.yml ps --filter "status=running" --services',
         {
           stdio: "pipe",
         }
@@ -485,7 +485,7 @@ function checkMigrationDrift() {
   // Only check if postgres container is running
   try {
     runCommand(
-      'docker compose --env-file .env.ports -f docker-compose.deps.yml ps postgres --filter "status=running"',
+      'docker compose --env-file .env.ports -f infra/docker/docker-compose.yml ps postgres --filter "status=running"',
       { stdio: "pipe" }
     );
   } catch {

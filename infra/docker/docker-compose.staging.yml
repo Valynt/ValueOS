@@ -18,7 +18,7 @@ services:
       CADDY_STORAGE: /data
       CADDY_LOG_LEVEL: ${CADDY_LOG_LEVEL:-INFO}
     volumes:
-      - ../infra/caddy:/etc/caddy:ro
+      - ../caddy:/etc/caddy:ro
       - frontend-dist:/srv/www:ro
       - caddy-data:/data
       - caddy-config:/config
@@ -78,7 +78,7 @@ services:
   backend:
     build:
       context: ..
-      dockerfile: ../Dockerfile.backend
+      dockerfile: docker/Dockerfile.backend
     container_name: valueos-backend-staging
     environment:
       NODE_ENV: staging

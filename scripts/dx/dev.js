@@ -20,8 +20,14 @@ const projectRoot = path.resolve(__dirname, "../..");
 const ports = loadPorts();
 const frontendPort = resolvePort(process.env.VITE_PORT, ports.frontend.port);
 const backendPort = resolvePort(process.env.API_PORT, ports.backend.port);
-const supabaseApiPort = resolvePort(process.env.SUPABASE_API_PORT, ports.supabase.apiPort);
-const supabaseStudioPort = resolvePort(process.env.SUPABASE_STUDIO_PORT, ports.supabase.studioPort);
+const supabaseApiPort = resolvePort(
+  process.env.SUPABASE_API_PORT,
+  ports.supabase.apiPort
+);
+const supabaseStudioPort = resolvePort(
+  process.env.SUPABASE_STUDIO_PORT,
+  ports.supabase.studioPort
+);
 
 // ANSI color codes
 const colors = {
@@ -104,7 +110,9 @@ function assertNoActiveDx() {
         colors.yellow
       )
     );
-    console.error(formatLog("dx", "Stop it first or run: npm run dx:down", colors.yellow));
+    console.error(
+      formatLog("dx", "Stop it first or run: npm run dx:down", colors.yellow)
+    );
     process.exit(1);
   } catch {
     clearDxState();
@@ -252,16 +260,21 @@ async function main() {
   process.env.DX_MODE = mode;
 
   if (!["local", "docker"].includes(mode)) {
-    console.error(`❌ Invalid mode "${mode}". Use --mode local or --mode docker.`);
+    console.error(
+      `❌ Invalid mode "${mode}". Use --mode local or --mode docker.`
+    );
     process.exit(1);
   }
 
-  const composeFile = mode === "docker" ? "docker-compose.full.yml" : "docker-compose.deps.yml";
+  const fullComposeFile = "infra/docker/docker-compose.dev.yml";
+  const depsComposeFile = "docker-compose.deps.yml";
+  const composeFile = mode === "docker" ? fullComposeFile : depsComposeFile;
+
   ensurePortsEnvFile();
   assertNoActiveDx();
 
-  const fullRunning = getRunningComposeServices("docker-compose.full.yml");
-  const depsRunning = getRunningComposeServices("docker-compose.deps.yml");
+  const fullRunning = getRunningComposeServices(fullComposeFile);
+  const depsRunning = getRunningComposeServices(depsComposeFile);
   const runningSummary = [
     `full=${fullRunning.length ? fullRunning.join(", ") : "none"}`,
     `deps=${depsRunning.length ? depsRunning.join(", ") : "none"}`,
@@ -296,8 +309,12 @@ async function main() {
 
   if (mode === "docker") {
     if (fullRunning.length > 0) {
-      console.log(formatLog("dx", "Full Docker stack is already running.", colors.green));
-      console.log(formatLog("dx", 'Use "npm run dx:down" to stop it.', colors.yellow));
+      console.log(
+        formatLog("dx", "Full Docker stack is already running.", colors.green)
+      );
+      console.log(
+        formatLog("dx", 'Use "npm run dx:down" to stop it.', colors.yellow)
+      );
       process.exit(0);
     }
 
@@ -313,14 +330,25 @@ async function main() {
     }
 
     const dockerPortConflicts = [];
-    if ((await isPortInUse(frontendPort)) && !isDockerPortPublished(frontendPort)) {
-      dockerPortConflicts.push(`Frontend port ${frontendPort} is already in use`);
+    if (
+      (await isPortInUse(frontendPort)) &&
+      !isDockerPortPublished(frontendPort)
+    ) {
+      dockerPortConflicts.push(
+        `Frontend port ${frontendPort} is already in use`
+      );
     }
-    if ((await isPortInUse(backendPort)) && !isDockerPortPublished(backendPort)) {
+    if (
+      (await isPortInUse(backendPort)) &&
+      !isDockerPortPublished(backendPort)
+    ) {
       dockerPortConflicts.push(`Backend port ${backendPort} is already in use`);
     }
 
-    if (dockerPortConflicts.length > 0 && process.env.DX_ALLOW_PORT_IN_USE !== "1") {
+    if (
+      dockerPortConflicts.length > 0 &&
+      process.env.DX_ALLOW_PORT_IN_USE !== "1"
+    ) {
       console.error(
         formatLog(
           "dx",
@@ -332,10 +360,14 @@ async function main() {
     }
 
     writeDxLock({ mode, composeFile, createdAt: new Date().toISOString() });
-    writeDxState({ pid: process.pid, mode, startedAt: new Date().toISOString() });
+    writeDxState({
+      pid: process.pid,
+      mode,
+      startedAt: new Date().toISOString(),
+    });
     await runCommand(
       "docker",
-      "docker compose --env-file .env.ports -f docker-compose.full.yml up -d"
+      "docker compose --env-file .env.ports -f infra/docker/docker-compose.dev.yml up -d"
     );
     console.log("\n" + "=".repeat(60));
     console.log("✅ Docker services are running!");
@@ -385,7 +417,10 @@ async function main() {
   const backendPortInUse = await isPortInUse(backendPort);
   if (backendPortInUse) {
     if (process.env.DX_ALLOW_PORT_IN_USE === "1") {
-      logWarning("backend", `Port ${backendPort} already in use. Skipping local backend start.`);
+      logWarning(
+        "backend",
+        `Port ${backendPort} already in use. Skipping local backend start.`
+      );
     } else {
       console.error(
         formatLog(
@@ -397,7 +432,11 @@ async function main() {
       process.exit(1);
     }
   } else {
-    const backendProc = startService("backend", "npm run backend:dev", colors.blue);
+    const backendProc = startService(
+      "backend",
+      "npm run backend:dev",
+      colors.blue
+    );
     services.push(backendProc);
   }
 
@@ -408,7 +447,10 @@ async function main() {
   const frontendPortInUse = await isPortInUse(frontendPort);
   if (frontendPortInUse) {
     if (process.env.DX_ALLOW_PORT_IN_USE === "1") {
-      logWarning("frontend", `Port ${frontendPort} already in use. Skipping local frontend start.`);
+      logWarning(
+        "frontend",
+        `Port ${frontendPort} already in use. Skipping local frontend start.`
+      );
     } else {
       console.error(
         formatLog(
@@ -432,8 +474,12 @@ async function main() {
   console.log("✅ All services ready!");
   console.log("=".repeat(60) + "\n");
   console.log("📍 Service URLs:");
-  console.log(`   ${colors.green}Frontend:${colors.reset}  http://localhost:${frontendPort}`);
-  console.log(`   ${colors.blue}Backend:${colors.reset}   http://localhost:${backendPort}`);
+  console.log(
+    `   ${colors.green}Frontend:${colors.reset}  http://localhost:${frontendPort}`
+  );
+  console.log(
+    `   ${colors.blue}Backend:${colors.reset}   http://localhost:${backendPort}`
+  );
   console.log(
     `   ${colors.yellow}Supabase API:${colors.reset}     http://localhost:${supabaseApiPort}`
   );
