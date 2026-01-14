@@ -146,13 +146,13 @@ const mockConfig = {
   },
 };
 
-vi.mocked(getAgentMessageQueueConfig).mockReturnValue(mockConfig);
-vi.mocked(getEventExecutorConfig).mockReturnValue({
-  ...mockConfig,
-  kafka: mockConfig.kafka,
-  circuitBreaker: mockConfig.circuitBreaker,
-  agentExecution: mockConfig.agentExecution,
-});
+// vi.mocked(getAgentMessageQueueConfig).mockReturnValue(mockConfig);
+// vi.mocked(getEventExecutorConfig).mockReturnValue({
+//   ...mockConfig,
+//   kafka: mockConfig.kafka,
+//   circuitBreaker: mockConfig.circuitBreaker,
+//   agentExecution: mockConfig.agentExecution,
+// });
 
 describe("Integration - Async Agent Execution Flow", () => {
   let app: Express;

@@ -5,20 +5,20 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const USE_TESTCONTAINERS = process.env.VITEST_USE_TESTCONTAINERS === "true";
 
 export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
     environment: "jsdom", // DOM environment for React component testing
-    setupFiles: [
-      "./tests/integration/vitest.setup.ts",
-      "./tests/setup.ts",
-      "./src/test/setup.ts",
-      "./src/test/setup-integration.ts",
-      "./src/sdui/__tests__/setup.ts",
-    ],
-    globalSetup: "./src/test/vitest-global-setup.ts", // Use testcontainers
+    setupFiles: ["./tests/integration/vitest.setup.ts"],
+    ...(USE_TESTCONTAINERS
+      ? {
+          globalSetup: "./src/test/vitest-global-setup.ts", // Use testcontainers
+          globalTeardown: "./src/test/vitest-global-teardown.ts", // Always teardown to prevent leaks
+        }
+      : {}),
     include: [
       "**/*.integration.test.{ts,tsx}",
       "src/repositories/**/*.test.{ts,tsx}",
@@ -51,6 +51,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      kafkajs: path.resolve(__dirname, "../../tests/integration/kafkajs.stub.ts"),
       "@": path.resolve(__dirname, "./src"),
       "@components": path.resolve(__dirname, "./src/components"),
       "@services": path.resolve(__dirname, "./src/services"),

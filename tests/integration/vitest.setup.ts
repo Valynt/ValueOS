@@ -1,5 +1,10 @@
 import { vi } from "vitest";
 
+process.env.VITE_SUPABASE_URL ||= "http://localhost:54321";
+process.env.SUPABASE_URL ||= process.env.VITE_SUPABASE_URL;
+process.env.VITE_SUPABASE_ANON_KEY ||= "test-anon-key";
+process.env.SUPABASE_SERVICE_KEY ||= "test-service-key";
+
 vi.mock("../../src/config/ServiceConfigManager", () => {
   const base = {
     enabled: true,
@@ -100,12 +105,24 @@ vi.mock("../../src/config/ServiceConfigManager", () => {
   };
 });
 
-vi.mock("../../src/services/EventProducer", () => {
-  return {
-    getEventProducer: () => ({
-      publish: vi.fn().mockResolvedValue(undefined),
-      connect: vi.fn().mockResolvedValue(undefined),
-      disconnect: vi.fn().mockResolvedValue(undefined),
-    }),
-  };
-});
+vi.mock("../../src/services/CircuitBreaker", () => ({
+  CircuitBreakerManager: class {
+    getCircuitBreaker() {
+      return {
+        call: vi.fn().mockImplementation((fn) => fn()),
+        on: vi.fn(),
+      };
+    }
+  },
+}));
+
+vi.mock("../../src/services/AgentRegistry", () => ({
+  AgentRegistry: class {
+    getAgent() {
+      return {};
+    }
+    listAgents() {
+      return [];
+    }
+  },
+}));
