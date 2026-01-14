@@ -9,10 +9,7 @@ import { PrismaClient } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 import * as crypto from "crypto";
 
-const prisma = new PrismaClient({
-  adapter: process.env.DATABASE_URL,
-  directUrl: process.env.DIRECT_DATABASE_URL,
-});
+const prisma = new PrismaClient();
 
 // Environment validation
 const NODE_ENV = process.env.NODE_ENV || "development";

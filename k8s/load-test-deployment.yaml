@@ -1,0 +1,206 @@
+# Load Testing Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: load-test-runner
+  namespace: valueos-ha
+  labels:
+    app: load-test-runner
+    ha: enabled
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: load-test-runner
+  template:
+    metadata:
+      labels:
+        app: load-test-runner
+    spec:
+      serviceAccountName: load-test-runner
+      containers:
+      - name: load-test
+        image: loadimpact/k6:latest
+        command: ["/bin/sh"]
+        args: ["-c", "apk add --no-cache jq bc && chmod +x /load-test.sh && while true; do sleep 3600; done"]
+        volumeMounts:
+        - name: load-test-scripts
+          mountPath: /load-test.sh
+          subPath: load-test.sh
+        - name: load-test-results
+          mountPath: /tmp/results
+        env:
+        - name: BASE_URL
+          value: "http://valueos-frontend-ha"
+        - name: API_URL
+          value: "http://valueos-backend-ha:3001"
+        - name: RESULTS_DIR
+          value: "/tmp/results"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65534
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+      volumes:
+      - name: load-test-scripts
+        configMap:
+          name: load-test-scripts
+      - name: load-test-results
+        persistentVolumeClaim:
+          claimName: load-test-results-pvc
+      restartPolicy: Always
+---
+# Load Test Results PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: load-test-results-pvc
+  namespace: valueos-ha
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: gp2
+---
+# Load Test Scripts ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: load-test-scripts
+  namespace: valueos-ha
+data:
+  load-test.sh: |
+    #!/bin/bash
+    # Embedded Load Test Script
+    set -euo pipefail
+    
+    BASE_URL="${BASE_URL:-http://valueos-frontend-ha}"
+    API_URL="${API_URL:-http://valueos-backend-ha:3001}"
+    RESULTS_DIR="${RESULTS_DIR:-/tmp/results}"
+    
+    mkdir -p "$RESULTS_DIR"
+    
+    log() {
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$RESULTS_DIR/load-test.log"
+    }
+    
+    run_baseline_test() {
+        log "Running baseline load test..."
+        
+        k6 run --out json="$RESULTS_DIR/baseline-results.json" << 'EOF'
+import http from 'k6/http';
+import { check, sleep } from 'k6';
+
+export let options = {
+  stages: [
+    { duration: '2m', target: 10 },
+    { duration: '5m', target: 10 },
+    { duration: '2m', target: 0 },
+  ],
+  thresholds: {
+    http_req_duration: ['p(95)<200'],
+    http_req_failed: ['rate<0.01'],
+  },
+};
+
+export default function() {
+  let res = http.get(__ENV.BASE_URL + '/');
+  check(res, {
+    'status is 200': (r) => r.status === 200,
+    'response time < 200ms': (r) => r.timings.duration < 200,
+  });
+  sleep(1);
+}
+EOF
+        
+        log "Baseline test completed"
+    }
+    
+    run_stress_test() {
+        log "Running stress test..."
+        
+        k6 run --out json="$RESULTS_DIR/stress-results.json" << 'EOF'
+import http from 'k6/http';
+import { check, sleep } from 'k6';
+
+export let options = {
+  stages: [
+    { duration: '2m', target: 20 },
+    { duration: '5m', target: 50 },
+    { duration: '5m', target: 100 },
+    { duration: '5m', target: 50 },
+    { duration: '2m', target: 0 },
+  ],
+  thresholds: {
+    http_req_duration: ['p(95)<500'],
+    http_req_failed: ['rate<0.05'],
+  },
+};
+
+export default function() {
+  let res = http.get(__ENV.BASE_URL + '/');
+  check(res, {
+    'status is 200': (r) => r.status === 200,
+    'response time < 500ms': (r) => r.timings.duration < 500,
+  });
+  sleep(0.5);
+}
+EOF
+        
+        log "Stress test completed"
+    }
+    
+    # Run tests on schedule
+    while true; do
+        run_baseline_test
+        sleep 3600  # Wait 1 hour
+        run_stress_test
+        sleep 3600  # Wait 1 hour
+    done
+---
+# Load Test Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: load-test-runner
+  namespace: valueos-ha
+---
+# Load Test RBAC
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: load-test-runner
+  namespace: valueos-ha
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services"]
+  verbs: ["get", "list"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: load-test-runner
+  namespace: valueos-ha
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: load-test-runner
+subjects:
+- kind: ServiceAccount
+  name: load-test-runner
+  namespace: valueos-ha

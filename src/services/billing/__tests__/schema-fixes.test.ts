@@ -3,6 +3,8 @@
  * Validates the critical fixes for schema alignment, ID types, and transaction safety
  */
 
+/// <reference types="vitest/globals" />
+
 // Vitest provides globals automatically with globals: true in config
 import { PLANS } from "../../../config/billing";
 import SubscriptionService from "../SubscriptionService";
@@ -103,8 +105,8 @@ describe("SaaS Schema Architecture Fixes", () => {
       },
     };
 
-    subscriptionService = new SubscriptionService();
-    customerService = new CustomerService();
+    subscriptionService = SubscriptionService;
+    customerService = CustomerService;
   });
 
   describe("Schema Alignment Fixes", () => {
