@@ -1,0 +1,138 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: valueos_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test_password
+    volumes:
+      - ./test/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    tmpfs:
+      - /var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly no --maxmemory 256mb --maxmemory-policy allkeys-lru
+    tmpfs:
+      - /data
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+
+  backend:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
+      target: backend-production
+    environment:
+      - NODE_ENV=test
+      - LOG_LEVEL=debug
+      - TEST_MODE=true
+    volumes:
+      - ../../coverage:/app/coverage
+    command: ["npm", "run", "test:ci"]
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    profiles:
+      - test-backend
+
+  frontend:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
+      target: frontend-production
+    environment:
+      - NODE_ENV=test
+    volumes:
+      - ../../test-results:/app/test-results
+    command: ["npm", "run", "test:e2e:ci"]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+    profiles:
+      - test-frontend
+
+  # Test runner service
+  test-runner:
+    image: node:22-bookworm-slim
+    container_name: valueos-test-runner
+    working_dir: /app
+    volumes:
+      - ../..:/app:ro
+      - ../../node_modules:/app/node_modules:ro
+      - ../../coverage:/app/coverage
+      - ../../test-results:/app/test-results
+    environment:
+      - NODE_ENV=test
+      - POSTGRES_HOST=postgres
+      - REDIS_HOST=redis
+    command: >
+      sh -c "
+        npm ci &&
+        npm run test:integration &&
+        npm run test:e2e
+      "
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - valueos-network
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+    profiles:
+      - test-runner
+
+  # Test database for parallel test execution
+  test-db-1:
+    image: postgres:15-alpine
+    container_name: valueos-test-db-1
+    environment:
+      POSTGRES_DB: valueos_test_1
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test_password
+    tmpfs:
+      - /var/lib/postgresql/data
+    networks:
+      - valueos-network
+    profiles:
+      - parallel-tests
+
+  test-db-2:
+    image: postgres:15-alpine
+    container_name: valueos-test-db-2
+    environment:
+      POSTGRES_DB: valueos_test_2
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test_password
+    tmpfs:
+      - /var/lib/postgresql/data
+    networks:
+      - valueos-network
+    profiles:
+      - parallel-tests
+
+volumes:
+  coverage:
+  test-results:

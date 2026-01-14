@@ -57,6 +57,8 @@ else
     echo -e "${GREEN}✅ .env.local exists${NC}"
 fi
 
+cd infra/docker/
+
 echo ""
 
 # Ask user if they want to rebuild
@@ -89,7 +91,7 @@ echo ""
 if [[ "$RUN_BG" =~ ^[Yy]$ ]]; then
     # Background mode
     docker-compose -f docker-compose.dev.yml up -d
-    
+
     echo -e "${GREEN}✅ Containers started in background${NC}"
     echo ""
     echo "📊 Container Status:"

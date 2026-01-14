@@ -1,0 +1,52 @@
+/* Valynt Design Tokens */
+:root {
+  /* Brand Colors - Dark First */
+  --color-surface-1: hsl(230, 10%, 4%);   /* Deepest Background #0B0C0F */
+  --color-surface-2: hsl(230, 12%, 9%);   /* Card Background #13141A */
+  --color-surface-3: hsl(230, 12%, 12%);  /* Elevated/Popover #1A1C24 */
+
+  /* Accents */
+  --color-teal-500: hsl(169, 70%, 43%);   /* Primary Brand */
+  --color-teal-400: hsl(170, 77%, 51%);   /* Hover/Info */
+  --color-grey-500: hsl(230, 8%, 38%);    /* Muted/Graph */
+
+  /* Functional Colors */
+  --color-action: var(--color-teal-500);
+  --color-success: var(--color-teal-500);
+  --color-warning: hsl(38, 100%, 57%);
+  --color-error: hsl(2, 73%, 62%);
+  --color-text-primary: hsl(0, 0%, 88%);
+  --color-text-muted: hsl(0, 0%, 60%);
+
+  /* Borders */
+  --color-border-default: hsl(0, 0%, 16%);
+  --color-border-strong: hsl(0, 0%, 23%);
+
+  /* Spacing Scale (8px Grid) */
+  --space-1: 0.5rem;  /* 8px */
+  --space-2: 1rem;    /* 16px */
+  --space-3: 1.5rem;  /* 24px */
+  --space-4: 2rem;    /* 32px */
+  --space-6: 3rem;    /* 48px */
+  --space-8: 4rem;    /* 64px */
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  
+  --text-xs: 0.75rem;     /* 12px */
+  --text-sm: 0.875rem;    /* 14px */
+  --text-base: 1rem;      /* 16px */
+  --text-3xl: 1.875rem;   /* 30px */
+  --text-5xl: 3rem;       /* 48px */
+  
+  /* Radii */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;    /* 8px (Card) */
+  --radius-lg: 1rem;      /* 16px (Modal) */
+  
+  /* Motion */
+  --motion-fast: 100ms;
+  --motion-normal: 200ms;
+  --motion-slow: 500ms;
+}

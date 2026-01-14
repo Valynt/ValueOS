@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: AgentManifest
+metadata:
+  name: expansion-agent
+  description: "Identifies incremental value opportunities and models expansion potential."
+  version: "1.0.0"
+spec:
+  schema:
+    input:
+      type: object
+      required:
+        - realizationData
+        - benchmarks
+      properties:
+        realizationData:
+          type: object
+          description: Aggregated value realization metrics across KPIs and financial dimensions.
+        benchmarks:
+          type: object
+          description: Industry or cross-customer benchmarks stored in the Value Fabric for comparison.
+    output:
+      type: object
+      required:
+        - expansionModel
+        - upsellCase
+      properties:
+        expansionModel:
+          type: object
+          description: Proposed incremental value outcomes, KPIs, and financial projections for upsell or cross-sell.
+        upsellCase:
+          type: object
+          description: Sales-ready business case for expansion, including ROI and payback.
+  entrypoint:
+    module: agents/expansion/main.py
+    class: ExpansionAgent
+    method: handle
+    httpEndpoint: "/api/expansion/process"
+  runtime:
+    language: python
+    memory: "512Mi"
+    cpu: "250m"
+    dependencies:
+      - name: pandas
+        version: "^2.0"
+      - name: numpy
+        version: "^1.23"
+      - name: neo4j
+        version: "^5.0.0"
+  permissions:
+    roles:
+      - reader: ["valueFabric.realization", "valueFabric.benchmarks"]
+      - writer: ["valueFabric.expansion"]
+      - publisher: ["events.value.expansion.triggered"]
+    securityPolicies:
+      - restrictDataAccess: true
+      - encryptSensitiveData: true
+  communication:
+    subscribe:
+      - topic: "events.value.realization.updated"
+    publish:
+      - topic: "events.value.expansion.triggered"
+  health:
+    livenessProbe:
+      httpGet:
+        path: "/health/live"
+        port: 8083
+      intervalSeconds: 30
+    readinessProbe:
+      httpGet:
+        path: "/health/ready"
+        port: 8083
+      intervalSeconds: 30
+  monitoring:
+    metricsEndpoint: "/metrics"
+    logLevel: INFO

@@ -1,0 +1,455 @@
+# Getting Started with ValueOS
+
+Welcome to ValueOS! This guide will help you set up your local development environment in less than 5 minutes.
+
+---
+
+## Quick Start
+
+```bash
+# Clone repository
+git clone https://github.com/Valynt/ValueOS.git
+cd ValueOS
+
+# Run automated setup (scripts/dx/setup.js)
+npm run setup
+
+# Start development
+npm run dx
+```
+
+Open [http://localhost:5173](http://localhost:5173) (or the port in `config/ports.json` / `.env.ports`) to see the app!
+
+**Ports & modes**
+
+- **Local dev (direct)**: Ports from `config/ports.json` (synced to `.env.ports`), with `VITE_API_BASE_URL` set to `http://localhost:${API_PORT}`.
+- **Container/Caddy dev**: Use the edge proxy (`https://localhost:8443` or `http://localhost:8080`), with `VITE_API_BASE_URL` set to `/api` so Caddy can proxy.
+
+---
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- **Node.js** 22 (see `.nvmrc`) ([Download](https://nodejs.org/))
+- **Docker** Desktop or Engine ([Download](https://www.docker.com/))
+- **Git** ([Download](https://git-scm.com/))
+- **10 GB** free disk space
+
+The setup script will check these for you.
+
+---
+
+## Platform-Specific Setup
+
+### macOS
+
+```bash
+# Install Homebrew (if not installed)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install Node.js
+brew install node@22
+
+# Install Docker Desktop
+brew install --cask docker
+
+# Start Docker
+open -a Docker
+```
+
+**Apple Silicon (M1/M2)**: Everything works natively! No special configuration needed.
+
+**Intel Mac**: Works great, but consider upgrading to Apple Silicon for better performance.
+
+See [docs/platform/MACOS.md](platform/MACOS.md) for detailed instructions.
+
+---
+
+### Windows (WSL2 Recommended)
+
+**Option 1: WSL2 (Recommended)**
+
+```powershell
+# Install WSL2
+wsl --install
+
+# Restart computer
+
+# Inside WSL2:
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
+sudo apt-get install -y docker.io
+```
+
+**Option 2: Native Windows**
+
+- Install [Node.js](https://nodejs.org/)
+- Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+- Use PowerShell or Git Bash
+
+See [docs/platform/WINDOWS.md](platform/WINDOWS.md) for detailed instructions.
+
+---
+
+### Linux
+
+```bash
+# Ubuntu/Debian
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
+sudo apt-get install -y docker.io
+
+# Add user to docker group
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Increase file watcher limit
+echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+```
+
+See [docs/platform/LINUX.md](platform/LINUX.md) for other distributions.
+
+---
+
+## Automated Setup
+
+The `npm run setup` command (backed by `scripts/dx/setup.js`) will:
+
+1. ✅ Detect your platform (macOS/Windows/Linux)
+2. ✅ Check prerequisites (Node, Docker, disk space)
+3. ✅ Generate secure environment configuration
+4. ✅ Install dependencies
+5. ✅ Sync ports from `config/ports.json`
+6. ✅ Verify everything is working
+
+**Time**: ~3-5 minutes on most systems
+
+---
+
+## Manual Setup (If Needed)
+
+If automated setup fails, you can set up manually:
+
+### 1. Environment Configuration
+
+```bash
+# Copy template
+cp .env.example .env.local
+
+# Edit .env.local and set:
+# - JWT_SECRET (generate with: openssl rand -hex 32)
+# - DATABASE_URL
+# - VITE_API_BASE_URL:
+#   - Direct/local dev: http://localhost:${API_PORT}
+#   - Caddy/edge (docker-compose.dev.yml): /api
+# - Other required variables
+```
+
+**Environment file precedence:** `.env.local` is the canonical local file. Tooling checks `.env.local` first and falls back to `.env` only when needed. `npm run setup` generates `.env.local` and also writes `.env` for legacy tooling compatibility.
+
+### 2. Install Dependencies
+
+```bash
+npm install
+```
+
+### 3. Start Docker Services
+
+```bash
+npm run dx:docker
+```
+
+### 4. Verify Setup
+
+```bash
+npm run health
+```
+
+---
+
+## Development Workflow
+
+### Start All Services
+
+```bash
+# Unified command (recommended)
+npm run dx
+
+# Or start individually:
+npm run dev              # Frontend only
+npm run backend:dev      # Backend only
+docker compose -f docker-compose.deps.yml up -d  # Docker deps
+```
+
+### Check System Health
+
+```bash
+npm run health
+```
+
+Output:
+
+```
+🏥 Running health checks...
+
+✅ Backend API       http://localhost:3001/health
+✅ Frontend          http://localhost:5173
+✅ PostgreSQL        localhost:54322
+✅ Redis             localhost:6379
+✅ Environment       All required vars set
+
+All systems operational! 🎉
+```
+
+### Access Services
+
+- **Frontend**: [http://localhost:5173](http://localhost:5173) (`VITE_PORT`)
+- **Backend API**: [http://localhost:3001](http://localhost:3001) (`API_PORT`)
+- **Supabase Studio**: [http://localhost:54323](http://localhost:54323)
+- **API Docs**: [http://localhost:3001/api-docs](http://localhost:3001/api-docs)
+
+---
+
+## Common Commands
+
+```bash
+# Development
+npm run dx               # Start local app + Docker deps
+npm run dx:docker        # Start full Docker stack
+npm run dx:doctor        # Preflight checks (fail fast)
+npm run dev              # Start frontend dev server
+npm run backend:dev      # Start backend dev server
+npm run dx               # Start all services
+
+# Testing
+npm test                 # Run tests
+npm run test:watch       # Watch mode
+npm run test:coverage    # With coverage
+
+# Database
+npm run db:push          # Push schema changes
+npm run db:pull          # Pull schema from remote
+npm run db:reset         # Reset local database
+npm run db:types         # Generate TypeScript types
+
+# Docker
+npm run dx:docker        # Start full Docker stack
+npm run dx:down          # Stop dev services
+npm run dx:reset         # Clean slate (volumes + locks)
+docker compose logs -f   # View logs
+docker compose ps        # Check status
+
+# Code Quality
+npm run lint             # Lint code
+npm run lint:fix         # Fix linting issues
+npm run typecheck        # Type check
+```
+
+---
+
+## Troubleshooting
+
+### Setup Fails
+
+**Check prerequisites**:
+
+```bash
+node --version    # Should be >= 18.0.0
+docker --version  # Should be installed
+docker ps         # Docker should be running
+```
+
+**Clean and retry**:
+
+```bash
+rm -rf node_modules package-lock.json .env
+npm run setup
+```
+
+### Port Already in Use
+
+**Find and kill process**:
+
+```bash
+# macOS/Linux
+lsof -i :5173  # or :$VITE_PORT, :$API_PORT, :54322, etc.
+kill -9 <PID>
+
+# Windows
+netstat -ano | findstr :5173
+taskkill /PID <PID> /F
+```
+
+### Docker Issues
+
+**Restart Docker**:
+
+```bash
+# macOS
+killall Docker && open -a Docker
+
+# Linux
+sudo systemctl restart docker
+
+# Windows
+Restart Docker Desktop
+```
+
+**Check Docker status**:
+
+```bash
+docker-compose ps
+docker-compose logs
+```
+
+### Environment Variables Missing
+
+**Regenerate .env**:
+
+```bash
+rm .env
+npm run setup
+```
+
+### More Help
+
+- **Troubleshooting Guide**: [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+- **Platform Guides**: [docs/platform/](platform/)
+- **Security**: [docs/SECURITY_DEV_ENVIRONMENT.md](SECURITY_DEV_ENVIRONMENT.md)
+- **Slack**: #engineering
+
+---
+
+## Next Steps
+
+### 1. Explore the Codebase
+
+```
+ValueOS/
+├── src/
+│   ├── components/     # React components
+│   ├── pages/          # Page components
+│   ├── services/       # Business logic
+│   ├── api/            # API client
+│   └── types/          # TypeScript types
+├── scripts/            # Build and dev scripts
+├── docs/               # Documentation
+└── tests/              # Test files
+```
+
+### 2. Make Your First Change
+
+1. Create a feature branch: `git checkout -b feature/my-feature`
+2. Make changes
+3. Test: `npm test`
+4. Commit: `git commit -m "Add my feature"`
+5. Push: `git push origin feature/my-feature`
+6. Create Pull Request
+
+### 3. Read the Docs
+
+- **Contributing**: [CONTRIBUTING.md](../CONTRIBUTING.md)
+- **Architecture**: [docs/ARCHITECTURE.md](ARCHITECTURE.md)
+- **API Reference**: [docs/API.md](API.md)
+- **Testing**: [docs/TESTING.md](TESTING.md)
+
+---
+
+## Development Tips
+
+### Hot Reload
+
+Both frontend and backend support hot reload:
+
+- **Frontend**: Vite automatically reloads on file changes
+- **Backend**: tsx watch restarts on file changes
+
+### Database Changes
+
+```bash
+# Create migration
+npm run db:migration:create my_migration
+
+# Apply migrations
+npm run db:push
+
+# Generate types
+npm run db:types
+```
+
+### Debugging
+
+**Frontend**:
+
+- Use React DevTools browser extension
+- Check browser console
+- Use `console.log()` or debugger
+
+**Backend**:
+
+- Check terminal output
+- Use `console.log()` or debugger
+- View logs: `docker-compose logs backend`
+
+### Performance
+
+**Frontend**:
+
+- Use React DevTools Profiler
+- Check Network tab for slow requests
+- Use Lighthouse for audits
+
+**Backend**:
+
+- Check response times in logs
+- Use database query logging
+- Profile with Node.js inspector
+
+---
+
+## Getting Help
+
+### Documentation
+
+- **This Guide**: You're reading it!
+- **Troubleshooting**: [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+- **Platform Guides**: [docs/platform/](platform/)
+- **API Docs**: [http://localhost:3001/api-docs](http://localhost:3001/api-docs)
+
+### Community
+
+- **Slack**: #engineering (for questions)
+- **GitHub Issues**: [Report bugs](https://github.com/Valynt/ValueOS/issues)
+- **Pull Requests**: [Contribute](https://github.com/Valynt/ValueOS/pulls)
+
+### Support
+
+If you're stuck:
+
+1. Check [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+2. Search existing GitHub issues
+3. Ask in #engineering on Slack
+4. Create a GitHub issue with:
+   - Platform (macOS/Windows/Linux)
+   - Node version (`node --version`)
+   - Error messages
+   - Steps to reproduce
+
+---
+
+## Success!
+
+You're all set! 🎉
+
+**What's Next?**
+
+- Explore the codebase
+- Pick up a task from Linear/Jira
+- Make your first contribution
+- Help improve these docs
+
+**Questions?** Ask in #engineering on Slack.
+
+**Happy coding!** 🚀

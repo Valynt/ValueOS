@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: AgentManifest
+metadata:
+  name: opportunity-agent
+  description: "Discovers customer pain and maps capabilities to outcomes during the value opportunity stage."
+  version: "1.0.0"
+spec:
+  schema:
+    input:
+      type: object
+      required:
+        - customerProfile
+        - discoveryData
+      properties:
+        customerProfile:
+          type: object
+          description: Basic firmographic and persona data for the prospect/customer.
+        discoveryData:
+          type: array
+          description: Unstructured data (call transcripts, emails, notes) collected during discovery.
+          items:
+            type: string
+    output:
+      type: object
+      required:
+        - opportunitySummary
+        - personaFit
+        - initialValueModel
+      properties:
+        opportunitySummary:
+          type: string
+          description: Summary of discovered pain points and quantified outcomes.
+        personaFit:
+          type: object
+          description: Mapping between personas and the company's capabilities.
+        initialValueModel:
+          type: object
+          description: Preliminary value model including outcomes, KPIs, and estimated financial impact.
+  entrypoint:
+    module: agents/opportunity/main.py
+    class: OpportunityAgent
+    method: handle
+    httpEndpoint: "/api/opportunity/process"
+  runtime:
+    language: python
+    memory: "512Mi"
+    cpu: "250m"
+    dependencies:
+      - name: langchain
+        version: "^0.1.0"
+      - name: pydantic
+        version: "^1.10.0"
+      - name: neo4j
+        version: "^5.0.0"
+  permissions:
+    roles:
+      - reader: ["valueFabric.models", "valueFabric.ontology"]
+      - publisher: ["events.value.opportunity.created"]
+    securityPolicies:
+      - principleOfLeastPrivilege: true
+      - encryptSensitiveData: true
+  communication:
+    subscribe:
+      - topic: "events.discovery.raw"
+    publish:
+      - topic: "events.value.opportunity.created"
+  health:
+    livenessProbe:
+      httpGet:
+        path: "/health/live"
+        port: 8080
+      intervalSeconds: 30
+    readinessProbe:
+      httpGet:
+        path: "/health/ready"
+        port: 8080
+      intervalSeconds: 30
+  monitoring:
+    metricsEndpoint: "/metrics"
+    logLevel: INFO

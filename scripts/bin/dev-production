@@ -12,7 +12,7 @@ echo -e "${GREEN}🚀 Starting ValueOS Production Environment...${NC}"
 echo "=========================================="
 
 # Configuration
-COMPOSE_FILE="config/docker/docker-compose.unified.yml"
+COMPOSE_FILE="infra/docker/docker-compose.prod.yml"
 PROJECT_NAME="valueos-prod"
 ENVIRONMENTS_DIR="config/environments"
 ENVIRONMENT="production"

@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: AgentManifest
+metadata:
+  name: orchestrator-agent
+  description: "Coordinates multi-agent workflows, handles task delegation, and ensures proper sequencing across lifecycle stages."
+  version: "1.0.0"
+spec:
+  schema:
+    input:
+      type: object
+      required:
+        - workflowRequest
+      properties:
+        workflowRequest:
+          type: object
+          description: Specification of a requested workflow including initial data and desired outcomes.
+    output:
+      type: object
+      required:
+        - workflowStatus
+        - aggregatedResult
+      properties:
+        workflowStatus:
+          type: string
+          enum: [initiated, running, completed, failed]
+          description: Current status of the orchestrated workflow.
+        aggregatedResult:
+          type: object
+          description: Consolidated results of tasks executed across participating agents.
+  entrypoint:
+    module: agents/orchestrator/main.py
+    class: OrchestratorAgent
+    method: handle
+    httpEndpoint: "/api/orchestrator/process"
+  runtime:
+    language: python
+    memory: "512Mi"
+    cpu: "250m"
+    dependencies:
+      - name: temporalio
+        version: "^1.0.0"
+      - name: pydantic
+        version: "^1.10.0"
+  permissions:
+    roles:
+      - reader: ["valueFabric.models", "valueFabric.events"]
+      - publisher: ["events.workflow.*"]
+      - controller: ["agent.*"]
+    securityPolicies:
+      - enforceRoleSegregation: true
+      - throttleRequests: true
+  communication:
+    subscribe:
+      - topic: "events.workflow.request"
+    publish:
+      - topic: "events.workflow.status"
+  health:
+    livenessProbe:
+      httpGet:
+        path: "/health/live"
+        port: 8085
+      intervalSeconds: 30
+    readinessProbe:
+      httpGet:
+        path: "/health/ready"
+        port: 8085
+      intervalSeconds: 30
+  monitoring:
+    metricsEndpoint: "/metrics"
+    logLevel: INFO

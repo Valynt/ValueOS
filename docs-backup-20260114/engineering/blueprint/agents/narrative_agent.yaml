@@ -1,0 +1,116 @@
+apiVersion: v1
+kind: AgentManifest
+metadata:
+  name: narrative-agent
+  description: "Generates multi-level value narratives for different contexts and audiences (micro/contextual/document)."
+  version: "1.0.0"
+spec:
+  schema:
+    input:
+      type: object
+      required:
+        - level
+        - audience
+        - valueData
+      properties:
+        level:
+          type: string
+          enum: [micro, contextual, document]
+          description: Narrative level (10-50 words / ~200 words / full document)
+        audience:
+          type: string
+          enum: [executive, technical, financial, general]
+        format:
+          type: string
+          enum: [text, markdown, html]
+          default: text
+        valueData:
+          type: object
+          properties:
+            valueCaseId:
+              type: string
+            metrics:
+              type: array
+            outcomes:
+              type: array
+            financialSummary:
+              type: object
+        topic:
+          type: string
+          description: Specific focus for the narrative
+        customInstructions:
+          type: string
+          description: Custom tone or style instructions
+        maxLength:
+          type: number
+          description: Maximum word count
+    output:
+      type: object
+      required:
+        - level
+        - audience
+        - format
+        - confidenceLevel
+      properties:
+        level:
+          type: string
+        audience:
+          type: string
+        format:
+          type: string
+        micro:
+          type: object
+          description: Tooltip-style narrative (10-50 words)
+        contextual:
+          type: object
+          description: Panel-style summary (~200 words)
+        document:
+          type: object
+          description: Full document with sections
+        tone:
+          type: string
+        reasoning:
+          type: string
+        confidenceLevel:
+          type: string
+          enum: [high, medium, low]
+  entrypoint:
+    module: src/lib/agent-fabric/agents/NarrativeAgent.ts
+    class: NarrativeAgent
+    method: execute
+    httpEndpoint: "/api/agents/narrative/execute"
+  runtime:
+    language: typescript
+    memory: "1Gi"
+    cpu: "500m"
+    dependencies:
+      - name: zod
+        version: "^3.23.0"
+      - name: "@supabase/supabase-js"
+        version: "^2.57.0"
+  permissions:
+    roles:
+      - reader: ["valueFabric.models", "valueFabric.trees"]
+      - publisher: ["events.narrative.*"]
+    securityPolicies:
+      - enforceRoleSegregation: true
+      - throttleRequests: true
+  communication:
+    subscribe:
+      - topic: "events.*.completed"
+    publish:
+      - topic: "events.narrative.generated"
+  health:
+    livenessProbe:
+      httpGet:
+        path: "/health/live"
+        port: 8088
+      intervalSeconds: 30
+    readinessProbe:
+      httpGet:
+        path: "/health/ready"
+        port: 8088
+      intervalSeconds: 30
+  monitoring:
+    metricsEndpoint: "/metrics"
+    logLevel: INFO

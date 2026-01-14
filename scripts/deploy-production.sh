@@ -106,6 +106,8 @@ setup_environment() {
 build_and_deploy() {
     log_info "Building and deploying production services..."
 
+    cd infra/docker/
+
     # Build the services
     log_info "Building Docker images..."
     docker-compose -f "$DOCKER_COMPOSE_FILE" build
@@ -119,6 +121,8 @@ build_and_deploy() {
 
 verify_deployment() {
     log_info "Verifying deployment..."
+
+    cd infra/docker/
 
     # Check container status
     log_info "Checking container status..."
@@ -152,6 +156,7 @@ verify_deployment() {
 
 show_logs() {
     log_info "Showing recent logs..."
+    cd infra/docker/
     docker-compose -f "$DOCKER_COMPOSE_FILE" logs --tail=50
 }
 
@@ -163,6 +168,7 @@ cleanup() {
 
 rollback() {
     log_warning "Initiating rollback..."
+    cd infra/docker/
     docker-compose -f "$DOCKER_COMPOSE_FILE" down
     log_info "Previous deployment stopped. Manual intervention required for rollback."
 }
@@ -192,14 +198,17 @@ main() {
             show_logs
             ;;
         "status")
+            cd infra/docker/
             docker-compose -f "$DOCKER_COMPOSE_FILE" ps
             ;;
         "stop")
+            cd infra/docker/
             log_info "Stopping production services..."
             docker-compose -f "$DOCKER_COMPOSE_FILE" down
             log_success "Services stopped"
             ;;
         "restart")
+            cd infra/docker/
             log_info "Restarting production services..."
             docker-compose -f "$DOCKER_COMPOSE_FILE" restart
             verify_deployment
