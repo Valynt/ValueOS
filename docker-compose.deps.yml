@@ -63,8 +63,8 @@ services:
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - TOGETHER_API_KEY=${TOGETHER_API_KEY}
     env_file:
-      - ../../deploy/envs/.env.ports
-      - ../../deploy/envs/.env.local
+      - ./deploy/envs/.env.ports
+      - ./deploy/envs/.env.local
     depends_on:
       postgres:
         condition: service_healthy
