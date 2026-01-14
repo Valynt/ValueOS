@@ -152,14 +152,19 @@ export const KPIForm: React.FC<KPIFormProps> = ({
       : null;
 
   // Optimistic update hook
-  const { execute: executeOptimisticUpdate } = useOptimisticUpdate({
-    onSuccess: () => {
-      // Success message will be shown by showSuccess prop
+  const { execute: executeOptimisticUpdate } = useOptimisticUpdate(
+    async (values: { baseline: number; target: number }) => {
+      return onSubmit(values.baseline, values.target);
     },
-    onError: (error) => {
-      console.error("Failed to save KPI:", error);
-    },
-  });
+    {
+      onSuccess: () => {
+        // Success message will be shown by showSuccess prop
+      },
+      onError: (error) => {
+        console.error("Failed to save KPI:", error);
+      },
+    }
+  );
 
   // Handle form submission with optimistic updates
   const handleSubmit = async (values: { baseline: number; target: number }) => {
