@@ -67,4 +67,4 @@ EXPOSE 3001
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
 
-CMD ["npx", "tsx", "src/backend/server.ts"]
+CMD ["node", "dist/backend/backend/server.js"]
