@@ -371,6 +371,14 @@ export class RetrievalEngine {
 
       // Limit to 3 URLs from search results
       const targetUrls = searchResults.slice(0, 3);
+
+      const scrapePromises = targetUrls.map((url) =>
+        webScraperService.scrape(url)
+      );
+      const results = await Promise.all(scrapePromises);
+
+      // Filter out nulls
+      return results.filter((r): r is NonNullable<typeof r> => r !== null);
     } catch (error) {
       logger.error("Web content retrieval failed", { sessionId, error });
       return [];
