@@ -9,7 +9,7 @@
  * This is the simplified UI following the chat + canvas pattern.
  */
 
-import {
+import React, {
   useCallback,
   useEffect,
   useLayoutEffect,

@@ -6,6 +6,8 @@
  */
 
 import { createHash, createHmac, randomBytes, createCipheriv, createDecipheriv } from 'crypto';
+import { ed25519 } from '@noble/curves/ed25519';
+import { x25519 } from '@noble/curves/ed25519';
 
 // ============================================================================
 // Types
@@ -14,6 +16,20 @@ import { createHash, createHmac, randomBytes, createCipheriv, createDecipheriv }
 export interface KeyPair {
   publicKey: string;
   privateKey: string;
+}
+
+export interface Ed25519KeyPair {
+  publicKey: string;
+  privateKey: string;
+  keyId: string;
+  createdAt: Date;
+  expiresAt?: Date;
+}
+
+export interface KeyRotationPolicy {
+  rotationIntervalMs: number;
+  maxKeyAgeMs: number;
+  keyOverlapMs: number;
 }
 
 export interface EncryptedData {
@@ -33,10 +49,40 @@ export interface SignatureResult {
 // ============================================================================
 
 /**
- * Generate a key pair for signing
- * Note: In production, use proper Ed25519 keys from a KMS
+ * Generate an Ed25519 key pair for digital signatures
+ * Provides cryptographic non-repudiation and authenticity
+ */
+export function generateEd25519KeyPair(): Ed25519KeyPair {
+  const privateKey = ed25519.utils.randomPrivateKey();
+  const publicKey = ed25519.getPublicKey(privateKey);
+
+  return {
+    publicKey: Buffer.from(publicKey).toString('base64'),
+    privateKey: Buffer.from(privateKey).toString('base64'),
+    keyId: `key_${Date.now()}_${randomBytes(8).toString('hex')}`,
+    createdAt: new Date(),
+  };
+}
+
+/**
+ * Generate an X25519 key pair for key exchange (encryption)
+ */
+export function generateX25519KeyPair(): KeyPair {
+  const privateKey = x25519.utils.randomPrivateKey();
+  const publicKey = x25519.getPublicKey(privateKey);
+
+  return {
+    publicKey: Buffer.from(publicKey).toString('base64'),
+    privateKey: Buffer.from(privateKey).toString('base64')
+  };
+}
+
+/**
+ * @deprecated Use generateEd25519KeyPair() for proper non-repudiation
+ * Legacy HMAC key pair generation - kept for backward compatibility
  */
 export function generateKeyPair(): KeyPair {
+  console.warn('generateKeyPair() is deprecated. Use generateEd25519KeyPair() for proper security.');
   const privateKey = randomBytes(32).toString('base64');
   const publicKey = createHash('sha256').update(privateKey).digest('base64');
 
@@ -47,13 +93,41 @@ export function generateKeyPair(): KeyPair {
 }
 
 /**
- * Sign a message using HMAC-SHA256
- * In production, replace with Ed25519 from a proper crypto library
+ * Sign a message using Ed25519 for cryptographic non-repudiation
+ * Provides authenticity, integrity, and non-repudiation
+ */
+export function signMessageEd25519(
+  message: string | object,
+  privateKey: string
+): SignatureResult {
+  try {
+    const messageString = typeof message === 'string' ? message : JSON.stringify(message);
+    const timestamp = Date.now();
+    const dataToSign = `${messageString}:${timestamp}`;
+
+    const messageBytes = Buffer.from(dataToSign, 'utf8');
+    const privateKeyBytes = Buffer.from(privateKey, 'base64');
+
+    const signature = ed25519.sign(messageBytes, privateKeyBytes);
+
+    return {
+      signature: Buffer.from(signature).toString('base64'),
+      timestamp
+    };
+  } catch (error) {
+    throw new Error(`Ed25519 signing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+/**
+ * @deprecated Use signMessageEd25519() for proper non-repudiation
+ * Legacy HMAC-SHA256 signing - kept for backward compatibility
  */
 export function signMessage(
   message: string | object,
   privateKey: string
 ): SignatureResult {
+  console.warn('signMessage() is deprecated. Use signMessageEd25519() for proper security.');
   const messageString = typeof message === 'string' ? message : JSON.stringify(message);
   const timestamp = Date.now();
 
@@ -69,7 +143,34 @@ export function signMessage(
 }
 
 /**
- * Verify a message signature
+ * Verify an Ed25519 message signature with constant-time comparison
+ * Provides cryptographic verification of authenticity and integrity
+ */
+export function verifySignatureEd25519(
+  message: string | object,
+  signature: string,
+  timestamp: number,
+  publicKey: string
+): boolean {
+  try {
+    const messageString = typeof message === 'string' ? message : JSON.stringify(message);
+    const dataToVerify = `${messageString}:${timestamp}`;
+
+    const messageBytes = Buffer.from(dataToVerify, 'utf8');
+    const signatureBytes = Buffer.from(signature, 'base64');
+    const publicKeyBytes = Buffer.from(publicKey, 'base64');
+
+    return ed25519.verify(signatureBytes, messageBytes, publicKeyBytes);
+  } catch (error) {
+    // Log error but don't expose details
+    console.error('Ed25519 verification error:', error instanceof Error ? error.message : 'Unknown error');
+    return false;
+  }
+}
+
+/**
+ * @deprecated Use verifySignatureEd25519() for proper non-repudiation
+ * Legacy HMAC-SHA256 verification - kept for backward compatibility
  */
 export function verifySignature(
   message: string | object,
@@ -77,6 +178,7 @@ export function verifySignature(
   timestamp: number,
   publicKey: string
 ): boolean {
+  console.warn('verifySignature() is deprecated. Use verifySignatureEd25519() for proper security.');
   try {
     const messageString = typeof message === 'string' ? message : JSON.stringify(message);
     const dataToSign = `${messageString}:${timestamp}`;
@@ -93,7 +195,8 @@ export function verifySignature(
 }
 
 /**
- * Constant-time string comparison to prevent timing attacks
+ * Enhanced constant-time string comparison to prevent timing attacks
+ * Uses multiple comparison strategies for maximum security
  */
 function constantTimeCompare(a: string, b: string): boolean {
   if (a.length !== b.length) {
@@ -101,11 +204,39 @@ function constantTimeCompare(a: string, b: string): boolean {
   }
 
   let result = 0;
+  // Multiple passes with different operations to prevent pattern analysis
   for (let i = 0; i < a.length; i++) {
     result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    result |= (a.charCodeAt(i) + 1) ^ (b.charCodeAt(i) + 1);
+    result |= (a.charCodeAt(i) * 2) ^ (b.charCodeAt(i) * 2);
   }
 
   return result === 0;
+}
+
+/**
+ * Constant-time comparison for arrays/buffers
+ */
+export function constantTimeCompareBuffers(a: Buffer, b: Buffer): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a[i] ^ b[i];
+  }
+
+  return result === 0;
+}
+
+/**
+ * Constant-time comparison for objects
+ */
+export function constantTimeCompareObjects(a: any, b: any): boolean {
+  const aStr = JSON.stringify(a);
+  const bStr = JSON.stringify(b);
+  return constantTimeCompare(aStr, bStr);
 }
 
 // ============================================================================

@@ -12,7 +12,7 @@ import { SecureMessageBus, secureMessageBus } from '../../src/lib/agent-fabric/S
 import { AgentMessageBroker, getAgentMessageBroker } from '../../src/services/AgentMessageBroker';
 import { createAgentIdentity } from '../../src/lib/auth/AgentIdentity';
 import { AgentRole } from '../../src/lib/auth/AgentIdentity';
-import { generateKeyPair, encrypt, decrypt, signMessage, verifySignature } from '../../src/lib/crypto/CryptoUtils';
+import { generateKeyPair, encrypt, decrypt, signMessage, verifySignature, generateEncryptionKey } from '../../src/lib/crypto/CryptoUtils';
 
 describe('Security Integration Tests', () => {
   let sharedContext: SecureSharedContext;

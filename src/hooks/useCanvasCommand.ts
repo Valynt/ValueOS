@@ -17,6 +17,7 @@ import {
 import { logger } from '../../lib/logger';
 import { toUserFriendlyError } from '../../utils/errorHandling';
 import { useToast } from '../Common/Toast';
+import { supabase } from '../../lib/supabase';
 
 export interface UseCanvasCommandOptions {
   selectedCaseId: string | null;
@@ -312,6 +313,3 @@ export function useCanvasCommand(options: UseCanvasCommandOptions) {
     canProcess: !!selectedCaseId && !isProcessing,
   };
 }
-
-// Import supabase at the top level to avoid dynamic import issues
-import { supabase } from '../../lib/supabase';

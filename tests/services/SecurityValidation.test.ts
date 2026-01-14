@@ -16,46 +16,46 @@ import { AgentType } from '../../src/services/agent-types';
 // ============================================================================
 
 // Mock console methods to reduce test noise
-const mockConsoleWarn = jest.spyOn(console, 'warn').mockImplementation();
-const mockConsoleError = jest.spyOn(console, 'error').mockImplementation();
+const mockConsoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+const mockConsoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
 // Mock logger
-jest.mock('../src/lib/logger', () => ({
+vi.mock('../../src/lib/logger', () => ({
   logger: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
   },
 }));
 
 // Mock audit logger
-jest.mock('../src/services/AgentAuditLogger', () => ({
+vi.mock('../../src/services/AgentAuditLogger', () => ({
   getAuditLogger: () => ({
-    log: jest.fn().mockResolvedValue(undefined),
-    query: jest.fn().mockResolvedValue([]),
+    log: vi.fn().mockResolvedValue(undefined),
+    query: vi.fn().mockResolvedValue([]),
   }),
 }));
 
 // Mock crypto utilities
-jest.mock('../src/lib/crypto/CryptoUtils', () => ({
-  signMessage: jest.fn().mockResolvedValue('mock-signature'),
-  verifySignature: jest.fn().mockResolvedValue(true),
-  encrypt: jest.fn().mockReturnValue({
+vi.mock('../../src/lib/crypto/CryptoUtils', () => ({
+  signMessage: vi.fn().mockResolvedValue('mock-signature'),
+  verifySignature: vi.fn().mockResolvedValue(true),
+  encrypt: vi.fn().mockReturnValue({
     data: 'encrypted-data',
     iv: 'mock-iv',
     algorithm: 'aes-256-gcm',
     tag: 'mock-tag',
   }),
-  decrypt: jest.fn().mockReturnValue('decrypted-data'),
-  generateNonce: jest.fn().mockReturnValue('mock-nonce'),
-  isEncrypted: jest.fn().mockReturnValue(false),
-  generateEncryptionKey: jest.fn().mockReturnValue('mock-key'),
+  decrypt: vi.fn().mockReturnValue('decrypted-data'),
+  generateNonce: vi.fn().mockReturnValue('mock-nonce'),
+  isEncrypted: vi.fn().mockReturnValue(false),
+  generateEncryptionKey: vi.fn().mockReturnValue('mock-key'),
 }));
 
 // Mock agent identity
-jest.mock('../src/lib/auth/AgentIdentity', () => ({
-  hasPermission: jest.fn().mockReturnValue(true),
+vi.mock('../../src/lib/auth/AgentIdentity', () => ({
+  hasPermission: vi.fn().mockReturnValue(true),
 }));
 
 describe('SecureSharedContext', () => {
@@ -75,7 +75,7 @@ describe('SecureSharedContext', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Context Sharing Validation', () => {
@@ -417,7 +417,7 @@ describe('SecureMessageBus', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     messageBus.destroy();
   });
 
@@ -443,7 +443,7 @@ describe('SecureMessageBus', () => {
       );
 
       // Mock successful verification
-      const { verifySignature } = require('../src/lib/crypto/CryptoUtils');
+      const { verifySignature } = require('../../src/lib/crypto/CryptoUtils');
       verifySignature.mockResolvedValue(true);
 
       const payload = await messageBus.receive(message);
@@ -458,7 +458,7 @@ describe('SecureMessageBus', () => {
       );
 
       // Mock failed verification
-      const { verifySignature } = require('../src/lib/crypto/CryptoUtils');
+      const { verifySignature } = require('../../src/lib/crypto/CryptoUtils');
       verifySignature.mockResolvedValue(false);
 
       await expect(messageBus.receive(message)).rejects.toThrow('Invalid message signature');
@@ -595,7 +595,7 @@ describe('SecureMessageBus', () => {
     it('should deliver messages to specific recipients', async () => {
       let receivedMessage: any = null;
 
-      messageBus.subscribe(mockRecipient.id, async (message, sender) => {
+      messageBus.subscribe(mockRecipient.id, async (message: any, sender: any) => {
         receivedMessage = message;
       });
 
@@ -727,9 +727,9 @@ describe('SecurityMonitor', () => {
   describe('Audit Log Analysis', () => {
     it('should analyze denied context shares', async () => {
       // Mock audit log data
-      const { getAuditLogger } = require('../src/services/AgentAuditLogger');
+      const { getAuditLogger } = require('../../src/services/AgentAuditLogger');
       const mockAuditLogger = {
-        query: jest.fn().mockResolvedValue([
+        query: vi.fn().mockResolvedValue([
           {
             input_query: 'context_share_denied',
             success: false,

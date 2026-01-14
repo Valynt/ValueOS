@@ -10,7 +10,7 @@ export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
-    environment: "node", // Node environment for integration tests
+    environment: "jsdom", // DOM environment for React component testing
     setupFiles: [
       "./tests/setup.ts",
       "./src/test/setup.ts",
