@@ -91,7 +91,7 @@ export function useStreamingOrchestrator(
 
   const updateStreaming = useCallback(
     (update: StreamingUpdate) => {
-      if (!isStreaming || update.id.includes(currentStreamId || "")) {
+      if (isStreaming && update.id.includes(currentStreamId || "")) {
         logger.debug("Processing streaming update", {
           updateType: update.type,
           streamId: currentStreamId,

@@ -18,6 +18,8 @@ import {
   documentParserService,
   ExtractedInsights,
 } from "../../services/DocumentParserService";
+// Import the new accessibility hook
+import { useModalAccessibility } from "../Accessibility/ModalAccessibility";
 
 interface UploadNotesModalProps {
   isOpen: boolean;
@@ -49,6 +51,17 @@ export const UploadNotesModal: React.FC<UploadNotesModalProps> = ({
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const appliedInitialFileKey = useRef<string | null>(null);
+
+  // Modal accessibility hook
+  const { modalRef, handleBackdropClick, handleKeyDown } =
+    useModalAccessibility({
+      isOpen,
+      onClose,
+      announceOnOpen: "Upload notes modal opened",
+      announceOnClose: "Upload notes modal closed",
+      modalLabel: "Upload Notes",
+      modalDescription: "Import opportunity notes or meeting summaries",
+    });
 
   const handleFileSelect = useCallback((file: File) => {
     const validTypes = [
@@ -186,25 +199,18 @@ export const UploadNotesModal: React.FC<UploadNotesModalProps> = ({
     appliedInitialFileKey.current = fileKey;
   }, [isOpen, initialFile, handleFileSelect]);
 
-  // Handle Escape key
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
-  }, [isOpen, onClose]);
-
   if (!isOpen) return null;
 
   return (
     <div
+      ref={modalRef}
       className="fixed inset-0 z-50 flex items-center justify-center p-vc-2 bg-popover/50"
+      onClick={handleBackdropClick}
+      onKeyDown={handleKeyDown}
       role="dialog"
       aria-modal="true"
       aria-labelledby="upload-notes-title"
+      aria-describedby="upload-notes-description"
     >
       <div className="bg-popover rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-border">
         {/* Header */}
@@ -214,10 +220,16 @@ export const UploadNotesModal: React.FC<UploadNotesModalProps> = ({
               <FileText className="w-5 h-5 text-muted-foreground" />
             </div>
             <div>
-              <h2 className="text-3xl font-semibold text-foreground">
+              <h2
+                id="upload-notes-title"
+                className="text-3xl font-semibold text-foreground"
+              >
                 Upload Notes
               </h2>
-              <p className="text-sm text-muted-foreground">
+              <p
+                id="upload-notes-description"
+                className="text-sm text-muted-foreground"
+              >
                 Import opportunity notes or meeting summaries
               </p>
             </div>

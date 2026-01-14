@@ -72,16 +72,18 @@ export default function CompanySearch() {
 
       setSearchResults(mockResults);
 
-      // Add to recent searches
-      const updatedRecent = [
-        mockResults[0],
-        ...recentSearches.filter((c) => c.cik !== mockResults[0]?.cik),
-      ].slice(0, 5);
-      setRecentSearches(updatedRecent);
-      localStorage.setItem(
-        "recentCompanySearches",
-        JSON.stringify(updatedRecent)
-      );
+      // Add to recent searches only if results exist
+      if (mockResults.length > 0) {
+        const updatedRecent = [
+          mockResults[0],
+          ...recentSearches.filter((c) => c.cik !== mockResults[0].cik),
+        ].slice(0, 5);
+        setRecentSearches(updatedRecent);
+        localStorage.setItem(
+          "recentCompanySearches",
+          JSON.stringify(updatedRecent)
+        );
+      }
     } catch (error) {
       console.error("Search failed:", error);
     } finally {
