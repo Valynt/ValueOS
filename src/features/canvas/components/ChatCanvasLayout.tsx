@@ -1,101 +1,32 @@
 /**
  * ChatCanvasLayout Component
  *
- * Main application layout with:
- * - Library sidebar (in-progress and completed cases)
- * - Canvas area (SDUI rendered agent outputs)
- * - Command bar (⌘K to invoke agents)
- *
- * This is the simplified UI following the chat + canvas pattern.
+ * Simplified layout component using headless hooks for:
+ * - Canvas state coordination (useCanvasController)
+ * - Command/input handling (useInteractionRouter)
+ * - Async agent response control (useStreamingOrchestrator)
+ * - Modal state management (useModalManager)
  */
 
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import {
-  Building2,
-  FileText,
-  Globe,
-  HelpCircle,
-  Link2,
-  Loader2,
-  Mail,
-  Mic,
-  Plus,
-  Printer,
-  Search,
-  Settings,
-  Share2,
-  Sparkles,
-  Upload,
-  X,
-} from "lucide-react";
+import React, { useEffect } from "react";
+import { FileText, Plus, Share2, Link2, Printer } from "lucide-react";
 import { CommandBar } from "../Agent/CommandBar";
 import { ExtractedNotes, UploadNotesModal } from "../Modals";
 import { EmailAnalysisModal } from "../Modals/EmailAnalysisModal";
 import { EmailAnalysis } from "../../services/EmailAnalysisService";
 import { CRMImportModal } from "../Modals/CRMImportModal";
-import { SalesCallModal } from "../Modals/SalesCallModal";
-import { MappedValueCase } from "../../services/CRMFieldMapper";
 import { CRMDeal } from "../../mcp-crm/types";
+import { SalesCallModal } from "../Modals/SalesCallModal";
 import { CallAnalysis } from "../../services/CallAnalysisService";
-import { renderPage, RenderPageResult } from "../../sdui/renderPage";
-import { SDUIPageDefinition } from "../../sdui/schema";
-import { StreamingUpdate } from "../../services/UnifiedAgentOrchestrator";
-import { agentChatService } from "../../services/AgentChatService";
-import { WorkflowState } from "../../repositories/WorkflowStateRepository";
-import { WorkflowStateService } from "../../services/WorkflowStateService";
-import { supabase } from "../../lib/supabase";
-import { valueCaseService } from "../../services/ValueCaseService";
-import { logger } from "../../lib/logger";
-import { analyticsClient } from "../../lib/analyticsClient";
-import { v4 as uuidv4 } from "uuid";
-import { sduiTelemetry, TelemetryEventType } from "../../lib/telemetry/SDUITelemetry";
-import { useCanvasStore } from "../../sdui/canvas/CanvasStore";
 import { SkeletonCanvas } from "../Common/SkeletonCanvas";
-import { toUserFriendlyError } from "../../utils/errorHandling";
-import { useToast } from "../Common/Toast";
-import { crmIntegrationService } from "../../services/CRMIntegrationService";
-import { PrintReportLayout } from "../Report/PrintReportLayout";
 import { ExportPreviewModal } from "../Modals/ExportPreviewModal";
 import { CRMSyncModal } from "../Modals/CRMSyncModal";
 
-// ============================================================================
-// Custom Hooks
-// ============================================================================
-
-/**
- * useEvent Hook - Always gets latest callback without closure issues
- * Solves the stale closure problem in setTimeout/setInterval
- */
-function useEvent<T extends (...args: any[]) => any>(handler: T): T {
-  const handlerRef = useRef<T>(handler);
-
-  useLayoutEffect(() => {
-    handlerRef.current = handler;
-  });
-
-  return useCallback(
-    ((...args) => {
-      const fn = handlerRef.current;
-      return fn(...args);
-    }) as T,
-    []
-  );
-}
-
-// ============================================================================
-// Types
-// ============================================================================
-
-interface ValueCase {
-  id: string;
-  name: string;
-  description?: string;
-  status: "in_progress" | "completed" | "archived";
-  created_at: string;
-  updated_at: string;
-  workflow_state?: WorkflowState;
-  metadata?: Record<string, any>;
-}
+// Import the headless hooks
+import { useCanvasController } from "../hooks/useCanvasController";
+import { useInteractionRouter } from "../hooks/useInteractionRouter";
+import { useStreamingOrchestrator } from "../hooks/useStreamingOrchestrator";
+import { useModalManager } from "../hooks/useModalManager";
 
 interface ChatCanvasLayoutProps {
   initialCaseId?: string;
@@ -103,101 +34,65 @@ interface ChatCanvasLayoutProps {
   readOnly?: boolean;
 }
 
-// ============================================================================
-// Main Component
-// ============================================================================
-
 export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
   initialCaseId,
   onCaseSelect,
   readOnly = false,
 }) => {
-  // State management will be extracted to useCanvasLayout hook
-  const [selectedCase, setSelectedCase] = useState<ValueCase | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Modal states
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showEmailModal, setShowEmailModal] = useState(false);
-  const [showCRMModal, setShowCRMModal] = useState(false);
-  const [showSalesCallModal, setShowSalesCallModal] = useState(false);
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [showCRMSyncModal, setShowCRMSyncModal] = useState(false);
-
-  // Canvas state
-  const [currentPage, setCurrentPage] = useState<SDUIPageDefinition | null>(null);
-  const [isRendering, setIsRendering] = useState(false);
-
-  // Store integration
-  const canvasStore = useCanvasStore();
-  const { toast } = useToast();
-
   // ============================================================================
-  // Utility Functions (to be extracted to utils.ts)
+  // Hook Integration
   // ============================================================================
 
-  const handleCaseSelect = useCallback(
-    async (caseId: string) => {
-      try {
-        setIsLoading(true);
-        setError(null);
+  // Canvas state coordination
+  const {
+    selectedCase,
+    isLoading,
+    error,
+    currentPage,
+    isRendering,
+    selectCase,
+    setError,
+  } = useCanvasController({ onCaseSelect, readOnly });
 
-        const valueCase = await valueCaseService.getValueCase(caseId);
-        setSelectedCase(valueCase);
+  // Command and input handling
+  const {
+    handleUploadNotes,
+    handleEmailAnalysis,
+    handleCRMImport,
+    handleSalesCallAnalysis,
+    handleExport,
+    handleCRMSync,
+  } = useInteractionRouter({ onCaseSelect, readOnly });
 
-        if (valueCase.workflow_state) {
-          const page = await renderPage(valueCase.workflow_state);
-          setCurrentPage(page);
-        }
-
-        onCaseSelect?.(caseCaseId);
-      } catch (err) {
-        const friendlyError = toUserFriendlyError(err);
-        setError(friendlyError);
-        toast({
-          title: "Error loading case",
-          description: friendlyError,
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoading(false);
-      }
+  // Streaming orchestrator (for future SDUI streaming)
+  const {
+    isStreaming,
+    startStreaming,
+    updateStreaming,
+    completeStreaming,
+    cancelStreaming,
+  } = useStreamingOrchestrator({
+    onComplete: (page) => {
+      // Handle streaming completion
+      console.log("Streaming complete", page);
     },
-    [onCaseSelect, toast]
-  );
-
-  const handleUploadNotes = useCallback(
-    async (notes: ExtractedNotes) => {
-      try {
-        setIsLoading(true);
-
-        const newCase = await valueCaseService.createValueCase({
-          name: notes.title,
-          description: notes.summary,
-          metadata: { source: "upload", notes },
-        });
-
-        await handleCaseSelect(newCase.id);
-        setShowUploadModal(false);
-
-        toast({
-          title: "Notes uploaded successfully",
-          description: "New case created from your notes.",
-        });
-      } catch (err) {
-        const friendlyError = toUserFriendlyError(err);
-        toast({
-          title: "Upload failed",
-          description: friendlyError,
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoading(false);
-      }
+    onError: (error) => {
+      console.error("Streaming error", error);
+      setError(error.message);
     },
-    [handleCaseSelect, toast]
-  );
+  });
+
+  // Modal state management
+  const {
+    showUploadModal,
+    showEmailModal,
+    showCRMModal,
+    showSalesCallModal,
+    showExportModal,
+    showCRMSyncModal,
+    openModal,
+    closeModal,
+  } = useModalManager();
 
   // ============================================================================
   // Effects
@@ -205,9 +100,44 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
 
   useEffect(() => {
     if (initialCaseId) {
-      handleCaseSelect(initialCaseId);
+      selectCase(initialCaseId);
     }
-  }, [initialCaseId, handleCaseSelect]);
+  }, [initialCaseId, selectCase]);
+
+  // ============================================================================
+  // Event Handlers
+  // ============================================================================
+
+  const handleModalSubmit = {
+    upload: async (notes: ExtractedNotes) => {
+      await handleUploadNotes(notes);
+      closeModal("upload");
+    },
+    email: async (analysis: EmailAnalysis) => {
+      await handleEmailAnalysis(analysis);
+      closeModal("emailAnalysis");
+    },
+    crm: async (deals: CRMDeal[]) => {
+      await handleCRMImport(deals);
+      closeModal("crmImport");
+    },
+    salesCall: async (analysis: CallAnalysis) => {
+      await handleSalesCallAnalysis(analysis);
+      closeModal("salesCall");
+    },
+    export: async () => {
+      if (selectedCase) {
+        await handleExport(selectedCase.id);
+        closeModal("export");
+      }
+    },
+    crmSync: async () => {
+      if (selectedCase) {
+        await handleCRMSync(selectedCase.id);
+        closeModal("crmSync");
+      }
+    },
+  };
 
   // ============================================================================
   // Render
@@ -217,7 +147,7 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          <X className="mx-auto h-12 w-12 text-red-500" />
+          <FileText className="mx-auto h-12 w-12 text-red-500" />
           <h3 className="mt-2 text-sm font-medium text-gray-900">Error</h3>
           <p className="mt-1 text-sm text-gray-500">{error}</p>
         </div>
@@ -227,14 +157,14 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
 
   return (
     <div className="flex h-full">
-      {/* Sidebar - to be extracted to LibrarySidebar component */}
+      {/* Sidebar */}
       <div className="w-80 border-r border-gray-200 bg-white">
         <div className="flex h-full flex-col">
           {/* Sidebar Header */}
           <div className="flex items-center justify-between p-4 border-b">
             <h2 className="text-lg font-semibold">Value Cases</h2>
             <button
-              onClick={() => setShowUploadModal(true)}
+              onClick={() => openModal("upload")}
               className="p-2 hover:bg-gray-100 rounded-lg"
               disabled={readOnly}
             >
@@ -242,17 +172,19 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
             </button>
           </div>
 
-          {/* Case List - to be extracted */}
+          {/* Case List */}
           <div className="flex-1 overflow-y-auto p-4">
             {isLoading ? (
               <div className="space-y-2">
                 {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="h-16 bg-gray-100 rounded-lg animate-pulse" />
+                  <div
+                    key={i}
+                    className="h-16 bg-gray-100 rounded-lg animate-pulse"
+                  />
                 ))}
               </div>
             ) : (
               <div className="space-y-2">
-                {/* Case items will be rendered here */}
                 <div className="text-sm text-gray-500">
                   No cases found. Upload notes to get started.
                 </div>
@@ -262,27 +194,31 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
         </div>
       </div>
 
-      {/* Main Content Area - to be extracted to CanvasArea component */}
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col">
         {/* Content Header */}
         <div className="flex items-center justify-between p-4 border-b">
           <div>
-            <h1 className="text-xl font-semibold">{selectedCase?.name || "Select a case"}</h1>
+            <h1 className="text-xl font-semibold">
+              {selectedCase?.name || "Select a case"}
+            </h1>
             {selectedCase?.description && (
-              <p className="text-sm text-gray-500">{selectedCase.description}</p>
+              <p className="text-sm text-gray-500">
+                {selectedCase.description}
+              </p>
             )}
           </div>
 
           <div className="flex items-center space-x-2">
             <button
-              onClick={() => setShowExportModal(true)}
+              onClick={() => openModal("export")}
               className="p-2 hover:bg-gray-100 rounded-lg"
               disabled={!selectedCase || readOnly}
             >
               <Share2 className="h-4 w-4" />
             </button>
             <button
-              onClick={() => setShowCRMSyncModal(true)}
+              onClick={() => openModal("crmSync")}
               className="p-2 hover:bg-gray-100 rounded-lg"
               disabled={!selectedCase || readOnly}
             >
@@ -300,7 +236,7 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
 
         {/* Canvas Area */}
         <div className="flex-1 overflow-hidden">
-          {isRendering ? (
+          {isRendering || isStreaming ? (
             <SkeletonCanvas />
           ) : currentPage ? (
             <div className="h-full w-full">
@@ -317,7 +253,9 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
                 <FileText className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No content selected</h3>
+                <h3 className="mt-2 text-sm font-medium text-gray-900">
+                  No content selected
+                </h3>
                 <p className="mt-1 text-sm text-gray-500">
                   Select a case from the sidebar to view its content
                 </p>
@@ -327,56 +265,56 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
         </div>
       </div>
 
-      {/* Command Bar - to be extracted to CommandBarWrapper */}
+      {/* Command Bar */}
       <CommandBar
-        onUploadNotes={() => setShowUploadModal(true)}
-        onEmailAnalysis={() => setShowEmailModal(true)}
-        onCRMImport={() => setShowCRMModal(true)}
-        onSalesCall={() => setShowSalesCallModal(true)}
+        onUploadNotes={() => openModal("upload")}
+        onEmailAnalysis={() => openModal("emailAnalysis")}
+        onCRMImport={() => openModal("crmImport")}
+        onSalesCall={() => openModal("salesCall")}
         disabled={readOnly}
       />
 
-      {/* Modals - to be extracted to ModalManager component */}
+      {/* Modals */}
       {showUploadModal && (
-        <UploadNotesModal onClose={() => setShowUploadModal(false)} onSubmit={handleUploadNotes} />
+        <UploadNotesModal
+          onClose={() => closeModal("upload")}
+          onSubmit={handleModalSubmit.upload}
+        />
       )}
 
       {showEmailModal && (
         <EmailAnalysisModal
-          onClose={() => setShowEmailModal(false)}
-          onSubmit={async (analysis) => {
-            // Handle email analysis
-            setShowEmailModal(false);
-          }}
+          onClose={() => closeModal("emailAnalysis")}
+          onSubmit={handleModalSubmit.email}
         />
       )}
 
       {showCRMModal && (
         <CRMImportModal
-          onClose={() => setShowCRMModal(false)}
-          onSubmit={async (deals) => {
-            // Handle CRM import
-            setShowCRMModal(false);
-          }}
+          onClose={() => closeModal("crmImport")}
+          onSubmit={handleModalSubmit.crm}
         />
       )}
 
       {showSalesCallModal && (
         <SalesCallModal
-          onClose={() => setShowSalesCallModal(false)}
-          onSubmit={async (analysis) => {
-            // Handle sales call analysis
-            setShowSalesCallModal(false);
-          }}
+          onClose={() => closeModal("salesCall")}
+          onSubmit={handleModalSubmit.salesCall}
         />
       )}
 
       {showExportModal && selectedCase && (
-        <ExportPreviewModal caseData={selectedCase} onClose={() => setShowExportModal(false)} />
+        <ExportPreviewModal
+          caseData={selectedCase}
+          onClose={() => closeModal("export")}
+        />
       )}
 
       {showCRMSyncModal && selectedCase && (
-        <CRMSyncModal caseData={selectedCase} onClose={() => setShowCRMSyncModal(false)} />
+        <CRMSyncModal
+          caseData={selectedCase}
+          onClose={() => closeModal("crmSync")}
+        />
       )}
     </div>
   );
