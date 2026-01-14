@@ -5,14 +5,14 @@
  * with support for multiple KMS providers (AWS, Azure, GCP, Local)
  */
 
-import { logger } from '../logger';
-import { Ed25519KeyPair, KeyPair, KeyRotationPolicy } from './CryptoUtils';
+import { logger } from "../logger";
+import { Ed25519KeyPair, KeyPair, KeyRotationPolicy } from "./CryptoUtils";
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export type KMSProvider = 'aws' | 'azure' | 'gcp' | 'local' | 'hashicorp-vault';
+export type KMSProvider = "aws" | "azure" | "gcp" | "local" | "hashicorp-vault";
 
 export interface KMSConfig {
   provider: KMSProvider;
@@ -31,7 +31,7 @@ export interface KMSConfig {
 export interface ManagedKey {
   keyId: string;
   provider: KMSProvider;
-  algorithm: 'ed25519' | 'x25519' | 'aes-256-gcm';
+  algorithm: "ed25519" | "x25519" | "aes-256-gcm";
   createdAt: Date;
   expiresAt?: Date;
   lastRotated?: Date;
@@ -42,7 +42,7 @@ export interface ManagedKey {
 export interface KeyMetadata {
   keyId: string;
   version: number;
-  status: 'active' | 'deprecated' | 'revoked' | 'expired';
+  status: "active" | "deprecated" | "revoked" | "expired";
   usageCount: number;
   lastUsed?: Date;
 }
@@ -61,7 +61,9 @@ export abstract class KMSProviderBase {
   /**
    * Generate a new key pair
    */
-  abstract generateKeyPair(algorithm: 'ed25519' | 'x25519'): Promise<ManagedKey>;
+  abstract generateKeyPair(
+    algorithm: "ed25519" | "x25519"
+  ): Promise<ManagedKey>;
 
   /**
    * Sign data with a private key
@@ -71,12 +73,19 @@ export abstract class KMSProviderBase {
   /**
    * Verify signature with a public key
    */
-  abstract verify(keyId: string, data: Buffer, signature: Buffer): Promise<boolean>;
+  abstract verify(
+    keyId: string,
+    data: Buffer,
+    signature: Buffer
+  ): Promise<boolean>;
 
   /**
    * Encrypt data
    */
-  abstract encrypt(keyId: string, plaintext: Buffer): Promise<{
+  abstract encrypt(
+    keyId: string,
+    plaintext: Buffer
+  ): Promise<{
     ciphertext: Buffer;
     iv: Buffer;
     tag?: Buffer;
@@ -85,7 +94,12 @@ export abstract class KMSProviderBase {
   /**
    * Decrypt data
    */
-  abstract decrypt(keyId: string, ciphertext: Buffer, iv: Buffer, tag?: Buffer): Promise<Buffer>;
+  abstract decrypt(
+    keyId: string,
+    ciphertext: Buffer,
+    iv: Buffer,
+    tag?: Buffer
+  ): Promise<Buffer>;
 
   /**
    * Get key metadata
@@ -105,7 +119,10 @@ export abstract class KMSProviderBase {
   /**
    * List keys
    */
-  abstract listKeys(filter?: { status?: string; algorithm?: string }): Promise<ManagedKey[]>;
+  abstract listKeys(filter?: {
+    status?: string;
+    algorithm?: string;
+  }): Promise<ManagedKey[]>;
 }
 
 // ============================================================================
@@ -121,37 +138,46 @@ export class AWSKMSProvider extends KMSProviderBase {
     // this.kms = new AWS.KMS({ region: config.region, ...config.credentials });
   }
 
-  async generateKeyPair(algorithm: 'ed25519' | 'x25519'): Promise<ManagedKey> {
+  async generateKeyPair(algorithm: "ed25519" | "x25519"): Promise<ManagedKey> {
     try {
-      const keySpec = algorithm === 'ed25519' ? 'ECC_NIST_P256' : 'ECC_NIST_P256';
+      const keySpec =
+        algorithm === "ed25519" ? "ECC_NIST_P256" : "ECC_NIST_P256";
 
       const response = await this.kms.createKey({
-        KeyUsage: 'SIGN_VERIFY',
+        KeyUsage: "SIGN_VERIFY",
         KeySpec: keySpec,
         Description: `ValueOS ${algorithm} key pair`,
         Tags: [
-          { TagKey: 'Purpose', TagValue: 'ValueOS-Agent-Communication' },
-          { TagKey: 'Algorithm', TagValue: algorithm },
-          { TagKey: 'Environment', TagValue: process.env.NODE_ENV || 'development' }
-        ]
+          { TagKey: "Purpose", TagValue: "ValueOS-Agent-Communication" },
+          { TagKey: "Algorithm", TagValue: algorithm },
+          {
+            TagKey: "Environment",
+            TagValue: process.env.NODE_ENV || "development",
+          },
+        ],
       });
 
       const keyId = response.KeyMetadata.KeyId;
 
       return {
         keyId,
-        provider: 'aws',
+        provider: "aws",
         algorithm,
         createdAt: new Date(response.KeyMetadata.CreationDate),
         metadata: {
           awsRegion: this.config.region,
           keySpec,
-          arn: response.KeyMetadata.Arn
-        }
+          arn: response.KeyMetadata.Arn,
+        },
       };
     } catch (error) {
-      logger.error('Failed to generate AWS KMS key pair', error instanceof Error ? error : undefined);
-      throw new Error(`AWS KMS key generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      logger.error(
+        "Failed to generate AWS KMS key pair",
+        error instanceof Error ? error : undefined
+      );
+      throw new Error(
+        `AWS KMS key generation failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     }
   }
 
@@ -160,35 +186,52 @@ export class AWSKMSProvider extends KMSProviderBase {
       const response = await this.kms.sign({
         KeyId: keyId,
         Message: data,
-        MessageType: 'RAW',
-        SigningAlgorithm: 'ECDSA_SHA_256'
+        MessageType: "RAW",
+        SigningAlgorithm: "ECDSA_SHA_256",
       });
 
-      return Buffer.from(response.Signature, 'base64');
+      return Buffer.from(response.Signature, "base64");
     } catch (error) {
-      logger.error('AWS KMS sign failed', error instanceof Error ? error : undefined, { keyId });
-      throw new Error(`AWS KMS signing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      logger.error(
+        "AWS KMS sign failed",
+        error instanceof Error ? error : undefined,
+        { keyId }
+      );
+      throw new Error(
+        `AWS KMS signing failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     }
   }
 
-  async verify(keyId: string, data: Buffer, signature: Buffer): Promise<boolean> {
+  async verify(
+    keyId: string,
+    data: Buffer,
+    signature: Buffer
+  ): Promise<boolean> {
     try {
       const response = await this.kms.verify({
         KeyId: keyId,
         Message: data,
-        MessageType: 'RAW',
+        MessageType: "RAW",
         Signature: signature,
-        SigningAlgorithm: 'ECDSA_SHA_256'
+        SigningAlgorithm: "ECDSA_SHA_256",
       });
 
       return response.SignatureValid;
     } catch (error) {
-      logger.error('AWS KMS verify failed', error instanceof Error ? error : undefined, { keyId });
+      logger.error(
+        "AWS KMS verify failed",
+        error instanceof Error ? error : undefined,
+        { keyId }
+      );
       return false;
     }
   }
 
-  async encrypt(keyId: string, plaintext: Buffer): Promise<{
+  async encrypt(
+    keyId: string,
+    plaintext: Buffer
+  ): Promise<{
     ciphertext: Buffer;
     iv: Buffer;
     tag?: Buffer;
@@ -197,31 +240,48 @@ export class AWSKMSProvider extends KMSProviderBase {
       const response = await this.kms.encrypt({
         KeyId: keyId,
         Plaintext: plaintext,
-        EncryptionAlgorithm: 'AES_256_GCM'
+        EncryptionAlgorithm: "AES_256_GCM",
       });
 
       return {
-        ciphertext: Buffer.from(response.CiphertextBase64, 'base64'),
+        ciphertext: Buffer.from(response.CiphertextBase64, "base64"),
         iv: Buffer.alloc(16), // AWS manages IV internally
-        tag: undefined // AWS manages tag internally
+        tag: undefined, // AWS manages tag internally
       };
     } catch (error) {
-      logger.error('AWS KMS encrypt failed', error instanceof Error ? error : undefined, { keyId });
-      throw new Error(`AWS KMS encryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      logger.error(
+        "AWS KMS encrypt failed",
+        error instanceof Error ? error : undefined,
+        { keyId }
+      );
+      throw new Error(
+        `AWS KMS encryption failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     }
   }
 
-  async decrypt(keyId: string, ciphertext: Buffer, iv: Buffer, tag?: Buffer): Promise<Buffer> {
+  async decrypt(
+    keyId: string,
+    ciphertext: Buffer,
+    iv: Buffer,
+    tag?: Buffer
+  ): Promise<Buffer> {
     try {
       const response = await this.kms.decrypt({
         Ciphertext: ciphertext,
-        KeyId: keyId
+        KeyId: keyId,
       });
 
       return Buffer.from(response.Plaintext);
     } catch (error) {
-      logger.error('AWS KMS decrypt failed', error instanceof Error ? error : undefined, { keyId });
-      throw new Error(`AWS KMS decryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      logger.error(
+        "AWS KMS decrypt failed",
+        error instanceof Error ? error : undefined,
+        { keyId }
+      );
+      throw new Error(
+        `AWS KMS decryption failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     }
   }
 
@@ -234,11 +294,19 @@ export class AWSKMSProvider extends KMSProviderBase {
         version: 1, // AWS manages versions internally
         status: this.mapAWSState(response.KeyMetadata.State),
         usageCount: 0, // AWS doesn't track usage by default
-        lastUsed: response.KeyMetadata.LastUsedDate ? new Date(response.KeyMetadata.LastUsedDate) : undefined
+        lastUsed: response.KeyMetadata.LastUsedDate
+          ? new Date(response.KeyMetadata.LastUsedDate)
+          : undefined,
       };
     } catch (error) {
-      logger.error('AWS KMS getMetadata failed', error instanceof Error ? error : undefined, { keyId });
-      throw new Error(`AWS KMS metadata retrieval failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      logger.error(
+        "AWS KMS getMetadata failed",
+        error instanceof Error ? error : undefined,
+        { keyId }
+      );
+      throw new Error(
+        `AWS KMS metadata retrieval failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     }
   }
 
@@ -251,17 +319,23 @@ export class AWSKMSProvider extends KMSProviderBase {
 
       return {
         keyId,
-        provider: 'aws',
-        algorithm: 'ed25519', // Default assumption
+        provider: "aws",
+        algorithm: "ed25519", // Default assumption
         createdAt: new Date(),
         lastRotated: new Date(),
         metadata: {
-          rotated: true
-        }
+          rotated: true,
+        },
       };
     } catch (error) {
-      logger.error('AWS KMS rotateKey failed', error instanceof Error ? error : undefined, { keyId });
-      throw new Error(`AWS KMS key rotation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      logger.error(
+        "AWS KMS rotateKey failed",
+        error instanceof Error ? error : undefined,
+        { keyId }
+      );
+      throw new Error(
+        `AWS KMS key rotation failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     }
   }
 
@@ -270,15 +344,24 @@ export class AWSKMSProvider extends KMSProviderBase {
       await this.kms.disableKey({ KeyId: keyId });
       await this.kms.scheduleKeyDeletion({
         KeyId: keyId,
-        PendingWindowInDays: 7
+        PendingWindowInDays: 7,
       });
     } catch (error) {
-      logger.error('AWS KMS revokeKey failed', error instanceof Error ? error : undefined, { keyId });
-      throw new Error(`AWS KMS key revocation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      logger.error(
+        "AWS KMS revokeKey failed",
+        error instanceof Error ? error : undefined,
+        { keyId }
+      );
+      throw new Error(
+        `AWS KMS key revocation failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     }
   }
 
-  async listKeys(filter?: { status?: string; algorithm?: string }): Promise<ManagedKey[]> {
+  async listKeys(filter?: {
+    status?: string;
+    algorithm?: string;
+  }): Promise<ManagedKey[]> {
     try {
       const response = await this.kms.listKeys({});
 
@@ -287,35 +370,45 @@ export class AWSKMSProvider extends KMSProviderBase {
       for (const key of response.Keys) {
         const metadata = await this.getMetadata(key.KeyId);
 
-        if (filter && (
-          (filter.status && metadata.status !== filter.status) ||
-          (filter.algorithm && !key.KeyId.includes(filter.algorithm))
-        )) {
+        if (
+          filter &&
+          ((filter.status && metadata.status !== filter.status) ||
+            (filter.algorithm && !key.KeyId.includes(filter.algorithm)))
+        ) {
           continue;
         }
 
         keys.push({
           keyId: key.KeyId,
-          provider: 'aws',
-          algorithm: 'ed25519', // Default assumption
+          provider: "aws",
+          algorithm: "ed25519", // Default assumption
           createdAt: new Date(),
-          metadata
+          metadata,
         });
       }
 
       return keys;
     } catch (error) {
-      logger.error('AWS KMS listKeys failed', error instanceof Error ? error : undefined);
-      throw new Error(`AWS KMS key listing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      logger.error(
+        "AWS KMS listKeys failed",
+        error instanceof Error ? error : undefined
+      );
+      throw new Error(
+        `AWS KMS key listing failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     }
   }
 
-  private mapAWSState(state: string): KeyMetadata['status'] {
+  private mapAWSState(state: string): KeyMetadata["status"] {
     switch (state) {
-      case 'Enabled': return 'active';
-      case 'Disabled': return 'revoked';
-      case 'PendingDeletion': return 'revoked';
-      default: return 'active';
+      case "Enabled":
+        return "active";
+      case "Disabled":
+        return "revoked";
+      case "PendingDeletion":
+        return "revoked";
+      default:
+        return "active";
     }
   }
 }
@@ -329,27 +422,40 @@ export class LocalKMSProvider extends KMSProviderBase {
   private privateKeys: Map<string, Buffer> = new Map();
   private publicKeys: Map<string, Buffer> = new Map();
 
-  async generateKeyPair(algorithm: 'ed25519' | 'x25519'): Promise<ManagedKey> {
-    const { generateEd25519KeyPair, generateX25519KeyPair } = await import('./CryptoUtils');
+  async generateKeyPair(algorithm: "ed25519" | "x25519"): Promise<ManagedKey> {
+    const { generateEd25519KeyPair, generateX25519KeyPair } =
+      await import("./CryptoUtils");
 
-    const keyPair = algorithm === 'ed25519' ? generateEd25519KeyPair() : generateX25519KeyPair();
+    const keyPair =
+      algorithm === "ed25519"
+        ? generateEd25519KeyPair()
+        : generateX25519KeyPair();
 
     const managedKey: ManagedKey = {
       keyId: keyPair.keyId,
-      provider: 'local',
+      provider: "local",
       algorithm,
       createdAt: keyPair.createdAt,
       metadata: {
         local: true,
-        environment: process.env.NODE_ENV || 'development'
-      }
+        environment: process.env.NODE_ENV || "development",
+      },
     };
 
     this.keys.set(keyPair.keyId, managedKey);
-    this.privateKeys.set(keyPair.keyId, Buffer.from(keyPair.privateKey, 'base64'));
-    this.publicKeys.set(keyPair.keyId, Buffer.from(keyPair.publicKey, 'base64'));
+    this.privateKeys.set(
+      keyPair.keyId,
+      Buffer.from(keyPair.privateKey, "base64")
+    );
+    this.publicKeys.set(
+      keyPair.keyId,
+      Buffer.from(keyPair.publicKey, "base64")
+    );
 
-    logger.info('Generated local key pair', { keyId: keyPair.keyId, algorithm });
+    logger.info("Generated local key pair", {
+      keyId: keyPair.keyId,
+      algorithm,
+    });
 
     return managedKey;
   }
@@ -360,52 +466,66 @@ export class LocalKMSProvider extends KMSProviderBase {
       throw new Error(`Private key not found for keyId: ${keyId}`);
     }
 
-    const { ed25519 } = await import('@noble/curves/ed25519');
+    const ed25519 = await import("@noble/ed25519");
     return Buffer.from(ed25519.sign(data, privateKey));
   }
 
-  async verify(keyId: string, data: Buffer, signature: Buffer): Promise<boolean> {
+  async verify(
+    keyId: string,
+    data: Buffer,
+    signature: Buffer
+  ): Promise<boolean> {
     const publicKey = this.publicKeys.get(keyId);
     if (!publicKey) {
       throw new Error(`Public key not found for keyId: ${keyId}`);
     }
 
-    const { ed25519 } = await import('@noble/curves/ed25519');
+    const ed25519 = await import("@noble/ed25519");
     return ed25519.verify(signature, data, publicKey);
   }
 
-  async encrypt(keyId: string, plaintext: Buffer): Promise<{
+  async encrypt(
+    keyId: string,
+    plaintext: Buffer
+  ): Promise<{
     ciphertext: Buffer;
     iv: Buffer;
     tag?: Buffer;
   }> {
-    const { encrypt, generateEncryptionKey } = await import('./CryptoUtils');
+    const { encrypt, generateEncryptionKey } = await import("./CryptoUtils");
 
     // For local provider, we'll use symmetric encryption
     const key = generateEncryptionKey();
     const encrypted = encrypt(plaintext.toString(), key);
 
     return {
-      ciphertext: Buffer.from(encrypted.data, 'base64'),
-      iv: Buffer.from(encrypted.iv, 'base64'),
-      tag: Buffer.from(encrypted.tag || '', 'base64')
+      ciphertext: Buffer.from(encrypted.data, "base64"),
+      iv: Buffer.from(encrypted.iv, "base64"),
+      tag: Buffer.from(encrypted.tag || "", "base64"),
     };
   }
 
-  async decrypt(keyId: string, ciphertext: Buffer, iv: Buffer, tag?: Buffer): Promise<Buffer> {
-    const { decrypt, generateEncryptionKey } = await import('./CryptoUtils');
+  async decrypt(
+    keyId: string,
+    ciphertext: Buffer,
+    iv: Buffer,
+    tag?: Buffer
+  ): Promise<Buffer> {
+    const { decrypt, generateEncryptionKey } = await import("./CryptoUtils");
 
     // For local provider, we'll use symmetric encryption
     const key = generateEncryptionKey();
     const encryptedData = {
-      data: ciphertext.toString('base64'),
-      iv: iv.toString('base64'),
-      tag: tag?.toString('base64') || '',
-      algorithm: 'aes-256-gcm'
+      data: ciphertext.toString("base64"),
+      iv: iv.toString("base64"),
+      tag: tag?.toString("base64") || "",
+      algorithm: "aes-256-gcm",
     };
 
     const decrypted = decrypt(encryptedData, key);
-    return Buffer.from(typeof decrypted === 'string' ? decrypted : JSON.stringify(decrypted));
+    return Buffer.from(
+      typeof decrypted === "string" ? decrypted : JSON.stringify(decrypted)
+    );
   }
 
   async getMetadata(keyId: string): Promise<KeyMetadata> {
@@ -417,9 +537,9 @@ export class LocalKMSProvider extends KMSProviderBase {
     return {
       keyId,
       version: 1,
-      status: 'active',
+      status: "active",
       usageCount: 0,
-      lastUsed: new Date()
+      lastUsed: new Date(),
     };
   }
 
@@ -435,10 +555,13 @@ export class LocalKMSProvider extends KMSProviderBase {
     // Mark old key as deprecated
     this.keys.set(keyId, {
       ...existingKey,
-      metadata: { ...existingKey.metadata, deprecated: true }
+      metadata: { ...existingKey.metadata, deprecated: true },
     });
 
-    logger.info('Rotated local key', { oldKeyId: keyId, newKeyId: newKey.keyId });
+    logger.info("Rotated local key", {
+      oldKeyId: keyId,
+      newKeyId: newKey.keyId,
+    });
 
     return newKey;
   }
@@ -448,16 +571,20 @@ export class LocalKMSProvider extends KMSProviderBase {
     this.privateKeys.delete(keyId);
     this.publicKeys.delete(keyId);
 
-    logger.info('Revoked local key', { keyId });
+    logger.info("Revoked local key", { keyId });
   }
 
-  async listKeys(filter?: { status?: string; algorithm?: string }): Promise<ManagedKey[]> {
+  async listKeys(filter?: {
+    status?: string;
+    algorithm?: string;
+  }): Promise<ManagedKey[]> {
     let keys = Array.from(this.keys.values());
 
     if (filter) {
-      keys = keys.filter(key => {
+      keys = keys.filter((key) => {
         if (filter.status && !key.metadata?.deprecated) return false;
-        if (filter.algorithm && key.algorithm !== filter.algorithm) return false;
+        if (filter.algorithm && key.algorithm !== filter.algorithm)
+          return false;
         return true;
       });
     }
@@ -483,7 +610,7 @@ export class KeyManagementService {
   static getInstance(config?: KMSConfig): KeyManagementService {
     if (!KeyManagementService.instance) {
       if (!config) {
-        throw new Error('KMS config required for first initialization');
+        throw new Error("KMS config required for first initialization");
       }
       KeyManagementService.instance = new KeyManagementService(config);
     }
@@ -492,20 +619,25 @@ export class KeyManagementService {
 
   private createProvider(config: KMSConfig): KMSProviderBase {
     switch (config.provider) {
-      case 'aws':
+      case "aws":
         return new AWSKMSProvider(config);
-      case 'local':
+      case "local":
         return new LocalKMSProvider(config);
       default:
-        logger.warn(`KMS provider ${config.provider} not implemented, falling back to local`);
-        return new LocalKMSProvider({ ...config, provider: 'local' });
+        logger.warn(
+          `KMS provider ${config.provider} not implemented, falling back to local`
+        );
+        return new LocalKMSProvider({ ...config, provider: "local" });
     }
   }
 
   /**
    * Generate a new key pair
    */
-  async generateKeyPair(algorithm: 'ed25519' | 'x25519' = 'ed25519'): Promise<ManagedKey> {
+  async generateKeyPair(algorithm: string = "ed25519"): Promise<ManagedKey> {
+    if (!["ed25519", "x25519"].includes(algorithm)) {
+      throw new Error(`Unsupported algorithm: ${algorithm}`);
+    }
     return this.provider.generateKeyPair(algorithm);
   }
 
@@ -520,7 +652,11 @@ export class KeyManagementService {
   /**
    * Verify signature with a managed key
    */
-  async verify(keyId: string, data: string | Buffer, signature: Buffer): Promise<boolean> {
+  async verify(
+    keyId: string,
+    data: string | Buffer,
+    signature: Buffer
+  ): Promise<boolean> {
     const dataBuffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
     return this.provider.verify(keyId, dataBuffer, signature);
   }
@@ -537,7 +673,7 @@ export class KeyManagementService {
    */
   async rotateKey(keyId: string): Promise<ManagedKey> {
     const newKey = await this.provider.rotateKey(keyId);
-    logger.info('Key rotated successfully', { keyId, newKeyId: newKey.keyId });
+    logger.info("Key rotated successfully", { keyId, newKeyId: newKey.keyId });
     return newKey;
   }
 
@@ -546,13 +682,16 @@ export class KeyManagementService {
    */
   async revokeKey(keyId: string): Promise<void> {
     await this.provider.revokeKey(keyId);
-    logger.info('Key revoked successfully', { keyId });
+    logger.info("Key revoked successfully", { keyId });
   }
 
   /**
    * List managed keys
    */
-  async listKeys(filter?: { status?: string; algorithm?: string }): Promise<ManagedKey[]> {
+  async listKeys(filter?: {
+    status?: string;
+    algorithm?: string;
+  }): Promise<ManagedKey[]> {
     return this.provider.listKeys(filter);
   }
 
@@ -575,7 +714,10 @@ export class KeyManagementService {
           }
         }
       } catch (error) {
-        logger.error('Key rotation check failed', error instanceof Error ? error : undefined);
+        logger.error(
+          "Key rotation check failed",
+          error instanceof Error ? error : undefined
+        );
       }
     }, 3600000); // 1 hour
   }
@@ -603,5 +745,5 @@ export default {
   KeyManagementService,
   AWSKMSProvider,
   LocalKMSProvider,
-  getKMS
+  getKMS,
 };
