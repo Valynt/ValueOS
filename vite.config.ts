@@ -27,6 +27,30 @@ export default defineConfig({
   build: {
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
+      external: [
+        // Server-side OpenTelemetry packages
+        "@opentelemetry/sdk-node",
+        "@opentelemetry/auto-instrumentations-node",
+        "@opentelemetry/exporter-trace-otlp-http",
+        "@opentelemetry/exporter-metrics-otlp-http",
+        "@opentelemetry/sdk-metrics",
+        "@opentelemetry/resources",
+        "@opentelemetry/semantic-conventions",
+        "@opentelemetry/otlp-exporter-base",
+        // Other backend deps
+        "node-vault",
+        "@aws-sdk/client-secrets-manager",
+        "winston",
+        "winston-cloudwatch",
+        // Node.js built-ins
+        "zlib",
+        "stream",
+        "fs",
+        "path",
+        "crypto",
+        "util",
+        "os",
+      ],
       output: {
         manualChunks: {
           vendor: ["react", "react-dom"],
