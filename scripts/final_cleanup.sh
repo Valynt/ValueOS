@@ -1,97 +1,57 @@
 #!/bin/bash
-#
-# Final cleanup script to achieve the ideal repository structure.
-# This script automates the final file moves and consolidations.
-# Run from the repository root.
-#
 
-set -e
+# Final cleanup to remove the 5 consolidated source files and 1 redundant file
+# These files' content has been merged into:
+# - TESTING_STRATEGY.md, TEST_COVERAGE_PLAN.md, TEST_COVERAGE_PROGRESS.md → TESTING.md
+# - DATABASE_SETUP.md → QUICKSTART.md  
+# - GO_LIVE_READINESS_AUDIT.md → GO_LIVE_EXECUTIVE_SUMMARY.md
+# - DOC_CONSOLIDATION_COMPLETE.md (redundant summary)
 
-echo "--- Starting final repository cleanup ---"
+echo "Removing consolidated source files and redundant files..."
 
-# 1. Move shell scripts into /scripts directory
-echo ""
-echo "Step 1: Moving shell scripts to /scripts..."
-mkdir -p scripts
-SCRIPTS_TO_MOVE="cleanup.sh consolidate.sh deploy-production.sh dev-setup.sh start-docker.sh start.sh"
-for s in $SCRIPTS_TO_MOVE; do
-    if [ -f "$s" ]; then
-        mv "$s" scripts/
-        echo " - Moved $s to scripts/"
-    else
-        echo " - Warning: Script '$s' not found, skipping."
-    fi
+# Arrays of files to delete
+CONSOLIDATED_SOURCES=(
+  "TESTING_STRATEGY.md"
+  "TEST_COVERAGE_PLAN.md"
+  "TEST_COVERAGE_PROGRESS.md"
+  "DATABASE_SETUP.md"
+)
+
+REDUNDANT_FILES=(
+  "DOC_CONSOLIDATION_COMPLETE.md"
+)
+
+# Try to delete using git rm
+for file in "${CONSOLIDATED_SOURCES[@]}" "${REDUNDANT_FILES[@]}"; do
+  if [ -f "$file" ]; then
+    echo "Deleting: $file"
+    git rm -f "$file" 2>/dev/null || rm -f "$file"
+  fi
 done
-echo "Shell scripts moved."
 
-# 2. Move public/public/index.html files to /public
+# Check if any other legacy files still exist that should be deleted
 echo ""
-echo "Step 2: Moving public/public/index.html and index.production.html to /public..."
-mkdir -p public
-if [ -f "public/public/index.html" ]; then
-    mv "public/public/index.html" public/
-    echo " - Moved public/public/index.html"
-fi
-if [ -f "index.production.html" ]; then
-    mv "index.production.html" public/
-    echo " - Moved index.production.html"
-fi
-echo "HTML files moved."
-echo "Note: Vite automatically uses 'public' as the public asset directory, so no changes to vite.config.ts should be required."
+echo "Checking for any remaining legacy milestone files..."
+find . -maxdepth 1 -name "*.md" -type f | grep -E "(PHASE|SPRINT|EPIC|WEEK|AUTONOMOUS|UNIFIED|BUGFIX|IMPLEMENTATION_COMPLETE|CONSOLE_CLEANUP|PROJECT_STATUS|LIFECYCLE|LIFEGUARD|AUDIT_FIXES)" || echo "No legacy files found"
 
-# 3. Consolidate infrastructure directories into /infra
-echo ""
-echo "Step 3: Consolidating all infrastructure code into /infra..."
-mkdir -p infra/docker infra/k8s infra/caddy infra/monitoring infra/backups
+# Try to commit if there are changes
+if [ -n "$(git status --porcelain)" ]; then
+  echo ""
+  echo "Committing file deletions..."
+  git commit -m "chore: remove consolidated source files and redundant documentation
 
-# Helper function to safely move contents from a source dir to a destination
-# and then remove the empty source directory.
-move_contents() {
-    local src_dir=$1
-    local dest_dir=$2
-    if [ -d "$src_dir" ]; then
-        # Check if source directory has any files/subdirectories to move
-        if [ -n "$(ls -A "$src_dir")" ]; then
-            echo " - Moving contents from '$src_dir' to '$dest_dir'..."
-            # Use rsync to safely handle moving all files, including hidden ones
-            rsync -av "$src_dir"/ "$dest_dir"/
-            # Remove the original source directory now that its contents are moved
-            rm -rf "$src_dir"
-            echo " - Removed original directory '$src_dir'."
-        else
-            echo " - Directory '$src_dir' is empty, removing..."
-            rm -rf "$src_dir"
-        fi
-    else
-        echo " - Directory '$src_dir' not found, skipping."
-    fi
-}
+- Remove TESTING_STRATEGY.md (content merged to TESTING.md)
+- Remove TEST_COVERAGE_PLAN.md (content merged to TESTING.md)
+- Remove TEST_COVERAGE_PROGRESS.md (content merged to TESTING.md)
+- Remove DATABASE_SETUP.md (content merged to QUICKSTART.md)
+- Remove DOC_CONSOLIDATION_COMPLETE.md (redundant summary file)
 
-move_contents "infrastructure" "infra"
-move_contents "docker" "infra/docker"
-move_contents "k8s" "infra/k8s"
-move_contents "kubernetes" "infra/k8s"
-move_contents "caddy-config" "infra/caddy"
-echo "Infrastructure consolidation complete."
+This completes the consolidation effort with 34+ legacy files removed and
+documentation references updated to point to new rollup location.
 
-# 4. Move SQL backup file
-echo ""
-echo "Step 4: Archiving SQL backup file..."
-if [ -f "backup-20251201.sql" ]; then
-    mv "backup-20251201.sql" "infra/backups/"
-    echo " - Moved backup-20251201.sql to infra/backups/"
+Fixes remaining issues from PR #127 review."
 else
-    echo " - Warning: backup-20251201.sql not found, skipping."
+  echo "No changes to commit"
 fi
 
-echo ""
-echo "--- Cleanup Complete ---"
-echo ""
-echo "IMPORTANT: MANUAL STEP REQUIRED!"
-echo "The automated file moves are complete. You must now manually search the codebase"
-echo "for any hardcoded paths that might be broken by these changes. Check files like:"
-echo " - package.json scripts"
-echo " - docker-compose.yml files (e.g., build contexts)"
-echo " - GitHub Actions workflows (.github/workflows)"
-echo " - Any other configuration or script files"
-echo "For example, a reference to './infra/infra/docker/backend.Dockerfile' may need to be changed to './infra/infra/infra/docker/backend.Dockerfile'."
+echo "Cleanup complete!"

@@ -1,0 +1,146 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+coverage
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Environment files
+.env
+.env.local
+.env.dev
+.env.staging
+.env.prod
+.env.*.local
+
+# Keep example files
+!.env.example
+
+# Build artifacts
+build/
+dist/
+dist-ssr/
+*.tsbuildinfo
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+
+# Cache directories
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Debug logs
+debug.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# Misc
+.bolt/
+
+# Windsurf - keep local rules only
+.windsurf/*
+!.windsurf/rules/
+
+# Local development secrets (Docker Secrets)
+secrets/
+!secrets/README.md
+Brian_0x86524961_private.asc
+
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform/
+.terraform.lock.hcl
+terraform.tfplan
+tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform backups and outputs
+infrastructure/terraform/backups/
+infrastructure/terraform/environments/*/outputs.json
+infrastructure/terraform/environments/*/secrets.tfvars
+
+# Snyk Security Extension - AI Rules (auto-generated)
+.windsurf/rules/snyk_rules.md
+
+# Snyk Security Extension - AI Rules (auto-generated)
+.github/instructions/snyk_rules.instructions.md
+
+# Temporary reports and analysis files
+lint-report.txt
+TEST_TRIAGE.md
+.vitest-env.json
+impact.json
+
+*storybook.log
+storybook-static
+
+# Playwright
+.playwright-browsers/
+test-results/
+playwright-report/
+blob-report/
+playwright-artifacts/
+.env.production
+
+# PNPM
+.pnpm-store/
+pnpm-lock.yaml
+
+# Yarn
+yarn.lock
+
+# Core dumps
+core
+core.*
+*.core

@@ -1,174 +1,351 @@
-# ValueOS Documentation
+x# ValueOS
 
-Complete documentation for ValueOS development, deployment, and operations.
-
----
-
-## 🚀 Getting Started
-
-New to ValueOS? Start here:
-
-- **[Quick Start](getting-started/QUICK_START.md)** - Get up and running in 5 minutes
-- **[Setup Guide](getting-started/GETTING_STARTED.md)** - Comprehensive setup instructions
-- **[Troubleshooting](getting-started/TROUBLESHOOTING.md)** - Common issues and solutions
+Enterprise-grade value management platform built with modern web technologies.
 
 ---
 
-## 💻 Development
-
-For developers working on ValueOS:
-
-### Developer Experience
-
-- **[DX Audit](development/DX_AUDIT_ENHANCED.md)** - Developer experience improvements
-- **[DX Implementation](development/DX_IMPLEMENTATION_COMPLETE.md)** - Implementation summary
-- **[DX Roadmap](development/DX_IMPLEMENTATION_ROADMAP.md)** - Implementation roadmap
-- **[DX Recommendations](development/DX_RECOMMENDATIONS.md)** - Strategic recommendations
-- **[DX Launch Checklist](development/DX_LAUNCH_CHECKLIST.md)** - Launch preparation
-
-### Platform-Specific Guides
-
-- **[Windows Setup](platform/WINDOWS.md)** - Windows and WSL2 setup
-- **[macOS Setup](platform/MACOS.md)** - macOS Intel and Apple Silicon
-- **[Linux Setup](platform/LINUX.md)** - Linux distributions
-
----
-
-## 🚢 Deployment
-
-Infrastructure and deployment documentation:
-
-### CI/CD
-
-- **[CI/CD Architecture](deployment/CICD_INFRASTRUCTURE_ARCHITECTURE.md)** - Complete CI/CD design
-- **[CI/CD Implementation](deployment/CICD_INFRASTRUCTURE_COMPLETE.md)** - Implementation guide
-- **[Deployment Guide](deployment/DEPLOYMENT.md)** - Deployment procedures
-
-### Infrastructure
-
-- **[Infrastructure as Code](../infra/terraform-new/)** - Terraform modules
-- **[Observability Stack](deployment/OBSERVABILITY_STACK.md)** - Monitoring and observability
-
----
-
-## 🔧 Operations
-
-For operations and maintenance:
-
-### Monitoring & Security
-
-- **[Metrics & Monitoring](operations/DX_METRICS.md)** - Metrics framework
-- **[Security Guide](operations/SECURITY_DEV_ENVIRONMENT.md)** - Security best practices
-
-### Runbooks
-
-- **[Deployment Runbook](deployment/CICD_INFRASTRUCTURE_COMPLETE.md#deployment-strategies)** - Deployment procedures
-- **[Rollback Runbook](deployment/CICD_INFRASTRUCTURE_COMPLETE.md#rollback-strategy)** - Rollback procedures
-- **[Incident Response](operations/SECURITY_DEV_ENVIRONMENT.md#incident-response)** - Security incidents
-
----
-
-## 📚 Additional Resources
-
-### Contributing
-
-- **[Contributing Guide](../CONTRIBUTING.md)** - How to contribute
-- **[Code of Conduct](../CONTRIBUTING.md#code-of-conduct)** - Community guidelines
-
-### Archive
-
-- **[Archive](archive/)** - Historical documentation and archived reports
-- **[Archived Reports](archive/reports/README.md)** - Past report snapshots and scorecards
-
----
-
-## 🗺️ Documentation Map
-
-```
-docs/
-├── README.md                           # This file
-│
-├── getting-started/                    # New user guides
-│   ├── QUICK_START.md                 # 5-minute quick start
-│   ├── GETTING_STARTED.md             # Comprehensive setup
-│   └── TROUBLESHOOTING.md             # Common issues
-│
-├── development/                        # Developer guides
-│   ├── DX_AUDIT_ENHANCED.md           # DX improvements
-│   ├── DX_IMPLEMENTATION_COMPLETE.md  # DX implementation
-│   ├── DX_IMPLEMENTATION_ROADMAP.md   # DX roadmap
-│   ├── DX_RECOMMENDATIONS.md          # DX recommendations
-│   └── DX_LAUNCH_CHECKLIST.md         # DX launch prep
-│
-├── deployment/                         # Deployment guides
-│   ├── CICD_INFRASTRUCTURE_ARCHITECTURE.md  # CI/CD design
-│   ├── CICD_INFRASTRUCTURE_COMPLETE.md      # CI/CD implementation
-│   ├── DEPLOYMENT.md                        # Deployment guide
-│   └── OBSERVABILITY_STACK.md               # Monitoring
-│
-├── operations/                         # Operations guides
-│   ├── DX_METRICS.md                  # Metrics framework
-│   └── SECURITY_DEV_ENVIRONMENT.md    # Security guide
-│
-├── platform/                           # Platform-specific
-│   ├── WINDOWS.md                     # Windows/WSL2
-│   ├── MACOS.md                       # macOS
-│   └── LINUX.md                       # Linux
-│
-└── archive/                            # Historical docs
-    └── reports/                        # Archived reports and scorecards
-```
-
----
-
-## 🔍 Quick Links
-
-### Most Common Tasks
-
-**Setup**:
+## 🚀 Quick Start
 
 ```bash
-npm run setup          # Automated setup
-npm run health         # Check system health
-npm run dev    # Start all services
+# Clone repository
+git clone https://github.com/Valynt/ValueOS.git
+cd ValueOS
+
+# Install dependencies (node_modules are not committed)
+npm install
+
+# Automated setup (takes ~5 minutes)
+npm run setup    # Runs scripts/dev/setup.sh
+
+# Start development
+npm run dx
 ```
 
-**Deployment**:
+Open [http://localhost:5173](http://localhost:5173) (or the port in `config/ports.json` / `.env.ports`) - you're ready to code! 🎉
+
+**First time here?** See [docs/getting-started/GETTING_STARTED.md](docs/getting-started/GETTING_STARTED.md)
+
+---
+
+## ✨ Features
+
+- ✅ **Fast setup**: < 5 minutes from clone to running
+- ✅ **Auto-detection**: Automatically configures for your platform
+- ✅ **One-click deployment**: GitHub Actions CI/CD pipeline
+- ✅ **Full observability**: Metrics, logs, and traces
+- ✅ **Security-first**: Auto-generated secrets, pre-commit hooks
+- ✅ **Production-ready**: Infrastructure as Code with Terraform
+
+---
+
+## 📋 Prerequisites
+
+- **Node.js** 22 (see `.nvmrc`)
+- **Docker** Desktop or Engine
+- **Git**
+- **10 GB** free disk space
+
+The setup script checks these automatically.
+
+---
+
+## 🛠️ Development
+
+### Start Development
 
 ```bash
-npm run deploy:staging     # Deploy to staging
-npm run deploy:production  # Deploy to production
-npm run deploy:rollback    # Rollback deployment
+npm run dx
 ```
 
-**Development**:
+This starts the local app + Docker dependencies with hot reload on [http://localhost:5173](http://localhost:5173) (or the port in `config/ports.json` / `.env.ports`).
+
+For a full Docker stack (frontend + backend + deps), run:
 
 ```bash
-npm run dev            # Start frontend
-npm run backend:dev    # Start backend
-npm test               # Run tests
-npm run lint           # Lint code
+npm run dx:docker
+```
+
+To preflight your environment without starting services:
+
+```bash
+npm run dx:doctor
+```
+
+### Edge Proxy (Caddy)
+
+Run the full stack through the Caddy edge layer (HTTPS, SPA routing, API proxy):
+
+```bash
+cp .env.dev.example .env.dev
+docker compose -f docker-compose.dev.yml up --build
+```
+
+- **Edge (HTTPS)**: [https://localhost:8443](https://localhost:8443)
+- **Edge (HTTP → HTTPS redirect)**: [http://localhost:8080](http://localhost:8080)
+- **Caddy Admin**: [http://localhost:2019](http://localhost:2019)
+
+> To trust the local TLS certificate, see the runbook: [docs/edge-caddy.md](docs/edge-caddy.md)
+
+### Check System Health
+
+```bash
+npm run health
+```
+
+### Access Services (Local vs Container)
+
+**Local dev (direct)** uses the ports defined in `config/ports.json` (synced to `.env.ports`). Override via `.env.ports` (e.g., `docker compose --env-file .env.ports ...`) or shell env (`VITE_PORT`, `API_PORT`).
+
+- **Frontend**: [http://localhost:5173](http://localhost:5173)
+- **Backend API**: [http://localhost:3001](http://localhost:3001)
+- **Supabase API**: [http://localhost:54321](http://localhost:54321)
+- **Supabase Studio**: [http://localhost:54323](http://localhost:54323)
+
+**Container/Caddy dev** (via `docker-compose.dev.yml`) fronts the stack:
+
+- **Edge (HTTPS)**: [https://localhost:8443](https://localhost:8443)
+- **Edge (HTTP → HTTPS redirect)**: [http://localhost:8080](http://localhost:8080)
+
+---
+
+## 📚 Documentation
+
+**[Complete Documentation →](docs/README.md)**
+
+### Quick Links
+
+- **[Getting Started](docs/getting-started/GETTING_STARTED.md)** - Complete setup guide
+- **[Dev Environment Runbook](docs/DEV_ENV.md)** - Failsafe troubleshooting
+- **[Troubleshooting](docs/getting-started/TROUBLESHOOTING.md)** - Common issues
+- **[CI/CD & Infrastructure](docs/deployment/CICD_INFRASTRUCTURE_COMPLETE.md)** - Deployment guide
+- **[Contributing](CONTRIBUTING.md)** - How to contribute
+
+### Platform-Specific
+
+- **[macOS](docs/platform/MACOS.md)** - Intel & Apple Silicon
+- **[Windows](docs/platform/WINDOWS.md)** - Native & WSL2
+- **[Linux](docs/platform/LINUX.md)** - All distributions
+
+---
+
+## 🧪 Testing
+
+```bash
+npm test                 # Run all tests
+npm run test:watch       # Watch mode
+npm run test:coverage    # With coverage
+npm run test:e2e         # End-to-end tests
 ```
 
 ---
 
-## 📞 Getting Help
+## 🏗️ Architecture
 
-- **Questions**: #engineering on Slack
-- **Issues**: [GitHub Issues](https://github.com/Valynt/ValueOS/issues)
-- **Security**: security@valueos.com
+```
+ValueOS/
+├── src/
+│   ├── components/      # React components
+│   ├── pages/           # Page components
+│   ├── services/        # Business logic
+│   ├── api/             # API client
+│   └── types/           # TypeScript types
+├── scripts/
+│   ├── dx/              # Developer experience scripts
+│   └── lib/             # Shared utilities
+├── docs/                # Documentation
+├── tests/               # Test files
+├── docker-compose.full.yml # Full-stack Docker services
+├── docker-compose.deps.yml # Dependency-only Docker services
+└── docker-compose.yml   # Full-stack alias (backward compatibility)
+```
 
 ---
 
-## 📝 Documentation Standards
+## 🔧 Common Commands
 
-When contributing to documentation:
+### Development
 
-1. **Be concise**: Get to the point quickly
-2. **Be specific**: Provide exact commands and examples
-3. **Be current**: Keep docs up-to-date with code
-4. **Be helpful**: Include troubleshooting and common issues
+```bash
+npm run dx               # Start local app + Docker deps
+npm run dx:docker        # Start full Docker stack
+npm run dx:doctor        # Preflight checks (fail fast)
+npm run dx:down          # Stop dev services
+npm run dx:reset         # Clean slate (volumes + locks)
+npm run health           # Check system health
+npm run setup            # Re-run setup (scripts/dev/setup.sh)
+```
+
+### Database
+
+```bash
+npm run db:push          # Push schema changes
+npm run db:pull          # Pull schema from remote
+npm run db:reset         # Reset local database
+npm run db:types         # Generate TypeScript types
+```
+
+### Code Quality
+
+```bash
+npm run lint             # Lint code
+npm run lint:fix         # Fix linting issues
+npm run typecheck        # Type check
+npm test                 # Run tests
+```
+
+### Docker
+
+```bash
+npm run dx:docker        # Start full Docker stack
+npm run dx:down          # Stop dev services
+npm run dx:reset         # Reset dev services + volumes
+docker compose logs -f   # View logs
+docker compose ps        # Check status
+```
+
+### Staging/Production via Caddy
+
+```bash
+cp .env.staging.example .env.staging
+docker compose -f docker-compose.staging.yml up --build
+
+cp .env.prod.example .env.prod
+docker compose -f docker-compose.prod.yml up --build
+```
+
+See [docs/edge-caddy.md](docs/edge-caddy.md) for promotion workflow, TLS modes, and rollback steps.
 
 ---
 
-**Last Updated**: January 1, 2025
+## 🐛 Troubleshooting
+
+### Setup Issues
+
+**Prerequisites check fails**:
+
+```bash
+node --version    # Check Node >= 18.0.0
+docker --version  # Check Docker installed
+docker ps         # Check Docker running
+```
+
+**Port conflicts**:
+
+```bash
+# macOS/Linux
+lsof -i :5173  # or :$VITE_PORT
+kill -9 <PID>
+
+# Windows
+netstat -ano | findstr :5173
+taskkill /PID <PID> /F
+```
+
+**Environment issues**:
+
+```bash
+rm .env
+npm run setup            # Runs scripts/dev/setup.sh
+```
+
+**Preflight check**:
+
+```bash
+npm run dx:doctor
+```
+
+**More help**: See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+### Quick Contribution Guide
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/my-feature`
+3. Make your changes
+4. Run tests: `npm test`
+5. Commit: `git commit -m "Add my feature"`
+6. Push: `git push origin feature/my-feature`
+7. Create a Pull Request
+
+---
+
+## 📊 Project Status
+
+- **Setup Time**: < 5 minutes ✅
+- **Setup Success Rate**: 95%+ ✅
+- **Developer Satisfaction**: 9.0/10 ✅
+- **Test Coverage**: 80%+
+- **Build Status**: [![CI](https://github.com/Valynt/ValueOS/workflows/CI/badge.svg)](https://github.com/Valynt/ValueOS/actions)
+
+---
+
+## 🔐 Security
+
+- **Dev Environment Security**: [docs/operations/SECURITY_DEV_ENVIRONMENT.md](docs/operations/SECURITY_DEV_ENVIRONMENT.md)
+- **Report vulnerabilities**: security@valueos.com
+
+---
+
+## 📄 License
+
+[LICENSE](LICENSE)
+
+---
+
+## 🆘 Getting Help
+
+### Documentation
+
+- [Getting Started](docs/getting-started/GETTING_STARTED.md)
+- [Troubleshooting](docs/getting-started/TROUBLESHOOTING.md)
+- [Complete Documentation](docs/README.md)
+
+### Community
+
+- **Slack**: #engineering
+- **GitHub Issues**: [Report bugs](https://github.com/Valynt/ValueOS/issues)
+- **Email**: engineering@valueos.com
+
+---
+
+## 🎯 Roadmap
+
+### Current (Q1 2025)
+
+- ✅ Enhanced developer experience
+- ✅ Automated setup and health checks
+- ✅ Platform-specific guides
+- 🔄 CI/CD improvements
+- 🔄 Performance optimizations
+
+### Upcoming (Q2 2025)
+
+- Cloud development environments (Gitpod/Codespaces)
+- AI-powered error diagnosis
+- Automated testing improvements
+- Developer productivity analytics
+
+---
+
+## 🙏 Acknowledgments
+
+Built with:
+
+- [React](https://react.dev/) - UI framework
+- [Vite](https://vitejs.dev/) - Build tool
+- [Supabase](https://supabase.com/) - Backend platform
+- [Docker](https://www.docker.com/) - Containerization
+- [TypeScript](https://www.typescriptlang.org/) - Type safety
+
+---
+
+**Made with ❤️ by the ValueOS team**
+
+**Questions?** Ask in #engineering on Slack or check [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)
+
+**Happy coding!** 🚀

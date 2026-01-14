@@ -1,146 +1,175 @@
-# Logs
-logs
-*.log
+# Dependencies
+node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-coverage
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# Build outputs
+dist/
+build/
+.next/
+.nuxt/
+.vuepress/dist/
+.cache/
+.parcel-cache/
 
 # Environment files
 .env
 .env.local
-.env.dev
-.env.staging
-.env.prod
-.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# Keep example files
-!.env.example
-
-# Build artifacts
-build/
-dist/
-dist-ssr/
-*.tsbuildinfo
-
-# Testing
-coverage/
-.nyc_output/
-*.lcov
-
-# Cache directories
-.cache/
-.parcel-cache/
-.eslintcache
-.stylelintcache
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Temporary files
-*.tmp
-*.temp
+# IDE and editor files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
 *.swp
 *.swo
 *~
 
-# Debug logs
-debug.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
-# IDE
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-*.code-workspace
+# Logs
+logs
+*.log
 
-# Misc
-.bolt/
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
 
-# Windsurf - keep local rules only
-.windsurf/*
-!.windsurf/rules/
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
 
-# Local development secrets (Docker Secrets)
-secrets/
-!secrets/README.md
-Brian_0x86524961_private.asc
+# nyc test coverage
+.nyc_output
 
-# Terraform
+# Dependency directories
+jspm_packages/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+.parcel-cache/
+
+# Next.js build output
+.next
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Storybook build outputs
+storybook-static
+
+# Temporary folders
+tmp/
+temp/
+
+# Docker
+.dockerignore
+
+# Database
+*.sqlite
+*.db
+
+# Test results
+test-results/
+playwright-report/
+coverage/
+
+# Lock files (keep these)
+# package-lock.json
+# yarn.lock
+
+# Config files that should be environment-specific
+.env.*
+
+# Development files
+.dx-lock
+.dx-state.json
+
+# Generated files
+generated-types.ts
+
+# Backup files
+*.bak
+*.backup
+
+# Security files
+*.pem
+*.key
+*.crt
+
+# Monitoring and observability
+sbom.json
+impact.json
+
+# Local development
+.local/
+.localrc
+
+# Infrastructure
+.terraform/
+.terraform.lock.hcl
 *.tfstate
 *.tfstate.*
 *.tfvars
-!*.tfvars.example
-.terraform/
-.terraform.lock.hcl
-terraform.tfplan
-tfplan
-crash.log
-crash.*.log
-override.tf
-override.tf.json
-*_override.tf
-*_override.tf.json
 
-# Terraform backups and outputs
-infrastructure/terraform/backups/
-infrastructure/terraform/environments/*/outputs.json
-infrastructure/terraform/environments/*/secrets.tfvars
-
-# Snyk Security Extension - AI Rules (auto-generated)
-.windsurf/rules/snyk_rules.md
-
-# Snyk Security Extension - AI Rules (auto-generated)
-.github/instructions/snyk_rules.instructions.md
-
-# Temporary reports and analysis files
-lint-report.txt
-TEST_TRIAGE.md
-.vitest-env.json
-impact.json
-
-*storybook.log
-storybook-static
+# Supabase
+supabase/.branches
+supabase/.temp
 
 # Playwright
-.playwright-browsers/
-test-results/
-playwright-report/
-blob-report/
-playwright-artifacts/
-.env.production
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
 
-# PNPM
-.pnpm-store/
-pnpm-lock.yaml
+# Vitest
+/coverage/
 
-# Yarn
-yarn.lock
+# Storybook
+/storybook-static
 
-# Core dumps
-core
-core.*
-*.core
+# Build artifacts
+*.tgz
+*.tar.gz
