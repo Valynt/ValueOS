@@ -11,7 +11,12 @@ import path from "path";
 import { execSync } from "child_process";
 import { fileURLToPath } from "url";
 import { resolveMode } from "./lib/mode.js";
-import { loadPorts, resolvePort, formatPortsEnv, writePortsEnvFile } from "./ports.js";
+import {
+  loadPorts,
+  resolvePort,
+  formatPortsEnv,
+  writePortsEnvFile,
+} from "./ports.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,13 +34,26 @@ try {
 const ports = loadPorts();
 const frontendPort = resolvePort(process.env.VITE_PORT, ports.frontend.port);
 const backendPort = resolvePort(process.env.API_PORT, ports.backend.port);
-const postgresPort = resolvePort(process.env.POSTGRES_PORT, ports.postgres.port);
+const postgresPort = resolvePort(
+  process.env.POSTGRES_PORT,
+  ports.postgres.port
+);
 const redisPort = resolvePort(process.env.REDIS_PORT, ports.redis.port);
-const supabaseApiPort = resolvePort(process.env.SUPABASE_API_PORT, ports.supabase.apiPort);
-const supabaseStudioPort = resolvePort(process.env.SUPABASE_STUDIO_PORT, ports.supabase.studioPort);
-const caddyHttpsPort = resolvePort(process.env.CADDY_HTTPS_PORT, ports.edge.httpsPort);
+const supabaseApiPort = resolvePort(
+  process.env.SUPABASE_API_PORT,
+  ports.supabase.apiPort
+);
+const supabaseStudioPort = resolvePort(
+  process.env.SUPABASE_STUDIO_PORT,
+  ports.supabase.studioPort
+);
+const caddyHttpsPort = resolvePort(
+  process.env.CADDY_HTTPS_PORT,
+  ports.edge.httpsPort
+);
 
-const frontendUrl = process.env.VITE_APP_URL || `http://localhost:${frontendPort}`;
+const frontendUrl =
+  process.env.VITE_APP_URL || `http://localhost:${frontendPort}`;
 const backendUrl = process.env.BACKEND_URL || `http://localhost:${backendPort}`;
 
 const failures = [];
@@ -141,9 +159,13 @@ function checkDocker() {
     let details = `Docker daemon is not responding. Current context: ${dockerContext}.`;
 
     if (errorMsg.includes("permission denied")) {
-      fix = "Add your user to the docker group: sudo usermod -aG docker $USER && newgrp docker";
+      fix =
+        "Add your user to the docker group: sudo usermod -aG docker $USER && newgrp docker";
       details = `Docker permission denied. Current context: ${dockerContext}.`;
-    } else if (errorMsg.includes("Cannot connect") || errorMsg.includes("connection refused")) {
+    } else if (
+      errorMsg.includes("Cannot connect") ||
+      errorMsg.includes("connection refused")
+    ) {
       details = `Cannot connect to Docker daemon. Context: ${dockerContext}. Available: ${contextDetails || "unknown"}.`;
       fix =
         dockerContext !== "default"
@@ -202,12 +224,19 @@ async function checkPorts() {
   ];
 
   if (mode === "local") {
-    portChecks.push({ name: "Postgres", port: postgresPort }, { name: "Redis", port: redisPort });
+    portChecks.push(
+      { name: "Postgres", port: postgresPort },
+      { name: "Redis", port: redisPort }
+    );
   }
 
   for (const { name, port } of portChecks) {
     const inUse = await isPortInUse(port);
-    if (inUse && !isDockerPortPublished(port) && process.env.DX_ALLOW_PORT_IN_USE !== "1") {
+    if (
+      inUse &&
+      !isDockerPortPublished(port) &&
+      process.env.DX_ALLOW_PORT_IN_USE !== "1"
+    ) {
       reportFailure(
         `${name} port in use`,
         `Port ${port} is already bound on localhost.`,
@@ -223,8 +252,71 @@ function checkEnvironment() {
     reportFailure(
       ".env.local missing",
       "Local environment file is required.",
-      "Run: npm run setup"
+      "Run: npm run env:dev"
     );
+    return;
+  }
+
+  // Check for placeholder Supabase keys
+  const envContent = fs.readFileSync(envLocalPath, "utf8");
+  const lines = envContent.split("\n");
+
+  const supabaseAnonKeyLine = lines.find((line) =>
+    line.startsWith("VITE_SUPABASE_ANON_KEY=")
+  );
+  const supabaseUrlLine = lines.find((line) =>
+    line.startsWith("VITE_SUPABASE_URL=")
+  );
+
+  if (supabaseAnonKeyLine) {
+    const value = supabaseAnonKeyLine.split("=")[1];
+    if (
+      !value ||
+      value.includes("placeholder") ||
+      value.includes("your-") ||
+      value.length < 100
+    ) {
+      reportFailure(
+        "Invalid Supabase anon key",
+        "VITE_SUPABASE_ANON_KEY is missing, blank, or using placeholder value.",
+        "Update .env.local with real anon key: npm run env:dev"
+      );
+    }
+  } else {
+    reportFailure(
+      "Missing Supabase anon key",
+      "VITE_SUPABASE_ANON_KEY not found in .env.local",
+      "Add to .env.local: VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    );
+  }
+
+  if (supabaseUrlLine) {
+    const value = supabaseUrlLine.split("=")[1];
+    if (!value || value.includes("localhost") === false) {
+      reportFailure(
+        "Invalid Supabase URL",
+        "VITE_SUPABASE_URL should point to local Supabase instance.",
+        "Set VITE_SUPABASE_URL=http://localhost:54321 in .env.local"
+      );
+    }
+  }
+
+  // Check .env.ports for container environment
+  const envPortsPath = path.join(projectRoot, "deploy/envs/.env.ports");
+  if (fs.existsSync(envPortsPath)) {
+    const portsContent = fs.readFileSync(envPortsPath, "utf8");
+    const portsLines = portsContent.split("\n");
+
+    const portsAnonKeyLine = portsLines.find((line) =>
+      line.startsWith("VITE_SUPABASE_ANON_KEY=")
+    );
+    if (!portsAnonKeyLine || portsAnonKeyLine.includes("placeholder")) {
+      reportFailure(
+        "Container Supabase key missing",
+        "deploy/envs/.env.ports missing real VITE_SUPABASE_ANON_KEY for containers.",
+        "Update deploy/envs/.env.ports with real anon key"
+      );
+    }
   }
 }
 
@@ -409,7 +501,9 @@ function checkMigrationDrift() {
   // Count local migration files
   let localMigrations = [];
   try {
-    localMigrations = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
+    localMigrations = fs
+      .readdirSync(migrationsDir)
+      .filter((f) => f.endsWith(".sql"));
   } catch {
     return;
   }
@@ -445,14 +539,21 @@ function checkMigrationDrift() {
 
 function checkHttpsEndpoint(url) {
   return new Promise((resolve) => {
-    const request = https.get(url, { rejectUnauthorized: false, timeout: 3000 }, (response) => {
-      const { statusCode } = response;
-      response.resume();
-      resolve({
-        ok: Number.isInteger(statusCode) && statusCode >= 200 && statusCode < 400,
-        statusCode,
-      });
-    });
+    const request = https.get(
+      url,
+      { rejectUnauthorized: false, timeout: 3000 },
+      (response) => {
+        const { statusCode } = response;
+        response.resume();
+        resolve({
+          ok:
+            Number.isInteger(statusCode) &&
+            statusCode >= 200 &&
+            statusCode < 400,
+          statusCode,
+        });
+      }
+    );
 
     request.on("error", (error) => {
       resolve({ ok: false, error: error.message });
@@ -469,7 +570,12 @@ async function checkDevEdgeRouting() {
     return;
   }
 
-  const composeFile = path.join(projectRoot, "infra", "docker", "docker-compose.dev-caddy.yml");
+  const composeFile = path.join(
+    projectRoot,
+    "infra",
+    "docker",
+    "docker-compose.dev-caddy.yml"
+  );
   let runningServices = [];
 
   try {
@@ -512,7 +618,9 @@ async function checkDevEdgeRouting() {
 
 async function main() {
   if (!["local", "docker"].includes(mode)) {
-    console.error(`❌ Invalid mode "${mode}". Use --mode local or --mode docker.`);
+    console.error(
+      `❌ Invalid mode "${mode}". Use --mode local or --mode docker.`
+    );
     process.exit(1);
   }
 

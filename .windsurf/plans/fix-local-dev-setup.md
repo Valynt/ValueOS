@@ -13,7 +13,7 @@ This plan resolves the local development environment issues to enable working lo
 
 Found the actual local Supabase anon key in test files:
 
-```
+```text
 eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
 ```
 
@@ -78,7 +78,7 @@ node -e "console.log('VITE_SUPABASE_URL=', process.env.VITE_SUPABASE_URL); conso
 ### 7. Test Supabase Connectivity
 
 ```bash
-curl -sS http://localhost:54321/rest/v1/ | head
+curl -sS "http://localhost:54321/rest/v1/" | head
 ```
 
 ### 8. Restart Clean (if needed)
@@ -91,9 +91,9 @@ npm run dx
 ## Expected End State
 
 - Services running at:
-  - UI: http://localhost:5173
-  - Backend: http://localhost:3001
-  - Supabase Studio: http://localhost:54323
+  - UI: `http://localhost:5173`
+  - Backend: `http://localhost:3001`
+  - Supabase Studio: `http://localhost:54323`
 - Login functionality working with real Supabase anon key
 - Database properly initialized with migrations
 - Both app and containers have correct environment variables
