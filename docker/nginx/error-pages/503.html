@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Service Unavailable - ValueOS</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: #f8f9fa;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #333;
+      }
+
+      .error-container {
+        background: white;
+        border-radius: 12px;
+        padding: 3rem;
+        max-width: 450px;
+        width: 90%;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        text-align: center;
+      }
+
+      .error-icon {
+        width: 60px;
+        height: 60px;
+        margin: 0 auto 2rem;
+        background: #dc3545;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+      }
+
+      h1 {
+        color: #333;
+        margin-bottom: 1rem;
+        font-size: 1.8rem;
+        font-weight: 600;
+      }
+
+      .error-code {
+        color: #dc3545;
+        font-size: 3rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        font-family: "Courier New", monospace;
+      }
+
+      .message {
+        color: #666;
+        line-height: 1.6;
+        margin-bottom: 2rem;
+        font-size: 1rem;
+      }
+
+      .actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      .btn {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .btn-primary {
+        background: #007bff;
+        color: white;
+      }
+
+      .btn-primary:hover {
+        background: #0056b3;
+        transform: translateY(-1px);
+      }
+
+      .btn-secondary {
+        background: #6c757d;
+        color: white;
+      }
+
+      .btn-secondary:hover {
+        background: #545b62;
+        transform: translateY(-1px);
+      }
+
+      .footer {
+        margin-top: 2rem;
+        font-size: 0.8rem;
+        color: #999;
+      }
+
+      @media (max-width: 480px) {
+        .error-container {
+          padding: 2rem 1.5rem;
+        }
+
+        h1 {
+          font-size: 1.5rem;
+        }
+
+        .error-code {
+          font-size: 2.5rem;
+        }
+
+        .actions {
+          flex-direction: column;
+        }
+
+        .btn {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="error-container">
+      <div class="error-icon">⚠️</div>
+      <h1>Service Unavailable</h1>
+      <div class="error-code">503</div>
+      <p class="message">
+        The ValueOS service is temporarily unavailable. Our team has been notified and is working to
+        resolve the issue.
+      </p>
+
+      <div class="actions">
+        <button class="btn btn-primary" onclick="location.reload()">🔄 Try Again</button>
+        <a href="https://status.valueos.com" class="btn btn-secondary"> 📊 Check Status </a>
+      </div>
+
+      <div class="footer">
+        Error ID: 503-<span id="timestamp"></span> | © 2026 ValueOS High-Availability System
+      </div>
+    </div>
+
+    <script>
+      // Add timestamp for error tracking
+      document.getElementById("timestamp").textContent = Date.now();
+
+      // Auto-refresh after 30 seconds
+      setTimeout(() => {
+        location.reload();
+      }, 30000);
+    </script>
+  </body>
+</html>

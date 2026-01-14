@@ -405,51 +405,51 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
       duration,
     };
   }
-}
 
-/**
- * Bootstrap with default options
- */
-export async function bootstrapDefault(): Promise<BootstrapResult> {
-  return bootstrap({
-    onProgress: (message) => globalLogger.debug(`⏳ ${message}`),
-    onWarning: (warning) => globalLogger.warn(`⚠️  ${warning}`),
-    onError: (error) => globalLogger.error(`❌ ${error}`),
-  });
-}
+  /**
+   * Bootstrap with default options
+   */
+  export async function bootstrapDefault(): Promise<BootstrapResult> {
+    return bootstrap({
+      onProgress: (message) => globalLogger.debug(`⏳ ${message}`),
+      onWarning: (warning) => globalLogger.warn(`⚠️  ${warning}`),
+      onError: (error) => globalLogger.error(`❌ ${error}`),
+    });
+  }
 
-/**
- * Bootstrap for production
- */
-export async function bootstrapProduction(): Promise<BootstrapResult> {
-  return bootstrap({
-    skipAgentCheck: false,
-    failFast: true,
-    onProgress: (message) => globalLogger.debug(`⏳ ${message}`),
-    onWarning: (warning) => globalLogger.warn(`⚠️  ${warning}`),
-    onError: (error) => globalLogger.error(`❌ ${error}`),
-  });
-}
+  /**
+   * Bootstrap for production
+   */
+  export async function bootstrapProduction(): Promise<BootstrapResult> {
+    return bootstrap({
+      skipAgentCheck: false,
+      failFast: true,
+      onProgress: (message) => globalLogger.debug(`⏳ ${message}`),
+      onWarning: (warning) => globalLogger.warn(`⚠️  ${warning}`),
+      onError: (error) => globalLogger.error(`❌ ${error}`),
+    });
+  }
 
-/**
- * Bootstrap for development
- */
-export async function bootstrapDevelopment(): Promise<BootstrapResult> {
-  return bootstrap({
-    skipAgentCheck: true, // Skip agent checks in dev for fast startup
-    failFast: false,
-    onProgress: (message) => globalLogger.debug(`⏳ ${message}`),
-    onWarning: (warning) => globalLogger.warn(`⚠️  ${warning}`),
-    onError: (error) => globalLogger.error(`❌ ${error}`),
-  });
-}
+  /**
+   * Bootstrap for development
+   */
+  export async function bootstrapDevelopment(): Promise<BootstrapResult> {
+    return bootstrap({
+      skipAgentCheck: true, // Skip agent checks in dev for fast startup
+      failFast: false,
+      onProgress: (message) => globalLogger.debug(`⏳ ${message}`),
+      onWarning: (warning) => globalLogger.warn(`⚠️  ${warning}`),
+      onError: (error) => globalLogger.error(`❌ ${error}`),
+    });
+  }
 
-/**
- * Bootstrap for testing
- */
-export async function bootstrapTest(): Promise<BootstrapResult> {
-  return bootstrap({
-    skipAgentCheck: true,
-    failFast: false,
-  });
+  /**
+   * Bootstrap for testing
+   */
+  export async function bootstrapTest(): Promise<BootstrapResult> {
+    return bootstrap({
+      skipAgentCheck: true,
+      failFast: false,
+    });
+  }
 }

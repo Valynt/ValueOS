@@ -22,7 +22,8 @@ model Organization {
   id        String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name      String    @db.VarChar(255)
   slug      String    @unique @db.VarChar(255)
-  tier      Tier      @default(FREE)
+  status    String    @default("active") @db.VarChar(50)
+  planId    String?   @map("plan_id") @db.Uuid
   features  Json      @default("{}")
   limits    Json      @default("{\"max_users\": 5, \"max_agents\": 3, \"api_calls_per_month\": 10000}")
   metadata  Json      @default("{}")
@@ -40,8 +41,88 @@ model Organization {
   executions    Execution[]
   llmUsageLogs  LlmUsageLog[]
   llmBudget     TenantLlmBudget?
+  subscriptions Subscription[]
+  invoices      Invoice[]
+  usageLogs     UsageLog[]
+  plan          Plan? @relation(fields: [planId], references: [id])
 
   @@map("organizations")
+}
+
+model Plan {
+  id        String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name      String @db.VarChar(255)
+  price     Decimal @db.Decimal(10, 2)
+  interval  String @db.VarChar(50)
+  features  Json @default("{}")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  subscriptions Subscription[]
+  tenants       Organization[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id               String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId         String @map("tenant_id") @db.Uuid
+  planId           String @map("plan_id") @db.Uuid
+  currentPeriodEnd DateTime @map("current_period_end") @db.Timestamptz(6)
+  status           String @default("active") @db.VarChar(50)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  tenant Organization @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan   Plan @relation(fields: [planId], references: [id])
+
+  @@map("subscriptions")
+}
+
+model Invoice {
+  id       String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  amount   Decimal @db.Decimal(10, 2)
+  status   String @db.VarChar(50)
+  pdfUrl   String? @map("pdf_url")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  tenant Organization @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@map("invoices")
+}
+
+model Role {
+  id             String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name           String @unique @db.VarChar(100)
+  permissionsJson Json @map("permissions_json") @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  users User[]
+
+  @@map("roles")
+}
+
+model UsageLog {
+  id       String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  resource String @db.VarChar(100)
+  count    Int
+  limit    Int
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  tenant Organization @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, resource])
+  @@map("usage_logs")
 }
 
 model User {
@@ -51,7 +132,7 @@ model User {
   passwordHash   String    @map("password_hash") @db.VarChar(255)
   firstName      String?   @map("first_name") @db.VarChar(100)
   lastName       String?   @map("last_name") @db.VarChar(100)
-  role           UserRole  @default(MEMBER)
+  roleId         String?   @map("role_id") @db.Uuid
   status         UserStatus @default(ACTIVE)
   metadata       Json      @default("{}")
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -325,3 +406,4 @@ enum ExecutionStatus {
 
   @@map("execution_status")
 }
+
