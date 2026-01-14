@@ -6,17 +6,19 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+  root: path.resolve(__dirname, "../.."),
   plugins: [react()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
-      "@components": path.resolve(__dirname, "./src/components"),
-      "@services": path.resolve(__dirname, "./src/services"),
-      "@lib": path.resolve(__dirname, "./src/lib"),
-      "@utils": path.resolve(__dirname, "./src/utils"),
-      "@types": path.resolve(__dirname, "./src/types"),
-      "@config": path.resolve(__dirname, "./src/config"),
-      "@security": path.resolve(__dirname, "./src/security"),
+      "@": path.resolve(__dirname, "../../src"),
+      "@components": path.resolve(__dirname, "../../src/components"),
+      "@services": path.resolve(__dirname, "../../src/services"),
+      "@lib": path.resolve(__dirname, "../../src/lib"),
+      "@utils": path.resolve(__dirname, "../../src/utils"),
+      "@types": path.resolve(__dirname, "../../src/types"),
+      "@config": path.resolve(__dirname, "../../src/config"),
+      "@security": path.resolve(__dirname, "../../src/security"),
+      "@mcp-common": path.resolve(__dirname, "../../src/mcp-common"),
     },
   },
   server: {
