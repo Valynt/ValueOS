@@ -111,12 +111,29 @@ interface AgentSecurityStatus {
 }
 
 /**
+ * Rate limiter interface
+ */
+interface RateLimiter {
+  lastSent: number;
+  messageCount: number;
+}
+
+/**
  * Circuit breaker configuration
  */
 interface CircuitBreakerConfig {
   failureThreshold: number;
   resetTimeoutMs: number;
   halfOpenRequests: number;
+}
+
+/**
+ * Rate limiting configuration
+ */
+interface RateLimitConfig {
+  maxMessagesPerSecond: number;
+  maxMessagesPerMinute: number;
+  windowSizeMs: number;
 }
 
 // ============================================================================
@@ -130,6 +147,15 @@ const DEFAULT_CIRCUIT_CONFIG: CircuitBreakerConfig = {
   failureThreshold: 5,
   resetTimeoutMs: 60000,
   halfOpenRequests: 3,
+};
+
+/**
+ * Default rate limiting configuration
+ */
+const DEFAULT_RATE_LIMIT_CONFIG: RateLimitConfig = {
+  maxMessagesPerSecond: 10,
+  maxMessagesPerMinute: 100,
+  windowSizeMs: 60000, // 1 minute
 };
 
 /**
@@ -166,8 +192,17 @@ export class SecureMessageBus {
   /** Circuit breaker configuration */
   private circuitConfig: CircuitBreakerConfig;
 
+  /** Rate limiting configuration */
+  private rateLimitConfig: RateLimitConfig;
+
+  /** Rate limiters per agent */
+  private rateLimiters: Map<string, RateLimiter> = new Map();
+
   /** Nonce cleanup interval */
   private nonceCleanupInterval: NodeJS.Timeout | null = null;
+
+  /** Rate limit cleanup interval */
+  private rateLimitCleanupInterval: NodeJS.Timeout | null = null;
 
   /** Message version */
   private readonly MESSAGE_VERSION = '1.0.0';
@@ -175,17 +210,19 @@ export class SecureMessageBus {
   /** Default TTL in seconds */
   private readonly DEFAULT_TTL_SECONDS = 300; // 5 minutes
 
-  private constructor(circuitConfig: Partial<CircuitBreakerConfig> = {}) {
+  private constructor(circuitConfig: Partial<CircuitBreakerConfig> = {}, rateLimitConfig: Partial<RateLimitConfig> = {}) {
     this.circuitConfig = { ...DEFAULT_CIRCUIT_CONFIG, ...circuitConfig };
+    this.rateLimitConfig = { ...DEFAULT_RATE_LIMIT_CONFIG, ...rateLimitConfig };
     this.startNonceCleanup();
+    this.startRateLimitCleanup();
   }
 
   /**
    * Get singleton instance
    */
-  static getInstance(circuitConfig?: Partial<CircuitBreakerConfig>): SecureMessageBus {
+  static getInstance(circuitConfig?: Partial<CircuitBreakerConfig>, rateLimitConfig?: Partial<RateLimitConfig>): SecureMessageBus {
     if (!SecureMessageBus.instance) {
-      SecureMessageBus.instance = new SecureMessageBus(circuitConfig);
+      SecureMessageBus.instance = new SecureMessageBus(circuitConfig, rateLimitConfig);
     }
     return SecureMessageBus.instance;
   }
@@ -237,6 +274,63 @@ export class SecureMessageBus {
   }
 
   /**
+   * Check if agent is rate limited
+   */
+  private checkRateLimit(agentId: string): boolean {
+    const now = Date.now();
+    const limiter = this.rateLimiters.get(agentId);
+
+    if (!limiter) {
+      // Initialize rate limiter for new agent
+      this.rateLimiters.set(agentId, {
+        lastSent: now,
+        messageCount: 1,
+      });
+      return true;
+    }
+
+    // Check if we're in a new window
+    if (now - limiter.lastSent > this.rateLimitConfig.windowSizeMs) {
+      // Reset window
+      limiter.lastSent = now;
+      limiter.messageCount = 1;
+      return true;
+    }
+
+    // Check per-second limit
+    const timeSinceLastMessage = now - limiter.lastSent;
+    if (timeSinceLastMessage < 1000 && limiter.messageCount >= this.rateLimitConfig.maxMessagesPerSecond) {
+      return false;
+    }
+
+    // Check per-minute limit
+    if (limiter.messageCount >= this.rateLimitConfig.maxMessagesPerMinute) {
+      return false;
+    }
+
+    // Update counters
+    limiter.messageCount++;
+    limiter.lastSent = now;
+    return true;
+  }
+
+  /**
+   * Start rate limit cleanup interval
+   */
+  private startRateLimitCleanup(): void {
+    this.rateLimitCleanupInterval = setInterval(() => {
+      const now = Date.now();
+      const cutoffTime = now - this.rateLimitConfig.windowSizeMs * 2; // Keep 2 windows of data
+
+      for (const [agentId, limiter] of this.rateLimiters.entries()) {
+        if (limiter.lastSent < cutoffTime) {
+          this.rateLimiters.delete(agentId);
+        }
+      }
+    }, 300000); // Cleanup every 5 minutes
+  }
+
+  /**
    * Send a secure message
    */
   async send<T>(
@@ -254,6 +348,11 @@ export class SecureMessageBus {
     // Verify sender is registered
     if (!this.registeredAgents.has(sender.id)) {
       throw new Error(`Sender ${sender.id} is not registered`);
+    }
+
+    // Check rate limiting
+    if (!this.checkRateLimit(sender.id)) {
+      throw new Error(`Rate limit exceeded for agent ${sender.id}`);
     }
 
     // Check circuit breaker for sender
@@ -295,7 +394,7 @@ export class SecureMessageBus {
       }
 
       // Encrypt the payload
-      const encryptedPayload = encrypt(JSON.stringify(message.payload), recipient.keys.encryptionKey);
+      const encryptedPayload = this.encryptPayload(message.payload, recipient.keys.encryptionKey);
       message.payload = encryptedPayload.data as T;
       message.encryption = {
         algorithm: encryptedPayload.algorithm,
@@ -390,8 +489,7 @@ export class SecureMessageBus {
         algorithm: message.encryption.algorithm
       };
 
-      const decryptedPayload = decrypt(encryptedData, recipient.keys.encryptionKey);
-      payload = typeof decryptedPayload === 'string' ? JSON.parse(decryptedPayload) : decryptedPayload;
+      payload = this.decryptPayload(encryptedData, recipient.keys.encryptionKey);
     }
 
     logger.debug('Secure message received', {
@@ -510,13 +608,51 @@ export class SecureMessageBus {
   }
 
     /**
-   * Verify message signature
+   * Sign a message with proper error handling
+   */
+  private async signMessage<T>(message: SecureMessage<T>, sender: AgentIdentity): Promise<string> {
+    try {
+      // Check if sender has signing key
+      if (!sender.keys?.privateKey) {
+        throw new Error(`Agent ${sender.id} has no private key for signing`);
+      }
+
+      // Create canonical content for signing
+      const content = {
+        id: message.id,
+        from: message.from,
+        to: message.to,
+        timestamp: message.timestamp,
+        nonce: message.nonce,
+        payload: message.payload,
+      };
+
+      return await signMessage(content, sender.keys.privateKey);
+    } catch (error) {
+      logger.error('Message signing failed', error instanceof Error ? error : undefined, {
+        messageId: message.id,
+        senderId: sender.id,
+      });
+
+      // Don't expose cryptographic errors to caller
+      throw new Error('Failed to sign message');
+    }
+  }
+
+  /**
+   * Verify message signature with proper error handling
    */
   private async verifySignature<T>(
     message: SecureMessage<T>,
     sender: AgentIdentity
   ): Promise<boolean> {
     try {
+      // Check if sender has public key
+      if (!sender.keys?.publicKey) {
+        logger.warn(`Agent ${sender.id} has no public key for verification`);
+        return false;
+      }
+
       // Create the canonical message content for verification
       const content = {
         id: message.id,
@@ -530,19 +666,74 @@ export class SecureMessageBus {
       // Extract timestamp from signature if available
       const signatureTimestamp = 0; // In production, extract from signature metadata
 
-      // Use the sender's public key for verification
-      if (!sender.keys?.publicKey) {
-        logger.warn(`Agent ${sender.id} has no public key for verification`);
-        return false;
-      }
-
-      return verifySignature(content, message.signature, signatureTimestamp, sender.keys.publicKey);
+      return await verifySignature(content, message.signature, signatureTimestamp, sender.keys.publicKey);
     } catch (error) {
       logger.error('Failed to verify signature', error instanceof Error ? error : undefined, {
         messageId: message.id,
         senderId: sender.id,
       });
       return false;
+    }
+  }
+
+  /**
+   * Encrypt payload with proper error handling
+   */
+  private encryptPayload<T>(payload: T, recipientKey: string): {
+    data: string;
+    algorithm: string;
+    iv: string;
+    tag?: string;
+  } {
+    try {
+      if (!recipientKey) {
+        throw new Error('Recipient encryption key is required');
+      }
+
+      const encryptedPayload = encrypt(JSON.stringify(payload), recipientKey);
+
+      if (!encryptedPayload.data || !encryptedPayload.iv || !encryptedPayload.algorithm) {
+        throw new Error('Encryption produced invalid result');
+      }
+
+      return {
+        data: encryptedPayload.data,
+        algorithm: encryptedPayload.algorithm,
+        iv: encryptedPayload.iv,
+        tag: encryptedPayload.tag,
+      };
+    } catch (error) {
+      logger.error('Payload encryption failed', error instanceof Error ? error : undefined);
+      throw new Error('Failed to encrypt payload');
+    }
+  }
+
+  /**
+   * Decrypt payload with proper error handling
+   */
+  private decryptPayload(encryptedData: {
+    data: string;
+    iv: string;
+    tag?: string;
+    algorithm: string;
+  }, recipientKey: string): any {
+    try {
+      if (!recipientKey) {
+        throw new Error('Recipient decryption key is required');
+      }
+
+      const decryptedPayload = decrypt(encryptedData, recipientKey);
+
+      if (!decryptedPayload) {
+        throw new Error('Decryption returned empty result');
+      }
+
+      return typeof decryptedPayload === 'string'
+        ? JSON.parse(decryptedPayload)
+        : decryptedPayload;
+    } catch (error) {
+      logger.error('Payload decryption failed', error instanceof Error ? error : undefined);
+      throw new Error('Failed to decrypt payload');
     }
   }
 
@@ -633,11 +824,16 @@ export class SecureMessageBus {
       clearInterval(this.nonceCleanupInterval);
       this.nonceCleanupInterval = null;
     }
+    if (this.rateLimitCleanupInterval) {
+      clearInterval(this.rateLimitCleanupInterval);
+      this.rateLimitCleanupInterval = null;
+    }
     this.registeredAgents.clear();
     this.subscriptions.clear();
     this.pendingMessages.clear();
     this.agentSecurityStatus.clear();
     this.seenNonces.clear();
+    this.rateLimiters.clear();
   }
 }
 

@@ -138,9 +138,9 @@ build_backend() {
     log_info "Building backend image..."
 
     # Initialize metrics
-    if [ -f "$SCRIPT_DIR/scripts/metrics-collector.sh" ]; then
-        "$SCRIPT_DIR/scripts/metrics-collector.sh" init "$build_id" backend
-        "$SCRIPT_DIR/scripts/metrics-collector.sh" stage_start "$build_id" build
+    if [ -f "$SCRIPT_DIR/scripts/build-metrics.sh" ]; then
+        "$SCRIPT_DIR/scripts/build-metrics.sh" init
+        "$SCRIPT_DIR/scripts/build-metrics.sh" build-start "$build_id" backend
     fi
 
     load_digests "$build_id"
@@ -182,9 +182,10 @@ build_backend() {
         log_success "Backend image built successfully"
 
         # Record build completion metrics
-        if [ -f "$SCRIPT_DIR/scripts/metrics-collector.sh" ]; then
-            "$SCRIPT_DIR/scripts/metrics-collector.sh" stage_end "$build_id" build
-            "$SCRIPT_DIR/scripts/metrics-collector.sh" image_metrics "$build_id" "valueos-backend:${APP_VERSION:-latest}"
+        local build_duration=$(($(date +%s) - build_id))
+        if [ -f "$SCRIPT_DIR/scripts/build-metrics.sh" ]; then
+            "$SCRIPT_DIR/scripts/build-metrics.sh" build-end "$build_id" backend "success" "$build_duration"
+            "$SCRIPT_DIR/scripts/build-metrics.sh" image-size "valueos-backend:${APP_VERSION:-latest}"
         fi
 
         if [ "$push" = true ]; then

@@ -530,88 +530,27 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
 
   const createValueCase = useCreateValueCase();
 
-  // State
-  const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
-  const [isCommandBarOpen, setIsCommandBarOpen] = useState(false);
-  const [renderedPage, setRenderedPage] = useState<RenderPageResult | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isInitialCanvasLoad, setIsInitialCanvasLoad] = useState(false);
-  const [streamingUpdate, setStreamingUpdate] = useState<StreamingUpdate | null>(null);
-  const [workflowState, setWorkflowState] = useState<WorkflowState | null>(null);
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-  const [hasProcessedInitialAction, setHasProcessedInitialAction] = useState(false);
-
-  // New case modal state
-  const [isNewCaseModalOpen, setIsNewCaseModalOpen] = useState(false);
-  const [newCaseCompany, setNewCaseCompany] = useState("");
-  const [newCaseWebsite, setNewCaseWebsite] = useState("");
-
-  // Upload notes modal state
-  const [isUploadNotesModalOpen, setIsUploadNotesModalOpen] = useState(false);
-  const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
-
-  // Email analysis modal state
-  const [isEmailAnalysisModalOpen, setIsEmailAnalysisModalOpen] =
-    useState(false);
-
-  // CRM import modal state
-  const [isCRMImportModalOpen, setIsCRMImportModalOpen] = useState(false);
-
-  // Sales call modal state
-  const [isSalesCallModalOpen, setIsSalesCallModalOpen] = useState(false);
-
-  // User/tenant for CRM import
-  const [currentUserId, setCurrentUserId] = useState<string | undefined>();
-  const [currentTenantId, setCurrentTenantId] = useState<string | undefined>();
-  const [userCreatedAt, setUserCreatedAt] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | undefined>();
-
-  // Beta hub + telemetry
-  const [isBetaHubOpen, setIsBetaHubOpen] = useState(false);
-
-  // Workflow state service (initialized once)
-  // OLD: Individual service instantiation
-  const workflowStateService = useMemo(
-    () => new WorkflowStateService(supabase),
-    []
-  );
-
-  // NEW: Session management provides the service (gradual migration)
-  // This will eventually replace the workflowStateService above
-  // const workflowStateService = sessionManagement.workflowStateService;
-
-  // Phase 3: Telemetry tracking
-  const [renderStartTime, setRenderStartTime] = useState<number | null>(
-    null
-  );
-
-  // Phase 6: Sync & Export State
-  // Phase 6: Sync & Export State
-  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
-  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-
-  // NEW: Gradual Migration - Enhanced State Management
-  // ========================================================================
-  // These new hooks will gradually replace the individual useState hooks above
-  // ========================================================================
-
-  // Consolidated state management (will replace individual useState hooks)
-  const canvasState = useCanvasState();
-  const sessionManagement = useSessionManagement();
-  const agentChatServiceNew = useAgentChatService();
-
-  // For now, we'll keep both systems running in parallel for gradual migration
-  // TODO: Remove old state hooks once migration is complete
+  // Consolidated state management using useCanvasState hook
   const {
-    state: newState,
-    actions: newActions,
-    hasSelectedCase: newHasSelectedCase,
-    canSubmitCommand: newCanSubmitCommand,
-    isStreaming: newIsStreaming,
-    anyModalOpen: newAnyModalOpen,
-    isAuthenticated: newIsAuthenticated,
-    currentStage: newCurrentStage,
-  } = canvasState;
+    state: canvasState,
+    actions,
+    hasSelectedCase,
+    canSubmitCommand,
+    isStreaming,
+    anyModalOpen,
+    startStreaming,
+    stopStreaming,
+    updateStreamingMessage,
+    selectCaseAndReset,
+    openModal,
+    closeModal,
+    setLoading,
+    setSessionId,
+    setWorkflowState,
+    setRenderedPage,
+    setStreamingUpdate,
+    setRenderStartTime,
+  } = useCanvasState();
 
   const {
     sessionState: newSessionState,
@@ -619,25 +558,29 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
     saveWorkflowState: newSaveWorkflowState,
     hasActiveSession: newHasActiveSession,
     validateSession: newValidateSession,
-  } = sessionManagement;
+  } = useSessionManagement();
+
+  const agentChatServiceNew = useAgentChatService();
+
+  // Workflow state service (initialized once)
+  const workflowStateService = useMemo(
+    () => new WorkflowStateService(supabase),
+    []
+  );
 
   // Handle command submission
   const handleCommand = useEvent(async (query: string) => {
-    // OLD: Individual state checks
-    if (!selectedCaseId) {
-      setIsNewCaseModalOpen(true);
+    // Unified state validation
+    if (!hasSelectedCase) {
+      openModal('isNewCaseModalOpen');
       return;
     }
 
-    // NEW: Consolidated state checks (gradual migration)
-    // This will eventually replace the logic above
-    // if (!newHasSelectedCase) {
-    //   newActions.openModal('isNewCaseModalOpen');
-    //   return;
-    // }
+    // Get selected case from cases list
+    const selectedCase = canvasState.selectedCaseId ? cases.find(c => c.id === canvasState.selectedCaseId) : undefined;
 
     // Initialize workflow state if not set
-    if (!workflowState && selectedCase) {
+    if (!canvasState.workflowState && selectedCase) {
       setWorkflowState({
         currentStage: selectedCase.stage,
         status: "in_progress",
@@ -649,17 +592,9 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
       });
     }
 
-    // OLD: Individual state management
-    setIsLoading(true);
-    setStreamingUpdate({
-      stage: "analyzing",
-      message: "Understanding your request...",
-    });
-
-    // NEW: Consolidated state management (gradual migration)
-    // This will eventually replace the logic above
-    // newActions.startStreaming("Understanding your request...", "analyzing");
-    // newActions.setLoading(true);
+    // Unified streaming state management
+    setLoading(true);
+    startStreaming("Understanding your request...", "analyzing");
 
     try {
       // Get user info from Supabase auth
@@ -668,18 +603,11 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
       const sessionId =
         sessionData?.session?.access_token?.slice(0, 36) || randomUUID();
 
-      // OLD: Individual state management
-      setStreamingUpdate({
-        stage: "processing",
-        message: "Consulting AI agent...",
-      });
-
-      // NEW: Consolidated state management (gradual migration)
-      // This will eventually replace the logic above
-      // newActions.updateStreamingMessage("Consulting AI agent...", "processing");
+      // Unified streaming update
+      updateStreamingMessage("Consulting AI agent...", "processing");
 
       // Use current session ID or fall back to access token
-      const actualSessionId = currentSessionId || sessionId;
+      const actualSessionId = canvasState.currentSessionId || sessionId;
 
       // Phase 3: Track chat request
       const chatSpanId = `chat-${Date.now()}`;
@@ -687,8 +615,8 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
         chatSpanId,
         TelemetryEventType.CHAT_REQUEST_START,
         {
-          caseId: selectedCaseId,
-          stage: workflowState?.currentStage || 'unknown',
+          caseId: canvasState.selectedCaseId,
+          stage: canvasState.workflowState?.currentStage || 'unknown',
           queryLength: query.length,
         }
       );
@@ -697,10 +625,10 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
       // OLD: Direct service usage
       const result = await agentChatService.chat({
         query,
-        caseId: selectedCaseId,
+        caseId: canvasState.selectedCaseId,
         userId,
         sessionId: actualSessionId,
-        workflowState: workflowState ?? undefined,
+        workflowState: canvasState.workflowState ?? undefined,
       });
 
       // NEW: Service locator usage (gradual migration)
@@ -720,7 +648,7 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
         {
           hasSDUI: !!result.sduiPage,
           stageTransitioned:
-            workflowState ? result.nextState.currentStage !== workflowState.currentStage : false,
+            canvasState.workflowState ? result.nextState.currentStage !== canvasState.workflowState.currentStage : false,
         }
       );
 
@@ -728,44 +656,44 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
       setWorkflowState(result.nextState);
 
       // Persist workflow state to database
-      if (currentSessionId) {
+      if (canvasState.currentSessionId) {
         try {
           // Track state save
           sduiTelemetry.recordEvent({
             type: TelemetryEventType.WORKFLOW_STATE_SAVE,
             metadata: {
-              sessionId: currentSessionId,
+              sessionId: canvasState.currentSessionId,
               stage: result.nextState.currentStage,
             },
           });
 
-          if (!currentTenantId) {
+          if (!canvasState.user.currentTenantId) {
             throw new Error("Tenant ID is required to persist workflow state");
           }
 
           // OLD: Individual service call
           await workflowStateService.saveWorkflowState(
-            currentSessionId,
+            canvasState.currentSessionId,
             result.nextState,
-            currentTenantId
+            canvasState.user.currentTenantId
           );
 
           // NEW: Session management call (gradual migration)
           // This will eventually replace the call above
           // await newSaveWorkflowState(result.nextState);
           logger.debug("Workflow state persisted after chat", {
-            sessionId: currentSessionId,
+            sessionId: canvasState.currentSessionId,
             stage: result.nextState.currentStage,
           });
 
           // Track stage transition if occurred
-          if (workflowState && result.nextState.currentStage !== workflowState.currentStage) {
+          if (canvasState.workflowState && result.nextState.currentStage !== canvasState.workflowState.currentStage) {
             sduiTelemetry.recordWorkflowStateChange(
-              currentSessionId,
-              workflowState?.currentStage || 'unknown',
+              canvasState.currentSessionId,
+              canvasState.workflowState?.currentStage || 'unknown',
               result.nextState.currentStage,
               {
-                caseId: selectedCaseId,
+                caseId: canvasState.selectedCaseId,
               }
             );
           }
@@ -781,16 +709,15 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
         message: "Generating response...",
       });
 
-      // NEW: Consolidated state management (gradual migration)
-      // This will eventually replace the logic above
-      // newActions.updateStreamingMessage("Generating response...", "generating");
+  // Unified streaming update
+  updateStreamingMessage("Generating response...", "generating");
 
       // Render SDUI page if available
       if (result.sduiPage) {
         // Phase 3: Track SDUI rendering
         const renderSpanId = `render-response-${Date.now()}`;
         sduiTelemetry.startSpan(renderSpanId, TelemetryEventType.RENDER_START, {
-          caseId: selectedCaseId,
+          caseId: canvasState.selectedCaseId,
           stage: result.nextState.currentStage,
         });
 
@@ -839,25 +766,20 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
       }
 
       // Update case stage if changed
-      if (result.nextState.currentStage !== workflowState?.currentStage) {
+      if (result.nextState.currentStage !== canvasState.workflowState?.currentStage) {
         refetchCases();
       }
 
-      // OLD: Individual state management
-      setStreamingUpdate({ stage: "complete", message: "Done!" });
-      setTimeout(() => setStreamingUpdate(null), 1000);
-
-      // NEW: Consolidated state management (gradual migration)
-      // This will eventually replace the logic above
-      // newActions.updateStreamingMessage("Done!", "complete");
-      // setTimeout(() => newActions.stopStreaming(), 1000);
+  // Unified streaming completion
+  updateStreamingMessage("Done!", "complete");
+  setTimeout(() => stopStreaming(), 1000);
     } catch (error) {
       // Phase 3: Track chat error
       sduiTelemetry.recordEvent({
         type: TelemetryEventType.CHAT_REQUEST_ERROR,
         metadata: {
-          caseId: selectedCaseId,
-          stage: workflowState?.currentStage,
+          caseId: canvasState.selectedCaseId,
+          stage: canvasState.workflowState?.currentStage,
           error: error instanceof Error ? error.message : String(error),
         },
       });
@@ -878,33 +800,18 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
         friendlyError.action
       );
 
-      // OLD: Individual state management
-      setIsLoading(false);
-      setStreamingUpdate(null);
-
-      // NEW: Consolidated state management (gradual migration)
-      // This will eventually replace the logic above
-      // newActions.setLoading(false);
-      // newActions.stopStreaming();
+  // Unified error state handling
+  setLoading(false);
+  stopStreaming();
     } finally {
-      // OLD: Individual state management
-      setIsLoading(false);
-
-      // NEW: Consolidated state management (gradual migration)
-      // This will eventually replace the logic above
-      // newActions.setLoading(false);
+  // Unified cleanup
+  setLoading(false);
     }
   });
 
-  // Replaced direct logic with Modal openers
-  // OLD: Individual state management
-  const handleOpenSync = () => setIsSyncModalOpen(true);
-  const handleOpenExport = () => setIsExportModalOpen(true);
-
-  // NEW: Consolidated state management (gradual migration)
-  // This will eventually replace the logic above
-  // const handleOpenSync = () => newActions.openModal('isSyncModalOpen');
-  // const handleOpenExport = () => newActions.openModal('isExportModalOpen');
+  // Unified modal management
+  const handleOpenSync = () => openModal('isSyncModalOpen');
+  const handleOpenExport = () => openModal('isExportModalOpen');
 
   // Canvas store for undo/redo
   const { undo, redo, canUndo, canRedo } = useCanvasStore();
@@ -924,8 +831,8 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
   );
 
   const selectedCase = useMemo(() =>
-    selectedCaseId ? cases.find((c: ValueCase) => c.id === selectedCaseId) : undefined,
-    [cases, selectedCaseId]
+    canvasState.selectedCaseId ? cases.find((c: ValueCase) => c.id === canvasState.selectedCaseId) : undefined,
+    [cases, canvasState.selectedCaseId]
   );
 
   const inProgressCases = useMemo(() =>
@@ -938,17 +845,10 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
     [cases, caseStatusMap]
   );
 
+  // Unified case selection
   const handleCaseSelect = useCallback((id: string) => {
-    // OLD: Individual state management
-    setSelectedCaseId(id);
-
-    // NEW: Consolidated state management (gradual migration)
-    // This will eventually replace the line above
-    // newActions.selectCaseAndReset(id);
-
-    // TODO: Switch to new state management completely
-    // For now, we keep both to ensure backward compatibility
-  }, []);
+    selectCaseAndReset(id);
+  }, [selectCaseAndReset]);
 
   const trackAssetCreated = useCallback(
     (payload: {
@@ -957,8 +857,8 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
       source: string;
       name: string;
     }) => {
-      const timeToValueMs = userCreatedAt
-        ? Date.now() - new Date(userCreatedAt).getTime()
+      const timeToValueMs = canvasState.user.userCreatedAt
+        ? Date.now() - new Date(canvasState.user.userCreatedAt).getTime()
         : undefined;
 
       analyticsClient.trackWorkflowEvent("asset_created", "asset_creation", {
@@ -966,27 +866,27 @@ export const ChatCanvasLayout: FC<ChatCanvasLayoutProps> = ({
         company: payload.company,
         source: payload.source,
         name: payload.name,
-        user_email: userEmail,
+        user_email: canvasState.user.userEmail,
         time_to_first_value_ms: timeToValueMs,
         time_to_first_value_minutes: timeToValueMs
           ? Math.round(timeToValueMs / 60000)
           : undefined,
       });
 
-      analyticsClient.trackTimeToValue("time_to_first_value", userCreatedAt, {
+      analyticsClient.trackTimeToValue("time_to_first_value", canvasState.user.userCreatedAt, {
         workflow: "asset_creation",
         source: payload.source,
         case_id: payload.caseId,
       });
     },
-    [userCreatedAt, userEmail]
+    [canvasState.user.userCreatedAt, canvasState.user.userEmail]
   );
 
   // Handle Initial Action from Mission Control
   useEffect(() => {
-    if (initialAction && !hasProcessedInitialAction && !isFetchingCases) {
+    if (initialAction && !canvasState.hasProcessedInitialAction && !isFetchingCases) {
       const processInitialAction = async () => {
-        setHasProcessedInitialAction(true);
+        actions.setProcessedInitialAction(true);
 
         // 1. Create a transient "New Case" if needed or use the data to spawn one
         let caseName = "New Value Case";

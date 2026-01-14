@@ -8,7 +8,6 @@
 import { logger } from '../lib/logger';
 import { AgentType } from './agent-types';
 import { getUnifiedAgentAPI } from './UnifiedAgentAPI';
-import { v4 as uuidv4 } from 'uuid';
 import { getCategorizedCircuitBreakerManager } from './CircuitBreakerManager';
 import { getSecureSharedContext } from './SecureSharedContext';
 import { getContextOptimizer } from './ContextOptimizer';
@@ -285,7 +284,7 @@ export class EnhancedParallelExecutor {
           const task = batch.find(t => t.id === (result.reason as any).taskId);
           results.push({
             taskId: task?.id || 'unknown',
-            agentType: (task?.agentType as AgentType) || 'unknown',
+            agentType: (task?.agentType && Object.values(AgentType).includes(task.agentType as AgentType)) ? task.agentType as AgentType : 'unknown',
             success: false,
             error: result.reason instanceof Error ? result.reason.message : String(result.reason),
             duration: 0,
@@ -532,13 +531,16 @@ export class EnhancedParallelExecutor {
    * Get execution statistics
    */
   getExecutionStats(): {
+    circuitBreakerStats: any;
+    contextStats: any;
+    sharedContextStats: any;
+  } {
     return {
       circuitBreakerStats: this.circuitBreakerManager.getAllCategoryStats(),
       contextStats: this.contextOptimizer.getOptimizationStats(),
       sharedContextStats: this.sharedContext.getContextStats(),
     };
   }
-}
 }
 
 // ============================================================================
@@ -551,7 +553,7 @@ export function createParallelTask(
   options: Partial<ParallelTask> = {}
 ): ParallelTask {
   return {
-    id: uuidv4(),
+    id: randomUUID(),
     agentType,
     query,
     priority: 'medium',
@@ -574,7 +576,7 @@ export function createParallelGroup(
   options: Partial<ParallelGroup> = {}
 ): ParallelGroup {
   return {
-    id: uuidv4(),
+    id: randomUUID(),
     name,
     tasks,
     executionStrategy: 'parallel',

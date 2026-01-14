@@ -4,32 +4,34 @@ FROM mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm AS builder
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files first for better layer caching
 COPY package*.json ./
 
-# Install all dependencies for build (including dev dependencies)
-ENV npm_config_ignore_scripts=true
-RUN npm ci
+# Install dependencies with cache cleanup
+RUN npm ci --only=production && npm cache clean --force
 
 # Copy source files
-COPY . .
+COPY --chown=nodejs:nodejs . .
 
 # Build the backend application
 RUN npm run build:backend || npx tsc -p .config/configs/tsconfig.backend.json
 
-# Prune dev dependencies for production
-RUN npm prune --production
-
 # Stage 2: Security scanning
 FROM builder AS security-scan
 
-# Install trivy for vulnerability scanning with pinned version
+# Install trivy and syft for vulnerability scanning and SBOM generation with pinned versions
 RUN TRIVY_VERSION=v0.50.4 && \
+    SYFT_VERSION=v0.105.0 && \
     curl -sfL "https://raw.githubusercontent.com/aquasecurity/trivy/${TRIVY_VERSION}/contrib/install.sh" | sh -s -- -b /usr/local/bin && \
-    trivy --version
+    curl -sfL "https://raw.githubusercontent.com/anchore/syft/${SYFT_VERSION}/install.sh" | sh -s -- -b /usr/local/bin && \
+    trivy --version && \
+    syft version
 
-# Scan filesystem for vulnerabilities
-RUN trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /app
+# Generate SBOM and scan filesystem for vulnerabilities with comprehensive checks
+RUN syft dir /app -o spdx-json > sbom-backend.spdx.json && \
+    trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /app && \
+    trivy config --exit-code 1 --no-progress /app && \
+    rm /usr/local/bin/trivy /usr/local/bin/syft
 
 # Stage 3: Production runtime
 FROM node:22-bookworm-slim AS production
@@ -49,6 +51,7 @@ RUN groupadd -r nodejs -g 1001 && \
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
+COPY --from=security-scan --chown=nodejs:nodejs /app/sbom-backend.spdx.json ./sbom-backend.spdx.json
 
 # Runtime security scan (final check)
 RUN TRIVY_VERSION=v0.50.4 && \
@@ -62,9 +65,10 @@ RUN TRIVY_VERSION=v0.50.4 && \
 # Switch to non-root user
 USER nodejs
 
-# Add healthcheck
+# Add enhanced healthcheck with metrics endpoint
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+  CMD curl --fail --silent --show-error \
+    http://localhost:3001/metrics/health || exit 1
 
 EXPOSE 3001
 

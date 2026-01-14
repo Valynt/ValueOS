@@ -79,14 +79,80 @@ jobs:
             test-results/
           retention-days: 30
 
-  # Job 1: Build immutable artifacts (only once)
-  build:
-    name: Build Immutable Artifacts
+  # Job 1a: Build backend (parallel)
+  build-backend:
+    name: Build Backend
     runs-on: ubuntu-latest
     needs: validate
     if: github.event.inputs.skip_build != 'true'
     outputs:
-      image_sha: ${{ steps.build.outputs.digest }}
+      backend_image: ${{ steps.build.outputs.image }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to registries
+        run: |
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
+          echo ${{ secrets.GITHUB_TOKEN }} | docker login ${{ env.REGISTRY }} --username ${{ github.actor }} --password-stdin
+
+      - name: Build backend image
+        id: build
+        run: |
+          chmod +x ops/build
+          ./ops/build backend --push
+
+  # Job 1b: Build frontend (parallel)
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event.inputs.skip_build != 'true'
+    outputs:
+      frontend_image: ${{ steps.build.outputs.image }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to registries
+        run: |
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
+          echo ${{ secrets.GITHUB_TOKEN }} | docker login ${{ env.REGISTRY }} --username ${{ github.actor }} --password-stdin
+
+      - name: Build frontend image
+        id: build
+        run: |
+          chmod +x ops/build
+          ./ops/build frontend --push
+
+  # Job 1c: Combine images (waits for both builds)
+  build:
+    name: Combine Images
+    runs-on: ubuntu-latest
+    needs: [validate, build-backend, build-frontend]
+    if: github.event.inputs.skip_build != 'true'
+    outputs:
+      image_sha: ${{ steps.combine.outputs.digest }}
       image_tag: ${{ steps.meta.outputs.tags }}
 
     steps:
@@ -102,16 +168,10 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to registries
+        run: |
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
+          echo ${{ secrets.GITHUB_TOKEN }} | docker login ${{ env.REGISTRY }} --username ${{ github.actor }} --password-stdin
 
       - name: Extract metadata
         id: meta
@@ -124,12 +184,12 @@ jobs:
             type=sha,format=long,prefix=valueos-
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push immutable image
-        id: build
+      - name: Build and push unified production image
+        id: combine
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile.prod
+          file: ./infra/docker/Dockerfile.prod
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -301,6 +361,11 @@ jobs:
           npx playwright install --with-deps chromium
           npm run test:e2e -- --base-url=https://staging.valuecanvas.app
 
+      - name: Run chaos tests
+        run: |
+          chmod +x scripts/chaos-test.sh
+          ./scripts/chaos-test.sh run
+
       - name: Record promotion
         run: |
           cat > promotion-staging.json <<EOF
@@ -367,43 +432,15 @@ jobs:
           kubectl exec -n production deployment/valueos-app -- \
             npx supabase db push
 
-      - name: Deploy to production (promote artifact)
+      - name: Deploy to production (canary strategy)
         run: |
-          kubectl set image deployment/valueos-app \
-            app=${{ steps.image.outputs.digest }} \
-            --namespace=production \
-            --record
-
-      - name: Wait for rollout
-        run: |
-          kubectl rollout status deployment/valueos-app \
-            --namespace=production \
-            --timeout=15m
+          chmod +x scripts/canary-deploy.sh
+          ./scripts/canary-deploy.sh "${{ steps.image.outputs.digest }}" production
 
       - name: Run production smoke tests
         run: |
           curl -f https://app.valuecanvas.app/health || exit 1
           echo "✅ Production deployment successful"
-
-      - name: Monitor error rates
-        run: |
-          # Check CloudWatch metrics for 5 minutes
-          sleep 300
-          ERROR_RATE=$(aws cloudwatch get-metric-statistics \
-            --namespace AWS/ApplicationELB \
-            --metric-name HTTPCode_Target_5XX_Count \
-            --dimensions Name=LoadBalancer,Value=valuecanvas-prod \
-            --start-time $(date -u -d '5 minutes ago' +%Y-%m-%dT%H:%M:%S) \
-            --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
-            --period 300 \
-            --statistics Sum \
-            --query 'Datapoints[0].Sum' \
-            --output text)
-
-          if [ "$ERROR_RATE" -gt "$ERROR_RATE_THRESHOLD" ]; then
-            echo "❌ High error rate detected: $ERROR_RATE (threshold: $ERROR_RATE_THRESHOLD)"
-            exit 1
-          fi
 
       - name: Record promotion
         run: |
@@ -427,20 +464,8 @@ jobs:
       - name: Notify success
         if: success()
         run: |
-          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
-            -H 'Content-Type: application/json' \
-            -d '{
-              "text": "🚀 Production Deployment Successful",
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*Production Deployment Successful*\n\n*Image:* `${{ steps.image.outputs.digest }}`\n*Commit:* `${{ github.sha }}`\n*Deployed by:* ${{ github.actor }}"
-                  }
-                }
-              ]
-            }'
+          chmod +x scripts/notify-deployment.sh
+          ./scripts/notify-deployment.sh success production "${{ steps.image.outputs.digest }}" "${{ github.sha }}" "${{ github.actor }}"
 
       - name: Rollback on failure
         if: failure()
@@ -449,20 +474,8 @@ jobs:
           kubectl rollout undo deployment/valueos-app \
             --namespace=production
 
-          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
-            -H 'Content-Type: application/json' \
-            -d '{
-              "text": "⚠️ Production deployment failed and was rolled back",
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*Production Deployment Failed*\n\n*Image:* `${{ steps.image.outputs.digest }}`\n*Commit:* `${{ github.sha }}`\n*Action:* Automatic rollback executed"
-                  }
-                }
-              ]
-            }'
+          chmod +x scripts/notify-deployment.sh
+          ./scripts/notify-deployment.sh failure production "${{ steps.image.outputs.digest }}" "${{ github.sha }}" "${{ github.actor }}"
 
   # Job 5: Generate deployment report
   report:

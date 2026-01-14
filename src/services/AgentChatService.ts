@@ -41,6 +41,7 @@ import { contextFabric } from "../lib/agent-fabric/ContextFabric";
 import { detectIndustry } from "../data/industryTemplates";
 import { geminiProxyService } from "./GeminiProxyService";
 import { FallbackAIService } from "./FallbackAIService";
+import { RetryService } from "./RetryService";
 
 // ============================================================================
 // Type-Safe Schemas with Zod
@@ -239,25 +240,70 @@ class AgentChatService {
           `;
       }
 
-      // 3. Call Gemini API through secure proxy with fallback
+      // 3. Call Gemini API through secure proxy with sophisticated retry
       let parsedData: AIResponseSchema;
 
-      try {
-        const textResponse = await geminiProxyService.generateContent({
+      const apiCall = async () => {
+        return await geminiProxyService.generateContent({
           contents: [{ parts: [{ text: query }] }],
           systemInstruction: { parts: [{ text: systemPrompt }] },
           generationConfig: {
             responseMimeType: "application/json",
           },
         });
+      };
 
+      const retryResult = await RetryService.executeWithRetry(
+        apiCall,
+        {
+          maxAttempts: 3,
+          baseDelay: 1000,
+          maxDelay: 10000,
+          backoffMultiplier: 2,
+          jitter: true,
+          circuitBreakerThreshold: 5,
+          circuitBreakerTimeout: 60000,
+          context: {
+            serviceId: 'gemini-proxy',
+            operation: 'generateContent',
+            caseId: request.caseId,
+            sessionId: request.sessionId,
+            traceId
+          },
+          onRetry: (attempt, error, delay) => {
+            logger.warn(`Gemini API attempt ${attempt} failed, retrying in ${delay}ms`, {
+              error: error instanceof Error ? error.message : String(error),
+              attempt,
+              delay,
+              traceId
+            });
+          }
+        }
+      );
+
+      if (retryResult.success && retryResult.result) {
+        const textResponse = retryResult.result;
         parsedData = AIResponseSchema.parse(JSON.parse(textResponse));
 
         // Cache successful analysis for fallback use
         FallbackAIService.cacheAnalysis(request.caseId, parsedData);
 
-      } catch (apiError) {
-        logger.error("Gemini API Error, attempting fallback", apiError instanceof Error ? apiError : new Error(String(apiError)));
+        logger.info('Gemini API call succeeded after retries', {
+          attempts: retryResult.attempts,
+          totalDelay: retryResult.totalDelay,
+          traceId
+        });
+
+      } else {
+        // Handle retry failure
+        const apiError = retryResult.error;
+        logger.error("Gemini API retries exhausted, attempting fallback", {
+          error: apiError instanceof Error ? apiError : new Error(String(apiError)),
+          attempts: retryResult.attempts,
+          totalDelay: retryResult.totalDelay,
+          circuitBreakerTripped: retryResult.circuitBreakerTripped,
+          traceId
+        });
 
         // Check if we should use fallback service
         if (FallbackAIService.shouldUseFallback(apiError)) {
@@ -265,14 +311,14 @@ class AgentChatService {
           const cachedAnalysis = FallbackAIService.getCachedAnalysis(request.caseId);
           if (cachedAnalysis) {
             parsedData = cachedAnalysis;
-            logger.info("Using cached analysis as fallback");
+            logger.info("Using cached analysis as fallback", { traceId });
           } else {
             // Generate rule-based fallback
             parsedData = FallbackAIService.generateFallbackAnalysis(query, {
               industry: template.name,
               stage: request.workflowState.currentStage
             });
-            logger.info("Using rule-based fallback analysis");
+            logger.info("Using rule-based fallback analysis", { traceId });
           }
         } else {
           // Re-throw if it's not a fallback-worthy error

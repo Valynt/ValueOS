@@ -174,12 +174,118 @@ export class SecureSharedContext {
   }
 
   /**
+   * Validate context share request
+   */
+  private validateContextShareRequest(request: ContextShareRequest): void {
+    // Validate required fields
+    if (!request.fromAgent || !request.toAgent) {
+      throw new Error('Agent types are required');
+    }
+
+    if (!request.contextKey || typeof request.contextKey !== 'string') {
+      throw new Error('Valid context key is required');
+    }
+
+    if (!request.securityContext) {
+      throw new Error('Security context is required');
+    }
+
+    // Validate security context structure
+    const { securityContext } = request;
+    if (!securityContext.tenantId || !securityContext.userId || !securityContext.sessionId) {
+      throw new Error('Security context must contain tenantId, userId, and sessionId');
+    }
+
+    // Validate agent types
+    const validAgents = new Set([
+      'coordinator', 'opportunity', 'target', 'realization', 'expansion', 'integrity',
+      'research', 'benchmark', 'company-intelligence', 'financial-modeling', 'value-mapping',
+      'communicator', 'narrative', 'groundtruth', 'system-mapper', 'intervention-designer',
+      'outcome-engineer', 'value-eval'
+    ]);
+
+    if (!validAgents.has(request.fromAgent) || !validAgents.has(request.toAgent)) {
+      throw new Error('Invalid agent type specified');
+    }
+
+    // Validate context key format
+    if (request.contextKey.length > 255 || !/^[a-zA-Z0-9_-]+$/.test(request.contextKey)) {
+      throw new Error('Context key must be alphanumeric with underscores/hyphens and max 255 chars');
+    }
+
+    // Validate data size
+    const dataSize = JSON.stringify(request.data || {}).length;
+    if (dataSize > 1024 * 1024) { // 1MB limit
+      throw new Error('Context data too large (max 1MB)');
+    }
+
+    // Validate audit metadata
+    if (request.auditMetadata && typeof request.auditMetadata !== 'object') {
+      throw new Error('Audit metadata must be an object');
+    }
+  }
+
+  /**
+   * Sanitize context data for storage
+   */
+  private sanitizeContextData(data: any): any {
+    if (data === null || data === undefined) {
+      return {};
+    }
+
+    if (typeof data === 'string') {
+      // Remove potential script injections and limit length
+      return data
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+        .replace(/javascript:/gi, '')
+        .replace(/on\w+\s*=/gi, '')
+        .substring(0, 10000); // Max 10k chars per string
+    }
+
+    if (Array.isArray(data)) {
+      return data.slice(0, 1000).map(item => this.sanitizeContextData(item)); // Max 1000 items
+    }
+
+    if (typeof data === 'object') {
+      const sanitized: any = {};
+      const maxKeys = 100;
+      let keyCount = 0;
+
+      for (const [key, value] of Object.entries(data)) {
+        if (keyCount >= maxKeys) break;
+
+        // Sanitize key names
+        const sanitizedKey = key.replace(/[<>\"'&]/g, '').substring(0, 100);
+        sanitized[sanitizedKey] = this.sanitizeContextData(value);
+        keyCount++;
+      }
+
+      return sanitized;
+    }
+
+    // For numbers, booleans, etc.
+    return data;
+  }
+
+  /**
    * Share context between agents with security validation
    */
   async shareContext(request: ContextShareRequest): Promise<boolean> {
     try {
+      // Input validation
+      this.validateContextShareRequest(request);
+
+      // Sanitize data
+      const sanitizedData = this.sanitizeContextData(request.data);
+
+      // Create sanitized request copy
+      const sanitizedRequest = {
+        ...request,
+        data: sanitizedData
+      };
+
       // Validate the context share request
-      const validation = await this.validateContextShare(request);
+      const validation = await this.validateContextShare(sanitizedRequest);
 
       if (!validation.valid || !validation.allowed) {
         logger.warn('Context share denied', {

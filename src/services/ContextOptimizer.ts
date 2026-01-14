@@ -7,6 +7,7 @@
 
 import { logger } from '../lib/logger';
 import { AgentType } from './agent-types';
+import { getMemoryPressureMonitor, MemoryPressure, MemoryPressureListener } from './monitoring/MemoryPressureMonitor';
 
 // ============================================================================
 // Types
@@ -77,13 +78,14 @@ export interface OptimizationConfig {
 // Context Optimizer Implementation
 // ============================================================================
 
-export class ContextOptimizer {
+export class ContextOptimizer implements MemoryPressureListener {
   private contextWindows: Map<string, ContextWindow> = new Map();
   private contextCache: Map<string, ContextCache> = new Map();
   private optimizationHistory: ContextOptimization[] = [];
+  private memoryMonitor = getMemoryPressureMonitor();
 
-  private readonly config: OptimizationConfig;
-  private readonly MAX_CACHE_SIZE = 1000;
+  private config: OptimizationConfig;
+  private maxCacheSize: number;
   private readonly MAX_HISTORY_SIZE = 500;
 
   constructor(config: Partial<OptimizationConfig> = {}) {
@@ -102,6 +104,15 @@ export class ContextOptimizer {
       },
       ...config,
     };
+
+    // Initialize adaptive cache size
+    this.maxCacheSize = this.memoryMonitor.getRecommendedCacheSize();
+
+    // Register for memory pressure changes
+    this.memoryMonitor.addListener(this);
+
+    // Start memory monitoring if not already running
+    this.memoryMonitor.startMonitoring();
   }
 
   /**
@@ -673,12 +684,9 @@ export class ContextOptimizer {
     const semanticHash = this.generateSemanticHash(content);
     const key = `${agentType}:${semanticHash}`;
 
-    // Remove oldest entry if cache is full
-    if (this.contextCache.size >= this.MAX_CACHE_SIZE) {
-      const oldestKey = this.contextCache.keys().next().value;
-      if (oldestKey) {
-        this.contextCache.delete(oldestKey);
-      }
+    // Check if we need to clean up before adding new entry
+    if (this.contextCache.size >= this.maxCacheSize) {
+      this.performAdaptiveCleanup(10); // Clean 10% to make room
     }
 
     this.contextCache.set(key, {
@@ -711,8 +719,58 @@ export class ContextOptimizer {
   }
 
   /**
-   * Clear expired contexts
+   * Handle memory pressure changes
    */
+  onPressureChange(pressure: MemoryPressure, stats: any): void {
+    const newCacheSize = this.memoryMonitor.getRecommendedCacheSize();
+    const cleanupPercentage = this.memoryMonitor.getCleanupPercentage();
+
+    logger.info('Memory pressure detected, adjusting cache', {
+      pressure,
+      currentCacheSize: this.contextCache.size,
+      newCacheSize,
+      cleanupPercentage,
+      heapUsedPercentage: stats.heapUsedPercentage,
+    });
+
+    // Update cache size
+    this.maxCacheSize = newCacheSize;
+
+    // Perform cleanup if needed
+    if (cleanupPercentage > 0) {
+      this.performAdaptiveCleanup(cleanupPercentage);
+    }
+
+    // Trigger garbage collection if needed
+    if (this.memoryMonitor.shouldTriggerGC()) {
+      this.memoryMonitor.triggerGC();
+    }
+  }
+
+  /**
+   * Perform adaptive cache cleanup based on memory pressure
+   */
+  private performAdaptiveCleanup(cleanupPercentage: number): void {
+    const entriesToRemove = Math.floor(this.contextCache.size * (cleanupPercentage / 100));
+
+    if (entriesToRemove > 0) {
+      // Sort by last accessed time (oldest first) and remove entries
+      const sortedEntries = Array.from(this.contextCache.entries())
+        .sort(([, a], [, b]) => a.lastAccessed - b.lastAccessed);
+
+      const toRemove = sortedEntries.slice(0, entriesToRemove);
+
+      toRemove.forEach(([key]) => {
+        this.contextCache.delete(key);
+      });
+
+      logger.info('Adaptive cache cleanup completed', {
+        entriesRemoved: toRemove.length,
+        remainingEntries: this.contextCache.size,
+        cleanupPercentage,
+      });
+    }
+  }
   clearExpiredContexts(): void {
     const now = Date.now();
     let clearedCount = 0;

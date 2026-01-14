@@ -1,6 +1,6 @@
 /**
  * Agent Audit Logger
- * 
+ *
  * Centralized logging system for all agent interactions with
  * database persistence and query capabilities.
  */
@@ -243,6 +243,113 @@ export class AgentAuditLogger {
   }
 
   /**
+   * Sanitize audit log entry before storage
+   */
+  private sanitizeLogEntry(entry: AgentAuditLog): AgentAuditLog {
+    const sanitized: AgentAuditLog = {
+      ...entry,
+    };
+
+    // Sanitize string fields to prevent injection
+    if (sanitized.input_query && typeof sanitized.input_query === 'string') {
+      sanitized.input_query = this.sanitizeString(sanitized.input_query, 1000);
+    }
+
+    if (sanitized.error_message && typeof sanitized.error_message === 'string') {
+      sanitized.error_message = this.sanitizeString(sanitized.error_message, 500);
+    }
+
+    if (sanitized.user_id && typeof sanitized.user_id === 'string') {
+      sanitized.user_id = this.sanitizeString(sanitized.user_id, 100);
+    }
+
+    if (sanitized.organization_id && typeof sanitized.organization_id === 'string') {
+      sanitized.organization_id = this.sanitizeString(sanitized.organization_id, 100);
+    }
+
+    if (sanitized.session_id && typeof sanitized.session_id === 'string') {
+      sanitized.session_id = this.sanitizeString(sanitized.session_id, 100);
+    }
+
+    // Sanitize response data
+    if (sanitized.response_data) {
+      sanitized.response_data = this.sanitizeData(sanitized.response_data);
+    }
+
+    // Sanitize context
+    if (sanitized.context) {
+      sanitized.context = this.sanitizeData(sanitized.context);
+    }
+
+    // Sanitize metadata
+    if (sanitized.metadata) {
+      sanitized.metadata = this.sanitizeData(sanitized.metadata);
+    }
+
+    // Sanitize response metadata
+    if (sanitized.response_metadata) {
+      sanitized.response_metadata = this.sanitizeData(sanitized.response_metadata);
+    }
+
+    return sanitized;
+  }
+
+  /**
+   * Sanitize string to prevent injection and limit length
+   */
+  private sanitizeString(str: string, maxLength: number): string {
+    if (!str || typeof str !== 'string') {
+      return '';
+    }
+
+    return str
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/javascript:/gi, '')
+      .replace(/on\w+\s*=/gi, '')
+      .replace(/[<>\"'&]/g, '')
+      .substring(0, maxLength);
+  }
+
+  /**
+   * Sanitize data recursively
+   */
+  private sanitizeData(data: any): any {
+    if (data === null || data === undefined) {
+      return null;
+    }
+
+    if (typeof data === 'string') {
+      return this.sanitizeString(data, 10000);
+    }
+
+    if (typeof data === 'number' || typeof data === 'boolean') {
+      return data;
+    }
+
+    if (Array.isArray(data)) {
+      return data.slice(0, 100).map(item => this.sanitizeData(item));
+    }
+
+    if (typeof data === 'object') {
+      const sanitized: any = {};
+      let keyCount = 0;
+      const maxKeys = 50;
+
+      for (const [key, value] of Object.entries(data)) {
+        if (keyCount >= maxKeys) break;
+
+        const sanitizedKey = this.sanitizeString(key, 100);
+        sanitized[sanitizedKey] = this.sanitizeData(value);
+        keyCount++;
+      }
+
+      return sanitized;
+    }
+
+    return data;
+  }
+
+  /**
    * Log agent interaction
    */
   async log(entry: Omit<AgentAuditLog, 'id' | 'timestamp'>): Promise<void> {
@@ -250,13 +357,14 @@ export class AgentAuditLogger {
       return;
     }
 
-    const logEntry: AgentAuditLog = {
+    // Sanitize the log entry
+    const sanitizedEntry = this.sanitizeLogEntry({
       ...entry,
       timestamp: new Date().toISOString(),
-    };
+    });
 
     // Add to queue
-    this.logQueue.push(logEntry);
+    this.logQueue.push(sanitizedEntry);
 
     // Flush if queue is full
     if (this.logQueue.length >= this.MAX_QUEUE_SIZE) {
