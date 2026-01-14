@@ -382,8 +382,8 @@ export class AgentSecurityService extends EventEmitter {
       // Create security context
       const securityContext: SecurityContext = {
         tenantId: context.tenantId,
-        userId: validationResult.subject,
-        agentId: validationResult.subject,
+        userId: validationResult.subject || "unknown",
+        agentId: validationResult.subject || "unknown",
         sessionId: context.sessionId || "unknown",
         permissions: validationResult.permissions || [],
         roles: validationResult.roles || [],
@@ -814,7 +814,7 @@ export class AgentSecurityService extends EventEmitter {
 
   private async validateJWT(
     token: string,
-    claims?: JWTClaims
+    _claims?: JWTClaims
   ): Promise<CredentialValidationResult> {
     try {
       // Mock JWT validation - in reality would verify signature and claims
@@ -823,7 +823,7 @@ export class AgentSecurityService extends EventEmitter {
         return { valid: false, reason: "Invalid JWT format" };
       }
 
-      const payload = JSON.parse(Buffer.from(parts[1], "base64").toString());
+      const payload = JSON.parse(Buffer.from(parts[1] || "", "base64").toString());
 
       if (payload.exp && payload.exp < Date.now() / 1000) {
         return { valid: false, reason: "JWT expired" };
@@ -842,7 +842,7 @@ export class AgentSecurityService extends EventEmitter {
 
   private async validateCertificate(
     certificate: string,
-    privateKey?: string
+    _privateKey?: string
   ): Promise<CredentialValidationResult> {
     try {
       // Mock certificate validation - in reality would verify against CA
@@ -866,7 +866,7 @@ export class AgentSecurityService extends EventEmitter {
 
   private async validateOAuth(
     accessToken: string,
-    refreshToken?: string
+    _refreshToken?: string
   ): Promise<CredentialValidationResult> {
     // Mock OAuth validation - in reality would validate against OAuth provider
     if (accessToken && accessToken.startsWith("oauth_")) {
@@ -900,9 +900,9 @@ export class AgentSecurityService extends EventEmitter {
     // Base trust from authentication method
     if (validation.certificateInfo) {
       trustLevel = "high";
-    } else if (validation.roles.includes("admin")) {
+    } else if (validation.roles?.includes("admin")) {
       trustLevel = "privileged";
-    } else if (validation.roles.includes("agent")) {
+    } else if (validation.roles?.includes("agent")) {
       trustLevel = "medium";
     }
 
@@ -1051,10 +1051,10 @@ export class AgentSecurityService extends EventEmitter {
 
   private async evaluatePolicy(
     policy: SecurityPolicy,
-    context: SecurityContext,
-    action: string,
-    resource: string,
-    requestContext?: Record<string, any>
+    _context: SecurityContext,
+    _action: string,
+    _resource: string,
+    _requestContext?: Record<string, any>
   ): Promise<PolicyCheckResult> {
     // Mock policy evaluation - in reality would have sophisticated rule engine
     for (const rule of policy.rules) {
@@ -1149,9 +1149,7 @@ export class AgentSecurityService extends EventEmitter {
     try {
       await this.checkCompliance(frameworks);
     } catch (error) {
-      logger.error("Compliance check failed", {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error("Compliance check failed", error as Error);
     }
   }
 
@@ -1163,7 +1161,7 @@ export class AgentSecurityService extends EventEmitter {
 
   private async generateComplianceReport(
     framework: ComplianceFramework,
-    scope?: any
+    _scope?: any
   ): Promise<ComplianceReport> {
     // Mock compliance report generation
     const report: ComplianceReport = {

@@ -729,7 +729,7 @@ export class TenantPerformanceManager extends EventEmitter {
     };
   }
 
-  private calculateResourceUsage(tenantId: string): {
+  private calculateResourceUsage(_tenantId: string): {
     activeAgents: number;
     totalExecutions: number;
     memoryUsage: number;
@@ -1061,7 +1061,7 @@ export class TenantPerformanceManager extends EventEmitter {
     const tenant = this.tenants.get(tenantId);
     if (!tenant) return;
 
-    for (const [key, allocation] of this.resourceAllocations.entries()) {
+    for (const [_key, allocation] of this.resourceAllocations.entries()) {
       if (allocation.tenantId === tenantId) {
         const newAllocation = this.getQuotaForResource(tenant.quotas, allocation.resourceType);
         allocation.allocated = newAllocation;
@@ -1074,7 +1074,7 @@ export class TenantPerformanceManager extends EventEmitter {
 
   private async updateFairSchedule(
     tenantId: string,
-    resourceType: ResourceType,
+    _resourceType: ResourceType,
     amount: number
   ): Promise<void> {
     const schedule = this.fairSchedules.get(tenantId);
