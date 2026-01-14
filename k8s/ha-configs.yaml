@@ -1,0 +1,246 @@
+# HA Secrets Configuration
+apiVersion: v1
+kind: Secret
+metadata:
+  name: valueos-secrets
+  namespace: valueos-ha
+  labels:
+    app: valueos
+    ha: enabled
+type: Opaque
+data:
+  # Base64 encoded secrets (replace with actual values)
+  database-url: <BASE64_ENCODED_DATABASE_URL>
+  supabase-url: <BASE64_ENCODED_SUPABASE_URL>
+  supabase-anon-key: <BASE64_ENCODED_SUPABASE_ANON_KEY>
+  redis-password: <BASE64_ENCODED_REDIS_PASSWORD>
+  together-api-key: <BASE64_ENCODED_TOGETHER_API_KEY>
+  slack-webhook-url: <BASE64_ENCODED_SLACK_WEBHOOK_URL>
+---
+# HA ConfigMaps for Application Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: valueos-config
+  namespace: valueos-ha
+  labels:
+    app: valueos
+    ha: enabled
+data:
+  NODE_ENV: "production"
+  REGION: "us-east-1"
+  CLUSTER_NAME: "valueos-ha"
+  INSTANCE_ID: "valueos-frontend"
+  HTTPS_ONLY: "true"
+  CSRF_ENABLED: "true"
+  CSP_ENABLED: "true"
+  PROMETHEUS_ENABLED: "true"
+  GRAFANA_ENABLED: "true"
+  ENABLE_AGENT_FABRIC: "true"
+  ENABLE_WORKFLOW: "true"
+  ENABLE_COMPLIANCE: "true"
+  ENABLE_MULTI_TENANT: "false"
+  ENABLE_USAGE_TRACKING: "true"
+  ENABLE_BILLING: "false"
+  AUTO_ROLLBACK_ENABLED: "true"
+  CDN_ENABLED: "true"
+  CDN_PROVIDER: "cloudflare"
+  CDN_CACHE_TTL: "3600"
+  HEALTH_CHECK_INTERVAL: "15"
+  HEALTH_CHECK_TIMEOUT: "5"
+  HEALTH_CHECK_RETRIES: "3"
+  MAINTENANCE_MODE: "false"
+---
+# HA Ingress Configuration
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: valueos-ha-ingress
+  namespace: valueos-ha
+  labels:
+    app: valueos
+    ha: enabled
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-passthrough: "false"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/session-cookie-name: "valueos-affinity"
+    nginx.ingress.kubernetes.io/session-cookie-max-age: "3600"
+    nginx.ingress.kubernetes.io/upstream-hash-by: "$request_uri"
+spec:
+  tls:
+    - hosts:
+        - valueos.com
+        - www.valueos.com
+      secretName: valueos-tls
+  rules:
+    - host: valueos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: valueos-frontend-ha
+                port:
+                  number: 80
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: valueos-backend-ha
+                port:
+                  number: 3001
+    - host: www.valueos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: valueos-frontend-ha
+                port:
+                  number: 80
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: valueos-backend-ha
+                port:
+                  number: 3001
+---
+# HA ServiceMonitor for Prometheus
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: valueos-frontend-monitor
+  namespace: valueos-ha
+  labels:
+    app: valueos-frontend
+    ha: enabled
+spec:
+  selector:
+    matchLabels:
+      app: valueos-frontend
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: valueos-backend-monitor
+  namespace: valueos-ha
+  labels:
+    app: valueos-backend
+    ha: enabled
+spec:
+  selector:
+    matchLabels:
+      app: valueos-backend
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+---
+# HA PrometheusRule for Alerting
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: valueos-ha-alerts
+  namespace: valueos-ha
+  labels:
+    app: valueos
+    ha: enabled
+spec:
+  groups:
+    - name: valueos-frontend
+      rules:
+        - alert: FrontendDown
+          expr: up{job="valueos-frontend"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            service: frontend
+          annotations:
+            summary: "ValueOS Frontend is down"
+            description: "ValueOS Frontend has been down for more than 1 minute."
+        - alert: FrontendHighLatency
+          expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="valueos-frontend"}[5m])) > 1
+          for: 5m
+          labels:
+            severity: warning
+            service: frontend
+          annotations:
+            summary: "ValueOS Frontend high latency"
+            description: "ValueOS Frontend 95th percentile latency is above 1 second."
+        - alert: FrontendHighErrorRate
+          expr: rate(http_requests_total{job="valueos-frontend",status=~"5.."}[5m]) / rate(http_requests_total{job="valueos-frontend"}[5m]) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+            service: frontend
+          annotations:
+            summary: "ValueOS Frontend high error rate"
+            description: "ValueOS Frontend error rate is above 5%."
+    - name: valueos-backend
+      rules:
+        - alert: BackendDown
+          expr: up{job="valueos-backend"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            service: backend
+          annotations:
+            summary: "ValueOS Backend is down"
+            description: "ValueOS Backend has been down for more than 1 minute."
+        - alert: BackendHighLatency
+          expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="valueos-backend"}[5m])) > 2
+          for: 5m
+          labels:
+            severity: warning
+            service: backend
+          annotations:
+            summary: "ValueOS Backend high latency"
+            description: "ValueOS Backend 95th percentile latency is above 2 seconds."
+        - alert: BackendHighErrorRate
+          expr: rate(http_requests_total{job="valueos-backend",status=~"5.."}[5m]) / rate(http_requests_total{job="valueos-backend"}[5m]) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+            service: backend
+          annotations:
+            summary: "ValueOS Backend high error rate"
+            description: "ValueOS Backend error rate is above 5%."
+    - name: valueos-ha
+      rules:
+        - alert: PodDisruptionBudgetViolation
+          expr: kube_pod_status_phase{phase="Running"} < on(pod) kube_poddisruptionbudget_status_expected_pods
+          for: 5m
+          labels:
+            severity: warning
+            component: ha
+          annotations:
+            summary: "PodDisruptionBudget violation"
+            description: "PodDisruptionBudget {{ $labels.poddisruptionbudget }} is violated."
+        - alert: HPAReplicaMismatch
+          expr: kube_hpa_status_desired_replicas != kube_hpa_status_current_replicas
+          for: 10m
+          labels:
+            severity: warning
+            component: ha
+          annotations:
+            summary: "HPA replica mismatch"
+            description: "HPA {{ $labels.hpa }} desired replicas ({{ $value }}) doesn't match current replicas."

@@ -21,9 +21,10 @@ import { XBRLModule } from "../modules/XBRLModule";
 import { MarketDataModule } from "../modules/MarketDataModule";
 import { PrivateCompanyModule } from "../modules/PrivateCompanyModule";
 import { IndustryBenchmarkModule } from "../modules/IndustryBenchmarkModule";
-import { ESOModule } from "../modules/ESOModule";
+import { ESOModule } from "../modules/StructuralTruthModule";
 import { ErrorCodes, GroundTruthError } from "../types";
 import { logger } from "../../lib/logger";
+import { sha256 } from "../../lib/contentHash";
 
 interface MCPServerConfig {
   // Module configurations
@@ -152,9 +153,7 @@ export class MCPFinancialGroundTruthServer {
 
       // Initialize Industry Benchmark module (Tier 3)
       this.modules.industryBenchmark = new IndustryBenchmarkModule();
-      await this.modules.industryBenchmark.initialize(
-        this.config.industryBenchmark
-      );
+      await this.modules.industryBenchmark.initialize(this.config.industryBenchmark);
       this.truthLayer.registerModule(this.modules.industryBenchmark);
 
       // Initialize ESO module (Economic Structure Ontology)
@@ -165,9 +164,10 @@ export class MCPFinancialGroundTruthServer {
       this.initialized = true;
       logger.info("MCP Financial Ground Truth Server initialized successfully");
     } catch (error) {
-      logger.error("Failed to initialize MCP server", {
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
+      logger.error(
+        "Failed to initialize MCP server",
+        error instanceof Error ? error : new Error("Unknown error")
+      );
       throw error;
     }
   }
@@ -192,8 +192,7 @@ export class MCPFinancialGroundTruthServer {
             },
             period: {
               type: "string",
-              description:
-                "Fiscal period normalized to Calendar Quarters or Annual format.",
+              description: "Fiscal period normalized to Calendar Quarters or Annual format.",
               enum: ["FY2023", "FY2024", "CQ1_2024", "CQ2_2024", "LTM"],
             },
             metrics: {
@@ -215,8 +214,7 @@ export class MCPFinancialGroundTruthServer {
             },
             currency: {
               type: "string",
-              description:
-                "ISO 4217 currency code. Defaults to reporting currency if omitted.",
+              description: "ISO 4217 currency code. Defaults to reporting currency if omitted.",
               default: "USD",
               pattern: "^[A-Z]{3}$",
             },
@@ -244,8 +242,7 @@ export class MCPFinancialGroundTruthServer {
             },
             industry_code: {
               type: "string",
-              description:
-                "NAICS or SIC code to select appropriate productivity benchmarks.",
+              description: "NAICS or SIC code to select appropriate productivity benchmarks.",
             },
           },
           required: ["domain"],
@@ -260,8 +257,7 @@ export class MCPFinancialGroundTruthServer {
           properties: {
             claim_text: {
               type: "string",
-              description:
-                "The sentence or assertion containing a financial fact to verify.",
+              description: "The sentence or assertion containing a financial fact to verify.",
             },
             context_entity: {
               type: "string",
@@ -269,8 +265,7 @@ export class MCPFinancialGroundTruthServer {
             },
             context_date: {
               type: "string",
-              description:
-                "ISO 8601 date string for the point-in-time of the claim.",
+              description: "ISO 8601 date string for the point-in-time of the claim.",
             },
             strict_mode: {
               type: "boolean",
@@ -300,17 +295,11 @@ export class MCPFinancialGroundTruthServer {
             driver_node_id: {
               type: "string",
               description: "ID of the value tree node to populate.",
-              enum: [
-                "revenue_uplift",
-                "cost_reduction",
-                "risk_mitigation",
-                "productivity_delta",
-              ],
+              enum: ["revenue_uplift", "cost_reduction", "risk_mitigation", "productivity_delta"],
             },
             simulation_period: {
               type: "string",
-              description:
-                "The forward-looking period for the value realization model.",
+              description: "The forward-looking period for the value realization model.",
             },
           },
           required: ["target_cik", "benchmark_naics", "driver_node_id"],
@@ -325,8 +314,7 @@ export class MCPFinancialGroundTruthServer {
           properties: {
             identifier: {
               type: "string",
-              description:
-                "NAICS code (6 digits) or SOC Occupation code (XX-XXXX).",
+              description: "NAICS code (6 digits) or SOC Occupation code (XX-XXXX).",
             },
             metric: {
               type: "string",
@@ -337,22 +325,16 @@ export class MCPFinancialGroundTruthServer {
         },
       },
       // ESO Module Tools
-      ...(this.modules.eso?.getTools() || []),
+      ...((this.modules.eso?.getTools() || []) as MCPTool[]),
     ];
   }
 
   /**
    * Execute an MCP tool
    */
-  async executeTool(
-    toolName: string,
-    args: Record<string, any>
-  ): Promise<MCPToolResult> {
+  async executeTool(toolName: string, args: Record<string, any>): Promise<MCPToolResult> {
     if (!this.initialized) {
-      throw new GroundTruthError(
-        ErrorCodes.INVALID_REQUEST,
-        "MCP server not initialized"
-      );
+      throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "MCP server not initialized");
     }
 
     logger.info("MCP tool execution started", { toolName, args });
@@ -360,19 +342,37 @@ export class MCPFinancialGroundTruthServer {
     try {
       switch (toolName) {
         case "get_authoritative_financials":
-          return await this.getAuthoritativeFinancials(args);
+          return await this.getAuthoritativeFinancials(
+            args as { entity_id: string; period?: string; metrics: string[]; currency?: string }
+          );
 
         case "get_private_entity_estimates":
-          return await this.getPrivateEntityEstimates(args);
+          return await this.getPrivateEntityEstimates(
+            args as { domain: string; proxy_metric?: string; industry_code?: string }
+          );
 
         case "verify_claim_aletheia":
-          return await this.verifyClaimAletheia(args);
+          return await this.verifyClaimAletheia(
+            args as {
+              claim_text: string;
+              context_entity: string;
+              context_date?: string;
+              strict_mode?: boolean;
+            }
+          );
 
         case "populate_value_driver_tree":
-          return await this.populateValueDriverTree(args);
+          return await this.populateValueDriverTree(
+            args as {
+              target_cik: string;
+              benchmark_naics: string;
+              driver_node_id: string;
+              simulation_period: string;
+            }
+          );
 
         case "get_industry_benchmark":
-          return await this.getIndustryBenchmark(args);
+          return await this.getIndustryBenchmark(args as { identifier: string; metric?: string });
 
         // ESO Module tools
         case "eso_get_metric_value":
@@ -381,32 +381,24 @@ export class MCPFinancialGroundTruthServer {
         case "eso_get_similar_traces":
         case "eso_get_persona_kpis":
           if (this.modules.eso) {
-            const result = await this.modules.eso.handleToolCall(
-              toolName,
-              args
-            );
+            const result = await this.modules.eso.handleToolCall(toolName, args);
             return {
-              content: [
-                { type: "text", text: JSON.stringify(result, null, 2) },
-              ],
+              content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
             };
           }
-          throw new GroundTruthError(
-            ErrorCodes.INVALID_REQUEST,
-            "ESO module not initialized"
-          );
+          throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "ESO module not initialized");
 
         default:
-          throw new GroundTruthError(
-            ErrorCodes.INVALID_REQUEST,
-            `Unknown tool: ${toolName}`
-          );
+          throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, `Unknown tool: ${toolName}`);
       }
     } catch (error) {
-      logger.error("MCP tool execution failed", {
-        toolName,
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
+      logger.error(
+        "MCP tool execution failed",
+        error instanceof Error ? error : new Error("Unknown error"),
+        {
+          toolName,
+        }
+      );
 
       return {
         content: [
@@ -416,11 +408,8 @@ export class MCPFinancialGroundTruthServer {
               {
                 error: {
                   code:
-                    error instanceof GroundTruthError
-                      ? error.code
-                      : ErrorCodes.UPSTREAM_FAILURE,
-                  message:
-                    error instanceof Error ? error.message : "Unknown error",
+                    error instanceof GroundTruthError ? error.code : ErrorCodes.UPSTREAM_FAILURE,
+                  message: error instanceof Error ? error.message : "Unknown error",
                 },
               },
               null,
@@ -482,7 +471,7 @@ export class MCPFinancialGroundTruthServer {
       audit: {
         trace_id: `mcp-req-${Date.now()}`,
         timestamp: new Date().toISOString(),
-        verification_hash: this.generateVerificationHash(results),
+        verification_hash: await this.generateVerificationHash(results),
       },
     };
 
@@ -593,12 +582,7 @@ export class MCPFinancialGroundTruthServer {
     context_date?: string;
     strict_mode?: boolean;
   }): Promise<MCPToolResult> {
-    const {
-      claim_text,
-      context_entity,
-      context_date,
-      strict_mode = true,
-    } = args;
+    const { claim_text, context_entity, context_date, strict_mode = true } = args;
 
     const verification = await this.truthLayer.verifyClaim(
       claim_text,
@@ -647,8 +631,7 @@ export class MCPFinancialGroundTruthServer {
     driver_node_id: string;
     simulation_period: string;
   }): Promise<MCPToolResult> {
-    const { target_cik, benchmark_naics, driver_node_id, simulation_period } =
-      args;
+    const { target_cik, benchmark_naics, driver_node_id, simulation_period } = args;
 
     const result = await this.truthLayer.populateValueDriverTree(
       target_cik,
@@ -710,15 +693,25 @@ export class MCPFinancialGroundTruthServer {
   // Helper Methods
   // ============================================================================
 
-  private generateVerificationHash(results: any[]): string {
-    // Simple hash generation for verification
-    const data = JSON.stringify(results);
-    let hash = 0;
-    for (let i = 0; i < data.length; i++) {
-      const char = data.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash = hash & hash;
+  private async generateVerificationHash(results: any[]): Promise<string> {
+    try {
+      const data = JSON.stringify(results);
+      const hash = await sha256(data);
+      return `sha256:${hash}`;
+    } catch (error) {
+      logger.error(
+        "Failed to generate verification hash",
+        error instanceof Error ? error : undefined
+      );
+      // Fallback to simple hash for audit trail continuity
+      let hash = 0;
+      const data = JSON.stringify(results);
+      for (let i = 0; i < data.length; i++) {
+        const char = data.charCodeAt(i);
+        hash = (hash << 5) - hash + char;
+        hash = hash & hash;
+      }
+      return `fallback:${Math.abs(hash).toString(16)}`;
     }
-    return `sha256:${Math.abs(hash).toString(16)}`;
   }
 }

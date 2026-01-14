@@ -228,7 +228,7 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
     onProgress?.("Initializing error tracking...");
     logger.info("\n📊 Step 5: Initializing Sentry");
     try {
-      await initializeSentry(config.monitoring.sentry);
+      await initializeSentry();
       logger.info("   ✅ Sentry initialized");
     } catch (error) {
       const errorMsg = `Failed to initialize Sentry: ${error instanceof Error ? error.message : "Unknown error"}`;
@@ -326,85 +326,85 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
       ? "Agent Fabric health check skipped (fast startup in dev mode)"
       : "Agent Fabric disabled or skipped";
     logger.info(`\n🤖 Step 6: ${skipReason}`);
+  }
 
-    // Step 7: Database connection check (skipped in development for performance)
-    if (config.database.url && !isDevelopment()) {
-      onProgress?.("Checking database connection...");
-      logger.info("\n💾 Step 7: Database connection");
-      try {
-        const maxRetries = 10;
-        const retryDelay = 1000;
-        const dbHealth = await checkDatabaseConnection(maxRetries, retryDelay);
+  // Step 7: Database connection check (skipped in development for performance)
+  if (config.database.url && !isDevelopment()) {
+    onProgress?.("Checking database connection...");
+    logger.info("\n💾 Step 7: Database connection");
+    try {
+      const maxRetries = 10;
+      const retryDelay = 1000;
+      const dbHealth = await checkDatabaseConnection(maxRetries, retryDelay);
 
-        if (dbHealth.connected) {
-          logger.info(`   ✅ Database connected (${dbHealth.latency}ms)`);
-        } else {
-          const errorMsg = `Database connection failed: ${dbHealth.error || "Unknown error"}`;
-          errors.push(errorMsg);
-          onError?.(errorMsg);
-          logger.error(`   ❌ ${errorMsg}`);
-        }
-      } catch (error) {
-        const errorMsg = `Database connection error: ${error instanceof Error ? error.message : String(error)}`;
+      if (dbHealth.connected) {
+        logger.info(`   ✅ Database connected (${dbHealth.latency}ms)`);
+      } else {
+        const errorMsg = `Database connection failed: ${dbHealth.error || "Unknown error"}`;
         errors.push(errorMsg);
         onError?.(errorMsg);
         logger.error(`   ❌ ${errorMsg}`);
       }
-    } else {
-      logger.info("\n💾 Step 7: Database connection skipped (development mode)");
+    } catch (error) {
+      const errorMsg = `Database connection error: ${error instanceof Error ? error.message : String(error)}`;
+      errors.push(errorMsg);
+      onError?.(errorMsg);
+      logger.error(`   ❌ ${errorMsg}`);
     }
+  } else {
+    logger.info("\n💾 Step 7: Database connection skipped (development mode)");
+  }
 
-    // Step 8: Cache initialization (skipped in development for performance)
-    if (config.cache.enabled && typeof window === "undefined" && !isDevelopment()) {
-      onProgress?.("Initializing cache...");
-      logger.info("\n🗄️  Step 8: Cache initialization");
-      try {
-        // Dynamic import to avoid bundling Redis in browser
-        const { initializeRedisCache } = await import("./lib/redis");
-        const cacheResult = await initializeRedisCache(config.cache);
+  // Step 8: Cache initialization (skipped in development for performance)
+  if (config.cache.enabled && typeof window === "undefined" && !isDevelopment()) {
+    onProgress?.("Initializing cache...");
+    logger.info("\n🗄️  Step 8: Cache initialization");
+    try {
+      // Dynamic import to avoid bundling Redis in browser
+      const { initializeRedisCache } = await import("./lib/redis");
+      const cacheResult = await initializeRedisCache(config.cache);
 
-        if (cacheResult.connected) {
-          logger.info(`   ✅ Cache initialized (${cacheResult.latency}ms)`);
-        } else {
-          const errorMsg = `Cache initialization failed: ${cacheResult.error || "Unknown error"}`;
-          warnings.push(errorMsg);
-          onWarning?.(errorMsg);
-          logger.warn(`   ⚠️  ${errorMsg}`);
-        }
-      } catch (error) {
-        const errorMsg = `Cache initialization failed: ${error instanceof Error ? error.message : "Unknown error"}`;
+      if (cacheResult.connected) {
+        logger.info(`   ✅ Cache initialized (${cacheResult.latency}ms)`);
+      } else {
+        const errorMsg = `Cache initialization failed: ${cacheResult.error || "Unknown error"}`;
         warnings.push(errorMsg);
         onWarning?.(errorMsg);
         logger.warn(`   ⚠️  ${errorMsg}`);
       }
-    } else {
-      logger.info("\n🗄️  Step 8: Cache disabled (development mode)");
+    } catch (error) {
+      const errorMsg = `Cache initialization failed: ${error instanceof Error ? error.message : "Unknown error"}`;
+      warnings.push(errorMsg);
+      onWarning?.(errorMsg);
+      logger.warn(`   ⚠️  ${errorMsg}`);
     }
-
-    // Calculate duration
-    const duration = Date.now() - startTime;
-
-    // Final summary
-    logger.debug("\n" + "=".repeat(50));
-    logger.info("🎉 Bootstrap Complete!");
-    logger.debug("=".repeat(50));
-    logger.info(`Duration: ${duration}ms`);
-    logger.info(`Errors: ${errors.length}`);
-    logger.info(`Warnings: ${warnings.length}`);
-    logger.info(`Status: ${errors.length === 0 ? "✅ SUCCESS" : "❌ FAILED"}`);
-    logger.info("=".repeat(50) + "\n");
-
-    const success = errors.length === 0;
-
-    return {
-      success,
-      config,
-      agentHealth,
-      errors,
-      warnings,
-      duration,
-    };
+  } else {
+    logger.info("\n🗄️  Step 8: Cache disabled (development mode)");
   }
+
+  // Calculate duration
+  const duration = Date.now() - startTime;
+
+  // Final summary
+  logger.debug("\n" + "=".repeat(50));
+  logger.info("🎉 Bootstrap Complete!");
+  logger.debug("=".repeat(50));
+  logger.info(`Duration: ${duration}ms`);
+  logger.info(`Errors: ${errors.length}`);
+  logger.info(`Warnings: ${warnings.length}`);
+  logger.info(`Status: ${errors.length === 0 ? "✅ SUCCESS" : "❌ FAILED"}`);
+  logger.info("=".repeat(50) + "\n");
+
+  const success = errors.length === 0;
+
+  return {
+    success,
+    config,
+    agentHealth,
+    errors,
+    warnings,
+    duration,
+  };
 }
 
 /**

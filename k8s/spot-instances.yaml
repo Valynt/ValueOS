@@ -1,0 +1,171 @@
+# Spot Instance Configuration for Cost Optimization
+# AWS EKS and Docker Compose spot instance configurations
+
+## Kubernetes Spot Instance Configuration
+
+# 1. Node Groups with Spot Instances
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: valueos-ha-cluster
+  region: us-east-1
+  version: "1.28"
+
+managedNodeGroups:
+  # Critical workloads - On-demand
+  - name: critical-nodes
+    instanceType: m5.large
+    minSize: 2
+    maxSize: 4
+    desiredCapacity: 3
+    volumeSize: 50
+    ssh:
+      allow: true
+    iam:
+      withAddonPolicies:
+        autoScaler: true
+        cloudWatch: true
+        ebs: true
+        efs: true
+    labels:
+      workload-type: critical
+      node-pool: critical
+    taints:
+      - key: workload-type
+        value: critical
+        effect: NoSchedule
+    tags:
+      Environment: production
+      Workload: critical
+
+  # Non-critical workloads - Spot instances
+  - name: spot-nodes
+    instanceType: mixed
+    instanceTypes: ["m5.large", "m5a.large", "m5d.large", "c5.large", "c5a.large"]
+    minSize: 1
+    maxSize: 6
+    desiredCapacity: 3
+    volumeSize: 30
+    spot: true
+    ssh:
+      allow: true
+    iam:
+      withAddonPolicies:
+        autoScaler: true
+        cloudWatch: true
+    labels:
+      workload-type: non-critical
+      node-pool: spot
+    taints:
+      - key: workload-type
+        value: non-critical
+        effect: NoSchedule
+    tags:
+      Environment: production
+      Workload: non-critical
+      CapacityType: spot
+
+# 2. Spot Instance Tolerations and Affinity
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: valueos-monitoring-spot
+  namespace: valueos-ha
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: monitoring
+  template:
+    metadata:
+      labels:
+        app: monitoring
+    spec:
+      tolerations:
+      - key: "workload-type"
+        operator: "Equal"
+        value: "non-critical"
+        effect: "NoSchedule"
+      nodeSelector:
+        workload-type: "non-critical"
+      containers:
+      - name: prometheus
+        image: prom/prometheus:latest
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+      terminationGracePeriodSeconds: 30
+---
+# Grafana on Spot Instances
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: valueos-grafana-spot
+  namespace: valueos-ha
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      tolerations:
+      - key: "workload-type"
+        operator: "Equal"
+        value: "non-critical"
+        effect: "NoSchedule"
+      nodeSelector:
+        workload-type: "non-critical"
+      containers:
+      - name: grafana
+        image: grafana/grafana:latest
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      terminationGracePeriodSeconds: 30
+---
+# Health Orchestrator on Spot Instances
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: valueos-health-orchestrator-spot
+  namespace: valueos-ha
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: health-orchestrator
+  template:
+    metadata:
+      labels:
+        app: health-orchestrator
+    spec:
+      tolerations:
+      - key: "workload-type"
+        operator: "Equal"
+        value: "non-critical"
+        effect: "NoSchedule"
+      nodeSelector:
+        workload-type: "non-critical"
+      containers:
+      - name: orchestrator
+        image: alpine:latest
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+      terminationGracePeriodSeconds: 10

@@ -1,0 +1,215 @@
+# HA Backend Deployment with Multiple Replicas
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: valueos-backend-ha
+  namespace: valueos-ha
+  labels:
+    app: valueos-backend
+    tier: backend
+    ha: enabled
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: valueos-backend
+  template:
+    metadata:
+      labels:
+        app: valueos-backend
+        tier: backend
+        ha: enabled
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - valueos-backend
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: backend
+          image: valueos/valueos-backend:production
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3001
+              name: http
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: API_PORT
+              value: "3001"
+            - name: INSTANCE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: valueos-secrets
+                  key: database-url
+            - name: REDIS_URL
+              value: "redis://valueos-redis-ha:6379"
+            - name: SUPABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: valueos-secrets
+                  key: supabase-url
+            - name: SUPABASE_ANON_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: valueos-secrets
+                  key: supabase-anon-key
+            - name: TOGETHER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: valueos-secrets
+                  key: together-api-key
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "1000m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 3001
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 3001
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 6
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 15"]
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: false
+        capabilities:
+          drop:
+            - ALL
+      terminationGracePeriodSeconds: 60
+---
+# HA Backend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: valueos-backend-ha
+  namespace: valueos-ha
+  labels:
+    app: valueos-backend
+    tier: backend
+    ha: enabled
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3001
+      targetPort: 3001
+      protocol: TCP
+      name: http
+  selector:
+    app: valueos-backend
+---
+# HA Backend HorizontalPodAutoscaler
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: valueos-backend-hpa
+  namespace: valueos-ha
+  labels:
+    app: valueos-backend
+    ha: enabled
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: valueos-backend-ha
+  minReplicas: 3
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 10
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+---
+# HA Backend PodDisruptionBudget
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: valueos-backend-pdb
+  namespace: valueos-ha
+  labels:
+    app: valueos-backend
+    ha: enabled
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: valueos-backend

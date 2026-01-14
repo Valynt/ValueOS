@@ -1,0 +1,175 @@
+# Chaos Engineering Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chaos-orchestrator
+  namespace: valueos-ha
+  labels:
+    app: chaos-orchestrator
+    ha: enabled
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chaos-orchestrator
+  template:
+    metadata:
+      labels:
+        app: chaos-orchestrator
+    spec:
+      serviceAccountName: chaos-orchestrator
+      containers:
+        - name: orchestrator
+          image: alpine:latest
+          command: ["/bin/sh"]
+          args:
+            [
+              "-c",
+              "apk add --no-cache curl jq && chmod +x /chaos-orchestrator.sh && /chaos-orchestrator.sh",
+            ]
+          volumeMounts:
+            - name: chaos-scripts
+              mountPath: /chaos-orchestrator.sh
+              subPath: chaos-orchestrator.sh
+            - name: chaos-config
+              mountPath: /etc/chaos
+            - name: chaos-state
+              mountPath: /tmp/chaos-state
+          env:
+            - name: SLACK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: valueos-secrets
+                  key: slack-webhook-url
+                  optional: true
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: chaos-scripts
+          configMap:
+            name: chaos-scripts
+        - name: chaos-config
+          configMap:
+            name: chaos-config
+        - name: chaos-state
+          emptyDir: {}
+      restartPolicy: Always
+---
+# Chaos Scripts ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chaos-scripts
+  namespace: valueos-ha
+data:
+  chaos-orchestrator.sh: |
+    #!/bin/bash
+    # Chaos Engineering Orchestrator - Embedded version
+    set -euo pipefail
+
+    NAMESPACE="valueos-ha"
+    LOG_FILE="/tmp/chaos-orchestrator.log"
+
+    log() {
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+    }
+
+    check_safety_conditions() {
+        local unhealthy_pods=$(kubectl get pods -n "$NAMESPACE" --field-selector=status.phase!=Running --no-headers | wc -l)
+        if [[ $unhealthy_pods -gt 2 ]]; then
+            log "WARNING: $unhealthy_pods unhealthy pods detected, skipping chaos"
+            return 1
+        fi
+        return 0
+    }
+
+    chaos_pod_deletion() {
+        local target="$1"
+        log "Executing pod deletion chaos on: $target"
+        
+        local pod=$(kubectl get pods -n "$NAMESPACE" -l app="$target" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+        
+        if [[ -n "$pod" ]]; then
+            kubectl delete pod "$pod" -n "$NAMESPACE" --grace-period=10 || true
+            log "Pod deletion chaos executed on $target ($pod)"
+            sleep 30
+        fi
+    }
+
+    execute_random_chaos() {
+        local experiments=("pod-deletion")
+        local random_experiment=${experiments[$RANDOM % ${#experiments[@]}]}
+        
+        case "$random_experiment" in
+            "pod-deletion")
+                local targets=("grafana" "prometheus")
+                local target=${targets[$RANDOM % ${#targets[@]}]}
+                chaos_pod_deletion "$target"
+                ;;
+        esac
+    }
+
+    main() {
+        log "Chaos Engineering Orchestrator started"
+        
+        while true; do
+            if check_safety_conditions; then
+                if [[ $((RANDOM % 100)) -lt 5 ]]; then  # 5% probability
+                    log "Executing chaos experiment"
+                    execute_random_chaos
+                fi
+            fi
+            sleep 600  # 10 minutes
+        done
+    }
+
+    main "$@"
+---
+# Chaos Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: chaos-orchestrator
+  namespace: valueos-ha
+---
+# Chaos RBAC
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: chaos-orchestrator
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "delete"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: chaos-orchestrator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: chaos-orchestrator
+subjects:
+  - kind: ServiceAccount
+    name: chaos-orchestrator
+    namespace: valueos-ha

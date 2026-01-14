@@ -65,7 +65,7 @@ RUN npm run build && \
 RUN npm run build:validate || (echo "Build validation failed" && exit 1)
 
 # Generate build artifacts checksum
-RUN find dist -type f -exec sha256sum {} \> /tmp/build-checksums.txt && \
+RUN find dist -type f -exec sha256sum {} \; > /tmp/build-checksums.txt && \
     echo "Build checksums generated"
 
 # Stage 4: Security Scanning
@@ -97,10 +97,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
     && apt-get clean
 
-# Create non-root nginx user with proper permissions
-RUN groupadd -r -g 101 nginx && \
-    useradd -r -g nginx -u 101 -s /sbin/nologin nginx && \
-    mkdir -p /var/cache/nginx /var/log/nginx /var/run/nginx && \
+# Create nginx directories with proper permissions
+RUN mkdir -p /var/cache/nginx /var/log/nginx /var/run/nginx && \
     chown -R nginx:nginx /var/cache/nginx /var/log/nginx /var/run/nginx /usr/share/nginx/html && \
     chmod -R 755 /usr/share/nginx/html
 

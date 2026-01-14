@@ -1,0 +1,90 @@
+# Chaos Engineering Framework for ValueOS HA Deployment
+# Custom chaos experiments without external dependencies
+
+## Chaos Experiment Configuration
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chaos-config
+  namespace: valueos-ha
+  labels:
+    app: chaos-engineering
+    ha: enabled
+data:
+  chaos-config.yaml: |
+    # Chaos Engineering Configuration
+    experiments:
+      pod-deletion:
+        enabled: true
+        probability: 0.1
+        interval: 300s
+        targets:
+          - frontend-secondary
+          - grafana
+          - prometheus
+        exempt:
+          - frontend-primary
+          - backend
+          - postgres
+          - redis
+      
+      network-latency:
+        enabled: true
+        probability: 0.05
+        latency: "100ms"
+        jitter: "50ms"
+        interval: 600s
+        targets:
+          - frontend-secondary
+          - backend
+      
+      cpu-exhaustion:
+        enabled: true
+        probability: 0.03
+        cpu_load: 80
+        duration: 60s
+        interval: 900s
+        targets:
+          - frontend-secondary
+          - grafana
+      
+      memory-pressure:
+        enabled: true
+        probability: 0.03
+        memory_pressure: 70
+        duration: 60s
+        interval: 900s
+        targets:
+          - frontend-secondary
+          - prometheus
+      
+      dns-failure:
+        enabled: true
+        probability: 0.02
+        duration: 30s
+        interval: 1200s
+        targets:
+          - frontend-secondary
+          - backend
+      
+      disk-pressure:
+        enabled: true
+        probability: 0.02
+        disk_usage: 80
+        duration: 60s
+        interval: 1800s
+        targets:
+          - frontend-secondary
+          - grafana
+
+    safety:
+      blast_radius: "limited"
+      auto_recovery: true
+      health_check_interval: 30s
+      rollback_timeout: 300s
+      
+    monitoring:
+      metrics_collection: true
+      alert_on_failure: true
+      slack_notifications: true

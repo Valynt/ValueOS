@@ -220,7 +220,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # Prometheus Monitoring
+  # Prometheus Monitoring (Spot Instance Optimized)
   prometheus:
     image: prom/prometheus:latest
     container_name: valueos-prometheus-ha
@@ -229,6 +229,7 @@ services:
     volumes:
       - ./docker/prometheus/ha-prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_ha_data:/prometheus
+      - ./scripts/spot-interruption-handler.sh:/spot-handler.sh:ro
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
@@ -236,6 +237,9 @@ services:
       - "--web.console.templates=/usr/share/prometheus/consoles"
       - "--storage.tsdb.retention.time=30d"
       - "--web.enable-lifecycle"
+    environment:
+      - CAPACITY_TYPE=spot
+      - WORKLOAD_TYPE=non-critical
     networks:
       - valueos-ha-network
     restart: unless-stopped
@@ -247,8 +251,12 @@ services:
           memory: 2G
         reservations:
           memory: 1G
+          cpus: "500m"
+    labels:
+      - "capacity.type=spot"
+      - "workload.type=non-critical"
 
-  # Grafana Visualization
+  # Grafana Visualization (Spot Instance Optimized)
   grafana:
     image: grafana/grafana:latest
     container_name: valueos-grafana-ha
@@ -258,10 +266,13 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-piechart-panel
+      - CAPACITY_TYPE=spot
+      - WORKLOAD_TYPE=non-critical
     volumes:
       - grafana_ha_data:/var/lib/grafana
       - ./docker/grafana/ha-dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./docker/grafana/ha-datasources:/etc/grafana/provisioning/datasources:ro
+      - ./scripts/spot-interruption-handler.sh:/spot-handler.sh:ro
     depends_on:
       - prometheus
     networks:
@@ -275,6 +286,10 @@ services:
           memory: 1G
         reservations:
           memory: 512M
+          cpus: "250m"
+    labels:
+      - "capacity.type=spot"
+      - "workload.type=non-critical"
 
   # Health Check Orchestrator
   health-orchestrator:
