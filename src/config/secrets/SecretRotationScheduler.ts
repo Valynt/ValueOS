@@ -1,18 +1,22 @@
 /**
  * Secret Rotation Scheduler
- * 
+ *
  * Automated secret rotation with zero-downtime
  * Supports rotation policies, grace periods, and notifications
- * 
- * Sprint 3: Kubernetes Integration  
+ *
+ * Sprint 3: Kubernetes Integration
  * Created: 2024-11-29
  */
 
-import { CronJob } from 'cron';
-import { logger } from '../../lib/logger';
-import type { ISecretProvider, RotationPolicy, SecretMetadata } from './ISecretProvider';
-import { EventEmitter } from 'events';
-import { auditLogService } from '../../services/AuditLogService';
+import { CronJob } from "cron";
+import { logger } from "../../lib/logger";
+import type {
+  ISecretProvider,
+  RotationPolicy,
+  SecretMetadata,
+} from "./ISecretProvider";
+import { EventEmitter } from "events";
+import { auditLogService } from "../../services/AuditLogService";
 
 /**
  * Rotation job configuration
@@ -40,7 +44,7 @@ export interface RotationEvent {
 
 /**
  * Secret rotation scheduler
- * 
+ *
  * Automatically rotates secrets based on policies
  * Supports dual-secret transition periods for zero-downtime
  */
@@ -49,14 +53,15 @@ export class SecretRotationScheduler extends EventEmitter {
   private jobs: Map<string, CronJob> = new Map();
   private rotationHistory: RotationEvent[] = [];
   private maxHistorySize: number = 1000;
+  private previousVersions: Map<string, SecretValue> = new Map(); // Store previous versions for rollback
   private isRunning: boolean = false;
 
   constructor(provider: ISecretProvider) {
     super();
     this.provider = provider;
 
-    logger.info('Secret rotation scheduler initialized', {
-      provider: provider.getProviderName()
+    logger.info("Secret rotation scheduler initialized", {
+      provider: provider.getProviderName(),
     });
   }
 
@@ -65,14 +70,14 @@ export class SecretRotationScheduler extends EventEmitter {
    */
   start(): void {
     if (this.isRunning) {
-      logger.warn('Rotation scheduler already running');
+      logger.warn("Rotation scheduler already running");
       return;
     }
 
     this.isRunning = true;
 
-    logger.info('Secret rotation scheduler started');
-    this.emit('started');
+    logger.info("Secret rotation scheduler started");
+    this.emit("started");
   }
 
   /**
@@ -86,14 +91,14 @@ export class SecretRotationScheduler extends EventEmitter {
     // Stop all cron jobs
     for (const [jobKey, job] of this.jobs.entries()) {
       job.stop();
-      logger.info('Stopped rotation job', { jobKey });
+      logger.info("Stopped rotation job", { jobKey });
     }
 
     this.jobs.clear();
     this.isRunning = false;
 
-    logger.info('Secret rotation scheduler stopped');
-    this.emit('stopped');
+    logger.info("Secret rotation scheduler stopped");
+    this.emit("stopped");
   }
 
   /**
@@ -101,9 +106,9 @@ export class SecretRotationScheduler extends EventEmitter {
    */
   scheduleRotation(config: RotationJob): void {
     if (!config.policy.enabled) {
-      logger.warn('Rotation policy disabled', {
+      logger.warn("Rotation policy disabled", {
         tenantId: config.tenantId,
-        secretKey: config.secretKey
+        secretKey: config.secretKey,
       });
       return;
     }
@@ -120,11 +125,15 @@ export class SecretRotationScheduler extends EventEmitter {
     const cronJob = new CronJob(
       config.cronSchedule,
       async () => {
-        await this.executeRotation(config.tenantId, config.secretKey, config.policy);
+        await this.executeRotation(
+          config.tenantId,
+          config.secretKey,
+          config.policy
+        );
       },
       null,
       false, // Don't start immediately
-      'UTC'
+      "UTC"
     );
 
     this.jobs.set(jobKey, cronJob);
@@ -134,17 +143,17 @@ export class SecretRotationScheduler extends EventEmitter {
       cronJob.start();
     }
 
-    logger.info('Scheduled secret rotation', {
+    logger.info("Scheduled secret rotation", {
       tenantId: config.tenantId,
       secretKey: config.secretKey,
       schedule: config.cronSchedule,
-      intervalDays: config.policy.intervalDays
+      intervalDays: config.policy.intervalDays,
     });
 
-    this.emit('job-scheduled', {
+    this.emit("job-scheduled", {
       tenantId: config.tenantId,
       secretKey: config.secretKey,
-      schedule: config.cronSchedule
+      schedule: config.cronSchedule,
     });
   }
 
@@ -158,32 +167,59 @@ export class SecretRotationScheduler extends EventEmitter {
   ): Promise<void> {
     const startTime = Date.now();
 
-    logger.info('Starting secret rotation', {
+    logger.info("Starting secret rotation", {
       tenantId,
       secretKey,
-      policy: policy.intervalDays
+      policy: policy.intervalDays,
     });
 
     try {
+      // Phase 0: Store previous version for rollback
+      const previousVersionKey = `${tenantId}:${secretKey}`;
+      try {
+        const currentSecret = await this.provider.getSecret(
+          tenantId,
+          secretKey
+        );
+        this.previousVersions.set(previousVersionKey, currentSecret);
+        logger.info("Stored previous secret version for rollback", {
+          tenantId,
+          secretKey,
+        });
+      } catch (error) {
+        logger.warn(
+          "Failed to store previous secret version for rollback",
+          error instanceof Error ? error : new Error(String(error)),
+          {
+            tenantId,
+            secretKey,
+          }
+        );
+      }
+
       // Phase 1: Generate new secret
-      const newSecret = await this.provider.rotateSecret(tenantId, secretKey, 'system');
+      const newSecret = await this.provider.rotateSecret(
+        tenantId,
+        secretKey,
+        "system"
+      );
 
       if (!newSecret) {
-        throw new Error('Failed to generate new secret');
+        throw new Error("Failed to generate new secret");
       }
 
       // Phase 2: Grace period (both old and new valid)
       if (policy.gracePeriodHours > 0) {
-        logger.info('Grace period started', {
+        logger.info("Grace period started", {
           tenantId,
           secretKey,
-          gracePeriodHours: policy.gracePeriodHours
+          gracePeriodHours: policy.gracePeriodHours,
         });
 
-        this.emit('grace-period-started', {
+        this.emit("grace-period-started", {
           tenantId,
           secretKey,
-          gracePeriodHours: policy.gracePeriodHours
+          gracePeriodHours: policy.gracePeriodHours,
         });
 
         // Note: In production, this would schedule grace period expiry
@@ -196,7 +232,7 @@ export class SecretRotationScheduler extends EventEmitter {
           policy.notifyStakeholders,
           tenantId,
           secretKey,
-          'rotated'
+          "rotated"
         );
       }
 
@@ -207,23 +243,23 @@ export class SecretRotationScheduler extends EventEmitter {
         secretKey,
         success: true,
         timestamp: new Date(),
-        duration
+        duration,
       });
 
-      logger.info('Secret rotation completed successfully', {
+      logger.info("Secret rotation completed successfully", {
         tenantId,
         secretKey,
-        duration
+        duration,
       });
 
-      this.emit('rotation-success', {
+      this.emit("rotation-success", {
         tenantId,
         secretKey,
-        duration
+        duration,
       });
     } catch (error) {
       const duration = Date.now() - startTime;
-      
+
       // Record failure
       this.recordRotation({
         tenantId,
@@ -231,20 +267,24 @@ export class SecretRotationScheduler extends EventEmitter {
         success: false,
         timestamp: new Date(),
         duration,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
 
-      logger.error('Secret rotation failed', error instanceof Error ? error : new Error(String(error)), {
-        tenantId,
-        secretKey,
-        duration
-      });
+      logger.error(
+        "Secret rotation failed",
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          tenantId,
+          secretKey,
+          duration,
+        }
+      );
 
-      this.emit('rotation-failure', {
+      this.emit("rotation-failure", {
         tenantId,
         secretKey,
         error: error instanceof Error ? error.message : String(error),
-        duration
+        duration,
       });
 
       // Attempt rollback
@@ -255,35 +295,83 @@ export class SecretRotationScheduler extends EventEmitter {
   /**
    * Attempt to rollback a failed rotation
    */
-  private async attemptRollback(tenantId: string, secretKey: string): Promise<void> {
-    logger.warn('Attempting rotation rollback', {
+  private async attemptRollback(
+    tenantId: string,
+    secretKey: string
+  ): Promise<void> {
+    logger.warn("Attempting rotation rollback", {
       tenantId,
-      secretKey
+      secretKey,
     });
 
-    try {
-      // In a real implementation, this would restore the previous version
-      // For now, we just log it
-      logger.info('Rollback successful', {
-        tenantId,
-        secretKey
-      });
+    const previousVersionKey = `${tenantId}:${secretKey}`;
+    const previousVersion = this.previousVersions.get(previousVersionKey);
 
-      this.emit('rollback-success', {
-        tenantId,
-        secretKey
-      });
-    } catch (error) {
-      logger.error('Rollback failed', error instanceof Error ? error : new Error(String(error)), {
-        tenantId,
-        secretKey
-      });
-
-      this.emit('rollback-failure', {
+    if (!previousVersion) {
+      logger.error("No previous version available for rollback", {
         tenantId,
         secretKey,
-        error: error instanceof Error ? error.message : String(error)
       });
+      throw new Error("No previous version available for rollback");
+    }
+
+    try {
+      // Create metadata for the rollback
+      const rollbackMetadata: SecretMetadata = {
+        tenantId,
+        secretPath: `rollback/${tenantId}/${secretKey}`,
+        createdAt: new Date().toISOString(),
+        version: "rollback",
+        sensitivityLevel: "high",
+        rotationPolicy: {
+          enabled: false,
+          intervalDays: 0,
+          autoRotate: false,
+        },
+      };
+
+      // Restore the previous version
+      const success = await this.provider.setSecret(
+        tenantId,
+        secretKey,
+        previousVersion,
+        rollbackMetadata,
+        "system-rollback"
+      );
+
+      if (!success) {
+        throw new Error("Provider returned false for rollback operation");
+      }
+
+      // Clean up the stored previous version
+      this.previousVersions.delete(previousVersionKey);
+
+      logger.info("Rollback successful - previous secret version restored", {
+        tenantId,
+        secretKey,
+      });
+
+      this.emit("rollback-success", {
+        tenantId,
+        secretKey,
+      });
+    } catch (error) {
+      logger.error(
+        "Rollback failed",
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          tenantId,
+          secretKey,
+        }
+      );
+
+      this.emit("rollback-failure", {
+        tenantId,
+        secretKey,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      throw error;
     }
   }
 
@@ -294,23 +382,23 @@ export class SecretRotationScheduler extends EventEmitter {
     stakeholders: string[],
     tenantId: string,
     secretKey: string,
-    status: 'rotated' | 'failed'
+    status: "rotated" | "failed"
   ): Promise<void> {
-    logger.info('Notifying stakeholders', {
+    logger.info("Notifying stakeholders", {
       tenantId,
       secretKey,
       status,
-      stakeholderCount: stakeholders.length
+      stakeholderCount: stakeholders.length,
     });
 
     // In production, this would send emails/Slack messages
     // For now, we just log it
     for (const stakeholder of stakeholders) {
-      logger.info('Notification sent', {
+      logger.info("Notification sent", {
         stakeholder,
         tenantId,
         secretKey,
-        status
+        status,
       });
     }
   }
@@ -345,14 +433,14 @@ export class SecretRotationScheduler extends EventEmitter {
       job.stop();
       this.jobs.delete(jobKey);
 
-      logger.info('Unscheduled rotation job', {
+      logger.info("Unscheduled rotation job", {
         tenantId,
-        secretKey
+        secretKey,
       });
 
-      this.emit('job-unscheduled', {
+      this.emit("job-unscheduled", {
         tenantId,
-        secretKey
+        secretKey,
       });
     }
   }
@@ -375,16 +463,19 @@ export class SecretRotationScheduler extends EventEmitter {
     activeJobs: number;
   } {
     const totalRotations = this.rotationHistory.length;
-    const successfulRotations = this.rotationHistory.filter(e => e.success).length;
+    const successfulRotations = this.rotationHistory.filter(
+      (e) => e.success
+    ).length;
     const failedRotations = totalRotations - successfulRotations;
-    const successRate = totalRotations > 0 ? (successfulRotations / totalRotations) * 100 : 0;
+    const successRate =
+      totalRotations > 0 ? (successfulRotations / totalRotations) * 100 : 0;
 
     return {
       totalRotations,
       successfulRotations,
       failedRotations,
       successRate,
-      activeJobs: this.jobs.size
+      activeJobs: this.jobs.size,
     };
   }
 
@@ -398,15 +489,19 @@ export class SecretRotationScheduler extends EventEmitter {
   /**
    * Get all scheduled jobs
    */
-  getScheduledJobs(): Array<{ tenantId: string; secretKey: string; running: boolean }> {
+  getScheduledJobs(): Array<{
+    tenantId: string;
+    secretKey: string;
+    running: boolean;
+  }> {
     const jobs = [];
 
     for (const [jobKey, cronJob] of this.jobs.entries()) {
-      const [tenantId, secretKey] = jobKey.split(':');
+      const [tenantId, secretKey] = jobKey.split(":");
       jobs.push({
         tenantId,
         secretKey,
-        running: cronJob.running
+        running: cronJob.running,
       });
     }
 
@@ -417,37 +512,47 @@ export class SecretRotationScheduler extends EventEmitter {
 /**
  * Create rotation scheduler from environment
  */
-export function createRotationScheduler(provider: ISecretProvider): SecretRotationScheduler {
+export function createRotationScheduler(
+  provider: ISecretProvider
+): SecretRotationScheduler {
   const scheduler = new SecretRotationScheduler(provider);
 
   // Handle events
-  scheduler.on('rotation-success', (event) => {
-    logger.info('Rotation success event', event);
+  scheduler.on("rotation-success", (event) => {
+    logger.info("Rotation success event", event);
   });
 
-  scheduler.on('rotation-failure', (event) => {
-    logger.error('Rotation failure event', new Error(event.error || 'Unknown error'), event);
+  scheduler.on("rotation-failure", (event) => {
+    logger.error(
+      "Rotation failure event",
+      new Error(event.error || "Unknown error"),
+      event
+    );
   });
 
-  scheduler.on('rollback-success', (event) => {
-    logger.info('Rollback success event', event);
+  scheduler.on("rollback-success", (event) => {
+    logger.info("Rollback success event", event);
   });
 
-  scheduler.on('rollback-failure', (event) => {
-    logger.error('Rollback failure event', new Error(event.error || 'Unknown error'), event);
+  scheduler.on("rollback-failure", (event) => {
+    logger.error(
+      "Rollback failure event",
+      new Error(event.error || "Unknown error"),
+      event
+    );
   });
 
   const logAuditEvent = async (
     event: RotationEvent,
-    status: 'success' | 'failed'
+    status: "success" | "failed"
   ): Promise<void> => {
     try {
       await auditLogService.createEntry({
-        userId: 'system-rotation',
-        userName: 'Rotation Scheduler',
-        userEmail: 'rotation@valuecanvas.io',
-        action: 'secret.rotate',
-        resourceType: 'secret',
+        userId: "system-rotation",
+        userName: "Rotation Scheduler",
+        userEmail: "rotation@valuecanvas.io",
+        action: "secret.rotate",
+        resourceType: "secret",
         resourceId: `${event.tenantId}:${event.secretKey}`,
         status,
         details: {
@@ -456,20 +561,24 @@ export function createRotationScheduler(provider: ISecretProvider): SecretRotati
         },
       });
     } catch (error) {
-      logger.error('Failed to write audit entry for rotation', error instanceof Error ? error : new Error(String(error)), {
-        tenantId: event.tenantId,
-        secretKey: event.secretKey,
-        status,
-      });
+      logger.error(
+        "Failed to write audit entry for rotation",
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          tenantId: event.tenantId,
+          secretKey: event.secretKey,
+          status,
+        }
+      );
     }
   };
 
-  scheduler.on('rotation-success', (event) => {
-    void logAuditEvent(event, 'success');
+  scheduler.on("rotation-success", (event) => {
+    void logAuditEvent(event, "success");
   });
 
-  scheduler.on('rotation-failure', (event) => {
-    void logAuditEvent(event, 'failed');
+  scheduler.on("rotation-failure", (event) => {
+    void logAuditEvent(event, "failed");
   });
 
   return scheduler;
@@ -494,7 +603,7 @@ export const RotationPolicies = {
     enabled: true,
     intervalDays: 90,
     gracePeriodHours: 24,
-    autoRotate: true
+    autoRotate: true,
   } as RotationPolicy,
 
   /**
@@ -504,7 +613,7 @@ export const RotationPolicies = {
     enabled: true,
     intervalDays: 30,
     gracePeriodHours: 2,
-    autoRotate: true
+    autoRotate: true,
   } as RotationPolicy,
 
   /**
@@ -514,7 +623,7 @@ export const RotationPolicies = {
     enabled: true,
     intervalDays: 180,
     gracePeriodHours: 48,
-    autoRotate: true
+    autoRotate: true,
   } as RotationPolicy,
 
   /**
@@ -524,6 +633,6 @@ export const RotationPolicies = {
     enabled: false,
     intervalDays: 365,
     gracePeriodHours: 168, // 7 days
-    autoRotate: false
-  } as RotationPolicy
+    autoRotate: false,
+  } as RotationPolicy,
 };

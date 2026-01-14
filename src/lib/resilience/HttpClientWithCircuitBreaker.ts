@@ -69,11 +69,12 @@ export class HttpClientWithCircuitBreaker {
     };
 
     // Initialize circuit breaker with service-specific configuration
-    this.circuitBreaker = new CircuitBreaker(
-      config.circuitBreaker?.failureThreshold || 5,
-      config.circuitBreaker?.resetTimeout || 60000,
-      config.circuitBreaker?.halfOpenSuccessThreshold || 2
-    );
+    this.circuitBreaker = new CircuitBreaker({
+      failureThreshold: config.circuitBreaker?.failureThreshold || 5,
+      resetTimeoutMs: config.circuitBreaker?.resetTimeout || 60000,
+      halfOpenSuccessThreshold:
+        config.circuitBreaker?.halfOpenSuccessThreshold || 2,
+    });
 
     // Set up circuit breaker event handlers
     this.setupCircuitBreakerEvents();
@@ -255,9 +256,38 @@ export class HttpClientWithCircuitBreaker {
         throw error;
       }
 
-      const data = await response.json();
-      const headers: Record<string, string> = {};
+      // Parse response based on content-type
+      let data: any;
+      const contentType = response.headers.get("content-type");
 
+      if (contentType && contentType.includes("application/json")) {
+        try {
+          data = await response.json();
+        } catch (parseError) {
+          const parseErrorObj: HttpError = new Error(
+            `Failed to parse JSON response: ${parseError instanceof Error ? parseError.message : "Unknown parse error"}`
+          ) as HttpError;
+          parseErrorObj.status = response.status;
+          parseErrorObj.statusText = response.statusText;
+          parseErrorObj.config = config;
+          throw parseErrorObj;
+        }
+      } else {
+        // For non-JSON responses, return text content
+        try {
+          data = await response.text();
+        } catch (textError) {
+          const textErrorObj: HttpError = new Error(
+            `Failed to read response text: ${textError instanceof Error ? textError.message : "Unknown error"}`
+          ) as HttpError;
+          textErrorObj.status = response.status;
+          textErrorObj.statusText = response.statusText;
+          textErrorObj.config = config;
+          throw textErrorObj;
+        }
+      }
+
+      const headers: Record<string, string> = {};
       response.headers.forEach((value, key) => {
         headers[key] = value;
       });

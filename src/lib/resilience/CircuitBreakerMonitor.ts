@@ -377,33 +377,64 @@ export class CircuitBreakerMonitor {
   }
 
   // Helper methods for metric calculations
-  private calculateSuccessCount(status: any): number {
-    // This would need to be implemented based on the actual CircuitBreaker interface
-    return 0;
+  private calculateSuccessCount(serviceName: string): number {
+    const history = this.getMetricsHistory(serviceName, 10); // Get last 10 metrics
+    if (history.length === 0) return 0;
+
+    // Use the most recent metric's success count, or calculate from total - failures
+    const latest = history[0];
+    if (latest.successCount !== undefined) {
+      return latest.successCount;
+    }
+
+    // Fallback: calculate from total requests and failure rate
+    const totalRequests = latest.totalRequests || 0;
+    const failureRate = latest.failureRate || 0;
+    return Math.max(0, totalRequests - Math.floor(totalRequests * failureRate));
   }
 
-  private calculateTotalRequests(status: any): number {
-    return status.failureCount || 0;
+  private calculateTotalRequests(serviceName: string): number {
+    const history = this.getMetricsHistory(serviceName, 1);
+    return history.length > 0 ? history[0].totalRequests || 0 : 0;
   }
 
-  private calculateFailureRate(status: any): number {
-    const total = this.calculateTotalRequests(status);
-    return total > 0 ? (status.failureCount || 0) / total : 0;
+  private calculateFailureRate(serviceName: string): number {
+    const history = this.getMetricsHistory(serviceName, 1);
+    return history.length > 0 ? history[0].failureRate || 0 : 0;
   }
 
   private calculateAverageResponseTime(serviceName: string): number {
-    // This would need to be implemented with actual response time tracking
-    return 1000; // Default 1 second
+    const history = this.getMetricsHistory(serviceName, 10); // Use recent history for averaging
+    if (history.length === 0) return 0;
+
+    const validLatencies = history
+      .map((m) => m.averageResponseTime)
+      .filter((latency) => latency !== undefined && latency > 0);
+
+    if (validLatencies.length === 0) return 0;
+
+    return (
+      validLatencies.reduce((sum, latency) => sum + latency, 0) /
+      validLatencies.length
+    );
   }
 
   private calculateLastSuccessTime(serviceName: string): Date | undefined {
-    // This would need to be implemented with actual success time tracking
-    return undefined;
+    const history = this.getMetricsHistory(serviceName, 50); // Look back further for success time
+    const latestSuccess = history.find((m) => m.lastSuccessTime);
+    return latestSuccess?.lastSuccessTime;
   }
 
   private calculateUptime(serviceName: string): number {
-    // This would need to be implemented with actual uptime tracking
-    return 100; // Default 100%
+    const history = this.getMetricsHistory(serviceName, 100); // Use longer history for uptime
+    if (history.length === 0) return 100;
+
+    // Count how many metrics show healthy state (closed or half-open)
+    const healthyStates = history.filter(
+      (m) => m.state === "CLOSED" || m.state === "HALF_OPEN"
+    ).length;
+
+    return history.length > 0 ? (healthyStates / history.length) * 100 : 100;
   }
 
   private calculateHealthScore(status: any, isHealthy: boolean): number {

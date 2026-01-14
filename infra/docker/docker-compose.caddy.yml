@@ -21,16 +21,21 @@ services:
       - ./infra/caddy:/etc/caddy:ro
       - caddy-data:/data
       - caddy-config:/config
-    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile.dev", "--adapter", "caddyfile"]
+    command:
+      [
+        "caddy",
+        "run",
+        "--config",
+        "/etc/caddy/Caddyfile.dev",
+        "--adapter",
+        "caddyfile",
+      ]
     environment:
       - CADDY_ADMIN=0.0.0.0:2019
-      - FRONTEND_UPSTREAM=http://app:5173
+      - FRONTEND_UPSTREAM=http://localhost:5173
     networks:
       - valuecanvas-network
     restart: unless-stopped
-    depends_on:
-      app:
-        condition: service_healthy
     healthcheck:
       test:
         [
@@ -53,63 +58,6 @@ services:
         reservations:
           cpus: "0.1"
           memory: 64M
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # ============================================================================
-  # ValueCanvas Application (Development)
-  # ============================================================================
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-    container_name: valuecanvas-app
-    expose:
-      - "5173" # Expose to Caddy (not to host)
-    ports:
-      - "5173:5173" # Also expose to host for direct access
-      - "24678:24678" # Vite HMR
-    volumes:
-      - .:/app:cached
-      - /app/node_modules
-    env_file:
-      - .env.local
-    environment:
-      - NODE_ENV=development
-      - VITE_HOST=0.0.0.0
-      - VITE_PORT=5173
-      - VITE_HMR_HOST=0.0.0.0
-      - VITE_HMR_PORT=24678
-    networks:
-      - valuecanvas-network
-    restart: unless-stopped
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--no-verbose",
-          "--tries=1",
-          "--spider",
-          "http://localhost:5173",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    deploy:
-      resources:
-        limits:
-          cpus: "1.0"
-          memory: 2G
-        reservations:
-          cpus: "0.5"
-          memory: 1G
     security_opt:
       - no-new-privileges:true
     logging:

@@ -44,8 +44,6 @@ RUN id -u nginx >/dev/null 2>&1 || useradd -r -s /bin/false nginx && \
 # Copy built assets from builder
 COPY --from=builder --chown=nginx:nginx /app/dist /usr/share/nginx/html
 
-# Copy nginx configuration
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 
 # Final security scan of served content
 RUN trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /usr/share/nginx/html && \

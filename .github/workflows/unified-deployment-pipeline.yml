@@ -15,22 +15,22 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Target environment'
+        description: "Target environment"
         required: true
-        default: 'staging'
+        default: "staging"
         type: choice
         options:
-        - staging
-        - production
+          - staging
+          - production
       force_deploy:
-        description: 'Force deployment (bypasses some checks)'
+        description: "Force deployment (bypasses some checks)"
         required: false
         default: false
         type: boolean
       canary_percentage:
-        description: 'Canary deployment percentage (0-100)'
+        description: "Canary deployment percentage (0-100)"
         required: false
-        default: '0'
+        default: "0"
         type: string
 
 env:
@@ -43,7 +43,7 @@ permissions:
   contents: read
   packages: write
   security-events: write
-  id-token: write  # For OIDC authentication
+  id-token: write # For OIDC authentication
 
 jobs:
   # ============================================================================
@@ -66,7 +66,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -148,7 +148,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -383,7 +383,14 @@ jobs:
   deploy:
     name: Deploy to ${{ needs.deployment-gates.outputs.environment }}
     runs-on: ubuntu-latest
-    needs: [validate, build, validate-environment, validate-infrastructure, deployment-gates]
+    needs:
+      [
+        validate,
+        build,
+        validate-environment,
+        validate-infrastructure,
+        deployment-gates,
+      ]
     if: needs.validate.outputs.should_deploy == 'true'
 
     environment:
@@ -397,7 +404,7 @@ jobs:
       - name: Setup kubectl
         uses: azure/setup-kubectl@v3
         with:
-          version: 'v1.28.0'
+          version: "v1.28.0"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -493,7 +500,15 @@ jobs:
   post-deploy:
     name: Post-Deployment Validation
     runs-on: ubuntu-latest
-    needs: [validate, build, validate-environment, validate-infrastructure, deployment-gates, deploy]
+    needs:
+      [
+        validate,
+        build,
+        validate-environment,
+        validate-infrastructure,
+        deployment-gates,
+        deploy,
+      ]
     if: needs.validate.outputs.should_deploy == 'true'
 
     steps:
@@ -556,7 +571,7 @@ jobs:
           kubectl rollout undo deployment/valueos-frontend -n $NAMESPACE
           kubectl rollout undo deployment/valueos-backend -n $NAMESPACE
 
-          echo "🔄 Rollback initiated"
+          echo "🔄 Rollback initiated - reverted to previous deployment"
 
   # ============================================================================
   # Phase 8: Cleanup and Notification
@@ -564,7 +579,16 @@ jobs:
   cleanup:
     name: Cleanup and Notify
     runs-on: ubuntu-latest
-    needs: [validate, build, validate-environment, validate-infrastructure, deployment-gates, deploy, post-deploy]
+    needs:
+      [
+        validate,
+        build,
+        validate-environment,
+        validate-infrastructure,
+        deployment-gates,
+        deploy,
+        post-deploy,
+      ]
     if: always() && needs.validate.outputs.should_deploy == 'true'
 
     steps:

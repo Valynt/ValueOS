@@ -1,28 +1,35 @@
 /**
  * HashiCorp Vault Provider
- * 
+ *
  * Implementation of ISecretProvider for HashiCorp Vault
  * Supports Kubernetes authentication and KV v2 secrets engine
- * 
+ *
  * Sprint 2: Provider Abstraction
  * Created: 2024-11-29
  */
 
-import { logger } from '../../lib/logger';
-import { createServerSupabaseClient } from '../../lib/supabase';
+import { logger } from "../../lib/logger";
+import { createServerSupabaseClient } from "../../lib/supabase";
 import type {
   AuditAction,
   AuditResult,
   ISecretProvider,
   SecretMetadata,
-  SecretValue
-} from './ISecretProvider';
-import * as fs from 'fs';
-import { StructuredSecretAuditLogger, SecretAuditEvent } from './SecretAuditLogger';
+  SecretValue,
+} from "./ISecretProvider";
+import * as fs from "fs";
+import {
+  StructuredSecretAuditLogger,
+  SecretAuditEvent,
+} from "./SecretAuditLogger";
+import { randomBytes, createCipheriv, createDecipheriv } from "crypto";
 
 // Type definitions for node-vault (simplified)
 interface VaultClient {
-  kubernetesLogin(options: { role: string; jwt: string }): Promise<{ auth: { client_token: string } }>;
+  kubernetesLogin(options: {
+    role: string;
+    jwt: string;
+  }): Promise<{ auth: { client_token: string } }>;
   read(path: string): Promise<{ data: { data: any; metadata: any } }>;
   write(path: string, data: any): Promise<any>;
   delete(path: string): Promise<any>;
@@ -38,30 +45,56 @@ export class VaultSecretProvider implements ISecretProvider {
   private vaultAddress: string;
   private vaultNamespace: string;
   private environment: string;
-  private cache: Map<string, { value: SecretValue; expiresAt: number }> = new Map();
+  private cache: Map<string, { value: string; expiresAt: number }> = new Map();
   private cacheTTL: number;
   private kubernetesRole?: string;
   private auditLogger: StructuredSecretAuditLogger;
+  private encryptionKey: Buffer;
 
   constructor(
     vaultAddress: string,
-    vaultNamespace: string = 'valuecanvas',
+    vaultNamespace: string = "valuecanvas",
     kubernetesRole?: string,
     cacheTTL: number = 300000 // 5 minutes
   ) {
     this.vaultAddress = vaultAddress;
     this.vaultNamespace = vaultNamespace;
-    this.environment = process.env.NODE_ENV || 'development';
+    this.environment = process.env.NODE_ENV || "development";
     this.cacheTTL = cacheTTL;
     this.kubernetesRole = kubernetesRole;
     this.auditLogger = new StructuredSecretAuditLogger();
+    // Generate a random encryption key for cache encryption
+    this.encryptionKey = randomBytes(32);
 
-    logger.info('Vault Secret Provider initialized', {
-      provider: 'vault',
+    logger.info("Vault Secret Provider initialized", {
+      provider: "vault",
       address: vaultAddress,
       namespace: vaultNamespace,
-      environment: this.environment
+      environment: this.environment,
     });
+  }
+
+  /**
+   * Encrypt data for secure cache storage
+   */
+  private encrypt(data: string): string {
+    const iv = randomBytes(16);
+    const cipher = createCipheriv("aes-256-cbc", this.encryptionKey, iv);
+    let encrypted = cipher.update(data, "utf8", "hex");
+    encrypted += cipher.final("hex");
+    return iv.toString("hex") + ":" + encrypted;
+  }
+
+  /**
+   * Decrypt data from secure cache storage
+   */
+  private decrypt(encryptedData: string): string {
+    const [ivHex, encrypted] = encryptedData.split(":");
+    const iv = Buffer.from(ivHex, "hex");
+    const decipher = createDecipheriv("aes-256-cbc", this.encryptionKey, iv);
+    let decrypted = decipher.update(encrypted, "hex", "utf8");
+    decrypted += decipher.final("utf8");
+    return decrypted;
   }
 
   /**
@@ -70,12 +103,12 @@ export class VaultSecretProvider implements ISecretProvider {
   async initialize(): Promise<void> {
     try {
       // Dynamic import of node-vault
-      const vault = await import('node-vault');
-      
+      const vault = await import("node-vault");
+
       this.client = vault.default({
-        apiVersion: 'v1',
+        apiVersion: "v1",
         endpoint: this.vaultAddress,
-        namespace: this.vaultNamespace
+        namespace: this.vaultNamespace,
       }) as unknown as VaultClient;
 
       // Authenticate with Kubernetes if role provided
@@ -83,9 +116,12 @@ export class VaultSecretProvider implements ISecretProvider {
         await this.authenticateKubernetes(this.kubernetesRole);
       }
 
-      logger.info('Vault client initialized and authenticated');
+      logger.info("Vault client initialized and authenticated");
     } catch (error) {
-      logger.error('Failed to initialize Vault client', error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        "Failed to initialize Vault client",
+        error instanceof Error ? error : new Error(String(error))
+      );
       throw error;
     }
   }
@@ -95,39 +131,42 @@ export class VaultSecretProvider implements ISecretProvider {
    */
   private async authenticateKubernetes(role: string): Promise<void> {
     try {
-      const jwtPath = '/var/run/secrets/kubernetes.io/serviceaccount/token';
-      const jwt = await fs.promises.readFile(jwtPath, 'utf8');
+      const jwtPath = "/var/run/secrets/kubernetes.io/serviceaccount/token";
+      const jwt = await fs.promises.readFile(jwtPath, "utf8");
 
       if (!this.client) {
-        throw new Error('Vault client not initialized');
+        throw new Error("Vault client not initialized");
       }
 
       const response = await this.client.kubernetesLogin({ role, jwt });
-      
+
       // Store the client token for subsequent requests
       (this.client as any).token = response.auth.client_token;
 
-      logger.info('Kubernetes authentication successful', { role });
+      logger.info("Kubernetes authentication successful", { role });
     } catch (error) {
-      logger.error('Kubernetes authentication failed', error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        "Kubernetes authentication failed",
+        error instanceof Error ? error : new Error(String(error))
+      );
       throw error;
     }
   }
 
   /**
    * Generate tenant-isolated Vault secret path
-   * 
+   *
    * Format: secret/data/tenants/{tenantId}/{secretKey}
    * (KV v2 requires /data/ in path)
    */
   private getTenantSecretPath(tenantId: string, secretKey: string): string {
     if (!tenantId || !secretKey) {
-      throw new Error('Tenant ID and secret key are required');
+      throw new Error("Tenant ID and secret key are required");
     }
 
     // Validate format
     if (!/^[a-zA-Z0-9-_]+$/.test(tenantId)) {
-      throw new Error('Invalid tenant ID format');
+      throw new Error("Invalid tenant ID format");
     }
 
     return `secret/data/${this.environment}/tenants/${tenantId}/${secretKey}`;
@@ -152,7 +191,7 @@ export class VaultSecretProvider implements ISecretProvider {
    */
   private ensureClient(): VaultClient {
     if (!this.client) {
-      throw new Error('Vault client not initialized. Call initialize() first.');
+      throw new Error("Vault client not initialized. Call initialize() first.");
     }
     return this.client;
   }
@@ -169,18 +208,29 @@ export class VaultSecretProvider implements ISecretProvider {
     // Check cache
     const cacheKey = this.getCacheKey(tenantId, secretKey);
     const cached = this.cache.get(cacheKey);
-    
+
     if (cached && cached.expiresAt > Date.now()) {
-      await this.auditAccess(tenantId, secretKey, 'READ', 'SUCCESS', userId, undefined, {
-        source: 'cache',
-        latency_ms: Date.now() - startTime
-      });
-      return cached.value;
+      const decryptedValue = JSON.parse(
+        this.decrypt(cached.value)
+      ) as SecretValue;
+      await this.auditAccess(
+        tenantId,
+        secretKey,
+        "READ",
+        "SUCCESS",
+        userId,
+        undefined,
+        {
+          source: "cache",
+          latency_ms: Date.now() - startTime,
+        }
+      );
+      return decryptedValue;
     }
 
     try {
       let path = this.getTenantSecretPath(tenantId, secretKey);
-      
+
       // Add version if specified
       if (version) {
         path += `?version=${version}`;
@@ -194,32 +244,44 @@ export class VaultSecretProvider implements ISecretProvider {
 
       // Cache the secret
       this.cache.set(cacheKey, {
-        value: cleanValue,
-        expiresAt: Date.now() + this.cacheTTL
+        value: this.encrypt(JSON.stringify(cleanValue)),
+        expiresAt: Date.now() + this.cacheTTL,
       });
 
-      await this.auditAccess(tenantId, secretKey, 'READ', 'SUCCESS', userId, undefined, {
-        source: 'vault',
-        latency_ms: Date.now() - startTime,
-        version: response.data.metadata?.version
-      });
+      await this.auditAccess(
+        tenantId,
+        secretKey,
+        "READ",
+        "SUCCESS",
+        userId,
+        undefined,
+        {
+          source: "vault",
+          latency_ms: Date.now() - startTime,
+          version: response.data.metadata?.version,
+        }
+      );
 
       return cleanValue;
     } catch (error) {
       await this.auditAccess(
         tenantId,
         secretKey,
-        'READ',
-        'FAILURE',
+        "READ",
+        "FAILURE",
         userId,
         error instanceof Error ? error.message : String(error),
         { latency_ms: Date.now() - startTime }
       );
 
-      logger.error('Failed to get secret from Vault', error instanceof Error ? error : new Error(String(error)), {
-        tenantId,
-        secretKey
-      });
+      logger.error(
+        "Failed to get secret from Vault",
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          tenantId,
+          secretKey,
+        }
+      );
 
       throw error;
     }
@@ -246,12 +308,12 @@ export class VaultSecretProvider implements ISecretProvider {
             createdAt: metadata.createdAt,
             version: metadata.version,
             rotationPolicy: metadata.rotationPolicy,
-            tags: metadata.tags
-          }
+            tags: metadata.tags,
+          },
         },
         options: {
-          cas: 0 // Check-And-Set version (0 = create only if doesn't exist)
-        }
+          cas: 0, // Check-And-Set version (0 = create only if doesn't exist)
+        },
       };
 
       await client.write(path, secretWithMetadata);
@@ -260,12 +322,12 @@ export class VaultSecretProvider implements ISecretProvider {
       const cacheKey = this.getCacheKey(tenantId, secretKey);
       this.cache.delete(cacheKey);
 
-      await this.auditAccess(tenantId, secretKey, 'WRITE', 'SUCCESS', userId);
+      await this.auditAccess(tenantId, secretKey, "WRITE", "SUCCESS", userId);
 
-      logger.info('Secret set successfully in Vault', {
+      logger.info("Secret set successfully in Vault", {
         tenantId,
         secretKey,
-        sensitivityLevel: metadata.sensitivityLevel
+        sensitivityLevel: metadata.sensitivityLevel,
       });
 
       return true;
@@ -273,16 +335,20 @@ export class VaultSecretProvider implements ISecretProvider {
       await this.auditAccess(
         tenantId,
         secretKey,
-        'WRITE',
-        'FAILURE',
+        "WRITE",
+        "FAILURE",
         userId,
         error instanceof Error ? error.message : String(error)
       );
 
-      logger.error('Failed to set secret in Vault', error instanceof Error ? error : new Error(String(error)), {
-        tenantId,
-        secretKey
-      });
+      logger.error(
+        "Failed to set secret in Vault",
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          tenantId,
+          secretKey,
+        }
+      );
 
       throw error;
     }
@@ -297,13 +363,22 @@ export class VaultSecretProvider implements ISecretProvider {
 
     try {
       // Read current secret
-      const currentSecret = await this.getSecret(tenantId, secretKey, undefined, userId);
-      
+      const currentSecret = await this.getSecret(
+        tenantId,
+        secretKey,
+        undefined,
+        userId
+      );
+
       // Generate new value (implementation depends on secret type)
       const newValue = this.generateNewSecretValue(secretKey, currentSecret);
 
       // Get current metadata
-      const currentMetadata = await this.getSecretMetadata(tenantId, secretKey, userId);
+      const currentMetadata = await this.getSecretMetadata(
+        tenantId,
+        secretKey,
+        userId
+      );
 
       // Write new version
       await this.setSecret(
@@ -312,8 +387,8 @@ export class VaultSecretProvider implements ISecretProvider {
         newValue,
         {
           ...currentMetadata!,
-          version: 'auto',
-          lastAccessed: new Date().toISOString()
+          version: "auto",
+          lastAccessed: new Date().toISOString(),
         },
         userId
       );
@@ -322,11 +397,11 @@ export class VaultSecretProvider implements ISecretProvider {
       const cacheKey = this.getCacheKey(tenantId, secretKey);
       this.cache.delete(cacheKey);
 
-      await this.auditAccess(tenantId, secretKey, 'ROTATE', 'SUCCESS', userId);
+      await this.auditAccess(tenantId, secretKey, "ROTATE", "SUCCESS", userId);
 
-      logger.info('Secret rotation completed in Vault', {
+      logger.info("Secret rotation completed in Vault", {
         tenantId,
-        secretKey
+        secretKey,
       });
 
       return true;
@@ -334,16 +409,20 @@ export class VaultSecretProvider implements ISecretProvider {
       await this.auditAccess(
         tenantId,
         secretKey,
-        'ROTATE',
-        'FAILURE',
+        "ROTATE",
+        "FAILURE",
         userId,
         error instanceof Error ? error.message : String(error)
       );
 
-      logger.error('Failed to rotate secret in Vault', error instanceof Error ? error : new Error(String(error)), {
-        tenantId,
-        secretKey
-      });
+      logger.error(
+        "Failed to rotate secret in Vault",
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          tenantId,
+          secretKey,
+        }
+      );
 
       throw error;
     }
@@ -352,15 +431,18 @@ export class VaultSecretProvider implements ISecretProvider {
   /**
    * Generate new secret value for rotation
    */
-  private generateNewSecretValue(secretKey: string, currentValue: SecretValue): SecretValue {
+  private generateNewSecretValue(
+    secretKey: string,
+    currentValue: SecretValue
+  ): SecretValue {
     // This is a simplified implementation
     // In production, this should generate appropriate values based on secret type
-    const crypto = require('crypto');
-    
+    const crypto = require("crypto");
+
     return {
-      value: crypto.randomBytes(32).toString('hex'),
+      value: crypto.randomBytes(32).toString("hex"),
       rotated_at: new Date().toISOString(),
-      previous_version: 'rotated'
+      previous_version: "rotated",
     };
   }
 
@@ -380,11 +462,11 @@ export class VaultSecretProvider implements ISecretProvider {
       const cacheKey = this.getCacheKey(tenantId, secretKey);
       this.cache.delete(cacheKey);
 
-      await this.auditAccess(tenantId, secretKey, 'DELETE', 'SUCCESS', userId);
+      await this.auditAccess(tenantId, secretKey, "DELETE", "SUCCESS", userId);
 
-      logger.info('Secret deleted from Vault', {
+      logger.info("Secret deleted from Vault", {
         tenantId,
-        secretKey
+        secretKey,
       });
 
       return true;
@@ -392,16 +474,20 @@ export class VaultSecretProvider implements ISecretProvider {
       await this.auditAccess(
         tenantId,
         secretKey,
-        'DELETE',
-        'FAILURE',
+        "DELETE",
+        "FAILURE",
         userId,
         error instanceof Error ? error.message : String(error)
       );
 
-      logger.error('Failed to delete secret from Vault', error instanceof Error ? error : new Error(String(error)), {
-        tenantId,
-        secretKey
-      });
+      logger.error(
+        "Failed to delete secret from Vault",
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          tenantId,
+          secretKey,
+        }
+      );
 
       throw error;
     }
@@ -415,24 +501,36 @@ export class VaultSecretProvider implements ISecretProvider {
       const response = await client.list(listPath);
       const secretKeys = response.data.keys || [];
 
-      await this.auditAccess(tenantId, 'ALL', 'LIST', 'SUCCESS', userId, undefined, {
-        count: secretKeys.length
-      });
+      await this.auditAccess(
+        tenantId,
+        "ALL",
+        "LIST",
+        "SUCCESS",
+        userId,
+        undefined,
+        {
+          count: secretKeys.length,
+        }
+      );
 
       return secretKeys;
     } catch (error) {
       await this.auditAccess(
         tenantId,
-        'ALL',
-        'LIST',
-        'FAILURE',
+        "ALL",
+        "LIST",
+        "FAILURE",
         userId,
         error instanceof Error ? error.message : String(error)
       );
 
-      logger.error('Failed to list secrets from Vault', error instanceof Error ? error : new Error(String(error)), {
-        tenantId
-      });
+      logger.error(
+        "Failed to list secrets from Vault",
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          tenantId,
+        }
+      );
 
       throw error;
     }
@@ -453,19 +551,23 @@ export class VaultSecretProvider implements ISecretProvider {
       const metadata: SecretMetadata = {
         tenantId,
         secretPath: metadataPath,
-        version: String(vaultMetadata.current_version || 'latest'),
+        version: String(vaultMetadata.current_version || "latest"),
         createdAt: vaultMetadata.created_time || new Date().toISOString(),
         lastAccessed: new Date().toISOString(),
-        sensitivityLevel: 'high', // Default, should be in tags
-        tags: vaultMetadata.custom_metadata || {}
+        sensitivityLevel: "high", // Default, should be in tags
+        tags: vaultMetadata.custom_metadata || {},
       };
 
       return metadata;
     } catch (error) {
-      logger.error('Failed to get secret metadata from Vault', error instanceof Error ? error : new Error(String(error)), {
-        tenantId,
-        secretKey
-      });
+      logger.error(
+        "Failed to get secret metadata from Vault",
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          tenantId,
+          secretKey,
+        }
+      );
 
       return null;
     }
@@ -477,7 +579,11 @@ export class VaultSecretProvider implements ISecretProvider {
     userId?: string
   ): Promise<boolean> {
     try {
-      const metadata = await this.getSecretMetadata(tenantId, secretKey, userId);
+      const metadata = await this.getSecretMetadata(
+        tenantId,
+        secretKey,
+        userId
+      );
       return metadata !== null;
     } catch (error) {
       return false;
@@ -500,29 +606,32 @@ export class VaultSecretProvider implements ISecretProvider {
       action,
       result,
       error,
-      metadata
+      metadata,
     };
 
-    if (result === 'SUCCESS') {
-      if (action === 'ROTATE') {
+    if (result === "SUCCESS") {
+      if (action === "ROTATE") {
         await this.auditLogger.logRotation(event);
       } else {
         await this.auditLogger.logAccess(event);
       }
     } else {
-      await this.auditLogger.logDenied({ ...event, reason: error || 'Unknown error' });
+      await this.auditLogger.logDenied({
+        ...event,
+        reason: error || "Unknown error",
+      });
     }
   }
 
   private maskSecretKey(key: string): string {
-    if (key === 'ALL' || key.length <= 8) {
+    if (key === "ALL" || key.length <= 8) {
       return key;
     }
     return `${key.substring(0, 4)}...${key.substring(key.length - 4)}`;
   }
 
   getProviderName(): string {
-    return 'vault';
+    return "vault";
   }
 
   async healthCheck(): Promise<boolean> {
@@ -531,7 +640,10 @@ export class VaultSecretProvider implements ISecretProvider {
       await client.health();
       return true;
     } catch (error) {
-      logger.error('Vault provider health check failed', error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        "Vault provider health check failed",
+        error instanceof Error ? error : new Error(String(error))
+      );
       return false;
     }
   }

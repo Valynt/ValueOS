@@ -13,9 +13,9 @@ Open [http://localhost:5173](http://localhost:5173) (see `config/ports.json` for
 
 ## That's It!
 
-**Need help?** See [docs/getting-started/GETTING_STARTED.md](docs/getting-started/GETTING_STARTED.md)
+**Need help?** See [getting-started/local-setup.md](getting-started/local-setup.md)
 
-**Having issues?** See [docs/getting-started/TROUBLESHOOTING.md](docs/getting-started/TROUBLESHOOTING.md)
+**Having issues?** See [getting-started/troubleshooting.md](getting-started/troubleshooting.md)
 
 ---
 

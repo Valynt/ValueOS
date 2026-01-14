@@ -81,32 +81,33 @@ Documentation lives alongside the code in the `docs/` directory. To contribute:
 
 ### **For New Developers**
 
-1. Read [guides/getting-started/](./guides/getting-started/)
-2. Follow [guides/setup/](./guides/setup/)
-3. Review [engineering/architecture/](./engineering/architecture/)
+1. Read [getting-started/quickstart.md](./getting-started/quickstart.md)
+2. Follow [getting-started/local-setup.md](./getting-started/local-setup.md)
+3. Review [architecture/overview.md](./architecture/overview.md)
 
 ### **For Operations**
 
-1. Check [ops/deployment/](./ops/deployment/)
-2. Review [ops/security/](./ops/security/)
-3. Monitor with [ops/monitoring/](./ops/monitoring/)
+1. Check [operations/deployment.md](./operations/deployment.md)
+2. Review [operations/security.md](./operations/security.md)
+3. Monitor with [operations/monitoring.md](./operations/monitoring.md)
 
 ### **For Product Development**
 
 1. Explore [features/](./features/)
-2. Review [engineering/architecture/](./engineering/architecture/)
-3. Follow [processes/contributing/](./processes/contributing/)
+2. Review [architecture/overview.md](./architecture/overview.md)
+3. Follow [processes/](./processes/)
 
 ## 🔍 Finding Information
 
-| Need                          | Location                       |
-| ----------------------------- | ------------------------------ |
-| **How to set up development** | [guides/](./guides/)           |
-| **System architecture**       | [engineering/](./engineering/) |
-| **Deployment procedures**     | [ops/](./ops/)                 |
-| **Feature documentation**     | [features/](./features/)       |
-| **Team workflows**            | [processes/](./processes/)     |
-| **Historical context**        | [archive/](./archive/)         |
+| Need                          | Location                               |
+| ----------------------------- | -------------------------------------- |
+| **How to set up development** | [getting-started/](./getting-started/) |
+| **System architecture**       | [architecture/](./architecture/)       |
+| **Deployment procedures**     | [operations/](./operations/)           |
+| **Feature documentation**     | [features/](./features/)               |
+| **Team workflows**            | [processes/](./processes/)             |
+| **API Documentation**         | [engineering/api/](./engineering/api/) |
+| **Compliance & Audit**        | [compliance/](./compliance/)           |
 
 ## 📝 Documentation Standards
 

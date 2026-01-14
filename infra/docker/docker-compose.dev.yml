@@ -28,35 +28,102 @@ services:
     networks:
       - valueos-network
 
-  # Redis cache layer
-  redis:
-    image: redis:7-alpine
-    container_name: valueos-redis
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 512M
-        reservations:
-          memory: 128M
+  # Zookeeper for Kafka coordination
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: valueos-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "2181:2181"
     volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
     networks:
       - valueos-network
+
+  # Kafka message broker for event-driven architecture
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: valueos-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "kafka-broker-api-versions",
+          "--bootstrap-server",
+          "localhost:9092",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - valueos-network
+
+  # Schema Registry for event schema validation
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.4.0
+    container_name: valueos-schema-registry
+    depends_on:
+      - kafka
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/subjects"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - valueos-network
+
+  # Kafka UI for monitoring and management
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: valueos-kafka-ui
+    depends_on:
+      - kafka
+      - schema-registry
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: valueos-dev
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+      DYNAMIC_CONFIG_ENABLED: "true"
+    networks:
+      - valueos-network
+    profiles: ["observability"]
 
   # Backend API server
   backend:
     build:
       context: ..
-      dockerfile: Dockerfile.backend
+      dockerfile: docker/Dockerfile.backend
     container_name: valueos-backend
     ports:
       - "${API_PORT:-3001}:3001"
@@ -76,6 +143,8 @@ services:
       - SUPABASE_URL=${SUPABASE_URL:-http://host.docker.internal:${SUPABASE_API_PORT:-54321}}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - TOGETHER_API_KEY=${TOGETHER_API_KEY}
+      - KAFKA_BROKERS=kafka:29092
+      - SCHEMA_REGISTRY_URL=http://schema-registry:8081
     env_file:
       - ../deploy/envs/.env.ports
       - ../deploy/envs/.env.local
@@ -98,7 +167,7 @@ services:
   frontend:
     build:
       context: ..
-      dockerfile: Dockerfile.frontend
+      dockerfile: docker/Dockerfile.frontend
     container_name: valueos-frontend
     deploy:
       resources:
@@ -217,6 +286,9 @@ networks:
 volumes:
   postgres_data:
   redis_data:
+  zookeeper_data:
+  zookeeper_logs:
+  kafka_data:
   prometheus_data:
   grafana_data:
   caddy_data:

@@ -5,40 +5,14 @@ import {
   llmCircuitBreakerState,
   resilienceEvents,
 } from "../monitoring/metrics";
+import {
+  ICircuitBreaker,
+  CircuitBreakerState,
+  CircuitBreakerConfig,
+  CircuitBreakerMetrics,
+} from "./CircuitBreakerInterface";
 
-export enum CircuitState {
-  CLOSED = "closed",
-  OPEN = "open",
-  HALF_OPEN = "half-open",
-}
-
-export interface CircuitBreakerConfig {
-  failureThreshold: number;
-  resetTimeoutMs: number;
-  halfOpenSuccessThreshold?: number;
-  rollingWindowSize?: number;
-  failureRateThreshold?: number;
-  latencyThresholdMs?: number;
-  minimumSamples?: number;
-  onOpen?: () => void;
-  onClose?: () => void;
-  onHalfOpen?: () => void;
-}
-
-export interface CircuitBreakerMetrics {
-  state: CircuitState;
-  failureCount: number;
-  successCount: number;
-  totalCalls: number;
-  lastFailureTime: string | null;
-  lastSuccessTime: string | null;
-  averageLatency: number;
-  failureRate: number;
-  requestsInWindow: number;
-  windowStartTime: number;
-}
-
-export class CircuitBreaker extends EventEmitter {
+export class CircuitBreaker extends EventEmitter implements ICircuitBreaker {
   private state: CircuitState = CircuitState.CLOSED;
   private failureCount = 0;
   private successCount = 0;
@@ -54,6 +28,9 @@ export class CircuitBreaker extends EventEmitter {
   private windowStartTime: number = Date.now();
 
   constructor(config: CircuitBreakerConfig) {
+    // Validate configuration
+    CircuitBreaker.validateConfig(config);
+
     super();
     this.config = {
       halfOpenSuccessThreshold: 2,
@@ -183,7 +160,7 @@ export class CircuitBreaker extends EventEmitter {
     logger.info("Circuit breaker half-opened");
   }
 
-  getState(): CircuitState {
+  getState(): CircuitBreakerState {
     return this.state;
   }
 
@@ -192,13 +169,15 @@ export class CircuitBreaker extends EventEmitter {
       state: this.state,
       failureCount: this.failureCount,
       successCount: this.successCount,
-      totalCalls: this.totalCalls,
-      lastFailureTime: this.lastFailureTime,
-      lastSuccessTime: this.lastSuccessTime,
-      averageLatency: this.getAverageLatency(),
+      totalRequests: this.totalCalls,
       failureRate: this.getFailureRate(),
-      requestsInWindow: this.recentResults.length,
-      windowStartTime: this.windowStartTime,
+      averageResponseTime: this.getAverageLatency(),
+      lastFailureTime: this.getLastFailureTime() || undefined,
+      lastSuccessTime: this.lastSuccessTime
+        ? new Date(this.lastSuccessTime)
+        : undefined,
+      uptime: this.calculateUptime(),
+      healthScore: this.calculateHealthScore(),
     };
   }
 
@@ -208,10 +187,24 @@ export class CircuitBreaker extends EventEmitter {
       : 0;
   }
 
-  private getFailureRate(): number {
-    return this.recentResults.length > 0
-      ? this.recentResults.filter((r) => !r).length / this.recentResults.length
-      : 0;
+  private calculateUptime(): number {
+    if (!this.openedAt) return 100; // Never opened, 100% uptime
+
+    const now = Date.now();
+    const openedTime = new Date(this.openedAt).getTime();
+    const totalTime = now - this.windowStartTime;
+    const downTime = now - openedTime;
+
+    return totalTime > 0 ? ((totalTime - downTime) / totalTime) * 100 : 100;
+  }
+
+  private calculateHealthScore(): number {
+    if (this.state === CircuitBreakerState.OPEN) return 0.0;
+    if (this.state === CircuitBreakerState.HALF_OPEN) return 0.5;
+
+    // In closed state, calculate based on failure rate
+    const failureRate = this.getFailureRate();
+    return Math.max(0, Math.min(1, 1 - failureRate));
   }
 
   reset(): void {
@@ -222,8 +215,8 @@ export class CircuitBreaker extends EventEmitter {
     return this.failureCount;
   }
 
-  getLastFailureTime(): string | null {
-    return this.lastFailureTime;
+  getLastFailureTime(): Date | null {
+    return this.lastFailureTime ? new Date(this.lastFailureTime) : null;
   }
 
   getNextAttemptTime(): number {
@@ -246,24 +239,119 @@ export class CircuitBreaker extends EventEmitter {
   set successes(value: number) {
     this.successCount = value;
   }
+
+  /**
+   * Validate circuit breaker configuration
+   */
+  private static validateConfig(config: CircuitBreakerConfig): void {
+    // Validate failureThreshold
+    if (config.failureThreshold !== undefined) {
+      if (!Number.isInteger(config.failureThreshold) || config.failureThreshold < 1) {
+        throw new Error(`failureThreshold must be a positive integer, got: ${config.failureThreshold}`);
+      }
+      if (config.failureThreshold > 1000) {
+        throw new Error(`failureThreshold too high, maximum allowed: 1000, got: ${config.failureThreshold}`);
+      }
+    }
+
+    // Validate resetTimeoutMs
+    if (config.resetTimeoutMs !== undefined) {
+      if (!Number.isInteger(config.resetTimeoutMs) || config.resetTimeoutMs < 1000) {
+        throw new Error(`resetTimeoutMs must be at least 1000ms, got: ${config.resetTimeoutMs}`);
+      }
+      if (config.resetTimeoutMs > 3600000) { // 1 hour
+        throw new Error(`resetTimeoutMs too high, maximum allowed: 3600000ms (1 hour), got: ${config.resetTimeoutMs}`);
+      }
+    }
+
+    // Validate halfOpenSuccessThreshold
+    if (config.halfOpenSuccessThreshold !== undefined) {
+      if (!Number.isInteger(config.halfOpenSuccessThreshold) || config.halfOpenSuccessThreshold < 1) {
+        throw new Error(`halfOpenSuccessThreshold must be a positive integer, got: ${config.halfOpenSuccessThreshold}`);
+      }
+      if (config.halfOpenSuccessThreshold > 100) {
+        throw new Error(`halfOpenSuccessThreshold too high, maximum allowed: 100, got: ${config.halfOpenSuccessThreshold}`);
+      }
+    }
+
+    // Validate rollingWindowSize
+    if (config.rollingWindowSize !== undefined) {
+      if (!Number.isInteger(config.rollingWindowSize) || config.rollingWindowSize < 5) {
+        throw new Error(`rollingWindowSize must be at least 5, got: ${config.rollingWindowSize}`);
+      }
+      if (config.rollingWindowSize > 1000) {
+        throw new Error(`rollingWindowSize too high, maximum allowed: 1000, got: ${config.rollingWindowSize}`);
+      }
+    }
+
+    // Validate failureRateThreshold
+    if (config.failureRateThreshold !== undefined) {
+      if (config.failureRateThreshold < 0 || config.failureRateThreshold > 1) {
+        throw new Error(`failureRateThreshold must be between 0 and 1, got: ${config.failureRateThreshold}`);
+      }
+    }
+
+    // Validate latencyThresholdMs
+    if (config.latencyThresholdMs !== undefined) {
+      if (config.latencyThresholdMs < 100) {
+        throw new Error(`latencyThresholdMs must be at least 100ms, got: ${config.latencyThresholdMs}`);
+      }
+      if (config.latencyThresholdMs > 300000) { // 5 minutes
+        throw new Error(`latencyThresholdMs too high, maximum allowed: 300000ms (5 minutes), got: ${config.latencyThresholdMs}`);
+      }
+    }
+
+    // Validate minimumSamples
+    if (config.minimumSamples !== undefined) {
+      if (!Number.isInteger(config.minimumSamples) || config.minimumSamples < 1) {
+        throw new Error(`minimumSamples must be a positive integer, got: ${config.minimumSamples}`);
+      }
+      if (config.minimumSamples > 100) {
+        throw new Error(`minimumSamples too high, maximum allowed: 100, got: ${config.minimumSamples}`);
+      }
+    }
+
+    // Validate callback functions
+    if (config.onOpen !== undefined && typeof config.onOpen !== 'function') {
+      throw new Error('onOpen must be a function');
+    }
+    if (config.onClose !== undefined && typeof config.onClose !== 'function') {
+      throw new Error('onClose must be a function');
+    }
+    if (config.onHalfOpen !== undefined && typeof config.onHalfOpen !== 'function') {
+      throw new Error('onHalfOpen must be a function');
+    }
+  }
 }
 
-export class LLMCircuitBreaker {
+export class LLMCircuitBreaker implements ICircuitBreaker {
   private state: CircuitState = CircuitState.CLOSED;
   private requests: { success: boolean; timestamp: number }[] = [];
   private readonly minRequests: number = 20;
   private readonly threshold: number = 0.05; // 5%
+  private readonly resetTimeoutMs: number = 60000; // 1 minute
+  private nextAttemptTime: number = 0;
+  private successCount: number = 0;
+  private readonly halfOpenSuccessThreshold: number = 3;
 
   constructor() {}
 
   async execute<T>(operation: () => Promise<T>): Promise<T> {
     if (this.state === CircuitState.OPEN) {
-      resilienceEvents.inc({
-        type: "circuit_trip",
-        source: "llm_circuit_breaker",
-      });
-      throw new CircuitBreakerError(
-        "Circuit breaker is OPEN. Service is unavailable."
+      if (Date.now() < this.nextAttemptTime) {
+        resilienceEvents.inc({
+          type: "circuit_trip",
+          source: "llm_circuit_breaker",
+        });
+        throw new CircuitBreakerError(
+          "Circuit breaker is OPEN. Service is unavailable."
+        );
+      }
+      // Time to attempt recovery
+      this.state = CircuitState.HALF_OPEN;
+      this.successCount = 0;
+      logger.info(
+        "LLM Circuit breaker entering HALF_OPEN state for recovery attempt"
       );
     }
 
@@ -285,33 +373,108 @@ export class LLMCircuitBreaker {
       this.requests.shift();
     }
 
+    if (success) {
+      if (this.state === CircuitState.HALF_OPEN) {
+        this.successCount++;
+        if (this.successCount >= this.halfOpenSuccessThreshold) {
+          // Successfully recovered
+          this.state = CircuitState.CLOSED;
+          this.successCount = 0;
+          this.requests = []; // Clear history on successful recovery
+          logger.info("LLM Circuit breaker recovered to CLOSED state");
+        }
+      }
+    } else {
+      if (this.state === CircuitState.HALF_OPEN) {
+        // Failed recovery attempt, go back to OPEN
+        this.state = CircuitState.OPEN;
+        this.nextAttemptTime = Date.now() + this.resetTimeoutMs;
+        this.successCount = 0;
+        logger.warn(
+          "LLM Circuit breaker recovery failed, returning to OPEN state"
+        );
+      }
+    }
+
     this.updateState();
   }
 
   private updateState(): void {
     if (this.requests.length < this.minRequests) {
-      this.state = CircuitState.CLOSED;
-      this.updateMetric(0);
+      // Not enough data, stay in current state
       return;
     }
 
     const failures = this.requests.filter((r) => !r.success).length;
     const failureRate = failures / this.requests.length;
 
-    if (failureRate > this.threshold) {
-      this.state = CircuitState.OPEN;
-      this.updateMetric(1);
-    } else {
-      this.state = CircuitState.CLOSED;
-      this.updateMetric(0);
+    if (this.state === CircuitState.CLOSED) {
+      if (failureRate > this.threshold) {
+        this.state = CircuitState.OPEN;
+        this.nextAttemptTime = Date.now() + this.resetTimeoutMs;
+        logger.warn("LLM Circuit breaker opened", {
+          failureRate,
+          threshold: this.threshold,
+        });
+      }
     }
+    // Note: HALF_OPEN transitions are handled in recordResult
   }
 
   private updateMetric(stateValue: number): void {
     llmCircuitBreakerState.labels({ provider: "system" }).set(stateValue);
   }
 
-  getState(): CircuitState {
+  getState(): CircuitBreakerState {
     return this.state;
   }
-}
+
+  getMetrics(): CircuitBreakerMetrics {
+    const failures = this.requests.filter((r) => !r.success).length;
+    const totalRequests = this.requests.length;
+    const failureRate = totalRequests > 0 ? failures / totalRequests : 0;
+
+    return {
+      state: this.state,
+      failureCount: failures,
+      successCount: totalRequests - failures,
+      totalRequests,
+      failureRate,
+      averageResponseTime: 0, // LLM requests don't track response time in this implementation
+      lastFailureTime: this.requests.find(r => !r.success)?.timestamp,
+      uptime: this.calculateUptime(),
+      healthScore: this.calculateHealthScore(),
+    };
+  }
+
+  reset(): void {
+    this.state = CircuitState.CLOSED;
+    this.requests = [];
+    this.nextAttemptTime = 0;
+    this.successCount = 0;
+  }
+
+  getFailureCount(): number {
+    return this.requests.filter((r) => !r.success).length;
+  }
+
+  getLastFailureTime(): Date | null {
+    const lastFailure = this.requests.find(r => !r.success);
+    return lastFailure ? new Date(lastFailure.timestamp) : null;
+  }
+
+  getNextAttemptTime(): number {
+    return this.nextAttemptTime;
+  }
+
+  private calculateUptime(): number {
+    if (this.state === CircuitState.CLOSED) return 100;
+    if (this.state === CircuitState.HALF_OPEN) return 50;
+    return 0; // OPEN state
+  }
+
+  private calculateHealthScore(): number {
+    if (this.state === CircuitState.CLOSED) return 1.0;
+    if (this.state === CircuitState.HALF_OPEN) return 0.5;
+    return 0.0; // OPEN state
+  }

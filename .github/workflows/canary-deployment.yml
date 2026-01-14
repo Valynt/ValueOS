@@ -4,22 +4,30 @@ on:
   workflow_dispatch:
     inputs:
       image_digest:
-        description: 'Image digest to deploy (from build-once-promote)'
+        description: "Image digest to deploy (from build-once-promote)"
         required: true
       canary_percentage:
-        description: 'Initial canary percentage (1-100)'
+        description: "Initial canary percentage (1-100)"
         required: false
-        default: '10'
+        default: "10"
         type: choice
         options:
-          - '5'
-          - '10'
-          - '25'
-          - '50'
+          - "5"
+          - "10"
+          - "25"
+          - "50"
       auto_promote:
-        description: 'Auto-promote if metrics are healthy'
+        description: "Auto-promote if metrics are healthy"
         type: boolean
         default: true
+      canary_target_group:
+        description: "Target group name for canary deployment"
+        required: false
+        default: "valuecanvas-canary"
+      stable_target_group:
+        description: "Target group name for stable deployment"
+        required: false
+        default: "valuecanvas-stable"
 
 permissions:
   contents: read
@@ -38,7 +46,7 @@ jobs:
       url: https://app.valuecanvas.app
     outputs:
       canary_deployed: ${{ steps.deploy.outputs.deployed }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -117,7 +125,7 @@ jobs:
                     initialDelaySeconds: 10
                     periodSeconds: 5
           EOF
-          
+
           echo "deployed=true" >> $GITHUB_OUTPUT
 
       - name: Wait for canary rollout
@@ -177,32 +185,32 @@ jobs:
       - name: Verify canary traffic
         run: |
           echo "Verifying canary receives traffic..."
-          
+
           # Test canary endpoint
           for i in {1..10}; do
             curl -H "x-canary: true" https://app.valuecanvas.app/health
             sleep 1
           done
-          
+
           echo "✅ Canary is receiving traffic"
 
       - name: Output canary details
         run: |
           cat >> $GITHUB_STEP_SUMMARY <<EOF
           # 🐤 Canary Deployment Started
-          
+
           **Image:** \`${{ github.event.inputs.image_digest }}\`
           **Canary %:** ${{ github.event.inputs.canary_percentage }}%
           **Auto-promote:** ${{ github.event.inputs.auto_promote }}
-          
+
           ## Traffic Split
           - Stable: ${{ 100 - github.event.inputs.canary_percentage }}%
           - Canary: ${{ github.event.inputs.canary_percentage }}%
-          
+
           ## Monitoring
           - [Grafana Dashboard](https://grafana.valuecanvas.app/d/canary)
           - [Datadog APM](https://app.datadoghq.com/apm/services)
-          
+
           ## Next Steps
           1. Monitor metrics for 10 minutes
           2. Auto-promote if healthy (or manual approval)
@@ -219,7 +227,7 @@ jobs:
       metrics_healthy: ${{ steps.evaluate.outputs.healthy }}
       error_rate: ${{ steps.metrics.outputs.error_rate }}
       latency_p99: ${{ steps.metrics.outputs.latency_p99 }}
-    
+
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -239,26 +247,26 @@ jobs:
           ERROR_RATE=$(aws cloudwatch get-metric-statistics \
             --namespace AWS/ApplicationELB \
             --metric-name HTTPCode_Target_5XX_Count \
-            --dimensions Name=TargetGroup,Value=valuecanvas-canary \
+            --dimensions Name=TargetGroup,Value=${{ github.event.inputs.canary_target_group }} \
             --start-time $(date -u -d '10 minutes ago' +%Y-%m-%dT%H:%M:%S) \
             --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
             --period 600 \
             --statistics Sum \
             --query 'Datapoints[0].Sum' \
             --output text)
-          
+
           # Query for latency
           LATENCY_P99=$(aws cloudwatch get-metric-statistics \
             --namespace AWS/ApplicationELB \
             --metric-name TargetResponseTime \
-            --dimensions Name=TargetGroup,Value=valuecanvas-canary \
+            --dimensions Name=TargetGroup,Value=${{ github.event.inputs.canary_target_group }} \
             --start-time $(date -u -d '10 minutes ago' +%Y-%m-%dT%H:%M:%S) \
             --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
             --period 600 \
             --statistics p99 \
             --query 'Datapoints[0].ExtendedStatistics.p99' \
             --output text)
-          
+
           echo "error_rate=${ERROR_RATE}" >> $GITHUB_OUTPUT
           echo "latency_p99=${LATENCY_P99}" >> $GITHUB_OUTPUT
 
@@ -269,25 +277,25 @@ jobs:
           STABLE_ERROR_RATE=$(aws cloudwatch get-metric-statistics \
             --namespace AWS/ApplicationELB \
             --metric-name HTTPCode_Target_5XX_Count \
-            --dimensions Name=TargetGroup,Value=valuecanvas-stable \
+            --dimensions Name=TargetGroup,Value=${{ github.event.inputs.stable_target_group }} \
             --start-time $(date -u -d '10 minutes ago' +%Y-%m-%dT%H:%M:%S) \
             --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
             --period 600 \
             --statistics Sum \
             --query 'Datapoints[0].Sum' \
             --output text)
-          
+
           STABLE_LATENCY=$(aws cloudwatch get-metric-statistics \
             --namespace AWS/ApplicationELB \
             --metric-name TargetResponseTime \
-            --dimensions Name=TargetGroup,Value=valuecanvas-stable \
+            --dimensions Name=TargetGroup,Value=${{ github.event.inputs.stable_target_group }} \
             --start-time $(date -u -d '10 minutes ago' +%Y-%m-%dT%H:%M:%S) \
             --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
             --period 600 \
             --statistics p99 \
             --query 'Datapoints[0].ExtendedStatistics.p99' \
             --output text)
-          
+
           echo "stable_error_rate=${STABLE_ERROR_RATE}" >> $GITHUB_OUTPUT
           echo "stable_latency=${STABLE_LATENCY}" >> $GITHUB_OUTPUT
 
@@ -298,33 +306,33 @@ jobs:
           STABLE_ERRORS=${{ steps.compare.outputs.stable_error_rate }}
           CANARY_LATENCY=${{ steps.metrics.outputs.latency_p99 }}
           STABLE_LATENCY=${{ steps.compare.outputs.stable_latency }}
-          
+
           # Health criteria
           HEALTHY=true
-          
+
           # Check error rate (canary should not exceed stable by >20%)
-          if (( $(echo "$CANARY_ERRORS > $STABLE_ERRORS * 1.2" | bc -l) )); then
+          if awk -v ce="$CANARY_ERRORS" -v se="$STABLE_ERRORS" 'BEGIN { exit !(ce > se * 1.2) }'; then
             echo "❌ Canary error rate too high: $CANARY_ERRORS vs $STABLE_ERRORS"
             HEALTHY=false
           fi
-          
+
           # Check latency (canary should not exceed stable by >20%)
-          if (( $(echo "$CANARY_LATENCY > $STABLE_LATENCY * 1.2" | bc -l) )); then
+          if awk -v cl="$CANARY_LATENCY" -v sl="$STABLE_LATENCY" 'BEGIN { exit !(cl > sl * 1.2) }'; then
             echo "❌ Canary latency too high: $CANARY_LATENCY vs $STABLE_LATENCY"
             HEALTHY=false
           fi
-          
+
           # Check absolute thresholds
-          if (( $(echo "$CANARY_ERRORS > 10" | bc -l) )); then
+          if awk -v ce="$CANARY_ERRORS" 'BEGIN { exit !(ce > 10) }'; then
             echo "❌ Canary error count exceeds threshold: $CANARY_ERRORS"
             HEALTHY=false
           fi
-          
-          if (( $(echo "$CANARY_LATENCY > 2.0" | bc -l) )); then
+
+          if awk -v cl="$CANARY_LATENCY" 'BEGIN { exit !(cl > 2.0) }'; then
             echo "❌ Canary latency exceeds threshold: ${CANARY_LATENCY}s"
             HEALTHY=false
           fi
-          
+
           if [ "$HEALTHY" == "true" ]; then
             echo "✅ Canary metrics are healthy"
             echo "healthy=true" >> $GITHUB_OUTPUT
@@ -337,16 +345,16 @@ jobs:
         run: |
           cat >> $GITHUB_STEP_SUMMARY <<EOF
           # 📊 Canary Metrics Report
-          
+
           ## Canary vs Stable
-          
+
           | Metric | Canary | Stable | Status |
           |--------|--------|--------|--------|
           | Error Rate | ${{ steps.metrics.outputs.error_rate }} | ${{ steps.compare.outputs.stable_error_rate }} | ${{ steps.evaluate.outputs.healthy == 'true' && '✅' || '❌' }} |
           | Latency (p99) | ${{ steps.metrics.outputs.latency_p99 }}s | ${{ steps.compare.outputs.stable_latency }}s | ${{ steps.evaluate.outputs.healthy == 'true' && '✅' || '❌' }} |
-          
+
           ## Health Status
-          
+
           ${{ steps.evaluate.outputs.healthy == 'true' && '✅ **HEALTHY** - Ready for promotion' || '❌ **UNHEALTHY** - Rollback recommended' }}
           EOF
 
@@ -359,7 +367,7 @@ jobs:
     environment:
       name: production
       url: https://app.valuecanvas.app
-    
+
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -378,7 +386,7 @@ jobs:
         run: |
           HEALTHY="${{ needs.monitor-canary.outputs.metrics_healthy }}"
           AUTO_PROMOTE="${{ github.event.inputs.auto_promote }}"
-          
+
           if [ "$HEALTHY" == "true" ] && [ "$AUTO_PROMOTE" == "true" ]; then
             echo "action=promote" >> $GITHUB_OUTPUT
           elif [ "$HEALTHY" == "false" ]; then
@@ -391,48 +399,48 @@ jobs:
         if: steps.decision.outputs.action == 'promote'
         run: |
           echo "🚀 Promoting canary to stable..."
-          
+
           # Update stable deployment with canary image
           kubectl set image deployment/valuecanvas-app \
             app=${{ github.event.inputs.image_digest }} \
             --namespace=production \
             --record
-          
+
           # Wait for rollout
           kubectl rollout status deployment/valuecanvas-app \
             --namespace=production \
             --timeout=10m
-          
+
           # Remove canary deployment
           kubectl delete deployment valuecanvas-app-canary \
             --namespace=production
-          
+
           # Reset traffic to 100% stable
           kubectl delete virtualservice valuecanvas-app \
             --namespace=production
-          
+
           echo "✅ Canary promoted to stable"
 
       - name: Rollback canary
         if: steps.decision.outputs.action == 'rollback'
         run: |
           echo "⚠️ Rolling back canary..."
-          
+
           # Delete canary deployment
           kubectl delete deployment valuecanvas-app-canary \
             --namespace=production
-          
+
           # Reset traffic to 100% stable
           kubectl delete virtualservice valuecanvas-app \
             --namespace=production
-          
+
           echo "✅ Canary rolled back"
 
       - name: Notify Slack
         if: always()
         run: |
           ACTION="${{ steps.decision.outputs.action }}"
-          
+
           if [ "$ACTION" == "promote" ]; then
             MESSAGE="🚀 Canary promoted to production"
             COLOR="good"
@@ -443,7 +451,7 @@ jobs:
             MESSAGE="⏸️ Canary deployment awaiting manual approval"
             COLOR="warning"
           fi
-          
+
           curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
             -H 'Content-Type: application/json' \
             -d "{
@@ -474,12 +482,12 @@ jobs:
         run: |
           cat >> $GITHUB_STEP_SUMMARY <<EOF
           # 🎯 Canary Deployment Complete
-          
+
           **Action:** ${{ steps.decision.outputs.action }}
           **Image:** \`${{ github.event.inputs.image_digest }}\`
-          
+
           ## Results
-          
+
           ${{ steps.decision.outputs.action == 'promote' && '✅ Canary successfully promoted to production' || '' }}
           ${{ steps.decision.outputs.action == 'rollback' && '⚠️ Canary rolled back due to unhealthy metrics' || '' }}
           ${{ steps.decision.outputs.action == 'manual' && '⏸️ Awaiting manual approval for promotion' || '' }}

@@ -1,9 +1,9 @@
 /**
  * AWS Secrets Manager Provider
- * 
+ *
  * Implementation of ISecretProvider for AWS Secrets Manager
  * Refactored from secretsManager.v2.ts to use provider interface
- * 
+ *
  * Sprint 2: Provider Abstraction
  * Created: 2024-11-29
  */
@@ -16,18 +16,25 @@ import {
   PutSecretValueCommand,
   RotateSecretCommand,
   SecretsManagerClient,
-  UpdateSecretCommand
-} from '@aws-sdk/client-secrets-manager';
-import { logger } from '../../lib/logger';
-import { createServerSupabaseClient } from '../../lib/supabase';
+  UpdateSecretCommand,
+} from "@aws-sdk/client-secrets-manager";
+import { randomBytes, createCipheriv, createDecipheriv } from "crypto";
+import { logger } from "../../lib/logger";
+import { createServerSupabaseClient } from "../../lib/supabase";
 import type {
   AuditAction,
   AuditResult,
   ISecretProvider,
   SecretMetadata,
-  SecretValue
-} from './ISecretProvider';
-import { StructuredSecretAuditLogger, SecretAuditEvent } from './SecretAuditLogger';
+  SecretValue,
+} from "./ISecretProvider";
+import {
+  StructuredSecretAuditLogger,
+  SecretAuditEvent,
+} from "./SecretAuditLogger";
+import { getRedisClient } from "../../lib/redisClient";
+import { RedisClientType } from "redis";
+import { CircuitBreaker, createProviderCircuitBreaker } from "./CircuitBreaker";
 
 /**
  * AWS Secrets Manager provider implementation
@@ -35,24 +42,85 @@ import { StructuredSecretAuditLogger, SecretAuditEvent } from './SecretAuditLogg
 export class AWSSecretProvider implements ISecretProvider {
   private client: SecretsManagerClient;
   private environment: string;
-  private cache: Map<string, { value: SecretValue; expiresAt: number }> = new Map();
+  private cache: Map<string, { value: SecretValue; expiresAt: number }> =
+    new Map();
+  private redisClient: RedisClientType | null = null;
   private cacheTTL: number;
   private auditLogger: StructuredSecretAuditLogger;
+  private redisEnabled: boolean;
+  private maxRetries: number = 3;
+  private retryDelay: number = 1000; // 1 second base delay
 
   constructor(
-    region: string = 'us-east-1',
+    region: string = "us-east-1",
     cacheTTL: number = 300000 // 5 minutes
   ) {
-    this.client = new SecretsManagerClient({ region });
-    this.environment = process.env.NODE_ENV || 'development';
+    // Configure AWS client with connection pooling
+    this.client = new SecretsManagerClient({
+      region,
+      maxAttempts: this.maxRetries,
+      requestHandler: {
+        // Connection pooling configuration
+        socketTimeout: 60000, // 60 seconds
+        connectionTimeout: 10000, // 10 seconds
+        keepAlive: true,
+        maxSockets: 50, // Connection pool size
+      },
+    });
+    this.environment = process.env.NODE_ENV || "development";
     this.cacheTTL = cacheTTL;
     this.auditLogger = new StructuredSecretAuditLogger();
+    this.redisEnabled = process.env.REDIS_URL ? true : false;
+    // Generate a random encryption key for cache encryption
+    this.encryptionKey = randomBytes(32);
 
-    logger.info('AWS Secret Provider initialized', {
-      provider: 'aws',
+    // Initialize Redis client for distributed caching
+    if (this.redisEnabled) {
+      getRedisClient()
+        .then((client) => {
+          this.redisClient = client;
+          logger.info(
+            "Redis client initialized for distributed secret caching"
+          );
+        })
+        .catch((error) => {
+          logger.warn(
+            "Failed to initialize Redis client, falling back to in-memory cache",
+            error
+          );
+          this.redisEnabled = false;
+        });
+    }
+
+    logger.info("AWS Secret Provider initialized", {
+      provider: "aws",
       region,
-      environment: this.environment
+      environment: this.environment,
+      distributedCache: this.redisEnabled,
     });
+  }
+
+  /**
+   * Encrypt data for secure cache storage
+   */
+  private encrypt(data: string): string {
+    const iv = randomBytes(16);
+    const cipher = createCipheriv("aes-256-cbc", this.encryptionKey, iv);
+    let encrypted = cipher.update(data, "utf8", "hex");
+    encrypted += cipher.final("hex");
+    return iv.toString("hex") + ":" + encrypted;
+  }
+
+  /**
+   * Decrypt data from secure cache storage
+   */
+  private decrypt(encryptedData: string): string {
+    const [ivHex, encrypted] = encryptedData.split(":");
+    const iv = Buffer.from(ivHex, "hex");
+    const decipher = createDecipheriv("aes-256-cbc", this.encryptionKey, iv);
+    let decrypted = decipher.update(encrypted, "hex", "utf8");
+    decrypted += decipher.final("utf8");
+    return decrypted;
   }
 
   /**
@@ -60,12 +128,12 @@ export class AWSSecretProvider implements ISecretProvider {
    */
   private getTenantSecretPath(tenantId: string, secretKey: string): string {
     if (!tenantId || !secretKey) {
-      throw new Error('Tenant ID and secret key are required');
+      throw new Error("Tenant ID and secret key are required");
     }
 
     // Validate format
     if (!/^[a-zA-Z0-9-_]+$/.test(tenantId)) {
-      throw new Error('Invalid tenant ID format');
+      throw new Error("Invalid tenant ID format");
     }
 
     return `valuecanvas/${this.environment}/tenants/${tenantId}/${secretKey}`;
@@ -78,6 +146,141 @@ export class AWSSecretProvider implements ISecretProvider {
     return `${tenantId}:${secretKey}`;
   }
 
+  /**
+   * Get secret from Redis cache
+   */
+  private async getFromRedisCache(
+    cacheKey: string
+  ): Promise<SecretValue | null> {
+    if (!this.redisClient || !this.redisEnabled) {
+      return null;
+    }
+
+    try {
+      const cached = await this.redisClient.get(`secret:${cacheKey}`);
+      if (!cached) {
+        return null;
+      }
+
+      const parsed = JSON.parse(cached);
+      if (parsed.expiresAt > Date.now()) {
+        const decryptedValue = JSON.parse(
+          this.decrypt(parsed.value)
+        ) as SecretValue;
+        return decryptedValue;
+      } else {
+        // Cache expired, remove it
+        await this.redisClient.del(`secret:${cacheKey}`);
+        return null;
+      }
+    } catch (error) {
+      logger.warn(
+        "Failed to get secret from Redis cache",
+        error instanceof Error ? error : new Error(String(error))
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Set secret in Redis cache
+   */
+  private async setInRedisCache(
+    cacheKey: string,
+    value: SecretValue
+  ): Promise<void> {
+    if (!this.redisClient || !this.redisEnabled) {
+      return;
+    }
+
+    try {
+      const cacheData = {
+        value: this.encrypt(JSON.stringify(value)),
+        expiresAt: Date.now() + this.cacheTTL,
+      };
+      await this.redisClient.setEx(
+        `secret:${cacheKey}`,
+        Math.floor(this.cacheTTL / 1000),
+        JSON.stringify(cacheData)
+      );
+    } catch (error) {
+      logger.warn(
+        "Failed to set secret in Redis cache",
+        error instanceof Error ? error : new Error(String(error))
+      );
+    }
+  }
+
+  /**
+   * Retry wrapper with exponential backoff for AWS SDK calls
+   */
+  private async retryWithBackoff<T>(
+    operation: () => Promise<T>,
+    operationName: string,
+    tenantId?: string,
+    secretKey?: string
+  ): Promise<T> {
+    let lastError: Error;
+
+    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        // Don't retry on certain errors
+        if (this.isNonRetryableError(lastError)) {
+          logger.warn(`${operationName} failed with non-retryable error`, {
+            attempt,
+            error: lastError.message,
+            tenantId,
+            secretKey,
+          });
+          throw lastError;
+        }
+
+        if (attempt < this.maxRetries) {
+          const delay = this.retryDelay * Math.pow(2, attempt - 1);
+          logger.warn(`${operationName} failed, retrying in ${delay}ms`, {
+            attempt,
+            maxRetries: this.maxRetries,
+            delay,
+            error: lastError.message,
+            tenantId,
+            secretKey,
+          });
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        } else {
+          logger.error(`${operationName} failed after all retries`, {
+            attempts: this.maxRetries,
+            error: lastError.message,
+            tenantId,
+            secretKey,
+          });
+        }
+      }
+    }
+
+    throw lastError!;
+  }
+
+  /**
+   * Check if error is non-retryable
+   */
+  private isNonRetryableError(error: Error): boolean {
+    const nonRetryableCodes = [
+      "InvalidParameterException",
+      "InvalidRequestException",
+      "ResourceNotFoundException",
+      "AccessDeniedException",
+      "UnauthorizedOperation",
+    ];
+
+    // Check AWS error codes
+    const errorCode = (error as any).name || (error as any).code;
+    return nonRetryableCodes.includes(errorCode);
+  }
+
   async getSecret(
     tenantId: string,
     secretKey: string,
@@ -87,60 +290,107 @@ export class AWSSecretProvider implements ISecretProvider {
     const startTime = Date.now();
     const secretPath = this.getTenantSecretPath(tenantId, secretKey);
 
-    // Check cache
+    // Check Redis cache first
     const cacheKey = this.getCacheKey(tenantId, secretKey);
-    const cached = this.cache.get(cacheKey);
-    
-    if (cached && cached.expiresAt > Date.now()) {
-      await this.auditAccess(tenantId, secretKey, 'READ', 'SUCCESS', userId, undefined, {
-        source: 'cache',
-        latency_ms: Date.now() - startTime
-      });
-      return cached.value;
+    const redisCached = await this.getFromRedisCache(cacheKey);
+
+    if (redisCached) {
+      await this.auditAccess(
+        tenantId,
+        secretKey,
+        "READ",
+        "SUCCESS",
+        userId,
+        undefined,
+        {
+          source: "redis-cache",
+          latency_ms: Date.now() - startTime,
+        }
+      );
+      return redisCached;
+    }
+
+    // Check in-memory cache as fallback
+    const inMemoryCached = this.cache.get(cacheKey);
+    if (inMemoryCached && inMemoryCached.expiresAt > Date.now()) {
+      const decryptedValue = JSON.parse(
+        this.decrypt(inMemoryCached.value)
+      ) as SecretValue;
+      await this.auditAccess(
+        tenantId,
+        secretKey,
+        "READ",
+        "SUCCESS",
+        userId,
+        undefined,
+        {
+          source: "memory-cache",
+          latency_ms: Date.now() - startTime,
+        }
+      );
+      return decryptedValue;
     }
 
     try {
       const command = new GetSecretValueCommand({
         SecretId: secretPath,
-        VersionId: version
+        VersionId: version,
       });
 
-      const response = await this.client.send(command);
+      const response = await this.retryWithBackoff(
+        () => this.client.send(command),
+        "GetSecretValue",
+        tenantId,
+        secretKey
+      );
 
       if (!response.SecretString) {
-        throw new Error('Secret value is empty');
+        throw new Error("Secret value is empty");
       }
 
       const secretValue = JSON.parse(response.SecretString) as SecretValue;
 
-      // Cache the secret
+      // Cache the secret in both Redis and memory
+      await this.setInRedisCache(cacheKey, secretValue);
       this.cache.set(cacheKey, {
-        value: secretValue,
-        expiresAt: Date.now() + this.cacheTTL
+        value: this.encrypt(JSON.stringify(secretValue)),
+        expiresAt: Date.now() + this.cacheTTL,
       });
 
-      await this.auditAccess(tenantId, secretKey, 'READ', 'SUCCESS', userId, undefined, {
-        source: 'aws',
-        latency_ms: Date.now() - startTime,
-        version
-      });
+      await this.auditAccess(
+        tenantId,
+        secretKey,
+        "READ",
+        "SUCCESS",
+        userId,
+        undefined,
+        {
+          source: "aws",
+          latency_ms: Date.now() - startTime,
+          version,
+        }
+      );
 
       return secretValue;
     } catch (error) {
       await this.auditAccess(
         tenantId,
         secretKey,
-        'READ',
-        'FAILURE',
+        "READ",
+        "FAILURE",
         userId,
         error instanceof Error ? error.message : String(error),
         { latency_ms: Date.now() - startTime }
       );
 
-      logger.error('Failed to get secret from AWS', error instanceof Error ? error : new Error(String(error)), {
-        tenantId,
-        secretPath
-      });
+      logger.error(
+        "Failed to get secret from AWS",
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          tenantId,
+          secretPath,
+        }
+      );
 
       throw error;
     }
@@ -165,27 +415,33 @@ export class AWSSecretProvider implements ISecretProvider {
           createdAt: metadata.createdAt,
           version: metadata.version,
           rotationPolicy: metadata.rotationPolicy,
-          tags: metadata.tags
-        }
+          tags: metadata.tags,
+        },
       };
 
       const command = new PutSecretValueCommand({
         SecretId: secretPath,
-        SecretString: JSON.stringify(secretWithMetadata)
+        SecretString: JSON.stringify(secretWithMetadata),
       });
 
-      await this.client.send(command);
+      await this.retryWithBackoff(
+        () => this.client.send(command),
+        "PutSecretValue",
+        tenantId,
+        secretKey
+      );
 
-      // Invalidate cache
+      // Invalidate both Redis and memory cache
       const cacheKey = this.getCacheKey(tenantId, secretKey);
+      await this.invalidateRedisCache(cacheKey);
       this.cache.delete(cacheKey);
 
-      await this.auditAccess(tenantId, secretKey, 'WRITE', 'SUCCESS', userId);
+      await this.auditAccess(tenantId, secretKey, "WRITE", "SUCCESS", userId);
 
-      logger.info('Secret set successfully in AWS', {
+      logger.info("Secret set successfully in AWS", {
         tenantId,
         secretKey,
-        sensitivityLevel: metadata.sensitivityLevel
+        sensitivityLevel: metadata.sensitivityLevel,
       });
 
       return true;
@@ -193,16 +449,20 @@ export class AWSSecretProvider implements ISecretProvider {
       await this.auditAccess(
         tenantId,
         secretKey,
-        'WRITE',
-        'FAILURE',
+        "WRITE",
+        "FAILURE",
         userId,
         error instanceof Error ? error.message : String(error)
       );
 
-      logger.error('Failed to set secret in AWS', error instanceof Error ? error : new Error(String(error)), {
-        tenantId,
-        secretPath
-      });
+      logger.error(
+        "Failed to set secret in AWS",
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          tenantId,
+          secretPath,
+        }
+      );
 
       throw error;
     }
@@ -217,7 +477,7 @@ export class AWSSecretProvider implements ISecretProvider {
 
     try {
       const command = new RotateSecretCommand({
-        SecretId: secretPath
+        SecretId: secretPath,
       });
 
       await this.client.send(command);
@@ -226,11 +486,11 @@ export class AWSSecretProvider implements ISecretProvider {
       const cacheKey = this.getCacheKey(tenantId, secretKey);
       this.cache.delete(cacheKey);
 
-      await this.auditAccess(tenantId, secretKey, 'ROTATE', 'SUCCESS', userId);
+      await this.auditAccess(tenantId, secretKey, "ROTATE", "SUCCESS", userId);
 
-      logger.info('Secret rotation initiated in AWS', {
+      logger.info("Secret rotation initiated in AWS", {
         tenantId,
-        secretKey
+        secretKey,
       });
 
       return true;
@@ -238,16 +498,20 @@ export class AWSSecretProvider implements ISecretProvider {
       await this.auditAccess(
         tenantId,
         secretKey,
-        'ROTATE',
-        'FAILURE',
+        "ROTATE",
+        "FAILURE",
         userId,
         error instanceof Error ? error.message : String(error)
       );
 
-      logger.error('Failed to rotate secret in AWS', error instanceof Error ? error : new Error(String(error)), {
-        tenantId,
-        secretPath
-      });
+      logger.error(
+        "Failed to rotate secret in AWS",
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          tenantId,
+          secretPath,
+        }
+      );
 
       throw error;
     }
@@ -264,21 +528,27 @@ export class AWSSecretProvider implements ISecretProvider {
       const command = new DeleteSecretCommand({
         SecretId: secretPath,
         ForceDeleteWithoutRecovery: false, // Allow recovery window
-        RecoveryWindowInDays: 30
+        RecoveryWindowInDays: 30,
       });
 
-      await this.client.send(command);
+      await this.retryWithBackoff(
+        () => this.client.send(command),
+        "DeleteSecret",
+        tenantId,
+        secretKey
+      );
 
-      // Invalidate cache
+      // Invalidate both Redis and memory cache
       const cacheKey = this.getCacheKey(tenantId, secretKey);
+      await this.invalidateRedisCache(cacheKey);
       this.cache.delete(cacheKey);
 
-      await this.auditAccess(tenantId, secretKey, 'DELETE', 'SUCCESS', userId);
+      await this.auditAccess(tenantId, secretKey, "DELETE", "SUCCESS", userId);
 
-      logger.info('Secret deleted from AWS', {
+      logger.info("Secret deleted from AWS", {
         tenantId,
         secretKey,
-        recoveryWindowDays: 30
+        recoveryWindowDays: 30,
       });
 
       return true;
@@ -286,16 +556,20 @@ export class AWSSecretProvider implements ISecretProvider {
       await this.auditAccess(
         tenantId,
         secretKey,
-        'DELETE',
-        'FAILURE',
+        "DELETE",
+        "FAILURE",
         userId,
         error instanceof Error ? error.message : String(error)
       );
 
-      logger.error('Failed to delete secret from AWS', error instanceof Error ? error : new Error(String(error)), {
-        tenantId,
-        secretPath
-      });
+      logger.error(
+        "Failed to delete secret from AWS",
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          tenantId,
+          secretPath,
+        }
+      );
 
       throw error;
     }
@@ -308,10 +582,10 @@ export class AWSSecretProvider implements ISecretProvider {
       const command = new ListSecretsCommand({
         Filters: [
           {
-            Key: 'name',
-            Values: [prefix]
-          }
-        ]
+            Key: "name",
+            Values: [prefix],
+          },
+        ],
       });
 
       const response = await this.client.send(command);
@@ -319,27 +593,39 @@ export class AWSSecretProvider implements ISecretProvider {
 
       // Extract secret keys from full paths
       const secretKeys = secrets
-        .map(s => s.Name?.replace(prefix, '') || '')
+        .map((s) => s.Name?.replace(prefix, "") || "")
         .filter(Boolean);
 
-      await this.auditAccess(tenantId, 'ALL', 'LIST', 'SUCCESS', userId, undefined, {
-        count: secretKeys.length
-      });
+      await this.auditAccess(
+        tenantId,
+        "ALL",
+        "LIST",
+        "SUCCESS",
+        userId,
+        undefined,
+        {
+          count: secretKeys.length,
+        }
+      );
 
       return secretKeys;
     } catch (error) {
       await this.auditAccess(
         tenantId,
-        'ALL',
-        'LIST',
-        'FAILURE',
+        "ALL",
+        "LIST",
+        "FAILURE",
         userId,
         error instanceof Error ? error.message : String(error)
       );
 
-      logger.error('Failed to list secrets from AWS', error instanceof Error ? error : new Error(String(error)), {
-        tenantId
-      });
+      logger.error(
+        "Failed to list secrets from AWS",
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          tenantId,
+        }
+      );
 
       throw error;
     }
@@ -354,7 +640,7 @@ export class AWSSecretProvider implements ISecretProvider {
 
     try {
       const command = new DescribeSecretCommand({
-        SecretId: secretPath
+        SecretId: secretPath,
       });
 
       const response = await this.client.send(command);
@@ -367,24 +653,35 @@ export class AWSSecretProvider implements ISecretProvider {
       const metadata: SecretMetadata = {
         tenantId,
         secretPath: response.Name,
-        version: response.VersionIdsToStages ? Object.keys(response.VersionIdsToStages)[0] : 'latest',
-        createdAt: response.CreatedDate?.toISOString() || new Date().toISOString(),
-        lastAccessed: response.LastAccessedDate?.toISOString() || new Date().toISOString(),
-        sensitivityLevel: 'high', // Default, should be in tags
-        tags: response.Tags?.reduce((acc, tag) => {
-          if (tag.Key && tag.Value) {
-            acc[tag.Key] = tag.Value;
-          }
-          return acc;
-        }, {} as Record<string, string>)
+        version: response.VersionIdsToStages
+          ? Object.keys(response.VersionIdsToStages)[0]
+          : "latest",
+        createdAt:
+          response.CreatedDate?.toISOString() || new Date().toISOString(),
+        lastAccessed:
+          response.LastAccessedDate?.toISOString() || new Date().toISOString(),
+        sensitivityLevel: "high", // Default, should be in tags
+        tags: response.Tags?.reduce(
+          (acc, tag) => {
+            if (tag.Key && tag.Value) {
+              acc[tag.Key] = tag.Value;
+            }
+            return acc;
+          },
+          {} as Record<string, string>
+        ),
       };
 
       return metadata;
     } catch (error) {
-      logger.error('Failed to get secret metadata from AWS', error instanceof Error ? error : new Error(String(error)), {
-        tenantId,
-        secretPath
-      });
+      logger.error(
+        "Failed to get secret metadata from AWS",
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          tenantId,
+          secretPath,
+        }
+      );
 
       return null;
     }
@@ -396,7 +693,11 @@ export class AWSSecretProvider implements ISecretProvider {
     userId?: string
   ): Promise<boolean> {
     try {
-      const metadata = await this.getSecretMetadata(tenantId, secretKey, userId);
+      const metadata = await this.getSecretMetadata(
+        tenantId,
+        secretKey,
+        userId
+      );
       return metadata !== null;
     } catch (error) {
       return false;
@@ -419,29 +720,32 @@ export class AWSSecretProvider implements ISecretProvider {
       action,
       result,
       error,
-      metadata
+      metadata,
     };
 
-    if (result === 'SUCCESS') {
-      if (action === 'ROTATE') {
+    if (result === "SUCCESS") {
+      if (action === "ROTATE") {
         await this.auditLogger.logRotation(event);
       } else {
         await this.auditLogger.logAccess(event);
       }
     } else {
-      await this.auditLogger.logDenied({ ...event, reason: error || 'Unknown error' });
+      await this.auditLogger.logDenied({
+        ...event,
+        reason: error || "Unknown error",
+      });
     }
   }
 
   private maskSecretKey(key: string): string {
-    if (key === 'ALL' || key.length <= 8) {
+    if (key === "ALL" || key.length <= 8) {
       return key;
     }
     return `${key.substring(0, 4)}...${key.substring(key.length - 4)}`;
   }
 
   getProviderName(): string {
-    return 'aws';
+    return "aws";
   }
 
   async healthCheck(): Promise<boolean> {
@@ -451,7 +755,10 @@ export class AWSSecretProvider implements ISecretProvider {
       await this.client.send(command);
       return true;
     } catch (error) {
-      logger.error('AWS provider health check failed', error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        "AWS provider health check failed",
+        error instanceof Error ? error : new Error(String(error))
+      );
       return false;
     }
   }

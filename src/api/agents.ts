@@ -5,37 +5,47 @@ import { rateLimiters } from "../middleware/rateLimiter";
 import { validateRequest } from "../middleware/inputValidation";
 import { logger } from "../lib/logger";
 import { requirePermission } from "../middleware/rbac";
-import { getUnifiedAgentAPI } from "../services/UnifiedAgentAPI";
+import { getEventProducer } from "../services/EventProducer";
+import {
+  createBaseEvent,
+  EVENT_TOPICS,
+  AgentRequestEvent,
+} from "../types/events";
 import { AgentType } from "../services/agent-types";
+import { v4 as uuidv4 } from "uuid";
 
 const router = Router();
 router.use(securityHeadersMiddleware);
 router.use(requirePermission("agents.execute"));
 
-router.get("/:agentId/info", rateLimiters.loose, (req: Request, res: Response) => {
-  const { agentId } = req.params;
-  const modelCard = modelCardService.getModelCard(agentId as string);
+router.get(
+  "/:agentId/info",
+  rateLimiters.loose,
+  (req: Request, res: Response) => {
+    const { agentId } = req.params;
+    const modelCard = modelCardService.getModelCard(agentId as string);
 
-  if (!modelCard) {
-    return res.status(404).json({
-      error: "Model card not found",
-      message: `No model metadata available for agent ${agentId}`,
+    if (!modelCard) {
+      return res.status(404).json({
+        error: "Model card not found",
+        message: `No model metadata available for agent ${agentId}`,
+      });
+    }
+
+    res.setHeader("x-model-card-version", modelCard.schemaVersion);
+
+    return res.json({
+      success: true,
+      data: {
+        agent_id: agentId,
+        model_card: modelCard.modelCard,
+      },
     });
   }
-
-  res.setHeader("x-model-card-version", modelCard.schemaVersion);
-
-  return res.json({
-    success: true,
-    data: {
-      agent_id: agentId,
-      model_card: modelCard.modelCard,
-    },
-  });
-});
+);
 
 /**
- * Invoke an agent with rate limiting
+ * Invoke an agent asynchronously using event-driven architecture
  */
 router.post(
   "/:agentId/invoke",
@@ -67,30 +77,66 @@ router.post(
     }
 
     try {
-      const api = getUnifiedAgentAPI();
+      const eventProducer = getEventProducer();
+      const correlationId = uuidv4();
       const userId = (req as any).user?.id;
 
-      const response = await api.invoke({
-        agent: agentId as AgentType,
-        query,
-        context,
-        parameters,
-        sessionId,
+      // Create agent request event
+      const agentRequestEvent: AgentRequestEvent = {
+        ...createBaseEvent("agent.request", correlationId, "agent-api"),
+        payload: {
+          agentId,
+          userId,
+          sessionId,
+          tenantId,
+          query,
+          context,
+          parameters,
+          priority: "normal",
+          timeout: 30000, // 30 seconds default timeout
+        },
+      };
+
+      // Publish event to Kafka
+      await eventProducer.publish(
+        EVENT_TOPICS.AGENT_REQUESTS,
+        agentRequestEvent
+      );
+
+      logger.info("Agent request event published", {
+        agentId,
+        correlationId,
         userId,
+        tenantId,
+        sessionId,
       });
 
-      res.json(response);
-    } catch (error) {
-      logger.error("Agent invocation failed", error instanceof Error ? error : undefined, {
-        agentId,
-        sessionId,
-        tenantId, // Add tenant context
-        userId: (req as any).user?.id,
+      // Return job ID for tracking
+      res.json({
+        success: true,
+        data: {
+          jobId: correlationId,
+          status: "queued",
+          agentId,
+          estimatedDuration: "30s",
+          message: "Agent request has been queued for processing",
+        },
       });
+    } catch (error) {
+      logger.error(
+        "Agent request event publishing failed",
+        error instanceof Error ? error : undefined,
+        {
+          agentId,
+          sessionId,
+          tenantId,
+          userId: (req as any).user?.id,
+        }
+      );
 
       res.status(500).json({
         success: false,
-        error: "Agent invocation failed",
+        error: "Agent request failed",
         message: error instanceof Error ? error.message : "Unknown error",
       });
     }
@@ -98,7 +144,10 @@ router.post(
 );
 
 router.use((err: unknown, _req: Request, res: Response) => {
-  logger.error("Agent info endpoint failed", err instanceof Error ? err : undefined);
+  logger.error(
+    "Agent info endpoint failed",
+    err instanceof Error ? err : undefined
+  );
   res.status(500).json({
     error: "agent_info_error",
     message: "Unable to load model card information",

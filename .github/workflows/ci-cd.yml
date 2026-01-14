@@ -189,12 +189,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to staging
+      - name: Configure kubectl for staging
         run: |
           echo "Deploying ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }} to staging"
-          # Add your staging deployment commands here
-          # This would typically involve updating a deployment manifest
-          # and triggering a deployment to your staging environment
+          # Configure kubectl for staging cluster
+          aws eks update-kubeconfig --name valuecanvas-staging-cluster --region us-east-1
+          # Update backend deployment image
+          kubectl set image deployment/backend backend=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }} -n valuecanvas-staging
+          # Update frontend deployment image
+          kubectl set image deployment/frontend frontend=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }} -n valuecanvas-staging
+          # Wait for rollout to complete
+          kubectl rollout status deployment/backend -n valuecanvas-staging --timeout=600s
+          kubectl rollout status deployment/frontend -n valuecanvas-staging --timeout=600s
 
       - name: Run E2E tests
         run: |
@@ -224,8 +230,18 @@ jobs:
       - name: Deploy to production
         run: |
           echo "Deploying ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }} to production"
-          # Add your production deployment commands here
-          # This would typically use the blue-green deployment script
+          # Configure kubectl for production cluster
+          aws eks update-kubeconfig --name valuecanvas-production-cluster --region us-east-1
+          # Update backend deployment image with blue-green deployment
+          kubectl set image deployment/backend backend=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }} -n valuecanvas-production
+          # Update frontend deployment image
+          kubectl set image deployment/frontend frontend=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }} -n valuecanvas-production
+          # Wait for rollout to complete
+          kubectl rollout status deployment/backend -n valuecanvas-production --timeout=900s
+          kubectl rollout status deployment/frontend -n valuecanvas-production --timeout=900s
+          # Verify deployment health
+          kubectl wait --for=condition=ready pod -l app=backend -n valuecanvas-production --timeout=300s
+          kubectl wait --for=condition=ready pod -l app=frontend -n valuecanvas-production --timeout=300s
 
   # Rollback Monitoring
   rollback-monitor:
