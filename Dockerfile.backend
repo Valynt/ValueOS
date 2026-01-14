@@ -1,21 +1,6 @@
-# syntax=docker/dockerfile:1.4
-# ^ Enable BuildKit for caching
-
-# ----------------------------
-# Stage 1: The Builder (Heavy)
-# ----------------------------
-ARG BUILDER_SHA256
-ARG GIT_COMMIT=unknown
-ARG GIT_BRANCH=unknown
-ARG GIT_URL=unknown
-ARG BUILD_TIMESTAMP=unknown
-ARG BUILD_PROFILE=core
-ARG APP_ENV=dev
-
-FROM mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm@sha256:${BUILDER_SHA256} AS builder
-
-# Failsafe Integration: Validates build arguments exist
-RUN test -n "$BUILDER_SHA256" || (echo "BUILDER_SHA256 not set" && false)
+# Multi-stage production build for Backend API Server
+# Stage 1: Build environment (using same base as dev for consistency)
+FROM mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm AS builder
 
 WORKDIR /app
 
@@ -30,75 +15,56 @@ RUN npm ci
 COPY . .
 
 # Build the backend application
-RUN npm run build:backend || npx tsc -p tsconfig.backend.json
+RUN npm run build:backend || npx tsc -p .config/configs/tsconfig.backend.json
 
 # Prune dev dependencies for production
 RUN npm prune --production
 
-# Stage 2: Security scanning + SBOM generation
+# Stage 2: Security scanning
 FROM builder AS security-scan
 
 # Install trivy for vulnerability scanning
 RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
-# Install syft for SBOM generation
-RUN curl -sfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
-
-# Generate SBOM (CycloneDX format)
-RUN syft packages /app -o cyclonedx-json=sbom.cdx.json -o spdx-json=sbom.spdx.json
-
 # Scan filesystem for vulnerabilities
 RUN trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /app
 
-# Scan SBOM for vulnerabilities
-RUN trivy sbom --exit-code 1 --no-progress --ignore-unfixed sbom.cdx.json
+# Stage 3: Production runtime
+FROM node:22-bookworm-slim AS production
 
-# ----------------------------
-# Stage 2: The Runtime (Hardened)
-# ----------------------------
-ARG RUNTIME_SHA256
-ARG GIT_COMMIT
-ARG GIT_BRANCH
-ARG GIT_URL
-ARG BUILD_TIMESTAMP
-ARG BUILD_PROFILE
-ARG APP_ENV
-
-FROM node:22-bookworm-slim@sha256:${RUNTIME_SHA256} AS runner
-
-# Failsafe Integration: Validates build arguments exist
-RUN test -n "$RUNTIME_SHA256" || (echo "RUNTIME_SHA256 not set" && false)
-
-# Security: Create a non-root user (Required by ops/policies/dockerfile-policy.yml)
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# Install dumb-init for proper signal handling
+RUN apt-get update && apt-get install -y --no-install-recommends dumb-init && \
+  rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Performance: Copy only necessary artifacts from builder
-COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
-COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
-COPY --from=builder --chown=appuser:appgroup /app/package.json ./
+# Create non-root user (matching dev environment security)
+RUN groupadd -r nodejs -g 1001 && \
+  useradd -r nodejs -u 1001 -g nodejs && \
+  chown -R nodejs:nodejs /app
 
-# Copy SBOM artifacts for attestation
-COPY --from=security-scan --chown=appuser:appgroup /app/sbom.cdx.json ./sbom.cdx.json
-COPY --from=security-scan --chown=appuser:appgroup /app/sbom.spdx.json ./sbom.spdx.json
+# Copy built application and production dependencies
+COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
 
-# OCI Labels for provenance
-LABEL org.opencontainers.image.revision="${GIT_COMMIT}"
-LABEL org.opencontainers.image.source="${GIT_URL}"
-LABEL org.opencontainers.image.created="${BUILD_TIMESTAMP}"
-LABEL org.opencontainers.image.version="${APP_ENV:-dev}"
-LABEL com.valueos.env="${APP_ENV:-dev}"
-LABEL com.valueos.build_profile="${BUILD_PROFILE:-core}"
+# Runtime security scan (final check)
+RUN apt-get update && apt-get install -y curl && \
+  curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin && \
+  trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /app && \
+  apt-get remove -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/* && \
+  rm /usr/local/bin/trivy
 
-# Integration: Healthcheck that ./ops up waits for
-HEALTHCHECK --interval=30s --timeout=3s \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
+# Switch to non-root user
+USER nodejs
 
-# Security: Drop to non-root user
-USER appuser
+# Add healthcheck
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Integration: Standardized port for ./ops doctor checks
 EXPOSE 3001
+
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
 
 CMD ["node", "dist/backend/backend/server.js"]

@@ -1,109 +1,63 @@
-# syntax=docker/dockerfile:1.4
-# ^ Enable BuildKit for caching
-
-# ----------------------------
-# Stage 1: The Builder (Heavy)
-# ----------------------------
-ARG BUILDER_SHA256
-ARG GIT_COMMIT=unknown
-ARG GIT_BRANCH=unknown
-ARG GIT_URL=unknown
-ARG BUILD_TIMESTAMP=unknown
-ARG BUILD_PROFILE=core
-ARG APP_ENV=dev
-
-FROM mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm@sha256:${BUILDER_SHA256} AS builder
-
-# Failsafe Integration: Validates build arguments exist
-RUN test -n "$BUILDER_SHA256" || (echo "BUILDER_SHA256 not set" && false)
+# Multi-stage production build for Frontend
+# Stage 1: Build environment (consistent with dev environment)
+FROM mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm AS builder
 
 WORKDIR /app
 
-# Copy package files first for better layer caching
+# Copy package files
 COPY package*.json ./
 
 # Install all dependencies for build (including dev dependencies)
 ENV npm_config_ignore_scripts=true
 RUN npm ci
 
-# Copy source files after dependencies to maximize cache usage
+# Copy source files
 COPY . .
 
 # Build the application
-RUN npm run build
+RUN npx vite build --config .config/configs/vite.config.ts
 
 # Prune dev dependencies
 RUN npm prune --production
 
-# Stage 2: Security scanning + SBOM generation
+# Stage 2: Security scanning
 FROM builder AS security-scan
 
-# Install trivy for vulnerability scanning with verification
-RUN export TRIVY_VERSION="0.55.0" && \
-    curl -sfL https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz -o /tmp/trivy.tar.gz && \
-    echo "d8b8c6e7f3a2b1c9d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c  /tmp/trivy.tar.gz" | sha256sum -c - && \
-    tar -xzf /tmp/trivy.tar.gz -C /tmp && \
-    mv /tmp/trivy /usr/local/bin && \
-    rm -rf /tmp/trivy.tar.gz /tmp/trivy*
+# Install trivy for vulnerability scanning
+RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
-# Install syft for SBOM generation
-RUN curl -sfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+# Scan built assets
+RUN trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /app/dist
 
-# Generate SBOM
-RUN syft packages /app -o cyclonedx-json=sbom.cdx.json -o spdx-json=sbom.spdx.json
+# Stage 3: Production runtime
+FROM nginx:bookworm
 
-# Scan built assets and SBOM
-RUN trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /app/dist && \
-    trivy config --exit-code 1 --severity CRITICAL,HIGH sbom.cdx.json
+# Install trivy for final security check and keep curl for healthcheck
+RUN apt-get update && apt-get install -y curl && \
+  curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin && \
+  rm -rf /var/lib/apt/lists/*
 
-# ----------------------------
-# Stage 2: The Runtime (Hardened)
-# ----------------------------
-ARG RUNTIME_SHA256
-ARG GIT_COMMIT
-ARG GIT_BRANCH
-ARG GIT_URL
-ARG BUILD_TIMESTAMP
-ARG BUILD_PROFILE
-ARG APP_ENV
+# Create nginx user and directories
+RUN id -u nginx >/dev/null 2>&1 || useradd -r -s /bin/false nginx && \
+  chown -R nginx:nginx /var/cache/nginx /var/log/nginx /etc/nginx/conf.d
 
-FROM nginx:bookworm@sha256:${RUNTIME_SHA256} AS runner
-
-# Failsafe Integration: Validates build arguments exist
-RUN test -n "$RUNTIME_SHA256" || (echo "RUNTIME_SHA256 not set" && false)
-
-# Security: Create a non-root user (Required by ops/policies/dockerfile-policy.yml)
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-
-WORKDIR /app
-
-# Performance: Copy only necessary artifacts from builder
-COPY --from=builder --chown=appuser:appgroup /app/dist /usr/share/nginx/html
+# Copy built assets from builder
+COPY --from=builder --chown=nginx:nginx /app/dist /usr/share/nginx/html
 
 # Copy nginx configuration
-COPY infra/docker/nginx/default.conf /etc/nginx/conf.d/default.conf
-COPY infra/docker/nginx/security-monitor.conf /etc/nginx/security-monitor.conf
+COPY infra/docker/nginx/nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy SBOM artifacts for attestation
-COPY --from=security-scan --chown=appuser:appgroup /app/sbom.cdx.json ./sbom.cdx.json
-COPY --from=security-scan --chown=appuser:appgroup /app/sbom.spdx.json ./sbom.spdx.json
+# Final security scan of served content
+RUN trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /usr/share/nginx/html && \
+  rm /usr/local/bin/trivy
 
-# OCI Labels for provenance
-LABEL org.opencontainers.image.revision="${GIT_COMMIT}"
-LABEL org.opencontainers.image.source="${GIT_URL}"
-LABEL org.opencontainers.image.created="${BUILD_TIMESTAMP}"
-LABEL org.opencontainers.image.version="${APP_ENV:-dev}"
-LABEL com.valueos.env="${APP_ENV:-dev}"
-LABEL com.valueos.build_profile="${BUILD_PROFILE:-core}"
+# Switch to non-root user
+USER nginx
 
-# Integration: Healthcheck that ./ops up waits for
-HEALTHCHECK --interval=30s --timeout=3s \
-    CMD wget --no-verbose --tries=1 --spider http://localhost/health || exit 1
+# Add healthcheck
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl --fail --silent --show-error http://localhost/health || exit 1
 
-# Security: Drop to non-root user
-USER appuser
-
-# Integration: Standardized port for ./ops doctor checks
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]

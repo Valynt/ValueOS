@@ -8,64 +8,42 @@ const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '../..');
 const portsPath = path.join(projectRoot, 'config', 'ports.json');
 
-const defaultPorts = {
-  frontend: {
-    port: 5173,
-    hmrPort: 24678
-  },
-  backend: {
-    port: 3001
-  },
-  postgres: {
-    port: 5432
-  },
-  redis: {
-    port: 6379
-  },
-  supabase: {
-    apiPort: 54321,
-    studioPort: 54323
-  },
-  edge: {
-    httpPort: 8080,
-    httpsPort: 8443,
-    adminPort: 2019
-  },
-  observability: {
-    prometheusPort: 9090,
-    grafanaPort: 3000,
-    jaegerPort: 16686,
-    lokiPort: 3100,
-    tempoPort: 3200,
-    tempoOtlpGrpcPort: 4317,
-    tempoOtlpHttpPort: 4318
-  }
-};
-
-function mergeObjects(base, override) {
-  const result = { ...base };
-  if (!override || typeof override !== 'object') {
-    return result;
-  }
-
-  Object.entries(override).forEach(([key, value]) => {
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
-      result[key] = mergeObjects(base[key] ?? {}, value);
-    } else {
-      result[key] = value;
-    }
-  });
-
-  return result;
+export function loadPorts() {
+  const raw = fs.readFileSync(portsPath, 'utf8');
+  const parsed = JSON.parse(raw);
+  validatePorts(parsed);
+  console.log('✅ Loaded ports configuration from', portsPath);
+  return parsed;
 }
 
-export function loadPorts() {
-  try {
-    const raw = fs.readFileSync(portsPath, 'utf8');
-    const parsed = JSON.parse(raw);
-    return mergeObjects(defaultPorts, parsed);
-  } catch (error) {
-    return { ...defaultPorts };
+function validatePorts(ports) {
+  const usedPorts = new Set();
+  const conflicts = [];
+
+  function checkPort(service, portName, portValue) {
+    if (typeof portValue !== 'number' || !Number.isInteger(portValue)) {
+      throw new Error(`${service}.${portName} must be an integer, got ${portValue}`);
+    }
+    if (portValue < 1 || portValue > 65535) {
+      throw new Error(`${service}.${portName} must be between 1-65535, got ${portValue}`);
+    }
+    if (usedPorts.has(portValue)) {
+      conflicts.push(`${service}.${portName} conflicts with existing port ${portValue}`);
+    } else {
+      usedPorts.add(portValue);
+    }
+  }
+
+  Object.entries(ports).forEach(([service, config]) => {
+    Object.entries(config).forEach(([key, value]) => {
+      if (key.includes('Port') || key === 'port') {
+        checkPort(service, key, value);
+      }
+    });
+  });
+
+  if (conflicts.length > 0) {
+    throw new Error(`Port conflicts detected:\n${conflicts.join('\n')}`);
   }
 }
 
@@ -79,24 +57,43 @@ export function resolvePort(value, fallback) {
 
 export function formatPortsEnv(ports) {
   return [
+    '# ValueOS Port Configuration',
     '# Generated from config/ports.json',
-    `VITE_PORT=${ports.frontend.port}`,
-    `VITE_HMR_PORT=${ports.frontend.hmrPort}`,
-    `API_PORT=${ports.backend.port}`,
+    '',
+    '# Database Ports',
     `POSTGRES_PORT=${ports.postgres.port}`,
     `REDIS_PORT=${ports.redis.port}`,
+    '',
+    '# Application Ports',
+    `API_PORT=${ports.backend.port}`,
+    `VITE_PORT=${ports.frontend.port}`,
+    '',
+    '# Supabase Ports (if running locally)',
     `SUPABASE_API_PORT=${ports.supabase.apiPort}`,
     `SUPABASE_STUDIO_PORT=${ports.supabase.studioPort}`,
+    '',
+    '# Reverse Proxy Ports',
     `CADDY_HTTP_PORT=${ports.edge.httpPort}`,
     `CADDY_HTTPS_PORT=${ports.edge.httpsPort}`,
     `CADDY_ADMIN_PORT=${ports.edge.adminPort}`,
+    '',
+    '# Observability Ports',
     `PROMETHEUS_PORT=${ports.observability.prometheusPort}`,
     `GRAFANA_PORT=${ports.observability.grafanaPort}`,
-    `JAEGER_PORT=${ports.observability.jaegerPort}`,
-    `LOKI_PORT=${ports.observability.lokiPort}`,
-    `TEMPO_PORT=${ports.observability.tempoPort}`,
-    `TEMPO_OTLP_GRPC_PORT=${ports.observability.tempoOtlpGrpcPort}`,
-    `TEMPO_OTLP_HTTP_PORT=${ports.observability.tempoOtlpHttpPort}`,
+    '',
+    '# Security Configuration',
+    'GRAFANA_ADMIN_PASSWORD=admin',
+    '',
+    '# Development Domain',
+    'DEV_DOMAIN=localhost',
+    '',
+    '# Service URLs (auto-configured)',
+    `API_UPSTREAM=http://backend:${ports.backend.port}`,
+    `FRONTEND_UPSTREAM=http://frontend:80`,
+    '',
+    '# Logging Configuration',
+    'CADDY_LOG_LEVEL=DEBUG',
+    'AUTO_HTTPS=off',
     ''
   ].join('\n');
 }
@@ -105,6 +102,7 @@ export function writePortsEnvFile(destination = path.join(projectRoot, '.env.por
   const ports = loadPorts();
   const content = formatPortsEnv(ports);
   fs.writeFileSync(destination, content, 'utf8');
+  console.log(`✅ Wrote ports env file to ${destination}`);
   return destination;
 }
 

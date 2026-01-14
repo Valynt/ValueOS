@@ -43,7 +43,7 @@ services:
       dockerfile: Dockerfile.backend
     container_name: valueos-backend
     ports:
-      - "${API_PORT:-3001}:${API_PORT:-3001}"
+      - "${API_PORT:-3001}:3001"
     deploy:
       resources:
         limits:
@@ -103,11 +103,11 @@ services:
     ports:
       - "${CADDY_HTTP_PORT:-8080}:80"
       - "${CADDY_HTTPS_PORT:-8443}:443"
-      - "${CADDY_ADMIN_PORT:-2019}:2019"
+      - "127.0.0.1:${CADDY_ADMIN_PORT:-2019}:2019"
     environment:
       DEV_DOMAIN: ${DEV_DOMAIN:-localhost}
       API_UPSTREAM: ${API_UPSTREAM:-http://backend:${API_PORT:-3001}}
-      FRONTEND_UPSTREAM: ${FRONTEND_UPSTREAM:-http://frontend:${VITE_PORT:-5173}}
+      FRONTEND_UPSTREAM: ${FRONTEND_UPSTREAM:-http://frontend:80}
       CADDY_ADMIN: ${CADDY_ADMIN:-0.0.0.0:${CADDY_ADMIN_PORT:-2019}}
       CADDY_LOG_DIR: /var/log/caddy
       CADDY_STORAGE: /data

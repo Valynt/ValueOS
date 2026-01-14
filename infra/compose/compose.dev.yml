@@ -10,7 +10,7 @@ services:
     ports:
       - "8080:80"
       - "8443:443"
-      - "2019:2019"
+      - "127.0.0.1:2019:2019"
     environment:
       API_UPSTREAM: http://backend:8000
       FRONTEND_UPSTREAM: http://frontend:5173

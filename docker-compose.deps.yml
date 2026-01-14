@@ -43,7 +43,7 @@ services:
       dockerfile: Dockerfile.backend
     container_name: valueos-backend
     ports:
-      - "${API_PORT:-3001}:${API_PORT:-3001}"
+      - "${API_PORT:-3001}:3001"
     deploy:
       resources:
         limits:
@@ -107,7 +107,7 @@ services:
     environment:
       DEV_DOMAIN: ${DEV_DOMAIN:-localhost}
       API_UPSTREAM: ${API_UPSTREAM:-http://backend:${API_PORT:-3001}}
-      FRONTEND_UPSTREAM: ${FRONTEND_UPSTREAM:-http://frontend:${VITE_PORT:-5173}}
+      FRONTEND_UPSTREAM: ${FRONTEND_UPSTREAM:-http://frontend:80}
       CADDY_ADMIN: ${CADDY_ADMIN:-0.0.0.0:${CADDY_ADMIN_PORT:-2019}}
       CADDY_LOG_DIR: /var/log/caddy
       CADDY_STORAGE: /data
@@ -150,7 +150,7 @@ services:
     ports:
       - "${GRAFANA_PORT:-3000}:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana_data:/var/lib/grafana
