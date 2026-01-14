@@ -47,11 +47,7 @@ import { renderPage, RenderPageOptions } from "../sdui/renderPage";
 import { WorkflowDAG, WorkflowEvent, WorkflowStage } from "../types/workflow";
 import { AgentRoutingLayer, StageRoute } from "./AgentRoutingLayer";
 import { supabase } from "../lib/supabase";
-import { getAutonomyConfig } from "../config/autonomy";
-import { MemorySystem } from "../lib/agent-fabric/MemorySystem";
-import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
-import { llmConfig } from "../config/llm";
-import { z } from "zod";
+import { featureFlags } from "../config/featureFlags";
 
 // ============================================================================
 // Types
@@ -241,7 +237,8 @@ export class UnifiedAgentOrchestrator {
   private llmGateway: LLMGateway;
   private messageBroker: AgentMessageBroker;
   private agentMessageQueue: AgentMessageQueue;
-  private executionStartTimes: Map<string, number> = new Map();
+  private agentInvocationTimes: Map<string, number[]> = new Map();
+  private maxAgentInvocationsPerMinute = 20; // Conservative limit per agent type
 
   constructor(config: Partial<OrchestratorConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -315,7 +312,32 @@ export class UnifiedAgentOrchestrator {
   }
 
   /**
-   * Process a user query asynchronously using message queue
+   * Check if agent invocation rate limit is exceeded
+   */
+  private checkAgentRateLimit(agentType: AgentType): boolean {
+    const now = Date.now();
+    const windowMs = 60 * 1000; // 1 minute window
+    const times = this.agentInvocationTimes.get(agentType) || [];
+
+    // Remove invocations outside the window
+    const validTimes = times.filter(time => now - time < windowMs);
+
+    // Check if we're within limits
+    if (validTimes.length >= this.maxAgentInvocationsPerMinute) {
+      logger.warn("Agent rate limit exceeded", {
+        agentType,
+        invocationCount: validTimes.length,
+        limit: this.maxAgentInvocationsPerMinute,
+      });
+      return false;
+    }
+
+    // Add current invocation
+    validTimes.push(now);
+    this.agentInvocationTimes.set(agentType, validTimes);
+
+    return true;
+  }
    *
    * @param query User query
    * @param currentState Current workflow state
@@ -353,6 +375,11 @@ export class UnifiedAgentOrchestrator {
 
     // Determine which agent to use based on query and current stage
     const agentType = this.selectAgent(query, currentState);
+
+    // Check inter-agent rate limit
+    if (!this.checkAgentRateLimit(agentType)) {
+      throw new Error(`Agent ${agentType} rate limit exceeded`);
+    }
 
     logger.debug("Agent selected for async execution", {
       traceId,
@@ -521,23 +548,77 @@ export class UnifiedAgentOrchestrator {
     sessionId: string,
     traceId: string = uuidv4()
   ): Promise<ProcessQueryResult> {
-    this.validateExecutionIntent(envelope);
+    // Check if async execution is enabled
+    if (featureFlags.ENABLE_ASYNC_AGENT_EXECUTION) {
+      logger.info("Using async agent execution", { traceId, sessionId });
 
-    if (
-      currentState.context?.organizationId &&
-      currentState.context.organizationId !== envelope.organizationId
-    ) {
-      throw new Error(
-        "Execution envelope organization does not match workflow state"
+      // Queue async execution
+      const { jobId } = await this.processQueryAsync(
+        envelope,
+        query,
+        currentState,
+        userId,
+        sessionId,
+        traceId
       );
+
+      // Wait for completion (with reasonable timeout)
+      const result = await this.agentMessageQueue.waitForJobCompletion(
+        jobId,
+        60000
+      ); // 60s timeout
+
+      if (!result.success) {
+        throw new Error(result.error || "Async agent execution failed");
+      }
+
+      // Convert async result to sync result format
+      const nextState: WorkflowState = {
+        ...currentState,
+        context: { ...currentState.context },
+        completedStages: [...currentState.completedStages],
+      };
+
+      // Update state based on async result
+      if (result.data) {
+        nextState.context.conversationHistory = [
+          ...(nextState.context.conversationHistory || []),
+          {
+            role: "user",
+            content: query,
+            timestamp: new Date().toISOString(),
+          },
+          {
+            role: "assistant",
+            content:
+              typeof result.data === "string"
+                ? result.data
+                : JSON.stringify(result.data),
+            timestamp: new Date().toISOString(),
+          },
+        ];
+      }
+
+      nextState.status = "in_progress";
+
+      const response: AgentResponse = {
+        type: "message",
+        payload: {
+          message:
+            typeof result.data === "string"
+              ? result.data
+              : JSON.stringify(result.data),
+        },
+      };
+
+      return {
+        response,
+        nextState,
+        traceId: result.traceId,
+      };
     }
-    logger.info("Processing query", {
-      traceId,
-      sessionId,
-      userId,
-      currentStage: currentState.currentStage,
-      queryLength: query.length,
-    });
+
+    // Original synchronous execution path
 
     try {
       // Create immutable copy of state

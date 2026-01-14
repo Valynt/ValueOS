@@ -11,9 +11,24 @@ interface HealthCheckMetric {
   error?: string;
 }
 
+interface HealthStatusSnapshot {
+  timestamp: number;
+  overallStatus: "healthy" | "degraded" | "unhealthy";
+  checks: Record<
+    string,
+    {
+      status: "healthy" | "degraded" | "unhealthy" | "not_configured";
+      latency?: number;
+      message?: string;
+    }
+  >;
+}
+
 class HealthMetricsCollector {
   private metrics: HealthCheckMetric[] = [];
+  private healthHistory: HealthStatusSnapshot[] = [];
   private readonly maxMetrics = 1000; // Keep last 1000 metrics
+  private readonly maxHistory = 100; // Keep last 100 health snapshots
 
   recordMetric(
     service: string,
@@ -35,6 +50,85 @@ class HealthMetricsCollector {
     if (this.metrics.length > this.maxMetrics) {
       this.metrics = this.metrics.slice(-this.maxMetrics);
     }
+  }
+
+  recordHealthSnapshot(
+    overallStatus: "healthy" | "degraded" | "unhealthy",
+    checks: Record<string, any>
+  ): void {
+    const snapshot: HealthStatusSnapshot = {
+      timestamp: Date.now(),
+      overallStatus,
+      checks: { ...checks },
+    };
+
+    this.healthHistory.push(snapshot);
+
+    // Keep only recent snapshots
+    if (this.healthHistory.length > this.maxHistory) {
+      this.healthHistory = this.healthHistory.slice(-this.maxHistory);
+    }
+  }
+
+  getHealthHistory(timeWindowMs: number = 86400000): HealthStatusSnapshot[] {
+    // Default 24 hours
+    const cutoff = Date.now() - timeWindowMs;
+    return this.healthHistory.filter(
+      (snapshot) => snapshot.timestamp >= cutoff
+    );
+  }
+
+  getHealthTrends(timeWindowMs: number = 3600000): {
+    overall: {
+      healthy: number;
+      degraded: number;
+      unhealthy: number;
+      total: number;
+    };
+    services: Record<
+      string,
+      {
+        healthy: number;
+        degraded: number;
+        unhealthy: number;
+        notConfigured: number;
+        total: number;
+      }
+    >;
+  } {
+    const history = this.getHealthHistory(timeWindowMs);
+
+    const overall = {
+      healthy: 0,
+      degraded: 0,
+      unhealthy: 0,
+      total: history.length,
+    };
+
+    const services: Record<string, any> = {};
+
+    for (const snapshot of history) {
+      // Count overall status
+      overall[snapshot.overallStatus]++;
+
+      // Count service statuses
+      for (const [service, check] of Object.entries(snapshot.checks)) {
+        if (!services[service]) {
+          services[service] = {
+            healthy: 0,
+            degraded: 0,
+            unhealthy: 0,
+            notConfigured: 0,
+            total: 0,
+          };
+        }
+
+        services[service][check.status]++;
+        services[service].total++;
+      }
+    }
+
+    return { overall, services };
   }
 
   getMetrics(

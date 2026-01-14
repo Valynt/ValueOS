@@ -7,6 +7,14 @@
 
 import { logger } from "../../lib/logger";
 import { EventEmitter } from "events";
+import {
+  getRedisClient,
+  isRedisConnected,
+  setCache,
+  getCache,
+  deleteCache,
+  deleteCachePattern,
+} from "../../lib/redis";
 
 // ============================================================================
 // Types
@@ -69,7 +77,6 @@ export interface CacheOptions {
 export class AgentCache extends EventEmitter {
   private config: CacheConfig;
   private l1Cache = new Map<string, CacheEntry>();
-  private l2Cache: Map<string, CacheEntry> | null = null; // Mock Redis for now
 
   // Statistics
   private stats = {
@@ -91,7 +98,7 @@ export class AgentCache extends EventEmitter {
       l1MaxSize: 256, // 256 MB
       l1MaxEntries: 10000,
       l1DefaultTtl: 300, // 5 minutes
-      l2Enabled: false, // Disabled until Redis is available
+      l2Enabled: isRedisConnected(), // Enable L2 if Redis is connected
       l2DefaultTtl: 1800, // 30 minutes
       l2KeyPrefix: "agent-cache:",
       evictionPolicy: "lru",
@@ -102,9 +109,12 @@ export class AgentCache extends EventEmitter {
       ...config,
     };
 
-    if (this.config.l2Enabled) {
-      this.l2Cache = new Map<string, CacheEntry>();
-    }
+    logger.info("AgentCache initialized", {
+      l1MaxSize: this.config.l1MaxSize,
+      l1MaxEntries: this.config.l1MaxEntries,
+      l2Enabled: this.config.l2Enabled,
+      redisConnected: isRedisConnected(),
+    });
 
     this.startCleanup();
     this.startStatsReporting();
@@ -132,25 +142,25 @@ export class AgentCache extends EventEmitter {
     }
 
     // Try L2 cache if enabled
-    if (this.config.l2Enabled && this.l2Cache) {
-      const l2Entry = this.l2Cache.get(key);
-      if (l2Entry && !this.isExpired(l2Entry)) {
+    if (this.config.l2Enabled && isRedisConnected()) {
+      const l2Key = `${this.config.l2KeyPrefix}${key}`;
+      const l2Value = await getCache<CacheEntry<T>>(l2Key);
+
+      if (l2Value && !this.isExpired(l2Value)) {
         // Promote to L1 cache
-        await this.set(key, l2Entry.value, {
-          ttl: l2Entry.ttl,
-          metadata: { ...l2Entry.metadata, promotedFrom: "L2" },
+        await this.set(key, l2Value.value, {
+          ttl: l2Value.ttl / 1000, // Convert back to seconds
+          metadata: { ...l2Value.metadata, promotedFrom: "L2" },
         });
 
-        l2Entry.accessCount++;
-        l2Entry.lastAccessed = Date.now();
         this.stats.hits++;
         this.emit("cacheHit", { key, level: "L2" });
-        return l2Entry.value;
+        return l2Value.value;
       }
 
       // Remove expired L2 entry
-      if (l2Entry && this.isExpired(l2Entry)) {
-        this.l2Cache.delete(key);
+      if (l2Value && this.isExpired(l2Value)) {
+        await deleteCache(l2Key);
       }
     }
 
@@ -162,7 +172,11 @@ export class AgentCache extends EventEmitter {
   /**
    * Set value in cache (L1 and optionally L2)
    */
-  async set<T = any>(key: string, value: T, options: CacheOptions = {}): Promise<void> {
+  async set<T = any>(
+    key: string,
+    value: T,
+    options: CacheOptions = {}
+  ): Promise<void> {
     const ttl = options.ttl || this.config.l1DefaultTtl;
     const size = this.calculateSize(value);
 
@@ -187,13 +201,13 @@ export class AgentCache extends EventEmitter {
     this.stats.sets++;
 
     // Set in L2 cache if enabled
-    if (this.config.l2Enabled && this.l2Cache) {
-      const l2Ttl = options.ttl || this.config.l2DefaultTtl;
+    if (this.config.l2Enabled && isRedisConnected()) {
+      const l2Key = `${this.config.l2KeyPrefix}${key}`;
       const l2Entry: CacheEntry<T> = {
         ...entry,
         ttl: l2Ttl * 1000,
       };
-      this.l2Cache.set(key, l2Entry);
+      await setCache(l2Key, l2Entry, l2Ttl);
     }
 
     this.emit("cacheSet", { key, size, ttl });
@@ -206,8 +220,9 @@ export class AgentCache extends EventEmitter {
     const l1Deleted = this.l1Cache.delete(key);
     let l2Deleted = false;
 
-    if (this.config.l2Enabled && this.l2Cache) {
-      l2Deleted = this.l2Cache.delete(key);
+    if (this.config.l2Enabled && isRedisConnected()) {
+      const l2Key = `${this.config.l2KeyPrefix}${key}`;
+      l2Deleted = await deleteCache(l2Key);
     }
 
     const deleted = l1Deleted || l2Deleted;
@@ -229,9 +244,12 @@ export class AgentCache extends EventEmitter {
       deleted += this.l1Cache.size;
       this.l1Cache.clear();
 
-      if (this.config.l2Enabled && this.l2Cache) {
-        deleted += this.l2Cache.size;
-        this.l2Cache.clear();
+      if (this.config.l2Enabled && isRedisConnected()) {
+        // Clear all L2 entries by pattern
+        const deletedL2 = await deleteCachePattern(
+          `${this.config.l2KeyPrefix}*`
+        );
+        deleted += deletedL2;
       }
     } else {
       // Clear by pattern
@@ -244,13 +262,10 @@ export class AgentCache extends EventEmitter {
         }
       }
 
-      if (this.config.l2Enabled && this.l2Cache) {
-        for (const key of this.l2Cache.keys()) {
-          if (regex.test(key)) {
-            this.l2Cache.delete(key);
-            deleted++;
-          }
-        }
+      if (this.config.l2Enabled && isRedisConnected()) {
+        const l2Pattern = `${this.config.l2KeyPrefix}${pattern}`;
+        const deletedL2 = await deleteCachePattern(l2Pattern);
+        deleted += deletedL2;
       }
     }
 
@@ -265,12 +280,15 @@ export class AgentCache extends EventEmitter {
     const total = this.stats.hits + this.stats.misses;
     const hitRate = total > 0 ? this.stats.hits / total : 0;
     const missRate = total > 0 ? this.stats.misses / total : 0;
-    const evictionRate = this.stats.sets > 0 ? this.stats.evictions / this.stats.sets : 0;
+    const evictionRate =
+      this.stats.sets > 0 ? this.stats.evictions / this.stats.sets : 0;
 
     const entries = Array.from(this.l1Cache.values());
     const totalSize = entries.reduce((sum, entry) => sum + entry.size, 0);
     const averageTtl =
-      entries.length > 0 ? entries.reduce((sum, entry) => sum + entry.ttl, 0) / entries.length : 0;
+      entries.length > 0
+        ? entries.reduce((sum, entry) => sum + entry.ttl, 0) / entries.length
+        : 0;
 
     const timestamps = entries.map((e) => e.timestamp);
     const oldestEntry = timestamps.length > 0 ? Math.min(...timestamps) : 0;
@@ -291,7 +309,9 @@ export class AgentCache extends EventEmitter {
   /**
    * Warm up cache with frequently accessed data
    */
-  async warmup<T = any>(entries: Array<{ key: string; value: T; ttl?: number }>): Promise<void> {
+  async warmup<T = any>(
+    entries: Array<{ key: string; value: T; ttl?: number }>
+  ): Promise<void> {
     logger.info("Starting cache warmup", { entries: entries.length });
 
     for (const entry of entries) {
@@ -310,9 +330,9 @@ export class AgentCache extends EventEmitter {
     this.removeAllListeners();
 
     this.l1Cache.clear();
-    if (this.l2Cache) {
-      this.l2Cache.clear();
-    }
+
+    // Note: Redis connection is managed externally, don't close it here
+    // It may be used by other services
 
     logger.info("Agent cache service shutdown");
   }
@@ -368,15 +388,8 @@ export class AgentCache extends EventEmitter {
       }
     }
 
-    // Clean L2 cache
-    if (this.config.l2Enabled && this.l2Cache) {
-      for (const [key, entry] of this.l2Cache.entries()) {
-        if (this.isExpired(entry)) {
-          this.l2Cache.delete(key);
-          cleaned++;
-        }
-      }
-    }
+    // Note: Redis L2 entries are cleaned up automatically by Redis TTL
+    // We don't need to manually clean them here
 
     if (cleaned > 0) {
       this.emit("cleanup", { cleaned });

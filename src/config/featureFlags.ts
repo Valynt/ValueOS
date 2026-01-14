@@ -1,61 +1,67 @@
 /**
  * Feature Flags Configuration
- * 
+ *
  * CONSOLIDATION: Updated with unified orchestration flags
- * 
+ *
  * Migration Path:
  * 1. ENABLE_UNIFIED_ORCHESTRATION: true -> use UnifiedAgentOrchestrator
  * 2. ENABLE_STATELESS_ORCHESTRATION: deprecated, superseded by unified
- * 
+ *
  * Usage:
  *   import { featureFlags } from '@/config/featureFlags';
  *   if (featureFlags.ENABLE_UNIFIED_ORCHESTRATION) { ... }
  */
 
-import { logger } from '../lib/logger';
+import { logger } from "../lib/logger";
 
 /**
  * Feature flag configuration
  */
 export interface FeatureFlags {
-  /** 
+  /**
    * Enable unified orchestration (consolidates all orchestrators)
    * When enabled: Uses UnifiedAgentOrchestrator
    * When disabled: Falls back to legacy orchestrators
    */
   ENABLE_UNIFIED_ORCHESTRATION: boolean;
-  
-  /** 
+
+  /**
    * @deprecated Use ENABLE_UNIFIED_ORCHESTRATION instead
-   * Enable stateless orchestration (fixes singleton state bug) 
+   * Enable stateless orchestration (fixes singleton state bug)
    */
   ENABLE_STATELESS_ORCHESTRATION: boolean;
-  
+
   /** Enable SafeJSON parser (fixes fragile JSON parsing) */
   ENABLE_SAFE_JSON_PARSER: boolean;
-  
+
   /** Enable input sanitization at entry points */
   ENABLE_INPUT_SANITIZATION: boolean;
-  
+
   /** Enable trace ID logging for observability */
   ENABLE_TRACE_LOGGING: boolean;
-  
+
   /** Enable circuit breaker for agent execution */
   ENABLE_CIRCUIT_BREAKER: boolean;
-  
+
   /** Enable rate limiting */
   ENABLE_RATE_LIMITING: boolean;
-  
+
   /** Enable audit logging */
   ENABLE_AUDIT_LOGGING: boolean;
+
+  /** Enable asynchronous agent execution (prevents blocking requests) */
+  ENABLE_ASYNC_AGENT_EXECUTION: boolean;
 }
 
 /**
  * Parse boolean from environment variable
  */
-function parseBoolean(value: string | undefined, defaultValue: boolean = false): boolean {
+function parseBoolean(
+  value: string | undefined,
+  defaultValue: boolean = false
+): boolean {
   if (value === undefined) return defaultValue;
-  return value.toLowerCase() === 'true' || value === '1';
+  return value.toLowerCase() === "true" || value === "1";
 }
 
 /**
@@ -97,10 +103,14 @@ function loadFeatureFlags(): FeatureFlags {
       import.meta.env.VITE_ENABLE_AUDIT_LOGGING,
       true // Default: enabled (compliance)
     ),
+    ENABLE_ASYNC_AGENT_EXECUTION: parseBoolean(
+      import.meta.env.VITE_ENABLE_ASYNC_AGENT_EXECUTION,
+      false // Default: disabled (gradual rollout)
+    ),
   };
 
   // Log feature flag status on startup
-  logger.info('Feature flags loaded', {
+  logger.info("Feature flags loaded", {
     unifiedOrchestration: flags.ENABLE_UNIFIED_ORCHESTRATION,
     statelessOrchestration: flags.ENABLE_STATELESS_ORCHESTRATION,
     safeJsonParser: flags.ENABLE_SAFE_JSON_PARSER,
@@ -109,6 +119,7 @@ function loadFeatureFlags(): FeatureFlags {
     circuitBreaker: flags.ENABLE_CIRCUIT_BREAKER,
     rateLimiting: flags.ENABLE_RATE_LIMITING,
     auditLogging: flags.ENABLE_AUDIT_LOGGING,
+    asyncAgentExecution: flags.ENABLE_ASYNC_AGENT_EXECUTION,
   });
 
   return flags;
@@ -146,19 +157,22 @@ export function getDisabledFeatures(): string[] {
 
 /**
  * Rollout percentage for gradual feature enablement
- * 
+ *
  * Usage:
  *   if (shouldEnableForUser(userId, 10)) { // 10% rollout
  *     // Use new feature
  *   }
  */
-export function shouldEnableForUser(userId: string, percentage: number): boolean {
+export function shouldEnableForUser(
+  userId: string,
+  percentage: number
+): boolean {
   if (percentage >= 100) return true;
   if (percentage <= 0) return false;
 
   // Deterministic hash-based rollout
   const hash = simpleHash(userId);
-  return (hash % 100) < percentage;
+  return hash % 100 < percentage;
 }
 
 /**
@@ -168,7 +182,7 @@ function simpleHash(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash; // Convert to 32-bit integer
   }
   return Math.abs(hash);

@@ -5,12 +5,20 @@ import { AuditLogger } from "../AuditLogger";
 import secureLLMInvoke from "../../llm/secureLLMInvoke";
 import { z } from "zod";
 import { AgentConfig, ConfidenceLevel } from "../../../types/agent";
-import { AgentCircuitBreaker, SafetyLimits, withCircuitBreaker } from "../CircuitBreaker";
+import {
+  AgentCircuitBreaker,
+  SafetyLimits,
+  withCircuitBreaker,
+} from "../CircuitBreaker";
 import { enforceRules } from "../../rules";
 import { logger } from "../../../lib/logger";
 import { sanitizeUserInput } from "../../../utils/security";
 // VOS-SEC-004: Secure Inter-Agent Communication
-import { secureMessageBus, SecureMessage, MessagePriority } from "../SecureMessageBus";
+import {
+  secureMessageBus,
+  SecureMessage,
+  MessagePriority,
+} from "../SecureMessageBus";
 // PII Filter for LLM input sanitization
 import { sanitizeForLogging } from "../../../lib/piiFilter";
 // Secure Agent Output schemas and types
@@ -23,7 +31,10 @@ import {
   validateAgentOutput,
 } from "../schemas/SecureAgentOutput";
 // Provenance types
-import type { LifecycleArtifactLink, ProvenanceAuditEntry } from "../../../types/vos";
+import type {
+  LifecycleArtifactLink,
+  ProvenanceAuditEntry,
+} from "../../../types/vos";
 // VOS-SEC-001: Agent Identity System
 import {
   AgentIdentity,
@@ -227,14 +238,19 @@ export abstract class BaseAgent {
     );
 
     // Log the inter-agent communication for audit trail
-    await this.auditLogger.logAction(this.sessionId || "unknown", this.agentId, "message_sent", {
-      metadata: {
-        messageId: message.id,
-        to: targetAgentId,
-        priority: message.priority,
-        encrypted: message.encrypted,
-      },
-    });
+    await this.auditLogger.logAction(
+      this.sessionId || "unknown",
+      this.agentId,
+      "message_sent",
+      {
+        metadata: {
+          messageId: message.id,
+          to: targetAgentId,
+          priority: message.priority,
+          encrypted: message.encrypted,
+        },
+      }
+    );
 
     logger.info("Agent sent secure message", {
       from: this.agentIdentity.id,
@@ -255,9 +271,13 @@ export abstract class BaseAgent {
   ): Promise<SecureMessage<T>> {
     const sanitizedPayload = this.sanitizePayloadForPII(payload);
 
-    const message = await secureMessageBus.broadcast(this.agentIdentity, sanitizedPayload as T, {
-      priority: options.priority || "normal",
-    });
+    const message = await secureMessageBus.broadcast(
+      this.agentIdentity,
+      sanitizedPayload as T,
+      {
+        priority: options.priority || "normal",
+      }
+    );
 
     await this.auditLogger.logAction(
       this.sessionId || "unknown",
@@ -314,7 +334,9 @@ export abstract class BaseAgent {
         target_type: `${context.lifecycleStage}_input`,
         target_artifact_id: targetAgentId,
         relationship_type: "agent_handoff",
-        reasoning_trace: context.reasoningTrace || `Handoff from ${this.name} to ${targetAgentId}`,
+        reasoning_trace:
+          context.reasoningTrace ||
+          `Handoff from ${this.name} to ${targetAgentId}`,
       });
     }
 
@@ -373,7 +395,8 @@ export abstract class BaseAgent {
   private mapNameToAgentRole(): AgentRole {
     const name = (this.constructor.name || "").toLowerCase();
 
-    if (name.includes("coordinator") || name.includes("orchestrator")) return AgentRole.COORDINATOR;
+    if (name.includes("coordinator") || name.includes("orchestrator"))
+      return AgentRole.COORDINATOR;
     if (name.includes("opportunity")) return AgentRole.OPPORTUNITY;
     if (name.includes("target")) return AgentRole.TARGET;
     if (name.includes("realization")) return AgentRole.REALIZATION;
@@ -386,7 +409,8 @@ export abstract class BaseAgent {
     if (name.includes("financial")) return AgentRole.FINANCIAL_MODELING;
     if (name.includes("company") || name.includes("intelligence"))
       return AgentRole.COMPANY_INTELLIGENCE;
-    if (name.includes("value") && name.includes("map")) return AgentRole.VALUE_MAPPING;
+    if (name.includes("value") && name.includes("map"))
+      return AgentRole.VALUE_MAPPING;
     if (name.includes("research")) return AgentRole.RESEARCH;
 
     return AgentRole.SYSTEM; // Default for unknown agents
@@ -405,155 +429,36 @@ export abstract class BaseAgent {
     options: SecureInvocationOptions = {}
   ): Promise<SecureAgentOutput & { result: z.infer<T> }> {
     const startTime = Date.now();
-    const thresholds = options.confidenceThresholds || DEFAULT_CONFIDENCE_THRESHOLDS;
+    const thresholds =
+      options.confidenceThresholds || DEFAULT_CONFIDENCE_THRESHOLDS;
 
     // Check cache first
-    const cacheKey = `${this.agentId}-${sessionId}-${JSON.stringify(input).slice(0, 100)}`;
-    const cachedResult = await this.agentCache.get<SecureAgentOutput & { result: z.infer<T> }>(
-      cacheKey
-    );
+    const cacheKey = this.generateCacheKey(sessionId, input);
+    const cachedResult = await this.agentCache.get<
+      SecureAgentOutput & { result: z.infer<T> }
+    >(cacheKey);
 
     if (cachedResult) {
-      logger.debug("Cache hit for secureInvoke", { agentId: this.agentId, sessionId });
+      logger.debug("Cache hit for secureInvoke", {
+        agentId: this.agentId,
+        sessionId,
+      });
       return cachedResult;
     }
 
-    // CRITICAL FIX: Wrap execution in circuit breaker
+    // Execute with circuit breaker protection
     const { result: output, metrics } = await withCircuitBreaker(
       async (_breaker: AgentCircuitBreaker) => {
-        // GOVERNANCE ENFORCEMENT: Check GR/LR rules before LLM execution
-        const governanceCheck = await this.checkGovernanceRules(sessionId, input, options);
-        if (!governanceCheck.allowed) {
-          throw new Error(`Governance violation: ${governanceCheck.violations.join(", ")}`);
-        }
-
-        // Sanitize input
-        const sanitizedInput = this.sanitizeInput(input);
-
-        // Create full schema with result type
-        const fullSchema = createSecureAgentSchema(resultSchema);
-
-        // Build messages with XML sandboxing
-        const messages: LLMMessage[] = [
-          {
-            role: "system",
-            content: getSecureAgentSystemPrompt(this.name, this.lifecycleStage),
-          },
-          {
-            role: "user",
-            content: this.buildSandboxedPrompt(sanitizedInput),
-          },
-        ];
-
-        // Use secureLLMInvoke to ensure sanitization, schema validation, provenance and telemetry
-        const promptStr = messages.map((m) => `${m.role}:\n${m.content}`).join("\n\n");
-
-        const secureResult = await secureLLMInvoke(promptStr, {
-          tenantId: this.organizationId || "unknown",
-          model: undefined,
-          userId: this.userId,
-          temperature: 0.7,
-          maxTokens: 4000,
-          schema: fullSchema,
-          deterministicParse: true,
-          executor: this.llmGateway as any,
-        });
-
-        if (!secureResult.ok) {
-          // Log and surface validation failures; fail-closed semantics
-          logger.error("secureLLMInvoke failed", undefined, {
-            agentId: this.agentId,
-            sessionId,
-            reason: secureResult.reason,
-            details: secureResult.details,
-          });
-          throw new Error(`secureLLMInvoke failed: ${secureResult.reason}`);
-        }
-
-        const parsed = secureResult.data as any;
-        const validation = validateAgentOutput(parsed, thresholds);
-
-        // Log warnings
-        if (validation.warnings.length > 0) {
-          logger.warn("Agent output validation warnings", {
-            agent: this.agentId,
-            sessionId,
-            warnings: validation.warnings,
-          });
-        }
-
-        // Handle errors
-        if (!validation.valid) {
-          logger.error("Agent output validation failed", undefined, {
-            agentId: this.agentId,
-            sessionId,
-            errors: validation.errors,
-          });
-
-          if (options.throwOnLowConfidence) {
-            throw new Error(`Agent output validation failed: ${validation.errors.join(", ")}`);
-          }
-        }
-
-        const processingTime = Date.now() - startTime;
-        const enhancedOutput = {
-          ...validation.enhanced,
-          processing_time_ms: processingTime,
-        };
-
-        // Store prediction for accuracy tracking
-        if (options.trackPrediction && this.supabase) {
-          await this.storePrediction(sessionId, sanitizedInput, enhancedOutput);
-        }
-
-        // Cache the result
-        await this.agentCache.set(cacheKey, enhancedOutput, {
-          ttl: 300, // 5 minutes
-          tags: [this.agentId, "secureInvoke"],
-          metadata: {
-            sessionId,
-            confidence: enhancedOutput.confidence_level,
-            hasHallucination: enhancedOutput.hallucination_check,
-          },
-        });
-
-        // Record performance metrics
-        const executionTime = Date.now() - startTime;
-        this.performanceMonitor.recordMetrics({
-          agentId: this.agentId,
-          agentType: this.lifecycleStage,
+        return this.executeSecureInvocation(
           sessionId,
-          executionTime,
-          latency: executionTime,
-          memoryUsage: this.estimateMemoryUsage(),
-          cpuUsage: 0, // Could be enhanced with actual CPU monitoring
-          successRate: enhancedOutput.hallucination_check ? 0.9 : 0.95,
-          errorRate: 0,
-          confidenceScore:
-            enhancedOutput.confidence_level === "high"
-              ? 0.9
-              : enhancedOutput.confidence_level === "medium"
-                ? 0.7
-                : 0.5,
-          responseQuality: enhancedOutput.hallucination_check ? 0.8 : 0.95,
-          requestsPerMinute: 0, // Could be calculated from metrics
-          messagesPerMinute: 0,
-        });
-
-        // Log execution
-        await this.logExecution(
-          sessionId,
-          "secure_invoke",
-          sanitizedInput,
-          enhancedOutput.result,
-          enhancedOutput.reasoning || "No reasoning provided",
-          enhancedOutput.confidence_level,
-          enhancedOutput.evidence || []
+          input,
+          resultSchema,
+          options,
+          thresholds,
+          startTime
         );
-
-        return enhancedOutput as SecureAgentOutput & { result: z.infer<T> };
       },
-      options.safetyLimits // Pass custom safety limits if provided
+      options.safetyLimits
     );
 
     // Log circuit breaker metrics
@@ -566,6 +471,52 @@ export abstract class BaseAgent {
     });
 
     return output;
+  }
+
+  /**
+   * Generate a consistent cache key for secure invocations
+   */
+  private generateCacheKey(sessionId: string, input: any): string {
+    return `${this.agentId}-${sessionId}-${JSON.stringify(input).slice(0, 100)}`;
+  }
+
+  /**
+   * Execute the secure invocation workflow inside circuit breaker
+   */
+  private async executeSecureInvocation<T extends z.ZodType>(
+    sessionId: string,
+    input: any,
+    resultSchema: T,
+    options: SecureInvocationOptions,
+    thresholds: ConfidenceThresholds,
+    startTime: number
+  ): Promise<SecureAgentOutput & { result: z.infer<T> }> {
+    // Check governance rules
+    const governanceCheck = await this.checkGovernanceRules(
+      sessionId,
+      input,
+      options
+    );
+    if (!governanceCheck.allowed) {
+      throw new Error(
+        `Governance violation: ${governanceCheck.violations.join(", ")}`
+      );
+    }
+
+    // Prepare and execute LLM request
+    const llmRequest = this.prepareLLMRequest(input, resultSchema, options);
+    const llmResponse = await this.executeLLMCall(sessionId, llmRequest);
+
+    // Validate and process response
+    const processedResponse = await this.validateAndProcessResponse(
+      sessionId,
+      llmResponse,
+      thresholds,
+      options,
+      startTime
+    );
+
+    return processedResponse;
   }
 
   /**
@@ -595,15 +546,22 @@ export abstract class BaseAgent {
           context: options.context,
         },
         environment:
-          (process.env.NODE_ENV as "development" | "staging" | "production") || "development",
+          (process.env.NODE_ENV as "development" | "staging" | "production") ||
+          "development",
       });
 
       if (!governanceResult.allowed) {
-        logger.error("GOVERNANCE VIOLATION - LLM EXECUTION BLOCKED", undefined, {
-          agentId: this.agentId,
-          sessionId,
-          violations: governanceResult.violations.map((v) => `${v.ruleId}: ${v.message}`),
-        });
+        logger.error(
+          "GOVERNANCE VIOLATION - LLM EXECUTION BLOCKED",
+          undefined,
+          {
+            agentId: this.agentId,
+            sessionId,
+            violations: governanceResult.violations.map(
+              (v) => `${v.ruleId}: ${v.message}`
+            ),
+          }
+        );
 
         return {
           allowed: false,
@@ -649,13 +607,19 @@ export abstract class BaseAgent {
     | "communicator" {
     const name = this.name.toLowerCase();
 
-    if (name.includes("coordinator") || name.includes("orchestrator")) return "coordinator";
-    if (name.includes("system") || name.includes("mapper")) return "system_mapper";
-    if (name.includes("intervention") || name.includes("design")) return "intervention_designer";
-    if (name.includes("outcome") || name.includes("engineer")) return "outcome_engineer";
-    if (name.includes("realization") || name.includes("loop")) return "realization_loop";
+    if (name.includes("coordinator") || name.includes("orchestrator"))
+      return "coordinator";
+    if (name.includes("system") || name.includes("mapper"))
+      return "system_mapper";
+    if (name.includes("intervention") || name.includes("design"))
+      return "intervention_designer";
+    if (name.includes("outcome") || name.includes("engineer"))
+      return "outcome_engineer";
+    if (name.includes("realization") || name.includes("loop"))
+      return "realization_loop";
     if (name.includes("value") || name.includes("eval")) return "value_eval";
-    if (name.includes("communicator") || name.includes("message")) return "communicator";
+    if (name.includes("communicator") || name.includes("message"))
+      return "communicator";
 
     return "coordinator"; // Default
   }
@@ -711,10 +675,14 @@ export abstract class BaseAgent {
         created_at: new Date().toISOString(),
       });
     } catch (error) {
-      logger.error("Failed to store prediction", error instanceof Error ? error : undefined, {
-        agentId: this.agentId,
-        sessionId,
-      });
+      logger.error(
+        "Failed to store prediction",
+        error instanceof Error ? error : undefined,
+        {
+          agentId: this.agentId,
+          sessionId,
+        }
+      );
     }
   }
 
@@ -787,7 +755,13 @@ export abstract class BaseAgent {
     value: number,
     unit?: string
   ): Promise<void> {
-    await this.auditLogger.logMetric(sessionId, this.agentId, metricType, value, unit);
+    await this.auditLogger.logMetric(
+      sessionId,
+      this.agentId,
+      metricType,
+      value,
+      unit
+    );
   }
 
   protected async logPerformanceMetric(
@@ -805,7 +779,10 @@ export abstract class BaseAgent {
     );
   }
 
-  protected async extractJSON(content: string, schema?: z.ZodSchema): Promise<any> {
+  protected async extractJSON(
+    content: string,
+    schema?: z.ZodSchema
+  ): Promise<any> {
     // Use new comprehensive SafeJSONParser with error handling
     const { extractJSON: safeExtractJSON } = await import("../SafeJSONParser");
 
@@ -886,7 +863,9 @@ export abstract class BaseAgent {
     });
   }
 
-  protected async logProvenanceAudit(entry: ProvenanceAuditEntry): Promise<void> {
+  protected async logProvenanceAudit(
+    entry: ProvenanceAuditEntry
+  ): Promise<void> {
     if (!this.supabase) return;
 
     await this.supabase.from("provenance_audit_log").insert({
@@ -947,7 +926,10 @@ export abstract class BaseAgent {
    * Execute an action with permission scope validation
    * Uses middleware for caching and consistent enforcement (VOS-SEC-002)
    */
-  protected async withPermissionScope<T>(action: string, executor: () => Promise<T>): Promise<T> {
+  protected async withPermissionScope<T>(
+    action: string,
+    executor: () => Promise<T>
+  ): Promise<T> {
     return withPermissionScope(
       this.agentIdentity,
       { action, resource: "agent_action", data: { agentId: this.agentId } },
@@ -1065,7 +1047,11 @@ export abstract class BaseAgent {
       riskLevel: "low" | "medium" | "high" | "critical";
       requiresCitations: boolean;
     },
-    executor: () => Promise<{ output: T; sources?: Citation[]; reasoning?: string }>
+    executor: () => Promise<{
+      output: T;
+      sources?: Citation[];
+      reasoning?: string;
+    }>
   ): Promise<T> {
     // Start reasoning chain for transparency (Layer 3)
     this.currentReasoningChain = createReasoningChain(this.agentId, sessionId);
@@ -1076,7 +1062,9 @@ export abstract class BaseAgent {
     // 2. Verify citations if required (Layer 2)
     if (task.requiresCitations) {
       const outputText =
-        typeof result.output === "string" ? result.output : JSON.stringify(result.output);
+        typeof result.output === "string"
+          ? result.output
+          : JSON.stringify(result.output);
 
       const citationIssues = this.verifySource(outputText);
 
@@ -1125,36 +1113,48 @@ export abstract class BaseAgent {
         });
 
         // Log to audit trail (Layer 4)
-        await this.auditLogger.logAction(sessionId, this.agentId, "integrity_check_failed", {
-          reasoning: result.reasoning,
-          inputData: task.input,
-          outputData: result.output as Record<string, unknown>,
-          metadata: {
-            riskLevel: task.riskLevel,
-            issues: integrityCheck.issues,
-            checkedBy: integrityCheck.checkedBy,
-          },
-        });
+        await this.auditLogger.logAction(
+          sessionId,
+          this.agentId,
+          "integrity_check_failed",
+          {
+            reasoning: result.reasoning,
+            inputData: task.input,
+            outputData: result.output as Record<string, unknown>,
+            metadata: {
+              riskLevel: task.riskLevel,
+              issues: integrityCheck.issues,
+              checkedBy: integrityCheck.checkedBy,
+            },
+          }
+        );
 
         throw new IntegrityError(integrityCheck.issues, integrityCheck);
       }
 
       // Log successful integrity check
-      await this.auditLogger.logAction(sessionId, this.agentId, "integrity_check_passed", {
-        reasoning: result.reasoning,
-        metadata: {
-          riskLevel: task.riskLevel,
-          confidence: integrityCheck.confidence,
-          checkedBy: integrityCheck.checkedBy,
-        },
-      });
+      await this.auditLogger.logAction(
+        sessionId,
+        this.agentId,
+        "integrity_check_passed",
+        {
+          reasoning: result.reasoning,
+          metadata: {
+            riskLevel: task.riskLevel,
+            confidence: integrityCheck.confidence,
+            checkedBy: integrityCheck.checkedBy,
+          },
+        }
+      );
     }
 
     // Finalize reasoning chain
     if (this.currentReasoningChain) {
       this.currentReasoningChain = finalizeReasoningChain(
         this.currentReasoningChain,
-        typeof result.output === "string" ? result.output : JSON.stringify(result.output),
+        typeof result.output === "string"
+          ? result.output
+          : JSON.stringify(result.output),
         true
       );
     }
@@ -1180,7 +1180,9 @@ export abstract class BaseAgent {
   /**
    * Request peer review from IntegrityAgent (Layer 1)
    */
-  protected async requestPeerReview(request: IntegrityCheckRequest): Promise<IntegrityCheckResult> {
+  protected async requestPeerReview(
+    request: IntegrityCheckRequest
+  ): Promise<IntegrityCheckResult> {
     logger.info("Requesting peer review from IntegrityAgent", {
       producingAgent: request.producingAgent.id,
       riskLevel: request.riskLevel,
@@ -1202,14 +1204,17 @@ export abstract class BaseAgent {
     verified: boolean = false
   ): void {
     if (this.currentReasoningChain) {
-      this.currentReasoningChain = addReasoningStep(this.currentReasoningChain, {
-        action,
-        input,
-        output,
-        citations,
-        verified,
-        verificationMethod: verified ? "data_match" : undefined,
-      });
+      this.currentReasoningChain = addReasoningStep(
+        this.currentReasoningChain,
+        {
+          action,
+          input,
+          output,
+          citations,
+          verified,
+          verificationMethod: verified ? "data_match" : undefined,
+        }
+      );
     }
   }
 
@@ -1223,7 +1228,11 @@ export abstract class BaseAgent {
   /**
    * Create a citation for a VMRT source
    */
-  protected createVMRTCitation(id: string, field: string, value: string | number): Citation {
+  protected createVMRTCitation(
+    id: string,
+    field: string,
+    value: string | number
+  ): Citation {
     return {
       id: `VMRT-${id}`,
       type: "VMRT",
@@ -1236,7 +1245,11 @@ export abstract class BaseAgent {
   /**
    * Create a citation for a CRM source
    */
-  protected createCRMCitation(recordId: string, field: string, value: string | number): Citation {
+  protected createCRMCitation(
+    recordId: string,
+    field: string,
+    value: string | number
+  ): Citation {
     return {
       id: `CRM-${recordId}`,
       type: "CRM",
@@ -1295,7 +1308,10 @@ export abstract class BaseAgent {
   /**
    * Format a value with its citation for output
    */
-  protected formatWithCitation(value: string | number, citation: Citation): string {
+  protected formatWithCitation(
+    value: string | number,
+    citation: Citation
+  ): string {
     return `${value} [Source: ${citation.id}${citation.field ? ":" + citation.field : ""}]`;
   }
 }

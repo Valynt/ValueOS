@@ -55,7 +55,6 @@ describe("parseCRMUrl", () => {
       expect(result).not.toBeNull();
       expect(result?.provider).toBe("hubspot");
     });
-
   });
 
   describe("Salesforce URLs", () => {
@@ -132,7 +131,7 @@ describe("parseCRMUrl", () => {
 
     it("returns null for HubSpot URL without ID", () => {
       expect(
-        parseCRMUrl("https://app.hubspot.com/contacts/12345678/deals"),
+        parseCRMUrl("https://app.hubspot.com/contacts/12345678/deals")
       ).toBeNull();
     });
   });
@@ -140,16 +139,16 @@ describe("parseCRMUrl", () => {
 
 describe("isCRMUrl", () => {
   it("returns true for valid HubSpot URL", () => {
-    expect(isCRMUrl("https://app.hubspot.com/contacts/123/deal/456")).toBe(
-      true,
-    );
+    expect(
+      isCRMUrl("https://app.hubspot.com/contacts/12345678/deal/987654321")
+    ).toBe(true);
   });
 
   it("returns true for valid Salesforce URL", () => {
     expect(
       isCRMUrl(
-        "https://test.lightning.force.com/lightning/r/Opportunity/006ABC123DEF456/view",
-      ),
+        "https://test.lightning.force.com/lightning/r/Opportunity/006ABC123DEF456/view"
+      )
     ).toBe(true);
   });
 

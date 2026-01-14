@@ -28,6 +28,10 @@ import { sha256 } from "../../lib/contentHash";
 import { SentimentAnalysisService } from "../services/SentimentAnalysisService";
 import { PredictiveModelingService } from "../services/PredictiveModelingService";
 import { AutomatedInsightsService } from "../services/AutomatedInsightsService";
+import { WebSocketServer } from "../services/WebSocketServer";
+import { SECWebhookSystem } from "../services/SECWebhookSystem";
+import { EventBus, getEventBus } from "../services/EventBus";
+import { StreamingSentimentAnalyzer } from "../services/StreamingSentimentAnalyzer";
 
 interface MCPServerConfig {
   // Module configurations
@@ -117,9 +121,35 @@ export class MCPFinancialGroundTruthServer {
   private config: MCPServerConfig;
   private initialized = false;
 
-  constructor(config: MCPServerConfig) {
+  // AI Services
+  private sentimentService: SentimentAnalysisService;
+  private predictiveService: PredictiveModelingService;
+  private insightsService: AutomatedInsightsService;
+
+  // Streaming Services (Phase 3)
+  private webSocketServer?: WebSocketServer;
+  private secWebhookSystem?: SECWebhookSystem;
+  private eventBus: EventBus;
+  private streamingSentimentAnalyzer: StreamingSentimentAnalyzer;
+
+  constructor(config: MCPServerConfig, httpServer?: any) {
     this.config = config;
     this.truthLayer = new UnifiedTruthLayer(config.truthLayer);
+
+    // Initialize AI services
+    this.sentimentService = new SentimentAnalysisService();
+    this.predictiveService = new PredictiveModelingService();
+    this.insightsService = new AutomatedInsightsService();
+
+    // Initialize streaming services (Phase 3)
+    this.eventBus = getEventBus();
+    this.streamingSentimentAnalyzer = new StreamingSentimentAnalyzer();
+
+    // Initialize WebSocket server if HTTP server provided
+    if (httpServer) {
+      this.webSocketServer = new WebSocketServer(httpServer);
+      this.secWebhookSystem = new SECWebhookSystem(this.webSocketServer);
+    }
   }
 
   /**
@@ -165,6 +195,17 @@ export class MCPFinancialGroundTruthServer {
       this.modules.eso = new ESOModule();
       await this.modules.eso.initialize();
       this.truthLayer.registerModule(this.modules.eso);
+
+      // Initialize streaming services (Phase 3)
+      if (this.webSocketServer && this.secWebhookSystem) {
+        await this.eventBus.connect();
+        await this.secWebhookSystem.start();
+
+        // Set up market data streaming
+        this.setupMarketDataStreaming();
+
+        logger.info("Streaming services initialized successfully");
+      }
 
       this.initialized = true;
       logger.info("MCP Financial Ground Truth Server initialized successfully");
@@ -509,52 +550,88 @@ export class MCPFinancialGroundTruthServer {
         },
       },
       {
-        name: "generate_business_intelligence",
+        name: "start_sentiment_stream",
         description:
-          "Generate comprehensive business intelligence reports with value drivers, competitive analysis, risk assessment, and strategic recommendations.",
+          "Start a real-time sentiment analysis session for live financial events (earnings calls, conferences)",
         inputSchema: {
           type: "object",
           properties: {
+            session_id: {
+              type: "string",
+              description: "Unique identifier for the streaming session",
+            },
+            event_type: {
+              type: "string",
+              description: "Type of financial event",
+              enum: [
+                "earnings_call",
+                "press_conference",
+                "sec_hearing",
+                "investor_meeting",
+              ],
+            },
             company_name: {
               type: "string",
-              description: "Name of the company to analyze",
-            },
-            cik: {
-              type: "string",
-              description: "SEC CIK number (optional)",
-            },
-            industry: {
-              type: "string",
-              description: "Industry classification",
-            },
-            time_range: {
-              type: "object",
-              description: "Analysis time range",
-              properties: {
-                start: {
-                  type: "string",
-                  description: "Start date (ISO format)",
-                },
-                end: { type: "string", description: "End date (ISO format)" },
-              },
-            },
-            include_sentiment: {
-              type: "boolean",
-              description: "Include sentiment analysis",
-              default: true,
-            },
-            include_forecasting: {
-              type: "boolean",
-              description: "Include forecasting analysis",
-              default: true,
-            },
-            peer_companies: {
-              type: "array",
-              description: "List of peer companies for comparison",
-              items: { type: "string" },
+              description: "Name of the company being analyzed",
             },
           },
-          required: ["company_name"],
+          required: ["session_id", "event_type", "company_name"],
+        },
+      },
+      {
+        name: "process_stream_transcript",
+        description:
+          "Process streaming transcript data for real-time sentiment analysis during live events",
+        inputSchema: {
+          type: "object",
+          properties: {
+            session_id: {
+              type: "string",
+              description: "Active streaming session identifier",
+            },
+            speaker: {
+              type: "string",
+              description: "Name or identifier of the speaker",
+            },
+            text: {
+              type: "string",
+              description: "Transcript text content",
+            },
+            sequence_number: {
+              type: "number",
+              description: "Sequence number for ordering transcript segments",
+            },
+            is_partial: {
+              type: "boolean",
+              description: "Whether more text is expected for this segment",
+              default: false,
+            },
+          },
+          required: ["session_id", "speaker", "text"],
+        },
+      },
+      {
+        name: "end_sentiment_stream",
+        description:
+          "End a real-time sentiment analysis session and get final analysis results",
+        inputSchema: {
+          type: "object",
+          properties: {
+            session_id: {
+              type: "string",
+              description: "Active streaming session identifier",
+            },
+          },
+          required: ["session_id"],
+        },
+      },
+      {
+        name: "get_streaming_stats",
+        description:
+          "Get real-time statistics about streaming services and active connections",
+        inputSchema: {
+          type: "object",
+          properties: {},
         },
       },
       // ESO Module Tools
@@ -627,7 +704,88 @@ export class MCPFinancialGroundTruthServer {
             args as { identifier: string; metric?: string }
           );
 
-        // ESO Module tools
+        case "analyze_financial_sentiment":
+          return await this.analyzeFinancialSentiment(
+            args as {
+              document_type: string;
+              content: string;
+              company_name?: string;
+              filing_type?: string;
+              period?: string;
+            }
+          );
+
+        case "generate_financial_forecast":
+          return await this.generateFinancialForecast(
+            args as {
+              metric_name: string;
+              historical_data: { periods: string[]; values: number[] };
+              forecast_periods?: number;
+              confidence_level?: number;
+            }
+          );
+
+        case "detect_financial_anomalies":
+          return await this.detectFinancialAnomalies(
+            args as {
+              metric_name: string;
+              data: { periods: string[]; values: number[] };
+              sensitivity?: string;
+            }
+          );
+
+        case "analyze_financial_trends":
+          return await this.analyzeFinancialTrends(
+            args as {
+              metric_name: string;
+              data: { periods: string[]; values: number[] };
+              comparison_data?: Array<{ periods: string[]; values: number[] }>;
+            }
+          );
+
+        case "generate_business_intelligence":
+          return await this.generateBusinessIntelligence(
+            args as {
+              company_name: string;
+              cik?: string;
+              industry?: string;
+              time_range?: { start: string; end: string };
+              include_sentiment?: boolean;
+              include_forecasting?: boolean;
+              peer_companies?: string[];
+            }
+          );
+
+        case "start_sentiment_stream":
+          return await this.startSentimentStream(
+            args as {
+              session_id: string;
+              event_type: string;
+              company_name: string;
+            }
+          );
+
+        case "process_stream_transcript":
+          return await this.processStreamTranscript(
+            args as {
+              session_id: string;
+              speaker: string;
+              text: string;
+              sequence_number?: number;
+              is_partial?: boolean;
+            }
+          );
+
+        case "end_sentiment_stream":
+          return await this.endSentimentStream(
+            args as {
+              session_id: string;
+            }
+          );
+
+        case "get_streaming_stats":
+          return await this.getStreamingStats();
+
         case "eso_get_metric_value":
         case "eso_validate_claim":
         case "eso_get_value_chain":
@@ -962,50 +1120,416 @@ export class MCPFinancialGroundTruthServer {
     };
   }
 
-  // ============================================================================
-  // Helper Methods
-  // ============================================================================
+  /**
+   * Tool: analyze_financial_sentiment
+   */
+  private async analyzeFinancialSentiment(args: {
+    document_type: string;
+    content: string;
+    company_name?: string;
+    filing_type?: string;
+    period?: string;
+  }): Promise<MCPToolResult> {
+    const { document_type, content, company_name, filing_type, period } = args;
 
-  private validateToolArguments(
-    toolName: string,
-    args: Record<string, any>
-  ): void {
-    // Common input sanitization
-    const sanitizedArgs = { ...args };
-
-    // Sanitize string inputs to prevent injection
-    Object.keys(sanitizedArgs).forEach((key) => {
-      if (typeof sanitizedArgs[key] === "string") {
-        // Remove null bytes and control characters
-        sanitizedArgs[key] = sanitizedArgs[key].replace(/[\x00-\x1F\x7F]/g, "");
-        // Limit length to prevent DoS
-        if (sanitizedArgs[key].length > 1000) {
-          sanitizedArgs[key] = sanitizedArgs[key].substring(0, 1000);
-        }
-      }
+    const result = await this.sentimentService.analyzeDocument({
+      documentType: document_type as
+        | "earnings_call"
+        | "sec_filing"
+        | "press_release"
+        | "analyst_report",
+      content,
+      companyName: company_name,
+      filingType: filing_type,
+      period,
     });
 
-    // Tool-specific validation
-    switch (toolName) {
-      case "get_authoritative_financials":
-        this.validateAuthoritativeFinancialsArgs(sanitizedArgs);
-        break;
-      case "get_private_entity_estimates":
-        this.validatePrivateEntityEstimatesArgs(sanitizedArgs);
-        break;
-      case "verify_claim_aletheia":
-        this.validateVerifyClaimArgs(sanitizedArgs);
-        break;
-      case "populate_value_driver_tree":
-        this.validateValueDriverTreeArgs(sanitizedArgs);
-        break;
-      case "get_industry_benchmark":
-        this.validateIndustryBenchmarkArgs(sanitizedArgs);
-        break;
-    }
+    const response = {
+      document_type,
+      company_name,
+      sentiment_analysis: result,
+      audit: {
+        trace_id: `mcp-sentiment-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        processing_time_ms: Date.now() - Date.now(), // Would track actual processing time
+      },
+    };
 
-    // Replace original args with sanitized versions
-    Object.assign(args, sanitizedArgs);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(response, null, 2),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Tool: generate_financial_forecast
+   */
+  private async generateFinancialForecast(args: {
+    metric_name: string;
+    historical_data: { periods: string[]; values: number[] };
+    forecast_periods?: number;
+    confidence_level?: number;
+  }): Promise<MCPToolResult> {
+    const {
+      metric_name,
+      historical_data,
+      forecast_periods = 4,
+      confidence_level = 0.95,
+    } = args;
+
+    const result = await this.predictiveService.generateForecast({
+      historicalData: {
+        periods: historical_data.periods,
+        values: historical_data.values,
+        metadata: { metric: metric_name },
+      },
+      forecastPeriods: forecast_periods,
+      confidenceLevel: confidence_level,
+    });
+
+    const response = {
+      metric_name,
+      forecast: result,
+      audit: {
+        trace_id: `mcp-forecast-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        model_info: result.model_info,
+      },
+    };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(response, null, 2),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Tool: detect_financial_anomalies
+   */
+  private async detectFinancialAnomalies(args: {
+    metric_name: string;
+    data: { periods: string[]; values: number[] };
+    sensitivity?: string;
+  }): Promise<MCPToolResult> {
+    const { metric_name, data, sensitivity = "medium" } = args;
+
+    const result = await this.predictiveService.detectAnomalies({
+      data: {
+        periods: data.periods,
+        values: data.values,
+        metadata: { metric: metric_name },
+      },
+      sensitivity: sensitivity as "low" | "medium" | "high",
+    });
+
+    const response = {
+      metric_name,
+      anomaly_analysis: result,
+      audit: {
+        trace_id: `mcp-anomaly-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        sensitivity,
+        total_points: data.values.length,
+      },
+    };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(response, null, 2),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Tool: analyze_financial_trends
+   */
+  private async analyzeFinancialTrends(args: {
+    metric_name: string;
+    data: { periods: string[]; values: number[] };
+    comparison_data?: Array<{ periods: string[]; values: number[] }>;
+  }): Promise<MCPToolResult> {
+    const { metric_name, data, comparison_data } = args;
+
+    const result = await this.predictiveService.analyzeTrends({
+      data: {
+        periods: data.periods,
+        values: data.values,
+        metadata: { metric: metric_name },
+      },
+      comparisonData: comparison_data?.map((cd) => ({
+        periods: cd.periods,
+        values: cd.values,
+      })),
+    });
+
+    const response = {
+      metric_name,
+      trend_analysis: result,
+      audit: {
+        trace_id: `mcp-trends-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        has_comparison_data: !!comparison_data?.length,
+      },
+    };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(response, null, 2),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Tool: generate_business_intelligence
+   */
+  private async generateBusinessIntelligence(args: {
+    company_name: string;
+    cik?: string;
+    industry?: string;
+    time_range?: { start: string; end: string };
+    include_sentiment?: boolean;
+    include_forecasting?: boolean;
+    peer_companies?: string[];
+  }): Promise<MCPToolResult> {
+    const {
+      company_name,
+      cik,
+      industry,
+      time_range,
+      include_sentiment = true,
+      include_forecasting = true,
+      peer_companies,
+    } = args;
+
+    const result =
+      await this.insightsService.generateBusinessIntelligenceReport({
+        companyName: company_name,
+        cik,
+        industry,
+        timeRange: time_range
+          ? {
+              start: time_range.start,
+              end: time_range.end,
+            }
+          : undefined,
+        includeSentiment: include_sentiment,
+        includeForecasting: include_forecasting,
+        peerCompanies: peer_companies,
+      });
+
+    const response = {
+      company_name,
+      cik,
+      industry,
+      business_intelligence: result,
+      audit: {
+        trace_id: `mcp-bi-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        confidence_level: result.confidence_level,
+        report_generated_at: result.generated_at,
+      },
+    };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(response, null, 2),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Tool: process_stream_transcript
+   */
+  private async processStreamTranscript(args: {
+    session_id: string;
+    speaker: string;
+    text: string;
+    sequence_number?: number;
+    is_partial?: boolean;
+  }): Promise<MCPToolResult> {
+    const {
+      session_id,
+      speaker,
+      text,
+      sequence_number = 0,
+      is_partial = false,
+    } = args;
+
+    await this.streamingSentimentAnalyzer.processTranscript({
+      sessionId: session_id,
+      speaker,
+      text,
+      timestamp: Date.now(),
+      sequenceNumber: sequence_number,
+      isPartial: is_partial,
+    });
+
+    const response = {
+      session_id,
+      processed: true,
+      speaker,
+      text_length: text.length,
+      sequence_number,
+      is_partial,
+      audit: {
+        trace_id: `mcp-stream-process-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+      },
+    };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(response, null, 2),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Tool: end_sentiment_stream
+   */
+  private async endSentimentStream(args: {
+    session_id: string;
+  }): Promise<MCPToolResult> {
+    const { session_id } = args;
+
+    const session =
+      await this.streamingSentimentAnalyzer.endSession(session_id);
+
+    const response = {
+      session_id,
+      status: "ended",
+      final_sentiment: session?.currentSentiment,
+      session_summary: session
+        ? {
+            duration: session.lastUpdate - session.startTime,
+            transcripts_processed: session.transcriptBuffer.length,
+            sentiment_updates: session.sentimentHistory.length,
+          }
+        : null,
+      audit: {
+        trace_id: `mcp-stream-end-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+      },
+    };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(response, null, 2),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Tool: get_streaming_stats
+   */
+  private async getStreamingStats(): Promise<MCPToolResult> {
+    const websocketStats = this.webSocketServer?.getStats() || {
+      totalClients: 0,
+      authenticatedClients: 0,
+      activeChannels: 0,
+      channelSubscriptions: {},
+    };
+
+    const sentimentStats = this.streamingSentimentAnalyzer.getStats();
+    const webhookStats = this.secWebhookSystem?.getStats() || {
+      activeSubscriptions: 0,
+      pendingDeliveries: 0,
+      lastProcessedFiling: "",
+      rssMonitoring: false,
+    };
+
+    const eventBusStats = this.eventBus.getStats();
+
+    const response = {
+      streaming_services: {
+        websocket: websocketStats,
+        sentiment_analysis: sentimentStats,
+        sec_webhooks: webhookStats,
+        event_bus: eventBusStats,
+      },
+      overall_health: {
+        websocket_healthy: !!this.webSocketServer,
+        sentiment_healthy: true,
+        webhooks_healthy: !!this.secWebhookSystem,
+        eventbus_connected: eventBusStats.isConnected,
+      },
+      audit: {
+        trace_id: `mcp-streaming-stats-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+      },
+    };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(response, null, 2),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Set up market data streaming integration
+   */
+  private setupMarketDataStreaming(): void {
+    if (!this.webSocketServer) return;
+
+    // Set up market data streaming to WebSocket clients
+    // This would integrate with the MarketData module to stream real-time updates
+    // For now, we'll set up event handlers
+
+    this.eventBus.registerHandler("market.price_update", async (event) => {
+      this.webSocketServer!.broadcastToChannel("market.realtime", {
+        channel: "market.realtime",
+        data: event.data,
+        timestamp: event.timestamp,
+        metadata: {
+          source: event.source,
+          quality: "realtime",
+        },
+      });
+    });
+
+    this.eventBus.registerHandler(
+      "market.fundamentals_update",
+      async (event) => {
+        this.webSocketServer!.broadcastToChannel("market.fundamentals", {
+          channel: "market.fundamentals",
+          data: event.data,
+          timestamp: event.timestamp,
+          metadata: {
+            source: event.source,
+            quality: "batch",
+          },
+        });
+      }
+    );
+
+    logger.info("Market data streaming integration configured");
   }
 
   private validateAuthoritativeFinancialsArgs(args: Record<string, any>): void {

@@ -31,6 +31,50 @@ try {
   process.exit(1);
 }
 
+// Incremental check cache
+const checkCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const forceCheck = args.includes("--force") || args.includes("-f");
+
+function isCheckCached(checkName) {
+  if (forceCheck) return false;
+
+  const cached = checkCache.get(checkName);
+  if (!cached) return false;
+
+  const now = Date.now();
+  return now - cached.timestamp < CACHE_TTL && cached.passed;
+}
+
+function cacheCheckResult(checkName, passed) {
+  checkCache.set(checkName, {
+    timestamp: Date.now(),
+    passed,
+  });
+}
+
+function runCheckWithCache(checkName, checkFunction) {
+  if (isCheckCached(checkName)) {
+    console.log(`⏭️  ${checkName} (cached)`);
+    return;
+  }
+
+  console.log(`🔍 ${checkName}`);
+  const startTime = Date.now();
+
+  try {
+    checkFunction();
+    const duration = Date.now() - startTime;
+    console.log(`✅ ${checkName} (${duration}ms)`);
+    cacheCheckResult(checkName, true);
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.log(`❌ ${checkName} (${duration}ms)`);
+    cacheCheckResult(checkName, false);
+    throw error;
+  }
+}
+
 const ports = loadPorts();
 const frontendPort = resolvePort(process.env.VITE_PORT, ports.frontend.port);
 const backendPort = resolvePort(process.env.API_PORT, ports.backend.port);
@@ -628,16 +672,90 @@ async function main() {
 
   console.log(`\n🧪 DX Doctor (mode: ${mode})\n`);
 
+  // Phase 1: Setup (must run first)
   ensurePortsEnvFile();
-  checkNodeVersion();
-  checkDocker();
-  checkEnvironment();
-  checkComposeState();
-  checkDockerContainerHealth();
-  checkSupabase();
-  checkMigrationDrift();
-  await checkDevEdgeRouting();
-  await checkPorts();
+
+  // Phase 2: Independent environment checks (run in parallel)
+  await Promise.all([
+    Promise.resolve().then(() => {
+      if (!isCheckCached("Node Version")) {
+        checkNodeVersion();
+        cacheCheckResult("Node Version", failures.length === 0);
+      } else {
+        console.log(`⏭️  Node Version check (cached)`);
+      }
+    }),
+    Promise.resolve().then(() => {
+      if (!isCheckCached("Environment")) {
+        checkEnvironment();
+        cacheCheckResult("Environment", failures.length === 0);
+      } else {
+        console.log(`⏭️  Environment check (cached)`);
+      }
+    }),
+  ]);
+
+  // Phase 3: Docker-dependent checks (run sequentially after environment checks)
+  if (!isCheckCached("Docker")) {
+    checkDocker();
+    cacheCheckResult("Docker", failures.length === 0);
+  } else {
+    console.log(`⏭️  Docker check (cached)`);
+  }
+
+  if (!isCheckCached("Compose State")) {
+    checkComposeState();
+    cacheCheckResult("Compose State", failures.length === 0);
+  } else {
+    console.log(`⏭️  Compose State check (cached)`);
+  }
+
+  if (!isCheckCached("Container Health")) {
+    checkDockerContainerHealth();
+    cacheCheckResult("Container Health", failures.length === 0);
+  } else {
+    console.log(`⏭️  Container Health check (cached)`);
+  }
+
+  // Phase 4: Service checks (run in parallel)
+  await Promise.all([
+    Promise.resolve().then(() => {
+      if (!isCheckCached("Supabase")) {
+        checkSupabase();
+        cacheCheckResult("Supabase", failures.length === 0);
+      } else {
+        console.log(`⏭️  Supabase check (cached)`);
+      }
+    }),
+    Promise.resolve().then(() => {
+      if (!isCheckCached("Migration Drift")) {
+        checkMigrationDrift();
+        cacheCheckResult("Migration Drift", failures.length === 0);
+      } else {
+        console.log(`⏭️  Migration Drift check (cached)`);
+      }
+    }),
+  ]);
+
+  // Phase 5: Network/async checks (run in parallel)
+  await Promise.all([
+    Promise.resolve().then(async () => {
+      if (!isCheckCached("Dev Edge Routing")) {
+        await checkDevEdgeRouting();
+        cacheCheckResult("Dev Edge Routing", failures.length === 0);
+      } else {
+        console.log(`⏭️  Dev Edge Routing check (cached)`);
+      }
+    }),
+    Promise.resolve().then(async () => {
+      if (!isCheckCached("Ports")) {
+        await checkPorts();
+        cacheCheckResult("Ports", failures.length === 0);
+      } else {
+        console.log(`⏭️  Ports check (cached)`);
+      }
+    }),
+  ]);
 
   if (failures.length > 0) {
     console.log("❌ Preflight checks failed:\n");

@@ -51,6 +51,13 @@ export function parseCRMUrl(url: string): ParsedCRMUrl | null {
 }
 
 /**
+ * Check if a URL is a valid CRM URL
+ */
+export function isCRMUrl(url: string): boolean {
+  return parseCRMUrl(url) !== null;
+}
+
+/**
  * Parse HubSpot URLs
  *
  * Formats:
@@ -114,8 +121,8 @@ function parseHubSpotUrl(url: string): ParsedCRMUrl | null {
  * Validate HubSpot ID
  */
 function isValidHubSpotId(id: string): boolean {
-  // HubSpot IDs are numeric and 10-15 characters long
-  return /^\d{10,15}$/.test(id);
+  // HubSpot IDs are numeric and 9-15 characters long
+  return /^\d{9,15}$/.test(id);
 }
 
 /**

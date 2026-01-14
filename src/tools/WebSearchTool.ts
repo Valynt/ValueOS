@@ -5,7 +5,11 @@
  * Example of third-party tool integration.
  */
 
-import { BaseTool, ToolExecutionContext, ToolResult } from "../services/ToolRegistry";
+import {
+  BaseTool,
+  ToolExecutionContext,
+  ToolResult,
+} from "../services/ToolRegistry";
 import { logger } from "../utils/logger";
 
 export class WebSearchTool extends BaseTool {
@@ -51,7 +55,10 @@ export class WebSearchTool extends BaseTool {
       });
 
       // Example: Use Brave Search API, Serper, or similar
-      const results = await this.performSearch(params.query, params.maxResults || 5);
+      const results = await this.performSearch(
+        params.query,
+        params.maxResults || 5
+      );
 
       return {
         success: true,
@@ -72,7 +79,10 @@ export class WebSearchTool extends BaseTool {
     }
   }
 
-  private async performSearch(query: string, maxResults: number): Promise<any[]> {
+  private async performSearch(
+    query: string,
+    maxResults: number
+  ): Promise<any[]> {
     // Add URL allowlist validation
     const ALLOWED_DOMAINS = ["example.com", "trusted-search-provider.com"];
 
@@ -87,38 +97,160 @@ export class WebSearchTool extends BaseTool {
     };
 
     // Implementation with validated URLs
-    const results = await this.safeSearchApiCall(query, maxResults, validateUrl);
+    const results = await this.safeSearchApiCall(
+      query,
+      maxResults,
+      validateUrl
+    );
     return results.filter((result) => validateUrl(result.url));
   }
 
   private async safeSearchApiCall(
-    _query: string,
+    query: string,
     maxResults: number,
     validateUrl: (url: string) => boolean
   ): Promise<any[]> {
-    // Placeholder implementation with URL validation
-    // In production, integrate with:
-    // - Brave Search API
-    // - Serper API
-    // - Google Custom Search
-    // - Bing Search API
-    // All external URLs must be validated against allowlist
+    // Try multiple search providers in order of preference
+    const providers = [
+      () => this.searchWithBrave(query, maxResults),
+      () => this.searchWithSerper(query, maxResults),
+      () => this.searchWithGoogle(query, maxResults),
+    ];
 
-    // Example results with validated URLs
+    for (const provider of providers) {
+      try {
+        const results = await provider();
+        if (results && results.length > 0) {
+          return results
+            .filter((result: any) => validateUrl(result.url))
+            .slice(0, maxResults);
+        }
+      } catch (error) {
+        logger.warn(`Search provider failed, trying next: ${error}`);
+        continue;
+      }
+    }
+
+    // Fallback to placeholder if all providers fail
+    logger.warn("All search providers failed, using placeholder results");
     const exampleResults = [
       {
-        title: "Example Result",
-        url: "https://example.com",
-        snippet: "This is a placeholder result",
-      },
-      {
-        title: "Trusted Result",
-        url: "https://trusted-search-provider.com/search",
-        snippet: "This is a trusted result",
+        title: "Search Unavailable",
+        url: "https://example.com/search-unavailable",
+        snippet:
+          "Search services are currently unavailable. Please try again later.",
       },
     ];
 
-    // Filter results to only include validated URLs
-    return exampleResults.filter((result) => validateUrl(result.url)).slice(0, maxResults);
+    return exampleResults
+      .filter((result) => validateUrl(result.url))
+      .slice(0, maxResults);
+  }
+
+  private async searchWithBrave(
+    query: string,
+    maxResults: number
+  ): Promise<any[]> {
+    const apiKey = process.env.BRAVE_SEARCH_API_KEY;
+    if (!apiKey) {
+      throw new Error("Brave Search API key not configured");
+    }
+
+    const response = await fetch(
+      `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${maxResults}`,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "X-Subscription-Token": apiKey,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Brave Search API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.web?.results) {
+      return [];
+    }
+
+    return data.web.results.map((result: any) => ({
+      title: result.title,
+      url: result.url,
+      snippet: result.description,
+    }));
+  }
+
+  private async searchWithSerper(
+    query: string,
+    maxResults: number
+  ): Promise<any[]> {
+    const apiKey = process.env.SERPER_API_KEY;
+    if (!apiKey) {
+      throw new Error("Serper API key not configured");
+    }
+
+    const response = await fetch("https://google.serper.dev/search", {
+      method: "POST",
+      headers: {
+        "X-API-KEY": apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        q: query,
+        num: maxResults,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Serper API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.organic) {
+      return [];
+    }
+
+    return data.organic.map((result: any) => ({
+      title: result.title,
+      url: result.link,
+      snippet: result.snippet,
+    }));
+  }
+
+  private async searchWithGoogle(
+    query: string,
+    maxResults: number
+  ): Promise<any[]> {
+    const apiKey = process.env.GOOGLE_SEARCH_API_KEY;
+    const searchEngineId = process.env.GOOGLE_SEARCH_ENGINE_ID;
+
+    if (!apiKey || !searchEngineId) {
+      throw new Error("Google Search API credentials not configured");
+    }
+
+    const searchUrl = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${searchEngineId}&q=${encodeURIComponent(query)}&num=${maxResults}`;
+
+    const response = await fetch(searchUrl);
+
+    if (!response.ok) {
+      throw new Error(`Google Search API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.items) {
+      return [];
+    }
+
+    return data.items.map((item: any) => ({
+      title: item.title,
+      url: item.link,
+      snippet: item.snippet,
+    }));
   }
 }

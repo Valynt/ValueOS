@@ -18,8 +18,42 @@ import { rateLimiters } from "../middleware/rateLimiter";
 import { requestAuditMiddleware } from "../middleware/requestAuditMiddleware";
 import { healthMetrics } from "../../lib/health/metrics";
 import { alertManager } from "../../lib/health/alerts";
+import * as fs from "fs";
+import * as path from "path";
 
 const router = Router();
+
+// Health endpoint authentication middleware
+const healthAuthMiddleware = (req: Request, res: Response, next: Function) => {
+  const authEnabled = process.env.HEALTH_AUTH_ENABLED === "true";
+  if (!authEnabled) {
+    return next();
+  }
+
+  const authHeader = req.headers.authorization;
+  const expectedToken = process.env.HEALTH_AUTH_TOKEN;
+
+  if (!expectedToken) {
+    return res
+      .status(500)
+      .json({ error: "Health authentication not configured" });
+  }
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res
+      .status(401)
+      .json({ error: "Missing or invalid authorization header" });
+  }
+
+  const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+  if (token !== expectedToken) {
+    return res.status(401).json({ error: "Invalid authentication token" });
+  }
+
+  next();
+};
+
+// Apply middleware
 router.use(requestAuditMiddleware());
 router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
@@ -41,13 +75,7 @@ export interface HealthCheckResult {
   timestamp: string;
   version: string;
   uptime: number;
-  checks: {
-    database: HealthStatus;
-    supabase: HealthStatus;
-    togetherAI: HealthStatus;
-    openAI: HealthStatus;
-    redis: HealthStatus;
-  };
+  checks: { [key: string]: HealthStatus };
   metrics?: {
     memoryUsage: NodeJS.MemoryUsage;
     cpuUsage: NodeJS.CpuUsage;
@@ -356,16 +384,22 @@ router.get(["/health", "/api/health"], async (req: Request, res: Response) => {
     overallStatus = "healthy";
   }
 
+  // Record health snapshot for trend analysis
+  healthMetrics.recordHealthSnapshot(overallStatus, checks);
+
   const result: HealthCheckResult = {
     status: overallStatus,
     timestamp: new Date().toISOString(),
     version: process.env.APP_VERSION || "1.0.0",
     uptime: process.uptime(),
     checks,
-    metrics: {
-      memoryUsage: process.memoryUsage(),
-      cpuUsage: process.cpuUsage(),
-    },
+    // Only expose detailed metrics when authenticated or when explicitly requested
+    metrics: req.headers.authorization
+      ? {
+          memoryUsage: process.memoryUsage(),
+          cpuUsage: process.cpuUsage(),
+        }
+      : undefined,
   };
 
   // Return appropriate status code
@@ -550,14 +584,98 @@ router.get("/health/dependencies", async (req: Request, res: Response) => {
 /**
  * Health check metrics endpoint
  */
-router.get("/health/metrics", (req: Request, res: Response) => {
-  const timeWindowMs = parseInt(req.query.timeWindow as string) || 3600000; // Default 1 hour
+router.get(
+  "/health/metrics",
+  healthAuthMiddleware,
+  (req: Request, res: Response) => {
+    const timeWindowMs = parseInt(req.query.timeWindow as string) || 3600000; // Default 1 hour
 
-  const serviceStats = healthMetrics.getServiceStats(timeWindowMs);
+    const serviceStats = healthMetrics.getServiceStats(timeWindowMs);
 
-  res.json({
-    timestamp: new Date().toISOString(),
-    timeWindowMs,
-    services: serviceStats,
-  });
+    res.json({
+      timestamp: new Date().toISOString(),
+      timeWindowMs,
+      services: serviceStats,
+    });
+  }
+);
+
+/**
+ * Health check alerts endpoint
+ */
+router.get(
+  "/health/alerts",
+  healthAuthMiddleware,
+  (req: Request, res: Response) => {
+    const activeOnly = req.query.active === "true";
+    const alerts = activeOnly
+      ? alertManager.getActiveAlerts()
+      : alertManager.getAllAlerts();
+
+    res.json({
+      timestamp: new Date().toISOString(),
+      alerts,
+    });
+  }
+);
+
+/**
+ * Health history and trends endpoint
+ */
+router.get(
+  "/health/history",
+  healthAuthMiddleware,
+  (req: Request, res: Response) => {
+    const timeWindowMs = parseInt(req.query.timeWindow as string) || 3600000; // Default 1 hour
+    const includeTrends = req.query.trends === "true";
+
+    const history = healthMetrics.getHealthHistory(timeWindowMs);
+    const trends = includeTrends
+      ? healthMetrics.getHealthTrends(timeWindowMs)
+      : undefined;
+
+    res.json({
+      timestamp: new Date().toISOString(),
+      timeWindowMs,
+      history,
+      trends,
+    });
+  }
+);
+
+/**
+ * Health dashboard
+ */
+router.get("/health/dashboard", (req: Request, res: Response) => {
+  const dashboardPath = path.join(
+    process.cwd(),
+    "public",
+    "health-dashboard.html"
+  );
+
+  try {
+    const dashboardHtml = fs.readFileSync(dashboardPath, "utf8");
+    res.setHeader("Content-Type", "text/html");
+    res.send(dashboardHtml);
+  } catch (error) {
+    res.status(500).json({ error: "Dashboard not available" });
+  }
 });
+
+/**
+ * Acknowledge alert endpoint
+ */
+router.post(
+  "/health/alerts/:alertId/acknowledge",
+  healthAuthMiddleware,
+  (req: Request, res: Response) => {
+    const { alertId } = req.params;
+    const acknowledged = alertManager.acknowledgeAlert(alertId);
+
+    if (acknowledged) {
+      res.json({ success: true, message: "Alert acknowledged" });
+    } else {
+      res.status(404).json({ success: false, message: "Alert not found" });
+    }
+  }
+);
