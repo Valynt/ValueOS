@@ -7,10 +7,12 @@
 
 import rateLimit from 'express-rate-limit';
 import RedisStore from 'rate-limit-redis';
-import { getRedisClient } from '@lib/redisClient';
+import { getRedisClient } from '../lib/redisClient';
 import { Request, Response } from 'express';
-
 import { NextFunction } from 'express';
+import { RateLimitKeyService } from '../services/RateLimitKeyService';
+import { redisCircuitBreaker } from '../services/RedisCircuitBreaker';
+import { logger } from '../lib/logger';
 
 // Extended Request interface for rate limiting
 interface RateLimitRequest extends Request {
@@ -44,6 +46,11 @@ const RATE_LIMITS = {
     max: 1000, // 1000 requests per hour
     message: 'Enterprise tier limit: 1000 LLM requests per hour.'
   },
+  admin: {
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 2000, // 2000 requests per hour for admins
+    message: 'Admin tier limit: 2000 LLM requests per hour.'
+  },
   anonymous: {
     windowMs: 60 * 60 * 1000, // 1 hour
     max: 3, // 3 requests per hour for anonymous users
@@ -57,20 +64,25 @@ const RATE_LIMITS = {
 function getUserTier(req: RateLimitRequest): keyof typeof RATE_LIMITS {
   if (!req.user) return 'anonymous';
 
+  // Admin users get their own tier with higher limits
+  if (req.user.role === 'admin') {
+    return 'admin';
+  }
+
   const tier = req.user.subscription_tier || 'free';
   return tier as keyof typeof RATE_LIMITS;
 }
 
 /**
- * Generate rate limit key based on user ID or IP
+ * Generate rate limit key based on user ID or IP using unified service
  */
 function keyGenerator(req: RateLimitRequest): string {
-  const userId = req.user?.id;
-  if (userId) {
-    return `llm_rate_limit:user:${userId}`;
-  }
-  // Fallback to IP for anonymous users
-  return `llm_rate_limit:ip:${req.ip}`;
+  const tier = getUserTier(req);
+
+  return RateLimitKeyService.generateSecureKey(req as Request, {
+    service: 'llm',
+    tier: tier
+  });
 }
 
 /**
@@ -81,7 +93,7 @@ async function rateLimitHandler(req: RateLimitRequest, res: Response) {
   const limit = RATE_LIMITS[tier];
 
   // Log rate limit violation
-  console.warn('LLM Rate limit exceeded', {
+  logger.warn('LLM Rate limit exceeded', {
     userId: req.user?.id || 'anonymous',
     ip: req.ip,
     tier,
@@ -107,7 +119,8 @@ async function rateLimitHandler(req: RateLimitRequest, res: Response) {
       violated_at: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Failed to log rate limit violation:', error);
+    logger.error('Failed to log rate limit violation:', error);
+    logger.error('Failed to log rate limit violation to database', error instanceof Error ? error : new Error(String(error)));
   }
 
   res.status(429).json({
@@ -116,7 +129,7 @@ async function rateLimitHandler(req: RateLimitRequest, res: Response) {
     tier,
     limit: limit.max,
     windowMs: limit.windowMs,
-    retryAfter: res.getHeader('Retry-After'),
+    retryAfter: res.getHeader('Retry-After') as string | undefined,
     upgradeUrl: tier === 'free' ? '/pricing' : undefined
   });
 }
@@ -128,8 +141,11 @@ function skipRateLimit(req: RateLimitRequest): boolean {
   // Skip for health checks
   if (req.path === '/health') return true;
 
-  // Skip for admin users
-  if (req.user?.role === 'admin') return true;
+  // Apply rate limits to admin users with higher thresholds (not complete skip)
+  // Admin users get higher limits but are still rate limited
+  if (req.user?.role === 'admin') {
+    return false; // Don't skip, just use higher limits
+  }
 
   // Skip if rate limiting is disabled (for testing)
   if (process.env.DISABLE_RATE_LIMITING === 'true') return true;
@@ -138,29 +154,56 @@ function skipRateLimit(req: RateLimitRequest): boolean {
 }
 
 /**
- * Create rate limiter for specific user tier
+ * Create rate limiter for specific user tier with circuit breaker
  */
 async function createTierRateLimiter(tier: keyof typeof RATE_LIMITS) {
   const config = RATE_LIMITS[tier];
-  const client = await getRedisClient();
 
-  return rateLimit({
-    windowMs: config.windowMs,
-    max: config.max,
-    message: config.message,
-    standardHeaders: true, // Return rate limit info in headers
-    legacyHeaders: false,
+  try {
+    const client = await redisCircuitBreaker.execute({
+      operation: () => getRedisClient(),
+      operationName: 'redis-get-client',
+      timeout: 5000,
+      fallback: () => {
+        logger.warn('Redis unavailable, falling back to in-memory rate limiting');
+        return null;
+      }
+    });
 
-    // Use Redis for distributed rate limiting
-    store: new RedisStore({
-      client: client as any,
-      prefix: `rl:${tier}:`
-    }),
+    return rateLimit({
+      windowMs: config.windowMs,
+      max: config.max,
+      message: config.message,
+      standardHeaders: true, // Return rate limit info in headers
+      legacyHeaders: false,
 
-    keyGenerator,
-    handler: rateLimitHandler,
-    skip: skipRateLimit
-  });
+      // Use Redis for distributed rate limiting if available
+      ...(client ? {
+        store: new RedisStore({
+          client: client as any,
+          prefix: `rl:${tier}:`
+        })
+      } : {}),
+
+      keyGenerator,
+      handler: rateLimitHandler,
+      skip: skipRateLimit
+    });
+  } catch (error) {
+    logger.error('Failed to create rate limiter, using fallback', error as Error);
+
+    // Fallback to in-memory rate limiting
+    return rateLimit({
+      windowMs: config.windowMs,
+      max: config.max,
+      message: config.message,
+      standardHeaders: true,
+      legacyHeaders: false,
+      keyGenerator,
+      handler: rateLimitHandler,
+      skip: skipRateLimit
+    });
+  }
 }
 
 /**
@@ -181,23 +224,48 @@ export const llmRateLimiter = async (req: RateLimitRequest, res: Response, next:
  * (e.g., long-form content generation, complex analysis)
  */
 export const strictLlmRateLimiter = async (req: RateLimitRequest, res: Response, next: NextFunction) => {
-  const client = await getRedisClient();
-  const limiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5, // Only 5 expensive operations per hour
-  message: 'Expensive operation limit exceeded. Please try again later.',
+  try {
+    const client = await redisCircuitBreaker.execute({
+      operation: () => getRedisClient(),
+      operationName: 'redis-get-client-strict',
+      timeout: 5000,
+      fallback: () => {
+        logger.warn('Redis unavailable for strict limiter, using in-memory');
+        return null;
+      }
+    });
 
-    store: new RedisStore({
-      client: client as any,
-      prefix: 'rl:expensive:'
-    }),
+    const limiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 5, // Only 5 expensive operations per hour
+    message: 'Expensive operation limit exceeded. Please try again later.',
 
-    keyGenerator,
-    handler: rateLimitHandler,
-    skip: skipRateLimit
-  });
+      ...(client ? {
+        store: new RedisStore({
+          client: client as any,
+          prefix: 'rl:expensive:'
+        })
+      } : {}),
 
-  return limiter(req, res, next);
+      keyGenerator,
+      handler: rateLimitHandler,
+      skip: skipRateLimit
+    });
+
+    return limiter(req, res, next);
+  } catch (error) {
+    logger.error('Failed to create strict rate limiter', error as Error);
+
+    // Fallback to basic rate limiting
+    return rateLimit({
+      windowMs: 60 * 60 * 1000,
+      max: 5,
+      message: 'Expensive operation limit exceeded. Please try again later.',
+      keyGenerator,
+      handler: rateLimitHandler,
+      skip: skipRateLimit
+    })(req, res, next);
+  }
 };
 
 /**
@@ -209,29 +277,51 @@ export async function getRateLimitStatus(userId: string): Promise<{
   remaining: number;
   resetAt: Date;
 }> {
-  const key = `llm_rate_limit:user:${userId}`;
+  const key = RateLimitKeyService.generateUserKey(userId, 'unknown', {
+    service: 'llm',
+    tier: 'free' // Default tier for status check
+  });
 
   try {
-    const redisClient = await getRedisClient();
-    const current = await redisClient.get(key);
-    const ttl = await redisClient.ttl(key);
+    const redisClient = await redisCircuitBreaker.execute({
+      operation: () => getRedisClient(),
+      operationName: 'redis-get-client-status',
+      timeout: 3000,
+      fallback: () => {
+        logger.warn('Redis unavailable for rate limit status');
+        return null;
+      }
+    });
 
-    // Determine tier (would need to fetch from database)
-    const tier = 'free'; // Placeholder
-    const config = RATE_LIMITS[tier];
+    if (redisClient) {
+      const current = await redisClient.get(key);
+      const ttl = await redisClient.ttl(key);
 
-    const used = current ? parseInt(current) : 0;
-    const remaining = Math.max(0, config.max - used);
-    const resetAt = new Date(Date.now() + (ttl * 1000));
+      // Determine tier (would need to fetch from database)
+      const tier = 'free'; // Placeholder
+      const config = RATE_LIMITS[tier];
 
-    return {
-      tier,
-      limit: config.max,
-      remaining,
-      resetAt
-    };
+      const used = current ? parseInt(current) : 0;
+      const remaining = Math.max(0, config.max - used);
+      const resetAt = new Date(Date.now() + (ttl * 1000));
+
+      return {
+        tier,
+        limit: config.max,
+        remaining,
+        resetAt
+      };
+    } else {
+      // Return default status when Redis is unavailable
+      return {
+        tier: 'free',
+        limit: RATE_LIMITS.free.max,
+        remaining: RATE_LIMITS.free.max,
+        resetAt: new Date(Date.now() + 60 * 60 * 1000)
+      };
+    }
   } catch (error) {
-    console.error('Failed to get rate limit status:', error);
+    logger.error('Failed to get rate limit status:', error);
     throw error;
   }
 }
@@ -240,8 +330,31 @@ export async function getRateLimitStatus(userId: string): Promise<{
  * Reset rate limit for a user (admin function)
  */
 export async function resetRateLimit(userId: string): Promise<void> {
-  const key = `llm_rate_limit:user:${userId}`;
-  const redisClient = await getRedisClient();
-  await redisClient.del(key);
+  const key = RateLimitKeyService.generateUserKey(userId, 'unknown', {
+    service: 'llm',
+    tier: 'free'
+  });
+
+  try {
+    const redisClient = await redisCircuitBreaker.execute({
+      operation: () => getRedisClient(),
+      operationName: 'redis-get-client-reset',
+      timeout: 3000,
+      fallback: () => {
+        logger.warn('Redis unavailable for rate limit reset');
+        return null;
+      }
+    });
+
+    if (redisClient) {
+      await redisClient.del(key);
+      logger.info('Rate limit reset', { userId });
+    } else {
+      logger.warn('Cannot reset rate limit - Redis unavailable', { userId });
+    }
+  } catch (error) {
+    logger.error('Failed to reset rate limit', error as Error);
+    throw error;
+  }
 }
 

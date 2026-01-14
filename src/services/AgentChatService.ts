@@ -35,18 +35,13 @@ import {
   generateChatSDUIPage,
   hasTemplateForStage,
 } from "../sdui/templates/chat-templates";
-import {
-  generateChatSDUIPage,
-  hasTemplateForStage,
-} from "../sdui/templates/chat-templates";
 import { sanitizeAgentInput } from "../utils/security";
 import { contextFabric } from "../lib/agent-fabric/ContextFabric";
 import { detectIndustry } from "../data/industryTemplates";
+import { geminiProxyService } from "./GeminiProxyService";
+import { FallbackAIService } from "./FallbackAIService";
 
-// API Key for Gemini (should be in env vars)
-const GEMINI_API_KEY = import.meta.env.VITE_GOOGLE_API_KEY || "";
-
-interface AIResponseSchema {
+export interface AIResponseSchema {
   analysisSummary: string;
   identifiedIndustry: string;
   valueHypotheses: {
@@ -184,24 +179,24 @@ class AgentChatService {
       // 2. Construct the System Prompt
       let systemPrompt = `
         You are an expert ${template.role}.
-        
+
         Your goal is to analyze the user's input and generate a Strategic Value Map.
-        
+
         CONTEXT:
         The user is working on a deal or project in the "${template.name}" sector.
-        
+
         FOCUS AREAS:
         Focus your analysis on: ${template.focusAreas.join(", ")}.
-        
+
         METRICS:
         Prioritize these metrics: ${template.metrics.join(", ")}.
-        
+
         PAIN POINTS TO LOOK FOR:
         ${template.typicalPainPoints.join(", ")}.
-        
+
         SCHEMAS AND DEFINITONS:
         Output MUST be valid JSON matching the schema below. Do not include markdown formatting like \`\`\`json.
-        
+
         SCHEMA:
         {
           "analysisSummary": "Brief executive summary...",
@@ -221,55 +216,57 @@ class AgentChatService {
       const lastAnalysis = request.workflowState.context?.lastAnalysis;
       if (lastAnalysis) {
         systemPrompt += `
-          
+
           CURRENT DASHBOARD STATE (JSON):
           ${JSON.stringify(lastAnalysis)}
-          
+
           REFINEMENT INSTRUCTIONS:
-          The user is likely asking to UPDATE or REFINE the above state. 
+          The user is likely asking to UPDATE or REFINE the above state.
           - If they say "Make it more aggressive", adjust the metrics and confidence up.
           - If they say "Add a hypothesis about X", keep existing ones and ADD the new one.
           - Return the FULL JSON with your modifications applied.
           `;
       }
 
-      // 3. Call Gemini API
+      // 3. Call Gemini API through secure proxy with fallback
       let parsedData: AIResponseSchema;
 
       try {
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: query }] }],
-              systemInstruction: { parts: [{ text: systemPrompt }] },
-              generationConfig: {
-                responseMimeType: "application/json",
-              },
-            }),
-          }
-        );
-
-        if (!response.ok) {
-          const errText = await response.text();
-          throw new Error(
-            `Gemini API request failed: ${response.status} ${errText}`
-          );
-        }
-
-        const result = await response.json();
-        const textResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
-
-        if (!textResponse) throw new Error("No content in response");
+        const textResponse = await geminiProxyService.generateContent({
+          contents: [{ parts: [{ text: query }] }],
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          generationConfig: {
+            responseMimeType: "application/json",
+          },
+        });
 
         parsedData = JSON.parse(textResponse);
+
+        // Cache successful analysis for fallback use
+        FallbackAIService.cacheAnalysis(request.caseId, parsedData);
+
       } catch (apiError) {
-        logger.error("Gemini API Error", apiError);
-        // Fallback to internal LLM Gateway if Gemini fails
-        // For this demo, we'll throw to trigger error state
-        throw apiError;
+        logger.error("Gemini API Error, attempting fallback", apiError);
+
+        // Check if we should use fallback service
+        if (FallbackAIService.shouldUseFallback(apiError)) {
+          // Try to get cached analysis first
+          const cachedAnalysis = FallbackAIService.getCachedAnalysis(request.caseId);
+          if (cachedAnalysis) {
+            parsedData = cachedAnalysis;
+            logger.info("Using cached analysis as fallback");
+          } else {
+            // Generate rule-based fallback
+            parsedData = FallbackAIService.generateFallbackAnalysis(query, {
+              industry: template.name,
+              stage: request.workflowState.currentStage
+            });
+            logger.info("Using rule-based fallback analysis");
+          }
+        } else {
+          // Re-throw if it's not a fallback-worthy error
+          throw apiError;
+        }
       }
 
       // 4. Transform AI JSON to SDUI Page Definition
@@ -464,7 +461,7 @@ class AgentChatService {
 
     // Combine Base + Context + Stage
     return `${basePrompt}
-    
+
 ${contextPrompt || ""}
 
 Current Stage: ${state.currentStage}

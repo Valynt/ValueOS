@@ -1,18 +1,19 @@
 /**
  * Rate Limiter Middleware
- * 
+ *
  * SAF-402: Prevents API abuse and cost overruns
- * 
+ *
  * Implements tiered rate limiting:
  * - Strict tier (5 req/min): Expensive agent operations
  * - Standard tier (60 req/min): Regular API calls
  * - Loose tier (300 req/min): Read-only operations
- * 
+ *
  * Uses in-memory store with Redis fallback for production
  */
 
 import { NextFunction, Request, Response } from 'express';
 import { logger } from '../lib/logger';
+import { RateLimitKeyService } from '../services/RateLimitKeyService';
 
 /**
  * Rate limit tier
@@ -25,19 +26,19 @@ export type RateLimitTier = 'strict' | 'standard' | 'loose';
 export interface RateLimitConfig {
   /** Window size in milliseconds */
   windowMs: number;
-  
+
   /** Maximum requests per window */
   max: number;
-  
+
   /** Message to send when limit is exceeded */
   message?: string;
-  
+
   /** Status code to send when limit is exceeded */
   statusCode?: number;
-  
+
   /** Skip rate limiting for certain conditions */
   skip?: (req: Request) => boolean;
-  
+
   /** Custom key generator */
   keyGenerator?: (req: Request) => string;
 }
@@ -158,23 +159,13 @@ class RateLimitStore {
 const store = new RateLimitStore();
 
 /**
- * Default key generator (uses user ID or IP)
+ * Default key generator using unified service
  */
 export function getRateLimitKey(req: Request): string {
-  const tenantId = (req as any).tenantId;
-
-  // Use user ID if authenticated
-  if (req.user?.id) {
-    return tenantId ? `tenant:${tenantId}:user:${req.user.id}` : `user:${req.user.id}`;
-  }
-
-  // Fall back to tenant or IP address
-  if (tenantId) {
-    return `tenant:${tenantId}:ip:${req.ip || 'unknown'}`;
-  }
-
-  const ip = req.ip || req.socket.remoteAddress || 'unknown';
-  return `ip:${ip}`;
+  return RateLimitKeyService.generateSecureKey(req, {
+    service: 'general',
+    tier: 'standard' // Will be overridden in createRateLimiter
+  });
 }
 
 /**
@@ -193,9 +184,12 @@ export function createRateLimiter(
       return next();
     }
 
-    const baseKey = keyGenerator(req);
-    // Append tier to key to prevent collisions between different tiers
-    const key = `${tier}:${baseKey}`;
+    // Use unified key service
+    const key = RateLimitKeyService.generateSecureKey(req, {
+      service: 'general',
+      tier: tier
+    });
+
     const entry = store.increment(key, config.windowMs);
 
     // Set rate limit headers

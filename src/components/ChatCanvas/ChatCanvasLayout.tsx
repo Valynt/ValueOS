@@ -66,6 +66,7 @@ import { crmIntegrationService } from "../../services/CRMIntegrationService";
 import { PrintReportLayout } from "../Report/PrintReportLayout";
 import { ExportPreviewModal } from "../Modals/ExportPreviewModal";
 import { CRMSyncModal } from "../Modals/CRMSyncModal";
+import { useSubscriptionManager, useSafeAsync } from "../../hooks/useSubscriptionManager";
 
 // ============================================================================
 // Custom Hooks
@@ -580,6 +581,10 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
   // Canvas store for undo/redo
   const { undo, redo, canUndo, canRedo } = useCanvasStore();
 
+  // Subscription manager for preventing memory leaks
+  const subscriptionManager = useSubscriptionManager();
+  const { safeSetState } = useSafeAsync();
+
   // Toast notifications
   const { error: showError, success: showSuccess, info: showInfo } = useToast();
 
@@ -752,9 +757,9 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
 
     fetchCases();
 
-    // Subscribe to real-time updates
+    // Subscribe to real-time updates with memory leak prevention
     const unsubscribe = valueCaseService.subscribe(async (updatedCases) => {
-      setCases(
+      safeSetState(setCases)(
         updatedCases.map((c) => ({
           id: c.id,
           name: c.name,
@@ -766,7 +771,7 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
       );
     });
 
-    return () => unsubscribe();
+    subscriptionManager.add('valueCases', unsubscribe);
   }, []);
 
   // Get current user/tenant for CRM import
@@ -808,8 +813,8 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
           },
         })
         .then(({ sessionId, state }) => {
-          setCurrentSessionId(sessionId);
-          setWorkflowState(state);
+          safeSetState(setCurrentSessionId)(sessionId);
+          safeSetState(setWorkflowState)(state);
           logger.info("Workflow session initialized", {
             sessionId,
             caseId: selectedCase.id,
@@ -819,7 +824,7 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
         .catch((error) => {
           logger.error("Failed to initialize workflow session", error);
           // Fallback to in-memory state
-          setWorkflowState({
+          safeSetState(setWorkflowState)({
             currentStage: selectedCase.stage,
             status: "in_progress",
             completedStages: [],
@@ -829,6 +834,16 @@ export const ChatCanvasLayout: React.FC<ChatCanvasLayoutProps> = ({
             },
           });
         });
+
+      // Subscribe to workflow state changes
+      const unsubscribe = workflowStateService.subscribeToState(
+        currentSessionId || '',
+        (state) => {
+          safeSetState(setWorkflowState)(state);
+        }
+      );
+
+      subscriptionManager.add('workflowState', unsubscribe);
 
       // If case has cached SDUI page, render it
       if (selectedCase.sduiPage) {

@@ -2,6 +2,8 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { TenantAwareService } from './TenantAwareService';
 import { log } from '../lib/logger';
 import { sanitizeUser } from '../lib/piiFilter';
+import { MLAnomalyDetectionService, AnomalyDetectionResult } from './MLAnomalyDetectionService';
+import { DynamicBaselineService } from './DynamicBaselineService';
 
 export interface SecurityEvent {
   id: string;
@@ -36,6 +38,24 @@ export interface AnomalyPattern {
   };
   window: number; // minutes
   category: string;
+}
+
+export interface UserActivity {
+  id: string;
+  user_id: string;
+  activity_type: string;
+  details: Record<string, any>;
+  created_at: Date;
+}
+
+export interface BehaviorAnalysis {
+  anomalies: Array<{ type: string; description: string; severity: string }>;
+  patterns: {
+    totalActivities: number;
+    unusualHoursCount: number;
+    locationChangesCount: number;
+    securityFailuresCount: number;
+  };
 }
 
 export class AdvancedThreatDetectionService extends TenantAwareService {
@@ -132,8 +152,21 @@ export class AdvancedThreatDetectionService extends TenantAwareService {
     }
   ];
 
+  private mlService: MLAnomalyDetectionService;
+  private baselineService: DynamicBaselineService;
+  private auditLog: any; // Simplified audit log for now
+
   constructor(supabase: SupabaseClient) {
-    super(supabase);
+    super('AdvancedThreatDetectionService');
+    this.supabase = supabase;
+    this.mlService = new MLAnomalyDetectionService(supabase);
+    this.baselineService = new DynamicBaselineService(supabase);
+    this.auditLog = {
+      log: async (data: any) => {
+        // Simplified audit logging
+        log.info('Audit log', data);
+      }
+    };
   }
 
   /**
@@ -204,9 +237,39 @@ export class AdvancedThreatDetectionService extends TenantAwareService {
   }
 
   /**
-   * Performs behavioral analytics to detect anomalies
+   * Performs behavioral analytics to detect anomalies using ML models
    */
   async detectAnomalies(event: SecurityEvent): Promise<AnomalyPattern[]> {
+    try {
+      // Use ML service for advanced anomaly detection
+      const mlAnalysis = await this.mlService.analyzeEvent(event);
+
+      // Convert ML results to AnomalyPattern format for compatibility
+      const detectedAnomalies: AnomalyPattern[] = [];
+
+      for (const anomaly of mlAnalysis.anomalies) {
+        if (anomaly.isAnomalous) {
+          // Map ML anomaly types to existing patterns
+          const pattern = this.mapMLAnomalyToPattern(anomaly);
+          if (pattern) {
+            detectedAnomalies.push(pattern);
+          }
+        }
+      }
+
+      return detectedAnomalies;
+    } catch (error) {
+      log.error('ML anomaly detection failed, falling back to statistical', error as Error);
+
+      // Fallback to statistical detection
+      return this.detectAnomaliesStatistical(event);
+    }
+  }
+
+  /**
+   * Fallback statistical anomaly detection
+   */
+  private async detectAnomaliesStatistical(event: SecurityEvent): Promise<AnomalyPattern[]> {
     const detectedAnomalies: AnomalyPattern[] = [];
 
     for (const pattern of this.anomalyPatterns) {
@@ -217,6 +280,24 @@ export class AdvancedThreatDetectionService extends TenantAwareService {
     }
 
     return detectedAnomalies;
+  }
+
+  /**
+   * Map ML anomaly results to existing pattern format
+   */
+  private mapMLAnomalyToPattern(mlAnomaly: AnomalyDetectionResult): AnomalyPattern | null {
+    switch (mlAnomaly.anomalyType) {
+      case 'temporal':
+        return this.anomalyPatterns.find(p => p.id === 'login_spike') || null;
+      case 'behavioral':
+        return this.anomalyPatterns.find(p => p.id === 'data_access_anomaly') || null;
+      case 'network':
+        return this.anomalyPatterns.find(p => p.id === 'api_traffic_anomaly') || null;
+      case 'resource':
+        return this.anomalyPatterns.find(p => p.id === 'api_traffic_anomaly') || null;
+      default:
+        return null;
+    }
   }
 
   /**
@@ -236,17 +317,16 @@ export class AdvancedThreatDetectionService extends TenantAwareService {
     const startTime = new Date(Date.now() - timeWindow);
 
     // Get user's activity history
-    const activities = await this.queryWithTenantCheck(
+    const activities = await this.queryWithTenantCheck<UserActivity>(
       'user_activity_log',
       userId,
       {
         user_id: userId,
         created_at: { gte: startTime }
-      },
-      { orderBy: 'created_at', ascending: false }
+      }
     );
 
-    const securityEvents = await this.queryWithTenantCheck(
+    const securityEvents = await this.queryWithTenantCheck<SecurityEvent>(
       'security_events',
       userId,
       {
@@ -376,6 +456,45 @@ export class AdvancedThreatDetectionService extends TenantAwareService {
   }
 
   private async checkAnomalyPattern(event: SecurityEvent, pattern: AnomalyPattern): Promise<boolean> {
+    try {
+      // Use dynamic baseline service instead of hardcoded values
+      const currentValue = this.getEventValueForPattern(event, pattern);
+
+      const anomalyResult = await this.baselineService.isAnomalous(
+        event.tenantId,
+        pattern.id,
+        currentValue,
+        'medium' // Default severity, could be dynamic based on context
+      );
+
+      // Record the metric for future learning
+      await this.baselineService.recordMetric(
+        event.tenantId,
+        pattern.id,
+        currentValue,
+        {
+          eventType: event.eventType,
+          userId: event.userId,
+          source: event.source
+        }
+      );
+
+      return anomalyResult.isAnomalous;
+    } catch (error) {
+      log.error('Failed to check anomaly pattern with dynamic baseline', error as Error, {
+        tenantId: event.tenantId,
+        patternId: pattern.id
+      });
+
+      // Fallback to original statistical method
+      return this.checkAnomalyPatternStatistical(event, pattern);
+    }
+  }
+
+  /**
+   * Fallback statistical anomaly detection (original method)
+   */
+  private async checkAnomalyPatternStatistical(event: SecurityEvent, pattern: AnomalyPattern): Promise<boolean> {
     const windowStart = new Date(Date.now() - pattern.window * 60 * 1000);
 
     // Get historical data for this pattern
@@ -392,13 +511,13 @@ export class AdvancedThreatDetectionService extends TenantAwareService {
       return false; // Not enough data for anomaly detection
     }
 
-    const values = historicalData.data.map(d => d.value);
+    const values = historicalData.data.map((d: { value: number }) => d.value);
     const currentValue = this.getEventValueForPattern(event, pattern);
 
     // Simple statistical anomaly detection
-    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    const mean = values.reduce((sum: number, val: number) => sum + val, 0) / values.length;
     const stdDev = Math.sqrt(
-      values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / values.length
+      values.reduce((sum: number, val: number) => sum + Math.pow(val - mean, 2), 0) / values.length
     );
 
     const zScore = Math.abs(currentValue - mean) / stdDev;
@@ -474,7 +593,7 @@ export class AdvancedThreatDetectionService extends TenantAwareService {
   }
 
   private calculateUserRiskLevel(analysis: BehaviorAnalysis): 'low' | 'medium' | 'high' | 'critical' {
-    const highSeverityAnomalies = analysis.anomalies.filter(a => a.severity === 'high' || a.severity === 'critical');
+    const highSeverityAnomalies = analysis.anomalies.filter((a: { type: string; description: string; severity: string }) => a.severity === 'high' || a.severity === 'critical');
 
     if (highSeverityAnomalies.length >= 2) return 'critical';
     if (highSeverityAnomalies.length >= 1) return 'high';
@@ -514,11 +633,11 @@ export class AdvancedThreatDetectionService extends TenantAwareService {
       recommendations.push('Temporary access suspension recommended');
     }
 
-    if (analysis.anomalies.some((a: any) => a.type === 'unusual_hours')) {
+    if (analysis.anomalies.some((a: { type: string; description: string; severity: string }) => a.type === 'unusual_hours')) {
       recommendations.push('Verify legitimacy of off-hours access');
     }
 
-    if (analysis.anomalies.some((a: any) => a.type === 'location_hopping')) {
+    if (analysis.anomalies.some((a: { type: string; description: string; severity: string }) => a.type === 'location_hopping')) {
       recommendations.push('Review recent location changes');
     }
 

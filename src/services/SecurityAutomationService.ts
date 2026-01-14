@@ -1,6 +1,8 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { TenantAwareService } from "./TenantAwareService";
 import { AdvancedThreatDetectionService, SecurityEvent } from "./AdvancedThreatDetectionService";
+import { SecurityEnforcementService } from "./SecurityEnforcementService";
+import { SecurityEventValidator } from "./SecurityEventValidator";
 import { log } from "../lib/logger";
 import { auditLogService, AuditLogService } from "./AuditLogService";
 
@@ -69,12 +71,16 @@ export interface PolicyRule {
 export class SecurityAutomationService extends TenantAwareService {
   private threatDetectionService: AdvancedThreatDetectionService;
   private auditLog: AuditLogService;
+  private enforcementService: SecurityEnforcementService;
+  private validator: SecurityEventValidator;
 
   constructor(supabase: SupabaseClient, threatDetectionService: AdvancedThreatDetectionService) {
     super("SecurityAutomationService");
     this.supabase = supabase;
     this.threatDetectionService = threatDetectionService;
     this.auditLog = auditLogService;
+    this.enforcementService = new SecurityEnforcementService(supabase);
+    this.validator = new SecurityEventValidator();
   }
 
   /**
@@ -92,36 +98,52 @@ export class SecurityAutomationService extends TenantAwareService {
     incident?: SecurityIncident;
     responsesTriggered: AutomatedResponse[];
   }> {
+    // Validate input event first
+    const validation = this.validator.validateSecurityEvent(event);
+    if (!validation.isValid) {
+      log.error('Invalid security event received', undefined, {
+        errors: validation.errors,
+        warnings: validation.warnings,
+        eventType: event.eventType,
+        tenantId: event.tenantId
+      });
+
+      throw new Error(`Invalid security event: ${validation.errors.join(', ')}`);
+    }
+
+    // Use sanitized data
+    const sanitizedEvent = validation.sanitizedData || event;
+
     // For system-initiated events (no userId), verify tenant exists instead of user access
     // This allows automated security processing without a user context
-    if (event.userId) {
-      await this.validateTenantAccess(event.userId, event.tenantId);
+    if (sanitizedEvent.userId) {
+      await this.validateTenantAccess(sanitizedEvent.userId, sanitizedEvent.tenantId);
     } else {
       // System-initiated event: verify tenant is valid
       const { data: tenant, error } = await this.supabase
         .from("tenants")
         .select("id")
-        .eq("id", event.tenantId)
+        .eq("id", sanitizedEvent.tenantId)
         .eq("status", "active")
         .maybeSingle();
 
       if (error || !tenant) {
         log.error("System security event for invalid tenant", undefined, {
-          tenantId: event.tenantId,
-          eventType: event.eventType,
+          tenantId: sanitizedEvent.tenantId,
+          eventType: sanitizedEvent.eventType,
         });
-        throw new Error(`Invalid tenant for system security event: ${event.tenantId}`);
+        throw new Error(`Invalid tenant for system security event: ${sanitizedEvent.tenantId}`);
       }
     }
 
     // Analyze the event for threats
     const threatAnalysis = await this.threatDetectionService.analyzeSecurityEvent({
-      tenantId: event.tenantId,
-      userId: event.userId,
-      eventType: event.eventType,
-      severity: this.determineSeverity(event),
+      tenantId: sanitizedEvent.tenantId,
+      userId: sanitizedEvent.userId,
+      eventType: sanitizedEvent.eventType,
+      severity: this.determineSeverity(sanitizedEvent),
       source: "security_automation",
-      details: event.details,
+      details: sanitizedEvent.details,
     });
 
     let incident: SecurityIncident | undefined;
@@ -131,12 +153,12 @@ export class SecurityAutomationService extends TenantAwareService {
     if (threatAnalysis.threats.length > 0) {
       const firstThreat = threatAnalysis.threats[0]!;
       incident = await this.createSecurityIncident({
-        tenantId: event.tenantId,
-        title: this.generateIncidentTitle(firstThreat, event),
+        tenantId: sanitizedEvent.tenantId,
+        title: this.generateIncidentTitle(firstThreat, sanitizedEvent),
         description: `Automated detection: ${threatAnalysis.threats.map((t) => t.name).join(", ")}`,
         severity: firstThreat.severity,
         incidentType: firstThreat.category,
-        affectedResources: [event.resourceId || "unknown"],
+        affectedResources: [sanitizedEvent.resourceId || "unknown"],
         threatIndicators: threatAnalysis.threats.map((t) => t.id),
         riskScore: threatAnalysis.riskScore,
       });
@@ -156,11 +178,11 @@ export class SecurityAutomationService extends TenantAwareService {
     }
 
     // Enforce security policies
-    await this.enforceSecurityPolicies(event);
+    await this.enforceSecurityPolicies(sanitizedEvent);
 
     log.info("Security event processed", {
-      tenantId: event.tenantId,
-      eventType: event.eventType,
+      tenantId: sanitizedEvent.tenantId,
+      eventType: sanitizedEvent.eventType,
       incidentCreated,
       responsesTriggered: responsesTriggered.length,
       threatCount: threatAnalysis.threats.length,
@@ -564,23 +586,8 @@ export class SecurityAutomationService extends TenantAwareService {
         })
         .eq("id", response.id);
 
-      // Execute the specific action
-      switch (response.actionType) {
-        case "alert":
-          await this.executeAlertAction(response);
-          break;
-        case "block":
-          await this.executeBlockAction(response);
-          break;
-        case "quarantine":
-          await this.executeQuarantineAction(response);
-          break;
-        case "notify":
-          await this.executeNotifyAction(response);
-          break;
-        default:
-          throw new Error(`Unknown action type: ${response.actionType}`);
-      }
+      // Use the enforcement service for actual security actions
+      await this.enforcementService.executeSecurityAction(response);
 
       response.status = "completed";
       response.result = "Action completed successfully";

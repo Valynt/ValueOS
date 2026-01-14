@@ -40,7 +40,7 @@ export function useCanvasController(): CanvasControllerState & CanvasControllerA
   });
 
   const selectCase = useCallback(async (caseId: string) => {
-    setState(prev => ({ ...prev, isLoading: true, error: null }));
+    setState((prev: CanvasControllerState) => ({ ...prev, isLoading: true, error: null }));
 
     try {
       // This would integrate with actual case service
@@ -58,13 +58,13 @@ export function useCanvasController(): CanvasControllerState & CanvasControllerA
         priority: 'medium',
       };
 
-      setState(prev => ({
+      setState((prev: CanvasControllerState) => ({
         ...prev,
         selectedCase: mockCase,
         isLoading: false,
       }));
     } catch (error) {
-      setState(prev => ({
+      setState((prev: CanvasControllerState) => ({
         ...prev,
         error: error instanceof Error ? error.message : 'Failed to select case',
         isLoading: false,
@@ -73,17 +73,17 @@ export function useCanvasController(): CanvasControllerState & CanvasControllerA
   }, []);
 
   const updateWorkflowState = useCallback(async (workflowState: WorkflowState) => {
-    setState(prev => ({ ...prev, isLoading: true, error: null }));
+    setState((prev: CanvasControllerState) => ({ ...prev, isLoading: true, error: null }));
 
     try {
       // This would integrate with actual workflow service
-      setState(prev => ({
+      setState((prev: CanvasControllerState) => ({
         ...prev,
         workflowState,
         isLoading: false,
       }));
     } catch (error) {
-      setState(prev => ({
+      setState((prev: CanvasControllerState) => ({
         ...prev,
         error: error instanceof Error ? error.message : 'Failed to update workflow state',
         isLoading: false,
@@ -92,7 +92,7 @@ export function useCanvasController(): CanvasControllerState & CanvasControllerA
   }, []);
 
   const clearError = useCallback(() => {
-    setState(prev => ({ ...prev, error: null }));
+    setState((prev: CanvasControllerState) => ({ ...prev, error: null }));
   }, []);
 
   const reset = useCallback(() => {
