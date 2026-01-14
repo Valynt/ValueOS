@@ -1,0 +1,75 @@
+version: "3.8"
+
+services:
+  postgres:
+    environment:
+      POSTGRES_DB: valueos_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: dev_password
+    volumes:
+      - ./dev/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  redis:
+    command: redis-server --appendonly yes --maxmemory 1gb --maxmemory-policy allkeys-lru
+
+  backend:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
+      target: backend-production
+      args:
+        NODE_ENV: development
+    environment:
+      - NODE_ENV=development
+      - LOG_LEVEL=debug
+    volumes:
+      - ../../src:/app/src:ro
+      - ../../dist:/app/dist
+    command: ["npm", "run", "dev"]
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+
+  frontend:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
+      target: frontend-production
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ../../src:/app/src:ro
+      - ../../dist:/usr/share/nginx/html
+    command: ["nginx", "-g", "daemon off;"]
+
+  # Development-specific services
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: valueos-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@valueos.dev
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - valueos-network
+    profiles:
+      - dev-tools
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: valueos-redis-commander
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - valueos-network
+    profiles:
+      - dev-tools

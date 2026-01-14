@@ -9,13 +9,13 @@
  * - Dashboard data provider
  */
 
-import { logger } from '../logger';
-import { analyticsClient } from '../analyticsClient';
-import { HttpClientFactory } from './HttpClientWithCircuitBreaker';
+import { logger } from "../logger";
+import { analyticsClient } from "../analyticsClient";
+import { HttpClientFactory } from "./HttpClientWithCircuitBreaker";
 
 export interface CircuitBreakerMetrics {
   serviceName: string;
-  state: 'CLOSED' | 'OPEN' | 'HALF_OPEN';
+  state: "CLOSED" | "OPEN" | "HALF_OPEN";
   failureCount: number;
   successCount: number;
   totalRequests: number;
@@ -28,7 +28,7 @@ export interface CircuitBreakerMetrics {
 }
 
 export interface SystemHealthStatus {
-  overall: 'healthy' | 'degraded' | 'unhealthy';
+  overall: "healthy" | "degraded" | "unhealthy";
   services: CircuitBreakerMetrics[];
   summary: {
     totalServices: number;
@@ -72,7 +72,7 @@ export class CircuitBreakerMonitor {
    */
   startMonitoring(intervalMs: number = 30000): void {
     if (this.isMonitoring) {
-      logger.warn('Circuit breaker monitoring already started');
+      logger.warn("Circuit breaker monitoring already started");
       return;
     }
 
@@ -84,7 +84,7 @@ export class CircuitBreakerMonitor {
       this.cleanupOldMetrics();
     }, intervalMs);
 
-    logger.info('Circuit breaker monitoring started', {
+    logger.info("Circuit breaker monitoring started", {
       interval: intervalMs,
     });
   }
@@ -99,7 +99,7 @@ export class CircuitBreakerMonitor {
     }
 
     this.isMonitoring = false;
-    logger.info('Circuit breaker monitoring stopped');
+    logger.info("Circuit breaker monitoring stopped");
   }
 
   /**
@@ -133,13 +133,15 @@ export class CircuitBreakerMonitor {
       }
 
       // Send metrics to analytics
-      analyticsClient.track('circuit_breaker_metrics', {
+      analyticsClient.track("circuit_breaker_metrics", {
         services: metrics,
         timestamp: new Date().toISOString(),
       });
-
     } catch (error) {
-      logger.error('Failed to collect circuit breaker metrics', error instanceof Error ? error : new Error('Unknown error'));
+      logger.error(
+        "Failed to collect circuit breaker metrics",
+        error instanceof Error ? error : new Error("Unknown error")
+      );
     }
   }
 
@@ -152,21 +154,21 @@ export class CircuitBreakerMonitor {
 
     // Check overall system health
     if (summary.overallFailureRate > this.alertConfig.failureRateThreshold) {
-      this.triggerAlert('HIGH_FAILURE_RATE', {
+      this.triggerAlert("HIGH_FAILURE_RATE", {
         failureRate: summary.overallFailureRate,
         threshold: this.alertConfig.failureRateThreshold,
       });
     }
 
     if (summary.averageResponseTime > this.alertConfig.responseTimeThreshold) {
-      this.triggerAlert('HIGH_RESPONSE_TIME', {
+      this.triggerAlert("HIGH_RESPONSE_TIME", {
         responseTime: summary.averageResponseTime,
         threshold: this.alertConfig.responseTimeThreshold,
       });
     }
 
     if (summary.unhealthyServices > 0) {
-      this.triggerAlert('SERVICES_UNHEALTHY', {
+      this.triggerAlert("SERVICES_UNHEALTHY", {
         unhealthyServices: summary.unhealthyServices,
         totalServices: summary.totalServices,
       });
@@ -175,21 +177,23 @@ export class CircuitBreakerMonitor {
     // Check individual services
     for (const service of systemHealth.services) {
       if (service.failureRate > this.alertConfig.failureRateThreshold) {
-        this.triggerAlert('SERVICE_HIGH_FAILURE_RATE', {
+        this.triggerAlert("SERVICE_HIGH_FAILURE_RATE", {
           serviceName: service.serviceName,
           failureRate: service.failureRate,
         });
       }
 
-      if (service.averageResponseTime > this.alertConfig.responseTimeThreshold) {
-        this.triggerAlert('SERVICE_HIGH_RESPONSE_TIME', {
+      if (
+        service.averageResponseTime > this.alertConfig.responseTimeThreshold
+      ) {
+        this.triggerAlert("SERVICE_HIGH_RESPONSE_TIME", {
           serviceName: service.serviceName,
           responseTime: service.averageResponseTime,
         });
       }
 
-      if (service.state === 'OPEN') {
-        this.triggerAlert('SERVICE_CIRCUIT_OPEN', {
+      if (service.state === "OPEN") {
+        this.triggerAlert("SERVICE_CIRCUIT_OPEN", {
           serviceName: service.serviceName,
           failureCount: service.failureCount,
         });
@@ -201,13 +205,13 @@ export class CircuitBreakerMonitor {
    * Trigger alert
    */
   private triggerAlert(alertType: string, data: any): void {
-    logger.warn('Circuit breaker alert triggered', {
+    logger.warn("Circuit breaker alert triggered", {
       alertType,
       data,
       timestamp: new Date().toISOString(),
     });
 
-    analyticsClient.track('circuit_breaker_alert', {
+    analyticsClient.track("circuit_breaker_alert", {
       alertType,
       data,
       timestamp: new Date().toISOString(),
@@ -266,17 +270,22 @@ export class CircuitBreakerMonitor {
       }
     }
 
-    const overallFailureRate = totalRequests > 0 ? totalFailures / totalRequests : 0;
-    const averageResponseTime = services.length > 0 ? totalResponseTime / services.length : 0;
+    const overallFailureRate =
+      totalRequests > 0 ? totalFailures / totalRequests : 0;
+    const averageResponseTime =
+      services.length > 0 ? totalResponseTime / services.length : 0;
 
     // Determine overall system health
-    let overall: 'healthy' | 'degraded' | 'unhealthy';
+    let overall: "healthy" | "degraded" | "unhealthy";
     if (unhealthyCount === 0 && degradedCount === 0) {
-      overall = 'healthy';
-    } else if (unhealthyCount / services.length < this.alertConfig.serviceDownThreshold) {
-      overall = 'degraded';
+      overall = "healthy";
+    } else if (
+      services.length > 0 &&
+      unhealthyCount / services.length < this.alertConfig.serviceDownThreshold
+    ) {
+      overall = "degraded";
     } else {
-      overall = 'unhealthy';
+      overall = "unhealthy";
     }
 
     return {
@@ -297,7 +306,10 @@ export class CircuitBreakerMonitor {
   /**
    * Get metrics history for a service
    */
-  getMetricsHistory(serviceName: string, limit: number = 100): CircuitBreakerMetrics[] {
+  getMetricsHistory(
+    serviceName: string,
+    limit: number = 100
+  ): CircuitBreakerMetrics[] {
     const history = this.metricsHistory.get(serviceName) || [];
     return history.slice(-limit);
   }
@@ -305,7 +317,10 @@ export class CircuitBreakerMonitor {
   /**
    * Get service performance trends
    */
-  getPerformanceTrends(serviceName: string, hours: number = 24): {
+  getPerformanceTrends(
+    serviceName: string,
+    hours: number = 24
+  ): {
     failureRateTrend: number[];
     responseTimeTrend: number[];
     timestamps: Date[];
@@ -313,19 +328,24 @@ export class CircuitBreakerMonitor {
     const history = this.getMetricsHistory(serviceName);
     const cutoffTime = new Date(Date.now() - hours * 60 * 60 * 1000);
 
-    const filteredHistory = history.filter(m => m.lastFailureTime && m.lastFailureTime > cutoffTime);
+    const filteredHistory = history.filter(
+      (m) => m.lastFailureTime && m.lastFailureTime > cutoffTime
+    );
 
     return {
-      failureRateTrend: filteredHistory.map(m => m.failureRate),
-      responseTimeTrend: filteredHistory.map(m => m.averageResponseTime),
-      timestamps: filteredHistory.map(m => m.lastFailureTime || new Date()),
+      failureRateTrend: filteredHistory.map((m) => m.failureRate),
+      responseTimeTrend: filteredHistory.map((m) => m.averageResponseTime),
+      timestamps: filteredHistory.map((m) => m.lastFailureTime || new Date()),
     };
   }
 
   /**
    * Update metrics history
    */
-  private updateMetricsHistory(serviceName: string, metric: CircuitBreakerMetrics): void {
+  private updateMetricsHistory(
+    serviceName: string,
+    metric: CircuitBreakerMetrics
+  ): void {
     if (!this.metricsHistory.has(serviceName)) {
       this.metricsHistory.set(serviceName, []);
     }
@@ -347,7 +367,7 @@ export class CircuitBreakerMonitor {
 
     for (const [serviceName, history] of this.metricsHistory) {
       const filteredHistory = history.filter(
-        m => (m.lastFailureTime?.getTime() || 0) > cutoffTime
+        (m) => (m.lastFailureTime?.getTime() || 0) > cutoffTime
       );
 
       if (filteredHistory.length !== history.length) {
@@ -389,9 +409,9 @@ export class CircuitBreakerMonitor {
   private calculateHealthScore(status: any, isHealthy: boolean): number {
     let score = 1.0;
 
-    if (status.state === 'OPEN') {
+    if (status.state === "OPEN") {
       score = 0.0;
-    } else if (status.state === 'HALF_OPEN') {
+    } else if (status.state === "HALF_OPEN") {
       score = 0.5;
     }
 
@@ -400,7 +420,7 @@ export class CircuitBreakerMonitor {
     }
 
     const failureRate = this.calculateFailureRate(status);
-    score *= (1 - failureRate);
+    score *= 1 - failureRate;
 
     return Math.max(0, Math.min(1, score));
   }
@@ -430,7 +450,7 @@ export class CircuitBreakerMonitor {
    */
   reset(): void {
     this.metricsHistory.clear();
-    logger.info('Circuit breaker monitor reset');
+    logger.info("Circuit breaker monitor reset");
   }
 }
 
@@ -446,20 +466,25 @@ export function circuitBreakerHealthMiddleware() {
   return async (req: any, res: any) => {
     try {
       const health = circuitBreakerMonitor.getSystemHealthStatus();
-      const statusCode = health.overall === 'healthy' ? 200 : health.overall === 'degraded' ? 200 : 503;
+      const statusCode =
+        health.overall === "healthy"
+          ? 200
+          : health.overall === "degraded"
+            ? 200
+            : 503;
 
       res.status(statusCode).json({
-        service: 'circuit-breaker-monitor',
+        service: "circuit-breaker-monitor",
         status: health.overall,
         timestamp: health.timestamp,
         details: health,
       });
     } catch (error) {
       res.status(503).json({
-        service: 'circuit-breaker-monitor',
-        status: 'unhealthy',
+        service: "circuit-breaker-monitor",
+        status: "unhealthy",
         timestamp: new Date().toISOString(),
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : "Unknown error",
       });
     }
   };

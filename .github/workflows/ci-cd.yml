@@ -2,9 +2,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 env:
   REGISTRY: ghcr.io
@@ -24,6 +24,8 @@ jobs:
         image: postgres:15
         env:
           POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -31,6 +33,8 @@ jobs:
           --health-retries 5
       redis:
         image: redis:7-alpine
+        ports:
+          - 6379:6379
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 10s
@@ -38,41 +42,41 @@ jobs:
           --health-retries 5
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
 
-    - name: Install dependencies
-      run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Lint code
-      run: npm run lint
+      - name: Lint code
+        run: npm run lint
 
-    - name: Run unit tests
-      run: npm run test:unit
-      env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test
-        REDIS_URL: redis://localhost:6379
+      - name: Run unit tests
+        run: npm run test:unit
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test
+          REDIS_URL: redis://localhost:6379
 
-    - name: Run integration tests
-      run: npm run test:integration
-      env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test
-        REDIS_URL: redis://localhost:6379
+      - name: Run integration tests
+        run: npm run test:integration
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test
+          REDIS_URL: redis://localhost:6379
 
-    - name: Upload test results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: test-results-${{ matrix.node-version }}
-        path: |
-          test-results/
-          coverage/
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.node-version }}
+          path: |
+            test-results/
+            coverage/
 
   # Build/Sign Stage
   build:
@@ -84,57 +88,57 @@ jobs:
       image-sha: ${{ steps.build.outputs.sha }}
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup Docker buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Setup Docker buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Log in to Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=sha,prefix={{branch}}-
-          type=raw,value=latest,enable={{is_default_branch}}
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
 
-    - name: Build and push Docker image
-      id: build
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        platforms: linux/amd64,linux/arm64
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-        provenance: true
-        sbom: true
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
 
-    - name: Install Cosign
-      uses: sigstore/cosign-installer@v3
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
 
-    - name: Sign container image
-      run: |
-        cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+      - name: Sign container image
+        run: |
+          cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
 
-    - name: Generate artifact attestation
-      uses: actions/attest-build-provenance@v1
-      with:
-        subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        subject-digest: ${{ steps.build.outputs.digest }}
-        push-to-registry: true
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
 
   # Scan Stage
   scan:
@@ -143,35 +147,35 @@ jobs:
     needs: build
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Run Grype vulnerability scan
-      uses: anchore/scan-action@v3
-      id: scan
-      with:
-        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
-        fail-build: true
-        severity-cutoff: high
-        output-format: sarif
+      - name: Run Grype vulnerability scan
+        uses: anchore/scan-action@v3
+        id: scan
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
+          fail-build: true
+          severity-cutoff: high
+          output-format: sarif
 
-    - name: Upload Grype scan results
-      uses: github/codeql-action/upload-sarif@v3
-      if: always()
-      with:
-        sarif_file: ${{ steps.scan.outputs.sarif }}
+      - name: Upload Grype scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: ${{ steps.scan.outputs.sarif }}
 
-    - name: Generate SBOM with Syft
-      uses: anchore/sbom-action@v0
-      with:
-        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
-        output-file: ./sbom.spdx.json
+      - name: Generate SBOM with Syft
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
+          output-file: ./sbom.spdx.json
 
-    - name: Upload SBOM
-      uses: actions/upload-artifact@v4
-      with:
-        name: sbom
-        path: ./sbom.spdx.json
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: ./sbom.spdx.json
 
   # Stage Environment
   stage:
@@ -182,25 +186,25 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Deploy to staging
-      run: |
-        echo "Deploying ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }} to staging"
-        # Add your staging deployment commands here
-        # This would typically involve updating a deployment manifest
-        # and triggering a deployment to your staging environment
+      - name: Deploy to staging
+        run: |
+          echo "Deploying ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }} to staging"
+          # Add your staging deployment commands here
+          # This would typically involve updating a deployment manifest
+          # and triggering a deployment to your staging environment
 
-    - name: Run E2E tests
-      run: |
-        echo "Running E2E tests against staging environment"
-        # Add E2E test commands here
+      - name: Run E2E tests
+        run: |
+          echo "Running E2E tests against staging environment"
+          # Add E2E test commands here
 
-    - name: Run smoke tests
-      run: |
-        echo "Running smoke tests against staging environment"
-        # Add smoke test commands here
+      - name: Run smoke tests
+        run: |
+          echo "Running smoke tests against staging environment"
+          # Add smoke test commands here
 
   # Production Promotion
   promote:
@@ -211,17 +215,17 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Manual approval required
-      run: echo "Awaiting manual approval for production deployment"
+      - name: Manual approval required
+        run: echo "Awaiting manual approval for production deployment"
 
-    - name: Deploy to production
-      run: |
-        echo "Deploying ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }} to production"
-        # Add your production deployment commands here
-        # This would typically use the blue-green deployment script
+      - name: Deploy to production
+        run: |
+          echo "Deploying ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }} to production"
+          # Add your production deployment commands here
+          # This would typically use the blue-green deployment script
 
   # Rollback Monitoring
   rollback-monitor:
@@ -231,15 +235,15 @@ jobs:
     if: always() && needs.promote.result == 'success'
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Monitor production health
-      run: |
-        echo "Monitoring production for 5xx errors > 5%"
-        # Add monitoring logic here
-        # If 5xx rate > 5%, trigger rollback to previous SHA
-        # This could integrate with your monitoring stack
+      - name: Monitor production health
+        run: |
+          echo "Monitoring production for 5xx errors > 5%"
+          # Add monitoring logic here
+          # If 5xx rate > 5%, trigger rollback to previous SHA
+          # This could integrate with your monitoring stack
 
   # Parallel Test Executor (Custom)
   enhanced-parallel-executor:
@@ -249,8 +253,8 @@ jobs:
     if: always()
 
     steps:
-    - name: Parallel test analysis
-      run: |
-        echo "Analyzing test results for parallel optimization opportunities"
-        # This would analyze test execution times and suggest
-        # optimizations for parallel test distribution
+      - name: Parallel test analysis
+        run: |
+          echo "Analyzing test results for parallel optimization opportunities"
+          # This would analyze test execution times and suggest
+          # optimizations for parallel test distribution

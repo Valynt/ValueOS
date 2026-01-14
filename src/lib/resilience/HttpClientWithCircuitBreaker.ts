@@ -9,9 +9,9 @@
  * - Service-specific configurations
  */
 
-import { CircuitBreaker } from './CircuitBreaker';
-import { logger } from '../logger';
-import { analyticsClient } from '../analyticsClient';
+import { CircuitBreaker } from "./CircuitBreaker";
+import { logger } from "../logger";
+import { analyticsClient } from "../analyticsClient";
 
 export interface HttpClientConfig {
   baseURL?: string;
@@ -28,7 +28,7 @@ export interface HttpClientConfig {
 
 export interface RequestConfig {
   url?: string;
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+  method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
   headers?: Record<string, string>;
   body?: any;
   timeout?: number;
@@ -80,7 +80,7 @@ export class HttpClientWithCircuitBreaker {
   }
 
   private setupCircuitBreakerEvents(): void {
-    this.circuitBreaker.on('state-change', (from, to) => {
+    this.circuitBreaker.on("state-change", (from, to) => {
       logger.info(`Circuit breaker state changed for ${this.serviceName}`, {
         serviceName: this.serviceName,
         from,
@@ -88,14 +88,14 @@ export class HttpClientWithCircuitBreaker {
         timestamp: new Date().toISOString(),
       });
 
-      analyticsClient.track('circuit_breaker_state_change', {
+      analyticsClient.track("circuit_breaker_state_change", {
         serviceName: this.serviceName,
         fromState: from,
         toState: to,
       });
     });
 
-    this.circuitBreaker.on('failure', (error) => {
+    this.circuitBreaker.on("failure", (error) => {
       logger.warn(`Circuit breaker recorded failure for ${this.serviceName}`, {
         serviceName: this.serviceName,
         error: error.message,
@@ -103,7 +103,7 @@ export class HttpClientWithCircuitBreaker {
       });
     });
 
-    this.circuitBreaker.on('success', () => {
+    this.circuitBreaker.on("success", () => {
       logger.debug(`Circuit breaker recorded success for ${this.serviceName}`, {
         serviceName: this.serviceName,
       });
@@ -113,9 +113,11 @@ export class HttpClientWithCircuitBreaker {
   /**
    * Execute HTTP request with circuit breaker protection
    */
-  async request<T = any>(requestConfig: RequestConfig): Promise<HttpResponse<T>> {
+  async request<T = any>(
+    requestConfig: RequestConfig
+  ): Promise<HttpResponse<T>> {
     const mergedConfig = { ...this.config, ...requestConfig };
-    const url = this.buildUrl(mergedConfig.url || '');
+    const url = this.buildUrl(mergedConfig.url || "");
 
     const operation = async (): Promise<HttpResponse<T>> => {
       return this.executeRequest<T>(url, mergedConfig);
@@ -125,15 +127,18 @@ export class HttpClientWithCircuitBreaker {
       return await this.circuitBreaker.execute(operation);
     } catch (error) {
       // Handle circuit breaker errors
-      if (error instanceof Error && error.message.includes('Circuit breaker is OPEN')) {
+      if (
+        error instanceof Error &&
+        error.message.includes("Circuit breaker is OPEN")
+      ) {
         const circuitBreakerError: HttpError = new Error(
           `Service ${this.serviceName} is temporarily unavailable`
         ) as HttpError;
         circuitBreakerError.status = 503;
-        circuitBreakerError.statusText = 'Service Unavailable';
+        circuitBreakerError.statusText = "Service Unavailable";
         circuitBreakerError.config = mergedConfig;
 
-        analyticsClient.track('circuit_breaker_open', {
+        analyticsClient.track("circuit_breaker_open", {
           serviceName: this.serviceName,
           url,
         });
@@ -166,7 +171,7 @@ export class HttpClientWithCircuitBreaker {
         logger.debug(`HTTP request successful for ${this.serviceName}`, {
           serviceName: this.serviceName,
           url,
-          method: config.method || 'GET',
+          method: config.method || "GET",
           status: response.status,
           attempt: attempt + 1,
         });
@@ -183,27 +188,34 @@ export class HttpClientWithCircuitBreaker {
         // Calculate exponential backoff delay
         const delay = retryDelay * Math.pow(2, attempt);
 
-        logger.warn(`HTTP request failed for ${this.serviceName}, retrying...`, {
-          serviceName: this.serviceName,
-          url,
-          method: config.method || 'GET',
-          attempt: attempt + 1,
-          maxRetries: maxRetries + 1,
-          delay,
-          error: lastError.message,
-        });
+        logger.warn(
+          `HTTP request failed for ${this.serviceName}, retrying...`,
+          {
+            serviceName: this.serviceName,
+            url,
+            method: config.method || "GET",
+            attempt: attempt + 1,
+            maxRetries: maxRetries + 1,
+            delay,
+            error: lastError.message,
+          }
+        );
 
         await this.sleep(delay);
       }
     }
 
     // All retries failed
-    logger.error(`HTTP request failed after ${maxRetries + 1} attempts for ${this.serviceName}`, lastError, {
-      serviceName: this.serviceName,
-      url,
-      method: config.method || 'GET',
-      maxRetries,
-    });
+    logger.error(
+      `HTTP request failed after ${maxRetries + 1} attempts for ${this.serviceName}`,
+      lastError,
+      {
+        serviceName: this.serviceName,
+        url,
+        method: config.method || "GET",
+        maxRetries,
+      }
+    );
 
     throw lastError;
   }
@@ -221,7 +233,7 @@ export class HttpClientWithCircuitBreaker {
 
     try {
       const response = await fetch(url, {
-        method: config.method || 'GET',
+        method: config.method || "GET",
         headers: {
           ...this.config.headers,
           ...config.headers,
@@ -233,7 +245,9 @@ export class HttpClientWithCircuitBreaker {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        const error: HttpError = new Error(`HTTP ${response.status}: ${response.statusText}`) as HttpError;
+        const error: HttpError = new Error(
+          `HTTP ${response.status}: ${response.statusText}`
+        ) as HttpError;
         error.status = response.status;
         error.statusText = response.statusText;
         error.config = config;
@@ -258,10 +272,12 @@ export class HttpClientWithCircuitBreaker {
     } catch (error) {
       clearTimeout(timeoutId);
 
-      if (error instanceof Error && error.name === 'AbortError') {
-        const timeoutError: HttpError = new Error(`Request timeout after ${timeout}ms`) as HttpError;
+      if (error instanceof Error && error.name === "AbortError") {
+        const timeoutError: HttpError = new Error(
+          `Request timeout after ${timeout}ms`
+        ) as HttpError;
         timeoutError.status = 408;
-        timeoutError.statusText = 'Request Timeout';
+        timeoutError.statusText = "Request Timeout";
         timeoutError.config = config;
         throw timeoutError;
       }
@@ -280,11 +296,11 @@ export class HttpClientWithCircuitBreaker {
     }
 
     // Don't retry on specific error types
-    if (error.message.includes('Request timeout') && error.status === 408) {
+    if (error.message.includes("Request timeout") && error.status === 408) {
       return false; // Retry timeouts
     }
 
-    if (error.message.includes('Network') || error.message.includes('fetch')) {
+    if (error.message.includes("Network") || error.message.includes("fetch")) {
       return false; // Retry network errors
     }
 
@@ -295,9 +311,11 @@ export class HttpClientWithCircuitBreaker {
    * Build full URL
    */
   private buildUrl(path: string): string {
-    const baseURL = this.config.baseURL || '';
-    const trimmedPath = path.startsWith('/') ? path.slice(1) : path;
-    const trimmedBaseURL = baseURL.endsWith('/') ? baseURL.slice(0, -1) : baseURL;
+    const baseURL = this.config.baseURL || "";
+    const trimmedPath = path.startsWith("/") ? path.slice(1) : path;
+    const trimmedBaseURL = baseURL.endsWith("/")
+      ? baseURL.slice(0, -1)
+      : baseURL;
 
     return trimmedBaseURL ? `${trimmedBaseURL}/${trimmedPath}` : trimmedPath;
   }
@@ -306,53 +324,72 @@ export class HttpClientWithCircuitBreaker {
    * Sleep helper for retry delays
    */
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
    * GET request
    */
-  async get<T = any>(url: string, config: RequestConfig = {}): Promise<HttpResponse<T>> {
-    return this.request<T>({ ...config, url, method: 'GET' });
+  async get<T = any>(
+    url: string,
+    config: RequestConfig = {}
+  ): Promise<HttpResponse<T>> {
+    return this.request<T>({ ...config, url, method: "GET" });
   }
 
   /**
    * POST request
    */
-  async post<T = any>(url: string, data?: any, config: RequestConfig = {}): Promise<HttpResponse<T>> {
-    return this.request<T>({ ...config, url, method: 'POST', body: data });
+  async post<T = any>(
+    url: string,
+    data?: any,
+    config: RequestConfig = {}
+  ): Promise<HttpResponse<T>> {
+    return this.request<T>({ ...config, url, method: "POST", body: data });
   }
 
   /**
    * PUT request
    */
-  async put<T = any>(url: string, data?: any, config: RequestConfig = {}): Promise<HttpResponse<T>> {
-    return this.request<T>({ ...config, url, method: 'PUT', body: data });
+  async put<T = any>(
+    url: string,
+    data?: any,
+    config: RequestConfig = {}
+  ): Promise<HttpResponse<T>> {
+    return this.request<T>({ ...config, url, method: "PUT", body: data });
   }
 
   /**
    * PATCH request
    */
-  async patch<T = any>(url: string, data?: any, config: RequestConfig = {}): Promise<HttpResponse<T>> {
-    return this.request<T>({ ...config, url, method: 'PATCH', body: data });
+  async patch<T = any>(
+    url: string,
+    data?: any,
+    config: RequestConfig = {}
+  ): Promise<HttpResponse<T>> {
+    return this.request<T>({ ...config, url, method: "PATCH", body: data });
   }
 
   /**
    * DELETE request
    */
-  async delete<T = any>(url: string, config: RequestConfig = {}): Promise<HttpResponse<T>> {
-    return this.request<T>({ ...config, url, method: 'DELETE' });
+  async delete<T = any>(
+    url: string,
+    config: RequestConfig = {}
+  ): Promise<HttpResponse<T>> {
+    return this.request<T>({ ...config, url, method: "DELETE" });
   }
 
   /**
    * Get circuit breaker status
    */
   getCircuitBreakerStatus() {
+    const metrics = this.circuitBreaker.getMetrics();
     return {
-      state: this.circuitBreaker.getState(),
-      failureCount: this.circuitBreaker.getFailureCount(),
-      lastFailureTime: this.circuitBreaker.getLastFailureTime(),
-      nextAttemptTime: this.circuitBreaker.getNextAttemptTime(),
+      state: metrics.state,
+      failureCount: metrics.failureCount,
+      lastFailureTime: metrics.lastFailureTime,
+      nextAttemptTime: metrics.nextAttemptTime,
     };
   }
 
@@ -377,7 +414,7 @@ export class HttpClientWithCircuitBreaker {
   }> {
     try {
       // Try a simple health check request
-      await this.get('/health', { timeout: 5000 });
+      await this.get("/health", { timeout: 5000 });
 
       return {
         service: this.serviceName,
@@ -401,8 +438,8 @@ export class HttpClientWithCircuitBreaker {
  */
 export const serviceConfigs: Record<string, HttpClientConfig> = {
   // LLM Services
-  'together-ai': {
-    baseURL: 'https://api.together.xyz/v1',
+  "together-ai": {
+    baseURL: "https://api.together.xyz/v1",
     timeout: 30000,
     retries: 3,
     circuitBreaker: {
@@ -411,8 +448,8 @@ export const serviceConfigs: Record<string, HttpClientConfig> = {
       halfOpenSuccessThreshold: 2,
     },
   },
-  'openai': {
-    baseURL: 'https://api.openai.com/v1',
+  openai: {
+    baseURL: "https://api.openai.com/v1",
     timeout: 60000,
     retries: 2,
     circuitBreaker: {
@@ -421,8 +458,8 @@ export const serviceConfigs: Record<string, HttpClientConfig> = {
       halfOpenSuccessThreshold: 2,
     },
   },
-  'anthropic': {
-    baseURL: 'https://api.anthropic.com/v1',
+  anthropic: {
+    baseURL: "https://api.anthropic.com/v1",
     timeout: 45000,
     retries: 2,
     circuitBreaker: {
@@ -433,8 +470,8 @@ export const serviceConfigs: Record<string, HttpClientConfig> = {
   },
 
   // Internal Services
-  'billing-api': {
-    baseURL: '/api/billing',
+  "billing-api": {
+    baseURL: "/api/billing",
     timeout: 15000,
     retries: 2,
     circuitBreaker: {
@@ -443,8 +480,8 @@ export const serviceConfigs: Record<string, HttpClientConfig> = {
       halfOpenSuccessThreshold: 1,
     },
   },
-  'user-api': {
-    baseURL: '/api/admin',
+  "user-api": {
+    baseURL: "/api/admin",
     timeout: 10000,
     retries: 2,
     circuitBreaker: {
@@ -453,8 +490,8 @@ export const serviceConfigs: Record<string, HttpClientConfig> = {
       halfOpenSuccessThreshold: 1,
     },
   },
-  'agent-api': {
-    baseURL: '/api/query',
+  "agent-api": {
+    baseURL: "/api/query",
     timeout: 120000,
     retries: 1,
     circuitBreaker: {
@@ -465,7 +502,7 @@ export const serviceConfigs: Record<string, HttpClientConfig> = {
   },
 
   // External Services
-  'document-parser': {
+  "document-parser": {
     timeout: 60000,
     retries: 2,
     circuitBreaker: {
@@ -482,7 +519,10 @@ export const serviceConfigs: Record<string, HttpClientConfig> = {
 export class HttpClientFactory {
   private static clients: Map<string, HttpClientWithCircuitBreaker> = new Map();
 
-  static getClient(serviceName: string, config?: HttpClientConfig): HttpClientWithCircuitBreaker {
+  static getClient(
+    serviceName: string,
+    config?: HttpClientConfig
+  ): HttpClientWithCircuitBreaker {
     const existingClient = this.clients.get(serviceName);
 
     if (existingClient) {
@@ -525,7 +565,7 @@ export class HttpClientFactory {
         statuses.push({
           service: serviceName,
           healthy: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: error instanceof Error ? error.message : "Unknown error",
           lastChecked: new Date().toISOString(),
         });
       }

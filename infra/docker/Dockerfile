@@ -1,19 +1,21 @@
 # ============================================================================
-# ValueCanvas Production Dockerfile
+# ValueOS Production Dockerfile
 # ============================================================================
 # Multi-stage build for secure, optimized production deployment
-# Compliant with Operation Fortress security standards
+# Supports both backend and frontend builds
 # ============================================================================
 
 # ============================================================================
 # Stage 1: Dependencies
 # ============================================================================
-FROM node:20-alpine AS deps
+FROM node:22-bookworm-slim AS deps
 
-# Install security updates
-RUN apk update && apk upgrade && apk add --no-cache \
+# Install security updates and build tools
+RUN apt-get update && apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends \
     dumb-init \
-    && rm -rf /var/cache/apk/*
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -24,71 +26,129 @@ COPY package*.json ./
 RUN npm ci --legacy-peer-deps
 
 # ============================================================================
-# Stage 2: Builder
+# Stage 2: Backend Builder
 # ============================================================================
-FROM node:20-alpine AS builder
+FROM deps AS backend-builder
 
 WORKDIR /app
-
-# Copy dependencies from deps stage
-COPY --from=deps /app/node_modules ./node_modules
 
 # Copy source code
 COPY . .
 
-# Build the application
-RUN npm run build
+# Build the backend application
+RUN npm run build:backend || npx tsc -p .config/configs/tsconfig.backend.json
 
-# Remove devDependencies
+# Remove devDependencies for backend
 RUN npm prune --production --legacy-peer-deps
 
 # ============================================================================
-# Stage 3: Production Runtime
+# Stage 3: Frontend Builder
 # ============================================================================
-FROM node:20-alpine AS production
-
-# Install security updates and runtime dependencies
-RUN apk update && apk upgrade && apk add --no-cache \
-    dumb-init \
-    curl \
-    && rm -rf /var/cache/apk/*
-
-# Create non-root user (Operation Fortress security standard)
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S valuecanvas -u 1001 -G nodejs
+FROM deps AS frontend-builder
 
 WORKDIR /app
 
-# Copy built application from builder
-COPY --from=builder --chown=valuecanvas:nodejs /app/dist ./dist
-COPY --from=builder --chown=valuecanvas:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=valuecanvas:nodejs /app/package*.json ./
+# Copy source code
+COPY . .
 
-# Copy necessary runtime files
-COPY --chown=valuecanvas:nodejs start.sh ./
-RUN chmod +x start.sh
+# Build the frontend application
+RUN npx vite build --config .config/configs/vite.config.ts
+
+# ============================================================================
+# Stage 4: Security Scanning
+# ============================================================================
+FROM deps AS security-scan
+
+# Install trivy and syft for vulnerability scanning and SBOM generation
+RUN TRIVY_VERSION=v0.50.4 && \
+    SYFT_VERSION=v0.105.0 && \
+    curl -sfL "https://raw.githubusercontent.com/aquasecurity/trivy/${TRIVY_VERSION}/contrib/install.sh" | sh -s -- -b /usr/local/bin && \
+    curl -sfL "https://raw.githubusercontent.com/anchore/syft/${SYFT_VERSION}/install.sh" | sh -s -- -b /usr/local/bin
+
+# Generate SBOMs for both backend and frontend
+RUN syft dir /app/dist -o spdx-json > sbom-full.spdx.json 2>/dev/null || \
+    (syft dir /app -o spdx-json > sbom-full.spdx.json)
+
+# Security scan
+RUN trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /app || true
+
+# ============================================================================
+# Stage 5: Backend Production Runtime
+# ============================================================================
+FROM node:22-bookworm-slim AS backend-production
+
+# Install runtime dependencies
+RUN apt-get update && apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends \
+    dumb-init \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd -r nodejs -g 1001 && \
+    useradd -r nodejs -u 1001 -g nodejs
+
+WORKDIR /app
+
+# Copy built backend application
+COPY --from=backend-builder --chown=nodejs:nodejs /app/dist ./dist
+COPY --from=backend-builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --from=backend-builder --chown=nodejs:nodejs /app/package*.json ./
+
+# Copy SBOM
+COPY --from=security-scan --chown=nodejs:nodejs /app/sbom-full.spdx.json ./sbom-backend.spdx.json
 
 # Switch to non-root user
-USER valuecanvas
-
-# Expose port
-EXPOSE 3000
+USER nodejs
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:3000/health || exit 1
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD curl --fail --silent --show-error \
+  http://localhost:3001/health || exit 1
+
+EXPOSE 3001
 
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
 
-# Start application
-CMD ["npm", "run", "backend:start"]
+CMD ["node", "dist/backend/server.js"]
 
 # ============================================================================
-# Metadata
+# Stage 6: Frontend Production Runtime
 # ============================================================================
-LABEL maintainer="ValueCanvas Team"
-LABEL version="2.0"
-LABEL description="ValueCanvas - AI-Powered Value Realization Platform"
-LABEL security.standard="Operation Fortress"
-LABEL org.opencontainers.image.source="https://github.com/bmsull560/ValueCanvas"
+FROM nginx:bookworm AS frontend-production
+
+# Install curl for healthcheck
+RUN apt-get update && apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create nginx directories
+RUN chown -R nginx:nginx /var/cache/nginx /var/log/nginx /etc/nginx/conf.d
+
+# Copy built frontend assets
+COPY --from=frontend-builder --chown=nginx:nginx /app/dist /usr/share/nginx/html
+
+# Copy nginx configuration
+COPY infra/docker/nginx/default.conf /etc/nginx/conf.d/default.conf
+
+# Copy SBOM
+COPY --from=security-scan --chown=nginx:nginx /app/sbom-full.spdx.json /usr/share/nginx/html/sbom-frontend.spdx.json
+
+# Switch to non-root user
+USER nginx
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl --fail --silent --show-error \
+  http://localhost/health || exit 1
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
+
+# ============================================================================
+# Default target (can be overridden with --target)
+# ============================================================================
+FROM backend-production
