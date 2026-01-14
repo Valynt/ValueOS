@@ -728,7 +728,7 @@ build: optimize bundle size reduction strategy
 
 **📚 Getting Started:**
 
-- [Local Development Guide](docs/guides/local-dev.md) - Complete setup and workflow guide
+- [Local Development Guide](docs/local-dev.md) - Complete setup and workflow guide
 - [Architecture Decision Records](docs/engineering/adr/) - System design decisions and rationale
 - [API Documentation](docs/api/) - REST API specifications and examples
 
@@ -768,7 +768,7 @@ build: optimize bundle size reduction strategy
 
 | Task              | Command                         | Documentation                                   |
 | ----------------- | ------------------------------- | ----------------------------------------------- |
-| Local setup       | `npm run env:dev && npm run dx` | [Local Dev Guide](docs/guides/local-dev.md)     |
+| Local setup       | `npm run env:dev && npm run dx` | [Local Dev Guide](docs/local-dev.md)            |
 | Run tests         | `npm run ci:verify`             | [Testing Strategy](docs/engineering/testing.md) |
 | Deploy to staging | `npm run env:staging`           | [Deployment Guide](docs/ops/deployment.md)      |
 | Database reset    | `npm run db:reset`              | [Database Guide](docs/engineering/database.md)  |
@@ -837,4 +837,4 @@ build: optimize bundle size reduction strategy
 
 _ValueOS represents the next generation of enterprise SaaS platforms, combining the power of multi-agent AI with rigorous enterprise-grade architecture. Built for scale, security, and reliability, it enables organizations to unlock the full potential of their economic value data._
 
-**Ready to get started?** Follow the [Local Development Guide](docs/guides/local-dev.md) to set up your development environment in under 5 minutes.
+**Ready to get started?** Follow the [Local Development Guide](docs/local-dev.md) to set up your development environment in under 5 minutes.
