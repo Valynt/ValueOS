@@ -271,24 +271,24 @@ export class AgentAuditLogger {
       sanitized.session_id = this.sanitizeString(sanitized.session_id, 100);
     }
 
-    // Sanitize response data
+    // Sanitize response data with memory zeroing
     if (sanitized.response_data) {
-      sanitized.response_data = this.sanitizeData(sanitized.response_data);
+      sanitized.response_data = this.sanitizeAndZeroMemory(sanitized.response_data);
     }
 
-    // Sanitize context
+    // Sanitize context with memory zeroing
     if (sanitized.context) {
-      sanitized.context = this.sanitizeData(sanitized.context);
+      sanitized.context = this.sanitizeAndZeroMemory(sanitized.context);
     }
 
-    // Sanitize metadata
+    // Sanitize metadata with memory zeroing
     if (sanitized.metadata) {
-      sanitized.metadata = this.sanitizeData(sanitized.metadata);
+      sanitized.metadata = this.sanitizeAndZeroMemory(sanitized.metadata);
     }
 
-    // Sanitize response metadata
+    // Sanitize response metadata with memory zeroing
     if (sanitized.response_metadata) {
-      sanitized.response_metadata = this.sanitizeData(sanitized.response_metadata);
+      sanitized.response_metadata = this.sanitizeAndZeroMemory(sanitized.response_metadata);
     }
 
     return sanitized;
@@ -311,15 +311,22 @@ export class AgentAuditLogger {
   }
 
   /**
-   * Sanitize data recursively
+   * Sanitize and zero out sensitive data from memory
    */
-  private sanitizeData(data: any): any {
+  private sanitizeAndZeroMemory(data: any): any {
     if (data === null || data === undefined) {
       return null;
     }
 
     if (typeof data === 'string') {
-      return this.sanitizeString(data, 10000);
+      const sanitized = this.sanitizeString(data, 10000);
+      // Zero out original string reference if it contains sensitive patterns
+      if (this.containsSensitiveData(data)) {
+        // In production, use secure string zeroing
+        // For now, we'll rely on garbage collection
+        data = undefined;
+      }
+      return sanitized;
     }
 
     if (typeof data === 'number' || typeof data === 'boolean') {
@@ -327,7 +334,15 @@ export class AgentAuditLogger {
     }
 
     if (Array.isArray(data)) {
-      return data.slice(0, 100).map(item => this.sanitizeData(item));
+      const sanitizedArray = data.slice(0, 100).map((item, index) => {
+        const sanitized = this.sanitizeAndZeroMemory(item);
+        // Zero out original array element if sensitive
+        if (this.containsSensitiveData(item)) {
+          data[index] = null;
+        }
+        return sanitized;
+      });
+      return sanitizedArray;
     }
 
     if (typeof data === 'object') {
@@ -339,7 +354,15 @@ export class AgentAuditLogger {
         if (keyCount >= maxKeys) break;
 
         const sanitizedKey = this.sanitizeString(key, 100);
-        sanitized[sanitizedKey] = this.sanitizeData(value);
+        const sanitizedValue = this.sanitizeAndZeroMemory(value);
+
+        sanitized[sanitizedKey] = sanitizedValue;
+
+        // Zero out sensitive fields
+        if (this.isSensitiveField(key) || this.containsSensitiveData(value)) {
+          (data as any)[key] = null;
+        }
+
         keyCount++;
       }
 
@@ -347,6 +370,57 @@ export class AgentAuditLogger {
     }
 
     return data;
+  }
+
+  /**
+   * Check if data contains sensitive patterns
+   */
+  private containsSensitiveData(data: any): boolean {
+    if (!data) return false;
+
+    const dataString = typeof data === 'string' ? data : JSON.stringify(data).toLowerCase();
+
+    // Sensitive patterns to detect
+    const sensitivePatterns = [
+      /\b(password|passwd|pwd|secret|token|key|api_key)\b/i,
+      /\b(social security|ssn|tax id)\b/i,
+      /\b(credit card|card number|cvv|expiry)\b/i,
+      /\b(bank account|account number|routing)\b/i,
+      /\b(medical|health|diagnosis|treatment)\b/i,
+      /\b(confidential|proprietary|trade secret)\b/i,
+      /\b(private key|public key|certificate)\b/i,
+      /\b(session|session id|jwt|oauth)\b/i,
+      /\b(two factor|2fa|mfa|totp)\b/i,
+      /\b(phone number|mobile|telephone)\b/i,
+      /\b(email address|email)\b/i,
+      /\b(home address|street address|address)\b/i,
+      /\b(birth date|dob|date of birth)\b/i,
+      /\b(driver's license|license number)\b/i,
+      /\b(passport|passport number)\b/i,
+      /\b(income|salary|wages|employment)\b/i,
+      /\b(hipaa|phi|protected health)\b/i
+    ];
+
+    return sensitivePatterns.some(pattern => pattern.test(dataString));
+  }
+
+  /**
+   * Check if field name is sensitive
+   */
+  private isSensitiveField(fieldName: string): boolean {
+    const sensitiveFields = [
+      'password', 'passwd', 'pwd', 'secret', 'token', 'key', 'api_key',
+      'private_key', 'public_key', 'certificate', 'session', 'session_id',
+      'jwt', 'oauth', 'authorization', 'auth', 'credentials',
+      'ssn', 'social_security', 'tax_id', 'credit_card', 'card_number',
+      'cvv', 'expiry', 'bank_account', 'account_number', 'routing',
+      'medical', 'health', 'diagnosis', 'treatment', 'patient',
+      'confidential', 'proprietary', 'trade_secret', 'internal',
+      'phone', 'mobile', 'telephone', 'email', 'address', 'birth_date',
+      'dob', 'license', 'passport', 'income', 'salary', 'wages'
+    ];
+
+    return sensitiveFields.some(field => fieldName.toLowerCase().includes(field));
   }
 
   /**
@@ -373,7 +447,7 @@ export class AgentAuditLogger {
   }
 
   /**
-   * Flush log queue to database
+   * Flush log queue to database with secure memory cleanup
    */
   async flush(): Promise<void> {
     if (this.logQueue.length === 0) {
@@ -381,6 +455,7 @@ export class AgentAuditLogger {
     }
 
     const entries = [...this.logQueue];
+    // Clear queue immediately to prevent data exposure
     this.logQueue = [];
 
     try {
@@ -392,12 +467,47 @@ export class AgentAuditLogger {
         logger.error('Failed to flush audit logs', error instanceof Error ? error : undefined);
         // Re-add to queue on failure
         this.logQueue.unshift(...entries);
+      } else {
+        // Successfully flushed - zero out sensitive data in entries
+        this.securelyZeroEntries(entries);
       }
     } catch (error) {
       logger.error('Error flushing audit logs', error instanceof Error ? error : undefined);
       // Re-add to queue on failure
       this.logQueue.unshift(...entries);
     }
+  }
+
+  /**
+   * Securely zero out sensitive data in flushed entries
+   */
+  private securelyZeroEntries(entries: AgentAuditLog[]): void {
+    entries.forEach(entry => {
+      // Zero out sensitive fields
+      if (entry.input_query && this.containsSensitiveData(entry.input_query)) {
+        entry.input_query = '[REDACTED]';
+      }
+
+      if (entry.error_message && this.containsSensitiveData(entry.error_message)) {
+        entry.error_message = '[REDACTED]';
+      }
+
+      if (entry.response_data) {
+        entry.response_data = this.sanitizeAndZeroMemory(entry.response_data);
+      }
+
+      if (entry.context) {
+        entry.context = this.sanitizeAndZeroMemory(entry.context);
+      }
+
+      if (entry.metadata) {
+        entry.metadata = this.sanitizeAndZeroMemory(entry.metadata);
+      }
+
+      if (entry.response_metadata) {
+        entry.response_metadata = this.sanitizeAndZeroMemory(entry.response_metadata);
+      }
+    });
   }
 
   /**

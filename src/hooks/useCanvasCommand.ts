@@ -18,6 +18,7 @@ import { logger } from '../../lib/logger';
 import { toUserFriendlyError } from '../../utils/errorHandling';
 import { useToast } from '../Common/Toast';
 import { supabase } from '../../lib/supabase';
+import { getWorkflowStateService, IWorkflowStateService } from '../../services/WorkflowStateServiceInterface';
 
 export interface UseCanvasCommandOptions {
   selectedCaseId: string | null;
@@ -290,11 +291,8 @@ export function useCanvasCommand(options: UseCanvasCommandOptions) {
     state: WorkflowState,
     tenantId: string
   ): Promise<void> => {
-    // Import here to avoid circular dependency
-    const { WorkflowStateService } = await import('../../services/WorkflowStateService');
-    const { supabase } = await import('../../lib/supabase');
-
-    const workflowStateService = new WorkflowStateService(supabase);
+    // Use the interface to avoid circular dependencies
+    const workflowStateService: IWorkflowStateService = await getWorkflowStateService();
 
     sduiTelemetry.recordEvent({
       type: TelemetryEventType.WORKFLOW_STATE_SAVE,

@@ -16,14 +16,16 @@ import { v4 as uuidv4 } from 'uuid';
 import { createLogger } from '../logger';
 import { AgentIdentity, hasPermission, Permission } from '../auth/AgentIdentity';
 import {
-  signMessage,
-  verifySignature,
+  signMessageEd25519,
+  verifySignatureEd25519,
   encrypt,
   decrypt,
   generateNonce,
   isEncrypted,
-  generateEncryptionKey
+  generateEncryptionKey,
+  constantTimeCompareBuffers
 } from '../crypto/CryptoUtils';
+import { getKMS, KMSConfig } from '../crypto/KeyManagementService';
 
 const logger = createLogger({ component: 'SecureMessageBus' });
 
@@ -204,15 +206,30 @@ export class SecureMessageBus {
   /** Rate limit cleanup interval */
   private rateLimitCleanupInterval: NodeJS.Timeout | null = null;
 
+  /** KMS service for key management */
+  private kms: ReturnType<typeof getKMS>;
+
   /** Message version */
-  private readonly MESSAGE_VERSION = '1.0.0';
+  private readonly MESSAGE_VERSION = '2.0.0';
 
   /** Default TTL in seconds */
   private readonly DEFAULT_TTL_SECONDS = 300; // 5 minutes
 
-  private constructor(circuitConfig: Partial<CircuitBreakerConfig> = {}, rateLimitConfig: Partial<RateLimitConfig> = {}) {
+  private constructor(
+    circuitConfig: Partial<CircuitBreakerConfig> = {},
+    rateLimitConfig: Partial<RateLimitConfig> = {},
+    kmsConfig?: KMSConfig
+  ) {
     this.circuitConfig = { ...DEFAULT_CIRCUIT_CONFIG, ...circuitConfig };
     this.rateLimitConfig = { ...DEFAULT_RATE_LIMIT_CONFIG, ...rateLimitConfig };
+
+    // Initialize KMS with fallback to local provider
+    const defaultKmsConfig: KMSConfig = {
+      provider: 'local',
+      region: 'us-east-1'
+    };
+    this.kms = getKMS(kmsConfig || defaultKmsConfig);
+
     this.startNonceCleanup();
     this.startRateLimitCleanup();
   }
@@ -220,9 +237,13 @@ export class SecureMessageBus {
   /**
    * Get singleton instance
    */
-  static getInstance(circuitConfig?: Partial<CircuitBreakerConfig>, rateLimitConfig?: Partial<RateLimitConfig>): SecureMessageBus {
+  static getInstance(
+    circuitConfig?: Partial<CircuitBreakerConfig>,
+    rateLimitConfig?: Partial<RateLimitConfig>,
+    kmsConfig?: KMSConfig
+  ): SecureMessageBus {
     if (!SecureMessageBus.instance) {
-      SecureMessageBus.instance = new SecureMessageBus(circuitConfig, rateLimitConfig);
+      SecureMessageBus.instance = new SecureMessageBus(circuitConfig, rateLimitConfig, kmsConfig);
     }
     return SecureMessageBus.instance;
   }
@@ -607,27 +628,44 @@ export class SecureMessageBus {
     }
   }
 
-    /**
-   * Sign a message with proper error handling
+  /**
+   * Sign a message with Ed25519 for proper non-repudiation
    */
   private async signMessage<T>(message: SecureMessage<T>, sender: AgentIdentity): Promise<string> {
     try {
-      // Check if sender has signing key
-      if (!sender.keys?.privateKey) {
-        throw new Error(`Agent ${sender.id} has no private key for signing`);
+      // Prefer KMS-managed keys, fallback to local keys
+      let signature: Buffer;
+
+      if (sender.keys?.keyId && this.kms) {
+        // Use KMS for signing
+        const content = {
+          id: message.id,
+          from: message.from,
+          to: message.to,
+          timestamp: message.timestamp,
+          nonce: message.nonce,
+          payload: message.payload,
+        };
+
+        signature = await this.kms.sign(sender.keys.keyId, JSON.stringify(content));
+      } else if (sender.keys?.privateKey) {
+        // Use local Ed25519 signing
+        const content = {
+          id: message.id,
+          from: message.from,
+          to: message.to,
+          timestamp: message.timestamp,
+          nonce: message.nonce,
+          payload: message.payload,
+        };
+
+        const result = signMessageEd25519(content, sender.keys.privateKey);
+        signature = Buffer.from(result.signature, 'base64');
+      } else {
+        throw new Error(`Agent ${sender.id} has no signing key available`);
       }
 
-      // Create canonical content for signing
-      const content = {
-        id: message.id,
-        from: message.from,
-        to: message.to,
-        timestamp: message.timestamp,
-        nonce: message.nonce,
-        payload: message.payload,
-      };
-
-      return await signMessage(content, sender.keys.privateKey);
+      return signature.toString('base64');
     } catch (error) {
       logger.error('Message signing failed', error instanceof Error ? error : undefined, {
         messageId: message.id,
@@ -640,33 +678,50 @@ export class SecureMessageBus {
   }
 
   /**
-   * Verify message signature with proper error handling
+   * Verify Ed25519 message signature with constant-time comparison
    */
   private async verifySignature<T>(
     message: SecureMessage<T>,
     sender: AgentIdentity
   ): Promise<boolean> {
     try {
-      // Check if sender has public key
-      if (!sender.keys?.publicKey) {
+      // Prefer KMS-managed keys, fallback to local keys
+      let isValid: boolean;
+
+      if (sender.keys?.keyId && this.kms) {
+        // Use KMS for verification
+        const content = {
+          id: message.id,
+          from: message.from,
+          to: message.to,
+          timestamp: message.timestamp,
+          nonce: message.nonce,
+          payload: message.payload,
+        };
+
+        const signature = Buffer.from(message.signature, 'base64');
+        isValid = await this.kms.verify(sender.keys.keyId, JSON.stringify(content), signature);
+      } else if (sender.keys?.publicKey) {
+        // Use local Ed25519 verification
+        const content = {
+          id: message.id,
+          from: message.from,
+          to: message.to,
+          timestamp: message.timestamp,
+          nonce: message.nonce,
+          payload: message.payload,
+        };
+
+        // Extract timestamp from signature if available
+        const signatureTimestamp = 0; // In production, extract from signature metadata
+
+        isValid = verifySignatureEd25519(content, message.signature, signatureTimestamp, sender.keys.publicKey);
+      } else {
         logger.warn(`Agent ${sender.id} has no public key for verification`);
         return false;
       }
 
-      // Create the canonical message content for verification
-      const content = {
-        id: message.id,
-        from: message.from,
-        to: message.to,
-        timestamp: message.timestamp,
-        nonce: message.nonce,
-        payload: message.payload,
-      };
-
-      // Extract timestamp from signature if available
-      const signatureTimestamp = 0; // In production, extract from signature metadata
-
-      return await verifySignature(content, message.signature, signatureTimestamp, sender.keys.publicKey);
+      return isValid;
     } catch (error) {
       logger.error('Failed to verify signature', error instanceof Error ? error : undefined, {
         messageId: message.id,

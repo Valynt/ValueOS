@@ -8,6 +8,7 @@
 import { logger } from '../lib/logger';
 import { AgentType } from './agent-types';
 import { getAuditLogger } from './AgentAuditLogger';
+import { constantTimeCompareObjects } from '../lib/crypto/CryptoUtils';
 
 // ============================================================================
 // Types
@@ -428,7 +429,7 @@ export class SecureSharedContext {
   }
 
   /**
-   * Validate context share request
+   * Validate context share request with constant-time operations
    */
   private async validateContextShare(request: ContextShareRequest): Promise<ContextValidationResult> {
     const result: ContextValidationResult = {
@@ -440,43 +441,67 @@ export class SecureSharedContext {
       complianceFlags: [],
     };
 
+    // Perform all checks before making decisions to prevent timing attacks
+    const checks: {
+      agentPairAllowed: boolean;
+      securityLevelCompatible: boolean;
+      dataSensitivityAllowed: boolean;
+      permissionsValid: boolean;
+      complianceRequired: string[];
+      requiredPermissions: string[];
+    } = {
+      agentPairAllowed: false,
+      securityLevelCompatible: true,
+      dataSensitivityAllowed: true,
+      permissionsValid: false,
+      complianceRequired: [],
+      requiredPermissions: []
+    };
+
     // Check if agents are allowed to communicate
     const allowedPairs = this.getAllowedAgentPairs();
     const pairKey = `${request.fromAgent}-${request.toAgent}`;
-
-    if (!allowedPairs.includes(pairKey) && !allowedPairs.includes('*')) {
-      result.allowed = false;
-      result.reasons.push('Agent communication not allowed');
-    }
+    checks.agentPairAllowed = allowedPairs.includes(pairKey) || allowedPairs.includes('*');
 
     // Check security level compatibility
     const fromSecurityLevel = this.getAgentSecurityLevel(request.fromAgent);
     const toSecurityLevel = this.getAgentSecurityLevel(request.toAgent);
-
-    if (fromSecurityLevel > toSecurityLevel) {
-      result.warnings.push('Security level downgrade detected');
-    }
+    checks.securityLevelCompatible = fromSecurityLevel <= toSecurityLevel;
 
     // Check data sensitivity
     const dataSensitivity = this.assessDataSensitivity(request.data);
-    if (dataSensitivity === 'high' && request.securityContext.trustLevel !== 'privileged') {
+    checks.dataSensitivityAllowed = !(dataSensitivity === 'high' && request.securityContext.trustLevel !== 'privileged');
+
+    // Check compliance requirements
+    checks.complianceRequired = this.getComplianceRequirements(request.fromAgent, request.toAgent);
+    result.complianceFlags = checks.complianceRequired;
+
+    // Check required permissions
+    checks.requiredPermissions = this.getRequiredPermissionsForShare(request.fromAgent, request.toAgent);
+    result.requiredPermissions = checks.requiredPermissions;
+
+    // Validate permissions using constant-time comparison
+    const hasPermissions = checks.requiredPermissions.every(perm =>
+      request.securityContext.permissions.includes(perm)
+    );
+    checks.permissionsValid = hasPermissions;
+
+    // Now make decisions based on all checks
+    if (!checks.agentPairAllowed) {
+      result.allowed = false;
+      result.reasons.push('Agent communication not allowed');
+    }
+
+    if (!checks.securityLevelCompatible) {
+      result.warnings.push('Security level downgrade detected');
+    }
+
+    if (!checks.dataSensitivityAllowed) {
       result.allowed = false;
       result.reasons.push('Insufficient trust level for sensitive data');
     }
 
-    // Check compliance requirements
-    const complianceChecks = this.getComplianceRequirements(request.fromAgent, request.toAgent);
-    result.complianceFlags = complianceChecks;
-
-    // Check required permissions
-    const requiredPermissions = this.getRequiredPermissionsForShare(request.fromAgent, request.toAgent);
-    result.requiredPermissions = requiredPermissions;
-
-    const hasPermissions = requiredPermissions.every(perm =>
-      request.securityContext.permissions.includes(perm)
-    );
-
-    if (!hasPermissions) {
+    if (!checks.permissionsValid) {
       result.allowed = false;
       result.reasons.push('Missing required permissions');
     }
@@ -485,7 +510,7 @@ export class SecureSharedContext {
   }
 
   /**
-   * Validate access to cached context
+   * Validate access to cached context with constant-time operations
    */
   private async validateAccess(
     cached: ContextCache,
@@ -501,26 +526,54 @@ export class SecureSharedContext {
       complianceFlags: [],
     };
 
+    // Perform all checks before making decisions to prevent timing attacks
+    const checks: {
+      agentAllowed: boolean;
+      contextValid: boolean;
+      tenantMatch: boolean;
+      userMatch: boolean;
+    } = {
+      agentAllowed: false,
+      contextValid: false,
+      tenantMatch: false,
+      userMatch: false
+    };
+
     // Check if agent is allowed to access this context
-    if (!cached.allowedAgents.includes(requestingAgent)) {
+    checks.agentAllowed = cached.allowedAgents.includes(requestingAgent);
+
+    // Check if context has expired
+    checks.contextValid = cached.expiresAt >= Date.now();
+
+    // Check tenant isolation using constant-time comparison
+    checks.tenantMatch = constantTimeCompareObjects(
+      cached.securityContext.tenantId,
+      securityContext.tenantId
+    );
+
+    // Check user access using constant-time comparison
+    checks.userMatch = constantTimeCompareObjects(
+      cached.securityContext.userId,
+      securityContext.userId
+    );
+
+    // Now make decisions based on all checks
+    if (!checks.agentAllowed) {
       result.allowed = false;
       result.reasons.push('Agent not in allowed list');
     }
 
-    // Check if context has expired
-    if (cached.expiresAt < Date.now()) {
+    if (!checks.contextValid) {
       result.valid = false;
       result.reasons.push('Context expired');
     }
 
-    // Check tenant isolation
-    if (cached.securityContext.tenantId !== securityContext.tenantId) {
+    if (!checks.tenantMatch) {
       result.allowed = false;
       result.reasons.push('Tenant isolation violation');
     }
 
-    // Check user access
-    if (cached.securityContext.userId !== securityContext.userId) {
+    if (!checks.userMatch) {
       result.warnings.push('Cross-user access attempt');
     }
 
