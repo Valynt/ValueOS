@@ -5,7 +5,7 @@ FROM mcr.microsoft.com/devcontainers/typescript-node:1-20-bookworm AS builder
 WORKDIR /app
 
 # Copy package files
-COPY package*.json .npmrc ./
+COPY package*.json ./
 
 # Install all dependencies for build (including dev dependencies)
 ENV npm_config_ignore_scripts=true
@@ -56,7 +56,7 @@ USER nginx
 
 # Add healthcheck
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl --fail --silent http://localhost/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost/health || exit 1
 
 EXPOSE 80
 
