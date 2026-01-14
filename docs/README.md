@@ -73,7 +73,7 @@ Historical documentation and deprecated content
 ### **For Product Development**
 
 1. Explore [features/](./features/)
-2. Check [engineering/blueprint/](./engineering/blueprint/)
+2. Review [engineering/architecture/](./engineering/architecture/)
 3. Follow [processes/contributing/](./processes/contributing/)
 
 ## 🔍 Finding Information
