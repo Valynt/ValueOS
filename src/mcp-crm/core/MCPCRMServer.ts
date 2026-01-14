@@ -276,11 +276,14 @@ export class MCPCRMServer {
     // Check for any failures
     const failures = Array.from(results.values()).filter((r) => !r.success);
     if (failures.length > 0) {
+      const errorDetails = failures.map((f) => ({
+        taskId: f.taskId,
+        error: f.error?.message || "Unknown error",
+      }));
+
       logger.error("Some initialization tasks failed", {
-        failures: failures.map((f) => ({
-          taskId: f.taskId,
-          error: f.error?.message || "Unknown error",
-        })),
+        taskFailures: errorDetails,
+        totalFailures: failures.length,
       });
     }
 
@@ -580,7 +583,10 @@ export class MCPCRMServer {
   // Tool Handlers
   // ==========================================================================
 
-  private handleCheckConnection(responseBuilder: MCPResponseBuilder): MCPCRMToolResult {
+  private handleCheckConnection(
+    _responseBuilder: MCPResponseBuilder,
+    _startTime: number
+  ): MCPCRMToolResult {
     const providers = this.getConnectedProviders();
     const result = {
       success: true,
@@ -594,7 +600,7 @@ export class MCPCRMServer {
       },
     };
 
-    return responseBuilder.crmSuccess(
+    return _responseBuilder.crmSuccess(
       result.data,
       this.config.tenantId,
       providers.length > 0 ? "connected" : "disconnected"
@@ -673,6 +679,7 @@ export class MCPCRMServer {
   private async handleGetDealDetails(
     module: CRMModule,
     args: Record<string, unknown>,
+    responseBuilder: MCPResponseBuilder,
     startTime: number
   ): Promise<MCPCRMToolResult> {
     const dealId = args.deal_id as string;
@@ -727,6 +734,7 @@ export class MCPCRMServer {
   private async handleGetStakeholders(
     module: CRMModule,
     args: Record<string, unknown>,
+    responseBuilder: MCPResponseBuilder,
     startTime: number
   ): Promise<MCPCRMToolResult> {
     const dealId = args.deal_id as string;
@@ -755,6 +763,7 @@ export class MCPCRMServer {
   private async handleGetActivities(
     module: CRMModule,
     args: Record<string, unknown>,
+    responseBuilder: MCPResponseBuilder,
     startTime: number
   ): Promise<MCPCRMToolResult> {
     const dealId = args.deal_id as string;
@@ -783,6 +792,7 @@ export class MCPCRMServer {
   private async handleAddNote(
     module: CRMModule,
     args: Record<string, unknown>,
+    responseBuilder: MCPResponseBuilder,
     startTime: number
   ): Promise<MCPCRMToolResult> {
     const dealId = args.deal_id as string;
@@ -808,6 +818,7 @@ export class MCPCRMServer {
   private async handleGetDealContext(
     module: CRMModule,
     args: Record<string, unknown>,
+    responseBuilder: MCPResponseBuilder,
     startTime: number
   ): Promise<MCPCRMToolResult> {
     const dealId = args.deal_id as string;
@@ -894,6 +905,7 @@ export class MCPCRMServer {
   private async handleSyncMetrics(
     module: CRMModule,
     args: Record<string, unknown>,
+    responseBuilder: MCPResponseBuilder,
     startTime: number
   ): Promise<MCPCRMToolResult> {
     const dealId = args.deal_id as string;
@@ -973,6 +985,7 @@ export class MCPCRMServer {
   private async handleInspectSchema(
     module: CRMModule,
     args: Record<string, unknown>,
+    responseBuilder: MCPResponseBuilder,
     startTime: number
   ): Promise<MCPCRMToolResult> {
     const objectType = args.object_type as string;
@@ -1088,7 +1101,7 @@ export class MCPCRMServer {
     } catch (error) {
       logger.error("Failed to get field mappings from config, using defaults", {
         provider,
-        error: error instanceof Error ? error.message : "Unknown error",
+        errorMessage: error instanceof Error ? error.message : "Unknown error",
       });
 
       // Fallback to hard-coded mappings if config fails
@@ -1157,7 +1170,7 @@ export class MCPCRMServer {
     };
   }
 
-  private noConnectionResult(): MCPCRMToolResult {
+  private noConnectionResult(responseBuilder: MCPResponseBuilder): MCPCRMToolResult {
     return {
       success: false,
       error:

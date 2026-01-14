@@ -14,25 +14,27 @@
  * - Recommend relevant capabilities from Value Fabric
  */
 
-import { logger } from '../../../lib/logger';
-import { BaseAgent } from './BaseAgent';
-import { ValueFabricService } from '../../../services/ValueFabricService';
+import { logger } from "../../../lib/logger";
+import { BaseAgent } from "./BaseAgent";
+import { ValueFabricService } from "../../../services/ValueFabricService";
+import { getCausalTruthService, CausalTruthService } from "../../../services/CausalTruthService";
+import { z } from "zod";
 import type {
   BusinessObjective,
   Capability,
   OpportunityAgentInput,
-  OpportunityAgentOutput
-} from '../../../types/vos';
+  OpportunityAgentOutput,
+} from "../../../types/vos";
 
-import { AgentConfig } from '../../../types/agent';
-
+import { AgentConfig } from "../../../types/agent";
 
 export class OpportunityAgent extends BaseAgent {
   private valueFabricService: ValueFabricService;
+  private causalTruthService: CausalTruthService;
 
-  public lifecycleStage = 'opportunity';
-  public version = '1.0';
-  public name = 'Opportunity Agent';
+  public lifecycleStage = "opportunity";
+  public version = "1.0";
+  public name = "Opportunity Agent";
 
   constructor(config: AgentConfig) {
     super(config);
@@ -40,15 +42,18 @@ export class OpportunityAgent extends BaseAgent {
       throw new Error("Supabase client is required for OpportunityAgent");
     }
     this.valueFabricService = new ValueFabricService(config.supabase);
+    this.causalTruthService = getCausalTruthService();
+
+    // Initialize causal truth service if not already done
+    if (!this.causalTruthService) {
+      throw new Error("CausalTruthService initialization failed");
+    }
   }
 
-  async execute(
-    sessionId: string,
-    input: OpportunityAgentInput
-  ): Promise<OpportunityAgentOutput> {
+  async execute(sessionId: string, input: OpportunityAgentInput): Promise<OpportunityAgentOutput> {
     const startTime = Date.now();
 
-    const discoveryText = input.discoveryData.join('\n\n---\n\n');
+    const discoveryText = input.discoveryData.join("\n\n---\n\n");
 
     const companyContext = JSON.stringify(input.customerProfile, null, 2);
 
@@ -133,64 +138,67 @@ Return ONLY valid JSON in this exact format:
       business_objectives: z.array(z.any()).optional(),
       value_hypothesis: z.any().optional(),
       recommended_capability_tags: z.array(z.string()).optional(),
-      confidence_level: z.enum(['high', 'medium', 'low']),
+      confidence_level: z.enum(["high", "medium", "low"]),
       reasoning: z.string(),
-      hallucination_check: z.boolean().optional() // Hallucination detection flag
+      hallucination_check: z.boolean().optional(), // Hallucination detection flag
     });
 
-    const secureResult = await this.secureInvoke(
-      sessionId,
-      prompt,
-      opportunitySchema,
-      {
-        trackPrediction: true,
-        confidenceThresholds: { low: 0.5, high: 0.8 },
-        context: {
-          agent: 'OpportunityAgent',
-          discoveryDocuments: input.discoveryData.length
-        }
-      }
-    );
+    const secureResult = await this.secureInvoke(sessionId, prompt, opportunitySchema, {
+      trackPrediction: true,
+      confidenceThresholds: { low: 0.5, high: 0.8 },
+      context: {
+        agent: "OpportunityAgent",
+        discoveryDocuments: input.discoveryData.length,
+      },
+    });
 
     const parsed = secureResult.result;
-    const response = { content: JSON.stringify(parsed), tokens_used: 0, model: 'gpt-4' }; // Placeholder for metrics
+    const response = { content: JSON.stringify(parsed), tokens_used: 0, model: "gpt-4" }; // Placeholder for metrics
 
     // Ensure required arrays exist with defaults
     const painPoints = parsed.pain_points || [];
     const businessObjectives = parsed.business_objectives || [];
     const recommendedCapabilityTags = parsed.recommended_capability_tags || [];
 
+    // Validate pain points against causal truth data
+    const validatedPainPoints = await this.validatePainPointsWithCausalTruth(
+      parsed.pain_points || [],
+      input.customerProfile
+    );
+
     const capabilities = await this.findRelevantCapabilities(
       recommendedCapabilityTags,
-      painPoints.map((p: any) => p.description).join(' ')
+      painPoints.map((p: any) => p.description).join(" ")
     );
 
     const durationMs = Date.now() - startTime;
 
-    await this.logMetric(sessionId, 'tokens_used', response.tokens_used, 'tokens');
-    await this.logMetric(sessionId, 'latency_ms', durationMs, 'ms');
-    await this.logMetric(sessionId, 'pain_points_identified', painPoints.length, 'count');
-    await this.logMetric(sessionId, 'capabilities_matched', capabilities.length, 'count');
-    await this.logPerformanceMetric(sessionId, 'opportunity_execute', durationMs, {
+    await this.logMetric(sessionId, "tokens_used", response.tokens_used, "tokens");
+    await this.logMetric(sessionId, "latency_ms", durationMs, "ms");
+    await this.logMetric(sessionId, "pain_points_identified", painPoints.length, "count");
+    await this.logMetric(sessionId, "capabilities_matched", capabilities.length, "count");
+    await this.logPerformanceMetric(sessionId, "opportunity_execute", durationMs, {
       discovery_documents: input.discoveryData.length,
       matched_capabilities: capabilities.length,
     });
 
     await this.logExecution(
       sessionId,
-      'opportunity_analysis',
+      "opportunity_analysis",
       input,
       {
         ...parsed,
-        recommended_capabilities: capabilities.map(c => c.name)
+        recommended_capabilities: capabilities.map((c) => c.name),
       },
       parsed.reasoning,
       parsed.confidence_level,
-      [{
-        type: 'llm_analysis',
-        model: response.model,
-        tokens: response.tokens_used
-      }]
+      [
+        {
+          type: "llm_analysis",
+          model: response.model,
+          tokens: response.tokens_used,
+        },
+      ]
     );
 
     await this.memorySystem.storeSemanticMemory(
@@ -200,7 +208,7 @@ Return ONLY valid JSON in this exact format:
       {
         persona_fit: parsed.persona_fit,
         business_objectives: businessObjectives,
-        pain_points: parsed.pain_points
+        pain_points: parsed.pain_points,
       },
       this.organizationId // SECURITY: Tenant isolation
     );
@@ -210,7 +218,7 @@ Return ONLY valid JSON in this exact format:
       personaFit: parsed.persona_fit,
       initialValueModel: parsed.initial_value_model,
       businessObjectives,
-      recommendedCapabilities: capabilities
+      recommendedCapabilities: capabilities,
     };
   }
 
@@ -235,13 +243,15 @@ Return ONLY valid JSON in this exact format:
           5,
           this.organizationId
         );
-        const semanticCapabilities = semanticResults.map(r => r.item);
+        const semanticCapabilities = semanticResults.map((r) => r.item);
 
-        capabilities.push(...semanticCapabilities.filter(
-          sc => !capabilities.find(c => c.id === sc.id)
-        ));
+        capabilities.push(
+          ...semanticCapabilities.filter((sc) => !capabilities.find((c) => c.id === sc.id))
+        );
       } catch (error) {
-        logger.warn('Semantic search failed, using tag-based results only:', { error: error instanceof Error ? error.message : String(error) });
+        logger.warn("Semantic search failed, using tag-based results only:", {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
 
@@ -249,52 +259,102 @@ Return ONLY valid JSON in this exact format:
   }
 
   /**
+   * Validate pain points against causal truth data
+   */
+  private async validatePainPointsWithCausalTruth(
+    painPoints: any[],
+    customerProfile: any
+  ): Promise<any[]> {
+    const validatedPainPoints = [];
+
+    for (const painPoint of painPoints) {
+      // Search for causal impacts related to this pain point
+      const causalImpacts = this.causalTruthService.search({
+        kpi: painPoint.description,
+        context: {
+          industry: customerProfile.industry,
+          companySize: customerProfile.companySize,
+        },
+        minConfidence: 0.6,
+      });
+
+      // Enhance pain point with causal evidence
+      const enhancedPainPoint = {
+        ...painPoint,
+        causal_evidence: causalImpacts.map((impact) => ({
+          action: impact.action,
+          confidence: impact.confidence,
+          evidence_sources: impact.evidence.map((e) => e.source_name),
+          mechanism: impact.mechanism,
+        })),
+        evidence_strength: causalImpacts.length > 0 ? "high" : "low",
+        confidence_adjusted:
+          causalImpacts.length > 0
+            ? Math.min(painPoint.confidence || 0.7, 0.9)
+            : (painPoint.confidence || 0.7) * 0.8,
+      };
+
+      validatedPainPoints.push(enhancedPainPoint);
+    }
+
+    return validatedPainPoints;
+  }
+
+  /**
    * Persist business objectives to database
    */
   async persistBusinessObjectives(
     valueCaseId: string,
-    objectives: Array<Omit<BusinessObjective, 'id' | 'value_case_id' | 'created_at' | 'updated_at'>>,
+    objectives: Array<
+      Omit<BusinessObjective, "id" | "value_case_id" | "created_at" | "updated_at">
+    >,
     sessionId?: string
   ): Promise<BusinessObjective[]> {
     if (!this.supabase) {
-      throw new Error('Supabase client is required for persistBusinessObjectives');
+      throw new Error("Supabase client is required for persistBusinessObjectives");
     }
 
     const results: BusinessObjective[] = [];
 
     for (const objective of objectives) {
       const { data, error } = await this.supabase
-        .from('business_objectives')
+        .from("business_objectives")
         .insert({
           value_case_id: valueCaseId,
-          ...objective
+          ...objective,
         })
         .select()
         .single();
 
       if (error) {
-        logger.error('Failed to persist business objective:', error);
+        logger.error("Failed to persist business objective:", error);
         continue;
       }
 
       results.push(data);
 
       if (sessionId) {
-        await this.logArtifactProvenance(sessionId, 'business_objective', data.id, 'artifact_created', {
-          artifact_data: {
-            value_case_id: valueCaseId,
-            objective: objective,
-          },
-          reasoning_trace: 'Captured during opportunity analysis with linked discovery context',
-        });
+        await this.logArtifactProvenance(
+          sessionId,
+          "business_objective",
+          data.id,
+          "artifact_created",
+          {
+            artifact_data: {
+              value_case_id: valueCaseId,
+              objective: objective,
+            },
+            reasoning_trace: "Captured during opportunity analysis with linked discovery context",
+          }
+        );
 
         await this.recordLifecycleLink(sessionId, {
-          source_type: 'value_case',
+          source_type: "value_case",
           source_id: valueCaseId,
-          target_type: 'business_objective',
+          target_type: "business_objective",
           target_id: data.id,
-          relationship_type: 'opportunity_to_target',
-          reasoning_trace: 'Objective captured during opportunity analysis'
+          relationship_type: "opportunity_to_target",
+          reasoning_trace: "Objective captured during opportunity analysis",
         });
       }
     }

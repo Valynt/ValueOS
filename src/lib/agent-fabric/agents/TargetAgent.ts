@@ -14,34 +14,41 @@
  * - Create assumptions with provenance tracking
  */
 
-import { BaseAgent } from './BaseAgent';
-import { ModelService } from '../../../services/ModelService';
+import { BaseAgent } from "./BaseAgent";
+import { ModelService } from "../../../services/ModelService";
+import { getCausalTruthService, CausalTruthService } from "../../../services/CausalTruthService";
+import { z } from "zod";
 import type {
   ROIModel,
   TargetAgentInput,
   TargetAgentOutput,
   ValueCommit,
-  ValueTree
-} from '../../../types/vos';
+  ValueTree,
+} from "../../../types/vos";
 
-import { AgentConfig } from '../../../types/agent';
+import { AgentConfig } from "../../../types/agent";
 
 export class TargetAgent extends BaseAgent {
-  public lifecycleStage = 'target';
-  public version = '1.0';
-  public name = 'Target Agent';
+  private causalTruthService: CausalTruthService;
+
+  public lifecycleStage = "target";
+  public version = "1.0";
+  public name = "Target Agent";
 
   constructor(config: AgentConfig) {
     super(config);
     if (!config.supabase) {
       throw new Error("Supabase client is required for TargetAgent");
     }
+    this.causalTruthService = getCausalTruthService();
+
+    // Initialize causal truth service if not already done
+    if (!this.causalTruthService) {
+      throw new Error("CausalTruthService initialization failed");
+    }
   }
 
-  async execute(
-    sessionId: string,
-    input: TargetAgentInput
-  ): Promise<TargetAgentOutput> {
+  async execute(sessionId: string, input: TargetAgentInput): Promise<TargetAgentOutput> {
     const startTime = Date.now();
 
     const objectivesText = JSON.stringify(input.businessObjectives, null, 2);
@@ -178,29 +185,24 @@ Return ONLY valid JSON in this exact format:
       financial_model: z.any(),
       success_criteria: z.array(z.any()),
       assumptions: z.array(z.any()),
-      confidence_level: z.enum(['high', 'medium', 'low']),
+      confidence_level: z.enum(["high", "medium", "low"]),
       reasoning: z.string(),
-      hallucination_check: z.boolean().optional()
+      hallucination_check: z.boolean().optional(),
     });
 
-    const secureResult = await this.secureInvoke(
-      sessionId,
-      prompt,
-      targetSchema,
-      {
-        trackPrediction: true,
-        confidenceThresholds: { low: 0.6, high: 0.85 },
-        context: {
-          agent: 'TargetAgent',
-          opportunityId: input.opportunityId
-        }
-      }
-    );
+    const secureResult = await this.secureInvoke(sessionId, prompt, targetSchema, {
+      trackPrediction: true,
+      confidenceThresholds: { low: 0.6, high: 0.85 },
+      context: {
+        agent: "TargetAgent",
+        opportunityId: input.opportunityId,
+      },
+    });
 
     const parsed = secureResult.result;
-    const response = { content: JSON.stringify(parsed), tokens_used: 0, model: 'gpt-4' };
+    const response = { content: JSON.stringify(parsed), tokens_used: 0, model: "gpt-4" };
 
-    const valueTree: Omit<ValueTree, 'id' | 'created_at' | 'updated_at'> = {
+    const valueTree: Omit<ValueTree, "id" | "created_at" | "updated_at"> = {
       value_case_id: input.valueCaseId,
       use_case_id: undefined,
       name: parsed.value_tree.name,
@@ -209,20 +211,20 @@ Return ONLY valid JSON in this exact format:
       is_published: false,
     };
 
-    const roiModel: Omit<ROIModel, 'id' | 'value_tree_id' | 'created_at' | 'updated_at'> = {
-      organization_id: this.organizationId || '',
+    const roiModel: Omit<ROIModel, "id" | "value_tree_id" | "created_at" | "updated_at"> = {
+      organization_id: this.organizationId || "",
       financial_model_id: undefined,
       name: parsed.roi_model.name,
       assumptions: parsed.roi_model.assumptions,
-      version: '1.0',
+      version: "1.0",
       confidence_level: parsed.roi_model.confidence_level,
     };
 
-    const valueCommit: Omit<ValueCommit, 'id' | 'value_tree_id' | 'created_at'> = {
+    const valueCommit: Omit<ValueCommit, "id" | "value_tree_id" | "created_at"> = {
       value_case_id: input.valueCaseId,
       committed_by: undefined,
       committed_by_name: undefined,
-      status: 'active',
+      status: "active",
       date_committed: new Date().toISOString(),
       target_date: parsed.value_commit.target_date,
       notes: parsed.value_commit.notes,
@@ -231,31 +233,33 @@ Return ONLY valid JSON in this exact format:
 
     const durationMs = Date.now() - startTime;
 
-    await this.logMetric(sessionId, 'tokens_used', response.tokens_used, 'tokens');
-    await this.logMetric(sessionId, 'latency_ms', durationMs, 'ms');
-    await this.logMetric(sessionId, 'value_tree_nodes', parsed.value_tree.nodes.length, 'count');
-    await this.logMetric(sessionId, 'kpi_targets', parsed.kpi_targets.length, 'count');
-    await this.logPerformanceMetric(sessionId, 'target_execute', durationMs, {
+    await this.logMetric(sessionId, "tokens_used", response.tokens_used, "tokens");
+    await this.logMetric(sessionId, "latency_ms", durationMs, "ms");
+    await this.logMetric(sessionId, "value_tree_nodes", parsed.value_tree.nodes.length, "count");
+    await this.logMetric(sessionId, "kpi_targets", parsed.kpi_targets.length, "count");
+    await this.logPerformanceMetric(sessionId, "target_execute", durationMs, {
       nodes: parsed.value_tree.nodes.length,
       kpi_targets: parsed.kpi_targets.length,
     });
 
     await this.logExecution(
       sessionId,
-      'target_business_case_creation',
+      "target_business_case_creation",
       input,
       {
         value_tree_nodes: parsed.value_tree.nodes.length,
         roi_calculations: parsed.roi_model.calculations.length,
-        kpi_targets: parsed.kpi_targets.length
+        kpi_targets: parsed.kpi_targets.length,
       },
       parsed.reasoning,
       parsed.confidence_level,
-      [{
-        type: 'value_tree_generation',
-        model: response.model,
-        tokens: response.tokens_used
-      }]
+      [
+        {
+          type: "value_tree_generation",
+          model: response.model,
+          tokens: response.tokens_used,
+        },
+      ]
     );
 
     await this.memorySystem.storeSemanticMemory(
@@ -265,7 +269,7 @@ Return ONLY valid JSON in this exact format:
       {
         value_tree: valueTree,
         roi_model: roiModel,
-        kpi_targets: parsed.kpi_targets
+        kpi_targets: parsed.kpi_targets,
       },
       this.organizationId // SECURITY: Tenant isolation
     );
@@ -281,8 +285,8 @@ Return ONLY valid JSON in this exact format:
         calculations: parsed.roi_model.calculations,
         kpi_targets: parsed.kpi_targets,
         reasoning: parsed.reasoning,
-        confidence_level: parsed.confidence_level
-      }
+        confidence_level: parsed.confidence_level,
+      },
     };
   }
 
@@ -301,7 +305,7 @@ Return ONLY valid JSON in this exact format:
     if (!this.organizationId || !this.userId) {
       throw new Error("Agent is missing required user and organization context.");
     }
-    
+
     const context = {
       userId: this.userId,
       organizationId: this.organizationId,
@@ -309,7 +313,7 @@ Return ONLY valid JSON in this exact format:
     };
 
     const modelService = new ModelService(context);
-    
+
     // Note: The provenance logging logic that was here previously should be
     // moved into the ModelService as well, ideally into an AuditService that
     // the ModelService would use. For this refactoring step, we are focusing
