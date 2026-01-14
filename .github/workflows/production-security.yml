@@ -31,7 +31,7 @@ jobs:
       - name: Lint Dockerfiles
         run: |
           curl -sSfL https://raw.githubusercontent.com/hadolint/hadolint/master/install.sh | sh -s -- -b /usr/local/bin
-          hadolint Dockerfile.backend Dockerfile.frontend
+          hadolint infra/docker/Dockerfile.backend infra/docker/Dockerfile.frontend
 
   build-and-scan:
     runs-on: ubuntu-latest

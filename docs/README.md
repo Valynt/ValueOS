@@ -1,60 +1,81 @@
 # ValueOS Documentation
 
-A structured knowledge base for the Value Operating System.
+Welcome to the ValueOS documentation hub. This is your starting point for understanding, developing, and operating ValueOS.
 
-## 📚 Documentation Structure
+## Quick Links
 
-### **🏗️ [engineering/](./engineering/)**
+- **[Quick Start](getting-started/quickstart.md)** - Get running in 3 commands
+- **[Local Development Setup](getting-started/local-setup.md)** - Complete local development guide
+- **[Deployment Guide](operations/deployment.md)** - Production deployment procedures
+- **[Architecture Overview](architecture/overview.md)** - System architecture and design
 
-System design, architecture, and technical specifications
+---
 
-- **Architecture** - System design decisions and patterns
-- **Database** - Schema, migrations, and data models
-- **Technical** - Implementation guides and technical reviews
-- **Blueprint** - System blueprints and design documents
+## Documentation Structure
 
-### **📖 [guides/](./guides/)**
+### Getting Started
 
-How-to guides and tutorials
+- **[Quick Start](getting-started/quickstart.md)** - Fastest way to get ValueOS running
+- **[Local Setup](getting-started/local-setup.md)** - Detailed local development environment setup
+- **[Troubleshooting](getting-started/troubleshooting.md)** - Common issues and solutions
 
-- **Setup** - Development environment setup
-- **Onboarding** - Getting started guides
-- **Troubleshooting** - Common issues and solutions
-- **Best Practices** - Development guidelines
+### Architecture
 
-### **⚙️ [ops/](./ops/)**
+- **[Overview](architecture/overview.md)** - High-level system architecture
+- **[Data Flow](architecture/data-flow.md)** - How data moves through the system
+- **[Multi-tenancy](architecture/multi-tenancy.md)** - Tenant isolation patterns
+- **[Architecture Decision Records](architecture/adr/)** - Historical architectural decisions
 
-Operations, deployment, and infrastructure
+### Engineering
 
-- **Deployment** - Deployment strategies and runbooks
-- **Security** - Security policies and procedures
-- **Infrastructure** - Infrastructure management
-- **Monitoring** - Observability and alerting
+- **[API Documentation](engineering/api/)** - REST API and client SDK guides
+- **[Database](engineering/database/)** - Schema, migrations, and data access
+- **[Agents](engineering/agents/)** - Agent system documentation
+- **[SDUI](engineering/sdui/)** - Server-Driven UI implementation
 
-### **🚀 [features/](./features/)**
+### Operations
 
-Product features and capabilities
+- **[Deployment](operations/deployment.md)** - Production deployment procedures
+- **[Runbooks](operations/runbooks/)** - Operational procedures and checklists
+- **[Monitoring](operations/monitoring.md)** - Observability and alerting
+- **[Security](operations/security.md)** - Security practices and procedures
 
-- **Portal** - Web portal documentation
-- **Agents** - Agent system documentation
-- **UI/UX** - User interface guides
-- **Client Features** - Customer-facing functionality
+### Compliance
 
-### **🔄 [processes/](./processes/)**
+- **[Audit](compliance/audit.md)** - Compliance documentation and procedures
 
-Team processes and workflows
+---
 
-- **Contributing** - Contribution guidelines
-- **Release Process** - Version management
-- **Sprint Management** - Development workflows
+## Development Workflow
 
-### **📦 [archive/](./archive/)**
+1. **Start Here**: [Quick Start](getting-started/quickstart.md) if you're new to ValueOS
+2. **Local Development**: [Local Setup](getting-started/local-setup.md) for detailed environment setup
+3. **Architecture**: [Architecture Overview](architecture/overview.md) to understand the system
+4. **API Development**: [API Documentation](engineering/api/) for integration work
+5. **Deployment**: [Deployment Guide](operations/deployment.md) for production releases
 
-Historical documentation and deprecated content
+---
 
-- **Reports** - Sprint summaries and status reports
-- **Legacy** - Deprecated features and old documentation
-- **2024** - Historical documents from 2024
+## Contributing to Documentation
+
+Documentation lives alongside the code in the `docs/` directory. To contribute:
+
+1. Edit the relevant markdown files
+2. Test links and code examples
+3. Submit a PR with `[docs]` prefix in the title
+
+---
+
+## Getting Help
+
+- **Slack**: #engineering for questions
+- **GitHub Issues**: Report documentation bugs
+- **Pull Requests**: Contribute improvements
+
+---
+
+**Last Updated**: 2026-01-14
+**Maintained By**: Engineering Team
 
 ## 🎯 Quick Start
 

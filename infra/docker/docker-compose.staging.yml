@@ -18,7 +18,7 @@ services:
       CADDY_STORAGE: /data
       CADDY_LOG_LEVEL: ${CADDY_LOG_LEVEL:-INFO}
     volumes:
-      - ./infra/caddy:/etc/caddy:ro
+      - ../infra/caddy:/etc/caddy:ro
       - frontend-dist:/srv/www:ro
       - caddy-data:/data
       - caddy-config:/config
@@ -63,7 +63,7 @@ services:
       VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
       VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
     volumes:
-      - ./:/app
+      - ../:/app
       - frontend-dist:/dist
       - frontend-node-modules:/app/node_modules
     networks:
@@ -77,8 +77,8 @@ services:
 
   backend:
     build:
-      context: .
-      dockerfile: Dockerfile.backend
+      context: ..
+      dockerfile: ../Dockerfile.backend
     container_name: valueos-backend-staging
     environment:
       NODE_ENV: staging

@@ -12,7 +12,7 @@ echo -e "${GREEN}🧪 Starting ValueOS Test Environment...${NC}"
 echo "=========================================="
 
 # Configuration
-COMPOSE_FILE="config/docker/docker-compose.unified.yml"
+COMPOSE_FILE="infra/docker/docker-compose.test.yml"
 PROJECT_NAME="valueos-test"
 ENVIRONMENTS_DIR="config/environments"
 ENVIRONMENT="test"

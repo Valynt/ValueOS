@@ -144,8 +144,8 @@ jobs:
 
       - name: Build frontend and backend images
         run: |
-          docker build -f Dockerfile.frontend -t valueos-frontend .
-          docker build -f Dockerfile.backend -t valueos-backend .
+          docker build -f infra/docker/Dockerfile.frontend -t valueos-frontend .
+          docker build -f infra/docker/Dockerfile.backend -t valueos-backend .
 
   # Deploy preview for PRs
   deploy-preview:
