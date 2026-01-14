@@ -202,7 +202,17 @@ export class AgentAuditLogger {
   private readonly FLUSH_INTERVAL_MS = 5000; // Flush every 5 seconds
   private readonly MAX_QUEUE_SIZE = 100;
 
+  // Encryption configuration
+  private encryptionEnabled: boolean =
+    process.env.AUDIT_LOG_ENCRYPTION_ENABLED === "true";
+  private encryptionKey: string | null = null;
+
   private constructor() {
+    // Initialize encryption if enabled
+    if (this.encryptionEnabled) {
+      this.initializeEncryption();
+    }
+
     // Start auto-flush
     this.startAutoFlush();
   }
@@ -218,10 +228,65 @@ export class AgentAuditLogger {
   }
 
   /**
-   * Enable or disable logging
+   * Initialize encryption key and configuration
    */
-  setEnabled(enabled: boolean): void {
-    this.enableLogging = enabled;
+  private initializeEncryption(): void {
+    try {
+      // Get encryption key from environment or generate one
+      this.encryptionKey =
+        process.env.AUDIT_LOG_ENCRYPTION_KEY || this.generateEncryptionKey();
+
+      if (!this.encryptionKey) {
+        logger.warn(
+          "Failed to initialize audit log encryption key, encryption disabled"
+        );
+        this.encryptionEnabled = false;
+        return;
+      }
+
+      logger.info("Audit log encryption initialized");
+    } catch (error) {
+      logger.error(
+        "Failed to initialize audit log encryption",
+        error instanceof Error ? error : undefined
+      );
+      this.encryptionEnabled = false;
+    }
+  }
+
+  /**
+   * Generate a new encryption key for audit logs
+   */
+  private generateEncryptionKey(): string {
+    try {
+      const key = generateEncryptionKey();
+      // In production, this key should be stored securely (KMS, vault, etc.)
+      // For now, we'll use it directly
+      return key;
+    } catch (error) {
+      logger.error(
+        "Failed to generate encryption key",
+        error instanceof Error ? error : undefined
+      );
+      return "";
+    }
+  }
+
+  /**
+   * Enable or disable encryption
+   */
+  setEncryptionEnabled(enabled: boolean): void {
+    this.encryptionEnabled = enabled;
+    if (enabled && !this.encryptionKey) {
+      this.initializeEncryption();
+    }
+  }
+
+  /**
+   * Check if encryption is enabled and available
+   */
+  isEncryptionEnabled(): boolean {
+    return this.encryptionEnabled && !!this.encryptionKey;
   }
 
   /**
@@ -248,7 +313,7 @@ export class AgentAuditLogger {
   }
 
   /**
-   * Sanitize audit log entry before storage
+   * Sanitize and encrypt audit log entry before storage
    */
   private sanitizeLogEntry(entry: AgentAuditLog): AgentAuditLog {
     const sanitized: AgentAuditLog = {
@@ -288,26 +353,26 @@ export class AgentAuditLogger {
       sanitized.session_id = this.sanitizeString(sanitized.session_id, 100);
     }
 
-    // Sanitize response data with memory zeroing
+    // Encrypt sensitive response data
     if (sanitized.response_data) {
-      sanitized.response_data = this.sanitizeAndZeroMemory(
+      sanitized.response_data = this.encryptSensitiveData(
         sanitized.response_data
       );
     }
 
-    // Sanitize context with memory zeroing
+    // Encrypt sensitive context
     if (sanitized.context) {
-      sanitized.context = this.sanitizeAndZeroMemory(sanitized.context);
+      sanitized.context = this.encryptSensitiveData(sanitized.context);
     }
 
-    // Sanitize metadata with memory zeroing
+    // Encrypt sensitive metadata
     if (sanitized.metadata) {
-      sanitized.metadata = this.sanitizeAndZeroMemory(sanitized.metadata);
+      sanitized.metadata = this.encryptSensitiveData(sanitized.metadata);
     }
 
-    // Sanitize response metadata with memory zeroing
+    // Encrypt sensitive response metadata
     if (sanitized.response_metadata) {
-      sanitized.response_metadata = this.sanitizeAndZeroMemory(
+      sanitized.response_metadata = this.encryptSensitiveData(
         sanitized.response_metadata
       );
     }
