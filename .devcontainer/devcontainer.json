@@ -63,7 +63,8 @@
   "onCreateCommand": "bash .devcontainer/scripts/on-create.sh",
   "updateContentCommand": "bash .devcontainer/scripts/update-content.sh",
   "postCreateCommand": "bash .devcontainer/scripts/post-create.sh",
-  "postStartCommand": "bash .devcontainer/scripts/post-start.sh",
+  // Disable post-start to avoid startup race conditions on Windows
+  // "postStartCommand": "bash .devcontainer/scripts/post-start.sh",
 
   // Port forwarding with labels
   "forwardPorts": [5173, 3001, 5432, 6379, 54321, 54323, 9090, 3000],
@@ -102,21 +103,17 @@
     }
   },
 
-  // Optimized mounts for performance
+  // Optimized mounts for performance (Windows-compatible)
   "mounts": [
     // Cache node_modules for faster installs
     "source=valueos-node-modules,target=${containerWorkspaceFolder}/node_modules,type=volume",
     // Cache npm cache
     "source=valueos-npm-cache,target=/home/vscode/.npm,type=volume",
     // Cache build artifacts
-    "source=valueos-build-cache,target=${containerWorkspaceFolder}/.cache,type=volume",
-    // Cache playwright browsers
-    "source=valueos-playwright,target=/home/vscode/.cache/ms-playwright,type=volume",
-    // Cache Docker layers
-    "source=valueos-docker,target=/var/lib/docker,type=volume"
+    "source=valueos-build-cache,target=${containerWorkspaceFolder}/.cache,type=volume"
   ],
 
-  // Container configuration for performance
+  // Container configuration for performance (Windows-safe)
   "runArgs": [
     // Allow access to host services
     "--add-host=host.docker.internal:host-gateway",
@@ -125,9 +122,7 @@
     // Add labels for identification
     "--label=project=valueos",
     "--label=environment=development",
-    "--label=type=ephemeral",
-    // Enable privileged mode for Docker-in-Docker
-    "--privileged"
+    "--label=type=ephemeral"
   ],
 
   // Host requirements
