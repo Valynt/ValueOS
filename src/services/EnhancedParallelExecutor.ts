@@ -11,6 +11,7 @@ import { getUnifiedAgentAPI } from './UnifiedAgentAPI';
 import { getCategorizedCircuitBreakerManager } from './CircuitBreakerManager';
 import { getSecureSharedContext } from './SecureSharedContext';
 import { getContextOptimizer } from './ContextOptimizer';
+import { getSystemResourceMonitor, ResourceListener } from './monitoring/SystemResourceMonitor';
 import { randomUUID } from 'crypto';
 
 // ============================================================================
@@ -109,14 +110,51 @@ export interface PerformanceMetrics {
 // Enhanced Parallel Executor Implementation
 // ============================================================================
 
-export class EnhancedParallelExecutor {
+export class EnhancedParallelExecutor implements ResourceListener {
   private agentAPI = getUnifiedAgentAPI();
   private circuitBreakerManager = getCategorizedCircuitBreakerManager();
   private sharedContext = getSecureSharedContext();
   private contextOptimizer = getContextOptimizer();
+  private resourceMonitor = getSystemResourceMonitor();
 
   private readonly DEFAULT_TIMEOUT = 60000; // 60 seconds
-  private readonly MAX_CONCURRENCY = 10;
+  private baseMaxConcurrency = 10;
+  private currentMaxConcurrency = 10;
+  private resourceScalingEnabled = true;
+
+  constructor(baseConcurrency: number = 10, enableResourceScaling: boolean = true) {
+    this.baseMaxConcurrency = baseConcurrency;
+    this.currentMaxConcurrency = baseConcurrency;
+    this.resourceScalingEnabled = enableResourceScaling;
+
+    // Register for resource monitoring
+    if (enableResourceScaling) {
+      this.resourceMonitor.addListener(this);
+      this.resourceMonitor.startMonitoring();
+    }
+  }
+
+  /**
+   * Handle resource changes for dynamic scaling
+   */
+  onResourceChange(resources: any): void {
+    if (!this.resourceScalingEnabled) return;
+
+    const newConcurrency = this.resourceMonitor.getOptimalConcurrency(this.baseMaxConcurrency);
+
+    if (newConcurrency !== this.currentMaxConcurrency) {
+      logger.info('Adjusting concurrency based on system resources', {
+        oldConcurrency: this.currentMaxConcurrency,
+        newConcurrency,
+        cpuUsage: resources.cpu.usage,
+        memoryUsage: resources.memory.percentage,
+        heapUsage: resources.heap.percentage,
+        pressure: resources.memory.pressure,
+      });
+
+      this.currentMaxConcurrency = newConcurrency;
+    }
+  }
 
   /**
    * Execute parallel plan with optimization
@@ -266,7 +304,7 @@ export class EnhancedParallelExecutor {
    * Execute tasks in parallel
    */
   private async executeParallelTasks(tasks: ParallelTask[], maxConcurrency: number): Promise<TaskResult[]> {
-    const concurrency = Math.min(maxConcurrency, this.MAX_CONCURRENCY);
+    const concurrency = Math.min(maxConcurrency, this.currentMaxConcurrency);
     const results: TaskResult[] = [];
 
     // Create execution batches
@@ -282,9 +320,10 @@ export class EnhancedParallelExecutor {
           results.push(result.value);
         } else {
           const task = batch.find(t => t.id === (result.reason as any).taskId);
+          const agentType = task?.agentType && Object.values(AgentType).includes(task.agentType as AgentType) ? task.agentType as AgentType : 'coordinator'; // Default to coordinator instead of unknown
           results.push({
             taskId: task?.id || 'unknown',
-            agentType: (task?.agentType && Object.values(AgentType).includes(task.agentType as AgentType)) ? task.agentType as AgentType : 'unknown',
+            agentType,
             success: false,
             error: result.reason instanceof Error ? result.reason.message : String(result.reason),
             duration: 0,

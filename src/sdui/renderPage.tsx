@@ -11,7 +11,8 @@ import {
   SDUIValidationError,
   validateSDUISchema,
 } from "./schema";
-import { RegistryPlaceholderComponent, resolveComponent } from "./registry";
+import { resolveComponentLazy, preloadCriticalComponents } from './LazyComponentRegistry';
+import { resolveComponent } from './registry';
 import { useDataHydration } from "./hooks/useDataHydration";
 import { ComponentErrorBoundary } from "./components/ComponentErrorBoundary";
 import { LoadingFallback } from "./components/LoadingFallback";
@@ -103,6 +104,12 @@ export interface RenderPageOptions {
    * Callback for handling component actions (e.g. clicks, form submissions)
    */
   onAction?: (action: string, payload?: any) => void;
+
+  /**
+   * Enable lazy loading of components for better performance
+   * @default true
+   */
+  enableLazyLoading?: boolean;
 }
 
 /**
@@ -216,8 +223,8 @@ const SectionRenderer: React.FC<{
     errorFallback: ErrorFallback = SectionErrorFallback,
   } = options;
 
-  // Resolve component from registry
-  const entry = resolveComponent(section);
+  // Resolve component from lazy registry first, fallback to synchronous registry
+  const entry = options.enableLazyLoading !== false ? resolveComponentLazy(section) : resolveComponent(section);
 
   // Use data hydration hook if hydrateWith is specified
   const {
@@ -486,13 +493,24 @@ export function renderPage(
     version: page.version,
   };
 
-  // Step 5: Enable debug mode from page metadata if not explicitly set
+  // Step 5: Preload critical components if lazy loading is enabled
+  if (options.enableLazyLoading !== false) {
+    // Extract component names from page sections
+    const componentNames = page.sections.map((section: SDUIComponentSection) => section.component);
+
+    // Preload critical components asynchronously (don't block rendering)
+    preloadCriticalComponents().catch((error: any) => {
+      logger.warn('Failed to preload critical components', { error });
+    });
+  }
+
+  // Step 6: Enable debug mode from page metadata if not explicitly set
   const effectiveOptions = {
     ...options,
     debug: options.debug ?? page.metadata?.debug ?? false,
   };
 
-  // Step 6: Render the page with error boundary
+  // Step 7: Render the page with error boundary
   const element = (
     <ErrorBoundary
       onError={(error) => {

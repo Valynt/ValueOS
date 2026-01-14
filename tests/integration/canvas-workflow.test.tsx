@@ -10,29 +10,37 @@ import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { FC, ReactNode } from 'react';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
+
+// Import components and hooks used in tests
+import ChatCanvasLayout from '../../src/components/ChatCanvas/ChatCanvasLayout';
+import { useCanvasCommand } from '../../src/hooks/useCanvasCommand';
+import { useCommandProcessor } from '../../src/hooks/useCommandProcessor';
+import { WorkflowStateService } from '../../src/services/WorkflowStateService';
+import { CommandProcessor } from '../../src/lib/commands/CommandProcessor';
 
 // Mock imports - these would be properly imported in a real setup
 const mockSupabase = {
-  auth: { getSession: jest.fn() },
-  from: jest.fn(),
+  auth: { getSession: vi.fn() },
+  from: vi.fn(),
 } as any;
 
 const mockAgentChatService = {
-  chat: jest.fn(),
+  chat: vi.fn(),
 } as any;
 
 const mockWorkflowStateService = {
-  loadOrCreateSession: jest.fn(),
-  saveWorkflowState: jest.fn(),
+  loadOrCreateSession: vi.fn(),
+  saveWorkflowState: vi.fn(),
 } as any;
 
 // Mock components and services
-jest.mock('../../lib/supabase', () => ({ supabase: mockSupabase }));
-jest.mock('../../services/AgentChatService', () => ({ agentChatService: mockAgentChatService }));
-jest.mock('../../services/WorkflowStateService', () => ({ WorkflowStateService: jest.fn(() => mockWorkflowStateService) }));
-jest.mock('../../lib/logger');
-jest.mock('../../lib/telemetry/SDUITelemetry');
-jest.mock('../../lib/analyticsClient');
+vi.mock('../../lib/supabase', () => ({ supabase: mockSupabase }));
+vi.mock('../../services/AgentChatService', () => ({ agentChatService: mockAgentChatService }));
+vi.mock('../../services/WorkflowStateService', () => ({ WorkflowStateService: vi.fn(() => mockWorkflowStateService) }));
+vi.mock('../../lib/logger');
+vi.mock('../../lib/telemetry/SDUITelemetry');
+vi.mock('../../lib/analyticsClient');
 
 // Test utilities
 const createMockUser = () => ({
@@ -116,7 +124,7 @@ describe('Canvas Workspace Pipeline Integration Tests', () => {
 
   beforeEach(() => {
     // Reset all mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Setup mock data
     mockUser = createMockUser();
@@ -132,27 +140,27 @@ describe('Canvas Workspace Pipeline Integration Tests', () => {
 
     // Mock Supabase queries
     mockSupabase.from.mockReturnValue({
-      select: jest.fn().mockReturnValue({
-        eq: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
               data: mockWorkflowState,
               error: null,
             }),
           }),
         }),
       }),
-      insert: jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          single: jest.fn().mockResolvedValue({
+      insert: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
             data: { id: 'test-session-id', ...mockWorkflowState },
             error: null,
           }),
         }),
       }),
-      update: jest.fn().mockReturnValue({
-        eq: jest.fn().mockReturnValue({
-          eq: jest.fn().mockResolvedValue({
+      update: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({
             data: null,
             error: null,
           }),
@@ -191,7 +199,7 @@ describe('Canvas Workspace Pipeline Integration Tests', () => {
 
     it('should create new session when case is selected', async () => {
       const mockWorkflowStateService = new WorkflowStateService(mockSupabase);
-      const mockCreateSession = jest.spyOn(mockWorkflowStateService, 'loadOrCreateSession');
+      const mockCreateSession = vi.spyOn(mockWorkflowStateService, 'loadOrCreateSession');
       mockCreateSession.mockResolvedValue({
         sessionId: 'test-session-id',
         state: mockWorkflowState,
@@ -491,7 +499,7 @@ describe('Canvas Workspace Pipeline Integration Tests', () => {
           await executeCreateCase(
             mockCase,
             async () => mockCase,
-            jest.fn()
+            vi.fn()
           );
         };
 
@@ -544,11 +552,11 @@ describe('Canvas Workspace Pipeline Integration Tests', () => {
     it('should complete full user command workflow', async () => {
       // Mock the complete workflow
       const mockWorkflowStateService = new WorkflowStateService(mockSupabase);
-      jest.spyOn(mockWorkflowStateService, 'loadOrCreateSession').mockResolvedValue({
+      vi.spyOn(mockWorkflowStateService, 'loadOrCreateSession').mockResolvedValue({
         sessionId: 'test-session-id',
         state: mockWorkflowState,
       });
-      jest.spyOn(mockWorkflowStateService, 'saveWorkflowState').mockResolvedValue();
+      vi.spyOn(mockWorkflowStateService, 'saveWorkflowState').mockResolvedValue();
 
       render(
         <TestWrapper>
@@ -701,5 +709,4 @@ describe('Canvas Workspace Pipeline Integration Tests', () => {
 
 // Helper function to test async components
 function asyncAct(action: () => Promise<any>): Promise<void> {
-  return act(action);
-}
+  return act(ac
