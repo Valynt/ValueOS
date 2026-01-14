@@ -149,7 +149,7 @@ Every value calculation and workflow execution maintains a cryptographic audit t
 
 ### System Requirements
 
-- **Node.js**: 18+ (LTS recommended, managed via `.nvmrc`)
+- **Node.js**: 20+ (LTS recommended, managed via `.nvmrc`)
 - **Docker**: Desktop 4.0+ with Docker Compose V2
 - **Git**: 2.30+
 - **RAM**: 8GB minimum, 16GB recommended
@@ -177,30 +177,42 @@ The repository follows an opinionated structure optimized for developer experien
 
 ```text
 ValueOS/
-├── .agent/                 # Agent orchestration and workflow definitions
 ├── .config/               # Centralized configuration (Vite, ESLint, Playwright)
 ├── .context/              # Development context and capability documentation
 ├── .devcontainer/         # Development container definitions and health checks
 ├── .github/               # CI/CD workflows, security scanning, and automation
+├── .husky/                # Git hooks configuration
+├── .roo/                  # MCP server configurations
+├── .storybook/            # Storybook configuration
 ├── .vscode/               # Workspace settings and recommended extensions
+├── .vscode-extension/     # VS Code extension development
+├── .windsurf/             # Windsurf workflows and agents
+├── audit/                 # Security and compliance audit reports
+├── caddy/                 # Caddy web server configuration
+├── deploy/                # Deployment configurations and environment files
 ├── docs/                  # Comprehensive documentation (ADR, guides, runbooks)
-├── infra/                 # Infrastructure as code (Docker, Caddy, monitoring)
+├── infra/                 # Infrastructure as code (Docker, monitoring)
+├── mcp-dashboard/         # MCP server dashboard
+├── operations/            # Operational runbooks and procedures
+├── ops/                   # Operational scripts and configurations
 ├── packages/              # Shared libraries and component packages
+├── public/                # Static assets
 ├── scripts/               # Automation, tooling, and operational scripts
 ├── src/                   # Application source code
 │   ├── adapters/          # Data access and external service adapters
 │   ├── api/               # API endpoints and route handlers
 │   ├── components/        # React components and UI primitives
 │   ├── services/          # Business logic and domain services
-│   └── types/             # TypeScript type definitions
-├── tests/                 # Test suites (unit, integration, E2E)
-└── deploy/                # Deployment configurations and environment files
+│   ├── types/             # TypeScript type definitions
+│   └── __tests__/         # Test suites (unit, integration, E2E)
+├── tests/                 # Additional test suites and configurations
+└── docker-compose.deps.yml # Dependency services configuration
 ```
 
 **Structural principles:**
 
 - **Configuration centralization** in `.config/` for consistency across tools
-- **Agent-first development** with `.agent/` containing orchestration logic
+- **Agent-first development** with `.windsurf/` containing orchestration logic and workflows
 - **Documentation-driven development** with comprehensive `docs/` hierarchy
 - **Infrastructure as code** with reproducible environments in `infra/`
 
@@ -728,9 +740,9 @@ build: optimize bundle size reduction strategy
 
 **📚 Getting Started:**
 
-- [Local Development Guide](docs/local-dev.md) - Complete setup and workflow guide
+- [Local Development Guide](docs/getting-started/local-setup.md) - Complete setup and workflow guide
 - [Architecture Decision Records](docs/engineering/adr/) - System design decisions and rationale
-- [API Documentation](docs/api/) - REST API specifications and examples
+- [API Documentation](docs/engineering/api/) - REST API specifications and examples
 
 **🛠️ Development Resources:**
 
@@ -766,13 +778,13 @@ build: optimize bundle size reduction strategy
 
 ### Quick Reference Matrix
 
-| Task              | Command                         | Documentation                                   |
-| ----------------- | ------------------------------- | ----------------------------------------------- |
-| Local setup       | `npm run env:dev && npm run dx` | [Local Dev Guide](docs/local-dev.md)            |
-| Run tests         | `npm run ci:verify`             | [Testing Strategy](docs/engineering/testing.md) |
-| Deploy to staging | `npm run env:staging`           | [Deployment Guide](docs/ops/deployment.md)      |
-| Database reset    | `npm run db:reset`              | [Database Guide](docs/engineering/database.md)  |
-| Health check      | `npm run dx:check`              | [Monitoring Guide](docs/ops/monitoring.md)      |
+| Task              | Command                                        | Documentation                                          |
+| ----------------- | ---------------------------------------------- | ------------------------------------------------------ |
+| Local setup       | `npm install && npm run env:dev && npm run dx` | [Local Dev Guide](docs/getting-started/local-setup.md) |
+| Run tests         | `npm run ci:verify`                            | [Testing Strategy](docs/engineering/testing.md)        |
+| Deploy to staging | `npm run env:staging`                          | [Deployment Guide](docs/ops/deployment.md)             |
+| Database reset    | `npm run db:reset`                             | [Database Guide](docs/engineering/database.md)         |
+| Health check      | `npm run dx:check`                             | [Monitoring Guide](docs/ops/monitoring.md)             |
 
 ---
 

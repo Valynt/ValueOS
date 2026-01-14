@@ -1,4 +1,5 @@
 import { vi } from "vitest";
+import "@testing-library/jest-dom/vitest";
 
 process.env.VITE_SUPABASE_URL ||= "http://localhost:54321";
 process.env.SUPABASE_URL ||= process.env.VITE_SUPABASE_URL;
