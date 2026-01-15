@@ -9,7 +9,7 @@
  */
 
 import React, { Component, ReactNode } from "react";
-import logger from "../../../lib/logger";
+import logger from "@lib/logger";
 
 interface AsyncErrorBoundaryProps {
   children: ReactNode;
@@ -249,7 +249,7 @@ export function useAsyncOperation<T>(
 
       const result = await Promise.race([
         asyncOperation(),
-        new Promise<Never>((_, reject) => {
+        new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error("Operation timed out")), timeout);
         }),
       ]);
