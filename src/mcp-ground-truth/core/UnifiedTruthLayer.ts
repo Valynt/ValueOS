@@ -24,6 +24,7 @@ import {
   TruthResolutionResult,
 } from "../types";
 import { logger } from "../../lib/logger";
+import { ClaimExtractor } from "../services/ClaimExtractor";
 
 interface UnifiedTruthConfig {
   enableFallback: boolean; // Allow fallback to lower tiers
@@ -40,6 +41,7 @@ interface UnifiedTruthConfig {
  */
 export class UnifiedTruthLayer {
   private modules: Map<string, GroundTruthModule> = new Map();
+  private claimExtractor = new ClaimExtractor();
   private tierModules: Map<ConfidenceTier, GroundTruthModule[]> = new Map([
     ["tier1", []],
     ["tier2", []],

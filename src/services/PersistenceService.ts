@@ -47,6 +47,16 @@ class PersistenceService {
     client: string,
     userId: string
   ): Promise<BusinessCase | null> {
+    if (featureFlags.DISABLE_LEGACY_BUSINESS_CASES) {
+      throw new Error(
+        "Creation of legacy business cases is disabled via feature flag"
+      );
+    }
+
+    logger.warn(
+      "DEPRECATION: PersistenceService.createBusinessCase is deprecated. Use ValueCaseService instead."
+    );
+
     const { data, error } = await supabase
       .from("business_cases")
       .insert({
@@ -267,7 +277,7 @@ class PersistenceService {
       return [];
     }
 
-    return data.map((component) => ({
+    return data.map((component: any) => ({
       id: component.id,
       type: component.type,
       position: { x: component.position_x, y: component.position_y },

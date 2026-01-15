@@ -848,6 +848,38 @@ export class MCPFinancialGroundTruthServer {
   }
 
   // ============================================================================
+  // Private Helper Methods
+  // ============================================================================
+
+  /**
+   * Validate tool arguments against Zod schemas
+   */
+  private validateToolArguments(toolName: string, args: any): void {
+    const schema = ToolSchemas[toolName];
+
+    if (!schema) {
+      // If no schema defined, we might want to warn or allow if it's an ESO tool
+      // specific logic for ESO tools is handled in executeTool but we should check here too
+      if (toolName.startsWith("eso_")) return;
+
+      logger.warn(`No validation schema found for tool: ${toolName}`);
+      return;
+    }
+
+    try {
+      schema.parse(args);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new GroundTruthError(
+          ErrorCodes.INVALID_REQUEST,
+          `Invalid arguments for tool ${toolName}: ${error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join(", ")}`
+        );
+      }
+      throw error;
+    }
+  }
+
+  // ============================================================================
   // Tool Implementations
   // ============================================================================
 

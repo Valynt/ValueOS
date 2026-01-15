@@ -255,6 +255,26 @@ export class GroundTruthIntegrationService {
   }
 
   /**
+   * Verify if a source ID exists in the ground truth database
+   */
+  async verifySourceId(id: string): Promise<boolean> {
+    // Check KPIs
+    if (this.kpiIndex.has(id)) return true;
+
+    // Check VMRT traces
+    if (this.vmrtIndex.has(id)) return true;
+
+    // Check if it matches a known pattern even if not in memory index
+    // e.g. VMRT-BENCH-xxx
+    if (id.startsWith("VMRT-") || id.startsWith("ESO-KPI-")) {
+      // In a real system, we might query the DB if not in memory cache
+      return false;
+    }
+
+    return false;
+  }
+
+  /**
    * Get coverage statistics
    */
   getStats(): {

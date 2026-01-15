@@ -182,6 +182,7 @@ VITE_HMR_PORT=${ports.frontend.hmrPort}
 # Supabase Ports
 SUPABASE_API_PORT=${ports.supabase.apiPort}
 SUPABASE_STUDIO_PORT=${ports.supabase.studioPort}
+SUPABASE_DB_PORT=${ports.supabase.dbPort}
 
 # Reverse Proxy Ports
 CADDY_HTTP_PORT=${ports.edge.httpPort}
