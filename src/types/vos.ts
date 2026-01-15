@@ -13,17 +13,40 @@
 
 export type ConfidenceLevel = "high" | "medium" | "low";
 
-export type LifecycleStage = "opportunity" | "target" | "realization" | "expansion";
+export type LifecycleStage =
+  | "opportunity"
+  | "target"
+  | "realization"
+  | "expansion";
 
-export type ValueCommitStatus = "active" | "achieved" | "at_risk" | "missed" | "cancelled";
+export type ValueCommitStatus =
+  | "active"
+  | "achieved"
+  | "at_risk"
+  | "missed"
+  | "cancelled";
 
 export type RealizationStatus = "on_track" | "at_risk" | "achieved" | "missed";
 
-export type ResultStatus = "exceeded" | "achieved" | "on_track" | "at_risk" | "missed";
+export type ResultStatus =
+  | "exceeded"
+  | "achieved"
+  | "on_track"
+  | "at_risk"
+  | "missed";
 
-export type ExpansionOpportunityType = "upsell" | "cross_sell" | "optimization" | "expansion";
+export type ExpansionOpportunityType =
+  | "upsell"
+  | "cross_sell"
+  | "optimization"
+  | "expansion";
 
-export type ExpansionStatus = "proposed" | "under_review" | "approved" | "rejected" | "implemented";
+export type ExpansionStatus =
+  | "proposed"
+  | "under_review"
+  | "approved"
+  | "rejected"
+  | "implemented";
 
 export type KPIMeasurement = "percentage" | "currency" | "time" | "count";
 
@@ -31,7 +54,12 @@ export type KPITargetDirection = "increase" | "decrease";
 
 export type FinancialMetricType = "revenue" | "cost" | "risk";
 
-export type ValueTreeNodeType = "capability" | "outcome" | "kpi" | "financialMetric" | "driver";
+export type ValueTreeNodeType =
+  | "capability"
+  | "outcome"
+  | "kpi"
+  | "financialMetric"
+  | "driver";
 
 export type ROICalculationType = "revenue" | "cost" | "risk" | "intermediate";
 
@@ -147,7 +175,11 @@ export interface ROIModelCalculation {
   calculation_order: number;
   result_type: ROICalculationType;
   unit?: string;
-  input_variables?: Array<{ name: string; source?: string; description?: string }>;
+  input_variables?: Array<{
+    name: string;
+    source?: string;
+    description?: string;
+  }>;
   source_references?: Record<string, any>;
   reasoning_trace?: string;
   created_at: string;
@@ -363,7 +395,11 @@ export interface ManifestoRule {
   id: string;
   name: string;
   description: string;
-  rule_type: "value_reduction" | "assumption_validation" | "kpi_existence" | "explainability";
+  rule_type:
+    | "value_reduction"
+    | "assumption_validation"
+    | "kpi_existence"
+    | "explainability";
   validation_function: string;
   is_active: boolean;
 }
@@ -540,10 +576,23 @@ export interface TargetAgentKpiTarget {
   confidence_level?: ConfidenceLevel;
 }
 
+export interface TargetAgentNode {
+  node_id: string;
+  label: string;
+  type: ValueTreeNodeType;
+  reference_id?: string;
+}
+
+export interface TargetAgentLink {
+  parent_node_id: string;
+  child_node_id: string;
+  weight: number;
+}
+
 export interface TargetBusinessCaseSummary {
   summary: string;
-  nodes: ValueTreeNode[];
-  links: ValueTreeLink[];
+  nodes: TargetAgentNode[];
+  links: TargetAgentLink[];
   calculations: ROIModelCalculation[];
   kpi_targets: TargetAgentKpiTarget[];
   reasoning: string;

@@ -50,12 +50,16 @@ const ImpactCascade = lazy(() => import("./views/ImpactCascade"));
 const AgentDashboard = lazy(() => import("./views/AgentDashboard"));
 const ROICalculator = lazy(() => import("./views/ROICalculator"));
 const ConversationalAI = lazy(() => import("./views/ConversationalAI"));
-const LaunchReadinessDashboard = lazy(() => import("./views/LaunchReadinessDashboard"));
+const LaunchReadinessDashboard = lazy(
+  () => import("./views/LaunchReadinessDashboard")
+);
 const NotFound = lazy(() => import("./views/NotFound"));
 const MissionControl = lazy(() => import("./views/MissionControl"));
 
 // Sales Enablement Views
-const DealsView = lazy(() => import("./views/DealsView").then((m) => ({ default: m.DealsView })));
+const DealsView = lazy(() =>
+  import("./views/DealsView").then((m) => ({ default: m.DealsView }))
+);
 
 // Admin Views
 const CustomerAccessManagement = lazy(() =>
@@ -75,12 +79,19 @@ export function AppRoutes() {
           <TenantProvider>
             <DrawerProvider>
               <ToastProvider>
-                <SDUIStateProvider supabase={supabase} persistence={true} debug={true}>
+                <SDUIStateProvider
+                  supabase={supabase}
+                  persistence={true}
+                  debug={true}
+                >
                   <CommandPaletteProvider>
                     <Suspense fallback={<LoadingSpinner />}>
                       <Routes>
                         {/* Root redirect to deals (sales enablement) */}
-                        <Route path="/" element={<Navigate to="/deals" replace />} />
+                        <Route
+                          path="/"
+                          element={<Navigate to="/deals" replace />}
+                        />
 
                         {/* Authentication Routes with Route-Level Error Boundaries */}
                         <Route
@@ -125,144 +136,146 @@ export function AppRoutes() {
                         />
 
                         {/* Protected Application Routes with Error Boundaries */}
-                        <Route element={<ProtectedRoute />}>
-                          <RouteErrorBoundary routeName="Main Application">
-                            <AsyncErrorBoundary>
-                              <MainLayout>
-                                <Routes>
-                                  {/* Home Dashboard */}
-                                  <Route
-                                    path="/"
-                                    element={
-                                      <RouteErrorBoundary routeName="Home">
-                                        <Home />
-                                      </RouteErrorBoundary>
-                                    }
-                                  />
+                        <Route
+                          element={
+                            <ProtectedRoute>
+                              <RouteErrorBoundary routeName="Main Application">
+                                <AsyncErrorBoundary>
+                                  <MainLayout />
+                                </AsyncErrorBoundary>
+                              </RouteErrorBoundary>
+                            </ProtectedRoute>
+                          }
+                        >
+                          {/* Home Dashboard */}
+                          <Route
+                            path="/"
+                            element={
+                              <RouteErrorBoundary routeName="Home">
+                                <Home />
+                              </RouteErrorBoundary>
+                            }
+                          />
 
-                                  {/* Value Canvas */}
-                                  <Route
-                                    path="/canvas"
-                                    element={
-                                      <RouteErrorBoundary routeName="Value Canvas">
-                                        <ValueCanvas />
-                                      </RouteErrorBoundary>
-                                    }
-                                  />
+                          {/* Value Canvas */}
+                          <Route
+                            path="/canvas"
+                            element={
+                              <RouteErrorBoundary routeName="Value Canvas">
+                                <ValueCanvas />
+                              </RouteErrorBoundary>
+                            }
+                          />
 
-                                  {/* Impact Cascade */}
-                                  <Route
-                                    path="/cascade"
-                                    element={
-                                      <RouteErrorBoundary routeName="Impact Cascade">
-                                        <ImpactCascade />
-                                      </RouteErrorBoundary>
-                                    }
-                                  />
+                          {/* Impact Cascade */}
+                          <Route
+                            path="/cascade"
+                            element={
+                              <RouteErrorBoundary routeName="Impact Cascade">
+                                <ImpactCascade />
+                              </RouteErrorBoundary>
+                            }
+                          />
 
-                                  {/* ROI Calculator */}
-                                  <Route
-                                    path="/calculator"
-                                    element={
-                                      <RouteErrorBoundary routeName="ROI Calculator">
-                                        <ROICalculator />
-                                      </RouteErrorBoundary>
-                                    }
-                                  />
+                          {/* ROI Calculator */}
+                          <Route
+                            path="/calculator"
+                            element={
+                              <RouteErrorBoundary routeName="ROI Calculator">
+                                <ROICalculator />
+                              </RouteErrorBoundary>
+                            }
+                          />
 
-                                  {/* Agent Dashboard */}
-                                  <Route
-                                    path="/dashboard"
-                                    element={
-                                      <RouteErrorBoundary routeName="Agent Dashboard">
-                                        <AgentDashboard />
-                                      </RouteErrorBoundary>
-                                    }
-                                  />
+                          {/* Agent Dashboard */}
+                          <Route
+                            path="/dashboard"
+                            element={
+                              <RouteErrorBoundary routeName="Agent Dashboard">
+                                <AgentDashboard />
+                              </RouteErrorBoundary>
+                            }
+                          />
 
-                                  {/* Conversational AI */}
-                                  <Route
-                                    path="/chat"
-                                    element={
-                                      <RouteErrorBoundary routeName="Conversational AI">
-                                        <ConversationalAI />
-                                      </RouteErrorBoundary>
-                                    }
-                                  />
+                          {/* Conversational AI */}
+                          <Route
+                            path="/chat"
+                            element={
+                              <RouteErrorBoundary routeName="Conversational AI">
+                                <ConversationalAI />
+                              </RouteErrorBoundary>
+                            }
+                          />
 
-                                  {/* Launch Readiness Dashboard */}
-                                  <Route
-                                    path="/launch-readiness"
-                                    element={
-                                      <RouteErrorBoundary routeName="Launch Readiness">
-                                        <LaunchReadinessDashboard />
-                                      </RouteErrorBoundary>
-                                    }
-                                  />
+                          {/* Launch Readiness Dashboard */}
+                          <Route
+                            path="/launch-readiness"
+                            element={
+                              <RouteErrorBoundary routeName="Launch Readiness">
+                                <LaunchReadinessDashboard />
+                              </RouteErrorBoundary>
+                            }
+                          />
 
-                                  {/* Mission Control */}
-                                  <Route
-                                    path="/mission-control"
-                                    element={
-                                      <RouteErrorBoundary routeName="Mission Control">
-                                        <MissionControl />
-                                      </RouteErrorBoundary>
-                                    }
-                                  />
+                          {/* Mission Control */}
+                          <Route
+                            path="/mission-control"
+                            element={
+                              <RouteErrorBoundary routeName="Mission Control">
+                                <MissionControl />
+                              </RouteErrorBoundary>
+                            }
+                          />
 
-                                  {/* Sales Enablement Routes */}
-                                  <Route
-                                    path="/sales"
-                                    element={
-                                      <RouteErrorBoundary routeName="Sales Enablement">
-                                        <DealsView />
-                                      </RouteErrorBoundary>
-                                    }
-                                  >
-                                    <Route
-                                      index
-                                      element={
-                                        <RouteErrorBoundary routeName="Sales Dashboard">
-                                          <DealsView />
-                                        </RouteErrorBoundary>
-                                      }
-                                    />
-                                  </Route>
+                          {/* Sales Enablement Routes */}
+                          <Route
+                            path="/sales"
+                            element={
+                              <RouteErrorBoundary routeName="Sales Enablement">
+                                <DealsView />
+                              </RouteErrorBoundary>
+                            }
+                          >
+                            <Route
+                              index
+                              element={
+                                <RouteErrorBoundary routeName="Sales Dashboard">
+                                  <DealsView />
+                                </RouteErrorBoundary>
+                              }
+                            />
+                          </Route>
 
-                                  {/* Documentation Portal */}
-                                  <Route
-                                    path="/docs"
-                                    element={
-                                      <RouteErrorBoundary routeName="Documentation Portal">
-                                        <DocsPortal />
-                                      </RouteErrorBoundary>
-                                    }
-                                  />
-                                  <Route
-                                    path="/docs/:sectionId"
-                                    element={
-                                      <RouteErrorBoundary routeName="Documentation Section">
-                                        <DocsPortal />
-                                      </RouteErrorBoundary>
-                                    }
-                                  />
+                          {/* Documentation Portal */}
+                          <Route
+                            path="/docs"
+                            element={
+                              <RouteErrorBoundary routeName="Documentation Portal">
+                                <DocsPortal />
+                              </RouteErrorBoundary>
+                            }
+                          />
+                          <Route
+                            path="/docs/:sectionId"
+                            element={
+                              <RouteErrorBoundary routeName="Documentation Section">
+                                <DocsPortal />
+                              </RouteErrorBoundary>
+                            }
+                          />
 
-                                  {/* Main App (Chat+Canvas) - Default protected route */}
-                                  <Route
-                                    path="/app/*"
-                                    element={
-                                      <RouteErrorBoundary routeName="Main App">
-                                        <App />
-                                      </RouteErrorBoundary>
-                                    }
-                                  />
+                          {/* Main App (Chat+Canvas) - Default protected route */}
+                          <Route
+                            path="/app/*"
+                            element={
+                              <RouteErrorBoundary routeName="Main App">
+                                <App />
+                              </RouteErrorBoundary>
+                            }
+                          />
 
-                                  {/* 404 Not Found - Must be last */}
-                                  <Route path="*" element={<NotFound />} />
-                                </Routes>
-                              </MainLayout>
-                            </AsyncErrorBoundary>
-                          </RouteErrorBoundary>
+                          {/* 404 Not Found - Must be last */}
+                          <Route path="*" element={<NotFound />} />
                         </Route>
 
                         {/* Sales Enablement - Deals View */}

@@ -1,14 +1,21 @@
-import { createHistogram } from '../config/telemetry';
-import { logger } from '../lib/logger';
+import { createHistogram } from "../config/telemetry";
+import { logger } from "../lib/logger";
 
 const WINDOW_SIZE = 120;
 const latencyWindows = new Map<string, number[]>();
-const criticalRoutes = ['/api/llm/chat', '/api/billing', '/api/queue'];
+const criticalRoutes = ["/api/llm/chat", "/api/billing", "/api/queue"];
 
-const latencyHistogram = createHistogram(
-  'api.request.duration',
-  'Duration of API requests in milliseconds'
-);
+let latencyHistogram: any = null;
+
+async function getLatencyHistogram() {
+  if (!latencyHistogram) {
+    latencyHistogram = await createHistogram(
+      "api.request.duration",
+      "Duration of API requests in milliseconds"
+    );
+  }
+  return latencyHistogram;
+}
 
 function recordDuration(route: string, duration: number) {
   const bucket = latencyWindows.get(route) || [];
@@ -22,12 +29,16 @@ function recordDuration(route: string, duration: number) {
 function percentile(values: number[], p: number) {
   if (!values.length) return 0;
   const sorted = [...values].sort((a, b) => a - b);
-  const idx = Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1);
+  const idx = Math.min(
+    sorted.length - 1,
+    Math.ceil((p / 100) * sorted.length) - 1
+  );
   return sorted[idx];
 }
 
 export function getLatencySnapshot() {
-  const snapshot: Record<string, { p50: number; p95: number; count: number }> = {};
+  const snapshot: Record<string, { p50: number; p95: number; count: number }> =
+    {};
 
   latencyWindows.forEach((durations, route) => {
     snapshot[route] = {
@@ -44,20 +55,23 @@ export function latencyMetricsMiddleware() {
   return (req: any, res: any, next: any) => {
     const start = Date.now();
 
-    res.on('finish', () => {
+    res.on("finish", async () => {
       const duration = Date.now() - start;
-      const routeKey = criticalRoutes.find((route) => req.path.startsWith(route)) || req.path;
+      const routeKey =
+        criticalRoutes.find((route) => req.path.startsWith(route)) || req.path;
 
       recordDuration(routeKey, duration);
-      latencyHistogram.record(duration, {
-        'http.route': routeKey,
-        'http.method': req.method,
-        'http.status_code': res.statusCode,
+
+      const histogram = await getLatencyHistogram();
+      histogram.record(duration, {
+        "http.route": routeKey,
+        "http.method": req.method,
+        "http.status_code": res.statusCode,
       });
 
       if (criticalRoutes.includes(routeKey)) {
         const snapshot = getLatencySnapshot();
-        logger.debug('API latency updated', {
+        logger.debug("API latency updated", {
           route: routeKey,
           duration_ms: duration,
           p95_ms: snapshot[routeKey]?.p95,

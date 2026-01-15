@@ -42,6 +42,10 @@ function getUrlConfig(mode, ports) {
     process.env.SUPABASE_API_PORT,
     ports.supabase.apiPort
   );
+  const supabaseDbPort = resolvePort(
+    process.env.SUPABASE_DB_PORT,
+    ports.supabase.dbPort
+  );
 
   if (mode === "docker") {
     // Docker mode: services communicate via Docker network DNS
@@ -75,7 +79,7 @@ function getUrlConfig(mode, ports) {
     // Backend URLs (localhost)
     API_UPSTREAM: `http://localhost:${backendPort}`,
     FRONTEND_UPSTREAM: `http://localhost:${frontendPort}`,
-    DATABASE_URL: `postgresql://postgres:postgres@localhost:54322/postgres`,
+    DATABASE_URL: `postgresql://postgres:postgres@localhost:${supabaseDbPort}/postgres`,
     REDIS_URL: "redis://localhost:6379",
   };
 }

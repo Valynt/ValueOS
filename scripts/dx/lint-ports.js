@@ -25,6 +25,7 @@ const canonicalPorts = {
   redis: ports.redis.port,
   supabaseApi: ports.supabase.apiPort,
   supabaseStudio: ports.supabase.studioPort,
+  supabaseDb: ports.supabase.dbPort,
   caddyHttp: ports.edge.httpPort,
   caddyHttps: ports.edge.httpsPort,
   caddyAdmin: ports.edge.adminPort,
@@ -38,6 +39,7 @@ const portAliases = {
   24678: ["hmr"],
   3001: ["backend", "api"],
   5432: ["postgres", "database"],
+  54322: ["supabase db", "local database"],
   6379: ["redis"],
   54321: ["supabase api"],
   54323: ["supabase studio"],
@@ -109,11 +111,18 @@ function scanFile(filePath) {
       const portRegex = new RegExp(`\\b${legacyPort}\\b`, "g");
       if (portRegex.test(line)) {
         // Skip if it's in a comment explaining the change
-        if (line.includes("was") || line.includes("changed") || line.includes("legacy")) {
+        if (
+          line.includes("was") ||
+          line.includes("changed") ||
+          line.includes("legacy")
+        ) {
           continue;
         }
         // Skip variable definitions that use the correct default
-        if (line.includes(`:-${info.expected}`) || line.includes(`||${info.expected}`)) {
+        if (
+          line.includes(`:-${info.expected}`) ||
+          line.includes(`||${info.expected}`)
+        ) {
           continue;
         }
         issues.push({
@@ -139,6 +148,7 @@ function main() {
   console.log(`  Redis:          ${canonicalPorts.redis}`);
   console.log(`  Supabase API:   ${canonicalPorts.supabaseApi}`);
   console.log(`  Supabase Studio:${canonicalPorts.supabaseStudio}`);
+  console.log(`  Supabase DB:    ${canonicalPorts.supabaseDb}`);
   console.log(`  Caddy HTTP:     ${canonicalPorts.caddyHttp}`);
   console.log(`  Caddy HTTPS:    ${canonicalPorts.caddyHttps}`);
   console.log("");

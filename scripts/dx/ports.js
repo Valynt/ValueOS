@@ -112,6 +112,7 @@ export function formatPortsEnv(ports) {
     "# Supabase Ports (if running locally)",
     `SUPABASE_API_PORT=${ports.supabase.apiPort}`,
     `SUPABASE_STUDIO_PORT=${ports.supabase.studioPort}`,
+    `SUPABASE_DB_PORT=${ports.supabase.dbPort}`,
     "",
     "# Reverse Proxy Ports",
     `CADDY_HTTP_PORT=${ports.edge.httpPort}`,

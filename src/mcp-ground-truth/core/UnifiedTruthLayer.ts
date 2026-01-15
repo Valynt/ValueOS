@@ -1,14 +1,14 @@
 /**
  * Unified Truth Layer - Tiered Resolution Engine
- * 
+ *
  * Orchestrates all Ground Truth modules with deterministic resolution hierarchy:
  * 1. Tier 1 (EDGAR/XBRL) - Authoritative, legally binding
  * 2. Tier 2 (Market/Private) - High-confidence estimates
  * 3. Tier 3 (Benchmarks) - Contextual intelligence
- * 
+ *
  * Implements the "Zero-Hallucination" guarantee by enforcing strict
  * data provenance and confidence scoring.
- * 
+ *
  * Node Mapping: [NODE: Unified_Truth_Layer], [NODE: Data_Tier_Resolver]
  */
 
@@ -22,8 +22,8 @@ import {
   ModuleResponse,
   TruthResolutionRequest,
   TruthResolutionResult,
-} from '../types';
-import { logger } from '../../lib/logger';
+} from "../types";
+import { logger } from "../../lib/logger";
 
 interface UnifiedTruthConfig {
   enableFallback: boolean; // Allow fallback to lower tiers
@@ -34,16 +34,16 @@ interface UnifiedTruthConfig {
 
 /**
  * Unified Truth Layer
- * 
+ *
  * Central orchestration layer that implements the tiered truth model
  * and ensures zero-hallucination guarantees.
  */
 export class UnifiedTruthLayer {
   private modules: Map<string, GroundTruthModule> = new Map();
   private tierModules: Map<ConfidenceTier, GroundTruthModule[]> = new Map([
-    ['tier1', []],
-    ['tier2', []],
-    ['tier3', []],
+    ["tier1", []],
+    ["tier2", []],
+    ["tier3", []],
   ]);
 
   private config: UnifiedTruthConfig = {
@@ -58,7 +58,7 @@ export class UnifiedTruthLayer {
       this.config = { ...this.config, ...config };
     }
 
-    logger.info('Unified Truth Layer initialized', this.config);
+    logger.info("Unified Truth Layer initialized", this.config as any);
   }
 
   /**
@@ -66,12 +66,12 @@ export class UnifiedTruthLayer {
    */
   registerModule(module: GroundTruthModule): void {
     this.modules.set(module.name, module);
-    
+
     const tierModules = this.tierModules.get(module.tier) || [];
     tierModules.push(module);
     this.tierModules.set(module.tier, tierModules);
 
-    logger.info('Module registered', {
+    logger.info("Module registered", {
       name: module.name,
       tier: module.tier,
     });
@@ -79,17 +79,19 @@ export class UnifiedTruthLayer {
 
   /**
    * Resolve a truth request using tiered resolution
-   * 
+   *
    * This is the primary entry point for all financial data queries.
    * Implements the deterministic resolution hierarchy.
    */
-  async resolve(request: TruthResolutionRequest): Promise<TruthResolutionResult> {
+  async resolve(
+    request: TruthResolutionRequest
+  ): Promise<TruthResolutionResult> {
     const startTime = Date.now();
     const resolutionPath: string[] = [];
     const alternatives: FinancialMetric[] = [];
 
     try {
-      logger.info('Truth resolution started', {
+      logger.info("Truth resolution started", {
         identifier: request.identifier,
         metric: request.metric,
         preferTier: request.prefer_tier,
@@ -126,16 +128,16 @@ export class UnifiedTruthLayer {
             );
 
             if (response.success && response.data) {
-              const metric = Array.isArray(response.data) 
-                ? response.data[0] 
+              const metric = Array.isArray(response.data)
+                ? response.data[0]
                 : response.data;
 
               // Check if this is the preferred tier
               if (tier === request.prefer_tier || !request.prefer_tier) {
                 // Found data at preferred tier
                 const executionTime = Date.now() - startTime;
-                
-                logger.info('Truth resolution succeeded', {
+
+                logger.info("Truth resolution succeeded", {
                   identifier: request.identifier,
                   metric: request.metric,
                   tier,
@@ -146,8 +148,9 @@ export class UnifiedTruthLayer {
                 return {
                   metric,
                   resolution_path: resolutionPath,
-                  fallback_used: tier !== 'tier1',
-                  alternatives: alternatives.length > 0 ? alternatives : undefined,
+                  fallback_used: tier !== "tier1",
+                  alternatives:
+                    alternatives.length > 0 ? alternatives : undefined,
                 };
               } else {
                 // Store as alternative
@@ -155,9 +158,9 @@ export class UnifiedTruthLayer {
               }
             }
           } catch (error) {
-            logger.warn('Module query failed', {
+            logger.warn("Module query failed", {
               module: module.name,
-              error: error instanceof Error ? error.message : 'Unknown error',
+              error: error instanceof Error ? error.message : "Unknown error",
             });
             // Continue to next module
           }
@@ -177,11 +180,11 @@ export class UnifiedTruthLayer {
       );
     } catch (error) {
       const executionTime = Date.now() - startTime;
-      
-      logger.error('Truth resolution failed', {
+
+      logger.error("Truth resolution failed", {
         identifier: request.identifier,
         metric: request.metric,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : "Unknown error",
         executionTime,
         resolutionPath,
       });
@@ -192,7 +195,7 @@ export class UnifiedTruthLayer {
 
   /**
    * Resolve multiple metrics in a single call
-   * 
+   *
    * Optimized for batch queries
    */
   async resolveMultiple(
@@ -200,7 +203,7 @@ export class UnifiedTruthLayer {
   ): Promise<TruthResolutionResult[]> {
     if (this.config.parallelQuery) {
       // Execute in parallel
-      return Promise.all(requests.map(req => this.resolve(req)));
+      return Promise.all(requests.map((req) => this.resolve(req)));
     } else {
       // Execute sequentially
       const results: TruthResolutionResult[] = [];
@@ -210,10 +213,10 @@ export class UnifiedTruthLayer {
           results.push(result);
         } catch (error) {
           // Continue with other requests even if one fails
-          logger.warn('Batch resolution item failed', {
+          logger.warn("Batch resolution item failed", {
             identifier: request.identifier,
             metric: request.metric,
-            error: error instanceof Error ? error.message : 'Unknown error',
+            error: error instanceof Error ? error.message : "Unknown error",
           });
         }
       }
@@ -223,7 +226,7 @@ export class UnifiedTruthLayer {
 
   /**
    * Verify a claim against the ground truth database
-   * 
+   *
    * Implements MCP tool: verify_claim_aletheia
    * Node Mapping: [NODE: Aletheia_Verification_Loop]
    */
@@ -238,7 +241,7 @@ export class UnifiedTruthLayer {
     evidence?: FinancialMetric;
     discrepancy?: string;
   }> {
-    logger.info('Claim verification started', {
+    logger.info("Claim verification started", {
       claimText,
       contextEntity,
       strictMode,
@@ -251,7 +254,7 @@ export class UnifiedTruthLayer {
       return {
         verified: false,
         confidence: 0,
-        discrepancy: 'No numeric claims found in text',
+        discrepancy: "No numeric claims found in text",
       };
     }
 
@@ -262,7 +265,7 @@ export class UnifiedTruthLayer {
           identifier: contextEntity,
           metric: claim.metric,
           period: contextDate,
-          prefer_tier: strictMode ? 'tier1' : undefined,
+          prefer_tier: strictMode ? "tier1" : undefined,
           fallback_enabled: !strictMode,
         });
 
@@ -276,7 +279,8 @@ export class UnifiedTruthLayer {
           groundTruthValue
         );
 
-        if (discrepancy > 0.05) { // 5% tolerance
+        if (discrepancy > 0.05) {
+          // 5% tolerance
           return {
             verified: false,
             confidence: result.metric.confidence,
@@ -292,9 +296,9 @@ export class UnifiedTruthLayer {
           evidence: result.metric,
         };
       } catch (error) {
-        logger.warn('Claim verification failed', {
+        logger.warn("Claim verification failed", {
           claim: claim.metric,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: error instanceof Error ? error.message : "Unknown error",
         });
       }
     }
@@ -302,13 +306,13 @@ export class UnifiedTruthLayer {
     return {
       verified: false,
       confidence: 0,
-      discrepancy: 'Unable to verify claims against ground truth',
+      discrepancy: "Unable to verify claims against ground truth",
     };
   }
 
   /**
    * Populate value driver tree node
-   * 
+   *
    * Implements MCP tool: populate_value_driver_tree
    * Node Mapping: [NODE: Value_Driver_Tree], [NODE: Auto_Population_Agent]
    */
@@ -324,7 +328,7 @@ export class UnifiedTruthLayer {
     confidence: number;
     supporting_data: FinancialMetric[];
   }> {
-    logger.info('Value driver tree population started', {
+    logger.info("Value driver tree population started", {
       targetCIK,
       benchmarkNAICS,
       driverNodeId,
@@ -335,8 +339,8 @@ export class UnifiedTruthLayer {
     // Get target company metrics
     const targetRevenue = await this.resolve({
       identifier: targetCIK,
-      metric: 'revenue_total',
-      prefer_tier: 'tier1',
+      metric: "revenue_total",
+      prefer_tier: "tier1",
       fallback_enabled: true,
     });
     supportingData.push(targetRevenue.metric);
@@ -344,8 +348,8 @@ export class UnifiedTruthLayer {
     // Get industry benchmark
     const benchmark = await this.resolve({
       identifier: benchmarkNAICS,
-      metric: 'revenue_per_employee',
-      prefer_tier: 'tier3',
+      metric: "revenue_per_employee",
+      prefer_tier: "tier3",
     });
     supportingData.push(benchmark.metric);
 
@@ -354,7 +358,7 @@ export class UnifiedTruthLayer {
     let rationale: string;
 
     switch (driverNodeId) {
-      case 'productivity_delta':
+      case "productivity_delta":
         // Calculate productivity gap
         const targetRevPerEmp = (targetRevenue.metric.value as number) / 1000; // Assuming headcount
         const benchmarkRevPerEmp = benchmark.metric.value as number;
@@ -363,15 +367,15 @@ export class UnifiedTruthLayer {
         rationale = `Productivity gap of $${gap.toLocaleString()}/employee vs industry benchmark. Total potential: $${value.toLocaleString()}`;
         break;
 
-      case 'revenue_uplift':
+      case "revenue_uplift":
         // Calculate revenue growth potential
         value = (targetRevenue.metric.value as number) * 0.15; // 15% uplift assumption
         rationale = `15% revenue uplift potential based on industry growth rates`;
         break;
 
-      case 'cost_reduction':
+      case "cost_reduction":
         // Calculate cost reduction potential
-        value = (targetRevenue.metric.value as number) * 0.10; // 10% cost reduction
+        value = (targetRevenue.metric.value as number) * 0.1; // 10% cost reduction
         rationale = `10% cost reduction potential through operational efficiency`;
         break;
 
@@ -383,10 +387,9 @@ export class UnifiedTruthLayer {
     }
 
     // Calculate confidence based on supporting data
-    const avgConfidence = supportingData.reduce(
-      (sum, m) => sum + m.confidence,
-      0
-    ) / supportingData.length;
+    const avgConfidence =
+      supportingData.reduce((sum, m) => sum + m.confidence, 0) /
+      supportingData.length;
 
     return {
       node_id: driverNodeId,
@@ -417,7 +420,7 @@ export class UnifiedTruthLayer {
       } catch (error) {
         moduleHealth[name] = {
           healthy: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: error instanceof Error ? error.message : "Unknown error",
         };
         allHealthy = false;
       }
@@ -444,9 +447,11 @@ export class UnifiedTruthLayer {
       if (request.fallback_enabled ?? this.config.enableFallback) {
         // Try preferred tier first, then fallback to others
         const tiers: ConfidenceTier[] = [request.prefer_tier];
-        if (request.prefer_tier !== 'tier1') tiers.unshift('tier1');
-        if (request.prefer_tier !== 'tier2' && !tiers.includes('tier2')) tiers.push('tier2');
-        if (request.prefer_tier !== 'tier3' && !tiers.includes('tier3')) tiers.push('tier3');
+        if (request.prefer_tier !== "tier1") tiers.unshift("tier1");
+        if (request.prefer_tier !== "tier2" && !tiers.includes("tier2"))
+          tiers.push("tier2");
+        if (request.prefer_tier !== "tier3" && !tiers.includes("tier3"))
+          tiers.push("tier3");
         return tiers;
       } else {
         // Only try preferred tier
@@ -456,9 +461,9 @@ export class UnifiedTruthLayer {
 
     // Default: try all tiers in order (Tier 1 → Tier 2 → Tier 3)
     if (this.config.enableFallback) {
-      return ['tier1', 'tier2', 'tier3'];
+      return ["tier1", "tier2", "tier3"];
     } else {
-      return ['tier1'];
+      return ["tier1"];
     }
   }
 
@@ -474,7 +479,10 @@ export class UnifiedTruthLayer {
       module.query(request),
       new Promise<ModuleResponse>((_, reject) =>
         setTimeout(
-          () => reject(new GroundTruthError(ErrorCodes.TIMEOUT, 'Module query timeout')),
+          () =>
+            reject(
+              new GroundTruthError(ErrorCodes.TIMEOUT, "Module query timeout")
+            ),
           timeout
         )
       ),
@@ -483,39 +491,21 @@ export class UnifiedTruthLayer {
 
   /**
    * Extract numeric claims from text
-   * 
-   * Simple pattern matching for financial claims
-   * Production would use NLP/LLM for better extraction
+   *
+   * Uses robust ClaimExtractor service for advanced pattern matching
    */
   private extractNumericClaims(text: string): Array<{
     metric: string;
     value: number;
     unit?: string;
   }> {
-    const claims: Array<{ metric: string; value: number; unit?: string }> = [];
+    const claims = this.claimExtractor.extractClaims(text);
 
-    // Pattern: "revenue of $X" or "revenue was $X"
-    const revenuePattern = /revenue\s+(?:of|was|is)\s+\$?([\d,]+(?:\.\d+)?)\s*(million|billion|M|B)?/gi;
-    let match;
-
-    while ((match = revenuePattern.exec(text)) !== null) {
-      let value = parseFloat(match[1].replace(/,/g, ''));
-      const unit = match[2]?.toLowerCase();
-
-      if (unit === 'million' || unit === 'm') {
-        value *= 1000000;
-      } else if (unit === 'billion' || unit === 'b') {
-        value *= 1000000000;
-      }
-
-      claims.push({
-        metric: 'revenue_total',
-        value,
-        unit: 'USD',
-      });
-    }
-
-    return claims;
+    return claims.map((c) => ({
+      metric: c.metric,
+      value: c.value,
+      unit: c.unit,
+    }));
   }
 
   /**
@@ -525,7 +515,7 @@ export class UnifiedTruthLayer {
     claimed: number,
     actual: number | string | [number, number]
   ): number {
-    if (typeof actual === 'number') {
+    if (typeof actual === "number") {
       return Math.abs(claimed - actual) / actual;
     } else if (Array.isArray(actual)) {
       // Check if claimed falls within range

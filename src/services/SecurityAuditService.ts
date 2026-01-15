@@ -20,9 +20,17 @@ export interface RequestAuditEvent {
 }
 
 class SecurityAuditService extends BaseService {
+  private _supabase: any = null;
+
   constructor() {
     super("SecurityAuditService");
-    this.supabase = createServerSupabaseClient();
+  }
+
+  private get supabase() {
+    if (!this._supabase) {
+      this._supabase = createServerSupabaseClient();
+    }
+    return this._supabase;
   }
 
   async logRequestEvent(event: RequestAuditEvent): Promise<void> {

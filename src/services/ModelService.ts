@@ -61,7 +61,10 @@ export class ModelService {
         userEmail: profile.email || "unknown@local",
       };
     } catch (error) {
-      logger.warn("Failed to resolve user profile for audit logging", { userId, error });
+      logger.warn("Failed to resolve user profile for audit logging", {
+        userId,
+        error,
+      });
       return {
         userId,
         userName: "Unknown User",
@@ -87,6 +90,13 @@ export class ModelService {
     // Resolve audit actor once
     const auditActor = await this.resolveAuditActor();
     const auditPromises: Promise<any>[] = [];
+
+    // Track created artifacts for rollback
+    const createdArtifacts: {
+      valueTreeId?: string;
+      roiModelId?: string;
+      valueCommitId?: string;
+    } = {};
 
     // Helper to log audit entry
     const logAudit = (
@@ -114,116 +124,167 @@ export class ModelService {
       auditPromises.push(promise);
     };
 
-    // 1. Create Value Tree
-    const { data: valueTreeData, error: treeError } = await this.valueTreeRepo.create({
-      ...output.valueTree,
-      value_case_id: valueCaseId,
-    });
-    if (treeError) throw new Error(`Failed to create value tree: ${treeError.message}`);
-    const valueTreeId = valueTreeData.id;
+    try {
+      // 1. Create Value Tree
+      const { data: valueTreeData, error: treeError } =
+        await this.valueTreeRepo.create({
+          ...output.valueTree,
+          value_case_id: valueCaseId,
+        });
+      if (treeError)
+        throw new Error(`Failed to create value tree: ${treeError.message}`);
+      const valueTreeId = valueTreeData.id;
+      createdArtifacts.valueTreeId = valueTreeId;
 
-    // Log provenance for value_tree creation
-    logAudit("value_tree", valueTreeId, {
-      name: output.valueTree.name,
-      value_case_id: valueCaseId,
-    });
-
-    // 2. Create Value Tree Nodes and Links
-    for (const node of output.businessCase.nodes) {
-      await this.valueTreeNodeRepo.create({
-        value_tree_id: valueTreeId,
-        node_id: node.node_id,
-        label: node.label,
-        type: node.type,
-        reference_id: node.reference_id,
-        properties: {},
+      // Log provenance for value_tree creation
+      logAudit("value_tree", valueTreeId, {
+        name: output.valueTree.name,
+        value_case_id: valueCaseId,
       });
-    }
-    for (const link of output.businessCase.links) {
-      // Cast link to any because the agent output type definition mismatches with runtime data (node_id vs id)
-      const agentLink = link as any;
-      const { data: parentNode } = await this.valueTreeNodeRepo.findByNodeId(
-        valueTreeId,
-        agentLink.parent_node_id
-      );
-      const { data: childNode } = await this.valueTreeNodeRepo.findByNodeId(
-        valueTreeId,
-        agentLink.child_node_id
-      );
 
-      if (parentNode && childNode) {
-        await this.valueTreeLinkRepo.create({
+      // 2. Create Value Tree Nodes and Links
+      for (const node of output.businessCase.nodes) {
+        await this.valueTreeNodeRepo.create({
           value_tree_id: valueTreeId,
-          parent_id: parentNode.id,
-          child_id: childNode.id,
-          link_type: "drives",
-          weight: link.weight || 1.0,
-          metadata: {},
-        } as any);
-      }
-    }
-
-    // 3. Create ROI Model
-    const { data: roiModelData, error: roiError } = await this.roiModelRepo.create({
-      ...output.roiModel,
-      value_tree_id: valueTreeId,
-    });
-    if (roiError) throw new Error(`Failed to create ROI model: ${roiError.message}`);
-    const roiModelId = roiModelData.id;
-
-    // Log provenance for roi_model creation
-    logAudit("roi_model", roiModelId, {
-      name: output.roiModel.name,
-      value_tree_id: valueTreeId,
-    });
-
-    // 4. Create ROI Model Calculations
-    for (const calc of output.businessCase.calculations) {
-      const { data: calcData } = await this.roiModelCalcRepo.create({
-        roi_model_id: roiModelId,
-        ...calc,
-        input_variables: calc.input_variables || [],
-        source_references: calc.source_references || {},
-        reasoning_trace: calc.reasoning_trace || output.businessCase.reasoning,
-      });
-
-      // Log provenance for calculation creation
-      if (calcData && calcData.id) {
-        logAudit("calculation", calcData.id, {
-          name: calc.name,
-          roi_model_id: roiModelId,
-          formula: calc.formula,
+          node_id: node.node_id,
+          label: node.label,
+          type: node.type,
+          reference_id: node.reference_id,
+          properties: {},
         });
       }
-    }
+      for (const link of output.businessCase.links) {
+        // No casting needed with TargetAgentLink type
+        const { data: parentNode } = await this.valueTreeNodeRepo.findByNodeId(
+          valueTreeId,
+          link.parent_node_id
+        );
+        const { data: childNode } = await this.valueTreeNodeRepo.findByNodeId(
+          valueTreeId,
+          link.child_node_id
+        );
 
-    // 5. Create Value Commit
-    const { data: commitData, error: commitError } = await this.valueCommitRepo.create({
-      ...output.valueCommit,
-      value_tree_id: valueTreeId,
-      value_case_id: valueCaseId,
-    });
-    if (commitError) throw new Error(`Failed to create value commit: ${commitError.message}`);
-    const valueCommitId = commitData.id;
+        if (parentNode && childNode) {
+          await this.valueTreeLinkRepo.create({
+            value_tree_id: valueTreeId,
+            parent_id: parentNode.id,
+            child_id: childNode.id,
+            link_type: "drives",
+            weight: link.weight || 1.0,
+            metadata: {},
+          } as any);
+        }
+      }
 
-    // Log provenance for value_commit creation
-    logAudit("value_commit", valueCommitId, {
-      value_tree_id: valueTreeId,
-      value_case_id: valueCaseId,
-    });
+      // 3. Create ROI Model
+      const { data: roiModelData, error: roiError } =
+        await this.roiModelRepo.create({
+          ...output.roiModel,
+          value_tree_id: valueTreeId,
+        });
+      if (roiError)
+        throw new Error(`Failed to create ROI model: ${roiError.message}`);
+      const roiModelId = roiModelData.id;
+      createdArtifacts.roiModelId = roiModelId;
 
-    // 6. Create KPI Targets
-    for (const target of output.businessCase.kpi_targets) {
-      await this.kpiTargetRepo.create({
-        value_commit_id: valueCommitId,
-        kpi_hypothesis_id: "", // This seems to be missing from the agent output
-        ...target,
+      // Log provenance for roi_model creation
+      logAudit("roi_model", roiModelId, {
+        name: output.roiModel.name,
+        value_tree_id: valueTreeId,
       });
+
+      // 4. Create ROI Model Calculations
+      for (const calc of output.businessCase.calculations) {
+        const { data: calcData } = await this.roiModelCalcRepo.create({
+          roi_model_id: roiModelId,
+          ...calc,
+          input_variables: calc.input_variables || [],
+          source_references: calc.source_references || {},
+          reasoning_trace:
+            calc.reasoning_trace || output.businessCase.reasoning,
+        });
+
+        // Log provenance for calculation creation
+        if (calcData && calcData.id) {
+          logAudit("calculation", calcData.id, {
+            name: calc.name,
+            roi_model_id: roiModelId,
+            formula: calc.formula,
+          });
+        }
+      }
+
+      // 5. Create Value Commit
+      const { data: commitData, error: commitError } =
+        await this.valueCommitRepo.create({
+          ...output.valueCommit,
+          value_tree_id: valueTreeId,
+          value_case_id: valueCaseId,
+        });
+      if (commitError)
+        throw new Error(
+          `Failed to create value commit: ${commitError.message}`
+        );
+      const valueCommitId = commitData.id;
+      createdArtifacts.valueCommitId = valueCommitId;
+
+      // Log provenance for value_commit creation
+      logAudit("value_commit", valueCommitId, {
+        value_tree_id: valueTreeId,
+        value_case_id: valueCaseId,
+      });
+
+      // 6. Create KPI Targets
+      for (const target of output.businessCase.kpi_targets) {
+        await this.kpiTargetRepo.create({
+          value_commit_id: valueCommitId,
+          kpi_hypothesis_id: "", // This seems to be missing from the agent output
+          ...target,
+        });
+      }
+
+      // Await all audit logs (best effort)
+      await Promise.allSettled(auditPromises);
+
+      return { valueTreeId, roiModelId, valueCommitId };
+    } catch (error) {
+      logger.error(
+        "Transaction failed in persistBusinessCase, rolling back...",
+        {
+          error,
+          createdArtifacts,
+        }
+      );
+
+      // Manual Rollback / Compensation
+      // Delete in reverse order of creation
+      if (createdArtifacts.valueCommitId) {
+        try {
+          await this.valueCommitRepo.delete(createdArtifacts.valueCommitId);
+        } catch (rollbackError) {
+          logger.error("Failed to rollback value commit", { rollbackError });
+        }
+      }
+
+      if (createdArtifacts.roiModelId) {
+        try {
+          await this.roiModelRepo.delete(createdArtifacts.roiModelId);
+        } catch (rollbackError) {
+          logger.error("Failed to rollback ROI model", { rollbackError });
+        }
+      }
+
+      if (createdArtifacts.valueTreeId) {
+        try {
+          // Deleting the value tree should cascade delete nodes and links if DB is configured correctly,
+          // but we rely on the repo delete method.
+          await this.valueTreeRepo.delete(createdArtifacts.valueTreeId);
+        } catch (rollbackError) {
+          logger.error("Failed to rollback value tree", { rollbackError });
+        }
+      }
+
+      throw error;
     }
-
-    // Await all audit logs (best effort)
-    await Promise.allSettled(auditPromises);
-
-    return { valueTreeId, roiModelId, valueCommitId };
   }
 }
