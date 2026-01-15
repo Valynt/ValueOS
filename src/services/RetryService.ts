@@ -10,7 +10,7 @@
  */
 
 import { logger } from '../lib/logger';
-import { sduiTelemetry, TelemetryEventType } from '../sdui/telemetry';
+import { sduiTelemetry, TelemetryEventType } from '../lib/telemetry/SDUITelemetry';
 
 export interface RetryOptions {
   maxAttempts?: number;

@@ -21,6 +21,7 @@ import { analyticsClient } from "./lib/analyticsClient";
 import { initHMRFallback } from "./lib/vite-hmr-fallback";
 import * as ClientRateLimit from "./services/ClientRateLimit";
 import { BootstrapGuard } from "./components/Common/BootstrapGuard";
+import { AppShell } from "./components/Common/AppShell";
 
 /**
  * Load fonts asynchronously after initial render
@@ -68,14 +69,17 @@ function main() {
     startConsoleCapture();
     analyticsClient.initialize({ betaCohort: true });
 
-    // 2. Render React Root with BootstrapGuard
-    // The Guard will handle the bootstrap sequence and UI states
+    // 2. Render React Root with AppShell (immediate render) + BootstrapGuard
+    // AppShell renders immediately with startup status, never blank
+    // BootstrapGuard handles the bootstrap sequence after shell is visible
     const root = createRoot(rootElement);
     root.render(
       <StrictMode>
-        <BootstrapGuard>
-          <AppRoutes />
-        </BootstrapGuard>
+        <AppShell>
+          <BootstrapGuard>
+            <AppRoutes />
+          </BootstrapGuard>
+        </AppShell>
       </StrictMode>
     );
 

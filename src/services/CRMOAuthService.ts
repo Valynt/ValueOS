@@ -297,6 +297,7 @@ class CRMOAuthService {
       );
       return false;
     }
+  }
 
   /**
    * Check if OAuth flow resulted in a successful connection

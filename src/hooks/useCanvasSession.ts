@@ -76,7 +76,7 @@ export function useCanvasSession(options: UseCanvasSessionOptions = {}) {
     () => cases.filter((c: any) => c.status === 'in-progress'),
     [cases],
     { equalityFn: (a: any[], b: any[]) => a.length === b.length && a.every((c: any) => b.some((bc: any) => bc.id === c.id)) }
-  });
+  );
 
   const completedCases = useSmartMemo(
     () => cases.filter((c: any) => c.status === 'completed'),

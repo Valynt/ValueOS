@@ -5,10 +5,10 @@
  * capabilities for better testability and modularity.
  */
 
-import { AgentChatService } from '../../services/AgentChatService';
-import { WorkflowStateService } from '../../services/WorkflowStateService';
-import { supabase } from '../../lib/supabase';
-import { logger } from '../../lib/logger';
+import { AgentChatService } from '../../../services/AgentChatService';
+import { WorkflowStateService } from '../../../services/WorkflowStateService';
+import { supabase } from '../../../lib/supabase';
+import { logger } from '../../../lib/logger';
 
 // ============================================================================
 // Service Registry Interface

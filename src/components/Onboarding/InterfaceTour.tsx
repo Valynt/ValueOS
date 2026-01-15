@@ -21,7 +21,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'welcome',
     title: 'Welcome to ValueCanvas',
-    content: 'Let's take a quick tour to help you get started. You can skip this anytime.',
+    content: "Let's take a quick tour to help you get started. You can skip this anytime.",
     target: 'body',
     placement: 'bottom',
   },
@@ -70,8 +70,8 @@ const TOUR_STEPS: TourStep[] = [
   },
   {
     id: 'complete',
-    title: 'You're Ready!',
-    content: 'You're all set. Create your first value case to get started. Need help? Click the (?) icon anytime.',
+    title: "You're Ready!",
+    content: "You're all set. Create your first value case to get started. Need help? Click the (?) icon anytime.",
     target: 'body',
     placement: 'bottom',
   },

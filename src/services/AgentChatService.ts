@@ -150,7 +150,7 @@ Now help the user with their specific request, following similar structure and r
 // Service
 // ============================================================================
 
-class AgentChatService {
+export class AgentChatService {
   private llm: LLMGateway;
   private stateRepo?: WorkflowStateRepository;
 

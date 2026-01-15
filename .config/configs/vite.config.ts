@@ -29,6 +29,30 @@ export default defineConfig({
     hmr: {
       clientPort: 443,
     },
+    // Proxy API requests to backend - enables relative URLs in browser
+    // This eliminates hostname issues in Gitpod/Codespaces environments
+    proxy: {
+      "/api": {
+        target: process.env.VITE_API_BASE_URL || "http://localhost:3001",
+        changeOrigin: true,
+        secure: false,
+        // Rewrite /api/foo to /api/foo (no path change needed)
+        configure: (proxy) => {
+          proxy.on("error", (err) => {
+            console.warn("[vite proxy] API proxy error:", err.message);
+          });
+          proxy.on("proxyReq", (_proxyReq, req) => {
+            console.debug("[vite proxy]", req.method, req.url);
+          });
+        },
+      },
+      // Proxy Supabase auth callbacks if needed
+      "/auth/callback": {
+        target: process.env.VITE_SUPABASE_URL || "http://localhost:54321",
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
   build: {
     chunkSizeWarningLimit: 1000,

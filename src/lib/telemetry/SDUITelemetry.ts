@@ -559,14 +559,6 @@ export class SDUITelemetry {
     }
   }
 
-    return {
-      avgRenderTime,
-      avgHydrationTime,
-      errorRate,
-      totalEvents: this.events.length,
-    };
-  }
-
   /**
    * Clear all events
    */

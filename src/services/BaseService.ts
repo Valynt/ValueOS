@@ -10,6 +10,34 @@
 import { supabase } from "../lib/supabase";
 import { ErrorCode, handleServiceError, NetworkError, ServiceError, TimeoutError } from "./errors";
 
+// Null-safe supabase proxy that throws clear errors when client is unavailable
+const createSupabaseProxy = () => {
+  if (supabase) return supabase;
+  
+  // Return a proxy that throws on any property access
+  const handler: ProxyHandler<object> = {
+    get(_target, prop) {
+      if (prop === 'auth') {
+        return new Proxy({}, {
+          get(_t, authProp) {
+            return () => Promise.reject(
+              new ServiceError(
+                `Supabase not configured. Cannot call auth.${String(authProp)}()`,
+                ErrorCode.SERVICE_UNAVAILABLE
+              )
+            );
+          }
+        });
+      }
+      throw new ServiceError(
+        `Supabase client not configured. Feature unavailable.`,
+        ErrorCode.SERVICE_UNAVAILABLE
+      );
+    }
+  };
+  return new Proxy({}, handler) as typeof supabase;
+};
+
 export interface RetryConfig {
   maxRetries: number;
   initialDelay: number;
@@ -30,7 +58,7 @@ interface PendingRequest {
 }
 
 export abstract class BaseService {
-  protected supabase = supabase;
+  protected supabase = createSupabaseProxy();
   protected serviceName: string;
 
   private pendingRequests: Map<string, PendingRequest> = new Map();

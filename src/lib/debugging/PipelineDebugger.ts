@@ -437,46 +437,46 @@ export class PipelineDebugger {
 import { useState, useEffect, useCallback } from 'react';
 
 export function usePipelineDebugger(enabled: boolean = false) {
-  const [debugger] = useState(() => PipelineDebugger.getInstance());
+  const [pipelineDebugger] = useState(() => PipelineDebugger.getInstance());
   const [currentSession, setCurrentSession] = useState<DebugSession | null>(null);
-  const [insights, setInsights] = useState(debugger.getPerformanceInsights());
+  const [insights, setInsights] = useState(pipelineDebugger.getPerformanceInsights());
 
   useEffect(() => {
-    debugger.setEnabled(enabled);
-  }, [debugger, enabled]);
+    pipelineDebugger.setEnabled(enabled);
+  }, [pipelineDebugger, enabled]);
 
   useEffect(() => {
     const updateSession = () => {
-      setCurrentSession(debugger.getCurrentSession());
-      setInsights(debugger.getPerformanceInsights());
+      setCurrentSession(pipelineDebugger.getCurrentSession());
+      setInsights(pipelineDebugger.getPerformanceInsights());
     };
 
-    const unsubscribe = debugger.subscribe('*', updateSession);
+    const unsubscribe = pipelineDebugger.subscribe('*', updateSession);
     updateSession();
 
     return unsubscribe;
-  }, [debugger]);
+  }, [pipelineDebugger]);
 
   const startSession = useCallback((id?: string) => {
-    const sessionId = debugger.startSession(id);
-    setCurrentSession(debugger.getCurrentSession());
+    const sessionId = pipelineDebugger.startSession(id);
+    setCurrentSession(pipelineDebugger.getCurrentSession());
     return sessionId;
-  }, [debugger]);
+  }, [pipelineDebugger]);
 
   const endSession = useCallback((id?: string) => {
-    const session = debugger.endSession(id);
-    setCurrentSession(debugger.getCurrentSession());
+    const session = pipelineDebugger.endSession(id);
+    setCurrentSession(pipelineDebugger.getCurrentSession());
     return session;
-  }, [debugger]);
+  }, [pipelineDebugger]);
 
   const logEvent = useCallback((event: Omit<DebugEvent, 'id' | 'timestamp'>) => {
-    debugger.logEvent(event);
-  }, [debugger]);
+    pipelineDebugger.logEvent(event);
+  }, [pipelineDebugger]);
 
   const exportSession = useCallback((id?: string) => {
     const sessionId = id || currentSession?.id;
-    return sessionId ? debugger.exportSession(sessionId) : null;
-  }, [debugger, currentSession]);
+    return sessionId ? pipelineDebugger.exportSession(sessionId) : null;
+  }, [pipelineDebugger, currentSession]);
 
   return {
     currentSession,
@@ -485,8 +485,8 @@ export function usePipelineDebugger(enabled: boolean = false) {
     endSession,
     logEvent,
     exportSession,
-    getAllSessions: debugger.getAllSessions.bind(debugger),
-    clearSessions: debugger.clearSessions.bind(debugger),
+    getAllSessions: pipelineDebugger.getAllSessions.bind(pipelineDebugger),
+    clearSessions: pipelineDebugger.clearSessions.bind(pipelineDebugger),
   };
 }
 
@@ -500,7 +500,7 @@ export const PerformanceMonitor = {
   async timeFunction<T>(
     name: string,
     fn: () => Promise<T>,
-    debugger?: PipelineDebugger
+    pipelineDebugger?: PipelineDebugger
   ): Promise<{ result: T; duration: number }> {
     const startTime = performance.now();
 
@@ -508,7 +508,7 @@ export const PerformanceMonitor = {
       const result = await fn();
       const duration = performance.now() - startTime;
 
-      debugger?.logEvent({
+      pipelineDebugger?.logEvent({
         type: 'performance',
         category: 'function',
         title: `Function: ${name}`,
@@ -521,7 +521,7 @@ export const PerformanceMonitor = {
     } catch (error) {
       const duration = performance.now() - startTime;
 
-      debugger?.logEvent({
+      pipelineDebugger?.logEvent({
         type: 'error',
         category: 'function',
         title: `Function Error: ${name}`,
@@ -540,14 +540,14 @@ export const PerformanceMonitor = {
    */
   monitorComponentRender(
     componentName: string,
-    debugger?: PipelineDebugger
+    pipelineDebugger?: PipelineDebugger
   ) {
     const startTime = performance.now();
 
     return () => {
       const duration = performance.now() - startTime;
 
-      debugger?.logEvent({
+      pipelineDebugger?.logEvent({
         type: 'render',
         category: 'component',
         title: `Component Render: ${componentName}`,
@@ -564,7 +564,7 @@ export const PerformanceMonitor = {
   monitorNetworkRequest(
     url: string,
     method: string,
-    debugger?: PipelineDebugger
+    pipelineDebugger?: PipelineDebugger
   ) {
     const startTime = performance.now();
 
@@ -572,7 +572,7 @@ export const PerformanceMonitor = {
       success: (response: Response) => {
         const duration = performance.now() - startTime;
 
-        debugger?.logEvent({
+        pipelineDebugger?.logEvent({
           type: 'network',
           category: 'request',
           title: `Network Request: ${method} ${url}`,
@@ -590,7 +590,7 @@ export const PerformanceMonitor = {
       error: (error: Error) => {
         const duration = performance.now() - startTime;
 
-        debugger?.logEvent({
+        pipelineDebugger?.logEvent({
           type: 'error',
           category: 'network',
           title: `Network Error: ${method} ${url}`,
