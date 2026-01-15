@@ -14,6 +14,7 @@ import {
   AgentResponseEvent,
   EVENT_TOPICS,
   createBaseEvent,
+  BaseEvent,
 } from "../types/events";
 import { AgentType } from "./agent-types";
 import { logger } from "../lib/logger";
@@ -175,6 +176,50 @@ export class AgentExecutorService {
         event,
         this.createAgentErrorUpdater(error as Error)
       );
+
+      // Publish to Dead Letter Queue for failed requests
+      await this.publishToDeadLetterQueue(event, error as Error);
+    }
+  }
+
+  /**
+   * Publish failed events to Dead Letter Queue for later analysis/retry
+   */
+  private async publishToDeadLetterQueue(
+    originalEvent: AgentRequestEvent,
+    error: Error
+  ): Promise<void> {
+    try {
+      const dlqEvent: BaseEvent = {
+        ...createBaseEvent(
+          "agent.dlq",
+          originalEvent.correlationId,
+          "agent-executor"
+        ),
+        metadata: {
+          originalEventId: originalEvent.eventId,
+          originalEventType: originalEvent.eventType,
+          errorMessage: error.message,
+          errorName: error.name,
+          errorStack: error.stack,
+          failedAt: new Date().toISOString(),
+          agentId: originalEvent.payload.agentId,
+          userId: originalEvent.payload.userId,
+          tenantId: originalEvent.payload.tenantId,
+        },
+      };
+
+      await this.eventProducer.publish(EVENT_TOPICS.DEAD_LETTER, dlqEvent);
+
+      logger.info("Failed event published to DLQ", {
+        correlationId: originalEvent.correlationId,
+        agentId: originalEvent.payload.agentId,
+        errorMessage: error.message,
+      });
+    } catch (dlqError) {
+      logger.error("Failed to publish to DLQ", dlqError as Error, {
+        correlationId: originalEvent.correlationId,
+      });
     }
   }
 

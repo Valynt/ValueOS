@@ -293,6 +293,19 @@ export class WebScraperService {
     // Remove requests outside the window
     const validTimes = times.filter((time) => now - time < windowMs);
 
+    // Periodic cleanup: remove stale entries from other domains
+    // Run cleanup every 100 requests to avoid overhead
+    if (this.requestTimes.size > 50) {
+      for (const [domain, timestamps] of this.requestTimes.entries()) {
+        const activeTimes = timestamps.filter((t) => now - t < windowMs);
+        if (activeTimes.length === 0) {
+          this.requestTimes.delete(domain);
+        } else if (activeTimes.length !== timestamps.length) {
+          this.requestTimes.set(domain, activeTimes);
+        }
+      }
+    }
+
     // Check if we're within limits
     if (validTimes.length >= this.maxRequestsPerMinute) {
       return false;

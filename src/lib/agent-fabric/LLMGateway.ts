@@ -476,7 +476,7 @@ export class LLMGateway {
       if (sanitizationResult.violations.length > 0) {
         logger.warn("LLM response sanitization violations detected", {
           provider: this.provider,
-          model: selectedModel,
+          model: response.model,
           violations: sanitizationResult.violations,
         });
       }
@@ -1199,7 +1199,15 @@ export class LLMGateway {
     }
   }
 
-  private estimateTokenCount(messages: Array<{ role: string; content: string; tool_calls?: unknown; tool_call_id?: string }>, model: string): number {
+  private estimateTokenCount(
+    messages: Array<{
+      role: string;
+      content: string;
+      tool_calls?: unknown;
+      tool_call_id?: string;
+    }>,
+    model: string
+  ): number {
     let totalChars = 0;
 
     for (const message of messages) {

@@ -369,8 +369,8 @@ export class RetrievalEngine {
 
       logger.debug("Found URLs via search", { sessionId, urls: searchResults });
 
-      // Limit to 3 URLs from search results
-      const targetUrls = searchResults.slice(0, 3);
+      // Dedupe and limit to 3 URLs from search results
+      const targetUrls = [...new Set(searchResults)].slice(0, 3);
 
       const scrapePromises = targetUrls.map((url) =>
         webScraperService.scrape(url)

@@ -83,32 +83,15 @@ export class WebSearchTool extends BaseTool {
     query: string,
     maxResults: number
   ): Promise<any[]> {
-    // Add URL allowlist validation
-    const ALLOWED_DOMAINS = ["example.com", "trusted-search-provider.com"];
-
-    // Validate URLs before making requests
-    const validateUrl = (url: string): boolean => {
-      try {
-        const parsed = new URL(url);
-        return ALLOWED_DOMAINS.includes(parsed.hostname);
-      } catch {
-        return false;
-      }
-    };
-
-    // Implementation with validated URLs
-    const results = await this.safeSearchApiCall(
-      query,
-      maxResults,
-      validateUrl
-    );
-    return results.filter((result) => validateUrl(result.url));
+    // Search results are metadata only - actual URL fetching is done by
+    // WebScraperService which has its own SSRF protection.
+    // No need to filter result URLs here.
+    return this.safeSearchApiCall(query, maxResults);
   }
 
   private async safeSearchApiCall(
     query: string,
-    maxResults: number,
-    validateUrl: (url: string) => boolean
+    maxResults: number
   ): Promise<any[]> {
     // Try multiple search providers in order of preference
     const providers = [
@@ -121,9 +104,7 @@ export class WebSearchTool extends BaseTool {
       try {
         const results = await provider();
         if (results && results.length > 0) {
-          return results
-            .filter((result: any) => validateUrl(result.url))
-            .slice(0, maxResults);
+          return results.slice(0, maxResults);
         }
       } catch (error) {
         logger.warn(`Search provider failed, trying next: ${error}`);
@@ -131,20 +112,9 @@ export class WebSearchTool extends BaseTool {
       }
     }
 
-    // Fallback to placeholder if all providers fail
-    logger.warn("All search providers failed, using placeholder results");
-    const exampleResults = [
-      {
-        title: "Search Unavailable",
-        url: "https://example.com/search-unavailable",
-        snippet:
-          "Search services are currently unavailable. Please try again later.",
-      },
-    ];
-
-    return exampleResults
-      .filter((result) => validateUrl(result.url))
-      .slice(0, maxResults);
+    // Fallback: return empty array if all providers fail
+    logger.warn("All search providers failed, returning empty results");
+    return [];
   }
 
   private async searchWithBrave(

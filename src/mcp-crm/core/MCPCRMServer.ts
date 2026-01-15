@@ -675,16 +675,22 @@ export class MCPCRMServer {
     responseBuilder: MCPResponseBuilder,
     startTime: number
   ): Promise<MCPCRMToolResult> {
-    const toolName = 'crm_search_deals';
+    const toolName = "crm_search_deals";
     const provider = module.provider;
 
     // Track request start
     this.metrics.requests.total++;
     const toolMetrics = this.metrics.requests.byTool.get(toolName) || {
-      total: 0, successful: 0, failed: 0, avgDuration: 0
+      total: 0,
+      successful: 0,
+      failed: 0,
+      avgDuration: 0,
     };
     const providerMetrics = this.metrics.requests.byProvider.get(provider) || {
-      total: 0, successful: 0, failed: 0, avgDuration: 0
+      total: 0,
+      successful: 0,
+      failed: 0,
+      avgDuration: 0,
     };
     toolMetrics.total++;
     providerMetrics.total++;
@@ -696,8 +702,12 @@ export class MCPCRMServer {
     if (!rateLimitResult.allowed) {
       // Track rate limit blocks
       this.metrics.rateLimits.blocks++;
-      const rateLimitMetrics = this.metrics.rateLimits.byProvider.get(provider) || {
-        hits: 0, blocks: 0, adaptiveDelays: 0
+      const rateLimitMetrics = this.metrics.rateLimits.byProvider.get(
+        provider
+      ) || {
+        hits: 0,
+        blocks: 0,
+        adaptiveDelays: 0,
       };
       rateLimitMetrics.blocks++;
       this.metrics.rateLimits.byProvider.set(provider, rateLimitMetrics);
@@ -711,10 +721,11 @@ export class MCPCRMServer {
 
       // Track error
       this.metrics.errors.total++;
-      const errorType = 'RATE_LIMIT_EXCEEDED';
+      const errorType = "RATE_LIMIT_EXCEEDED";
       const errorCount = this.metrics.errors.byType.get(errorType) || 0;
       this.metrics.errors.byType.set(errorType, errorCount + 1);
-      const providerErrorCount = this.metrics.errors.byProvider.get(provider) || 0;
+      const providerErrorCount =
+        this.metrics.errors.byProvider.get(provider) || 0;
       this.metrics.errors.byProvider.set(provider, providerErrorCount + 1);
 
       this.metrics.errors.recent.push({
@@ -736,8 +747,12 @@ export class MCPCRMServer {
 
     // Track rate limit hits
     this.metrics.rateLimits.hits++;
-    const rateLimitMetrics = this.metrics.rateLimits.byProvider.get(provider) || {
-      hits: 0, blocks: 0, adaptiveDelays: 0
+    const rateLimitMetrics = this.metrics.rateLimits.byProvider.get(
+      provider
+    ) || {
+      hits: 0,
+      blocks: 0,
+      adaptiveDelays: 0,
     };
     rateLimitMetrics.hits++;
     this.metrics.rateLimits.byProvider.set(provider, rateLimitMetrics);
@@ -816,17 +831,18 @@ export class MCPCRMServer {
 
       // Track error
       this.metrics.errors.total++;
-      const errorType = 'SEARCH_DEALS_FAILED';
+      const errorType = "SEARCH_DEALS_FAILED";
       const errorCount = this.metrics.errors.byType.get(errorType) || 0;
       this.metrics.errors.byType.set(errorType, errorCount + 1);
-      const providerErrorCount = this.metrics.errors.byProvider.get(provider) || 0;
+      const providerErrorCount =
+        this.metrics.errors.byProvider.get(provider) || 0;
       this.metrics.errors.byProvider.set(provider, providerErrorCount + 1);
 
       this.metrics.errors.recent.push({
         timestamp: Date.now(),
         tool: toolName,
         provider,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : "Unknown error",
       });
 
       // Record failed request
@@ -1521,24 +1537,57 @@ export class MCPCRMServer {
 }
 
 // ============================================================================
-// Singleton Instance
+// Tenant-Keyed Instance Cache
 // ============================================================================
 
-let serverInstance: MCPCRMServer | null = null;
+const serverInstances = new Map<string, MCPCRMServer>();
+const initializationLocks = new Map<string, Promise<MCPCRMServer>>();
 
 export async function getMCPCRMServer(
   tenantId: string,
   userId: string
 ): Promise<MCPCRMServer> {
-  // In production, you'd cache by tenantId
-  if (!serverInstance || serverInstance["config"].tenantId !== tenantId) {
-    serverInstance = new MCPCRMServer({
-      tenantId,
-      userId,
-      enabledProviders: ["hubspot", "salesforce"],
-      refreshTokensAutomatically: true,
-    });
-    await serverInstance.initialize();
+  // Check if we already have an initialized instance for this tenant
+  const existingInstance = serverInstances.get(tenantId);
+  if (existingInstance) {
+    return existingInstance;
   }
-  return serverInstance;
+
+  // Check if initialization is already in progress for this tenant
+  const existingLock = initializationLocks.get(tenantId);
+  if (existingLock) {
+    return existingLock;
+  }
+
+  // Create initialization promise to prevent race conditions
+  const initPromise = (async () => {
+    try {
+      const server = new MCPCRMServer({
+        tenantId,
+        userId,
+        enabledProviders: ["hubspot", "salesforce"],
+        refreshTokensAutomatically: true,
+      });
+      await server.initialize();
+      serverInstances.set(tenantId, server);
+      return server;
+    } finally {
+      // Always clean up the lock
+      initializationLocks.delete(tenantId);
+    }
+  })();
+
+  initializationLocks.set(tenantId, initPromise);
+  return initPromise;
+}
+
+/**
+ * Clear a cached server instance (useful for testing or when connection changes)
+ */
+export function clearMCPCRMServer(tenantId?: string): void {
+  if (tenantId) {
+    serverInstances.delete(tenantId);
+  } else {
+    serverInstances.clear();
+  }
 }

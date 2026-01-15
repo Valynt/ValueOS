@@ -52,6 +52,18 @@ router.get(
 
 /**
  * Invoke an agent asynchronously using event-driven architecture
+ *
+ * QUEUE ROUTING STRATEGY:
+ * - This endpoint uses KAFKA (via EventProducer) for external HTTP requests
+ * - Kafka provides distributed event streaming with persistence and replay
+ * - AgentExecutorService consumes from Kafka and executes agents
+ *
+ * For internal orchestration (e.g., UnifiedAgentOrchestrator), use:
+ * - BullMQ (via AgentMessageQueue) for Redis-backed job processing
+ * - BullMQ provides priority queuing, rate limiting, and job tracking
+ *
+ * @see AgentExecutorService - Kafka consumer for agent execution
+ * @see AgentMessageQueue - BullMQ queue for internal orchestration
  */
 router.post(
   "/:agentId/invoke",
@@ -103,7 +115,7 @@ router.post(
           context,
           parameters,
           priority: "normal",
-          timeout: 30000, // 30 seconds default timeout
+          timeout: getAgentAPIConfig().timeout, // Centralized timeout config
         },
       };
 

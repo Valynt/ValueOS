@@ -163,6 +163,8 @@
     "lint:all": "npm run lint && npm run lint:css && npm run lint:inline-check",
     "check:tw-config": "node scripts/validate-tailwind-config.js",
     "build:validate": "node scripts/dx/validate-build.js",
+    "build:inject-config": "node scripts/inject-runtime-config.js",
+    "build:prod": "npm run build && npm run build:inject-config -- --env production",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },
