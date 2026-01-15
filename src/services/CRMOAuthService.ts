@@ -53,7 +53,9 @@ class CRMOAuthService {
       }
 
       // Generate cryptographically secure state parameter for CSRF protection
-      const state = this.generateSecureState();
+      const array = new Uint8Array(32);
+      crypto.getRandomValues(array);
+      const state = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
 
       // Get the auth URL from the edge function
       const response = await fetch(`${this.functionUrl}/initiate`, {
@@ -295,25 +297,14 @@ class CRMOAuthService {
       );
       return false;
     }
-  }
-  private generateSecureState(): string {
-    const array = new Uint8Array(32);
-    crypto.getRandomValues(array);
-    return Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join(
-      ""
-    );
-  }
 
   /**
    * Check if OAuth flow resulted in a successful connection
    */
-  private async checkOAuthResult(
-    provider: CRMProvider,
-    tenantId: string
-  ): Promise<boolean> {
+  private async checkOAuthResult(provider: CRMProvider, tenantId: string): Promise<boolean> {
     try {
       const status = await this.getStatus(tenantId);
-      return status[provider].connected && status[provider].status === "active";
+      return status[provider].connected && status[provider].status === 'active';
     } catch {
       return false;
     }
