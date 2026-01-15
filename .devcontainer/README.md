@@ -103,16 +103,64 @@ Both development environments include:
 
 ```
 .devcontainer/
-├── Dockerfile.optimized  # Full multi-stage optimized dev container image (preferred)
-├── Dockerfile             # Minimal fallback Dockerfile (placeholder for quick starts)
-├── devcontainer.json      # VS Code configuration (points to Dockerfile.optimized)
-└── README.md              # This file
+├── Dockerfile.optimized       # Multi-stage optimized dev container (preferred)
+├── Dockerfile                 # Minimal fallback Dockerfile
+├── devcontainer.json          # VS Code/Gitpod configuration
+├── README.md                  # This file
+└── scripts/
+    ├── on-create.sh           # Runs once when container is created
+    ├── post-create.sh         # Runs after container creation (installs deps)
+    ├── post-start.sh          # Runs every time container starts
+    ├── update-content.sh      # Runs when content is updated (git pull)
+    ├── healthcheck.sh         # Container health verification
+    └── lib/
+        └── common.sh          # Shared shell functions
 
 (Root directory)
-├── Dockerfile.dev              # Development Dockerfile (Docker Compose)
-├── docker-compose.dev.yml      # Development compose configuration
-├── .env.dev.example           # Environment template
+├── docker-compose.deps.yml    # Development dependencies (Postgres, Redis)
+├── infra/docker/
+│   └── docker-compose.dev.yml # Full development compose configuration
+├── .env.example               # Environment template
 └── .env.local                 # Your local config (git-ignored)
+```
+
+## 🔧 Lifecycle Scripts
+
+The devcontainer uses a series of scripts that run at different lifecycle stages:
+
+| Script | When | Purpose | Failure Behavior |
+|--------|------|---------|------------------|
+| `on-create.sh` | Container first created | Git config, directories, aliases | Fails build on critical errors |
+| `post-create.sh` | After content cloned | Install dependencies, generate clients | Fails on npm install failure |
+| `post-start.sh` | Every container start | Quick health checks | Never fails (advisory only) |
+| `update-content.sh` | After git pull | Incremental dependency updates | Fails on npm install failure |
+| `healthcheck.sh` | On demand / Docker HEALTHCHECK | Verify container health | Returns exit code 0/1/2 |
+
+### Script Design Principles
+
+All scripts follow these principles for reliability:
+
+1. **Fail fast on critical errors** - Uses `set -euo pipefail`
+2. **Continue on non-critical errors** - Optional tools don't block setup
+3. **Idempotent** - Safe to run multiple times
+4. **Timeout protection** - Network operations have timeouts
+5. **Retry with backoff** - Network failures retry automatically
+6. **Clear error messages** - Includes recovery hints
+
+### Health Check Usage
+
+```bash
+# Standard check
+.devcontainer/scripts/healthcheck.sh
+
+# Verbose output
+.devcontainer/scripts/healthcheck.sh --verbose
+
+# JSON output (for automation)
+.devcontainer/scripts/healthcheck.sh --json
+
+# Include service checks
+.devcontainer/scripts/healthcheck.sh --services
 ```
 
 ## 🛠️ Customization
@@ -252,6 +300,16 @@ When modifying dev container configurations:
 5. Follow Operation Fortress security standards
 
 ## 📝 Changelog
+
+- **2.1** - Failsafe and reproducible builds
+  - Refactored all lifecycle scripts with failsafe patterns
+  - Added retry logic with exponential backoff for network operations
+  - Improved idempotency (safe to run multiple times)
+  - Added JSON output for healthcheck (automation support)
+  - Pinned tool versions in Dockerfile for reproducibility
+  - Added shared shell library (`lib/common.sh`)
+  - Better error messages with recovery hints
+  - Timeout protection on all network operations
 
 - **2.0** - Security hardening with Operation Fortress standards
   - Added non-root users

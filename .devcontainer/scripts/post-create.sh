@@ -2,106 +2,271 @@
 ###############################################################################
 # Dev Container - Post Create Script
 # Runs after container is created and content is updated
-# Performs final setup and validation
-# Optimized for ValueOS
+#
+# Design principles:
+# - Reproducible: uses npm ci with lockfile
+# - Failsafe: non-critical steps don't block setup
+# - Idempotent: safe to run multiple times
+# - Timeout protection on long operations
 ###############################################################################
 
-set -e
+set -euo pipefail
 
-echo "🎯 Running post-create setup..."
+# Configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+LOG_FILE="${PROJECT_ROOT}/logs/post-create.log"
+NPM_INSTALL_TIMEOUT=300
+BUILD_TIMEOUT=120
 
-# Colors
-BLUE='\033[0;34m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
-print_status() {
-    echo -e "${BLUE}▶${NC} $1"
-}
-
-print_success() {
-    echo -e "${GREEN}✓${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}⚠${NC} $1"
-}
-
-# 1. Install project dependencies (with caching)
-print_status "Installing project dependencies..."
-if [ -f "package.json" ]; then
-    # Use npm ci for faster, reproducible installs
-    npm ci --prefer-offline --no-audit --no-fund
-    print_success "Dependencies installed"
+# Colors (disabled if not a terminal)
+if [ -t 1 ]; then
+    GREEN='\033[0;32m'
+    BLUE='\033[0;34m'
+    YELLOW='\033[1;33m'
+    RED='\033[0;31m'
+    NC='\033[0m'
 else
-    print_warning "No package.json found"
+    GREEN='' BLUE='' YELLOW='' RED='' NC=''
 fi
 
-# 2. Generate Prisma client
-if [ -f "scripts/prisma/schema.prisma" ]; then
-    print_status "Generating Prisma client..."
-    npx prisma generate
-    print_success "Prisma client generated"
-fi
+###############################################################################
+# Logging Functions
+###############################################################################
 
-# 3. Build TypeScript if needed
-if [ -f "tsconfig.json" ]; then
-    print_status "Checking TypeScript compilation..."
-    npm run build 2>/dev/null || print_warning "Build failed (this is OK for initial setup)"
-fi
+log_info() {
+    echo -e "${BLUE}▶${NC} $1"
+    echo "[$(date -Iseconds)] INFO: $1" >> "$LOG_FILE" 2>/dev/null || true
+}
 
-# 4. Set up pre-commit hooks
-if [ -f ".husky/pre-commit" ]; then
-    print_status "Setting up Husky hooks..."
-    npx husky install 2>/dev/null || true
-    print_success "Husky hooks configured"
-fi
+log_success() {
+    echo -e "${GREEN}✓${NC} $1"
+    echo "[$(date -Iseconds)] SUCCESS: $1" >> "$LOG_FILE" 2>/dev/null || true
+}
 
-# 5. Verify environment
-print_status "Verifying development environment..."
+log_warn() {
+    echo -e "${YELLOW}⚠${NC} $1"
+    echo "[$(date -Iseconds)] WARN: $1" >> "$LOG_FILE" 2>/dev/null || true
+}
 
-# Check Node.js version
-NODE_VERSION=$(node --version)
-print_success "Node.js: $NODE_VERSION"
+log_error() {
+    echo -e "${RED}✗${NC} $1" >&2
+    echo "[$(date -Iseconds)] ERROR: $1" >> "$LOG_FILE" 2>/dev/null || true
+}
 
-# Check npm version
-NPM_VERSION=$(npm --version)
-print_success "npm: $NPM_VERSION"
+###############################################################################
+# Utility Functions
+###############################################################################
 
-# Check kubectl
-if command -v kubectl &> /dev/null; then
-    KUBECTL_VERSION=$(kubectl version --client --short 2>/dev/null | cut -d' ' -f3)
-    print_success "kubectl: $KUBECTL_VERSION"
-fi
+command_exists() {
+    command -v "$1" &>/dev/null
+}
 
-# Check Supabase CLI
-if command -v supabase &> /dev/null || npx supabase --version &> /dev/null 2>&1; then
-    SUPABASE_VERSION=$(npx supabase --version 2>/dev/null || echo "unknown")
-    print_success "Supabase CLI: $SUPABASE_VERSION"
-fi
+# Run command with timeout, return success/failure
+run_with_timeout() {
+    local timeout_secs=$1
+    shift
+    
+    if command_exists timeout; then
+        timeout "$timeout_secs" "$@"
+    else
+        "$@"
+    fi
+}
 
-# 6. Display helpful information
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🎉 Development environment ready!"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-echo "📚 Quick Start Commands:"
-echo "  npm run dev          - Start development server"
-echo "  npm test             - Run tests"
-echo "  npm run build        - Build for production"
-echo "  npm run lint         - Lint code"
-echo "  npm run db:push      - Push database schema"
-echo ""
-echo "🔧 Useful Aliases:"
-echo "  dc                   - docker-compose"
-echo "  k                    - kubectl"
-echo "  npm-clean            - Clean install dependencies"
-echo ""
-echo "📖 Documentation:"
-echo "  docs/                - Project documentation"
-echo "  .devcontainer/       - Dev container configuration"
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
+###############################################################################
+# Setup Functions
+###############################################################################
+
+setup_logging() {
+    mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
+    echo "=== post-create.sh started at $(date -Iseconds) ===" >> "$LOG_FILE" 2>/dev/null || true
+}
+
+install_dependencies() {
+    log_info "Installing project dependencies..."
+    
+    if [ ! -f "${PROJECT_ROOT}/package.json" ]; then
+        log_warn "No package.json found, skipping dependency installation"
+        return 0
+    fi
+    
+    cd "$PROJECT_ROOT"
+    
+    # Prefer npm ci for reproducible builds (uses package-lock.json)
+    # Fall back to npm install if lockfile is missing or outdated
+    if [ -f "package-lock.json" ]; then
+        log_info "Using npm ci for reproducible install..."
+        if run_with_timeout $NPM_INSTALL_TIMEOUT npm ci --prefer-offline --no-audit --no-fund 2>&1; then
+            log_success "Dependencies installed (reproducible)"
+        else
+            log_warn "npm ci failed, falling back to npm install..."
+            if run_with_timeout $NPM_INSTALL_TIMEOUT npm install --prefer-offline --no-audit --no-fund 2>&1; then
+                log_success "Dependencies installed (npm install fallback)"
+            else
+                log_error "Dependency installation failed"
+                return 1
+            fi
+        fi
+    else
+        log_warn "No package-lock.json found, using npm install"
+        if run_with_timeout $NPM_INSTALL_TIMEOUT npm install --no-audit --no-fund 2>&1; then
+            log_success "Dependencies installed"
+        else
+            log_error "Dependency installation failed"
+            return 1
+        fi
+    fi
+}
+
+generate_prisma_client() {
+    local schema_paths=(
+        "${PROJECT_ROOT}/scripts/prisma/schema.prisma"
+        "${PROJECT_ROOT}/prisma/schema.prisma"
+    )
+    
+    for schema_path in "${schema_paths[@]}"; do
+        if [ -f "$schema_path" ]; then
+            log_info "Generating Prisma client from ${schema_path}..."
+            if npx prisma generate --schema="$schema_path" 2>/dev/null; then
+                log_success "Prisma client generated"
+            else
+                log_warn "Prisma client generation failed (non-critical)"
+            fi
+            return 0
+        fi
+    done
+    
+    # No schema found, skip silently
+    return 0
+}
+
+setup_husky_hooks() {
+    if [ -d "${PROJECT_ROOT}/.husky" ]; then
+        log_info "Setting up Husky hooks..."
+        if npx husky install 2>/dev/null; then
+            log_success "Husky hooks configured"
+        else
+            log_warn "Husky setup failed (non-critical)"
+        fi
+    fi
+}
+
+verify_typescript() {
+    if [ ! -f "${PROJECT_ROOT}/tsconfig.json" ]; then
+        return 0
+    fi
+    
+    log_info "Verifying TypeScript configuration..."
+    
+    # Just check that tsc can parse the config, don't do full build
+    if npx tsc --noEmit --pretty false 2>/dev/null; then
+        log_success "TypeScript configuration valid"
+    else
+        log_warn "TypeScript has errors (can be fixed later)"
+    fi
+}
+
+verify_environment() {
+    log_info "Verifying development environment..."
+    
+    local errors=0
+    
+    # Critical: Node.js
+    if command_exists node; then
+        local node_version
+        node_version=$(node --version 2>/dev/null || echo "unknown")
+        log_success "Node.js: $node_version"
+    else
+        log_error "Node.js not found"
+        errors=$((errors + 1))
+    fi
+    
+    # Critical: npm
+    if command_exists npm; then
+        local npm_version
+        npm_version=$(npm --version 2>/dev/null || echo "unknown")
+        log_success "npm: $npm_version"
+    else
+        log_error "npm not found"
+        errors=$((errors + 1))
+    fi
+    
+    # Optional: Docker
+    if command_exists docker; then
+        log_success "Docker: available"
+    else
+        log_warn "Docker not available (some features may not work)"
+    fi
+    
+    # Optional: kubectl
+    if command_exists kubectl; then
+        log_success "kubectl: available"
+    fi
+    
+    # Optional: Supabase CLI
+    if command_exists supabase || npx supabase --version &>/dev/null 2>&1; then
+        log_success "Supabase CLI: available"
+    fi
+    
+    return $errors
+}
+
+print_summary() {
+    echo ""
+    echo "========================================"
+    echo "  Development Environment Ready"
+    echo "========================================"
+    echo ""
+    echo "Quick Start:"
+    echo "  npm run dx           - Start full dev environment"
+    echo "  npm run dev          - Start frontend only"
+    echo "  npm run backend:dev  - Start backend only"
+    echo "  npm test             - Run tests"
+    echo ""
+    echo "Useful Commands:"
+    echo "  npm run dx:doctor    - Check environment health"
+    echo "  npm run dx:down      - Stop all services"
+    echo "  npm run dx:logs      - View service logs"
+    echo ""
+    echo "Documentation:"
+    echo "  docs/                - Project documentation"
+    echo "  .devcontainer/       - Container configuration"
+    echo ""
+    echo "========================================"
+    echo ""
+}
+
+###############################################################################
+# Main
+###############################################################################
+
+main() {
+    echo ""
+    echo "========================================"
+    echo "  ValueOS Dev Container - Post Create"
+    echo "========================================"
+    echo ""
+    
+    cd "$PROJECT_ROOT"
+    
+    setup_logging
+    
+    # Critical step - fail if this fails
+    install_dependencies || {
+        log_error "Failed to install dependencies. Check network and try again."
+        exit 1
+    }
+    
+    # Non-critical steps - continue on failure
+    generate_prisma_client
+    setup_husky_hooks
+    verify_typescript
+    
+    # Verify environment - warn but don't fail
+    verify_environment || log_warn "Some environment checks failed"
+    
+    print_summary
+}
+
+main "$@"

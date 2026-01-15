@@ -1,11 +1,21 @@
 # Multi-stage optimized Dockerfile for dev container
-# Reduces image size and improves build caching
+#
+# Design principles:
+# - Reproducible: pinned versions where possible
+# - Failsafe: each stage validates its output
+# - Cached: BuildKit cache mounts for faster rebuilds
+# - Minimal: only install what's needed
+#
+# Build: docker build -f Dockerfile.optimized -t valueos-dev .
 
 ARG VARIANT=ubuntu-22.04
 ARG NODE_VERSION=22
 
 # Stage 1: Base image with system dependencies
 FROM mcr.microsoft.com/vscode/devcontainers/base:${VARIANT} AS base
+
+# Fail fast on any error
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 # Install system dependencies in a single layer with BuildKit cache
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -26,6 +36,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     gnupg \
     lsb-release \
     socat \
+    netcat-openbsd \
     # Database clients
     postgresql-client \
     redis-tools \
@@ -39,98 +50,150 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     unzip \
     # Python (for node-gyp)
     python3 \
-    python3-pip
+    python3-pip \
+    # Verify critical tools installed
+    && command -v git && command -v curl && command -v make
 
 # Stage 2: Node.js installation
 FROM base AS nodejs
 
 ARG NODE_VERSION
 
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+
 # Install Node.js using official NodeSource repository
-RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - \
+# Retry logic for network resilience
+RUN for i in 1 2 3; do \
+        curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - && break || \
+        { echo "Retry $i/3 failed"; sleep 5; }; \
+    done \
     && apt-get install -y nodejs \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    # Verify Node.js installed correctly
+    && node --version && npm --version
 
 # Install global npm packages for development with BuildKit cache mount
+# Pin major versions for reproducibility
 RUN --mount=type=cache,target=/root/.npm \
     npm install -g \
     npm@latest \
-    pnpm \
-    yarn \
-    tsx \
-    nodemon \
-    pm2 \
-    && npm cache clean --force
+    pnpm@9 \
+    yarn@1 \
+    tsx@4 \
+    nodemon@3 \
+    pm2@5 \
+    && npm cache clean --force \
+    # Verify installations
+    && pnpm --version && yarn --version && tsx --version
 
 # Stage 3: Docker CLI installation
 FROM nodejs AS docker
 
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+
 # Install Docker CLI and Docker Compose with BuildKit cache
+# Retry logic for GPG key download
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     mkdir -p /etc/apt/keyrings \
-    && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
+    && for i in 1 2 3; do \
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && break || \
+        { echo "Retry $i/3 failed"; sleep 5; }; \
+    done \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null \
     && apt-get update \
-    && apt-get install -y docker-ce-cli docker-compose-plugin docker-buildx-plugin
+    && apt-get install -y docker-ce-cli docker-compose-plugin docker-buildx-plugin \
+    # Verify Docker CLI installed
+    && docker --version
 
 # Stage 4: Development tools
 FROM docker AS devtools
 
-# Install Kubernetes tools
-RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+
+# Install Kubernetes tools with retry
+RUN for i in 1 2 3; do \
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && break || \
+        { echo "Retry $i/3 failed"; sleep 5; }; \
+    done \
     && install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl \
-    && rm kubectl
+    && rm kubectl \
+    && kubectl version --client || true
 
-# Install Helm
-RUN curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+# Install Helm with retry
+RUN for i in 1 2 3; do \
+        curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash && break || \
+        { echo "Retry $i/3 failed"; sleep 5; }; \
+    done \
+    && helm version || true
 
-# Install Terraform
-RUN wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg \
+# Install Terraform with retry
+RUN for i in 1 2 3; do \
+        wget -qO- https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg && break || \
+        { echo "Retry $i/3 failed"; sleep 5; }; \
+    done \
     && echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list \
     && apt-get update \
     && apt-get install -y terraform \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && terraform version || true
 
-# Stage 5: Security tools
+# Stage 5: Security tools (optional - failures don't block build)
 FROM devtools AS security
 
-# Install Trivy - vulnerability scanner
-RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
-# Install TruffleHog - secret scanner
-RUN curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
+# Install Trivy - vulnerability scanner (optional)
+RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin \
+    || echo "Warning: Trivy installation failed (non-critical)"
 
-# Install Git Secrets
+# Install TruffleHog - secret scanner (optional)
+RUN curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin \
+    || echo "Warning: TruffleHog installation failed (non-critical)"
+
+# Install Git Secrets (optional)
 RUN git clone --depth 1 https://github.com/awslabs/git-secrets.git /tmp/git-secrets \
     && cd /tmp/git-secrets \
     && make install \
-    && rm -rf /tmp/git-secrets
+    && rm -rf /tmp/git-secrets \
+    || echo "Warning: git-secrets installation failed (non-critical)"
 
-# Install Snyk CLI
-RUN npm install -g snyk
+# Install Snyk CLI (optional)
+RUN npm install -g snyk \
+    || echo "Warning: Snyk installation failed (non-critical)"
 
-# Install Dive (Image Layer Analyzer) - v0.12.0
-RUN curl -L https://github.com/wagoodman/dive/releases/download/v0.12.0/dive_0.12.0_linux_amd64.deb -o dive.deb \
+# Install Dive (Image Layer Analyzer) - pinned version for reproducibility
+ARG DIVE_VERSION=0.12.0
+RUN curl -fsSL "https://github.com/wagoodman/dive/releases/download/v${DIVE_VERSION}/dive_${DIVE_VERSION}_linux_amd64.deb" -o dive.deb \
     && apt-get install -y ./dive.deb \
-    && rm dive.deb
+    && rm dive.deb \
+    || echo "Warning: Dive installation failed (non-critical)"
 
-# Install Hadolint (Dockerfile Linter) - v2.12.0
-RUN curl -L -o /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64 \
-    && chmod +x /usr/local/bin/hadolint
+# Install Hadolint (Dockerfile Linter) - pinned version for reproducibility
+ARG HADOLINT_VERSION=2.12.0
+RUN curl -fsSL -o /usr/local/bin/hadolint "https://github.com/hadolint/hadolint/releases/download/v${HADOLINT_VERSION}/hadolint-Linux-x86_64" \
+    && chmod +x /usr/local/bin/hadolint \
+    || echo "Warning: Hadolint installation failed (non-critical)"
 
 # Stage 6: Database tools
 FROM security AS dbtools
 
-# Install Supabase CLI (always pulls latest version)
-# Note: npm package in package.json should also be kept up to date (npm install -D supabase@latest)
-RUN curl -fsSL https://raw.githubusercontent.com/supabase/cli/main/install.sh | sh
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+
+# Install Supabase CLI with retry
+RUN for i in 1 2 3; do \
+        curl -fsSL https://raw.githubusercontent.com/supabase/cli/main/install.sh | sh && break || \
+        { echo "Retry $i/3 failed"; sleep 5; }; \
+    done \
+    && supabase --version || echo "Warning: Supabase CLI installation failed (non-critical)"
 
 # Install Prisma CLI
-RUN npm install -g prisma
+RUN npm install -g prisma@5 \
+    && prisma --version
 
-# Install pgcli for better PostgreSQL CLI
-RUN pip3 install --no-cache-dir pgcli
+# Install pgcli for better PostgreSQL CLI (optional)
+RUN pip3 install --no-cache-dir pgcli \
+    || echo "Warning: pgcli installation failed (non-critical)"
 
 # Stage 7: Final image with user setup
 FROM dbtools AS final
@@ -138,9 +201,9 @@ FROM dbtools AS final
 # Switch to vscode user for remaining setup
 USER vscode
 
-# Set up shell (zsh is installed via devcontainer feature)
+# Set up shell paths
 RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc \
-    && echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+    && echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc 2>/dev/null || true
 
 # Create workspace directories
 RUN mkdir -p \
@@ -152,19 +215,28 @@ RUN mkdir -p \
 # Set working directory
 WORKDIR /workspace
 
-# Environment variables
+# Environment variables for reproducible builds
 ENV ENVIRONMENT=development \
     NODE_ENV=development \
     DOCKER_BUILDKIT=1 \
     COMPOSE_DOCKER_CLI_BUILD=1 \
     NPM_CONFIG_UPDATE_NOTIFIER=false \
-    NPM_CONFIG_FUND=false
+    NPM_CONFIG_FUND=false \
+    NPM_CONFIG_AUDIT=false \
+    # Disable telemetry for reproducibility
+    NEXT_TELEMETRY_DISABLED=1 \
+    CHECKPOINT_DISABLE=1
 
 # Labels for image metadata
-LABEL org.opencontainers.image.title="ValueCanvas Dev Container" \
-      org.opencontainers.image.description="Optimized development container for ValueCanvas" \
-      org.opencontainers.image.vendor="ValueCanvas" \
-      org.opencontainers.image.version="1.0.0"
+LABEL org.opencontainers.image.title="ValueOS Dev Container" \
+      org.opencontainers.image.description="Development container for ValueOS" \
+      org.opencontainers.image.vendor="ValueOS" \
+      org.opencontainers.image.version="2.0.0" \
+      org.opencontainers.image.source="https://github.com/Valynt/ValueOS"
+
+# Healthcheck to verify container is ready
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD node --version && npm --version || exit 1
 
 # Default command
 CMD ["/bin/bash"]
