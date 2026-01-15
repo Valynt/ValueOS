@@ -1,0 +1,9 @@
+export declare const EXIT_CODES: {
+    VULNS_FOUND: number;
+    ERROR: number;
+    NO_SUPPORTED_PROJECTS_DETECTED: number;
+    EX_UNAVAILABLE: number;
+    EX_TEMPFAIL: number;
+    EX_NOPERM: number;
+    EX_TERMINATE: number;
+};

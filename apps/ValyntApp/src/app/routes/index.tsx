@@ -11,6 +11,12 @@ const LoginPage = lazy(() => import("@pages/auth/LoginPage"));
 const SignupPage = lazy(() => import("@pages/auth/SignupPage"));
 const ResetPasswordPage = lazy(() => import("@pages/auth/ResetPasswordPage"));
 
+// Academy pages
+const AcademyHome = lazy(() => import("@features/academy/pages/AcademyHome"));
+const AcademyDashboard = lazy(() => import("@features/academy/pages/AcademyDashboard"));
+const AcademyQuiz = lazy(() => import("@features/academy/pages/AcademyQuiz"));
+const AcademyAITutor = lazy(() => import("@features/academy/pages/AcademyAITutor"));
+
 // Settings pages
 const SettingsLayout = lazy(() => import("@pages/settings/SettingsLayout"));
 const ProfilePage = lazy(() => import("@pages/settings/ProfilePage"));
@@ -53,6 +59,12 @@ export function AppRoutes() {
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
             </Route>
+
+            {/* Academy routes */}
+            <Route path="/academy" element={<AcademyHome />} />
+            <Route path="/academy/dashboard" element={<AcademyDashboard />} />
+            <Route path="/academy/quiz/:pillarNumber" element={<AcademyQuiz />} />
+            <Route path="/academy/ai-tutor" element={<AcademyAITutor />} />
 
             {/* Settings routes */}
             <Route path="/settings" element={<SettingsLayout />}>

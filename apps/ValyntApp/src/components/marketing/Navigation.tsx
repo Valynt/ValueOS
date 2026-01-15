@@ -59,15 +59,15 @@ export function Navigation() {
         </ul>
 
         <div className="flex items-center gap-4">
-          <a
-            href="#login"
+          <Link
+            to="/login"
             className="text-xs font-medium hover:text-white transition-colors hidden sm:block"
             style={{ color: "#E0E0E0" }}
           >
             Log in
-          </a>
-          <a
-            href="#deploy"
+          </Link>
+          <Link
+            to="/signup"
             className="group relative px-4 py-2 text-xs font-semibold rounded-full overflow-hidden transition-all"
             aria-label="Deploy Value Operating System"
             style={{
@@ -76,7 +76,7 @@ export function Navigation() {
             }}
           >
             <span className="relative z-10">Deploy VOS</span>
-          </a>
+          </Link>
         </div>
       </div>
     </nav>

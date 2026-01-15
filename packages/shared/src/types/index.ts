@@ -4,7 +4,8 @@
  * API request/response types, domain types, result types, events, etc.
  */
 
-export * from "./api.js";
-export * from "./domain.js";
-export * from "./result.js";
-export * from "./events.js";
+export * from './api';
+export * from './domain';
+export * from './events';
+export * from './result';
+export * from './referral';

@@ -35,6 +35,7 @@ import documentRouter from "../api/documents";
 import healthRouter, { markAsShuttingDown } from "../api/health";
 import authRouter from "../api/auth";
 import adminRouter from "../api/admin";
+import referralsRouter from "../api/referrals";
 import docsApiRouter from "./docs-api";
 import {
   initializeSecretVolumeWatcher,
@@ -331,6 +332,7 @@ app.use(
   documentRouter
 );
 app.use("/api/docs", docsApiRouter);
+app.use("/api/referrals", referralsRouter);
 
 // Error handler
 app.use(
