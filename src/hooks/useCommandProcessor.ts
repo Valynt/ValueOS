@@ -5,7 +5,7 @@
  * Provides command execution, undo/redo, and history management.
  */
 
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from "react";
 import {
   Command,
   CommandProcessor,
@@ -17,7 +17,7 @@ import {
   CreateValueCase,
   UpdateWorkflowState,
   RenderSDUIPage,
-} from '../lib/commands/CommandProcessor';
+} from "../lib/commands/CommandProcessor";
 
 export interface UseCommandProcessorOptions extends CommandProcessorOptions {
   useGlobalProcessor?: boolean;
@@ -32,6 +32,14 @@ export interface CommandProcessorState {
   queuedCommands: number;
 }
 
+export interface CommandContext {
+  caseId: string;
+  userId: string;
+  sessionId: string;
+  workflowState: unknown;
+  tenantId?: string;
+}
+
 /**
  * Hook for using the command processor in React components
  */
@@ -40,7 +48,9 @@ export function useCommandProcessor(options: UseCommandProcessorOptions = {}) {
 
   // Create or use global processor
   const processorRef = useRef<CommandProcessor>(
-    useGlobalProcessor ? globalCommandProcessor : new CommandProcessor(processorOptions)
+    useGlobalProcessor
+      ? globalCommandProcessor
+      : new CommandProcessor(processorOptions)
   );
   const processor = processorRef.current;
 
@@ -92,11 +102,14 @@ export function useCommandProcessor(options: UseCommandProcessorOptions = {}) {
   }, [processor, updateState, useGlobalProcessor]);
 
   // Command execution
-  const executeCommand = useCallback(async (command: Command): Promise<CommandResult> => {
-    const result = await processor.execute(command);
-    updateState();
-    return result;
-  }, [processor, updateState]);
+  const executeCommand = useCallback(
+    async (command: Command): Promise<CommandResult> => {
+      const result = await processor.execute(command);
+      updateState();
+      return result;
+    },
+    [processor, updateState]
+  );
 
   // Undo/Redo
   const undo = useCallback(async (): Promise<boolean> => {
@@ -118,92 +131,130 @@ export function useCommandProcessor(options: UseCommandProcessorOptions = {}) {
   }, [processor, updateState]);
 
   // Convenience command creators
-  const processUserCommand = useCallback((
-    query: string,
-    context: any,
-    commandProcessor: (query: string, context: any) => Promise<any>
-  ) => {
-    return new ProcessUserCommand(query, context, commandProcessor);
-  }, []);
+  const processUserCommand = useCallback(
+    (
+      query: string,
+      context: CommandContext,
+      commandProcessor: (
+        query: string,
+        context: CommandContext
+      ) => Promise<unknown>
+    ) => {
+      return new ProcessUserCommand(query, context, commandProcessor);
+    },
+    []
+  );
 
-  const createValueCase = useCallback((
-    caseData: any,
-    createCaseFunction: (data: any) => Promise<any>,
-    onSuccess?: (newCase: any) => void
-  ) => {
-    return new CreateValueCase(caseData, createCaseFunction, onSuccess);
-  }, []);
+  const createValueCase = useCallback(
+    (
+      caseData: any,
+      createCaseFunction: (data: any) => Promise<any>,
+      onSuccess?: (newCase: any) => void
+    ) => {
+      return new CreateValueCase(caseData, createCaseFunction, onSuccess);
+    },
+    []
+  );
 
-  const updateWorkflowState = useCallback((
-    newState: any,
-    updateStateFunction: (state: any) => Promise<void>,
-    currentState: any
-  ) => {
-    return new UpdateWorkflowState(newState, updateStateFunction, currentState);
-  }, []);
+  const updateWorkflowState = useCallback(
+    (
+      newState: any,
+      updateStateFunction: (state: any) => Promise<void>,
+      currentState: any
+    ) => {
+      return new UpdateWorkflowState(
+        newState,
+        updateStateFunction,
+        currentState
+      );
+    },
+    []
+  );
 
-  const renderSDUIPage = useCallback((
-    sduiPage: any,
-    renderFunction: (page: any) => Promise<any>,
-    onSuccess?: (result: any) => void
-  ) => {
-    return new RenderSDUIPage(sduiPage, renderFunction, onSuccess);
-  }, []);
+  const renderSDUIPage = useCallback(
+    (
+      sduiPage: any,
+      renderFunction: (page: any) => Promise<any>,
+      onSuccess?: (result: any) => void
+    ) => {
+      return new RenderSDUIPage(sduiPage, renderFunction, onSuccess);
+    },
+    []
+  );
 
   // High-level command execution helpers
-  const executeUserCommand = useCallback(async (
-    query: string,
-    context: any,
-    commandProcessor: (query: string, context: any) => Promise<any>
-  ): Promise<CommandResult> => {
-    const command = processUserCommand(query, context, commandProcessor);
-    return executeCommand(command);
-  }, [processUserCommand, executeCommand]);
+  const executeUserCommand = useCallback(
+    async (
+      query: string,
+      context: any,
+      commandProcessor: (query: string, context: any) => Promise<any>
+    ): Promise<CommandResult> => {
+      const command = processUserCommand(query, context, commandProcessor);
+      return executeCommand(command);
+    },
+    [processUserCommand, executeCommand]
+  );
 
-  const executeCreateCase = useCallback(async (
-    caseData: any,
-    createCaseFunction: (data: any) => Promise<any>,
-    onSuccess?: (newCase: any) => void
-  ): Promise<CommandResult> => {
-    const command = createValueCase(caseData, createCaseFunction, onSuccess);
-    return executeCommand(command);
-  }, [createValueCase, executeCommand]);
+  const executeCreateCase = useCallback(
+    async (
+      caseData: any,
+      createCaseFunction: (data: any) => Promise<any>,
+      onSuccess?: (newCase: any) => void
+    ): Promise<CommandResult> => {
+      const command = createValueCase(caseData, createCaseFunction, onSuccess);
+      return executeCommand(command);
+    },
+    [createValueCase, executeCommand]
+  );
 
-  const executeUpdateState = useCallback(async (
-    newState: any,
-    updateStateFunction: (state: any) => Promise<void>,
-    currentState: any
-  ): Promise<CommandResult> => {
-    const command = updateWorkflowState(newState, updateStateFunction, currentState);
-    return executeCommand(command);
-  }, [updateWorkflowState, executeCommand]);
+  const executeUpdateState = useCallback(
+    async (
+      newState: any,
+      updateStateFunction: (state: any) => Promise<void>,
+      currentState: any
+    ): Promise<CommandResult> => {
+      const command = updateWorkflowState(
+        newState,
+        updateStateFunction,
+        currentState
+      );
+      return executeCommand(command);
+    },
+    [updateWorkflowState, executeCommand]
+  );
 
-  const executeRenderPage = useCallback(async (
-    sduiPage: any,
-    renderFunction: (page: any) => Promise<any>,
-    onSuccess?: (result: any) => void
-  ): Promise<CommandResult> => {
-    const command = renderSDUIPage(sduiPage, renderFunction, onSuccess);
-    return executeCommand(command);
-  }, [renderSDUIPage, executeCommand]);
+  const executeRenderPage = useCallback(
+    async (
+      sduiPage: any,
+      renderFunction: (page: any) => Promise<any>,
+      onSuccess?: (result: any) => void
+    ): Promise<CommandResult> => {
+      const command = renderSDUIPage(sduiPage, renderFunction, onSuccess);
+      return executeCommand(command);
+    },
+    [renderSDUIPage, executeCommand]
+  );
 
   // Keyboard shortcuts
-  const handleKeyboardShortcut = useCallback((event: KeyboardEvent) => {
-    if (event.metaKey || event.ctrlKey) {
-      if (event.key === 'z' && !event.shiftKey) {
-        event.preventDefault();
-        undo();
-      } else if ((event.key === 'z' && event.shiftKey) || event.key === 'y') {
-        event.preventDefault();
-        redo();
+  const handleKeyboardShortcut = useCallback(
+    (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey) {
+        if (event.key === "z" && !event.shiftKey) {
+          event.preventDefault();
+          undo();
+        } else if ((event.key === "z" && event.shiftKey) || event.key === "y") {
+          event.preventDefault();
+          redo();
+        }
       }
-    }
-  }, [undo, redo]);
+    },
+    [undo, redo]
+  );
 
   // Set up keyboard shortcuts
   useEffect(() => {
-    window.addEventListener('keydown', handleKeyboardShortcut);
-    return () => window.removeEventListener('keydown', handleKeyboardShortcut);
+    window.addEventListener("keydown", handleKeyboardShortcut);
+    return () => window.removeEventListener("keydown", handleKeyboardShortcut);
   }, [handleKeyboardShortcut]);
 
   return {
@@ -285,20 +336,23 @@ export function useCommandMonitor(processor: CommandProcessor) {
   useEffect(() => {
     const updateMetrics = () => {
       const history = processor.getHistory();
-      const successful = history.filter(entry => entry.result.success);
-      const failed = history.filter(entry => !entry.result.success);
+      const successful = history.filter((entry) => entry.result.success);
+      const failed = history.filter((entry) => !entry.result.success);
       const executionTimes = history
-        .filter(entry => entry.result.executionTime)
-        .map(entry => entry.result.executionTime!);
+        .filter((entry) => entry.result.executionTime)
+        .map((entry) => entry.result.executionTime!);
 
       setMetrics({
         totalCommands: history.length,
         successfulCommands: successful.length,
         failedCommands: failed.length,
-        averageExecutionTime: executionTimes.length > 0
-          ? executionTimes.reduce((sum, time) => sum + time, 0) / executionTimes.length
-          : 0,
-        lastCommandTime: history.length > 0 ? history[history.length - 1].executedAt : 0,
+        averageExecutionTime:
+          executionTimes.length > 0
+            ? executionTimes.reduce((sum, time) => sum + time, 0) /
+              executionTimes.length
+            : 0,
+        lastCommandTime:
+          history.length > 0 ? history[history.length - 1].executedAt : 0,
       });
     };
 

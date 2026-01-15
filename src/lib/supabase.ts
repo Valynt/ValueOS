@@ -44,7 +44,10 @@ export function getSupabaseClient() {
 // Server-side Supabase client - for backend services only
 // This should NEVER be used in client-side code
 export function createServerSupabaseClient(serviceKey?: string) {
-  const serverKey = serviceKey || settings.SUPABASE_SERVICE_KEY;
+  const serverKey =
+    serviceKey ||
+    settings.SUPABASE_SERVICE_KEY ||
+    settings.VITE_SUPABASE_ANON_KEY;
 
   if (!serverKey) {
     throw new Error(

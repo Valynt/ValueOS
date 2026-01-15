@@ -5,7 +5,7 @@
  * Prevents injection attacks, ensures data integrity, and provides consistent error handling
  */
 
-import { logger } from "../lib/logger";
+import { logger } from "../../lib/logger";
 
 export class ValidationError extends Error {
   constructor(

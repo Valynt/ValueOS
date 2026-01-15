@@ -1,14 +1,14 @@
-import { randomUUID } from 'crypto';
-import { NextFunction, Request, Response } from 'express';
-import { securityAuditService } from '../services/SecurityAuditService';
-import { logger } from '../lib/logger';
-import { runWithContext } from '../lib/context';
-import { getTraceContextForLogging } from '../config/telemetry';
+import { randomUUID } from "crypto";
+import { NextFunction, Request, Response } from "express";
+import { securityAuditService } from "../services/SecurityAuditService";
+import { logger } from "../lib/logger";
+import { runWithContext } from "../lib/context";
+import { getTraceContextForLogging } from "../config/telemetry";
 
-const DEFAULT_IGNORED_PATHS = ['/health', '/metrics'];
+const DEFAULT_IGNORED_PATHS = ["/health", "/metrics"];
 
 function getRequestId(req: Request): string {
-  const headerId = req.headers['x-request-id'];
+  const headerId = req.headers["x-request-id"];
   if (Array.isArray(headerId)) {
     return headerId[0];
   }
@@ -18,8 +18,10 @@ function getRequestId(req: Request): string {
 function getActor(req: Request): { id?: string; label: string } {
   const anyReq = req as any;
   const user = anyReq.user || {};
-  const headerActor = (req.headers['x-user-email'] as string) || (req.headers['x-actor'] as string);
-  const label = user.email || user.name || headerActor || 'anonymous';
+  const headerActor =
+    (req.headers["x-user-email"] as string) ||
+    (req.headers["x-actor"] as string);
+  const label = user.email || user.name || headerActor || "anonymous";
 
   return {
     id: user.id || undefined,
@@ -41,7 +43,7 @@ export function requestAuditMiddleware(options?: { ignoredPaths?: string[] }) {
       const ignoredRequestId = getRequestId(req);
       res.locals.requestId = ignoredRequestId;
       (req as any).requestId = ignoredRequestId;
-      res.setHeader('X-Request-Id', ignoredRequestId);
+      res.setHeader("X-Request-Id", ignoredRequestId);
       return next();
     }
 
@@ -51,17 +53,17 @@ export function requestAuditMiddleware(options?: { ignoredPaths?: string[] }) {
 
     res.locals.requestId = requestId;
     (req as any).requestId = requestId;
-    res.setHeader('X-Request-Id', requestId);
+    res.setHeader("X-Request-Id", requestId);
 
     // Prepare context
     const context = {
       requestId,
       userId: actor.id,
-      ...getTraceContextForLogging()
+      ...getTraceContextForLogging(),
     };
 
     runWithContext(context, () => {
-      res.on('finish', async () => {
+      res.on("finish", async () => {
         try {
           await securityAuditService.logRequestEvent({
             requestId,
@@ -71,18 +73,22 @@ export function requestAuditMiddleware(options?: { ignoredPaths?: string[] }) {
             resource: req.baseUrl || req.originalUrl,
             requestPath: req.originalUrl,
             ipAddress: req.ip || req.socket.remoteAddress || undefined,
-            userAgent: req.get('user-agent') || undefined,
+            userAgent: req.get("user-agent") || undefined,
             statusCode: res.statusCode,
-            severity: res.statusCode >= 500 ? 'high' : 'medium',
+            severity: res.statusCode >= 500 ? "high" : "medium",
             eventData: {
               duration_ms: Date.now() - startedAt,
-              org: (req.headers['x-organization-id'] as string) || (req as any).organizationId,
+              org:
+                (req.headers["x-organization-id"] as string) ||
+                (req as any).organizationId,
               routeParams: req.params,
               query: req.query,
             },
           });
         } catch (error) {
-          logger.error('Failed to write request audit event', error as Error, { requestId });
+          logger.error("Failed to write request audit event", error as Error, {
+            requestId,
+          });
         }
       });
 
