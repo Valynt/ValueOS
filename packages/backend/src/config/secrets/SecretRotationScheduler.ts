@@ -16,7 +16,7 @@ import type {
   SecretMetadata,
 } from "./ISecretProvider";
 import { EventEmitter } from "events";
-import { auditLogService } from "../services/AuditLogService";
+import { auditLogService } from "../../services/AuditLogService";
 
 /**
  * Rotation job configuration
