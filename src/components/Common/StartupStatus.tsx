@@ -16,6 +16,11 @@ import {
   getDefaultDependencies,
   recheckDependency,
 } from "../../lib/startup/dependency-checker";
+import {
+  shouldActivateGhostMode,
+  activateGhostMode,
+  getGhostModeState,
+} from "../../lib/startup/ghost-mode";
 
 interface StartupStatusProps {
   onReady?: () => void;
@@ -167,6 +172,13 @@ export function StartupStatus({
         onReady?.();
       } else if (result.phase === "degraded") {
         onDegraded?.(result);
+
+        // Auto-activate Ghost Mode if backend is down
+        if (shouldActivateGhostMode(result)) {
+          activateGhostMode("Backend unreachable during startup").then(() => {
+            console.info("[StartupStatus] Ghost Mode auto-activated");
+          });
+        }
       }
     };
 

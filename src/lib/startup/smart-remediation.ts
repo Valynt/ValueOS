@@ -90,7 +90,9 @@ export const REMEDIATION_ACTIONS: RemediationAction[] = [
       if (!token) return false;
 
       try {
-        const payload = JSON.parse(atob(token.split(".")[1]));
+        const parts = token.split(".");
+        if (parts.length < 2 || !parts[1]) return true;
+        const payload = JSON.parse(atob(parts[1]));
         const exp = payload.exp * 1000;
         return Date.now() > exp;
       } catch {
@@ -338,10 +340,4 @@ export async function executeRemediation(
   }
 
   return result;
-}
-
-declare global {
-  interface Window {
-    __GHOST_MODE__?: { active: boolean; mockedEndpoints: string[] };
-  }
 }

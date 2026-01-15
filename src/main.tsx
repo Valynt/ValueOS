@@ -23,6 +23,7 @@ import * as ClientRateLimit from "./services/ClientRateLimit";
 import { BootstrapGuard } from "./components/Common/BootstrapGuard";
 import { RootErrorBoundary } from "./components/error-boundaries/RootErrorBoundary";
 import { StartupStatus } from "./components/Common/StartupStatus";
+import { DevHUD } from "./components/dev/DevHUD";
 
 /**
  * Load fonts asynchronously after initial render
@@ -88,6 +89,7 @@ function main() {
               <AppRoutes />
             </BootstrapGuard>
           </StartupStatus>
+          {isDevelopment() && <DevHUD />}
         </RootErrorBoundary>
       </StrictMode>
     );

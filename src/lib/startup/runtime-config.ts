@@ -98,11 +98,10 @@ export function overrideRuntimeConfig(
 
   if (typeof window !== "undefined") {
     window.__CONFIG__ = cachedConfig;
+    window.dispatchEvent(
+      new CustomEvent("config:changed", { detail: cachedConfig })
+    );
   }
-
-  window.dispatchEvent(
-    new CustomEvent("config:changed", { detail: cachedConfig })
-  );
 
   return cachedConfig;
 }
