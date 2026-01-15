@@ -17,7 +17,8 @@ const SettingsSchema = z.object({
     .enum(["development", "staging", "production", "test"])
     .default("development"),
   API_PORT: z.string().optional().default("3001"),
-  SUPABASE_SERVICE_KEY: z.string().optional(), // Only available on the server
+  // Canonical name: SUPABASE_SERVICE_ROLE_KEY (not SUPABASE_SERVICE_KEY)
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   REDIS_URL: z.string().url().optional(),
   CORS_ALLOWED_ORIGINS: z.string().optional(),
   ALERT_WEBHOOK_URL: z.string().url().optional(),
@@ -63,6 +64,22 @@ const readEnv = (key: string, fallback?: string) => {
   return getEnvVar(key, { defaultValue: fallback });
 };
 
+// Resolve service role key with deprecation support
+const resolveServiceRoleKey = () => {
+  // Canonical name first
+  const canonical = readEnv("SUPABASE_SERVICE_ROLE_KEY");
+  if (canonical) return canonical;
+
+  // Deprecated name with warning
+  const deprecated = readEnv("SUPABASE_SERVICE_KEY");
+  if (deprecated && isServer) {
+    console.warn(
+      "[DEPRECATION] SUPABASE_SERVICE_KEY is deprecated. Use SUPABASE_SERVICE_ROLE_KEY instead."
+    );
+  }
+  return deprecated;
+};
+
 const resolvedEnv = {
   VITE_SUPABASE_URL: readEnv("VITE_SUPABASE_URL") || readEnv("SUPABASE_URL"),
   VITE_SUPABASE_ANON_KEY:
@@ -71,7 +88,7 @@ const resolvedEnv = {
   VITE_SENTRY_DSN: readEnv("VITE_SENTRY_DSN") || readEnv("SENTRY_DSN"),
   NODE_ENV: readEnv("NODE_ENV"),
   API_PORT: readEnv("API_PORT", "3001"),
-  SUPABASE_SERVICE_KEY: readEnv("SUPABASE_SERVICE_KEY"),
+  SUPABASE_SERVICE_ROLE_KEY: resolveServiceRoleKey(),
   REDIS_URL: readEnv("REDIS_URL"),
   CORS_ALLOWED_ORIGINS: readEnv("CORS_ALLOWED_ORIGINS"),
   ALERT_WEBHOOK_URL: readEnv("ALERT_WEBHOOK_URL"),

@@ -512,13 +512,86 @@ function checkSupabase() {
     return;
   }
 
+  // Check if Supabase is running
+  let supabaseRunning = false;
   try {
-    runCommand("supabase status");
+    const status = runCommand("supabase status", { stdio: "pipe" });
+    supabaseRunning = status.includes("API URL") && !status.includes("not running");
   } catch {
+    supabaseRunning = false;
+  }
+
+  if (!supabaseRunning) {
     reportFailure(
       "Supabase local not running",
       `Expected Supabase at http://localhost:${supabaseApiPort}`,
-      "Start it with: supabase start"
+      "Start it with: supabase start (or npm run dx will start it automatically)"
+    );
+    return;
+  }
+
+  // Check Supabase API health
+  try {
+    const http = require("http");
+    const healthUrl = `http://localhost:${supabaseApiPort}/rest/v1/`;
+    
+    // Synchronous check using execSync with curl
+    try {
+      runCommand(`curl -sf --max-time 5 "${healthUrl}" > /dev/null`, { stdio: "pipe" });
+    } catch {
+      reportFailure(
+        "Supabase API not responding",
+        `Supabase is running but API at ${healthUrl} is not responding.`,
+        "Try: supabase stop && supabase start"
+      );
+    }
+  } catch {
+    // curl not available, skip health check
+  }
+}
+
+function checkEnvModeConsistency() {
+  const envLocalPath = path.join(projectRoot, ".env.local");
+  if (!fs.existsSync(envLocalPath)) {
+    return;
+  }
+
+  const content = fs.readFileSync(envLocalPath, "utf8");
+  
+  // Check DX_MODE matches current mode
+  const modeMatch = content.match(/^DX_MODE=(.*)$/m);
+  const envMode = modeMatch ? modeMatch[1].trim() : null;
+  
+  if (envMode && envMode !== mode) {
+    reportFailure(
+      "Environment mode mismatch",
+      `.env.local is configured for mode "${envMode}" but you're running mode "${mode}".`,
+      `Regenerate env: npm run dx:env --mode ${mode} --force`
+    );
+    return;
+  }
+
+  // Check for Docker DNS in local mode
+  if (mode === "local") {
+    const apiUrlMatch = content.match(/^VITE_API_BASE_URL=(.*)$/m);
+    if (apiUrlMatch) {
+      const apiUrl = apiUrlMatch[1].trim();
+      if (apiUrl.includes("backend:") || apiUrl.includes("frontend:")) {
+        reportFailure(
+          "Docker DNS in local mode",
+          `VITE_API_BASE_URL uses Docker hostname (${apiUrl}) but mode is "local". Browser cannot resolve Docker hostnames.`,
+          `Regenerate env: npm run dx:env --mode local --force`
+        );
+      }
+    }
+  }
+
+  // Check for deprecated SUPABASE_SERVICE_KEY
+  if (content.includes("SUPABASE_SERVICE_KEY=") && !content.includes("SUPABASE_SERVICE_ROLE_KEY=")) {
+    reportFailure(
+      "Deprecated Supabase key name",
+      "Using SUPABASE_SERVICE_KEY instead of SUPABASE_SERVICE_ROLE_KEY.",
+      "Update .env.local: rename SUPABASE_SERVICE_KEY to SUPABASE_SERVICE_ROLE_KEY"
     );
   }
 }
@@ -691,6 +764,14 @@ async function main() {
         cacheCheckResult("Environment", failures.length === 0);
       } else {
         console.log(`⏭️  Environment check (cached)`);
+      }
+    }),
+    Promise.resolve().then(() => {
+      if (!isCheckCached("Env Mode Consistency")) {
+        checkEnvModeConsistency();
+        cacheCheckResult("Env Mode Consistency", failures.length === 0);
+      } else {
+        console.log(`⏭️  Env Mode Consistency check (cached)`);
       }
     }),
   ]);

@@ -71,12 +71,29 @@ export function getSupabaseConfig(): {
   anonKey?: string;
   serviceRoleKey?: string;
 } {
+  // Canonical name: SUPABASE_SERVICE_ROLE_KEY
+  // Deprecated: SUPABASE_SERVICE_KEY (warn if used)
+  let serviceRoleKey =
+    getEnvVar("SUPABASE_SERVICE_ROLE_KEY") ||
+    getEnvVar("VITE_SUPABASE_SERVICE_ROLE_KEY");
+
+  // Support deprecated name with warning
+  if (!serviceRoleKey) {
+    const deprecatedKey = getEnvVar("SUPABASE_SERVICE_KEY");
+    if (deprecatedKey) {
+      if (env.isDevelopment && env.isServer()) {
+        console.warn(
+          "[DEPRECATION] SUPABASE_SERVICE_KEY is deprecated. Use SUPABASE_SERVICE_ROLE_KEY instead."
+        );
+      }
+      serviceRoleKey = deprecatedKey;
+    }
+  }
+
   return {
-    url: getEnvVar("VITE_SUPABASE_URL"),
-    anonKey: getEnvVar("VITE_SUPABASE_ANON_KEY"),
-    serviceRoleKey:
-      getEnvVar("SUPABASE_SERVICE_ROLE_KEY") ||
-      getEnvVar("VITE_SUPABASE_SERVICE_ROLE_KEY"),
+    url: getEnvVar("VITE_SUPABASE_URL") || getEnvVar("SUPABASE_URL"),
+    anonKey: getEnvVar("VITE_SUPABASE_ANON_KEY") || getEnvVar("SUPABASE_ANON_KEY"),
+    serviceRoleKey,
   };
 }
 
