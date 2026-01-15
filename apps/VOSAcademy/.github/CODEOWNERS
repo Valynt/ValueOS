@@ -1,0 +1,21 @@
+# Global owners
+* @VOSAcademy/engineering-leads
+
+# Frontend and UI
+src/ @VOSAcademy/frontend
+public/ @VOSAcademy/frontend
+
+# Documentation and runbooks
+docs/ @VOSAcademy/docs
+docs/adr/ @VOSAcademy/docs @VOSAcademy/engineering-leads
+docs/diagrams/ @VOSAcademy/docs @VOSAcademy/engineering-leads
+docs/runbooks/ @VOSAcademy/docs @VOSAcademy/engineering-leads
+CONTRIBUTING.md @VOSAcademy/docs
+
+# Security-sensitive areas
+package.json @VOSAcademy/security
+package-lock.json @VOSAcademy/security
+scripts/ @VOSAcademy/security
+
+# CI/CD and release automation
+.github/ @VOSAcademy/engineering-leads

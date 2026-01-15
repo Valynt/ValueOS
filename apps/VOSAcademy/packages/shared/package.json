@@ -1,0 +1,10 @@
+{
+  "name": "@shared/const",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/const.ts",
+  "types": "src/const.ts",
+  "exports": {
+    ".": "./src/const.ts"
+  }
+}

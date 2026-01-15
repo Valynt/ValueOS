@@ -1,0 +1,47 @@
+```mermaid
+graph TD
+  subgraph Client
+    browser["Browser\n(Students, Instructors)"]
+  end
+
+  subgraph Frontend
+    ui["React + TheSys C1 SDK\n(Vite build)"]
+  end
+
+  subgraph Edge
+    cdn["CDN/Edge Cache"]
+  end
+
+  subgraph API
+    gateway["API Gateway / BFF"]
+    authsvc["Auth Service\nJWT sessions"]
+    contentsvc["Content Service\nCurricula, Pillars"]
+    quizsvc["Quiz/Assessment Service"]
+    analytics["Analytics Service"]
+    c1proxy["C1 Proxy\nUI generation, chat"]
+  end
+
+  subgraph Data
+    db[("PostgreSQL / MongoDB")]
+    cache[("Redis Cache")]
+    blob[("Object Storage\nStatic assets")]
+    events[("Telemetry / Observability")]
+  end
+
+  browser --> cdn
+  cdn --> ui
+  ui --> gateway
+  gateway --> authsvc
+  gateway --> contentsvc
+  gateway --> quizsvc
+  gateway --> analytics
+  gateway --> c1proxy
+
+  authsvc --> db
+  contentsvc --> db
+  quizsvc --> db
+  quizsvc --> cache
+  analytics --> events
+  c1proxy --> c1api["TheSys C1 API"]
+  ui --> blob
+```

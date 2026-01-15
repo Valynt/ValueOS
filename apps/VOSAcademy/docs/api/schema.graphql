@@ -1,0 +1,158 @@
+"""
+GraphQL schema describing the VOS Academy platform domain.
+The types mirror the OpenAPI contracts so the same features can be queried via GraphQL.
+"""
+
+type UserProfile {
+  id: ID!
+  email: String!
+  name: String
+  role: String!
+  maturityLevel: String!
+}
+
+type Pillar {
+  id: Int!
+  pillarNumber: Int!
+  title: String!
+  description: String!
+  focusAreas: [String!]
+}
+
+type QuizOption {
+  id: Int!
+  label: String!
+  value: String!
+  correct: Boolean
+}
+
+type QuizQuestion {
+  id: Int!
+  pillarNumber: Int!
+  prompt: String!
+  options: [QuizOption!]!
+}
+
+type QuizSubmissionResult {
+  score: Float!
+  passed: Boolean!
+  feedback: [String!]!
+}
+
+type SimulationTask {
+  id: Int!
+  title: String!
+  prompt: String!
+}
+
+type SimulationScenario {
+  id: Int!
+  title: String!
+  description: String!
+  pillarNumber: Int!
+  difficulty: String!
+  domain: String
+  customerPersona: String
+  tasks: [SimulationTask!]!
+}
+
+type SimulationAttemptResult {
+  score: Float!
+  feedback: [String!]!
+  nextSteps: [String!]
+}
+
+type Certification {
+  id: Int!
+  name: String!
+  score: Float!
+  tier: String!
+  downloadUrl: String
+}
+
+type ChatResponse {
+  content: String!
+  annotations: [String!]
+}
+
+type ROINarrativeResponse {
+  narrative: String!
+  financials: ROIFinancials!
+}
+
+type ROIFinancials {
+  totalCosts: Float!
+  totalBenefits: Float!
+  roi: Float!
+  paybackPeriod: Float
+}
+
+type ValueCaseResponse {
+  valueCase: String!
+  roi: Float!
+  estimatedBenefits: Float
+}
+
+type Query {
+  me: UserProfile
+  pillars: [Pillar!]!
+  pillar(pillarNumber: Int!): Pillar
+  quizQuestions(pillarNumber: Int!): [QuizQuestion!]!
+  simulations: [SimulationScenario!]!
+  simulation(scenarioId: Int!): SimulationScenario
+  certifications: [Certification!]!
+}
+
+type Mutation {
+  chat(messages: [MessageInput!]!): ChatResponse!
+  roiNarrative(input: ROINarrativeInput!): ROINarrativeResponse!
+  valueCase(input: ValueCaseInput!): ValueCaseResponse!
+  submitQuiz(pillarNumber: Int!, answers: [QuizAnswerSubmission!]!, context: String): QuizSubmissionResult!
+  submitSimulationAttempt(input: SimulationAttemptInput!): SimulationAttemptResult!
+}
+
+input MessageInput {
+  role: String!
+  content: String!
+}
+
+input ROINarrativeInput {
+  businessCase: String!
+  benefits: [String!]!
+  costs: CostBreakdownInput!
+  timeframe: String!
+  audience: String!
+}
+
+input ValueCaseInput {
+  pillarId: Int!
+  outcomes: [String!]!
+  capabilities: [String!]!
+  kpis: [KpiInput!]!
+  costs: CostBreakdownInput!
+  audience: String!
+}
+
+input CostBreakdownInput {
+  implementation: Float!
+  licensing: Float
+  training: Float
+}
+
+input KpiInput {
+  name: String!
+  baseline: Float!
+  target: Float!
+  timeframe: String!
+}
+
+input QuizAnswerSubmission {
+  questionId: Int!
+  answer: String!
+}
+
+input SimulationAttemptInput {
+  scenarioId: Int!
+  response: String!
+  stage: String
+}

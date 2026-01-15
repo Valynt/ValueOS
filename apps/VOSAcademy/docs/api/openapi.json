@@ -1,0 +1,532 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "VOS Academy Platform API",
+    "version": "1.0.0",
+    "description": "Contracts for the VOS Academy learning and simulation platform. These endpoints mirror the TRPC feature areas and are used to generate SDK typings for the front-end."
+  },
+  "servers": [
+    {
+      "url": "https://api.vosacademy.local",
+      "description": "Local API gateway"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "UserProfile": {
+        "type": "object",
+        "required": ["id", "email", "role", "maturityLevel"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "email": { "type": "string", "format": "email" },
+          "role": { "type": "string", "examples": ["customer", "internal"] },
+          "maturityLevel": { "type": "string" },
+          "name": { "type": "string" }
+        }
+      },
+      "Message": {
+        "type": "object",
+        "required": ["role", "content"],
+        "properties": {
+          "role": { "type": "string", "enum": ["system", "user", "assistant"] },
+          "content": { "type": "string" }
+        }
+      },
+      "ChatRequest": {
+        "type": "object",
+        "required": ["messages"],
+        "properties": {
+          "messages": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Message" },
+            "minItems": 1
+          }
+        }
+      },
+      "ChatResponse": {
+        "type": "object",
+        "required": ["content"],
+        "properties": {
+          "content": { "type": "string" },
+          "annotations": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Optional tutor annotations or rubric notes."
+          }
+        }
+      },
+      "ROINarrativeRequest": {
+        "type": "object",
+        "required": ["businessCase", "benefits", "costs", "timeframe", "audience"],
+        "properties": {
+          "businessCase": { "type": "string" },
+          "benefits": { "type": "array", "items": { "type": "string" } },
+          "costs": {
+            "type": "object",
+            "required": ["implementation"],
+            "properties": {
+              "implementation": { "type": "number" },
+              "licensing": { "type": "number" },
+              "training": { "type": "number" }
+            }
+          },
+          "timeframe": { "type": "string", "enum": ["1year", "2years", "3years"] },
+          "audience": { "type": "string", "enum": ["executive", "finance", "technical"] }
+        }
+      },
+      "ROINarrativeResponse": {
+        "type": "object",
+        "required": ["narrative", "financials"],
+        "properties": {
+          "narrative": { "type": "string" },
+          "financials": {
+            "type": "object",
+            "required": ["totalCosts", "totalBenefits", "roi"],
+            "properties": {
+              "totalCosts": { "type": "number" },
+              "totalBenefits": { "type": "number" },
+              "roi": { "type": "number" },
+              "paybackPeriod": { "type": "number" }
+            }
+          }
+        }
+      },
+      "ValueCaseRequest": {
+        "type": "object",
+        "required": ["pillarId", "outcomes", "capabilities", "kpis", "costs", "audience"],
+        "properties": {
+          "pillarId": { "type": "integer", "minimum": 1 },
+          "outcomes": { "type": "array", "items": { "type": "string" } },
+          "capabilities": { "type": "array", "items": { "type": "string" } },
+          "kpis": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "baseline", "target", "timeframe"],
+              "properties": {
+                "name": { "type": "string" },
+                "baseline": { "type": "number" },
+                "target": { "type": "number" },
+                "timeframe": { "type": "string" }
+              }
+            }
+          },
+          "costs": {
+            "type": "object",
+            "required": ["implementation"],
+            "properties": {
+              "implementation": { "type": "number" },
+              "licensing": { "type": "number" },
+              "training": { "type": "number" }
+            }
+          },
+          "audience": { "type": "string", "enum": ["executive", "finance", "technical"] }
+        }
+      },
+      "ValueCaseResponse": {
+        "type": "object",
+        "required": ["valueCase", "roi"],
+        "properties": {
+          "valueCase": { "type": "string" },
+          "roi": { "type": "number" },
+          "estimatedBenefits": { "type": "number" }
+        }
+      },
+      "Pillar": {
+        "type": "object",
+        "required": ["id", "pillarNumber", "title", "description"],
+        "properties": {
+          "id": { "type": "integer" },
+          "pillarNumber": { "type": "integer", "minimum": 1 },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "focusAreas": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "QuizQuestion": {
+        "type": "object",
+        "required": ["id", "pillarNumber", "prompt", "options"],
+        "properties": {
+          "id": { "type": "integer" },
+          "pillarNumber": { "type": "integer" },
+          "prompt": { "type": "string" },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "label", "value"],
+              "properties": {
+                "id": { "type": "integer" },
+                "label": { "type": "string" },
+                "value": { "type": "string" },
+                "correct": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      },
+      "QuizSubmission": {
+        "type": "object",
+        "required": ["pillarNumber", "answers"],
+        "properties": {
+          "pillarNumber": { "type": "integer", "minimum": 1 },
+          "answers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["questionId", "answer"],
+              "properties": {
+                "questionId": { "type": "integer" },
+                "answer": { "type": "string" }
+              }
+            }
+          },
+          "context": { "type": "string" }
+        }
+      },
+      "QuizSubmissionResult": {
+        "type": "object",
+        "required": ["score", "passed", "feedback"],
+        "properties": {
+          "score": { "type": "number" },
+          "passed": { "type": "boolean" },
+          "feedback": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "SimulationScenario": {
+        "type": "object",
+        "required": ["id", "title", "description", "pillarNumber", "difficulty"],
+        "properties": {
+          "id": { "type": "integer" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "pillarNumber": { "type": "integer" },
+          "difficulty": { "type": "string", "enum": ["foundation", "advanced", "expert"] },
+          "domain": { "type": "string" },
+          "customerPersona": { "type": "string" },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "title", "prompt"],
+              "properties": {
+                "id": { "type": "integer" },
+                "title": { "type": "string" },
+                "prompt": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "SimulationAttempt": {
+        "type": "object",
+        "required": ["scenarioId", "response"],
+        "properties": {
+          "scenarioId": { "type": "integer" },
+          "response": { "type": "string" },
+          "stage": { "type": "string" }
+        }
+      },
+      "SimulationAttemptResult": {
+        "type": "object",
+        "required": ["score", "feedback"],
+        "properties": {
+          "score": { "type": "number" },
+          "feedback": { "type": "array", "items": { "type": "string" } },
+          "nextSteps": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "Certification": {
+        "type": "object",
+        "required": ["id", "name", "score", "tier"],
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "score": { "type": "number" },
+          "tier": { "type": "string", "enum": ["bronze", "silver", "gold"] },
+          "downloadUrl": { "type": "string", "format": "uri" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/auth/me": {
+      "get": {
+        "summary": "Get the authenticated user profile",
+        "operationId": "getAuthenticatedUser",
+        "responses": {
+          "200": {
+            "description": "User is authenticated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UserProfile" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ai/chat": {
+      "post": {
+        "summary": "AI tutor chat interaction",
+        "operationId": "chatWithTutor",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/ChatRequest" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tutor response",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ChatResponse" } }
+            }
+          }
+        }
+      }
+    },
+    "/ai/roi-narrative": {
+      "post": {
+        "summary": "Generate ROI narrative",
+        "operationId": "generateRoiNarrative",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/ROINarrativeRequest" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Narrative generated",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ROINarrativeResponse" } }
+            }
+          }
+        }
+      }
+    },
+    "/ai/value-case": {
+      "post": {
+        "summary": "Generate value case",
+        "operationId": "generateValueCase",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/ValueCaseRequest" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Value case generated",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ValueCaseResponse" } }
+            }
+          }
+        }
+      }
+    },
+    "/pillars": {
+      "get": {
+        "summary": "List the VOS capability pillars",
+        "operationId": "listPillars",
+        "responses": {
+          "200": {
+            "description": "List of pillars",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["items"],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Pillar" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pillars/{pillarNumber}": {
+      "get": {
+        "summary": "Get pillar by number",
+        "operationId": "getPillarByNumber",
+        "parameters": [
+          {
+            "name": "pillarNumber",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pillar details",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Pillar" } }
+            }
+          },
+          "404": { "description": "Pillar not found" }
+        }
+      }
+    },
+    "/pillars/{pillarNumber}/quiz": {
+      "get": {
+        "summary": "Get knowledge-check questions for a pillar",
+        "operationId": "getQuizQuestions",
+        "parameters": [
+          {
+            "name": "pillarNumber",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Quiz questions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["questions"],
+                  "properties": {
+                    "questions": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/QuizQuestion" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/quiz/submit": {
+      "post": {
+        "summary": "Submit quiz answers",
+        "operationId": "submitQuiz",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/QuizSubmission" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Quiz graded",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/QuizSubmissionResult" } }
+            }
+          }
+        }
+      }
+    },
+    "/simulations": {
+      "get": {
+        "summary": "List simulation scenarios",
+        "operationId": "listSimulations",
+        "responses": {
+          "200": {
+            "description": "Scenarios available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["scenarios"],
+                  "properties": {
+                    "scenarios": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/SimulationScenario" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/simulations/{scenarioId}": {
+      "get": {
+        "summary": "Get simulation scenario",
+        "operationId": "getSimulationById",
+        "parameters": [
+          {
+            "name": "scenarioId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scenario details",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/SimulationScenario" } }
+            }
+          },
+          "404": { "description": "Scenario not found" }
+        }
+      }
+    },
+    "/simulations/{scenarioId}/attempts": {
+      "post": {
+        "summary": "Submit a simulation attempt",
+        "operationId": "submitSimulationAttempt",
+        "parameters": [
+          {
+            "name": "scenarioId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/SimulationAttempt" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Attempt graded",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/SimulationAttemptResult" } }
+            }
+          }
+        }
+      }
+    },
+    "/certifications": {
+      "get": {
+        "summary": "List certifications for the learner",
+        "operationId": "listCertifications",
+        "responses": {
+          "200": {
+            "description": "Certification badges",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["certifications"],
+                  "properties": {
+                    "certifications": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Certification" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
