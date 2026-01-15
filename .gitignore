@@ -176,3 +176,4 @@ supabase/.temp
 # Build artifacts
 *.tgz
 *.tar.gz
+.pnpm-store/v3/files/01/66b8ad5b007c1478c6a9bba726d0f2c50d2589e3c8ffdb2637c0c37e2a3ee87733d5eb7c66c01c6d1a8807d01ab067992dbc8e53ba2b3ebda3e73a3d1c3577-index.json
