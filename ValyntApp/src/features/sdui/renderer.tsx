@@ -15,9 +15,10 @@ export function SDUIRenderer({ component, onAction }: SDUIRendererProps) {
     case "text":
       return <p className={props.className as string}>{props.content as string}</p>;
 
-    case "heading":
+    case "heading": {
       const Tag = `h${props.level || 2}` as keyof JSX.IntrinsicElements;
       return <Tag className={props.className as string}>{props.content as string}</Tag>;
+    }
 
     case "button":
       return (
@@ -41,11 +42,11 @@ export function SDUIRenderer({ component, onAction }: SDUIRendererProps) {
     case "card":
       return (
         <Card>
-          {props.title && (
+          {props.title ? (
             <CardHeader>
-              <CardTitle>{props.title as string}</CardTitle>
+              <CardTitle>{String(props.title)}</CardTitle>
             </CardHeader>
-          )}
+          ) : null}
           <CardContent>
             {children?.map((child) => (
               <SDUIRenderer key={child.id} component={child} onAction={onAction} />

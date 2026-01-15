@@ -5,7 +5,8 @@
   "type": "module",
   "packageManager": "npm@9.2.0",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "apps/*"
   ],
   "scripts": {
     "setup": "node scripts/dx/setup.js",

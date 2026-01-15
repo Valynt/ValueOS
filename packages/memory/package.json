@@ -1,0 +1,27 @@
+{
+  "name": "@valueos/memory",
+  "version": "1.0.0",
+  "description": "ValueOS Memory layer - semantic, episodic, vector, provenance",
+  "type": "module",
+  "private": true,
+  "exports": {
+    "./semantic": "./semantic/index.ts",
+    "./episodic": "./episodic/index.ts",
+    "./vector": "./vector/index.ts",
+    "./provenance": "./provenance/index.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.25.76"
+  },
+  "peerDependencies": {
+    "@valueos/infra": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.29",
+    "typescript": "^5.9.3"
+  }
+}

@@ -22,6 +22,9 @@
       "@lib/*": ["./src/lib/*"],
       "@shared/*": ["./packages/shared/src/*"],
       "@backend/*": ["./packages/backend/src/*"],
+      "@infra/*": ["./packages/infra/*"],
+      "@memory/*": ["./packages/memory/*"],
+      "@agents/*": ["./packages/agents/*"],
       "@mcp/*": ["./packages/mcp/*"],
       "@mcp-common/*": ["./packages/mcp/common/*"],
       "@sdui/*": ["./packages/sdui/src/*"]
