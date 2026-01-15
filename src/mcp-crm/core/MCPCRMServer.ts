@@ -497,6 +497,9 @@ export class MCPCRMServer {
           monitoringPeriod: 600000, // 10 minutes
         },
       });
+    }
+  }
+
   /**
    * Get available tools based on connected CRMs
    */

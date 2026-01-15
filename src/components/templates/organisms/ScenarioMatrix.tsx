@@ -537,7 +537,7 @@ export const ScenarioMatrix: React.FC<ScenarioMatrixProps> = ({
               padding: '1rem',
               backgroundColor: '#EFF6FF',
               borderRadius: '8px',
-              border: '1px solid '#BFDBFE'
+              border: '1px solid #BFDBFE'
             }}
           >
             <div style={{ fontSize: '0.75rem', color: '#1E40AF', fontWeight: 600, marginBottom: '0.5rem' }}>

@@ -1199,7 +1199,7 @@ export class LLMGateway {
     }
   }
 
-  getSupportedModels(): string[] {
+  private estimateTokenCount(messages: Array<{ role: string; content: string; tool_calls?: unknown; tool_call_id?: string }>, model: string): number {
     let totalChars = 0;
 
     for (const message of messages) {

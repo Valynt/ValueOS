@@ -41,18 +41,25 @@ let managedSecrets: Record<string, string> = {};
 // We use import.meta.env.SSR check if available (Vite), otherwise runtime check
 const isViteSsrBuild = import.meta.env?.SSR;
 
-if ((isViteSsrBuild || isServer) && !runtimeEnv.isDevelopment) {
-  try {
-    // Use a variable to prevent Vite from analyzing this as a static import in client build
-    const hydratorPath = "./secrets/SecretHydrator";
-    const { hydrateServerSecretsFromManager } = await import(
-      /* @vite-ignore */ hydratorPath
-    );
-    managedSecrets = await hydrateServerSecretsFromManager();
-  } catch {
-    // SecretHydrator not available in browser or failed to load
+// Async initialization for server-side secret hydration
+// Wrapped in IIFE to avoid top-level await which isn't supported in all build targets
+const initSecrets = async () => {
+  if ((isViteSsrBuild || isServer) && !runtimeEnv.isDevelopment) {
+    try {
+      // Use a variable to prevent Vite from analyzing this as a static import in client build
+      const hydratorPath = "./secrets/SecretHydrator";
+      const { hydrateServerSecretsFromManager } = await import(
+        /* @vite-ignore */ hydratorPath
+      );
+      managedSecrets = await hydrateServerSecretsFromManager();
+    } catch {
+      // SecretHydrator not available in browser or failed to load
+    }
   }
-}
+};
+
+// Fire and forget - secrets will be available after initialization
+initSecrets();
 
 // We need to handle the case where the server might not have the VITE_ prefix.
 // This function helps merge the two possibilities.

@@ -557,10 +557,10 @@ export class AuditTrailManager {
 
   private escapeXml(text: string): string {
     return text.replace(/&/g, '&')
-               .replace(/</g, '<')
-               .replace(/>/g, '>')
-               .replace(/"/g, '"')
-               .replace(/'/g, ''');
+               .replace(/</g, '&lt;')
+               .replace(/>/g, '&gt;')
+               .replace(/"/g, '&quot;')
+               .replace(/'/g, '&#39;');
   }
 
   private emitAuditEvent(entry: AuditEntry): void {
