@@ -13,8 +13,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
       - run: npm ci
       - run: npx playwright install --with-deps
       - run: npx playwright test --reporter=line
@@ -28,11 +28,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
       - run: npm ci
-      - name: Install testcontainers deps
-        run: npm install --no-save testcontainers pg
       - name: Run migration suite
         run: npx vitest run test/migrations/migrations.test.ts --reporter=dot
 
@@ -45,11 +43,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
       - run: npm ci
       - name: Install Pact deps
-        run: npm install --no-save @pact-foundation/pact
+        run: npm install --no-save @pact-foundation/pact@11.11.0
       - name: Run contract suite
         run: npx vitest run test/contracts/crm-contract.test.ts --reporter=dot
 
@@ -60,8 +58,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
       - run: npm ci
       - name: Snyk scan
         run: npm run security:scan:snyk

@@ -101,11 +101,24 @@ async function waitForHealth(url, timeout = HEALTH_CHECK_TIMEOUT) {
         method: "GET",
         signal: AbortSignal.timeout(5000),
       });
-      if (response.ok) {
+      // Some endpoints (e.g. Supabase REST) return 401/403 when hit without an apikey.
+      // For DX readiness we only need the service to be reachable.
+      if (response.status >= 200 && response.status < 500) {
         return true;
+      } else {
+        // Debug log for failure status
+        if (Date.now() - startTime > 5000) {
+          // Only log after 5s to reduce noise
+          console.log(
+            `[debug] Health check ${url} returned status ${response.status}`
+          );
+        }
       }
-    } catch {
+    } catch (error) {
       // Continue waiting
+      if (Date.now() - startTime > 5000) {
+        console.log(`[debug] Health check ${url} failed: ${error.message}`);
+      }
     }
     await new Promise((resolve) => setTimeout(resolve, HEALTH_CHECK_INTERVAL));
   }
@@ -155,8 +168,10 @@ async function startSupabase() {
     process.env.SUPABASE_API_PORT,
     ports.supabase.apiPort
   );
-  const supabaseUrl = `http://localhost:${supabaseApiPort}/rest/v1/`;
+  // Use 127.0.0.1 to avoid localhost resolution issues
+  const supabaseUrl = `http://127.0.0.1:${supabaseApiPort}/rest/v1/`;
 
+  console.log(`[debug] connecting to: ${supabaseUrl}`);
   log.info(`Waiting for Supabase API at ${supabaseUrl}...`);
   const healthy = await waitForHealth(supabaseUrl, 30000);
 
@@ -201,10 +216,9 @@ function startDockerDeps(mode) {
       : "docker-compose.deps.yml";
 
   try {
-    runCommand(
-      `docker compose --env-file .env.ports -f ${composeFile} up -d`,
-      { silent: false }
-    );
+    runCommand(`docker compose --env-file .env.ports -f ${composeFile} up -d`, {
+      silent: false,
+    });
     log.success("Docker dependencies started");
   } catch (error) {
     log.error("Failed to start Docker dependencies");
@@ -287,9 +301,15 @@ async function verifySchema() {
 
   // Check migration status
   try {
-    const migrationList = runCommand("supabase migration list 2>/dev/null || echo ''", { silent: true });
-    
-    if (migrationList.includes("not applied") || migrationList.includes("pending")) {
+    const migrationList = runCommand(
+      "supabase migration list 2>/dev/null || echo ''",
+      { silent: true }
+    );
+
+    if (
+      migrationList.includes("not applied") ||
+      migrationList.includes("pending")
+    ) {
       log.warn("Pending migrations detected");
       return false;
     }
@@ -598,7 +618,7 @@ async function main() {
 
   // Wait for backend to be healthy
   const backendPort = resolvePort(process.env.API_PORT, ports.backend.port);
-  const backendHealthUrl = `http://localhost:${backendPort}/health`;
+  const backendHealthUrl = `http://127.0.0.1:${backendPort}/health`;
 
   log.info(`Waiting for backend at ${backendHealthUrl}...`);
   await new Promise((resolve) => setTimeout(resolve, 3000)); // Initial delay

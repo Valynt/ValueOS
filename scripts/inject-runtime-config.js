@@ -44,7 +44,7 @@ const config = {
   environment: environment,
   version:
     process.env.VITE_APP_VERSION || process.env.npm_package_version || "0.0.0",
-  buildTime: new Date().toISOString(),
+  buildTime: process.env.BUILD_TIME || new Date().toISOString(),
 };
 
 const configScript = `<script>window.__CONFIG__=${JSON.stringify(config)

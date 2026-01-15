@@ -7,25 +7,25 @@ on:
   workflow_dispatch:
     inputs:
       experiment_duration:
-        description: 'Experiment duration in minutes'
+        description: "Experiment duration in minutes"
         required: false
-        default: '5'
+        default: "5"
       enable_all:
-        description: 'Enable all experiments'
+        description: "Enable all experiments"
         type: boolean
         required: false
         default: false
   schedule:
     # Run chaos tests daily at 2 AM UTC
-    - cron: '0 2 * * *'
+    - cron: "0 2 * * *"
   push:
     branches:
       - develop
       - staging
     paths:
-      - 'src/services/ChaosEngineering.ts'
-      - 'src/middleware/chaosMiddleware.ts'
-      - 'scripts/chaos-test.ts'
+      - "src/services/ChaosEngineering.ts"
+      - "src/middleware/chaosMiddleware.ts"
+      - "scripts/chaos-test.ts"
 
 env:
   NODE_ENV: development
@@ -44,14 +44,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Install ts-node
-        run: npm install -g ts-node typescript
 
       - name: Run Chaos Test Suite
         id: chaos_tests
@@ -150,29 +147,29 @@ jobs:
         run: |
           cat << EOF > chaos-report.md
           # Chaos Engineering Report
-          
+
           **Date:** $(date -u)
           **Branch:** ${{ github.ref_name }}
           **Commit:** ${{ github.sha }}
-          
+
           ## Results
-          
+
           - **Unit Tests:** ${{ needs.chaos-test.result }}
           - **Container Chaos:** ${{ needs.chaos-container.result }}
-          
+
           ## Experiments Run
-          
+
           1. Network Latency Injection
           2. Memory Pressure
           3. CPU Stress
           4. LLM Provider Failures
           5. Rate Limit Simulation
-          
+
           ## Conclusion
-          
+
           System resilience validated under controlled chaos conditions.
           EOF
-          
+
           cat chaos-report.md
 
       - name: Upload Report
