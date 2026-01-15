@@ -288,22 +288,32 @@ class CRMOAuthService {
       }
 
       return providerStatus.status === "active";
-  /**
-   * Generate a cryptographically secure random state string for CSRF protection
-   */
+    } catch (error) {
+      logger.error(
+        "Failed to ensure valid CRM tokens",
+        error instanceof Error ? error : undefined
+      );
+      return false;
+    }
+  }
   private generateSecureState(): string {
     const array = new Uint8Array(32);
     crypto.getRandomValues(array);
-    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+    return Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join(
+      ""
+    );
   }
 
   /**
    * Check if OAuth flow resulted in a successful connection
    */
-  private async checkOAuthResult(provider: CRMProvider, tenantId: string): Promise<boolean> {
+  private async checkOAuthResult(
+    provider: CRMProvider,
+    tenantId: string
+  ): Promise<boolean> {
     try {
       const status = await this.getStatus(tenantId);
-      return status[provider].connected && status[provider].status === 'active';
+      return status[provider].connected && status[provider].status === "active";
     } catch {
       return false;
     }

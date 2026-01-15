@@ -10,31 +10,25 @@
   },
 
   "features": {
-    // Docker outside of Docker - enables using docker inside the container
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
       "version": "latest",
       "enableNonRootDocker": "true",
       "moby": "true"
     },
-    // GitHub CLI for automation
     "ghcr.io/devcontainers/features/github-cli:1": {
       "version": "latest"
     },
-    // Node.js for development
     "ghcr.io/devcontainers/features/node:1": {
       "version": "22",
       "nodeGypDependencies": true
     },
-    // Python for additional tooling
     "ghcr.io/devcontainers/features/python:1": {
       "version": "3.11",
       "installTools": "true"
     },
-    // Go for backend services
     "ghcr.io/devcontainers/features/go:1": {
       "version": "1.21"
     },
-    // Common utilities
     "ghcr.io/devcontainers/features/common-utils:2": {
       "installZsh": true,
       "configureZshAsDefaultShell": true,
@@ -46,27 +40,21 @@
 
   "remoteUser": "vscode",
 
-  // Environment variables for development
   "containerEnv": {
     "NODE_ENV": "development",
     "ENVIRONMENT": "development",
     "CONTAINER": "true",
-    // Optimize npm
     "NPM_CONFIG_UPDATE_NOTIFIER": "false",
     "NPM_CONFIG_FUND": "false",
     "NPM_CONFIG_AUDIT": "false",
-    // Docker environment
     "DOCKER_HOST": "unix:///var/run/docker.sock"
   },
 
-  // Lifecycle scripts for automation
   "onCreateCommand": "bash .devcontainer/scripts/on-create.sh",
   "updateContentCommand": "bash .devcontainer/scripts/update-content.sh",
   "postCreateCommand": "bash .devcontainer/scripts/post-create.sh",
-  // Re-enabled post-start with Windows compatibility fixes
   "postStartCommand": "bash .devcontainer/scripts/post-start.sh",
 
-  // Port forwarding with labels
   "forwardPorts": [5173, 3001, 5432, 6379, 54321, 54323, 9090, 3000],
   "portsAttributes": {
     "5173": {
@@ -103,74 +91,48 @@
     }
   },
 
-  // Optimized mounts for performance (Windows-compatible)
   "mounts": [
-    // Cache node_modules for faster installs
     "source=valueos-node-modules,target=${containerWorkspaceFolder}/node_modules,type=volume",
-    // Cache npm cache
     "source=valueos-npm-cache,target=/home/vscode/.npm,type=volume",
-    // Cache build artifacts
     "source=valueos-build-cache,target=${containerWorkspaceFolder}/.cache,type=volume"
   ],
 
-  // Container configuration for performance (Windows-safe)
   "runArgs": [
-    // Allow access to host services
     "--add-host=host.docker.internal:host-gateway",
-    // Increase shared memory for browser testing
     "--shm-size=2gb",
-    // Add labels for identification
     "--label=project=valueos",
     "--label=environment=development",
     "--label=type=ephemeral"
   ],
 
-  // Host requirements
   "hostRequirements": {
     "cpus": 4,
     "memory": "8gb",
     "storage": "32gb"
   },
 
-  // Customizations for VS Code and extensions
   "customizations": {
     "vscode": {
       "extensions": [
-        // Core development
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
         "bradlc.vscode-tailwindcss",
-
-        // TypeScript/React
         "ms-vscode.vscode-typescript-next",
         "ms-vscode.vscode-json",
-
-        // Docker
         "ms-azuretools.vscode-docker",
         "ms-vscode-remote.remote-containers",
-
-        // Database
         "ms-mssql.mssql",
         "cweijan.vscode-redis-client",
-
-        // Git
         "eamodio.gitlens",
-
-        // Testing
         "ms-playwright.playwright",
-
-        // AI/LLM
         "GitHub.copilot",
         "GitHub.copilot-chat",
-
-        // Utilities
         "ms-vscode.hexeditor",
         "redhat.vscode-yaml",
         "Prisma.prisma",
         "ms-vscode.vscode-json"
       ],
       "settings": {
-        // Editor performance
         "files.watcherExclude": {
           "**/node_modules/**": true,
           "**/.git/objects/**": true,
@@ -185,27 +147,19 @@
           "**/build": true,
           "**/.cache": true
         },
-        // Auto-save for faster feedback
         "files.autoSave": "onFocusChange",
-        // Format on save
         "editor.formatOnSave": true,
         "editor.defaultFormatter": "esbenp.prettier-vscode",
-        // ESLint auto-fix
         "editor.codeActionsOnSave": {
           "source.fixAll.eslint": "explicit"
         },
-        // Terminal
         "terminal.integrated.defaultProfile.linux": "bash",
         "terminal.integrated.shell.linux": "/bin/bash",
-        // Git
         "git.autofetch": true,
         "git.enableSmartCommit": true,
-        // Docker
         "docker.dockerPath": "docker",
-        // TypeScript
         "typescript.tsdk": "node_modules/typescript/lib",
         "typescript.enablePromptUseWorkspaceTsdk": true,
-        // Environment
         "python.defaultInterpreterPath": "/usr/local/bin/python",
         "go.gopath": "/home/vscode/go",
         "go.goroot": "/usr/local/go"
@@ -213,13 +167,10 @@
     }
   },
 
-  // Wait for services to be ready
   "waitFor": "onCreateCommand",
 
-  // Update remote user UID/GID to match host (for file permissions)
   "updateRemoteUserUID": true,
 
-  // Additional configuration
   "remoteEnv": {
     "PATH": "${containerWorkspaceFolder}/node_modules/.bin:${containerEnv:PATH}",
     "PROMPT_COMMAND": "echo -e '\\033[0;32mValueOS DevContainer\\033[0m\\n'"
