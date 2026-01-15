@@ -9,6 +9,7 @@ import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 import path from "path";
+import { validateEnv } from "../src/lib/env";
 
 // Load environment
 const __filename = fileURLToPath(import.meta.url);
@@ -17,19 +18,11 @@ const projectRoot = path.resolve(__dirname, "..");
 
 dotenv.config({ path: path.join(projectRoot, ".env.local") });
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || "http://localhost:54321";
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || "";
+// Validate required environment variables (fail fast)
+validateEnv();
 
-if (
-  !supabaseAnonKey ||
-  supabaseAnonKey.includes("placeholder") ||
-  supabaseAnonKey.includes("your-")
-) {
-  console.error(
-    "❌ Supabase anon key not configured. Please run npm run env:dev first."
-  );
-  process.exit(1);
-}
+const supabaseUrl = process.env.VITE_SUPABASE_URL!;
+const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
@@ -56,9 +49,10 @@ async function seedDemoData() {
 
     console.log(`✅ Created demo tenant: ${tenant.name}`);
 
-    // Create demo user
+    // Create demo user with fixed credentials (INVARIANT - do not change)
     const demoUserEmail = "demo@valueos.dev";
-    const demoUserPassword = "demo123456";
+    const demoUserPassword = "Demo123!@#";
+    const demoUserId = "00000000-0000-0000-0000-000000000001"; // Fixed UUID for determinism
 
     // First, create the user via Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -142,8 +136,10 @@ async function seedDemoData() {
 
     console.log("\n🎉 Demo data seeded successfully!");
     console.log("\n📋 Login Credentials:");
-    console.log(`   Email: ${demoUserEmail}`);
+    console.log(`   Email:    ${demoUserEmail}`);
     console.log(`   Password: ${demoUserPassword}`);
+    console.log(`   Role:     admin`);
+    console.log(`   UUID:     ${demoUserId}`);
     console.log(
       "\n🌐 Open http://localhost:5173 and login with the above credentials."
     );

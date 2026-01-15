@@ -1,174 +1,22 @@
 /**
- * Unified environment adapter for both server and browser runtimes.
- *
- * @remarks
- * All code should import helpers from this module instead of touching
- * `process.env` or `import.meta.env` directly.
+ * Environment Variable Validation
+ * Ensures all required environment variables are present before starting the application.
  */
 
-type EnvRecord = Record<string, string | undefined>;
+export const REQUIRED_ENV_VARS = [
+  "VITE_SUPABASE_URL",
+  "VITE_SUPABASE_ANON_KEY",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "DATABASE_URL",
+] as const;
 
-const detectIsBrowser = (): boolean =>
-  typeof window !== "undefined" && typeof document !== "undefined";
-const detectIsServer = (): boolean =>
-  typeof window === "undefined" && typeof document === "undefined";
+export function validateEnv() {
+  const missingVars = REQUIRED_ENV_VARS.filter((v) => !process.env[v]);
 
-const resolveEnvSource = (): EnvRecord => {
-  if (detectIsServer() && typeof process !== "undefined" && process.env) {
-    return process.env as unknown as EnvRecord;
+  if (missingVars.length > 0) {
+    console.error("❌ Missing required environment variables:");
+    missingVars.forEach((v) => console.error(`   - ${v}`));
+    console.error("\nRun: npm run env:dev");
+    process.exit(1);
   }
-
-  if (typeof import.meta !== "undefined") {
-    return (import.meta as unknown as { env?: EnvRecord }).env ?? {};
-  }
-
-  return {};
-};
-
-let envSource: EnvRecord = resolveEnvSource();
-
-type EnvScope = "server" | "browser" | "any";
-
-interface EnvOptions {
-  required?: boolean;
-  defaultValue?: string;
-  scope?: EnvScope;
-}
-
-export const env = {
-  isBrowser: (): boolean => detectIsBrowser(),
-  isServer: (): boolean => detectIsServer(),
-  get mode(): string {
-    return envSource["MODE"] || envSource["NODE_ENV"] || "development";
-  },
-  get isDevelopment(): boolean {
-    return this.mode === "development";
-  },
-  get isProduction(): boolean {
-    return this.mode === "production";
-  },
-};
-
-export const isServer = (): boolean => env.isServer();
-export const isBrowser = (): boolean => env.isBrowser();
-
-export function getEnvVar(
-  key: string,
-  options: EnvOptions = {}
-): string | undefined {
-  const value = envSource[key] ?? options.defaultValue;
-
-  if (options.required && (value === undefined || value === "")) {
-    const scope = options.scope ?? "any";
-    throw new Error(`Missing required ${scope} environment variable: ${key}`);
-  }
-
-  return value;
-}
-
-export function getSupabaseConfig(): {
-  url?: string;
-  anonKey?: string;
-  serviceRoleKey?: string;
-} {
-  // Canonical name: SUPABASE_SERVICE_ROLE_KEY
-  // Deprecated: SUPABASE_SERVICE_KEY (warn if used)
-  let serviceRoleKey =
-    getEnvVar("SUPABASE_SERVICE_ROLE_KEY") ||
-    getEnvVar("VITE_SUPABASE_SERVICE_ROLE_KEY");
-
-  // Support deprecated name with warning
-  if (!serviceRoleKey) {
-    const deprecatedKey = getEnvVar("SUPABASE_SERVICE_KEY");
-    if (deprecatedKey) {
-      if (env.isDevelopment && env.isServer()) {
-        console.warn(
-          "[DEPRECATION] SUPABASE_SERVICE_KEY is deprecated. Use SUPABASE_SERVICE_ROLE_KEY instead."
-        );
-      }
-      serviceRoleKey = deprecatedKey;
-    }
-  }
-
-  return {
-    url: getEnvVar("VITE_SUPABASE_URL") || getEnvVar("SUPABASE_URL"),
-    anonKey: getEnvVar("VITE_SUPABASE_ANON_KEY") || getEnvVar("SUPABASE_ANON_KEY"),
-    serviceRoleKey,
-  };
-}
-
-export function getLLMCostTrackerConfig(): {
-  supabaseUrl?: string;
-  supabaseServiceRoleKey?: string;
-  slackWebhookUrl?: string;
-  alertEmail?: string;
-} {
-  const supabase = getSupabaseConfig();
-  return {
-    supabaseUrl: supabase.url,
-    supabaseServiceRoleKey: supabase.serviceRoleKey,
-    slackWebhookUrl: getEnvVar("SLACK_WEBHOOK_URL"),
-    alertEmail: getEnvVar("ALERT_EMAIL"),
-  };
-}
-
-export function getGroundtruthConfig(): {
-  apiUrl?: string;
-  apiKey?: string;
-  timeoutMs: number;
-} {
-  const timeoutCandidate =
-    getEnvVar("VITE_GROUNDTRUTH_API_TIMEOUT") ||
-    getEnvVar("GROUNDTRUTH_API_TIMEOUT") ||
-    "15000";
-  const parsedTimeout = Number.parseInt(timeoutCandidate, 10);
-
-  return {
-    apiUrl: getEnvVar("VITE_GROUNDTRUTH_API_URL") || getEnvVar("GROUNDTRUTH_API_URL"),
-    apiKey: getEnvVar("GROUNDTRUTH_API_KEY"),
-    timeoutMs: Number.isNaN(parsedTimeout) ? 15000 : parsedTimeout,
-  };
-}
-
-/**
- * Test helper: override the cached env source.
- */
-export function __setEnvSourceForTests(source: EnvRecord): void {
-  envSource = source;
-}
-
-/**
- * Test helper: return a copy of the cached env source.
- */
-export function __getEnvSourceForTests(): EnvRecord {
-  return { ...envSource };
-}
-
-/**
- * Runtime helper: set a var in Node environments (and keep the adapter in sync).
- * No-op in browser builds.
- */
-export function setEnvVar(key: string, value: string): void {
-  if (typeof process !== "undefined" && process.env) {
-    process.env[key] = value;
-
-    // Keep the cached adapter source in sync if it isn't process.env
-    if (envSource !== (process.env as unknown as EnvRecord)) {
-      envSource = { ...envSource, [key]: value };
-    }
-  }
-}
-
-/**
- * Test helper: set a var and ensure envSource reflects it (even if tests stub env).
- */
-export function setEnvVarForTests(key: string, value: string): void {
-  setEnvVar(key, value);
-
-  const procEnv: EnvRecord =
-    typeof process !== "undefined" && process.env
-      ? (process.env as unknown as EnvRecord)
-      : {};
-
-  __setEnvSourceForTests({ ...procEnv, [key]: value });
 }

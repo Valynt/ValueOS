@@ -15,6 +15,13 @@ const projectRoot = path.resolve(__dirname, "../..");
 // Load .env.local from project root
 dotenv.config({ path: path.join(projectRoot, ".env.local") });
 
+import { validateEnv } from "../lib/env";
+
+// Validate required environment variables (fail fast)
+validateEnv();
+
+console.log("[Environment] Configuration loaded for development (redacted)");
+
 // Now safe to import modules that depend on env vars
 import express from "express";
 import cors from "cors";

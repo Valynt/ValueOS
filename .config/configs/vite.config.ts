@@ -38,7 +38,7 @@ export default defineConfig({
     // This eliminates hostname issues in Gitpod/Codespaces environments
     proxy: {
       "/api": {
-        target: process.env.VITE_API_BASE_URL || "http://localhost:3001",
+        target: process.env.VITE_API_BASE_URL || "http://127.0.0.1:3001",
         changeOrigin: true,
         secure: false,
         configure: (proxy) => {
@@ -51,7 +51,7 @@ export default defineConfig({
         },
       },
       "/auth/callback": {
-        target: process.env.VITE_SUPABASE_URL || "http://localhost:54321",
+        target: process.env.VITE_SUPABASE_URL || "http://127.0.0.1:54321",
         changeOrigin: true,
         secure: false,
       },
