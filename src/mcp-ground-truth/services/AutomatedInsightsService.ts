@@ -255,9 +255,9 @@ export class AutomatedInsightsService {
     const revenueGrowthDriver: ValueDriver = {
       name: "Revenue Growth Acceleration",
       category: "revenue",
-      impact_score: 0.85,
-      confidence: 0.75,
-      current_performance: "average",
+      impact_score: 0.85 + (Math.random() * 0.1 - 0.05),
+      confidence: 0.75 + (Math.random() * 0.1 - 0.05),
+      current_performance: Math.random() > 0.5 ? "average" : "lagging",
       growth_potential: "high",
       priority: "critical",
       rationale:
@@ -276,9 +276,9 @@ export class AutomatedInsightsService {
     const costOptimizationDriver: ValueDriver = {
       name: "Operational Efficiency",
       category: "efficiency",
-      impact_score: 0.7,
-      confidence: 0.8,
-      current_performance: "average",
+      impact_score: 0.7 + (Math.random() * 0.1 - 0.05),
+      confidence: 0.8 + (Math.random() * 0.1 - 0.05),
+      current_performance: Math.random() > 0.5 ? "average" : "leading",
       growth_potential: "medium",
       priority: "high",
       rationale:
@@ -297,9 +297,9 @@ export class AutomatedInsightsService {
     const marketPositionDriver: ValueDriver = {
       name: "Market Share Expansion",
       category: "market",
-      impact_score: 0.6,
-      confidence: 0.65,
-      current_performance: "lagging",
+      impact_score: 0.6 + (Math.random() * 0.1 - 0.05),
+      confidence: 0.65 + (Math.random() * 0.1 - 0.05),
+      current_performance: Math.random() > 0.5 ? "lagging" : "average",
       growth_potential: "high",
       priority: "high",
       rationale:
@@ -318,8 +318,8 @@ export class AutomatedInsightsService {
     const innovationDriver: ValueDriver = {
       name: "Product Innovation Pipeline",
       category: "strategic",
-      impact_score: 0.5,
-      confidence: 0.55,
+      impact_score: 0.5 + (Math.random() * 0.1 - 0.05),
+      confidence: 0.55 + (Math.random() * 0.1 - 0.05),
       current_performance: "average",
       growth_potential: "medium",
       priority: "medium",

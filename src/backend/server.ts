@@ -3,10 +3,19 @@
  * Minimal Express server for secure billing operations
  */
 
-import "dotenv/config";
+// CRITICAL: Load environment variables FIRST before any other imports
 import dotenv from "dotenv";
 import path from "path";
-dotenv.config({ path: path.join(process.cwd(), ".env.local") });
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, "../..");
+
+// Load .env.local from project root
+dotenv.config({ path: path.join(projectRoot, ".env.local") });
+
+// Now safe to import modules that depend on env vars
 import express from "express";
 import cors from "cors";
 import { createServer, type IncomingMessage } from "http";

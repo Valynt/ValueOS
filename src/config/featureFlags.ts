@@ -51,6 +51,13 @@ export interface FeatureFlags {
 
   /** Enable asynchronous agent execution (prevents blocking requests) */
   ENABLE_ASYNC_AGENT_EXECUTION: boolean;
+
+  /**
+   * Disable access to legacy 'business_cases' table
+   * When enabled: Services will NOT fallback to business_cases
+   * When disabled: Services maintain backward compatibility
+   */
+  DISABLE_LEGACY_BUSINESS_CASES: boolean;
 }
 
 /**

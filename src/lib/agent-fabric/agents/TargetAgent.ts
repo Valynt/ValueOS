@@ -16,13 +16,17 @@
 
 import { BaseAgent } from "./BaseAgent";
 import { ModelService } from "../../../services/ModelService";
-import { getCausalTruthService, CausalTruthService } from "../../../services/CausalTruthService";
+import {
+  getCausalTruthService,
+  CausalTruthService,
+} from "../../../services/CausalTruthService";
 import {
   getAdvancedCausalEngine,
   AdvancedCausalEngine,
 } from "../../../services/reasoning/AdvancedCausalEngine";
 import { z } from "zod";
 import { logger } from "../../../lib/logger";
+import { DEFAULT_AGENT_FABRIC_CONFIG } from "../../../config/agentFabric";
 import type {
   ROIModel,
   TargetAgentInput,
@@ -56,7 +60,10 @@ export class TargetAgent extends BaseAgent {
     }
   }
 
-  async execute(sessionId: string, input: TargetAgentInput): Promise<TargetAgentOutput> {
+  async execute(
+    sessionId: string,
+    input: TargetAgentInput
+  ): Promise<TargetAgentOutput> {
     const startTime = Date.now();
 
     const objectivesText = JSON.stringify(input.businessObjectives, null, 2);
@@ -198,16 +205,29 @@ Return ONLY valid JSON in this exact format:
       hallucination_check: z.boolean().optional(),
     });
 
-    const secureResult = await this.secureInvoke(sessionId, prompt, targetSchema, {
-      trackPrediction: true,
-      confidenceThresholds: { minimum: 0.6, acceptable: 0.85, review_required: 0.7 },
-      context: {
-        agent: "TargetAgent",
-      },
-    });
+    const secureResult = await this.secureInvoke(
+      sessionId,
+      prompt,
+      targetSchema,
+      {
+        trackPrediction: true,
+        confidenceThresholds: {
+          minimum: 0.6,
+          acceptable: 0.85,
+          review_required: 0.7,
+        },
+        context: {
+          agent: "TargetAgent",
+        },
+      }
+    );
 
     const parsed = secureResult.result;
-    const response = { content: JSON.stringify(parsed), tokens_used: 0, model: "gpt-4" };
+    const response = {
+      content: JSON.stringify(parsed),
+      tokens_used: 0,
+      model: "gpt-4",
+    };
 
     const valueTree: Omit<ValueTree, "id" | "created_at" | "updated_at"> = {
       value_case_id: input.valueCaseId,
@@ -218,7 +238,10 @@ Return ONLY valid JSON in this exact format:
       is_published: false,
     };
 
-    const roiModel: Omit<ROIModel, "id" | "value_tree_id" | "created_at" | "updated_at"> = {
+    const roiModel: Omit<
+      ROIModel,
+      "id" | "value_tree_id" | "created_at" | "updated_at"
+    > = {
       organization_id: this.organizationId || "",
       financial_model_id: undefined,
       name: parsed.roi_model.name,
@@ -233,7 +256,10 @@ Return ONLY valid JSON in this exact format:
       ),
     };
 
-    const valueCommit: Omit<ValueCommit, "id" | "value_tree_id" | "created_at"> = {
+    const valueCommit: Omit<
+      ValueCommit,
+      "id" | "value_tree_id" | "created_at"
+    > = {
       value_case_id: input.valueCaseId,
       committed_by: undefined,
       committed_by_name: undefined,
@@ -246,10 +272,25 @@ Return ONLY valid JSON in this exact format:
 
     const durationMs = Date.now() - startTime;
 
-    await this.logMetric(sessionId, "tokens_used", response.tokens_used, "tokens");
+    await this.logMetric(
+      sessionId,
+      "tokens_used",
+      response.tokens_used,
+      "tokens"
+    );
     await this.logMetric(sessionId, "latency_ms", durationMs, "ms");
-    await this.logMetric(sessionId, "value_tree_nodes", parsed.value_tree.nodes.length, "count");
-    await this.logMetric(sessionId, "kpi_targets", parsed.kpi_targets.length, "count");
+    await this.logMetric(
+      sessionId,
+      "value_tree_nodes",
+      parsed.value_tree.nodes.length,
+      "count"
+    );
+    await this.logMetric(
+      sessionId,
+      "kpi_targets",
+      parsed.kpi_targets.length,
+      "count"
+    );
     await this.logPerformanceMetric(sessionId, "target_execute", durationMs, {
       nodes: parsed.value_tree.nodes.length,
       kpi_targets: parsed.kpi_targets.length,
@@ -317,7 +358,9 @@ Return ONLY valid JSON in this exact format:
     valueCommitId: string;
   }> {
     if (!this.organizationId || !this.userId) {
-      throw new Error("Agent is missing required user and organization context.");
+      throw new Error(
+        "Agent is missing required user and organization context."
+      );
     }
 
     const context = {
@@ -343,16 +386,25 @@ Return ONLY valid JSON in this exact format:
   /**
    * Ground ROI assumptions in causal evidence
    */
-  private async groundROIAssumptions(assumptions: any[], capabilities: any[]): Promise<any[]> {
+  private async groundROIAssumptions(
+    assumptions: any[],
+    capabilities: any[]
+  ): Promise<any[]> {
     const groundedAssumptions = [];
 
     for (const assumption of assumptions) {
       try {
         // Find causal evidence for this assumption
-        const causalEvidence = await this.findCausalEvidenceForAssumption(assumption, capabilities);
+        const causalEvidence = await this.findCausalEvidenceForAssumption(
+          assumption,
+          capabilities
+        );
 
         // Calculate risk-adjusted assumption
-        const riskAdjusted = await this.calculateRiskAdjustedAssumption(assumption, causalEvidence);
+        const riskAdjusted = await this.calculateRiskAdjustedAssumption(
+          assumption,
+          causalEvidence
+        );
 
         // Add provenance tracking
         const groundedAssumption = {
@@ -361,7 +413,9 @@ Return ONLY valid JSON in this exact format:
             action: evidence.action,
             targetKpi: evidence.targetKpi,
             confidence: evidence.confidence,
-            evidenceSources: evidence.evidence.map((src: any) => src.source_name),
+            evidenceSources: evidence.evidence.map(
+              (src: any) => src.source_name
+            ),
             methodology: evidence.methodology,
           })),
           riskAdjustment: riskAdjusted,
@@ -410,15 +464,13 @@ Return ONLY valid JSON in this exact format:
       // Calculate evidence-based confidence
       const avgEvidenceConfidence =
         allEvidence.length > 0
-          ? allEvidence.reduce((sum, e) => sum + e.confidence, 0) / allEvidence.length
+          ? allEvidence.reduce((sum, e) => sum + e.confidence, 0) /
+            allEvidence.length
           : 0.5;
 
       // Map confidence levels
-      const confidenceMap: Record<ConfidenceLevel, number> = {
-        low: 0.4,
-        medium: 0.6,
-        high: 0.8,
-      };
+      const confidenceMap: Record<ConfidenceLevel, number> =
+        DEFAULT_AGENT_FABRIC_CONFIG.confidenceThresholds.levels;
 
       const originalNumeric = confidenceMap[originalConfidence] || 0.5;
 
@@ -426,9 +478,12 @@ Return ONLY valid JSON in this exact format:
       const adjustedConfidence = (originalNumeric + avgEvidenceConfidence) / 2;
 
       // Convert back to confidence level
-      if (adjustedConfidence >= 0.85) return "high";
-      if (adjustedConfidence >= 0.7) return "high";
-      if (adjustedConfidence >= 0.5) return "medium";
+      const { acceptable, reviewRequired } =
+        DEFAULT_AGENT_FABRIC_CONFIG.confidenceThresholds.validation;
+
+      if (adjustedConfidence >= acceptable) return "high";
+      if (adjustedConfidence >= reviewRequired) return "high";
+      if (adjustedConfidence >= 0.5) return "medium"; // Keep 0.5 as fallback floor for medium
       return "low";
     } catch (error) {
       logger.warn("Failed to validate ROI confidence", {
@@ -456,14 +511,15 @@ Return ONLY valid JSON in this exact format:
       for (const capability of capabilities) {
         try {
           // Use advanced causal engine for probabilistic inference
-          const inference = await this.advancedCausalEngine.inferCausalRelationship(
-            capability.name,
-            metric,
-            {
-              industry: assumption.context?.industry,
-              companySize: assumption.context?.companySize,
-            }
-          );
+          const inference =
+            await this.advancedCausalEngine.inferCausalRelationship(
+              capability.name,
+              metric,
+              {
+                industry: assumption.context?.industry,
+                companySize: assumption.context?.companySize,
+              }
+            );
 
           if (inference.confidence >= 0.6) {
             evidence.push(inference);
@@ -487,7 +543,10 @@ Return ONLY valid JSON in this exact format:
   /**
    * Calculate risk-adjusted assumption values
    */
-  private async calculateRiskAdjustedAssumption(assumption: any, evidence: any[]): Promise<any> {
+  private async calculateRiskAdjustedAssumption(
+    assumption: any,
+    evidence: any[]
+  ): Promise<any> {
     if (evidence.length === 0) {
       return {
         originalValue: assumption.value,
@@ -498,7 +557,8 @@ Return ONLY valid JSON in this exact format:
     }
 
     // Calculate average confidence from evidence
-    const avgConfidence = evidence.reduce((sum, e) => sum + e.confidence, 0) / evidence.length;
+    const avgConfidence =
+      evidence.reduce((sum, e) => sum + e.confidence, 0) / evidence.length;
 
     // Calculate confidence adjustment
     const confidenceAdjustment = (avgConfidence - 0.5) * 0.4; // Max 20% adjustment
@@ -529,7 +589,11 @@ Return ONLY valid JSON in this exact format:
    */
   private extractMetricsFromAssumption(assumption: any): string[] {
     const metrics = [];
-    const text = (assumption.description || assumption.name || "").toLowerCase();
+    const text = (
+      assumption.description ||
+      assumption.name ||
+      ""
+    ).toLowerCase();
 
     // Common business metrics
     const metricPatterns = [
@@ -580,7 +644,10 @@ Return ONLY valid JSON in this exact format:
         const scenarioRoi = await this.calculateScenarioROI(adjustedModel);
 
         // Assess scenario risk
-        const riskAssessment = await this.assessScenarioRisk(scenario, adjustedModel);
+        const riskAssessment = await this.assessScenarioRisk(
+          scenario,
+          adjustedModel
+        );
 
         results.push({
           scenario: scenario.name,
@@ -608,7 +675,9 @@ Return ONLY valid JSON in this exact format:
 
     // Apply scenario adjustments to assumptions
     for (const [key, value] of Object.entries(scenario.assumptions)) {
-      const assumption = adjustedModel.assumptions.find((a: any) => a.name === key);
+      const assumption = adjustedModel.assumptions.find(
+        (a: any) => a.name === key
+      );
       if (assumption) {
         assumption.value = value;
       }
@@ -633,7 +702,8 @@ Return ONLY valid JSON in this exact format:
       }
     }
 
-    const roi = totalCosts > 0 ? ((totalBenefits - totalCosts) / totalCosts) * 100 : 0;
+    const roi =
+      totalCosts > 0 ? ((totalBenefits - totalCosts) / totalCosts) * 100 : 0;
 
     return {
       totalBenefits,
@@ -654,7 +724,10 @@ Return ONLY valid JSON in this exact format:
     for (const assumption of model.assumptions) {
       try {
         // Check causal evidence for assumption
-        const evidence = await this.findCausalEvidenceForAssumption(assumption, []);
+        const evidence = await this.findCausalEvidenceForAssumption(
+          assumption,
+          []
+        );
 
         if (evidence.length === 0) {
           riskFactors.push({
@@ -685,12 +758,15 @@ Return ONLY valid JSON in this exact format:
     overallRisk = Math.min(1, overallRisk / model.assumptions.length);
 
     // Adjust risk based on scenario probability - lower probability scenarios are riskier
-    const probabilityAdjustment = scenario.probability ? 1 - scenario.probability : 0.5;
+    const probabilityAdjustment = scenario.probability
+      ? 1 - scenario.probability
+      : 0.5;
     overallRisk = Math.min(1, overallRisk + probabilityAdjustment);
 
     return {
       overallRisk,
-      riskLevel: overallRisk >= 0.7 ? "high" : overallRisk >= 0.4 ? "medium" : "low",
+      riskLevel:
+        overallRisk >= 0.7 ? "high" : overallRisk >= 0.4 ? "medium" : "low",
       riskFactors,
     };
   }

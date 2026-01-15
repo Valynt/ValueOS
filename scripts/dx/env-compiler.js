@@ -75,7 +75,7 @@ function getUrlConfig(mode, ports) {
     // Backend URLs (localhost)
     API_UPSTREAM: `http://localhost:${backendPort}`,
     FRONTEND_UPSTREAM: `http://localhost:${frontendPort}`,
-    DATABASE_URL: `postgresql://postgres:postgres@localhost:5432/postgres`,
+    DATABASE_URL: `postgresql://postgres:postgres@localhost:54322/postgres`,
     REDIS_URL: "redis://localhost:6379",
   };
 }
