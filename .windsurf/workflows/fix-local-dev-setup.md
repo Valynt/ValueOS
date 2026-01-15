@@ -1,3 +1,7 @@
+---
+description: Fix local development setup issues in ValueOS
+---
+
 # Fix Local Development Setup
 
 This plan resolves the local development environment issues to enable working login functionality.
