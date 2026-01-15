@@ -1,3 +1,7 @@
+---
+description: Verify local development environment setup in ValueOS
+---
+
 # ValueOS Local Development Verification Checklist
 
 ## Prerequisites
