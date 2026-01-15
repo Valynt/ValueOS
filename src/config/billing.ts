@@ -5,9 +5,12 @@
  */
 
 const env =
-  typeof import.meta !== "undefined" ? ((import.meta as any).env ?? {}) : (process.env ?? {});
+  typeof import.meta !== "undefined"
+    ? ((import.meta as any).env ?? {})
+    : (process.env ?? {});
 
-const getEnv = (key: string, defaultValue: string = "") => (env[key] ?? defaultValue) as string;
+const getEnv = (key: string, defaultValue: string = "") =>
+  (env[key] ?? defaultValue) as string;
 
 export type BillingMetric =
   | "llm_tokens"
@@ -16,6 +19,17 @@ export type BillingMetric =
   | "storage_gb"
   | "user_seats";
 export type PlanTier = "free" | "standard" | "enterprise";
+
+/**
+ * All billing metrics as an array (single source of truth)
+ */
+export const BILLING_METRICS: BillingMetric[] = [
+  "llm_tokens",
+  "agent_executions",
+  "api_calls",
+  "storage_gb",
+  "user_seats",
+];
 
 /**
  * Plan configuration
@@ -276,7 +290,11 @@ export function getOverageRate(tier: PlanTier, metric: BillingMetric): number {
 /**
  * Calculate overage cost
  */
-export function calculateOverageCost(tier: PlanTier, metric: BillingMetric, usage: number): number {
+export function calculateOverageCost(
+  tier: PlanTier,
+  metric: BillingMetric,
+  usage: number
+): number {
   const quota = getQuota(tier, metric);
   const overageAmount = Math.max(0, usage - quota);
   const rate = getOverageRate(tier, metric);
@@ -301,13 +319,20 @@ export function calculateMonthlyCost(
 
   const overageCosts: Record<BillingMetric, number> = {
     llm_tokens: calculateOverageCost(tier, "llm_tokens", usage.llm_tokens),
-    agent_executions: calculateOverageCost(tier, "agent_executions", usage.agent_executions),
+    agent_executions: calculateOverageCost(
+      tier,
+      "agent_executions",
+      usage.agent_executions
+    ),
     api_calls: calculateOverageCost(tier, "api_calls", usage.api_calls),
     storage_gb: calculateOverageCost(tier, "storage_gb", usage.storage_gb),
     user_seats: calculateOverageCost(tier, "user_seats", usage.user_seats),
   };
 
-  const totalOverage = Object.values(overageCosts).reduce((sum, cost) => sum + cost, 0);
+  const totalOverage = Object.values(overageCosts).reduce(
+    (sum, cost) => sum + cost,
+    0
+  );
   const totalCost = baseCost + totalOverage;
 
   return {
@@ -336,7 +361,10 @@ export function formatMetricName(metric: BillingMetric): string {
 /**
  * Format usage amount with units
  */
-export function formatUsageAmount(metric: BillingMetric, amount: number): string {
+export function formatUsageAmount(
+  metric: BillingMetric,
+  amount: number
+): string {
   const formats: Record<BillingMetric, (n: number) => string> = {
     llm_tokens: (n) => `${n.toLocaleString()} tokens`,
     agent_executions: (n) => `${n.toLocaleString()} executions`,

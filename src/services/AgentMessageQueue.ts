@@ -7,6 +7,7 @@ import {
   getServiceConfigManager,
   getAgentMessageQueueConfig,
 } from "../config/ServiceConfigManager";
+import { registerShutdownHandler } from "../lib/shutdown/gracefulShutdown";
 
 export interface AgentInvocationJob {
   agent: AgentType;
@@ -154,8 +155,10 @@ export class AgentMessageQueue {
    */
   async waitForJobCompletion(
     jobId: string,
-    timeoutMs: number = 30000
+    timeoutMs?: number
   ): Promise<AgentInvocationResult> {
+    const config = getAgentMessageQueueConfig();
+    const effectiveTimeout = timeoutMs ?? config.timeout;
     const job = await this.queue.getJob(jobId);
     if (!job) {
       throw new Error(`Job ${jobId} not found`);
@@ -167,7 +170,10 @@ export class AgentMessageQueue {
         // @ts-ignore - BullMQ types may not include finished getter
         job.finished,
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error(`Job ${jobId} timeout`)), timeoutMs)
+          setTimeout(
+            () => reject(new Error(`Job ${jobId} timeout`)),
+            effectiveTimeout
+          )
         ),
       ]);
 
@@ -175,7 +181,7 @@ export class AgentMessageQueue {
     } catch (error) {
       if (error instanceof Error && error.message.includes("timeout")) {
         throw new Error(
-          `Job ${jobId} did not complete within ${timeoutMs}ms timeout`
+          `Job ${jobId} did not complete within ${effectiveTimeout}ms timeout`
         );
       }
       throw error;
@@ -338,6 +344,16 @@ let agentMessageQueue: AgentMessageQueue | null = null;
 export function getAgentMessageQueue(redisUrl?: string): AgentMessageQueue {
   if (!agentMessageQueue) {
     agentMessageQueue = new AgentMessageQueue(redisUrl);
+    // Register with graceful shutdown manager
+    registerShutdownHandler(
+      "AgentMessageQueue",
+      async () => {
+        if (agentMessageQueue) {
+          await agentMessageQueue.shutdown();
+        }
+      },
+      10 // Medium priority - after consumers, before producers
+    );
   }
   return agentMessageQueue;
 }

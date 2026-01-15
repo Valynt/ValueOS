@@ -229,14 +229,16 @@ export class EventSourcingService {
           throw error;
         }
       } else {
-        // Update existing projection
+        // Update existing projection with optimistic locking
         const updatedData = updateFunction(projection.data, event as Event);
+        const previousVersion = projection.version;
         projection.data = updatedData;
         projection.version += 1;
         projection.last_event_id = event.eventId;
         projection.last_updated = new Date();
 
-        const { error } = await this.supabase
+        // Use version-based optimistic locking to prevent race conditions
+        const { data: updateResult, error } = await this.supabase
           .from("projections")
           .update({
             data: projection.data,
@@ -244,7 +246,27 @@ export class EventSourcingService {
             last_event_id: projection.last_event_id,
             last_updated: projection.last_updated,
           })
-          .eq("id", projection.id);
+          .eq("id", projection.id)
+          .eq("version", previousVersion) // Only update if version matches (optimistic lock)
+          .select();
+
+        // Check if update succeeded (row was modified)
+        if (!error && (!updateResult || updateResult.length === 0)) {
+          // Version mismatch - another process updated the projection
+          logger.warn("Projection update conflict detected, retrying", {
+            projectionType,
+            projectionKey,
+            expectedVersion: previousVersion,
+          });
+          // Invalidate cache and retry
+          this.projections.get(projectionType)?.delete(projectionKey);
+          return this.updateProjection(
+            projectionType,
+            projectionKey,
+            event,
+            updateFunction
+          );
+        }
 
         if (error) {
           logger.error("Failed to update projection", error, {

@@ -7,7 +7,8 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import StripeService from "./StripeService";
 import CustomerService from "./CustomerService";
-import { BillingMetric, PLANS, PlanTier } from "../../config/billing";
+import { BILLING_METRICS, PLANS, PlanTier } from "../../config/billing";
+import type { BillingMetric } from "../../config/billing";
 import { Subscription, SubscriptionItem } from "../../types/billing";
 import { createLogger } from "../../lib/logger";
 
@@ -66,18 +67,12 @@ class SubscriptionService {
         throw new Error("Customer not found. Create customer first.");
       }
 
-      // Check if subscription already exists
-      const existing = await this.getActiveSubscription(tenantId);
-      if (existing) {
-        throw new Error("Active subscription already exists");
-      }
-
       const plan = PLANS[planTier];
 
       // Build subscription items for all metrics
       const items = this.buildSubscriptionItems(planTier);
 
-      // Create subscription in Stripe
+      // Create subscription in Stripe first
       const stripeSubscription = await this.stripe.subscriptions.create({
         customer: customer.stripe_customer_id,
         items,
@@ -88,39 +83,84 @@ class SubscriptionService {
         },
       });
 
-      // Store in database
-      const { data: subscription, error } = await supabase
-        .from("subscriptions")
-        .insert({
-          billing_customer_id: customer.id,
-          tenant_id: tenantId,
-          stripe_subscription_id: stripeSubscription.id,
-          stripe_customer_id: customer.stripe_customer_id,
-          plan_tier: planTier,
-          billing_period: plan.billingPeriod,
-          status: stripeSubscription.status,
-          current_period_start: new Date(
-            stripeSubscription.current_period_start * UNIX_TIMESTAMP_MULTIPLIER
-          ).toISOString(),
-          current_period_end: new Date(
-            stripeSubscription.current_period_end * UNIX_TIMESTAMP_MULTIPLIER
-          ).toISOString(),
-          trial_start: stripeSubscription.trial_start
-            ? new Date(stripeSubscription.trial_start * UNIX_TIMESTAMP_MULTIPLIER).toISOString()
-            : null,
-          trial_end: stripeSubscription.trial_end
-            ? new Date(stripeSubscription.trial_end * UNIX_TIMESTAMP_MULTIPLIER).toISOString()
-            : null,
-          amount: plan.price,
-          currency: "usd",
-        })
-        .select()
-        .single();
+      // Store in database with unique constraint on tenant_id for active subscriptions
+      // Using upsert-like pattern: insert will fail if active subscription exists (DB constraint)
+      let subscription: Subscription;
+      try {
+        const { data, error } = await supabase
+          .from("subscriptions")
+          .insert({
+            billing_customer_id: customer.id,
+            tenant_id: tenantId,
+            stripe_subscription_id: stripeSubscription.id,
+            stripe_customer_id: customer.stripe_customer_id,
+            plan_tier: planTier,
+            billing_period: plan.billingPeriod,
+            status: stripeSubscription.status,
+            current_period_start: new Date(
+              stripeSubscription.current_period_start *
+                UNIX_TIMESTAMP_MULTIPLIER
+            ).toISOString(),
+            current_period_end: new Date(
+              stripeSubscription.current_period_end * UNIX_TIMESTAMP_MULTIPLIER
+            ).toISOString(),
+            trial_start: stripeSubscription.trial_start
+              ? new Date(
+                  stripeSubscription.trial_start * UNIX_TIMESTAMP_MULTIPLIER
+                ).toISOString()
+              : null,
+            trial_end: stripeSubscription.trial_end
+              ? new Date(
+                  stripeSubscription.trial_end * UNIX_TIMESTAMP_MULTIPLIER
+                ).toISOString()
+              : null,
+            amount: plan.price,
+            currency: "usd",
+          })
+          .select()
+          .single();
 
-      if (error) throw error;
+        if (error) {
+          // Check for unique constraint violation (duplicate active subscription)
+          if (error.code === "23505") {
+            throw new Error("Active subscription already exists");
+          }
+          throw error;
+        }
+        subscription = data;
+      } catch (dbError) {
+        // Rollback: Cancel the Stripe subscription since DB insert failed
+        logger.error(
+          "DB insert failed, rolling back Stripe subscription",
+          dbError as Error,
+          {
+            tenantId,
+            stripeSubscriptionId: stripeSubscription.id,
+          }
+        );
+        try {
+          await this.stripe!.subscriptions.cancel(stripeSubscription.id);
+          logger.info("Stripe subscription rolled back", {
+            stripeSubscriptionId: stripeSubscription.id,
+          });
+        } catch (rollbackError) {
+          logger.error(
+            "Failed to rollback Stripe subscription",
+            rollbackError as Error,
+            {
+              stripeSubscriptionId: stripeSubscription.id,
+            }
+          );
+        }
+        throw dbError;
+      }
 
       // Store subscription items
-      await this.storeSubscriptionItems(subscription.id, stripeSubscription.items.data, planTier);
+      await this.storeSubscriptionItems(
+        subscription.id,
+        stripeSubscription.items.data,
+        planTier
+      );
 
       // Initialize usage quotas
       await this.initializeUsageQuotas(tenantId, subscription.id, planTier);
@@ -139,19 +179,13 @@ class SubscriptionService {
   /**
    * Build subscription items for Stripe
    */
-  private buildSubscriptionItems(planTier: PlanTier): Stripe.SubscriptionCreateParams.Item[] {
+  private buildSubscriptionItems(
+    planTier: PlanTier
+  ): Stripe.SubscriptionCreateParams.Item[] {
     const plan = PLANS[planTier];
     const items: Stripe.SubscriptionCreateParams.Item[] = [];
 
-    const metrics: BillingMetric[] = [
-      "llm_tokens",
-      "agent_executions",
-      "api_calls",
-      "storage_gb",
-      "user_seats",
-    ];
-
-    metrics.forEach((metric) => {
+    BILLING_METRICS.forEach((metric) => {
       const priceId = plan.stripePriceIds?.[metric];
       if (priceId) {
         items.push({ price: priceId });
@@ -183,7 +217,8 @@ class SubscriptionService {
         unit_amount: item.price.unit_amount || 0,
         currency: item.price.currency,
         usage_type: "metered",
-        aggregation: metric === "storage_gb" || metric === "user_seats" ? "max" : "sum",
+        aggregation:
+          metric === "storage_gb" || metric === "user_seats" ? "max" : "sum",
         included_quantity: plan.quotas[metric],
       };
     });
@@ -196,7 +231,10 @@ class SubscriptionService {
   /**
    * Get metric from Stripe price ID
    */
-  private getMetricFromPriceId(priceId: string, planTier: PlanTier): BillingMetric {
+  private getMetricFromPriceId(
+    priceId: string,
+    planTier: PlanTier
+  ): BillingMetric {
     const plan = PLANS[planTier];
     const priceIds = plan.stripePriceIds || {};
 
@@ -222,15 +260,7 @@ class SubscriptionService {
     const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-    const metrics: BillingMetric[] = [
-      "llm_tokens",
-      "agent_executions",
-      "api_calls",
-      "storage_gb",
-      "user_seats",
-    ];
-
-    const quotas = metrics.map((metric) => ({
+    const quotas = BILLING_METRICS.map((metric) => ({
       tenant_id: tenantId,
       subscription_id: subscriptionId,
       metric,
@@ -270,22 +300,31 @@ class SubscriptionService {
   /**
    * Update subscription (upgrade/downgrade) with transaction safety
    */
-  async updateSubscription(tenantId: string, newPlanTier: PlanTier): Promise<Subscription> {
+  async updateSubscription(
+    tenantId: string,
+    newPlanTier: PlanTier
+  ): Promise<Subscription> {
     try {
-      logger.info("Updating subscription with transaction safety", { tenantId, newPlanTier });
+      logger.info("Updating subscription with transaction safety", {
+        tenantId,
+        newPlanTier,
+      });
 
       if (!this.stripe) {
         throw new Error("Stripe service not available");
       }
 
       // Use transactional service for atomic updates
-      const TransactionalService = (await import("./SubscriptionService.transaction")).default;
+      const TransactionalService = (
+        await import("./SubscriptionService.transaction")
+      ).default;
       const transactionalService = new TransactionalService(this.stripe);
 
-      const result = await transactionalService.updateSubscriptionWithTransaction(
-        tenantId,
-        newPlanTier
-      );
+      const result =
+        await transactionalService.updateSubscriptionWithTransaction(
+          tenantId,
+          newPlanTier
+        );
       return result as Subscription;
     } catch (error) {
       return this.stripeService.handleError(error, "updateSubscription");
@@ -296,7 +335,10 @@ class SubscriptionService {
    * Legacy update subscription method (deprecated - use updateSubscription instead)
    * @deprecated Use updateSubscription for transaction safety
    */
-  async updateSubscriptionLegacy(tenantId: string, newPlanTier: PlanTier): Promise<Subscription> {
+  async updateSubscriptionLegacy(
+    tenantId: string,
+    newPlanTier: PlanTier
+  ): Promise<Subscription> {
     try {
       const subscription = await this.getActiveSubscription(tenantId);
       if (!subscription) {
@@ -314,14 +356,22 @@ class SubscriptionService {
       // Update each item to new price
       const newPlan = PLANS[newPlanTier];
       const updatePromises =
-        items?.map(async (item: { metric: string; stripe_subscription_item_id: string }) => {
-          const newPriceId = newPlan.stripePriceIds?.[item.metric];
-          if (newPriceId) {
-            await this.stripe.subscriptionItems.update(item.stripe_subscription_item_id, {
-              price: newPriceId,
-            });
+        items?.map(
+          async (item: {
+            metric: string;
+            stripe_subscription_item_id: string;
+          }) => {
+            const newPriceId = newPlan.stripePriceIds?.[item.metric];
+            if (newPriceId) {
+              await this.stripe.subscriptionItems.update(
+                item.stripe_subscription_item_id,
+                {
+                  price: newPriceId,
+                }
+              );
+            }
           }
-        }) || [];
+        ) || [];
 
       await Promise.all(updatePromises);
 
@@ -353,17 +403,13 @@ class SubscriptionService {
   /**
    * Update usage quotas after plan change
    */
-  private async updateUsageQuotas(tenantId: string, planTier: PlanTier): Promise<void> {
+  private async updateUsageQuotas(
+    tenantId: string,
+    planTier: PlanTier
+  ): Promise<void> {
     const plan = PLANS[planTier];
-    const metrics: BillingMetric[] = [
-      "llm_tokens",
-      "agent_executions",
-      "api_calls",
-      "storage_gb",
-      "user_seats",
-    ];
 
-    const updates = metrics.map((metric) =>
+    const updates = BILLING_METRICS.map((metric) =>
       supabase
         .from("usage_quotas")
         .update({
@@ -380,7 +426,10 @@ class SubscriptionService {
   /**
    * Cancel subscription
    */
-  async cancelSubscription(tenantId: string, immediately: boolean = false): Promise<Subscription> {
+  async cancelSubscription(
+    tenantId: string,
+    immediately: boolean = false
+  ): Promise<Subscription> {
     try {
       const subscription = await this.getActiveSubscription(tenantId);
       if (!subscription) {
@@ -391,10 +440,15 @@ class SubscriptionService {
 
       // Cancel in Stripe
       const _stripeSubscription = immediately
-        ? await this.stripe.subscriptions.cancel(subscription.stripe_subscription_id)
-        : await this.stripe.subscriptions.update(subscription.stripe_subscription_id, {
-            cancel_at_period_end: true,
-          });
+        ? await this.stripe.subscriptions.cancel(
+            subscription.stripe_subscription_id
+          )
+        : await this.stripe.subscriptions.update(
+            subscription.stripe_subscription_id,
+            {
+              cancel_at_period_end: true,
+            }
+          );
 
       // Update in database
       const { data, error } = await supabase
@@ -402,10 +456,14 @@ class SubscriptionService {
         .update({
           status: _stripeSubscription.status,
           canceled_at: _stripeSubscription.canceled_at
-            ? new Date(_stripeSubscription.canceled_at * UNIX_TIMESTAMP_MULTIPLIER).toISOString()
+            ? new Date(
+                _stripeSubscription.canceled_at * UNIX_TIMESTAMP_MULTIPLIER
+              ).toISOString()
             : null,
           ended_at: _stripeSubscription.ended_at
-            ? new Date(_stripeSubscription.ended_at * UNIX_TIMESTAMP_MULTIPLIER).toISOString()
+            ? new Date(
+                _stripeSubscription.ended_at * UNIX_TIMESTAMP_MULTIPLIER
+              ).toISOString()
             : null,
           updated_at: new Date().toISOString(),
         })
@@ -426,7 +484,9 @@ class SubscriptionService {
   /**
    * Get subscription items
    */
-  async getSubscriptionItems(subscriptionId: string): Promise<SubscriptionItem[]> {
+  async getSubscriptionItems(
+    subscriptionId: string
+  ): Promise<SubscriptionItem[]> {
     const { data, error } = await supabase
       .from("subscription_items")
       .select("*")
@@ -485,32 +545,41 @@ class SubscriptionService {
       const prorationPreview = await this.stripe.invoices.retrieveUpcoming({
         customer: customer.stripe_customer_id,
         subscription: currentSubscription.stripe_subscription_id,
-        subscription_items: this.buildSubscriptionItems(newPlanTier).map((item) => ({
-          id: item.price, // Use the price ID for matching existing items
-          price: item.price,
-        })),
+        subscription_items: this.buildSubscriptionItems(newPlanTier).map(
+          (item) => ({
+            id: item.price, // Use the price ID for matching existing items
+            price: item.price,
+          })
+        ),
       });
 
       // Build changes array
-      const changes = Object.entries(newPlanConfig.quotas).map(([metric, newQuota]) => {
-        const currentQuota = currentPlanConfig.quotas[metric as BillingMetric] || 0;
-        const currentPrice = currentPlanConfig.overageRates[metric as BillingMetric] || 0;
-        const newPrice = newPlanConfig.overageRates[metric as BillingMetric] || 0;
+      const changes = Object.entries(newPlanConfig.quotas).map(
+        ([metric, newQuota]) => {
+          const currentQuota =
+            currentPlanConfig.quotas[metric as BillingMetric] || 0;
+          const currentPrice =
+            currentPlanConfig.overageRates[metric as BillingMetric] || 0;
+          const newPrice =
+            newPlanConfig.overageRates[metric as BillingMetric] || 0;
 
-        return {
-          metric,
-          currentQuota,
-          newQuota: newQuota as number,
-          currentPrice,
-          newPrice,
-        };
-      });
+          return {
+            metric,
+            currentQuota,
+            newQuota: newQuota as number,
+            currentPrice,
+            newPrice,
+          };
+        }
+      );
 
       return {
         currentPlan,
         newPlan: newPlanTier,
-        proratedAmount: (prorationPreview.amount_due || 0) / STRIPE_CENTS_PER_DOLLAR, // Convert cents to dollars
-        nextInvoiceAmount: (prorationPreview.amount_due || 0) / STRIPE_CENTS_PER_DOLLAR, // This should be the full amount for next period
+        proratedAmount:
+          (prorationPreview.amount_due || 0) / STRIPE_CENTS_PER_DOLLAR, // Convert cents to dollars
+        nextInvoiceAmount:
+          (prorationPreview.amount_due || 0) / STRIPE_CENTS_PER_DOLLAR, // This should be the full amount for next period
         effectiveDate: new Date().toISOString(),
         changes,
       };

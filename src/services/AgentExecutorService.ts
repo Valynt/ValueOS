@@ -18,6 +18,7 @@ import {
 } from "../types/events";
 import { AgentType } from "./agent-types";
 import { logger } from "../lib/logger";
+import { registerShutdownHandler } from "../lib/shutdown/gracefulShutdown";
 
 export class AgentExecutorService {
   private consumer: EventConsumer;
@@ -310,6 +311,16 @@ let agentExecutorService: AgentExecutorService | null = null;
 export function getAgentExecutorService(): AgentExecutorService {
   if (!agentExecutorService) {
     agentExecutorService = new AgentExecutorService();
+    // Register with graceful shutdown manager
+    registerShutdownHandler(
+      "AgentExecutorService",
+      async () => {
+        if (agentExecutorService) {
+          await agentExecutorService.stop();
+        }
+      },
+      5 // High priority - stop consuming before other services
+    );
   }
   return agentExecutorService;
 }

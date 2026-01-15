@@ -480,11 +480,12 @@ export class HubSpotModule implements CRMModule {
         logger.info("HubSpot token expired, attempting refresh");
 
         // Attempt to refresh token via the edge function
+        // Note: We use the refresh_token for authentication, not the expired access_token
         const refreshResponse = await fetch("/api/crm-oauth/refresh", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${this.connection.accessToken}`,
+            "X-Refresh-Token": this.connection.refreshToken,
           },
           body: JSON.stringify({
             provider: "hubspot",

@@ -3,24 +3,31 @@
  * Handles Stripe webhook signature verification and event processing
  */
 
-import { createClient } from '@supabase/supabase-js';
-import StripeService from './StripeService';
-import InvoiceService from './InvoiceService';
-import { STRIPE_CONFIG } from '../../config/billing';
-import { createLogger } from '../../lib/logger';
-import { getSupabaseConfig } from '../../lib/env';
-import { recordBillingJobFailure, recordInvoiceEvent, recordStripeWebhook } from '../../metrics/billingMetrics';
+import { createClient } from "@supabase/supabase-js";
+import StripeService from "./StripeService";
+import InvoiceService from "./InvoiceService";
+import { STRIPE_CONFIG } from "../../config/billing";
+import { createLogger } from "../../lib/logger";
+import { getSupabaseConfig } from "../../lib/env";
+import {
+  recordBillingJobFailure,
+  recordInvoiceEvent,
+  recordStripeWebhook,
+} from "../../metrics/billingMetrics";
 
-const logger = createLogger({ component: 'WebhookService' });
+const logger = createLogger({ component: "WebhookService" });
 
-const { url: supabaseUrl, serviceRoleKey: supabaseServiceRoleKey } = getSupabaseConfig();
+const { url: supabaseUrl, serviceRoleKey: supabaseServiceRoleKey } =
+  getSupabaseConfig();
 
 let supabase: any = null;
 
 if (supabaseUrl && supabaseServiceRoleKey) {
   supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 } else {
-  logger.warn('Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing');
+  logger.warn(
+    "Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing"
+  );
 }
 
 class WebhookService {
@@ -31,7 +38,7 @@ class WebhookService {
     try {
       this.stripe = StripeService.getInstance().getClient();
     } catch (_error) {
-      logger.warn('Stripe service not available, billing features disabled');
+      logger.warn("Stripe service not available, billing features disabled");
       this.stripe = null;
     }
   }
@@ -42,7 +49,7 @@ class WebhookService {
   verifySignature(payload: string | Buffer, signature: string): any {
     try {
       if (!STRIPE_CONFIG.webhookSecret) {
-        throw new Error('STRIPE_WEBHOOK_SECRET not configured');
+        throw new Error("STRIPE_WEBHOOK_SECRET not configured");
       }
 
       const event = this.stripe.webhooks.constructEvent(
@@ -53,7 +60,7 @@ class WebhookService {
 
       return event;
     } catch (error: any) {
-      logger.error('Webhook signature verification failed', error);
+      logger.error("Webhook signature verification failed", error);
       throw new Error(`Webhook verification failed: ${error.message}`);
     }
   }
@@ -63,93 +70,93 @@ class WebhookService {
    */
   async processEvent(event: any): Promise<void> {
     if (!supabase) {
-      throw new Error('Supabase billing not configured');
+      throw new Error("Supabase billing not configured");
     }
 
-    // Check if event already processed (idempotency)
-    const { data: existing } = await supabase
-      .from('webhook_events')
-      .select('id')
-      .eq('stripe_event_id', event.id)
+    // Store event with idempotency check using INSERT ... ON CONFLICT
+    // This prevents race conditions where two concurrent requests both pass the check
+    const { data: inserted, error: insertError } = await supabase
+      .from("webhook_events")
+      .upsert(
+        {
+          stripe_event_id: event.id,
+          event_type: event.type,
+          payload: event,
+          processed: false,
+          received_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "stripe_event_id",
+          ignoreDuplicates: true,
+        }
+      )
+      .select("id, processed")
       .single();
 
-    if (existing) {
-      logger.info('Event already processed', { eventId: event.id });
+    // If no row returned or already processed, skip
+    if (!inserted || inserted.processed) {
+      logger.info("Event already processed or duplicate", {
+        eventId: event.id,
+      });
       return;
     }
 
-    // Store event
-    await this.storeWebhookEvent(event);
-
-    logger.info('Processing webhook event', { 
-      eventId: event.id, 
-      type: event.type 
+    logger.info("Processing webhook event", {
+      eventId: event.id,
+      type: event.type,
     });
 
     try {
       switch (event.type) {
-        case 'invoice.created':
-        case 'invoice.finalized':
-        case 'invoice.updated':
+        case "invoice.created":
+        case "invoice.finalized":
+        case "invoice.updated":
           await this.handleInvoiceEvent(event);
           break;
 
-        case 'invoice.payment_succeeded':
+        case "invoice.payment_succeeded":
           await this.handlePaymentSucceeded(event);
           break;
 
-        case 'invoice.payment_failed':
+        case "invoice.payment_failed":
           await this.handlePaymentFailed(event);
           break;
 
-        case 'customer.subscription.created':
-        case 'customer.subscription.updated':
+        case "customer.subscription.created":
+        case "customer.subscription.updated":
           await this.handleSubscriptionUpdated(event);
           break;
 
-        case 'customer.subscription.deleted':
+        case "customer.subscription.deleted":
           await this.handleSubscriptionDeleted(event);
           break;
 
-        case 'charge.succeeded':
+        case "charge.succeeded":
           await this.handleChargeSucceeded(event);
           break;
 
-        case 'charge.failed':
+        case "charge.failed":
           await this.handleChargeFailed(event);
           break;
 
         default:
-          logger.info('Unhandled event type', { type: event.type });
+          logger.info("Unhandled event type", { type: event.type });
       }
 
       // Mark as processed
       await this.markEventProcessed(event.id);
-      recordStripeWebhook(event.type, 'processed');
+      recordStripeWebhook(event.type, "processed");
     } catch (error) {
-      logger.error('Error processing webhook event', error instanceof Error ? error : undefined, { eventId: event.id });
-      recordStripeWebhook(event.type, 'failed');
-      recordBillingJobFailure('stripe_webhook', (error as Error).message);
+      logger.error(
+        "Error processing webhook event",
+        error instanceof Error ? error : undefined,
+        { eventId: event.id }
+      );
+      recordStripeWebhook(event.type, "failed");
+      recordBillingJobFailure("stripe_webhook", (error as Error).message);
       await this.markEventFailed(event.id, (error as Error).message);
       throw error;
     }
-  }
-
-  /**
-   * Store webhook event
-   */
-  private async storeWebhookEvent(event: any): Promise<void> {
-    const { error } = await supabase
-      .from('webhook_events')
-      .insert({
-        stripe_event_id: event.id,
-        event_type: event.type,
-        payload: event,
-        processed: false,
-        received_at: new Date().toISOString(),
-      });
-
-    if (error) throw error;
   }
 
   /**
@@ -157,26 +164,29 @@ class WebhookService {
    */
   private async markEventProcessed(eventId: string): Promise<void> {
     await supabase
-      .from('webhook_events')
+      .from("webhook_events")
       .update({
         processed: true,
         processed_at: new Date().toISOString(),
       })
-      .eq('stripe_event_id', eventId);
+      .eq("stripe_event_id", eventId);
   }
 
   /**
    * Mark event as failed
    */
-  private async markEventFailed(eventId: string, errorMessage: string): Promise<void> {
+  private async markEventFailed(
+    eventId: string,
+    errorMessage: string
+  ): Promise<void> {
     try {
       const { data: existing, error: fetchErr } = await supabase
-        .from('webhook_events')
-        .select('retry_count')
-        .eq('stripe_event_id', eventId)
+        .from("webhook_events")
+        .select("retry_count")
+        .eq("stripe_event_id", eventId)
         .single();
 
-      if (fetchErr && (fetchErr as any).code !== 'PGRST116') {
+      if (fetchErr && (fetchErr as any).code !== "PGRST116") {
         throw fetchErr;
       }
 
@@ -184,14 +194,16 @@ class WebhookService {
       const newCount = Number(current) + 1;
 
       await supabase
-        .from('webhook_events')
+        .from("webhook_events")
         .update({
           error_message: errorMessage,
           retry_count: newCount,
         })
-        .eq('stripe_event_id', eventId);
+        .eq("stripe_event_id", eventId);
     } catch (err) {
-      logger.error('Failed to mark webhook event failed', err as Error, { eventId });
+      logger.error("Failed to mark webhook event failed", err as Error, {
+        eventId,
+      });
     }
   }
 
@@ -201,7 +213,7 @@ class WebhookService {
   private async handleInvoiceEvent(event: any): Promise<void> {
     const invoice = event.data.object;
     await InvoiceService.storeInvoice(invoice);
-    logger.info('Invoice event processed', { invoiceId: invoice.id });
+    logger.info("Invoice event processed", { invoiceId: invoice.id });
     recordInvoiceEvent(event.type);
   }
 
@@ -210,25 +222,25 @@ class WebhookService {
    */
   private async handlePaymentSucceeded(event: any): Promise<void> {
     const invoice = event.data.object;
-    
+
     // Update invoice status
     await InvoiceService.updateInvoice(invoice);
-    
+
     // Update customer status to active
     const { data: customer } = await supabase
-      .from('billing_customers')
-      .select('tenant_id')
-      .eq('stripe_customer_id', invoice.customer)
+      .from("billing_customers")
+      .select("tenant_id")
+      .eq("stripe_customer_id", invoice.customer)
       .single();
 
     if (customer) {
       await supabase
-        .from('billing_customers')
-        .update({ status: 'active' })
-        .eq('tenant_id', customer.tenant_id);
+        .from("billing_customers")
+        .update({ status: "active" })
+        .eq("tenant_id", customer.tenant_id);
     }
 
-    logger.info('Payment succeeded processed', { invoiceId: invoice.id });
+    logger.info("Payment succeeded processed", { invoiceId: invoice.id });
     recordInvoiceEvent(event.type);
   }
 
@@ -237,33 +249,33 @@ class WebhookService {
    */
   private async handlePaymentFailed(event: any): Promise<void> {
     const invoice = event.data.object;
-    
+
     // Update invoice
     await InvoiceService.updateInvoice(invoice);
-    
+
     // Get customer and create alert
     const { data: customer } = await supabase
-      .from('billing_customers')
-      .select('tenant_id')
-      .eq('stripe_customer_id', invoice.customer)
+      .from("billing_customers")
+      .select("tenant_id")
+      .eq("stripe_customer_id", invoice.customer)
       .single();
 
     if (customer) {
       // Create payment failed alert
-      await supabase.from('usage_alerts').insert({
+      await supabase.from("usage_alerts").insert({
         tenant_id: customer.tenant_id,
-        metric: 'api_calls', // Generic metric for payment alerts
+        metric: "api_calls", // Generic metric for payment alerts
         threshold_percentage: 100,
         current_usage: 0,
         quota_amount: 0,
-        alert_type: 'critical',
+        alert_type: "critical",
         acknowledged: false,
         notification_sent: false,
       });
 
-      logger.warn('Payment failed', { 
+      logger.warn("Payment failed", {
         tenantId: customer.tenant_id,
-        invoiceId: invoice.id 
+        invoiceId: invoice.id,
       });
     }
     recordInvoiceEvent(event.type);
@@ -274,22 +286,26 @@ class WebhookService {
    */
   private async handleSubscriptionUpdated(event: any): Promise<void> {
     const subscription = event.data.object;
-    
+
     // Update subscription in database
     await supabase
-      .from('subscriptions')
+      .from("subscriptions")
       .update({
         status: subscription.status,
-        current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-        current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-        canceled_at: subscription.canceled_at 
+        current_period_start: new Date(
+          subscription.current_period_start * 1000
+        ).toISOString(),
+        current_period_end: new Date(
+          subscription.current_period_end * 1000
+        ).toISOString(),
+        canceled_at: subscription.canceled_at
           ? new Date(subscription.canceled_at * 1000).toISOString()
           : null,
         updated_at: new Date().toISOString(),
       })
-      .eq('stripe_subscription_id', subscription.id);
+      .eq("stripe_subscription_id", subscription.id);
 
-    logger.info('Subscription updated', { subscriptionId: subscription.id });
+    logger.info("Subscription updated", { subscriptionId: subscription.id });
   }
 
   /**
@@ -297,46 +313,46 @@ class WebhookService {
    */
   private async handleSubscriptionDeleted(event: any): Promise<void> {
     const subscription = event.data.object;
-    
+
     // Update subscription status
     await supabase
-      .from('subscriptions')
+      .from("subscriptions")
       .update({
-        status: 'canceled',
+        status: "canceled",
         ended_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq('stripe_subscription_id', subscription.id);
+      .eq("stripe_subscription_id", subscription.id);
 
     // Get customer and update status
     const { data: sub } = await supabase
-      .from('subscriptions')
-      .select('tenant_id')
-      .eq('stripe_subscription_id', subscription.id)
+      .from("subscriptions")
+      .select("tenant_id")
+      .eq("stripe_subscription_id", subscription.id)
       .single();
 
     if (sub) {
       await supabase
-        .from('billing_customers')
-        .update({ status: 'cancelled' })
-        .eq('tenant_id', sub.tenant_id);
+        .from("billing_customers")
+        .update({ status: "cancelled" })
+        .eq("tenant_id", sub.tenant_id);
     }
 
-    logger.info('Subscription deleted', { subscriptionId: subscription.id });
+    logger.info("Subscription deleted", { subscriptionId: subscription.id });
   }
 
   /**
    * Handle charge succeeded
    */
   private async handleChargeSucceeded(event: any): Promise<void> {
-    logger.info('Charge succeeded', { chargeId: event.data.object.id });
+    logger.info("Charge succeeded", { chargeId: event.data.object.id });
   }
 
   /**
    * Handle charge failed
    */
   private async handleChargeFailed(event: any): Promise<void> {
-    logger.warn('Charge failed', { chargeId: event.data.object.id });
+    logger.warn("Charge failed", { chargeId: event.data.object.id });
   }
 }
 

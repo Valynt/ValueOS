@@ -7,8 +7,7 @@
 
 // Detect browser environment
 const isBrowser =
-  typeof window !== "undefined" &&
-  typeof document !== "undefined";
+  typeof window !== "undefined" && typeof document !== "undefined";
 
 // No-op metric for browser environment
 const noopMetric = {
@@ -36,7 +35,9 @@ function createGauge(_config: any): Metric {
   if (isBrowser) return noopMetric;
   try {
     const { Gauge } = require("prom-client");
-    const { getMetricsRegistry } = require("../../middleware/metricsMiddleware");
+    const {
+      getMetricsRegistry,
+    } = require("../../middleware/metricsMiddleware");
     return new Gauge({ ..._config, registers: [getMetricsRegistry()] });
   } catch {
     return noopMetric;
@@ -47,7 +48,9 @@ function createCounter(_config: any): Metric {
   if (isBrowser) return noopMetric;
   try {
     const { Counter } = require("prom-client");
-    const { getMetricsRegistry } = require("../../middleware/metricsMiddleware");
+    const {
+      getMetricsRegistry,
+    } = require("../../middleware/metricsMiddleware");
     return new Counter({ ..._config, registers: [getMetricsRegistry()] });
   } catch {
     return noopMetric;
@@ -58,7 +61,9 @@ function createHistogram(_config: any): Metric {
   if (isBrowser) return noopMetric;
   try {
     const { Histogram } = require("prom-client");
-    const { getMetricsRegistry } = require("../../middleware/metricsMiddleware");
+    const {
+      getMetricsRegistry,
+    } = require("../../middleware/metricsMiddleware");
     return new Histogram({ ..._config, registers: [getMetricsRegistry()] });
   } catch {
     return noopMetric;
@@ -243,4 +248,26 @@ export const activeAgentSessions = createGauge({
   name: "active_agent_sessions",
   help: "Number of currently active agent sessions",
   labelNames: ["agent_type"],
+});
+
+// 26. Kafka Producer Events Total
+export const kafkaProducerEventsTotal = createCounter({
+  name: "kafka_producer_events_total",
+  help: "Total number of events published to Kafka",
+  labelNames: ["topic", "status"],
+});
+
+// 27. Kafka Producer Latency
+export const kafkaProducerLatency = createHistogram({
+  name: "kafka_producer_latency_seconds",
+  help: "Latency of Kafka event publishing in seconds",
+  labelNames: ["topic"],
+  buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5],
+});
+
+// 28. Kafka Producer Errors
+export const kafkaProducerErrors = createCounter({
+  name: "kafka_producer_errors_total",
+  help: "Total number of Kafka producer errors",
+  labelNames: ["topic", "error_type"],
 });

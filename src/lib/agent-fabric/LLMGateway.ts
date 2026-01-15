@@ -676,19 +676,11 @@ export class LLMGateway {
       };
     }
 
-    // Execute LLM call
-    const response = await this.executeLLMCall(
+    // Execute LLM call (includes response processing with sanitization and tracking)
+    return this.executeLLMCall(
       messages,
       config,
       selectedModel,
-      taskContext,
-      circuitBreaker
-    );
-
-    // Process response with sanitization and tracking
-    return this.processResponse(
-      response,
-      messages,
       taskContext,
       circuitBreaker
     );
@@ -1090,6 +1082,14 @@ export class LLMGateway {
   /**
    * Enable/disable gating
    */
+  setGatingEnabled(enabled: boolean): void {
+    this.gatingEnabled = enabled;
+    logger.info("LLM gating status changed", {
+      enabled,
+      provider: this.provider,
+    });
+  }
+
   /**
    * Record streaming metrics with proper error handling
    */

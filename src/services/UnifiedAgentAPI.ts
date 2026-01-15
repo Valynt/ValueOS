@@ -220,7 +220,12 @@ export class UnifiedAgentAPI {
       ...config,
       baseUrl: resolvedBaseUrl || undefined,
     };
-    this.circuitBreakers = new CircuitBreakerManager();
+    this.circuitBreakers = new CircuitBreakerManager({
+      failureRateThreshold: (this.config.failureThreshold || 5) / 10,
+      latencyThresholdMs: 2000,
+      minimumSamples: 5,
+      timeoutMs: this.config.timeout || 30000,
+    });
     this.registry = new AgentRegistry();
 
     if (this.config.enableAuditLogging) {

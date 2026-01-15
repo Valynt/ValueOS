@@ -26,10 +26,23 @@ type PricingRate = { input: number; output: number };
  * Prices are per 1M tokens
  */
 const TOGETHER_AI_PRICING: Record<string, PricingRate> = {
-  // Meta Llama models
+  // Meta Llama 3.1 models
+  "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo": {
+    input: 0.88,
+    output: 0.88,
+  },
+  "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo": {
+    input: 0.18,
+    output: 0.18,
+  },
+  "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo": {
+    input: 3.5,
+    output: 3.5,
+  },
+  // Meta Llama 3 models
   "meta-llama/Llama-3-70b-chat-hf": {
-    input: 0.9, // $0.90 per 1M input tokens
-    output: 0.9, // $0.90 per 1M output tokens
+    input: 0.9,
+    output: 0.9,
   },
   "meta-llama/Llama-3-8b-chat-hf": {
     input: 0.2,
@@ -39,6 +52,46 @@ const TOGETHER_AI_PRICING: Record<string, PricingRate> = {
   "mistralai/Mixtral-8x7B-Instruct-v0.1": {
     input: 0.6,
     output: 0.6,
+  },
+  "mistralai/Mixtral-8x22B-Instruct-v0.1": {
+    input: 1.2,
+    output: 1.2,
+  },
+  "mistralai/Mistral-7B-Instruct-v0.3": {
+    input: 0.2,
+    output: 0.2,
+  },
+  // Microsoft Phi models
+  "microsoft/phi-4-mini": {
+    input: 0.1,
+    output: 0.1,
+  },
+  "microsoft/phi-3-medium-128k-instruct": {
+    input: 0.2,
+    output: 0.2,
+  },
+  // Qwen models
+  "Qwen/Qwen2-72B-Instruct": {
+    input: 0.9,
+    output: 0.9,
+  },
+  "Qwen/Qwen2.5-72B-Instruct-Turbo": {
+    input: 0.6,
+    output: 0.6,
+  },
+  // DeepSeek models
+  "deepseek-ai/DeepSeek-V2-Chat": {
+    input: 0.14,
+    output: 0.28,
+  },
+  "deepseek-ai/deepseek-llm-67b-chat": {
+    input: 0.9,
+    output: 0.9,
+  },
+  // Google Gemma
+  "google/gemma-2-27b-it": {
+    input: 0.8,
+    output: 0.8,
   },
   // Default pricing for unknown models
   default: {

@@ -1102,7 +1102,43 @@ export class MCPCRMServer {
     const dealId = args.deal_id as string;
     const note = args.note as string;
 
-    const success = await module.addDealNote(dealId, note);
+    // Validate required parameters
+    if (!dealId || typeof dealId !== "string" || dealId.trim().length === 0) {
+      return {
+        success: false,
+        error: "deal_id parameter is required and must be a non-empty string",
+        metadata: {
+          provider: module.provider,
+          requestDurationMs: Date.now() - startTime,
+        },
+      };
+    }
+
+    if (!note || typeof note !== "string" || note.trim().length === 0) {
+      return {
+        success: false,
+        error: "note parameter is required and must be a non-empty string",
+        metadata: {
+          provider: module.provider,
+          requestDurationMs: Date.now() - startTime,
+        },
+      };
+    }
+
+    // Limit note length to prevent abuse (10KB max)
+    const maxNoteLength = 10240;
+    if (note.length > maxNoteLength) {
+      return {
+        success: false,
+        error: `note parameter exceeds maximum length of ${maxNoteLength} characters`,
+        metadata: {
+          provider: module.provider,
+          requestDurationMs: Date.now() - startTime,
+        },
+      };
+    }
+
+    const success = await module.addDealNote(dealId.trim(), note.trim());
 
     return {
       success,

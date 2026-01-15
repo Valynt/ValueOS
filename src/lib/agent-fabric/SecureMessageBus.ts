@@ -216,6 +216,9 @@ export class SecureMessageBus {
   /** Rate limit cleanup interval */
   private rateLimitCleanupInterval: NodeJS.Timeout | null = null;
 
+  /** Pending messages cleanup interval */
+  private pendingMessagesCleanupInterval: NodeJS.Timeout | null = null;
+
   /** KMS service for key management */
   private kms: ReturnType<typeof getKMS>;
 
@@ -242,6 +245,35 @@ export class SecureMessageBus {
 
     this.startNonceCleanup();
     this.startRateLimitCleanup();
+    this.startPendingMessagesCleanup();
+  }
+
+  /**
+   * Start pending messages cleanup interval
+   */
+  private startPendingMessagesCleanup(): void {
+    this.pendingMessagesCleanupInterval = setInterval(() => {
+      const now = new Date();
+      let removedCount = 0;
+
+      for (const [messageId, message] of this.pendingMessages.entries()) {
+        const messageTime = new Date(message.timestamp);
+        const expiresAt = new Date(
+          messageTime.getTime() + message.ttlSeconds * 1000
+        );
+        if (now > expiresAt) {
+          this.pendingMessages.delete(messageId);
+          removedCount++;
+        }
+      }
+
+      if (removedCount > 0) {
+        logger.debug("Pending messages cleanup completed", {
+          removedCount,
+          remainingCount: this.pendingMessages.size,
+        });
+      }
+    }, 60000); // Cleanup every minute
   }
 
   /**
@@ -403,6 +435,9 @@ export class SecureMessageBus {
       logger.warn("Agent lacks permission to send messages", {
         agentId: sender.id,
       });
+      throw new Error(
+        `Agent ${sender.id} lacks execute:llm permission to send messages`
+      );
     }
 
     // Create the message
@@ -1008,6 +1043,10 @@ export class SecureMessageBus {
     if (this.rateLimitCleanupInterval) {
       clearInterval(this.rateLimitCleanupInterval);
       this.rateLimitCleanupInterval = null;
+    }
+    if (this.pendingMessagesCleanupInterval) {
+      clearInterval(this.pendingMessagesCleanupInterval);
+      this.pendingMessagesCleanupInterval = null;
     }
     this.registeredAgents.clear();
     this.subscriptions.clear();

@@ -197,7 +197,8 @@ class LlmProxyClient {
   async completeStream(
     { messages, config, provider }: ProxyChatRequest,
     onChunk: LLMStreamCallback,
-    sessionId: string
+    sessionId: string,
+    timeoutMs: number = 30000
   ): Promise<void> {
     if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
       // Simulate streaming for tests
@@ -237,35 +238,60 @@ class LlmProxyClient {
       messageId: `llm-stream-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     };
 
-    // Listen for streaming chunks
-    const handleChunk = (message: WebSocketMessage) => {
-      if (
-        message.type === "llm_stream_chunk" &&
-        message.payload.sessionId === sessionId
-      ) {
-        const chunk = message.payload.chunk;
-        const sanitizedContent = sanitizeLLMContent(chunk.content || "");
-        const result = llmSanitizer.sanitizeResponse(sanitizedContent, {
-          allowHtml: false,
-        });
+    return new Promise<void>((resolve, reject) => {
+      let isComplete = false;
+      let lastChunkTime = Date.now();
 
-        onChunk({
-          content: result.content,
-          tokens_used: chunk.tokens_used,
-          finish_reason: chunk.finish_reason,
-        });
-
-        if (chunk.finish_reason) {
-          // Remove listener when done
+      // Timeout handler to prevent memory leaks
+      const timeoutId = setTimeout(() => {
+        if (!isComplete) {
+          isComplete = true;
           webSocketManager.removeListener("message", handleChunk);
+          reject(new Error(`Stream timeout after ${timeoutMs}ms`));
         }
-      }
-    };
+      }, timeoutMs);
 
-    webSocketManager.on("message", handleChunk);
+      // Listen for streaming chunks
+      const handleChunk = (message: WebSocketMessage) => {
+        if (
+          message.type === "llm_stream_chunk" &&
+          message.payload.sessionId === sessionId
+        ) {
+          lastChunkTime = Date.now();
+          const chunk = message.payload.chunk;
+          const sanitizedContent = sanitizeLLMContent(chunk.content || "");
+          const result = llmSanitizer.sanitizeResponse(sanitizedContent, {
+            allowHtml: false,
+          });
 
-    // Send the request
-    await webSocketManager.send(requestMessage);
+          onChunk({
+            content: result.content,
+            tokens_used: chunk.tokens_used,
+            finish_reason: chunk.finish_reason,
+          });
+
+          if (chunk.finish_reason) {
+            // Remove listener when done
+            isComplete = true;
+            clearTimeout(timeoutId);
+            webSocketManager.removeListener("message", handleChunk);
+            resolve();
+          }
+        }
+      };
+
+      webSocketManager.on("message", handleChunk);
+
+      // Send the request
+      webSocketManager.send(requestMessage).catch((err) => {
+        if (!isComplete) {
+          isComplete = true;
+          clearTimeout(timeoutId);
+          webSocketManager.removeListener("message", handleChunk);
+          reject(err);
+        }
+      });
+    });
   }
 }
 

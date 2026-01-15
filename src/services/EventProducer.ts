@@ -8,6 +8,12 @@
 import { Kafka, Producer, Message, CompressionTypes, logLevel } from "kafkajs";
 import { logger } from "../lib/logger";
 import { BaseEvent } from "../types/events";
+import {
+  kafkaProducerEventsTotal,
+  kafkaProducerLatency,
+  kafkaProducerErrors,
+} from "../lib/monitoring/metrics";
+import { registerShutdownHandler } from "../lib/shutdown/gracefulShutdown";
 
 export interface ProducerConfig {
   clientId: string;
@@ -122,24 +128,43 @@ export class EventProducer {
       },
     };
 
+    const startTime = Date.now();
     try {
       await this.producer.send({
         topic,
         messages: [message],
       });
 
+      const latencyMs = Date.now() - startTime;
+
+      // Record metrics
+      kafkaProducerEventsTotal.inc({ topic, status: "success" });
+      kafkaProducerLatency.observe({ topic }, latencyMs / 1000);
+
       logger.debug("Event published successfully", {
         topic,
         eventId: event.eventId,
         eventType: event.eventType,
         correlationId: event.correlationId,
+        latencyMs,
       });
     } catch (error) {
+      const latencyMs = Date.now() - startTime;
+
+      // Record error metrics
+      kafkaProducerEventsTotal.inc({ topic, status: "error" });
+      kafkaProducerErrors.inc({
+        topic,
+        error_type: error instanceof Error ? error.name : "unknown",
+      });
+      kafkaProducerLatency.observe({ topic }, latencyMs / 1000);
+
       logger.error("Failed to publish event", error as Error, {
         topic,
         eventId: event.eventId,
         eventType: event.eventType,
         correlationId: event.correlationId,
+        latencyMs,
       });
       throw error;
     }
@@ -165,22 +190,41 @@ export class EventProducer {
       },
     }));
 
+    const startTime = Date.now();
     try {
       await this.producer.send({
         topic,
         messages,
       });
 
+      const latencyMs = Date.now() - startTime;
+
+      // Record batch metrics
+      kafkaProducerEventsTotal.inc({ topic, status: "success" }, events.length);
+      kafkaProducerLatency.observe({ topic }, latencyMs / 1000);
+
       logger.debug("Batch of events published successfully", {
         topic,
         eventCount: events.length,
         correlationIds: events.map((e) => e.correlationId),
+        latencyMs,
       });
     } catch (error) {
+      const latencyMs = Date.now() - startTime;
+
+      // Record batch error metrics
+      kafkaProducerEventsTotal.inc({ topic, status: "error" }, events.length);
+      kafkaProducerErrors.inc({
+        topic,
+        error_type: error instanceof Error ? error.name : "unknown",
+      });
+      kafkaProducerLatency.observe({ topic }, latencyMs / 1000);
+
       logger.error("Failed to publish event batch", error as Error, {
         topic,
         eventCount: events.length,
         correlationIds: events.map((e) => e.correlationId),
+        latencyMs,
       });
       throw error;
     }
@@ -235,6 +279,17 @@ export function getEventProducer(): EventProducer {
       clientId,
       brokers,
     });
+
+    // Register with graceful shutdown manager
+    registerShutdownHandler(
+      "EventProducer",
+      async () => {
+        if (eventProducer) {
+          await eventProducer.disconnect();
+        }
+      },
+      15 // Lower priority - disconnect after queues are drained
+    );
   }
 
   return eventProducer;

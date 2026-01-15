@@ -356,14 +356,22 @@ export const rateLimiters = {
 
 /**
  * Reset rate limit for a user (admin only)
+ * Uses RateLimitKeyService for consistent key generation
  */
-export function resetRateLimit(userId: string): void {
-  // Reset for all tiers
+export function resetRateLimit(
+  userId: string,
+  tenantId: string = "global"
+): void {
+  // Reset for all tiers using consistent key generation
   const tiers: RateLimitTier[] = ["strict", "standard", "loose"];
   tiers.forEach((tier) => {
-    store.reset(`${tier}:user:${userId}`);
+    const key = RateLimitKeyService.generateUserKey(userId, tenantId, {
+      service: "general",
+      tier: tier,
+    });
+    store.reset(key);
   });
-  logger.info("Rate limit reset", { userId });
+  logger.info("Rate limit reset", { userId, tenantId });
 }
 
 /**
