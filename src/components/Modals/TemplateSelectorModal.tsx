@@ -82,6 +82,7 @@ export const TemplateSelectorModal: React.FC<TemplateSelectorModalProps> = ({
           <button
             onClick={onClose}
             className="text-text-muted hover:text-foreground"
+            aria-label="Close modal"
           >
             <X className="w-5 h-5" />
           </button>

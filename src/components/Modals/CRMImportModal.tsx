@@ -320,7 +320,7 @@ export const CRMImportModal: React.FC<CRMImportModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between p-vc-2 border-b border-border flex-shrink-0">
           <div className="flex items-center gap-vc-2">
-            <div className="w-vc-3 h-vc-3 bg-accent rounded-lg flex items-center justify-center">
+            <div className="w-vc-3 h-vc-3 bg-accent rounded-lg flex items-center justify-center" aria-hidden="true">
               <Link2 className="w-5 h-5 text-accent-foreground" />
             </div>
             <div>
@@ -342,6 +342,7 @@ export const CRMImportModal: React.FC<CRMImportModalProps> = ({
           <button
             onClick={handleClose}
             className="p-vc-1 hover:bg-card rounded-lg transition-colors"
+            aria-label="Close modal"
           >
             <X className="w-5 h-5 text-muted-foreground" />
           </button>

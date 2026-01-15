@@ -118,7 +118,7 @@ export const EmailAnalysisModal: React.FC<EmailAnalysisModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between p-vc-3 border-b border-gray-800 flex-shrink-0">
           <div className="flex items-center gap-vc-2">
-            <div className="w-vc-3 h-vc-3 bg-accent rounded-lg flex items-center justify-center">
+            <div className="w-vc-3 h-vc-3 bg-accent rounded-lg flex items-center justify-center" aria-hidden="true">
               <Mail className="w-5 h-5 text-accent-foreground" />
             </div>
             <div>
@@ -136,6 +136,7 @@ export const EmailAnalysisModal: React.FC<EmailAnalysisModalProps> = ({
           <button
             onClick={handleClose}
             className="p-vc-1 hover:bg-card rounded-lg transition-colors"
+            aria-label="Close modal"
           >
             <X className="w-5 h-5 text-muted-foreground" />
           </button>

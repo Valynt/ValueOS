@@ -356,14 +356,9 @@ describe("TemplateSelectorModal", () => {
         />
       );
 
-      // Find the X button in the header
-      const closeButtons = screen.getAllByRole("button");
-      const xButton = closeButtons.find((btn) => btn.querySelector("svg"));
-
-      if (xButton && xButton.textContent === "") {
-        await user.click(xButton);
-        expect(mockOnClose).toHaveBeenCalled();
-      }
+      const xButton = screen.getByRole("button", { name: /close modal/i });
+      await user.click(xButton);
+      expect(mockOnClose).toHaveBeenCalled();
     });
   });
 

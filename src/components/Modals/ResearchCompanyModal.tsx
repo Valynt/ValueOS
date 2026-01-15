@@ -41,7 +41,7 @@ export const ResearchCompanyModal: React.FC<ResearchCompanyModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-teal-500/10 rounded-lg">
+            <div className="p-2 bg-teal-500/10 rounded-lg" aria-hidden="true">
               <Search className="w-6 h-6 text-teal-500" />
             </div>
             <div>
@@ -56,6 +56,7 @@ export const ResearchCompanyModal: React.FC<ResearchCompanyModalProps> = ({
           <button
             onClick={onClose}
             className="text-text-muted hover:text-foreground"
+            aria-label="Close modal"
           >
             <X className="w-5 h-5" />
           </button>

@@ -35,7 +35,7 @@ export const ExportPreviewModal: React.FC<ExportPreviewModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-indigo-50 rounded-lg">
+            <div className="p-2 bg-indigo-50 rounded-lg" aria-hidden="true">
               <FileText className="w-5 h-5 text-indigo-600" />
             </div>
             <div>
@@ -57,6 +57,7 @@ export const ExportPreviewModal: React.FC<ExportPreviewModalProps> = ({
             <button
               onClick={onClose}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500"
+              aria-label="Close modal"
             >
               <X className="w-5 h-5" />
             </button>

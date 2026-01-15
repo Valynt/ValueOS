@@ -64,7 +64,7 @@ export const CRMSyncModal: React.FC<CRMSyncModalProps> = ({
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-orange-50 rounded-lg">
+            <div className="p-2 bg-orange-50 rounded-lg" aria-hidden="true">
               <Share2 className="w-5 h-5 text-orange-600" />
             </div>
             <div>
@@ -76,7 +76,7 @@ export const CRMSyncModal: React.FC<CRMSyncModalProps> = ({
               </p>
             </div>
           </div>
-          <button onClick={onClose}>
+          <button onClick={onClose} aria-label="Close modal">
             <X className="w-5 h-5 text-gray-400 hover:text-gray-600" />
           </button>
         </div>
