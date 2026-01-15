@@ -44,3 +44,18 @@ export {
   normalizeRole,
   getRolesWithPermission,
 } from "./roles";
+
+// Backend role verification utilities
+export {
+  verifyUserRoles,
+  clearRoleVerificationCache,
+  getVerifiedPermissions,
+  hasVerifiedPermission,
+  hasAllVerifiedPermissions,
+  hasAnyVerifiedPermission,
+} from "./verification";
+
+export type {
+  VerifiedUserRoles,
+  RoleVerificationOptions,
+} from "./verification";

@@ -16,7 +16,7 @@ import {
   MCPCRMError,
   MCPErrorCodes,
   MCPResponseBuilder,
-} from "@mcp-common/index";
+} from "../../mcp-common";
 import {
   CRMConnection,
   CRMModule,
@@ -341,6 +341,107 @@ export class MCPCRMServer {
   }
 
   /**
+   * Start periodic metrics collection
+   */
+  private startMetricsCollection(): void {
+    // Periodically calculate p95 and average durations
+    setInterval(() => {
+      const durations = this.metrics.performance.requestDurations;
+      if (durations.length > 0) {
+        // Calculate average
+        this.metrics.performance.avgRequestDuration =
+          this.metrics.performance.totalRequestDuration / durations.length;
+
+        // Calculate p95
+        const sorted = [...durations].sort((a, b) => a - b);
+        const p95Index = Math.floor(sorted.length * 0.95);
+        this.metrics.performance.p95RequestDuration = sorted[p95Index] || 0;
+
+        // Keep only last 1000 durations to prevent memory growth
+        if (durations.length > 1000) {
+          this.metrics.performance.requestDurations = durations.slice(-1000);
+        }
+      }
+
+      // Trim recent errors to last 100
+      if (this.metrics.errors.recent.length > 100) {
+        this.metrics.errors.recent = this.metrics.errors.recent.slice(-100);
+      }
+    }, 60000); // Every minute
+  }
+
+  /**
+   * Load CRM connections from database
+   */
+  private async loadConnections(): Promise<void> {
+    if (!supabase) {
+      logger.warn("Supabase not configured, skipping connection loading");
+      return;
+    }
+
+    const { data: connections, error } = await supabase
+      .from("crm_connections")
+      .select("*")
+      .eq("tenant_id", this.config.tenantId)
+      .eq("status", "active");
+
+    if (error) {
+      logger.error("Failed to load CRM connections", error);
+      return;
+    }
+
+    for (const conn of connections || []) {
+      const connection: CRMConnection = {
+        id: conn.id,
+        tenantId: conn.tenant_id,
+        provider: conn.provider as CRMProvider,
+        accessToken: conn.access_token,
+        refreshToken: conn.refresh_token,
+        tokenExpiresAt: conn.token_expires_at
+          ? new Date(conn.token_expires_at)
+          : undefined,
+        instanceUrl: conn.instance_url,
+        hubId: conn.hub_id,
+        scopes: conn.scopes || [],
+        status: conn.status || "active",
+      };
+      this.connections.set(connection.provider, connection);
+    }
+  }
+
+  /**
+   * Initialize a CRM module for a connection
+   */
+  private async initializeModule(connection: CRMConnection): Promise<void> {
+    let module: CRMModule;
+
+    if (connection.provider === "hubspot") {
+      module = new HubSpotModule(connection);
+    } else if (connection.provider === "salesforce") {
+      module = new SalesforceModule(connection);
+    } else {
+      logger.warn("Unknown CRM provider", { provider: connection.provider });
+      return;
+    }
+
+    // Test connection to validate credentials
+    await module.testConnection();
+    this.modules.set(connection.provider, module);
+  }
+
+  /**
+   * Update rolling average duration for metrics
+   */
+  private updateAverageDuration(
+    metrics: { total: number; avgDuration: number },
+    newDuration: number
+  ): void {
+    // Incremental average calculation
+    metrics.avgDuration =
+      metrics.avgDuration + (newDuration - metrics.avgDuration) / metrics.total;
+  }
+
+  /**
    * Initialize the server using parallel initialization
    */
   async initialize(): Promise<void> {
@@ -352,17 +453,20 @@ export class MCPCRMServer {
     const results = await this.parallelInitializer.execute();
 
     // Check for any failures
-    const failures = Array.from(results.values()).filter((r) => !r.success);
+    const failures = Array.from(results.values()).filter(
+      (r: any) => !r.success
+    );
     if (failures.length > 0) {
-      const errorDetails = failures.map((f) => ({
-        taskId: f.taskId,
-        error: f.error?.message || "Unknown error",
+      const errorDetails = failures.map((f: any) => ({
+        taskId: f.taskId || "unknown",
+        error: f.error?.message || String(f.error) || "Unknown error",
       }));
 
-      logger.error("Some initialization tasks failed", {
-        totalFailures: failures.length,
-        errorDetails,
-      });
+      logger.error(
+        `Some initialization tasks failed: ${failures.length} failures`,
+        undefined,
+        { errorDetails }
+      );
     }
 
     const duration = Date.now() - startTime;
@@ -1455,10 +1559,11 @@ export class MCPCRMServer {
     try {
       return this.configManager.getFieldMappings(provider);
     } catch (error) {
-      logger.error("Failed to get field mappings from config, using defaults", {
-        provider,
-        errorMessage: error instanceof Error ? error.message : "Unknown error",
-      });
+      logger.error(
+        "Failed to get field mappings from config, using defaults",
+        error instanceof Error ? error : undefined,
+        { provider }
+      );
 
       // Fallback to hard-coded mappings if config fails
       if (provider === "salesforce") {

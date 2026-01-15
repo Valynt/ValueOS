@@ -55,7 +55,7 @@ class SubscriptionService {
     planTier: PlanTier,
     trialDays?: number
   ): Promise<Subscription> {
-    if (!this.stripe || !supabase) {
+    if (!this.stripe || !supabase || !this.stripeService) {
       throw new Error("Billing service not configured");
     }
     try {
@@ -203,6 +203,9 @@ class SubscriptionService {
     stripeItems: Stripe.SubscriptionItem[],
     planTier: PlanTier
   ): Promise<void> {
+    if (!supabase) {
+      throw new Error("Supabase not configured");
+    }
     const plan = PLANS[planTier];
     const items = stripeItems.map((item) => {
       // Determine metric from price ID
@@ -255,6 +258,9 @@ class SubscriptionService {
     subscriptionId: string,
     planTier: PlanTier
   ): Promise<void> {
+    if (!supabase) {
+      throw new Error("Supabase not configured");
+    }
     const plan = PLANS[planTier];
     const now = new Date();
     const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -280,6 +286,9 @@ class SubscriptionService {
    * Get active subscription for tenant
    */
   async getActiveSubscription(tenantId: string): Promise<Subscription | null> {
+    if (!supabase) {
+      throw new Error("Supabase not configured");
+    }
     const { data, error } = await supabase
       .from("subscriptions")
       .select("*")
@@ -327,7 +336,7 @@ class SubscriptionService {
         );
       return result as Subscription;
     } catch (error) {
-      return this.stripeService.handleError(error, "updateSubscription");
+      return this.stripeService!.handleError(error, "updateSubscription");
     }
   }
 
@@ -339,6 +348,9 @@ class SubscriptionService {
     tenantId: string,
     newPlanTier: PlanTier
   ): Promise<Subscription> {
+    if (!supabase || !this.stripe || !this.stripeService) {
+      throw new Error("Billing service not configured");
+    }
     try {
       const subscription = await this.getActiveSubscription(tenantId);
       if (!subscription) {
@@ -361,9 +373,10 @@ class SubscriptionService {
             metric: string;
             stripe_subscription_item_id: string;
           }) => {
-            const newPriceId = newPlan.stripePriceIds?.[item.metric];
+            const newPriceId =
+              newPlan.stripePriceIds?.[item.metric as BillingMetric];
             if (newPriceId) {
-              await this.stripe.subscriptionItems.update(
+              await this.stripe!.subscriptionItems.update(
                 item.stripe_subscription_item_id,
                 {
                   price: newPriceId,
@@ -376,7 +389,7 @@ class SubscriptionService {
       await Promise.all(updatePromises);
 
       // Update subscription in database
-      const { data, error } = await supabase
+      const { data, error } = await supabase!
         .from("subscriptions")
         .update({
           plan_tier: newPlanTier,
@@ -396,7 +409,7 @@ class SubscriptionService {
 
       return data;
     } catch (error) {
-      return this.stripeService.handleError(error, "updateSubscriptionLegacy");
+      return this.stripeService!.handleError(error, "updateSubscriptionLegacy");
     }
   }
 
@@ -407,10 +420,13 @@ class SubscriptionService {
     tenantId: string,
     planTier: PlanTier
   ): Promise<void> {
+    if (!supabase) {
+      throw new Error("Supabase not configured");
+    }
     const plan = PLANS[planTier];
 
     const updates = BILLING_METRICS.map((metric) =>
-      supabase
+      supabase!
         .from("usage_quotas")
         .update({
           quota_amount: plan.quotas[metric],
@@ -430,6 +446,9 @@ class SubscriptionService {
     tenantId: string,
     immediately: boolean = false
   ): Promise<Subscription> {
+    if (!this.stripe || !supabase || !this.stripeService) {
+      throw new Error("Billing service not configured");
+    }
     try {
       const subscription = await this.getActiveSubscription(tenantId);
       if (!subscription) {
@@ -487,6 +506,9 @@ class SubscriptionService {
   async getSubscriptionItems(
     subscriptionId: string
   ): Promise<SubscriptionItem[]> {
+    if (!supabase) {
+      throw new Error("Supabase not configured");
+    }
     const { data, error } = await supabase
       .from("subscription_items")
       .select("*")
@@ -535,6 +557,10 @@ class SubscriptionService {
       const customer = await CustomerService.getCustomerByTenantId(tenantId);
       if (!customer) {
         throw new Error("Customer not found");
+      }
+
+      if (!this.stripe) {
+        throw new Error("Stripe not configured");
       }
 
       // Get plan configurations

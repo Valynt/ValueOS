@@ -15,6 +15,7 @@ import {
   EVENT_TOPICS,
   createBaseEvent,
   BaseEvent,
+  Event,
 } from "../types/events";
 import { AgentType } from "./agent-types";
 import { logger } from "../lib/logger";
@@ -34,7 +35,9 @@ export class AgentExecutorService {
       [
         {
           eventType: "agent.request",
-          handler: this.handleAgentRequest.bind(this),
+          handler: async (event: BaseEvent) => {
+            await this.handleAgentRequest(event as AgentRequestEvent);
+          },
         },
       ]
     );
@@ -92,6 +95,7 @@ export class AgentExecutorService {
           event.correlationId,
           "agent-executor"
         ),
+        eventType: "agent.response" as const,
         payload: {
           agentId: payload.agentId,
           userId: payload.userId,
@@ -100,9 +104,11 @@ export class AgentExecutorService {
           response: response.data || response,
           error: response.success === false ? response.error : undefined,
           latency,
-          tokens: response.tokens,
-          cost: response.cost,
-          cached: response.cached || false,
+          tokens: response.metadata?.tokens,
+          cost: response.metadata?.tokens
+            ? response.metadata.tokens.total * 0.00001
+            : undefined,
+          cached: false,
           status: response.success !== false ? "success" : "error",
         },
       };
@@ -129,8 +135,7 @@ export class AgentExecutorService {
         agentId: payload.agentId,
         correlationId: event.correlationId,
         latency,
-        cost: response.cost,
-        cached: response.cached,
+        tokens: response.metadata?.tokens?.total,
       });
     } catch (error) {
       const latency = Date.now() - startTime;
@@ -148,6 +153,7 @@ export class AgentExecutorService {
           event.correlationId,
           "agent-executor"
         ),
+        eventType: "agent.response" as const,
         payload: {
           agentId: payload.agentId,
           userId: payload.userId,
@@ -228,10 +234,11 @@ export class AgentExecutorService {
    * Create agent performance projection updater
    */
   private createAgentPerformanceUpdater() {
-    return (currentData: any, event: AgentRequestEvent) => {
+    return (currentData: any, event: Event) => {
+      const agentEvent = event as AgentRequestEvent;
       if (!currentData) {
         currentData = {
-          agentId: event.payload.agentId,
+          agentId: agentEvent.payload.agentId,
           totalRequests: 0,
           successfulRequests: 0,
           failedRequests: 0,
@@ -256,10 +263,11 @@ export class AgentExecutorService {
    * Create agent error projection updater
    */
   private createAgentErrorUpdater(error: Error) {
-    return (currentData: any, event: AgentRequestEvent) => {
+    return (currentData: any, event: Event) => {
+      const agentEvent = event as AgentRequestEvent;
       if (!currentData) {
         currentData = {
-          agentId: event.payload.agentId,
+          agentId: agentEvent.payload.agentId,
           errorCount: 0,
           recentErrors: [],
           errorTypes: {},

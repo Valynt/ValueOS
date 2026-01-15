@@ -1,8 +1,8 @@
 /**
  * RBAC Middleware
- * 
+ *
  * SEC-201: Role-Based Access Control enforcement
- * 
+ *
  * Provides middleware for:
  * - Permission checking
  * - Role-based access
@@ -10,207 +10,110 @@
  * - Tenant isolation
  */
 
-import { NextFunction, Request, Response } from 'express';
-import { SupabaseClient } from '@supabase/supabase-js';
-import { logger } from '../lib/logger';
-import { getSupabaseClient } from '../lib/supabase';
+import { NextFunction, Request, Response } from "express";
+import { SupabaseClient } from "@supabase/supabase-js";
+import { logger } from "../lib/logger";
+import { getSupabaseClient } from "../lib/supabase";
+import {
+  type Permission as UnifiedPermission,
+  hasPermission as matchPermission,
+  USER_ROLE_PERMISSIONS,
+  USER_ROLES,
+} from "../lib/permissions";
+
+// Re-export unified Permission type
+export type Permission = UnifiedPermission;
 
 /**
- * Permission types
+ * Role types - use unified roles
  */
-export type Permission =
-  // Data operations
-  | 'data.read'
-  | 'data.create'
-  | 'data.update'
-  | 'data.delete'
-  | 'data.export'
-  | 'data.import'
-  
-  // User management
-  | 'users.read'
-  | 'users.create'
-  | 'users.update'
-  | 'users.delete'
-  | 'users.invite'
-  
-  // Permission management
-  | 'permissions.read'
-  | 'permissions.grant'
-  | 'permissions.revoke'
-  
-  // Role management
-  | 'roles.read'
-  | 'roles.create'
-  | 'roles.update'
-  | 'roles.delete'
-  | 'roles.assign'
-  
-  // Team management
-  | 'teams.read'
-  | 'teams.create'
-  | 'teams.update'
-  | 'teams.delete'
-  | 'teams.manage_members'
-  
-  // Settings
-  | 'settings.read'
-  | 'settings.update'
-  
-  // Tenant management
-  | 'tenants.read'
-  | 'tenants.create'
-  | 'tenants.update'
-  | 'tenants.delete'
-  | 'tenants.provision'
-  
-  // API keys
-  | 'api_keys.read'
-  | 'api_keys.create'
-  | 'api_keys.rotate'
-  | 'api_keys.revoke'
-  
-  // Audit logs
-  | 'audit.read'
-  | 'audit.export'
-  
-  // Agent operations
-  | 'agents.execute'
-  | 'agents.configure'
-  
-  // Billing
-  | 'billing.read'
-  | 'billing.manage';
-
-/**
- * Role types
- */
-export type Role =
-  | 'super_admin'
-  | 'admin'
-  | 'manager'
-  | 'member'
-  | 'viewer'
-  | 'guest';
+export type Role = (typeof USER_ROLES)[keyof typeof USER_ROLES];
 
 /**
  * Permission scope
  */
-export type PermissionScope = 'global' | 'tenant' | 'team' | 'self';
+export type PermissionScope = "global" | "tenant" | "team" | "self";
 
 /**
- * Role-Permission mapping
+ * Role-Permission mapping - use unified source
+ * @deprecated Use USER_ROLE_PERMISSIONS from '@/lib/permissions' instead
  */
-const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
-  super_admin: [
-    // All permissions
-    'data.read', 'data.create', 'data.update', 'data.delete', 'data.export', 'data.import',
-    'users.read', 'users.create', 'users.update', 'users.delete', 'users.invite',
-    'permissions.read', 'permissions.grant', 'permissions.revoke',
-    'roles.read', 'roles.create', 'roles.update', 'roles.delete', 'roles.assign',
-    'teams.read', 'teams.create', 'teams.update', 'teams.delete', 'teams.manage_members',
-    'settings.read', 'settings.update',
-    'tenants.read', 'tenants.create', 'tenants.update', 'tenants.delete', 'tenants.provision',
-    'api_keys.read', 'api_keys.create', 'api_keys.rotate', 'api_keys.revoke',
-    'audit.read', 'audit.export',
-    'agents.execute', 'agents.configure',
-    'billing.read', 'billing.manage',
-  ],
-  admin: [
-    'data.read', 'data.create', 'data.update', 'data.delete', 'data.export', 'data.import',
-    'users.read', 'users.create', 'users.update', 'users.delete', 'users.invite',
-    'permissions.read', 'permissions.grant', 'permissions.revoke',
-    'roles.read', 'roles.assign',
-    'teams.read', 'teams.create', 'teams.update', 'teams.delete', 'teams.manage_members',
-    'settings.read', 'settings.update',
-    'api_keys.read', 'api_keys.create', 'api_keys.rotate', 'api_keys.revoke',
-    'audit.read', 'audit.export',
-    'agents.execute', 'agents.configure',
-    'billing.read', 'billing.manage',
-  ],
-  manager: [
-    'data.read', 'data.create', 'data.update', 'data.delete', 'data.export',
-    'users.read', 'users.invite',
-    'teams.read', 'teams.manage_members',
-    'settings.read',
-    'api_keys.read', 'api_keys.create',
-    'audit.read',
-    'agents.execute',
-    'billing.read',
-  ],
-  member: [
-    'data.read', 'data.create', 'data.update',
-    'users.read',
-    'teams.read',
-    'settings.read',
-    'agents.execute',
-  ],
-  viewer: [
-    'data.read',
-    'users.read',
-    'teams.read',
-    'settings.read',
-  ],
-  guest: [
-    'data.read',
-  ],
-};
+const ROLE_PERMISSIONS = USER_ROLE_PERMISSIONS;
 
 /**
  * Check if user has permission
+ * Uses batched queries for better performance
  */
 async function hasPermission(
   supabase: SupabaseClient,
   userId: string,
   tenantId: string,
   permission: Permission,
-  scope: PermissionScope = 'tenant'
+  _scope: PermissionScope = "tenant"
 ): Promise<boolean> {
   try {
-    // Get user's roles
-    const { data: userRoles, error: rolesError } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId)
-      .eq('tenant_id', tenantId);
+    // Batch both queries in parallel for better performance
+    const [rolesResult, permissionsResult] = await Promise.all([
+      supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .eq("tenant_id", tenantId),
+      supabase
+        .from("user_permissions")
+        .select("permission")
+        .eq("user_id", userId)
+        .eq("tenant_id", tenantId),
+    ]);
+
+    const { data: userRoles, error: rolesError } = rolesResult;
+    const { data: explicitPermissions, error: permError } = permissionsResult;
 
     if (rolesError) {
-      logger.error('Failed to fetch user roles', rolesError, { userId, tenantId });
+      logger.error("Failed to fetch user roles", rolesError, {
+        userId,
+        tenantId,
+      });
       return false;
     }
 
-    if (!userRoles || userRoles.length === 0) {
-      return false;
+    if (permError) {
+      logger.error("Failed to fetch user permissions", permError, {
+        userId,
+        tenantId,
+      });
+      // Continue with role-based check even if explicit permissions fail
     }
 
-    // Check if any role has the permission
-    for (const userRole of userRoles) {
-      const rolePermissions = ROLE_PERMISSIONS[userRole.role as Role];
-      if (rolePermissions && rolePermissions.includes(permission)) {
+    // Check if any role has the permission (using unified permission matching with wildcard support)
+    if (userRoles && userRoles.length > 0) {
+      for (const userRole of userRoles) {
+        const rolePermissions = ROLE_PERMISSIONS[userRole.role as Role];
+        if (rolePermissions && matchPermission(rolePermissions, permission)) {
+          return true;
+        }
+      }
+    }
+
+    // Check explicit permission grants
+    if (explicitPermissions && explicitPermissions.length > 0) {
+      const grantedPermissions = explicitPermissions.map((p) => p.permission);
+      if (matchPermission(grantedPermissions, permission)) {
         return true;
       }
     }
 
-    // Check for explicit permission grants
-    const { data: explicitPermissions, error: permError } = await supabase
-      .from('user_permissions')
-      .select('permission')
-      .eq('user_id', userId)
-      .eq('tenant_id', tenantId)
-      .eq('permission', permission);
-
-    if (permError) {
-      logger.error('Failed to fetch user permissions', permError, { userId, tenantId });
-      return false;
-    }
-
-    return explicitPermissions && explicitPermissions.length > 0;
+    return false;
   } catch (error) {
-    logger.error('Permission check failed', error instanceof Error ? error : undefined, {
-      userId,
-      tenantId,
-      permission,
-    });
+    logger.error(
+      "Permission check failed",
+      error instanceof Error ? error : undefined,
+      {
+        userId,
+        tenantId,
+        permission,
+      }
+    );
     return false;
   }
 }
@@ -220,7 +123,7 @@ async function hasPermission(
  */
 export function requirePermission(
   permission: Permission,
-  scope: PermissionScope = 'tenant'
+  scope: PermissionScope = "tenant"
 ) {
   return async function requirePermissionMiddleware(
     req: Request,
@@ -229,12 +132,12 @@ export function requirePermission(
   ) {
     try {
       const user = req.user as any;
-      
+
       if (!user) {
-        logger.warn('Permission check failed: No user', { permission });
+        logger.warn("Permission check failed: No user", { permission });
         return res.status(401).json({
-          error: 'Unauthorized',
-          message: 'Authentication required',
+          error: "Unauthorized",
+          message: "Authentication required",
         });
       }
 
@@ -242,18 +145,27 @@ export function requirePermission(
       const tenantId = user.tenant_id || (req as any).tenantId;
 
       if (!tenantId) {
-        logger.warn('Permission check failed: No tenant', { userId, permission });
+        logger.warn("Permission check failed: No tenant", {
+          userId,
+          permission,
+        });
         return res.status(400).json({
-          error: 'Bad Request',
-          message: 'Tenant ID required',
+          error: "Bad Request",
+          message: "Tenant ID required",
         });
       }
 
       const supabase = getSupabaseClient();
-      const allowed = await hasPermission(supabase, userId, tenantId, permission, scope);
+      const allowed = await hasPermission(
+        supabase,
+        userId,
+        tenantId,
+        permission,
+        scope
+      );
 
       if (!allowed) {
-        logger.warn('Permission denied', {
+        logger.warn("Permission denied", {
           userId,
           tenantId,
           permission,
@@ -262,13 +174,13 @@ export function requirePermission(
         });
 
         return res.status(403).json({
-          error: 'Forbidden',
+          error: "Forbidden",
           message: `Permission denied: ${permission}`,
         });
       }
 
       // Permission granted
-      logger.debug('Permission granted', {
+      logger.debug("Permission granted", {
         userId,
         tenantId,
         permission,
@@ -276,10 +188,13 @@ export function requirePermission(
 
       next();
     } catch (error) {
-      logger.error('Permission middleware error', error instanceof Error ? error : undefined);
+      logger.error(
+        "Permission middleware error",
+        error instanceof Error ? error : undefined
+      );
       return res.status(500).json({
-        error: 'Internal Server Error',
-        message: 'Permission check failed',
+        error: "Internal Server Error",
+        message: "Permission check failed",
       });
     }
   };
@@ -294,11 +209,11 @@ export function requireRole(role: Role | Role[]) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = req.user as any;
-      
+
       if (!user) {
         return res.status(401).json({
-          error: 'Unauthorized',
-          message: 'Authentication required',
+          error: "Unauthorized",
+          message: "Authentication required",
         });
       }
 
@@ -307,8 +222,8 @@ export function requireRole(role: Role | Role[]) {
 
       if (!tenantId) {
         return res.status(400).json({
-          error: 'Bad Request',
-          message: 'Tenant ID required',
+          error: "Bad Request",
+          message: "Tenant ID required",
         });
       }
 
@@ -316,23 +231,25 @@ export function requireRole(role: Role | Role[]) {
 
       // Get user's roles
       const { data: userRoles, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .eq('tenant_id', tenantId);
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .eq("tenant_id", tenantId);
 
       if (error) {
-        logger.error('Failed to fetch user roles', error, { userId, tenantId });
+        logger.error("Failed to fetch user roles", error, { userId, tenantId });
         return res.status(500).json({
-          error: 'Internal Server Error',
-          message: 'Role check failed',
+          error: "Internal Server Error",
+          message: "Role check failed",
         });
       }
 
-      const hasRole = userRoles?.some((ur) => roles.includes(ur.role as Role));
+      const hasRole = userRoles?.some((ur: { role: string }) =>
+        roles.includes(ur.role as Role)
+      );
 
       if (!hasRole) {
-        logger.warn('Role denied', {
+        logger.warn("Role denied", {
           userId,
           tenantId,
           requiredRoles: roles,
@@ -340,17 +257,20 @@ export function requireRole(role: Role | Role[]) {
         });
 
         return res.status(403).json({
-          error: 'Forbidden',
-          message: `Role required: ${roles.join(' or ')}`,
+          error: "Forbidden",
+          message: `Role required: ${roles.join(" or ")}`,
         });
       }
 
       next();
     } catch (error) {
-      logger.error('Role middleware error', error instanceof Error ? error : undefined);
+      logger.error(
+        "Role middleware error",
+        error instanceof Error ? error : undefined
+      );
       return res.status(500).json({
-        error: 'Internal Server Error',
-        message: 'Role check failed',
+        error: "Internal Server Error",
+        message: "Role check failed",
       });
     }
   };
@@ -366,11 +286,11 @@ export function requireOwnership(
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = req.user as any;
-      
+
       if (!user) {
         return res.status(401).json({
-          error: 'Unauthorized',
-          message: 'Authentication required',
+          error: "Unauthorized",
+          message: "Authentication required",
         });
       }
 
@@ -381,21 +301,21 @@ export function requireOwnership(
       // Check if user owns the resource
       const { data, error } = await supabase
         .from(resourceType)
-        .select('user_id, created_by')
-        .eq('id', resourceId)
+        .select("user_id, created_by")
+        .eq("id", resourceId)
         .single();
 
       if (error || !data) {
         return res.status(404).json({
-          error: 'Not Found',
-          message: 'Resource not found',
+          error: "Not Found",
+          message: "Resource not found",
         });
       }
 
       const ownerId = data.user_id || data.created_by;
 
       if (ownerId !== userId) {
-        logger.warn('Ownership denied', {
+        logger.warn("Ownership denied", {
           userId,
           resourceType,
           resourceId,
@@ -403,17 +323,20 @@ export function requireOwnership(
         });
 
         return res.status(403).json({
-          error: 'Forbidden',
-          message: 'You do not own this resource',
+          error: "Forbidden",
+          message: "You do not own this resource",
         });
       }
 
       next();
     } catch (error) {
-      logger.error('Ownership middleware error', error instanceof Error ? error : undefined);
+      logger.error(
+        "Ownership middleware error",
+        error instanceof Error ? error : undefined
+      );
       return res.status(500).json({
-        error: 'Internal Server Error',
-        message: 'Ownership check failed',
+        error: "Internal Server Error",
+        message: "Ownership check failed",
       });
     }
   };
@@ -426,11 +349,11 @@ export function requireAnyPermission(...permissions: Permission[]) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = req.user as any;
-      
+
       if (!user) {
         return res.status(401).json({
-          error: 'Unauthorized',
-          message: 'Authentication required',
+          error: "Unauthorized",
+          message: "Authentication required",
         });
       }
 
@@ -439,8 +362,8 @@ export function requireAnyPermission(...permissions: Permission[]) {
 
       if (!tenantId) {
         return res.status(400).json({
-          error: 'Bad Request',
-          message: 'Tenant ID required',
+          error: "Bad Request",
+          message: "Tenant ID required",
         });
       }
 
@@ -448,9 +371,14 @@ export function requireAnyPermission(...permissions: Permission[]) {
 
       // Check if user has any of the permissions
       for (const permission of permissions) {
-        const allowed = await hasPermission(supabase, userId, tenantId, permission);
+        const allowed = await hasPermission(
+          supabase,
+          userId,
+          tenantId,
+          permission
+        );
         if (allowed) {
-          logger.debug('Permission granted (any)', {
+          logger.debug("Permission granted (any)", {
             userId,
             tenantId,
             permission,
@@ -459,21 +387,24 @@ export function requireAnyPermission(...permissions: Permission[]) {
         }
       }
 
-      logger.warn('All permissions denied', {
+      logger.warn("All permissions denied", {
         userId,
         tenantId,
         permissions,
       });
 
       return res.status(403).json({
-        error: 'Forbidden',
-        message: `Permission denied: requires one of ${permissions.join(', ')}`,
+        error: "Forbidden",
+        message: `Permission denied: requires one of ${permissions.join(", ")}`,
       });
     } catch (error) {
-      logger.error('Permission middleware error', error instanceof Error ? error : undefined);
+      logger.error(
+        "Permission middleware error",
+        error instanceof Error ? error : undefined
+      );
       return res.status(500).json({
-        error: 'Internal Server Error',
-        message: 'Permission check failed',
+        error: "Internal Server Error",
+        message: "Permission check failed",
       });
     }
   };
@@ -486,11 +417,11 @@ export function requireAllPermissions(...permissions: Permission[]) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = req.user as any;
-      
+
       if (!user) {
         return res.status(401).json({
-          error: 'Unauthorized',
-          message: 'Authentication required',
+          error: "Unauthorized",
+          message: "Authentication required",
         });
       }
 
@@ -499,8 +430,8 @@ export function requireAllPermissions(...permissions: Permission[]) {
 
       if (!tenantId) {
         return res.status(400).json({
-          error: 'Bad Request',
-          message: 'Tenant ID required',
+          error: "Bad Request",
+          message: "Tenant ID required",
         });
       }
 
@@ -508,9 +439,14 @@ export function requireAllPermissions(...permissions: Permission[]) {
 
       // Check if user has all permissions
       for (const permission of permissions) {
-        const allowed = await hasPermission(supabase, userId, tenantId, permission);
+        const allowed = await hasPermission(
+          supabase,
+          userId,
+          tenantId,
+          permission
+        );
         if (!allowed) {
-          logger.warn('Permission denied (all)', {
+          logger.warn("Permission denied (all)", {
             userId,
             tenantId,
             permission,
@@ -518,13 +454,13 @@ export function requireAllPermissions(...permissions: Permission[]) {
           });
 
           return res.status(403).json({
-            error: 'Forbidden',
-            message: `Permission denied: requires all of ${permissions.join(', ')}`,
+            error: "Forbidden",
+            message: `Permission denied: requires all of ${permissions.join(", ")}`,
           });
         }
       }
 
-      logger.debug('All permissions granted', {
+      logger.debug("All permissions granted", {
         userId,
         tenantId,
         permissions,
@@ -532,10 +468,13 @@ export function requireAllPermissions(...permissions: Permission[]) {
 
       next();
     } catch (error) {
-      logger.error('Permission middleware error', error instanceof Error ? error : undefined);
+      logger.error(
+        "Permission middleware error",
+        error instanceof Error ? error : undefined
+      );
       return res.status(500).json({
-        error: 'Internal Server Error',
-        message: 'Permission check failed',
+        error: "Internal Server Error",
+        message: "Permission check failed",
       });
     }
   };

@@ -3,12 +3,12 @@
  * Manages invoice storage and retrieval
  */
 
-import { createClient } from '@supabase/supabase-js';
-import StripeService from './StripeService';
-import { Invoice } from '../../types/billing';
-import { createLogger } from '../../lib/logger';
+import { createClient } from "@supabase/supabase-js";
+import StripeService from "./StripeService";
+import { Invoice } from "../../types/billing";
+import { createLogger } from "../../lib/logger";
 
-const logger = createLogger({ component: 'InvoiceService' });
+const logger = createLogger({ component: "InvoiceService" });
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -18,7 +18,9 @@ let supabase: any = null;
 if (supabaseUrl && supabaseServiceRoleKey) {
   supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 } else {
-  logger.warn('Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing');
+  logger.warn(
+    "Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing"
+  );
 }
 
 class InvoiceService {
@@ -31,7 +33,7 @@ class InvoiceService {
       this.stripeService = StripeService.getInstance();
       this.stripe = this.stripeService.getClient();
     } catch (error) {
-      logger.warn('Stripe service not available, billing features disabled');
+      logger.warn("Stripe service not available, billing features disabled");
       this.stripe = null;
       this.stripeService = null;
     }
@@ -42,16 +44,16 @@ class InvoiceService {
    */
   async storeInvoice(stripeInvoice: any): Promise<Invoice> {
     if (!this.stripe || !supabase) {
-      throw new Error('Billing service not configured');
+      throw new Error("Billing service not configured");
     }
     try {
-      logger.info('Storing invoice', { invoiceId: stripeInvoice.id });
+      logger.info("Storing invoice", { invoiceId: stripeInvoice.id });
 
       // Get customer
       const { data: customer } = await supabase
-        .from('billing_customers')
-        .select('*')
-        .eq('stripe_customer_id', stripeInvoice.customer)
+        .from("billing_customers")
+        .select("*")
+        .eq("stripe_customer_id", stripeInvoice.customer)
         .single();
 
       if (!customer) {
@@ -60,9 +62,9 @@ class InvoiceService {
 
       // Check if invoice already exists
       const { data: existing } = await supabase
-        .from('invoices')
-        .select('id')
-        .eq('stripe_invoice_id', stripeInvoice.id)
+        .from("invoices")
+        .select("id")
+        .eq("stripe_invoice_id", stripeInvoice.id)
         .single();
 
       if (existing) {
@@ -72,14 +74,14 @@ class InvoiceService {
 
       // Get subscription
       const { data: subscription } = await supabase
-        .from('subscriptions')
-        .select('id')
-        .eq('stripe_subscription_id', stripeInvoice.subscription)
+        .from("subscriptions")
+        .select("id")
+        .eq("stripe_subscription_id", stripeInvoice.subscription)
         .single();
 
       // Insert new invoice
       const { data, error } = await supabase
-        .from('invoices')
+        .from("invoices")
         .insert({
           billing_customer_id: customer.id,
           tenant_id: customer.tenant_id,
@@ -89,25 +91,27 @@ class InvoiceService {
           invoice_number: stripeInvoice.number,
           invoice_pdf_url: stripeInvoice.invoice_pdf,
           hosted_invoice_url: stripeInvoice.hosted_invoice_url,
-          amount_due: stripeInvoice.amount_due / 100,
-          amount_paid: stripeInvoice.amount_paid / 100,
-          amount_remaining: stripeInvoice.amount_remaining / 100,
-          subtotal: stripeInvoice.subtotal / 100,
-          tax: stripeInvoice.tax / 100,
-          total: stripeInvoice.total / 100,
+          amount_due: (stripeInvoice.amount_due ?? 0) / 100,
+          amount_paid: (stripeInvoice.amount_paid ?? 0) / 100,
+          amount_remaining: (stripeInvoice.amount_remaining ?? 0) / 100,
+          subtotal: (stripeInvoice.subtotal ?? 0) / 100,
+          tax: (stripeInvoice.tax ?? 0) / 100,
+          total: (stripeInvoice.total ?? 0) / 100,
           currency: stripeInvoice.currency,
           status: stripeInvoice.status,
-          period_start: stripeInvoice.period_start 
+          period_start: stripeInvoice.period_start
             ? new Date(stripeInvoice.period_start * 1000).toISOString()
             : null,
-          period_end: stripeInvoice.period_end 
+          period_end: stripeInvoice.period_end
             ? new Date(stripeInvoice.period_end * 1000).toISOString()
             : null,
-          due_date: stripeInvoice.due_date 
+          due_date: stripeInvoice.due_date
             ? new Date(stripeInvoice.due_date * 1000).toISOString()
             : null,
-          paid_at: stripeInvoice.status_transitions?.paid_at 
-            ? new Date(stripeInvoice.status_transitions.paid_at * 1000).toISOString()
+          paid_at: stripeInvoice.status_transitions?.paid_at
+            ? new Date(
+                stripeInvoice.status_transitions.paid_at * 1000
+              ).toISOString()
             : null,
           line_items: stripeInvoice.lines?.data || [],
           metadata: stripeInvoice.metadata || {},
@@ -117,11 +121,14 @@ class InvoiceService {
 
       if (error) throw error;
 
-      logger.info('Invoice stored', { invoiceId: stripeInvoice.id });
+      logger.info("Invoice stored", { invoiceId: stripeInvoice.id });
 
       return data;
     } catch (error) {
-      logger.error('Error storing invoice', error instanceof Error ? error : undefined);
+      logger.error(
+        "Error storing invoice",
+        error instanceof Error ? error : undefined
+      );
       throw error;
     }
   }
@@ -131,25 +138,27 @@ class InvoiceService {
    */
   async updateInvoice(stripeInvoice: any): Promise<Invoice> {
     const { data, error } = await supabase
-      .from('invoices')
+      .from("invoices")
       .update({
         invoice_number: stripeInvoice.number,
         invoice_pdf_url: stripeInvoice.invoice_pdf,
         hosted_invoice_url: stripeInvoice.hosted_invoice_url,
-        amount_due: stripeInvoice.amount_due / 100,
-        amount_paid: stripeInvoice.amount_paid / 100,
-        amount_remaining: stripeInvoice.amount_remaining / 100,
-        subtotal: stripeInvoice.subtotal / 100,
-        tax: stripeInvoice.tax / 100,
-        total: stripeInvoice.total / 100,
+        amount_due: (stripeInvoice.amount_due ?? 0) / 100,
+        amount_paid: (stripeInvoice.amount_paid ?? 0) / 100,
+        amount_remaining: (stripeInvoice.amount_remaining ?? 0) / 100,
+        subtotal: (stripeInvoice.subtotal ?? 0) / 100,
+        tax: (stripeInvoice.tax ?? 0) / 100,
+        total: (stripeInvoice.total ?? 0) / 100,
         status: stripeInvoice.status,
-        paid_at: stripeInvoice.status_transitions?.paid_at 
-          ? new Date(stripeInvoice.status_transitions.paid_at * 1000).toISOString()
+        paid_at: stripeInvoice.status_transitions?.paid_at
+          ? new Date(
+              stripeInvoice.status_transitions.paid_at * 1000
+            ).toISOString()
           : null,
         line_items: stripeInvoice.lines?.data || [],
         updated_at: new Date().toISOString(),
       })
-      .eq('stripe_invoice_id', stripeInvoice.id)
+      .eq("stripe_invoice_id", stripeInvoice.id)
       .select()
       .single();
 
@@ -167,10 +176,10 @@ class InvoiceService {
     offset: number = 0
   ): Promise<Invoice[]> {
     const { data, error } = await supabase
-      .from('invoices')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .order('created_at', { ascending: false })
+      .from("invoices")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (error) throw error;
@@ -183,13 +192,13 @@ class InvoiceService {
    */
   async getInvoiceById(invoiceId: string): Promise<Invoice | null> {
     const { data, error } = await supabase
-      .from('invoices')
-      .select('*')
-      .eq('id', invoiceId)
+      .from("invoices")
+      .select("*")
+      .eq("id", invoiceId)
       .single();
 
-    if (error && error.code !== 'PGRST116') {
-      logger.error('Error fetching invoice', error);
+    if (error && error.code !== "PGRST116") {
+      logger.error("Error fetching invoice", error);
       throw error;
     }
 
@@ -202,13 +211,13 @@ class InvoiceService {
   async getUpcomingInvoice(tenantId: string): Promise<any> {
     try {
       const { data: customer } = await supabase
-        .from('billing_customers')
-        .select('stripe_customer_id')
-        .eq('tenant_id', tenantId)
+        .from("billing_customers")
+        .select("stripe_customer_id")
+        .eq("tenant_id", tenantId)
         .single();
 
       if (!customer) {
-        throw new Error('Customer not found');
+        throw new Error("Customer not found");
       }
 
       const upcomingInvoice = await this.stripe.invoices.retrieveUpcoming({
@@ -217,7 +226,7 @@ class InvoiceService {
 
       return upcomingInvoice;
     } catch (error) {
-      return this.stripeService.handleError(error, 'getUpcomingInvoice');
+      return this.stripeService.handleError(error, "getUpcomingInvoice");
     }
   }
 
@@ -227,7 +236,7 @@ class InvoiceService {
   async downloadInvoicePDF(invoiceId: string): Promise<string> {
     const invoice = await this.getInvoiceById(invoiceId);
     if (!invoice || !invoice.invoice_pdf_url) {
-      throw new Error('Invoice PDF not available');
+      throw new Error("Invoice PDF not available");
     }
 
     return invoice.invoice_pdf_url;

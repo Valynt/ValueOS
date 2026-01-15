@@ -3,21 +3,21 @@
  * Role-based access control and permission checking
  */
 
-import { logger } from '../lib/logger';
-import { TenantAwareService } from './TenantAwareService';
-import { AuthorizationError, NotFoundError } from './errors';
+import { TenantAwareService } from "./TenantAwareService";
+import { AuthorizationError, NotFoundError } from "./errors";
+import { type Permission, PERMISSIONS } from "../lib/permissions";
 
-export type Permission =
-  | 'user.view'
-  | 'user.edit'
-  | 'team.view'
-  | 'team.manage'
-  | 'organization.manage'
-  | 'members.manage'
-  | 'billing.view'
-  | 'billing.manage'
-  | 'security.manage'
-  | 'audit.view';
+// Re-export Permission type for backward compatibility
+export type { Permission };
+
+// Cache entry with TTL
+interface CachedRole {
+  role: Role;
+  expiresAt: number;
+}
+
+// Default cache TTL: 5 minutes
+const ROLE_CACHE_TTL_MS = 5 * 60 * 1000;
 
 export interface Role {
   id: string;
@@ -29,23 +29,37 @@ export interface Role {
 export interface UserRole {
   userId: string;
   roleId: string;
-  scope: 'user' | 'team' | 'organization';
+  scope: "user" | "team" | "organization";
   scopeId: string;
 }
 
 export class PermissionService extends TenantAwareService {
-  private roleCache: Map<string, Role> = new Map();
+  private roleCache: Map<string, CachedRole> = new Map();
+  private readonly cacheTTL: number;
 
-  constructor() {
-    super('PermissionService');
+  constructor(cacheTTL: number = ROLE_CACHE_TTL_MS) {
+    super("PermissionService");
+    this.cacheTTL = cacheTTL;
+  }
+
+  /**
+   * Clear expired cache entries
+   */
+  private cleanExpiredCache(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.roleCache.entries()) {
+      if (entry.expiresAt <= now) {
+        this.roleCache.delete(key);
+      }
+    }
   }
 
   private async ensureTenantScopeAccess(
-    scope: 'user' | 'team' | 'organization',
+    scope: "user" | "team" | "organization",
     scopeId: string,
     userId: string
   ): Promise<void> {
-    if (scope === 'organization') {
+    if (scope === "organization") {
       await this.validateTenantAccess(userId, scopeId);
     }
   }
@@ -56,10 +70,15 @@ export class PermissionService extends TenantAwareService {
   async hasPermission(
     userId: string,
     permission: Permission,
-    scope: 'user' | 'team' | 'organization',
+    scope: "user" | "team" | "organization",
     scopeId: string
   ): Promise<boolean> {
-    this.log('debug', 'Checking permission', { userId, permission, scope, scopeId });
+    this.log("debug", "Checking permission", {
+      userId,
+      permission,
+      scope,
+      scopeId,
+    });
 
     await this.ensureTenantScopeAccess(scope, scopeId, userId);
 
@@ -88,7 +107,7 @@ export class PermissionService extends TenantAwareService {
   async hasAllPermissions(
     userId: string,
     permissions: Permission[],
-    scope: 'user' | 'team' | 'organization',
+    scope: "user" | "team" | "organization",
     scopeId: string
   ): Promise<boolean> {
     await this.ensureTenantScopeAccess(scope, scopeId, userId);
@@ -106,7 +125,7 @@ export class PermissionService extends TenantAwareService {
   async hasAnyPermission(
     userId: string,
     permissions: Permission[],
-    scope: 'user' | 'team' | 'organization',
+    scope: "user" | "team" | "organization",
     scopeId: string
   ): Promise<boolean> {
     await this.ensureTenantScopeAccess(scope, scopeId, userId);
@@ -124,15 +143,22 @@ export class PermissionService extends TenantAwareService {
   async requirePermission(
     userId: string,
     permission: Permission,
-    scope: 'user' | 'team' | 'organization',
+    scope: "user" | "team" | "organization",
     scopeId: string
   ): Promise<void> {
     await this.ensureTenantScopeAccess(scope, scopeId, userId);
 
-    const hasPermission = await this.hasPermission(userId, permission, scope, scopeId);
+    const hasPermission = await this.hasPermission(
+      userId,
+      permission,
+      scope,
+      scopeId
+    );
 
     if (!hasPermission) {
-      throw new AuthorizationError(`Missing required permission: ${permission}`);
+      throw new AuthorizationError(
+        `Missing required permission: ${permission}`
+      );
     }
   }
 
@@ -141,7 +167,7 @@ export class PermissionService extends TenantAwareService {
    */
   async getUserRoles(
     userId: string,
-    scope?: 'user' | 'team' | 'organization',
+    scope?: "user" | "team" | "organization",
     scopeId?: string
   ): Promise<UserRole[]> {
     if (scope && scopeId) {
@@ -151,16 +177,16 @@ export class PermissionService extends TenantAwareService {
     return this.executeRequest(
       async () => {
         let query = this.supabase
-          .from('user_roles')
-          .select('*')
-          .eq('user_id', userId);
+          .from("user_roles")
+          .select("*")
+          .eq("user_id", userId);
 
         if (scope) {
-          query = query.eq('scope', scope);
+          query = query.eq("scope", scope);
         }
 
         if (scopeId) {
-          query = query.eq('scope_id', scopeId);
+          query = query.eq("scope_id", scopeId);
         }
 
         const { data, error } = await query;
@@ -175,25 +201,37 @@ export class PermissionService extends TenantAwareService {
   }
 
   /**
-   * Get role details
+   * Get role details with TTL-based caching
    */
   async getRole(roleId: string): Promise<Role> {
-    if (this.roleCache.has(roleId)) {
-      return this.roleCache.get(roleId)!;
+    const now = Date.now();
+    const cached = this.roleCache.get(roleId);
+
+    if (cached && cached.expiresAt > now) {
+      return cached.role;
+    }
+
+    // Clean expired entries periodically
+    if (this.roleCache.size > 100) {
+      this.cleanExpiredCache();
     }
 
     return this.executeRequest(
       async () => {
         const { data, error } = await this.supabase
-          .from('roles')
-          .select('*')
-          .eq('id', roleId)
+          .from("roles")
+          .select("*")
+          .eq("id", roleId)
           .single();
 
         if (error) throw error;
-        if (!data) throw new NotFoundError('Role');
+        if (!data) throw new NotFoundError("Role");
 
-        this.roleCache.set(roleId, data);
+        // Cache with TTL
+        this.roleCache.set(roleId, {
+          role: data,
+          expiresAt: now + this.cacheTTL,
+        });
         return data;
       },
       {
@@ -203,22 +241,33 @@ export class PermissionService extends TenantAwareService {
   }
 
   /**
+   * Invalidate role cache (call when roles are updated)
+   */
+  invalidateRoleCache(roleId?: string): void {
+    if (roleId) {
+      this.roleCache.delete(roleId);
+    } else {
+      this.roleCache.clear();
+    }
+  }
+
+  /**
    * Assign role to user
    */
   async assignRole(
     userId: string,
     roleId: string,
-    scope: 'user' | 'team' | 'organization',
+    scope: "user" | "team" | "organization",
     scopeId: string
   ): Promise<UserRole> {
-    this.log('info', 'Assigning role', { userId, roleId, scope, scopeId });
+    this.log("info", "Assigning role", { userId, roleId, scope, scopeId });
 
     await this.ensureTenantScopeAccess(scope, scopeId, userId);
 
     return this.executeRequest(
       async () => {
         const { data, error } = await this.supabase
-          .from('user_roles')
+          .from("user_roles")
           .insert({
             user_id: userId,
             role_id: roleId,
@@ -245,22 +294,22 @@ export class PermissionService extends TenantAwareService {
   async removeRole(
     userId: string,
     roleId: string,
-    scope: 'user' | 'team' | 'organization',
+    scope: "user" | "team" | "organization",
     scopeId: string
   ): Promise<void> {
-    this.log('info', 'Removing role', { userId, roleId, scope, scopeId });
+    this.log("info", "Removing role", { userId, roleId, scope, scopeId });
 
     await this.ensureTenantScopeAccess(scope, scopeId, userId);
 
     return this.executeRequest(
       async () => {
         const { error } = await this.supabase
-          .from('user_roles')
+          .from("user_roles")
           .delete()
-          .eq('user_id', userId)
-          .eq('role_id', roleId)
-          .eq('scope', scope)
-          .eq('scope_id', scopeId);
+          .eq("user_id", userId)
+          .eq("role_id", roleId)
+          .eq("scope", scope)
+          .eq("scope_id", scopeId);
 
         if (error) throw error;
 
@@ -272,21 +321,10 @@ export class PermissionService extends TenantAwareService {
   }
 
   /**
-   * Get all available permissions
+   * Get all available permissions from unified source
    */
   getAvailablePermissions(): Permission[] {
-    return [
-      'user.view',
-      'user.edit',
-      'team.view',
-      'team.manage',
-      'organization.manage',
-      'members.manage',
-      'billing.view',
-      'billing.manage',
-      'security.manage',
-      'audit.view',
-    ];
+    return Object.values(PERMISSIONS);
   }
 }
 

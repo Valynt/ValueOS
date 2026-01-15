@@ -1,15 +1,19 @@
 /**
  * Security Types for Zero Trust Architecture
  * Defines granular capabilities for SOC 2 compliance (CC6.1 Access Control)
+ *
+ * @deprecated Permission types have been unified. Import from '@/lib/permissions' instead.
+ * This file is maintained for backward compatibility.
  */
 
-// Define granular capabilities (Resource + Action)
-export type Permission =
-  | "VIEW_FINANCIALS" // Can see NPV, ROI, Cash Flow
-  | "VIEW_TECHNICAL_DEBT" // Can see Code Churn, Velocity
-  | "EXECUTE_AGENT" // Can trigger an autonomous workflow
-  | "APPROVE_RISK" // Can override a Risk Guardrail
-  | "ADMIN_SYSTEM"; // System configuration
+import {
+  type Permission as UnifiedPermission,
+  computePermissionsFromRoles,
+  USER_ROLE_PERMISSIONS,
+} from "../lib/permissions";
+
+// Re-export unified Permission type for backward compatibility
+export type Permission = UnifiedPermission;
 
 // The User Claims structure coming from OIDC (Auth0/Okta)
 export interface UserClaims {
@@ -33,34 +37,22 @@ export interface SecurityAuditEvent {
 
 /**
  * Role to Permission Mapping
- * Centralized permission matrix
+ * @deprecated Use USER_ROLE_PERMISSIONS from '@/lib/permissions' instead
  */
 export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
-  CFO: ["VIEW_FINANCIALS", "APPROVE_RISK"],
-  ADMIN: [
-    "VIEW_FINANCIALS",
-    "VIEW_TECHNICAL_DEBT",
-    "EXECUTE_AGENT",
-    "APPROVE_RISK",
-    "ADMIN_SYSTEM",
-  ],
-  DEVELOPER: ["VIEW_TECHNICAL_DEBT", "EXECUTE_AGENT"],
-  ANALYST: ["VIEW_FINANCIALS", "VIEW_TECHNICAL_DEBT"],
-  AGENT: ["EXECUTE_AGENT"], // AI Agents have limited scope
+  ...USER_ROLE_PERMISSIONS,
+  // Legacy role mappings for backward compatibility
+  CFO: USER_ROLE_PERMISSIONS["manager"] || [],
+  ADMIN: USER_ROLE_PERMISSIONS["admin"] || [],
+  DEVELOPER: USER_ROLE_PERMISSIONS["member"] || [],
+  ANALYST: USER_ROLE_PERMISSIONS["member"] || [],
+  AGENT: USER_ROLE_PERMISSIONS["member"] || [],
 };
 
 /**
  * Compute permissions from roles
+ * @deprecated Use computePermissionsFromRoles from '@/lib/permissions' instead
  */
 export function computePermissions(roles: string[]): Permission[] {
-  const permissions = new Set<Permission>();
-
-  roles.forEach((role) => {
-    const rolePerms = ROLE_PERMISSIONS[role.toUpperCase()];
-    if (rolePerms) {
-      rolePerms.forEach((p) => permissions.add(p));
-    }
-  });
-
-  return Array.from(permissions);
+  return computePermissionsFromRoles(roles);
 }

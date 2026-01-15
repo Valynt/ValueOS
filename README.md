@@ -154,7 +154,6 @@ The repository follows an opinionated structure optimized for developer experien
 ```text
 ValueOS/
 ├── .config/               # Centralized configuration (Vite, ESLint, Playwright)
-├── .context/              # Development context and capability documentation
 ├── .devcontainer/         # Development container definitions and health checks
 ├── .github/               # CI/CD workflows, security scanning, and automation
 ├── .husky/                # Git hooks configuration
@@ -163,8 +162,8 @@ ValueOS/
 ├── .vscode/               # Workspace settings and recommended extensions
 ├── .vscode-extension/     # VS Code extension development
 ├── .windsurf/             # Windsurf workflows and agents
-├── audit/                 # Security and compliance audit reports
 ├── caddy/                 # Caddy web server configuration
+├── config/                # Application configuration files
 ├── deploy/                # Deployment configurations and environment files
 ├── docs/                  # Comprehensive documentation (ADR, guides, runbooks)
 ├── infra/                 # Infrastructure as code (Docker, monitoring)
@@ -181,6 +180,7 @@ ValueOS/
 │   ├── services/          # Business logic and domain services
 │   ├── types/             # TypeScript type definitions
 │   └── __tests__/         # Test suites (unit, integration, E2E)
+├── supabase/              # Supabase configuration and migrations
 ├── tests/                 # Additional test suites and configurations
 └── docker-compose.deps.yml # Dependency services configuration
 ```
@@ -485,16 +485,16 @@ build: optimize bundle size reduction strategy
 
 **🛠️ Development Resources:**
 
-- [Testing Strategy](docs/engineering/testing.md) - Comprehensive testing approach
-- [Security Guidelines](docs/security/) - Security best practices and compliance
-- [Performance Guide](docs/engineering/performance.md) - Optimization and monitoring
+- [Testing Guide](docs/guides/getting-started/testing.md) - Comprehensive testing approach
+- [Security Guidelines](docs/engineering/security-overview.md) - Security best practices and compliance
+- [Telemetry & Monitoring](docs/engineering/telemetry-monitoring-overview.md) - Optimization and monitoring
 
 **🚀 Operational Resources:**
 
 - [Deployment Guide](docs/guides/deployment.md) - Production deployment procedures
 - [Troubleshooting Guide](docs/guides/troubleshooting.md) - Common issues and solutions
-- [Monitoring & Alerting](docs/ops/monitoring.md) - Observability and incident response
-- [Backup & Recovery](docs/ops/backup.md) - Data protection and disaster recovery
+- [Monitoring & Alerting](docs/ops/monitoring/monitoring-dashboards.md) - Observability and incident response
+- [Backup & Recovery](operations/runbooks/BACKUP_RESTORE.md) - Data protection and disaster recovery
 
 ### Community & Support
 
@@ -518,14 +518,14 @@ build: optimize bundle size reduction strategy
 
 ### Quick Reference Matrix
 
-| Task              | Command                                        | Documentation                                           |
-| ----------------- | ---------------------------------------------- | ------------------------------------------------------- |
-| Local setup       | `npm install && npm run env:dev && npm run dx` | [Setup Guide](docs/guides/setup.md)                     |
-| Run tests         | `npm run ci:verify`                            | [Testing Strategy](docs/engineering/testing.md)         |
-| Deploy to staging | `npm run env:staging`                          | [Deployment Guide](docs/guides/deployment.md)           |
-| Database reset    | `npm run db:reset`                             | [Database Guide](docs/engineering/database.md)          |
-| Health check      | `npm run dx:check`                             | [Monitoring Guide](docs/ops/monitoring.md)              |
-| Troubleshooting   | -                                              | [Troubleshooting Guide](docs/guides/troubleshooting.md) |
+| Task              | Command                                        | Documentation                                                    |
+| ----------------- | ---------------------------------------------- | ---------------------------------------------------------------- |
+| Local setup       | `npm install && npm run env:dev && npm run dx` | [Setup Guide](docs/guides/setup.md)                              |
+| Run tests         | `npm run ci:verify`                            | [Testing Guide](docs/guides/getting-started/testing.md)          |
+| Deploy to staging | `npm run env:staging`                          | [Deployment Guide](docs/guides/deployment.md)                    |
+| Database reset    | `npm run db:reset`                             | [Database Guide](docs/engineering/api-database-overview.md)      |
+| Health check      | `npm run dx:check`                             | [Monitoring Guide](docs/ops/monitoring/monitoring-dashboards.md) |
+| Troubleshooting   | -                                              | [Troubleshooting Guide](docs/guides/troubleshooting.md)          |
 
 ---
 
