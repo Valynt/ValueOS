@@ -25,9 +25,22 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 5173,
     strictPort: true,
-    allowedHosts: [".gitpod.dev", ".gitpod.io", "localhost"],
+    allowedHosts: [".gitpod.dev", ".gitpod.io", ".github.dev", "localhost"],
     hmr: {
       clientPort: 443,
+    },
+    proxy: {
+      "/api": {
+        target: process.env.VITE_BACKEND_URL || "http://localhost:3001",
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path,
+      },
+      "/auth": {
+        target: process.env.VITE_SUPABASE_URL || "http://localhost:54321",
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
   build: {

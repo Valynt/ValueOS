@@ -21,6 +21,8 @@ import { analyticsClient } from "./lib/analyticsClient";
 import { initHMRFallback } from "./lib/vite-hmr-fallback";
 import * as ClientRateLimit from "./services/ClientRateLimit";
 import { BootstrapGuard } from "./components/Common/BootstrapGuard";
+import { RootErrorBoundary } from "./components/error-boundaries/RootErrorBoundary";
+import { StartupStatus } from "./components/Common/StartupStatus";
 
 /**
  * Load fonts asynchronously after initial render
@@ -68,14 +70,25 @@ function main() {
     startConsoleCapture();
     analyticsClient.initialize({ betaCohort: true });
 
-    // 2. Render React Root with BootstrapGuard
-    // The Guard will handle the bootstrap sequence and UI states
+    // 2. Render React Root immediately with error boundaries and startup status
+    // This ensures something is always painted, even if dependencies are down
     const root = createRoot(rootElement);
     root.render(
       <StrictMode>
-        <BootstrapGuard>
-          <AppRoutes />
-        </BootstrapGuard>
+        <RootErrorBoundary>
+          <StartupStatus
+            onReady={() => logger.debug("All dependencies ready")}
+            onDegraded={(state) =>
+              logger.warn("Running in degraded mode", {
+                warnings: state.warnings,
+              })
+            }
+          >
+            <BootstrapGuard>
+              <AppRoutes />
+            </BootstrapGuard>
+          </StartupStatus>
+        </RootErrorBoundary>
       </StrictMode>
     );
 

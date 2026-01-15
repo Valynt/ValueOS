@@ -31,6 +31,12 @@ try {
   process.exit(1);
 }
 
+// Soft mode: print warnings but don't block dev server startup
+const softMode =
+  args.includes("--soft") ||
+  args.includes("-s") ||
+  process.env.DX_SOFT_DOCTOR === "1";
+
 // Incremental check cache
 const checkCache = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -517,7 +523,9 @@ function checkSupabase() {
   let supabaseStatus = "";
   try {
     supabaseStatus = runCommand("supabase status", { stdio: "pipe" });
-    supabaseRunning = supabaseStatus.includes("API URL") && !supabaseStatus.includes("not running");
+    supabaseRunning =
+      supabaseStatus.includes("API URL") &&
+      !supabaseStatus.includes("not running");
   } catch {
     supabaseRunning = false;
   }
@@ -534,7 +542,9 @@ function checkSupabase() {
   // Check Supabase API health
   const healthUrl = `http://localhost:${supabaseApiPort}/rest/v1/`;
   try {
-    runCommand(`curl -sf --max-time 5 "${healthUrl}" > /dev/null`, { stdio: "pipe" });
+    runCommand(`curl -sf --max-time 5 "${healthUrl}" > /dev/null`, {
+      stdio: "pipe",
+    });
   } catch {
     reportFailure(
       "Supabase API not responding",
@@ -546,7 +556,11 @@ function checkSupabase() {
 
   // Verify env URLs point to local Supabase
   const backendSupabaseUrl = process.env.SUPABASE_URL || "";
-  if (backendSupabaseUrl && !backendSupabaseUrl.includes("localhost") && !backendSupabaseUrl.includes("127.0.0.1")) {
+  if (
+    backendSupabaseUrl &&
+    !backendSupabaseUrl.includes("localhost") &&
+    !backendSupabaseUrl.includes("127.0.0.1")
+  ) {
     reportFailure(
       "Backend Supabase URL mismatch",
       `SUPABASE_URL points to ${backendSupabaseUrl} but local Supabase is running.`,
@@ -576,18 +590,22 @@ function checkSupabaseMigrations() {
 
   // Check migration status
   try {
-    const migrationList = runCommand("supabase migration list 2>/dev/null || echo 'unavailable'", { stdio: "pipe" });
-    
+    const migrationList = runCommand(
+      "supabase migration list 2>/dev/null || echo 'unavailable'",
+      { stdio: "pipe" }
+    );
+
     if (migrationList.includes("unavailable")) {
       return; // Can't check migrations
     }
 
     // Count pending migrations
-    const lines = migrationList.split("\n").filter(line => line.trim());
-    const pendingMigrations = lines.filter(line => 
-      line.includes("not applied") || 
-      line.includes("pending") ||
-      (line.includes("│") && !line.includes("applied"))
+    const lines = migrationList.split("\n").filter((line) => line.trim());
+    const pendingMigrations = lines.filter(
+      (line) =>
+        line.includes("not applied") ||
+        line.includes("pending") ||
+        (line.includes("│") && !line.includes("applied"))
     );
 
     if (pendingMigrations.length > 0) {
@@ -623,14 +641,20 @@ function checkSupabaseSchema() {
 
   // Check for schema drift using supabase db diff
   try {
-    const diff = runCommand("supabase db diff --use-migra 2>/dev/null || echo ''", { stdio: "pipe" });
-    
+    const diff = runCommand(
+      "supabase db diff --use-migra 2>/dev/null || echo ''",
+      { stdio: "pipe" }
+    );
+
     // If diff output contains CREATE/ALTER/DROP statements, there's drift
-    const hasDrift = diff.trim().length > 0 && 
-      (diff.includes("CREATE") || diff.includes("ALTER") || diff.includes("DROP"));
-    
+    const hasDrift =
+      diff.trim().length > 0 &&
+      (diff.includes("CREATE") ||
+        diff.includes("ALTER") ||
+        diff.includes("DROP"));
+
     if (hasDrift) {
-      const lineCount = diff.split("\n").filter(l => l.trim()).length;
+      const lineCount = diff.split("\n").filter((l) => l.trim()).length;
       reportFailure(
         "Database schema drift detected",
         `Local database differs from migrations (${lineCount} changes).`,
@@ -644,14 +668,16 @@ function checkSupabaseSchema() {
   // Check that generated types are up to date
   const typesPath = path.join(projectRoot, "src/types/supabase.ts");
   const migrationsDir = path.join(projectRoot, "supabase/migrations");
-  
+
   if (fs.existsSync(typesPath) && fs.existsSync(migrationsDir)) {
     try {
       const typesStat = fs.statSync(typesPath);
-      const migrations = fs.readdirSync(migrationsDir).filter(f => f.endsWith(".sql"));
-      
+      const migrations = fs
+        .readdirSync(migrationsDir)
+        .filter((f) => f.endsWith(".sql"));
+
       // Check if any migration is newer than types file
-      const newerMigrations = migrations.filter(m => {
+      const newerMigrations = migrations.filter((m) => {
         const migrationPath = path.join(migrationsDir, m);
         const migrationStat = fs.statSync(migrationPath);
         return migrationStat.mtime > typesStat.mtime;
@@ -677,11 +703,11 @@ function checkEnvModeConsistency() {
   }
 
   const content = fs.readFileSync(envLocalPath, "utf8");
-  
+
   // Check DX_MODE matches current mode
   const modeMatch = content.match(/^DX_MODE=(.*)$/m);
   const envMode = modeMatch ? modeMatch[1].trim() : null;
-  
+
   if (envMode && envMode !== mode) {
     reportFailure(
       "Environment mode mismatch",
@@ -707,7 +733,10 @@ function checkEnvModeConsistency() {
   }
 
   // Check for deprecated SUPABASE_SERVICE_KEY
-  if (content.includes("SUPABASE_SERVICE_KEY=") && !content.includes("SUPABASE_SERVICE_ROLE_KEY=")) {
+  if (
+    content.includes("SUPABASE_SERVICE_KEY=") &&
+    !content.includes("SUPABASE_SERVICE_ROLE_KEY=")
+  ) {
     reportFailure(
       "Deprecated Supabase key name",
       "Using SUPABASE_SERVICE_KEY instead of SUPABASE_SERVICE_ROLE_KEY.",
@@ -979,19 +1008,64 @@ async function main() {
   ]);
 
   if (failures.length > 0) {
-    console.log("❌ Preflight checks failed:\n");
-    failures.forEach((failure) => {
-      console.log(`- ${failure.title}`);
-      console.log(`  ${failure.details}`);
-      if (failure.fix) {
-        console.log(`  Fix: ${failure.fix}`);
-      }
-      console.log("");
-    });
-    process.exit(1);
-  }
+    if (softMode) {
+      console.log(
+        "\n⚠️  Preflight checks have warnings (soft mode - continuing):\n"
+      );
+    } else {
+      console.log("\n❌ Preflight checks failed:\n");
+    }
 
-  console.log("✅ All preflight checks passed.\n");
+    // Classify failures as blocking vs non-blocking
+    const blockingFailures = failures.filter(
+      (f) =>
+        (f.title.includes("Docker") && f.title.includes("not running")) ||
+        f.title.includes("Node.js version") ||
+        f.title.includes(".env.local missing")
+    );
+    const warningFailures = failures.filter(
+      (f) => !blockingFailures.includes(f)
+    );
+
+    if (blockingFailures.length > 0) {
+      console.log("🚫 Blocking issues (must fix):");
+      blockingFailures.forEach((failure) => {
+        console.log(`  - ${failure.title}`);
+        console.log(`    ${failure.details}`);
+        if (failure.fix) {
+          console.log(`    Fix: ${failure.fix}`);
+        }
+        console.log("");
+      });
+    }
+
+    if (warningFailures.length > 0) {
+      console.log("⚠️  Warnings (can continue in degraded mode):");
+      warningFailures.forEach((failure) => {
+        console.log(`  - ${failure.title}`);
+        console.log(`    ${failure.details}`);
+        if (failure.fix) {
+          console.log(`    Fix: ${failure.fix}`);
+        }
+        console.log("");
+      });
+    }
+
+    // In soft mode, only exit if there are blocking failures
+    if (softMode) {
+      if (blockingFailures.length > 0) {
+        console.log("\n❌ Cannot continue due to blocking issues above.\n");
+        process.exit(1);
+      }
+      console.log(
+        "\n⚠️  Continuing with warnings. Some features may not work.\n"
+      );
+    } else {
+      process.exit(1);
+    }
+  } else {
+    console.log("\n✅ All preflight checks passed.\n");
+  }
   console.log("Ports:");
   console.log(`  Frontend:        ${frontendUrl}`);
   console.log(`  Backend:         ${backendUrl}`);

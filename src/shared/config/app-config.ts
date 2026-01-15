@@ -245,7 +245,10 @@ class ConfigLoader {
 
   private loadFromFiles(): Partial<AppConfig> {
     // Load from config files based on environment
-    const env = process.env.NODE_ENV || "development";
+    const env =
+      typeof process !== "undefined" && process.env?.NODE_ENV
+        ? process.env.NODE_ENV
+        : "development";
 
     try {
       // Try to load environment-specific config

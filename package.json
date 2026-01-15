@@ -9,6 +9,7 @@
     "dx": "node scripts/dx/orchestrator.js --mode local",
     "dx:docker": "node scripts/dx/orchestrator.js --mode docker",
     "dx:doctor": "node scripts/dx/doctor.js",
+    "dx:doctor:soft": "node scripts/dx/doctor.js --soft",
     "dx:env": "node scripts/dx/env-compiler.js",
     "dx:env:validate": "node scripts/dx/env-compiler.js --validate",
     "dx:down": "node scripts/dx/orchestrator.js --down",
