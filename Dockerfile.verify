@@ -1,0 +1,18 @@
+FROM node:18.19.0-bullseye
+
+# Install required tools for verification
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    jq curl ca-certificates postgresql-client \
+  && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /work
+
+# Copy repository contents
+COPY . /work
+
+# Make verify script executable
+RUN chmod +x ./verify.sh || true
+
+# Default command
+CMD ["bash", "-lc", "./verify.sh"]

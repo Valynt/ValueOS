@@ -30,6 +30,14 @@ export function ProtectedRoute({
   const { user, userClaims, loading } = useAuth();
   const location = useLocation();
 
+  // Auth bypass for UI development (controlled by VITE_AUTH_BYPASS env var)
+  const authBypassEnabled = import.meta.env.VITE_AUTH_BYPASS === "true";
+
+  if (authBypassEnabled) {
+    // Bypass authentication completely - allow all access
+    return <>{children}</>;
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">

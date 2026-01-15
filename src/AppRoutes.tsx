@@ -70,6 +70,7 @@ const CustomerAccessManagement = lazy(() =>
 
 // Lazy load Documentation Portal
 const DocsPortal = lazy(() => import("./components/docs/DocsPortal"));
+const PreviewPage = lazy(() => import("./views/PreviewPage"));
 
 export function AppRoutes() {
   return (
@@ -130,6 +131,18 @@ export function AppRoutes() {
                             <RouteErrorBoundary routeName="Auth Callback">
                               <AsyncErrorBoundary>
                                 <AuthCallback />
+                              </AsyncErrorBoundary>
+                            </RouteErrorBoundary>
+                          }
+                        />
+
+                        {/* Preview Route - Public access for UI development */}
+                        <Route
+                          path="/preview"
+                          element={
+                            <RouteErrorBoundary routeName="Preview">
+                              <AsyncErrorBoundary>
+                                <PreviewPage />
                               </AsyncErrorBoundary>
                             </RouteErrorBoundary>
                           }

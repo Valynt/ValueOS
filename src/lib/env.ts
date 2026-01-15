@@ -1,10 +1,10 @@
-import { validateEnvOrThrow } from "../config/validateEnv";
-
 /**
- * Environment Variable Validation
- * Ensures all required environment variables are present before starting the application.
- * Now uses the central validation system in src/config/validateEnv.ts
+ * Environment Variable Utilities
+ * Browser-safe implementation that avoids process references
  */
+
+// Check once at module load time
+const _isBrowser = typeof window !== "undefined";
 
 export const REQUIRED_ENV_VARS = [
   "VITE_SUPABASE_URL",
@@ -14,10 +14,143 @@ export const REQUIRED_ENV_VARS = [
 ] as const;
 
 export function validateRequiredEnv() {
-  validateEnvOrThrow();
+  // Skip validation in browser (validation is server-side)
+  if (_isBrowser) return;
+
+  // Server-side validation
+  import("../config/validateEnv")
+    .then(({ validateEnvOrThrow }) => {
+      validateEnvOrThrow();
+    })
+    .catch(() => {
+      // Validation module failed to load, skip
+    });
 }
 
-// Legacy alias for backward compatibility - use validateRequiredEnv for new code
 export function validateEnv() {
   validateRequiredEnv();
+}
+
+export const env = {
+  isDevelopment: _isBrowser ? import.meta.env?.DEV === true : false,
+  isProduction: _isBrowser ? import.meta.env?.PROD === true : false,
+  isTest: false,
+  isBrowser: _isBrowser,
+  isServer: !_isBrowser,
+};
+
+export interface GetEnvVarOptions {
+  required?: boolean;
+  defaultValue?: string;
+  scope?: "browser" | "server";
+}
+
+export function getEnvVar(
+  key: string,
+  options: GetEnvVarOptions = {}
+): string | undefined {
+  const { required = false, defaultValue, scope } = options;
+
+  let value: string | undefined;
+
+  if (_isBrowser) {
+    value = (import.meta.env as any)?.[key];
+  } else {
+    // Server-side only
+    if (typeof process !== "undefined" && process.env) {
+      value = process.env[key];
+    }
+  }
+
+  if (!value && defaultValue) {
+    value = defaultValue;
+  }
+
+  if (!value && required) {
+    const errorScope = scope || (_isBrowser ? "browser" : "server");
+    throw new Error(
+      `Missing required ${errorScope} environment variable: ${key}`
+    );
+  }
+
+  return value;
+}
+
+export function setEnvVar(key: string, value: string): void {
+  if (_isBrowser) {
+    (import.meta.env as any)[key] = value;
+  } else {
+    if (typeof process !== "undefined" && process.env) {
+      process.env[key] = value;
+    }
+  }
+}
+
+export function checkIsBrowser(): boolean {
+  return _isBrowser;
+}
+
+export function __setEnvSourceForTests(
+  envSource: Record<string, string>
+): void {
+  if (_isBrowser) {
+    Object.assign(import.meta.env, envSource);
+  } else {
+    if (typeof process !== "undefined" && process.env) {
+      Object.assign(process.env, envSource);
+    }
+  }
+}
+
+export function getSupabaseConfig(): {
+  url: string;
+  anonKey: string;
+  serviceRoleKey?: string;
+} {
+  return {
+    url: getEnvVar("VITE_SUPABASE_URL") || getEnvVar("SUPABASE_URL") || "",
+    anonKey:
+      getEnvVar("VITE_SUPABASE_ANON_KEY") ||
+      getEnvVar("SUPABASE_ANON_KEY") ||
+      "",
+    serviceRoleKey:
+      getEnvVar("SUPABASE_SERVICE_ROLE_KEY") ||
+      getEnvVar("SUPABASE_SERVICE_KEY"),
+  };
+}
+
+export function getGroundtruthConfig(): {
+  baseUrl: string;
+  apiKey?: string;
+  timeout: number;
+} {
+  return {
+    baseUrl:
+      getEnvVar("VITE_GROUNDTRUTH_URL") ||
+      getEnvVar("GROUNDTRUTH_URL") ||
+      "https://api.groundtruth.example.com",
+    apiKey:
+      getEnvVar("VITE_GROUNDTRUTH_API_KEY") || getEnvVar("GROUNDTRUTH_API_KEY"),
+    timeout: Number(getEnvVar("GROUNDTRUTH_TIMEOUT") || "30000"),
+  };
+}
+
+export function getLLMCostTrackerConfig(): {
+  supabaseUrl: string;
+  supabaseKey: string;
+  tableName: string;
+} {
+  return {
+    supabaseUrl:
+      getEnvVar("VITE_SUPABASE_URL") || getEnvVar("SUPABASE_URL") || "",
+    supabaseKey:
+      getEnvVar("VITE_SUPABASE_ANON_KEY") ||
+      getEnvVar("SUPABASE_ANON_KEY") ||
+      "",
+    tableName: getEnvVar("LLM_COST_TABLE_NAME") || "llm_costs",
+  };
+}
+
+export function setEnvVarForTests(envSource: Record<string, string>): void {
+  __setEnvSourceForTests(envSource);
 }
