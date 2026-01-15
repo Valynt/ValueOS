@@ -8,6 +8,13 @@ const LandingPage = lazy(() => import("@pages/marketing/LandingPage"));
 const DashboardPage = lazy(() => import("@pages/app/DashboardPage"));
 const ChatCanvasLayout = lazy(() => import("@components/ChatCanvas/ChatCanvasLayout"));
 const NotFoundPage = lazy(() => import("@pages/errors/NotFoundPage"));
+
+// ValueOS pages
+const AppShell = lazy(() => import("@components/layout/AppShell"));
+const ValueOSHome = lazy(() => import("@pages/valueos/HomePage"));
+const ValueOSCaseWorkspace = lazy(() => import("@pages/valueos/CaseWorkspace"));
+const ValueOSTeam = lazy(() => import("@pages/valueos/TeamPage"));
+const ValueOSBilling = lazy(() => import("@pages/valueos/BillingPage"));
 const LoginPage = lazy(() => import("@pages/auth/LoginPage"));
 const SignupPage = lazy(() => import("@pages/auth/SignupPage"));
 const ResetPasswordPage = lazy(() => import("@pages/auth/ResetPasswordPage"));
@@ -57,6 +64,17 @@ export function AppRoutes() {
 
           {/* Workspace - ChatCanvas UI (unprotected for dev) */}
           <Route path="/workspace" element={<ChatCanvasLayout />} />
+
+          {/* ValueOS App (unprotected for dev) */}
+          <Route path="/app" element={<AppShell />}>
+            <Route index element={<ValueOSHome />} />
+            <Route path="cases" element={<ValueOSHome />} />
+            <Route path="cases/:caseId" element={<ValueOSCaseWorkspace />} />
+            <Route path="library" element={<ValueOSHome />} />
+            <Route path="team" element={<ValueOSTeam />} />
+            <Route path="billing" element={<ValueOSBilling />} />
+            <Route path="settings" element={<ValueOSHome />} />
+          </Route>
 
           {/* App routes (protected) */}
           <Route element={<ProtectedRoute />}>
