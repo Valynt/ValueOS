@@ -18,6 +18,7 @@ const validationLogger = createLogger({ component: "EnvValidation" });
  */
 export interface ValidationResult {
   valid: boolean;
+  isValid: boolean;
   errors: string[];
   warnings: string[];
 }
@@ -129,8 +130,10 @@ export function validateLLMConfig(): LLMValidationResult {
     );
   }
 
+  const isValid = errors.length === 0;
   return {
-    valid: errors.length === 0,
+    valid: isValid,
+    isValid,
     errors,
     warnings,
     provider,
@@ -140,20 +143,12 @@ export function validateLLMConfig(): LLMValidationResult {
 }
 
 /**
- * Validate all critical environment variables
- *
- * This is a comprehensive check that includes LLM + other critical vars
+ * Validate Supabase configuration
  */
-export function validateEnv(): ValidationResult {
+export function validateSupabaseConfig(): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // 1. Validate LLM configuration
-  const llmValidation = validateLLMConfig();
-  errors.push(...llmValidation.errors);
-  warnings.push(...llmValidation.warnings);
-
-  // 2. Validate Supabase configuration
   const supabaseUrl = getEnv("VITE_SUPABASE_URL");
   const supabaseAnonKey = getEnv("VITE_SUPABASE_ANON_KEY");
 
@@ -177,7 +172,7 @@ export function validateEnv(): ValidationResult {
     }
   }
 
-  // 3. Validate Server-side configuration
+  // Server-side configuration
   const isNodeEnv = typeof process !== "undefined" && process.env;
   if (isNodeEnv) {
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -200,7 +195,39 @@ export function validateEnv(): ValidationResult {
     }
   }
 
-  // 4. Validate URLs in production
+  const isValid = errors.length === 0;
+  return {
+    valid: isValid,
+    isValid,
+    errors,
+    warnings,
+  };
+}
+
+/**
+ * Validate all critical environment variables
+ *
+ * This is a comprehensive check that includes LLM + other critical vars
+ */
+export function validateEnv(): ValidationResult & {
+  llm: LLMValidationResult;
+  supabase: ValidationResult;
+  summary: { totalErrors: number; totalWarnings: number };
+} {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  // 1. Validate LLM configuration
+  const llmValidation = validateLLMConfig();
+  errors.push(...llmValidation.errors);
+  warnings.push(...llmValidation.warnings);
+
+  // 2. Validate Supabase configuration
+  const supabaseValidation = validateSupabaseConfig();
+  errors.push(...supabaseValidation.errors);
+  warnings.push(...supabaseValidation.warnings);
+
+  // 3. Validate URLs in production
   if (isProduction()) {
     const appUrl = getEnv("VITE_APP_URL");
     const httpsOnly = getEnv("VITE_HTTPS_ONLY");
@@ -212,10 +239,19 @@ export function validateEnv(): ValidationResult {
     }
   }
 
+  const isValid = errors.length === 0;
+
   return {
-    valid: errors.length === 0,
+    valid: isValid,
+    isValid,
     errors,
     warnings,
+    llm: llmValidation,
+    supabase: supabaseValidation,
+    summary: {
+      totalErrors: errors.length,
+      totalWarnings: warnings.length,
+    },
   };
 }
 
@@ -240,7 +276,7 @@ export function logValidationResults(result: ValidationResult): void {
   }
 
   if (
-    result.valid &&
+    result.isValid &&
     result.errors.length === 0 &&
     result.warnings.length === 0
   ) {
@@ -258,7 +294,7 @@ export function validateEnvOrThrow(): void {
   logValidationResults(result);
 
   // Throw in production if invalid
-  if (!result.valid && isProduction()) {
+  if (!result.isValid && isProduction()) {
     throw new Error(
       `Environment validation failed with ${result.errors.length} error(s). Check console for details.`
     );
