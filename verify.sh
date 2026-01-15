@@ -124,7 +124,7 @@ step_load_env() {
   set +a
 
   # Required Supabase env
-  [[ -n "${VITE_SUPABASE_URLS_url:-""}" ]] && warn "It looks like you have a typo env var 'VITE_SUPABASES_url'. Ignoring."
+  [[ -n "${VITE_SUPABASE_URLS_url:-""}" ]] && warn "It looks like you have a typo env var 'VITE_SUPABASE_URLS_url'. Ignoring."
 
   [[ -n "${VITE_SUPABASE_URL:-""}" ]] || fail "VITE_SUPABASE_URL is not set in .env.local"
   [[ -n "${VITE_SUPABASE_ANON_KEY:-""}" ]] || fail "VITE_SUPABASE_ANON_KEY is not set in .env.local"

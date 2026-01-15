@@ -5,9 +5,7 @@
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
-    "types": ["vitest/globals", "node", "uuid"],
 
-    /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
@@ -15,30 +13,27 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Path Aliases */
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
+      "@app/*": ["./src/app/*"],
+      "@pages/*": ["./src/pages/*"],
+      "@layouts/*": ["./src/layouts/*"],
+      "@components/*": ["./src/components/*"],
+      "@features/*": ["./src/features/*"],
+      "@services/*": ["./src/services/*"],
       "@lib/*": ["./src/lib/*"],
-      "@backend/*": ["./packages/backend/src/*"],
-      "@mcp/*": ["./packages/mcp/*"],
-      "@mcp-common/*": ["./packages/mcp/common/*"],
-      "@sdui/*": ["./packages/sdui/src/*"]
+      "@hooks/*": ["./src/hooks/*"],
+      "@types/*": ["./src/types/*"],
+      "@assets/*": ["./src/assets/*"]
     },
 
-    /* Linting */
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["./src"],
-  "exclude": [
-    "./src/**/*.test.ts",
-    "./src/**/*.test.tsx",
-    "./src/**/*.spec.ts",
-    "./src/**/*.spec.tsx",
-    "./src/tests/**/*"
-  ]
+  "include": ["src"],
+  "references": [{ "path": "./tsconfig.node.json" }]
 }

@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "packageManager": "npm@9.2.0",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "setup": "node scripts/dx/setup.js",
     "dx": "node scripts/dx/orchestrator.js --mode local",

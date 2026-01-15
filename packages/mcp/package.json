@@ -1,0 +1,25 @@
+{
+  "name": "@valueos/mcp",
+  "version": "1.0.0",
+  "description": "ValueOS MCP (Model Context Protocol) modules - common, CRM, ground-truth",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    "./common": "./common/index.ts",
+    "./crm": "./crm/index.ts",
+    "./ground-truth": "./ground-truth/index.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.29",
+    "typescript": "^5.9.3"
+  }
+}
