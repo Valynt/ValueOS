@@ -193,17 +193,19 @@ GRAFANA_PORT=${ports.observability.grafanaPort}
 
 /**
  * Validate existing .env.local matches the expected mode
+ * Returns hard failures for mode contradictions
  */
 function validateEnvLocal(expectedMode) {
   const envPath = path.join(projectRoot, ".env.local");
 
   if (!fs.existsSync(envPath)) {
-    return { valid: false, error: ".env.local does not exist" };
+    return { valid: false, error: ".env.local does not exist", errors: [".env.local does not exist"], warnings: [] };
   }
 
   const content = fs.readFileSync(envPath, "utf8");
   const errors = [];
   const warnings = [];
+  const contradictions = []; // Hard failures that prevent startup
 
   // Check DX_MODE
   const modeMatch = content.match(/^DX_MODE=(.*)$/m);
@@ -212,36 +214,53 @@ function validateEnvLocal(expectedMode) {
   if (!currentMode) {
     errors.push("DX_MODE not set in .env.local");
   } else if (currentMode !== expectedMode) {
-    errors.push(
-      `DX_MODE mismatch: .env.local has "${currentMode}" but expected "${expectedMode}"`
+    contradictions.push(
+      `MODE CONTRADICTION: .env.local configured for "${currentMode}" but running in "${expectedMode}" mode`
     );
   }
 
   // Check for deprecated SUPABASE_SERVICE_KEY (should be SUPABASE_SERVICE_ROLE_KEY)
-  if (content.includes("SUPABASE_SERVICE_KEY=")) {
+  if (content.includes("SUPABASE_SERVICE_KEY=") && !content.includes("SUPABASE_SERVICE_ROLE_KEY=")) {
     warnings.push(
       'Deprecated: SUPABASE_SERVICE_KEY should be SUPABASE_SERVICE_ROLE_KEY'
     );
   }
 
-  // Check URL consistency for mode
-  const ports = loadPorts();
-  const urls = getUrlConfig(expectedMode, ports);
-
-  // Check VITE_API_BASE_URL
+  // Check URL consistency for mode - these are HARD FAILURES
   const apiUrlMatch = content.match(/^VITE_API_BASE_URL=(.*)$/m);
   if (apiUrlMatch) {
     const currentApiUrl = apiUrlMatch[1].trim();
+    
     if (expectedMode === "local") {
-      // Local mode should use localhost URLs
-      if (
-        currentApiUrl.includes("backend:") ||
-        currentApiUrl.includes("frontend:")
-      ) {
-        errors.push(
-          `VITE_API_BASE_URL uses Docker DNS (${currentApiUrl}) but mode is "local". Browser cannot resolve Docker hostnames.`
+      // Local mode: Docker DNS is a hard failure (browser cannot resolve)
+      if (currentApiUrl.includes("backend:") || currentApiUrl.includes("frontend:")) {
+        contradictions.push(
+          `URL CONTRADICTION: VITE_API_BASE_URL uses Docker DNS (${currentApiUrl}) but mode is "local". Browser cannot resolve Docker hostnames.`
         );
       }
+    } else if (expectedMode === "docker") {
+      // Docker mode: localhost URLs may work but are suspicious
+      if (currentApiUrl.includes("localhost:") && !currentApiUrl.includes("/api")) {
+        warnings.push(
+          `VITE_API_BASE_URL uses localhost (${currentApiUrl}) in docker mode. This may cause issues.`
+        );
+      }
+    }
+  }
+
+  // Check DATABASE_URL consistency
+  const dbUrlMatch = content.match(/^DATABASE_URL=(.*)$/m);
+  if (dbUrlMatch) {
+    const dbUrl = dbUrlMatch[1].trim();
+    
+    if (expectedMode === "local" && dbUrl.includes("@postgres:")) {
+      contradictions.push(
+        `URL CONTRADICTION: DATABASE_URL uses Docker DNS (${dbUrl}) but mode is "local".`
+      );
+    } else if (expectedMode === "docker" && dbUrl.includes("@localhost:")) {
+      contradictions.push(
+        `URL CONTRADICTION: DATABASE_URL uses localhost (${dbUrl}) but mode is "docker".`
+      );
     }
   }
 
@@ -259,18 +278,30 @@ function validateEnvLocal(expectedMode) {
     }
   }
 
-  // Check for placeholder values
+  // Check for placeholder values - these are errors
   const placeholderPatterns = [
-    /VITE_SUPABASE_ANON_KEY=your-/,
-    /VITE_SUPABASE_ANON_KEY=placeholder/,
-    /SUPABASE_SERVICE_ROLE_KEY=your-/,
-    /SUPABASE_SERVICE_ROLE_KEY=placeholder/,
+    { pattern: /VITE_SUPABASE_ANON_KEY=your-/, name: "VITE_SUPABASE_ANON_KEY" },
+    { pattern: /VITE_SUPABASE_ANON_KEY=placeholder/, name: "VITE_SUPABASE_ANON_KEY" },
+    { pattern: /SUPABASE_SERVICE_ROLE_KEY=your-/, name: "SUPABASE_SERVICE_ROLE_KEY" },
+    { pattern: /SUPABASE_SERVICE_ROLE_KEY=placeholder/, name: "SUPABASE_SERVICE_ROLE_KEY" },
   ];
 
-  for (const pattern of placeholderPatterns) {
+  for (const { pattern, name } of placeholderPatterns) {
     if (pattern.test(content)) {
-      errors.push(`Placeholder value found: ${pattern.source}`);
+      errors.push(`Placeholder value in ${name}`);
     }
+  }
+
+  // Contradictions are fatal
+  if (contradictions.length > 0) {
+    return {
+      valid: false,
+      errors: [...contradictions, ...errors],
+      warnings,
+      currentMode,
+      hasContradictions: true,
+      contradictions,
+    };
   }
 
   return {
@@ -278,6 +309,8 @@ function validateEnvLocal(expectedMode) {
     errors,
     warnings,
     currentMode,
+    hasContradictions: false,
+    contradictions: [],
   };
 }
 
@@ -292,23 +325,50 @@ function writeEnvFiles(mode, options = {}) {
   const envLocalPath = path.join(projectRoot, ".env.local");
   const envPortsPath = path.join(projectRoot, ".env.ports");
 
-  // Check if .env.local exists and has different mode
+  // Check if .env.local exists and validate
   if (fs.existsSync(envLocalPath) && !force) {
     const validation = validateEnvLocal(mode);
-    if (validation.currentMode && validation.currentMode !== mode) {
+    
+    // Hard failure on contradictions - these WILL break the app
+    if (validation.hasContradictions) {
       console.error(`
-❌ Mode mismatch detected!
+╔════════════════════════════════════════════════════════════════╗
+║                    ❌ ENVIRONMENT CONTRADICTION                 ║
+╚════════════════════════════════════════════════════════════════╝
 
-Current .env.local is configured for mode: ${validation.currentMode}
-You requested mode: ${mode}
+Your .env.local contains URLs that contradict the requested mode.
+This WILL cause failures that are hard to debug.
 
-This can cause issues where the browser tries to connect to Docker hostnames
-that only work inside the container network.
+Mode requested: ${mode}
+Mode in .env.local: ${validation.currentMode || "unknown"}
+
+Contradictions found:
+${validation.contradictions.map(c => `  • ${c}`).join("\n")}
+
+Why this matters:
+  - In "local" mode, the browser runs on your host machine
+  - Docker DNS names (like "backend:3001") only work inside containers
+  - If .env.local has Docker URLs but you're running locally, the browser
+    cannot resolve them, causing silent failures and blank screens
 
 To fix:
-  1. Run: npm run dx:env --mode ${mode} --force
-  2. Or manually update .env.local
+  npm run dx:env --mode ${mode} --force
 
+This will regenerate .env.local with correct URLs for ${mode} mode.
+`);
+      process.exit(1);
+    }
+    
+    // Soft failure on mode mismatch (no contradictions yet)
+    if (validation.currentMode && validation.currentMode !== mode) {
+      console.error(`
+⚠️  Mode mismatch detected
+
+Current .env.local: mode "${validation.currentMode}"
+Requested mode: "${mode}"
+
+To switch modes, run:
+  npm run dx:env --mode ${mode} --force
 `);
       process.exit(1);
     }

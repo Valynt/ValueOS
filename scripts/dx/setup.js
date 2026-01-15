@@ -90,9 +90,29 @@ function ensureDotEnvFromLocal() {
 }
 
 function ensurePortsEnv() {
+  // Delegate to canonical env-compiler for .env.ports
   const projectRoot = path.resolve(__dirname, '../..');
   const portsPath = path.join(projectRoot, '.env.ports');
+  
+  // Use writePortsEnvFile for backwards compatibility, but env-compiler is authoritative
   writePortsEnvFile(portsPath);
+}
+
+/**
+ * Generate environment files using the canonical env-compiler
+ */
+function generateEnvFiles(mode = 'local') {
+  console.log('\n📝 Generating environment files...');
+  try {
+    execSync(`node scripts/dx/env-compiler.js --mode ${mode} --force`, {
+      cwd: path.resolve(__dirname, '../..'),
+      stdio: 'inherit'
+    });
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to generate environment files');
+    return false;
+  }
 }
 
 /**

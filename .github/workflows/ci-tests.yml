@@ -7,8 +7,8 @@ on:
     branches: [main, develop]
 
 jobs:
-  unit-integration:
-    name: Unit & Integration Tests
+  env-validation:
+    name: Environment Validation
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -22,6 +22,50 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Generate env for local mode
+        run: node scripts/dx/env-compiler.js --mode local --force
+
+      - name: Validate local mode env
+        run: node scripts/dx/env-compiler.js --mode local --validate
+
+      - name: Generate env for docker mode
+        run: node scripts/dx/env-compiler.js --mode docker --force
+
+      - name: Validate docker mode env
+        run: node scripts/dx/env-compiler.js --mode docker --validate
+
+      - name: Verify no mode contradictions possible
+        run: |
+          # Ensure env-compiler catches contradictions
+          echo "Testing contradiction detection..."
+          node scripts/dx/env-compiler.js --mode local --force
+          # This should fail if we try to validate as docker mode
+          if node scripts/dx/env-compiler.js --mode docker --validate 2>/dev/null; then
+            echo "ERROR: Should have detected mode contradiction"
+            exit 1
+          fi
+          echo "Contradiction detection working correctly"
+
+  unit-integration:
+    name: Unit & Integration Tests
+    runs-on: ubuntu-latest
+    needs: env-validation
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate environment
+        run: node scripts/dx/env-compiler.js --mode local --force
 
       - name: Build (Vite)
         run: npm run build
