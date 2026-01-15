@@ -2,10 +2,12 @@
  * CaseWorkspace - Split-pane workspace for value cases
  * 
  * Left: Conversation panel with agent messages
- * Right: Canvas with Builder/Presenter/Tracker modes
+ * Right: Canvas with artifact rendering
+ * 
+ * Integrates with agent store and mock stream for MVP.
  */
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -13,10 +15,9 @@ import {
   CheckCircle2,
   Circle,
   PlayCircle,
-  ExternalLink,
-  Edit2,
   Clock,
-  Check,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,167 +25,120 @@ import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
-// Types
-type ViewMode = "builder" | "presenter" | "tracker";
-type StepStatus = "completed" | "running" | "pending";
+// Agent store and types
+import { 
+  useAgentStore, 
+  selectActiveArtifact, 
+  selectArtifacts,
+  selectOverallProgress,
+} from "@/features/workspace/agent/store";
+import { useAgentStream } from "@/features/workspace/agent/useAgentStream";
+import type { AgentPhase, ConversationMessage, WorkflowStepState, Artifact } from "@/features/workspace/agent/types";
 
-interface Message {
-  id: string;
-  role: "agent" | "user";
-  content: string;
-  reasoning?: string;
-  options?: string[];
-  selectedOption?: string;
-}
-
-interface WorkflowStep {
-  id: string;
-  label: string;
-  status: StepStatus;
-  progress?: number;
-}
-
-interface Assumption {
-  id: string;
-  label: string;
-  value: string | number;
-  verified: boolean;
-}
-
-// Mock data
-const INITIAL_MESSAGES: Message[] = [
-  {
-    id: "1",
-    role: "agent",
-    content: "I've analyzed Acme Corp's latest 10-K filing. They have 2,400 employees and approximately $340M in annual revenue.",
-    reasoning: "Extracted from Page 12, Item 6: Selected Financial Data.",
-  },
-  {
-    id: "2",
-    role: "agent",
-    content: "Based on their industry (SaaS) and size, I recommend targeting a 15% efficiency gain in the sales organization.",
-    options: ["10% (Conservative)", "15% (Recommended)", "20% (Aggressive)"],
-  },
-];
-
-const INITIAL_STEPS: WorkflowStep[] = [
-  { id: "1", label: "Research company", status: "completed" },
-  { id: "2", label: "Identify drivers", status: "completed" },
-  { id: "3", label: "Calculate ROI", status: "running", progress: 65 },
-  { id: "4", label: "Generate summary", status: "pending" },
-];
-
-const INITIAL_ASSUMPTIONS: Assumption[] = [
-  { id: "1", label: "Employees", value: 2400, verified: true },
-  { id: "2", label: "Revenue", value: "$340M", verified: true },
-  { id: "3", label: "Efficiency", value: "15%", verified: false },
-];
-
-// Chart data based on efficiency selection
-const CHART_DATA = {
-  "10%": [1.2, 1.45, 1.8],
-  "15%": [1.8, 2.175, 2.7],
-  "20%": [2.4, 2.9, 3.6],
-};
+// Artifact components
+import { ArtifactRenderer } from "@/features/workspace/artifacts/ArtifactRenderer";
+import { ArtifactStack } from "@/features/workspace/artifacts/ArtifactStack";
 
 export function CaseWorkspace() {
   const { caseId } = useParams();
   const navigate = useNavigate();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const [mode, setMode] = useState<ViewMode>("builder");
-  const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
-  const [steps, setSteps] = useState<WorkflowStep[]>(INITIAL_STEPS);
-  const [assumptions, setAssumptions] = useState<Assumption[]>(INITIAL_ASSUMPTIONS);
+  // Local UI state
   const [inputValue, setInputValue] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const [selectedEfficiency, setSelectedEfficiency] = useState<string>("15%");
-  const [chartData, setChartData] = useState(CHART_DATA["15%"]);
+  const [showArtifactStack, setShowArtifactStack] = useState(true);
+
+  // Agent store
+  const {
+    phase,
+    messages,
+    streamingContent,
+    isStreaming,
+    steps,
+    assumptions,
+    pendingQuestion,
+    activeArtifactId,
+    error,
+    selectOption,
+    approvePlan,
+    rejectPlan,
+    updateAssumption,
+    approveArtifact,
+    rejectArtifact,
+    selectArtifact,
+    reset,
+  } = useAgentStore();
+
+  const activeArtifact = useAgentStore(selectActiveArtifact);
+  const artifacts = useAgentStore(selectArtifacts);
+  const overallProgress = useAgentStore(selectOverallProgress);
+  
+  // Memoize artifact list to avoid creating new array on every render
+  const artifactList = React.useMemo(() => 
+    Object.values(artifacts).sort((a, b) => b.updatedAt - a.updatedAt),
+    [artifacts]
+  );
+
+  // Agent stream hook - handles both mock and real API
+  const { sendMessage: sendAgentMessage } = useAgentStream({
+    useMock: true, // Set to false to use real API
+    companyName: 'Acme Corp',
+  });
 
   // Auto-scroll to bottom of messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isTyping]);
+  }, [messages, streamingContent]);
 
-  // Handle option selection
-  const handleOptionSelect = (messageId: string, option: string) => {
-    // Update message with selection
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === messageId ? { ...m, selectedOption: option } : m
-      )
-    );
+  // Handle sending a message
+  const handleSend = useCallback(async () => {
+    if (!inputValue.trim() || isStreaming) return;
 
-    // Add user message
-    const userMsg: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: option,
-    };
-    setMessages((prev) => [...prev, userMsg]);
-
-    // Simulate agent response
-    setIsTyping(true);
-    setTimeout(() => {
-      // Update efficiency
-      const effValue = option.split("%")[0] + "%";
-      setSelectedEfficiency(effValue);
-      setChartData(CHART_DATA[effValue as keyof typeof CHART_DATA] || CHART_DATA["15%"]);
-
-      // Update assumptions
-      setAssumptions((prev) =>
-        prev.map((a) =>
-          a.label === "Efficiency" ? { ...a, value: effValue, verified: true } : a
-        )
-      );
-
-      // Update workflow
-      setSteps((prev) =>
-        prev.map((s) => {
-          if (s.id === "3") return { ...s, status: "completed" as StepStatus, progress: 100 };
-          if (s.id === "4") return { ...s, status: "running" as StepStatus, progress: 30 };
-          return s;
-        })
-      );
-
-      // Add agent response
-      const responseMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "agent",
-        content: `Got it. I've updated the model with a ${effValue} efficiency target. Your projected 3-year ROI has been recalculated.`,
-        reasoning: "Recalculating cash flows based on updated efficiency driver.",
-      };
-      setMessages((prev) => [...prev, responseMsg]);
-      setIsTyping(false);
-    }, 1500);
-  };
-
-  // Handle send message
-  const handleSend = () => {
-    if (!inputValue.trim()) return;
-
-    const userMsg: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: inputValue,
-    };
-    setMessages((prev) => [...prev, userMsg]);
+    const userMessage = inputValue.trim();
     setInputValue("");
 
-    setIsTyping(true);
-    setTimeout(() => {
-      const responseMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "agent",
-        content: "I understand. Let me analyze that for you...",
-      };
-      setMessages((prev) => [...prev, responseMsg]);
-      setIsTyping(false);
-    }, 1000);
+    // Send via agent stream hook
+    await sendAgentMessage(userMessage);
+  }, [inputValue, isStreaming, sendAgentMessage]);
+
+  // Handle option selection (for clarify questions)
+  const handleOptionSelect = useCallback((optionId: string) => {
+    selectOption(optionId);
+    
+    // Continue the stream after selection
+    sendAgentMessage('continue');
+  }, [selectOption, sendAgentMessage]);
+
+  // Handle plan approval
+  const handleApprovePlan = useCallback(() => {
+    approvePlan();
+    
+    // Continue execution
+    sendAgentMessage('execute');
+  }, [approvePlan, sendAgentMessage]);
+
+  // Get phase display info
+  const getPhaseInfo = (phase: AgentPhase) => {
+    switch (phase) {
+      case 'idle':
+        return { label: 'Ready', color: 'bg-slate-100 text-slate-600' };
+      case 'clarify':
+        return { label: 'Clarifying', color: 'bg-blue-100 text-blue-700' };
+      case 'plan':
+        return { label: 'Planning', color: 'bg-amber-100 text-amber-700' };
+      case 'execute':
+        return { label: 'Executing', color: 'bg-purple-100 text-purple-700' };
+      case 'review':
+        return { label: 'Review', color: 'bg-emerald-100 text-emerald-700' };
+      case 'finalize':
+        return { label: 'Complete', color: 'bg-emerald-100 text-emerald-700' };
+      default:
+        return { label: phase, color: 'bg-slate-100 text-slate-600' };
+    }
   };
 
-  // Calculate totals
-  const totalROI = chartData.reduce((a, b) => a + b, 0).toFixed(1);
+  const phaseInfo = getPhaseInfo(phase);
 
   return (
     <div className="flex flex-col h-full bg-white">
@@ -204,7 +158,7 @@ export function CaseWorkspace() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <Badge className="bg-amber-100 text-amber-700 border-amber-200">Draft</Badge>
+          <Badge className={phaseInfo.color}>{phaseInfo.label}</Badge>
           <Button variant="ghost" size="sm">Share</Button>
           <Button size="sm">Export</Button>
         </div>
@@ -216,45 +170,36 @@ export function CaseWorkspace() {
         <div className="w-[35%] min-w-[320px] max-w-[480px] border-r border-slate-200 flex flex-col bg-slate-50">
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages.map((msg) => (
-              <div key={msg.id} className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}>
-                <div
-                  className={cn(
-                    "max-w-[90%] rounded-2xl px-4 py-3 shadow-sm",
-                    msg.role === "user"
-                      ? "bg-primary text-white"
-                      : "bg-white border border-slate-200 text-slate-800"
-                  )}
-                >
-                  {msg.role === "agent" && (
-                    <div className="text-xs font-semibold text-primary mb-1">VALUEOS AGENT</div>
-                  )}
-                  <div className="text-sm leading-relaxed">{msg.content}</div>
-
-                  {msg.reasoning && (
-                    <div className="mt-2 pt-2 border-t border-slate-100 text-xs text-slate-500">
-                      <span className="font-medium">Reasoning:</span> {msg.reasoning}
-                    </div>
-                  )}
-
-                  {msg.options && !msg.selectedOption && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {msg.options.map((option) => (
-                        <button
-                          key={option}
-                          onClick={() => handleOptionSelect(msg.id, option)}
-                          className="px-3 py-1.5 bg-slate-100 hover:bg-blue-50 hover:text-primary border border-slate-200 hover:border-primary/30 rounded-lg text-xs font-medium transition-colors"
-                        >
-                          {option}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+            {/* Welcome message if no messages */}
+            {messages.length === 0 && !isStreaming && (
+              <div className="text-center py-8">
+                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-2xl">🎯</span>
                 </div>
+                <h3 className="font-semibold text-slate-800 mb-2">Start Building Your Value Case</h3>
+                <p className="text-sm text-slate-500 max-w-xs mx-auto">
+                  Tell me about the company you're analyzing, and I'll help you build a defensible ROI model.
+                </p>
               </div>
+            )}
+
+            {/* Conversation messages */}
+            {messages.map((msg) => (
+              <MessageBubble key={msg.id} message={msg} />
             ))}
 
-            {isTyping && (
+            {/* Streaming message */}
+            {isStreaming && streamingContent && (
+              <div className="flex justify-start">
+                <div className="max-w-[90%] rounded-2xl px-4 py-3 shadow-sm bg-white border border-slate-200 text-slate-800">
+                  <div className="text-xs font-semibold text-primary mb-1">VALUEOS AGENT</div>
+                  <div className="text-sm leading-relaxed">{streamingContent}</div>
+                </div>
+              </div>
+            )}
+
+            {/* Typing indicator */}
+            {isStreaming && !streamingContent && (
               <div className="flex justify-start">
                 <div className="bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-sm">
                   <div className="flex gap-1">
@@ -265,6 +210,41 @@ export function CaseWorkspace() {
                 </div>
               </div>
             )}
+
+            {/* Clarify question */}
+            {pendingQuestion && (
+              <ClarifyCard
+                question={pendingQuestion.question}
+                options={pendingQuestion.options || []}
+                onSelect={handleOptionSelect}
+              />
+            )}
+
+            {/* Plan card */}
+            {phase === 'plan' && steps.length > 0 && (
+              <PlanCard
+                steps={steps}
+                assumptions={assumptions}
+                onApprove={handleApprovePlan}
+                onReject={rejectPlan}
+                onUpdateAssumption={updateAssumption}
+              />
+            )}
+
+            {/* Execution progress */}
+            {phase === 'execute' && steps.length > 0 && (
+              <ExecutionCard steps={steps} progress={overallProgress} />
+            )}
+
+            {/* Error display */}
+            {error && (
+              <ErrorCard
+                message={error.message}
+                suggestions={error.suggestions}
+                onRetry={() => reset()}
+              />
+            )}
+
             <div ref={messagesEndRef} />
           </div>
 
@@ -274,19 +254,29 @@ export function CaseWorkspace() {
               <UserAvatar name="Sarah K." size="sm" />
               <div className="flex-1 relative">
                 <input
+                  ref={inputRef}
                   type="text"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                  placeholder="Ask agent to research or adjust..."
-                  className="w-full pl-4 pr-10 py-2.5 rounded-full border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder={
+                    phase === 'idle' 
+                      ? "e.g., 'Build a value case for Stripe'" 
+                      : "Ask a follow-up question..."
+                  }
+                  disabled={isStreaming}
+                  className="w-full pl-4 pr-10 py-2.5 rounded-full border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 <button
                   onClick={handleSend}
-                  disabled={!inputValue.trim()}
+                  disabled={!inputValue.trim() || isStreaming}
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-primary text-white rounded-full hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Send size={14} />
+                  {isStreaming ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Send size={14} />
+                  )}
                 </button>
               </div>
             </div>
@@ -294,137 +284,277 @@ export function CaseWorkspace() {
         </div>
 
         {/* Right: Canvas Panel */}
-        <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
-          {/* Mode Selector */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="bg-white p-1 rounded-lg border border-slate-200 inline-flex shadow-sm">
-              {(["builder", "presenter", "tracker"] as ViewMode[]).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setMode(m)}
-                  className={cn(
-                    "px-4 py-1.5 text-sm font-medium rounded-md transition-all capitalize",
-                    mode === m
-                      ? "bg-slate-100 text-slate-900 shadow-sm"
-                      : "text-slate-500 hover:text-slate-700"
-                  )}
-                >
-                  {m}
-                </button>
-              ))}
+        <div className="flex-1 flex min-h-0">
+          {/* Artifact Stack (collapsible sidebar) */}
+          {showArtifactStack && artifactList.length > 0 && (
+            <div className="w-64 border-r border-slate-200 bg-white overflow-y-auto">
+              <ArtifactStack
+                artifacts={artifactList}
+                activeArtifactId={activeArtifactId}
+                onSelect={selectArtifact}
+              />
             </div>
-            <div className="flex items-center gap-1 text-xs text-slate-400">
-              <Clock size={12} />
-              <span>Auto-saved 2m ago</span>
-            </div>
-          </div>
+          )}
 
-          <div className="grid grid-cols-12 gap-6">
-            {/* Left Column: Plan + Assumptions */}
-            <div className="col-span-4 space-y-6">
-              {/* Plan Card */}
-              <Card className="p-4 bg-white border border-slate-200">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold text-slate-800">PLAN</h3>
-                  <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-xs">Running</Badge>
-                </div>
-                <div className="space-y-3">
-                  {steps.map((step) => (
-                    <div key={step.id} className="flex items-center gap-3">
-                      <div className="w-5 flex justify-center">
-                        {step.status === "completed" && <CheckCircle2 size={18} className="text-emerald-500" />}
-                        {step.status === "running" && <PlayCircle size={18} className="text-primary animate-pulse" />}
-                        {step.status === "pending" && <Circle size={18} className="text-slate-300" />}
-                      </div>
-                      <div className="flex-1">
-                        <span className={cn(
-                          "text-sm",
-                          step.status === "pending" ? "text-slate-400" : "text-slate-700"
-                        )}>
-                          {step.label}
-                        </span>
-                        {step.status === "running" && step.progress && (
-                          <div className="w-full h-1 bg-slate-100 rounded-full mt-1.5 overflow-hidden">
-                            <div
-                              className="h-full bg-primary rounded-full transition-all duration-500"
-                              style={{ width: `${step.progress}%` }}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-
-              {/* Assumptions Card */}
-              <Card className="bg-white border border-slate-200 overflow-hidden">
-                <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
-                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Assumptions</h3>
-                </div>
-                <div className="divide-y divide-slate-100">
-                  {assumptions.map((item) => (
-                    <div key={item.id} className="px-4 py-3 flex items-center justify-between hover:bg-slate-50 group">
-                      <div>
-                        <span className="text-sm text-slate-600">{item.label}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-slate-900">{item.value}</span>
-                        {item.verified ? (
-                          <Check size={14} className="text-emerald-500" />
-                        ) : (
-                          <Edit2 size={14} className="text-slate-300 opacity-0 group-hover:opacity-100 cursor-pointer" />
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            </div>
-
-            {/* Right Column: Chart + Metrics */}
-            <div className="col-span-8">
-              <Card className="p-6 bg-white border border-slate-200 h-full">
-                <div className="flex items-start justify-between mb-6">
-                  <div>
-                    <h2 className="text-lg font-bold text-slate-900">Projected Value Realization</h2>
-                    <p className="text-sm text-slate-500">3-Year ROI Analysis based on {selectedEfficiency} efficiency gain.</p>
-                  </div>
-                </div>
-
-                {/* Simple Bar Chart */}
-                <div className="h-64 flex items-end justify-center gap-8 mb-6 px-8">
-                  {chartData.map((value, index) => (
-                    <div key={index} className="flex flex-col items-center gap-2">
-                      <span className="text-sm font-medium text-slate-600">${value}M</span>
-                      <div
-                        className="w-16 bg-primary rounded-t-md transition-all duration-500"
-                        style={{ height: `${(value / 3) * 100}%` }}
-                      />
-                      <span className="text-sm text-slate-500">Y{index + 1}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Metrics */}
-                <div className="grid grid-cols-3 gap-4 pt-6 border-t border-slate-100">
-                  <div className="text-center p-3 rounded-lg bg-slate-50">
-                    <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Total ROI</div>
-                    <div className="text-xl font-bold text-slate-900">${totalROI}M</div>
-                  </div>
-                  <div className="text-center p-3 rounded-lg bg-slate-50">
-                    <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Payback</div>
-                    <div className="text-xl font-bold text-slate-900">7.2 Mo</div>
-                  </div>
-                  <div className="text-center p-3 rounded-lg bg-slate-50">
-                    <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">NPV</div>
-                    <div className="text-xl font-bold text-slate-900">$4.1M</div>
-                  </div>
-                </div>
-              </Card>
-            </div>
+          {/* Main Canvas */}
+          <div className="flex-1 overflow-hidden bg-slate-50">
+            {activeArtifact ? (
+              <ArtifactRenderer
+                artifact={activeArtifact}
+                onApprove={() => approveArtifact(activeArtifact.id)}
+                onReject={() => rejectArtifact(activeArtifact.id)}
+              />
+            ) : (
+              <EmptyCanvas phase={phase} />
+            )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Message bubble component
+function MessageBubble({ message }: { message: ConversationMessage }) {
+  const isUser = message.role === 'user';
+
+  return (
+    <div className={cn("flex", isUser ? "justify-end" : "justify-start")}>
+      <div
+        className={cn(
+          "max-w-[90%] rounded-2xl px-4 py-3 shadow-sm",
+          isUser
+            ? "bg-primary text-white"
+            : "bg-white border border-slate-200 text-slate-800"
+        )}
+      >
+        {!isUser && (
+          <div className="text-xs font-semibold text-primary mb-1">VALUEOS AGENT</div>
+        )}
+        <div className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</div>
+
+        {message.metadata?.reasoning && (
+          <div className="mt-2 pt-2 border-t border-slate-100 text-xs text-slate-500">
+            <span className="font-medium">Reasoning:</span> {message.metadata.reasoning}
+          </div>
+        )}
+
+        {message.metadata?.confidence !== undefined && (
+          <div className="mt-1 text-xs text-slate-400">
+            Confidence: {Math.round(message.metadata.confidence * 100)}%
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Clarify question card
+function ClarifyCard({
+  question,
+  options,
+  onSelect,
+}: {
+  question: string;
+  options: Array<{ id: string; label: string; description?: string }>;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <Card className="p-4 bg-white border-primary/20 shadow-sm">
+      <div className="text-xs font-semibold text-primary mb-2">CLARIFICATION NEEDED</div>
+      <p className="text-sm text-slate-700 mb-3">{question}</p>
+      <div className="flex flex-wrap gap-2">
+        {options.map((option) => (
+          <button
+            key={option.id}
+            onClick={() => onSelect(option.id)}
+            className="px-3 py-1.5 bg-slate-100 hover:bg-blue-50 hover:text-primary border border-slate-200 hover:border-primary/30 rounded-lg text-xs font-medium transition-colors"
+            title={option.description}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+// Plan card
+function PlanCard({
+  steps,
+  assumptions,
+  onApprove,
+  onReject,
+  onUpdateAssumption,
+}: {
+  steps: WorkflowStepState[];
+  assumptions: Array<{ id: string; label: string; value: string | number; editable: boolean }>;
+  onApprove: () => void;
+  onReject: () => void;
+  onUpdateAssumption: (id: string, value: string | number) => void;
+}) {
+  return (
+    <Card className="p-4 bg-white border-amber-200 shadow-sm">
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-xs font-semibold text-amber-700">PROPOSED PLAN</div>
+        <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-xs">Review</Badge>
+      </div>
+
+      {/* Steps */}
+      <div className="space-y-2 mb-4">
+        {steps.map((step, index) => (
+          <div key={step.id} className="flex items-center gap-2 text-sm">
+            <span className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-xs font-medium text-slate-600">
+              {index + 1}
+            </span>
+            <span className="text-slate-700">{step.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Assumptions */}
+      {assumptions.length > 0 && (
+        <div className="border-t border-slate-100 pt-3 mb-4">
+          <div className="text-xs font-medium text-slate-500 mb-2">Assumptions</div>
+          <div className="space-y-1">
+            {assumptions.map((asm) => (
+              <div key={asm.id} className="flex items-center justify-between text-sm">
+                <span className="text-slate-600">{asm.label}</span>
+                <span className="font-medium text-slate-800">{asm.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" onClick={onReject} className="flex-1">
+          Reject
+        </Button>
+        <Button size="sm" onClick={onApprove} className="flex-1">
+          Approve & Execute
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+// Execution progress card
+function ExecutionCard({
+  steps,
+  progress,
+}: {
+  steps: WorkflowStepState[];
+  progress: number;
+}) {
+  return (
+    <Card className="p-4 bg-white border-purple-200 shadow-sm">
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-xs font-semibold text-purple-700">EXECUTING</div>
+        <span className="text-xs text-slate-500">{progress}% complete</span>
+      </div>
+
+      {/* Progress bar */}
+      <div className="w-full h-1.5 bg-slate-100 rounded-full mb-4 overflow-hidden">
+        <div
+          className="h-full bg-purple-500 rounded-full transition-all duration-500"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+
+      {/* Steps */}
+      <div className="space-y-2">
+        {steps.map((step) => (
+          <div key={step.id} className="flex items-center gap-2">
+            <div className="w-5 flex justify-center">
+              {step.status === 'completed' && <CheckCircle2 size={16} className="text-emerald-500" />}
+              {step.status === 'running' && <PlayCircle size={16} className="text-purple-500 animate-pulse" />}
+              {step.status === 'pending' && <Circle size={16} className="text-slate-300" />}
+              {step.status === 'error' && <AlertCircle size={16} className="text-red-500" />}
+            </div>
+            <span className={cn(
+              "text-sm",
+              step.status === 'pending' ? "text-slate-400" : "text-slate-700"
+            )}>
+              {step.label}
+            </span>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+// Error card
+function ErrorCard({
+  message,
+  suggestions,
+  onRetry,
+}: {
+  message: string;
+  suggestions?: string[];
+  onRetry: () => void;
+}) {
+  return (
+    <Card className="p-4 bg-red-50 border-red-200 shadow-sm">
+      <div className="flex items-start gap-3">
+        <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+        <div className="flex-1">
+          <div className="text-sm font-medium text-red-800 mb-1">Something went wrong</div>
+          <p className="text-sm text-red-600 mb-3">{message}</p>
+          {suggestions && suggestions.length > 0 && (
+            <div className="text-xs text-red-500 mb-3">
+              Try: {suggestions.join(' or ')}
+            </div>
+          )}
+          <Button variant="outline" size="sm" onClick={onRetry}>
+            Try Again
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+// Empty canvas state
+function EmptyCanvas({ phase }: { phase: AgentPhase }) {
+  const getMessage = () => {
+    switch (phase) {
+      case 'idle':
+        return {
+          title: 'Start a Conversation',
+          description: 'Ask the agent to analyze a company and artifacts will appear here.',
+        };
+      case 'clarify':
+      case 'plan':
+        return {
+          title: 'Preparing Analysis',
+          description: 'Answer the questions on the left to continue.',
+        };
+      case 'execute':
+        return {
+          title: 'Building Your Value Case',
+          description: 'Artifacts will appear here as the agent works.',
+        };
+      default:
+        return {
+          title: 'Canvas',
+          description: 'Select an artifact to view it here.',
+        };
+    }
+  };
+
+  const { title, description } = getMessage();
+
+  return (
+    <div className="h-full flex items-center justify-center p-8">
+      <div className="text-center max-w-md">
+        <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <Clock className="w-8 h-8 text-slate-400" />
+        </div>
+        <h3 className="text-lg font-semibold text-slate-700 mb-2">{title}</h3>
+        <p className="text-sm text-slate-500">{description}</p>
       </div>
     </div>
   );
