@@ -313,15 +313,15 @@ class SubscriptionService {
     tenantId: string,
     newPlanTier: PlanTier
   ): Promise<Subscription> {
+    if (!this.stripe || !this.stripeService) {
+      throw new Error("Stripe service not available");
+    }
+
     try {
       logger.info("Updating subscription with transaction safety", {
         tenantId,
         newPlanTier,
       });
-
-      if (!this.stripe) {
-        throw new Error("Stripe service not available");
-      }
 
       // Use transactional service for atomic updates
       const TransactionalService = (

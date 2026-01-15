@@ -19,7 +19,7 @@ import {
   SignupData,
 } from "../services/AuthService";
 import { createLogger } from "../lib/logger";
-import { computePermissions, UserClaims } from "../types/security";
+import { computeUnifiedPermissions, UserClaims } from "../types/security";
 import { analyticsClient } from "../lib/analyticsClient";
 import { secureTokenManager } from "../lib/auth/SecureTokenManager";
 import { getSupabaseConfig } from "../lib/env";
@@ -85,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             sub: storedSession.user.id,
             email: storedSession.user.email || "",
             roles,
-            permissions: computePermissions(roles),
+            permissions: computeUnifiedPermissions(roles),
             org_id: storedSession.user.user_metadata?.org_id || "default",
           });
           logger.debug("Session optimistically restored from storage");
@@ -126,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             sub: session.user.id,
             email: session.user.email || "",
             roles,
-            permissions: computePermissions(roles),
+            permissions: computeUnifiedPermissions(roles),
             org_id: session.user.user_metadata?.org_id || "default",
           });
 
@@ -138,7 +138,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             workflow: "activation",
             session_age:
               Date.now() -
-              (session.created_at ? new Date(session.created_at).getTime() : Date.now()),
+              (session.created_at
+                ? new Date(session.created_at).getTime()
+                : Date.now()),
           });
           logger.info("Session validated via secure token manager");
         } else if (secureTokenManager.getStoredSession()) {
@@ -176,7 +178,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             sub: newSession.user.id,
             email: newSession.user.email || "",
             roles,
-            permissions: computePermissions(roles),
+            permissions: computeUnifiedPermissions(roles),
             org_id: newSession.user.user_metadata?.org_id || "default",
           });
         } else {

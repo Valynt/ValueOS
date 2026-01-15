@@ -4,7 +4,7 @@
     "dockerfile": "Dockerfile.optimized",
     "context": "..",
     "args": {
-      "NODE_VERSION": "18.19.0",
+      "NODE_VERSION": "18",
       "VARIANT": "ubuntu-22.04"
     }
   },

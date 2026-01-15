@@ -12,6 +12,32 @@ import {
   USER_ROLE_PERMISSIONS,
 } from "../lib/permissions";
 
+// Legacy permission strings for backward compatibility
+export type LegacyPermission =
+  | "VIEW_FINANCIALS"
+  | "VIEW_TECHNICAL_DEBT"
+  | "EXECUTE_AGENT"
+  | "APPROVE_RISK"
+  | "ADMIN_SYSTEM";
+
+/**
+ * Legacy role to legacy permission mapping
+ * Used by the deprecated computePermissions function
+ */
+const LEGACY_ROLE_PERMISSIONS: Record<string, LegacyPermission[]> = {
+  CFO: ["VIEW_FINANCIALS", "APPROVE_RISK"],
+  ADMIN: [
+    "VIEW_FINANCIALS",
+    "VIEW_TECHNICAL_DEBT",
+    "EXECUTE_AGENT",
+    "APPROVE_RISK",
+    "ADMIN_SYSTEM",
+  ],
+  DEVELOPER: ["VIEW_TECHNICAL_DEBT", "EXECUTE_AGENT"],
+  ANALYST: ["VIEW_FINANCIALS", "VIEW_TECHNICAL_DEBT"],
+  AGENT: ["VIEW_TECHNICAL_DEBT", "EXECUTE_AGENT"],
+};
+
 // Re-export unified Permission type for backward compatibility
 export type Permission = UnifiedPermission;
 
@@ -51,8 +77,27 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
 
 /**
  * Compute permissions from roles
- * @deprecated Use computePermissionsFromRoles from '@/lib/permissions' instead
+ * @deprecated Use computePermissionsFromRoles from '@/lib/permissions' instead.
+ * This function returns legacy permission strings for backward compatibility.
+ * New code should use computePermissionsFromRoles which returns unified permissions.
  */
-export function computePermissions(roles: string[]): Permission[] {
+export function computePermissions(roles: string[]): LegacyPermission[] {
+  const permissions = new Set<LegacyPermission>();
+
+  for (const role of roles) {
+    const rolePerms = LEGACY_ROLE_PERMISSIONS[role];
+    if (rolePerms) {
+      rolePerms.forEach((p) => permissions.add(p));
+    }
+  }
+
+  return Array.from(permissions);
+}
+
+/**
+ * Compute unified permissions from roles
+ * Use this for new code that needs the unified permission format.
+ */
+export function computeUnifiedPermissions(roles: string[]): Permission[] {
   return computePermissionsFromRoles(roles);
 }
