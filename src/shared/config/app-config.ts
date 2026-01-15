@@ -16,21 +16,23 @@ const AppConfigSchema = z.object({
   app: z.object({
     name: z.string().default("ValueOS"),
     version: z.string().default("1.0.0"),
-    environment: z.enum(["development", "staging", "production"]).default("development"),
+    environment: z
+      .enum(["development", "staging", "production"])
+      .default("development"),
     debug: z.boolean().default(false),
   }),
 
   // Database
   database: z.object({
-    url: z.string(),
+    url: z.string().default(""),
     poolSize: z.number().default(10),
     timeout: z.number().default(30000),
   }),
 
   // Supabase
   supabase: z.object({
-    url: z.string(),
-    anonKey: z.string(),
+    url: z.string().default(""),
+    anonKey: z.string().default(""),
     serviceKey: z.string().optional(),
   }),
 
@@ -43,7 +45,7 @@ const AppConfigSchema = z.object({
 
   // API Configuration
   api: z.object({
-    baseUrl: z.string(),
+    baseUrl: z.string().default("/api"),
     timeout: z.number().default(30000),
     retryAttempts: z.number().default(3),
     rateLimiting: z.object({
@@ -86,8 +88,8 @@ const AppConfigSchema = z.object({
     enableCORS: z.boolean().default(true),
     enableHelmet: z.boolean().default(true),
     enableRateLimit: z.boolean().default(true),
-    jwtSecret: z.string(),
-    encryptionKey: z.string(),
+    jwtSecret: z.string().default("dev-jwt-secret"),
+    encryptionKey: z.string().default("dev-encryption-key"),
   }),
 
   // Cache
@@ -131,85 +133,112 @@ class ConfigLoader {
   }
 
   private loadFromEnvironment(): Partial<AppConfig> {
+    const viteEnv =
+      typeof import.meta !== "undefined" && (import.meta as any).env
+        ? ((import.meta as any).env as Record<string, string | undefined>)
+        : undefined;
+
+    const readEnv = (key: string): string | undefined => {
+      if (viteEnv && typeof viteEnv[key] === "string") {
+        return viteEnv[key];
+      }
+      if (typeof process !== "undefined" && process.env) {
+        return process.env[key];
+      }
+      return undefined;
+    };
+
     return {
       app: {
-        name: process.env.VITE_APP_NAME,
-        version: process.env.VITE_APP_VERSION,
-        environment: (process.env.NODE_ENV as any) || "development",
-        debug: process.env.VITE_DEBUG === "true",
+        name: readEnv("VITE_APP_NAME"),
+        version: readEnv("VITE_APP_VERSION"),
+        environment: (readEnv("NODE_ENV") as any) || "development",
+        debug: readEnv("VITE_DEBUG") === "true",
       },
       database: {
-        url: process.env.DATABASE_URL,
-        poolSize: process.env.DATABASE_POOL_SIZE
-          ? parseInt(process.env.DATABASE_POOL_SIZE)
+        url: readEnv("DATABASE_URL"),
+        poolSize: readEnv("DATABASE_POOL_SIZE")
+          ? parseInt(readEnv("DATABASE_POOL_SIZE") as string)
           : undefined,
-        timeout: process.env.DATABASE_TIMEOUT ? parseInt(process.env.DATABASE_TIMEOUT) : undefined,
+        timeout: readEnv("DATABASE_TIMEOUT")
+          ? parseInt(readEnv("DATABASE_TIMEOUT") as string)
+          : undefined,
       },
       supabase: {
-        url: process.env.VITE_SUPABASE_URL,
-        anonKey: process.env.VITE_SUPABASE_ANON_KEY,
-        serviceKey: process.env.SUPABASE_SERVICE_KEY,
+        url: readEnv("VITE_SUPABASE_URL"),
+        anonKey: readEnv("VITE_SUPABASE_ANON_KEY"),
+        serviceKey: readEnv("SUPABASE_SERVICE_KEY"),
       },
       auth: {
-        sessionTimeout: process.env.AUTH_SESSION_TIMEOUT
-          ? parseInt(process.env.AUTH_SESSION_TIMEOUT)
+        sessionTimeout: readEnv("AUTH_SESSION_TIMEOUT")
+          ? parseInt(readEnv("AUTH_SESSION_TIMEOUT") as string)
           : undefined,
-        refreshTokenTimeout: process.env.AUTH_REFRESH_TIMEOUT
-          ? parseInt(process.env.AUTH_REFRESH_TIMEOUT)
+        refreshTokenTimeout: readEnv("AUTH_REFRESH_TIMEOUT")
+          ? parseInt(readEnv("AUTH_REFRESH_TIMEOUT") as string)
           : undefined,
-        enableMFA: process.env.AUTH_ENABLE_MFA === "true",
+        enableMFA: readEnv("AUTH_ENABLE_MFA") === "true",
       },
       api: {
-        baseUrl: process.env.VITE_API_URL,
-        timeout: process.env.API_TIMEOUT ? parseInt(process.env.API_TIMEOUT) : undefined,
-        retryAttempts: process.env.API_RETRY_ATTEMPTS
-          ? parseInt(process.env.API_RETRY_ATTEMPTS)
+        baseUrl: readEnv("VITE_API_BASE_URL") || readEnv("VITE_API_URL"),
+        timeout: readEnv("API_TIMEOUT")
+          ? parseInt(readEnv("API_TIMEOUT") as string)
+          : undefined,
+        retryAttempts: readEnv("API_RETRY_ATTEMPTS")
+          ? parseInt(readEnv("API_RETRY_ATTEMPTS") as string)
           : undefined,
         rateLimiting: {
-          enabled: process.env.API_RATE_LIMIT_ENABLED !== "false",
-          requestsPerMinute: process.env.API_RATE_LIMIT_RPM
-            ? parseInt(process.env.API_RATE_LIMIT_RPM)
+          enabled: readEnv("API_RATE_LIMIT_ENABLED") !== "false",
+          requestsPerMinute: readEnv("API_RATE_LIMIT_RPM")
+            ? parseInt(readEnv("API_RATE_LIMIT_RPM") as string)
             : undefined,
         },
       },
       llm: {
-        provider: process.env.LLM_PROVIDER as any,
-        model: process.env.LLM_MODEL,
-        temperature: process.env.LLM_TEMPERATURE
-          ? parseFloat(process.env.LLM_TEMPERATURE)
+        provider: readEnv("LLM_PROVIDER") as any,
+        model: readEnv("LLM_MODEL"),
+        temperature: readEnv("LLM_TEMPERATURE")
+          ? parseFloat(readEnv("LLM_TEMPERATURE") as string)
           : undefined,
-        maxTokens: process.env.LLM_MAX_TOKENS ? parseInt(process.env.LLM_MAX_TOKENS) : undefined,
-        timeout: process.env.LLM_TIMEOUT ? parseInt(process.env.LLM_TIMEOUT) : undefined,
+        maxTokens: readEnv("LLM_MAX_TOKENS")
+          ? parseInt(readEnv("LLM_MAX_TOKENS") as string)
+          : undefined,
+        timeout: readEnv("LLM_TIMEOUT")
+          ? parseInt(readEnv("LLM_TIMEOUT") as string)
+          : undefined,
       },
       features: {
-        enableAgents: process.env.FEATURE_AGENTS !== "false",
-        enableCanvas: process.env.FEATURE_CANVAS !== "false",
-        enableIntegrations: process.env.FEATURE_INTEGRATIONS !== "false",
-        enableBilling: process.env.FEATURE_BILLING === "true",
-        enableMonitoring: process.env.FEATURE_MONITORING !== "false",
+        enableAgents: readEnv("FEATURE_AGENTS") !== "false",
+        enableCanvas: readEnv("FEATURE_CANVAS") !== "false",
+        enableIntegrations: readEnv("FEATURE_INTEGRATIONS") !== "false",
+        enableBilling: readEnv("FEATURE_BILLING") === "true",
+        enableMonitoring: readEnv("FEATURE_MONITORING") !== "false",
       },
       monitoring: {
-        enabled: process.env.MONITORING_ENABLED !== "false",
-        sentryDsn: process.env.SENTRY_DSN,
-        logLevel: process.env.LOG_LEVEL as any,
+        enabled: readEnv("MONITORING_ENABLED") !== "false",
+        sentryDsn: readEnv("SENTRY_DSN"),
+        logLevel: readEnv("LOG_LEVEL") as any,
         metrics: {
-          enabled: process.env.METRICS_ENABLED !== "false",
-          interval: process.env.METRICS_INTERVAL
-            ? parseInt(process.env.METRICS_INTERVAL)
+          enabled: readEnv("METRICS_ENABLED") !== "false",
+          interval: readEnv("METRICS_INTERVAL")
+            ? parseInt(readEnv("METRICS_INTERVAL") as string)
             : undefined,
         },
       },
       security: {
-        enableCORS: process.env.SECURITY_CORS !== "false",
-        enableHelmet: process.env.SECURITY_HELMET !== "false",
-        enableRateLimit: process.env.SECURITY_RATE_LIMIT !== "false",
-        jwtSecret: process.env.JWT_SECRET,
-        encryptionKey: process.env.ENCRYPTION_KEY,
+        enableCORS: readEnv("SECURITY_CORS") !== "false",
+        enableHelmet: readEnv("SECURITY_HELMET") !== "false",
+        enableRateLimit: readEnv("SECURITY_RATE_LIMIT") !== "false",
+        jwtSecret: readEnv("JWT_SECRET"),
+        encryptionKey: readEnv("ENCRYPTION_KEY"),
       },
       cache: {
-        enabled: process.env.CACHE_ENABLED !== "false",
-        ttl: process.env.CACHE_TTL ? parseInt(process.env.CACHE_TTL) : undefined,
-        maxSize: process.env.CACHE_MAX_SIZE ? parseInt(process.env.CACHE_MAX_SIZE) : undefined,
+        enabled: readEnv("CACHE_ENABLED") !== "false",
+        ttl: readEnv("CACHE_TTL")
+          ? parseInt(readEnv("CACHE_TTL") as string)
+          : undefined,
+        maxSize: readEnv("CACHE_MAX_SIZE")
+          ? parseInt(readEnv("CACHE_MAX_SIZE") as string)
+          : undefined,
       },
     };
   }
@@ -247,7 +276,9 @@ class ConfigLoader {
       }
       return {
         valid: false,
-        errors: [error instanceof Error ? error.message : "Unknown validation error"],
+        errors: [
+          error instanceof Error ? error.message : "Unknown validation error",
+        ],
       };
     }
   }
@@ -275,7 +306,9 @@ export const isProduction = (): boolean => {
   return getAppConfig().app.environment === "production";
 };
 
-export const isFeatureEnabled = (feature: keyof AppConfig["features"]): boolean => {
+export const isFeatureEnabled = (
+  feature: keyof AppConfig["features"]
+): boolean => {
   return getAppConfig().features[feature];
 };
 
@@ -310,11 +343,22 @@ export const validateConfig = (): void => {
     console.error("Configuration validation failed:");
     validation.errors.forEach((error) => console.error(`  - ${error}`));
 
-    if (isProduction()) {
+    if (isProduction() && typeof window === "undefined") {
       throw new Error("Invalid configuration in production environment");
     }
   }
 };
 
 // Initialize and validate configuration
-validateConfig();
+try {
+  validateConfig();
+} catch (error) {
+  if (typeof window !== "undefined") {
+    console.error(
+      "Configuration validation failed in browser; continuing in degraded mode",
+      error
+    );
+  } else {
+    throw error;
+  }
+}
