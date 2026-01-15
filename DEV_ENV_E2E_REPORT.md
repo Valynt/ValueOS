@@ -61,6 +61,11 @@
 - Supabase CLI not available: Used npx supabase with local installation
 - Database migrations: Used local Supabase instance instead of remote
 - Auth provider not running: Started local Supabase for authentication
+- Supabase not ready: Seed failed because Supabase API not accessible at localhost:54321
+- Need to wait for npx supabase start to complete fully
+- Once ready, run npm run seed:demo and proceed to UI login
+- ✅ Seed script executed successfully
+- User created: demo.user@example.com / DemoUser!2345 / Demo User
 - ✅ Full dev environment validated end-to-end
 - ✅ UI login flow ready for testing
 - ✅ All services healthy and accessible

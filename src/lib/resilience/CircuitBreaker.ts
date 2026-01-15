@@ -95,9 +95,7 @@ export class CircuitBreaker extends EventEmitter implements ICircuitBreaker {
 
     if (this.state === CircuitState.OPEN) {
       if (Date.now() < this.nextAttemptTime) {
-        throw new CircuitBreakerError(
-          "Circuit breaker is OPEN. Service is unavailable."
-        );
+        throw new CircuitBreakerError("Circuit breaker open");
       }
       this.halfOpen();
     }
@@ -600,5 +598,98 @@ export class LLMCircuitBreaker implements ICircuitBreaker {
     if (this.state === CircuitState.CLOSED) return 1.0;
     if (this.state === CircuitState.HALF_OPEN) return 0.5;
     return 0.0; // OPEN state
+  }
+}
+
+/**
+ * Circuit Breaker Manager for managing multiple named circuit breakers
+ */
+export class CircuitBreakerManager {
+  private breakers = new Map<
+    string,
+    {
+      state: "closed" | "open" | "half-open";
+      failureCount: number;
+      nextAttemptTime: number;
+      successCount: number;
+    }
+  >();
+  private readonly config: {
+    windowMs: number;
+    failureRateThreshold: number;
+    latencyThresholdMs: number;
+    minimumSamples: number;
+    timeoutMs: number;
+    halfOpenMaxProbes: number;
+  };
+
+  constructor(config: {
+    windowMs?: number;
+    failureRateThreshold: number;
+    latencyThresholdMs: number;
+    minimumSamples: number;
+    timeoutMs: number;
+    halfOpenMaxProbes?: number;
+  }) {
+    this.config = {
+      windowMs: config.windowMs || 5000,
+      failureRateThreshold: config.failureRateThreshold,
+      latencyThresholdMs: config.latencyThresholdMs,
+      minimumSamples: config.minimumSamples,
+      timeoutMs: Math.max(config.timeoutMs, 1000),
+      halfOpenMaxProbes: config.halfOpenMaxProbes || 1,
+    };
+  }
+
+  async execute<T>(name: string, operation: () => Promise<T>): Promise<T> {
+    let breaker = this.breakers.get(name);
+    if (!breaker) {
+      breaker = {
+        state: "closed",
+        failureCount: 0,
+        nextAttemptTime: 0,
+        successCount: 0,
+      };
+      this.breakers.set(name, breaker);
+    }
+
+    if (breaker.state === "open") {
+      if (Date.now() < breaker.nextAttemptTime) {
+        throw new CircuitBreakerError("Circuit breaker open");
+      }
+      breaker.state = "half-open";
+      breaker.successCount = 0;
+    }
+
+    try {
+      const result = await operation();
+      if (breaker.state === "half-open") {
+        breaker.successCount++;
+        if (breaker.successCount >= this.config.halfOpenMaxProbes) {
+          breaker.state = "closed";
+          breaker.failureCount = 0;
+        }
+      }
+      return result;
+    } catch (error) {
+      breaker.failureCount++;
+      if (breaker.state === "half-open") {
+        breaker.state = "open";
+        breaker.nextAttemptTime = Date.now() + this.config.timeoutMs;
+      } else if (breaker.state === "closed") {
+        // Simple logic: if failureCount >= minimumSamples, open
+        if (breaker.failureCount >= this.config.minimumSamples) {
+          breaker.state = "open";
+          breaker.nextAttemptTime = Date.now() + this.config.timeoutMs;
+        }
+      }
+      throw error;
+    }
+  }
+
+  getState(name: string): { state: string } | undefined {
+    const breaker = this.breakers.get(name);
+    if (!breaker) return undefined;
+    return { state: breaker.state };
   }
 }
