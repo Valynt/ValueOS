@@ -6,7 +6,7 @@
  */
 
 import { Request, Response, Router } from 'express';
-import { llmFallback } from '../services/LLMFallback';
+import { llmFallback } from './services/LLMFallback';
 import { llmRateLimiter } from '../middleware/llmRateLimiter';
 import { logger } from '../utils/logger';
 import {
@@ -18,7 +18,7 @@ import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddlewa
 import { rateLimiters } from '../middleware/rateLimiter';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
 import { requireConsent } from '../middleware/consentMiddleware';
-import { consentRegistry } from '../services/consentRegistry';
+import { consentRegistry } from './services/consentRegistry';
 import { sanitizeAgentInput } from '../utils/security';
 import { requireAuth } from '../middleware/auth';
 import { tenantContextMiddleware } from '../middleware/tenantContext';

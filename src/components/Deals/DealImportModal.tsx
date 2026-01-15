@@ -16,7 +16,7 @@ import { crmIntegrationService } from '@/services/CRMIntegrationService';
 import { valueCaseService } from '@/services/ValueCaseService';
 import { logger } from '@/lib/logger';
 import { AlertCircle, Building2, Plus, RefreshCw } from 'lucide-react';
-import type { CRMDeal } from '@/mcp-crm/types';
+import type { CRMDeal } from '@mcp/crm/types';
 import type { LifecycleStage } from '@/types/vos';
 
 interface DealImportModalProps {

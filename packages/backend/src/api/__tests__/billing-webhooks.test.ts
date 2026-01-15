@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 import webhookRouter from '../billing/webhooks';
-import { __getEnvSourceForTests, __setEnvSourceForTests } from '../../lib/env';
+import { __getEnvSourceForTests, __setEnvSourceForTests } from '@shared/lib/env';
 
 describe('Billing Webhooks API', () => {
   const originalEnv = __getEnvSourceForTests();

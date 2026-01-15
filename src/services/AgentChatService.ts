@@ -19,7 +19,7 @@ import {
   conversationHistoryService,
   ConversationMessage,
 } from "./ConversationHistoryService";
-import { SDUIPageDefinition } from "../sdui/schema";
+import { SDUIPageDefinition } from "@sdui/schema";
 import {
   WorkflowState,
   WorkflowStateRepository,
@@ -35,7 +35,7 @@ import { checkStageTransition } from "../config/chatWorkflowConfig";
 import {
   generateChatSDUIPage,
   hasTemplateForStage,
-} from "../sdui/templates/chat-templates";
+} from "@sdui/templates/chat-templates";
 import { sanitizeAgentInput } from "../utils/security";
 import { contextFabric } from "../lib/agent-fabric/ContextFabric";
 import { detectIndustry } from "../data/industryTemplates";

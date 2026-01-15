@@ -13,8 +13,8 @@
  */
 
 import { NextFunction, Request, Response } from "express";
-import { auditLogService } from "../services/AuditLogService";
-import { logger } from "../lib/logger";
+import { auditLogService } from './services/AuditLogService";
+import { logger } from '@shared/lib/logger";
 
 /**
  * Extract user info from request

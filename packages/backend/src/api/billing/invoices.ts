@@ -4,8 +4,8 @@
  */
 
 import express, { Request, Response } from 'express';
-import InvoiceService from '../../services/billing/InvoiceService';
-import { createLogger } from '../../lib/logger';
+import InvoiceService from '../services/billing/InvoiceService';
+import { createLogger } from '@shared/lib/logger';
 import { auditDataExport } from '../../middleware/auditHooks';
 
 const router = express.Router();

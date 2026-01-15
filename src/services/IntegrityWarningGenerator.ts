@@ -10,7 +10,7 @@ import {
   AtomicUIAction,
   createAddAction,
   createMutateAction,
-} from '../sdui/AtomicUIActions';
+} from '@sdui/AtomicUIActions';
 
 /**
  * Integrity Warning Generator

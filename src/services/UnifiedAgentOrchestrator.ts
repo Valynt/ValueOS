@@ -19,7 +19,7 @@ import { v4 as uuidv4 } from "uuid";
 import * as z from "zod";
 import { CircuitBreakerManager } from "./CircuitBreaker";
 import { AgentRecord, AgentRegistry } from "./AgentRegistry";
-import { SDUIPageDefinition, validateSDUISchema } from "../sdui/schema";
+import { SDUIPageDefinition, validateSDUISchema } from "@sdui/schema";
 import { getAuditLogger, logAgentResponse } from "./AgentAuditLogger";
 import { AgentType } from "./agent-types";
 import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
@@ -44,7 +44,7 @@ import {
   AgentResponse as APIAgentResponse,
   getAgentAPI,
 } from "./AgentAPI";
-import { renderPage, RenderPageOptions } from "../sdui/renderPage";
+import { renderPage, RenderPageOptions } from "@sdui/renderPage";
 import { WorkflowDAG, WorkflowEvent, WorkflowStage } from "../types/workflow";
 import { AgentRoutingLayer, StageRoute } from "./AgentRoutingLayer";
 import { supabase } from "../lib/supabase";

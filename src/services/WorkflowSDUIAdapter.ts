@@ -6,7 +6,7 @@
  */
 
 import { logger } from '../lib/logger';
-import { SDUIPageDefinition } from '../sdui/schema';
+import { SDUIPageDefinition } from '@sdui/schema';
 import { SDUIUpdate } from '../types/sdui-integration';
 import { LifecycleStage } from '../types/workflow';
 import {
@@ -20,7 +20,7 @@ import {
   createAddAction,
   createMutateAction,
   createRemoveAction,
-} from '../sdui/AtomicUIActions';
+} from '@sdui/AtomicUIActions';
 import { canvasSchemaService } from './CanvasSchemaService';
 
 /**

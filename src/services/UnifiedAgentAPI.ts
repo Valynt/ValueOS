@@ -18,7 +18,7 @@ import { logger } from "../lib/logger";
 import { v4 as uuidv4 } from "uuid";
 import { CircuitBreakerManager } from "./CircuitBreaker";
 import { AgentRecord, AgentRegistry } from "./AgentRegistry";
-import { SDUIPageDefinition, validateSDUISchema } from "../sdui/schema";
+import { SDUIPageDefinition, validateSDUISchema } from "@sdui/schema";
 import { getAuditLogger, logAgentResponse } from "./AgentAuditLogger";
 import { AgentType } from "./agent-types";
 import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";

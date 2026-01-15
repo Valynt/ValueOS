@@ -15,7 +15,7 @@ const projectRoot = path.resolve(__dirname, "../..");
 // Load .env.local from project root
 dotenv.config({ path: path.join(projectRoot, ".env.local") });
 
-import { validateEnv } from "../lib/env";
+import { validateEnv } from '@shared/lib/env";
 
 // Validate required environment variables (fail fast)
 validateEnv();
@@ -39,15 +39,15 @@ import docsApiRouter from "./docs-api";
 import {
   initializeSecretVolumeWatcher,
   secretVolumeWatcher,
-} from "../config/secrets/SecretVolumeWatcher";
+} from './config/secrets/SecretVolumeWatcher";
 import {
   validateSecretsOnStartup,
   secretHealthMiddleware,
-} from "../config/secrets/SecretValidator";
-import { createLogger } from "../lib/logger";
+} from './config/secrets/SecretValidator";
+import { createLogger } from '@shared/lib/logger";
 import { createVersionedApiRouter } from "./versioning";
-import { initializeContext } from "../lib/context";
-import { tracingMiddleware } from "../config/telemetry";
+import { initializeContext } from '@shared/lib/context";
+import { tracingMiddleware } from './config/telemetry";
 import { requestAuditMiddleware } from "../middleware/requestAuditMiddleware";
 import {
   getLatencySnapshot,
@@ -69,9 +69,9 @@ import {
   verifyAccessToken,
 } from "../middleware/auth";
 import { tenantContextMiddleware } from "../middleware/tenantContext";
-import { settings } from "../config/settings";
-import { isConsentRegistryConfigured } from "../services/consentRegistry";
-import { TenantContextResolver } from "../services/TenantContextResolver";
+import { settings } from './config/settings";
+import { isConsentRegistryConfigured } from './services/consentRegistry";
+import { TenantContextResolver } from './services/TenantContextResolver";
 
 const logger = createLogger({ component: "BillingServer" });
 const INTERNAL_ERROR_STATUS = 500;

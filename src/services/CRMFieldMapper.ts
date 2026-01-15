@@ -5,7 +5,7 @@
  * Handles differences between HubSpot and Salesforce schemas.
  */
 
-import { CRMContact, CRMDeal, CRMProvider } from '../mcp-crm/types';
+import { CRMContact, CRMDeal, CRMProvider } from '@mcp/crm/types';
 
 // ============================================================================
 // Types

@@ -5,8 +5,8 @@
  * with atomic operations and TTL-based expiry.
  */
 
-import { getRedisClient } from "../lib/redisClient";
-import { logger } from "../lib/logger";
+import { getRedisClient } from '@shared/lib/redisClient";
+import { logger } from '@shared/lib/logger";
 import { RedisClientType } from "redis";
 
 export interface RateLimitEntry {

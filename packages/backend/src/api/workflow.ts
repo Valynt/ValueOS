@@ -1,6 +1,6 @@
 import { Request, Response, Router } from 'express';
-import { supabase } from '../lib/supabase';
-import { logger } from '../lib/logger';
+import { supabase } from '@shared/lib/supabase';
+import { logger } from '@shared/lib/logger';
 import { rateLimiters } from '../middleware/rateLimiter';
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';

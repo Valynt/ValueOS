@@ -5,12 +5,12 @@
 
 import { NextFunction, Request, Response } from 'express';
 import jwt, { JwtPayload } from 'jsonwebtoken';
-import { authService } from '../services/AuthService';
-import { AuthenticationError } from '../services/errors';
-import { createLogger } from '../lib/logger';
-import { sanitizeForLogging } from '../lib/piiFilter';
-import { getSupabaseClient } from '../lib/supabase';
-import { getEnvVar } from '../lib/env';
+import { authService } from './services/AuthService';
+import { AuthenticationError } from './services/errors';
+import { createLogger } from '@shared/lib/logger';
+import { sanitizeForLogging } from '@shared/lib/piiFilter';
+import { getSupabaseClient } from '@shared/lib/supabase';
+import { getEnvVar } from '@shared/lib/env';
 
 const logger = createLogger({ component: 'AuthMiddleware' });
 

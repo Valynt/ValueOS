@@ -4,10 +4,10 @@
  * Shared types for ChatCanvas components with enhanced type safety
  */
 
-import { SDUIPageDefinition } from "../../sdui/schema";
+import { SDUIPageDefinition } from '@sdui/schema";
 import { EnhancedValueCase, CaseId } from "../../types/enhancedTypes";
 import { WorkflowState } from "../../repositories/WorkflowStateRepository";
-import { RenderPageResult } from "../../sdui/renderPage";
+import { RenderPageResult } from '@sdui/renderPage";
 import { StreamingUpdate } from "../../services/UnifiedAgentOrchestrator";
 import {
   StrictChatRequest,

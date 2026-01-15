@@ -15,7 +15,7 @@
 import { useState, useCallback } from 'react';
 import { agentChatService } from '../services/AgentChatService';
 import { WorkflowState } from '../repositories/WorkflowStateRepository';
-import { RenderPageResult } from '../sdui/renderPage';
+import { RenderPageResult } from '@sdui/renderPage';
 import { StreamingUpdate } from '../services/UnifiedAgentOrchestrator';
 import { logger } from '../lib/logger';
 import { v4 as uuidv4 } from 'uuid';

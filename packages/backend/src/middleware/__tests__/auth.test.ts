@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import jwt from 'jsonwebtoken';
-import { __setEnvSourceForTests } from '../../lib/env';
+import { __setEnvSourceForTests } from '@shared/lib/env';
 
 vi.mock('../../services/AuthService', () => ({
   authService: {

@@ -4,10 +4,10 @@
  */
 
 import express, { Request, Response } from 'express';
-import WebhookService from '../../services/billing/WebhookService';
-import { createLogger } from '../../lib/logger';
+import WebhookService from '../services/billing/WebhookService';
+import { createLogger } from '@shared/lib/logger';
 import { recordStripeWebhook } from '../../metrics/billingMetrics';
-import { getSupabaseConfig } from '../../lib/env';
+import { getSupabaseConfig } from '@shared/lib/env';
 
 const router = express.Router();
 const logger = createLogger({ component: 'WebhooksAPI' });

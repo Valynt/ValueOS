@@ -4,8 +4,8 @@
  */
 
 import { NextFunction, Request, Response } from 'express';
-import { createLogger } from '../lib/logger';
-import { sanitizeForLogging } from '../lib/piiFilter';
+import { createLogger } from '@shared/lib/logger';
+import { sanitizeForLogging } from '@shared/lib/piiFilter';
 
 const logger = createLogger({ component: 'InputValidation' });
 

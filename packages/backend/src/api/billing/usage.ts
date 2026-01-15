@@ -4,10 +4,10 @@
  */
 
 import express, { Request, Response } from 'express';
-import MetricsCollector from '../../services/metering/MetricsCollector';
-import UsageCache from '../../services/metering/UsageCache';
-import { BillingMetric } from '../../config/billing';
-import { createLogger } from '../../lib/logger';
+import MetricsCollector from '../services/metering/MetricsCollector';
+import UsageCache from '../services/metering/UsageCache';
+import { BillingMetric } from '../config/billing';
+import { createLogger } from '@shared/lib/logger';
 
 const router = express.Router();
 const logger = createLogger({ component: 'UsageAPI' });

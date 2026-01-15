@@ -3,8 +3,8 @@
  */
 
 import { LifecycleStage, StageStatus, WorkflowStatus } from './workflow';
-import { AtomicUIAction } from '../sdui/AtomicUIActions';
-import { SDUIPageDefinition } from '../sdui/schema';
+import { AtomicUIAction } from '@sdui/AtomicUIActions';
+import { SDUIPageDefinition } from '@sdui/schema';
 
 /**
  * Workflow progress information

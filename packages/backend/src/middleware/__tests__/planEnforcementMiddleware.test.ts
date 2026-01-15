@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPlanEnforcement } from '../planEnforcementMiddleware';
-import UsageCache from '../../services/metering/UsageCache';
-import GracePeriodService from '../../services/metering/GracePeriodService';
-import SubscriptionService from '../../services/billing/SubscriptionService';
+import UsageCache from '../services/metering/UsageCache';
+import GracePeriodService from '../services/metering/GracePeriodService';
+import SubscriptionService from '../services/billing/SubscriptionService';
 
 vi.mock('../../services/metering/UsageCache', () => ({
   default: {

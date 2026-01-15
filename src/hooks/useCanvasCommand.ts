@@ -8,8 +8,8 @@
 import { useCallback, useState } from 'react';
 import { agentChatService, ChatRequest, ChatResponse } from '../../services/AgentChatService';
 import { WorkflowState } from '../../repositories/WorkflowStateRepository';
-import { renderPage, RenderPageResult } from '../../sdui/renderPage';
-import { SDUIPageDefinition } from '../../sdui/schema';
+import { renderPage, RenderPageResult } from '@sdui/renderPage';
+import { SDUIPageDefinition } from '@sdui/schema';
 import {
   sduiTelemetry,
   TelemetryEventType

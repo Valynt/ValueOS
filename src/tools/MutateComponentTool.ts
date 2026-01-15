@@ -7,7 +7,7 @@
 
 import { ExecutionContext, Tool, ToolResult } from '../services/ToolRegistry';
 import { ComponentMutationService } from '../services/ComponentMutationService';
-import { SDUIPageDefinition } from '../sdui/schema';
+import { SDUIPageDefinition } from '@sdui/schema';
 import {
   AtomicUIAction,
   ComponentSelector,
@@ -18,7 +18,7 @@ import {
   createRemoveAction,
   PropertyMutation,
   validateAtomicAction,
-} from '../sdui/AtomicUIActions';
+} from '@sdui/AtomicUIActions';
 import { logger } from '../lib/logger';
 
 /**

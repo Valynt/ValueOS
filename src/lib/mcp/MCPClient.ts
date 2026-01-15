@@ -5,7 +5,7 @@
  * to be used across the application.
  */
 
-import { MCPFinancialGroundTruthServer } from '../../mcp-ground-truth';
+import { MCPFinancialGroundTruthServer } from '@mcp/ground-truth';
 import { logger } from '../logger';
 
 let serverInstance: MCPFinancialGroundTruthServer | null = null;

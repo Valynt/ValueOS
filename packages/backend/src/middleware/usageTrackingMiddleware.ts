@@ -4,9 +4,9 @@
  */
 
 import { NextFunction, Request, Response } from 'express';
-import UsageEmitter from '../services/metering/UsageEmitter';
+import UsageEmitter from './services/metering/UsageEmitter';
 import { v4 as uuidv4 } from 'uuid';
-import { createLogger } from '../lib/logger';
+import { createLogger } from '@shared/lib/logger';
 
 const logger = createLogger({ component: 'UsageTrackingMiddleware' });
 

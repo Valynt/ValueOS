@@ -15,7 +15,7 @@ import { ExtractedNotes, UploadNotesModal } from "../Modals";
 import { EmailAnalysisModal } from "../Modals/EmailAnalysisModal";
 import { EmailAnalysis } from "../../services/EmailAnalysisService";
 import { CRMImportModal } from "../Modals/CRMImportModal";
-import { CRMDeal } from "../../mcp-crm/types";
+import { CRMDeal } from "@mcp/crm/types";
 import { SalesCallModal } from "../Modals/SalesCallModal";
 import { CallAnalysis } from "../../services/CallAnalysisService";
 import { SkeletonCanvas } from "../Common/SkeletonCanvas";

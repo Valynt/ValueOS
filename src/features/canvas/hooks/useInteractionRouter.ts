@@ -9,7 +9,7 @@ import { useCallback } from "react";
 import { ExtractedNotes } from "../../Modals";
 import { EmailAnalysis } from "../../../services/EmailAnalysisService";
 import { MappedValueCase } from "../../../services/CRMFieldMapper";
-import { CRMDeal } from "../../../mcp-crm/types";
+import { CRMDeal } from "@mcp/crm/types";
 import { CallAnalysis } from "../../../services/CallAnalysisService";
 import { valueCaseService } from "../../../services/ValueCaseService";
 import { toUserFriendlyError } from "../../../utils/errorHandling";

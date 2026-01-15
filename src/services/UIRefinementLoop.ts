@@ -13,7 +13,7 @@ import { logger } from '../lib/logger';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import { llmConfig } from '../config/llm';
 import { getUIGenerationTracker } from './UIGenerationTracker';
-import { validateComponentSelection } from '../sdui/ComponentToolRegistry';
+import { validateComponentSelection } from '@sdui/ComponentToolRegistry';
 import { ComponentMutationService } from './ComponentMutationService';
 import { AgentCircuitBreaker } from '../lib/agent-fabric/CircuitBreaker';
 import { secureLLMComplete } from '../lib/llm/secureLLMWrapper';
@@ -22,8 +22,8 @@ import {
   createMutateAction,
   createPropertyUpdate,
   validateAtomicAction,
-} from '../sdui/AtomicUIActions';
-import type { SDUIPageDefinition } from '../sdui/types';
+} from '@sdui/AtomicUIActions';
+import type { SDUIPageDefinition } from '@sdui/types';
 import type { Subgoal } from '../types/Subgoal';
 
 export interface UIEvaluationResult {

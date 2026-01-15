@@ -3,8 +3,8 @@
  */
 
 import { PlaygroundSessionService } from '../PlaygroundSessionService';
-import { SDUIPageDefinition } from '../../sdui/schema';
-import { createPropertyUpdate } from '../../sdui/AtomicUIActions';
+import { SDUIPageDefinition } from '@sdui/schema';
+import { createPropertyUpdate } from '@sdui/AtomicUIActions';
 
 // Mock Redis client
 jest.mock('redis', () => ({

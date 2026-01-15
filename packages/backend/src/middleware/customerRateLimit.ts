@@ -4,7 +4,7 @@
  */
 
 import { NextFunction, Request, Response } from 'express';
-import { logger } from '../lib/logger';
+import { logger } from '@shared/lib/logger';
 
 interface RateLimitStore {
   [key: string]: {

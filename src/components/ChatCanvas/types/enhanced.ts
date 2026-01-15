@@ -5,7 +5,7 @@
  * for better type safety and developer experience.
  */
 
-import { SDUIPageDefinition } from '../../sdui/schema';
+import { SDUIPageDefinition } from '@sdui/schema';
 import { WorkflowState } from '../../repositories/WorkflowStateRepository';
 import { CaseId } from '../../types/enhancedTypes';
 import { LifecycleStage } from '../../types/vos';

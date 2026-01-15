@@ -4,7 +4,7 @@ import { requireConsent } from '../middleware/consentMiddleware';
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
 import { logger } from '../utils/logger';
 import { requirePermission } from '../middleware/rbac';
-import { consentRegistry } from '../services/consentRegistry';
+import { consentRegistry } from './services/consentRegistry';
 
 const router = Router();
 router.use(securityHeadersMiddleware);

@@ -7,7 +7,7 @@
 
 import type { LLMTool } from '../lib/agent-fabric/llm-types';
 import { mcpGroundTruthService } from './MCPGroundTruthService';
-import { CRM_TOOLS, getMCPCRMServer } from '../mcp-crm';
+import { CRM_TOOLS, getMCPCRMServer } from '@mcp/crm';
 import { logger } from '../lib/logger';
 
 // ============================================================================

@@ -27,6 +27,16 @@ export default tseslint.config(
         "warn",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            { group: ["@valueos/backend", "@valueos/backend/*"], message: "Backend imports forbidden - use HTTP API" },
+            { group: ["@valueos/shared/lib/logger"], message: "Node-only - use local logger" },
+            { group: ["@valueos/shared/lib/redisClient", "@valueos/shared/lib/redisKeys"], message: "Node-only" },
+          ],
+        },
+      ],
     },
   }
 );

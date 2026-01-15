@@ -1,10 +1,10 @@
 import { Request, Response, Router } from 'express';
-import { logger } from '../lib/logger';
+import { logger } from '@shared/lib/logger';
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
 import { rateLimiters } from '../middleware/rateLimiter';
 import { validateRequest } from '../middleware/inputValidation';
 import { requirePermission } from '../middleware/rbac';
-import { getEnvVar } from '../lib/env';
+import { getEnvVar } from '@shared/lib/env';
 
 const router = Router();
 router.use(securityHeadersMiddleware);

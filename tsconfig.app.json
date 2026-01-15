@@ -20,6 +20,7 @@
     "paths": {
       "@/*": ["./src/*"],
       "@lib/*": ["./src/lib/*"],
+      "@shared/*": ["./packages/shared/src/*"],
       "@backend/*": ["./packages/backend/src/*"],
       "@mcp/*": ["./packages/mcp/*"],
       "@mcp-common/*": ["./packages/mcp/common/*"],

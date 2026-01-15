@@ -12,14 +12,14 @@
 
 import { NextFunction, Request, Response } from "express";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { logger } from "../lib/logger";
-import { getSupabaseClient } from "../lib/supabase";
+import { logger } from '@shared/lib/logger";
+import { getSupabaseClient } from '@shared/lib/supabase";
 import {
   type Permission as UnifiedPermission,
   hasPermission as matchPermission,
   USER_ROLE_PERMISSIONS,
   USER_ROLES,
-} from "../lib/permissions";
+} from '@shared/lib/permissions";
 
 // Re-export unified Permission type
 export type Permission = UnifiedPermission;

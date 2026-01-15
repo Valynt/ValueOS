@@ -7,7 +7,7 @@
 
 import React, { FC } from "react";
 import { Loader2 } from "lucide-react";
-import { RenderPageResult } from "../../sdui/renderPage";
+import { RenderPageResult } from '@sdui/renderPage";
 import { StreamingUpdate } from "../../services/UnifiedAgentOrchestrator";
 import { SkeletonCanvas } from "../Common/SkeletonCanvas";
 import { CanvasErrorBoundary } from "./CanvasErrorBoundary";

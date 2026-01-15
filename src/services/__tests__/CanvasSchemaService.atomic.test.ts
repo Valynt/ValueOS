@@ -1,8 +1,8 @@
 
 import { describe, it, expect } from 'vitest';
 import { CanvasSchemaService } from '../CanvasSchemaService';
-import { SDUIPageDefinition } from '../../sdui/schema';
-import { AtomicUIAction } from '../../sdui/AtomicUIActions';
+import { SDUIPageDefinition } from '@sdui/schema';
+import { AtomicUIAction } from '@sdui/AtomicUIActions';
 
 describe('CanvasSchemaService - Atomic Actions', () => {
   // We can instantiate with no args because the constructor handles optional args

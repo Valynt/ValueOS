@@ -4,9 +4,9 @@
  */
 
 import { Request, Response } from "express";
-import { customerAccessService } from "../../services/CustomerAccessService";
-import { supabase } from "../../lib/supabase";
-import { logger } from "../../lib/logger";
+import { customerAccessService } from "../services/CustomerAccessService";
+import { supabase } from "@shared/lib/supabase";
+import { logger } from "@shared/lib/logger";
 import { z } from "zod";
 
 // Request validation schema

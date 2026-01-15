@@ -16,8 +16,8 @@ import { securityHeadersMiddleware } from "../../middleware/securityHeaders";
 import { serviceIdentityMiddleware } from "../../middleware/serviceIdentityMiddleware";
 import { rateLimiters } from "../../middleware/rateLimiter";
 import { requestAuditMiddleware } from "../../middleware/requestAuditMiddleware";
-import { healthMetrics } from "../../lib/health/metrics";
-import { alertManager } from "../../lib/health/alerts";
+import { healthMetrics } from '@shared/lib/health/metrics";
+import { alertManager } from '@shared/lib/health/alerts";
 import * as fs from "fs";
 import * as path from "path";
 

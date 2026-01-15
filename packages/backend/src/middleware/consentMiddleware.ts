@@ -1,5 +1,5 @@
 import { NextFunction, Request, RequestHandler, Response } from 'express';
-import { consentRegistry } from '../services/consentRegistry';
+import { consentRegistry } from './services/consentRegistry';
 import type { ConsentRegistry } from '../types/consent';
 
 export function requireConsent(

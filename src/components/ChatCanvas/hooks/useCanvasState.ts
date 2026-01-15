@@ -5,7 +5,7 @@
  * for better state organization and predictable updates.
  */
 
-import { RenderPageResult } from '../../sdui/renderPage';
+import { RenderPageResult } from '@sdui/renderPage';
 import { StreamingUpdate } from '../../services/UnifiedAgentOrchestrator';
 import { WorkflowState } from '../../repositories/WorkflowStateRepository';
 import { ValueCase } from '../types';

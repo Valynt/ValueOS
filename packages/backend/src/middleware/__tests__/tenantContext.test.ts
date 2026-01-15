@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { tenantContextMiddleware } from '../tenantContext';
-import { getUserTenantId, verifyTenantExists, verifyTenantMembership } from '../../lib/tenantVerification';
+import { getUserTenantId, verifyTenantExists, verifyTenantMembership } from '@shared/lib/tenantVerification';
 
 vi.mock('../../lib/tenantVerification', () => ({
   getUserTenantId: vi.fn(),

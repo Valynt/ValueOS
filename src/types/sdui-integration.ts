@@ -2,9 +2,9 @@
  * Type definitions for SDUI integration layer
  */
 
-import { SDUIPageDefinition } from '../sdui/schema';
+import { SDUIPageDefinition } from '@sdui/schema';
 import { LifecycleStage } from './workflow';
-import { ActionResult as AtomicActionResult, AtomicUIAction } from '../sdui/AtomicUIActions';
+import { ActionResult as AtomicActionResult, AtomicUIAction } from '@sdui/AtomicUIActions';
 import { ExecutionRequest } from './execution';
 
 /**

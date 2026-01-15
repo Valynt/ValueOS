@@ -3,7 +3,7 @@
  */
 
 import { ComponentMutationService } from '../ComponentMutationService';
-import { SDUIPageDefinition } from '../../sdui/schema';
+import { SDUIPageDefinition } from '@sdui/schema';
 import {
   createAddAction,
   createBatchAction,
@@ -11,7 +11,7 @@ import {
   createPropertyUpdate,
   createRemoveAction,
   validateAtomicAction,
-} from '../../sdui/AtomicUIActions';
+} from '@sdui/AtomicUIActions';
 
 describe('ComponentMutationService', () => {
   let service: ComponentMutationService;

@@ -11,7 +11,7 @@ import type { AgentContext, AgentType } from './agent-types';
 
 import { logger } from '../lib/logger';
 import { CircuitBreaker } from './CircuitBreaker';
-import { SDUIPageDefinition, validateSDUISchema } from '../sdui/schema';
+import { SDUIPageDefinition, validateSDUISchema } from '@sdui/schema';
 import { getAuditLogger, logAgentResponse } from './AgentAuditLogger';
 import { getConfig } from '../config/environment';
 import { llmSanitizer } from './LLMSanitizer';

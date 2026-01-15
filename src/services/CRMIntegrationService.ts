@@ -6,8 +6,8 @@
  */
 
 import { logger } from "../lib/logger";
-import { HubSpotModule } from "../mcp-crm/modules/HubSpotModule";
-import { CRMDeal } from "../mcp-crm/types";
+import { HubSpotModule } from "@mcp/crm/modules/HubSpotModule";
+import { CRMDeal } from "@mcp/crm/types";
 import { integrationControlService } from "./IntegrationControlService";
 import { createServerSupabaseClient } from "../lib/supabase";
 

@@ -10,9 +10,9 @@ import { v4 as uuidv4 } from "uuid";
 import { WorkflowState } from "../../../repositories/WorkflowStateRepository";
 import { valueCaseService } from "../../../services/ValueCaseService";
 import { agentChatService } from "../../../services/AgentChatService";
-import { renderPage } from "../../../sdui/renderPage";
-import { SDUIPageDefinition } from "../../../sdui/schema";
-import { useCanvasStore } from "../../../sdui/canvas/CanvasStore";
+import { renderPage } from '@sdui/renderPage";
+import { SDUIPageDefinition } from '@sdui/schema";
+import { useCanvasStore } from '@sdui/canvas/CanvasStore";
 import { toUserFriendlyError } from "../../../utils/errorHandling";
 import { useToast } from "../../../components/Common/Toast";
 

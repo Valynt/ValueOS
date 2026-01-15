@@ -8,7 +8,7 @@
  * - Value chain traversal
  */
 
-import { ESOModule } from "../mcp-ground-truth/modules/ESOModule";
+import { ESOModule } from "@mcp/ground-truth/modules/ESOModule";
 import { ALL_ESO_KPIS, EXTENDED_PERSONA_MAPS } from "../types/eso-data";
 import { ALL_VMRT_SEEDS } from "../types/vos-pt1-seed";
 import { checkBenchmarkAlignment } from "../types/eso";

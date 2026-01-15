@@ -9,7 +9,7 @@ vi.mock('../../services/billing/WebhookService', () => ({
 }));
 
 import app from '../server';
-import WebhookService from '../../services/billing/WebhookService';
+import WebhookService from '../services/billing/WebhookService';
 
 const mockedWebhookService = WebhookService as {
   verifySignature: ReturnType<typeof vi.fn>;

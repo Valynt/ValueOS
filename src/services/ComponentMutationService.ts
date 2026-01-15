@@ -6,7 +6,7 @@
  */
 
 import { logger } from '../lib/logger';
-import { SDUIComponentSection, SDUIPageDefinition } from '../sdui/schema';
+import { SDUIComponentSection, SDUIPageDefinition } from '@sdui/schema';
 import {
   ActionResult,
   AddComponentAction,
@@ -19,7 +19,7 @@ import {
   ReorderComponentsAction,
   UpdateLayoutAction,
   validateAtomicAction,
-} from '../sdui/AtomicUIActions';
+} from '@sdui/AtomicUIActions';
 
 /**
  * Component Mutation Service

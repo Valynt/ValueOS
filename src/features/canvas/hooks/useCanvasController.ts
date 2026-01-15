@@ -6,11 +6,11 @@
  */
 
 import { useState, useCallback } from "react";
-import { SDUIPageDefinition } from "../../../sdui/schema";
-import { renderPage } from "../../../sdui/renderPage";
+import { SDUIPageDefinition } from '@sdui/schema";
+import { renderPage } from '@sdui/renderPage";
 import { valueCaseService } from "../../../services/ValueCaseService";
 import { toUserFriendlyError } from "../../../utils/errorHandling";
-import { useCanvasStore } from "../../../sdui/canvas/CanvasStore";
+import { useCanvasStore } from '@sdui/canvas/CanvasStore";
 import { logger } from "../../../lib/logger";
 
 export interface ValueCase {

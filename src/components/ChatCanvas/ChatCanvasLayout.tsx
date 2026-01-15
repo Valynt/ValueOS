@@ -45,10 +45,10 @@ import { EmailAnalysis } from "../../services/EmailAnalysisService";
 import { CRMImportModal } from "../Modals/CRMImportModal";
 import { SalesCallModal } from "../Modals/SalesCallModal";
 import { MappedValueCase } from "../../services/CRMFieldMapper";
-import { CRMDeal } from "../../mcp-crm/types";
+import { CRMDeal } from '@mcp/crm/types";
 import { CallAnalysis } from "../../services/CallAnalysisService";
-import { renderPage, RenderPageResult } from "../../sdui/renderPage";
-import { SDUIPageDefinition } from "../../sdui/schema";
+import { renderPage, RenderPageResult } from '@sdui/renderPage";
+import { SDUIPageDefinition } from '@sdui/schema";
 import { StreamingUpdate } from "../../services/UnifiedAgentOrchestrator";
 import { agentChatService } from "../../services/AgentChatService";
 import { WorkflowState } from "../../repositories/WorkflowStateRepository";
@@ -62,7 +62,7 @@ import {
   sduiTelemetry,
   TelemetryEventType,
 } from "../../lib/telemetry/SDUITelemetry";
-import { useCanvasStore } from "../../sdui/canvas/CanvasStore";
+import { useCanvasStore } from '@sdui/canvas/CanvasStore";
 import { SkeletonCanvas } from "../Common/SkeletonCanvas";
 import { toUserFriendlyError } from "../../utils/errorHandling";
 import { useToast } from "../Common/Toast";

@@ -5,7 +5,7 @@
  */
 
 import { NextFunction, Request, Response } from 'express';
-import { createLogger } from '../lib/logger';
+import { createLogger } from '@shared/lib/logger';
 
 const logger = createLogger({ component: 'CostTracker' });
 

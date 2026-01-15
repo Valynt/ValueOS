@@ -7,12 +7,12 @@
 
 import rateLimit from 'express-rate-limit';
 import RedisStore from 'rate-limit-redis';
-import { getRedisClient } from '../lib/redisClient';
+import { getRedisClient } from '@shared/lib/redisClient';
 import { Request, Response } from 'express';
 import { NextFunction } from 'express';
-import { RateLimitKeyService } from '../services/RateLimitKeyService';
-import { redisCircuitBreaker } from '../services/RedisCircuitBreaker';
-import { logger } from '../lib/logger';
+import { RateLimitKeyService } from './services/RateLimitKeyService';
+import { redisCircuitBreaker } from './services/RedisCircuitBreaker';
+import { logger } from '@shared/lib/logger';
 
 // Extended Request interface for rate limiting
 interface RateLimitRequest extends Request {

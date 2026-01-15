@@ -26,8 +26,8 @@ import {
   ParsedCRMUrl,
 } from "../../utils/crmUrlParser";
 import { crmFieldMapper, MappedValueCase } from "../../services/CRMFieldMapper";
-import { getMCPCRMServer } from "../../mcp-crm";
-import { CRMContact, CRMDeal, CRMProvider } from "../../mcp-crm/types";
+import { getMCPCRMServer } from '@mcp/crm";
+import { CRMContact, CRMDeal, CRMProvider } from '@mcp/crm/types";
 import { crmOAuthService } from "../../services/CRMOAuthService";
 import { logger } from "../../lib/logger";
 

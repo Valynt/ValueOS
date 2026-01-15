@@ -7,9 +7,9 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { StreamingUpdate } from "../../../services/UnifiedAgentOrchestrator";
-import { SDUIPageDefinition } from "../../../sdui/schema";
-import { renderPage } from "../../../sdui/renderPage";
-import { useCanvasStore } from "../../../sdui/canvas/CanvasStore";
+import { SDUIPageDefinition } from '@sdui/schema";
+import { renderPage } from '@sdui/renderPage";
+import { useCanvasStore } from '@sdui/canvas/CanvasStore";
 import { logger } from "../../../lib/logger";
 
 export interface UseStreamingOrchestratorOptions {

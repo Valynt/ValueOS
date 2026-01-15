@@ -6,8 +6,8 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { renderPage } from '../sdui/renderPage';
-import { SDUIPageDefinition } from '../sdui/schema';
+import { renderPage } from '@sdui/renderPage';
+import { SDUIPageDefinition } from '@sdui/schema';
 import { canvasSchemaService } from '../services/CanvasSchemaService';
 import { actionRouter } from '../services/ActionRouter';
 import {

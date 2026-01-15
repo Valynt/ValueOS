@@ -5,7 +5,7 @@
  * Shows how the adapter bridges Phase 3 and Phase 4
  */
 
-import { IntegratedMCPServer } from '../../mcp-ground-truth/core/IntegratedMCPServer';
+import { IntegratedMCPServer } from '@mcp/ground-truth/core/IntegratedMCPServer';
 import { adaptBusinessCaseToTemplate, selectTemplateByContext, IntegrationManager } from '../BusinessCaseAdapter';
 import { BusinessCaseResult } from '../../causal/business-case-generator-enhanced';
 

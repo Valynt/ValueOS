@@ -10,8 +10,8 @@ import { logger } from '../lib/logger';
 import { getUnifiedOrchestrator, UnifiedAgentOrchestrator } from './UnifiedAgentOrchestrator';
 import { PlaygroundSessionService } from './PlaygroundSessionService';
 import { getAutoSaveWorker, PlaygroundAutoSaveWorker } from './PlaygroundAutoSave';
-import { SDUIPageDefinition } from '../sdui/schema';
-import { AtomicUIAction } from '../sdui/AtomicUIActions';
+import { SDUIPageDefinition } from '@sdui/schema';
+import { AtomicUIAction } from '@sdui/AtomicUIActions';
 import { ComponentMutationService } from './ComponentMutationService';
 import { ExecutionRequest, normalizeExecutionRequest } from '../types/execution';
 

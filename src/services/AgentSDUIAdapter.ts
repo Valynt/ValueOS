@@ -17,7 +17,7 @@
 import { logger } from "../lib/logger";
 import { SDUIUpdate } from "../types/sdui-integration";
 import { AgentOutput } from "../types/agent-output";
-import { AtomicUIAction, createAddAction } from "../sdui/AtomicUIActions";
+import { AtomicUIAction, createAddAction } from "@sdui/AtomicUIActions";
 import { intentRegistry } from "./IntentRegistry";
 import { agentIntentConverter } from "./AgentIntentConverter";
 

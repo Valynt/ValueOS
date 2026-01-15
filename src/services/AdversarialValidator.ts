@@ -14,7 +14,7 @@
 import { logger } from '../lib/logger';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import { llmConfig } from '../config/llm';
-import { SDUIPageDefinition } from '../sdui/schema';
+import { SDUIPageDefinition } from '@sdui/schema';
 import { v4 as uuidv4 } from 'uuid';
 
 // ============================================================================

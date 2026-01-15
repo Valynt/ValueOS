@@ -6,8 +6,8 @@
  */
 
 import { logger } from '../lib/logger';
-import { SDUIPageDefinition } from '../sdui/schema';
-import { ActionResult, AtomicUIAction } from '../sdui/AtomicUIActions';
+import { SDUIPageDefinition } from '@sdui/schema';
+import { ActionResult, AtomicUIAction } from '@sdui/AtomicUIActions';
 import { ComponentMutationService } from './ComponentMutationService';
 import { canvasSchemaService } from './CanvasSchemaService';
 
