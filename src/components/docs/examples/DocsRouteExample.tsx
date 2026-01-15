@@ -7,7 +7,7 @@
 import React from 'react';
 import { Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { DocsPortal } from '../DocsPortal';
-import { useAuth } from '../../../contexts/AuthContext';
+import { useAuth } from '../../../app/providers/AuthContext';
 
 // Example: Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {

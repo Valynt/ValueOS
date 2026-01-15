@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react';
 import { ProtectedRoute } from './ProtectedRoute';
 import { useAuth } from '@/app/providers/AuthContext';
 
-vi.mock('../../contexts/AuthContext');
+vi.mock('../../app/providers/AuthContext');
 
 const mockUseAuth = useAuth as unknown as vi.Mock;
 

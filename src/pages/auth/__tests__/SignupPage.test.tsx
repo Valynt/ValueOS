@@ -7,7 +7,7 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { SignupPage } from '../SignupPage';
-import { AuthContext } from '../../../contexts/AuthContext';
+import { AuthContext } from '../../../app/providers/AuthContext';
 import { ValidationError, RateLimitError } from '../../../services/errors';
 
 // Mock useNavigate

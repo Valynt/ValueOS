@@ -1,7 +1,7 @@
 import React from 'react';
-import { SettingsProvider } from '../../contexts/SettingsContext';
+import { SettingsProvider } from '@/app/providers/SettingsContext';
 import { SettingsLayout } from '../../components/Settings/SettingsLayout';
-import { useSettings } from '../../contexts/SettingsContext';
+import { useSettings } from '@/app/providers/SettingsContext';
 import { UserProfile } from './UserProfile';
 import { UserSecurity } from './UserSecurity';
 import { TeamPermissions } from './TeamPermissions';

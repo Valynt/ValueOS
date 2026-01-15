@@ -11,7 +11,7 @@ vi.mock('@/components/Common/Toast', () => ({
   }),
 }));
 
-vi.mock('@/contexts/AuthContext', () => ({
+vi.mock('@/app/providers/AuthContext', () => ({
   useAuth: () => ({ user: { id: 'test-user' } }),
 }));
 

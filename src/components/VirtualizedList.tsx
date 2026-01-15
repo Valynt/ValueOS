@@ -83,7 +83,7 @@ export function VirtualizedList<T>({
  * Virtualized Activity List
  * Optimized for Agent Activity Monitor
  */
-import { AgentActivity } from "../views/AgentActivityMonitor";
+import { AgentActivity } from "../pages/app/AgentActivityMonitor";
 
 interface VirtualizedActivityListProps {
   activities: AgentActivity[];

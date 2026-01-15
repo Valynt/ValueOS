@@ -13,64 +13,64 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "@/app/providers/AuthContext";
 import { TenantProvider } from "@/app/providers/TenantContext";
 import { DrawerProvider } from "@/app/providers/DrawerContext";
-import { ProtectedRoute } from "./components/Auth/ProtectedRoute";
-import { ToastProvider } from "./components/Common/Toast";
-import ErrorBoundary from "./components/ErrorBoundary";
-import { RouteErrorBoundary } from "./components/error-boundaries/RouteErrorBoundary";
-import { AsyncErrorBoundary } from "./components/error-boundaries/AsyncErrorBoundary";
-import { LoadingSpinner } from "./components/Common/LoadingSpinner";
-import { BetaFeedbackWidget } from "./components/Feedback/BetaFeedbackWidget";
-import { EnvironmentBanner } from "./components/Common/EnvironmentBanner";
-import { CommandPaletteProvider } from "./components/CommandPalette";
-import { SDUIStateProvider } from "./lib/state/SDUIStateProvider";
-import { supabase } from "./lib/supabase";
+import { ProtectedRoute } from "@/components/Auth/ProtectedRoute";
+import { ToastProvider } from "@/components/Common/Toast";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import { RouteErrorBoundary } from "@/components/error-boundaries/RouteErrorBoundary";
+import { AsyncErrorBoundary } from "@/components/error-boundaries/AsyncErrorBoundary";
+import { LoadingSpinner } from "@/components/Common/LoadingSpinner";
+import { BetaFeedbackWidget } from "@/components/Feedback/BetaFeedbackWidget";
+import { EnvironmentBanner } from "@/components/Common/EnvironmentBanner";
+import { CommandPaletteProvider } from "@/components/CommandPalette";
+import { SDUIStateProvider } from "@/lib/state/SDUIStateProvider";
+import { supabase } from "@/lib/supabase";
 
 // Lazy load auth pages (public routes) - Modern design
 const LoginPage = lazy(() =>
-  import("./views/Auth/ModernLoginPage").then((m) => ({
+  import("@/pages/auth/ModernLoginPage").then((m) => ({
     default: m.ModernLoginPage,
   }))
 );
 const SignupPage = lazy(() =>
-  import("./views/Auth/ModernSignupPage").then((m) => ({
+  import("@/pages/auth/ModernSignupPage").then((m) => ({
     default: m.ModernSignupPage,
   }))
 );
-const ResetPasswordPage = lazy(() => import("./views/Auth/ResetPasswordPage"));
-const AuthCallback = lazy(() => import("./views/Auth/AuthCallback"));
+const ResetPasswordPage = lazy(() => import("@/pages/auth/ResetPasswordPage"));
+const AuthCallback = lazy(() => import("@/pages/auth/AuthCallback"));
 
 // Lazy load main app
-const App = lazy(() => import("./App"));
+const App = lazy(() => import("@/App"));
 
 // Lazy load VALUI components
-const MainLayout = lazy(() => import("./components/Layout/MainLayout"));
-const Home = lazy(() => import("./views/Home"));
-const ValueCanvas = lazy(() => import("./views/ValueCanvas"));
-const ImpactCascade = lazy(() => import("./views/ImpactCascade"));
-const AgentDashboard = lazy(() => import("./views/AgentDashboard"));
-const ROICalculator = lazy(() => import("./views/ROICalculator"));
-const ConversationalAI = lazy(() => import("./views/ConversationalAI"));
+const MainLayout = lazy(() => import("@/layouts/MainLayout"));
+const Home = lazy(() => import("@/pages/app/Home"));
+const ValueCanvas = lazy(() => import("@/pages/app/ValueCanvas"));
+const ImpactCascade = lazy(() => import("@/pages/app/ImpactCascade"));
+const AgentDashboard = lazy(() => import("@/pages/app/AgentDashboard"));
+const ROICalculator = lazy(() => import("@/pages/app/ROICalculator"));
+const ConversationalAI = lazy(() => import("@/pages/app/ConversationalAI"));
 const LaunchReadinessDashboard = lazy(
-  () => import("./views/LaunchReadinessDashboard")
+  () => import("@/pages/app/LaunchReadinessDashboard")
 );
-const NotFound = lazy(() => import("./views/NotFound"));
-const MissionControl = lazy(() => import("./views/MissionControl"));
+const NotFound = lazy(() => import("@/pages/app/NotFound"));
+const MissionControl = lazy(() => import("@/pages/app/MissionControl"));
 
 // Sales Enablement Views
 const DealsView = lazy(() =>
-  import("./views/DealsView").then((m) => ({ default: m.DealsView }))
+  import("@/pages/app/DealsView").then((m) => ({ default: m.DealsView }))
 );
 
 // Admin Views
 const CustomerAccessManagement = lazy(() =>
-  import("./views/Admin/CustomerAccessManagement").then((m) => ({
+  import("@/pages/admin/CustomerAccessManagement").then((m) => ({
     default: m.CustomerAccessManagement,
   }))
 );
 
 // Lazy load Documentation Portal
-const DocsPortal = lazy(() => import("./components/docs/DocsPortal"));
-const PreviewPage = lazy(() => import("./views/PreviewPage"));
+const DocsPortal = lazy(() => import("@/components/docs/DocsPortal"));
+const PreviewPage = lazy(() => import("@/pages/app/PreviewPage"));
 
 export function AppRoutes() {
   return (

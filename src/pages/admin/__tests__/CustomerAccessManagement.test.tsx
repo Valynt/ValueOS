@@ -17,7 +17,7 @@ vi.mock("@/services/CustomerAccessService", () => ({
   },
 }));
 
-vi.mock("@/contexts/AuthContext", () => ({
+vi.mock("@/app/providers/AuthContext", () => ({
   useAuth: () => ({ user: { id: "user-1" } }),
 }));
 

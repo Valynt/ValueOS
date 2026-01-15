@@ -23,7 +23,7 @@ vi.mock('../../lib/supabase', () => ({
   },
 }));
 
-vi.mock('../../contexts/DrawerContext', () => ({
+vi.mock('../../app/providers/DrawerContext', () => ({
   useDrawer: () => ({
     openDrawer: vi.fn(),
   }),

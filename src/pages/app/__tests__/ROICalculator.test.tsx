@@ -7,10 +7,10 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import ROICalculator from '../ROICalculator';
-import { DrawerContext } from '../../contexts/DrawerContext';
+import { DrawerContext } from '../../app/providers/DrawerContext';
 
 // Mock dependencies
-vi.mock('../../contexts/DrawerContext', () => ({
+vi.mock('../../app/providers/DrawerContext', () => ({
   useDrawer: () => ({
     openDrawer: vi.fn(),
   }),
