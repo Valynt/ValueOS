@@ -53,6 +53,13 @@ function isProduction(): boolean {
 }
 
 /**
+ * Check if a value is valid (not empty and not a placeholder)
+ */
+function isValidValue(val: string | undefined): boolean {
+  return !!val && !val.includes("placeholder") && !val.includes("your-");
+}
+
+/**
  * Validate LLM configuration
  *
  * Checks:
@@ -94,8 +101,10 @@ export function validateLLMConfig(): LLMValidationResult {
 
     // Check Together AI API key
     if (provider === "together") {
-      if (!togetherKey) {
-        errors.push("TOGETHER_API_KEY is required");
+      if (!isValidValue(togetherKey)) {
+        errors.push(
+          "TOGETHER_API_KEY is required and must not be a placeholder"
+        );
       } else {
         providerAvailable = true;
       }
@@ -148,27 +157,50 @@ export function validateEnv(): ValidationResult {
   const supabaseUrl = getEnv("VITE_SUPABASE_URL");
   const supabaseAnonKey = getEnv("VITE_SUPABASE_ANON_KEY");
 
-  if (!supabaseUrl) {
+  if (!isValidValue(supabaseUrl)) {
     if (isProduction()) {
       errors.push("VITE_SUPABASE_URL is required in production");
     } else {
       warnings.push(
-        "VITE_SUPABASE_URL not set - database features will be disabled"
+        "VITE_SUPABASE_URL not set or invalid - database features will be disabled"
       );
     }
   }
 
-  if (!supabaseAnonKey) {
+  if (!isValidValue(supabaseAnonKey)) {
     if (isProduction()) {
       errors.push("VITE_SUPABASE_ANON_KEY is required in production");
     } else {
       warnings.push(
-        "VITE_SUPABASE_ANON_KEY not set - authentication will not work"
+        "VITE_SUPABASE_ANON_KEY not set or invalid - authentication will not work"
       );
     }
   }
 
-  // 3. Validate URLs in production
+  // 3. Validate Server-side configuration
+  const isNodeEnv = typeof process !== "undefined" && process.env;
+  if (isNodeEnv) {
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const databaseUrl = process.env.DATABASE_URL;
+
+    if (!isValidValue(serviceRoleKey)) {
+      if (isProduction()) {
+        errors.push("SUPABASE_SERVICE_ROLE_KEY is required in production");
+      } else {
+        warnings.push("SUPABASE_SERVICE_ROLE_KEY not set or invalid");
+      }
+    }
+
+    if (!isValidValue(databaseUrl)) {
+      if (isProduction()) {
+        errors.push("DATABASE_URL is required in production");
+      } else {
+        warnings.push("DATABASE_URL not set or invalid");
+      }
+    }
+  }
+
+  // 4. Validate URLs in production
   if (isProduction()) {
     const appUrl = getEnv("VITE_APP_URL");
     const httpsOnly = getEnv("VITE_HTTPS_ONLY");

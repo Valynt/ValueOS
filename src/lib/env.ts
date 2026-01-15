@@ -1,6 +1,9 @@
+import { validateEnvOrThrow } from "../config/validateEnv";
+
 /**
  * Environment Variable Validation
  * Ensures all required environment variables are present before starting the application.
+ * Now uses the central validation system in src/config/validateEnv.ts
  */
 
 export const REQUIRED_ENV_VARS = [
@@ -10,13 +13,11 @@ export const REQUIRED_ENV_VARS = [
   "DATABASE_URL",
 ] as const;
 
-export function validateEnv() {
-  const missingVars = REQUIRED_ENV_VARS.filter((v) => !process.env[v]);
+export function validateRequiredEnv() {
+  validateEnvOrThrow();
+}
 
-  if (missingVars.length > 0) {
-    console.error("❌ Missing required environment variables:");
-    missingVars.forEach((v) => console.error(`   - ${v}`));
-    console.error("\nRun: npm run env:dev");
-    process.exit(1);
-  }
+// Legacy alias for backward compatibility - use validateRequiredEnv for new code
+export function validateEnv() {
+  validateRequiredEnv();
 }
