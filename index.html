@@ -5,9 +5,36 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ValueOS</title>
+    <style>
+      .loading-fallback {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        font-family: system-ui, sans-serif;
+        background: #f5f5f5;
+      }
+      .loading-fallback.hidden { display: none; }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="loading-fallback" id="loading-fallback">
+        <div>Loading ValueOS...</div>
+      </div>
+    </div>
+    <script>
+      // Show loading state immediately
+      window.onerror = function(msg, url, line, col, error) {
+        document.getElementById('loading-fallback').innerHTML = 
+          '<div style="color:red;padding:20px;max-width:600px;">' +
+          '<h2>Startup Error</h2>' +
+          '<p>' + msg + '</p>' +
+          '<p>File: ' + url + ':' + line + '</p>' +
+          '</div>';
+        return false;
+      };
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

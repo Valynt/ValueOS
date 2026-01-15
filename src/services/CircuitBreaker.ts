@@ -3,11 +3,15 @@ export {
   CircuitBreaker,
   CircuitBreakerManager,
   CircuitState,
-  CircuitBreakerConfig,
-  CircuitBreakerMetrics,
   CircuitBreakerError,
   LLMCircuitBreaker,
 } from "../lib/resilience/CircuitBreaker";
+
+// Export types from the interface file
+export type {
+  CircuitBreakerConfig,
+  CircuitBreakerMetrics,
+} from "../lib/resilience/CircuitBreakerInterface";
 
 // Legacy type exports for backward compatibility
 export type {

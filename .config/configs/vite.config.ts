@@ -25,7 +25,10 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 5173,
     strictPort: true,
-    allowedHosts: "all",
+    allowedHosts: [".gitpod.dev", ".gitpod.io", "localhost"],
+    hmr: {
+      clientPort: 443,
+    },
   },
   build: {
     chunkSizeWarningLimit: 1000,

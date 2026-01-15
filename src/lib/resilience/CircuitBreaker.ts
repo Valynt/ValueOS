@@ -1,6 +1,5 @@
 import { logger } from "../logger";
 import { CircuitBreakerError } from "./errors";
-import { EventEmitter } from "node:events";
 import {
   llmCircuitBreakerState,
   resilienceEvents,
@@ -11,9 +10,71 @@ import {
   CircuitBreakerConfig,
   CircuitBreakerMetrics,
 } from "./CircuitBreakerInterface";
-import { RedisCircuitBreaker } from "./RedisCircuitBreaker";
 
-enum CircuitState {
+// Re-export types for consumers
+export { CircuitBreakerError } from "./errors";
+export type { CircuitBreakerConfig, CircuitBreakerMetrics } from "./CircuitBreakerInterface";
+
+// Browser-safe EventEmitter
+const isBrowser = typeof window !== "undefined" && typeof document !== "undefined";
+
+class BrowserEventEmitter {
+  private listeners: Map<string, Function[]> = new Map();
+  
+  on(event: string, listener: Function) {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, []);
+    }
+    this.listeners.get(event)!.push(listener);
+    return this;
+  }
+  
+  emit(event: string, ...args: any[]) {
+    const eventListeners = this.listeners.get(event);
+    if (eventListeners) {
+      eventListeners.forEach(listener => listener(...args));
+    }
+    return true;
+  }
+  
+  removeListener(event: string, listener: Function) {
+    const eventListeners = this.listeners.get(event);
+    if (eventListeners) {
+      const index = eventListeners.indexOf(listener);
+      if (index > -1) {
+        eventListeners.splice(index, 1);
+      }
+    }
+    return this;
+  }
+  
+  removeAllListeners(event?: string) {
+    if (event) {
+      this.listeners.delete(event);
+    } else {
+      this.listeners.clear();
+    }
+    return this;
+  }
+}
+
+// Use browser-safe EventEmitter or Node's EventEmitter
+let EventEmitter: any;
+let RedisCircuitBreaker: any = null;
+
+if (isBrowser) {
+  EventEmitter = BrowserEventEmitter;
+} else {
+  // Server-side: use Node.js EventEmitter and Redis
+  try {
+    EventEmitter = require("node:events").EventEmitter;
+    RedisCircuitBreaker = require("./RedisCircuitBreaker").RedisCircuitBreaker;
+  } catch {
+    EventEmitter = BrowserEventEmitter;
+  }
+}
+
+export enum CircuitState {
   CLOSED = "closed",
   OPEN = "open",
   HALF_OPEN = "half-open",
@@ -33,7 +94,7 @@ export class CircuitBreaker extends EventEmitter implements ICircuitBreaker {
   private latencies: number[] = [];
   private readonly config: Required<CircuitBreakerConfig>;
   private windowStartTime: number = Date.now();
-  private redisBreaker: RedisCircuitBreaker | null = null;
+  private redisBreaker: any = null;
   private redisAvailable = false;
 
   constructor(
@@ -56,11 +117,19 @@ export class CircuitBreaker extends EventEmitter implements ICircuitBreaker {
       ...config,
     };
 
-    // Initialize Redis circuit breaker
-    this.initializeRedisBreaker();
+    // Initialize Redis circuit breaker (server-side only)
+    if (!isBrowser) {
+      this.initializeRedisBreaker();
+    }
   }
 
   private async initializeRedisBreaker(): Promise<void> {
+    // Skip in browser environment
+    if (isBrowser || !RedisCircuitBreaker) {
+      this.redisAvailable = false;
+      return;
+    }
+    
     try {
       this.redisBreaker = new RedisCircuitBreaker(this.name, this.config);
       this.redisAvailable = true;
@@ -95,7 +164,9 @@ export class CircuitBreaker extends EventEmitter implements ICircuitBreaker {
 
     if (this.state === CircuitState.OPEN) {
       if (Date.now() < this.nextAttemptTime) {
-        throw new CircuitBreakerError("Circuit breaker open");
+        throw new CircuitBreakerError(
+          "Circuit breaker is OPEN. Service is unavailable."
+        );
       }
       this.halfOpen();
     }
@@ -596,38 +667,162 @@ export class LLMCircuitBreaker implements ICircuitBreaker {
 
   private calculateHealthScore(): number {
     if (this.state === CircuitState.CLOSED) return 1.0;
-export class CircuitBreakerManager {
-private breakers = new Map<string, {
-  state: 'closed' | 'open' | 'half-open';
-  results: boolean[];
-  nextAttemptTime: number;
-  successCount: number;
-}>();
-private readonly config: {
-  windowMs: number;
-  failureRateThreshold: number;
-  latencyThresholdMs: number;
-  minimumSamples: number;
-  timeoutMs: number;
-  halfOpenMaxProbes?: number;
-};
+    if (this.state === CircuitState.HALF_OPEN) return 0.5;
+    return 0.0; // OPEN state
+  }
+}
 
-constructor(config: {
-  windowMs?: number;
-  failureRateThreshold: number;
-  latencyThresholdMs: number;
-  minimumSamples: number;
-  timeoutMs: number;
-  halfOpenMaxProbes?: number;
-}) {
-  this.config = {
-    windowMs: config.windowMs || 5000,
-    failureRateThreshold: config.failureRateThreshold,
-    latencyThresholdMs: config.latencyThresholdMs,
-    minimumSamples: config.minimumSamples,
-    timeoutMs: Math.max(config.timeoutMs, 1000),
-    halfOpenMaxProbes: config.halfOpenMaxProbes || 1,
+/**
+ * CircuitBreakerManager
+ *
+ * Manages multiple circuit breakers for different operations.
+ * Tracks failure rates and latency to determine circuit state.
+ */
+export class CircuitBreakerManager {
+  private breakers = new Map<
+    string,
+    {
+      state: "closed" | "open" | "half-open";
+      results: boolean[];
+      nextAttemptTime: number;
+      successCount: number;
+    }
+  >();
+
+  private readonly config: {
+    windowMs: number;
+    failureRateThreshold: number;
+    latencyThresholdMs: number;
+    minimumSamples: number;
+    timeoutMs: number;
+    halfOpenMaxProbes: number;
   };
+
+  constructor(config: {
+    windowMs?: number;
+    failureRateThreshold: number;
+    latencyThresholdMs: number;
+    minimumSamples: number;
+    timeoutMs: number;
+    halfOpenMaxProbes?: number;
+  }) {
+    this.config = {
+      windowMs: config.windowMs || 5000,
+      failureRateThreshold: config.failureRateThreshold,
+      latencyThresholdMs: config.latencyThresholdMs,
+      minimumSamples: config.minimumSamples,
+      timeoutMs: Math.max(config.timeoutMs, 1000),
+      halfOpenMaxProbes: config.halfOpenMaxProbes || 1,
+    };
+  }
+
+  private getOrCreateBreaker(name: string) {
+    let breaker = this.breakers.get(name);
+    if (!breaker) {
+      breaker = {
+        state: "closed",
+        results: [],
+        nextAttemptTime: 0,
+        successCount: 0,
+      };
+      this.breakers.set(name, breaker);
+    }
+    return breaker;
+  }
+
+  private cleanOldResults(breaker: { results: boolean[] }) {
+    if (breaker.results.length > this.config.minimumSamples * 2) {
+      breaker.results = breaker.results.slice(-this.config.minimumSamples);
+    }
+  }
+
+  private calculateFailureRate(results: boolean[]): number {
+    if (results.length === 0) return 0;
+    const failures = results.filter((r) => !r).length;
+    return failures / results.length;
+  }
+
+  async execute<T>(name: string, operation: () => Promise<T>): Promise<T> {
+    const breaker = this.getOrCreateBreaker(name);
+    this.cleanOldResults(breaker);
+
+    if (breaker.state === "open") {
+      if (Date.now() < breaker.nextAttemptTime) {
+        throw new Error(`Circuit breaker "${name}" is open`);
+      }
+      breaker.state = "half-open";
+      breaker.successCount = 0;
+    }
+
+    const startTime = Date.now();
+    try {
+      const result = await operation();
+      const duration = Date.now() - startTime;
+      const isHighLatency = duration > this.config.latencyThresholdMs;
+
+      breaker.results.push(!isHighLatency);
+
+      if (isHighLatency) {
+        if (breaker.state === "half-open") {
+          breaker.state = "open";
+          breaker.nextAttemptTime = Date.now() + this.config.timeoutMs;
+        } else if (breaker.state === "closed") {
+          const failureRate = this.calculateFailureRate(breaker.results);
+          if (
+            breaker.results.length >= this.config.minimumSamples &&
+            failureRate >= this.config.failureRateThreshold
+          ) {
+            breaker.state = "open";
+            breaker.nextAttemptTime = Date.now() + this.config.timeoutMs;
+          }
+        }
+      } else if (breaker.state === "half-open") {
+        breaker.successCount++;
+        if (breaker.successCount >= this.config.halfOpenMaxProbes) {
+          breaker.state = "closed";
+          breaker.results = [];
+        }
+      }
+
+      return result;
+    } catch (error) {
+      breaker.results.push(false);
+
+      if (breaker.state === "half-open") {
+        breaker.state = "open";
+        breaker.nextAttemptTime = Date.now() + this.config.timeoutMs;
+      } else if (breaker.state === "closed") {
+        const failureRate = this.calculateFailureRate(breaker.results);
+        if (
+          breaker.results.length >= this.config.minimumSamples &&
+          failureRate >= this.config.failureRateThreshold
+        ) {
+          breaker.state = "open";
+          breaker.nextAttemptTime = Date.now() + this.config.timeoutMs;
+        }
+      }
+
+      throw error;
+    }
+  }
+
+  getState(name: string): { state: string } | undefined {
+    const breaker = this.breakers.get(name);
+    if (!breaker) return undefined;
     return { state: breaker.state };
+  }
+
+  reset(name: string): void {
+    const breaker = this.breakers.get(name);
+    if (breaker) {
+      breaker.state = "closed";
+      breaker.results = [];
+      breaker.nextAttemptTime = 0;
+      breaker.successCount = 0;
+    }
+  }
+
+  resetAll(): void {
+    this.breakers.clear();
   }
 }
