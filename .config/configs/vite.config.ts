@@ -22,14 +22,18 @@ export default defineConfig({
     },
   },
   server: {
-    host: "0.0.0.0",
+    host: "127.0.0.1",
     port: 5173,
     strictPort: true,
     allowedHosts: [".gitpod.dev", ".gitpod.io", ".github.dev", "localhost"],
-    hmr: {
-      clientPort: process.env.GITPOD_WORKSPACE_URL || process.env.CODESPACE_NAME ? 443 : 24678,
-      port: 24678,
-    },
+    hmr:
+      process.env.REMOTE_CONTAINERS === "true" || process.env.CODESPACES === "true"
+        ? false
+        : {
+            clientPort:
+              process.env.GITPOD_WORKSPACE_URL || process.env.CODESPACE_NAME ? 443 : 24678,
+            port: 24678,
+          },
     // Proxy API requests to backend - enables relative URLs in browser
     // This eliminates hostname issues in Gitpod/Codespaces environments
     proxy: {

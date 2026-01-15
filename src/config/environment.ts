@@ -1,21 +1,21 @@
 /**
  * Environment Configuration
- * 
+ *
  * Centralized configuration management for the ValueCanvas application.
  * Reads from environment variables and provides type-safe access.
- * 
+ *
  * SEC-004: Uses secure logger to prevent config/secret leakage
  * Note: Cannot import logger here due to circular dependency
  */
 
 function writeStdout(message: string) {
-  if (typeof process !== 'undefined' && process.stdout) {
+  if (typeof process !== "undefined" && process.stdout) {
     process.stdout.write(`${message}\n`);
   }
 }
 
 function writeStderr(message: string) {
-  if (typeof process !== 'undefined' && process.stderr) {
+  if (typeof process !== "undefined" && process.stderr) {
     process.stderr.write(`${message}\n`);
   }
 }
@@ -23,12 +23,12 @@ function writeStderr(message: string) {
 /**
  * Application environment type
  */
-export type AppEnvironment = 'development' | 'staging' | 'production' | 'test';
+export type AppEnvironment = "development" | "staging" | "production" | "test";
 
 /**
  * Log level type
  */
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+export type LogLevel = "debug" | "info" | "warn" | "error";
 
 /**
  * Environment configuration interface
@@ -155,11 +155,11 @@ export interface EnvironmentConfig {
 /**
  * Get environment variable with fallback
  */
-function getEnv(key: string, defaultValue: string = ''): string {
-  if (typeof import.meta !== 'undefined' && import.meta.env) {
+function getEnv(key: string, defaultValue: string = ""): string {
+  if (typeof import.meta !== "undefined" && import.meta.env) {
     return import.meta.env[key] || defaultValue;
   }
-  if (typeof process !== 'undefined' && process.env) {
+  if (typeof process !== "undefined" && process.env) {
     return process.env[key] || defaultValue;
   }
   return defaultValue;
@@ -171,19 +171,25 @@ function getEnv(key: string, defaultValue: string = ''): string {
  */
 function getNodeEnvironment(): AppEnvironment {
   // First try NODE_ENV (standard)
-  const nodeEnv = getEnv('NODE_ENV');
-  if (nodeEnv && ['development', 'staging', 'production', 'test'].includes(nodeEnv)) {
+  const nodeEnv = getEnv("NODE_ENV");
+  if (
+    nodeEnv &&
+    ["development", "staging", "production", "test"].includes(nodeEnv)
+  ) {
     return nodeEnv as AppEnvironment;
   }
-  
+
   // Fallback to VITE_APP_ENV (Vite-specific)
-  const viteEnv = getEnv('VITE_APP_ENV');
-  if (viteEnv && ['development', 'staging', 'production', 'test'].includes(viteEnv)) {
+  const viteEnv = getEnv("VITE_APP_ENV");
+  if (
+    viteEnv &&
+    ["development", "staging", "production", "test"].includes(viteEnv)
+  ) {
     return viteEnv as AppEnvironment;
   }
-  
+
   // Default to development
-  return 'development';
+  return "development";
 }
 
 /**
@@ -191,7 +197,7 @@ function getNodeEnvironment(): AppEnvironment {
  */
 function getBoolEnv(key: string, defaultValue: boolean = false): boolean {
   const value = getEnv(key, String(defaultValue));
-  return value === 'true' || value === '1';
+  return value === "true" || value === "1";
 }
 
 /**
@@ -207,9 +213,12 @@ function getNumberEnv(key: string, defaultValue: number = 0): number {
  * Get array environment variable (comma-separated)
  */
 function getArrayEnv(key: string, defaultValue: string[] = []): string[] {
-  const value = getEnv(key, '');
+  const value = getEnv(key, "");
   if (!value) return defaultValue;
-  return value.split(',').map((v) => v.trim()).filter(Boolean);
+  return value
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
 }
 
 /**
@@ -222,111 +231,120 @@ export function loadEnvironmentConfig(): EnvironmentConfig {
     app: {
       env,
       // Default unified dev origin via Caddy: http://localhost:8080
-      url: getEnv('VITE_APP_URL', 'http://localhost:8080'),
+      url: getEnv("VITE_APP_URL", "http://localhost:8080"),
       // Prefer relative API path to avoid client-side CORS assumptions
-      apiBaseUrl: getEnv('VITE_API_BASE_URL', '/api'),
+      apiBaseUrl: getEnv("VITE_API_BASE_URL", "/api"),
     },
 
     agents: {
-      apiUrl: getEnv('VITE_AGENT_API_URL', 'http://localhost:8000/api/agents'),
-      timeout: getNumberEnv('VITE_AGENT_API_TIMEOUT', 30000),
+      apiUrl: getEnv("VITE_AGENT_API_URL", "http://localhost:3001/api/agents"),
+      timeout: getNumberEnv("VITE_AGENT_API_TIMEOUT", 30000),
       circuitBreaker: {
-        enabled: getBoolEnv('VITE_AGENT_CIRCUIT_BREAKER_ENABLED', true),
-        threshold: getNumberEnv('VITE_AGENT_CIRCUIT_BREAKER_THRESHOLD', 5),
-        cooldown: getNumberEnv('VITE_AGENT_CIRCUIT_BREAKER_COOLDOWN', 60000),
+        enabled: getBoolEnv("VITE_AGENT_CIRCUIT_BREAKER_ENABLED", true),
+        threshold: getNumberEnv("VITE_AGENT_CIRCUIT_BREAKER_THRESHOLD", 5),
+        cooldown: getNumberEnv("VITE_AGENT_CIRCUIT_BREAKER_COOLDOWN", 60000),
       },
-      logging: getBoolEnv('VITE_AGENT_LOGGING_ENABLED', false),
-      websocketUrl: getEnv('VITE_AGENT_WEBSOCKET_URL', env === 'production' 
-        ? 'wss://api.valuecanvas.com/ws/agents' 
-        : 'ws://localhost:8000/ws/agents'),
+      logging: getBoolEnv("VITE_AGENT_LOGGING_ENABLED", false),
+      websocketUrl: getEnv(
+        "VITE_AGENT_WEBSOCKET_URL",
+        env === "production"
+          ? "wss://api.valuecanvas.com/ws/agents"
+          : "ws://localhost:8000/ws/agents"
+      ),
     },
 
     groundtruth: {
-      apiUrl: getEnv('VITE_GROUNDTRUTH_API_URL', getEnv('GROUNDTRUTH_API_URL', '')),
-      apiKey: getEnv('GROUNDTRUTH_API_KEY', ''),
-      timeout: getNumberEnv('GROUNDTRUTH_API_TIMEOUT', 15000),
+      apiUrl: getEnv(
+        "VITE_GROUNDTRUTH_API_URL",
+        getEnv("GROUNDTRUTH_API_URL", "")
+      ),
+      apiKey: getEnv("GROUNDTRUTH_API_KEY", ""),
+      timeout: getNumberEnv("GROUNDTRUTH_API_TIMEOUT", 15000),
     },
 
     database: {
-      url: getEnv('VITE_SUPABASE_URL', ''),
-      anonKey: getEnv('VITE_SUPABASE_ANON_KEY', ''),
+      url: getEnv("VITE_SUPABASE_URL", ""),
+      anonKey: getEnv("VITE_SUPABASE_ANON_KEY", ""),
     },
 
     auth: {
-      sessionTimeout: getNumberEnv('VITE_SESSION_TIMEOUT', 1800000),
-      mfaEnabled: getBoolEnv('VITE_MFA_ENABLED', false),
+      sessionTimeout: getNumberEnv("VITE_SESSION_TIMEOUT", 1800000),
+      mfaEnabled: getBoolEnv("VITE_MFA_ENABLED", false),
     },
 
     security: {
-      httpsOnly: getBoolEnv('VITE_HTTPS_ONLY', env === 'production'),
-      corsOrigins: getArrayEnv('CORS_ALLOWED_ORIGINS', [
-        'http://localhost:5173',
-        'http://localhost:3000',
+      httpsOnly: getBoolEnv("VITE_HTTPS_ONLY", env === "production"),
+      corsOrigins: getArrayEnv("CORS_ALLOWED_ORIGINS", [
+        "http://localhost:5173",
+        "http://localhost:3000",
       ]),
-      rateLimitPerMinute: getNumberEnv('RATE_LIMIT_PER_MINUTE', 60),
-      csrfEnabled: getBoolEnv('CSRF_PROTECTION_ENABLED', true),
-      cspEnabled: getBoolEnv('CSP_ENABLED', true),
+      rateLimitPerMinute: getNumberEnv("RATE_LIMIT_PER_MINUTE", 60),
+      csrfEnabled: getBoolEnv("CSRF_PROTECTION_ENABLED", true),
+      cspEnabled: getBoolEnv("CSP_ENABLED", true),
     },
 
     vault: {
-      enabled: getBoolEnv('VAULT_ENABLED', false),
-      address: getEnv('VAULT_ADDR', ''),
-      namespace: getEnv('VAULT_NAMESPACE', 'valuecanvas'),
+      enabled: getBoolEnv("VAULT_ENABLED", false),
+      address: getEnv("VAULT_ADDR", ""),
+      namespace: getEnv("VAULT_NAMESPACE", "valuecanvas"),
     },
 
     monitoring: {
       sentry: {
-        enabled: getBoolEnv('VITE_SENTRY_ENABLED', false),
-        dsn: getEnv('VITE_SENTRY_DSN', ''),
-        environment: getEnv('VITE_SENTRY_ENVIRONMENT', env),
-        sampleRate: parseFloat(getEnv('VITE_SENTRY_SAMPLE_RATE', '1.0')),
+        enabled: getBoolEnv("VITE_SENTRY_ENABLED", false),
+        dsn: getEnv("VITE_SENTRY_DSN", ""),
+        environment: getEnv("VITE_SENTRY_ENVIRONMENT", env),
+        sampleRate: parseFloat(getEnv("VITE_SENTRY_SAMPLE_RATE", "1.0")),
       },
       datadog: {
-        enabled: getBoolEnv('DATADOG_ENABLED', false),
+        enabled: getBoolEnv("DATADOG_ENABLED", false),
       },
       prometheus: {
-        enabled: getBoolEnv('PROMETHEUS_ENABLED', false),
-        port: getNumberEnv('PROMETHEUS_PORT', 9090),
+        enabled: getBoolEnv("PROMETHEUS_ENABLED", false),
+        port: getNumberEnv("PROMETHEUS_PORT", 9090),
       },
     },
 
     features: {
-      sduiDebug: getBoolEnv('VITE_SDUI_DEBUG', env === 'development'),
-      agentFabric: getBoolEnv('VITE_AGENT_FABRIC_ENABLED', true),
-      workflow: getBoolEnv('VITE_WORKFLOW_ENABLED', true),
-      compliance: getBoolEnv('VITE_COMPLIANCE_ENABLED', true),
-      multiTenant: getBoolEnv('VITE_MULTI_TENANT_ENABLED', true),
-      usageTracking: getBoolEnv('VITE_USAGE_TRACKING_ENABLED', false),
-      billing: getBoolEnv('VITE_BILLING_ENABLED', false),
+      sduiDebug: getBoolEnv("VITE_SDUI_DEBUG", env === "development"),
+      agentFabric: getBoolEnv("VITE_AGENT_FABRIC_ENABLED", true),
+      workflow: getBoolEnv("VITE_WORKFLOW_ENABLED", true),
+      compliance: getBoolEnv("VITE_COMPLIANCE_ENABLED", true),
+      multiTenant: getBoolEnv("VITE_MULTI_TENANT_ENABLED", true),
+      usageTracking: getBoolEnv("VITE_USAGE_TRACKING_ENABLED", false),
+      billing: getBoolEnv("VITE_BILLING_ENABLED", false),
     },
 
     cache: {
-      enabled: getBoolEnv('REDIS_ENABLED', false),
-      url: getEnv('REDIS_URL', 'redis://localhost:6379'),
-      ttl: getNumberEnv('CACHE_TTL', 3600),
+      enabled: getBoolEnv("REDIS_ENABLED", false),
+      url: getEnv("REDIS_URL", "redis://localhost:6379"),
+      ttl: getNumberEnv("CACHE_TTL", 3600),
     },
 
     email: {
-      enabled: getBoolEnv('EMAIL_ENABLED', false),
-      from: getEnv('EMAIL_FROM', 'noreply@valuecanvas.com'),
+      enabled: getBoolEnv("EMAIL_ENABLED", false),
+      from: getEnv("EMAIL_FROM", "noreply@valuecanvas.com"),
     },
 
     storage: {
-      enabled: getBoolEnv('S3_ENABLED', false),
-      bucket: getEnv('S3_BUCKET_NAME', ''),
-      region: getEnv('S3_REGION', 'us-east-1'),
+      enabled: getBoolEnv("S3_ENABLED", false),
+      bucket: getEnv("S3_BUCKET_NAME", ""),
+      region: getEnv("S3_REGION", "us-east-1"),
     },
 
     dev: {
-      hmr: getBoolEnv('VITE_HMR_ENABLED', true),
-      sourceMaps: getBoolEnv('VITE_SOURCE_MAPS', env !== 'production'),
-      reactDevTools: getBoolEnv('VITE_REACT_DEVTOOLS', env === 'development'),
-      logLevel: getEnv('LOG_LEVEL', env === 'production' ? 'warn' : 'info') as LogLevel,
+      hmr: getBoolEnv("VITE_HMR_ENABLED", true),
+      sourceMaps: getBoolEnv("VITE_SOURCE_MAPS", env !== "production"),
+      reactDevTools: getBoolEnv("VITE_REACT_DEVTOOLS", env === "development"),
+      logLevel: getEnv(
+        "LOG_LEVEL",
+        env === "production" ? "warn" : "info"
+      ) as LogLevel,
     },
 
     test: {
-      mode: getBoolEnv('TEST_MODE', false),
-      mockAgents: getBoolEnv('VITE_MOCK_AGENTS', env === 'development'),
+      mode: getBoolEnv("TEST_MODE", false),
+      mockAgents: getBoolEnv("VITE_MOCK_AGENTS", env === "development"),
     },
   };
 }
@@ -338,36 +356,38 @@ export function validateEnvironmentConfig(config: EnvironmentConfig): string[] {
   const errors: string[] = [];
 
   // Production-specific validations
-  if (config.app.env === 'production') {
+  if (config.app.env === "production") {
     if (!config.database.url) {
-      errors.push('VITE_SUPABASE_URL is required in production');
+      errors.push("VITE_SUPABASE_URL is required in production");
     }
     if (!config.database.anonKey) {
-      errors.push('VITE_SUPABASE_ANON_KEY is required in production');
+      errors.push("VITE_SUPABASE_ANON_KEY is required in production");
     }
-    if (!config.agents.apiUrl || config.agents.apiUrl.includes('localhost')) {
-      errors.push('VITE_AGENT_API_URL must be set to production URL');
+    if (!config.agents.apiUrl || config.agents.apiUrl.includes("localhost")) {
+      errors.push("VITE_AGENT_API_URL must be set to production URL");
     }
-    if (config.security.httpsOnly && !config.app.url.startsWith('https://')) {
-      errors.push('VITE_APP_URL must use HTTPS in production');
+    if (config.security.httpsOnly && !config.app.url.startsWith("https://")) {
+      errors.push("VITE_APP_URL must use HTTPS in production");
     }
   }
 
   // Agent Fabric validations
   if (config.features.agentFabric) {
     if (!config.agents.apiUrl) {
-      errors.push('VITE_AGENT_API_URL is required when Agent Fabric is enabled');
+      errors.push(
+        "VITE_AGENT_API_URL is required when Agent Fabric is enabled"
+      );
     }
   }
 
   // Monitoring validations
   if (config.monitoring.sentry.enabled && !config.monitoring.sentry.dsn) {
-    errors.push('VITE_SENTRY_DSN is required when Sentry is enabled');
+    errors.push("VITE_SENTRY_DSN is required when Sentry is enabled");
   }
 
   // Vault validations
   if (config.vault.enabled && !config.vault.address) {
-    errors.push('VAULT_ADDR is required when Vault is enabled');
+    errors.push("VAULT_ADDR is required when Vault is enabled");
   }
 
   return errors;
@@ -390,21 +410,27 @@ export function getConfig(): EnvironmentConfig {
     const errors = validateEnvironmentConfig(configInstance);
     if (errors.length > 0) {
       // Emit minimal detail to avoid leaking configuration values
-      writeStderr(`[Environment] Configuration errors detected: ${errors.length}`);
-      if (configInstance.app.env === 'production') {
-        throw new Error(`Invalid environment configuration: ${errors.length} errors found`);
+      writeStderr(
+        `[Environment] Configuration errors detected: ${errors.length}`
+      );
+      if (configInstance.app.env === "production") {
+        throw new Error(
+          `Invalid environment configuration: ${errors.length} errors found`
+        );
       }
     }
 
     // Log minimal configuration in development only
-    if (configInstance.app.env === 'development') {
-      writeStdout('[Environment] Configuration loaded for development (redacted)');
+    if (configInstance.app.env === "development") {
+      writeStdout(
+        "[Environment] Configuration loaded for development (redacted)"
+      );
     }
   }
 
   // TypeScript null check - configInstance is guaranteed to be set above
   if (!configInstance) {
-    throw new Error('Failed to initialize configuration');
+    throw new Error("Failed to initialize configuration");
   }
 
   return configInstance;
@@ -421,14 +447,14 @@ export function resetConfig(): void {
  * Check if running in production
  */
 export function isProduction(): boolean {
-  return getConfig().app.env === 'production';
+  return getConfig().app.env === "production";
 }
 
 /**
  * Check if running in development
  */
 export function isDevelopment(): boolean {
-  return getConfig().app.env === 'development';
+  return getConfig().app.env === "development";
 }
 
 /**
@@ -441,7 +467,9 @@ export function isTest(): boolean {
 /**
  * Get feature flag value
  */
-export function isFeatureEnabled(feature: keyof EnvironmentConfig['features']): boolean {
+export function isFeatureEnabled(
+  feature: keyof EnvironmentConfig["features"]
+): boolean {
   return getConfig().features[feature];
 }
 

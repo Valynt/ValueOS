@@ -150,7 +150,7 @@ export function createAgentApiHealthCheck(): DependencyConfig {
   const agentApiUrl =
     (typeof import.meta !== "undefined" &&
       import.meta.env?.VITE_AGENT_API_URL) ||
-    "http://localhost:8000/api/agents";
+    "http://localhost:3001/api/agents";
   const endpoint = `${agentApiUrl.replace(/\/+$/, "")}/health`;
 
   return {

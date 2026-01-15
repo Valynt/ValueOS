@@ -48,7 +48,7 @@ const PRESET_ENVIRONMENTS: { label: string; config: Partial<RuntimeConfig> }[] =
       config: {
         api: "/api",
         supabaseUrl: "http://localhost:54321",
-        agentApiUrl: "http://localhost:8000/api/agents",
+        agentApiUrl: "http://localhost:3001/api/agents",
         environment: "development",
       },
     },

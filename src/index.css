@@ -4,16 +4,16 @@
 
 /**
  * VALYNT Design System + shadcn/ui Integration
- * 
+ *
  * This file defines the VALYNT brand design system and maps shadcn/ui
  * semantic tokens to VALYNT tokens for consistent theming.
- * 
+ *
  * Design Philosophy:
  * - Dark-first: Dark mode is the default, not an alternative
  * - Semantic tokens: All styling uses semantic names, never raw values
  * - Value Intelligence: Teal represents value and economic truth
  * - Structure: Grey represents metadata and graph structure
- * 
+ *
  * Token Mapping:
  * - --background → --vc-surface-1 (base shell)
  * - --card → --vc-surface-2 (raised content)
@@ -23,7 +23,7 @@
  * - --muted → --vc-accent-grey-500 (structure/metadata)
  * - --border → --vc-border-default (boundaries)
  * - --ring → --vc-accent-teal-500 (focus states)
- * 
+ *
  * See: docs/development/SHADCN_THEME_INTEGRATION_ANALYSIS.md
  * See: docs/instructions/design rules.instructions.md
  */
@@ -59,7 +59,7 @@
     /* Primary = Value Teal (represents value intelligence) */
     --primary: var(--vc-accent-teal-500);
     --primary-foreground: 0 0% 100%;
-    
+
     /* Accent = Teal hover state */
     --accent: var(--vc-accent-teal-400);
     --accent-foreground: 0 0% 100%;
@@ -162,7 +162,7 @@
     /* Secondary = Elevated surface */
     --secondary: var(--vc-surface-3);
     --secondary-foreground: var(--vc-foreground);
-    
+
     /* Destructive = Error color (semantic status) */
     --destructive: var(--status-error);
     --destructive-foreground: 0 0% 100%;
@@ -180,7 +180,7 @@
     --vc-surface-2: 230 12% 9%;
     --vc-surface-3: 230 12% 12%;
     --vc-foreground: 0 0% 88%;
-    
+
     /* shadcn tokens mapped to VALYNT (same as root for dark-first) */
     --background: var(--vc-surface-1);
     --card: var(--vc-surface-2);
@@ -188,28 +188,28 @@
     --foreground: var(--vc-foreground);
     --card-foreground: var(--vc-foreground);
     --popover-foreground: var(--vc-foreground);
-    
+
     --primary: var(--vc-accent-teal-500);
     --primary-foreground: 0 0% 100%;
-    
+
     --accent: var(--vc-accent-teal-400);
     --accent-foreground: 0 0% 100%;
-    
+
     --muted: var(--vc-accent-grey-500);
     --muted-foreground: var(--vc-foreground);
-    
+
     --secondary: var(--vc-surface-3);
     --secondary-foreground: var(--vc-foreground);
-    
+
     --destructive: var(--status-error);
     --destructive-foreground: 0 0% 100%;
-    
+
     --border: var(--vc-border-default);
     --input: var(--vc-border-default);
     --ring: var(--vc-accent-teal-500);
-    
+
     --radius: var(--vc-radius-card);
-    
+
     /* Sidebar tokens */
     --sidebar-background: var(--vc-surface-2);
     --sidebar-foreground: var(--vc-foreground);
@@ -219,13 +219,13 @@
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: var(--vc-border-default);
     --sidebar-ring: var(--vc-accent-teal-500);
-    
+
     /* Status colors */
     --status-success: var(--vc-accent-teal-500);
     --status-warning: 38 100% 57%;
     --status-error: 2 73% 62%;
     --status-info: var(--vc-accent-teal-400);
-    
+
     /* Chart colors */
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
@@ -588,11 +588,11 @@ input[type="range"] {
 }
 
 input[type="range"]::-webkit-slider-thumb {
-  @apply appearance-none w-4 h-4 bg-primary rounded-full cursor-pointer shadow-glow-teal transition-transform hover:scale-110 active:scale-95;
+  @apply appearance-none w-4 h-4 bg-primary rounded-full cursor-pointer transition-transform hover:scale-110 active:scale-95;
 }
 
 input[type="range"]::-moz-range-thumb {
-  @apply w-4 h-4 bg-primary rounded-full cursor-pointer border-0 shadow-glow-teal;
+  @apply w-4 h-4 bg-primary rounded-full cursor-pointer border-0;
 }
 
 input[type="range"]:focus {
@@ -617,8 +617,6 @@ input[type="range"]:focus {
 ::-webkit-scrollbar-thumb:hover {
   background: #3f3f46;
 }
-
-
 
 @layer base {
   * {

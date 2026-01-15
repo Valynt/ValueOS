@@ -48,7 +48,13 @@ export const REMEDIATION_ACTIONS: RemediationAction[] = [
     devOnly: true,
     condition: async () => {
       try {
-        const res = await fetch(`${DEV_API_BASE}/db/status`, { method: "GET" });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1000); // 1s timeout
+        const res = await fetch(`${DEV_API_BASE}/db/status`, {
+          method: "GET",
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
         if (!res.ok) return false;
         const data = await res.json();
         return data.connected && data.empty;

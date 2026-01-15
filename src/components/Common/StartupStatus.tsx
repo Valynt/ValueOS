@@ -145,6 +145,30 @@ export function StartupStatus({
     let mounted = true;
 
     const runChecks = async () => {
+      // Skip dependency checks in development mode - they hang in DevContainer/Codespaces
+      // due to port forwarding issues and aren't critical for local dev
+      const isDev =
+        import.meta.env?.MODE === "development" ||
+        import.meta.env?.DEV === true;
+
+      if (isDev) {
+        console.log(
+          "[StartupStatus] Development mode - skipping dependency checks"
+        );
+        const result: StartupState = {
+          phase: "ready",
+          dependencies: {},
+          startTime: Date.now(),
+          readyTime: Date.now(),
+          errors: [],
+          warnings: [],
+        };
+        if (!mounted) return;
+        setState(result);
+        onReady?.();
+        return;
+      }
+
       const result = await checkAllDependencies(
         getDefaultDependencies(),
         (name, status) => {
