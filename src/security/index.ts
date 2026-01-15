@@ -152,13 +152,16 @@ export function initializeSecurity(sessionId?: string): void {
     logger.debug("CSRF protection initialized");
   }
 
-  // Create security meta tags
+  // Create security meta tags (skip CSP in development to allow HMR)
+  const isDev = envConfig.app.env === "development";
   if (
-    securityConfig.csp.enabled ||
+    (securityConfig.csp.enabled && !isDev) ||
     securityConfig.headers.referrerPolicy.enabled
   ) {
     createSecurityMetaTags();
     logger.debug("Security meta tags created");
+  } else if (isDev) {
+    logger.debug("CSP disabled in development mode for HMR compatibility");
   }
 
   // Log security headers in development

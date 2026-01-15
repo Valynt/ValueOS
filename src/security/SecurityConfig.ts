@@ -307,23 +307,31 @@ const DEFAULT_CORS_CONFIG: CORSConfig = {
  * SECURITY: INP-002 - Removed unsafe-inline to prevent XSS
  * Use nonce-based CSP for inline scripts/styles
  */
+// Check if we're in development mode
+const isDevelopment = typeof process !== "undefined" 
+  ? process.env.NODE_ENV === "development" 
+  : import.meta.env?.DEV ?? false;
+
 const DEFAULT_CSP_CONFIG: CSPConfig = {
   enabled: true,
   directives: {
     defaultSrc: ["'self'"],
-    scriptSrc: ["'self'"], // Nonces added dynamically per-request
-    styleSrc: ["'self'"], // Nonces added dynamically per-request
+    // In development, allow unsafe-inline for HMR and dev tools
+    scriptSrc: isDevelopment ? ["'self'", "'unsafe-inline'", "'unsafe-eval'"] : ["'self'"],
+    styleSrc: isDevelopment ? ["'self'", "'unsafe-inline'"] : ["'self'"],
     imgSrc: ["'self'", "data:", "https:"],
-    fontSrc: ["'self'", "data:"],
-    connectSrc: ["'self'"],
+    fontSrc: ["'self'", "data:", "https:"],
+    connectSrc: isDevelopment 
+      ? ["'self'", "ws:", "wss:", "http://localhost:*", "https://localhost:*"] 
+      : ["'self'"],
     frameSrc: ["'none'"],
     objectSrc: ["'none'"],
     mediaSrc: ["'self'"],
-    workerSrc: ["'self'"],
+    workerSrc: ["'self'", "blob:"],
     formAction: ["'self'"],
     frameAncestors: ["'none'"],
     baseUri: ["'self'"],
-    upgradeInsecureRequests: true,
+    upgradeInsecureRequests: !isDevelopment,
   },
   reportOnly: false,
 };
