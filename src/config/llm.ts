@@ -6,7 +6,8 @@ import { DEFAULT_GATING_CONFIG } from "../lib/llm-gating/types";
 const env = (import.meta as any)?.env ?? {};
 
 // Together AI is the only supported provider
-const provider: LLMProvider = "together";
+const provider: LLMProvider =
+  (env.VITE_LLM_PROVIDER as LLMProvider) || "together";
 
 const gatingEnabledEnv = env.VITE_LLM_GATING_ENABLED;
 const gatingEnabled = gatingEnabledEnv === "false" ? false : true;
