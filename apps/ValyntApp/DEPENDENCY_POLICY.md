@@ -49,6 +49,26 @@ const response = await fetch('/api/users');
 import { userService } from '@valueos/backend/services';
 ```
 
+## Integration Status
+
+**@valueos/shared** is now connected via:
+- `package.json`: `"@valueos/shared": "workspace:*"`
+- `tsconfig.json`: Path aliases configured
+- `vite.config.ts`: Alias + externals for Node deps
+
+### Usage Example
+```typescript
+// ✅ Import types (safe)
+import type { User, Tenant, PlanTier } from '@valueos/shared/types/domain';
+
+// ✅ Import schemas (safe - Zod is isomorphic)
+import { apiResponseSchema } from '@valueos/shared/schemas/api';
+
+// ❌ NEVER import Node-only modules
+// import { logger } from '@valueos/shared'; // winston = Node
+// import { redisClient } from '@valueos/shared/lib/redisClient'; // ioredis = Node
+```
+
 ## Current State
 
 ### @valueos/shared Isomorphic Status

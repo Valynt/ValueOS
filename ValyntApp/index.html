@@ -2,9 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Valynt</title>
+    <title>ValueOS</title>
     <style>
       .loading-fallback {
         display: flex;
@@ -14,31 +14,24 @@
         font-family: system-ui, sans-serif;
         background: #f5f5f5;
       }
-      .loading-fallback.hidden {
-        display: none;
-      }
+      .loading-fallback.hidden { display: none; }
     </style>
   </head>
   <body>
     <div id="root">
       <div class="loading-fallback" id="loading-fallback">
-        <div>Loading...</div>
+        <div>Loading ValueOS...</div>
       </div>
     </div>
     <script>
-      window.onerror = function (msg, url, line, col, error) {
-        document.getElementById("loading-fallback").innerHTML =
+      // Show loading state immediately
+      window.onerror = function(msg, url, line, col, error) {
+        document.getElementById('loading-fallback').innerHTML = 
           '<div style="color:red;padding:20px;max-width:600px;">' +
-          "<h2>Startup Error</h2>" +
-          "<p>" +
-          msg +
-          "</p>" +
-          "<p>File: " +
-          url +
-          ":" +
-          line +
-          "</p>" +
-          "</div>";
+          '<h2>Startup Error</h2>' +
+          '<p>' + msg + '</p>' +
+          '<p>File: ' + url + ':' + line + '</p>' +
+          '</div>';
         return false;
       };
     </script>

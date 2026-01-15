@@ -20,6 +20,7 @@ export default defineConfig({
       "@hooks": path.resolve(__dirname, "./src/hooks"),
       "@types": path.resolve(__dirname, "./src/types"),
       "@assets": path.resolve(__dirname, "./src/assets"),
+      "@valueos/shared": path.resolve(__dirname, "../packages/shared/src"),
     },
   },
   server: {
@@ -80,6 +81,7 @@ export default defineConfig({
         "winston",
         "winston-cloudwatch",
         "redis",
+        "ioredis",
         // Node.js built-ins
         "zlib",
         "stream",
