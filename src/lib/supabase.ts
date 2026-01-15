@@ -46,7 +46,7 @@ export function getSupabaseClient() {
 export function createServerSupabaseClient(serviceKey?: string) {
   const serverKey =
     serviceKey ||
-    settings.SUPABASE_SERVICE_KEY ||
+    settings.SUPABASE_SERVICE_ROLE_KEY ||
     settings.VITE_SUPABASE_ANON_KEY;
 
   if (!serverKey) {
