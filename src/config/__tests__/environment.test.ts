@@ -1,0 +1,229 @@
+/**
+ * Environment Configuration Tests
+ */
+
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+  getConfig,
+  isDevelopment,
+  isFeatureEnabled,
+  isProduction,
+  isTest,
+  loadEnvironmentConfig,
+  resetConfig,
+  validateEnvironmentConfig,
+} from '../environment';
+
+describe('Environment Configuration', () => {
+  beforeEach(() => {
+    resetConfig();
+  });
+
+  afterEach(() => {
+    resetConfig();
+  });
+
+  describe('loadEnvironmentConfig', () => {
+    it('should load configuration with defaults', () => {
+      const config = loadEnvironmentConfig();
+      
+      expect(config).toBeDefined();
+      expect(config.app).toBeDefined();
+      expect(config.agents).toBeDefined();
+      expect(config.security).toBeDefined();
+      expect(config.features).toBeDefined();
+    });
+
+    it('should have correct app environment', () => {
+      const config = loadEnvironmentConfig();
+      
+      expect(config.app.env).toBe('test');
+    });
+
+    it('should have agent configuration', () => {
+      const config = loadEnvironmentConfig();
+      
+      expect(config.agents.apiUrl).toBeDefined();
+      expect(config.agents.timeout).toBeGreaterThan(0);
+      expect(config.agents.circuitBreaker).toBeDefined();
+    });
+
+    it('should have security configuration', () => {
+      const config = loadEnvironmentConfig();
+      
+      expect(config.security.httpsOnly).toBeDefined();
+      expect(config.security.corsOrigins).toBeInstanceOf(Array);
+      expect(config.security.rateLimitPerMinute).toBeGreaterThan(0);
+    });
+
+    it('should have feature flags', () => {
+      const config = loadEnvironmentConfig();
+      
+      expect(config.features.agentFabric).toBeDefined();
+      expect(config.features.workflow).toBeDefined();
+      expect(config.features.compliance).toBeDefined();
+    });
+  });
+
+  describe('validateEnvironmentConfig', () => {
+    it('should validate valid configuration', () => {
+      const config = loadEnvironmentConfig();
+      const errors = validateEnvironmentConfig(config);
+      
+      expect(errors).toBeInstanceOf(Array);
+      // Test environment may have some missing configs, that's okay
+    });
+
+    it('should detect missing required fields in production', () => {
+      const config = loadEnvironmentConfig();
+      config.app.env = 'production';
+      config.database.url = '';
+      
+      const errors = validateEnvironmentConfig(config);
+      
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors.some(e => e.includes('SUPABASE_URL'))).toBe(true);
+    });
+
+    it('should validate agent fabric requirements', () => {
+      const config = loadEnvironmentConfig();
+      config.features.agentFabric = true;
+      config.agents.apiUrl = '';
+      
+      const errors = validateEnvironmentConfig(config);
+      
+      expect(errors.some(e => e.includes('AGENT_API_URL'))).toBe(true);
+    });
+  });
+
+  describe('getConfig', () => {
+    it('should return singleton instance', () => {
+      const config1 = getConfig();
+      const config2 = getConfig();
+      
+      expect(config1).toBe(config2);
+    });
+
+    it('should cache configuration', () => {
+      const config = getConfig();
+      
+      expect(config).toBeDefined();
+      expect(config.app).toBeDefined();
+    });
+  });
+
+  describe('environment helpers', () => {
+    it('should detect test environment', () => {
+      expect(isTest()).toBe(true);
+    });
+
+    it('should not be production in test', () => {
+      expect(isProduction()).toBe(false);
+    });
+
+    it('should not be development in test', () => {
+      expect(isDevelopment()).toBe(false);
+    });
+  });
+
+  describe('feature flags', () => {
+    it('should check if feature is enabled', () => {
+      const agentFabricEnabled = isFeatureEnabled('agentFabric');
+      
+      expect(typeof agentFabricEnabled).toBe('boolean');
+    });
+
+    it('should return correct feature flag values', () => {
+      const config = getConfig();
+      
+      expect(isFeatureEnabled('agentFabric')).toBe(config.features.agentFabric);
+      expect(isFeatureEnabled('workflow')).toBe(config.features.workflow);
+      expect(isFeatureEnabled('compliance')).toBe(config.features.compliance);
+    });
+  });
+
+  describe('resetConfig', () => {
+    it('should reset configuration', () => {
+      const config1 = getConfig();
+      resetConfig();
+      const config2 = getConfig();
+      
+      // Should be different instances after reset
+      expect(config1).not.toBe(config2);
+    });
+  });
+
+  // ============================================================================
+  // Supabase Configuration Tests (Dec 1, 2025 Fix)
+  // ============================================================================
+  describe('Supabase Configuration', () => {
+    it('should load Supabase URL from environment', () => {
+      const config = getConfig();
+      
+      expect(config.database.url).toBeDefined();
+    });
+
+    it('should load Supabase anon key from environment', () => {
+      const config = getConfig();
+      
+      expect(config.database.anonKey).toBeDefined();
+    });
+
+    it('should validate Supabase URL format if provided', () => {
+      const config = getConfig();
+      
+      if (config.database.url) {
+        // Should be a valid URL
+        expect(() => new URL(config.database.url)).not.toThrow();
+        
+        // If it's a real Supabase URL (not placeholder), validate format
+        if (!config.database.url.includes('your-project')) {
+          expect(config.database.url).toMatch(/^https:\/\//);
+        }
+      }
+    });
+
+    it('should have valid Supabase key format if provided', () => {
+      const config = getConfig();
+      
+      if (config.database.anonKey && !config.database.anonKey.includes('your-')) {
+        // Real keys should have proper prefix
+        expect(
+          config.database.anonKey.startsWith('eyJ') || 
+          config.database.anonKey.startsWith('sb_publishable_')
+        ).toBe(true);
+      }
+    });
+  });
+
+  // ============================================================================
+  // CORS Configuration Tests (Dec 1, 2025 Fix)
+  // ============================================================================
+  describe('CORS Configuration', () => {
+    it('should have CORS origins configured', () => {
+      const config = getConfig();
+      
+      expect(config.security.corsOrigins).toBeDefined();
+      expect(Array.isArray(config.security.corsOrigins)).toBe(true);
+    });
+
+    it('should include localhost in development CORS origins', () => {
+      const config = getConfig();
+      
+      if (config.app.env === 'development') {
+        const hasLocalhost = config.security.corsOrigins.some(
+          origin => origin.includes('localhost')
+        );
+        expect(hasLocalhost).toBe(true);
+      }
+    });
+
+    it('should have proper security settings', () => {
+      const config = getConfig();
+      
+      expect(config.security.csrfEnabled).toBeDefined();
+      expect(config.security.cspEnabled).toBeDefined();
+      expect(config.security.rateLimitPerMinute).toBeGreaterThan(0);
+    });
+  });
+});

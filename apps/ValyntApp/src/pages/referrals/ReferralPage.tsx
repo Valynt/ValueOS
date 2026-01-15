@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { ReferralDashboard } from '../components/referrals/ReferralDashboard';
+import { ReferralDashboard } from '@components/referrals/ReferralDashboard';
 
 const ReferralPage: React.FC = () => {
   return (

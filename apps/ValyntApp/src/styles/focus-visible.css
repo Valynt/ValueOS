@@ -1,0 +1,96 @@
+/**
+ * VALYNT focus-visible system
+ * Uses semantic tokens for rings and outlines; no raw hex or px.
+ */
+
+:root {
+  --vc-focus-outline: 0.125rem solid hsl(var(--ring));
+  --vc-focus-offset: 0.125rem;
+}
+
+*:focus {
+  outline: none;
+}
+
+*:focus-visible {
+  outline: var(--vc-focus-outline);
+  outline-offset: var(--vc-focus-offset);
+  border-radius: var(--vc-radius-card);
+  transition:
+    outline-color var(--motion-micro) ease-out,
+    box-shadow var(--motion-micro) ease-out,
+    border-color var(--motion-micro) ease-out;
+}
+
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  box-shadow: 0 0 0 0.25rem hsl(var(--ring), 0.2);
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: var(--vc-focus-outline);
+  outline-offset: 0;
+  border-color: hsl(var(--ring));
+  box-shadow: 0 0 0 0.25rem hsl(var(--ring), 0.16);
+}
+
+a:focus-visible {
+  border-radius: calc(var(--vc-radius-card) / 2);
+}
+
+[tabindex]:focus-visible {
+  outline: var(--vc-focus-outline);
+}
+
+.dark *:focus-visible,
+.dark button:focus-visible,
+.dark a:focus-visible {
+  box-shadow: 0 0 0 0.25rem hsl(var(--ring), 0.25);
+}
+
+.error:focus-visible,
+[aria-invalid="true"]:focus-visible {
+  outline-color: hsl(var(--status-error));
+  border-color: hsl(var(--status-error));
+  box-shadow: 0 0 0 0.25rem hsl(var(--status-error), 0.2);
+}
+
+.success:focus-visible {
+  outline-color: hsl(var(--status-success));
+  box-shadow: 0 0 0 0.25rem hsl(var(--status-success), 0.2);
+}
+
+.focus-ring-none:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.skip-link:focus-visible {
+  position: fixed;
+  top: var(--spacing-2);
+  left: var(--spacing-2);
+  z-index: 9999;
+  padding: var(--spacing-2) var(--spacing-3);
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  border-radius: var(--vc-radius-card);
+  outline: var(--vc-focus-outline);
+  outline-offset: var(--vc-focus-offset);
+  box-shadow: 0 0 0 0.25rem hsl(var(--ring), 0.16);
+}
+
+@media (prefers-contrast: high) {
+  *:focus-visible {
+    outline-width: 0.1875rem;
+    outline-offset: 0.1875rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *:focus-visible {
+    transition: none;
+  }
+}

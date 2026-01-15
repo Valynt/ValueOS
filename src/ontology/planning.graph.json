@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Planning Ontology Graph",
+  "description": "Knowledge graph for task planning and agent routing",
+  "version": "1.0.0",
+  "agents": {
+    "SystemMapperAgent": {
+      "capabilities": [
+        "system_analysis",
+        "entity_extraction",
+        "relationship_mapping",
+        "leverage_point_identification"
+      ],
+      "input_types": ["discovery_data", "stakeholder_info", "problem_statement"],
+      "output_types": ["system_map", "entities", "relationships", "leverage_points"],
+      "complexity_range": [0.3, 0.8],
+      "lifecycle_stages": ["opportunity"]
+    },
+    "InterventionDesignerAgent": {
+      "capabilities": [
+        "intervention_design",
+        "feasibility_assessment",
+        "sequence_planning",
+        "risk_identification"
+      ],
+      "input_types": ["system_map", "leverage_points", "constraints"],
+      "output_types": ["intervention_points", "sequences", "feasibility_scores"],
+      "complexity_range": [0.4, 0.9],
+      "lifecycle_stages": ["target"]
+    },
+    "OutcomeEngineerAgent": {
+      "capabilities": [
+        "hypothesis_creation",
+        "causal_chain_mapping",
+        "kpi_linkage",
+        "validation_criteria"
+      ],
+      "input_types": ["intervention_points", "target_kpis", "business_goals"],
+      "output_types": ["outcome_hypotheses", "causal_chains", "kpi_mappings"],
+      "complexity_range": [0.5, 0.9],
+      "lifecycle_stages": ["target"]
+    },
+    "RealizationLoopAgent": {
+      "capabilities": [
+        "feedback_monitoring",
+        "behavior_detection",
+        "loop_closure_assessment",
+        "metric_tracking"
+      ],
+      "input_types": ["outcome_hypotheses", "realization_data", "metrics"],
+      "output_types": ["feedback_loops", "behavior_changes", "closure_recommendations"],
+      "complexity_range": [0.3, 0.7],
+      "lifecycle_stages": ["realization"]
+    },
+    "DiscoveryAgent": {
+      "capabilities": [
+        "problem_discovery",
+        "stakeholder_identification",
+        "context_gathering",
+        "requirement_elicitation"
+      ],
+      "input_types": ["user_input", "business_context", "initial_problem"],
+      "output_types": ["discovery_data", "stakeholders", "requirements"],
+      "complexity_range": [0.2, 0.6],
+      "lifecycle_stages": ["opportunity"]
+    },
+    "FinancialModelAgent": {
+      "capabilities": [
+        "roi_calculation",
+        "cost_estimation",
+        "benefit_projection",
+        "sensitivity_analysis"
+      ],
+      "input_types": ["intervention_points", "kpi_targets", "financial_assumptions"],
+      "output_types": ["financial_models", "roi_projections", "sensitivity_results"],
+      "complexity_range": [0.4, 0.8],
+      "lifecycle_stages": ["target", "realization"]
+    },
+    "ValueEvalAgent": {
+      "capabilities": [
+        "artifact_scoring",
+        "quality_assessment",
+        "value_measurement",
+        "recommendation_generation"
+      ],
+      "input_types": ["artifacts", "evaluation_criteria", "context"],
+      "output_types": ["scores", "recommendations", "quality_metrics"],
+      "complexity_range": [0.2, 0.5],
+      "lifecycle_stages": ["opportunity", "target", "realization", "expansion", "integrity"]
+    }
+  },
+  "task_patterns": {
+    "create_business_case": {
+      "subgoal_sequence": [
+        {
+          "type": "discovery",
+          "agent": "DiscoveryAgent",
+          "description": "Gather initial problem and context"
+        },
+        {
+          "type": "analysis",
+          "agent": "SystemMapperAgent",
+          "description": "Map the system and identify leverage points",
+          "depends_on": ["discovery"]
+        },
+        {
+          "type": "design",
+          "agent": "InterventionDesignerAgent",
+          "description": "Design interventions",
+          "depends_on": ["analysis"]
+        },
+        {
+          "type": "design",
+          "agent": "OutcomeEngineerAgent",
+          "description": "Create outcome hypotheses",
+          "depends_on": ["design"]
+        },
+        {
+          "type": "validation",
+          "agent": "FinancialModelAgent",
+          "description": "Calculate financial projections",
+          "depends_on": ["design"]
+        }
+      ],
+      "estimated_complexity": 0.7,
+      "requires_simulation": true
+    },
+    "analyze_opportunity": {
+      "subgoal_sequence": [
+        {
+          "type": "discovery",
+          "agent": "DiscoveryAgent",
+          "description": "Gather opportunity details"
+        },
+        {
+          "type": "analysis",
+          "agent": "SystemMapperAgent",
+          "description": "Analyze system dynamics",
+          "depends_on": ["discovery"]
+        },
+        {
+          "type": "validation",
+          "agent": "ValueEvalAgent",
+          "description": "Evaluate opportunity quality",
+          "depends_on": ["analysis"]
+        }
+      ],
+      "estimated_complexity": 0.5,
+      "requires_simulation": false
+    },
+    "design_intervention": {
+      "subgoal_sequence": [
+        {
+          "type": "design",
+          "agent": "InterventionDesignerAgent",
+          "description": "Design intervention options"
+        },
+        {
+          "type": "design",
+          "agent": "OutcomeEngineerAgent",
+          "description": "Create outcome hypotheses",
+          "depends_on": ["design"]
+        },
+        {
+          "type": "validation",
+          "agent": "ValueEvalAgent",
+          "description": "Evaluate intervention quality",
+          "depends_on": ["design"]
+        }
+      ],
+      "estimated_complexity": 0.6,
+      "requires_simulation": true
+    },
+    "monitor_realization": {
+      "subgoal_sequence": [
+        {
+          "type": "monitoring",
+          "agent": "RealizationLoopAgent",
+          "description": "Monitor feedback loops and behavior changes"
+        },
+        {
+          "type": "validation",
+          "agent": "ValueEvalAgent",
+          "description": "Evaluate realization progress",
+          "depends_on": ["monitoring"]
+        }
+      ],
+      "estimated_complexity": 0.4,
+      "requires_simulation": false
+    },
+    "generate_report": {
+      "subgoal_sequence": [
+        {
+          "type": "reporting",
+          "agent": "ValueEvalAgent",
+          "description": "Generate comprehensive report"
+        }
+      ],
+      "estimated_complexity": 0.3,
+      "requires_simulation": false
+    }
+  },
+  "routing_rules": {
+    "system_analysis": ["SystemMapperAgent"],
+    "intervention_design": ["InterventionDesignerAgent"],
+    "outcome_engineering": ["OutcomeEngineerAgent"],
+    "feedback_monitoring": ["RealizationLoopAgent"],
+    "discovery": ["DiscoveryAgent"],
+    "financial_modeling": ["FinancialModelAgent"],
+    "evaluation": ["ValueEvalAgent"]
+  },
+  "complexity_thresholds": {
+    "low": 0.3,
+    "medium": 0.6,
+    "high": 0.8
+  },
+  "sdui_mappings": {
+    "system_map": {
+      "component": "SystemMapCanvas",
+      "layout": "full_width"
+    },
+    "intervention_points": {
+      "component": "InterventionDesigner",
+      "layout": "two_column"
+    },
+    "feedback_loops": {
+      "component": "FeedbackLoopViewer",
+      "layout": "dashboard"
+    },
+    "financial_model": {
+      "component": "FinancialDashboard",
+      "layout": "full_width"
+    },
+    "discovery_data": {
+      "component": "DiscoveryForm",
+      "layout": "single_column"
+    }
+  }
+}

@@ -1,0 +1,1612 @@
+﻿ValueOS UX Redesign: Principal Product Designer Deliverable
+Phase 1: Product Understanding
+1.1 Top 3 Personas
+Primary: The Strategist (Pre-Sales Consultant / Value Engineer)
+* Goal: Rapidly build credible, data-driven value hypotheses that make the solution the only logical choice
+* Anxieties:
+   * "Will this number embarrass me in front of the CFO?"
+   * "I don't have time to research every prospect manually"
+   * "The model looks generic—it won't resonate"
+* Success metric: Time-to-first-draft < 15 minutes; hypothesis acceptance rate by prospects
+Secondary: The Closer (Account Executive / Sales Leader)
+* Goal: Convert the value hypothesis into a commercial win with executive-ready narratives
+* Anxieties:
+   * "I can't show this spreadsheet to a CFO"
+   * "What if I accidentally change something during the presentation?"
+   * "I need to answer objections on the fly"
+* Success metric: Deal velocity; win rate; average contract value
+Admin: The Grower (Customer Success Manager)
+* Goal: Prove delivered value and identify expansion opportunities
+* Anxieties:
+   * "Did we actually deliver what we promised?"
+   * "I need proof before the QBR, not excuses"
+   * "Where's the upsell opportunity?"
+* Success metric: Net Revenue Retention; QBR preparation time; expansion pipeline
+1.2 Top 5 Jobs to be Done
+#
+	Job Statement
+	Primary Persona
+	1
+	When I'm preparing for a prospect meeting, I want to instantly understand their business context and build a defensible ROI model, so I can walk in with credibility and confidence.
+	Strategist
+	2
+	When I'm presenting to an executive buyer, I want to show a polished, story-driven business case (not a spreadsheet), so I can justify our price and accelerate the decision.
+	Closer
+	3
+	When assumptions change during negotiation, I want to adjust inputs and see the impact in real-time, so I can maintain momentum without "getting back to them."
+	Closer
+	4
+	When a customer's renewal is approaching, I want to prove the value we delivered with actuals vs. promised, so I can make renewal a foregone conclusion.
+	Grower
+	5
+	When I'm managing my team's value practice, I want to see pipeline coverage, model quality, and realization rates, so I can coach effectively and forecast accurately.
+	Admin/Leader
+	1.3 Core Workflows (Happy Paths)
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        VALUE LIFECYCLE FLOW                              │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐          │
+│  │ DISCOVER │───▶│  MODEL   │───▶│  COMMIT  │───▶│  PROVE   │          │
+│  └──────────┘    └──────────┘    └──────────┘    └──────────┘          │
+│       │               │               │               │                  │
+│       ▼               ▼               ▼               ▼                  │
+│  Strategist      Strategist       Closer          Grower                │
+│  researches      builds ROI       formalizes      tracks                │
+│  prospect        model with       KPIs into       actuals               │
+│                  agent help       contract        vs plan               │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Workflow 1: Discovery → First Value Model
+1. User enters company name/URL
+2. Agent researches (10-K, LinkedIn, news)
+3. Agent proposes value drivers with confidence levels
+4. User reviews/adjusts assumptions
+5. Agent generates first-draft model
+6. User refines collaboratively
+Workflow 2: Model → Executive Presentation
+1. User requests "presentation mode"
+2. Agent transforms model into narrative arc
+3. User selects persona (CFO, CTO, COO)
+4. Agent generates talking points
+5. User presents with live "what-if" toggles
+6. Changes sync back to master model
+Workflow 3: Commitment → Value Realization
+1. User formalizes target KPIs
+2. System creates ValueCommitment artifact
+3. Post-sale: Grower inherits commitment
+4. Agent tracks actuals via integrations
+5. Agent generates QBR-ready proof
+6. Agent identifies expansion whitespace
+1.4 Critical Edge Cases
+Edge Case
+	Current Handling
+	Required Handling
+	Agent can't find data (403, no 10-K)
+	Generic error toast
+	Agent offers alternatives: "Upload PDF" or "Use industry benchmarks"
+	User changes tenant mid-flow
+	Implicit, anxiety-inducing
+	Explicit confirmation modal with data scope warning
+	Conflicting assumptions
+	Silent override
+	Agent flags conflict: "You said 2,000 employees earlier, but the 10-K shows 1,800. Which should I use?"
+	Approval required (cost/compliance)
+	Not surfaced
+	Approval card with clear stakes: "This will sync to Salesforce. Proceed?"
+	Session timeout
+	Lost work
+	Auto-save + "Resume where you left off" on return
+	1.5 Key Constraints
+Constraint
+	Design Implication
+	Multi-tenant
+	Persistent tenant badge; explicit switcher; no cross-tenant data leakage
+	RBAC
+	Role-aware UI morphing; hidden actions for insufficient permissions
+	Audit requirements
+	Every agent action logged; "View audit" one-click from any output
+	Billing/cost controls
+	Pre-action cost estimates; usage dashboard; alerts before overages
+	Compliance (SOC2, etc.)
+	Data residency indicators; export restrictions by tenant policy
+	Phase 2: Agentic Interaction Model
+2.1 Conversation States
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     AGENTIC CONVERSATION STATES                          │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│   ┌──────┐    ┌─────────┐    ┌──────┐    ┌─────────┐    ┌────────┐     │
+│   │ IDLE │───▶│ CLARIFY │───▶│ PLAN │───▶│ EXECUTE │───▶│ REVIEW │     │
+│   └──────┘    └─────────┘    └──────┘    └─────────┘    └────────┘     │
+│       ▲                                                      │          │
+│       │            ┌──────────┐                              │          │
+│       └────────────│ FINALIZE │◀─────────────────────────────┘          │
+│                    └──────────┘                                          │
+│                         │                                                │
+│                         ▼                                                │
+│                    ┌────────┐                                            │
+│                    │ RESUME │ (re-enters at appropriate state)          │
+│                    └────────┘                                            │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+2.2 State Definitions & UI Components
+State
+	User Intent
+	Agent Behavior
+	UI Components
+	User Actions
+	Idle
+	"I want to start something"
+	Offers contextual suggestions
+	Hero input + starter cards + recent work
+	Type intent, click suggestion, or resume
+	Clarify
+	"Help me be specific"
+	Asks ONE question with smart defaults
+	Single-question card with options/input
+	Select option, provide input, or skip with default
+	Plan
+	"Show me what you'll do"
+	Presents numbered steps with estimates
+	Plan card with editable assumptions
+	Approve, edit assumption, or reject
+	Execute
+	"Do the work"
+	Streams progress with checkpoints
+	Progress stepper with live status
+	Pause, view details, or cancel
+	Review
+	"Let me check this"
+	Presents artifacts for approval
+	Artifact cards with approve/edit/reject
+	Approve, request changes, or regenerate
+	Finalize
+	"Lock this in"
+	Confirms and persists
+	Summary card with next steps
+	Confirm, export, or share
+	Resume
+	"Continue where I left off"
+	Restores context
+	Session restoration banner
+	Resume or start fresh
+	2.3 Steering & Correction Mechanisms
+Undo/Redo:
+* Every agent action creates a checkpoint
+* User can click any message in history to "restore to this point"
+* Canvas updates to match historical state
+Assumption Override:
+* Inline editing in Plan cards
+* Natural language: "Actually, use 1,500 employees instead"
+* Agent acknowledges and recalculates
+Error Recovery:
+* Agent offers 2-3 alternatives, not just "retry"
+* User can provide missing data inline
+* "Help me understand" escalation path
+Phase 3: Information Architecture & Navigation
+3.1 Navigation Structure
+┌─────────────────────────────────────────────────────────────────────────┐
+│  GLOBAL HEADER                                                           │
+│  ┌─────────────────┬─────────────────────────────┬───────────────────┐  │
+│  │ [Logo] ValueOS  │  [Search/Command: ⌘K]       │ [Tenant] ▾ [User] │  │
+│  └─────────────────┴─────────────────────────────┴───────────────────┘  │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌──────────────┐  ┌────────────────────────────────────────────────┐   │
+│  │  PRIMARY NAV │  │                  MAIN CANVAS                    │   │
+│  │              │  │                                                  │   │
+│  │  ○ Home      │  │  (Content varies by route)                      │   │
+│  │  ● Cases     │  │                                                  │   │
+│  │  ○ Library   │  │                                                  │   │
+│  │  ○ Team      │  │                                                  │   │
+│  │              │  │                                                  │   │
+│  │  ─────────── │  │                                                  │   │
+│  │              │  │                                                  │   │
+│  │  ○ Settings  │  │                                                  │   │
+│  │  ○ Help      │  │                                                  │   │
+│  └──────────────┘  └────────────────────────────────────────────────┘   │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+3.2 Route Map
+Route
+	Purpose
+	Primary Persona
+	/
+	Redirect to /home
+	All
+	/home
+	Dashboard: resume work, recent, suggestions
+	All
+	/cases
+	List all value cases with filters
+	All
+	/cases/:id
+	Primary workspace for a single case
+	Strategist, Closer
+	/cases/:id/present
+	Presentation mode (read-only, narrative)
+	Closer
+	/cases/:id/realize
+	Realization tracking (actuals vs. plan)
+	Grower
+	/library
+	Templates, benchmarks, saved models
+	All
+	/team
+	Users, roles, invitations
+	Admin
+	/settings
+	Account, integrations, billing, audit
+	Admin
+	3.3 "Work in Progress" Design
+Resumability:
+* Home shows "Continue where you left off" card with exact state
+* Session state persisted server-side per case
+* Clicking restores: scroll position, open panels, draft inputs
+Artifacts Organization:
+* Cases are the primary container (not projects/folders initially)
+* Each case has: Value Model, Commitment, Proof (temporal states)
+* Library holds reusable templates and benchmarks
+3.4 Multi-tenant Switching
+┌─────────────────────────────────────────────────────────────────────────┐
+│  TENANT SWITCHER (Header)                                                │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │  [Acme Corp ▾]                                                      ││
+│  │  ┌─────────────────────────────────────────────────────────────────┐││
+│  │  │  ✓ Acme Corp              (current)                             │││
+│  │  │    Beta Inc                                                      │││
+│  │  │    Gamma Ltd                                                     │││
+│  │  │  ─────────────────────────────────────────────────────────────  │││
+│  │  │  + Create new organization                                       │││
+│  │  └─────────────────────────────────────────────────────────────────┘││
+│  └─────────────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────────────┘
+
+Safety Rules:
+* Switching requires confirmation if unsaved work exists
+* Visual indicator persists showing active tenant
+* Cross-tenant operations explicitly blocked with clear messaging
+Phase 4: High-Fidelity Wireframes
+Wireframe A: Landing → Sign In → First-Run Onboarding
+A1: Landing Page (Marketing → Product)
+Screen Name: Landing
+Purpose: Convert visitors to sign-up; communicate value proposition
+Layout Spec:
+┌─────────────────────────────────────────────────────────────────────────┐
+│  NAV BAR (sticky)                                                        │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │ [Logo]                    Features  Pricing  Docs    [Sign In] [→]  ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  HERO SECTION (center-aligned, 60vh)                                     │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │                                                                      ││
+│  │         Prove your value. Win more deals.                           ││
+│  │                                                                      ││
+│  │    The AI-powered platform that builds, presents, and proves        ││
+│  │    ROI for every customer conversation.                             ││
+│  │                                                                      ││
+│  │              [Get Started Free]   [Watch Demo]                      ││
+│  │                                                                      ││
+│  │    ┌─────────────────────────────────────────────────────────┐      ││
+│  │    │                                                          │      ││
+│  │    │     [Product Screenshot / Animation]                     │      ││
+│  │    │                                                          │      ││
+│  │    └─────────────────────────────────────────────────────────┘      ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+│                                                                          │
+│  SOCIAL PROOF (logos bar)                                                │
+│  Trusted by teams at: [Logo] [Logo] [Logo] [Logo]                       │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Microcopy:
+* CTA Primary: "Get Started Free"
+* CTA Secondary: "Watch Demo"
+* Subhead: "No credit card required • Free for individuals"
+Key Interactions:
+* "Get Started Free" → /signup
+* "Sign In" → /login
+* Scroll reveals feature sections (not wireframed here)
+A2: Sign Up Page
+Screen Name: Signup
+Purpose: Minimal-friction account creation
+Layout Spec:
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                          │
+│  ┌─────────────────────────┐  ┌─────────────────────────────────────┐   │
+│  │                         │  │                                      │   │
+│  │   [Brand Visual]        │  │   Create your account                │   │
+│  │                         │  │                                      │   │
+│  │   "Build ROI models     │  │   ┌────────────────────────────────┐ │   │
+│  │    in minutes, not      │  │   │ Work email                     │ │   │
+│  │    hours."              │  │   └────────────────────────────────┘ │   │
+│  │                         │  │                                      │   │
+│  │   — Sarah K.            │  │   ┌────────────────────────────────┐ │   │
+│  │     VP Sales, TechCo    │  │   │ Full name                      │ │   │
+│  │                         │  │   └────────────────────────────────┘ │   │
+│  │                         │  │                                      │   │
+│  │                         │  │   ┌────────────────────────────────┐ │   │
+│  │                         │  │   │ Password                       │ │   │
+│  │                         │  │   └────────────────────────────────┘ │   │
+│  │                         │  │                                      │   │
+│  │                         │  │   [Create Account]                   │   │
+│  │                         │  │                                      │   │
+│  │                         │  │   ─────── or ───────                 │   │
+│  │                         │  │                                      │   │
+│  │                         │  │   [Continue with Google]             │   │
+│  │                         │  │   [Continue with Microsoft]          │   │
+│  │                         │  │                                      │   │
+│  │                         │  │   Already have an account? Sign in   │   │
+│  │                         │  │                                      │   │
+│  └─────────────────────────┘  └─────────────────────────────────────┘   │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Microcopy:
+* Heading: "Create your account"
+* Email placeholder: "you@company.com"
+* Password helper: "At least 8 characters"
+* Terms: "By creating an account, you agree to our Terms and Privacy Policy."
+States:
+* Empty: Default state shown
+* Loading: Button shows spinner, inputs disabled
+* Error: Inline error below field (e.g., "This email is already registered")
+* Success: Redirect to onboarding
+Engineering Notes:
+* POST /api/auth/signup
+* Emit: signup_initiated, signup_completed, signup_failed
+* Store: email verified flag for later gating
+A3: First-Run Onboarding (3 Steps Max)
+Screen Name: Onboarding
+Purpose: Establish context (org, role) and deliver first value moment
+Layout Spec — Step 1: Organization
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │                                                                      ││
+│  │   Step 1 of 3                                                        ││
+│  │                                                                      ││
+│  │   What's your company name?                                          ││
+│  │                                                                      ││
+│  │   ┌────────────────────────────────────────────────────────────────┐││
+│  │   │ Acme Corporation                                               │││
+│  │   └────────────────────────────────────────────────────────────────┘││
+│  │                                                                      ││
+│  │   This helps us personalize your experience and organize            ││
+│  │   your team's work.                                                  ││
+│  │                                                                      ││
+│  │                                              [Continue →]            ││
+│  │                                                                      ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+│                                                                          │
+│  ○ ○ ○  (step indicators)                                               │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Layout Spec — Step 2: Role Selection
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                          │
+│   Step 2 of 3                                                            │
+│                                                                          │
+│   What's your primary role?                                              │
+│                                                                          │
+│   ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐         │
+│   │                 │  │                 │  │                 │         │
+│   │   [Icon]        │  │   [Icon]        │  │   [Icon]        │         │
+│   │                 │  │                 │  │                 │         │
+│   │   Build Cases   │  │   Close Deals   │  │   Prove Value   │         │
+│   │                 │  │                 │  │                 │         │
+│   │   Pre-sales,    │  │   Account       │  │   Customer      │         │
+│   │   consulting    │  │   executive     │  │   success       │         │
+│   │                 │  │                 │  │                 │         │
+│   └─────────────────┘  └─────────────────┘  └─────────────────┘         │
+│                                                                          │
+│                                        [← Back]    [Continue →]          │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Layout Spec — Step 3: First Action (Magic Moment)
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                          │
+│   Step 3 of 3                                                            │
+│                                                                          │
+│   Let's build your first value case                                      │
+│                                                                          │
+│   Enter a company name or website, and I'll research them               │
+│   and start building an ROI model.                                       │
+│                                                                          │
+│   ┌────────────────────────────────────────────────────────────────────┐│
+│   │ e.g., "Stripe" or "stripe.com"                              [→]   ││
+│   └────────────────────────────────────────────────────────────────────┘│
+│                                                                          │
+│   Or start with:                                                         │
+│   ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐      │
+│   │ Import from CRM  │  │ Upload a file    │  │ Use a template   │      │
+│   └──────────────────┘  └──────────────────┘  └──────────────────┘      │
+│                                                                          │
+│                                        [← Back]    [Skip for now]        │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Key Interactions:
+* Step 1: Enter org name → POST /api/organizations → Continue
+* Step 2: Select role → PATCH /api/users/me with role preference → Continue
+* Step 3: Enter company → Agent starts research → Redirect to /cases/new?prospect=...
+* Skip: Redirect to /home
+Engineering Notes:
+* Store: organization_id, user_role_preference, onboarding_completed_at
+* Emit: onboarding_started, onboarding_step_completed, onboarding_skipped
+* Feature flag: onboarding_v2 for A/B testing
+Component Tree (A3: Onboarding):
+{
+ "OnboardingFlow": {
+   "props": ["currentStep", "totalSteps", "onComplete"],
+   "children": {
+     "ProgressIndicator": {
+       "props": ["current", "total"]
+     },
+     "StepContainer": {
+       "children": {
+         "StepHeading": { "props": ["text"] },
+         "StepDescription": { "props": ["text"] },
+         "StepContent": {
+           "variants": ["TextInput", "CardSelector", "HeroInput"]
+         }
+       }
+     },
+     "NavigationFooter": {
+       "children": {
+         "BackButton": { "props": ["onClick", "disabled"] },
+         "ContinueButton": { "props": ["onClick", "loading"] },
+         "SkipLink": { "props": ["onClick"] }
+       }
+     }
+   }
+ }
+}
+
+Reusable Components to Add:
+* ProgressIndicator — step dots with active/completed states
+* CardSelector — selectable card grid for role/option selection
+* HeroInput — large, centered input with icon and submit button
+Design Tokens Used:
+* --spacing-4, --spacing-8, --spacing-12, --spacing-16, --spacing-24
+* --radius-lg (12px) for cards
+* --font-size-xl (20px) for headings, --font-size-base (14px) for body
+* --color-surface-1, --color-surface-2 for card backgrounds
+Wireframe B: Home / Workspace Hub
+Screen Name: Home
+Purpose: Resume work, discover next actions, access recent artifacts
+Layout Spec:
+┌─────────────────────────────────────────────────────────────────────────┐
+│  HEADER                                                                  │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │ [Logo]    [Search ⌘K]                        [Acme Corp ▾] [Avatar] ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌──────┐  ┌───────────────────────────────────────────────────────────┐│
+│  │ NAV  │  │                                                            ││
+│  │      │  │  Good morning, Sarah                                       ││
+│  │ Home │  │                                                            ││
+│  │ Cases│  │  ┌─────────────────────────────────────────────────────┐  ││
+│  │ Lib  │  │  │ CONTINUE WHERE YOU LEFT OFF                         │  ││
+│  │ Team │  │  │                                                      │  ││
+│  │      │  │  │ [Icon] Acme Corp Value Case                         │  ││
+│  │ ──── │  │  │        Draft • Last edited 2 hours ago              │  ││
+│  │      │  │  │        "Refining cost assumptions..."               │  ││
+│  │ Set  │  │  │                                           [Resume →]│  ││
+│  │ Help │  │  │                                                      │  ││
+│  └──────┘  │  └─────────────────────────────────────────────────────┘  ││
+│            │                                                            ││
+│            │  ┌─────────────────────────────────────────────────────┐  ││
+│            │  │ START SOMETHING NEW                                  │  ││
+│            │  │                                                      │  ││
+│            │  │ ┌────────────────────────────────────────────────┐  │  ││
+│            │  │ │ What would you like to work on?          [→]  │  │  ││
+│            │  │ └────────────────────────────────────────────────┘  │  ││
+│            │  │                                                      │  ││
+│            │  │ Quick actions:                                       │  ││
+│            │  │ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐     │  ││
+│            │  │ │Research a   │ │Import from  │ │Analyze a    │     │  ││
+│            │  │ │company      │ │CRM          │ │sales call   │     │  ││
+│            │  │ └─────────────┘ └─────────────┘ └─────────────┘     │  ││
+│            │  └─────────────────────────────────────────────────────┘  ││
+│            │                                                            ││
+│            │  RECENT CASES                              [View all →]   ││
+│            │  ┌───────────────┐ ┌───────────────┐ ┌───────────────┐   ││
+│            │  │ Beta Inc      │ │ Gamma Ltd     │ │ Delta Corp    │   ││
+│            │  │ Committed     │ │ In Progress   │ │ Draft         │   ││
+│            │  │ $2.1M ARR     │ │ $890K ARR     │ │ --            │   ││
+│            │  └───────────────┘ └───────────────┘ └───────────────┘   ││
+│            │                                                            ││
+│            └───────────────────────────────────────────────────────────┘│
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Microcopy:
+* Greeting: "Good morning, {firstName}" (time-aware)
+* Continue card: "Continue where you left off"
+* Resume button: "Resume →"
+* Hero input placeholder: "e.g., 'Build a case for Notion' or 'Analyze my last sales call'"
+* Quick actions: "Research a company", "Import from CRM", "Analyze a sales call"
+States:
+* Empty (new user): No continue card; larger emphasis on "Start something new"
+* Loading: Skeleton cards for recent cases
+* Error: Inline error with retry for failed data fetches
+Key Interactions:
+* Resume → /cases/:id with restored state
+* Hero input → Agent clarification flow
+* Quick action cards → Specific intake flows
+* Recent case click → /cases/:id
+* ⌘K → Opens command bar overlay
+Engineering Notes:
+* GET /api/cases?recent=true&limit=6
+* GET /api/sessions/latest for continue card
+* Emit: home_viewed, case_resumed, quick_action_clicked
+Component Tree (B: Home):
+{
+ "HomeView": {
+   "children": {
+     "PageHeader": {
+       "children": {
+         "Greeting": { "props": ["userName", "timeOfDay"] }
+       }
+     },
+     "ContinueCard": {
+       "props": ["session", "onResume"],
+       "conditional": "hasActiveSession"
+     },
+     "StartNewSection": {
+       "children": {
+         "HeroInput": { "props": ["placeholder", "onSubmit"] },
+         "QuickActionGrid": {
+           "children": {
+             "QuickActionCard": { "props": ["icon", "label", "onClick"] }
+           }
+         }
+       }
+     },
+     "RecentCasesSection": {
+       "children": {
+         "SectionHeader": { "props": ["title", "actionLabel", "onAction"] },
+         "CaseCardGrid": {
+           "children": {
+             "CaseCard": { "props": ["case", "onClick"] }
+           }
+         }
+       }
+     }
+   }
+ }
+}
+
+Reusable Components to Add:
+* ContinueCard — prominent resume banner with context
+* QuickActionCard — icon + label + hover state
+* CaseCard — compact case summary with stage badge
+Design Tokens Used:
+* --spacing-16, --spacing-24, --spacing-32 for section gaps
+* --radius-md (8px) for cards
+* --color-accent-primary for CTA buttons
+* --shadow-sm for card elevation
+Wireframe C: Core Agent Workspace
+Screen Name: CaseWorkspace
+Purpose: Primary collaborative surface for building value cases with the agent
+Layout Spec:
+┌─────────────────────────────────────────────────────────────────────────┐
+│  HEADER                                                                  │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │ [←] Acme Corp Value Case        [Draft]    [Share] [Export] [•••]  ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌───────────────────────────────┬─────────────────────────────────────┐│
+│  │ CONVERSATION PANEL (35%)      │ CANVAS PANEL (65%)                  ││
+│  │                               │                                      ││
+│  │ ┌───────────────────────────┐ │ ┌─────────────────────────────────┐ ││
+│  │ │ Agent                     │ │ │ MODE: [Builder ▾]               │ ││
+│  │ │                           │ │ │                                  │ ││
+│  │ │ I found Acme Corp's       │ │ │ PLAN CARD                        │ ││
+│  │ │ latest 10-K. They have    │ │ │ ┌───────────────────────────┐   │ ││
+│  │ │ 2,400 employees and       │ │ │ │ Building Value Model       │   │ ││
+│  │ │ $340M in revenue.         │ │ │ │                            │   │ ││
+│  │ │                           │ │ │ │ ✓ 1. Research company      │   │ ││
+│  │ │ I'll use these to         │ │ │ │ ● 2. Identify drivers      │   │ ││
+│  │ │ estimate efficiency       │ │ │ │ ○ 3. Calculate ROI         │   │ ││
+│  │ │ gains.                    │ │ │ │ ○ 4. Generate summary      │   │ ││
+│  │ │                           │ │ │ │                            │   │ ││
+│  │ │ [Show reasoning ▾]        │ │ │ │ Est. 2 min remaining       │   │ ││
+│  │ │ └───────────────────────────┘ │ │ └───────────────────────────┘   │ ││
+│  │                               │ │                                  │ ││
+│  │ ┌───────────────────────────┐ │ │ ASSUMPTIONS                       │ ││
+│  │ │ Agent                     │ │ │ ┌───────────────────────────┐   │ ││
+│  │ │                           │ │ │ │ Employees: [2,400]  ✓     │   │ ││
+│  │ │ What efficiency target    │ │ │ │ Revenue: [$340M]    ✓     │   │ ││
+│  │ │ feels realistic for       │ │ │ │ Efficiency: [15%]   ✎     │   │ ││
+│  │ │ Acme?                     │ │ │ │                            │   │ ││
+│  │ │ ┌─────┐ ┌─────┐ ┌─────┐  │ │ │ │ Source: 2023 10-K          │   │ ││
+│  │ │ │ 10% │ │ 15% │ │ 20% │  │ │ │ │ [View source ↗]            │   │ ││
+│  │ │ └─────┘ └─────┘ └─────┘  │ │ │ └───────────────────────────┘   │ ││
+│  │ │        (recommended)      │ │ │                                  │ ││
+│  │ │                           │ │ │ LIVE PREVIEW                     │ ││
+│  │ │ [Or type a custom value]  │ │ │ ┌───────────────────────────┐   │ ││
+│  │ │                           │ │ │ │                            │   │ ││
+│  │ └───────────────────────────┘ │ │ │   3-Year ROI: $2.4M       │   │ ││
+│  │                               │ │ │                            │   │ ││
+│  │                               │ │ │   [Chart updating...]      │   │ ││
+│  │                               │ │ │                            │   │ ││
+│  │                               │ │ └───────────────────────────┘   │ ││
+│  │                               │ │                                  │ ││
+│  │                               │ └─────────────────────────────────┘ ││
+│  │ ┌───────────────────────────┐ │                                      ││
+│  │ │ [Ask or adjust...]    [→] │ │                                      ││
+│  │ └───────────────────────────┘ │                                      ││
+│  └───────────────────────────────┴─────────────────────────────────────┘│
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Panel Breakdown:
+Left: Conversation Panel (35% width)
+* Scrollable message history
+* Agent messages with optional "Show reasoning" collapse
+* User messages
+* Clarifying questions with button options
+* Persistent input at bottom
+Right: Canvas Panel (65% width)
+* Mode selector: Builder | Presenter | Tracker
+* Plan card showing current workflow status
+* Assumptions panel with inline editing
+* Live preview of the value model/chart
+Microcopy:
+* Plan card title: "Building Value Model"
+* Assumption verified badge: "✓" with green
+* Assumption editable: "✎" with edit affordance
+* Source link: "View source ↗"
+* Input placeholder: "Ask or adjust..."
+States:
+State
+	Conversation Panel
+	Canvas Panel
+	Idle
+	Last message + input
+	Static model view
+	Clarifying
+	Question card with options
+	Assumptions highlighted
+	Executing
+	Streaming status
+	Plan card progress animating
+	Review
+	"Here's what I built" + approve/edit
+	Full model with highlights
+	Error
+	Recovery options inline
+	Affected section flagged
+	Key Interactions:
+* Option button click → Sends answer, advances workflow
+* Assumption inline edit → Agent acknowledges, recalculates
+* "Show reasoning" → Expands thought process
+* Mode selector → Morphs canvas view
+* Export → Opens export modal
+Engineering Notes:
+* WebSocket for streaming conversation
+* Optimistic UI updates for assumption changes
+* Canvas state derived from case model + current mode
+* Emit: conversation_message, assumption_edited, mode_switched, export_initiated
+Component Tree (C: CaseWorkspace):
+{
+ "CaseWorkspace": {
+   "props": ["caseId"],
+   "children": {
+     "WorkspaceHeader": {
+       "children": {
+         "BackButton": {},
+         "CaseTitle": { "props": ["title", "editable"] },
+         "StageBadge": { "props": ["stage"] },
+         "ActionButtons": {
+           "children": ["ShareButton", "ExportButton", "MoreMenu"]
+         }
+       }
+     },
+     "SplitLayout": {
+       "props": ["leftWidth", "rightWidth"],
+       "children": {
+         "ConversationPanel": {
+           "children": {
+             "MessageList": {
+               "children": {
+                 "AgentMessage": { "props": ["content", "reasoning", "showReasoning"] },
+                 "UserMessage": { "props": ["content"] },
+                 "ClarifyCard": { "props": ["question", "options", "onSelect"] }
+               }
+             },
+             "ConversationInput": { "props": ["placeholder", "onSubmit"] }
+           }
+         },
+         "CanvasPanel": {
+           "children": {
+             "ModeSelector": { "props": ["mode", "onModeChange"] },
+             "PlanCard": { "props": ["steps", "currentStep", "estimatedTime"] },
+             "AssumptionsPanel": {
+               "children": {
+                 "AssumptionRow": { "props": ["label", "value", "verified", "onEdit"] }
+               }
+             },
+             "LivePreview": { "props": ["modelData", "loading"] }
+           }
+         }
+       }
+     }
+   }
+ }
+}
+
+Reusable Components to Add:
+* SplitLayout — resizable two-column layout
+* PlanCard — workflow stepper with status
+* ClarifyCard — question with button options
+* AssumptionRow — editable assumption with source
+* AgentMessage — message with collapsible reasoning
+Design Tokens Used:
+* --spacing-8, --spacing-12, --spacing-16 for message gaps
+* --radius-lg for cards, --radius-full for avatars
+* --color-surface-2 for message bubbles
+* --color-success for verified badges
+* --font-mono for numerical values
+Wireframe D: Workflow Runner / Task Execution View
+Screen Name: WorkflowRunner
+Purpose: Multi-step job execution with visible progress and rollback capability
+Layout Spec:
+┌─────────────────────────────────────────────────────────────────────────┐
+│  HEADER                                                                  │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │ [←] Sync to Salesforce                    [Running...] [Cancel]     ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │                                                                      ││
+│  │  WORKFLOW PROGRESS                                                   ││
+│  │                                                                      ││
+│  │  ┌─────────────────────────────────────────────────────────────────┐││
+│  │  │  ✓  Validate credentials                           Completed    │││
+│  │  │      Connected to Salesforce as sarah@acme.com                  │││
+│  │  └─────────────────────────────────────────────────────────────────┘││
+│  │                      │                                               ││
+│  │                      ▼                                               ││
+│  │  ┌─────────────────────────────────────────────────────────────────┐││
+│  │  │  ✓  Find matching opportunity                      Completed    │││
+│  │  │      Found: "Acme Corp - Enterprise" (Opp-12345)                │││
+│  │  │      [View in Salesforce ↗]                                     │││
+│  │  └─────────────────────────────────────────────────────────────────┘││
+│  │                      │                                               ││
+│  │                      ▼                                               ││
+│  │  ┌─────────────────────────────────────────────────────────────────┐││
+│  │  │  ●  Sync value case data                           Running      │││
+│  │  │      ████████████░░░░░░░░  62%                                  │││
+│  │  │      Updating custom fields...                                   │││
+│  │  └─────────────────────────────────────────────────────────────────┘││
+│  │                      │                                               ││
+│  │                      ▼                                               ││
+│  │  ┌─────────────────────────────────────────────────────────────────┐││
+│  │  │  ○  Attach business case PDF                       Pending      │││
+│  │  │      Will upload 2.4 MB document                                │││
+│  │  └─────────────────────────────────────────────────────────────────┘││
+│  │                                                                      ││
+│  │  ─────────────────────────────────────────────────────────────────  ││
+│  │                                                                      ││
+│  │  ESTIMATED TIME REMAINING: ~45 seconds                              ││
+│  │                                                                      ││
+│  │  ┌─────────────────────────────────────────────────────────────────┐││
+│  │  │  ⚠ This will update the Salesforce opportunity.                 │││
+│  │  │    Any previous value case data will be overwritten.            │││
+│  │  │                                                                  │││
+│  │  │                              [Undo last step]  [Cancel all]      │││
+│  │  └─────────────────────────────────────────────────────────────────┘││
+│  │                                                                      ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+States:
+Step State
+	Icon
+	Color
+	Actions
+	Completed
+	✓
+	Green
+	View details, Undo
+	Running
+	● (animated)
+	Blue
+	View progress
+	Pending
+	○
+	Gray
+	Skip (if optional)
+	Failed
+	✕
+	Red
+	Retry, Skip, Cancel
+	Skipped
+	—
+	Gray
+	—
+	Error State (Step Failed):
+┌─────────────────────────────────────────────────────────────────────────┐
+│  ✕  Sync value case data                               Failed          │
+│                                                                          │
+│      Could not update opportunity: "Field 'Value_Case__c'              │
+│      does not exist on object 'Opportunity'"                            │
+│                                                                          │
+│      [Show technical details ▾]                                         │
+│                                                                          │
+│      What would you like to do?                                         │
+│      ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                 │
+│      │ Retry       │  │ Skip step   │  │ Cancel all  │                 │
+│      └─────────────┘  └─────────────┘  └─────────────┘                 │
+│                                                                          │
+│      Or ask for help: [Contact support →]                               │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Microcopy:
+* Running indicator: "Running..."
+* Completion: "Completed"
+* Time estimate: "Estimated time remaining: ~45 seconds"
+* Warning: "This will update the Salesforce opportunity. Any previous value case data will be overwritten."
+* Error action: "What would you like to do?"
+Key Interactions:
+* Cancel → Confirmation modal → Stop and rollback
+* Undo last step → Reverts most recent completed step
+* Retry → Re-executes failed step
+* Skip → Marks step skipped, continues
+* External link → Opens in new tab
+Engineering Notes:
+* SSE/WebSocket for real-time step updates
+* Each step emits: step_started, step_progress, step_completed, step_failed
+* Rollback capability requires idempotent operations
+* Store execution log for audit
+Component Tree (D: WorkflowRunner):
+{
+ "WorkflowRunner": {
+   "props": ["workflowId", "steps"],
+   "children": {
+     "WorkflowHeader": {
+       "children": {
+         "BackButton": {},
+         "WorkflowTitle": {},
+         "StatusBadge": { "props": ["status"] },
+         "CancelButton": { "props": ["onCancel"] }
+       }
+     },
+     "StepList": {
+       "children": {
+         "WorkflowStep": {
+           "props": ["step", "status", "progress", "details"],
+           "children": {
+             "StepIcon": { "props": ["status"] },
+             "StepContent": {
+               "children": {
+                 "StepTitle": {},
+                 "StepDescription": {},
+                 "ProgressBar": { "props": ["value"], "conditional": "isRunning" },
+                 "ExternalLink": { "conditional": "hasLink" }
+               }
+             },
+             "StepActions": { "conditional": "isFailed" }
+           }
+         },
+         "StepConnector": {}
+       }
+     },
+     "TimeEstimate": { "props": ["remainingSeconds"] },
+     "WarningBanner": { "props": ["message"] },
+     "WorkflowActions": {
+       "children": {
+         "UndoButton": { "props": ["onClick", "disabled"] },
+         "CancelAllButton": { "props": ["onClick"] }
+       }
+     }
+   }
+ }
+}
+
+Reusable Components to Add:
+* WorkflowStep — step card with status, progress, actions
+* StepConnector — vertical line between steps
+* ProgressBar — animated progress indicator
+* WarningBanner — dismissible warning with actions
+Wireframe E: Artifact Review & Edit
+Screen Name: ArtifactReview
+Purpose: Version comparison, commenting, and approval workflow
+Layout Spec:
+┌─────────────────────────────────────────────────────────────────────────┐
+│  HEADER                                                                  │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │ [←] Acme Corp Business Case         v3 (Draft) ▾     [Approve] [✕] ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │  VERSION SELECTOR                                                    ││
+│  │  ┌─────────────────────────────────────────────────────────────────┐││
+│  │  │ Compare: [v2 (Approved) ▾]  →  [v3 (Draft) ▾]    [Show diff]    │││
+│  │  └─────────────────────────────────────────────────────────────────┘││
+│  └─────────────────────────────────────────────────────────────────────┘│
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │  ARTIFACT VIEW                                                       ││
+│  │                                                                      ││
+│  │  ┌─────────────────────────────────────────────────────────────────┐││
+│  │  │                                                                  │││
+│  │  │   EXECUTIVE SUMMARY                                              │││
+│  │  │                                                                  │││
+│  │  │   Acme Corp stands to realize $2.4M in efficiency gains         │││
+│  │  │   over 3 years by implementing ValueOS across their             │││
+│  │  │   sales organization.                                            │││
+│  │  │                                                                  │││
+│  │  │   ┌──────────────────────────────────────────────────────────┐  │││
+│  │  │   │  ┌──────────┐    KEY METRICS                             │  │││
+│  │  │   │  │          │                                             │  │││
+│  │  │   │  │  $2.4M   │    • 15% efficiency improvement            │  │││
+│  │  │   │  │  3-Year  │    • 2,400 employees impacted   [CHANGED]  │  │││
+│  │  │   │  │  ROI     │    • 18-month payback period               │  │││
+│  │  │   │  │          │                                             │  │││
+│  │  │   │  └──────────┘                                             │  │││
+│  │  │   └──────────────────────────────────────────────────────────┘  │││
+│  │  │                                                                  │││
+│  │  │   Assumptions                                   [Edit section]  │││
+│  │  │   • Employee count: 2,400 → 2,600  [CHANGED]                    │││
+│  │  │   • Average salary: $85,000                                      │││
+│  │  │   • Efficiency target: 15%                                       │││
+│  │  │                                                                  │││
+│  │  └─────────────────────────────────────────────────────────────────┘││
+│  │                                                                      ││
+│  │  ┌─────────────────────────────────────────────────────────────────┐││
+│  │  │  COMMENTS (2)                                                    │││
+│  │  │                                                                  │││
+│  │  │  ┌───────────────────────────────────────────────────────────┐  │││
+│  │  │  │ Sarah K. • 2 hours ago                                     │  │││
+│  │  │  │ Updated employee count based on latest HR data.            │  │││
+│  │  │  │                                              [Reply]       │  │││
+│  │  │  └───────────────────────────────────────────────────────────┘  │││
+│  │  │                                                                  │││
+│  │  │  ┌───────────────────────────────────────────────────────────┐  │││
+│  │  │  │ Add a comment...                                     [→]  │  │││
+│  │  │  └───────────────────────────────────────────────────────────┘  │││
+│  │  └─────────────────────────────────────────────────────────────────┘││
+│  └─────────────────────────────────────────────────────────────────────┘│
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │  APPROVAL ACTIONS                                                    ││
+│  │                                                                      ││
+│  │  This version will become the official business case.               ││
+│  │                                                                      ││
+│  │  [Request Changes]                                    [Approve v3]  ││
+│  │                                                                      ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Diff Mode (when "Show diff" is active):
+┌─────────────────────────────────────────────────────────────────────────┐
+│  DIFF VIEW                                                               │
+│  ┌───────────────────────────────┬─────────────────────────────────────┐│
+│  │ v2 (Approved)                 │ v3 (Draft)                          ││
+│  ├───────────────────────────────┼─────────────────────────────────────┤│
+│  │                               │                                      ││
+│  │ • 2,400 employees impacted    │ • 2,600 employees impacted          ││
+│  │   ━━━━━━━                     │   ━━━━━━━                  [+200]   ││
+│  │                               │                                      ││
+│  │ Employee count: 2,400         │ Employee count: 2,600               ││
+│  │ ━━━━━━━━━━━━━━                │ ━━━━━━━━━━━━━━             [CHANGED]││
+│  │                               │                                      ││
+│  └───────────────────────────────┴─────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────────────┘
+
+States:
+* Draft: Yellow badge, "Approve" available
+* Approved: Green badge, "Approved by X on date"
+* Changes Requested: Orange badge, shows feedback
+* Superseded: Gray badge, read-only
+Microcopy:
+* Version selector: "Compare: [v2] → [v3]"
+* Change indicator: "[CHANGED]" in orange
+* Approval text: "This version will become the official business case."
+* Request changes: "Request Changes"
+* Approve: "Approve v3"
+Key Interactions:
+* Version dropdown → Switches artifact view
+* Show diff → Side-by-side comparison
+* Edit section → Opens inline editor
+* Comment → Adds to thread
+* Approve → Confirmation → Locks version
+* Request Changes → Opens comment modal
+Engineering Notes:
+* GET /api/artifacts/:id/versions
+* POST /api/artifacts/:id/versions/:v/approve
+* POST /api/artifacts/:id/comments
+* Emit: version_viewed, diff_viewed, artifact_approved, changes_requested
+Wireframe F: Team / Permissions
+Screen Name: TeamSettings
+Purpose: User management, role assignment, and tenant context
+Layout Spec:
+┌─────────────────────────────────────────────────────────────────────────┐
+│  SETTINGS HEADER                                                         │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │ Settings                                             [Acme Corp ▾]  ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌─────────┐  ┌─────────────────────────────────────────────────────────┐
+│  │ NAV     │  │                                                          │
+│  │         │  │  Team Members                           [+ Invite]      │
+│  │ General │  │                                                          │
+│  │ Team  ● │  │  ┌─────────────────────────────────────────────────────┐│
+│  │ Billing │  │  │ SEARCH                                              ││
+│  │ Integ.  │  │  │ ┌─────────────────────────────────────────────────┐ ││
+│  │ Audit   │  │  │ │ Search members...                               │ ││
+│  │         │  │  │ └─────────────────────────────────────────────────┘ ││
+│  └─────────┘  │  └─────────────────────────────────────────────────────┘│
+│               │                                                          │
+│               │  ┌─────────────────────────────────────────────────────┐│
+│               │  │ MEMBER TABLE                                        ││
+│               │  │                                                      ││
+│               │  │ ┌─────────┬────────────┬──────────┬───────────────┐ ││
+│               │  │ │ Name    │ Email      │ Role     │ Last active   │ ││
+│               │  │ ├─────────┼────────────┼──────────┼───────────────┤ ││
+│               │  │ │ [Av]    │            │          │               │ ││
+│               │  │ │ Sarah K │ sarah@...  │ Admin ▾  │ 2 hours ago   │ ││
+│               │  │ │         │            │          │               │ ││
+│               │  │ │ [Av]    │            │          │               │ ││
+│               │  │ │ John D  │ john@...   │ Member ▾ │ 1 day ago     │ ││
+│               │  │ │         │            │          │               │ ││
+│               │  │ │ [Av]    │            │          │               │ ││
+│               │  │ │ Pending │ alex@...   │ Member   │ Invited       │ ││
+│               │  │ │         │            │          │  [Resend]     │ ││
+│               │  │ └─────────┴────────────┴──────────┴───────────────┘ ││
+│               │  │                                                      ││
+│               │  └─────────────────────────────────────────────────────┘│
+│               │                                                          │
+│               │  ┌─────────────────────────────────────────────────────┐│
+│               │  │ ROLES EXPLANATION                                   ││
+│               │  │                                                      ││
+│               │  │ Admin     • Manage team, billing, and integrations  ││
+│               │  │ Member    • Create and edit value cases             ││
+│               │  │ Viewer    • View cases (read-only)                  ││
+│               │  │                                                      ││
+│               │  │                        [Manage custom roles →]      ││
+│               │  └─────────────────────────────────────────────────────┘│
+│               │                                                          │
+│               └─────────────────────────────────────────────────────────┘
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Invite Modal:
+┌─────────────────────────────────────────────────────────────────────────┐
+│  Invite team members                                              [✕]   │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Email addresses (one per line)                                         │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │ alex@company.com                                                     ││
+│  │ jamie@company.com                                                    ││
+│  │                                                                      ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+│                                                                          │
+│  Role                                                                    │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │ Member ▾                                                             ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+│                                                                          │
+│  Personal message (optional)                                            │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │ Join our team on ValueOS!                                           ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+│                                                                          │
+│  Invites will be sent from noreply@valueos.io                          │
+│                                                                          │
+│                                              [Cancel]  [Send invites]   │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Microcopy:
+* Page title: "Team Members"
+* Invite button: "+ Invite"
+* Role options: Admin, Member, Viewer
+* Role descriptions: Clear permission summaries
+* Pending state: "Invited" with "[Resend]" action
+* Invite modal: "Invites will be sent from noreply@valueos.io"
+Key Interactions:
+* Role dropdown → Changes role (with confirmation for admin changes)
+* Resend → Re-sends invitation email
+*    * Invite → Opens invite modal
+* Row click → Opens member detail panel
+Engineering Notes:
+* GET /api/organizations/:id/members
+* POST /api/organizations/:id/invitations
+* PATCH /api/organizations/:id/members/:userId
+* Emit: member_role_changed, invitation_sent, invitation_resent
+Wireframe G: Usage / Billing
+Screen Name: BillingSettings
+Purpose: Transparent usage tracking and billing management
+Layout Spec:
+┌─────────────────────────────────────────────────────────────────────────┐
+│  SETTINGS HEADER                                                         │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │ Settings                                             [Acme Corp ▾]  ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌─────────┐  ┌─────────────────────────────────────────────────────────┐
+│  │ NAV     │  │                                                          │
+│  │         │  │  Usage & Billing                                        │
+│  │ General │  │                                                          │
+│  │ Team    │  │  ┌───────────────────────────────────────────────────┐  │
+│  │ Billing●│  │  │ CURRENT PLAN                                      │  │
+│  │ Integ.  │  │  │                                                    │  │
+│  │ Audit   │  │  │ Team Plan                     $99/month           │  │
+│  │         │  │  │ 5 seats included • Unlimited cases                │  │
+│  │         │  │  │                                                    │  │
+│  └─────────┘  │  │ Next billing date: Feb 1, 2026                    │  │
+│               │  │                                                    │  │
+│               │  │                    [Change plan]  [View invoices]  │  │
+│               │  └───────────────────────────────────────────────────┘  │
+│               │                                                          │
+│               │  ┌───────────────────────────────────────────────────┐  │
+│               │  │ THIS MONTH'S USAGE                                │  │
+│               │  │                                                    │  │
+│               │  │ ┌─────────────────────────────────────────────┐   │  │
+│               │  │ │                                              │   │  │
+│               │  │ │  [USAGE CHART]                               │   │  │
+│               │  │ │                                              │   │  │
+│               │  │ │  AI Credits: 847 / 1,000                     │   │  │
+│               │  │ │  ████████████████████░░░░░  85%              │   │  │
+│               │  │ │                                              │   │  │
+│               │  │ └─────────────────────────────────────────────┘   │  │
+│               │  │                                                    │  │
+│               │  │ Breakdown:                                        │  │
+│               │  │ • Value case generation: 523 credits              │  │
+│               │  │ • Company research: 218 credits                   │  │
+│               │  │ • Document analysis: 106 credits                  │  │
+│               │  │                                                    │  │
+│               │  │ Resets in 21 days                                 │  │
+│               │  │                                                    │  │
+│               │  └───────────────────────────────────────────────────┘  │
+│               │                                                          │
+│               │  ┌───────────────────────────────────────────────────┐  │
+│               │  │ USAGE ALERTS                                      │  │
+│               │  │                                                    │  │
+│               │  │ ☑ Email me when usage reaches 80%                 │  │
+│               │  │ ☑ Email me when usage reaches 100%                │  │
+│               │  │ ☐ Automatically upgrade if limit exceeded         │  │
+│               │  │                                                    │  │
+│               │  └───────────────────────────────────────────────────┘  │
+│               │                                                          │
+│               └─────────────────────────────────────────────────────────┘
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Usage Chart Visualization:
+{
+ "tooltip": {
+   "trigger": "axis",
+   "axisPointer": { "type": "shadow" }
+ },
+ "xAxis": {
+   "type": "category",
+   "data": ["Week 1", "Week 2", "Week 3", "Week 4"]
+ },
+ "yAxis": {
+   "type": "value",
+   "name": "Credits",
+   "max": 1000
+ },
+ "series": [
+   {
+     "name": "Value Cases",
+     "type": "bar",
+     "stack": "usage",
+     "data": [120, 180, 140, 83],
+     "itemStyle": { "color": "#3B82F6" }
+   },
+   {
+     "name": "Research",
+     "type": "bar",
+     "stack": "usage",
+     "data": [45, 62, 58, 53],
+     "itemStyle": { "color": "#10B981" }
+   },
+   {
+     "name": "Analysis",
+     "type": "bar",
+     "stack": "usage",
+     "data": [22, 35, 28, 21],
+     "itemStyle": { "color": "#F59E0B" }
+   }
+ ],
+ "legend": {
+   "bottom": 0,
+   "data": ["Value Cases", "Research", "Analysis"]
+ }
+}
+
+Microcopy:
+* Plan display: "Team Plan • $99/month"
+* Usage: "AI Credits: 847 / 1,000"
+* Reset notice: "Resets in 21 days"
+* Alert options: Clear checkboxes with descriptions
+States:
+* Normal (< 80%): Green progress bar
+* Warning (80-99%): Yellow progress bar, alert shown
+* Critical (100%): Red progress bar, upgrade prompt
+Key Interactions:
+* Change plan → Plan selection modal
+* View invoices → Invoice list page
+* Alert toggles → Immediate save
+Engineering Notes:
+* GET /api/organizations/:id/usage
+* GET /api/organizations/:id/billing
+* PATCH /api/organizations/:id/billing/alerts
+* Emit: billing_viewed, plan_change_initiated, alert_preference_changed
+Wireframe H: Error Recovery Patterns
+Screen Name: ErrorRecovery (Pattern Library)
+Purpose: Consistent, actionable error handling across all flows
+H1: Tool Failure (API/Integration Error)
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │ Agent Message                                                        ││
+│  │                                                                      ││
+│  │ I tried to look up Acme Corp's financials, but their website        ││
+│  │ blocked my request.                                                  ││
+│  │                                                                      ││
+│  │ Here's what I can do instead:                                        ││
+│  │                                                                      ││
+│  │ ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐       ││
+│  │ │ Upload a file   │  │ Use industry    │  │ Enter data      │       ││
+│  │ │                 │  │ benchmarks      │  │ manually        │       ││
+│  │ │ If you have     │  │                 │  │                 │       ││
+│  │ │ their 10-K or   │  │ annual report   │  │ I'll use        │  │ typical SaaS    │  │ Tell me their   │       ││
+│  │ │                 │  │ metrics         │  │ revenue and     │       ││
+│  │ └─────────────────┘  └─────────────────┘  └─────────────────┘       ││
+│  │                                                                      ││
+│  │ [Show what went wrong ▾]                                             ││
+│  │                                                                      ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+H2: Permission Denied
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │ [!] You don't have permission to approve this case                  ││
+│  │                                                                      ││
+│  │ Only Admins and the case owner can approve value cases.             ││
+│  │                                                                      ││
+│  │ You can:                                                             ││
+│  │ • Request approval from Sarah K. (case owner)                       ││
+│  │ • Add a comment with your feedback                                   ││
+│  │                                                                      ││
+│  │                        [Request approval]  [Add comment]            ││
+│  │                                                                      ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+H3: Missing Configuration
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │ Connect Salesforce to sync this case                                ││
+│  │                                                                      ││
+│  │ To sync your value case to Salesforce, you'll need to connect       ││
+│  │ your account first. This is a one-time setup.                       ││
+│  │                                                                      ││
+│  │ What you'll get:                                                     ││
+│  │ ✓ Automatic sync of value case data to opportunities                ││
+│  │ ✓ Import deal context from Salesforce                               ││
+│  │ ✓ Track realization against CRM metrics                             ││
+│  │                                                                      ││
+│  │                          [Connect Salesforce]  [Skip for now]       ││
+│  │                                                                      ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+H4: Rate Limit / Quota Exceeded
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │ ⚠ You've used all your AI credits this month                        ││
+│  │                                                                      ││
+│  │ Your credits reset in 21 days (Feb 1, 2026).                        ││
+│  │                                                                      ││
+│  │ Options:                                                             ││
+│  │ • Upgrade to get more credits immediately                           ││
+│  │ • Wait for monthly reset                                            ││
+│  │ • Contact sales for a custom plan                                   ││
+│  │                                                                      ││
+│  │                               [Upgrade plan]  [Contact sales]       ││
+│  │                                                                      ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Error Pattern Principles:
+1. Human language: "I got stuck" not "Error 403"
+2. Explain why: Brief, non-technical reason
+3. Offer alternatives: 2-3 actionable paths forward
+4. Progressive disclosure: Technical details hidden by default
+5. Preserve context: Don't lose user's work
+Engineering Notes:
+* Error boundary components at route and panel level
+* Centralized error classification (tool_failure, permission_denied, config_missing, rate_limit)
+* Emit: error_displayed, error_recovery_action
+Phase 5: UI Polish Checklist
+5.1 Typography Scale
+Token
+	Size
+	Weight
+	Line Height
+	Usage
+	--font-display
+	32px
+	600
+	1.2
+	Page titles, hero numbers
+	--font-heading-lg
+	24px
+	600
+	1.3
+	Section headers
+	--font-heading
+	20px
+	600
+	1.3
+	Card titles
+	--font-body-lg
+	16px
+	400
+	1.5
+	Primary content
+	--font-body
+	14px
+	400
+	1.5
+	Default text, inputs
+	--font-caption
+	12px
+	400
+	1.4
+	Helper text, timestamps
+	--font-mono
+	14px
+	400
+	1.4
+	Numbers, code
+	5.2 Spacing System
+Token
+	Value
+	Usage
+	--space-1
+	4px
+	Tight gaps (icon-text)
+	--space-2
+	8px
+	Compact padding
+	--space-3
+	12px
+	Standard padding
+	--space-4
+	16px
+	Card padding, gaps
+	--space-6
+	24px
+	Section gaps
+	--space-8
+	32px
+	Major section spacing
+	--space-12
+	48px
+	Page-level spacing
+	5.3 Border Radius
+Token
+	Value
+	Usage
+	--radius-sm
+	4px
+	Buttons, tags
+	--radius-md
+	8px
+	Cards, inputs
+	--radius-lg
+	12px
+	Modals, large cards
+	--radius-full
+	9999px
+	Avatars, pills
+	5.4 Motion Rules
+Animation
+	Duration
+	Easing
+	Usage
+	Micro-interaction
+	100-150ms
+	ease-out
+	Button hover, focus
+	Panel transition
+	200-250ms
+	ease-in-out
+	Sidebar collapse, modal
+	Page transition
+	300ms
+	ease-in-out
+	Route changes
+	Streaming text
+	15ms/char
+	linear
+	Agent typing
+	Progress
+	continuous
+	linear
+	Loading bars
+	5.5 Component States
+Every interactive component must have:
+* Default: Resting state
+* Hover: Elevated/highlighted (cursor pointer)
+* Focus: Visible focus ring (2px offset, accent color)
+* Active: Pressed/depressed
+* Disabled: Reduced opacity (50%), no pointer events
+* Loading: Spinner or skeleton, no interaction
+5.6 Accessibility Requirements
+Requirement
+	Standard
+	Implementation
+	Color contrast
+	WCAG AA (4.5:1 text, 3:1 large)
+	Check all text/background pairs
+	Focus visible
+	Always visible on focus
+	2px ring, offset, accent color
+	Keyboard navigation
+	All actions keyboard accessible
+	Tab order, shortcuts documented
+	Screen reader
+	ARIA labels and live regions
+	aria-label, aria-live, role
+	Reduced motion
+	Respect prefers-reduced-motion
+	Disable animations when set
+	Touch targets
+	Minimum 44x44px
+	Ensure all buttons meet
+	5.7 Performance Perception
+Scenario
+	Pattern
+	Page load
+	Skeleton screens for content areas
+	Agent thinking
+	Animated shimmer on message bubble
+	Streaming text
+	Character-by-character with cursor
+	Data fetch
+	Optimistic UI + background refresh
+	Long operation
+	Progress bar with time estimate
+	Error
+	Immediate inline feedback
+	Phase 6: Implementation Backlog
+P0: Release-Critical (Must Ship)
+#
+	Item
+	User Impact
+	Components/Files
+	Acceptance Criteria
+	P0-1
+	Org creation flow
+	Users can't properly onboard without explicit tenant setup
+	OnboardingFlow.tsx, auth/signup, api/organizations
+	New users complete org selection/creation before reaching main app; tenant ID persisted and displayed
+	P0-2
+	Persistent conversation panel
+	Users lose chat context when interacting with canvas
+	CaseWorkspace.tsx, ConversationPanel.tsx, SplitLayout.tsx
+	Chat history visible alongside canvas; scrollable; messages persist across session
+	P0-3
+	Error recovery inline
+	Users hit dead-ends on failures
+	ErrorRecovery.tsx, AgentMessage.tsx
+	All agent failures show 2-3 actionable alternatives; no generic "something went wrong"
+	P0-4
+	Plan card visibility
+	Users don't know what agent is doing
+	PlanCard.tsx, CaseWorkspace.tsx
+	Current step visible with ✓/●/○ states; estimated time shown
+	P0-5
+	Tenant badge in header
+	Admins can't verify which org they're managing
+	Header.tsx, TenantSwitcher.tsx
+	Org name visible in header; click reveals switcher; switching requires confirmation
+	P1: Consumer-Grade Upgrades
+#
+	Item
+	User Impact
+	Components/Files
+	Acceptance Criteria
+	P1-1
+	Mode selector (Builder/Presenter/Tracker)
+	Closers can't present safely; Growers can't track
+	ModeSelector.tsx, CanvasPanel.tsx
+	Three modes with distinct views; Presenter is read-only; Tracker shows actuals vs. plan
+	P1-2
+	Clarifying question UX
+	Users must craft prompts; no guided flow
+	ClarifyCard.tsx, ConversationPanel.tsx
+	Agent asks one question at a time; options shown as buttons; defaults highlighted
+	P1-3
+	Assumption sourcing
+	Users don't trust numbers
+	AssumptionRow.tsx, AssumptionsPanel.tsx
+	Each assumption shows source badge (Verified/Estimated/Manual); click reveals source detail
+	P1-4
+	Resume card on Home
+	Users can't easily continue work
+	ContinueCard.tsx, Home.tsx
+	Most recent incomplete case shown with context; clicking restores exact state
+	P1-5
+	Streaming thought process
+	Agent feels like black box
+	AgentMessage.tsx, thinking state
+	During execution, show "Reading annual report...", "Calculating ROI..." as streaming updates
+	P1-6
+	Usage alerts
+	Users surprised by overages
+	BillingSettings.tsx, notification system
+	Email alerts at 80% and 100% usage; visual warning in app at 80%
+	P2: Post-Launch Enhancements
+#
+	Item
+	User Impact
+	Components/Files
+	Acceptance Criteria
+	P2-1
+	Audit link on outputs
+	Trust requires effort to verify
+	AgentMessage.tsx, AuditDrawer.tsx
+	Every agent output has "View audit" link; opens drawer with action log
+	P2-2
+	Mobile-responsive layout
+	Mobile users can't use effectively
+	All layout components
+	Sidebar collapses to drawer; single-column below 768px; touch targets 44px+
+	P2-3
+	Keyboard shortcuts guide
+	Power users can't discover shortcuts
+	ShortcutsModal.tsx, CommandBar.tsx
+	? key shows shortcuts; all core actions have shortcuts; shortcuts shown in tooltips
+	P2-4
+	Version diff view
+	Artifact review requires side-by-side
+	ArtifactReview.tsx, DiffView.tsx
+	Compare any two versions; changes highlighted; inline toggle between unified/split
+	P2-5
+	Realization dashboard
+	Growers can't prove value
+	RealizationView.tsx, ActualsInput.tsx
+	Track actuals vs. committed; time-series visualization; QBR export
+	P2-6
+	Custom roles
+	Admins need granular permissions
+	TeamSettings.tsx, RoleEditor.tsx
+	Create custom roles with permission matrix; assign to members

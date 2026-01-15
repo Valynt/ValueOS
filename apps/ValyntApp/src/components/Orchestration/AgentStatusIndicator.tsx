@@ -1,0 +1,80 @@
+/**
+ * Orchestration Layer: AgentStatusIndicator
+ * Visual indicator of agent state with "breathing" animation
+ */
+
+import React from "react";
+import { Loader2, Sparkles, AlertCircle, CheckCircle } from "lucide-react";
+import type { AgentState } from "@/hooks/useAgentOrchestrator";
+
+interface AgentStatusIndicatorProps {
+  state: AgentState;
+  currentStep?: string;
+  className?: string;
+}
+
+export function AgentStatusIndicator({
+  state,
+  currentStep,
+  className = "",
+}: AgentStatusIndicatorProps) {
+  const getStateConfig = () => {
+    switch (state) {
+      case "IDLE":
+        return {
+          icon: <Sparkles className="h-4 w-4" />,
+          label: "Ready",
+          color: "text-muted-foreground",
+          bgColor: "bg-muted/50",
+          animate: false,
+        };
+      case "PLANNING":
+        return {
+          icon: <Loader2 className="h-4 w-4 animate-spin" />,
+          label: "Planning",
+          color: "text-primary",
+          bgColor: "bg-primary/10",
+          animate: true,
+        };
+      case "EXECUTING":
+        return {
+          icon: <Loader2 className="h-4 w-4 animate-spin" />,
+          label: currentStep || "Executing",
+          color: "text-primary",
+          bgColor: "bg-primary/10",
+          animate: true,
+        };
+      case "ERROR":
+        return {
+          icon: <AlertCircle className="h-4 w-4" />,
+          label: "Error",
+          color: "text-destructive",
+          bgColor: "bg-destructive/10",
+          animate: false,
+        };
+      default:
+        return {
+          icon: <CheckCircle className="h-4 w-4" />,
+          label: "Unknown",
+          color: "text-muted-foreground",
+          bgColor: "bg-muted/50",
+          animate: false,
+        };
+    }
+  };
+
+  const config = getStateConfig();
+
+  return (
+    <div
+      className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm ${config.bgColor} ${config.color} ${
+        config.animate ? "animate-pulse-glow" : ""
+      } ${className}`}
+    >
+      {config.icon}
+      <span className="font-medium">{config.label}</span>
+    </div>
+  );
+}
+
+export default AgentStatusIndicator;

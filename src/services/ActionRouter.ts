@@ -1,0 +1,1049 @@
+/**
+ * Action Router
+ * 
+ * Central router for all user interactions in the SDUI system.
+ * Enforces governance, validates actions, and routes to appropriate handlers.
+ */
+
+import { logger } from '../lib/logger';
+import {
+  ActionContext,
+  ActionHandler,
+  ActionResult,
+  CanonicalAction,
+  ManifestoCheckResult,
+  ManifestoViolation,
+  ValidationResult,
+} from '../types/sdui-integration';
+import { ExecutionRequest, normalizeExecutionRequest } from '../types/execution';
+import { AuditLogService } from './AuditLogService';
+import { getUnifiedOrchestrator, UnifiedAgentOrchestrator } from './UnifiedAgentOrchestrator';
+import { AgentAPI, getAgentAPI } from './AgentAPI';
+import { ComponentMutationService } from './ComponentMutationService';
+import { manifestoEnforcer } from './ManifestoEnforcer';
+import { atomicActionExecutor } from './AtomicActionExecutor';
+import { canvasSchemaService } from './CanvasSchemaService';
+import { EnforcementResult, enforceRules } from '../lib/rules';
+import { workspaceStateService } from './WorkspaceStateService';
+import { ValueTreeService, LifecycleContext } from './ValueTreeService';
+import { getSupabaseClient } from '../lib/supabase';
+import { SDUIPageDefinition } from '../sdui/schema';
+import { assumptionService } from './AssumptionService';
+import {
+  exportToPDF,
+  exportToPNG,
+  exportToExcel,
+  exportToCSV,
+  downloadBlob,
+  generateFilename
+} from '../utils/export';
+
+/**
+ * Action Router
+ */
+export class ActionRouter {
+  private handlers: Map<string, ActionHandler>;
+  private auditLogService: AuditLogService;
+  private orchestrator: UnifiedAgentOrchestrator;
+  private agentAPI: AgentAPI;
+  private valueTreeService: ValueTreeService | undefined;
+  
+  private componentMutationService: ComponentMutationService;
+
+  constructor(
+    auditLogService?: AuditLogService,
+    orchestrator?: UnifiedAgentOrchestrator,
+    agentAPI?: AgentAPI,
+    componentMutationService?: ComponentMutationService,
+    valueTreeService?: ValueTreeService
+  ) {
+    this.handlers = new Map();
+    this.auditLogService = auditLogService || new AuditLogService();
+    this.orchestrator = orchestrator || getUnifiedOrchestrator();
+    this.agentAPI = agentAPI || getAgentAPI();
+    this.componentMutationService = componentMutationService || new ComponentMutationService();
+
+    // Lazily initialize valueTreeService if not provided
+    // We try-catch because getSupabaseClient might fail in some environments (e.g. tests without config)
+    // but allowing injection in constructor helps with testing.
+    if (valueTreeService) {
+      this.valueTreeService = valueTreeService;
+    } else {
+      try {
+        this.valueTreeService = new ValueTreeService(getSupabaseClient());
+      } catch (e) {
+        logger.warn('Failed to initialize ValueTreeService in ActionRouter constructor', e);
+      }
+    }
+
+    // Register default handlers
+    this.registerDefaultHandlers();
+  }
+
+  /**
+   * Route an action to appropriate handler
+   */
+  async routeAction(
+    action: CanonicalAction,
+    context: ActionContext
+  ): Promise<ActionResult> {
+    const startTime = Date.now();
+
+    logger.info('Routing action', {
+      actionType: action.type,
+      workspaceId: context.workspaceId,
+      userId: context.userId,
+    });
+
+    try {
+      // Validate action structure
+      const validation = this.validateAction(action);
+      if (!validation.valid) {
+        logger.warn('Action validation failed', {
+          actionType: action.type,
+          errors: validation.errors,
+        });
+
+        return {
+          success: false,
+          error: `Validation failed: ${validation.errors.join(', ')}`,
+        };
+      }
+
+      // CRITICAL: Check Governance Rules (GR/LR) first - Policy-as-Code enforcement
+      const governanceCheck = await this.checkGovernanceRules(action, context);
+      if (!governanceCheck.allowed) {
+        logger.error('Governance rules violated - BLOCKING ACTION', {
+          actionType: action.type,
+          violations: governanceCheck.violations.map(v => `${v.ruleId}: ${v.message}`),
+        });
+
+        return {
+          success: false,
+          error: `Governance rules violated: ${governanceCheck.violations.map(v => v.message).join(', ')}`,
+          metadata: {
+            violations: governanceCheck.violations,
+            warnings: governanceCheck.warnings,
+          },
+        };
+      }
+
+      // Check Manifesto rules (business value principles)
+      const manifestoCheck = await this.checkManifestoRules(action, context);
+      if (!manifestoCheck.allowed) {
+        logger.warn('Manifesto rules violated', {
+          actionType: action.type,
+          violations: manifestoCheck.violations,
+        });
+
+        return {
+          success: false,
+          error: `Manifesto rules violated: ${manifestoCheck.violations.map(v => v.message).join(', ')}`,
+          metadata: {
+            violations: manifestoCheck.violations,
+            warnings: manifestoCheck.warnings,
+          },
+        };
+      }
+
+      // Get handler for action type
+      const handler = this.handlers.get(action.type);
+      if (!handler) {
+        logger.error('No handler registered for action type', {
+          actionType: action.type,
+        });
+
+        return {
+          success: false,
+          error: `No handler registered for action type: ${action.type}`,
+        };
+      }
+
+      // Execute handler
+      const result = await handler(action, context);
+
+      // Log action to audit trail
+      await this.logAction(action, context, result, Date.now() - startTime);
+
+      logger.info('Action routed successfully', {
+        actionType: action.type,
+        success: result.success,
+        duration: Date.now() - startTime,
+      });
+
+      return result;
+    } catch (error) {
+      logger.error('Action routing failed', {
+        actionType: action.type,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      // Log error to audit trail
+      await this.logAction(
+        action,
+        context,
+        {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        Date.now() - startTime
+      );
+
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
+   * Validate action before routing
+   */
+  validateAction(action: CanonicalAction): ValidationResult {
+    const errors: string[] = [];
+
+    // Validate action type
+    if (!action.type) {
+      errors.push('Action type is required');
+    }
+
+    // Validate action-specific fields
+    switch (action.type) {
+      case 'invokeAgent':
+        if (!action.agentId) errors.push('agentId is required');
+        if (!action.input) errors.push('input is required');
+        // execution can come from action or context
+        break;
+
+      case 'runWorkflowStep':
+        if (!action.workflowId) errors.push('workflowId is required');
+        if (!action.stepId) errors.push('stepId is required');
+        break;
+
+      case 'updateValueTree':
+        if (!action.treeId) errors.push('treeId is required');
+        if (!action.updates) errors.push('updates is required');
+        break;
+
+      case 'updateAssumption':
+        if (!action.assumptionId) errors.push('assumptionId is required');
+        if (!action.updates) errors.push('updates is required');
+        break;
+
+      case 'exportArtifact':
+        if (!action.artifactType) errors.push('artifactType is required');
+        if (!action.format) errors.push('format is required');
+        break;
+
+      case 'openAuditTrail':
+        if (!action.entityId) errors.push('entityId is required');
+        if (!action.entityType) errors.push('entityType is required');
+        break;
+
+      case 'showExplanation':
+        if (!action.componentId) errors.push('componentId is required');
+        if (!action.topic) errors.push('topic is required');
+        break;
+
+      case 'navigateToStage':
+        if (!action.stage) errors.push('stage is required');
+        break;
+
+      case 'saveWorkspace':
+        if (!action.workspaceId) errors.push('workspaceId is required');
+        break;
+
+      case 'mutateComponent':
+        if (!action.action) errors.push('action is required');
+        break;
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+    };
+  }
+
+  /**
+   * Check Manifesto rules for action
+   */
+  async checkManifestoRules(
+    action: CanonicalAction,
+    context: ActionContext
+  ): Promise<ManifestoCheckResult> {
+    try {
+      // Use ManifestoEnforcer for comprehensive rule checking
+      const result = await manifestoEnforcer.checkAction(action, context);
+
+      // Log violations and warnings
+      if (result.violations.length > 0) {
+        logger.warn('Manifesto rule violations detected', {
+          actionType: action.type,
+          violations: result.violations.map((v) => v.rule),
+        });
+      }
+
+      if (result.warnings.length > 0) {
+        logger.info('Manifesto rule warnings', {
+          actionType: action.type,
+          warnings: result.warnings.map((w) => w.rule),
+        });
+      }
+
+      return result;
+    } catch (error) {
+      logger.error('Failed to check Manifesto rules', {
+        actionType: action.type,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      // On error, allow action but log warning
+      return {
+        allowed: true,
+        violations: [],
+        warnings: [{
+          rule: 'SYSTEM',
+          message: 'Manifesto rules check failed',
+          suggestion: 'Manual review recommended',
+        }],
+      };
+    }
+  }
+
+  /**
+   * Check Governance Rules (GR/LR) - Policy-as-Code enforcement
+   * CRITICAL: This must run before any action execution
+   */
+  async checkGovernanceRules(
+    action: CanonicalAction,
+    context: ActionContext
+  ): Promise<EnforcementResult> {
+    try {
+      // Build governance rule context from action
+      const governanceResult = await enforceRules({
+        agentId: `action-router-${action.type}`,
+        agentType: this.mapActionToAgentType(action.type),
+        userId: context.userId,
+        tenantId: context.workspaceId, // Use workspaceId as tenantId
+        sessionId: context.sessionId || `session-${Date.now()}`,
+        action: action.type,
+        payload: action,
+        environment: process.env.NODE_ENV as 'development' | 'staging' | 'production' || 'development',
+      });
+
+      // Log governance enforcement result
+      if (!governanceResult.allowed) {
+        logger.error('GOVERNANCE VIOLATION - ACTION BLOCKED', {
+          actionType: action.type,
+          userId: context.userId,
+          tenantId: context.workspaceId,
+          violations: governanceResult.violations.map(v => `${v.ruleId}: ${v.message}`),
+          globalRulesChecked: governanceResult.metadata.globalRulesChecked,
+          localRulesChecked: governanceResult.metadata.localRulesChecked,
+        });
+      } else {
+        logger.debug('Governance rules passed', {
+          actionType: action.type,
+          globalRulesChecked: governanceResult.metadata.globalRulesChecked,
+          localRulesChecked: governanceResult.metadata.localRulesChecked,
+          warnings: governanceResult.warnings.length,
+        });
+      }
+
+      return governanceResult;
+    } catch (error) {
+      logger.error('CRITICAL: Governance rules check failed - FAILING SAFE', {
+        actionType: action.type,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      // CRITICAL: On governance failure, BLOCK action (fail-closed)
+      return {
+        allowed: false,
+        globalResults: [],
+        localResults: [],
+        violations: [{
+          ruleId: 'SYSTEM',
+          ruleName: 'Governance System Error',
+          category: 'systemic_safety',
+          severity: 'critical',
+          message: 'Governance rules enforcement failed - action blocked for safety',
+          details: { error: error instanceof Error ? error.message : String(error) },
+        }],
+        warnings: [],
+        fallbackActions: [],
+        userMessages: ['System safety check failed. Action cannot proceed.'],
+        executionTimeMs: 0,
+        metadata: {
+          globalRulesChecked: 0,
+          localRulesChecked: 0,
+          timestamp: Date.now(),
+          requestId: `error-${Date.now()}`,
+        },
+      };
+    }
+  }
+
+  /**
+   * Map action type to agent type for governance rules
+   */
+  private mapActionToAgentType(actionType: string): 'coordinator' | 'system_mapper' | 'intervention_designer' | 'outcome_engineer' | 'realization_loop' | 'value_eval' | 'communicator' {
+    // Map action types to agent types for governance rules
+    const actionToAgentMap: Record<string, 'coordinator' | 'system_mapper' | 'intervention_designer' | 'outcome_engineer' | 'realization_loop' | 'value_eval' | 'communicator'> = {
+      'invokeAgent': 'coordinator',
+      'updateValueTree': 'outcome_engineer',
+      'exportArtifact': 'communicator',
+      'navigateToStage': 'coordinator',
+      'createSystemMap': 'system_mapper',
+      'designIntervention': 'intervention_designer',
+      'trackMetrics': 'realization_loop',
+      'evaluateValue': 'value_eval',
+      'sendMessage': 'communicator',
+    };
+
+    return actionToAgentMap[actionType] || 'coordinator'; // Default to coordinator
+  }
+
+  /**
+   * Validate value tree structure
+   */
+  private validateValueTreeStructure(updates: any): boolean {
+    // Check if updates maintain standard structure
+    if (!updates) return true;
+    
+    // If updating structure, ensure it has required fields
+    if (updates.structure) {
+      return (
+        updates.structure.capabilities !== undefined &&
+        updates.structure.outcomes !== undefined &&
+        updates.structure.kpis !== undefined
+      );
+    }
+
+    return true;
+  }
+
+  /**
+   * Validate assumption evidence
+   */
+  private validateAssumptionEvidence(updates: any): boolean {
+    // Check if assumption has evidence source
+    if (!updates) return true;
+
+    if (updates.source) {
+      return updates.source !== 'estimate' && updates.source.length > 0;
+    }
+
+    return true;
+  }
+
+  /**
+   * Register action handler
+   */
+  registerHandler(actionType: string, handler: ActionHandler): void {
+    this.handlers.set(actionType, handler);
+    logger.debug('Registered action handler', { actionType });
+  }
+
+  /**
+   * Register default handlers for all action types
+   */
+  private registerDefaultHandlers(): void {
+    // invokeAgent handler
+    this.registerHandler('invokeAgent', async (action, context) => {
+      if (action.type !== 'invokeAgent') {
+        return { success: false, error: 'Invalid action type' };
+      }
+
+      try {
+        const execution = normalizeExecutionRequest('action-router', action.execution || context.execution);
+        const agentContext = {
+          ...execution.parameters,
+          ...action.payload,
+          intent: execution.intent,
+          environment: execution.environment,
+          workspaceId: context.workspaceId,
+          userId: context.userId,
+          sessionId: context.sessionId,
+          timestamp: context.timestamp,
+          metadata: {
+            ...execution.metadata,
+            ...context.metadata,
+          },
+        };
+
+        // Route to agent API
+        const result = await this.agentAPI.invokeAgent({
+          agent: action.agentId,
+          query: action.input,
+          context: agentContext,
+        });
+
+        return {
+          success: true,
+          data: result,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    });
+
+    // runWorkflowStep handler
+    this.registerHandler('runWorkflowStep', async (action, context) => {
+      if (action.type !== 'runWorkflowStep') {
+        return { success: false, error: 'Invalid action type' };
+      }
+
+      try {
+        // Route to workflow orchestrator
+        const envelope = {
+          intent: 'run-workflow-step',
+          actor: { id: context.userId },
+          organizationId: context.organizationId || 'unknown',
+          entryPoint: 'action-router',
+          reason: action.reason || 'workflow-step',
+          timestamps: { requestedAt: new Date().toISOString() },
+        } as const;
+        const result = await this.orchestrator.executeWorkflow(
+          envelope,
+          action.workflowId,
+          { ...action.input, ...context },
+          context.userId
+        );
+
+        return {
+          success: true,
+          data: result,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    });
+
+    // updateValueTree handler
+    this.registerHandler('updateValueTree', async (action, context) => {
+      if (action.type !== 'updateValueTree') {
+        return { success: false, error: 'Invalid action type' };
+      }
+
+      if (!this.valueTreeService) {
+        // Try to init if missing (e.g. if env vars were missing at startup but now available)
+        try {
+          this.valueTreeService = new ValueTreeService(getSupabaseClient());
+        } catch (e) {
+          logger.error('ValueTreeService not available', e);
+          return { success: false, error: 'ValueTreeService not available' };
+        }
+      }
+
+      // Validate structure
+      if (!this.validateValueTreeStructure(action.updates)) {
+        return { success: false, error: 'Invalid value tree structure updates' };
+      }
+
+      try {
+        const lifecycleContext: LifecycleContext = {
+          userId: context.userId,
+          organizationId: context.organizationId,
+          sessionId: context.sessionId
+        };
+
+        const result = await this.valueTreeService.updateValueTree(
+          action.treeId,
+          action.updates,
+          lifecycleContext
+        );
+
+        return {
+          success: true,
+          data: {
+            treeId: result.id,
+            updated: true,
+            version: result.version
+          },
+        };
+      } catch (error) {
+        logger.error('Failed to update value tree', {
+          treeId: action.treeId,
+          error: error instanceof Error ? error.message : String(error)
+        });
+
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error)
+        };
+      }
+    });
+
+    // updateAssumption handler
+    this.registerHandler('updateAssumption', async (action, context) => {
+      if (action.type !== 'updateAssumption') {
+        return { success: false, error: 'Invalid action type' };
+      }
+
+      try {
+        const result = await assumptionService.updateAssumption(
+          action.assumptionId,
+          action.updates
+        );
+
+        return {
+          success: true,
+          data: result,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    });
+
+    // exportArtifact handler
+    this.registerHandler('exportArtifact', async (action, context) => {
+      if (action.type !== 'exportArtifact') {
+        return { success: false, error: 'Invalid action type' };
+      }
+
+      // Check if running in browser environment
+      if (typeof window === 'undefined' || typeof document === 'undefined') {
+        return {
+          success: false,
+          error: 'Export is only supported in browser environment',
+        };
+      }
+
+      try {
+        const { artifactType, format } = action;
+        const filename = generateFilename(artifactType, format);
+        let blob: Blob;
+
+        if (format === 'pdf') {
+          // Assume artifactType is the element ID for visual exports
+          blob = await exportToPDF(artifactType, { format: 'pdf', filename });
+        } else if (format === 'png') {
+          blob = await exportToPNG(artifactType, { format: 'png', filename });
+        } else if (format === 'excel' || format === 'csv') {
+          // For data exports, fetch data from workspace state
+          const state = await workspaceStateService.getState(context.workspaceId);
+          let dataToExport: any[] = [];
+
+          // Strategy:
+          // 1. Check if state.data[artifactType] exists and is an array -> use it
+          // 2. If it is an object -> wrap in array
+          // 3. If generic export -> export whole state.data
+
+          if (state.data && state.data[artifactType]) {
+            const targetData = state.data[artifactType];
+            if (Array.isArray(targetData)) {
+              dataToExport = targetData;
+            } else {
+              dataToExport = [targetData];
+            }
+          } else {
+            // Fallback: if artifactType doesn't match a specific key,
+            // check if there is any data to export at all
+            if (state.data && Object.keys(state.data).length > 0) {
+              // Default to wrapping state.data in array
+              dataToExport = [state.data];
+            } else {
+              return { success: false, error: `No data found for artifact type: ${artifactType}` };
+            }
+          }
+
+          if (format === 'csv') {
+            blob = await exportToCSV(dataToExport, { format: 'excel' }); // format here is ExportOptions, conceptually 'data'
+          } else {
+            blob = await exportToExcel(dataToExport, { format: 'excel', sheetName: artifactType });
+          }
+        } else {
+          return { success: false, error: `Unsupported format: ${format}` };
+        }
+
+        // Trigger download
+        downloadBlob(blob, filename);
+
+        return {
+          success: true,
+          data: { artifactType, format, exported: true, filename },
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    });
+
+    // openAuditTrail handler
+    this.registerHandler('openAuditTrail', async (action, context) => {
+      if (action.type !== 'openAuditTrail') {
+        return { success: false, error: 'Invalid action type' };
+      }
+
+      try {
+        const logs = await this.auditLogService.query({
+          resourceId: action.entityId,
+          resourceType: action.entityType,
+          limit: 100, // Default limit
+        });
+
+        return {
+          success: true,
+          data: {
+            entityId: action.entityId,
+            entityType: action.entityType,
+            logs,
+          },
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    });
+
+    // showExplanation handler
+    this.registerHandler('showExplanation', async (action, context) => {
+      if (action.type !== 'showExplanation') {
+        return { success: false, error: 'Invalid action type' };
+      }
+
+      try {
+        // Get current schema
+        const currentSchema = canvasSchemaService.getCachedSchema(context.workspaceId);
+
+        if (!currentSchema) {
+          return {
+            success: false,
+            error: 'No schema available for workspace to explain component',
+          };
+        }
+
+        const found = this.findComponentById(currentSchema, action.componentId);
+        if (!found) {
+             return {
+                success: false,
+                error: `Component not found with ID: ${action.componentId}`,
+             };
+        }
+
+        const { component } = found;
+
+        // Construct context for agent
+        const explanationContext = {
+            ...context,
+            componentName: component.component,
+            componentProps: component.props,
+            topic: action.topic
+        };
+
+        // Use invokeAgent with 'narrative' agent
+        const agentResponse = await this.agentAPI.invokeAgent({
+            agent: 'narrative',
+            query: `Explain the "${action.topic}" for the component "${component.component}".
+The component has the following configuration: ${JSON.stringify(component.props, null, 2)}.
+Please provide a clear, concise explanation suitable for a user.`,
+            context: explanationContext
+        });
+
+        if (!agentResponse.success) {
+            return {
+                success: false,
+                error: agentResponse.error || 'Failed to generate explanation',
+            };
+        }
+
+        return {
+            success: true,
+            data: {
+                componentId: action.componentId,
+                topic: action.topic,
+                explanation: agentResponse.data
+            },
+        };
+
+      } catch (error) {
+         return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    });
+
+    // navigateToStage handler
+    this.registerHandler('navigateToStage', async (action, context) => {
+      if (action.type !== 'navigateToStage') {
+        return { success: false, error: 'Invalid action type' };
+      }
+
+      // Navigation is handled by schema regeneration
+      return {
+        success: true,
+        data: { stage: action.stage },
+      };
+    });
+
+    // saveWorkspace handler
+    this.registerHandler('saveWorkspace', async (action, context) => {
+      if (action.type !== 'saveWorkspace') {
+        return { success: false, error: 'Invalid action type' };
+      }
+
+      try {
+        await workspaceStateService.persistState(action.workspaceId);
+
+        return {
+          success: true,
+          data: { workspaceId: action.workspaceId, saved: true },
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    });
+
+    // mutateComponent handler
+    this.registerHandler('mutateComponent', async (action, context) => {
+      if (action.type !== 'mutateComponent') {
+        return { success: false, error: 'Invalid action type' };
+      }
+
+      try {
+        // Get current schema
+        const currentSchema = canvasSchemaService.getCachedSchema(context.workspaceId);
+        
+        if (!currentSchema) {
+          return {
+            success: false,
+            error: 'No schema available for workspace',
+          };
+        }
+
+        // Execute atomic action
+        const executionResult = await atomicActionExecutor.executeAction(
+          action.action,
+          currentSchema,
+          context.workspaceId
+        );
+
+        // If successful, update cached schema
+        if (executionResult.success) {
+          // Cache the updated schema
+          // Note: In production, this would trigger a proper schema update
+          logger.info('Atomic action executed successfully', {
+            executionId: executionResult.executionId,
+            affectedComponents: executionResult.actionResult.affected_components.length,
+          });
+        }
+
+        return {
+          success: executionResult.success,
+          data: {
+            executionId: executionResult.executionId,
+            ...executionResult.actionResult,
+          },
+          atomicActions: executionResult.success ? [action.action] : undefined,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    });
+
+    // requestOverride handler
+    this.registerHandler('requestOverride', async (action: any, context) => {
+      try {
+        const { actionId, violations, justification } = action;
+
+        const requestId = await manifestoEnforcer.requestOverride(
+          actionId,
+          context.userId,
+          violations,
+          justification
+        );
+
+        return {
+          success: true,
+          data: { requestId },
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    });
+
+    // approveOverride handler
+    this.registerHandler('approveOverride', async (action: any, context) => {
+      try {
+        const { requestId, reason } = action;
+
+        await manifestoEnforcer.decideOverride(
+          requestId,
+          true,
+          context.userId,
+          reason
+        );
+
+        return {
+          success: true,
+          data: { requestId, approved: true },
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    });
+
+    // rejectOverride handler
+    this.registerHandler('rejectOverride', async (action: any, context) => {
+      try {
+        const { requestId, reason } = action;
+
+        await manifestoEnforcer.decideOverride(
+          requestId,
+          false,
+          context.userId,
+          reason
+        );
+
+        return {
+          success: true,
+          data: { requestId, approved: false },
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    });
+
+    logger.info('Registered default action handlers', {
+      handlerCount: this.handlers.size,
+    });
+  }
+
+  /**
+   * Helper to find a component by ID in the schema
+   */
+  private findComponentById(
+    schema: SDUIPageDefinition,
+    componentId: string
+  ): { component: any; path: string } | null {
+    // 1. Search top-level sections
+    for (let i = 0; i < schema.sections.length; i++) {
+      const section = schema.sections[i];
+      // Check explicit ID in props
+      if (section.props?.id === componentId) {
+        return { component: section, path: `sections[${i}]` };
+      }
+
+      // Check implicit ID (ComponentMutationService style)
+      // ComponentMutationService uses `${section.component}_${index}`
+      // We should check if componentId matches this pattern
+      const implicitId = `${section.component}_${i}`;
+      if (implicitId === componentId) {
+        return { component: section, path: `sections[${i}]` };
+      }
+
+      // Check for 'id' property if it exists at top level (unlikely for SDUISection but possible in some schemas)
+      if ((section as any).id === componentId) {
+        return { component: section, path: `sections[${i}]` };
+      }
+
+      // Recursive search in props
+      const found = this.findComponentInProps(section.props, componentId, `sections[${i}]`);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  private findComponentInProps(
+    props: any,
+    componentId: string,
+    currentPath: string
+  ): { component: any; path: string } | null {
+    if (!props || typeof props !== 'object') return null;
+
+    if (Array.isArray(props)) {
+      for (let i = 0; i < props.length; i++) {
+        const result = this.findComponentInProps(props[i], componentId, `${currentPath}[${i}]`);
+        if (result) return result;
+      }
+      return null;
+    }
+
+    // Check if current object is a component (heuristic)
+    // It's a component if it has 'component' field and we are traversing objects that could be components
+    if (props.component && typeof props.component === 'string') {
+        if (props.props?.id === componentId) {
+             return { component: props, path: currentPath };
+        }
+        // Also check if the object itself has an id
+        if (props.id === componentId) {
+             return { component: props, path: currentPath };
+        }
+    }
+
+    // Recurse into keys
+    for (const key of Object.keys(props)) {
+      // If the value is an object or array, recurse
+      const value = props[key];
+      if (typeof value === 'object' && value !== null) {
+          const result = this.findComponentInProps(value, componentId, `${currentPath}.${key}`);
+          if (result) return result;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Log action to audit trail
+   */
+  private async logAction(
+    action: CanonicalAction,
+    context: ActionContext,
+    result: ActionResult,
+    duration: number
+  ): Promise<void> {
+    try {
+      await this.auditLogService.logAction({
+        action_type: action.type,
+        workspace_id: context.workspaceId,
+        user_id: context.userId,
+        session_id: context.sessionId,
+        action_data: action,
+        result_data: result,
+        success: result.success,
+        error_message: result.error,
+        duration_ms: duration,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      logger.error('Failed to log action to audit trail', {
+        actionType: action.type,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+}
+
+// Singleton instance
+export const actionRouter = new ActionRouter();

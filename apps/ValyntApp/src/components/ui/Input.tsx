@@ -1,0 +1,220 @@
+/**
+ * Input Component
+ * 
+ * Base input with variants for text, search, and textarea.
+ * Follows ValueOS design system.
+ */
+
+import * as React from "react";
+import { cva, type VariantProps } from "class-variance-authority";
+import { Search, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const inputVariants = cva(
+  // Base styles
+  "flex w-full rounded-md border border-input bg-background text-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+  {
+    variants: {
+      variant: {
+        default: "",
+        ghost: "border-transparent hover:border-input focus-visible:border-input",
+      },
+      inputSize: {
+        sm: "h-8 px-3 text-xs",
+        md: "h-9 px-3",
+        lg: "h-10 px-4 text-base",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      inputSize: "md",
+    },
+  }
+);
+
+export interface InputProps
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size">,
+    VariantProps<typeof inputVariants> {
+  error?: boolean;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
+}
+
+const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, variant, inputSize, type, error, leftIcon, rightIcon, ...props }, ref) => {
+    const hasIcon = leftIcon || rightIcon;
+
+    if (hasIcon) {
+      return (
+        <div className="relative">
+          {leftIcon && (
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+              {leftIcon}
+            </div>
+          )}
+          <input
+            type={type}
+            className={cn(
+              inputVariants({ variant, inputSize }),
+              leftIcon && "pl-9",
+              rightIcon && "pr-9",
+              error && "border-destructive focus-visible:ring-destructive",
+              className
+            )}
+            ref={ref}
+            {...props}
+          />
+          {rightIcon && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+              {rightIcon}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <input
+        type={type}
+        className={cn(
+          inputVariants({ variant, inputSize }),
+          error && "border-destructive focus-visible:ring-destructive",
+          className
+        )}
+        ref={ref}
+        {...props}
+      />
+    );
+  }
+);
+Input.displayName = "Input";
+
+/**
+ * SearchInput - Input with search icon and optional clear button
+ */
+export interface SearchInputProps extends Omit<InputProps, "leftIcon" | "rightIcon"> {
+  onClear?: () => void;
+}
+
+const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
+  ({ className, value, onClear, ...props }, ref) => {
+    const showClear = value && String(value).length > 0 && onClear;
+
+    return (
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type="search"
+          className={cn(
+            inputVariants({ inputSize: "md" }),
+            "pl-9",
+            showClear && "pr-9",
+            className
+          )}
+          ref={ref}
+          value={value}
+          {...props}
+        />
+        {showClear && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+    );
+  }
+);
+SearchInput.displayName = "SearchInput";
+
+/**
+ * Textarea - Multi-line text input
+ */
+export interface TextareaProps
+  extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+  error?: boolean;
+}
+
+const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
+  ({ className, error, ...props }, ref) => {
+    return (
+      <textarea
+        className={cn(
+          "flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+          error && "border-destructive focus-visible:ring-destructive",
+          className
+        )}
+        ref={ref}
+        {...props}
+      />
+    );
+  }
+);
+Textarea.displayName = "Textarea";
+
+/**
+ * Label - Form label component
+ */
+export interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {
+  required?: boolean;
+}
+
+const Label = React.forwardRef<HTMLLabelElement, LabelProps>(
+  ({ className, children, required, ...props }, ref) => {
+    return (
+      <label
+        ref={ref}
+        className={cn(
+          "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
+          className
+        )}
+        {...props}
+      >
+        {children}
+        {required && <span className="ml-1 text-destructive">*</span>}
+      </label>
+    );
+  }
+);
+Label.displayName = "Label";
+
+/**
+ * FormField - Wrapper for form fields with label and error message
+ */
+export interface FormFieldProps {
+  label?: string;
+  required?: boolean;
+  error?: string;
+  hint?: string;
+  children: React.ReactNode;
+  className?: string;
+}
+
+const FormField = ({
+  label,
+  required,
+  error,
+  hint,
+  children,
+  className,
+}: FormFieldProps) => {
+  return (
+    <div className={cn("space-y-2", className)}>
+      {label && (
+        <Label required={required}>{label}</Label>
+      )}
+      {children}
+      {hint && !error && (
+        <p className="text-xs text-muted-foreground">{hint}</p>
+      )}
+      {error && (
+        <p className="text-xs text-destructive">{error}</p>
+      )}
+    </div>
+  );
+};
+
+export { Input, inputVariants, SearchInput, Textarea, Label, FormField };

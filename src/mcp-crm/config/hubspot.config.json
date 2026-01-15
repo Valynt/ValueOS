@@ -1,0 +1,73 @@
+{
+  "$schema": "./crm-config.schema.json",
+  "version": "1.0.0",
+  "provider": "hubspot",
+  
+  "mappings": {
+    "revenue": { 
+      "sourceField": "amount", 
+      "required": true,
+      "transform": "currency"
+    },
+    "closeDate": { 
+      "sourceField": "closedate", 
+      "required": true,
+      "transform": "date"
+    },
+    "stage": { 
+      "sourceField": "dealstage",
+      "required": true,
+      "enumMap": {
+        "appointmentscheduled": "discovery",
+        "qualifiedtobuy": "qualified",
+        "presentationscheduled": "proposal",
+        "decisionmakerboughtin": "negotiation",
+        "contractsent": "negotiation",
+        "closedwon": "closed_won",
+        "closedlost": "closed_lost"
+      }
+    },
+    "probability": {
+      "sourceField": "hs_deal_stage_probability",
+      "transform": "percentage"
+    },
+    "companyName": {
+      "sourceField": "associations.company.name"
+    },
+    "industry": {
+      "sourceField": "associations.company.industry"
+    },
+    "employees": {
+      "sourceField": "associations.company.numberofemployees",
+      "transform": "number"
+    }
+  },
+  
+  "writeBack": {
+    "enabled": true,
+    "roiField": "calculated_roi",
+    "npvField": "net_present_value",
+    "paybackField": "payback_period_months",
+    "totalValueField": "total_projected_value",
+    "confidenceField": "value_confidence",
+    "lastSyncField": "valuecanvas_last_sync"
+  },
+  
+  "contextInjection": {
+    "autoPopulateDashboards": true,
+    "refreshIntervalSeconds": 300,
+    "templateBindings": {
+      "dealValue": "financial.dealValue",
+      "expectedRevenue": "financial.expectedValue",
+      "daysToClose": "stage.daysToClose",
+      "companyName": "company.name",
+      "currentStage": "stage.normalized"
+    }
+  },
+  
+  "security": {
+    "piiRedaction": true,
+    "fieldLevelSecurityCheck": true,
+    "dryRunDefault": false
+  }
+}

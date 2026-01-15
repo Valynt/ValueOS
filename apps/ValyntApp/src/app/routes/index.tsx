@@ -6,6 +6,7 @@ import { ProtectedRoute } from "./route-guards";
 
 const LandingPage = lazy(() => import("@pages/marketing/LandingPage"));
 const DashboardPage = lazy(() => import("@pages/app/DashboardPage"));
+const ChatCanvasLayout = lazy(() => import("@components/ChatCanvas/ChatCanvasLayout"));
 const NotFoundPage = lazy(() => import("@pages/errors/NotFoundPage"));
 const LoginPage = lazy(() => import("@pages/auth/LoginPage"));
 const SignupPage = lazy(() => import("@pages/auth/SignupPage"));
@@ -54,11 +55,16 @@ export function AppRoutes() {
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
 
+          {/* Workspace - ChatCanvas UI (unprotected for dev) */}
+          <Route path="/workspace" element={<ChatCanvasLayout />} />
+
           {/* App routes (protected) */}
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
             </Route>
+
+
 
             {/* Academy routes */}
             <Route path="/academy" element={<AcademyHome />} />
