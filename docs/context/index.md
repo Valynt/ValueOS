@@ -1,7 +1,7 @@
 # ValueOS Codebase Context
 
 **Version:** 0.1.0
-**Last Updated:** 2026-01-08
+**Last Updated:** 2026-01-15
 **Architecture:** Multi-Agent Sales Enablement Platform
 
 ---
@@ -200,44 +200,44 @@ ValueOS/
 
 ### 1. OpportunityAgent (Authority: 3)
 
-**Purpose:** Discover customer pain points and business objectives  
-**Lifecycle Stage:** Discovery  
+**Purpose:** Discover customer pain points and business objectives
+**Lifecycle Stage:** Discovery
 **Outputs:** Pain points, objectives, persona fit score
 
 ### 2. TargetAgent (Authority: 3)
 
-**Purpose:** Build value models and ROI calculations  
-**Lifecycle Stage:** Modeling  
+**Purpose:** Build value models and ROI calculations
+**Lifecycle Stage:** Modeling
 **Outputs:** Value tree, financial metrics, scenarios
 
 ### 3. FinancialModelingAgent (Authority: 4)
 
-**Purpose:** Calculate NPV, IRR, payback period  
-**Lifecycle Stage:** Modeling  
+**Purpose:** Calculate NPV, IRR, payback period
+**Lifecycle Stage:** Modeling
 **Outputs:** ROI, NPV, IRR, sensitivity analysis
 
 ### 4. RealizationAgent (Authority: 3)
 
-**Purpose:** Track value delivery post-sale  
-**Lifecycle Stage:** Realization  
+**Purpose:** Track value delivery post-sale
+**Lifecycle Stage:** Realization
 **Outputs:** Actual vs. predicted, variance analysis
 
 ### 5. ExpansionAgent (Authority: 3)
 
-**Purpose:** Identify upsell opportunities  
-**Lifecycle Stage:** Expansion  
+**Purpose:** Identify upsell opportunities
+**Lifecycle Stage:** Expansion
 **Outputs:** Expansion opportunities, incremental value
 
 ### 6. BenchmarkAgent (Authority: 3)
 
-**Purpose:** Provide industry benchmarks  
-**Used In:** All stages  
+**Purpose:** Provide industry benchmarks
+**Used In:** All stages
 **Outputs:** Percentile positioning, gap analysis
 
 ### 7. CommunicatorAgent (Authority: 2)
 
-**Purpose:** Generate buyer-facing narratives  
-**Used In:** All stages  
+**Purpose:** Generate buyer-facing narratives
+**Used In:** All stages
 **Outputs:** Executive summaries, white papers
 
 ---
@@ -246,30 +246,30 @@ ValueOS/
 
 ### 1. Discovery (Opportunity)
 
-**Goal:** Identify pain points and opportunities  
-**Agent:** OpportunityAgent  
-**User Action:** Select buyer persona, provide discovery data  
+**Goal:** Identify pain points and opportunities
+**Agent:** OpportunityAgent
+**User Action:** Select buyer persona, provide discovery data
 **Output:** Quantified pain points, business objectives
 
 ### 2. Modeling (Target)
 
-**Goal:** Build ROI model and business case  
-**Agents:** TargetAgent, FinancialModelingAgent, BenchmarkAgent  
-**User Action:** Review and adjust assumptions  
+**Goal:** Build ROI model and business case
+**Agents:** TargetAgent, FinancialModelingAgent, BenchmarkAgent
+**User Action:** Review and adjust assumptions
 **Output:** Complete business case with benchmarks
 
 ### 3. Realization
 
-**Goal:** Track value delivery post-sale  
-**Agent:** RealizationAgent  
-**User Action:** Input actual metrics  
+**Goal:** Track value delivery post-sale
+**Agent:** RealizationAgent
+**User Action:** Input actual metrics
 **Output:** Actual vs. predicted analysis
 
 ### 4. Expansion
 
-**Goal:** Identify upsell opportunities  
-**Agent:** ExpansionAgent  
-**User Action:** Review opportunities  
+**Goal:** Identify upsell opportunities
+**Agent:** ExpansionAgent
+**User Action:** Review opportunities
 **Output:** Expansion proposals
 
 ---
@@ -278,32 +278,32 @@ ValueOS/
 
 ### CFO
 
-**Focus:** ROI, NPV, Cash Flow, Risk  
-**Template:** TrinityDashboard  
+**Focus:** ROI, NPV, Cash Flow, Risk
+**Template:** TrinityDashboard
 **Language:** Financial metrics, conservative estimates
 
 ### VP Sales
 
-**Focus:** Revenue Growth, Win Rates, Pipeline  
-**Template:** ScenarioMatrix  
+**Focus:** Revenue Growth, Win Rates, Pipeline
+**Template:** ScenarioMatrix
 **Language:** Sales impact, competitive positioning
 
 ### VP Product
 
-**Focus:** Feature Impact, User Adoption  
-**Template:** ImpactCascadeTemplate  
+**Focus:** Feature Impact, User Adoption
+**Template:** ImpactCascadeTemplate
 **Language:** Product outcomes, customer value
 
 ### CTO
 
-**Focus:** Technical Efficiency, Integration  
-**Template:** TechnicalDeepDive  
+**Focus:** Technical Efficiency, Integration
+**Template:** TechnicalDeepDive
 **Language:** Technical feasibility, architecture
 
 ### COO
 
-**Focus:** Operational Efficiency, Cost Reduction  
-**Template:** OperationalImpact  
+**Focus:** Operational Efficiency, Cost Reduction
+**Template:** OperationalImpact
 **Language:** Process improvement, efficiency gains
 
 ---
@@ -601,6 +601,7 @@ docker-compose -f docker-compose.observability.yml up -d
 ### Database Schema Enhancements ✅
 
 **New Migrations (2026-01-08):**
+
 - **Tenant Isolation** - Added tenant_id to value_cases table
 - **Foreign Key Constraints** - Improved referential integrity for workflow_executions
 - **Vector Support** - Converted agent_memory embedding to vector type (pgvector)
@@ -716,7 +717,7 @@ npm run build       # Build for production
 
 ## Context Modules
 
-This `.context/` directory contains:
+This `docs/context/` directory contains:
 
 - **`index.md`** - This overview (you are here)
 - **`agents.md`** - Agent system architecture, types, and usage patterns
@@ -730,6 +731,6 @@ This `.context/` directory contains:
 
 ---
 
-**Last Updated:** 2026-01-08  
-**Maintainer:** AI Implementation Team  
+**Last Updated:** 2026-01-15
+**Maintainer:** AI Implementation Team
 **Status:** Production Ready

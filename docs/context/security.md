@@ -1,6 +1,8 @@
 # Security Context
 
-**Last Updated:** 2026-01-08
+**Last Updated:** 2026-01-15
+**Maintainer:** AI Implementation Team
+**Status:** Production Ready
 
 ---
 
@@ -14,10 +16,11 @@ ValueOS implements comprehensive security measures across authentication, author
 
 ### Supabase Auth Integration
 
-**Provider:** Supabase Auth (GoTrue)  
+**Provider:** Supabase Auth (GoTrue)
 **Location:** `src/lib/supabase.ts`, `src/services/AuthService.ts`
 
 **Features:**
+
 - Email/password authentication
 - OAuth providers (Google, Apple, GitHub)
 - Multi-factor authentication (MFA/TOTP)
@@ -37,18 +40,19 @@ PKCE prevents authorization code interception attacks:
 ```typescript
 // Handled automatically by Supabase SDK
 await supabase.auth.signInWithOAuth({
-  provider: 'google',
+  provider: "google",
   options: {
     redirectTo: `${window.location.origin}/auth/callback`,
     queryParams: {
-      access_type: 'offline',  // Request refresh token
-      prompt: 'consent',        // Force consent screen
+      access_type: "offline", // Request refresh token
+      prompt: "consent", // Force consent screen
     },
   },
 });
 ```
 
 **Flow:**
+
 1. Client generates `code_verifier` (random string)
 2. Client creates `code_challenge` (SHA-256 hash of verifier)
 3. Client sends `code_challenge` to authorization server
@@ -75,6 +79,7 @@ Prevents CSRF attacks during OAuth flow:
 **Configuration:** Supabase Dashboard → Authentication → URL Configuration
 
 **Allowed URLs:**
+
 - Development: `http://localhost:5173/auth/callback`
 - Production: `https://[domain]/auth/callback`
 
@@ -86,8 +91,8 @@ Prevents CSRF attacks during OAuth flow:
 
 **File:** `src/services/MFAService.ts`
 
-**Implementation:** TOTP (Time-based One-Time Password)  
-**Standard:** RFC 6238  
+**Implementation:** TOTP (Time-based One-Time Password)
+**Standard:** RFC 6238
 **Apps:** Google Authenticator, Authy, 1Password, etc.
 
 ```typescript
@@ -96,10 +101,10 @@ class MFAService {
   async enableMFA(userId: string): Promise<MFASetupResponse> {
     // Generate secret
     const secret = await this.generateTOTPSecret();
-    
+
     // Store encrypted secret
     await this.storeEncryptedSecret(userId, secret);
-    
+
     // Return QR code for app enrollment
     return {
       secret,
@@ -107,7 +112,7 @@ class MFAService {
       backupCodes: await this.generateBackupCodes(),
     };
   }
-  
+
   // Verify MFA code
   async verifyMFA(userId: string, code: string): Promise<boolean> {
     const secret = await this.getDecryptedSecret(userId);
@@ -117,6 +122,7 @@ class MFAService {
 ```
 
 **Features:**
+
 - QR code generation for easy setup
 - Backup codes for recovery
 - Rate limiting on verification attempts
@@ -140,15 +146,15 @@ class SecureTokenManager {
       refresh: refreshToken,
       timestamp: Date.now(),
     });
-    
+
     // Store in secure storage (httpOnly cookie in production)
-    await this.secureStorage.set('auth_tokens', encrypted);
+    await this.secureStorage.set("auth_tokens", encrypted);
   }
-  
+
   // Automatic token refresh
   async getValidAccessToken(): Promise<string> {
     const tokens = await this.getDecryptedTokens();
-    
+
     // Check if token is expired or expiring soon
     if (this.isTokenExpiring(tokens.access)) {
       // Refresh token
@@ -156,13 +162,14 @@ class SecureTokenManager {
       await this.storeTokens(newTokens.access, newTokens.refresh);
       return newTokens.access;
     }
-    
+
     return tokens.access;
   }
 }
 ```
 
 **Security Features:**
+
 - Token encryption at rest
 - Automatic token rotation
 - Secure storage (httpOnly cookies in production)
@@ -177,7 +184,7 @@ class SecureTokenManager {
 
 ### Row Level Security (RLS)
 
-**Database:** PostgreSQL (Supabase)  
+**Database:** PostgreSQL (Supabase)
 **Pattern:** Tenant isolation at database level
 
 #### RLS Policies
@@ -193,7 +200,7 @@ CREATE POLICY "value_cases_tenant_isolation" ON value_cases
 FOR ALL USING (
   tenant_id = (
     SELECT NULLIF(
-      (current_setting('request.jwt.claims', true)::jsonb ->> 'tenant_id'), 
+      (current_setting('request.jwt.claims', true)::jsonb ->> 'tenant_id'),
       ''
     )::text
   )
@@ -201,6 +208,7 @@ FOR ALL USING (
 ```
 
 **How it works:**
+
 1. User logs in via Supabase Auth
 2. JWT token contains `tenant_id` in claims
 3. PostgreSQL reads `tenant_id` from JWT
@@ -214,8 +222,8 @@ FOR ALL USING (
 useEffect(() => {
   if (user && user.tenant_id) {
     // Set tenant context for RLS
-    supabase.rpc('set_tenant_context', {
-      tenant_id: user.tenant_id
+    supabase.rpc("set_tenant_context", {
+      tenant_id: user.tenant_id,
     });
   }
 }, [user]);
@@ -237,6 +245,7 @@ SELECT * FROM value_cases; -- Only returns tenant abc-123's data
 ### Guest Access Control
 
 **Files:**
+
 - `src/services/GuestAccessService.ts`
 - `src/components/Guest/GuestBadge.tsx`
 - `supabase/migrations/20260106000001_guest_access.sql`
@@ -247,8 +256,8 @@ SELECT * FROM value_cases; -- Only returns tenant abc-123's data
 interface GuestAccess {
   id: string;
   value_case_id: string;
-  token: string;              // SHA-256 hash of secret
-  permission_level: 'view' | 'comment' | 'edit';
+  token: string; // SHA-256 hash of secret
+  permission_level: "view" | "comment" | "edit";
   expires_at: Date;
   created_by: string;
   access_count: number;
@@ -257,13 +266,14 @@ interface GuestAccess {
 ```
 
 **Token Generation:**
+
 ```typescript
 // Generate cryptographically secure token
-const secret = crypto.randomBytes(32).toString('hex');
-const hash = crypto.createHash('sha256').update(secret).digest('hex');
+const secret = crypto.randomBytes(32).toString("hex");
+const hash = crypto.createHash("sha256").update(secret).digest("hex");
 
 // Store hash in database
-await supabase.from('guest_access').insert({
+await supabase.from("guest_access").insert({
   value_case_id,
   token: hash,
   permission_level,
@@ -275,11 +285,13 @@ const guestUrl = `https://app.valueos.com/guest/${secret}`;
 ```
 
 **Permission Levels:**
+
 - `view` - Read-only access to value case
 - `comment` - Can add comments and annotations
 - `edit` - Can modify value case data (restricted fields)
 
 **Security Features:**
+
 - Token hashing (SHA-256)
 - Automatic expiration
 - Access logging
@@ -301,26 +313,27 @@ Cross-Site Request Forgery protection for state-changing operations:
 class CSRFProtection {
   // Generate CSRF token
   generateToken(): string {
-    const token = crypto.randomBytes(32).toString('hex');
+    const token = crypto.randomBytes(32).toString("hex");
     // Store in session
-    sessionStorage.setItem('csrf_token', token);
+    sessionStorage.setItem("csrf_token", token);
     return token;
   }
-  
+
   // Validate CSRF token
   validateToken(token: string): boolean {
-    const storedToken = sessionStorage.getItem('csrf_token');
-    
+    const storedToken = sessionStorage.getItem("csrf_token");
+
     // Timing-safe comparison
     return crypto.timingSafeEqual(
       Buffer.from(token),
-      Buffer.from(storedToken || '')
+      Buffer.from(storedToken || "")
     );
   }
 }
 ```
 
 **Usage:**
+
 ```typescript
 // Add to forms
 <input type="hidden" name="csrf_token" value={csrfToken} />
@@ -349,15 +362,15 @@ class RateLimiter {
   ): Promise<boolean> {
     const now = Date.now();
     const windowStart = now - windowMs;
-    
+
     // Get recent requests
     const requests = await this.getRequests(key, windowStart);
-    
+
     // Check if over limit
     if (requests.length >= limit) {
       return false; // Rate limited
     }
-    
+
     // Record this request
     await this.recordRequest(key, now);
     return true;
@@ -366,6 +379,7 @@ class RateLimiter {
 ```
 
 **Rate Limits:**
+
 - Login attempts: 5 per 15 minutes
 - Password reset: 3 per hour
 - API calls: 100 per minute
@@ -382,11 +396,11 @@ class RateLimiter {
 
 ```typescript
 // Zod schema validation
-import { z } from 'zod';
+import { z } from "zod";
 
 const loginSchema = z.object({
-  email: z.string().email('Invalid email format'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  email: z.string().email("Invalid email format"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
 // Validate before submission
@@ -417,6 +431,7 @@ CHECK (discount_rate >= 0 AND discount_rate <= 1);
 **File:** `.devcontainer/Dockerfile.optimized`
 
 **Security Measures:**
+
 - Non-root user (`node`, UID 1000)
 - Minimal base image (Alpine Linux)
 - No unnecessary packages
@@ -448,6 +463,7 @@ RUN chmod 755 /app
 4. **Rotate regularly** - API keys, tokens, etc.
 
 **Required Secrets:**
+
 ```bash
 # Supabase (never expose service role key to frontend)
 VITE_SUPABASE_URL=https://xxx.supabase.co
@@ -469,18 +485,18 @@ TOGETHER_API_KEY=sk-...           # Server-side only
 ```typescript
 // Middleware: Require valid session
 async function requireAuth(req: Request): Promise<User> {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  
+  const token = req.headers.authorization?.replace("Bearer ", "");
+
   if (!token) {
-    throw new UnauthorizedError('No token provided');
+    throw new UnauthorizedError("No token provided");
   }
-  
+
   const { data, error } = await supabase.auth.getUser(token);
-  
+
   if (error || !data.user) {
-    throw new UnauthorizedError('Invalid token');
+    throw new UnauthorizedError("Invalid token");
   }
-  
+
   return data.user;
 }
 ```
@@ -495,7 +511,7 @@ async function requirePermission(
   action: string
 ): Promise<void> {
   const hasPermission = await checkPermission(user.id, resource, action);
-  
+
   if (!hasPermission) {
     throw new ForbiddenError(`No permission to ${action} ${resource}`);
   }
@@ -513,18 +529,18 @@ async function requirePermission(
 Every agent invocation is logged:
 
 ```typescript
-await supabase.from('agent_executions').insert({
+await supabase.from("agent_executions").insert({
   tenant_id: user.tenant_id,
   user_id: user.id,
   value_case_id: valueCaseId,
-  agent_name: 'OpportunityAgent',
+  agent_name: "OpportunityAgent",
   input: { query, context },
   output: result,
   confidence_score: result.confidence,
   execution_time_ms: elapsedMs,
   llm_calls: metrics.llmCalls,
   cost: metrics.cost,
-  status: 'success',
+  status: "success",
   trace_id: span.spanContext().traceId,
 });
 ```
@@ -564,6 +580,7 @@ CREATE INDEX idx_user_activity_action ON user_activity(action, created_at DESC);
 ### Real-Time Alerts
 
 **Conditions that trigger alerts:**
+
 - Multiple failed login attempts
 - Suspicious IP addresses
 - Unusual API usage patterns
@@ -578,11 +595,17 @@ CREATE INDEX idx_user_activity_action ON user_activity(action, created_at DESC);
 ```typescript
 // Express middleware
 app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader(
+    "Strict-Transport-Security",
+    "max-age=31536000; includeSubDomains"
+  );
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+  );
   next();
 });
 ```
@@ -596,27 +619,32 @@ app.use((req, res, next) => {
 **Detection → Containment → Eradication → Recovery → Lessons Learned**
 
 #### 1. Detection
+
 - Monitor security logs
 - Alert on anomalies
 - User reports
 
 #### 2. Containment
+
 - Disable compromised accounts
 - Revoke tokens
 - Block IP addresses
 - Isolate affected systems
 
 #### 3. Eradication
+
 - Identify root cause
 - Patch vulnerabilities
 - Remove malicious code
 
 #### 4. Recovery
+
 - Restore from backups
 - Reset credentials
 - Verify integrity
 
 #### 5. Lessons Learned
+
 - Document incident
 - Update procedures
 - Improve monitoring
@@ -628,6 +656,7 @@ app.use((req, res, next) => {
 ### GDPR Compliance
 
 **Features:**
+
 - Data export (user can download all their data)
 - Right to deletion (cascade deletes)
 - Consent tracking
@@ -637,6 +666,7 @@ app.use((req, res, next) => {
 ### SOC 2 Readiness
 
 **Controls:**
+
 - Access controls (RLS, RBAC)
 - Audit logging
 - Encryption
@@ -686,6 +716,6 @@ app.use((req, res, next) => {
 
 ---
 
-**Maintainer:** Security Team  
-**Last Security Audit:** 2026-01-08  
+**Maintainer:** Security Team
+**Last Security Audit:** 2026-01-08
 **Next Audit:** 2026-02-08

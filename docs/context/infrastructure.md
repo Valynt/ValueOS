@@ -29,14 +29,14 @@ ValueOS uses a containerized development environment with Docker and VS Code Dev
   "dockerComposeFile": "docker-compose.yml",
   "service": "app",
   "workspaceFolder": "/workspaces/ValueOS",
-  
+
   "postStartCommand": "chmod +x ./.devcontainer/bridge.sh && ./.devcontainer/bridge.sh && (npm run dev > /tmp/vite.log 2>&1 &)",
-  
+
   "forwardPorts": [3000, 5173, 8000, 5432, 16686, 54321, 54323],
-  
+
   "portsAttributes": {
-    "5173": { 
-      "label": "Vite Dev Server", 
+    "5173": {
+      "label": "Vite Dev Server",
       "onAutoForward": "openBrowser",
       "elevateIfNeeded": true,
       "protocol": "http"
@@ -64,16 +64,17 @@ ValueOS uses a containerized development environment with Docker and VS Code Dev
 ```typescript
 export default defineConfig({
   server: {
-    host: "0.0.0.0",     // ✅ Accessible from all interfaces
+    host: "0.0.0.0", // ✅ Accessible from all interfaces
     port: 5173,
     strictPort: true,
     watch: {
-      usePolling: true,  // ✅ Required for Docker containers
+      usePolling: true, // ✅ Required for Docker containers
       interval: 100,
     },
-    hmr: {               // ✅ Hot Module Replacement enabled
-      host: 'localhost',
-      protocol: 'ws',
+    hmr: {
+      // ✅ Hot Module Replacement enabled
+      host: "localhost",
+      protocol: "ws",
       port: 5173,
     },
   },
@@ -82,13 +83,13 @@ export default defineConfig({
 
 ### Port Mapping
 
-| Service | Container Port | Forwarded Port | Purpose |
-|---------|---------------|----------------|---------|
-| Vite Dev | 5173 | 5173 | Frontend development server |
-| Backend API | 3000 | 3000 | Express backend API |
-| Supabase Studio | 54323 | 54323 | Database UI |
-| Jaeger UI | 16686 | 16686 | Distributed tracing |
-| PostgreSQL | 5432 | 5432 | Database connection |
+| Service         | Container Port | Forwarded Port | Purpose                     |
+| --------------- | -------------- | -------------- | --------------------------- |
+| Vite Dev        | 5173           | 5173           | Frontend development server |
+| Backend API     | 3000           | 3000           | Express backend API         |
+| Supabase Studio | 54323          | 54323          | Database UI                 |
+| Jaeger UI       | 16686          | 16686          | Distributed tracing         |
+| PostgreSQL      | 5432           | 5432           | Database connection         |
 
 ---
 
@@ -112,7 +113,7 @@ echo "🔍 Checking Vite dev server on port $PORT..."
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
   if nc -z localhost $PORT; then
     echo "✅ Vite server is running on port $PORT"
-    
+
     # Verify HTTP response
     HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$PORT)
     if [ "$HTTP_CODE" = "200" ]; then
@@ -121,7 +122,7 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
       exit 0
     fi
   fi
-  
+
   RETRY_COUNT=$((RETRY_COUNT + 1))
   echo "Vite not ready yet, retrying... ($RETRY_COUNT/$MAX_RETRIES)"
   sleep 2
@@ -147,26 +148,27 @@ echo "🔄 Starting Vite auto-restart monitor..."
 while true; do
   if ! nc -z localhost $PORT; then
     echo "⚠️  Vite server is down, restarting..."
-    
+
     # Kill any existing Vite processes
     pkill -f "vite --host" || true
-    
+
     # Wait a moment for cleanup
     sleep 2
-    
+
     # Restart Vite
     cd /workspaces/ValueOS
     npm run dev > /tmp/vite.log 2>&1 &
-    
+
     echo "✅ Vite restarted, waiting for it to be ready..."
     sleep 5
   fi
-  
+
   sleep $CHECK_INTERVAL
 done
 ```
 
 **Usage:**
+
 ```bash
 # Run in background
 ./.devcontainer/auto-restart.sh &
@@ -237,6 +239,7 @@ CMD ["npm", "run", "start:backend"]
 **File:** `.devcontainer/Dockerfile.optimized`
 
 Includes:
+
 - Build tools
 - Git
 - SSH
@@ -286,6 +289,7 @@ setTimeout(() => {
 ```
 
 **Impact:**
+
 - **Before:** 10-45 seconds to interactive
 - **After:** ~300ms to interactive
 - **Improvement:** ~97% faster
@@ -342,18 +346,21 @@ Port forwarding automatically reconnects
 ### Port Not Forwarding
 
 **Check if Vite is running:**
+
 ```bash
 ps aux | grep vite
 ```
 
 **Check if port is listening:**
+
 ```bash
 ss -tlnp | grep 5173
 # Expected: LISTEN 0 511 *:5173 *:*
 # Wrong: LISTEN 0 511 127.0.0.1:5173 *:*
 ```
 
-**If shows 127.0.0.1 instead of *:**
+**If shows 127.0.0.1 instead of \*:**
+
 - Vite config didn't update
 - Check `vite.config.ts` has `host: "0.0.0.0"`
 - Restart Vite: `pkill -f vite && npm run dev`
@@ -361,12 +368,14 @@ ss -tlnp | grep 5173
 ### Container Won't Start
 
 **Check Docker logs:**
+
 ```bash
 docker ps -a
 docker logs <container_id>
 ```
 
 **Common issues:**
+
 - Port already in use on host
 - Docker daemon not running
 - Insufficient memory/disk space
@@ -374,11 +383,13 @@ docker logs <container_id>
 ### Browser Shows White Page
 
 **Check browser console (F12):**
+
 - Look for JavaScript errors
 - Verify React is mounting
 - Check for "BootstrapGuard" messages
 
 **Hard refresh:**
+
 ```
 Windows/Linux: Ctrl + Shift + R
 Mac: Cmd + Shift + R
@@ -389,17 +400,20 @@ Mac: Cmd + Shift + R
 ### Server Keeps Crashing
 
 **Check logs:**
+
 ```bash
 tail -100 /tmp/vite.log
 ```
 
 **Common causes:**
+
 - Out of memory
 - File permission issues
 - Port conflicts
 - TypeScript compilation errors
 
 **Restart with clean state:**
+
 ```bash
 pkill -f vite
 rm -rf node_modules/.vite
@@ -482,12 +496,12 @@ VITE_BUILD_TARGET=esnext
 
 ### Load Times
 
-| Metric | Before Optimization | After Optimization | Improvement |
-|--------|-------------------|-------------------|-------------|
-| Initial HTML | ~500ms | ~200ms | 60% faster |
-| Time to Interactive | 10-45s | ~300ms | 97% faster |
-| Font Loading | 2-5s (blocking) | Background | Non-blocking |
-| HMR Update | N/A | ~50ms | Real-time |
+| Metric              | Before Optimization | After Optimization | Improvement  |
+| ------------------- | ------------------- | ------------------ | ------------ |
+| Initial HTML        | ~500ms              | ~200ms             | 60% faster   |
+| Time to Interactive | 10-45s              | ~300ms             | 97% faster   |
+| Font Loading        | 2-5s (blocking)     | Background         | Non-blocking |
+| HMR Update          | N/A                 | ~50ms              | Real-time    |
 
 ### Resource Usage
 
@@ -543,6 +557,6 @@ VITE_BUILD_TARGET=esnext
 
 ---
 
-**Maintainer:** AI Implementation Team  
-**Status:** Production Ready  
-**Last Updated:** 2026-01-08
+**Maintainer:** AI Implementation Team
+**Status:** Production Ready
+**Last Updated:** 2026-01-15
