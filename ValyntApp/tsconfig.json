@@ -25,7 +25,9 @@
       "@lib/*": ["./src/lib/*"],
       "@hooks/*": ["./src/hooks/*"],
       "@types/*": ["./src/types/*"],
-      "@assets/*": ["./src/assets/*"]
+      "@assets/*": ["./src/assets/*"],
+      "@valueos/shared": ["../packages/shared/src"],
+      "@valueos/shared/*": ["../packages/shared/src/*"]
     },
 
     "strict": true,

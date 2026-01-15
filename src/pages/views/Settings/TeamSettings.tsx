@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { SettingsSection } from "../../components/Settings/SettingsSection";
-import { logger } from "@lib/logger";
+import { logger } from "@shared/lib/logger";
 import { useDebouncedState } from "../../hooks/useDebounce";
 import {
   AlertCircle,

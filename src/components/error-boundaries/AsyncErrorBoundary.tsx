@@ -9,7 +9,7 @@
  */
 
 import React, { Component, ReactNode } from "react";
-import logger from "@lib/logger";
+import { logger } from "@shared/lib/logger";
 
 interface AsyncErrorBoundaryProps {
   children: ReactNode;

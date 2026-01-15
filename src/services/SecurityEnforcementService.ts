@@ -501,7 +501,7 @@ export class SecurityEnforcementService extends TenantAwareService {
   private async getRedisClient(): Promise<any> {
     // Import and initialize Redis client
     try {
-      const { getRedisClient } = await import('@lib/redisClient');
+      const { getRedisClient } = await import('@shared/lib/redisClient');
       return await getRedisClient();
     } catch (error) {
       log.error('Failed to get Redis client', error as Error);
