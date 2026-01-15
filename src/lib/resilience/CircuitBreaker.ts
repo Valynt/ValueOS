@@ -661,9 +661,25 @@ export class CircuitBreakerManager {
       breaker.successCount = 0;
     }
 
+    const startTime = Date.now();
     try {
       const result = await operation();
-      if (breaker.state === "half-open") {
+      const duration = Date.now() - startTime;
+      const isHighLatency = duration > this.config.latencyThresholdMs;
+      if (isHighLatency) {
+        // Treat high latency as failure for breaker state
+        breaker.failureCount++;
+        if (breaker.state === "half-open") {
+          breaker.state = "open";
+          breaker.nextAttemptTime = Date.now() + this.config.timeoutMs;
+        } else if (breaker.state === "closed") {
+          if (breaker.failureCount >= this.config.minimumSamples) {
+            breaker.state = "open";
+            breaker.nextAttemptTime = Date.now() + this.config.timeoutMs;
+          }
+        }
+      }
+      if (breaker.state === "half-open" && !isHighLatency) {
         breaker.successCount++;
         if (breaker.successCount >= this.config.halfOpenMaxProbes) {
           breaker.state = "closed";
@@ -672,12 +688,12 @@ export class CircuitBreakerManager {
       }
       return result;
     } catch (error) {
+      const duration = Date.now() - startTime;
       breaker.failureCount++;
       if (breaker.state === "half-open") {
         breaker.state = "open";
         breaker.nextAttemptTime = Date.now() + this.config.timeoutMs;
       } else if (breaker.state === "closed") {
-        // Simple logic: if failureCount >= minimumSamples, open
         if (breaker.failureCount >= this.config.minimumSamples) {
           breaker.state = "open";
           breaker.nextAttemptTime = Date.now() + this.config.timeoutMs;
