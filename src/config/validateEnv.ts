@@ -72,8 +72,10 @@ export function validateLLMConfig(): LLMValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // Get current provider from llmConfig
-  const { provider, gatingEnabled } = llmConfig;
+  // Get current provider
+  const provider =
+    (getEnv("VITE_LLM_PROVIDER") as LLMProvider) || llmConfig.provider;
+  const { gatingEnabled } = llmConfig;
 
   // Validate provider configuration - Together AI is the only supported provider
   if (!provider || provider !== "together") {
