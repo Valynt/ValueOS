@@ -12,10 +12,10 @@
 
 import { Request, Response, Router } from "express";
 import { createClient } from "@supabase/supabase-js";
-import { securityHeadersMiddleware } from "../middleware/securityHeaders";
-import { serviceIdentityMiddleware } from "../middleware/serviceIdentityMiddleware";
-import { rateLimiters } from "../middleware/rateLimiter";
-import { requestAuditMiddleware } from "../middleware/requestAuditMiddleware";
+import { securityHeadersMiddleware } from "../../middleware/securityHeaders";
+import { serviceIdentityMiddleware } from "../../middleware/serviceIdentityMiddleware";
+import { rateLimiters } from "../../middleware/rateLimiter";
+import { requestAuditMiddleware } from "../../middleware/requestAuditMiddleware";
 import { healthMetrics } from "../../lib/health/metrics";
 import { alertManager } from "../../lib/health/alerts";
 import * as fs from "fs";

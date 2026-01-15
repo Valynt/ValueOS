@@ -7,7 +7,7 @@
 
 import { z } from "zod";
 import { logger } from "../../lib/logger";
-import { getSecretProvider } from "./ProviderFactory";
+import { createProviderFromEnv as getSecretProvider } from "./ProviderFactory";
 import {
   createSecretVolumeWatcher,
   secretVolumeWatcher,
@@ -506,6 +506,8 @@ export async function validateSecretsOnStartup(): Promise<void> {
 /**
  * Express middleware for secret health check endpoint
  */
+const secretValidator = new SecretValidator();
+
 export function secretHealthMiddleware() {
   return async (req: any, res: any) => {
     try {

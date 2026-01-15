@@ -466,7 +466,7 @@ export class LocalKMSProvider extends KMSProviderBase {
       throw new Error(`Private key not found for keyId: ${keyId}`);
     }
 
-    const ed25519 = await import("@noble/ed25519");
+    const { ed25519 } = await import("@noble/ed25519");
     return Buffer.from(ed25519.sign(data, privateKey));
   }
 
@@ -480,7 +480,7 @@ export class LocalKMSProvider extends KMSProviderBase {
       throw new Error(`Public key not found for keyId: ${keyId}`);
     }
 
-    const ed25519 = await import("@noble/ed25519");
+    const { ed25519 } = await import("@noble/curves/ed25519");
     return ed25519.verify(signature, data, publicKey);
   }
 

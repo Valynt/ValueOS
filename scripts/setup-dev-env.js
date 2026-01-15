@@ -49,15 +49,15 @@ function ensureEnvFile() {
     updated = true;
   }
 
-  // Update SUPABASE_ANON_KEY
+  // Update SUPABASE_SERVICE_KEY
   if (
-    content.includes("SUPABASE_ANON_KEY=your-") ||
-    content.includes("SUPABASE_ANON_KEY=placeholder") ||
-    content.includes("SUPABASE_ANON_KEY=")
+    content.includes("SUPABASE_SERVICE_KEY=your-") ||
+    content.includes("SUPABASE_SERVICE_KEY=placeholder") ||
+    content.includes("SUPABASE_SERVICE_KEY=")
   ) {
     content = content.replace(
-      /SUPABASE_ANON_KEY=.*$/m,
-      `SUPABASE_ANON_KEY=${LOCAL_SUPABASE_ANON_KEY}`
+      /SUPABASE_SERVICE_KEY=.*$/m,
+      `SUPABASE_SERVICE_KEY=${LOCAL_SUPABASE_ANON_KEY}`
     );
     updated = true;
   }

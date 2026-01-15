@@ -128,7 +128,7 @@ export class AsyncErrorBoundary extends Component<
               maxWidth: "20rem",
               width: "100%",
               textAlign: "center",
-              space: "1rem",
+              gap: "1rem",
             }}
           >
             <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⚠️</div>
