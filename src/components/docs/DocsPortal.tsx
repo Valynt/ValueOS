@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '@/app/providers/AuthContext';
 import { DocsNavigation } from './DocsNavigation';
 import { DocsViewer } from './DocsViewer';
 import { DocsSearch } from './DocsSearch';

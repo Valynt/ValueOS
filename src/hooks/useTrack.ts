@@ -7,8 +7,8 @@
  */
 
 import { useCallback, useEffect, useRef } from "react";
-import { useAuth } from "../contexts/AuthContext";
-import { useTenant } from "../contexts/TenantContext";
+import { useAuth } from "@/app/providers/AuthContext";
+import { useTenant } from "@/app/providers/TenantContext";
 import { analyticsClient } from "../lib/analyticsClient";
 import { v4 as uuidv4 } from "uuid";
 

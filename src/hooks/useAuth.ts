@@ -3,7 +3,7 @@
  * Now includes UserClaims with permissions for Zero Trust Security
  */
 
-import { useAuth as useAuthOriginal } from "../contexts/AuthContext";
+import { useAuth as useAuthOriginal } from "@/app/providers/AuthContext";
 
 // Re-export useAuth - now with UserClaims
 export const useAuth = () => {

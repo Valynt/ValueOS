@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChevronRight, Home } from 'lucide-react';
-import { useSettings } from '../../contexts/SettingsContext';
+import { useSettings } from '@/app/providers/SettingsContext';
 
 export const SettingsBreadcrumb: React.FC = () => {
   const { breadcrumbs, navigateTo, currentRoute } = useSettings();

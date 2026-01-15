@@ -18,8 +18,8 @@ import {
   Artifact,
   AgentError,
 } from "../lib/agent/types";
-import { useTenant } from "../contexts/TenantContext";
-import { useAuth } from "../contexts/AuthContext";
+import { useTenant } from "@/app/providers/TenantContext";
+import { useAuth } from "@/app/providers/AuthContext";
 import { createLogger } from "../lib/logger";
 
 const logger = createLogger({ component: "useAgentState" });

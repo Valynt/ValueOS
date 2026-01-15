@@ -10,8 +10,8 @@
 import { logger } from "./lib/logger";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import AppRoutes from "./AppRoutes.tsx";
-import "./index.css";
+import AppRoutes from "./app/routes";
+import "./styles/globals.css";
 import "./styles/focus-visible.css";
 import "./styles/micro-interactions.css";
 import "./styles/responsive.css";

@@ -1,7 +1,7 @@
 import React, { PropsWithChildren } from 'react';
 import { MemoryRouter, MemoryRouterProps } from 'react-router-dom';
 import { render, RenderOptions } from '@testing-library/react';
-import { AuthProvider } from '../contexts/AuthContext';
+import { AuthProvider } from "@/app/providers/AuthContext';
 
 type WrapperOptions = {
   route?: string;

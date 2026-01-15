@@ -9,7 +9,7 @@ import { useEffect, useCallback, useRef, useState } from "react";
 import { WebSocketManager, ConnectionState } from "@sdui/realtime/WebSocketManager";
 import { AgentStateMachine } from "../lib/agent/AgentStateMachine";
 import type { AgentEvent, AgentState, ExecutionProgress } from "../lib/agent/types";
-import { useTenant } from "../contexts/TenantContext";
+import { useTenant } from "@/app/providers/TenantContext";
 import { createLogger } from "../lib/logger";
 import { getConfig } from "../config/environment";
 

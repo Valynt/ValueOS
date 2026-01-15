@@ -3,7 +3,7 @@ import { Menu } from 'lucide-react';
 import { SettingsSidebar } from './SettingsSidebar';
 import { SettingsBreadcrumb } from './SettingsBreadcrumb';
 import { GlobalSearch } from './GlobalSearch';
-import { useSettings } from '../../contexts/SettingsContext';
+import { useSettings } from '@/app/providers/SettingsContext';
 
 interface SettingsLayoutProps {
   children: React.ReactNode;

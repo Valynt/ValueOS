@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { bootstrap } from "../bootstrap";
+import { bootstrap } from "../app/bootstrap/init";
 import * as environment from "../config/environment";
 import * as security from "../security";
 import * as agentInitializer from "../services/AgentInitializer";

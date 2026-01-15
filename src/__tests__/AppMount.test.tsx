@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { BootstrapGuard } from "../components/Common/BootstrapGuard";
 import { MemoryRouter } from "react-router-dom";
-import * as bootstrapModule from "../bootstrap";
+import * as bootstrapModule from "../app/bootstrap/init";
 import * as useBootstrapModule from "../hooks/useBootstrap";
 
 // Mock the useBootstrap hook to control its behavior

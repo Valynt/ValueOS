@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Building2, ChevronDown, ChevronRight, User, Users, X } from 'lucide-react';
 import { SettingsRoute } from '../../types';
-import { useSettings } from '../../contexts/SettingsContext';
+import { useSettings } from '@/app/providers/SettingsContext';
 import { settingsRegistry } from '../../lib/settingsRegistry';
 
 interface SettingsSidebarProps {

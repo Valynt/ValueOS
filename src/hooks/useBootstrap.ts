@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { bootstrap, BootstrapOptions, BootstrapResult } from "../bootstrap";
+import { bootstrap, BootstrapOptions, BootstrapResult } from "../app/bootstrap/init";
 import { logger } from "../lib/logger";
 
 export type BootstrapStatus = "idle" | "loading" | "complete" | "error";

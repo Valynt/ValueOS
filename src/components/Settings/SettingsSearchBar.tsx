@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Command, Search } from 'lucide-react';
-import { useSettings } from '../../contexts/SettingsContext';
+import { useSettings } from '@/app/providers/SettingsContext';
 import { settingsRegistry } from '../../lib/settingsRegistry';
 import { SettingsSearchResult } from '../../types';
 

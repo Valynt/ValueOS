@@ -20,11 +20,15 @@
     "paths": {
       "@/*": ["./src/*"],
       "@lib/*": ["./src/lib/*"],
+      "@pages/*": ["./src/pages/*"],
+      "@layouts/*": ["./src/layouts/*"],
+      "@app/*": ["./src/app/*"],
       "@shared/*": ["./packages/shared/src/*"],
       "@backend/*": ["./packages/backend/src/*"],
       "@infra/*": ["./packages/infra/*"],
       "@memory/*": ["./packages/memory/*"],
       "@agents/*": ["./packages/agents/*"],
+      "@integrations/*": ["./packages/integrations/*"],
       "@mcp/*": ["./packages/mcp/*"],
       "@mcp-common/*": ["./packages/mcp/common/*"],
       "@sdui/*": ["./packages/sdui/src/*"]

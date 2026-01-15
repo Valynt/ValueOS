@@ -16,7 +16,8 @@ export function SDUIRenderer({ component, onAction }: SDUIRendererProps) {
       return <p className={props.className as string}>{props.content as string}</p>;
 
     case "heading": {
-      const Tag = `h${props.level || 2}` as keyof JSX.IntrinsicElements;
+      const level = Math.min(6, Math.max(1, Number(props.level) || 2));
+      const Tag = `h${level}` as keyof JSX.IntrinsicElements;
       return <Tag className={props.className as string}>{props.content as string}</Tag>;
     }
 
