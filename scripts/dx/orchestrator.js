@@ -280,6 +280,35 @@ async function runMigrations() {
 }
 
 /**
+ * Verify database schema is correct
+ */
+async function verifySchema() {
+  log.info("Verifying database schema...");
+
+  // Check migration status
+  try {
+    const migrationList = runCommand("supabase migration list 2>/dev/null || echo ''", { silent: true });
+    
+    if (migrationList.includes("not applied") || migrationList.includes("pending")) {
+      log.warn("Pending migrations detected");
+      return false;
+    }
+  } catch {
+    // Migration check not available
+  }
+
+  // Regenerate types to ensure they're current
+  try {
+    runCommand("npm run db:types", { silent: true });
+    log.success("Schema verified, types regenerated");
+    return true;
+  } catch (error) {
+    log.warn("Could not regenerate types (non-critical)");
+    return true;
+  }
+}
+
+/**
  * Seed the database
  */
 async function seedDatabase() {
@@ -516,9 +545,10 @@ async function main() {
     log.info("Supabase runs as part of Docker Compose in docker mode");
   }
 
-  // Step 5: Run migrations
+  // Step 5: Run migrations and verify schema
   log.step(5, "Running database migrations");
   await runMigrations();
+  await verifySchema();
 
   // Step 6: Seed database (optional, skip if already seeded)
   if (args.includes("--seed")) {

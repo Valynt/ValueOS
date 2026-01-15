@@ -55,6 +55,7 @@
     "test:testcafe": "testcafe chrome:headless test/testcafe/**/*.test.js",
     "sdk:generate": "openapi-typescript openapi.yaml --output src/api/client/generated-types.ts",
     "db:setup": "bash infra/supabase/setup.sh",
+    "db:verify": "node scripts/dx/db-verify.js",
     "db:push": "supabase db push",
     "db:pull": "supabase db pull",
     "db:repair": "supabase migration repair",

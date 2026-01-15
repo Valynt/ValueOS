@@ -514,9 +514,10 @@ function checkSupabase() {
 
   // Check if Supabase is running
   let supabaseRunning = false;
+  let supabaseStatus = "";
   try {
-    const status = runCommand("supabase status", { stdio: "pipe" });
-    supabaseRunning = status.includes("API URL") && !status.includes("not running");
+    supabaseStatus = runCommand("supabase status", { stdio: "pipe" });
+    supabaseRunning = supabaseStatus.includes("API URL") && !supabaseStatus.includes("not running");
   } catch {
     supabaseRunning = false;
   }
@@ -531,22 +532,141 @@ function checkSupabase() {
   }
 
   // Check Supabase API health
+  const healthUrl = `http://localhost:${supabaseApiPort}/rest/v1/`;
   try {
-    const http = require("http");
-    const healthUrl = `http://localhost:${supabaseApiPort}/rest/v1/`;
+    runCommand(`curl -sf --max-time 5 "${healthUrl}" > /dev/null`, { stdio: "pipe" });
+  } catch {
+    reportFailure(
+      "Supabase API not responding",
+      `Supabase is running but API at ${healthUrl} is not responding.`,
+      "Try: supabase stop && supabase start"
+    );
+    return;
+  }
+
+  // Verify env URLs point to local Supabase
+  const backendSupabaseUrl = process.env.SUPABASE_URL || "";
+  if (backendSupabaseUrl && !backendSupabaseUrl.includes("localhost") && !backendSupabaseUrl.includes("127.0.0.1")) {
+    reportFailure(
+      "Backend Supabase URL mismatch",
+      `SUPABASE_URL points to ${backendSupabaseUrl} but local Supabase is running.`,
+      "Set SUPABASE_URL=http://localhost:54321 in .env.local"
+    );
+  }
+}
+
+function checkSupabaseMigrations() {
+  const viteSupabaseUrl = process.env.VITE_SUPABASE_URL || "";
+  const localFlag = process.env.DX_SUPABASE_LOCAL;
+
+  // Skip if not using local Supabase
+  if (localFlag === "0" || localFlag === "false") {
+    return;
+  }
+
+  const isLocalSupabase =
+    localFlag === "1" ||
+    localFlag === "true" ||
+    viteSupabaseUrl.includes("localhost") ||
+    viteSupabaseUrl.includes("127.0.0.1");
+
+  if (!isLocalSupabase || !commandExists("supabase")) {
+    return;
+  }
+
+  // Check migration status
+  try {
+    const migrationList = runCommand("supabase migration list 2>/dev/null || echo 'unavailable'", { stdio: "pipe" });
     
-    // Synchronous check using execSync with curl
-    try {
-      runCommand(`curl -sf --max-time 5 "${healthUrl}" > /dev/null`, { stdio: "pipe" });
-    } catch {
+    if (migrationList.includes("unavailable")) {
+      return; // Can't check migrations
+    }
+
+    // Count pending migrations
+    const lines = migrationList.split("\n").filter(line => line.trim());
+    const pendingMigrations = lines.filter(line => 
+      line.includes("not applied") || 
+      line.includes("pending") ||
+      (line.includes("│") && !line.includes("applied"))
+    );
+
+    if (pendingMigrations.length > 0) {
       reportFailure(
-        "Supabase API not responding",
-        `Supabase is running but API at ${healthUrl} is not responding.`,
-        "Try: supabase stop && supabase start"
+        "Pending database migrations",
+        `${pendingMigrations.length} migration(s) not applied to local database.`,
+        "Run: npm run db:push (or supabase db push)"
       );
     }
   } catch {
-    // curl not available, skip health check
+    // Migration check failed, skip
+  }
+}
+
+function checkSupabaseSchema() {
+  const viteSupabaseUrl = process.env.VITE_SUPABASE_URL || "";
+  const localFlag = process.env.DX_SUPABASE_LOCAL;
+
+  // Skip if not using local Supabase or in docker mode
+  if (localFlag === "0" || localFlag === "false" || mode === "docker") {
+    return;
+  }
+
+  const isLocalSupabase =
+    localFlag === "1" ||
+    localFlag === "true" ||
+    viteSupabaseUrl.includes("localhost") ||
+    viteSupabaseUrl.includes("127.0.0.1");
+
+  if (!isLocalSupabase || !commandExists("supabase")) {
+    return;
+  }
+
+  // Check for schema drift using supabase db diff
+  try {
+    const diff = runCommand("supabase db diff --use-migra 2>/dev/null || echo ''", { stdio: "pipe" });
+    
+    // If diff output contains CREATE/ALTER/DROP statements, there's drift
+    const hasDrift = diff.trim().length > 0 && 
+      (diff.includes("CREATE") || diff.includes("ALTER") || diff.includes("DROP"));
+    
+    if (hasDrift) {
+      const lineCount = diff.split("\n").filter(l => l.trim()).length;
+      reportFailure(
+        "Database schema drift detected",
+        `Local database differs from migrations (${lineCount} changes).`,
+        "Run: npm run db:reset to rebuild from migrations, or npm run db:push to apply pending changes"
+      );
+    }
+  } catch {
+    // Schema diff not available or failed, skip
+  }
+
+  // Check that generated types are up to date
+  const typesPath = path.join(projectRoot, "src/types/supabase.ts");
+  const migrationsDir = path.join(projectRoot, "supabase/migrations");
+  
+  if (fs.existsSync(typesPath) && fs.existsSync(migrationsDir)) {
+    try {
+      const typesStat = fs.statSync(typesPath);
+      const migrations = fs.readdirSync(migrationsDir).filter(f => f.endsWith(".sql"));
+      
+      // Check if any migration is newer than types file
+      const newerMigrations = migrations.filter(m => {
+        const migrationPath = path.join(migrationsDir, m);
+        const migrationStat = fs.statSync(migrationPath);
+        return migrationStat.mtime > typesStat.mtime;
+      });
+
+      if (newerMigrations.length > 0) {
+        reportFailure(
+          "Supabase types may be outdated",
+          `${newerMigrations.length} migration(s) newer than generated types.`,
+          "Run: npm run db:types to regenerate TypeScript types"
+        );
+      }
+    } catch {
+      // File stat failed, skip
+    }
   }
 }
 
@@ -814,6 +934,26 @@ async function main() {
         cacheCheckResult("Migration Drift", failures.length === 0);
       } else {
         console.log(`⏭️  Migration Drift check (cached)`);
+      }
+    }),
+  ]);
+
+  // Phase 4b: Supabase schema checks (after Supabase is confirmed running)
+  await Promise.all([
+    Promise.resolve().then(() => {
+      if (!isCheckCached("Supabase Migrations")) {
+        checkSupabaseMigrations();
+        cacheCheckResult("Supabase Migrations", failures.length === 0);
+      } else {
+        console.log(`⏭️  Supabase Migrations check (cached)`);
+      }
+    }),
+    Promise.resolve().then(() => {
+      if (!isCheckCached("Supabase Schema")) {
+        checkSupabaseSchema();
+        cacheCheckResult("Supabase Schema", failures.length === 0);
+      } else {
+        console.log(`⏭️  Supabase Schema check (cached)`);
       }
     }),
   ]);
