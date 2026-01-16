@@ -14,7 +14,7 @@ import {
 } from './api-adapter';
 import type { AgentPhase, AgentEvent, Artifact } from './types';
 import { llmService, AVAILABLE_MODELS } from '@/services/llm';
-import { getAgentOrchestratorAdapter, AgentOrchestratorAdapter } from '@/services/AgentOrchestratorAdapter';
+import { AgentOrchestratorAdapter } from '@/services/AgentOrchestratorAdapter';
 
 // Configuration
 const USE_MOCK_API = false; // Set to false to use real backend API
@@ -111,9 +111,9 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): AgentStream
     startRun(runId);
 
     try {
-      // Get or create the adapter
+      // Create a new adapter instance for this request
       if (!adapterRef.current) {
-        adapterRef.current = getAgentOrchestratorAdapter();
+        adapterRef.current = new AgentOrchestratorAdapter();
       }
 
       // Send message to the backend
@@ -121,6 +121,7 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): AgentStream
         'coordinator', // Use coordinator agent by default
         message,
         { companyName },
+        runId,
         processEvent
       );
 

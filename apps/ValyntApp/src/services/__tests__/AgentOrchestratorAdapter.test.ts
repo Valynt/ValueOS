@@ -6,11 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import {
-  AgentOrchestratorAdapter,
-  getAgentOrchestratorAdapter,
-  resetAgentOrchestratorAdapter,
-} from '../AgentOrchestratorAdapter';
+import { AgentOrchestratorAdapter } from '../AgentOrchestratorAdapter';
 import * as agentService from '../agentService';
 
 // Mock the agent service
@@ -24,7 +20,6 @@ describe('AgentOrchestratorAdapter', () => {
   let adapter: AgentOrchestratorAdapter;
 
   beforeEach(() => {
-    resetAgentOrchestratorAdapter();
     adapter = new AgentOrchestratorAdapter();
     vi.clearAllMocks();
   });
@@ -33,21 +28,7 @@ describe('AgentOrchestratorAdapter', () => {
     adapter.cancel();
   });
 
-  describe('Singleton Pattern', () => {
-    it('should return same instance from getAgentOrchestratorAdapter', () => {
-      resetAgentOrchestratorAdapter();
-      const instance1 = getAgentOrchestratorAdapter();
-      const instance2 = getAgentOrchestratorAdapter();
-      expect(instance1).toBe(instance2);
-    });
 
-    it('should create new instance after reset', () => {
-      const instance1 = getAgentOrchestratorAdapter();
-      resetAgentOrchestratorAdapter();
-      const instance2 = getAgentOrchestratorAdapter();
-      expect(instance1).not.toBe(instance2);
-    });
-  });
 
   describe('Configuration', () => {
     it('should use default configuration', () => {
@@ -89,7 +70,7 @@ describe('AgentOrchestratorAdapter', () => {
         result: { message: 'Test response' },
       });
 
-      await adapter.invokeAgent('coordinator', 'Test query', { companyName: 'Test Co' }, onEvent);
+      await adapter.invokeAgent('coordinator', 'Test query', { companyName: 'Test Co' }, 'test-run-123', onEvent);
 
       expect(agentService.invokeAgent).toHaveBeenCalledWith('coordinator', {
         query: 'Test query',
@@ -110,7 +91,7 @@ describe('AgentOrchestratorAdapter', () => {
       });
 
       await expect(
-        adapter.invokeAgent('coordinator', 'Test query', {}, onEvent)
+        adapter.invokeAgent('coordinator', 'Test query', {}, 'test-run-123', onEvent)
       ).rejects.toThrow('Agent invocation failed');
 
       // Should have emitted an error event
@@ -140,7 +121,7 @@ describe('AgentOrchestratorAdapter', () => {
       });
 
       await expect(
-        shortTimeoutAdapter.invokeAgent('coordinator', 'Test query', {}, onEvent)
+        shortTimeoutAdapter.invokeAgent('coordinator', 'Test query', {}, 'test-run-123', onEvent)
       ).rejects.toThrow('Job polling timed out or was cancelled');
     });
 
@@ -160,7 +141,7 @@ describe('AgentOrchestratorAdapter', () => {
       });
 
       await expect(
-        adapter.invokeAgent('coordinator', 'Test query', {}, onEvent)
+        adapter.invokeAgent('coordinator', 'Test query', {}, 'test-run-123', onEvent)
       ).rejects.toThrow('Agent execution failed');
     });
   });
@@ -181,7 +162,7 @@ describe('AgentOrchestratorAdapter', () => {
       });
 
       // Start the operation
-      const promise = adapter.invokeAgent('coordinator', 'Test query', {}, onEvent);
+      const promise = adapter.invokeAgent('coordinator', 'Test query', {}, 'test-run-123', onEvent);
 
       // Cancel immediately
       adapter.cancel();
@@ -206,7 +187,7 @@ describe('AgentOrchestratorAdapter', () => {
         return new Promise(() => {}); // Never resolves
       });
 
-      const promise = adapter.invokeAgent('coordinator', 'Test query', {});
+      const promise = adapter.invokeAgent('coordinator', 'Test query', {}, 'test-run-123');
 
       // Check streaming status while operation is in progress
       expect(adapter.isCurrentlyStreaming).toBe(true);
@@ -231,7 +212,7 @@ describe('AgentOrchestratorAdapter', () => {
         return new Promise(() => {}); // Never resolves
       });
 
-      const promise = adapter.invokeAgent('coordinator', 'Test query', {});
+      const promise = adapter.invokeAgent('coordinator', 'Test query', {}, 'test-run-123');
 
       expect(adapter.getCurrentJobId()).toBe('test-job-123');
 

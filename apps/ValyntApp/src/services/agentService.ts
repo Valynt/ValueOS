@@ -12,7 +12,8 @@ export type AgentId =
   | 'crm-import'
   | 'call-analyzer'
   | 'value-modeler'
-  | 'roi-calculator';
+  | 'roi-calculator'
+  | 'coordinator';
 
 export interface AgentInvokeRequest {
   query: string;

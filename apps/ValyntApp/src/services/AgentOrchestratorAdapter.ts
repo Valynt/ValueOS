@@ -74,15 +74,18 @@ export class AgentOrchestratorAdapter {
     agentId: string,
     query: string,
     context?: Record<string, any>,
+    runId?: string,
     onEvent?: (event: AgentEvent) => void
   ): Promise<void> {
     this.isStreaming = true;
     this.abortController = new AbortController();
     const { signal } = this.abortController;
 
+    const effectiveRunId = runId || 'run_0';
+
     try {
       // Emit initial phase change
-      onEvent?.(createPhaseChangeEvent('idle', 'execute', 'run_0', 'Processing query'));
+      onEvent?.(createPhaseChangeEvent('idle', 'execute', effectiveRunId, 'Processing query'));
 
       // Invoke the agent
       const invokeResponse = await invokeAgent(agentId as any, {
@@ -98,7 +101,7 @@ export class AgentOrchestratorAdapter {
       this.currentJobId = jobId;
 
       // Poll for job completion
-      const jobStatus = await this.pollJobStatus(jobId, signal, onEvent);
+      const jobStatus = await this.pollJobStatus(jobId, signal, effectiveRunId, onEvent);
 
       if (!jobStatus) {
         throw new Error('Job polling timed out or was cancelled');
@@ -115,14 +118,14 @@ export class AgentOrchestratorAdapter {
           payload: { message: JSON.stringify(jobStatus.result) },
         };
 
-        const events = fromAgentResponse(agentResponse, 'run_0');
+        const events = fromAgentResponse(agentResponse, effectiveRunId);
         events.forEach(event => onEvent?.(event));
       }
 
-      onEvent?.(createPhaseChangeEvent('execute', 'review', 'run_0', 'Processing complete'));
+      onEvent?.(createPhaseChangeEvent('execute', 'review', effectiveRunId, 'Processing complete'));
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      onEvent?.(createErrorEvent(err, 'run_0'));
+      onEvent?.(createErrorEvent(err, effectiveRunId));
       throw err;
     } finally {
       this.isStreaming = false;
@@ -137,6 +140,7 @@ export class AgentOrchestratorAdapter {
   private async pollJobStatus(
     jobId: string,
     signal: AbortSignal,
+    runId: string,
     onEvent?: (event: AgentEvent) => void
   ): Promise<AgentJobStatus | null> {
     let attempts = 0;
@@ -161,7 +165,7 @@ export class AgentOrchestratorAdapter {
           id: `event_${Date.now()}`,
           type: 'checkpoint_created',
           timestamp: Date.now(),
-          runId: 'run_0',
+          runId: runId,
           payload: {
             checkpointId: `checkpoint_${Date.now()}`,
             label: 'Processing...',
@@ -213,30 +217,6 @@ export class AgentOrchestratorAdapter {
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
-}
-
-/**
- * Singleton instance
- */
-let adapterInstance: AgentOrchestratorAdapter | null = null;
-
-/**
- * Get or create AgentOrchestratorAdapter instance
- */
-export function getAgentOrchestratorAdapter(
-  config?: AgentOrchestratorConfig
-): AgentOrchestratorAdapter {
-  if (!adapterInstance) {
-    adapterInstance = new AgentOrchestratorAdapter(config);
-  }
-  return adapterInstance;
-}
-
-/**
- * Reset adapter instance (useful for testing)
- */
-export function resetAgentOrchestratorAdapter(): void {
-  adapterInstance = null;
 }
 
 /**
