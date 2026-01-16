@@ -93,11 +93,15 @@ export default defineConfig({
         "buffer",
       ],
       output: {
-        manualChunks: {
-          vendor: ["react", "react-dom"],
-          vendorRouter: ["react-router-dom"],
-          vendorSupabase: ["@supabase/supabase-js"],
-          vendorUI: ["lucide-react", "clsx", "tailwind-merge"],
+        manualChunks: (id) => {
+          if (id.includes("node_modules")) {
+            if (id.includes("react-dom")) return "vendor";
+            if (id.includes("react-router")) return "vendorRouter";
+            if (id.includes("@supabase")) return "vendorSupabase";
+            if (id.includes("lucide-react")) return "vendorUI";
+            if (id.includes("@radix-ui")) return "vendorRadix";
+            if (id.includes("zustand")) return "vendorState";
+          }
         },
       },
     },
