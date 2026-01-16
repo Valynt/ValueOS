@@ -1,13 +1,13 @@
 /**
  * Agent Service
- * 
+ *
  * Client-side service for invoking backend agents.
  * Maps to /api/agents endpoints.
  */
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
-export type AgentId = 
+export type AgentId =
   | 'research-company'
   | 'crm-import'
   | 'call-analyzer'
@@ -114,7 +114,7 @@ export async function waitForJob(
 
   for (let i = 0; i < maxAttempts; i++) {
     const status = await getJobStatus(jobId);
-    
+
     if (!status) {
       return null;
     }

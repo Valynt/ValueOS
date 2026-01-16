@@ -5,7 +5,7 @@
  * Handles async job execution and polling for results.
  */
 
-import { invokeAgent, getJobStatus, waitForJob, AgentInvokeResponse, AgentJobStatus } from './agentService';
+import { invokeAgent, getJobStatus, waitForJob, AgentInvokeResponse, AgentJobStatus, AgentId } from './agentService';
 import type { AgentEvent, Artifact } from '@/features/workspace/agent/types';
 import {
   fromAgentResponse,
@@ -71,24 +71,22 @@ export class AgentOrchestratorAdapter {
    * Invoke an agent and poll for results
    */
   async invokeAgent(
-    agentId: string,
+    agentId: AgentId,
     query: string,
+    runId: string,
     context?: Record<string, any>,
-    runId?: string,
     onEvent?: (event: AgentEvent) => void
   ): Promise<void> {
     this.isStreaming = true;
     this.abortController = new AbortController();
     const { signal } = this.abortController;
 
-    const effectiveRunId = runId || 'run_0';
-
     try {
       // Emit initial phase change
-      onEvent?.(createPhaseChangeEvent('idle', 'execute', effectiveRunId, 'Processing query'));
+      onEvent?.(createPhaseChangeEvent('idle', 'execute', runId, 'Processing query'));
 
       // Invoke the agent
-      const invokeResponse = await invokeAgent(agentId as any, {
+      const invokeResponse = await invokeAgent(agentId, {
         query,
         context: JSON.stringify(context || {}),
       });
@@ -101,7 +99,7 @@ export class AgentOrchestratorAdapter {
       this.currentJobId = jobId;
 
       // Poll for job completion
-      const jobStatus = await this.pollJobStatus(jobId, signal, effectiveRunId, onEvent);
+      const jobStatus = await this.pollJobStatus(jobId, runId, signal, onEvent);
 
       if (!jobStatus) {
         throw new Error('Job polling timed out or was cancelled');
@@ -118,14 +116,14 @@ export class AgentOrchestratorAdapter {
           payload: { message: JSON.stringify(jobStatus.result) },
         };
 
-        const events = fromAgentResponse(agentResponse, effectiveRunId);
+        const events = fromAgentResponse(agentResponse, runId);
         events.forEach(event => onEvent?.(event));
       }
 
-      onEvent?.(createPhaseChangeEvent('execute', 'review', effectiveRunId, 'Processing complete'));
+      onEvent?.(createPhaseChangeEvent('execute', 'review', runId, 'Processing complete'));
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      onEvent?.(createErrorEvent(err, effectiveRunId));
+      onEvent?.(createErrorEvent(err, runId));
       throw err;
     } finally {
       this.isStreaming = false;
@@ -139,8 +137,8 @@ export class AgentOrchestratorAdapter {
    */
   private async pollJobStatus(
     jobId: string,
-    signal: AbortSignal,
     runId: string,
+    signal: AbortSignal,
     onEvent?: (event: AgentEvent) => void
   ): Promise<AgentJobStatus | null> {
     let attempts = 0;
@@ -169,7 +167,7 @@ export class AgentOrchestratorAdapter {
           payload: {
             checkpointId: `checkpoint_${Date.now()}`,
             label: 'Processing...',
-            progress: Math.min((attempts / this.config.maxPollingAttempts!) * 100, 90),
+            progress: (attempts / this.config.maxPollingAttempts!) * 100,
             canRestore: true,
           },
         });
