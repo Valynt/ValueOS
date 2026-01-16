@@ -51,7 +51,7 @@ describe('rateLimiter tenant isolation', () => {
     expect(key).toBe('ip:1.1.1.1');
   });
 
-  it('enforces limits per tenant boundary', () => {
+  it('enforces limits per tenant boundary', async () => {
     const limiter = createRateLimiter('standard');
     
     const makeRes = () => {
@@ -69,19 +69,19 @@ describe('rateLimiter tenant isolation', () => {
     // Tenant A first request
     const resA1 = makeRes();
     const nextA1 = vi.fn();
-    limiter(mockReq({ tenantId: 'org-A' }), resA1 as any, nextA1);
+    await limiter(mockReq({ tenantId: 'org-A' }), resA1 as any, nextA1);
     expect(resA1.headers['X-RateLimit-Remaining']).toBe('59');
 
     // Tenant B first request should not decrement Tenant A's remaining
     const resB1 = makeRes();
     const nextB1 = vi.fn();
-    limiter(mockReq({ tenantId: 'org-B' }), resB1 as any, nextB1);
+    await limiter(mockReq({ tenantId: 'org-B' }), resB1 as any, nextB1);
     expect(resB1.headers['X-RateLimit-Remaining']).toBe('59');
 
     // Tenant A second request decrements its own quota
     const resA2 = makeRes();
     const nextA2 = vi.fn();
-    limiter(mockReq({ tenantId: 'org-A' }), resA2 as any, nextA2);
+    await limiter(mockReq({ tenantId: 'org-A' }), resA2 as any, nextA2);
     expect(resA2.headers['X-RateLimit-Remaining']).toBe('58');
   });
 });
