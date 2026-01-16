@@ -338,7 +338,7 @@ class AuthService {
               email: persistedState.email || "",
             }
           : undefined,
-        expiresAt: persistedState.expiresAt,
+        expiresAt: persistedState.expiresAt || undefined,
       };
     } catch (error) {
       console.error("Get status error:", error);

@@ -13,7 +13,7 @@ interface StorageData {
 class SecureTokenStorage {
   private encryptionKey: CryptoKey | null = null;
   private readonly storageKey = "secure_auth_data";
-  private readonly salt: Uint8Array;
+  private readonly salt!: Uint8Array;
 
   constructor() {
     // Generate salt once during initialization for consistent key derivation
