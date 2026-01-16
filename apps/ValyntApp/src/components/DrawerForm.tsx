@@ -10,7 +10,15 @@ interface DrawerFormProps {
 }
 
 const DrawerForm: React.FC<DrawerFormProps> = ({ isOpen, onClose, title, children }) => {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const focusFirstFocusable = (element: HTMLElement) => {
+    const focusableSelectors = 'input, textarea, select, button, [tabindex]:not([tabindex="-1"])';
+    const firstFocusable = element.querySelector(focusableSelectors) as HTMLElement;
+    if (firstFocusable) {
+      firstFocusable.focus();
+    }
+  };
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -21,8 +29,8 @@ const DrawerForm: React.FC<DrawerFormProps> = ({ isOpen, onClose, title, childre
   }, [isOpen, onClose]);
 
   useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => inputRef.current?.focus(), 100);
+    if (isOpen && containerRef.current) {
+      setTimeout(() => focusFirstFocusable(containerRef.current!), 100);
     }
   }, [isOpen]);
 
@@ -38,8 +46,8 @@ const DrawerForm: React.FC<DrawerFormProps> = ({ isOpen, onClose, title, childre
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="p-4 overflow-auto h-full">
-          {React.cloneElement(children as React.ReactElement, { ref: inputRef })}
+        <div ref={containerRef} className="p-4 overflow-auto h-full">
+          {children}
         </div>
       </div>
     </div>
