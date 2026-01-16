@@ -122,7 +122,7 @@ export const auditEvents: AuditEvent[] = [
     action: "created",
     entity: "deal",
     entityId: "1",
-    timestamp: new Date().toISOString(),
+    timestamp: "2024-01-01T00:00:00.000Z",
     before: null,
     after: deals[0],
   },

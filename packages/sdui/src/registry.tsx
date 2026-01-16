@@ -1,4 +1,5 @@
 import React from "react";
+import { SDUIComponentSection } from "./schema";
 import {
   AgentResponseCard,
   AgentWorkflowPanel,
@@ -424,7 +425,7 @@ versionedRegistry.registerFallback({
 /**
  * Resolve component with version negotiation
  */
-export function resolveComponent(
+export function resolveComponentWithVersion(
   componentName: string,
   requestedVersion?: number,
   strategy?: VersionNegotiationStrategy
@@ -454,12 +455,43 @@ export const RegistryPlaceholderComponent: React.ComponentType<any> = ({
 );
 
 // Legacy registry placeholder for backward compatibility
-export const baseRegistry: Record<string, RegistryEntry> = {};
+export const baseRegistry: Record<string, RegistryEntry> = {
+  WorkflowStatusBar: {
+    component: WorkflowStatusBar,
+    versions: [1],
+    requiredProps: [],
+    description: "Real-time workflow progress bar showing current stage, agent, and confidence.",
+  },
+  HumanCheckpoint: {
+    component: HumanCheckpoint,
+    versions: [1],
+    requiredProps: ["stageId", "agentName", "action", "riskLevel", "onApprove", "onReject"],
+    description: "Human approval interface for high-risk workflow stages.",
+  },
+  ConfidenceDisplay: {
+    component: ConfidenceDisplay,
+    versions: [1],
+    requiredProps: [],
+    description:
+      "Displays agent confidence levels and hallucination status with regeneration options.",
+  },
+  ComponentPreview: {
+    component: ComponentPreview,
+    versions: [1],
+    requiredProps: ["intentType", "componentName", "registryEntry", "organizationId"],
+    description: "Developer preview tool for ui-registry.json entries with validation.",
+  },
+};
+
+// Initialize registry after baseRegistry is defined
+const registry = new Map<string, RegistryEntry>(Object.entries(baseRegistry));
 
 /**
  * Resolve component from registry (legacy function)
  */
-export function resolveComponent(section: SDUIComponentSection): RegistryEntry | undefined {
+export function resolveComponentFromLegacyRegistry(
+  section: SDUIComponentSection
+): RegistryEntry | undefined {
   const entry = registry.get(section.component);
   if (!entry) return undefined;
   if (!entry.versions.includes(section.version)) {
@@ -474,42 +506,12 @@ export function resolveComponent(section: SDUIComponentSection): RegistryEntry |
 /**
  * Resolve component from registry (legacy function)
  */
-export function resolveComponent(section: any): React.ComponentType<any> | null {
+export function resolveComponentFromVersionedRegistry(
+  section: any
+): React.ComponentType<any> | null {
   const result = versionedRegistry.resolve(section.component || section.type, section.version);
   return result.component;
 }
-
-// Workflow and agent UX components
-WorkflowStatusBar: {
-  component: WorkflowStatusBar,
-  versions: [1],
-  requiredProps: [],
-  description: "Real-time workflow progress bar showing current stage, agent, and confidence.",
-},
-HumanCheckpoint: {
-  component: HumanCheckpoint,
-  versions: [1],
-  requiredProps: ["stageId", "agentName", "action", "riskLevel", "onApprove", "onReject"],
-  description: "Human approval interface for high-risk workflow stages.",
-},
-ConfidenceDisplay: {
-  component: ConfidenceDisplay,
-  versions: [1],
-  requiredProps: [],
-  description:
-    "Displays agent confidence levels and hallucination status with regeneration options.",
-},
-ComponentPreview: {
-  component: ComponentPreview,
-  versions: [1],
-  requiredProps: ["intentType", "componentName", "registryEntry", "organizationId"],
-  description: "Developer preview tool for ui-registry.json entries with validation.",
-},
-};
-
-const registry = new Map<string, RegistryEntry>(Object.entries(baseRegistry));
-
-export const RegistryPlaceholderComponent = UnknownComponentFallback;
 
 export function listRegisteredComponents(): RegistryEntry[] {
   return Array.from(registry.values());
@@ -537,18 +539,6 @@ export function hotSwapComponent(
   const updated: RegistryEntry = { ...current, component };
   registry.set(name, updated);
   return updated;
-}
-
-export function resolveComponent(section: SDUIComponentSection): RegistryEntry | undefined {
-  const entry = registry.get(section.component);
-  if (!entry) return undefined;
-  if (!entry.versions.includes(section.version)) {
-    return {
-      ...entry,
-      description: `${entry.description ?? ""} (coerced version)`,
-    };
-  }
-  return entry;
 }
 
 export const SectionErrorWrapper: React.FC<{
