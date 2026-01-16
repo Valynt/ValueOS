@@ -14,12 +14,15 @@ import {
   ListValueDriversQuerySchema,
   ApiErrorResponse,
 } from './types';
-import { 
-  getValueDriversRepository,
-  NotFoundError,
-  ConflictError,
-  DatabaseError,
-} from './repository';
+import { getValueDriversRepository } from './repository';
+import {
+  DbConflictError,
+  DbForbiddenError,
+  DbNotFoundError,
+  DbUnauthorizedError,
+  DbValidationError,
+  TransientDbError,
+} from '../../lib/db/errors';
 import { requireAuth, requireRole, AuthenticatedRequest } from '../../middleware/auth';
 import { createRateLimiter, RateLimitTier } from '../../middleware/rateLimiter';
 import { logger } from '../../lib/logger';
@@ -162,7 +165,17 @@ function handleError(
   const authReq = req as AuthenticatedRequest;
   const requestId = authReq.correlationId;
 
-  if (err instanceof NotFoundError) {
+  if (err instanceof DbValidationError) {
+    res.status(400).json({
+      error: 'VALIDATION_ERROR',
+      message: err.message,
+      details: err.details,
+      requestId,
+    } satisfies ApiErrorResponse);
+    return;
+  }
+
+  if (err instanceof DbNotFoundError) {
     res.status(404).json({
       error: 'NOT_FOUND',
       message: err.message,
@@ -171,7 +184,7 @@ function handleError(
     return;
   }
 
-  if (err instanceof ConflictError) {
+  if (err instanceof DbConflictError) {
     res.status(409).json({
       error: 'CONFLICT',
       message: err.message,
@@ -180,16 +193,39 @@ function handleError(
     return;
   }
 
-  if (err instanceof DatabaseError) {
-    logger.error('Database error', {
+  if (err instanceof DbUnauthorizedError) {
+    res.status(401).json({
+      error: 'UNAUTHORIZED',
+      message: err.message,
+      requestId,
+    } satisfies ApiErrorResponse);
+    return;
+  }
+
+  if (err instanceof DbForbiddenError) {
+    res.status(403).json({
+      error: 'FORBIDDEN',
+      message: err.message,
+      requestId,
+    } satisfies ApiErrorResponse);
+    return;
+  }
+
+  if (err instanceof TransientDbError) {
+    logger.warn('Transient database error', {
       requestId,
       error: err.message,
-      code: err.code,
+      details: err.details,
     });
 
+    res.setHeader('Retry-After', Math.ceil(err.retryAfterMs / 1000));
     res.status(503).json({
       error: 'SERVICE_UNAVAILABLE',
-      message: 'Database temporarily unavailable. Please retry.',
+      message: err.message,
+      details: {
+        retryAfterMs: err.retryAfterMs,
+        retryHint: err.retryHint,
+      },
       requestId,
     } satisfies ApiErrorResponse);
     return;

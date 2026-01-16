@@ -7,7 +7,12 @@
 import request from 'supertest';
 import express, { Express } from 'express';
 import { valueDriversRouter } from '../index';
-import { getValueDriversRepository, NotFoundError, DatabaseError, ConflictError } from '../repository';
+import { getValueDriversRepository } from '../repository';
+import {
+  DbConflictError,
+  DbNotFoundError,
+  TransientDbError,
+} from '../../../lib/db/errors';
 
 // Mock the repository
 jest.mock('../repository');
@@ -337,7 +342,7 @@ describe('Value Drivers API', () => {
   describe('Dependency Errors', () => {
     it('should return 404 when driver not found', async () => {
       mockRepository.getById.mockRejectedValue(
-        new NotFoundError('ValueDriver', 'driver-123')
+        new DbNotFoundError('ValueDriver', 'driver-123')
       );
 
       const response = await request(app)
@@ -349,7 +354,7 @@ describe('Value Drivers API', () => {
 
     it('should return 409 for duplicate driver name', async () => {
       mockRepository.create.mockRejectedValue(
-        new ConflictError('A driver with this name already exists')
+        new DbConflictError('A driver with this name already exists')
       );
 
       const response = await request(app)
@@ -362,7 +367,7 @@ describe('Value Drivers API', () => {
 
     it('should return 503 when database is unavailable', async () => {
       mockRepository.list.mockRejectedValue(
-        new DatabaseError('Connection timeout')
+        new TransientDbError('Database temporarily unavailable')
       );
 
       const response = await request(app)
@@ -370,7 +375,7 @@ describe('Value Drivers API', () => {
         .expect(503);
 
       expect(response.body.error).toBe('SERVICE_UNAVAILABLE');
-      expect(response.body.message).toContain('retry');
+      expect(response.body.details.retryHint).toBeDefined();
     });
 
     it('should return 500 for unexpected errors without leaking details', async () => {
