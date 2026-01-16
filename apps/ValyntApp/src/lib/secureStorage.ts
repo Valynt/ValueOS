@@ -16,7 +16,9 @@ class SecureTokenStorage {
   private readonly salt: Uint8Array;
 
   constructor() {
-    // Key will be generated lazily on first use
+    // Generate salt once during initialization for consistent key derivation
+    this.salt = new Uint8Array(16);
+    crypto.getRandomValues(this.salt);
   }
 
   /**
@@ -35,9 +37,6 @@ class SecureTokenStorage {
       // Add more entropy factors as needed
     ].join("|");
 
-    const salt = new Uint8Array(16);
-    crypto.getRandomValues(salt);
-
     const keyMaterial = await crypto.subtle.importKey(
       "raw",
       new TextEncoder().encode(fingerprint),
@@ -49,7 +48,7 @@ class SecureTokenStorage {
     this.encryptionKey = await crypto.subtle.deriveKey(
       {
         name: "PBKDF2",
-        salt: salt,
+        salt: this.salt,
         iterations: 100000,
         hash: "SHA-256",
       },
