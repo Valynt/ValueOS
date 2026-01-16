@@ -447,7 +447,11 @@ export class IndustryBenchmarkModule extends BaseModule {
       logger.debug("Census data retrieved", { naicsCode, metric, hasData: true });
       return benchmark;
     } catch (error) {
-      logger.warn("Census API lookup failed, falling back to static data", { naicsCode, error });
+      logger.warn("Census API lookup failed, falling back to static data", {
+        source: "census",
+        naicsCode,
+        error: error instanceof Error ? { name: error.name, message: error.message } : String(error),
+      });
       throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, "Census API integration failed");
     }
   }
@@ -491,7 +495,11 @@ export class IndustryBenchmarkModule extends BaseModule {
       logger.debug("BLS wage data retrieved", { occupationCode, metroArea, hasData: true });
       return wageEntry;
     } catch (error) {
-      logger.warn("BLS API lookup failed, falling back to static data", { occupationCode, error });
+      logger.warn("BLS API lookup failed, falling back to static data", {
+        source: "bls",
+        occupationCode,
+        error: error instanceof Error ? { name: error.name, message: error.message } : String(error),
+      });
       throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, "BLS API integration failed");
     }
   }
@@ -646,43 +654,212 @@ export class IndustryBenchmarkModule extends BaseModule {
   }
 
   /**
-   * Get quality metrics for all industries
+   * Validate live data feed quality and freshness
    */
-  getIndustryQualityReport(): {
-    totalIndustries: number;
-    validIndustries: number;
-    averageQualityScore: number;
-    averageCompletenessScore: number;
-    issuesByIndustry: Record<string, string[]>;
+  validateLiveDataQuality(
+    dataSource: "sec" | "bls" | "census",
+    data: any
+  ): {
+    isValid: boolean;
+    qualityScore: number;
+    issues: string[];
+    dataFreshness: "fresh" | "stale" | "outdated";
+    confidence: number;
   } {
-    const allNaicsCodes = Object.keys(this.STATIC_BENCHMARKS);
-    const reports = allNaicsCodes.map((naics) => ({
-      naics,
-      ...this.validateBenchmarkData(naics),
-    }));
+    const issues: string[] = [];
+    let qualityScore = 100;
+    let dataFreshness: "fresh" | "stale" | "outdated" = "fresh";
+    let confidence = 0.85; // Base confidence for live data
 
-    const validIndustries = reports.filter((r) => r.isValid).length;
-    const averageQualityScore =
-      reports.reduce((sum, r) => sum + r.qualityScore, 0) / reports.length;
-    const averageCompletenessScore =
-      reports.reduce((sum, r) => sum + r.completenessScore, 0) / reports.length;
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1;
 
-    const issuesByIndustry = reports.reduce(
-      (acc, report) => {
-        if (report.issues.length > 0) {
-          acc[report.naics] = report.issues;
+    switch (dataSource) {
+      case "sec":
+        // SEC data validation
+        if (data && Array.isArray(data)) {
+          if (data.length === 0) {
+            issues.push("No SEC filings found");
+            qualityScore -= 50;
+          }
+
+          // Check data recency
+          const latestFiling = data[0];
+          if (latestFiling && latestFiling.filingDate) {
+            const filingDate = new Date(latestFiling.filingDate);
+            const monthsDiff =
+              (currentYear - filingDate.getFullYear()) * 12 +
+              (currentMonth - (filingDate.getMonth() + 1));
+
+            if (monthsDiff > 12) {
+              dataFreshness = "outdated";
+              qualityScore -= 30;
+              confidence -= 0.2;
+            } else if (monthsDiff > 3) {
+              dataFreshness = "stale";
+              qualityScore -= 15;
+              confidence -= 0.1;
+            }
+          }
+        } else {
+          issues.push("Invalid SEC data format");
+          qualityScore -= 40;
         }
-        return acc;
-      },
-      {} as Record<string, string[]>
-    );
+        break;
+
+      case "bls":
+        // BLS data validation
+        if (data && Array.isArray(data)) {
+          if (data.length === 0) {
+            issues.push("No BLS data found");
+            qualityScore -= 50;
+          }
+
+          // Check data recency
+          const latestData = data[0];
+          if (latestData && latestData.year) {
+            if (latestData.year > currentYear) {
+              issues.push("Future data year detected");
+              qualityScore -= 50;
+              confidence -= 0.3;
+            } else if (latestData.year === currentYear - 1) {
+              dataFreshness = "stale";
+              qualityScore -= 15;
+              confidence -= 0.1;
+            } else if (latestData.year < currentYear - 1) {
+              dataFreshness = "outdated";
+              qualityScore -= 30;
+              confidence -= 0.2;
+            }
+          }
+
+          // Check data completeness
+          const requiredFields = ["medianWage", "meanWage", "employmentCount"];
+          const completeness =
+            data.reduce((acc: number, item: any) => {
+              const presentFields = requiredFields.filter((field) => item[field] != null).length;
+              return acc + presentFields / requiredFields.length;
+            }, 0) / data.length;
+
+          if (completeness < 0.8) {
+            issues.push(`Data completeness: ${(completeness * 100).toFixed(1)}%`);
+            qualityScore -= 20;
+            confidence -= 0.1;
+          }
+        } else {
+          issues.push("Invalid BLS data format");
+          qualityScore -= 40;
+        }
+        break;
+
+      case "census":
+        // Census data validation
+        if (data && Array.isArray(data)) {
+          if (data.length === 0) {
+            issues.push("No Census data found");
+            qualityScore -= 50;
+          }
+
+          // Census ACS data is typically 1-2 years delayed
+          const latestData = data[0];
+          if (latestData && latestData.year) {
+            if (latestData.year === currentYear - 1) {
+              dataFreshness = "stale";
+              qualityScore -= 10;
+              confidence -= 0.05;
+            } else if (latestData.year < currentYear - 1) {
+              dataFreshness = "outdated";
+              qualityScore -= 25;
+              confidence -= 0.15;
+            }
+          }
+
+          // Check for reasonable data ranges
+          data.forEach((item: any, index: number) => {
+            if (item.totalPopulation && item.totalPopulation < 0) {
+              issues.push(`Invalid population data at index ${index}`);
+              qualityScore -= 5;
+            }
+            if (
+              item.medianHouseholdIncome &&
+              (item.medianHouseholdIncome < 0 || item.medianHouseholdIncome > 500000)
+            ) {
+              issues.push(`Suspicious income data at index ${index}`);
+              qualityScore -= 5;
+            }
+          });
+        } else {
+          issues.push("Invalid Census data format");
+          qualityScore -= 40;
+        }
+        break;
+    }
+
+    // Ensure quality score stays within bounds
+    qualityScore = Math.max(0, Math.min(100, qualityScore));
+    confidence = Math.max(0, Math.min(1, confidence));
 
     return {
-      totalIndustries: allNaicsCodes.length,
-      validIndustries,
-      averageQualityScore,
-      averageCompletenessScore,
-      issuesByIndustry,
+      isValid: issues.length === 0,
+      qualityScore,
+      issues,
+      dataFreshness,
+      confidence,
+    };
+  }
+
+  /**
+   * Get data provenance information for auditing
+   */
+  getDataProvenance(
+    dataSource: string,
+    data: any
+  ): {
+    source: string;
+    timestamp: string;
+    dataPoints: number;
+    lastUpdated: string;
+    refreshInterval: string;
+    confidence: number;
+    qualityScore: number;
+  } {
+    const now = new Date().toISOString();
+    const dataPoints = Array.isArray(data) ? data.length : 1;
+
+    let refreshInterval: string;
+    let confidence: number;
+    let qualityScore: number;
+
+    switch (dataSource) {
+      case "sec":
+        refreshInterval = "Real-time to daily";
+        confidence = 0.95;
+        qualityScore = this.validateLiveDataQuality("sec", data).qualityScore;
+        break;
+      case "bls":
+        refreshInterval = "Monthly to quarterly";
+        confidence = 0.9;
+        qualityScore = this.validateLiveDataQuality("bls", data).qualityScore;
+        break;
+      case "census":
+        refreshInterval = "Annual (with 1-2 year delay)";
+        confidence = 0.85;
+        qualityScore = this.validateLiveDataQuality("census", data).qualityScore;
+        break;
+      default:
+        refreshInterval = "Unknown";
+        confidence = 0.5;
+        qualityScore = 50;
+    }
+
+    return {
+      source: dataSource,
+      timestamp: now,
+      dataPoints,
+      lastUpdated: now,
+      refreshInterval,
+      confidence,
+      qualityScore,
     };
   }
 }
