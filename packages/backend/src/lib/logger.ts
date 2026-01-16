@@ -1,8 +1,10 @@
 /**
  * Structured JSON Logger
- * 
+ *
  * Production-grade logging with correlation IDs and safe metadata.
  */
+
+import { redactSensitiveData } from './redaction';
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -14,27 +16,6 @@ interface LogEntry {
 }
 
 /**
- * Sanitize sensitive data from log entries
- */
-function sanitize(data: Record<string, unknown>): Record<string, unknown> {
-  const sensitiveKeys = ['password', 'token', 'secret', 'key', 'authorization', 'cookie'];
-  const result: Record<string, unknown> = {};
-
-  for (const [key, value] of Object.entries(data)) {
-    const lowerKey = key.toLowerCase();
-    if (sensitiveKeys.some(k => lowerKey.includes(k))) {
-      result[key] = '[REDACTED]';
-    } else if (typeof value === 'object' && value !== null) {
-      result[key] = sanitize(value as Record<string, unknown>);
-    } else {
-      result[key] = value;
-    }
-  }
-
-  return result;
-}
-
-/**
  * Create a log entry
  */
 function createEntry(level: LogLevel, message: string, meta?: Record<string, unknown>): LogEntry {
@@ -42,7 +23,7 @@ function createEntry(level: LogLevel, message: string, meta?: Record<string, unk
     timestamp: new Date().toISOString(),
     level,
     message,
-    ...sanitize(meta || {}),
+    ...(meta ? (redactSensitiveData(meta) as Record<string, unknown>) : {}),
   };
 }
 
@@ -51,7 +32,7 @@ function createEntry(level: LogLevel, message: string, meta?: Record<string, unk
  */
 function output(entry: LogEntry): void {
   const json = JSON.stringify(entry);
-  
+
   if (entry.level === 'error') {
     console.error(json);
   } else if (entry.level === 'warn') {
