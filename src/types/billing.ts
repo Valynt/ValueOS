@@ -18,6 +18,7 @@ export interface BillingCustomer {
   metadata?: Record<string, any>;
   created_at: string;
   updated_at: string;
+  version: number;
 }
 
 export interface Subscription {
@@ -40,6 +41,7 @@ export interface Subscription {
   metadata?: Record<string, any>;
   created_at: string;
   updated_at: string;
+  version: number;
 }
 
 export interface SubscriptionItem {
@@ -57,6 +59,7 @@ export interface SubscriptionItem {
   metadata?: Record<string, any>;
   created_at: string;
   updated_at: string;
+  version: number;
 }
 
 export interface UsageEvent {
@@ -115,6 +118,7 @@ export interface Invoice {
   metadata?: Record<string, any>;
   created_at: string;
   updated_at: string;
+  version: number;
 }
 
 export interface UsageQuota {

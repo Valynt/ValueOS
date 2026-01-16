@@ -143,7 +143,6 @@ class WebhookService {
           logger.info("Unhandled event type", { type: event.type });
       }
 
-      // Mark as processed
       await this.markEventProcessed(event.id);
       recordStripeWebhook(event.type, "processed");
     } catch (error) {
@@ -171,6 +170,7 @@ class WebhookService {
       })
       .eq("stripe_event_id", eventId);
   }
+
 
   /**
    * Mark event as failed
@@ -224,21 +224,7 @@ class WebhookService {
     const invoice = event.data.object;
 
     // Update invoice status
-    await InvoiceService.updateInvoice(invoice);
-
-    // Update customer status to active
-    const { data: customer } = await supabase
-      .from("billing_customers")
-      .select("tenant_id")
-      .eq("stripe_customer_id", invoice.customer)
-      .single();
-
-    if (customer) {
-      await supabase
-        .from("billing_customers")
-        .update({ status: "active" })
-        .eq("tenant_id", customer.tenant_id);
-    }
+    await InvoiceService.updateInvoiceWithCustomerStatus(invoice, "active");
 
     logger.info("Payment succeeded processed", { invoiceId: invoice.id });
     recordInvoiceEvent(event.type);
