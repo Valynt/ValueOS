@@ -31,6 +31,8 @@ import {
   selectActiveArtifact, 
   selectArtifacts,
   selectOverallProgress,
+  selectCanUndo,
+  selectCanRedo,
 } from "@/features/workspace/agent/store";
 import { useAgentStream } from "@/features/workspace/agent/useAgentStream";
 import type { AgentPhase, ConversationMessage, WorkflowStepState, Artifact } from "@/features/workspace/agent/types";
@@ -38,6 +40,16 @@ import type { AgentPhase, ConversationMessage, WorkflowStepState, Artifact } fro
 // Artifact components
 import { ArtifactRenderer } from "@/features/workspace/artifacts/ArtifactRenderer";
 import { ArtifactStack } from "@/features/workspace/artifacts/ArtifactStack";
+
+// Workspace components
+import { FloatingToolbar } from "@/features/workspace/components/FloatingToolbar";
+import { KPICards, type KPIData } from "@/features/workspace/components/KPICards";
+import { ShareModal } from "@/features/workspace/components/ShareModal";
+import { exportToPdf } from "@/features/workspace/services/exportPdf";
+
+// Value Drivers
+import { ValueDriverSelector } from "@/components/valueDrivers";
+import { ValueDriver, MOCK_VALUE_DRIVERS } from "@/types/valueDriver";
 
 export function CaseWorkspace() {
   const { caseId } = useParams();
@@ -48,6 +60,13 @@ export function CaseWorkspace() {
   // Local UI state
   const [inputValue, setInputValue] = useState("");
   const [showArtifactStack, setShowArtifactStack] = useState(true);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [showDriverPanel, setShowDriverPanel] = useState(false);
+  const [selectedDrivers, setSelectedDrivers] = useState<Array<{
+    driver: ValueDriver;
+    customValues: Record<string, number>;
+    calculatedValue: number;
+  }>>([]);
 
   // Agent store
   const {
@@ -68,11 +87,16 @@ export function CaseWorkspace() {
     rejectArtifact,
     selectArtifact,
     reset,
+    undo,
+    redo,
+    saveSnapshot,
   } = useAgentStore();
 
   const activeArtifact = useAgentStore(selectActiveArtifact);
   const artifacts = useAgentStore(selectArtifacts);
   const overallProgress = useAgentStore(selectOverallProgress);
+  const canUndo = useAgentStore(selectCanUndo);
+  const canRedo = useAgentStore(selectCanRedo);
   
   // Memoize artifact list to avoid creating new array on every render
   const artifactList = React.useMemo(() => 
@@ -80,11 +104,68 @@ export function CaseWorkspace() {
     [artifacts]
   );
 
+  // Extract KPI data from artifacts
+  const kpiData = React.useMemo((): KPIData => {
+    const financialArtifact = artifactList.find(a => a.type === 'financial_projection');
+    const valueArtifact = artifactList.find(a => a.type === 'value_model');
+    
+    if (financialArtifact?.content.kind === 'chart') {
+      const config = financialArtifact.content.config as Record<string, unknown> | undefined;
+      const metrics = config?.metrics as Record<string, number> | undefined;
+      return {
+        npv: metrics?.npv,
+        roi: metrics?.roi,
+        paybackMonths: metrics?.paybackMonths,
+        costOfInaction: 45000, // Default estimate
+        industryComparison: {
+          npv: '+12% vs industry avg',
+          payback: '-1.5 Mo vs industry avg',
+          costOfInaction: 'High Risk vs industry avg',
+        },
+      };
+    }
+    
+    if (valueArtifact?.content.kind === 'json') {
+      const data = valueArtifact.content.data as Record<string, unknown>;
+      return {
+        totalValue: data.totalValue as number | undefined,
+        npv: (data.totalValue as number) * 0.85, // Rough NPV estimate
+        paybackMonths: 7.2,
+        costOfInaction: 45000,
+      };
+    }
+    
+    return {};
+  }, [artifactList]);
+
   // Agent stream hook - handles both mock and real API
   const { sendMessage: sendAgentMessage } = useAgentStream({
+<<<<<<< HEAD
     useMock: false, // Using real Together AI API
+=======
+    useMock: false, // Using real Together.ai API
+>>>>>>> bbab9a94a9f4204c36e41bdc13857f49635cfbb8
     companyName: 'Acme Corp',
   });
+
+  // Export handler
+  const handleExport = useCallback(() => {
+    exportToPdf({
+      title: 'Value Case Analysis',
+      companyName: 'Acme Corp',
+      artifacts: artifactList,
+      kpiData,
+      confidential: true,
+    });
+  }, [artifactList, kpiData]);
+
+  // Copy to clipboard
+  const handleCopy = useCallback(() => {
+    const text = artifactList
+      .map(a => `${a.title}\n${a.content.kind === 'markdown' ? a.content.markdown : JSON.stringify(a.content, null, 2)}`)
+      .join('\n\n---\n\n');
+    navigator.clipboard.writeText(text);
+  }, [artifactList]);
 
   // Auto-scroll to bottom of messages
   useEffect(() => {
@@ -159,7 +240,14 @@ export function CaseWorkspace() {
         </div>
         <div className="flex items-center gap-3">
           <Badge className={phaseInfo.color}>{phaseInfo.label}</Badge>
-          <Button variant="ghost" size="sm">Share</Button>
+          <Button 
+            variant={showDriverPanel ? "default" : "outline"} 
+            size="sm" 
+            onClick={() => setShowDriverPanel(!showDriverPanel)}
+          >
+            Value Drivers {selectedDrivers.length > 0 && `(${selectedDrivers.length})`}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setShowShareModal(true)}>Share</Button>
           <Button size="sm">Export</Button>
         </div>
       </header>
@@ -297,19 +385,92 @@ export function CaseWorkspace() {
           )}
 
           {/* Main Canvas */}
-          <div className="flex-1 overflow-hidden bg-slate-50">
-            {activeArtifact ? (
-              <ArtifactRenderer
-                artifact={activeArtifact}
-                onApprove={() => approveArtifact(activeArtifact.id)}
-                onReject={() => rejectArtifact(activeArtifact.id)}
-              />
-            ) : (
-              <EmptyCanvas phase={phase} />
+          <div className="flex-1 overflow-hidden bg-slate-50 flex flex-col">
+            {/* KPI Cards - show when we have data */}
+            {(kpiData.npv || kpiData.totalValue) && (
+              <div className="p-4 border-b border-slate-200 bg-white">
+                <KPICards data={kpiData} />
+              </div>
             )}
+            
+            {/* Artifact Display */}
+            <div className="flex-1 overflow-hidden">
+              {activeArtifact ? (
+                <ArtifactRenderer
+                  artifact={activeArtifact}
+                  onApprove={() => {
+                    saveSnapshot();
+                    approveArtifact(activeArtifact.id);
+                  }}
+                  onReject={() => {
+                    saveSnapshot();
+                    rejectArtifact(activeArtifact.id);
+                  }}
+                />
+              ) : (
+                <EmptyCanvas phase={phase} />
+              )}
+            </div>
           </div>
+
+          {/* Value Drivers Panel */}
+          {showDriverPanel && (
+            <div className="w-96 border-l border-slate-200 bg-white overflow-y-auto">
+              <div className="p-4 border-b border-slate-200">
+                <h3 className="font-semibold">Value Drivers</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Select drivers to include in this case
+                </p>
+              </div>
+              <div className="p-4">
+                <ValueDriverSelector
+                  selectedDrivers={selectedDrivers}
+                  onSelect={(driver) => {
+                    const defaultValues: Record<string, number> = {};
+                    driver.formula.variables.forEach(v => {
+                      defaultValues[v.name] = v.defaultValue;
+                    });
+                    setSelectedDrivers([...selectedDrivers, {
+                      driver,
+                      customValues: defaultValues,
+                      calculatedValue: 0,
+                    }]);
+                  }}
+                  onRemove={(driverId) => {
+                    setSelectedDrivers(selectedDrivers.filter(s => s.driver.id !== driverId));
+                  }}
+                  onUpdateValues={(driverId, values) => {
+                    setSelectedDrivers(selectedDrivers.map(s => 
+                      s.driver.id === driverId ? { ...s, customValues: values } : s
+                    ));
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Floating Toolbar */}
+      {artifactList.length > 0 && (
+        <FloatingToolbar
+          onUndo={undo}
+          onRedo={redo}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onExport={handleExport}
+          onCopy={handleCopy}
+        />
+      )}
+
+      {/* Share Modal */}
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        caseId={caseId || 'new'}
+        caseTitle="Acme Corp Value Case"
+        companyName="Acme Corp"
+      />
     </div>
   );
 }
