@@ -1,6 +1,6 @@
 /**
  * useAgentStream Hook
- * 
+ *
  * Connects the agent API to the UI store.
  * Handles both real API calls and mock fallback.
  */
@@ -14,9 +14,10 @@ import {
 } from './api-adapter';
 import type { AgentPhase, AgentEvent, Artifact } from './types';
 import { llmService, AVAILABLE_MODELS } from '@/services/llm';
+import { getAgentOrchestratorAdapter, AgentOrchestratorAdapter } from '@/services/AgentOrchestratorAdapter';
 
 // Configuration
-const USE_MOCK_API = true; // Toggle this to switch between mock and real API
+const USE_MOCK_API = false; // Set to false to use real backend API
 const API_TIMEOUT = 30000; // 30 seconds
 
 // Generate unique IDs
@@ -46,8 +47,8 @@ interface AgentStreamResult {
  * Hook to manage agent streaming interactions
  */
 export function useAgentStream(options: UseAgentStreamOptions = {}): AgentStreamResult {
-  const { 
-    useMock = USE_MOCK_API, 
+  const {
+    useMock = USE_MOCK_API,
     companyName = 'Target Company',
     onComplete,
     onError,
@@ -55,6 +56,7 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): AgentStream
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const runIdRef = useRef<string | null>(null);
+  const adapterRef = useRef<AgentOrchestratorAdapter | null>(null);
 
   const {
     phase,
@@ -78,8 +80,8 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): AgentStream
       await generateMockAgentStream(
         message,
         processEvent,
-        { 
-          companyName, 
+        {
+          companyName,
           includeClarify: messages.length === 0,
           eventDelay: 200,
         }
@@ -94,42 +96,34 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): AgentStream
 
   /**
    * Send message using real API
-   * 
-   * Note: Real API integration requires the AgentOrchestratorAdapter
-   * to be available in the ValyntApp bundle. For now, this falls back
-   * to mock when the real API is not available.
+   *
+   * Uses the AgentOrchestratorAdapter to connect to the backend
+   * UnifiedAgentOrchestrator for async agent execution.
    */
   const sendWithRealAPI = useCallback(async (message: string) => {
     const runId = `run_${Date.now()}`;
     runIdRef.current = runId;
-    
+
     // Create abort controller for cancellation
     abortControllerRef.current = new AbortController();
     const { signal } = abortControllerRef.current;
 
     startRun(runId);
-    let currentPhase: AgentPhase = 'idle';
-
-    // Emit initial phase change
-    processEvent(createPhaseChangeEvent('idle', 'execute', runId, 'Processing query'));
-    currentPhase = 'execute';
 
     try {
-      // TODO: When AgentOrchestratorAdapter is available in ValyntApp,
-      // uncomment this and remove the fallback
-      // const { agentOrchestrator } = await import('@/services/AgentOrchestratorAdapter');
-      
-      // For now, fall back to mock with a warning
-      console.warn('Real API not available, falling back to mock');
-      await generateMockAgentStream(
+      // Get or create the adapter
+      if (!adapterRef.current) {
+        adapterRef.current = getAgentOrchestratorAdapter();
+      }
+
+      // Send message to the backend
+      await adapterRef.current.invokeAgent(
+        'coordinator', // Use coordinator agent by default
         message,
-        processEvent,
-        { 
-          companyName, 
-          includeClarify: messages.length === 0,
-          eventDelay: 200,
-        }
+        { companyName },
+        processEvent
       );
+
       onComplete?.();
 
     } catch (error) {
@@ -139,7 +133,7 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): AgentStream
       processEvent(createErrorEvent(err, runId));
       onError?.(err);
     }
-  }, [companyName, messages.length, processEvent, startRun, onComplete, onError]);
+  }, [companyName, processEvent, startRun, onComplete, onError]);
 
   /**
    * Main send message function
@@ -166,6 +160,9 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): AgentStream
    */
   const cancel = useCallback(() => {
     abortControllerRef.current?.abort();
+    if (adapterRef.current) {
+      adapterRef.current.cancel();
+    }
     cancelRun();
   }, [cancelRun]);
 
