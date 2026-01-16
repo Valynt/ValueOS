@@ -18,7 +18,7 @@ import {
 interface TimeSeriesData {
   period: string;
   value: number;
-  [key: string]: any;
+  [key: string]: number | string | boolean | null;
 }
 
 interface FinancialChartProps {
@@ -42,10 +42,7 @@ export const FinancialLineChart: React.FC<FinancialChartProps> = ({
     <div className="bg-white p-6 rounded-lg shadow">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">{title}</h3>
       <ResponsiveContainer width="100%" height={height}>
-        <LineChart
-          data={data}
-          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-        >
+        <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
           {showGrid && <CartesianGrid strokeDasharray="3 3" />}
           <XAxis dataKey="period" tick={{ fontSize: 12 }} tickLine={false} />
           <YAxis
@@ -54,10 +51,7 @@ export const FinancialLineChart: React.FC<FinancialChartProps> = ({
             tickFormatter={(value) => `$${value.toLocaleString()}`}
           />
           <Tooltip
-            formatter={(value: number) => [
-              `$${value.toLocaleString()}`,
-              "Value",
-            ]}
+            formatter={(value: number) => [`$${value.toLocaleString()}`, "Value"]}
             labelStyle={{ color: "#374151" }}
             contentStyle={{
               backgroundColor: "#ffffff",
@@ -92,10 +86,7 @@ export const FinancialBarChart: React.FC<FinancialChartProps> = ({
     <div className="bg-white p-6 rounded-lg shadow">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">{title}</h3>
       <ResponsiveContainer width="100%" height={height}>
-        <BarChart
-          data={data}
-          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-        >
+        <BarChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
           {showGrid && <CartesianGrid strokeDasharray="3 3" />}
           <XAxis dataKey="period" tick={{ fontSize: 12 }} tickLine={false} />
           <YAxis
@@ -104,10 +95,7 @@ export const FinancialBarChart: React.FC<FinancialChartProps> = ({
             tickFormatter={(value) => `$${value.toLocaleString()}`}
           />
           <Tooltip
-            formatter={(value: number) => [
-              `$${value.toLocaleString()}`,
-              "Value",
-            ]}
+            formatter={(value: number) => [`$${value.toLocaleString()}`, "Value"]}
             labelStyle={{ color: "#374151" }}
             contentStyle={{
               backgroundColor: "#ffffff",
@@ -183,9 +171,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-3xl font-bold text-gray-900">
-            {formatValue(value)}
-          </p>
+          <p className="text-3xl font-bold text-gray-900">{formatValue(value)}</p>
           {change && (
             <p className={`text-sm flex items-center ${getChangeColor()}`}>
               <span className="mr-1">{getChangeIcon()}</span>
@@ -243,13 +229,8 @@ export const SentimentGauge: React.FC<SentimentGaugeProps> = ({
         <div className="flex items-center">
           <span className="text-3xl mr-3">{getSentimentEmoji()}</span>
           <div>
-            <p className="text-sm font-medium text-gray-600">
-              Overall Sentiment
-            </p>
-            <p
-              className="text-lg font-semibold capitalize"
-              style={{ color: getSentimentColor() }}
-            >
+            <p className="text-sm font-medium text-gray-600">Overall Sentiment</p>
+            <p className="text-lg font-semibold capitalize" style={{ color: getSentimentColor() }}>
               {sentiment.overall}
             </p>
           </div>
@@ -347,15 +328,11 @@ export const NotificationList: React.FC<NotificationListProps> = ({
   return (
     <div className="bg-white rounded-lg shadow">
       <div className="p-6 border-b border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900">
-          Recent Notifications
-        </h3>
+        <h3 className="text-lg font-semibold text-gray-900">Recent Notifications</h3>
       </div>
       <div className="divide-y divide-gray-200">
         {recentNotifications.length === 0 ? (
-          <div className="p-6 text-center text-gray-500">
-            No recent notifications
-          </div>
+          <div className="p-6 text-center text-gray-500">No recent notifications</div>
         ) : (
           recentNotifications.map((notification) => (
             <div
@@ -364,17 +341,11 @@ export const NotificationList: React.FC<NotificationListProps> = ({
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">
-                    {notification.title}
-                  </p>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {notification.message}
-                  </p>
+                  <p className="text-sm font-medium text-gray-900">{notification.title}</p>
+                  <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
                 </div>
                 <div className="ml-4 flex-shrink-0">
-                  <p className="text-xs text-gray-500">
-                    {formatTime(notification.timestamp)}
-                  </p>
+                  <p className="text-xs text-gray-500">{formatTime(notification.timestamp)}</p>
                 </div>
               </div>
             </div>

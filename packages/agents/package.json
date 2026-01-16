@@ -8,7 +8,8 @@
     "./core": "./core/index.ts",
     "./orchestration": "./orchestration/index.ts",
     "./tools": "./tools/index.ts",
-    "./evaluation": "./evaluation/index.ts"
+    "./evaluation": "./evaluation/index.ts",
+    "./base": "./base/src/index.ts"
   },
   "scripts": {
     "build": "tsc",

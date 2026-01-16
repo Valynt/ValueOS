@@ -42,7 +42,7 @@ export interface TenantContextState {
  * Tenant context value (state + actions)
  */
 export interface TenantContextValue extends TenantContextState {
-  switchTenant: (tenantId: string, skipConfirmation?: boolean) => Promise<boolean>;
+  switchTenant: (tenantId: string) => Promise<boolean>;
   refreshTenants: () => Promise<void>;
   validateTenantAccess: (tenantId: string) => boolean;
   getTenantById: (tenantId: string) => TenantInfo | undefined;
@@ -139,7 +139,7 @@ export function TenantProvider({ children, onTenantSwitch }: TenantProviderProps
       }
 
       const storedTenantId = getStoredTenantId();
-      const urlTenantId = extractTenantIdFromUrl(location.pathname);
+      const urlTenantId = validateTenantId(extractTenantIdFromUrl(location.pathname));
 
       let selectedTenant: TenantInfo | null = null;
 
@@ -186,7 +186,7 @@ export function TenantProvider({ children, onTenantSwitch }: TenantProviderProps
    * Switch to a different tenant
    */
   const switchTenant = useCallback(
-    async (tenantId: string, _skipConfirmation = false): Promise<boolean> => {
+    async (tenantId: string): Promise<boolean> => {
       const targetTenant = tenants.find((t) => t.id === tenantId);
 
       if (!targetTenant) {
@@ -285,6 +285,13 @@ export function TenantProvider({ children, onTenantSwitch }: TenantProviderProps
   );
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;
+}
+
+function validateTenantId(id: string | null): string | null {
+  if (!id || typeof id !== "string" || id.length === 0 || !/^[a-zA-Z0-9-_]+$/.test(id)) {
+    return null;
+  }
+  return id;
 }
 
 /**

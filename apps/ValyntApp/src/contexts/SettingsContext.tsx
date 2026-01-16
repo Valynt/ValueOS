@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { SettingsContextType, SettingsPermission, UserPermissions } from "../types";
+import { SettingsContextType, SettingsPermission, UserPermissions } from "../legacy-migrated/types";
 import { settingsRegistry } from "../lib/settingsRegistry";
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -32,6 +32,9 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
 
   const navigateTo = useCallback(
     (path: string) => {
+      if (!path || typeof path !== "string" || !path.startsWith("/")) {
+        return;
+      }
       setCurrentRoute(path);
       navigate(path);
 

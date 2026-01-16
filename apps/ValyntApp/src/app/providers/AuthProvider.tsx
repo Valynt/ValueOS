@@ -32,9 +32,7 @@ function AuthInternalProvider({ children }: { children: ReactNode }) {
   } = useAuth0();
 
   const signIn = async (email?: string, password?: string) => {
-    console.log("signIn called with:", { email, password });
     if (email === "dev@valynt.com" && password === "bypass") {
-      console.log("Bypass login triggered");
       // Bypass Auth0 for development
       setBypassUser({
         id: "dev-user-id",
@@ -44,7 +42,6 @@ function AuthInternalProvider({ children }: { children: ReactNode }) {
       });
       return;
     }
-    console.log("Calling loginWithRedirect");
     await loginWithRedirect();
   };
 
@@ -63,7 +60,7 @@ function AuthInternalProvider({ children }: { children: ReactNode }) {
     try {
       return await getAccessTokenSilently();
     } catch (error) {
-      console.error("Error getting access token", error);
+      // Log error without exposing sensitive information
       return undefined;
     }
   };
@@ -103,10 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
   const audience = import.meta.env.VITE_AUTH0_AUDIENCE;
 
-  console.log("Auth0 Config:", { domain, clientId, audience });
-
   if (!domain || !clientId) {
-    console.error("Auth0 configuration missing:", { domain: !!domain, clientId: !!clientId });
     return (
       <div className="p-4 bg-red-50 text-red-700 border border-red-200 rounded">
         Auth0 configuration missing. Please check VITE_AUTH0_DOMAIN and VITE_AUTH0_CLIENT_ID.

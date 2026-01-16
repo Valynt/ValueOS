@@ -7,6 +7,7 @@ import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import tseslint from "typescript-eslint";
+import react from "eslint-plugin-react";
 
 // Ignores config (must be first)
 const ignoresConfig = {
@@ -51,6 +52,12 @@ const pluginConfig = {
     "react-hooks": reactHooks,
     "react-refresh": reactRefresh,
     "jsx-a11y": jsxA11y,
+    react: react,
+  },
+  settings: {
+    react: {
+      version: "detect",
+    },
   },
 };
 
@@ -120,6 +127,15 @@ const baseConfig = {
     "no-implied-eval": "error",
     "no-new-func": "error",
     "no-script-url": "error",
+
+    // React security rules
+    "react/jsx-no-target-blank": ["error", { allowReferrer: false }],
+    "react/no-danger": "error",
+    "react/no-unknown-property": "error",
+
+    // React Hooks rules
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn",
 
     // Code quality and consistency
     eqeqeq: ["error", "always"],

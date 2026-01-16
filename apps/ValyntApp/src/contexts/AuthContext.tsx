@@ -3,7 +3,6 @@
  * Provides authentication state and methods throughout the app
  */
 
-/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, ReactNode, useContext, useEffect, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
@@ -58,33 +57,11 @@ const computeUserClaims = (user: User): UserClaims => {
     permissions: computePermissions(getUserRoles(user)),
     org_id: getUserOrgId(user),
   };
-};
-
-// SecureSessionManager removed in favor of unified SecureTokenManager
-
-interface AuthContextType {
-  user: User | null;
-  userClaims: UserClaims | null; // New: with permissions
-  session: Session | null;
-  loading: boolean;
-  isAuthenticated: boolean;
-  login: (credentials: LoginCredentials) => Promise<void>;
-  signup: (data: SignupData) => Promise<AuthSession>;
-  logout: () => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
-  updatePassword: (newPassword: string) => Promise<void>;
-  resendVerificationEmail: (email: string) => Promise<void>;
-  signInWithProvider: (provider: "google" | "apple" | "github") => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export function AuthProvider({ children }: { children: ReactNode }) {
+const useAuthState = () => {
   const [user, setUser] = useState<User | null>(null);
   const [userClaims, setUserClaims] = useState<UserClaims | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [bypassUser, setBypassUser] = useState<User | null>(null);
 
   // Initialize auth state
   useEffect(() => {
@@ -110,15 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (storedSession) {
           setSession(storedSession);
           setUser(storedSession.user);
-
-          const roles = getUserRoles(storedSession.user);
-          setUserClaims({
-            sub: storedSession.user.id,
-            email: storedSession.user.email || "",
-            roles,
-            permissions: computePermissions(roles),
-            org_id: getUserOrgId(storedSession.user),
-          });
+          setUserClaims(computeUserClaims(storedSession.user));
           logger.debug("Session optimistically restored from storage");
         } else {
           // No session found, likely unauthenticated.
@@ -148,15 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session) {
           setSession(session);
           setUser(session.user);
-
-          const roles = getUserRoles(session.user);
-          setUserClaims({
-            sub: session.user.id,
-            email: session.user.email || "",
-            roles,
-            permissions: computePermissions(roles),
-            org_id: getUserOrgId(session.user),
-          });
+          setUserClaims(computeUserClaims(session.user));
 
           analyticsClient.identify(session.user.id, {
             email: session.user.email,
@@ -206,15 +167,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(newSession);
       setUser(newSession?.user ?? null);
 
+      // Update UserClaims
       if (newSession?.user) {
-        const roles = getUserRoles(newSession.user);
-        setUserClaims({
-          sub: newSession.user.id,
-          email: newSession.user.email || "",
-          roles,
-          permissions: computePermissions(roles),
-          org_id: getUserOrgId(newSession.user),
-        });
+        setUserClaims(computeUserClaims(newSession.user));
       } else {
         setUserClaims(null);
       }
@@ -235,52 +190,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  return {
+    user,
+    setUser,
+    userClaims,
+    setUserClaims,
+    session,
+    setSession,
+    loading,
+    setLoading,
+  };
+};
+
+const useAuthMethods = ({ setUser, setUserClaims, setSession }: { setUser: (user: User | null) => void; setUserClaims: (claims: UserClaims | null) => void; setSession: (session: Session | null) => void }) => {
   const login = async (credentials: LoginCredentials) => {
+    // Input validation
+    if (!credentials.email || !credentials.password) {
+      throw new Error("Email and password are required");
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(credentials.email)) {
+      throw new Error("Invalid email format");
+    }
+
+    if (credentials.password.length < 8) {
+      throw new Error("Password must be at least 8 characters");
+    }
+
     if (!supabase) {
       throw new Error("Supabase not configured");
     }
-    if (
-      process.env.NODE_ENV === "development" &&
-      credentials.email === "dev@valynt.com" &&
-      credentials.password === "bypass"
-    ) {
-      // Bypass authentication for development
-      const mockUser = {
-        id: "dev-user-id",
-        email: "dev@valynt.com",
-        created_at: new Date().toISOString(),
-        user_metadata: {
-          roles: ["ADMIN"],
-          full_name: "Dev User",
-        },
-      } as unknown as User;
-      const mockSession = {
-        user: mockUser,
-        access_token: "bypass-token",
-        refresh_token: "bypass-refresh",
-        expires_in: 3600,
-        token_type: "bearer",
-        created_at: Date.now(),
-      } as Session;
-      setBypassUser(mockUser);
-      setUser(mockUser);
-      setSession(mockSession);
-      setUserClaims({
-        sub: mockUser.id,
-        email: mockUser.email || "",
-        roles: getUserRoles(mockUser),
-        permissions: computePermissions(getUserRoles(mockUser)),
-        org_id: getUserOrgId(mockUser),
-      });
-      logger.info("Bypass login successful", { email: credentials.email });
-      analyticsClient.identify(mockUser.id, {
-        email: mockUser.email,
-        created_at: mockUser.created_at,
-      });
-      analyticsClient.track("user_login", { workflow: "activation" });
-      return;
-    }
-
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: credentials.email,
@@ -311,6 +251,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signup = async (data: SignupData) => {
+    // Input validation
+    if (!data.email || !data.password) {
+      throw new Error("Email and password are required");
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(data.email)) {
+      throw new Error("Invalid email format");
+    }
+
+    if (data.password.length < 8) {
+      throw new Error("Password must be at least 8 characters");
+    }
+
+    if (data.fullName && data.fullName.trim().length < 2) {
+      throw new Error("Name must be at least 2 characters");
+    }
+
     if (!supabase) {
       throw new Error("Supabase not configured");
     }
@@ -367,15 +325,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    if (bypassUser) {
-      setBypassUser(null);
-      setUser(null);
-      setUserClaims(null);
-      setSession(null);
-      logger.info("Bypass user logged out");
-      return;
-    }
-
     if (!supabase) {
       throw new Error("Supabase not configured");
     }
@@ -489,13 +438,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const value: AuthContextType = {
-    user: bypassUser || user,
-    userClaims,
-    session,
-    loading,
-    isAuthenticated: !!bypassUser || !!user,
-
+  return {
     login,
     signup,
     logout,
@@ -503,6 +446,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     updatePassword,
     resendVerificationEmail,
     signInWithProvider,
+  };
+};
+
+interface AuthContextType {
+  user: User | null;
+  userClaims: UserClaims | null; // New: with permissions
+  session: Session | null;
+  loading: boolean;
+  isAuthenticated: boolean;
+  login: (credentials: LoginCredentials) => Promise<void>;
+  signup: (data: SignupData) => Promise<AuthSession>;
+  logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  updatePassword: (newPassword: string) => Promise<void>;
+  resendVerificationEmail: (email: string) => Promise<void>;
+  signInWithProvider: (provider: "google" | "apple" | "github") => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const authState = useAuthState();
+  const methods = useAuthMethods({
+    setUser: authState.setUser,
+    setUserClaims: authState.setUserClaims,
+    setSession: authState.setSession,
+  });
+
+  const value: AuthContextType = {
+    user: authState.user,
+    userClaims: authState.userClaims,
+    session: authState.session,
+    loading: authState.loading,
+    isAuthenticated: !!authState.user,
+
+    ...methods,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -11,7 +11,7 @@ import { useAuth } from "./AuthContext";
 
 export interface StreamData {
   channel: string;
-  data: any;
+  data: Record<string, unknown>;
   timestamp: number;
   metadata?: {
     source?: string;
@@ -25,7 +25,7 @@ export interface WebhookNotification {
   type: "sec_filing" | "market_data" | "system_alert";
   title: string;
   message: string;
-  data: any;
+  data: Record<string, unknown>;
   timestamp: number;
   priority: "low" | "medium" | "high" | "critical";
 }
@@ -33,20 +33,15 @@ export interface WebhookNotification {
 interface WebSocketContextType {
   socket: Socket | null;
   isConnected: boolean;
-  subscribe: (
-    channel: string,
-    callback: (data: StreamData) => void
-  ) => () => void;
+  subscribe: (channel: string, callback: (data: StreamData) => void) => () => void;
   unsubscribe: (channel: string) => void;
-  broadcastToChannel: (channel: string, data: any) => void;
+  broadcastToChannel: (channel: string, data: Record<string, unknown>) => void;
   notifications: WebhookNotification[];
   clearNotifications: () => void;
   connectionStatus: "connecting" | "connected" | "disconnected" | "error";
 }
 
-const WebSocketContext = createContext<WebSocketContextType | undefined>(
-  undefined
-);
+const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
 
 export const useWebSocket = () => {
   const context = useContext(WebSocketContext);
@@ -60,9 +55,7 @@ interface WebSocketProviderProps {
   children: ReactNode;
 }
 
-export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
-  children,
-}) => {
+export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }) => {
   const { user } = useAuth();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -70,9 +63,9 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
     "connecting" | "connected" | "disconnected" | "error"
   >("disconnected");
   const [notifications, setNotifications] = useState<WebhookNotification[]>([]);
-  const [subscriptions, setSubscriptions] = useState<
-    Map<string, (data: StreamData) => void>
-  >(new Map());
+  const [subscriptions, setSubscriptions] = useState<Map<string, (data: StreamData) => void>>(
+    new Map()
+  );
 
   // Initialize socket connection
   useEffect(() => {
@@ -92,19 +85,16 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
     const token = localStorage.getItem("auth_token");
 
     // Create socket connection
-    const newSocket = io(
-      process.env.REACT_APP_WS_URL || "http://localhost:3001",
-      {
-        auth: {
-          token,
-        },
-        transports: ["websocket", "polling"],
-        timeout: 5000,
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-      }
-    );
+    const newSocket = io(process.env.REACT_APP_WS_URL || "http://localhost:3001", {
+      auth: {
+        token,
+      },
+      transports: ["websocket", "polling"],
+      timeout: 5000,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
 
     // Connection event handlers
     newSocket.on("connect", () => {
@@ -214,7 +204,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   );
 
   const broadcastToChannel = useCallback(
-    (channel: string, data: any) => {
+    (channel: string, data: Record<string, unknown>) => {
       if (!socket || !isConnected) {
         console.warn("Cannot broadcast: WebSocket not connected");
         return;
@@ -244,9 +234,5 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
     connectionStatus,
   };
 
-  return (
-    <WebSocketContext.Provider value={value}>
-      {children}
-    </WebSocketContext.Provider>
-  );
+  return <WebSocketContext.Provider value={value}>{children}</WebSocketContext.Provider>;
 };
