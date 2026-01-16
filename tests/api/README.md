@@ -10,6 +10,11 @@ This directory contains comprehensive API endpoint tests for the ValueOS applica
 - **error-scenarios.test.ts** - HTTP error responses (400, 401, 403, 404, 500)
 - **rate-limiting.test.ts** - Rate limiting behavior, burst protection, 429 responses
 
+### Value Modeling API Tests (packages/backend)
+
+- **valueCases.test.ts** - Value case CRUD, validation, auth, error handling
+- **valueDrivers.test.ts** - Value driver CRUD, formula validation, persona tags, usage tracking
+
 ## Running Tests
 
 ```bash
@@ -35,11 +40,13 @@ npm run test:watch tests/api
 - ✅ Tenant isolation (RLS enforcement)
 - ✅ Error handling (4xx and 5xx responses)
 - ✅ Rate limiting (basic structure)
+- ✅ Value Cases API (CRUD, validation, auth)
+- ✅ Value Drivers API (CRUD, formula validation, usage tracking)
+- ✅ Authentication middleware tests
+- ✅ Authorization/RBAC tests
 
 ## Missing Coverage (To-Do)
 
-- [ ] Authentication middleware tests
-- [ ] Authorization/RBAC tests
 - [ ] File upload endpoints
 - [ ] Webhook endpoints
 - [ ] Billing/subscription endpoints
