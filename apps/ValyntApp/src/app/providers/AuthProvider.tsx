@@ -1,7 +1,6 @@
 import { createContext, useContext, ReactNode } from "react";
 import { useAuth0, Auth0Provider } from "@auth0/auth0-react";
 
-import type { User as FeatureUser } from "@/features/auth/types";
 
 interface User {
   id: string;
