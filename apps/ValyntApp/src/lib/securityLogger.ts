@@ -202,9 +202,9 @@ class SecurityLogger {
    */
   logRateLimitExceeded(
     email: string,
-    ip?: string,
     attempts: number,
-    lockoutDuration: number
+    lockoutDuration: number,
+    ip?: string
   ): void {
     this.logEvent({
       type: "rate_limit_exceeded",
@@ -428,7 +428,7 @@ class SecurityLogger {
   /**
    * Send event to monitoring service (in production)
    */
-  private sendToMonitoringService(event: SecurityEvent): void {
+  private sendToMonitoringService(_event: SecurityEvent): void {
     // In production, this would send to your monitoring service
     // Examples: Sentry, DataDog, New Relic, etc.
     try {
@@ -446,24 +446,6 @@ class SecurityLogger {
       // });
     } catch (error) {
       console.error("Failed to send security event to monitoring service:", error);
-    }
-  }
-
-  /**
-   * Convert severity to Sentry level
-   */
-  private getSentryLevel(severity: SecurityEvent["severity"]): string {
-    switch (severity) {
-      case "critical":
-        return "fatal";
-      case "high":
-        return "error";
-      case "medium":
-        return "warning";
-      case "low":
-        return "info";
-      default:
-        return "info";
     }
   }
 }

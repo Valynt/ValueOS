@@ -261,7 +261,7 @@ describe("Authentication Security Tests", () => {
       securityLogger.logAuthAttempt("user1@example.com");
       securityLogger.logAuthSuccess("1", "user1@example.com");
       securityLogger.logAuthFailure("user2@example.com", "Invalid password");
-      securityLogger.logRateLimitExceeded("user3@example.com", undefined, 5, 900000);
+      securityLogger.logRateLimitExceeded("user3@example.com", 5, 900000, undefined);
 
       const metrics = securityLogger.getMetrics();
 
