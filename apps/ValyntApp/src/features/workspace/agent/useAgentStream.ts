@@ -3,7 +3,7 @@
  * 
  * Connects the agent API to the UI store.
  * Handles both real API calls and mock fallback.
- * Optionally persists artifacts to the backend.
+ * Optionally persists artifacts and messages to the backend.
  */
 
 import { useCallback, useRef } from 'react';
@@ -13,9 +13,10 @@ import {
   createErrorEvent,
   createPhaseChangeEvent,
 } from './api-adapter';
-import type { AgentPhase, AgentEvent, Artifact } from './types';
+import type { AgentPhase, AgentEvent, Artifact, ConversationMessage } from './types';
 import { llmService, AVAILABLE_MODELS } from '@/services/llm';
 import { artifactsService } from '@/services/artifacts';
+import { conversationsService } from '@/services/conversations';
 
 // Configuration
 const USE_MOCK_API = true; // Toggle this to switch between mock and real API
@@ -29,16 +30,20 @@ interface UseAgentStreamOptions {
   useMock?: boolean;
   /** Company name for context */
   companyName?: string;
-  /** Value case ID for artifact persistence */
+  /** Value case ID for persistence */
   valueCaseId?: string;
   /** Whether to persist artifacts to the backend */
   persistArtifacts?: boolean;
+  /** Whether to persist messages to the backend */
+  persistMessages?: boolean;
   /** Callback when stream completes */
   onComplete?: () => void;
   /** Callback on error */
   onError?: (error: Error) => void;
   /** Callback when artifact is persisted */
   onArtifactPersisted?: (artifact: Artifact, persistedId: string) => void;
+  /** Callback when messages are persisted */
+  onMessagesPersisted?: (count: number) => void;
 }
 
 interface AgentStreamResult {
@@ -59,9 +64,11 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): AgentStream
     companyName = 'Target Company',
     valueCaseId,
     persistArtifacts = false,
+    persistMessages = false,
     onComplete,
     onError,
     onArtifactPersisted,
+    onMessagesPersisted,
   } = options;
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -76,6 +83,7 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): AgentStream
     sendMessage: storeAddMessage,
     startRun,
     cancelRun,
+    getSessionData,
   } = useAgentStore();
 
   /**
@@ -107,6 +115,34 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): AgentStream
   }, [persistArtifacts, valueCaseId, onArtifactPersisted]);
 
   /**
+   * Persist messages to the backend
+   */
+  const persistMessagesToBackend = useCallback(async () => {
+    if (!persistMessages || !valueCaseId) return;
+
+    try {
+      const { messages: currentMessages } = getSessionData();
+      
+      if (currentMessages.length === 0) return;
+
+      const apiMessages = currentMessages.map(msg => 
+        conversationsService.toApiMessage(msg)
+      );
+
+      const result = await conversationsService.saveSession(valueCaseId, {
+        caseId: valueCaseId,
+        messages: apiMessages,
+      });
+
+      onMessagesPersisted?.(result.messageCount);
+      console.log(`Persisted ${result.messageCount} messages to backend`);
+    } catch (error) {
+      console.error('Failed to persist messages:', error);
+      // Don't throw - message persistence failure shouldn't break the UI flow
+    }
+  }, [persistMessages, valueCaseId, getSessionData, onMessagesPersisted]);
+
+  /**
    * Send message using mock API
    */
   const sendWithMock = useCallback(async (message: string) => {
@@ -134,8 +170,9 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): AgentStream
         }
       );
 
-      // Persist collected artifacts
+      // Persist collected artifacts and messages
       await persistArtifactsToBackend(pendingArtifactsRef.current);
+      await persistMessagesToBackend();
       
       onComplete?.();
     } catch (error) {
@@ -143,7 +180,7 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): AgentStream
       processEvent(createErrorEvent(err, runId));
       onError?.(err);
     }
-  }, [companyName, messages.length, processEvent, startRun, onComplete, onError, persistArtifactsToBackend]);
+  }, [companyName, messages.length, processEvent, startRun, onComplete, onError, persistArtifactsToBackend, persistMessagesToBackend]);
 
   /**
    * Send message using real LLM API via Together.ai
@@ -345,8 +382,9 @@ Format your response as valid JSON with this structure:
         });
       }
 
-      // Persist collected artifacts to backend
+      // Persist collected artifacts and messages to backend
       await persistArtifactsToBackend(pendingArtifactsRef.current);
+      await persistMessagesToBackend();
 
       // Emit completion
       processEvent(createPhaseChangeEvent('execute', 'review', runId, 'Analysis complete'));
@@ -360,7 +398,7 @@ Format your response as valid JSON with this structure:
       processEvent(createErrorEvent(err, runId));
       onError?.(err);
     }
-  }, [companyName, messages.length, processEvent, startRun, onComplete, onError, persistArtifactsToBackend]);
+  }, [companyName, messages.length, processEvent, startRun, onComplete, onError, persistArtifactsToBackend, persistMessagesToBackend]);
 
   /**
    * Main send message function

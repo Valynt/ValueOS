@@ -37,6 +37,10 @@ import {
 import { useAgentStream } from "@/features/workspace/agent/useAgentStream";
 import type { AgentPhase, ConversationMessage, WorkflowStepState, Artifact } from "@/features/workspace/agent/types";
 
+// Services
+import { conversationsService } from "@/services/conversations";
+import { artifactsService } from "@/services/artifacts";
+
 // Artifact components
 import { ArtifactRenderer } from "@/features/workspace/artifacts/ArtifactRenderer";
 import { ArtifactStack } from "@/features/workspace/artifacts/ArtifactStack";
@@ -62,6 +66,8 @@ export function CaseWorkspace() {
   const [showArtifactStack, setShowArtifactStack] = useState(true);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showDriverPanel, setShowDriverPanel] = useState(false);
+  const [isLoadingSession, setIsLoadingSession] = useState(false);
+  const [sessionLoaded, setSessionLoaded] = useState(false);
   const [selectedDrivers, setSelectedDrivers] = useState<Array<{
     driver: ValueDriver;
     customValues: Record<string, number>;
@@ -90,6 +96,7 @@ export function CaseWorkspace() {
     undo,
     redo,
     saveSnapshot,
+    loadSession,
   } = useAgentStore();
 
   const activeArtifact = useAgentStore(selectActiveArtifact);
@@ -139,16 +146,55 @@ export function CaseWorkspace() {
   }, [artifactList]);
 
   // Agent stream hook - handles both mock and real API
-  // Persists artifacts to backend when caseId is available
+  // Persists artifacts and messages to backend when caseId is available
   const { sendMessage: sendAgentMessage } = useAgentStream({
     useMock: false, // Using real Together AI API
     companyName: 'Acme Corp',
     valueCaseId: caseId,
-    persistArtifacts: !!caseId, // Enable persistence when we have a case ID
+    persistArtifacts: !!caseId, // Enable artifact persistence when we have a case ID
+    persistMessages: !!caseId, // Enable message persistence when we have a case ID
     onArtifactPersisted: (artifact, persistedId) => {
       console.log(`Artifact "${artifact.title}" persisted with ID: ${persistedId}`);
     },
+    onMessagesPersisted: (count) => {
+      console.log(`Persisted ${count} messages to backend`);
+    },
   });
+
+  // Load conversation session on mount
+  useEffect(() => {
+    if (!caseId || sessionLoaded) return;
+
+    const loadConversationSession = async () => {
+      setIsLoadingSession(true);
+      try {
+        // Load messages
+        const session = await conversationsService.loadSession(caseId);
+        const uiMessages = conversationsService.sessionToUIMessages(session);
+
+        // Load artifacts for this case
+        const persistedArtifacts = await artifactsService.getByValueCase(caseId);
+        const artifactsMap: Record<string, Artifact> = {};
+        for (const pa of persistedArtifacts) {
+          artifactsMap[pa.id] = artifactsService.toUIArtifact(pa);
+        }
+
+        // Load into store
+        if (uiMessages.length > 0 || Object.keys(artifactsMap).length > 0) {
+          loadSession(uiMessages, artifactsMap);
+          console.log(`Loaded session: ${uiMessages.length} messages, ${Object.keys(artifactsMap).length} artifacts`);
+        }
+      } catch (error) {
+        // Session load failure is not critical - user can start fresh
+        console.warn('Failed to load conversation session:', error);
+      } finally {
+        setIsLoadingSession(false);
+        setSessionLoaded(true);
+      }
+    };
+
+    loadConversationSession();
+  }, [caseId, sessionLoaded, loadSession]);
 
   // Export handler
   const handleExport = useCallback(() => {

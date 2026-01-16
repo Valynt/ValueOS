@@ -92,6 +92,10 @@ export interface AgentActions {
   startRun: (runId: string) => void;
   cancelRun: () => void;
   reset: () => void;
+
+  // Session persistence
+  loadSession: (messages: ConversationMessage[], artifacts?: Record<string, Artifact>) => void;
+  getSessionData: () => { messages: ConversationMessage[]; artifacts: Artifact[] };
 }
 
 const initialState: AgentState = {
@@ -443,6 +447,26 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
         historyIndex: newIndex,
       };
     });
+  },
+
+  loadSession: (messages: ConversationMessage[], artifacts?: Record<string, Artifact>) => {
+    set((state) => ({
+      ...state,
+      messages,
+      artifacts: artifacts || state.artifacts,
+      activeArtifactId: artifacts ? Object.keys(artifacts)[0] || null : state.activeArtifactId,
+      phase: 'idle',
+      isStreaming: false,
+      error: null,
+    }));
+  },
+
+  getSessionData: () => {
+    const state = get();
+    return {
+      messages: state.messages,
+      artifacts: Object.values(state.artifacts),
+    };
   },
 }));
 
