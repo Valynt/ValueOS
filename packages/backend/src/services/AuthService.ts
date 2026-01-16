@@ -10,6 +10,7 @@ import { Session, User } from "@supabase/supabase-js";
 import { sanitizeErrorMessage, validatePassword } from "../utils/security";
 import { securityLogger } from "./SecurityLogger";
 import { getConfig } from "../config/environment";
+import jwt from "jsonwebtoken";
 import {
   checkPasswordBreach,
   consumeAuthRateLimit,
@@ -38,9 +39,21 @@ export interface AuthSession {
   requiresEmailVerification?: boolean;
 }
 
+export interface TCTPayload {
+  iss: string;
+  sub: string;
+  tid: string;
+  roles: string[];
+  tier: string;
+  exp: number;
+}
+
 export class AuthService extends BaseService {
+  private readonly tctSecret: string;
+
   constructor() {
     super("AuthService");
+    this.tctSecret = process.env.TCT_SECRET || "default-tct-secret-change-me";
   }
 
   private isBrowser(): boolean {
@@ -607,6 +620,57 @@ export class AuthService extends BaseService {
     if (error) {
       throw new AuthenticationError(sanitizeErrorMessage(error));
     }
+  }
+
+  /**
+   * Issue a Tenant Context Token (TCT)
+   */
+  async issueTCT(userId: string, tenantId: string): Promise<string> {
+    return this.executeRequest(
+      async () => {
+        // Verify user-tenant membership
+        const { data, error } = await this.supabase
+          .from("user_tenants")
+          .select("role, status, tenants(settings)")
+          .eq("user_id", userId)
+          .eq("tenant_id", tenantId)
+          .eq("status", "active")
+          .single();
+
+        if (error || !data) {
+          securityLogger.log({
+            category: "authentication",
+            action: "tct-issuance-failed",
+            severity: "warn",
+            metadata: { userId, tenantId, reason: "no-membership" },
+          });
+          throw new AuthenticationError("User does not have access to this tenant");
+        }
+
+        const roles = [data.role || "member"];
+        const tier = (data.tenants as any)?.settings?.tier || "free";
+
+        const payload: TCTPayload = {
+          iss: "valueos-control-plane",
+          sub: userId,
+          tid: tenantId,
+          roles,
+          tier,
+          exp: Math.floor(Date.now() / 1000) + 60 * 60, // 1 hour
+        };
+
+        const token = jwt.sign(payload, this.tctSecret);
+
+        securityLogger.log({
+          category: "authentication",
+          action: "tct-issued",
+          metadata: { userId, tenantId },
+        });
+
+        return token;
+      },
+      { skipCache: true }
+    );
   }
 }
 

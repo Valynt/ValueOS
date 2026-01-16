@@ -8,6 +8,8 @@
 import { Kafka, Consumer, EachMessagePayload, logLevel } from "kafkajs";
 import { logger } from "../lib/logger";
 import { BaseEvent } from "../types/events";
+import { tenantContextStorage, TCTPayload } from "../middleware/tenantContext";
+import jwt from "jsonwebtoken";
 
 export interface ConsumerConfig {
   clientId: string;
@@ -35,8 +37,10 @@ export class EventConsumer {
   private config: ConsumerConfig;
   private handlers: Map<string, EventHandler> = new Map();
   private processingMessages: Set<string> = new Set();
+  private readonly tctSecret: string;
 
   constructor(config: ConsumerConfig) {
+    this.tctSecret = process.env.TCT_SECRET || "default-tct-secret-change-me";
     this.config = {
       maxRetries: 3,
       retryDelay: 1000,
@@ -227,7 +231,24 @@ export class EventConsumer {
         offset: message.offset,
       });
 
-      await handler.handler(event, payload);
+      // Extract TCT from headers and wrap handler in context
+      const tctHeader = message.headers?.["x-tenant-context"];
+      const tctToken = tctHeader ? (Array.isArray(tctHeader) ? tctHeader[0].toString() : tctHeader.toString()) : null;
+
+      if (tctToken) {
+        try {
+          const decoded = jwt.verify(tctToken, this.tctSecret) as TCTPayload;
+          await tenantContextStorage.run(decoded, async () => {
+            await handler.handler(event, payload);
+          });
+        } catch (error) {
+          logger.error("Invalid TCT in message headers", error as Error);
+          // Fallback to no context if token is invalid, or we could reject
+          await handler.handler(event, payload);
+        }
+      } else {
+        await handler.handler(event, payload);
+      }
 
       logger.debug("Event processed successfully", {
         eventType: event.eventType,
