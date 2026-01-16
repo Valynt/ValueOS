@@ -53,7 +53,7 @@
 ## Post-Rollback Validation
 - Run smoke tests: `npm run test:smoke -- --env production`
 - Confirm queue health: `redis-cli -u "$REDIS_URL" LLEN agent:pending`
-- Validate RLS/auth flows using `docs/ops/troubleshooting/rls-failures.md`.
+- Validate RLS/auth flows using `docs/operations/troubleshooting/rls-failures.md`.
 - Update incident with time-to-detect and time-to-recover.
 
 ## SLAs

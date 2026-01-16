@@ -66,7 +66,7 @@ command_exists() {
 run_with_timeout() {
     local timeout_secs=$1
     shift
-    
+
     if command_exists timeout; then
         timeout "$timeout_secs" "$@"
     else
@@ -85,16 +85,32 @@ setup_logging() {
 
 install_dependencies() {
     log_info "Installing project dependencies..."
-    
+
     if [ ! -f "${PROJECT_ROOT}/package.json" ]; then
         log_warn "No package.json found, skipping dependency installation"
         return 0
     fi
-    
+
     cd "$PROJECT_ROOT"
-    
-    # Prefer npm ci for reproducible builds (uses package-lock.json)
-    # Fall back to npm install if lockfile is missing or outdated
+
+    if [ -f "pnpm-lock.yaml" ]; then
+        log_info "Using pnpm for reproducible install..."
+
+        if command_exists corepack; then
+            corepack enable >/dev/null 2>&1 || true
+            corepack prepare pnpm@9.15.4 --activate >/dev/null 2>&1 || true
+        fi
+
+        if run_with_timeout $NPM_INSTALL_TIMEOUT pnpm install --frozen-lockfile --prefer-offline 2>&1; then
+            log_success "Dependencies installed (reproducible)"
+        else
+            log_error "Dependency installation failed"
+            return 1
+        fi
+        return 0
+    fi
+
+    # Fallback for legacy setups
     if [ -f "package-lock.json" ]; then
         log_info "Using npm ci for reproducible install..."
         if run_with_timeout $NPM_INSTALL_TIMEOUT npm ci --prefer-offline --no-audit --no-fund 2>&1; then
@@ -109,7 +125,7 @@ install_dependencies() {
             fi
         fi
     else
-        log_warn "No package-lock.json found, using npm install"
+        log_warn "No lockfile found, using npm install"
         if run_with_timeout $NPM_INSTALL_TIMEOUT npm install --no-audit --no-fund 2>&1; then
             log_success "Dependencies installed"
         else
@@ -124,7 +140,7 @@ generate_prisma_client() {
         "${PROJECT_ROOT}/scripts/prisma/schema.prisma"
         "${PROJECT_ROOT}/prisma/schema.prisma"
     )
-    
+
     for schema_path in "${schema_paths[@]}"; do
         if [ -f "$schema_path" ]; then
             log_info "Generating Prisma client from ${schema_path}..."
@@ -136,7 +152,7 @@ generate_prisma_client() {
             return 0
         fi
     done
-    
+
     # No schema found, skip silently
     return 0
 }
@@ -156,9 +172,9 @@ verify_typescript() {
     if [ ! -f "${PROJECT_ROOT}/tsconfig.json" ]; then
         return 0
     fi
-    
+
     log_info "Verifying TypeScript configuration..."
-    
+
     # Just check that tsc can parse the config, don't do full build
     if npx tsc --noEmit --pretty false 2>/dev/null; then
         log_success "TypeScript configuration valid"
@@ -169,9 +185,9 @@ verify_typescript() {
 
 verify_environment() {
     log_info "Verifying development environment..."
-    
+
     local errors=0
-    
+
     # Critical: Node.js
     if command_exists node; then
         local node_version
@@ -181,7 +197,7 @@ verify_environment() {
         log_error "Node.js not found"
         errors=$((errors + 1))
     fi
-    
+
     # Critical: npm
     if command_exists npm; then
         local npm_version
@@ -191,24 +207,24 @@ verify_environment() {
         log_error "npm not found"
         errors=$((errors + 1))
     fi
-    
+
     # Optional: Docker
     if command_exists docker; then
         log_success "Docker: available"
     else
         log_warn "Docker not available (some features may not work)"
     fi
-    
+
     # Optional: kubectl
     if command_exists kubectl; then
         log_success "kubectl: available"
     fi
-    
+
     # Optional: Supabase CLI
     if command_exists supabase || npx supabase --version &>/dev/null 2>&1; then
         log_success "Supabase CLI: available"
     fi
-    
+
     return $errors
 }
 
@@ -247,25 +263,25 @@ main() {
     echo "  ValueOS Dev Container - Post Create"
     echo "========================================"
     echo ""
-    
+
     cd "$PROJECT_ROOT"
-    
+
     setup_logging
-    
+
     # Critical step - fail if this fails
     install_dependencies || {
         log_error "Failed to install dependencies. Check network and try again."
         exit 1
     }
-    
+
     # Non-critical steps - continue on failure
     generate_prisma_client
     setup_husky_hooks
     verify_typescript
-    
+
     # Verify environment - warn but don't fail
     verify_environment || log_warn "Some environment checks failed"
-    
+
     print_summary
 }
 

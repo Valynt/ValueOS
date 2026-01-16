@@ -68,5 +68,5 @@
   ```
 
 ## Escalation
-- If >10% of deliveries fail for more than 10 minutes, classify as P1 and coordinate rollback per `docs/ops/runbooks/rollback.md`.
+- If >10% of deliveries fail for more than 10 minutes, classify as P1 and coordinate rollback per `docs/operations/runbooks/rollback.md`.
 - For single destination outages, disable the subscription temporarily via the admin console and inform the partner of auto-retry policy.

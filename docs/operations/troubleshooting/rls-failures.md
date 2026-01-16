@@ -72,5 +72,5 @@
 - Expired JWT → confirm clock skew; if >30s, resync NTP on gateway nodes.
 
 ## Escalation
-- If multiple tenants are blocked for >15 minutes, classify as P1 and prepare rollback using `docs/ops/runbooks/rollback.md`.
+- If multiple tenants are blocked for >15 minutes, classify as P1 and prepare rollback using `docs/operations/runbooks/rollback.md`.
 - For single-tenant impacts, open a P2 and provide a temporary support token while you fix the policy.

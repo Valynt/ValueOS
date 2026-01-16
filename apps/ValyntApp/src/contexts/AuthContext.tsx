@@ -13,6 +13,8 @@ import { analyticsClient } from "../lib/analyticsClient";
 import { secureTokenManager } from "../lib/auth/SecureTokenManager";
 import { getSupabaseConfig } from "../lib/env";
 
+const logger = createLogger({ component: "AuthContext" });
+
 interface LoginCredentials {
   email: string;
   password: string;
@@ -30,7 +32,33 @@ interface AuthSession {
   requiresEmailVerification: boolean;
 }
 
-const logger = createLogger({ component: "AuthContext" });
+const getUserRoles = (user: User): string[] => {
+  if (
+    user?.user_metadata?.roles &&
+    Array.isArray(user.user_metadata.roles) &&
+    user.user_metadata.roles.every((role: any) => typeof role === "string")
+  ) {
+    return user.user_metadata.roles;
+  }
+  return ["ANALYST"];
+};
+
+const getUserOrgId = (user: User): string => {
+  if (user?.user_metadata?.org_id && typeof user.user_metadata.org_id === "string") {
+    return user.user_metadata.org_id;
+  }
+  return "default";
+};
+
+const computeUserClaims = (user: User): UserClaims => {
+  return {
+    sub: user.id,
+    email: user.email || "",
+    roles: getUserRoles(user),
+    permissions: computePermissions(getUserRoles(user)),
+    org_id: getUserOrgId(user),
+  };
+};
 
 // SecureSessionManager removed in favor of unified SecureTokenManager
 
@@ -83,14 +111,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSession(storedSession);
           setUser(storedSession.user);
 
-          // Re-compute claims immediately for optimistic UI
-          const roles = (storedSession.user.user_metadata?.roles as string[]) || ["ANALYST"];
+          const roles = getUserRoles(storedSession.user);
           setUserClaims({
             sub: storedSession.user.id,
             email: storedSession.user.email || "",
             roles,
             permissions: computePermissions(roles),
-            org_id: storedSession.user.user_metadata?.org_id || "default",
+            org_id: getUserOrgId(storedSession.user),
           });
           logger.debug("Session optimistically restored from storage");
         } else {
@@ -122,14 +149,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSession(session);
           setUser(session.user);
 
-          // Compute UserClaims with permissions
-          const roles = (session.user.user_metadata?.roles as string[]) || ["ANALYST"];
+          const roles = getUserRoles(session.user);
           setUserClaims({
             sub: session.user.id,
             email: session.user.email || "",
             roles,
             permissions: computePermissions(roles),
-            org_id: session.user.user_metadata?.org_id || "default",
+            org_id: getUserOrgId(session.user),
           });
 
           analyticsClient.identify(session.user.id, {
@@ -158,7 +184,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     initAuth();
+  }, []);
 
+  // Listen for auth state changes
+  useEffect(() => {
     // Skip auth state listener if Supabase is not configured
     const supabaseConfig = getSupabaseConfig();
     if (!supabaseConfig.url || !supabaseConfig.anonKey) {
@@ -169,7 +198,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Listen for auth state changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event: string, newSession: Session | null) => {
@@ -178,15 +206,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(newSession);
       setUser(newSession?.user ?? null);
 
-      // Update UserClaims
       if (newSession?.user) {
-        const roles = (newSession.user.user_metadata?.roles as string[]) || ["ANALYST"];
+        const roles = getUserRoles(newSession.user);
         setUserClaims({
           sub: newSession.user.id,
           email: newSession.user.email || "",
           roles,
           permissions: computePermissions(roles),
-          org_id: newSession.user.user_metadata?.org_id || "default",
+          org_id: getUserOrgId(newSession.user),
         });
       } else {
         setUserClaims(null);
@@ -212,7 +239,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!supabase) {
       throw new Error("Supabase not configured");
     }
-    if (credentials.email === "dev@valynt.com" && credentials.password === "bypass") {
+    if (
+      process.env.NODE_ENV === "development" &&
+      credentials.email === "dev@valynt.com" &&
+      credentials.password === "bypass"
+    ) {
       // Bypass authentication for development
       const mockUser = {
         id: "dev-user-id",
@@ -232,7 +263,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         created_at: Date.now(),
       } as Session;
       setBypassUser(mockUser);
+      setUser(mockUser);
       setSession(mockSession);
+      setUserClaims({
+        sub: mockUser.id,
+        email: mockUser.email || "",
+        roles: getUserRoles(mockUser),
+        permissions: computePermissions(getUserRoles(mockUser)),
+        org_id: getUserOrgId(mockUser),
+      });
       logger.info("Bypass login successful", { email: credentials.email });
       analyticsClient.identify(mockUser.id, {
         email: mockUser.email,
@@ -253,7 +292,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error("Invalid credentials");
       }
       if (!data.user || !data.session) {
-        logger.error("Login failed", { reason: "missing session" });
+        logger.error("Login failed - missing session");
         throw new Error("Invalid credentials");
       }
 
@@ -292,7 +331,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error("Signup failed");
       }
       if (!authData.user) {
-        logger.error("Signup failed", { reason: "no user" });
+        logger.error("Signup failed - no user");
         throw new Error("Signup failed");
       }
 

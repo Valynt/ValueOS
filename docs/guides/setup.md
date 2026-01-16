@@ -172,7 +172,7 @@ ValueOS/
 ├── infra/                 # Infrastructure as code (Docker, monitoring)
 ├── mcp-dashboard/         # MCP server dashboard
 ├── operations/            # Operational runbooks and procedures
-├── ops/                   # Operational scripts and configurations
+├── operations/            # Operational scripts and configurations
 ├── packages/              # Shared libraries and component packages
 ├── public/                # Static assets
 ├── scripts/               # Automation, tooling, and operational scripts

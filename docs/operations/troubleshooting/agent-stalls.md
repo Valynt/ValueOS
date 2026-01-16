@@ -75,4 +75,4 @@
 
 ## Escalation
 - If Redis is unavailable for >10 minutes, fail over to the replica and open a P1 infrastructure incident.
-- If a code regression is suspected, ask the **Release Captain** to prepare rollback per `docs/ops/runbooks/rollback.md`.
+- If a code regression is suspected, ask the **Release Captain** to prepare rollback per `docs/operations/runbooks/rollback.md`.

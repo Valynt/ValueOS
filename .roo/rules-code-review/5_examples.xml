@@ -1,0 +1,659 @@
+<examples>
+  <example name="full_repository_analysis">
+    <description>Complete analysis of an entire repository with systematic directory traversal</description>
+    <context>When you need to perform comprehensive code review across the entire codebase</context>
+    <code language="bash">
+      # User request: "Perform a comprehensive code review of the entire repository"
+      
+      # Step 1: Initialize analysis
+      # - Create tracking structure
+      # - Set up progress markers
+      # - Prepare findings collection
+      
+      # Step 2: Start with root directory
+      list_files path="." recursive=false
+      
+      # Step 3: Process each directory systematically
+      # For each directory:
+      #   - List all files
+      #   - Filter by file type
+      #   - Analyze each file individually
+      
+      # Step 4: For each TypeScript file, perform multi-dimensional analysis:
+      #   - Bug identification (null checks, error handling, etc.)
+      #   - Performance optimization (unnecessary re-renders, inefficient algorithms)
+      #   - Naming conventions (descriptive names, consistency)
+      #   - ESLint violations (prefer-const, no-unused-vars, etc.)
+      #   - Code smells (long functions, complexity, duplication)
+      #   - Security vulnerabilities (injection, XSS, etc.)
+      
+      # Step 5: Compile findings and generate report
+      # - Organize by directory
+      # - Classify by severity
+      # - Provide specific remediation steps
+    </code>
+    <explanation>
+      This example demonstrates the complete workflow for analyzing an entire repository. The mode will:
+      1. Traverse directories systematically
+      2. Analyze each file with all required dimensions
+      3. Track progress to allow resumption
+      4. Generate comprehensive reports
+      5. Document all findings for manual review
+    </explanation>
+  </example>
+
+  <example name="focused_directory_analysis">
+    <description>Analyze a specific directory or set of files</description>
+    <context>When you need to review code in a specific area of the codebase</context>
+    <code language="bash">
+      # User request: "Review the authentication code in apps/ValyntApp/src/contexts/"
+      
+      # Step 1: List files in the target directory
+      list_files path="apps/ValyntApp/src/contexts" recursive=false
+      
+      # Step 2: Analyze each file in the directory
+      # For AuthContext.tsx:
+      #   - Check for null pointer exceptions
+      #   - Verify proper error handling in async operations
+      #   - Review React hooks usage (useEffect cleanup)
+      #   - Check for memory leaks
+      #   - Verify naming conventions
+      #   - Check ESLint compliance
+      #   - Identify code smells
+      #   - Assess security (token handling, auth logic)
+      
+      # Step 3: Generate focused report
+      # - Summary of findings for the directory
+      # - Specific issues in AuthContext.tsx
+      # - Recommendations for improvement
+    </code>
+    <explanation>
+      This example shows how to focus analysis on a specific directory. The mode will:
+      1. Only traverse the specified directory
+      2. Provide detailed analysis of files in that area
+      3. Generate a focused report relevant to the specific codebase section
+    </explanation>
+  </example>
+
+  <example name="bug_identification_example">
+    <description>Identify and classify bugs with severity levels</description>
+    <context>When analyzing code for potential bugs and issues</context>
+    <code language="typescript">
+      // Example file to analyze: user-service.ts
+      
+      // BUG 1: Critical - Null pointer exception
+      function getUserData(userId: string) {
+        const user = users.find(u => u.id === userId);
+        return user.name; // Will crash if user is undefined
+      }
+      
+      // BUG 2: High - Unhandled promise rejection
+      async function fetchUser(userId: string) {
+        const response = await fetch(`/api/users/${userId}`);
+        // Missing error handling for failed requests
+        return response.json();
+      }
+      
+      // BUG 3: Medium - Memory leak in React component
+      function UserProfile({ userId }) {
+        useEffect(() => {
+          const interval = setInterval(() => {
+            // Update user data
+          }, 5000);
+          // Missing cleanup - memory leak!
+        }, [userId]);
+      }
+      
+      // BUG 4: Low - Inefficient algorithm
+      function findDuplicates(arr: number[]): number[] {
+        const duplicates: number[] = [];
+        for (let i = 0; i < arr.length; i++) {
+          for (let j = i + 1; j < arr.length; j++) {
+            if (arr[i] === arr[j]) {
+              duplicates.push(arr[i]);
+            }
+          }
+        }
+        return duplicates;
+      }
+    </code>
+    <explanation>
+      This example demonstrates bug identification with severity classification:
+      - Critical: Null pointer exception (line 5) - application will crash
+      - High: Unhandled promise rejection (line 12) - error handling missing
+      - Medium: Memory leak (line 20) - resource not cleaned up
+      - Low: Inefficient algorithm (line 29) - O(n²) complexity
+      
+      Each bug should be documented with:
+      - Severity level
+      - Line number
+      - Description
+      - Suggested fix
+    </explanation>
+  </example>
+
+  <example name="performance_optimization_example">
+    <description>Identify performance optimization opportunities</description>
+    <context>When analyzing code for performance issues</context>
+    <code language="typescript">
+      // Example file: component.tsx
+      
+      // PERFORMANCE ISSUE 1: Unnecessary re-renders
+      function UserList({ users }) {
+        // Component re-renders on every parent update
+        return (
+          <div>
+            {users.map(user => (
+              <UserCard key={user.id} user={user} />
+            ))}
+          </div>
+        );
+      }
+      
+      // PERFORMANCE ISSUE 2: Redundant computation
+      function processUsers(users: User[]) {
+        const activeUsers = users.filter(u => u.isActive);
+        const activeUserCount = activeUsers.length; // Recalculating
+        const activeUserNames = activeUsers.map(u => u.name); // Recalculating
+        return { activeUserCount, activeUserNames };
+      }
+      
+      // PERFORMANCE ISSUE 3: Unnecessary API calls
+      function UserProfile({ userId }) {
+        const [user, setUser] = useState(null);
+        
+        useEffect(() => {
+          fetch(`/api/users/${userId}`)
+            .then(r => r.json())
+            .then(setUser);
+        }, [userId]);
+        
+        // Called on every render - should be memoized
+        const userStats = calculateStats(user);
+      }
+      
+      // PERFORMANCE ISSUE 4: Large list rendering
+      function LargeList({ items }) {
+        return (
+          <div>
+            {items.map(item => (
+              <div key={item.id}>{item.name}</div>
+            ))}
+          </div>
+        );
+      }
+    </code>
+    <explanation>
+      This example demonstrates performance optimization opportunities:
+      1. Unnecessary re-renders: Use React.memo for UserList
+      2. Redundant computation: Cache computed values
+      3. Unnecessary API calls: Implement caching or memoization
+      4. Large list rendering: Consider virtualization for large datasets
+      
+      Each issue should include:
+      - Specific problem description
+      - Impact assessment
+      - Recommended optimization
+    </explanation>
+  </example>
+
+  <example name="naming_convention_example">
+    <description>Identify naming convention violations</description>
+    <context>When reviewing code for naming consistency and clarity</context>
+    <code language="typescript">
+      // Example file: data-processor.ts
+      
+      // NAMING ISSUE 1: Ambiguous variable names
+      const x = 10;
+      const data = getUser();
+      const temp = process(input);
+      
+      // NAMING ISSUE 2: Inconsistent naming conventions
+      const user_name = "John";
+      const userName = "Jane";
+      const USER_NAME = "Bob";
+      
+      // NAMING ISSUE 3: Magic numbers
+      if (status === 2) {
+        // What does 2 mean?
+      }
+      
+      // NAMING ISSUE 4: Boolean without proper prefix
+      const active = true;
+      const valid = false;
+      
+      // NAMING ISSUE 5: Function names not descriptive
+      function handle() {
+        // What does this handle?
+      }
+      
+      // GOOD EXAMPLES
+      const userCount = 10;
+      const userData = getUser();
+      const processedResult = process(input);
+      
+      const STATUS_ACTIVE = 2;
+      if (status === STATUS_ACTIVE) {
+        // Clear meaning
+      }
+      
+      const isActive = true;
+      const isValid = false;
+      
+      function validateEmail(email: string): boolean {
+        // Clear purpose
+      }
+    </code>
+    <explanation>
+      This example demonstrates naming convention issues:
+      1. Ambiguous names: Use descriptive names (userCount instead of x)
+      2. Inconsistent conventions: Follow project standards (camelCase for variables)
+      3. Magic numbers: Use named constants (STATUS_ACTIVE instead of 2)
+      4. Boolean prefixes: Use "is", "has", "can" prefixes
+      5. Descriptive functions: Use verb phrases (validateEmail instead of handle)
+      
+      Each issue should include:
+      - Specific naming problem
+      - Recommended naming convention
+      - Example of correct usage
+    </explanation>
+  </example>
+
+  <example name="eslint_violation_example">
+    <description>Identify ESLint rule violations</description>
+    <context>When checking code for ESLint compliance</context>
+    <code language="typescript">
+      // Example file: utils.ts
+      
+      // ESLINT ISSUE 1: prefer-const
+      let name = "John";
+      console.log(name);
+      
+      // ESLINT ISSUE 2: no-unused-vars
+      function process(data: string) {
+        const unused = "something";
+        return data;
+      }
+      
+      // ESLINT ISSUE 3: prefer-template
+      const greeting = "Hello, " + name + "!";
+      
+      // ESLINT ISSUE 4: no-console (if configured)
+      console.log("Debug info");
+      
+      // ESLINT ISSUE 5: prefer-arrow-callback
+      [1, 2, 3].map(function(x) {
+        return x * 2;
+      });
+      
+      // GOOD EXAMPLES
+      const name = "John";
+      
+      function process(data: string) {
+        return data;
+      }
+      
+      const greeting = `Hello, ${name}!`;
+      
+      // Use proper logging instead of console.log
+      logger.info("Debug info");
+      
+      [1, 2, 3].map(x => x * 2);
+    </code>
+    <explanation>
+      This example demonstrates ESLint rule violations:
+      1. prefer-const: Use const for never-reassigned variables
+      2. no-unused-vars: Remove unused variables
+      3. prefer-template: Use template literals instead of concatenation
+      4. no-console: Use proper logging (if rule is enabled)
+      5. prefer-arrow-callback: Use arrow functions for callbacks
+      
+      Each violation should include:
+      - ESLint rule name
+      - Line number
+      - Description of the issue
+      - Suggested fix
+    </explanation>
+  </example>
+
+  <example name="code_smell_example">
+    <description>Identify code smells and anti-patterns</description>
+    <context>When reviewing code for maintainability issues</context>
+    <code language="typescript">
+      // Example file: service.ts
+      
+      // CODE SMELL 1: Long method
+      function processOrder(order: Order) {
+        // Validate order
+        if (!order.items || order.items.length === 0) {
+          throw new Error("No items");
+        }
+        
+        // Calculate total
+        let total = 0;
+        for (const item of order.items) {
+          total += item.price * item.quantity;
+        }
+        
+        // Apply discounts
+        if (order.coupon) {
+          total *= (1 - order.coupon.discount);
+        }
+        
+        // Calculate tax
+        const tax = total * 0.08;
+        total += tax;
+        
+        // Save to database
+        db.saveOrder({ ...order, total, tax });
+        
+        // Send confirmation email
+        emailService.sendConfirmation(order.customer.email, total);
+        
+        // Update inventory
+        for (const item of order.items) {
+          inventory.update(item.id, -item.quantity);
+        }
+        
+        // Log transaction
+        logger.info(`Order ${order.id} processed: $${total}`);
+      }
+      
+      // CODE SMELL 2: Deep nesting
+      function validateUser(user: User) {
+        if (user) {
+          if (user.isActive) {
+            if (user.hasPermission) {
+              if (user.emailVerified) {
+                return true;
+              }
+            }
+          }
+        }
+        return false;
+      }
+      
+      // CODE SMELL 3: Duplicate code
+      function processUserA(user: User) {
+        const data = fetchData(user.id);
+        const result = transform(data);
+        saveResult(result);
+      }
+      
+      function processUserB(user: User) {
+        const data = fetchData(user.id);
+        const result = transform(data);
+        saveResult(result);
+      }
+      
+      // CODE SMELL 4: Tight coupling
+      class OrderService {
+        private db: Database;
+        private email: EmailService;
+        private inventory: InventoryService;
+        
+        constructor() {
+          this.db = new Database();
+          this.email = new EmailService();
+          this.inventory = new InventoryService();
+        }
+      }
+    </code>
+    <explanation>
+      This example demonstrates code smells:
+      1. Long method: Break into smaller, focused methods
+      2. Deep nesting: Use early returns to reduce nesting
+      3. Duplicate code: Extract common logic into shared functions
+      4. Tight coupling: Use dependency injection instead of direct instantiation
+      
+      Each code smell should include:
+      - Type of smell
+      - Specific location
+      - Impact on maintainability
+      - Refactoring recommendation
+    </explanation>
+  </example>
+
+  <example name="security_vulnerability_example">
+    <description>Identify security vulnerabilities</description>
+    <context>When reviewing code for security issues</context>
+    <code language="typescript">
+      // Example file: auth.ts
+      
+      // SECURITY ISSUE 1: SQL Injection
+      function getUser(username: string, password: string) {
+        const query = `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`;
+        return db.query(query);
+      }
+      
+      // SECURITY ISSUE 2: XSS Vulnerability
+      function displayUserComment(comment: string) {
+        return `<div>${comment}</div>`; // No sanitization
+      }
+      
+      // SECURITY ISSUE 3: Insecure password storage
+      function storePassword(password: string) {
+        // Storing plain text password
+        db.save({ password });
+      }
+      
+      // SECURITY ISSUE 4: Missing rate limiting
+      async function login(username: string, password: string) {
+        // No rate limiting - vulnerable to brute force
+        const user = await authenticate(username, password);
+        return user;
+      }
+      
+      // SECURITY ISSUE 5: Insecure direct object reference
+      function getUserData(userId: string) {
+        // No authorization check
+        return db.getUser(userId);
+      }
+      
+      // GOOD EXAMPLES
+      function getUser(username: string, password: string) {
+        const query = 'SELECT * FROM users WHERE username = ? AND password = ?';
+        return db.query(query, [username, password]);
+      }
+      
+      function displayUserComment(comment: string) {
+        const sanitized = sanitizeHtml(comment);
+        return `<div>${sanitized}</div>`;
+      }
+      
+      async function storePassword(password: string) {
+        const hashed = await bcrypt.hash(password, 12);
+        db.save({ password: hashed });
+      }
+      
+      async function login(username: string, password: string) {
+        // With rate limiting
+        await rateLimiter.check(username);
+        const user = await authenticate(username, password);
+        return user;
+      }
+      
+      async function getUserData(userId: string, currentUserId: string) {
+        // With authorization check
+        if (userId !== currentUserId) {
+          throw new Error("Unauthorized");
+        }
+        return db.getUser(userId);
+      }
+    </code>
+    <explanation>
+      This example demonstrates security vulnerabilities:
+      1. SQL Injection: Use parameterized queries
+      2. XSS: Sanitize user input before rendering
+      3. Insecure password storage: Hash passwords with bcrypt
+      4. Missing rate limiting: Implement rate limiting for authentication
+      5. Insecure direct object reference: Add authorization checks
+      
+      Each vulnerability should include:
+      - Vulnerability type
+      - Severity level
+      - Specific location
+      - Remediation steps
+    </explanation>
+  </example>
+
+  <example name="progress_tracking_example">
+    <description>Track progress during large repository analysis</description>
+    <context>When analyzing large repositories that require multiple sessions</context>
+    <code language="bash">
+      # User request: "Analyze the entire repository"
+      
+      # Step 1: Initialize progress tracking
+      # Create .analysis-progress file with:
+      # {
+      #   "totalDirectories": 45,
+      #   "completedDirectories": 0,
+      #   "currentDirectory": null,
+      #   "findings": {}
+      # }
+      
+      # Step 2: Start analysis
+      # Process directory: apps/ValyntApp/src/contexts/
+      # - Analyze AuthContext.tsx
+      # - Analyze other context files
+      # - Update progress: completedDirectories = 1
+      
+      # Step 3: Continue analysis
+      # Process directory: apps/ValyntApp/src/components/
+      # - Analyze all component files
+      # - Update progress: completedDirectories = 2
+      
+      # Step 4: Pause and resume
+      # User interrupts: "Stop for now"
+      # Progress saved: 2/45 directories completed
+      
+      # Step 5: Resume later
+      # User continues: "Continue code review"
+      # Mode reads .analysis-progress
+      # Resumes from directory 3
+    </code>
+    <explanation>
+      This example demonstrates progress tracking for large repositories:
+      1. Initialize tracking structure
+      2. Process directories one by one
+      3. Update progress after each directory
+      4. Save progress to allow resumption
+      5. Resume from last completed directory
+      
+      Progress tracking enables:
+      - Handling large repositories
+      - Pausing and resuming analysis
+      - Avoiding re-analysis of completed directories
+    </explanation>
+  </example>
+
+  <example name="report_generation_example">
+    <description>Generate comprehensive analysis report</description>
+    <context>When compiling all findings into a readable report</context>
+    <code language="markdown">
+      # Code Review Report
+      **Generated:** 2026-01-16T18:55:01.019Z
+      **Repository:** ValueOS
+      **Scope:** Entire repository
+
+      ## Summary Statistics
+      - Total files analyzed: 156
+      - Directories processed: 45
+      - Total issues found: 89
+      - Critical issues: 3
+      - High priority issues: 12
+      - Medium priority issues: 34
+      - Low priority issues: 40
+
+      ## Critical Issues (3)
+      ### 1. Null Pointer Exception
+      **File:** apps/ValyntApp/src/contexts/AuthContext.tsx:42
+      **Severity:** Critical
+      **Description:** Accessing property on potentially null object
+      **Code:**
+      ```typescript
+      const user = getUser();
+      console.log(user.name); // Will crash if user is null
+      ```
+      **Fix:**
+      ```typescript
+      const user = getUser();
+      if (user) {
+        console.log(user.name);
+      }
+      ```
+
+      ### 2. Unhandled Promise Rejection
+      **File:** apps/ValyntApp/src/services/api.ts:15
+      **Severity:** Critical
+      **Description:** Async operation without error handling
+      **Fix:** Wrap in try-catch block
+
+      ### 3. Memory Leak
+      **File:** apps/ValyntApp/src/components/Dashboard.tsx:28
+      **Severity:** Critical
+      **Description:** Interval not cleaned up in useEffect
+      **Fix:** Add cleanup function
+
+      ## High Priority Issues (12)
+      ### 1. Security: SQL Injection Risk
+      **File:** apps/ValyntApp/src/services/database.ts:67
+      **Severity:** High
+      **Description:** Direct string concatenation in SQL query
+      **Fix:** Use parameterized queries
+
+      ### 2. Performance: Unnecessary Re-renders
+      **File:** apps/ValyntApp/src/components/UserList.tsx:12
+      **Severity:** High
+      **Description:** Component re-renders on every parent update
+      **Fix:** Wrap with React.memo
+
+      ... (additional issues)
+
+      ## Medium Priority Issues (34)
+      - 15 ESLint violations
+      - 12 naming convention issues
+      - 7 code smells
+
+      ## Low Priority Issues (40)
+      - 25 minor naming issues
+      - 15 code style issues
+
+      ## Recommendations
+      1. **Immediate Actions (Critical):**
+         - Fix null pointer exceptions in AuthContext.tsx
+         - Add error handling to API calls
+         - Clean up memory leaks
+
+      2. **Short-term Improvements (High):**
+         - Implement security fixes for SQL injection
+         - Optimize React components for performance
+         - Add proper error boundaries
+
+      3. **Long-term Refactoring (Medium/Low):**
+         - Refactor long methods into smaller functions
+         - Improve naming consistency across codebase
+         - Add comprehensive unit tests
+
+      ## Next Steps
+      1. Review critical issues first
+      2. Create tickets for each issue category
+      3. Prioritize security vulnerabilities
+      4. Schedule refactoring sessions
+    </code>
+    <explanation>
+      This example demonstrates comprehensive report generation:
+      1. Summary statistics for quick overview
+      2. Detailed issue listings by severity
+      3. Code examples showing problems and fixes
+      4. Prioritized recommendations
+      5. Actionable next steps
+      
+      The report format should be:
+      - Easy to read and understand
+      - Actionable with specific fixes
+      - Prioritized by severity
+      - Comprehensive but not overwhelming
+    </explanation>
+  </example>
+</examples>

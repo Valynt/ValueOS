@@ -1,6 +1,7 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { SettingsContextType, SettingsPermission, UserPermissions } from '../types';
-import { settingsRegistry } from '../lib/settingsRegistry';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { SettingsContextType, SettingsPermission, UserPermissions } from "../types";
+import { settingsRegistry } from "../lib/settingsRegistry";
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
@@ -12,28 +13,32 @@ interface SettingsProviderProps {
 
 export const SettingsProvider: React.FC<SettingsProviderProps> = ({
   children,
-  defaultRoute = '/user/profile',
+  defaultRoute = "/user/profile",
   permissions = {
-    permissions: ['team.view', 'team.manage'],
-    role: 'Member',
+    permissions: ["team.view", "team.manage"],
+    role: "Member",
   },
 }) => {
+  const navigate = useNavigate();
   const [currentRoute, setCurrentRoute] = useState<string>(defaultRoute);
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   useEffect(() => {
-    const hash = window.location.hash.replace('#/settings', '');
+    const hash = window.location.hash.replace("#/settings", "");
     if (hash && hash !== currentRoute) {
       setCurrentRoute(hash);
     }
   }, []);
 
-  const navigateTo = useCallback((path: string) => {
-    setCurrentRoute(path);
-    window.location.hash = `/settings${path}`;
+  const navigateTo = useCallback(
+    (path: string) => {
+      setCurrentRoute(path);
+      navigate(path);
 
-    window.dispatchEvent(new CustomEvent('settings-navigate', { detail: { path } }));
-  }, []);
+      window.dispatchEvent(new CustomEvent("settings-navigate", { detail: { path } }));
+    },
+    [navigate]
+  );
 
   const hasPermission = useCallback(
     (permission: SettingsPermission): boolean => {
@@ -43,10 +48,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
   );
 
   // Memoize breadcrumbs to prevent unnecessary recalculations
-  const breadcrumbs = useMemo(
-    () => settingsRegistry.getBreadcrumbs(currentRoute),
-    [currentRoute]
-  );
+  const breadcrumbs = useMemo(() => settingsRegistry.getBreadcrumbs(currentRoute), [currentRoute]);
 
   // Memoize context value to prevent infinite re-render loops
   // This is critical: object literal instantiation on every render causes
@@ -64,17 +66,13 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
     [currentRoute, navigateTo, searchQuery, setSearchQuery, permissions, hasPermission, breadcrumbs]
   );
 
-  return (
-    <SettingsContext.Provider value={contextValue}>
-      {children}
-    </SettingsContext.Provider>
-  );
+  return <SettingsContext.Provider value={contextValue}>{children}</SettingsContext.Provider>;
 };
 
 export const useSettings = (): SettingsContextType => {
   const context = useContext(SettingsContext);
   if (!context) {
-    throw new Error('useSettings must be used within a SettingsProvider');
+    throw new Error("useSettings must be used within a SettingsProvider");
   }
   return context;
 };

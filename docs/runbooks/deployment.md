@@ -47,7 +47,7 @@
    - Run policy checks: `npm run lint:policies` if applicable.
 5. **Post-deploy validation**
    - Check Grafana dashboard `00-Prod Overview` for error rates, latency, and queue depth.
-   - Review Supabase logs for RLS errors using `docs/ops/troubleshooting/rls-failures.md` queries.
+   - Review Supabase logs for RLS errors using `docs/operations/troubleshooting/rls-failures.md` queries.
    - Announce completion with a link to the workflow run and tag Feature Owners for final sign-off.
 
 ## SLAs

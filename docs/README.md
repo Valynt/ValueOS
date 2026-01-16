@@ -75,6 +75,12 @@ Documentation lives alongside the code in the `docs/` directory. To contribute:
 
 ---
 
+## Archived Documentation
+
+Some obsolete or deprecated documentation has been moved to the `archive/` directory for historical reference. This includes old roadmap documents, specific deployment reports, and outdated UI designs.
+
+---
+
 **Last Updated**: 2026-01-14
 **Maintained By**: Engineering Team
 

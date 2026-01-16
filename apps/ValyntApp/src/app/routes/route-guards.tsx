@@ -1,11 +1,11 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { useAuth } from "@app/providers/AuthProvider";
+import { useAuth } from "../../contexts/AuthContext";
 
 export function ProtectedRoute() {
-  const { user, isLoading } = useAuth();
+  const { user, loading } = useAuth();
   const location = useLocation();
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-muted-foreground">Authenticating...</div>
@@ -21,9 +21,9 @@ export function ProtectedRoute() {
 }
 
 export function PublicOnlyRoute() {
-  const { user, isLoading } = useAuth();
+  const { user, loading } = useAuth();
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-muted-foreground">Loading...</div>

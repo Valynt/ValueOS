@@ -268,7 +268,7 @@ From `PERFORMANCE_TESTING.md`.
 
 - Success rate > 90% (critical > 80%)
 - P95 < 10s, P99 < 15–20s
-- Throughput > 10 ops/s (critical > 5 ops/s)
+- Throughput > 10 operations/s (critical > 5 operations/s)
 
 Run:
 
