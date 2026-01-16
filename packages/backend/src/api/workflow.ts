@@ -12,10 +12,14 @@ import { tenantContextMiddleware } from '../middleware/tenantContext';
 const router = Router();
 router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
-router.use(validateRequest);
 router.use(requireAuth);
 router.use(tenantContextMiddleware());
 router.use(requirePermission('agents.execute'));
+
+const workflowExplainParamsSchema = {
+  executionId: { type: 'string', required: true, minLength: 1, maxLength: 100 },
+  stepId: { type: 'string', required: true, minLength: 1, maxLength: 100 },
+};
 
 function sanitizeEvidence(evidence: any): Array<{ source?: string; description?: string; confidence?: number }> {
   if (!Array.isArray(evidence)) return [];
@@ -29,6 +33,7 @@ function sanitizeEvidence(evidence: any): Array<{ source?: string; description?:
 router.get(
   '/workflow/:executionId/step/:stepId/explain',
   rateLimiters.loose,
+  validateRequest(workflowExplainParamsSchema, 'params'),
   async (req: Request, res: Response) => {
     const { executionId, stepId } = req.params;
     const tenantId = (req as any).tenantId;

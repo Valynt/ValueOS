@@ -261,20 +261,40 @@ function validateValue(value: any, rule: ValidationRule, fieldName: string): str
 /**
  * Validate data against schema
  */
-export function validateData(data: any, schema: ValidationSchema, sanitize: boolean = true): ValidationResult {
+export function validateData(
+  data: any,
+  schema: ValidationSchema,
+  sanitize: boolean = true,
+  options: { allowUnknown?: boolean } = {}
+): ValidationResult {
   const errors: string[] = [];
   const sanitizedData: any = {};
+  const payload = typeof data === 'object' && data !== null ? data : {};
+  const allowUnknown = options.allowUnknown ?? false;
+
+  if (!allowUnknown) {
+    const unknownFields = Object.keys(payload).filter(
+      (field) => !(field in schema)
+    );
+    if (unknownFields.length > 0) {
+      errors.push(
+        ...unknownFields.map((field) => `Unknown field: ${field}`)
+      );
+    }
+  }
 
   for (const [field, rule] of Object.entries(schema)) {
-    const value = data[field];
+    const value = payload[field];
     const fieldErrors = validateValue(value, rule, field);
 
     if (fieldErrors.length > 0) {
       errors.push(...fieldErrors);
     } else if (sanitize && typeof value === 'string') {
       // Auto-sanitize strings
-      const level = field.includes('prompt') || field.includes('message') ?
-        SanitizationLevel.LLM : SanitizationLevel.BASIC;
+      const level =
+        field.includes('prompt') || field.includes('message')
+          ? SanitizationLevel.LLM
+          : SanitizationLevel.BASIC;
       sanitizedData[field] = sanitizeInput(value, level);
     } else {
       sanitizedData[field] = value;
@@ -284,25 +304,30 @@ export function validateData(data: any, schema: ValidationSchema, sanitize: bool
   return {
     valid: errors.length === 0,
     errors,
-    sanitizedData
+    sanitizedData,
   };
 }
 
 /**
  * Express middleware for input validation
  */
-export function validateRequest(schema: ValidationSchema, source: 'body' | 'query' | 'params' = 'body') {
+export function validateRequest(
+  schema: ValidationSchema,
+  source: 'body' | 'query' | 'params' = 'body',
+  options: { allowUnknown?: boolean } = {}
+) {
   return (req: Request, res: Response, next: NextFunction): void => {
     try {
       const data = req[source];
-      const result = validateData(data, schema);
+      const result = validateData(data, schema, true, options);
 
       if (!result.valid) {
         logger.warn('Input validation failed', {
           errors: result.errors,
           path: sanitizeForLogging(req.path),
           method: req.method,
-          ip: sanitizeForLogging(req.ip)
+          ip: sanitizeForLogging(req.ip),
+          requestId: (req as any).requestId ?? res.locals.requestId
         });
 
         res.status(400).json({
