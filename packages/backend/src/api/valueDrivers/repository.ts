@@ -5,48 +5,41 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { 
-  ValueDriver, 
-  CreateValueDriverRequest, 
+import {
+  ValueDriver,
+  CreateValueDriverRequest,
   UpdateValueDriverRequest,
   ListValueDriversQuery,
   PaginatedResponse,
   DriverType,
   DriverStatus,
 } from './types';
-import { logger } from '../../lib/logger';
+import {
+  CreateValueDriverDbSchema,
+  ListValueDriversQueryDbSchema,
+  UpdateValueDriverDbSchema,
+  mapDriverStatusToDb,
+  mapDriverTypeToDb,
+} from './dbValidation';
+import {
+  DbConflictError,
+  DbNotFoundError,
+  TransientDbError,
+} from '../../lib/db/errors';
+import { logDbError, logDbInfo, logDbWarn } from '../../lib/db/logging';
+import { parseDbInput } from '../../lib/db/validation';
 
-// ============================================================================
-// Repository Errors
-// ============================================================================
+const TRANSIENT_DB_CODES = new Set([
+  '08001',
+  '08006',
+  '53300',
+  '57P01',
+  '57014',
+  '55006',
+]);
 
-export class RepositoryError extends Error {
-  constructor(
-    message: string,
-    public readonly code: string,
-    public readonly cause?: Error
-  ) {
-    super(message);
-    this.name = 'RepositoryError';
-  }
-}
-
-export class NotFoundError extends RepositoryError {
-  constructor(resource: string, id: string) {
-    super(`${resource} not found: ${id}`, 'NOT_FOUND');
-  }
-}
-
-export class ConflictError extends RepositoryError {
-  constructor(message: string) {
-    super(message, 'CONFLICT');
-  }
-}
-
-export class DatabaseError extends RepositoryError {
-  constructor(message: string, cause?: Error) {
-    super(message, 'DATABASE_ERROR', cause);
-  }
+function isTransientDbError(code?: string | null): boolean {
+  return Boolean(code && TRANSIENT_DB_CODES.has(code));
 }
 
 // ============================================================================
@@ -77,19 +70,24 @@ export class ValueDriversRepository {
     data: CreateValueDriverRequest
   ): Promise<ValueDriver> {
     const correlationId = `vd-create-${Date.now()}`;
-    
+
     try {
+      const sanitized = parseDbInput(
+        CreateValueDriverDbSchema,
+        data,
+        'value driver create payload'
+      );
       const now = new Date().toISOString();
       const driverData = {
         tenant_id: tenantId,
-        name: data.name,
-        description: data.description || null,
-        type: data.type,
-        persona_tags: data.personaTags,
-        sales_motion_tags: data.salesMotionTags,
-        formula: data.formula,
-        narrative_pitch: data.narrativePitch,
-        status: data.status || 'draft',
+        name: sanitized.name,
+        description: sanitized.description || null,
+        type: mapDriverTypeToDb(sanitized.type),
+        persona_tags: sanitized.personaTags,
+        sales_motion_tags: sanitized.salesMotionTags,
+        formula: sanitized.formula,
+        narrative_pitch: sanitized.narrativePitch,
+        status: mapDriverStatusToDb(sanitized.status),
         version: 1,
         usage_count: 0,
         created_by: userId,
@@ -104,35 +102,48 @@ export class ValueDriversRepository {
         .single();
 
       if (error) {
-        logger.error('Failed to create value driver', {
-          correlationId,
-          tenantId,
-          error: error.message,
-          code: error.code,
-        });
+        logDbError(
+          'Failed to create value driver',
+          {
+            correlationId,
+            tenantId,
+            operation: 'create',
+            table: this.tableName,
+            errorCode: error.code,
+          },
+          error
+        );
 
         if (error.code === '23505') {
-          throw new ConflictError('A driver with this name already exists');
+          throw new DbConflictError('A driver with this name already exists');
         }
-        throw new DatabaseError('Failed to create value driver', error);
+        if (isTransientDbError(error.code)) {
+          throw new TransientDbError('Database temporarily unavailable', {
+            operation: 'create',
+          });
+        }
+        throw error;
       }
 
-      logger.info('Value driver created', {
+      logDbInfo('Value driver created', {
         correlationId,
         tenantId,
-        driverId: result.id,
+        operation: 'create',
+        table: this.tableName,
+        recordId: result.id,
       });
 
       return this.mapToEntity(result);
     } catch (err) {
-      if (err instanceof RepositoryError) throw err;
-      
-      logger.error('Unexpected error creating value driver', {
-        correlationId,
-        tenantId,
-        error: err instanceof Error ? err.message : 'Unknown error',
-      });
-      throw new DatabaseError('Unexpected error creating value driver', err as Error);
+      if (err instanceof Error) {
+        logDbError('Unexpected error creating value driver', {
+          correlationId,
+          tenantId,
+          operation: 'create',
+          table: this.tableName,
+        }, err);
+      }
+      throw err;
     }
   }
 
@@ -152,28 +163,40 @@ export class ValueDriversRepository {
 
       if (error) {
         if (error.code === 'PGRST116') {
-          throw new NotFoundError('ValueDriver', driverId);
+          throw new DbNotFoundError('ValueDriver', driverId);
         }
-        logger.error('Failed to get value driver', {
-          correlationId,
-          tenantId,
-          driverId,
-          error: error.message,
-        });
-        throw new DatabaseError('Failed to get value driver', error);
+        logDbError(
+          'Failed to get value driver',
+          {
+            correlationId,
+            tenantId,
+            operation: 'getById',
+            table: this.tableName,
+            recordId: driverId,
+            errorCode: error.code,
+          },
+          error
+        );
+        if (isTransientDbError(error.code)) {
+          throw new TransientDbError('Database temporarily unavailable', {
+            operation: 'getById',
+          });
+        }
+        throw error;
       }
 
       return this.mapToEntity(data);
     } catch (err) {
-      if (err instanceof RepositoryError) throw err;
-      
-      logger.error('Unexpected error getting value driver', {
-        correlationId,
-        tenantId,
-        driverId,
-        error: err instanceof Error ? err.message : 'Unknown error',
-      });
-      throw new DatabaseError('Unexpected error getting value driver', err as Error);
+      if (err instanceof Error) {
+        logDbError('Unexpected error getting value driver', {
+          correlationId,
+          tenantId,
+          operation: 'getById',
+          table: this.tableName,
+          recordId: driverId,
+        }, err);
+      }
+      throw err;
     }
   }
 
@@ -188,6 +211,11 @@ export class ValueDriversRepository {
     const correlationId = `vd-update-${driverId}`;
 
     try {
+      const sanitized = parseDbInput(
+        UpdateValueDriverDbSchema,
+        data,
+        'value driver update payload'
+      );
       // First check if driver exists and get current version
       const existing = await this.getById(tenantId, driverId);
 
@@ -196,14 +224,14 @@ export class ValueDriversRepository {
         version: existing.version + 1,
       };
 
-      if (data.name !== undefined) updateData.name = data.name;
-      if (data.description !== undefined) updateData.description = data.description;
-      if (data.type !== undefined) updateData.type = data.type;
-      if (data.personaTags !== undefined) updateData.persona_tags = data.personaTags;
-      if (data.salesMotionTags !== undefined) updateData.sales_motion_tags = data.salesMotionTags;
-      if (data.formula !== undefined) updateData.formula = data.formula;
-      if (data.narrativePitch !== undefined) updateData.narrative_pitch = data.narrativePitch;
-      if (data.status !== undefined) updateData.status = data.status;
+      if (sanitized.name !== undefined) updateData.name = sanitized.name;
+      if (sanitized.description !== undefined) updateData.description = sanitized.description;
+      if (sanitized.type !== undefined) updateData.type = mapDriverTypeToDb(sanitized.type);
+      if (sanitized.personaTags !== undefined) updateData.persona_tags = sanitized.personaTags;
+      if (sanitized.salesMotionTags !== undefined) updateData.sales_motion_tags = sanitized.salesMotionTags;
+      if (sanitized.formula !== undefined) updateData.formula = sanitized.formula;
+      if (sanitized.narrativePitch !== undefined) updateData.narrative_pitch = sanitized.narrativePitch;
+      if (sanitized.status !== undefined) updateData.status = mapDriverStatusToDb(sanitized.status);
 
       const { data: result, error } = await this.supabase
         .from(this.tableName)
@@ -214,34 +242,46 @@ export class ValueDriversRepository {
         .single();
 
       if (error) {
-        logger.error('Failed to update value driver', {
-          correlationId,
-          tenantId,
-          driverId,
-          error: error.message,
-        });
-        throw new DatabaseError('Failed to update value driver', error);
+        logDbError(
+          'Failed to update value driver',
+          {
+            correlationId,
+            tenantId,
+            operation: 'update',
+            table: this.tableName,
+            recordId: driverId,
+            errorCode: error.code,
+          },
+          error
+        );
+        if (isTransientDbError(error.code)) {
+          throw new TransientDbError('Database temporarily unavailable', {
+            operation: 'update',
+          });
+        }
+        throw error;
       }
 
-      logger.info('Value driver updated', {
+      logDbInfo('Value driver updated', {
         correlationId,
         tenantId,
-        driverId,
-        fields: Object.keys(data),
-        newVersion: result.version,
+        operation: 'update',
+        table: this.tableName,
+        recordId: driverId,
       });
 
       return this.mapToEntity(result);
     } catch (err) {
-      if (err instanceof RepositoryError) throw err;
-      
-      logger.error('Unexpected error updating value driver', {
-        correlationId,
-        tenantId,
-        driverId,
-        error: err instanceof Error ? err.message : 'Unknown error',
-      });
-      throw new DatabaseError('Unexpected error updating value driver', err as Error);
+      if (err instanceof Error) {
+        logDbError('Unexpected error updating value driver', {
+          correlationId,
+          tenantId,
+          operation: 'update',
+          table: this.tableName,
+          recordId: driverId,
+        }, err);
+      }
+      throw err;
     }
   }
 
@@ -262,30 +302,44 @@ export class ValueDriversRepository {
         .eq('tenant_id', tenantId);
 
       if (error) {
-        logger.error('Failed to delete value driver', {
-          correlationId,
-          tenantId,
-          driverId,
-          error: error.message,
-        });
-        throw new DatabaseError('Failed to delete value driver', error);
+        logDbError(
+          'Failed to delete value driver',
+          {
+            correlationId,
+            tenantId,
+            operation: 'delete',
+            table: this.tableName,
+            recordId: driverId,
+            errorCode: error.code,
+          },
+          error
+        );
+        if (isTransientDbError(error.code)) {
+          throw new TransientDbError('Database temporarily unavailable', {
+            operation: 'delete',
+          });
+        }
+        throw error;
       }
 
-      logger.info('Value driver deleted', {
+      logDbInfo('Value driver deleted', {
         correlationId,
         tenantId,
-        driverId,
+        operation: 'delete',
+        table: this.tableName,
+        recordId: driverId,
       });
     } catch (err) {
-      if (err instanceof RepositoryError) throw err;
-      
-      logger.error('Unexpected error deleting value driver', {
-        correlationId,
-        tenantId,
-        driverId,
-        error: err instanceof Error ? err.message : 'Unknown error',
-      });
-      throw new DatabaseError('Unexpected error deleting value driver', err as Error);
+      if (err instanceof Error) {
+        logDbError('Unexpected error deleting value driver', {
+          correlationId,
+          tenantId,
+          operation: 'delete',
+          table: this.tableName,
+          recordId: driverId,
+        }, err);
+      }
+      throw err;
     }
   }
 
@@ -297,7 +351,12 @@ export class ValueDriversRepository {
     query: ListValueDriversQuery
   ): Promise<PaginatedResponse<ValueDriver>> {
     const correlationId = `vd-list-${Date.now()}`;
-    const { type, status, persona, salesMotion, search, sortBy, sortOrder, page, limit } = query;
+    const sanitized = parseDbInput(
+      ListValueDriversQueryDbSchema,
+      query,
+      'value driver query'
+    );
+    const { type, status, persona, salesMotion, search, sortBy, sortOrder, page, limit } = sanitized;
 
     try {
       let queryBuilder = this.supabase
@@ -307,11 +366,11 @@ export class ValueDriversRepository {
 
       // Apply filters
       if (type) {
-        queryBuilder = queryBuilder.eq('type', type);
+        queryBuilder = queryBuilder.eq('type', mapDriverTypeToDb(type));
       }
 
       if (status) {
-        queryBuilder = queryBuilder.eq('status', status);
+        queryBuilder = queryBuilder.eq('status', mapDriverStatusToDb(status));
       }
 
       if (persona) {
@@ -339,12 +398,23 @@ export class ValueDriversRepository {
       const { data, error, count } = await queryBuilder;
 
       if (error) {
-        logger.error('Failed to list value drivers', {
-          correlationId,
-          tenantId,
-          error: error.message,
-        });
-        throw new DatabaseError('Failed to list value drivers', error);
+        logDbError(
+          'Failed to list value drivers',
+          {
+            correlationId,
+            tenantId,
+            operation: 'list',
+            table: this.tableName,
+            errorCode: error.code,
+          },
+          error
+        );
+        if (isTransientDbError(error.code)) {
+          throw new TransientDbError('Database temporarily unavailable', {
+            operation: 'list',
+          });
+        }
+        throw error;
       }
 
       const total = count || 0;
@@ -361,14 +431,15 @@ export class ValueDriversRepository {
         },
       };
     } catch (err) {
-      if (err instanceof RepositoryError) throw err;
-      
-      logger.error('Unexpected error listing value drivers', {
-        correlationId,
-        tenantId,
-        error: err instanceof Error ? err.message : 'Unknown error',
-      });
-      throw new DatabaseError('Unexpected error listing value drivers', err as Error);
+      if (err instanceof Error) {
+        logDbError('Unexpected error listing value drivers', {
+          correlationId,
+          tenantId,
+          operation: 'list',
+          table: this.tableName,
+        }, err);
+      }
+      throw err;
     }
   }
 
@@ -386,20 +457,25 @@ export class ValueDriversRepository {
 
       if (error) {
         // Non-critical - log but don't throw
-        logger.warn('Failed to increment driver usage', {
+        logDbWarn('Failed to increment driver usage', {
           correlationId,
           tenantId,
-          driverId,
-          error: error.message,
+          operation: 'incrementUsage',
+          table: this.tableName,
+          recordId: driverId,
+          errorCode: error.code,
         });
       }
     } catch (err) {
-      logger.warn('Unexpected error incrementing driver usage', {
-        correlationId,
-        tenantId,
-        driverId,
-        error: err instanceof Error ? err.message : 'Unknown error',
-      });
+      if (err instanceof Error) {
+        logDbWarn('Unexpected error incrementing driver usage', {
+          correlationId,
+          tenantId,
+          operation: 'incrementUsage',
+          table: this.tableName,
+          recordId: driverId,
+        });
+      }
     }
   }
 
