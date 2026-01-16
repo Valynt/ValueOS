@@ -5,6 +5,8 @@ import { rateLimiters } from '../middleware/rateLimiter';
 import { validateRequest } from '../middleware/inputValidation';
 import { requirePermission } from '../middleware/rbac';
 import { getEnvVar } from '@shared/lib/env';
+import { getHttpStatus, isAppError } from '../lib/errors';
+import { resilientFetch } from '../lib/resilience';
 
 const router = Router();
 router.use(securityHeadersMiddleware);
@@ -56,15 +58,31 @@ async function callGroundtruthApi(
   const url = `${baseUrl.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
 
   try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...buildAuthHeaders(apiKey),
-        ...buildRequestIdHeader(res),
+    const response = await resilientFetch(
+      url,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...buildAuthHeaders(apiKey),
+          ...buildRequestIdHeader(res),
+        },
+        body: JSON.stringify(payload),
       },
-      body: JSON.stringify(payload),
-    });
+      {
+        dependencyName: 'groundtruth-api',
+        timeoutMs: 15_000,
+        idempotent: false,
+        circuitBreaker: {
+          failureThreshold: 3,
+          cooldownMs: 30_000,
+          halfOpenSuccesses: 1,
+        },
+        bulkhead: {
+          maxConcurrent: 5,
+        },
+      }
+    );
 
     if (!response.ok) {
       const errorBody = await response.text();
@@ -86,6 +104,13 @@ async function callGroundtruthApi(
     logger.error('Groundtruth API request failed', error instanceof Error ? error : undefined, {
       path,
     });
+
+    if (isAppError(error) && error.isOperational) {
+      return res.status(getHttpStatus(error.code)).json({
+        error: 'Groundtruth API unavailable',
+        message: error.message,
+      });
+    }
 
     return res.status(500).json({
       error: 'Groundtruth API request failed',
