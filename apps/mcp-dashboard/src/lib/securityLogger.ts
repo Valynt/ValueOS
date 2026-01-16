@@ -104,8 +104,8 @@ class SecurityLogger {
       type: "auth_attempt",
       severity: "low",
       email,
-      ip,
-      userAgent,
+      ...(ip && { ip }),
+      ...(userAgent && { userAgent }),
       details: { action: "login_attempt" },
     });
   }
@@ -119,8 +119,8 @@ class SecurityLogger {
       severity: "low",
       userId,
       email,
-      ip,
-      userAgent,
+      ...(ip && { ip }),
+      ...(userAgent && { userAgent }),
       details: { action: "login_success" },
     });
   }
@@ -133,8 +133,8 @@ class SecurityLogger {
       type: "auth_failure",
       severity: "medium",
       email,
-      ip,
-      userAgent,
+      ...(ip && { ip }),
+      ...(userAgent && { userAgent }),
       details: { reason, action: "login_failure" },
     });
   }
@@ -202,9 +202,9 @@ class SecurityLogger {
    */
   logRateLimitExceeded(
     email: string,
-    ip?: string,
     attempts: number,
-    lockoutDuration: number
+    lockoutDuration: number,
+    ip?: string
   ): void {
     this.logEvent({
       type: "rate_limit_exceeded",
@@ -226,8 +226,8 @@ class SecurityLogger {
     this.logEvent({
       type: "csrf_failure",
       severity: "high",
-      ip,
-      userAgent,
+      ...(ip && { ip }),
+      ...(userAgent && { userAgent }),
       details: { endpoint, action: "csrf_validation_failed" },
     });
   }

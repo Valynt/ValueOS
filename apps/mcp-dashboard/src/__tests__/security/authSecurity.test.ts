@@ -17,7 +17,7 @@ declare global {
 
 // Mock fetch for API calls
 const mockFetch = vi.fn();
-global.fetch = mockFetch;
+globalThis.fetch = mockFetch;
 
 // Mock localStorage
 const localStorageMock = {
@@ -26,7 +26,7 @@ const localStorageMock = {
   removeItem: vi.fn(),
   clear: vi.fn(),
 };
-global.localStorage = localStorageMock as any;
+globalThis.localStorage = localStorageMock as any;
 
 // Mock sessionStorage
 const sessionStorageMock = {
@@ -35,10 +35,10 @@ const sessionStorageMock = {
   removeItem: vi.fn(),
   clear: vi.fn(),
 };
-global.sessionStorage = sessionStorageMock as any;
+globalThis.sessionStorage = sessionStorageMock as any;
 
 // Mock navigator
-Object.defineProperty(global.navigator, "userAgent", {
+Object.defineProperty(globalThis.navigator, "userAgent", {
   value: "Mozilla/5.0 (Test Browser)",
   writable: true,
 });
@@ -59,7 +59,7 @@ describe("MCP Dashboard Authentication Security Tests", () => {
   describe("Rate Limiting Security", () => {
     it("should prevent brute force attacks after 5 failed attempts", async () => {
       const email = "admin@example.com";
-      const credentials = { email, password: "wrongpassword" };
+      const _credentials = { email, password: "wrongpassword" };
 
       // Mock failed login response
       mockFetch.mockResolvedValue({
@@ -112,7 +112,7 @@ describe("MCP Dashboard Authentication Security Tests", () => {
       }
 
       // One more attempt should trigger rate limit logging
-      securityLogger.logRateLimitExceeded(email, "192.168.1.100", 5, 900000);
+      securityLogger.logRateLimitExceeded(email, 5, 900000, "192.168.1.100");
 
       const events = securityLogger.getEventsByType("rate_limit_exceeded");
       expect(events.length).toBe(1);
@@ -210,8 +210,8 @@ describe("MCP Dashboard Authentication Security Tests", () => {
 
       const attempts = securityLogger.getEventsByType("auth_attempt");
       expect(attempts.length).toBe(1);
-      expect(attempts[0].email).toBe("admin@example.com");
-      expect(attempts[0].ip).toBe("192.168.1.100");
+      expect(attempts[0]?.email).toBe("admin@example.com");
+      expect(attempts[0]?.ip).toBe("192.168.1.100");
     });
 
     it("should log authentication failures", () => {
@@ -219,8 +219,8 @@ describe("MCP Dashboard Authentication Security Tests", () => {
 
       const failures = securityLogger.getEventsByType("auth_failure");
       expect(failures.length).toBe(1);
-      expect(failures[0].email).toBe("admin@example.com");
-      expect(failures[0].severity).toBe("medium");
+      expect(failures[0]?.email).toBe("admin@example.com");
+      expect(failures[0]?.severity).toBe("medium");
     });
 
     it("should provide security metrics", () => {
@@ -228,7 +228,7 @@ describe("MCP Dashboard Authentication Security Tests", () => {
       securityLogger.logAuthAttempt("user1@example.com");
       securityLogger.logAuthSuccess("1", "user1@example.com");
       securityLogger.logAuthFailure("user2@example.com", "Invalid password");
-      securityLogger.logRateLimitExceeded("user3@example.com", "192.168.1.100", 5, 900000);
+      securityLogger.logRateLimitExceeded("user3@example.com", 5, 900000, "192.168.1.100");
 
       const metrics = securityLogger.getMetrics();
 
@@ -266,7 +266,7 @@ describe("MCP Dashboard Authentication Security Tests", () => {
 
       invalidEmails.forEach((email) => {
         expect(() => {
-          const credentials = { email, password: "password123" };
+          const _credentials = { email, password: "password123" };
           // This would be validated in the auth service
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           if (!emailRegex.test(email)) {
@@ -339,7 +339,7 @@ describe("MCP Dashboard Authentication Security Tests", () => {
       );
 
       const events = securityLogger.getEventsByType("auth_failure");
-      expect(events[0].details.reason).toBe(
+      expect(events[0]?.details.reason).toBe(
         "Database connection failed: user=admin password=secret"
       );
 
@@ -356,8 +356,8 @@ describe("MCP Dashboard Authentication Security Tests", () => {
 
       const violations = securityLogger.getEventsByType("security_violation");
       expect(violations.length).toBe(1);
-      expect(violations[0].severity).toBe("critical");
-      expect(violations[0].details.violation).toBe("Unauthorized access attempt");
+      expect(violations[0]?.severity).toBe("critical");
+      expect(violations[0]?.details.violation).toBe("Unauthorized access attempt");
     });
   });
 });
