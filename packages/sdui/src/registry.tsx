@@ -29,18 +29,18 @@ import {
   ConfirmationDialog,
   ValueHypothesisCard,
   ProgressBar,
-} from "../components/SDUI";
+} from "./components/SDUI";
 import {
   DashboardPanel,
   Grid,
   HorizontalSplit,
   VerticalSplit,
-} from "../components/SDUI/CanvasLayout";
-import { WorkflowStatusBar } from "../components/Workflow/WorkflowStatusBar";
-import { HumanCheckpoint } from "../components/Workflow/HumanCheckpoint";
-import { ConfidenceDisplay } from "../components/Agent/ConfidenceDisplay";
-import { ComponentPreview } from "../components/SDUI/ComponentPreview";
-import { logger } from "../../lib/logger";
+} from "./components/SDUI/CanvasLayout";
+import { WorkflowStatusBar } from "./components/Workflow/WorkflowStatusBar";
+import { HumanCheckpoint } from "./components/Workflow/HumanCheckpoint";
+import { ConfidenceDisplay } from "./components/Agent/ConfidenceDisplay";
+import { ComponentPreview } from "./components/SDUI";
+import { logger } from "@shared/lib/logger";
 
 /**
  * Versioned component entry with compatibility information
@@ -248,7 +248,7 @@ class VersionedComponentRegistry {
     const fallbacks = this.fallbackRegistry.get(componentName);
 
     if (fallbacks && fallbacks.length > 0) {
-      const fallback = fallbacks[0]; // Latest fallback version
+      const fallback = fallbacks[0]!; // Latest fallback version
 
       logger.warn("Using fallback component", {
         componentName,

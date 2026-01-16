@@ -41,7 +41,7 @@ const StepperWizard: React.FC<StepperWizardProps> = ({
           </div>
         ))}
       </div>
-      <div className="mb-8">{steps[currentStep].content}</div>
+      <div className="mb-8">{steps[currentStep]?.content || <div>Invalid step</div>}</div>
       <div className="flex justify-between">
         <button
           onClick={onBack}

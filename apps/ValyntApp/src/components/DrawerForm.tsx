@@ -14,8 +14,8 @@ const DrawerForm: React.FC<DrawerFormProps> = ({ isOpen, onClose, title, childre
 
   const focusFirstFocusable = (element: HTMLElement) => {
     const focusableSelectors = 'input, textarea, select, button, [tabindex]:not([tabindex="-1"])';
-    const firstFocusable = element.querySelector(focusableSelectors) as HTMLElement;
-    if (firstFocusable) {
+    const firstFocusable = element.querySelector(focusableSelectors);
+    if (firstFocusable instanceof HTMLElement) {
       firstFocusable.focus();
     }
   };
