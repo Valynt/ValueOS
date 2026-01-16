@@ -33,6 +33,17 @@ interface BenchmarkConfig {
   cacheTTL: number; // Cache time in seconds (benchmarks change infrequently)
 }
 
+export type LiveSource = "sec" | "bls" | "census";
+export interface DataProvenance {
+  source: LiveSource;
+  timestamp: string;
+  dataPoints: number;
+  lastUpdated: string;
+  refreshInterval: string;
+  confidence: number;
+  qualityScore: number;
+}
+
 /**
  * Industry Benchmark Module - Tier 3 Contextual Data
  *
@@ -65,7 +76,7 @@ export class IndustryBenchmarkModule extends BaseModule {
         const benchmark: IndustryBenchmark = {
           naics_code: data.naics_code,
           industry_name: data.industry_name,
-          metric_name,
+          metric_name: metricName,
           value: (metricData as any).value,
           unit: (metricData as any).unit,
           year: data.year,
@@ -450,7 +461,8 @@ export class IndustryBenchmarkModule extends BaseModule {
       logger.warn("Census API lookup failed, falling back to static data", {
         source: "census",
         naicsCode,
-        error: error instanceof Error ? { name: error.name, message: error.message } : String(error),
+        error:
+          error instanceof Error ? { name: error.name, message: error.message } : String(error),
       });
       throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, "Census API integration failed");
     }
@@ -498,7 +510,8 @@ export class IndustryBenchmarkModule extends BaseModule {
       logger.warn("BLS API lookup failed, falling back to static data", {
         source: "bls",
         occupationCode,
-        error: error instanceof Error ? { name: error.name, message: error.message } : String(error),
+        error:
+          error instanceof Error ? { name: error.name, message: error.message } : String(error),
       });
       throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, "BLS API integration failed");
     }
@@ -811,18 +824,15 @@ export class IndustryBenchmarkModule extends BaseModule {
   /**
    * Get data provenance information for auditing
    */
-  getDataProvenance(
-    dataSource: string,
-    data: any
-  ): {
-    source: string;
-    timestamp: string;
-    dataPoints: number;
-    lastUpdated: string;
-    refreshInterval: string;
-    confidence: number;
-    qualityScore: number;
-  } {
+  getDataProvenance(dataSource: LiveSource, data: unknown): DataProvenance {
+    // Validate dataSource is one of the expected values
+    if (!["sec", "bls", "census"].includes(dataSource)) {
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        `Invalid data source: ${dataSource}. Must be one of: sec, bls, census`
+      );
+    }
+
     const now = new Date().toISOString();
     const dataPoints = Array.isArray(data) ? data.length : 1;
 
@@ -848,8 +858,9 @@ export class IndustryBenchmarkModule extends BaseModule {
         break;
       default:
         refreshInterval = "Unknown";
-        confidence = 0.5;
-        qualityScore = 50;
+        // Unknown data sources get minimal confidence and a neutral-low quality score
+        confidence = 0.25;
+        qualityScore = 40;
     }
 
     return {

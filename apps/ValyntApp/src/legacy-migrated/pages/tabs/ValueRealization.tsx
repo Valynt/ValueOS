@@ -18,6 +18,7 @@ const ValueRealizationTab: React.FC<ValueRealizationProps> = ({ dealId }) => {
     rootCause: "",
     actions: [],
   });
+  const [jsonError, setJsonError] = useState<string | null>(null);
 
   if (deal?.stage !== "closed") {
     return (
@@ -56,7 +57,15 @@ const ValueRealizationTab: React.FC<ValueRealizationProps> = ({ dealId }) => {
           <label>Committed (JSON)</label>
           <textarea
             value={JSON.stringify(form.committed, null, 2)}
-            onChange={(e) => setForm({ ...form, committed: JSON.parse(e.target.value || "{}") })}
+            onChange={(e) => {
+              try {
+                setForm({ ...form, committed: JSON.parse(e.target.value || "{}") });
+                setJsonError(null);
+              } catch (error) {
+                console.error('Invalid JSON in committed field:', error);
+                setJsonError('Invalid JSON in Committed field. Please check your syntax.');
+              }
+            }}
             className="w-full p-2 border rounded"
             rows={4}
           />
@@ -65,7 +74,15 @@ const ValueRealizationTab: React.FC<ValueRealizationProps> = ({ dealId }) => {
           <label>Actual (JSON)</label>
           <textarea
             value={JSON.stringify(form.actual, null, 2)}
-            onChange={(e) => setForm({ ...form, actual: JSON.parse(e.target.value || "{}") })}
+            onChange={(e) => {
+              try {
+                setForm({ ...form, actual: JSON.parse(e.target.value || "{}") });
+                setJsonError(null);
+              } catch (error) {
+                console.error('Invalid JSON in actual field:', error);
+                setJsonError('Invalid JSON in Actual field. Please check your syntax.');
+              }
+            }}
             className="w-full p-2 border rounded"
             rows={4}
           />
@@ -93,6 +110,11 @@ const ValueRealizationTab: React.FC<ValueRealizationProps> = ({ dealId }) => {
           className="w-full p-2 border rounded"
           rows={4}
         />
+        {jsonError && (
+          <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            {jsonError}
+          </div>
+        )}
         <button
           onClick={handleSubmit}
           className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
