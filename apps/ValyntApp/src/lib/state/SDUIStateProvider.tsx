@@ -1,0 +1,20 @@
+// Stub SDUIStateProvider for development
+import React, { createContext, useContext, ReactNode } from "react";
+
+interface SDUIStateContextType {
+  // Stub
+}
+
+const SDUIStateContext = createContext<SDUIStateContextType | undefined>(undefined);
+
+export function SDUIStateProvider({ children, supabase }: { children: ReactNode; supabase: any }) {
+  return <SDUIStateContext.Provider value={{}}>{children}</SDUIStateContext.Provider>;
+}
+
+export function useSDUIState() {
+  const context = useContext(SDUIStateContext);
+  if (!context) {
+    throw new Error("useSDUIState must be used within a SDUIStateProvider");
+  }
+  return context;
+}

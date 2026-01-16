@@ -3,7 +3,7 @@
  * Handles session management and authentication operations
  */
 
-import { logger } from "../lib/logger";
+import { logger } from "../../lib/logger";
 import { BaseService } from "./BaseService";
 import { AuthenticationError, RateLimitError, ValidationError } from "./errors";
 import { Session, User } from "@supabase/supabase-js";
@@ -50,24 +50,16 @@ export class AuthService extends BaseService {
   private getAuthApiUrl(path: string): string {
     const config = getConfig();
     const baseUrl = config.app.apiBaseUrl || "/api";
-    const normalizedBase = baseUrl.endsWith("/api")
-      ? baseUrl
-      : `${baseUrl.replace(/\/$/, "")}/api`;
+    const normalizedBase = baseUrl.endsWith("/api") ? baseUrl : `${baseUrl.replace(/\/$/, "")}/api`;
 
     return `${normalizedBase}/auth${path}`;
   }
 
-  private async callAuthEndpoint<T>(
-    path: string,
-    options: RequestInit
-  ): Promise<T> {
+  private async callAuthEndpoint<T>(path: string, options: RequestInit): Promise<T> {
     const headers = new Headers(options.headers);
     const { data: sessionData } = await this.supabase.auth.getSession();
     if (sessionData?.session?.access_token && !headers.has("Authorization")) {
-      headers.set(
-        "Authorization",
-        `Bearer ${sessionData.session.access_token}`
-      );
+      headers.set("Authorization", `Bearer ${sessionData.session.access_token}`);
     }
 
     const response = await fetchWithCSRF(this.getAuthApiUrl(path), {
@@ -79,8 +71,7 @@ export class AuthService extends BaseService {
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      const errorMessage =
-        typeof payload?.error === "string" ? payload.error : "Request failed";
+      const errorMessage = typeof payload?.error === "string" ? payload.error : "Request failed";
       throw new AuthenticationError(errorMessage);
     }
 
@@ -123,9 +114,7 @@ export class AuthService extends BaseService {
 
     const breached = await checkPasswordBreach(data.password);
     if (breached) {
-      throw new ValidationError(
-        "Password appears in breach corpus. Choose a different password."
-      );
+      throw new ValidationError("Password appears in breach corpus. Choose a different password.");
     }
 
     const config = getConfig();
@@ -154,12 +143,10 @@ export class AuthService extends BaseService {
       });
 
       if (payload.session?.access_token && payload.session.refresh_token) {
-        const { data: sessionData, error } = await this.supabase.auth.setSession(
-          {
-            access_token: payload.session.access_token,
-            refresh_token: payload.session.refresh_token,
-          }
-        );
+        const { data: sessionData, error } = await this.supabase.auth.setSession({
+          access_token: payload.session.access_token,
+          refresh_token: payload.session.refresh_token,
+        });
 
         if (error) {
           throw new AuthenticationError(sanitizeErrorMessage(error));
@@ -222,10 +209,7 @@ export class AuthService extends BaseService {
     // Apply client-side rate limiting
     const rateLimitAllowed = await clientRateLimit.checkLimit("auth-attempts");
     if (!rateLimitAllowed) {
-      throw new RateLimitError(
-        "Too many authentication attempts. Please try again later.",
-        900
-      );
+      throw new RateLimitError("Too many authentication attempts. Please try again later.", 900);
     }
 
     this.enforceAuthRateLimit(credentials.email, "login");
@@ -311,10 +295,7 @@ export class AuthService extends BaseService {
             throw new ValidationError("MFA code required for your role");
           }
 
-          const mfaResult = await mfaService.verifyMFAToken(
-            data.user.id,
-            credentials.otpCode
-          );
+          const mfaResult = await mfaService.verifyMFAToken(data.user.id, credentials.otpCode);
 
           if (!mfaResult.verified) {
             securityLogger.log({
@@ -490,9 +471,7 @@ export class AuthService extends BaseService {
 
     const breached = await checkPasswordBreach(newPassword);
     if (breached) {
-      throw new ValidationError(
-        "Password appears in breach corpus. Choose a different password."
-      );
+      throw new ValidationError("Password appears in breach corpus. Choose a different password.");
     }
 
     const config = getConfig();
@@ -529,25 +508,21 @@ export class AuthService extends BaseService {
   /**
    * Sign in with OAuth provider (Google, Apple, GitHub)
    */
-  async signInWithProvider(
-    provider: "google" | "apple" | "github"
-  ): Promise<void> {
+  async signInWithProvider(provider: "google" | "apple" | "github"): Promise<void> {
     this.log("info", "OAuth sign in initiated", { provider });
 
     return this.executeRequest(
       async () => {
-        const { data: _data, error } = await this.supabase.auth.signInWithOAuth(
-          {
-            provider,
-            options: {
-              redirectTo: `${window.location.origin}/auth/callback`,
-              queryParams: {
-                access_type: "offline",
-                prompt: "consent",
-              },
+        const { data: _data, error } = await this.supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback`,
+            queryParams: {
+              access_type: "offline",
+              prompt: "consent",
             },
-          }
-        );
+          },
+        });
 
         if (error) {
           securityLogger.log({
@@ -556,9 +531,7 @@ export class AuthService extends BaseService {
             severity: "warn",
             metadata: { provider, error: sanitizeErrorMessage(error) },
           });
-          throw new AuthenticationError(
-            `OAuth sign in failed: ${sanitizeErrorMessage(error)}`
-          );
+          throw new AuthenticationError(`OAuth sign in failed: ${sanitizeErrorMessage(error)}`);
         }
 
         securityLogger.log({

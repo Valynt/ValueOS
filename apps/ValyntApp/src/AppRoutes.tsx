@@ -8,12 +8,12 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { TenantProvider } from "./contexts/TenantContext";
 import { DrawerProvider } from "./contexts/DrawerContext";
-import { ProtectedRoute } from "./components/Auth/ProtectedRoute";
-import { ToastProvider } from "./components/Common/Toast";
-import ErrorBoundary from "./components/ErrorBoundary";
-import { LoadingSpinner } from "./components/Common/LoadingSpinner";
+import { ProtectedRoute } from "./app/routes/route-guards";
+import { ToastProvider } from "./components/common/Toast";
+import ErrorBoundary from "./components/common/ErrorBoundary";
+import { LoadingSpinner } from "./components/common/LoadingSpinner";
 import { BetaFeedbackWidget } from "./components/Feedback/BetaFeedbackWidget";
-import { EnvironmentBanner } from "./components/Common/EnvironmentBanner";
+import { EnvironmentBanner } from "./components/common/EnvironmentBanner";
 import { CommandPaletteProvider } from "./components/CommandPalette";
 import { SDUIStateProvider } from "./lib/state/SDUIStateProvider";
 import { supabase } from "./lib/supabase";
@@ -33,32 +33,32 @@ const ResetPasswordPage = lazy(() => import("./views/Auth/ResetPasswordPage"));
 const AuthCallback = lazy(() => import("./views/Auth/AuthCallback"));
 
 // Lazy load main app
-const App = lazy(() => import("./App"));
+const App = lazy(() => import("./App").then((m) => ({ default: m.App })));
 
 // Lazy load VALUI components
-const MainLayout = lazy(() => import("./components/Layout/MainLayout"));
-const Home = lazy(() => import("./views/Home"));
-const ValueCanvas = lazy(() => import("./views/ValueCanvas"));
-const ImpactCascade = lazy(() => import("./views/ImpactCascade"));
-const AgentDashboard = lazy(() => import("./views/AgentDashboard"));
-const ROICalculator = lazy(() => import("./views/ROICalculator"));
-const ConversationalAI = lazy(() => import("./views/ConversationalAI"));
-const LaunchReadinessDashboard = lazy(() => import("./views/LaunchReadinessDashboard"));
-const NotFound = lazy(() => import("./views/NotFound"));
-const MissionControl = lazy(() => import("./views/MissionControl"));
+// const MainLayout = lazy(() => import("./components/Layout/MainLayout"));
+// const Home = lazy(() => import("./views/Home"));
+// const ValueCanvas = lazy(() => import("./views/ValueCanvas"));
+// const ImpactCascade = lazy(() => import("./views/ImpactCascade"));
+// const AgentDashboard = lazy(() => import("./views/AgentDashboard"));
+// const ROICalculator = lazy(() => import("./views/ROICalculator"));
+// const ConversationalAI = lazy(() => import("./views/ConversationalAI"));
+// const LaunchReadinessDashboard = lazy(() => import("./views/LaunchReadinessDashboard"));
+// const NotFound = lazy(() => import("./views/NotFound"));
+// const MissionControl = lazy(() => import("./views/MissionControl"));
 
 // Sales Enablement Views
-const DealsView = lazy(() => import("./views/DealsView").then((m) => ({ default: m.DealsView })));
+// const DealsView = lazy(() => import("./views/DealsView").then((m) => ({ default: m.DealsView })));
 
 // Admin Views
-const CustomerAccessManagement = lazy(() =>
-  import("./views/Admin/CustomerAccessManagement").then((m) => ({
-    default: m.CustomerAccessManagement,
-  }))
-);
+// const CustomerAccessManagement = lazy(() =>
+//   import("./views/Admin/CustomerAccessManagement").then((m) => ({
+//     default: m.CustomerAccessManagement,
+//   }))
+// );
 
 // Lazy load Documentation Portal
-const DocsPortal = lazy(() => import("./components/docs/DocsPortal"));
+// const DocsPortal = lazy(() => import("./components/docs/DocsPortal"));
 
 export function AppRoutes() {
   return (
@@ -68,13 +68,10 @@ export function AppRoutes() {
           <TenantProvider>
             <DrawerProvider>
               <ToastProvider>
-                <SDUIStateProvider supabase={supabase} persistence={true} debug={true}>
+                <SDUIStateProvider supabase={supabase}>
                   <CommandPaletteProvider>
                     <Suspense fallback={<LoadingSpinner />}>
                       <Routes>
-                        {/* Root redirect to deals (sales enablement) */}
-                        <Route path="/" element={<Navigate to="/deals" replace />} />
-
                         {/* Public Auth Routes */}
                         <Route path="/login" element={<LoginPage />} />
                         <Route path="/signup" element={<SignupPage />} />
@@ -83,8 +80,11 @@ export function AppRoutes() {
                         {/* OAuth Callback */}
                         <Route path="/auth/callback" element={<AuthCallback />} />
 
+                        {/* Root redirect to login */}
+                        <Route path="/" element={<Navigate to="/login" replace />} />
+
                         {/* Sales Enablement - Deals View */}
-                        <Route
+                        {/* <Route
                           path="/deals"
                           element={
                             <ProtectedRoute>
@@ -99,39 +99,39 @@ export function AppRoutes() {
                               <DealsView />
                             </ProtectedRoute>
                           }
-                        />
+                        /> */}
 
-                        <Route
+                        {/* <Route
                           path="/admin/customer-access"
                           element={
                             <ProtectedRoute>
                               <CustomerAccessManagement />
                             </ProtectedRoute>
                           }
-                        />
+                        /> */}
 
                         {/* Mission Control (Zero State) */}
-                        <Route
+                        {/* <Route
                           path="/launch"
                           element={
                             <ProtectedRoute>
                               <MissionControl />
                             </ProtectedRoute>
                           }
-                        />
+                        /> */}
 
                         {/* Launch Readiness Dashboard */}
-                        <Route
+                        {/* <Route
                           path="/launch-readiness"
                           element={
                             <ProtectedRoute>
                               <LaunchReadinessDashboard />
                             </ProtectedRoute>
                           }
-                        />
+                        /> */}
 
                         {/* VALUI Routes - Modern UI */}
-                        <Route
+                        {/* <Route
                           path="/home"
                           element={
                             <ProtectedRoute>
@@ -140,9 +140,9 @@ export function AppRoutes() {
                           }
                         >
                           <Route index element={<Home />} />
-                        </Route>
+                        </Route> */}
 
-                        <Route
+                        {/* <Route
                           path="/canvas"
                           element={
                             <ProtectedRoute>
@@ -151,9 +151,9 @@ export function AppRoutes() {
                           }
                         >
                           <Route index element={<ValueCanvas />} />
-                        </Route>
+                        </Route> */}
 
-                        <Route
+                        {/* <Route
                           path="/cascade"
                           element={
                             <ProtectedRoute>
@@ -162,9 +162,9 @@ export function AppRoutes() {
                           }
                         >
                           <Route index element={<ImpactCascade />} />
-                        </Route>
+                        </Route> */}
 
-                        <Route
+                        {/* <Route
                           path="/calculator"
                           element={
                             <ProtectedRoute>
@@ -173,9 +173,9 @@ export function AppRoutes() {
                           }
                         >
                           <Route index element={<ROICalculator />} />
-                        </Route>
+                        </Route> */}
 
-                        <Route
+                        {/* <Route
                           path="/dashboard"
                           element={
                             <ProtectedRoute>
@@ -184,9 +184,9 @@ export function AppRoutes() {
                           }
                         >
                           <Route index element={<AgentDashboard />} />
-                        </Route>
+                        </Route> */}
 
-                        <Route
+                        {/* <Route
                           path="/chat"
                           element={
                             <ProtectedRoute>
@@ -195,10 +195,10 @@ export function AppRoutes() {
                           }
                         >
                           <Route index element={<ConversationalAI />} />
-                        </Route>
+                        </Route> */}
 
                         {/* Documentation Portal Routes */}
-                        <Route
+                        {/* <Route
                           path="/docs"
                           element={
                             <ProtectedRoute>
@@ -213,20 +213,20 @@ export function AppRoutes() {
                               <DocsPortal />
                             </ProtectedRoute>
                           }
-                        />
+                        /> */}
 
                         {/* Main App (Chat+Canvas) - Default protected route */}
-                        <Route
+                        {/* <Route
                           path="/app/*"
                           element={
                             <ProtectedRoute>
                               <App />
                             </ProtectedRoute>
                           }
-                        />
+                        /> */}
 
                         {/* 404 Not Found - Must be last */}
-                        <Route path="*" element={<NotFound />} />
+                        {/* <Route path="*" element={<NotFound />} /> */}
                       </Routes>
                     </Suspense>
                   </CommandPaletteProvider>

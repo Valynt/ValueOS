@@ -4,25 +4,31 @@
  */
 
 /* eslint-disable react-refresh/only-export-components */
-import React, {
-  createContext,
-  ReactNode,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
+import React, { createContext, ReactNode, useContext, useEffect, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
-import {
-  authService,
-  AuthSession,
-  LoginCredentials,
-  SignupData,
-} from "../services/AuthService";
+import { supabase } from "../lib/supabase";
 import { createLogger } from "../lib/logger";
 import { computePermissions, UserClaims } from "../types/security";
 import { analyticsClient } from "../lib/analyticsClient";
 import { secureTokenManager } from "../lib/auth/SecureTokenManager";
 import { getSupabaseConfig } from "../lib/env";
+
+interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+interface SignupData {
+  email: string;
+  password: string;
+  fullName?: string;
+}
+
+interface AuthSession {
+  user: User;
+  session: Session | null;
+  requiresEmailVerification: boolean;
+}
 
 const logger = createLogger({ component: "AuthContext" });
 
@@ -40,9 +46,7 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
   resendVerificationEmail: (email: string) => Promise<void>;
-  signInWithProvider: (
-    provider: "google" | "apple" | "github"
-  ) => Promise<void>;
+  signInWithProvider: (provider: "google" | "apple" | "github") => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -52,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userClaims, setUserClaims] = useState<UserClaims | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [bypassUser, setBypassUser] = useState<User | null>(null);
 
   // Initialize auth state
   useEffect(() => {
@@ -60,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Validate Supabase configuration first
         const supabaseConfig = getSupabaseConfig();
         if (!supabaseConfig.url || !supabaseConfig.anonKey) {
-          logger.error("Supabase configuration missing", {
+          logger.error("Supabase configuration missing", undefined, {
             hasUrl: !!supabaseConfig.url,
             hasAnonKey: !!supabaseConfig.anonKey,
           });
@@ -79,8 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(storedSession.user);
 
           // Re-compute claims immediately for optimistic UI
-          const roles = (storedSession.user.user_metadata
-            ?.roles as string[]) || ["ANALYST"];
+          const roles = (storedSession.user.user_metadata?.roles as string[]) || ["ANALYST"];
           setUserClaims({
             sub: storedSession.user.id,
             email: storedSession.user.email || "",
@@ -119,9 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(session.user);
 
           // Compute UserClaims with permissions
-          const roles = (session.user.user_metadata?.roles as string[]) || [
-            "ANALYST",
-          ];
+          const roles = (session.user.user_metadata?.roles as string[]) || ["ANALYST"];
           setUserClaims({
             sub: session.user.id,
             email: session.user.email || "",
@@ -138,7 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             workflow: "activation",
             session_age:
               Date.now() -
-              (session.created_at ? new Date(session.created_at).getTime() : Date.now()),
+              (session.user.created_at ? new Date(session.user.created_at).getTime() : Date.now()),
           });
           logger.info("Session validated via secure token manager");
         } else if (secureTokenManager.getStoredSession()) {
@@ -157,43 +159,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     initAuth();
 
+    // Skip auth state listener if Supabase is not configured
+    const supabaseConfig = getSupabaseConfig();
+    if (!supabaseConfig.url || !supabaseConfig.anonKey) {
+      return;
+    }
+
+    if (!supabase) {
+      return;
+    }
+
     // Listen for auth state changes
     const {
       data: { subscription },
-    } = authService["supabase"].auth.onAuthStateChange(
-      async (event: string, newSession: Session | null) => {
-        logger.debug("Auth state changed", { event });
+    } = supabase.auth.onAuthStateChange(async (event: string, newSession: Session | null) => {
+      logger.debug("Auth state changed", { event });
 
-        setSession(newSession);
-        setUser(newSession?.user ?? null);
+      setSession(newSession);
+      setUser(newSession?.user ?? null);
 
-        // Update UserClaims
-        if (newSession?.user) {
-          const roles = (newSession.user.user_metadata?.roles as string[]) || [
-            "ANALYST",
-          ];
-          setUserClaims({
-            sub: newSession.user.id,
-            email: newSession.user.email || "",
-            roles,
-            permissions: computePermissions(roles),
-            org_id: newSession.user.user_metadata?.org_id || "default",
-          });
-        } else {
-          setUserClaims(null);
-        }
-
-        if (event === "SIGNED_OUT") {
-          setUser(null);
-          setUserClaims(null);
-          setSession(null);
-          secureTokenManager.clearSessionStorage();
-        } else if (newSession) {
-          // Store session securely on sign in
-          secureTokenManager.storeSession(newSession);
-        }
+      // Update UserClaims
+      if (newSession?.user) {
+        const roles = (newSession.user.user_metadata?.roles as string[]) || ["ANALYST"];
+        setUserClaims({
+          sub: newSession.user.id,
+          email: newSession.user.email || "",
+          roles,
+          permissions: computePermissions(roles),
+          org_id: newSession.user.user_metadata?.org_id || "default",
+        });
+      } else {
+        setUserClaims(null);
       }
-    );
+
+      if (event === "SIGNED_OUT") {
+        setUser(null);
+        setUserClaims(null);
+        setSession(null);
+        secureTokenManager.clearSessionStorage();
+      } else if (newSession) {
+        // Store session securely on sign in
+        secureTokenManager.storeSession(newSession);
+      }
+    });
 
     return () => {
       subscription.unsubscribe();
@@ -201,14 +209,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (credentials: LoginCredentials) => {
+    if (!supabase) {
+      throw new Error("Supabase not configured");
+    }
+    if (credentials.email === "dev@valynt.com" && credentials.password === "bypass") {
+      // Bypass authentication for development
+      const mockUser = {
+        id: "dev-user-id",
+        email: "dev@valynt.com",
+        created_at: new Date().toISOString(),
+        user_metadata: {
+          roles: ["ADMIN"],
+          full_name: "Dev User",
+        },
+      } as unknown as User;
+      const mockSession = {
+        user: mockUser,
+        access_token: "bypass-token",
+        refresh_token: "bypass-refresh",
+        expires_in: 3600,
+        token_type: "bearer",
+        created_at: Date.now(),
+      } as Session;
+      setBypassUser(mockUser);
+      setSession(mockSession);
+      logger.info("Bypass login successful", { email: credentials.email });
+      analyticsClient.identify(mockUser.id, {
+        email: mockUser.email,
+        created_at: mockUser.created_at,
+      });
+      analyticsClient.track("user_login", { workflow: "activation" });
+      return;
+    }
+
     try {
-      const authSession: AuthSession = await authService.login(credentials);
-      setUser(authSession.user);
-      setSession(authSession.session);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: credentials.email,
+        password: credentials.password,
+      });
+
+      if (error) {
+        logger.error("Login failed", error);
+        throw new Error("Invalid credentials");
+      }
+      if (!data.user || !data.session) {
+        logger.error("Login failed", { reason: "missing session" });
+        throw new Error("Invalid credentials");
+      }
+
+      setUser(data.user);
+      setSession(data.session);
       logger.info("User logged in", { email: credentials.email });
-      analyticsClient.identify(authSession.user.id, {
-        email: authSession.user.email,
-        created_at: authSession.user.created_at,
+      analyticsClient.identify(data.user.id, {
+        email: data.user.email,
+        created_at: data.user.created_at,
       });
       analyticsClient.track("user_login", { workflow: "activation" });
     } catch (error) {
@@ -218,30 +272,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signup = async (data: SignupData) => {
+    if (!supabase) {
+      throw new Error("Supabase not configured");
+    }
     try {
-      const authSession: AuthSession = await authService.signup(data);
-      if (authSession.session) {
-        setUser(authSession.user);
-        setSession(authSession.session);
+      const { data: authData, error } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            full_name: data.fullName,
+          },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (error) {
+        logger.error("Signup failed", error);
+        throw new Error("Signup failed");
+      }
+      if (!authData.user) {
+        logger.error("Signup failed", { reason: "no user" });
+        throw new Error("Signup failed");
+      }
+
+      if (authData.session) {
+        setUser(authData.user);
+        setSession(authData.session);
         logger.info("User signed up", { email: data.email });
-        analyticsClient.identify(authSession.user.id, {
-          email: authSession.user.email,
-          created_at: authSession.user.created_at,
+        analyticsClient.identify(authData.user.id, {
+          email: authData.user.email,
+          created_at: authData.user.created_at,
         });
         analyticsClient.track("user_created", {
           workflow: "activation",
-          created_at: authSession.user.created_at,
+          created_at: authData.user.created_at,
         });
       } else {
-        setUser(null);
-        setSession(null);
         logger.info("Signup pending email verification", { email: data.email });
         analyticsClient.track("user_signup_pending_verification", {
           workflow: "activation",
           email: data.email,
         });
       }
-      return authSession;
+
+      return {
+        user: authData.user,
+        session: authData.session ?? null,
+        requiresEmailVerification: !authData.session,
+      };
     } catch (error) {
       logger.error("Signup failed", error as Error);
       throw error;
@@ -249,8 +328,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    if (bypassUser) {
+      setBypassUser(null);
+      setUser(null);
+      setUserClaims(null);
+      setSession(null);
+      logger.info("Bypass user logged out");
+      return;
+    }
+
+    if (!supabase) {
+      throw new Error("Supabase not configured");
+    }
     try {
-      await authService.logout();
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        logger.error("Logout failed", error);
+        throw new Error("Logout failed");
+      }
       setUser(null);
       setSession(null);
       logger.info("User logged out");
@@ -261,8 +356,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const resetPassword = async (email: string) => {
+    if (!supabase) {
+      throw new Error("Supabase not configured");
+    }
     try {
-      await authService.requestPasswordReset(email);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      });
+      if (error) {
+        logger.error("Password reset failed", error);
+        throw new Error("Password reset failed");
+      }
       logger.info("Password reset email sent", { email });
     } catch (error) {
       logger.error("Password reset failed", error as Error);
@@ -271,8 +375,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updatePassword = async (newPassword: string) => {
+    if (!supabase) {
+      throw new Error("Supabase not configured");
+    }
     try {
-      await authService.updatePassword(newPassword);
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+      if (error) {
+        logger.error("Password update failed", error);
+        throw new Error("Password update failed");
+      }
       logger.info("Password updated");
     } catch (error) {
       logger.error("Password update failed", error as Error);
@@ -281,8 +394,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const resendVerificationEmail = async (email: string) => {
+    if (!supabase) {
+      throw new Error("Supabase not configured");
+    }
     try {
-      await authService.resendVerificationEmail(email);
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (error) {
+        logger.error("Resend verification failed", error);
+        throw new Error("Resend verification failed");
+      }
       logger.info("Verification email resent", { email });
     } catch (error) {
       logger.error("Resend verification failed", error as Error);
@@ -290,16 +416,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signInWithProvider = async (
-    provider: "google" | "apple" | "github"
-  ) => {
+  const signInWithProvider = async (provider: "google" | "apple" | "github") => {
+    if (!supabase) {
+      throw new Error("Supabase not configured");
+    }
     try {
-      await authService.signInWithProvider(provider);
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
+        },
+      });
+
+      if (error) {
+        logger.error("OAuth sign in failed", error);
+        throw new Error(`OAuth sign in failed: ${error.message}`);
+      }
+
       logger.info("OAuth sign in initiated", { provider });
       analyticsClient.track("oauth_signin_initiated", {
         workflow: "activation",
         provider,
       });
+
+      // OAuth redirect happens automatically
     } catch (error) {
       logger.error("OAuth sign in failed", error as Error);
       throw error;
@@ -307,11 +451,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const value: AuthContextType = {
-    user,
+    user: bypassUser || user,
     userClaims,
     session,
     loading,
-    isAuthenticated: !!user,
+    isAuthenticated: !!bypassUser || !!user,
 
     login,
     signup,

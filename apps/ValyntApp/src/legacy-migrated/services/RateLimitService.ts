@@ -3,9 +3,9 @@
  * Provides comprehensive rate limiting for API endpoints and user actions
  */
 
-import { createLogger } from '../lib/logger';
+import { createLogger } from "../../lib/logger";
 
-const logger = createLogger({ component: 'RateLimitService' });
+const logger = createLogger({ component: "RateLimitService" });
 
 export interface RateLimitConfig {
   windowMs: number; // Time window in milliseconds
@@ -31,9 +31,12 @@ export class RateLimitService {
 
   private constructor() {
     // Clean up old entries every 5 minutes
-    this.cleanupInterval = setInterval(() => {
-      this.cleanup();
-    }, 5 * 60 * 1000);
+    this.cleanupInterval = setInterval(
+      () => {
+        this.cleanup();
+      },
+      5 * 60 * 1000
+    );
   }
 
   static getInstance(): RateLimitService {
@@ -46,11 +49,7 @@ export class RateLimitService {
   /**
    * Check if request should be allowed based on rate limit
    */
-  checkLimit(
-    key: string,
-    config: RateLimitConfig,
-    req?: any
-  ): RateLimitResult {
+  checkLimit(key: string, config: RateLimitConfig, req?: any): RateLimitResult {
     // Check if rate limiting should be skipped
     if (config.skip && req && config.skip(req)) {
       return {
@@ -62,9 +61,7 @@ export class RateLimitService {
     }
 
     // Generate rate limit key
-    const rateLimitKey = config.keyGenerator && req
-      ? config.keyGenerator(req)
-      : key;
+    const rateLimitKey = config.keyGenerator && req ? config.keyGenerator(req) : key;
 
     // Get or create store for this rate limit key
     if (!this.stores.has(rateLimitKey)) {
@@ -76,13 +73,13 @@ export class RateLimitService {
     const windowStart = now - config.windowMs;
 
     // Clean old requests for this key
-    if (!keyStore.has('requests')) {
-      keyStore.set('requests', []);
+    if (!keyStore.has("requests")) {
+      keyStore.set("requests", []);
     }
 
-    const requests = keyStore.get('requests')!;
-    const validRequests = requests.filter(timestamp => timestamp > windowStart);
-    keyStore.set('requests', validRequests);
+    const requests = keyStore.get("requests")!;
+    const validRequests = requests.filter((timestamp) => timestamp > windowStart);
+    keyStore.set("requests", validRequests);
 
     const currentRequests = validRequests.length;
     const remaining = Math.max(0, config.maxRequests - currentRequests);
@@ -92,7 +89,7 @@ export class RateLimitService {
       const oldestRequest = Math.min(...validRequests);
       const resetTime = oldestRequest + config.windowMs;
 
-      logger.warn('Rate limit exceeded', {
+      logger.warn("Rate limit exceeded", {
         key: rateLimitKey,
         currentRequests,
         maxRequests: config.maxRequests,
@@ -109,7 +106,7 @@ export class RateLimitService {
 
     // Add current request timestamp
     validRequests.push(now);
-    keyStore.set('requests', validRequests);
+    keyStore.set("requests", validRequests);
 
     return {
       allowed: true,
@@ -129,10 +126,10 @@ export class RateLimitService {
 
       // Set rate limit headers
       res.set({
-        'X-RateLimit-Limit': config.maxRequests,
-        'X-RateLimit-Remaining': result.remaining,
-        'X-RateLimit-Reset': Math.ceil(result.resetTime / 1000),
-        'X-RateLimit-Window': config.windowMs,
+        "X-RateLimit-Limit": config.maxRequests,
+        "X-RateLimit-Remaining": result.remaining,
+        "X-RateLimit-Reset": Math.ceil(result.resetTime / 1000),
+        "X-RateLimit-Window": config.windowMs,
       });
 
       if (!result.allowed) {
@@ -142,8 +139,8 @@ export class RateLimitService {
 
         // Default handler
         res.status(429).json({
-          error: 'Too many requests',
-          message: 'Rate limit exceeded. Please try again later.',
+          error: "Too many requests",
+          message: "Rate limit exceeded. Please try again later.",
           retryAfter: Math.ceil((result.resetTime - Date.now()) / 1000),
         });
         return;
@@ -158,8 +155,8 @@ export class RateLimitService {
    */
   private generateKey(req: any): string {
     // Use IP address as default key
-    const ip = req.ip || req.connection?.remoteAddress || 'unknown';
-    const userId = req.user?.id || 'anonymous';
+    const ip = req.ip || req.connection?.remoteAddress || "unknown";
+    const userId = req.user?.id || "anonymous";
     const endpoint = req.originalUrl || req.url;
 
     return `${ip}:${userId}:${endpoint}`;
@@ -173,17 +170,17 @@ export class RateLimitService {
     const maxAge = 24 * 60 * 60 * 1000; // 24 hours
 
     for (const [key, keyStore] of this.stores.entries()) {
-      const requests = keyStore.get('requests') || [];
-      const validRequests = requests.filter(timestamp => now - timestamp < maxAge);
+      const requests = keyStore.get("requests") || [];
+      const validRequests = requests.filter((timestamp) => now - timestamp < maxAge);
 
       if (validRequests.length === 0) {
         this.stores.delete(key);
       } else {
-        keyStore.set('requests', validRequests);
+        keyStore.set("requests", validRequests);
       }
     }
 
-    logger.debug('Rate limit cleanup completed', { storesRemaining: this.stores.size });
+    logger.debug("Rate limit cleanup completed", { storesRemaining: this.stores.size });
   }
 
   /**
@@ -191,7 +188,7 @@ export class RateLimitService {
    */
   resetKey(key: string): void {
     this.stores.delete(key);
-    logger.debug('Rate limit reset for key', { key });
+    logger.debug("Rate limit reset for key", { key });
   }
 
   /**
@@ -225,7 +222,7 @@ export const createApiRateLimiter = (maxRequests = 100, windowMs = 15 * 60 * 100
   return rateLimitService.createMiddleware({
     windowMs,
     maxRequests,
-    skip: (req) => req.method === 'OPTIONS', // Skip preflight requests
+    skip: (req) => req.method === "OPTIONS", // Skip preflight requests
   });
 };
 
@@ -234,20 +231,20 @@ export const createAuthRateLimiter = () => {
     windowMs: 15 * 60 * 1000, // 15 minutes
     maxRequests: 5, // 5 attempts per 15 minutes
     keyGenerator: (req) => {
-      const ip = req.ip || req.connection?.remoteAddress || 'unknown';
-      const email = req.body?.email || 'unknown';
+      const ip = req.ip || req.connection?.remoteAddress || "unknown";
+      const email = req.body?.email || "unknown";
       return `auth:${ip}:${email}`;
     },
     handler: (req, res) => {
-      logger.warn('Authentication rate limit exceeded', {
+      logger.warn("Authentication rate limit exceeded", {
         ip: req.ip,
         email: req.body?.email,
-        userAgent: req.get('User-Agent'),
+        userAgent: req.get("User-Agent"),
       });
 
       res.status(429).json({
-        error: 'Too many authentication attempts',
-        message: 'Too many login/signup attempts. Please try again later.',
+        error: "Too many authentication attempts",
+        message: "Too many login/signup attempts. Please try again later.",
         retryAfter: 900, // 15 minutes
       });
     },

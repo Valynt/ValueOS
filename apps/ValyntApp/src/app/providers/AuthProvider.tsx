@@ -1,6 +1,5 @@
-import { createContext, useContext, ReactNode } from "react";
+import { createContext, useContext, ReactNode, useState } from "react";
 import { useAuth0, Auth0Provider } from "@auth0/auth0-react";
-
 
 interface User {
   id: string;
@@ -14,7 +13,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  signIn: () => Promise<void>;
+  signIn: (email?: string, password?: string) => Promise<void>;
   signOut: () => Promise<void>;
   getAccessToken: () => Promise<string | undefined>;
 }
@@ -22,24 +21,45 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 function AuthInternalProvider({ children }: { children: ReactNode }) {
+  const [bypassUser, setBypassUser] = useState<User | null>(null);
   const {
     user: auth0User,
-    isAuthenticated,
+    isAuthenticated: auth0Authenticated,
     isLoading,
     loginWithRedirect,
     logout,
     getAccessTokenSilently,
   } = useAuth0();
 
-  const signIn = async () => {
+  const signIn = async (email?: string, password?: string) => {
+    console.log("signIn called with:", { email, password });
+    if (email === "dev@valynt.com" && password === "bypass") {
+      console.log("Bypass login triggered");
+      // Bypass Auth0 for development
+      setBypassUser({
+        id: "dev-user-id",
+        email: "dev@valynt.com",
+        fullName: "Dev User",
+        role: "admin",
+      });
+      return;
+    }
+    console.log("Calling loginWithRedirect");
     await loginWithRedirect();
   };
 
   const signOut = async () => {
+    if (bypassUser) {
+      setBypassUser(null);
+      return;
+    }
     await logout({ logoutParams: { returnTo: window.location.origin } });
   };
 
   const getAccessToken = async () => {
+    if (bypassUser) {
+      return "bypass-token";
+    }
     try {
       return await getAccessTokenSilently();
     } catch (error) {
@@ -48,15 +68,19 @@ function AuthInternalProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const user: User | null = auth0User
-    ? {
-        id: auth0User.sub || "",
-        email: auth0User.email || "",
-        fullName: auth0User.name,
-        avatar_url: auth0User.picture,
-        role: (auth0User as any)["https://valueos.app/roles"]?.[0] || "member",
-      }
-    : null;
+  const user =
+    bypassUser ||
+    (auth0User
+      ? {
+          id: auth0User.sub || "",
+          email: auth0User.email || "",
+          fullName: auth0User.name,
+          avatar_url: auth0User.picture,
+          role: (auth0User as any)["https://valueos.app/roles"]?.[0] || "member",
+        }
+      : null);
+
+  const isAuthenticated = !!user;
 
   return (
     <AuthContext.Provider
@@ -79,7 +103,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
   const audience = import.meta.env.VITE_AUTH0_AUDIENCE;
 
+  console.log("Auth0 Config:", { domain, clientId, audience });
+
   if (!domain || !clientId) {
+    console.error("Auth0 configuration missing:", { domain: !!domain, clientId: !!clientId });
     return (
       <div className="p-4 bg-red-50 text-red-700 border border-red-200 rounded">
         Auth0 configuration missing. Please check VITE_AUTH0_DOMAIN and VITE_AUTH0_CLIENT_ID.

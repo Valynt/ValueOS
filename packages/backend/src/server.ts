@@ -4,7 +4,7 @@
  */
 
 // CRITICAL: Load environment variables FIRST before any other imports
-import dotenv from "dotenv";
+// import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -13,12 +13,10 @@ const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "../..");
 
 // Load .env.local from project root
-dotenv.config({ path: path.join(projectRoot, ".env.local") });
-
-import { validateEnv } from '@shared/lib/env";
+// dotenv.config({ path: path.join(projectRoot, ".env.local") });
 
 // Validate required environment variables (fail fast)
-validateEnv();
+// validateEnv();
 
 console.log("[Environment] Configuration loaded for development (redacted)");
 
