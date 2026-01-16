@@ -77,7 +77,6 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_orgs_billing_status
 ### Phase 2 — Backfill (Data Migration)
 **Backfill job** (outside migration):
 
-```sql
 -- Example chunked backfill pattern
 UPDATE public.organizations
 SET billing_status = 'active'
@@ -88,8 +87,14 @@ WHERE billing_status IS NULL
     WHERE billing_status IS NULL
     ORDER BY id
     LIMIT 10000
-  );
-```
+  )
+  AND (last_retry_timestamp IS NULL OR last_retry_timestamp < NOW() - INTERVAL '1 hour');
+
+-- Track problematic rows after several retries
+INSERT INTO migration_issues (table_name, record_id, issue, created_at)
+SELECT 'organizations', id, 'Failed to set billing_status', NOW()
+FROM public.organizations
+WHERE billing_status IS NULL AND retry_count >= 3;
 
 Run repeatedly until `billing_status IS NULL` is 0. Track progress in logs.
 
