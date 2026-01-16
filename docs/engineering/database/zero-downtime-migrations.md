@@ -66,8 +66,10 @@ npm run migration:safety
 
 ```sql
 ALTER TABLE public.organizations
-  ADD COLUMN IF NOT EXISTS billing_status text;
+  ADD COLUMN IF NOT EXISTS billing_status text DEFAULT 'active';
 
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_orgs_billing_status
+  ON public.organizations (billing_status);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_orgs_billing_status
   ON public.organizations (billing_status);
 ```
