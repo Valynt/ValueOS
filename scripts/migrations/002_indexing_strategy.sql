@@ -14,8 +14,8 @@ CREATE INDEX IF NOT EXISTS idx_cases_org_status_updated_id
 CREATE INDEX IF NOT EXISTS idx_workflows_org_updated_id
   ON workflows (organization_id, updated_at DESC, id DESC);
 
-CREATE INDEX IF NOT EXISTS idx_users_org_status_created
-  ON users (organization_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_users_org_status_created_id
+  ON users (organization_id, status, created_at DESC, id DESC);
 
 CREATE INDEX IF NOT EXISTS idx_agent_runs_org_status_created_id
   ON agent_runs (organization_id, status, created_at DESC, id DESC);
