@@ -204,7 +204,8 @@ export async function executeWithResilience<T>(
   if (lastError) {
     throw lastError;
   }
-
+  
+  // This should only happen if maxAttempts is 0 or negative
   throw new DependencyUnavailableError(options.dependencyName);
 }
 
