@@ -23,6 +23,8 @@ import {
   RateLimitError,
 } from '../lib/errors';
 import { logger } from '../lib/logger';
+import { redactSensitiveData } from '../lib/redaction';
+import { getTraceContextForLogging, recordSpanException } from '../config/telemetry';
 
 // ============================================================================
 // Types
@@ -46,6 +48,7 @@ export interface ErrorEnvelope {
 export interface TrackedRequest extends Request {
   requestId: string;
   startTime: number;
+  hasLoggedError?: boolean;
 }
 
 // ============================================================================
@@ -64,10 +67,10 @@ export function requestIdMiddleware(
   const trackedReq = req as TrackedRequest;
 
   // Use existing correlation ID or generate new one
-  trackedReq.requestId =
+  const upstreamId =
     (req.headers['x-request-id'] as string) ||
-    (req.headers['x-correlation-id'] as string) ||
-    `req-${uuidv4()}`;
+    (req.headers['x-correlation-id'] as string);
+  trackedReq.requestId = upstreamId || `req-${uuidv4()}`;
 
   // Start timing
   trackedReq.startTime = Date.now();
@@ -92,6 +95,17 @@ export function accessLogMiddleware(
   next: NextFunction
 ): void {
   const trackedReq = req as TrackedRequest;
+  const startLogContext = {
+    requestId: trackedReq.requestId,
+    method: req.method,
+    path: req.path,
+    query: Object.keys(req.query).length > 0 ? req.query : undefined,
+    ip: req.ip || req.socket.remoteAddress,
+    userAgent: req.headers['user-agent']?.substring(0, 200),
+    trace: getTraceContextForLogging(),
+  };
+
+  logger.info('Request started', redactSensitiveData(startLogContext));
 
   // Log on response finish
   res.on('finish', () => {
@@ -108,14 +122,15 @@ export function accessLogMiddleware(
       ip: req.ip || req.socket.remoteAddress,
       userId: (req as unknown as { user?: { id: string } }).user?.id,
       tenantId: (req as unknown as { tenantId?: string }).tenantId,
+      trace: getTraceContextForLogging(),
     };
 
     if (res.statusCode >= 500) {
-      logger.error('Request completed with server error', logData);
+      logger.error('Request completed with server error', redactSensitiveData(logData));
     } else if (res.statusCode >= 400) {
-      logger.warn('Request completed with client error', logData);
+      logger.warn('Request completed with client error', redactSensitiveData(logData));
     } else {
-      logger.info('Request completed', logData);
+      logger.info('Request completed', redactSensitiveData(logData));
     }
   });
 
@@ -235,9 +250,20 @@ export const globalErrorHandler: ErrorRequestHandler = (
   const latencyMs = trackedReq.startTime
     ? Date.now() - trackedReq.startTime
     : undefined;
+  const hasLoggedError = trackedReq.hasLoggedError === true;
+  trackedReq.hasLoggedError = true;
 
   // Transform to AppError
   const appError = transformError(err);
+  const errorInstance = appError.cause instanceof Error
+    ? appError.cause
+    : appError instanceof Error
+      ? appError
+      : undefined;
+
+  if (errorInstance) {
+    recordSpanException(errorInstance);
+  }
 
   // Log the error
   const logContext = {
@@ -250,20 +276,23 @@ export const globalErrorHandler: ErrorRequestHandler = (
     latencyMs,
     userId: (req as unknown as { user?: { id: string } }).user?.id,
     tenantId: (req as unknown as { tenantId?: string }).tenantId,
+    trace: getTraceContextForLogging(),
   };
 
-  if (appError.isOperational) {
-    logger.warn('Operational error', {
-      ...logContext,
-      message: appError.message,
-      details: appError.details,
-    });
-  } else {
-    // Log full error details for non-operational errors
-    logger.error('Unexpected error', {
-      ...logContext,
-      error: appError.toLogObject(),
-    });
+  if (!hasLoggedError) {
+    if (appError.isOperational) {
+      logger.warn('Operational error', redactSensitiveData({
+        ...logContext,
+        message: appError.message,
+        details: appError.details,
+      }));
+    } else {
+      // Log full error details for non-operational errors
+      logger.error('Unexpected error', redactSensitiveData({
+        ...logContext,
+        error: appError.toLogObject(),
+      }));
+    }
   }
 
   // Build response
