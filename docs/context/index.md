@@ -1,7 +1,7 @@
 # ValueOS Codebase Context
 
 **Version:** 0.1.0
-**Last Updated:** 2026-01-15
+**Last Updated:** 2026-01-16
 **Architecture:** Multi-Agent Sales Enablement Platform
 
 ---
@@ -66,7 +66,8 @@ To become the "Customer Value Operating System" for B2B revenue teams.
 - **Zustand** - State management
 - **Radix UI** - Accessible components
 - **Tailwind CSS** - Styling
-- **React Router 6** - Navigation
+- **Lucide React** - Icon library
+- **React Router 7.1** - Navigation
 
 ### Backend (Supabase)
 
@@ -580,7 +581,57 @@ docker-compose -f docker-compose.observability.yml up -d
 
 ---
 
-## Recent Changes (2026-01-08)
+## Recent Changes (2026-01-16)
+
+### Frontend UI Overhaul ✅
+
+**Application Layout:**
+- **AppShell** - Dark sidebar navigation with expandable Library submenu
+- **SettingsLayout** - Horizontal tabs navigation (My profile, Security, Billing, etc.)
+- **Breadcrumbs** - Contextual navigation with clickable parent links
+
+**New Pages:**
+- **CasesPage** - Grid/list view with search, filters, sorting
+- **LibraryPage** - Hub for Templates, Value Drivers, Brand Assets
+- **ValueDriverLibrary** - Admin command center for value drivers
+- **SetupWizard** - 3-step onboarding (Company, Role, Confirmation)
+
+**Settings Pages (Edit-in-Place Pattern):**
+- **ProfilePage** - User profile with avatar, personal info, preferences
+- **SecurityPage** - Password, 2FA, active sessions
+- **BillingSettings** - Meta-ROI dashboard proving ValueOS pays for itself
+- **NotificationsPage** - Email, push, Slack toggle preferences
+- **TeamSettings** - Member table, role management, invite modal
+- **BrandingPage** - Logo, colors, fonts, boilerplate, team signatures
+- **IntegrationsPage** - CRM, communication, storage connections
+
+**Value Driver System:**
+- **ValueDriver types** - Type definitions with formulas, personas, sales motions
+- **ValueDriverEditor** - Full modal for creating/editing drivers
+- **ValueDriverSelector** - Seller-facing component for case builder
+- **Integration** - Value Drivers panel in CaseWorkspace
+
+**Components:**
+- **SettingsRow** - Edit-in-place row pattern
+- **SettingsToggleRow** - Toggle switch rows
+- **SettingsSection** - Titled card containers
+- **SettingsAlert** - Contextual alerts
+- **InviteModal** - Team invitation modal
+
+**Performance & Accessibility:**
+- SEO meta tags (description, Open Graph)
+- ARIA labels on icon-only buttons
+- Improved color contrast (muted-foreground)
+- Code splitting with dynamic chunks
+
+**Styling:**
+- Added `--bg-dark`, `--accent-green` CSS variables
+- Added `.bg-grid` utility class for marketing pages
+- Fixed landing page dark background
+
+---
+
+## Previous Changes (2026-01-08)
 
 ### Multi-Factor Authentication (MFA) ✅
 
