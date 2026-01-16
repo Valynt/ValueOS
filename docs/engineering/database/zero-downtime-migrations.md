@@ -31,6 +31,7 @@ Use `CREATE INDEX CONCURRENTLY` to avoid blocking writes (Postgres):
 - Must be run **outside of a transaction block**.
 - Use with caution in Supabase migration scripts (split into separate files if needed).
 - Prefer `CONCURRENTLY` for large tables and high-write traffic.
+- Always verify index creation success with `SELECT indexname, indexdef FROM pg_indexes WHERE indexname = 'idx_name'` and check for invalid indexes with `SELECT * FROM pg_class c JOIN pg_index i ON i.indexrelid = c.oid WHERE i.indisvalid = false;`
 
 ### 4) Safe Rollbacks (Forward-Only Where Needed)
 Not all migrations can be safely rolled back (e.g., destructive or data-loss changes). Treat them as **forward-only**:
