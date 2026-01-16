@@ -48,7 +48,7 @@ class AuditLogger {
   private events: AuditEvent[] = [];
   private readonly maxEvents = 10000; // Keep last 10k events
   private readonly batchSize = 100; // Send in batches
-  private sendTimer: number | null = null;
+  private sendTimer: ReturnType<typeof setInterval> | null = null;
   private pendingEvents: AuditEvent[] = [];
 
   private constructor() {
