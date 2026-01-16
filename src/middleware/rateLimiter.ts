@@ -11,9 +11,14 @@
  * Uses in-memory store with Redis fallback for production
  */
 
-import { NextFunction, Request, Response } from 'express';
-import { logger } from '../lib/logger';
-import { RateLimitKeyService } from '../services/RateLimitKeyService';
+import { NextFunction, Request, Response } from "express";
+import { logger } from "../lib/logger";
+import { RateLimitKeyService } from "../services/RateLimitKeyService";
+import {
+  createRateLimitStore,
+  InMemoryRateLimitStore,
+  RateLimitStore,
+} from "./rateLimitStorage";
 
 /**
  * Rate limit tier
@@ -30,6 +35,9 @@ export interface RateLimitConfig {
   /** Maximum requests per window */
   max: number;
 
+  /** Maximum requests per window for IP-based limiting */
+  ipMax?: number;
+
   /** Message to send when limit is exceeded */
   message?: string;
 
@@ -41,6 +49,9 @@ export interface RateLimitConfig {
 
   /** Custom key generator */
   keyGenerator?: (req: Request) => string;
+
+  /** Custom store (in-memory or Redis). */
+  store?: RateLimitStore;
 }
 
 /**
@@ -67,105 +78,123 @@ const TIER_CONFIGS: Record<RateLimitTier, RateLimitConfig> = {
   },
 };
 
-/**
- * In-memory rate limit store
- */
-class RateLimitStore {
-  private store: Map<string, { count: number; resetTime: number }> = new Map();
-  private cleanupInterval: NodeJS.Timeout;
-
-  constructor() {
-    // Cleanup expired entries every minute
-    this.cleanupInterval = setInterval(() => {
-      this.cleanup();
-    }, 60 * 1000);
-  }
-
-  /**
-   * Increment request count for a key
-   */
-  increment(key: string, windowMs: number): { count: number; resetTime: number } {
-    const now = Date.now();
-    const entry = this.store.get(key);
-
-    if (!entry || entry.resetTime < now) {
-      // Create new entry
-      const newEntry = {
-        count: 1,
-        resetTime: now + windowMs,
-      };
-      this.store.set(key, newEntry);
-      return newEntry;
-    }
-
-    // Increment existing entry
-    entry.count++;
-    this.store.set(key, entry);
-    return entry;
-  }
-
-  /**
-   * Get current count for a key
-   */
-  get(key: string): { count: number; resetTime: number } | undefined {
-    const entry = this.store.get(key);
-    if (!entry) return undefined;
-
-    const now = Date.now();
-    if (entry.resetTime < now) {
-      this.store.delete(key);
-      return undefined;
-    }
-
-    return entry;
-  }
-
-  /**
-   * Reset count for a key
-   */
-  reset(key: string): void {
-    this.store.delete(key);
-  }
-
-  /**
-   * Cleanup expired entries
-   */
-  private cleanup(): void {
-    const now = Date.now();
-    let cleaned = 0;
-
-    for (const [key, entry] of this.store.entries()) {
-      if (entry.resetTime < now) {
-        this.store.delete(key);
-        cleaned++;
-      }
-    }
-
-    if (cleaned > 0) {
-      logger.debug('Rate limit store cleanup', { cleaned });
-    }
-  }
-
-  /**
-   * Destroy store and cleanup interval
-   */
-  destroy(): void {
-    clearInterval(this.cleanupInterval);
-    this.store.clear();
-  }
+interface RateLimitResult {
+  allowed: boolean;
+  remaining: number;
+  resetTime: number;
+  retryAfterSeconds: number;
 }
 
+const DEFAULT_HEALTH_PATHS = [
+  "/health",
+  "/healthz",
+  "/health/ready",
+  "/health/live",
+  "/health/startup",
+  "/health/dependencies",
+  "/api/health",
+];
+
 // Global store instance
-const store = new RateLimitStore();
+const defaultStore = createRateLimitStore();
+
+function isHealthCheck(req: Request): boolean {
+  return DEFAULT_HEALTH_PATHS.some((path) => req.path.startsWith(path));
+}
+
+function getUserId(req: Request): string | undefined {
+  return (req as { user?: { id?: string } }).user?.id;
+}
+
+function getTenantId(req: Request): string {
+  const tenantId = (req as { tenantId?: string }).tenantId;
+  if (tenantId) return tenantId;
+
+  const header = req.headers["x-tenant-id"];
+  if (typeof header === "string") return header;
+  return "global";
+}
+
+function getClientIp(req: Request): string {
+  const forwarded = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0];
+  return forwarded || req.ip || req.socket.remoteAddress || "unknown";
+}
+
+function sanitizeIdentifier(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
+}
+
+function buildIpKey(tenantId: string, ip: string, tier: RateLimitTier): string {
+  const safeTenant = RateLimitKeyService.sanitizeComponent(tenantId);
+  return `rl:general:${tier}:${safeTenant}:ip:${sanitizeIdentifier(ip)}`;
+}
+
+function buildUserKey(
+  tenantId: string,
+  userId: string,
+  tier: RateLimitTier
+): string {
+  const safeTenant = RateLimitKeyService.sanitizeComponent(tenantId);
+  const safeUser = RateLimitKeyService.sanitizeComponent(userId);
+  return `rl:general:${tier}:${safeTenant}:user:${safeUser}`;
+}
+
+async function consumeTokenBucket(
+  store: RateLimitStore,
+  key: string,
+  capacity: number,
+  windowMs: number
+): Promise<RateLimitResult> {
+  const now = Date.now();
+  const refillRate = capacity / windowMs;
+  const existing = await store.get(key);
+  const lastRefill = existing?.lastRefill ?? now;
+  const tokens = existing?.tokens ?? capacity;
+  const refill = (now - lastRefill) * refillRate;
+  const nextTokens = Math.min(capacity, tokens + refill);
+
+  const allowed = nextTokens >= 1;
+  const remaining = Math.max(0, Math.floor(nextTokens - (allowed ? 1 : 0)));
+  const updatedTokens = allowed ? nextTokens - 1 : nextTokens;
+  const resetTime = now + Math.ceil((capacity - updatedTokens) / refillRate);
+  const retryAfterSeconds = allowed
+    ? 0
+    : Math.max(1, Math.ceil((1 - nextTokens) / refillRate / 1000));
+
+  await store.set(key, { tokens: updatedTokens, lastRefill: now }, windowMs);
+
+  return {
+    allowed,
+    remaining,
+    resetTime,
+    retryAfterSeconds,
+  };
+}
 
 /**
  * Default key generator using unified service
  */
 export function getRateLimitKey(req: Request): string {
-  return RateLimitKeyService.generateSecureKey(req, {
-    service: 'general',
-    tier: 'standard' // Will be overridden in createRateLimiter
-  });
+  const tenantId = (req as { tenantId?: string }).tenantId;
+  const headerTenant = req.headers["x-tenant-id"];
+  const resolvedTenant =
+    tenantId || (typeof headerTenant === "string" ? headerTenant : undefined);
+  const userId = getUserId(req);
+  const ip = getClientIp(req);
+
+  if (resolvedTenant && userId) {
+    return `tenant:${RateLimitKeyService.sanitizeComponent(
+      resolvedTenant
+    )}:user:${RateLimitKeyService.sanitizeComponent(userId)}`;
+  }
+
+  if (resolvedTenant) {
+    return `tenant:${RateLimitKeyService.sanitizeComponent(
+      resolvedTenant
+    )}:ip:${ip}`;
+  }
+
+  return `ip:${ip}`;
 }
 
 /**
@@ -174,51 +203,69 @@ export function getRateLimitKey(req: Request): string {
 export function createRateLimiter(
   tier: RateLimitTier,
   customConfig?: Partial<RateLimitConfig>
-): (req: Request, res: Response, next: NextFunction) => void {
+): (req: Request, res: Response, next: NextFunction) => Promise<void> {
   const config = { ...TIER_CONFIGS[tier], ...customConfig };
-  const keyGenerator = config.keyGenerator || getRateLimitKey;
+  const store =
+    config.store ||
+    (process.env.NODE_ENV === "test" ? new InMemoryRateLimitStore() : defaultStore);
+  const ipLimit = config.ipMax ?? config.max;
 
-  return (req: Request, res: Response, next: NextFunction) => {
-    // Skip if configured
-    if (config.skip && config.skip(req)) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // Skip if configured
+      if (config.skip && config.skip(req)) {
+        return next();
+      }
+
+      if (isHealthCheck(req)) {
+        return next();
+      }
+
+      const userId = getUserId(req);
+      const tenantId = getTenantId(req);
+      const ip = getClientIp(req);
+      const ipKey = buildIpKey(tenantId, ip, tier);
+      const userKey = userId ? buildUserKey(tenantId, userId, tier) : null;
+
+      const ipResult = await consumeTokenBucket(store, ipKey, ipLimit, config.windowMs);
+      const userResult = userKey
+        ? await consumeTokenBucket(store, userKey, config.max, config.windowMs)
+        : null;
+
+      const allowed = ipResult.allowed && (userResult ? userResult.allowed : true);
+      const remaining = Math.min(
+        ipResult.remaining,
+        userResult ? userResult.remaining : ipResult.remaining
+      );
+      const resetTime = Math.max(
+        ipResult.resetTime,
+        userResult ? userResult.resetTime : ipResult.resetTime
+      );
+      const limit = Math.min(config.max, ipLimit);
+
+      res.setHeader("X-RateLimit-Limit", limit);
+      res.setHeader("X-RateLimit-Remaining", remaining);
+      res.setHeader("X-RateLimit-Reset", new Date(resetTime).toISOString());
+
+      if (!allowed) {
+        const retryAfter = Math.max(
+          ipResult.retryAfterSeconds,
+          userResult ? userResult.retryAfterSeconds : 0
+        );
+        res.setHeader("Retry-After", retryAfter);
+
+        return res.status(config.statusCode || 429).json({
+          error: "Too Many Requests",
+          message: config.message,
+          retryAfter,
+        });
+      }
+
+      return next();
+    } catch (error) {
+      logger.error("Rate limiter failed open", error as Error);
       return next();
     }
-
-    // Use unified key service
-    const key = RateLimitKeyService.generateSecureKey(req, {
-      service: 'general',
-      tier: tier
-    });
-
-    const entry = store.increment(key, config.windowMs);
-
-    // Set rate limit headers
-    res.setHeader('X-RateLimit-Limit', config.max);
-    res.setHeader('X-RateLimit-Remaining', Math.max(0, config.max - entry.count));
-    res.setHeader('X-RateLimit-Reset', new Date(entry.resetTime).toISOString());
-
-    // Check if limit exceeded
-    if (entry.count > config.max) {
-      const retryAfter = Math.ceil((entry.resetTime - Date.now()) / 1000);
-      res.setHeader('Retry-After', retryAfter);
-
-      logger.warn('Rate limit exceeded', {
-        key,
-        count: entry.count,
-        limit: config.max,
-        tier,
-        path: req.path,
-        method: req.method,
-      });
-
-      return res.status(config.statusCode || 429).json({
-        error: 'Too Many Requests',
-        message: config.message,
-        retryAfter,
-      });
-    }
-
-    next();
   };
 }
 
@@ -230,47 +277,47 @@ export const rateLimiters = {
    * Strict rate limiter for expensive operations
    * 5 requests per minute
    */
-  strict: createRateLimiter('strict'),
+  strict: createRateLimiter("strict"),
 
   /**
    * Standard rate limiter for regular API calls
    * 60 requests per minute
    */
-  standard: createRateLimiter('standard'),
+  standard: createRateLimiter("standard"),
 
   /**
    * Loose rate limiter for read-only operations
    * 300 requests per minute
    */
-  loose: createRateLimiter('loose'),
+  loose: createRateLimiter("loose"),
 
   /**
    * Agent execution rate limiter
    * 5 requests per minute (expensive LLM calls)
    */
-  agentExecution: createRateLimiter('strict', {
-    message: 'Too many agent executions. Please wait before trying again.',
+  agentExecution: createRateLimiter("strict", {
+    message: "Too many agent executions. Please wait before trying again.",
   }),
 
   /**
    * Agent query rate limiter
    * 60 requests per minute (standard queries)
    */
-  agentQuery: createRateLimiter('standard', {
-    message: 'Too many agent queries. Please slow down.',
+  agentQuery: createRateLimiter("standard", {
+    message: "Too many agent queries. Please slow down.",
   }),
 };
 
 /**
  * Reset rate limit for a user (admin only)
  */
-export function resetRateLimit(userId: string): void {
+export function resetRateLimit(userId: string, tenantId = "global"): void {
   // Reset for all tiers
-  const tiers: RateLimitTier[] = ['strict', 'standard', 'loose'];
-  tiers.forEach(tier => {
-    store.reset(`${tier}:user:${userId}`);
+  const tiers: RateLimitTier[] = ["strict", "standard", "loose"];
+  tiers.forEach((tier) => {
+    void defaultStore.delete(buildUserKey(tenantId, userId, tier));
   });
-  logger.info('Rate limit reset', { userId });
+  logger.info("Rate limit reset", { userId });
 }
 
 /**
@@ -281,20 +328,12 @@ export function getRateLimitStatus(userId: string): {
   limit: number;
   resetTime: Date;
 } | null {
-  // Default to standard tier status
-  const entry = store.get(`standard:user:${userId}`);
-  if (!entry) return null;
-
-  return {
-    count: entry.count,
-    limit: TIER_CONFIGS.standard.max,
-    resetTime: new Date(entry.resetTime),
-  };
+  return null;
 }
 
 /**
  * Cleanup on shutdown
  */
 export function cleanup(): void {
-  store.destroy();
+  void defaultStore.shutdown();
 }
