@@ -257,11 +257,12 @@ export function ShareCustomerButton({
                       size="icon"
                       onClick={copyToClipboard}
                       className={cn(copied && 'bg-green-100 border-green-300')}
+                      aria-label={copied ? "Copied" : "Copy share link"}
                     >
                       {copied ? (
-                        <Check className="w-4 h-4 text-green-600" />
+                        <Check className="w-4 h-4 text-green-600" aria-hidden="true" />
                       ) : (
-                        <Copy className="w-4 h-4" />
+                        <Copy className="w-4 h-4" aria-hidden="true" />
                       )}
                     </Button>
                   </div>
