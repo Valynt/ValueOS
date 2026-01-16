@@ -153,17 +153,17 @@ agentRoutes.post("/query", async (req: express.Request, res: express.Response) =
     metrics.httpRequestsTotal.inc({ method: "POST", route: "/query" });
     const queryTimer = metrics.httpRequestDuration.startTimer({ method: "POST", route: "/query" });
 
-    logger.info("Processing realization query", {
+    logger.info("Processing expansion query", {
       query: validatedQuery.query,
       userId: validatedQuery.context?.userId,
     });
 
     // Process the query
-    const result = await analyzer.analyzeRealizations(validatedQuery.query, validatedQuery.context);
+    const result = await analyzer.analyzeExpansions(validatedQuery.query, validatedQuery.context);
 
     // Record agent-specific metrics
-    metrics.agentQueriesTotal.inc({ agent_type: "realization", status: "success" });
-    metrics.agentQueryDuration.observe({ agent_type: "realization" }, Date.now() - startTime);
+    metrics.agentQueriesTotal.inc({ agent_type: "expansion", status: "success" });
+    metrics.agentQueryDuration.observe({ agent_type: "expansion" }, Date.now() - startTime);
 
     queryTimer();
 
@@ -178,7 +178,7 @@ agentRoutes.post("/query", async (req: express.Request, res: express.Response) =
 
     // Record failure metrics
     metrics.httpRequestsTotal.inc({ method: "POST", route: "/query", status_code: "500" });
-    metrics.agentQueriesTotal.inc({ agent_type: "realization", status: "error" });
+    metrics.agentQueriesTotal.inc({ agent_type: "expansion", status: "error" });
 
     if (error instanceof z.ZodError) {
       res.status(400).json({
@@ -196,11 +196,11 @@ agentRoutes.post("/query", async (req: express.Request, res: express.Response) =
 // Health check with agent-specific checks
 const customHealthChecks = [
   {
-    name: "realization-analyzer",
+    name: "expansion-analyzer",
     check: async () => {
       // Check if analyzer is responsive
       try {
-        await analyzer.analyzeRealizations("health check");
+        await analyzer.analyzeExpansions("health check");
         return { status: "pass" as const };
       } catch (error) {
         return {
@@ -216,17 +216,17 @@ const customHealthChecks = [
 // Create and start the server
 const config = getConfig();
 const app = createServer({
-  agentType: "realization",
+  agentType: "expansion",
   version: "1.0.0",
   customHealthChecks,
   middleware: [agentRoutes],
 });
 
 // Add agent-specific metrics
-metrics.customMetrics.set("realization_analyzer_health", metrics.healthStatus);
+metrics.customMetrics.set("expansion_analyzer_health", metrics.healthStatus);
 
 // Start the server
 createServer(app, config.PORT).catch((error) => {
-  logger.error("Failed to start realization agent", error);
+  logger.error("Failed to start expansion agent", error);
   process.exit(1);
 });

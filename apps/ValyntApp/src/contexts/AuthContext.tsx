@@ -238,6 +238,7 @@ const useAuthMethods = ({ setUser, setUserClaims, setSession }: { setUser: (user
 
       setUser(data.user);
       setSession(data.session);
+      setUserClaims(computeUserClaims(data.user));
       logger.info("User logged in", { email: credentials.email });
       analyticsClient.identify(data.user.id, {
         email: data.user.email,
@@ -296,6 +297,7 @@ const useAuthMethods = ({ setUser, setUserClaims, setSession }: { setUser: (user
       if (authData.session) {
         setUser(authData.user);
         setSession(authData.session);
+        setUserClaims(computeUserClaims(authData.user));
         logger.info("User signed up", { email: data.email });
         analyticsClient.identify(authData.user.id, {
           email: authData.user.email,

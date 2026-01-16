@@ -11,18 +11,22 @@ interface StorageData {
 }
 
 class SecureTokenStorage {
-  private readonly encryptionKey: string;
+  private encryptionKey: CryptoKey | null = null;
   private readonly storageKey = "secure_auth_data";
+  private readonly salt: Uint8Array;
 
   constructor() {
-    // Generate a deterministic key based on browser fingerprint
-    this.encryptionKey = this.generateEncryptionKey();
+    // Key will be generated lazily on first use
   }
 
   /**
-   * Generate a deterministic encryption key from browser fingerprint
+   * Generate a cryptographic key from browser fingerprint using PBKDF2
    */
-  private generateEncryptionKey(): string {
+  private async generateEncryptionKey(): Promise<CryptoKey> {
+    if (this.encryptionKey) {
+      return this.encryptionKey;
+    }
+
     const fingerprint = [
       navigator.userAgent,
       navigator.language,
@@ -31,47 +35,80 @@ class SecureTokenStorage {
       // Add more entropy factors as needed
     ].join("|");
 
-    // Simple hash function - in production, use a proper crypto library
-    let hash = 0;
-    for (let i = 0; i < fingerprint.length; i++) {
-      const char = fingerprint.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
+    const salt = new Uint8Array(16);
+    crypto.getRandomValues(salt);
 
-    return hash.toString(16).padStart(8, "0");
+    const keyMaterial = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(fingerprint),
+      "PBKDF2",
+      false,
+      ["deriveBits", "deriveKey"]
+    );
+
+    this.encryptionKey = await crypto.subtle.deriveKey(
+      {
+        name: "PBKDF2",
+        salt: salt,
+        iterations: 100000,
+        hash: "SHA-256",
+      },
+      keyMaterial,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt", "decrypt"]
+    );
+
+    return this.encryptionKey;
   }
 
   /**
-   * Simple XOR encryption - in production, use proper AES encryption
+   * Encrypt data using AES-GCM
    */
-  private encrypt(data: string): string {
-    let encrypted = "";
-    const key = this.encryptionKey;
+  private async encrypt(data: string): Promise<string> {
+    const key = await this.generateEncryptionKey();
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encrypted = await crypto.subtle.encrypt(
+      {
+        name: "AES-GCM",
+        iv: iv,
+      },
+      key,
+      new TextEncoder().encode(data)
+    );
 
-    for (let i = 0; i < data.length; i++) {
-      const charCode = data.charCodeAt(i) ^ key.charCodeAt(i % key.length);
-      encrypted += String.fromCharCode(charCode);
-    }
+    const encryptedArray = new Uint8Array(encrypted);
+    const combined = new Uint8Array(iv.length + encryptedArray.length);
+    combined.set(iv);
+    combined.set(encryptedArray, iv.length);
 
-    return btoa(encrypted);
+    return btoa(String.fromCharCode(...combined));
   }
 
   /**
-   * Simple XOR decryption - in production, use proper AES decryption
+   * Decrypt data using AES-GCM
    */
-  private decrypt(encryptedData: string): string {
+  private async decrypt(encryptedData: string): Promise<string> {
     try {
-      const decoded = atob(encryptedData);
-      let decrypted = "";
-      const key = this.encryptionKey;
+      const combined = new Uint8Array(
+        atob(encryptedData)
+          .split("")
+          .map((c) => c.charCodeAt(0))
+      );
+      const iv = combined.slice(0, 12);
+      const encrypted = combined.slice(12);
 
-      for (let i = 0; i < decoded.length; i++) {
-        const charCode = decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length);
-        decrypted += String.fromCharCode(charCode);
-      }
+      const key = await this.generateEncryptionKey();
+      const decrypted = await crypto.subtle.decrypt(
+        {
+          name: "AES-GCM",
+          iv: iv,
+        },
+        key,
+        encrypted
+      );
 
-      return decrypted;
+      return new TextDecoder().decode(decrypted);
     } catch (error) {
       console.error("Failed to decrypt data");
       return "";
@@ -81,10 +118,10 @@ class SecureTokenStorage {
   /**
    * Store authentication data securely
    */
-  setToken(data: StorageData): void {
+  async setToken(data: StorageData): Promise<void> {
     try {
       const serialized = JSON.stringify(data);
-      const encrypted = this.encrypt(serialized);
+      const encrypted = await this.encrypt(serialized);
       localStorage.setItem(this.storageKey, encrypted);
     } catch (error) {
       console.error("Failed to store token securely");
@@ -100,11 +137,11 @@ class SecureTokenStorage {
   /**
    * Retrieve authentication data securely
    */
-  getToken(): StorageData | null {
+  async getToken(): Promise<StorageData | null> {
     try {
       const encrypted = localStorage.getItem(this.storageKey);
       if (encrypted) {
-        const decrypted = this.decrypt(encrypted);
+        const decrypted = await this.decrypt(encrypted);
         const data = JSON.parse(decrypted) as StorageData;
 
         // Check if token has expired
@@ -142,7 +179,7 @@ class SecureTokenStorage {
   /**
    * Clear stored authentication data
    */
-  clearToken(): void {
+  async clearToken(): Promise<void> {
     try {
       localStorage.removeItem(this.storageKey);
       sessionStorage.removeItem(this.storageKey);
@@ -154,34 +191,34 @@ class SecureTokenStorage {
   /**
    * Check if valid token exists
    */
-  hasValidToken(): boolean {
-    const data = this.getToken();
+  async hasValidToken(): Promise<boolean> {
+    const data = await this.getToken();
     return data !== null && data.expiresAt > Date.now();
   }
 
   /**
    * Get access token only
    */
-  getAccessToken(): string | null {
-    const data = this.getToken();
+  async getAccessToken(): Promise<string | null> {
+    const data = await this.getToken();
     return data?.token || null;
   }
 
   /**
    * Get refresh token only
    */
-  getRefreshToken(): string | null {
-    const data = this.getToken();
+  async getRefreshToken(): Promise<string | null> {
+    const data = await this.getToken();
     return data?.refreshToken || null;
   }
 
   /**
    * Update token with new expiration
    */
-  updateToken(token: string, expiresAt: number): void {
-    const currentData = this.getToken();
+  async updateToken(token: string, expiresAt: number): Promise<void> {
+    const currentData = await this.getToken();
     if (currentData) {
-      this.setToken({
+      await this.setToken({
         ...currentData,
         token,
         expiresAt,

@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { io, Socket } from "socket.io-client";
 import { useAuth } from "./AuthContext";
+import { secureTokenStorage } from "../lib/secureStorage";
 
 export interface StreamData {
   channel: string;
@@ -81,37 +82,59 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
 
     setConnectionStatus("connecting");
 
-    // Get auth token
-    const token = localStorage.getItem("auth_token");
+    // Get auth token from secure storage
+    const tokenData = secureTokenStorage.getAccessToken();
 
-    // Create socket connection
+    if (!tokenData) {
+      console.error("No authentication token available for WebSocket connection");
+      setConnectionStatus("error");
+      return;
+    }
+
+    // Create socket connection with secure authentication
     const newSocket = io(process.env.REACT_APP_WS_URL || "http://localhost:3001", {
       auth: {
-        token,
+        token: tokenData,
+        userId: user.id,
       },
       transports: ["websocket", "polling"],
       timeout: 5000,
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
+      // Add security headers
+      extraHeaders: {
+        "X-Auth-Token": tokenData,
+        "X-User-ID": user.id,
+      },
     });
 
     // Connection event handlers
     newSocket.on("connect", () => {
       setIsConnected(true);
       setConnectionStatus("connected");
-      console.log("WebSocket connected");
+      console.log("WebSocket connected securely");
     });
 
     newSocket.on("disconnect", (reason) => {
       setIsConnected(false);
       setConnectionStatus("disconnected");
       console.log("WebSocket disconnected:", reason);
+
+      // If disconnected due to authentication error, clear token
+      if (reason.toString().includes("auth") || reason.toString().includes("unauthorized")) {
+        secureTokenStorage.clearToken();
+      }
     });
 
     newSocket.on("connect_error", (error) => {
       setConnectionStatus("error");
       console.error("WebSocket connection error:", error);
+
+      // Handle authentication errors
+      if (error.message?.includes("auth") || error.message?.includes("unauthorized")) {
+        secureTokenStorage.clearToken();
+      }
     });
 
     // Data event handler
@@ -167,13 +190,21 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
         return () => {};
       }
 
+      // Validate channel name for security
+      if (!/^[a-zA-Z0-9_-]+$/.test(channel)) {
+        console.error("Invalid channel name:", channel);
+        return () => {};
+      }
+
       // Store callback
       setSubscriptions((prev) => new Map(prev.set(channel, callback)));
 
-      // Subscribe on server
+      // Subscribe on server with authentication
       socket.emit("subscribe", {
         channels: [channel],
         filters: {},
+        userId: user?.id,
+        timestamp: Date.now(),
       });
 
       // Return unsubscribe function
@@ -181,7 +212,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
         unsubscribe(channel);
       };
     },
-    [socket, isConnected]
+    [socket, isConnected, user]
   );
 
   const unsubscribe = useCallback(
@@ -195,12 +226,14 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
         return newSubs;
       });
 
-      // Unsubscribe on server
+      // Unsubscribe on server with authentication
       socket.emit("unsubscribe", {
         channels: [channel],
+        userId: user?.id,
+        timestamp: Date.now(),
       });
     },
-    [socket, isConnected]
+    [socket, isConnected, user]
   );
 
   const broadcastToChannel = useCallback(
@@ -210,13 +243,28 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
         return;
       }
 
+      // Validate channel name for security
+      if (!/^[a-zA-Z0-9_-]+$/.test(channel)) {
+        console.error("Invalid channel name for broadcast:", channel);
+        return;
+      }
+
+      // Validate data size to prevent abuse
+      const dataSize = JSON.stringify(data).length;
+      if (dataSize > 1024 * 1024) {
+        // 1MB limit
+        console.error("Data too large for broadcast:", dataSize);
+        return;
+      }
+
       socket.emit("broadcast", {
         channel,
         data,
         timestamp: Date.now(),
+        userId: user?.id,
       });
     },
-    [socket, isConnected]
+    [socket, isConnected, user]
   );
 
   const clearNotifications = useCallback(() => {

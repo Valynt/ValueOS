@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { secureTokenStorage } from "../lib/secureStorage";
 import { authRateLimiter } from "../lib/rateLimiter";
+import { csrfProtection } from "../lib/csrfProtection";
 
 export interface User {
   id: string;
@@ -60,6 +61,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Initialize CSRF protection
+    csrfProtection.initialize();
+
     let cancelled = false;
 
     // Check for existing session

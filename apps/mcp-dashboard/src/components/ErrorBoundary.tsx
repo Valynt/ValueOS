@@ -3,30 +3,58 @@ import React, { Component, ErrorInfo, ReactNode } from "react";
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
 interface State {
   hasError: boolean;
   error?: Error;
+  errorInfo?: ErrorInfo;
+  retryCount: number;
 }
 
 class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, retryCount: 0 };
   }
 
   static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+    return { hasError: true, error, retryCount: 0 };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log error without exposing sensitive information
     console.error("ErrorBoundary caught an error:", error.name);
+
+    // Call custom error handler if provided
+    if (this.props.onError) {
+      this.props.onError(error, errorInfo);
+    }
+
+    // Store error info for debugging
+    this.setState({ errorInfo });
   }
+
+  handleRetry = () => {
+    if (this.state.retryCount < 3) {
+      this.setState((prevState) => ({
+        hasError: false,
+        error: undefined,
+        errorInfo: undefined,
+        retryCount: prevState.retryCount + 1,
+      }));
+    }
+  };
 
   render() {
     if (this.state.hasError) {
+      // Check if it's an authentication-related error
+      const isAuthError =
+        this.state.error?.message?.toLowerCase().includes("auth") ||
+        this.state.error?.message?.toLowerCase().includes("token") ||
+        this.state.error?.message?.toLowerCase().includes("session");
+
       return (
         this.props.fallback || (
           <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -48,20 +76,53 @@ class ErrorBoundary extends Component<Props, State> {
                   </svg>
                 </div>
                 <div className="ml-3">
-                  <h3 className="text-sm font-medium text-gray-900">Something went wrong</h3>
+                  <h3 className="text-sm font-medium text-gray-900">
+                    {isAuthError ? "Authentication Error" : "Something went wrong"}
+                  </h3>
                 </div>
               </div>
               <div className="mt-2 text-sm text-gray-600">
-                <p>An unexpected error occurred. Please refresh the page and try again.</p>
+                <p>
+                  {isAuthError
+                    ? "There was an issue with authentication. Please try logging in again."
+                    : "An unexpected error occurred. Please refresh the page and try again."}
+                </p>
+                {this.state.retryCount > 0 && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Retry attempt {this.state.retryCount} of 3
+                  </p>
+                )}
               </div>
-              <div className="mt-4">
+              <div className="mt-4 flex space-x-3">
                 <button
                   type="button"
                   className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  onClick={this.handleRetry}
+                  disabled={this.state.retryCount >= 3}
+                >
+                  {this.state.retryCount >= 3 ? "Max Retries Reached" : "Try Again"}
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                   onClick={() => window.location.reload()}
                 >
                   Refresh Page
                 </button>
+                {isAuthError && (
+                  <button
+                    type="button"
+                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                    onClick={() => {
+                      // Clear auth data and redirect to login
+                      localStorage.clear();
+                      sessionStorage.clear();
+                      window.location.href = "/login";
+                    }}
+                  >
+                    Clear Session
+                  </button>
+                )}
               </div>
             </div>
           </div>
