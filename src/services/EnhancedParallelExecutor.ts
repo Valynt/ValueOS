@@ -531,6 +531,10 @@ export class EnhancedParallelExecutor {
    * Get execution statistics
    */
   getExecutionStats(): {
+    circuitBreakerStats: any;
+    contextStats: any;
+    sharedContextStats: any;
+  } {
     return {
       circuitBreakerStats: this.circuitBreakerManager.getAllCategoryStats(),
       contextStats: this.contextOptimizer.getOptimizationStats(),
@@ -549,7 +553,7 @@ export function createParallelTask(
   options: Partial<ParallelTask> = {}
 ): ParallelTask {
   return {
-    id: uuidv4(),
+    id: randomUUID(),
     agentType,
     query,
     priority: 'medium',
@@ -572,7 +576,7 @@ export function createParallelGroup(
   options: Partial<ParallelGroup> = {}
 ): ParallelGroup {
   return {
-    id: uuidv4(),
+    id: randomUUID(),
     name,
     tasks,
     executionStrategy: 'parallel',

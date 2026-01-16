@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Mic,
   Link as LinkIcon,
@@ -10,7 +10,6 @@ import {
   FileBox,
 } from "lucide-react";
 import { useNavigate, createSearchParams } from "react-router-dom";
-import { Input } from "@/components/Common/Input";
 import { Button } from "@/components/Common/Button";
 import { ActionCard } from "@/components/Common/ActionCard";
 
@@ -22,14 +21,32 @@ import { EmailAnalysisModal } from "@/components/Modals/EmailAnalysisModal";
 import { ResearchCompanyModal } from "@/components/Modals/ResearchCompanyModal";
 import { TemplateSelectorModal } from "@/components/Modals/TemplateSelectorModal";
 
+type ActiveModal =
+  | null
+  | "sales-call"
+  | "crm-import"
+  | "upload-notes"
+  | "email-analysis"
+  | "research"
+  | "template";
+
+type ActionId =
+  | "analyze-call"
+  | "import-crm"
+  | "upload-notes"
+  | "email-thread"
+  | "research-company"
+  | "template-selector"
+  | "new-case";
+
 export default function MissionControl() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [activeModal, setActiveModal] = useState<ActiveModal>(null);
 
-  // --- Handlers ---
+  const closeModal = () => setActiveModal(null);
 
-  const handleAction = (actionId: string) => {
+  const handleAction = (actionId: ActionId) => {
     switch (actionId) {
       case "analyze-call":
         setActiveModal("sales-call");
@@ -53,101 +70,97 @@ export default function MissionControl() {
         navigate("/canvas");
         break;
       default:
-        console.warn(`Unknown action: ${actionId}`);
+        // Exhaustiveness guard
+        ((_: never) => _)(actionId);
     }
   };
 
   const handleSearch = () => {
-    if (!searchQuery.trim()) return;
+    const q = searchQuery.trim();
+    if (!q) return;
     navigate({
       pathname: "/canvas",
-      search: createSearchParams({ q: searchQuery }).toString(),
+      search: createSearchParams({ q }).toString(),
     });
   };
 
-  const closeModal = () => setActiveModal(null);
-
-  // --- Completion Handlers (Mock logic for now - routing to Canvas) ---
-
-  const handleSalesCallComplete = (analysis: any) => {
-    console.log("Sales Call Analysis:", analysis);
+  // --- Completion Handlers (routing to Canvas) ---
+  const handleSalesCallComplete = (analysis: unknown) => {
     closeModal();
     navigate("/canvas", { state: { source: "sales-call", data: analysis } });
   };
 
-  const handleCRMImportComplete = (valueCase: any, deal: any) => {
-    console.log("CRM Import:", valueCase);
+  const handleCRMImportComplete = (valueCase: unknown, deal: unknown) => {
     closeModal();
-    navigate("/canvas", { state: { source: "crm", data: valueCase } });
+    navigate("/canvas", { state: { source: "crm", data: valueCase, deal } });
   };
 
-  const handleUploadComplete = (files: any) => {
-    console.log("Upload Complete:", files);
+  const handleUploadComplete = (files: unknown) => {
     closeModal();
     navigate("/canvas", { state: { source: "upload", data: files } });
   };
 
-  const handleEmailAnalysisComplete = (content: any) => {
-    console.log("Email Analysis:", content);
+  const handleEmailAnalysisComplete = (content: unknown) => {
     closeModal();
     navigate("/canvas", { state: { source: "email", data: content } });
   };
 
   const handleResearchComplete = (domain: string) => {
-    console.log("Researching:", domain);
     closeModal();
     navigate("/canvas", { state: { source: "research", domain } });
   };
 
   const handleTemplateSelect = (templateId: string) => {
-    console.log("Selected Template:", templateId);
     closeModal();
     navigate("/canvas", { state: { source: "template", templateId } });
   };
 
-  const actionCards = [
-    {
-      id: "analyze-call",
-      icon: <Mic className="w-8 h-8" />,
-      title: "Analyze Sales Call",
-      subtitle: "Evaluate performance and key moments from recordings.",
-    },
-    {
-      id: "import-crm",
-      icon: <LinkIcon className="w-8 h-8" />,
-      title: "Import from CRM",
-      subtitle: "Connect and sync your customer data from Salesforce/HubSpot.",
-    },
-    {
-      id: "upload-notes",
-      icon: <FileText className="w-8 h-8" />,
-      title: "Upload Notes",
-      subtitle: "Add existing documentation, PDFs, or text files.",
-    },
-    {
-      id: "email-thread",
-      icon: <Mail className="w-8 h-8" />,
-      title: "Email Thread",
-      subtitle: "Parse and organize communication chains for insights.",
-    },
-    {
-      id: "research-company",
-      icon: <Search className="w-8 h-8" />,
-      title: "Research Company",
-      subtitle: "Gather insights and background information from the web.",
-    },
-    {
-      id: "new-case",
-      icon: <Plus className="w-8 h-8" />,
-      title: "New Case",
-      subtitle: "Start a fresh project from scratch without templates.",
-    },
-  ];
+  const actionCards = useMemo(
+    () => [
+      {
+        id: "analyze-call" as const,
+        icon: <Mic className="w-8 h-8" />,
+        title: "Analyze Sales Call",
+        subtitle: "Evaluate performance and key moments from recordings.",
+      },
+      {
+        id: "import-crm" as const,
+        icon: <LinkIcon className="w-8 h-8" />,
+        title: "Import from CRM",
+        subtitle: "Connect and sync your customer data from Salesforce/HubSpot.",
+      },
+      {
+        id: "upload-notes" as const,
+        icon: <FileText className="w-8 h-8" />,
+        title: "Upload Notes",
+        subtitle: "Add existing documentation, PDFs, or text files.",
+      },
+      {
+        id: "email-thread" as const,
+        icon: <Mail className="w-8 h-8" />,
+        title: "Email Thread",
+        subtitle: "Parse and organize communication chains for insights.",
+      },
+      {
+        id: "research-company" as const,
+        icon: <Search className="w-8 h-8" />,
+        title: "Research Company",
+        subtitle: "Gather insights and background information from the web.",
+      },
+      {
+        id: "new-case" as const,
+        icon: <Plus className="w-8 h-8" />,
+        title: "New Case",
+        subtitle: "Start a fresh project from scratch without templates.",
+      },
+    ],
+    []
+  );
 
   return (
     <div className="min-h-screen bg-surface-1 flex flex-col items-center justify-center p-6 animate-in fade-in duration-500">
-      <div className="w-full max-w-3xl flex flex-col items-center space-y-8">
-        {/* Header Section */}
+      <div className="w-full max-w-5xl flex flex-col items-center space-y-8">
+        {/* Header */}
         <div className="text-center space-y-2">
           <h1 className="text-4xl font-bold tracking-tight text-foreground">
             Start Building Value
@@ -157,8 +170,8 @@ export default function MissionControl() {
           </p>
         </div>
 
-        {/* Large Prompt Input */}
-        <div className="w-full relative group">
+        {/* Prompt */}
+        <div className="w-full max-w-3xl relative group">
           <div className="absolute inset-0 bg-teal-500/20 rounded-xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
           <div className="relative bg-surface-2 border border-border group-hover:border-teal-500/50 rounded-xl shadow-lg transition-all duration-300 overflow-hidden flex flex-col h-48 focus-within:ring-2 focus-within:ring-teal-500/50">
             <textarea
@@ -180,6 +193,7 @@ export default function MissionControl() {
                 className="rounded-full w-10 h-10 p-0 flex items-center justify-center shadow-glow"
                 onClick={handleSearch}
                 disabled={!searchQuery.trim()}
+                aria-label="Run prompt"
               >
                 <ArrowRight className="w-5 h-5" />
               </Button>
@@ -187,8 +201,21 @@ export default function MissionControl() {
           </div>
         </div>
 
+        {/* Action Cards Grid (now actually used) */}
+        <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {actionCards.map((card) => (
+            <ActionCard
+              key={card.id}
+              icon={card.icon}
+              title={card.title}
+              subtitle={card.subtitle}
+              onClick={() => handleAction(card.id)}
+            />
+          ))}
+        </div>
+
         {/* Row 1: Primary Quick Actions */}
-        <div className="flex flex-wrap justify-center gap-4 w-full">
+        <div className="flex flex-wrap justify-center gap-4 w-full pt-2">
           <QuickActionButton
             icon={<Mic className="w-4 h-4" />}
             label="Analyze Sales Call"
@@ -287,7 +314,6 @@ export default function MissionControl() {
   );
 }
 
-// Mini helper for the Quick Action buttons
 const QuickActionButton = ({
   icon,
   label,
@@ -298,6 +324,7 @@ const QuickActionButton = ({
   onClick: () => void;
 }) => (
   <button
+    type="button"
     onClick={onClick}
     className="flex items-center gap-3 px-6 py-3 bg-surface-1 border border-border font-medium text-foreground rounded-full hover:bg-surface-2 hover:border-teal-500/50 hover:text-teal-400 transition-all duration-200 group shadow-sm hover:shadow-glow"
   >

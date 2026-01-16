@@ -61,11 +61,49 @@ export default defineConfig(function (_a) {
         plugins: [
             react(),
             {
-                name: "trpc-server",
+                name: "api-server",
                 configureServer: function (server) {
                     var _this = this;
+                    // OAuth callback handler
+                    server.middlewares.use("/api/oauth/callback", function (req, res, next) { return __awaiter(_this, void 0, void 0, function () {
+                        var url, code, state, oauthModule, result, error_1;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    _a.trys.push([0, 3, , 4]);
+url = new URL(req.url || '', "http://".concat(req.headers.host || 'localhost:5173'));
+                                    code = url.searchParams.get('code');
+                                    state = url.searchParams.get('state');
+                                    if (!code || !state) {
+                                        res.statusCode = 400;
+                                        res.end('Missing code or state parameter');
+                                        return [2 /*return*/];
+                                    }
+                                    return [4 /*yield*/, import("./src/data/_core/oauth")];
+                                case 1:
+                                    oauthModule = _a.sent();
+                                    return [4 /*yield*/, oauthModule.handleOAuthCallback(code, state, req, res)];
+                                case 2:
+                                    result = _a.sent();
+                                    // Redirect to appropriate page
+                                    res.statusCode = 302;
+                                    res.setHeader('Location', result.redirectUrl);
+                                    res.end();
+                                    return [3 /*break*/, 4];
+                                case 3:
+                                    error_1 = _a.sent();
+                                    console.error("OAuth callback error:", error_1);
+                                    res.statusCode = 302;
+                                    res.setHeader('Location', '/?error=oauth_error');
+                                    res.end();
+                                    return [3 /*break*/, 4];
+                                case 4: return [2 /*return*/];
+                            }
+                        });
+                    }); });
+                    // tRPC handler
                     server.middlewares.use("/api/trpc", function (req, res, next) { return __awaiter(_this, void 0, void 0, function () {
-                        var createHTTPHandler, routersModule, trpcModule_1, trpcHandler, error_1;
+                        var createHTTPHandler, routersModule, trpcModule_1, trpcHandler, error_2;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0:
@@ -73,7 +111,7 @@ export default defineConfig(function (_a) {
                                     return [4 /*yield*/, import("@trpc/server/adapters/standalone")];
                                 case 1:
                                     createHTTPHandler = (_a.sent()).createHTTPHandler;
-                                    return [4 /*yield*/, import("./src/data/routers")];
+                                    return [4 /*yield*/, import("./src/data/routers/index")];
                                 case 2:
                                     routersModule = _a.sent();
                                     return [4 /*yield*/, import("./src/data/_core/trpc")];
@@ -86,9 +124,9 @@ export default defineConfig(function (_a) {
                                     trpcHandler(req, res);
                                     return [3 /*break*/, 5];
                                 case 4:
-                                    error_1 = _a.sent();
-                                    console.error("tRPC handler error:", error_1);
-                                    next(error_1);
+                                    error_2 = _a.sent();
+                                    console.error("tRPC handler error:", error_2);
+                                    next(error_2);
                                     return [3 /*break*/, 5];
                                 case 5: return [2 /*return*/];
                             }

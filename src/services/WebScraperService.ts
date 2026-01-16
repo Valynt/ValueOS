@@ -1,4 +1,7 @@
 import { logger } from '../lib/logger';
+import * as cheerio from 'cheerio';
+import crypto from 'crypto';
+import { createClient } from '@supabase/supabase-js';
 
 export interface WebScraperResult {
   url: string;
@@ -9,32 +12,162 @@ export interface WebScraperResult {
 }
 
 export class WebScraperService {
+  private userAgent: string;
+  private requestTimes: Map<string, number[]> = new Map();
+  private maxRequestsPerMinute = 10; // Conservative limit per domain
+  private cache: Map<string, { result: WebScraperResult; timestamp: number }> = new Map();
+  private cacheTtlMs = 30 * 60 * 1000; // 30 minutes cache TTL
+  private redis: any | null = null;
+  private encryptionKey: string;
+  private dnsCache: Map<string, { ips: string[]; timestamp: number }> = new Map();
+  private dnsCacheTtlMs = 5 * 60 * 1000; // 5 minutes DNS cache TTL
+
+  constructor(userAgent = 'ValueCanvasBot/1.0 (+http://valuecanvas.com)', redisUrl?: string) {
+    this.userAgent = userAgent;
+    this.encryptionKey = process.env.WEB_SCRAPER_ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
+
+    // Initialize Redis for distributed rate limiting
+    if (redisUrl) {
+      try {
+        this.redis = createClient(redisUrl);
+        this.redis.on('error', (err: any) => logger.error('Redis connection error', { err }));
+      } catch (error) {
+        logger.warn('Failed to initialize Redis, falling back to in-memory rate limiting', { error });
+      }
+    }
+  }
   /**
    * Scrape a URL for its content
    */
-  async scrape(url: string): Promise<WebScraperResult | null> {
-    try {
-      // Start with initial URL
-      let currentUrl = url;
-      let redirectCount = 0;
-      const maxRedirects = 5;
+  async scrape(url: string, maxRetries = 3): Promise<WebScraperResult | null> {
+    // Check cache first
+    const cached = this.cache.get(url);
+    if (cached && Date.now() - cached.timestamp < this.cacheTtlMs) {
+      logger.debug('Returning cached result', { url });
+      return cached.result;
+    }
 
-      while (redirectCount <= maxRedirects) {
-        // Validate URL to prevent SSRF
-        if (!this.isSafeUrl(currentUrl)) {
-          logger.warn('Web scraping blocked for unsafe URL', { url: currentUrl });
-          return null;
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        // Start with initial URL
+        let currentUrl = url;
+        let redirectCount = 0;
+        const maxRedirects = 5;
+
+        while (redirectCount <= maxRedirects) {
+          // Validate URL to prevent SSRF
+          if (!(await this.isSafeUrl(currentUrl))) {
+            logger.warn('Web scraping blocked for unsafe URL', { url: currentUrl });
+            return null;
+          }
+
+          // Check rate limit before making request (distributed)
+          const hostname = new URL(currentUrl).hostname;
+          if (!(await this.checkRateLimit(hostname))) {
+            logger.warn('Rate limit exceeded for domain', {
+              hostname,
+              url: currentUrl,
+            });
+            throw new Error(`Rate limit exceeded for ${hostname}`);
+          }
+
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+          try {
+            // Use manual redirect handling to check every hop
+            const response = await fetch(currentUrl, {
+              method: 'GET',
+              headers: {
+                'User-Agent': this.userAgent,
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+              },
+              signal: controller.signal,
+              redirect: 'manual'
+            });
+
+            clearTimeout(timeoutId);
+
+            // Handle redirects manually
+            if (response.status >= 300 && response.status < 400) {
+              const location = response.headers.get('Location');
+              if (!location) {
+                throw new Error(`Redirect with no Location header (status ${response.status})`);
+              }
+
+              // Resolve relative URLs
+              try {
+                currentUrl = new URL(location, currentUrl).toString();
+              } catch (e) {
+                throw new Error(`Invalid redirect location: ${location}`);
+              }
+
+              redirectCount++;
+              continue;
+            }
+
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status} ${response.statusText}`);
+            }
+
+            // Validate content type
+            const contentType = response.headers.get('content-type') || '';
+            if (!contentType.includes('text/html') && !contentType.includes('application/xhtml')) {
+              throw new Error(`Invalid content type: ${contentType}`);
+            }
+
+            const html = await response.text();
+            const content = this.extractContent(html);
+
+            // Calculate relevance score based on content quality
+            const relevanceScore = this.calculateRelevanceScore(html, content);
+
+            const result = {
+              url: currentUrl,
+              title: content.title,
+              h1_tags: content.h1s,
+              main_content: content.text,
+              relevance_score: relevanceScore,
+            };
+
+            // Cache the result (encrypted if sensitive)
+            this.cache.set(url, { result, timestamp: Date.now() });
+
+            return result;
+          } catch (fetchError) {
+            clearTimeout(timeoutId);
+            throw fetchError;
+          }
         }
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+        throw new Error(`Too many redirects (max ${maxRedirects})`);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        logger.warn(`Web scraping attempt ${attempt + 1} failed`, {
+          url,
+          attempt: attempt + 1,
+          maxRetries,
+          error: lastError.message,
+        });
 
-        try {
-          // Use manual redirect handling to check every hop
-          const response = await fetch(currentUrl, {
-            method: 'GET',
-            headers: {
-              'User-Agent': 'ValueCanvasBot/1.0 (+http://valuecanvas.com)',
+        // Wait before retry (exponential backoff)
+        if (attempt < maxRetries) {
+          const delay = Math.min(1000 * Math.pow(2, attempt), 10000); // Max 10s delay
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    // All retries failed
+    logger.warn('Web scraping failed after all retries', {
+      url,
+      maxRetries,
+      finalError: lastError?.message,
+    });
+    return null;
+  }
               'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
             },
             signal: controller.signal,

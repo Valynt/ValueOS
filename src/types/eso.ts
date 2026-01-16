@@ -30,17 +30,17 @@ export type ESOIndustry =
 
 /**
  * Stakeholder personas with economic interests
+ * 8 core personas covering all major decision-making roles in B2B organizations
  */
 export type ESOPersona =
+  | "ceo"
   | "cfo"
   | "cio"
   | "cto"
   | "coo"
   | "vp_sales"
-  | "vp_ops"
-  | "vp_engineering"
-  | "director_finance"
-  | "data_analyst";
+  | "vp_marketing"
+  | "vp_engineering";
 
 /**
  * KPI improvement direction
@@ -182,15 +182,7 @@ export const ESOKPINodeSchema = z.object({
   ]),
   category: z.string(),
   dataType: z
-    .enum([
-      "currency",
-      "percentage",
-      "duration",
-      "float",
-      "ratio",
-      "index",
-      "count",
-    ])
+    .enum(["currency", "percentage", "duration", "float", "ratio", "index", "count"])
     .optional(),
   unit: z.string(),
   description: z.string(),
@@ -204,15 +196,14 @@ export const ESOKPINodeSchema = z.object({
 
 export const ESOPersonaValueMapSchema = z.object({
   persona: z.enum([
+    "ceo",
     "cfo",
     "cio",
     "cto",
     "coo",
     "vp_sales",
-    "vp_ops",
+    "vp_marketing",
     "vp_engineering",
-    "director_finance",
-    "data_analyst",
   ]),
   primaryPain: z.string(),
   painDescription: z.string(),
@@ -391,6 +382,206 @@ export const ESO_SEED_KPIS: ESOKPINode[] = [
       vintage: "2025",
     },
   },
+
+  // Marketing Metrics
+  {
+    id: "mkt_cac_ratio",
+    name: "Customer Acquisition Cost Ratio",
+    domain: "saas",
+    category: "Marketing",
+    unit: "ratio",
+    description: "Ratio of customer acquisition cost to customer lifetime value",
+    formulaString: "cac / clv",
+    dependencies: ["saas_cac"],
+    improvementDirection: "lower_is_better",
+    benchmarks: {
+      p25: 0.8,
+      p50: 0.5,
+      p75: 0.3,
+      worldClass: 0.1,
+      source: "Marketing Benchmarks",
+      vintage: "2025",
+    },
+    contextualFactors: ["Target: <0.5 for profitable customer acquisition"],
+    usage: "Key metric for marketing efficiency and ROI",
+  },
+  {
+    id: "mkt_lead_velocity",
+    name: "Lead Velocity Rate",
+    domain: "saas",
+    category: "Marketing",
+    unit: "percentage",
+    description: "Month-over-month growth rate of qualified leads",
+    dependencies: [],
+    improvementDirection: "higher_is_better",
+    benchmarks: {
+      p25: 10,
+      p50: 25,
+      p75: 50,
+      worldClass: 100,
+      source: "HubSpot Benchmarks",
+      vintage: "2025",
+    },
+    usage: "Indicates marketing momentum and sales pipeline health",
+  },
+  {
+    id: "mkt_brand_awareness",
+    name: "Brand Awareness Score",
+    domain: "saas",
+    category: "Marketing",
+    unit: "percentage",
+    description: "Percentage of target market aware of brand",
+    dependencies: [],
+    improvementDirection: "higher_is_better",
+    benchmarks: {
+      p25: 15,
+      p50: 30,
+      p75: 60,
+      worldClass: 85,
+      source: "Brand Analytics",
+      vintage: "2025",
+    },
+    usage: "Measures brand strength in target market",
+  },
+
+  // Engineering Metrics
+  {
+    id: "eng_deployment_freq",
+    name: "Deployment Frequency",
+    domain: "technology",
+    category: "Engineering",
+    unit: "deployments_per_day",
+    description: "Number of production deployments per day",
+    dependencies: [],
+    improvementDirection: "higher_is_better",
+    benchmarks: {
+      p25: 0.1,
+      p50: 1,
+      p75: 10,
+      worldClass: 50,
+      source: "DORA Metrics",
+      vintage: "2025",
+    },
+    contextualFactors: ["Elite performers deploy multiple times per day"],
+    usage: "Key DevOps metric for delivery speed",
+  },
+  {
+    id: "eng_change_failure_rate",
+    name: "Change Failure Rate",
+    domain: "technology",
+    category: "Engineering",
+    unit: "percentage",
+    description: "Percentage of deployments that fail or require remediation",
+    dependencies: [],
+    improvementDirection: "lower_is_better",
+    benchmarks: {
+      p25: 30,
+      p50: 15,
+      p75: 5,
+      worldClass: 0,
+      source: "DORA Metrics",
+      vintage: "2025",
+    },
+    usage: "Measures deployment quality and reliability",
+  },
+  {
+    id: "eng_mttr",
+    name: "Mean Time to Recovery",
+    domain: "technology",
+    category: "Engineering",
+    unit: "hours",
+    description: "Average time to recover from production incidents",
+    dependencies: [],
+    improvementDirection: "lower_is_better",
+    benchmarks: {
+      p25: 168, // 1 week
+      p50: 24, // 1 day
+      p75: 1, // 1 hour
+      worldClass: 0.1, // 6 minutes
+      source: "DORA Metrics",
+      vintage: "2025",
+    },
+    usage: "Measures system resilience and incident response",
+  },
+  {
+    id: "eng_cycle_time",
+    name: "Software Development Cycle Time",
+    domain: "technology",
+    category: "Engineering",
+    unit: "days",
+    description: "Average time from code commit to production deployment",
+    dependencies: [],
+    improvementDirection: "lower_is_better",
+    benchmarks: {
+      p25: 30,
+      p50: 14,
+      p75: 3,
+      worldClass: 1,
+      source: "Engineering Benchmarks",
+      vintage: "2025",
+    },
+    usage: "Measures development speed and agility",
+  },
+
+  // CEO-Level Business Metrics
+  {
+    id: "biz_revenue_growth",
+    name: "Revenue Growth Rate",
+    domain: "saas",
+    category: "Business",
+    unit: "percentage",
+    description: "Year-over-year revenue growth percentage",
+    dependencies: [],
+    improvementDirection: "higher_is_better",
+    benchmarks: {
+      p25: 10,
+      p50: 25,
+      p75: 50,
+      worldClass: 100,
+      source: "Public Company Data",
+      vintage: "2025",
+    },
+    contextualFactors: ["High-growth SaaS targets: 50%+ YoY growth"],
+    usage: "Primary business growth metric",
+  },
+  {
+    id: "biz_gross_margin",
+    name: "Gross Margin",
+    domain: "saas",
+    category: "Business",
+    unit: "percentage",
+    description: "Revenue minus cost of goods sold as percentage of revenue",
+    dependencies: [],
+    improvementDirection: "higher_is_better",
+    benchmarks: {
+      p25: 60,
+      p50: 75,
+      p75: 85,
+      worldClass: 90,
+      source: "Industry Benchmarks",
+      vintage: "2025",
+    },
+    usage: "Measures business profitability and pricing power",
+  },
+  {
+    id: "biz_customer_satisfaction",
+    name: "Customer Satisfaction Score",
+    domain: "saas",
+    category: "Business",
+    unit: "score",
+    description: "Average customer satisfaction rating (1-10 scale)",
+    dependencies: [],
+    improvementDirection: "higher_is_better",
+    benchmarks: {
+      p25: 7,
+      p50: 8,
+      p75: 9,
+      worldClass: 9.5,
+      source: "NPS Benchmarks",
+      vintage: "2025",
+    },
+    usage: "Measures customer experience and loyalty",
+  },
 ];
 
 // ============================================================================
@@ -399,58 +590,125 @@ export const ESO_SEED_KPIS: ESOKPINode[] = [
 
 export const ESO_SEED_PERSONA_MAPS: ESOPersonaValueMap[] = [
   {
-    persona: "cfo",
-    primaryPain: "Working Capital Friction",
+    persona: "ceo",
+    primaryPain: "Business Growth & Market Leadership",
     painDescription:
-      "Cash flow visibility and working capital optimization challenges",
-    keyKPIs: ["fin_dso", "fin_ap_cost", "saas_nrr"],
+      "Pressure to deliver consistent revenue growth while maintaining profitability and competitive advantage",
+    keyKPIs: ["biz_revenue_growth", "biz_gross_margin", "biz_customer_satisfaction", "saas_nrr"],
+    financialDriver: "ebitda_expansion",
+    typicalGoals: [
+      "Achieve 30%+ annual revenue growth",
+      "Maintain 80%+ gross margins",
+      "Lead market share in key segments",
+      "Deliver consistent EBITDA expansion",
+    ],
+    communicationPreference: "strategic",
+  },
+  {
+    persona: "cfo",
+    primaryPain: "Capital Efficiency & Cash Flow Optimization",
+    painDescription:
+      "Balancing growth investments with cash preservation and working capital management",
+    keyKPIs: ["fin_dso", "fin_ap_cost", "biz_gross_margin", "saas_nrr"],
     financialDriver: "fcf_improvement",
     typicalGoals: [
       "Reduce DSO by 10 days",
       "Improve cash conversion cycle",
-      "Optimize working capital",
+      "Optimize working capital efficiency",
+      "Maintain strong balance sheet ratios",
     ],
     communicationPreference: "strategic",
   },
   {
     persona: "cio",
-    primaryPain: "Technical Debt",
+    primaryPain: "Digital Transformation & Technology ROI",
     painDescription:
-      "Maintenance burden and integration complexity limiting innovation",
-    keyKPIs: ["fin_ap_cost"],
+      "Justifying technology investments while managing legacy systems and digital transformation complexity",
+    keyKPIs: ["fin_ap_cost", "eng_mttr", "biz_customer_satisfaction"],
     financialDriver: "cost_reduction",
     typicalGoals: [
-      "Reduce maintenance ratio",
-      "Improve system uptime",
-      "Decrease integration costs",
+      "Reduce IT operational costs by 15%",
+      "Improve system uptime to 99.9%",
+      "Accelerate digital transformation initiatives",
+      "Demonstrate clear technology ROI",
     ],
     communicationPreference: "technical",
   },
   {
-    persona: "vp_ops",
-    primaryPain: "Asset Downtime & Process Variability",
-    painDescription: "Equipment efficiency and process consistency challenges",
-    keyKPIs: ["mfg_oee", "mfg_throughput"],
+    persona: "cto",
+    primaryPain: "Innovation Velocity & Technical Excellence",
+    painDescription:
+      "Balancing rapid innovation with system reliability and technical debt management",
+    keyKPIs: ["eng_deployment_freq", "eng_change_failure_rate", "eng_cycle_time"],
     financialDriver: "productivity_gain",
     typicalGoals: [
-      "Achieve 85% OEE",
-      "Reduce cycle time by 15%",
-      "Minimize unplanned downtime",
+      "Increase deployment frequency to daily",
+      "Reduce change failure rate below 5%",
+      "Achieve world-class engineering metrics",
+      "Drive breakthrough product innovation",
+    ],
+    communicationPreference: "technical",
+  },
+  {
+    persona: "coo",
+    primaryPain: "Operational Scalability & Efficiency",
+    painDescription: "Scaling operations while maintaining quality and managing cost pressures",
+    keyKPIs: ["mfg_oee", "mfg_throughput", "fin_ap_cost"],
+    financialDriver: "productivity_gain",
+    typicalGoals: [
+      "Achieve 85%+ OEE across operations",
+      "Scale throughput by 25% YoY",
+      "Reduce operational costs by 10%",
+      "Improve process consistency",
     ],
     communicationPreference: "hybrid",
   },
   {
     persona: "vp_sales",
-    primaryPain: "Pipeline Volatility",
-    painDescription: "Inconsistent pipeline and deal velocity challenges",
-    keyKPIs: ["saas_cac", "saas_nrr"],
+    primaryPain: "Revenue Predictability & Growth Acceleration",
+    painDescription: "Inconsistent pipeline and sales velocity challenges in competitive markets",
+    keyKPIs: ["saas_cac", "saas_nrr", "mkt_lead_velocity"],
     financialDriver: "revenue_uplift",
     typicalGoals: [
-      "Improve win rate by 10%",
-      "Reduce sales cycle length",
-      "Increase deal size",
+      "Increase ARR growth rate to 40%+",
+      "Reduce CAC payback period to <12 months",
+      "Improve win rates by 15%",
+      "Expand market penetration",
     ],
     communicationPreference: "strategic",
+  },
+  {
+    persona: "vp_marketing",
+    primaryPain: "Demand Generation & Brand Equity",
+    painDescription: "Creating consistent demand while building brand strength in crowded markets",
+    keyKPIs: [
+      "mkt_cac_ratio",
+      "mkt_lead_velocity",
+      "mkt_brand_awareness",
+      "biz_customer_satisfaction",
+    ],
+    financialDriver: "revenue_uplift",
+    typicalGoals: [
+      "Improve CAC ratio to <0.5",
+      "Grow qualified leads by 50% YoY",
+      "Increase brand awareness by 25%",
+      "Enhance customer lifetime value",
+    ],
+    communicationPreference: "strategic",
+  },
+  {
+    persona: "vp_engineering",
+    primaryPain: "Product Delivery & Quality Balance",
+    painDescription: "Delivering high-quality products quickly while managing technical complexity",
+    keyKPIs: ["eng_deployment_freq", "eng_change_failure_rate", "eng_cycle_time", "eng_mttr"],
+    financialDriver: "productivity_gain",
+    typicalGoals: [
+      "Reduce development cycle time by 40%",
+      "Maintain <5% change failure rate",
+      "Achieve multiple daily deployments",
+      "Deliver products ahead of schedule",
+    ],
+    communicationPreference: "technical",
   },
 ];
 
@@ -516,9 +774,7 @@ export function getKPIsForPersona(persona: ESOPersona): ESOKPINode[] {
 /**
  * Get financial driver for a persona
  */
-export function getFinancialDriver(
-  persona: ESOPersona
-): FinancialDriver | undefined {
+export function getFinancialDriver(persona: ESOPersona): FinancialDriver | undefined {
   const map = ESO_SEED_PERSONA_MAPS.find((m) => m.persona === persona);
   return map?.financialDriver;
 }
@@ -554,13 +810,9 @@ export function checkBenchmarkAlignment(
   const isHigherBetter = kpi.improvementDirection === "higher_is_better";
 
   // Check if value exceeds reasonable bounds (proxy for 90th percentile)
-  const p90Estimate = isHigherBetter
-    ? p75 + (p75 - p50) * 0.5
-    : p25 - (p50 - p25) * 0.5;
+  const p90Estimate = isHigherBetter ? p75 + (p75 - p50) * 0.5 : p25 - (p50 - p25) * 0.5;
 
-  const exceeds90th = isHigherBetter
-    ? projectedValue > p90Estimate
-    : projectedValue < p90Estimate;
+  const exceeds90th = isHigherBetter ? projectedValue > p90Estimate : projectedValue < p90Estimate;
 
   if (exceeds90th) {
     return {
@@ -573,13 +825,11 @@ export function checkBenchmarkAlignment(
   // Determine which percentile the value falls into
   if (isHigherBetter) {
     if (projectedValue >= p75) return { aligned: true, percentile: "75th+" };
-    if (projectedValue >= p50)
-      return { aligned: true, percentile: "50th-75th" };
+    if (projectedValue >= p50) return { aligned: true, percentile: "50th-75th" };
     return { aligned: true, percentile: "<50th" };
   } else {
     if (projectedValue <= p75) return { aligned: true, percentile: "75th+" };
-    if (projectedValue <= p50)
-      return { aligned: true, percentile: "50th-75th" };
+    if (projectedValue <= p50) return { aligned: true, percentile: "50th-75th" };
     return { aligned: true, percentile: "<50th" };
   }
 }

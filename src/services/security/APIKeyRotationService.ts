@@ -8,6 +8,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 import { auditLogService } from "../AuditLogService";
+import { fetch } from 'undici';
 
 export interface APIKeyRotationConfig {
   provider: "openai" | "anthropic" | "supabase" | "aws-iam" | "together_ai";
@@ -439,14 +440,12 @@ export class APIKeyRotationService {
   private async generateNewTogetherAIKey(): Promise<string> {
     // Together.ai currently requires manual key generation via dashboard
     // This is a semi-automated approach that notifies admins
-    
+
     // Future: If Together.ai adds key management API, implement programmatic generation
     // const response = await fetch('https://api.together.ai/v1/keys', {
     //   method: 'POST',
     //   headers: {
-    //     '
-
-Authorization': `Bearer ${process.env.TOGETHER_ADMIN_KEY}`,
+    //     'Authorization': `Bearer ${process.env.TOGETHER_ADMIN_KEY}`,
     //     'Content-Type': 'application/json',
     //   },
     //   body: JSON.stringify({
@@ -454,7 +453,7 @@ Authorization': `Bearer ${process.env.TOGETHER_ADMIN_KEY}`,
     //     scopes: ['inference'],
     //   }),
     // });
-    
+
     // For now: Notify admins to manually generate key
     await this.notifyAdmins({
       type: 'MANUAL_KEY_GENERATION_REQUIRED',
@@ -470,7 +469,7 @@ Authorization': `Bearer ${process.env.TOGETHER_ADMIN_KEY}`,
       ],
       dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
     });
-    
+
     // Return placeholder - actual key will be updated in vault manually
     // The system will poll for the new key
     throw new Error('Manual key generation required - admin notification sent');
@@ -499,7 +498,7 @@ Authorization': `Bearer ${process.env.TOGETHER_ADMIN_KEY}`,
 
   private async retireTogetherAIKey(): Promise<void> {
     logger.info('Retiring old Together.ai API key');
-    
+
     // Together.ai requires manual key revocation
     await this.notifyAdmins({
       type: 'MANUAL_KEY_REVOCATION_REQUIRED',

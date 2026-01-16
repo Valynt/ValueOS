@@ -1,5 +1,11 @@
-import { logger } from "../lib/logger";
+import { logger } from "../lib/logger.js";
 import * as cheerio from "cheerio";
+import crypto from "crypto";
+import { createClient } from "@supabase/supabase-js";
+import { promisify } from "util";
+import { resolve } from "dns";
+
+const resolveAsync = promisify(resolve);
 
 export interface WebScraperResult {
   url: string;
@@ -13,13 +19,31 @@ export class WebScraperService {
   private userAgent: string;
   private requestTimes: Map<string, number[]> = new Map();
   private maxRequestsPerMinute = 10; // Conservative limit per domain
-  private cache: Map<string, { result: WebScraperResult; timestamp: number }> =
-    new Map();
+  private cache: Map<string, { result: WebScraperResult; timestamp: number }> = new Map();
   private cacheTtlMs = 30 * 60 * 1000; // 30 minutes cache TTL
+  private redis: any | null = null;
+  private encryptionKey: string;
+  private dnsCache: Map<string, { ips: string[]; timestamp: number }> = new Map();
+  private dnsCacheTtlMs = 5 * 60 * 1000; // 5 minutes DNS cache TTL
 
-  constructor(userAgent = "ValueCanvasBot/1.0 (+http://valuecanvas.com)") {
+  constructor(userAgent = "ValueCanvasBot/1.0 (+http://valuecanvas.com)", redisUrl?: string) {
     this.userAgent = userAgent;
+    this.encryptionKey =
+      process.env.WEB_SCRAPER_ENCRYPTION_KEY || crypto.randomBytes(32).toString("hex");
+
+    // Initialize Redis for distributed rate limiting
+    if (redisUrl) {
+      try {
+        this.redis = createClient({ url: redisUrl });
+        this.redis.on("error", (err: any) => logger.error("Redis connection error", { err }));
+      } catch (error) {
+        logger.warn("Failed to initialize Redis, falling back to in-memory rate limiting", {
+          error,
+        });
+      }
+    }
   }
+
   /**
    * Scrape a URL for its content
    */
@@ -27,31 +51,29 @@ export class WebScraperService {
     // Check cache first
     const cached = this.cache.get(url);
     if (cached && Date.now() - cached.timestamp < this.cacheTtlMs) {
-      logger.debug("Returning cached result", { url });
+      logger.debug("Web scraper cache hit", { url });
       return cached.result;
     }
 
+    let currentUrl = url;
+    let redirectCount = 0;
+    const maxRedirects = 5;
     let lastError: Error | null = null;
 
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        // Start with initial URL
-        let currentUrl = url;
-        let redirectCount = 0;
-        const maxRedirects = 5;
-
         while (redirectCount <= maxRedirects) {
           // Validate URL to prevent SSRF
-          if (!this.isSafeUrl(currentUrl)) {
+          if (!(await this.isSafeUrl(currentUrl))) {
             logger.warn("Web scraping blocked for unsafe URL", {
               url: currentUrl,
             });
             return null;
           }
 
-          // Check rate limit before making request
+          // Check rate limit before making request (distributed)
           const hostname = new URL(currentUrl).hostname;
-          if (!this.checkRateLimit(hostname)) {
+          if (!(await this.checkRateLimit(hostname))) {
             logger.warn("Rate limit exceeded for domain", {
               hostname,
               url: currentUrl,
@@ -79,291 +101,322 @@ export class WebScraperService {
 
             // Handle redirects manually
             if (response.status >= 300 && response.status < 400) {
-              const location = response.headers.get("Location");
+              const location = response.headers.get("location");
               if (!location) {
-                throw new Error(
-                  `Redirect with no Location header (status ${response.status})`
-                );
+                throw new Error(`Redirect response missing location header`);
               }
 
-              // Resolve relative URLs
-              try {
-                currentUrl = new URL(location, currentUrl).toString();
-              } catch (e) {
-                throw new Error(`Invalid redirect location: ${location}`);
-              }
-
+              currentUrl = new URL(location, currentUrl).toString();
               redirectCount++;
               continue;
             }
 
             if (!response.ok) {
-              throw new Error(`HTTP ${response.status} ${response.statusText}`);
-            }
-
-            // Validate content type
-            const contentType = response.headers.get("content-type") || "";
-            if (
-              !contentType.includes("text/html") &&
-              !contentType.includes("application/xhtml")
-            ) {
-              throw new Error(`Invalid content type: ${contentType}`);
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
             const html = await response.text();
-            const content = this.extractContent(html);
-
-            // Calculate relevance score based on content quality
-            const relevanceScore = this.calculateRelevanceScore(html, content);
-
-            const result = {
-              url: currentUrl,
-              title: content.title,
-              h1_tags: content.h1s,
-              main_content: content.text,
-              relevance_score: relevanceScore,
-            };
+            const result = await this.extractContent(html, currentUrl);
 
             // Cache the result
-            this.cache.set(url, { result, timestamp: Date.now() });
+            this.cache.set(url, {
+              result,
+              timestamp: Date.now(),
+            });
 
             return result;
-          } catch (fetchError) {
+          } catch (error) {
             clearTimeout(timeoutId);
-            throw fetchError;
+            throw error;
           }
         }
 
-        throw new Error(`Too many redirects (max ${maxRedirects})`);
+        throw new Error(`Too many redirects (${redirectCount}) for ${url}`);
       } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        logger.warn(`Web scraping attempt ${attempt + 1} failed`, {
+        lastError = error as Error;
+        logger.warn(`Web scraping attempt ${attempt} failed`, {
           url,
-          attempt: attempt + 1,
+          attempt,
           maxRetries,
-          error: lastError.message,
+          error: (error as Error).message,
         });
 
-        // Wait before retry (exponential backoff)
         if (attempt < maxRetries) {
-          const delay = Math.min(1000 * Math.pow(2, attempt), 10000); // Max 10s delay
+          // Exponential backoff with jitter
+          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
           await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
     }
 
-    // All retries failed
-    logger.warn("Web scraping failed after all retries", {
+    logger.error("Web scraping failed after all retries", {
       url,
       maxRetries,
-      finalError: lastError?.message,
+      error: lastError?.message,
     });
+
     return null;
   }
 
-  private isSafeUrl(urlString: string): boolean {
+  /**
+   * Check rate limit for a hostname
+   */
+  private async checkRateLimit(hostname: string): Promise<boolean> {
+    const now = Date.now();
+    const windowStart = now - 60000; // 1 minute window
+
+    // Check Redis first if available
+    if (this.redis) {
+      try {
+        const key = `rate_limit:${hostname}`;
+        const count = await this.redis.incr(key);
+        if (count === 1) {
+          await this.redis.expire(key, 60); // Set 60 second TTL
+        }
+        return count <= this.maxRequestsPerMinute;
+      } catch (error) {
+        logger.warn("Redis rate limit check failed, falling back to memory", { error });
+      }
+    }
+
+    // Fallback to in-memory rate limiting
+    const requests = this.requestTimes.get(hostname) || [];
+    const validRequests = requests.filter((time) => time >= windowStart);
+
+    if (validRequests.length >= this.maxRequestsPerMinute) {
+      return false;
+    }
+
+    validRequests.push(now);
+    this.requestTimes.set(hostname, validRequests);
+    return true;
+  }
+
+  /**
+   * Extract content from HTML
+   */
+  private async extractContent(html: string, url: string): Promise<WebScraperResult> {
+    const $ = cheerio.load(html);
+
+    // Extract title
+    const title = $("title").text().trim() || $("h1").first().text().trim() || "";
+
+    // Extract H1 tags
+    const h1Tags: string[] = [];
+    $("h1").each((_, element) => {
+      const text = $(element).text().trim();
+      if (text) h1Tags.push(text);
+    });
+
+    // Extract main content
+    let mainContent = "";
+
+    // Try to find main content area
+    const mainSelectors = [
+      "main",
+      "article",
+      '[role="main"]',
+      ".content",
+      ".main-content",
+      "#content",
+      "#main",
+    ];
+
+    for (const selector of mainSelectors) {
+      const element = $(selector);
+      if (element.length > 0) {
+        // Remove unwanted elements
+        element.find("script, style, nav, header, footer, aside, .ads, .advertisement").remove();
+        mainContent = element.text().trim();
+        break;
+      }
+    }
+
+    // Fallback to body if no main content found
+    if (!mainContent) {
+      $("script, style, nav, header, footer, aside, .ads, .advertisement").remove();
+      mainContent = $("body").text().trim();
+    }
+
+    // Clean up content
+    mainContent = mainContent
+      .replace(/\s+/g, " ")
+      .replace(/\n\s*\n/g, "\n")
+      .substring(0, 5000); // Limit to first 5000 chars
+
+    // Calculate relevance score based on content quality
+    const relevanceScore = this.calculateRelevanceScore(title, mainContent, h1Tags);
+
+    return {
+      url,
+      title,
+      h1_tags: h1Tags,
+      main_content: mainContent,
+      relevance_score: relevanceScore,
+    };
+  }
+
+  /**
+   * Calculate relevance score for extracted content
+   */
+  private calculateRelevanceScore(title: string, content: string, h1Tags: string[]): number {
+    let score = 0;
+
+    // Title quality (30%)
+    if (title.length > 10 && title.length < 100) score += 30;
+    else if (title.length > 5) score += 15;
+
+    // Content length (25%)
+    if (content.length > 500) score += 25;
+    else if (content.length > 200) score += 15;
+    else if (content.length > 50) score += 5;
+
+    // H1 tags presence (20%)
+    if (h1Tags.length > 0 && h1Tags.length <= 3) score += 20;
+    else if (h1Tags.length > 0) score += 10;
+
+    // Content indicators (25%)
+    const contentIndicators = [
+      /\b(the|and|or|but|in|on|at|to|for|of|with|by)\b/gi, // Common words
+      /\b\d{4}\b/, // Years
+      /\$?\d+(,\d{3})*(\.\d{2})?/, // Numbers/currency
+      /\b[A-Z][a-z]+ [A-Z][a-z]+\b/, // Proper names
+    ];
+
+    let indicatorCount = 0;
+    contentIndicators.forEach((pattern) => {
+      if (pattern.test(content)) indicatorCount++;
+    });
+
+    if (indicatorCount >= 3) score += 25;
+    else if (indicatorCount >= 2) score += 15;
+    else if (indicatorCount >= 1) score += 5;
+
+    return Math.min(100, score);
+  }
+
+  /**
+   * Check if URL is safe to scrape (SSRF protection)
+   */
+  private async isSafeUrl(urlString: string): Promise<boolean> {
     try {
       const url = new URL(urlString);
 
-      // Block non-http protocols
+      // Only allow HTTP and HTTPS
       if (!["http:", "https:"].includes(url.protocol)) {
         return false;
       }
 
-      const hostname = url.hostname.toLowerCase();
+      // Block localhost and private IPs
+      const hostname = url.hostname;
 
-      // 1. Block localhost and specific local domains
-      if (
-        hostname === "localhost" ||
-        hostname.endsWith(".local") ||
-        hostname.endsWith(".localhost")
-      ) {
-        return false;
+      // Check for localhost variants
+      if (this.isIpLike(hostname)) {
+        const ips = await this.resolveAndCheckIP(hostname);
+        if (!ips) return false;
+
+        // Check if any resolved IP is private
+        for (const ip of ips) {
+          if (this.isPrivateIP(ip)) {
+            logger.warn("Blocked request to private IP", { hostname, privateIPs: ips });
+            return false;
+          }
+        }
       }
 
-      // 2. IPv6 Checks
-      // Block ALL IPv6 literals.
-      // Parsing IPv6 robustly without a library is error-prone.
-      // Safe default: disallow direct IPv6 access (use domain names instead).
-      if (hostname.startsWith("[") || hostname.includes(":")) {
-        // Simple check for colon in hostname often indicates IPv6 literal (unbracketed in some contexts) or port?
-        // URL.hostname usually strips port. If it has colon, it's IPv6.
-        // But [::1] -> hostname is "[::1]" or "::1"?
-        // In Node URL parser, brackets are kept in hostname for IPv6?
-        // Let's verify: new URL('http://[::1]').hostname === '[::1]' in some envs, '::1' in others.
-        // Safest is to block if it contains colon.
+      // Block common private hostnames
+      const blockedHosts = ["localhost", "127.0.0.1", "0.0.0.0", "::1"];
+
+      if (blockedHosts.includes(hostname.toLowerCase())) {
         return false;
-      }
-
-      // 3. IPv4 Checks
-      // Check if hostname looks like an IP (starts with digit, or contains likely IP chars)
-      // We block integer-only hostnames (http://2130706433) and hex/octal (http://0x7f...)
-      const isIpLike = /^(\d+|0x[0-9a-f]+|0[0-7]+)(?:\.|$)/i.test(hostname);
-
-      if (isIpLike) {
-        // If it's an IP, we apply strict checks.
-
-        // Block Integer IPs (no dots) - e.g. http://2130706433
-        if (!hostname.includes(".")) return false;
-
-        // Block Hex/Octal formats to prevent bypass
-        // Valid IPs should be decimal dot notation: d.d.d.d
-        const parts = hostname.split(".");
-        // If any part looks like hex (0x) or octal (leading 0 but not just '0'), block it.
-        if (
-          parts.some(
-            (p) => p.startsWith("0x") || (p.startsWith("0") && p.length > 1)
-          )
-        ) {
-          return false;
-        }
-
-        // Check Private Ranges
-        // 127.0.0.0/8
-        if (hostname.startsWith("127.")) return false;
-        // 10.0.0.0/8
-        if (hostname.startsWith("10.")) return false;
-        // 192.168.0.0/16
-        if (hostname.startsWith("192.168.")) return false;
-        // 169.254.0.0/16 (Link Local / Cloud Metadata)
-        if (hostname.startsWith("169.254.")) return false;
-        // 0.0.0.0/8
-        if (hostname.startsWith("0.")) return false;
-
-        // 172.16.0.0/12
-        if (hostname.startsWith("172.")) {
-          const secondOctet = parseInt(parts[1], 10);
-          if (secondOctet >= 16 && secondOctet <= 31) return false;
-        }
       }
 
       return true;
-    } catch {
-      return false;
+    } catch (error) {
+      logger.warn("DNS resolution failed, allowing request", {
+        url: urlString,
+        error: (error as Error).message,
+      });
+      return true; // Allow if we can't verify
     }
   }
 
   /**
-   * Extract structured content from HTML using Cheerio
-   * More reliable than regex for complex HTML structures
+   * Check if hostname looks like an IP address
    */
-  private extractContent(html: string): {
-    title: string;
-    h1s: string[];
-    text: string;
+  private isIpLike(hostname: string): boolean {
+    return /^\d+\.\d+\.\d+\.\d+$/.test(hostname) || hostname.includes(":");
+  }
+
+  /**
+   * Resolve hostname and check IPs
+   */
+  private async resolveAndCheckIP(hostname: string): Promise<string[] | null> {
+    try {
+      // Check DNS cache first
+      const cached = this.dnsCache.get(hostname);
+      if (cached && Date.now() - cached.timestamp < this.dnsCacheTtlMs) {
+        return cached.ips;
+      }
+
+      const ips = await resolveAsync(hostname);
+
+      // Cache the result
+      this.dnsCache.set(hostname, {
+        ips,
+        timestamp: Date.now(),
+      });
+
+      return ips;
+    } catch (error) {
+      logger.warn("DNS resolution failed", { hostname, error: (error as Error).message });
+      return null;
+    }
+  }
+
+  /**
+   * Check if IP address is private
+   */
+  private isPrivateIP(ip: string): boolean {
+    // IPv4 private ranges
+    const ipv4Private = [
+      /^10\./,
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
+      /^192\.168\./,
+      /^127\./,
+      /^169\.254\./, // Link-local
+    ];
+
+    // IPv6 private ranges
+    const ipv6Private = [/^::1$/, /^fc00:/, /^fe80:/];
+
+    return (
+      ipv4Private.some((pattern) => pattern.test(ip)) ||
+      ipv6Private.some((pattern) => pattern.test(ip))
+    );
+  }
+
+  /**
+   * Clear cache (useful for testing)
+   */
+  clearCache(): void {
+    this.cache.clear();
+    this.requestTimes.clear();
+    this.dnsCache.clear();
+  }
+
+  /**
+   * Get cache statistics
+   */
+  getCacheStats(): {
+    cacheSize: number;
+    rateLimitEntries: number;
+    dnsCacheEntries: number;
   } {
-    const $ = cheerio.load(html);
-
-    // 1. Extract Title
-    const title = $("title").first().text().trim() || "";
-
-    // 2. Extract H1s
-    const h1s: string[] = [];
-    $("h1").each((_, element) => {
-      const h1Text = $(element).text().trim();
-      if (h1Text) {
-        h1s.push(h1Text);
-      }
-    });
-
-    // 3. Extract Main Content
-    // Remove script, style, nav, footer, and other non-content elements
-    $(
-      "script, style, svg, head, noscript, iframe, nav, footer, aside, .sidebar, .navigation, .menu, .footer, .ads, .advertisement"
-    ).remove();
-
-    // Get text content from body or main content areas
-    let text =
-      $("body").text() ||
-      $("main").text() ||
-      $("article").text() ||
-      $.root().text();
-
-    // Clean up whitespace
-    text = this.cleanText(text);
-
-    return { title, h1s, text };
-  }
-
-  private checkRateLimit(hostname: string): boolean {
-    const now = Date.now();
-    const windowMs = 60 * 1000; // 1 minute window
-    const times = this.requestTimes.get(hostname) || [];
-
-    // Remove requests outside the window
-    const validTimes = times.filter((time) => now - time < windowMs);
-
-    // Periodic cleanup: remove stale entries from other domains
-    // Run cleanup every 100 requests to avoid overhead
-    if (this.requestTimes.size > 50) {
-      for (const [domain, timestamps] of this.requestTimes.entries()) {
-        const activeTimes = timestamps.filter((t) => now - t < windowMs);
-        if (activeTimes.length === 0) {
-          this.requestTimes.delete(domain);
-        } else if (activeTimes.length !== timestamps.length) {
-          this.requestTimes.set(domain, activeTimes);
-        }
-      }
-    }
-
-    // Check if we're within limits
-    if (validTimes.length >= this.maxRequestsPerMinute) {
-      return false;
-    }
-
-    // Add current request
-    validTimes.push(now);
-    this.requestTimes.set(hostname, validTimes);
-
-    return true;
-  }
-
-  private calculateRelevanceScore(
-    html: string,
-    content: { title: string; h1s: string[]; text: string }
-  ): number {
-    let score = 0.5; // Base score
-
-    // Title presence and quality (0.2 points)
-    if (content.title && content.title.length > 10) {
-      score += 0.2;
-    }
-
-    // H1 tags presence (0.1 points)
-    if (content.h1s.length > 0) {
-      score += 0.1;
-    }
-
-    // Content length (0.2 points max)
-    const textLength = content.text.length;
-    if (textLength > 100) score += 0.1;
-    if (textLength > 500) score += 0.1;
-
-    // Text-to-HTML ratio (content density) (0.1 points)
-    const textRatio = textLength / html.length;
-    if (textRatio > 0.1) score += 0.1; // Good content density
-
-    // Cap at 1.0
-    return Math.min(1.0, score);
-  }
-
-  private cleanText(text: string): string {
-    if (!text) return "";
-
-    // Decode basic entities (very basic set)
-    let cleaned = text
-      .replace(/&nbsp;/g, " ")
-      .replace(/&amp;/g, "&")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'");
-
-    // Normalize whitespace
-    cleaned = cleaned.replace(/\s+/g, " ").trim();
-
-    return cleaned;
+    return {
+      cacheSize: this.cache.size,
+      rateLimitEntries: this.requestTimes.size,
+      dnsCacheEntries: this.dnsCache.size,
+    };
   }
 }
-
-export const webScraperService = new WebScraperService();

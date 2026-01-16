@@ -179,15 +179,26 @@ export class IntegrityValidationService {
       return result;
 
     } catch (error) {
-      logger.error('Failed to parse structural response', 'Parse error', {
+      logger.error('Failed to validate integrity', error instanceof Error ? error : undefined, {
         traceId: request.traceId,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
+
       return {
-        hallucinatedComponents: [],
-        structurallyConsistent: false,
-        inconsistencyReason: 'Parse error',
-        confidence: 0.5,
+        valid: false,
+        overallScore: 0.3,
+        checks: [{
+          type: CheckType.DATA_INTEGRITY,
+          status: 'fail' as const,
+          score: 0.3,
+          details: 'Validation failed due to system error',
+        }],
+        violations: [{
+          type: CheckType.DATA_INTEGRITY,
+          severity: 'critical' as const,
+          description: 'System error during validation',
+          impact: 'Cannot validate content integrity',
+          remediation: 'Retry validation or check system logs',
         }],
         recommendations: ['Retry validation', 'Check system logs'],
         validatedAt: new Date(),
@@ -614,7 +625,7 @@ export class IntegrityValidationService {
 
     // Check sections
     if (page.sections) {
-      page.sections.forEach((section, index) => {
+      page.sections.forEach((section: any, index: number) => {
         if (!section.type) {
           errors.push(`Section ${index}: Type is required`);
           score -= 0.1;

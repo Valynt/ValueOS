@@ -1,13 +1,13 @@
 /**
  * Comprehensive Audit Trail System
- * 
+ *
  * Provides full traceability for all business case generation activities:
  * - Immutable audit logs
  * - Compliance tracking
  * - Data provenance
  * - Regulatory reporting
  * - Tamper-evident records
- * 
+ *
  * Part of Phase 3 - Integration & Business Case Generation
  */
 
@@ -18,7 +18,7 @@ import { createHash, randomUUID } from 'crypto';
 // ============================================================================
 
 export type AuditLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'CRITICAL';
-export type AuditCategory = 
+export type AuditCategory =
   | 'VALIDATION'
   | 'CALCULATION'
   | 'DECISION'
@@ -155,7 +155,7 @@ export class AuditTrailManager {
 
     const timestamp = new Date().toISOString();
     const previousHash = this.entries.length > 0 ? this.entries[this.entries.length - 1].hash : 'GENESIS';
-    
+
     const auditEntry: AuditEntry = {
       id: randomUUID(),
       timestamp,
@@ -256,7 +256,7 @@ export class AuditTrailManager {
    */
   getStats(filter: AuditQuery = {}): AuditStats {
     const entries = this.query(filter);
-    
+
     const stats: AuditStats = {
       totalEntries: entries.length,
       byLevel: { DEBUG: 0, INFO: 0, WARN: 0, ERROR: 0, CRITICAL: 0 },
@@ -277,16 +277,16 @@ export class AuditTrailManager {
     for (const entry of entries) {
       // Count by level
       stats.byLevel[entry.level]++;
-      
+
       // Count by category
       stats.byCategory[entry.category]++;
-      
+
       // Count by component
       stats.byComponent[entry.component] = (stats.byComponent[entry.component] || 0) + 1;
-      
+
       // Accumulate confidence
       totalConfidence += entry.confidence;
-      
+
       // Count errors
       if (entry.level === 'ERROR' || entry.level === 'CRITICAL') {
         errorCount++;
@@ -296,7 +296,7 @@ export class AuditTrailManager {
 
     stats.averageConfidence = entries.length > 0 ? totalConfidence / entries.length : 0;
     stats.errorRate = entries.length > 0 ? errorCount / entries.length : 0;
-    
+
     // Compliance score (0-100)
     const criticalPenalty = criticalCount * 10;
     const errorPenalty = errorCount * 2;
@@ -311,7 +311,7 @@ export class AuditTrailManager {
    */
   generateComplianceReport(startTime: string, endTime: string): ComplianceReport {
     const entries = this.query({ startTime, endTime });
-    
+
     const violations: Violation[] = [];
     let compliantOperations = 0;
 
@@ -358,15 +358,15 @@ export class AuditTrailManager {
 
     // Generate recommendations
     const recommendations: string[] = [];
-    
+
     if (violations.some(v => v.type === 'LOW_CONFIDENCE')) {
       recommendations.push('Improve data quality and source reliability');
     }
-    
+
     if (violations.some(v => v.type === 'INVALID_CALCULATION')) {
       recommendations.push('Review calculation logic and validation rules');
     }
-    
+
     if (violations.some(v => v.type === 'MISSING_DATA')) {
       recommendations.push('Implement data collection for missing KPIs');
     }
@@ -396,7 +396,7 @@ export class AuditTrailManager {
 
     for (let i = 0; i < this.entries.length; i++) {
       const entry = this.entries[i];
-      
+
       // Verify hash chain
       if (i > 0) {
         const expectedPreviousHash = this.entries[i - 1].hash;
@@ -525,17 +525,17 @@ export class AuditTrailManager {
 
   private sanitizeData(data: any): any {
     if (data === null || data === undefined) return {};
-    
+
     // Remove sensitive data
     const sensitiveKeys = ['password', 'token', 'secret', 'apiKey', 'privateKey'];
-    
+
     const sanitize = (obj: any): any => {
       if (typeof obj !== 'object' || obj === null) return obj;
-      
+
       if (Array.isArray(obj)) {
         return obj.map(sanitize);
       }
-      
+
       const result: any = {};
       for (const [key, value] of Object.entries(obj)) {
         if (sensitiveKeys.some(sk => key.toLowerCase().includes(sk))) {
@@ -556,11 +556,11 @@ export class AuditTrailManager {
   }
 
   private escapeXml(text: string): string {
-    return text.replace(/&/g, '&')
-               .replace(/</g, '<')
-               .replace(/>/g, '>')
-               .replace(/"/g, '"')
-               .replace(/'/g, ''');
+    return text.replace(/&/g, '&amp;')
+               .replace(/</g, '&lt;')
+               .replace(/>/g, '&gt;')
+               .replace(/"/g, '&quot;')
+               .replace(/'/g, '&#39;');
   }
 
   private emitAuditEvent(entry: AuditEntry): void {
@@ -574,7 +574,7 @@ export class AuditTrailManager {
   private ensureStorageDirectory(): void {
     const fs = require('fs');
     const path = require('path');
-    
+
     const dir = path.resolve(this.storagePath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
