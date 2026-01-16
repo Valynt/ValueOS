@@ -82,7 +82,7 @@ export function CaseWorkspace() {
 
   // Agent stream hook - handles both mock and real API
   const { sendMessage: sendAgentMessage } = useAgentStream({
-    useMock: true, // Set to false to use real API
+    useMock: false, // Using real Together AI API
     companyName: 'Acme Corp',
   });
 

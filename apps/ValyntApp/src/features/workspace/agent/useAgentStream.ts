@@ -93,11 +93,7 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): AgentStream
   }, [companyName, messages.length, processEvent, startRun, onComplete, onError]);
 
   /**
-   * Send message using real API
-   * 
-   * Note: Real API integration requires the AgentOrchestratorAdapter
-   * to be available in the ValyntApp bundle. For now, this falls back
-   * to mock when the real API is not available.
+   * Send message using real LLM API via Together.ai
    */
   const sendWithRealAPI = useCallback(async (message: string) => {
     const runId = `run_${Date.now()}`;
@@ -108,34 +104,198 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): AgentStream
     const { signal } = abortControllerRef.current;
 
     startRun(runId);
-    let currentPhase: AgentPhase = 'idle';
 
     // Emit initial phase change
     processEvent(createPhaseChangeEvent('idle', 'execute', runId, 'Processing query'));
-    currentPhase = 'execute';
 
     try {
-      // TODO: When AgentOrchestratorAdapter is available in ValyntApp,
-      // uncomment this and remove the fallback
-      // const { agentOrchestrator } = await import('@/services/AgentOrchestratorAdapter');
-      
-      // For now, fall back to mock with a warning
-      console.warn('Real API not available, falling back to mock');
-      await generateMockAgentStream(
-        message,
-        processEvent,
-        { 
-          companyName, 
-          includeClarify: messages.length === 0,
-          eventDelay: 200,
+      // Check if LLM service has direct API access
+      if (!llmService.hasDirectAccess()) {
+        console.warn('VITE_TOGETHER_API_KEY not configured, falling back to mock');
+        await generateMockAgentStream(
+          message,
+          processEvent,
+          { 
+            companyName, 
+            includeClarify: messages.length === 0,
+            eventDelay: 200,
+          }
+        );
+        onComplete?.();
+        return;
+      }
+
+      // Build the prompt for value case generation
+      const systemPrompt = `You are a value engineering expert helping build business value cases. 
+The company context is: ${companyName}
+
+When asked to build a value case, respond with a structured JSON object containing:
+1. A value_model with value drivers and metrics
+2. An executive_summary with key insights
+3. Financial projections if relevant
+
+Format your response as valid JSON with this structure:
+{
+  "artifacts": [
+    {
+      "type": "value_model",
+      "title": "Value Model for [Company]",
+      "data": {
+        "valueDrivers": [
+          { "name": "Driver Name", "category": "revenue|cost|risk", "impact": "high|medium|low", "value": 0 }
+        ],
+        "totalValue": 0,
+        "confidence": 0.8
+      }
+    },
+    {
+      "type": "executive_summary", 
+      "title": "Executive Summary",
+      "markdown": "## Summary\\n\\nKey insights here..."
+    }
+  ],
+  "message": "Brief explanation of the value case"
+}`;
+
+      const fullPrompt = `${systemPrompt}\n\nUser request: ${message}`;
+
+      // Emit progress checkpoint
+      processEvent({
+        id: generateId(),
+        type: 'checkpoint_created',
+        timestamp: Date.now(),
+        runId,
+        payload: {
+          checkpointId: generateId(),
+          label: 'Analyzing request with AI...',
+          progress: 0.3,
+          canRestore: false,
+        },
+      });
+
+      // Call the LLM service
+      const response = await llmService.chat({
+        prompt: fullPrompt,
+        model: AVAILABLE_MODELS.MIXTRAL_8X7B,
+        maxTokens: 2000,
+        temperature: 0.7,
+      });
+
+      if (signal.aborted) return;
+
+      // Emit progress checkpoint
+      processEvent({
+        id: generateId(),
+        type: 'checkpoint_created',
+        timestamp: Date.now(),
+        runId,
+        payload: {
+          checkpointId: generateId(),
+          label: 'Processing AI response...',
+          progress: 0.7,
+          canRestore: false,
+        },
+      });
+
+      // Try to parse the response as JSON
+      let parsedResponse: { artifacts?: Array<{ type: string; title: string; data?: unknown; markdown?: string }>; message?: string } | null = null;
+      try {
+        // Extract JSON from the response (it might be wrapped in markdown code blocks)
+        const jsonMatch = response.content.match(/```json\s*([\s\S]*?)\s*```/) || 
+                          response.content.match(/```\s*([\s\S]*?)\s*```/) ||
+                          [null, response.content];
+        const jsonStr = jsonMatch[1] || response.content;
+        parsedResponse = JSON.parse(jsonStr.trim());
+      } catch {
+        // If JSON parsing fails, treat the response as a narrative
+        parsedResponse = null;
+      }
+
+      if (parsedResponse?.artifacts && Array.isArray(parsedResponse.artifacts)) {
+        // Process each artifact
+        for (const artifactData of parsedResponse.artifacts) {
+          const artifact: Artifact = {
+            id: generateId(),
+            type: artifactData.type as Artifact['type'],
+            title: artifactData.title || 'Generated Artifact',
+            status: 'proposed',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            content: artifactData.markdown 
+              ? { kind: 'markdown', markdown: artifactData.markdown }
+              : { kind: 'json', data: (artifactData.data || artifactData) as Record<string, unknown> },
+            source: { agentRunId: runId },
+          };
+
+          processEvent({
+            id: generateId(),
+            type: 'artifact_proposed',
+            timestamp: Date.now(),
+            runId,
+            payload: { artifact },
+          });
         }
-      );
+
+        // Add the message
+        if (parsedResponse.message) {
+          processEvent({
+            id: generateId(),
+            type: 'message_delta',
+            timestamp: Date.now(),
+            runId,
+            payload: {
+              messageId: generateId(),
+              delta: parsedResponse.message,
+              done: true,
+            },
+          });
+        }
+      } else {
+        // Treat the entire response as a narrative artifact
+        const artifact: Artifact = {
+          id: generateId(),
+          type: 'narrative',
+          title: `Value Analysis for ${companyName}`,
+          status: 'proposed',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          content: {
+            kind: 'markdown',
+            markdown: response.content,
+          },
+          source: { agentRunId: runId },
+        };
+
+        processEvent({
+          id: generateId(),
+          type: 'artifact_proposed',
+          timestamp: Date.now(),
+          runId,
+          payload: { artifact },
+        });
+
+        processEvent({
+          id: generateId(),
+          type: 'message_delta',
+          timestamp: Date.now(),
+          runId,
+          payload: {
+            messageId: generateId(),
+            delta: 'I\'ve generated a value analysis based on your request.',
+            done: true,
+          },
+        });
+      }
+
+      // Emit completion
+      processEvent(createPhaseChangeEvent('execute', 'review', runId, 'Analysis complete'));
       onComplete?.();
 
     } catch (error) {
       if (signal.aborted) return;
 
       const err = error instanceof Error ? error : new Error(String(error));
+      console.error('LLM API error:', err);
       processEvent(createErrorEvent(err, runId));
       onError?.(err);
     }
