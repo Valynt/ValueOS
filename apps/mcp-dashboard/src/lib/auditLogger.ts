@@ -48,7 +48,7 @@ class AuditLogger {
   private events: AuditEvent[] = [];
   private readonly maxEvents = 10000; // Keep last 10k events
   private readonly batchSize = 100; // Send in batches
-  private sendTimer: NodeJS.Timeout | null = null;
+  private sendTimer: number | null = null;
   private pendingEvents: AuditEvent[] = [];
 
   private constructor() {
@@ -111,8 +111,8 @@ class AuditLogger {
       severity: result === "failure" ? "medium" : "low",
       category: "authentication",
       compliance: true,
-      userId,
-      email,
+      ...(userId && { userId }),
+      ...(email && { email }),
     });
   }
 
@@ -134,7 +134,7 @@ class AuditLogger {
       severity: result === "failure" ? "high" : "low",
       category: "authorization",
       compliance: true,
-      userId,
+      ...(userId && { userId }),
     });
   }
 
@@ -156,7 +156,7 @@ class AuditLogger {
       severity: "low",
       category: "data_access",
       compliance: true,
-      userId,
+      ...(userId && { userId }),
     });
   }
 
@@ -178,7 +178,7 @@ class AuditLogger {
       severity: "medium",
       category: "configuration",
       compliance: true,
-      userId,
+      ...(userId && { userId }),
     });
   }
 
@@ -201,7 +201,7 @@ class AuditLogger {
       severity,
       category: "security",
       compliance: true,
-      userId,
+      ...(userId && { userId }),
     });
   }
 

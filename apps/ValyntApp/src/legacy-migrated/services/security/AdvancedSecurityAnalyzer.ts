@@ -63,7 +63,7 @@ export class AdvancedSecurityAnalyzer {
           name: "SQL Injection Pattern",
           description: "Detects common SQL injection patterns",
           pattern:
-            /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|UNION|EXEC|ALTER)\b.*\b(FROM|INTO|SET|WHERE|TABLE|DATABASE)\b)/i,
+            /\b(SELECT|INSERT|UPDATE|DELETE|DROP|UNION|EXEC|ALTER)\b.*\b(FROM|INTO|SET|WHERE|TABLE|DATABASE)\b/i,
           severity: "high",
           category: "injection",
           enabled: true,

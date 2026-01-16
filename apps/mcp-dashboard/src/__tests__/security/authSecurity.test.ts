@@ -9,6 +9,12 @@ import { secureTokenStorage } from "../../lib/secureStorage";
 import { csrfProtection } from "../../lib/csrfProtection";
 import { securityLogger } from "../../lib/securityLogger";
 
+// Global type declarations for test environment
+declare global {
+  var localStorage: Storage;
+  var sessionStorage: Storage;
+}
+
 // Mock fetch for API calls
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
@@ -110,8 +116,8 @@ describe("MCP Dashboard Authentication Security Tests", () => {
 
       const events = securityLogger.getEventsByType("rate_limit_exceeded");
       expect(events.length).toBe(1);
-      expect(events[0].email).toBe(email);
-      expect(events[0].severity).toBe("high");
+      expect(events[0]?.email).toBe(email);
+      expect(events[0]?.severity).toBe("high");
     });
   });
 
