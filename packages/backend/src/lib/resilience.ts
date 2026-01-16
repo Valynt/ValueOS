@@ -373,7 +373,12 @@ function mergeAbortSignals(
   }
 
   const controller = new AbortController();
-  const handleAbort = () => controller.abort();
+  const handleAbort = () => {
+    controller.abort();
+    // Clean up listeners to prevent memory leaks
+    primary.removeEventListener('abort', handleAbort);
+    secondary.removeEventListener('abort', handleAbort);
+  };
   primary.addEventListener('abort', handleAbort, { once: true });
   secondary.addEventListener('abort', handleAbort, { once: true });
   return controller.signal;
