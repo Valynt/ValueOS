@@ -12,8 +12,9 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { logger } from '../lib/logger';
+import { logger } from '../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
+import { sanitizePostgRESTFilterValue } from '../security/InputSanitizer';
 
 // ============================================================================
 // Types
@@ -275,10 +276,13 @@ export class AgentMemoryService {
 
       // Text search
       if (query.textSearch) {
-        dbQuery = dbQuery.or(`
-          content->>title.ilike.%${query.textSearch}%,
-          content->>description.ilike.%${query.textSearch}%
-        `);
+        const sanitizedSearch = sanitizePostgRESTFilterValue(query.textSearch);
+        if (sanitizedSearch) {
+          dbQuery = dbQuery.or(`
+            content->>title.ilike.%${sanitizedSearch}%,
+            content->>description.ilike.%${sanitizedSearch}%
+          `);
+        }
       }
 
       // Pagination

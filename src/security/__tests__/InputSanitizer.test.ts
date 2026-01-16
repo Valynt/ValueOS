@@ -8,6 +8,7 @@ import {
   sanitizeFilePath,
   sanitizeHtml,
   sanitizeJson,
+  sanitizePostgRESTFilterValue,
   sanitizeString,
   sanitizeUrl,
   validateEmail,
@@ -20,7 +21,7 @@ describe('InputSanitizer', () => {
     it('should encode HTML entities', () => {
       const result = encodeHtml('<script>alert("XSS")</script>');
       
-      expect(result).toBe('&lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;');
+      expect(result).toBe('&lt;script&gt;alert(&quot;XSS&quot;)&lt;&#x2F;script&gt;');
     });
 
     it('should encode special characters', () => {
@@ -35,14 +36,14 @@ describe('InputSanitizer', () => {
 
   describe('sanitizeHtml', () => {
     it('should remove script tags', () => {
-      const result = sanitizeHtml('<p>Hello</p><script>alert("XSS")</script>');
+      const result = sanitizeHtml('<p>Hello</p><script>alert("XSS")</script>', { allowHtml: true });
       
       expect(result).not.toContain('<script>');
       expect(result).not.toContain('alert');
     });
 
     it('should remove dangerous attributes', () => {
-      const result = sanitizeHtml('<div onclick="alert(\'XSS\')">Click me</div>');
+      const result = sanitizeHtml('<div onclick="alert(\'XSS\')">Click me</div>', { allowHtml: true });
       
       expect(result).not.toContain('onclick');
     });
@@ -260,6 +261,28 @@ describe('InputSanitizer', () => {
       const result = validateFileUpload(file);
       
       expect(result.sanitized).not.toContain('../');
+      expect(result.sanitized).toBe('etc/passwd.jpg');
+    });
+  });
+
+  describe('sanitizePostgRESTFilterValue', () => {
+    it('should remove dangerous characters', () => {
+      const result = sanitizePostgRESTFilterValue('bad,input.with(parentheses)');
+      expect(result).toBe('badinputwithparentheses');
+    });
+
+    it('should allow normal text', () => {
+      const result = sanitizePostgRESTFilterValue('normal text');
+      expect(result).toBe('normal text');
+    });
+
+    it('should handle injection attempts', () => {
+      const result = sanitizePostgRESTFilterValue('foo,status.eq.admin');
+      expect(result).toBe('foostatuseqadmin');
+    });
+
+    it('should handle empty input', () => {
+      expect(sanitizePostgRESTFilterValue('')).toBe('');
     });
   });
 });

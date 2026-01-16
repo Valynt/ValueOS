@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { sanitizeHtml } from "../../utils/sanitizeHtml";
+import { sanitizePostgRESTFilterValue } from "../../security/InputSanitizer";
 
 interface DocPage {
   id: string;
@@ -75,9 +76,12 @@ export const DocumentationCMS: React.FC = () => {
     }
 
     if (searchQuery) {
-      query = query.or(
-        `title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`
-      );
+      const sanitizedSearch = sanitizePostgRESTFilterValue(searchQuery);
+      if (sanitizedSearch) {
+        query = query.or(
+          `title.ilike.%${sanitizedSearch}%,description.ilike.%${sanitizedSearch}%`
+        );
+      }
     }
 
     const { data, error } = await query;

@@ -310,7 +310,10 @@ export function sanitizeFilePath(path: string): ValidationResult {
   }
 
   // Remove dangerous characters
-  const sanitized = path.replace(/[<>:"|?*]/g, '');
+  let sanitized = path.replace(/[<>:"|?*]/g, '');
+
+  // Remove directory traversal patterns
+  sanitized = sanitized.replace(/\.\.[/\\]/g, '');
 
   return {
     valid: errors.length === 0,
@@ -544,4 +547,16 @@ export function sanitizeObject(obj: any, options: SanitizeOptions = {}): any {
   }
 
   return obj;
+}
+
+/**
+ * Sanitize value for PostgREST filter injection prevention.
+ * Specifically for use in .or() filter strings where characters like ',' and '()' are special.
+ * Safest default: Remove PostgREST reserved characters used in filter syntax.
+ */
+export function sanitizePostgRESTFilterValue(input: string): string {
+  if (!input) return '';
+  // Remove characters that could break the filter syntax: , ( ) . :
+  // We allow typical text search characters but remove structure-defining ones.
+  return input.replace(/[,():.]/g, '');
 }
