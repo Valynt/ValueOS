@@ -227,9 +227,13 @@ export const executeWithRetry = async <T>(
     if (circuitBreaker.isOpen()) {
       throw new Error("[Database] Circuit breaker open - refusing new requests");
     }
+    if (circuitBreaker.isOpen()) {
+      throw new Error("[Database] Circuit breaker open - refusing new requests");
+    }
 
-    circuitBreaker.registerHalfOpenAttempt();
-
+    if (circuitBreaker.state === "half-open") {
+      circuitBreaker.registerHalfOpenAttempt();
+    }
     try {
       const result = await withRequestTimeout(operation, options.requestTimeoutMs);
       circuitBreaker.onSuccess();
