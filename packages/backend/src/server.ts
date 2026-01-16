@@ -36,6 +36,7 @@ import healthRouter, { markAsShuttingDown } from "../api/health";
 import authRouter from "../api/auth";
 import adminRouter from "../api/admin";
 import referralsRouter from "../api/referrals";
+import projectsRouter from "../api/projects";
 import docsApiRouter from "./docs-api";
 import {
   initializeSecretVolumeWatcher,
@@ -313,6 +314,7 @@ app.get("/health/secrets", secretHealthMiddleware());
 
 // Mount routes
 apiRouter.use("/billing", billingRouter);
+apiRouter.use("/projects", projectsRouter);
 app.use("/api", apiRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);

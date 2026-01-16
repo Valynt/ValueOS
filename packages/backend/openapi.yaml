@@ -1,0 +1,516 @@
+openapi: 3.1.0
+info:
+  title: ValueOS Projects API
+  version: 1.0.0
+  description: |
+    OpenAPI specification for Projects endpoints with a consistent error envelope.
+servers:
+  - url: https://api.valueos.local
+    description: Local development
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/projects:
+    post:
+      summary: Create a project
+      operationId: createProject
+      tags:
+        - Projects
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectCreateRequest"
+            examples:
+              createProject:
+                value:
+                  name: "AI Migration"
+                  description: "Plan and execute AI platform migration."
+                  status: "active"
+                  tags: ["ai", "migration"]
+      responses:
+        "201":
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectEnvelope"
+              examples:
+                created:
+                  value:
+                    data:
+                      id: "proj_2b1b5d45-acde-4e2f-8c69-5efec4ff8c2c"
+                      name: "AI Migration"
+                      description: "Plan and execute AI platform migration."
+                      status: "active"
+                      tags: ["ai", "migration"]
+                      ownerId: "user_123"
+                      createdAt: "2024-06-11T10:20:30.000Z"
+                      updatedAt: "2024-06-11T10:20:30.000Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    get:
+      summary: List projects
+      operationId: listProjects
+      tags:
+        - Projects
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: pageSize
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - in: query
+          name: status
+          schema:
+            $ref: "#/components/schemas/ProjectStatus"
+        - in: query
+          name: search
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 120
+      responses:
+        "200":
+          description: Project list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectListEnvelope"
+              examples:
+                list:
+                  value:
+                    data:
+                      items:
+                        - id: "proj_2b1b5d45-acde-4e2f-8c69-5efec4ff8c2c"
+                          name: "AI Migration"
+                          description: "Plan and execute AI platform migration."
+                          status: "active"
+                          tags: ["ai", "migration"]
+                          ownerId: "user_123"
+                          createdAt: "2024-06-11T10:20:30.000Z"
+                          updatedAt: "2024-06-11T10:20:30.000Z"
+                      page: 1
+                      pageSize: 20
+                      total: 1
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/projects/{projectId}:
+    get:
+      summary: Get a project
+      operationId: getProject
+      tags:
+        - Projects
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Project details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectEnvelope"
+              examples:
+                project:
+                  value:
+                    data:
+                      id: "proj_2b1b5d45-acde-4e2f-8c69-5efec4ff8c2c"
+                      name: "AI Migration"
+                      description: "Plan and execute AI platform migration."
+                      status: "active"
+                      tags: ["ai", "migration"]
+                      ownerId: "user_123"
+                      createdAt: "2024-06-11T10:20:30.000Z"
+                      updatedAt: "2024-06-11T10:20:30.000Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    patch:
+      summary: Update a project
+      operationId: updateProject
+      tags:
+        - Projects
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectUpdateRequest"
+            examples:
+              update:
+                value:
+                  status: "paused"
+                  tags: ["ai", "migration", "risk"]
+      responses:
+        "200":
+          description: Project updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectEnvelope"
+              examples:
+                updated:
+                  value:
+                    data:
+                      id: "proj_2b1b5d45-acde-4e2f-8c69-5efec4ff8c2c"
+                      name: "AI Migration"
+                      description: "Plan and execute AI platform migration."
+                      status: "paused"
+                      tags: ["ai", "migration", "risk"]
+                      ownerId: "user_123"
+                      createdAt: "2024-06-11T10:20:30.000Z"
+                      updatedAt: "2024-06-15T09:20:00.000Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    delete:
+      summary: Delete a project
+      operationId: deleteProject
+      tags:
+        - Projects
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "204":
+          description: Project deleted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 3
+        maxLength: 64
+  schemas:
+    ProjectStatus:
+      type: string
+      enum: ["planned", "active", "paused", "completed"]
+    Project:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - tags
+        - ownerId
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          example: "proj_2b1b5d45-acde-4e2f-8c69-5efec4ff8c2c"
+        name:
+          type: string
+          minLength: 2
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 1000
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ProjectStatus"
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 32
+          maxItems: 20
+        ownerId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ProjectCreateRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          $ref: "#/components/schemas/ProjectStatus"
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 32
+          maxItems: 20
+    ProjectUpdateRequest:
+      type: object
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          $ref: "#/components/schemas/ProjectStatus"
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 32
+          maxItems: 20
+    ProjectEnvelope:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/Project"
+    ProjectListResponse:
+      type: object
+      required:
+        - items
+        - page
+        - pageSize
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Project"
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0
+    ProjectListEnvelope:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/ProjectListResponse"
+    ErrorEnvelope:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+            - requestId
+          properties:
+            code:
+              type: string
+              example: "VALIDATION_ERROR"
+            message:
+              type: string
+              example: "Invalid request body"
+            requestId:
+              type: string
+              example: "req_7e3c1a5b4a"
+            details:
+              type: object
+              additionalProperties: true
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            validation:
+              $ref: "#/components/examples/BadRequestExample"
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            unauthorized:
+              $ref: "#/components/examples/UnauthorizedExample"
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            forbidden:
+              $ref: "#/components/examples/ForbiddenExample"
+    NotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            notFound:
+              $ref: "#/components/examples/NotFoundExample"
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            conflict:
+              $ref: "#/components/examples/ConflictExample"
+    RateLimited:
+      description: Too Many Requests
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds until the rate limit resets.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            rateLimited:
+              $ref: "#/components/examples/RateLimitedExample"
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            internalError:
+              $ref: "#/components/examples/InternalServerErrorExample"
+  examples:
+    BadRequestExample:
+      value:
+        error:
+          code: "VALIDATION_ERROR"
+          message: "Invalid request body"
+          requestId: "req_7e3c1a5b4a"
+          details:
+            errors:
+              - field: "name"
+                message: "String must contain at least 2 character(s)"
+    UnauthorizedExample:
+      value:
+        error:
+          code: "UNAUTHORIZED"
+          message: "Bearer token required"
+          requestId: "req_7e3c1a5b4a"
+    ForbiddenExample:
+      value:
+        error:
+          code: "FORBIDDEN"
+          message: "Insufficient permissions for this action"
+          requestId: "req_7e3c1a5b4a"
+    NotFoundExample:
+      value:
+        error:
+          code: "NOT_FOUND"
+          message: "Project not found: proj_123"
+          requestId: "req_7e3c1a5b4a"
+          details:
+            resource: "Project"
+            id: "proj_123"
+    ConflictExample:
+      value:
+        error:
+          code: "CONFLICT"
+          message: "Project name already exists"
+          requestId: "req_7e3c1a5b4a"
+    RateLimitedExample:
+      value:
+        error:
+          code: "RATE_LIMITED"
+          message: "Rate limit exceeded"
+          requestId: "req_7e3c1a5b4a"
+          details:
+            retryAfter: 60
+    InternalServerErrorExample:
+      value:
+        error:
+          code: "INTERNAL_ERROR"
+          message: "An unexpected error occurred"
+          requestId: "req_7e3c1a5b4a"
