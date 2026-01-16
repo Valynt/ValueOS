@@ -165,7 +165,7 @@ agentRoutes.post("/query", async (req: express.Request, res: express.Response) =
     queryTimer();
 
     res.json(result);
-  } catch (error) {
+  } catch (error: unknown) {
     const duration = Date.now() - startTime;
 
     logger.error("Query processing failed", error, {
@@ -199,7 +199,7 @@ const customHealthChecks = [
       try {
         await analyzer.analyzeBenchmark("health check");
         return { status: "pass" as const };
-      } catch (error) {
+      } catch (error: unknown) {
         return {
           status: "fail" as const,
           error: "Analyzer not responsive",

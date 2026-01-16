@@ -9,6 +9,7 @@ import { authRateLimiter } from "../lib/rateLimiter";
 import { csrfProtection } from "../lib/csrfProtection";
 import { authPersistence } from "../lib/authPersistence";
 import { sessionManager } from "../lib/sessionManager";
+import { securityLogger } from "../lib/securityLogger";
 
 // Types
 export interface LoginCredentials {
@@ -103,7 +104,12 @@ class AuthService {
    * Login with email and password
    */
   async login(credentials: LoginCredentials): Promise<AuthResult> {
+    const clientInfo = this.getClientInfo();
+
     try {
+      // Log authentication attempt
+      securityLogger.logAuthAttempt(credentials.email, clientInfo.ip, clientInfo.userAgent);
+
       // Validate input
       this.validateCredentials(credentials);
 
@@ -111,6 +117,13 @@ class AuthService {
       const rateLimitStatus = authRateLimiter.canAttemptAuth(credentials.email);
       if (!rateLimitStatus.allowed) {
         const lockoutMinutes = rateLimitStatus.lockoutRemaining || 15;
+        securityLogger.logRateLimitExceeded(
+          credentials.email,
+          clientInfo.ip,
+          rateLimitStatus.maxAttempts,
+          lockoutMinutes * 60 * 1000
+        );
+
         return {
           success: false,
           error: `Too many failed attempts. Please try again in ${lockoutMinutes} minutes.`,
@@ -129,6 +142,13 @@ class AuthService {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         authRateLimiter.recordFailedAttempt(credentials.email);
+        securityLogger.logAuthFailure(
+          credentials.email,
+          errorData.message || "Login failed",
+          clientInfo.ip,
+          clientInfo.userAgent
+        );
+
         return {
           success: false,
           error: errorData.message || "Login failed",
@@ -148,6 +168,12 @@ class AuthService {
 
       // Record successful attempt
       authRateLimiter.recordSuccessfulAttempt(credentials.email);
+      securityLogger.logAuthSuccess(
+        authData.user.id,
+        credentials.email,
+        clientInfo.ip,
+        clientInfo.userAgent
+      );
 
       // Store token securely
       const expiresAt = Date.now() + 60 * 60 * 1000; // 1 hour
@@ -157,6 +183,9 @@ class AuthService {
         expiresAt,
         userId: authData.user.id,
       });
+
+      // Log token issuance
+      securityLogger.logTokenIssued(authData.user.id, "access", expiresAt);
 
       // Persist auth state
       await authPersistence.persistAuthState(
@@ -422,6 +451,18 @@ class AuthService {
     if (data.fullName && data.fullName.trim().length < 2) {
       throw new Error("Name must be at least 2 characters");
     }
+  }
+
+  /**
+   * Get client information for logging
+   */
+  private getClientInfo(): { ip?: string; userAgent?: string } {
+    // In a real implementation, you would get the actual IP address
+    // For now, we'll use placeholder values
+    return {
+      ip: undefined, // Would be extracted from request headers
+      userAgent: navigator.userAgent,
+    };
   }
 }
 

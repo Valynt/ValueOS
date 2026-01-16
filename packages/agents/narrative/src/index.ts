@@ -150,22 +150,22 @@ agentRoutes.post("/query", async (req: express.Request, res: express.Response) =
     metrics.httpRequestsTotal.inc({ method: "POST", route: "/query" });
     const queryTimer = metrics.httpRequestDuration.startTimer({ method: "POST", route: "/query" });
 
-    logger.info("Processing benchmark query", {
+    logger.info("Processing narrative query", {
       query: validatedQuery.query,
       userId: validatedQuery.context?.userId,
     });
 
     // Process the query
-    const result = await analyzer.analyzeBenchmark(validatedQuery.query, validatedQuery.context);
+    const result = await analyzer.analyzeNarrative(validatedQuery.query, validatedQuery.context);
 
     // Record agent-specific metrics
-    metrics.agentQueriesTotal.inc({ agent_type: "benchmark", status: "success" });
-    metrics.agentQueryDuration.observe({ agent_type: "benchmark" }, Date.now() - startTime);
+    metrics.agentQueriesTotal.inc({ agent_type: "narrative", status: "success" });
+    metrics.agentQueryDuration.observe({ agent_type: "narrative" }, Date.now() - startTime);
 
     queryTimer();
 
     res.json(result);
-  } catch (error) {
+  } catch (error: unknown) {
     const duration = Date.now() - startTime;
 
     logger.error("Query processing failed", error, {
@@ -175,7 +175,7 @@ agentRoutes.post("/query", async (req: express.Request, res: express.Response) =
 
     // Record failure metrics
     metrics.httpRequestsTotal.inc({ method: "POST", route: "/query", status_code: "500" });
-    metrics.agentQueriesTotal.inc({ agent_type: "benchmark", status: "error" });
+    metrics.agentQueriesTotal.inc({ agent_type: "narrative", status: "error" });
 
     if (error instanceof z.ZodError) {
       res.status(400).json({
@@ -193,13 +193,13 @@ agentRoutes.post("/query", async (req: express.Request, res: express.Response) =
 // Health check with agent-specific checks
 const customHealthChecks = [
   {
-    name: "benchmark-analyzer",
+    name: "narrative-analyzer",
     check: async () => {
       // Check if analyzer is responsive
       try {
-        await analyzer.analyzeBenchmark("health check");
+        await analyzer.analyzeNarrative("health check");
         return { status: "pass" as const };
-      } catch (error) {
+      } catch (error: unknown) {
         return {
           status: "fail" as const,
           error: "Analyzer not responsive",
@@ -213,17 +213,17 @@ const customHealthChecks = [
 // Create and start the server
 const config = getConfig();
 const app = createServer({
-  agentType: "benchmark",
+  agentType: "narrative",
   version: "1.0.0",
   customHealthChecks,
   middleware: [agentRoutes],
 });
 
 // Add agent-specific metrics
-metrics.customMetrics.set("benchmark_analyzer_health", metrics.healthStatus);
+metrics.customMetrics.set("narrative_analyzer_health", metrics.healthStatus);
 
 // Start the server
 createServer(app, config.PORT).catch((error) => {
-  logger.error("Failed to start benchmark agent", error);
+  logger.error("Failed to start narrative agent", error);
   process.exit(1);
 });
