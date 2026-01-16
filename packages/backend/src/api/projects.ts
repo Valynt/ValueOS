@@ -65,7 +65,7 @@ function requireBearerToken(req: Request): string {
 function requireWriteRole(req: Request, allowedRoles: string[]): void {
   const roleHeader = req.headers["x-user-role"];
   const role = Array.isArray(roleHeader) ? roleHeader[0] : roleHeader;
-  if (role && !allowedRoles.includes(role)) {
+  if (!role || !allowedRoles.includes(role)) {
     throw new ForbiddenError("Insufficient permissions for this action");
   }
 }
