@@ -139,13 +139,15 @@ export function CaseWorkspace() {
   }, [artifactList]);
 
   // Agent stream hook - handles both mock and real API
+  // Persists artifacts to backend when caseId is available
   const { sendMessage: sendAgentMessage } = useAgentStream({
-<<<<<<< HEAD
     useMock: false, // Using real Together AI API
-=======
-    useMock: false, // Using real Together.ai API
->>>>>>> bbab9a94a9f4204c36e41bdc13857f49635cfbb8
     companyName: 'Acme Corp',
+    valueCaseId: caseId,
+    persistArtifacts: !!caseId, // Enable persistence when we have a case ID
+    onArtifactPersisted: (artifact, persistedId) => {
+      console.log(`Artifact "${artifact.title}" persisted with ID: ${persistedId}`);
+    },
   });
 
   // Export handler
