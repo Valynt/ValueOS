@@ -1,13 +1,14 @@
 # Legacy ValyntApp UI Merge Plan — Status Update
 
-**Date:** 2025-01-17  
-**Current Phase:** Batch 2 ✅ Complete — Batch 3 Planning
+**Date:** 2026-01-17
+**Current Phase:** Batch 2 ✅ Complete — Batch 3 🚀 Executing (Option B)
+**Decision:** Components + Minimal Providers (35-40 min, full validation)
 
 ---
 
 ## ✅ Batch 2: Core Services & Lib (COMPLETE)
 
-**Branch:** `merge/services-batch-2`  
+**Branch:** `merge/services-batch-2`
 **Commit:** `f16d1c37` — "Merge batch 2: core services + lib (full dependency cone)"
 
 **Files Merged:**
@@ -25,6 +26,7 @@
 - **tsconfig.json** — Updated to exclude pre-existing broken legacy directories
 
 **Statistics:**
+
 - **706 files committed** (including tests and staging area)
 - **Dependency cone:** 100% complete (no circular dependencies)
 - **Pre-existing issues:** WebScraperService, AgentTelemetryService (not caused by merge, documented for stabilization phase)
@@ -35,9 +37,10 @@
 
 ## ✅ Batch 1: Core Types (COMPLETE)
 
-**Branch:** `merge/types-batch-1` (a5bbd1de)  
+**Branch:** `merge/types-batch-1` (a5bbd1de)
 
 **Files Merged:**
+
 - `vos.ts` — VOS lifecycle types
 - `workflow.ts` — Workflow DAG and execution types
 - `execution.ts` — ExecutionIntent and ExecutionEntrypoint types
@@ -62,8 +65,8 @@
 3. Validate in isolation with tsc
 4. Copy validated components to production (`src/components/`)
 5. Commit to `merge/components-batch-3`
-4. Merge to production with CI verification
-5. Run unit tests for auth services
+6. Merge to production with CI verification
+7. Run unit tests for auth services
 
 **Timeline:** Next autonomous execution phase
 
