@@ -101,7 +101,8 @@ export class WorkflowStateService {
         state: initialState,
       };
     } catch (error) {
-      logger.error('Failed to load/create session', error instanceof Error ? error : undefined, {
+      logger.error('Failed to load/create session', {
+        error: error instanceof Error ? error : undefined,
         caseId,
         userId,
       });
@@ -162,7 +163,8 @@ export class WorkflowStateService {
     try {
       return await this.repository.getSession(sessionId, tenantId);
     } catch (error) {
-      logger.error('Failed to get session', error instanceof Error ? error : undefined, {
+      logger.error('Failed to get session', {
+        error: error instanceof Error ? error : undefined,
         sessionId,
       });
       return null;
@@ -235,7 +237,8 @@ export class WorkflowStateService {
         try {
           callback(state);
         } catch (error) {
-          logger.error('Error in state change callback', error instanceof Error ? error : undefined, {
+          logger.error('Error in state change callback', {
+            error: error instanceof Error ? error : undefined,
             sessionId,
           });
         }
@@ -255,7 +258,8 @@ export class WorkflowStateService {
       logger.info('Old sessions cleaned up', { count, olderThanDays });
       return count;
     } catch (error) {
-      logger.error('Failed to cleanup old sessions', error instanceof Error ? error : undefined, {
+      logger.error('Failed to cleanup old sessions', {
+        error: error instanceof Error ? error : undefined,
         olderThanDays,
       });
       return 0;

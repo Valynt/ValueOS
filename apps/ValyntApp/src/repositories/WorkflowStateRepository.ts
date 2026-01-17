@@ -70,7 +70,7 @@ export class WorkflowStateRepository {
         .single();
 
       if (error) {
-        logger.error('Failed to get workflow state', error, { sessionId });
+        logger.error('Failed to get workflow state', { error, sessionId });
         return null;
       }
 
@@ -81,7 +81,8 @@ export class WorkflowStateRepository {
 
       return data.workflow_state as WorkflowState;
     } catch (error) {
-      logger.error('Error getting workflow state', error instanceof Error ? error : undefined, {
+      logger.error('Error getting workflow state', {
+        error: error instanceof Error ? error : undefined,
         sessionId,
       });
       return null;
@@ -116,7 +117,7 @@ export class WorkflowStateRepository {
         .eq('tenant_id', resolvedTenantId);
 
       if (error) {
-        logger.error('Failed to save workflow state', error, { sessionId });
+        logger.error('Failed to save workflow state', { error, sessionId });
         throw error;
       }
 
@@ -170,7 +171,7 @@ export class WorkflowStateRepository {
         .single();
 
       if (error || !data) {
-        logger.error('Failed to create session', error, { userId });
+        logger.error('Failed to create session', { error, userId });
         throw error || new Error('No session ID returned');
       }
 
@@ -206,13 +207,14 @@ export class WorkflowStateRepository {
         .single();
 
       if (error) {
-        logger.error('Failed to get session', error, { sessionId });
+        logger.error('Failed to create session', { error, userId });
         return null;
       }
 
       return data as SessionData;
     } catch (error) {
-      logger.error('Error getting session', error instanceof Error ? error : undefined, {
+      logger.error('Error getting session', {
+        error: error instanceof Error ? error : undefined,
         sessionId,
       });
       return null;
@@ -242,7 +244,7 @@ export class WorkflowStateRepository {
         .eq('tenant_id', resolvedTenantId);
 
       if (error) {
-        logger.error('Failed to update session status', error, { sessionId, status });
+        logger.error('Failed to update session status', { error, sessionId, status });
         throw error;
       }
 
@@ -306,13 +308,14 @@ export class WorkflowStateRepository {
         .limit(limit);
 
       if (error) {
-        logger.error('Failed to get active sessions', error, { userId });
+        logger.error('Failed to get active sessions', { error, userId });
         return [];
       }
 
       return (data || []) as SessionData[];
     } catch (error) {
-      logger.error('Error getting active sessions', error instanceof Error ? error : undefined, {
+      logger.error('Error getting active sessions', {
+        error: error instanceof Error ? error : undefined,
         userId,
       });
       return [];
@@ -340,7 +343,7 @@ export class WorkflowStateRepository {
         .select('id');
 
       if (error) {
-        logger.error('Failed to cleanup old sessions', error, { olderThanDays });
+        logger.error('Failed to cleanup old sessions', { error, olderThanDays });
         return 0;
       }
 
@@ -348,7 +351,8 @@ export class WorkflowStateRepository {
       logger.info('Old sessions cleaned up', { count, olderThanDays });
       return count;
     } catch (error) {
-      logger.error('Error cleaning up old sessions', error instanceof Error ? error : undefined, {
+      logger.error('Error cleaning up old sessions', {
+        error: error instanceof Error ? error : undefined,
         olderThanDays,
       });
       return 0;
@@ -393,7 +397,7 @@ export class WorkflowStateRepository {
         .select('id');
 
       if (error) {
-        logger.error('Failed atomic state update', error, { sessionId });
+        logger.error('Failed atomic state update', { error, sessionId });
         return false;
       }
 
@@ -408,7 +412,8 @@ export class WorkflowStateRepository {
       logger.debug('Atomic state update succeeded', { sessionId });
       return true;
     } catch (error) {
-      logger.error('Error in atomic state update', error instanceof Error ? error : undefined, {
+      logger.error('Error saving workflow state', {
+        error: error instanceof Error ? error : undefined,
         sessionId,
       });
       return false;
