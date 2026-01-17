@@ -269,11 +269,14 @@ export default function AcademyAITutor() {
                       placeholder="Ask me anything about VOS..."
                       onKeyPress={(e: React.KeyboardEvent) => e.key === 'Enter' && handleSendMessage()}
                       disabled={isLoading}
+                      aria-label="Ask a question"
                     />
                     <Button
                       onClick={handleSendMessage}
-                      disabled={!inputMessage.trim() || isLoading}
+                      disabled={!inputMessage.trim()}
+                      loading={isLoading}
                       size="icon"
+                      aria-label="Send message"
                     >
                       <Send className="h-4 w-4" />
                     </Button>

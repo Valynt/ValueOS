@@ -18,7 +18,25 @@ describe("Button component", () => {
   it("applies size classes", () => {
     render(<Button size="lg">Large Button</Button>);
     const button = screen.getByRole("button");
-    expect(button).toHaveClass("h-11");
+    expect(button).toHaveClass("h-10");
+  });
+
+  it("renders spinner only for icon button when loading", () => {
+    render(
+      <Button size="icon" loading>
+        <span data-testid="icon">Icon</span>
+      </Button>
+    );
+    expect(screen.queryByTestId("icon")).not.toBeInTheDocument();
+  });
+
+  it("renders spinner and text for default button when loading", () => {
+    render(
+      <Button loading>
+        <span data-testid="text">Click me</span>
+      </Button>
+    );
+    expect(screen.getByTestId("text")).toBeInTheDocument();
   });
 
   it("handles click events", async () => {

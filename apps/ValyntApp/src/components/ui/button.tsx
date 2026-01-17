@@ -92,6 +92,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ) => {
     const Comp = asChild ? Slot : "button";
     const isDisabled = disabled || loading;
+    const isIcon = size === "icon" || size === "icon-sm" || size === "icon-lg";
 
     return (
       <Comp
@@ -101,10 +102,14 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       >
         {loading ? (
-          <>
+          isIcon ? (
             <Loader2 className="animate-spin" />
-            {children}
-          </>
+          ) : (
+            <>
+              <Loader2 className="animate-spin" />
+              {children}
+            </>
+          )
         ) : (
           <>
             {leftIcon}
