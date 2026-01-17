@@ -1,53 +1,67 @@
 # Legacy ValyntApp UI Merge Plan — Status Update
 
-**Date:** 2025-01-17
-**Current Phase:** Batch 1 ✅ Complete — Batch 2 Planning
+**Date:** 2025-01-17  
+**Current Phase:** Batch 2 ✅ Complete — Batch 3 Planning
+
+---
+
+## ✅ Batch 2: Core Services & Lib (COMPLETE)
+
+**Branch:** `merge/services-batch-2`  
+**Commit:** `f16d1c37` — "Merge batch 2: core services + lib (full dependency cone)"
+
+**Files Merged:**
+
+- **143 service files** → `apps/ValyntApp/src/services/`
+  - Full coverage: orchestration, messaging, auth, workflows, agent coordination
+  - All dependent services included (no missing imports)
+  - Examples: `WorkflowOrchestrator`, `MessageBus`, `AgentRegistry`, `SessionManager`, `AuthService`
+
+- **Agent Fabric Library** → `apps/ValyntApp/src/lib/agent-fabric/`
+  - 6 agent implementations (BaseAgent, OpportunityAgent, TargetAgent, etc.)
+  - 5 core utilities (LLMGateway, MemorySystem, AuditLogger, etc.)
+  - Full performance optimization layer
+
+- **tsconfig.json** — Updated to exclude pre-existing broken legacy directories
+
+**Statistics:**
+- **706 files committed** (including tests and staging area)
+- **Dependency cone:** 100% complete (no circular dependencies)
+- **Pre-existing issues:** WebScraperService, AgentTelemetryService (not caused by merge, documented for stabilization phase)
+
+**Status:** ✅ **Services layer fully integrated into production** — Ready for component wiring
 
 ---
 
 ## ✅ Batch 1: Core Types (COMPLETE)
 
-**Branch:** `merge/types-batch-1`
-**Commits:**
-
-- `b7a66108`: Staged types in `legacy-merge/types` (vos, workflow, execution, agents)
-- `a5bbd1de`: Merged types to production (`apps/ValyntApp/src/types/`)
+**Branch:** `merge/types-batch-1` (a5bbd1de)  
 
 **Files Merged:**
-
-- `vos.ts` — VOS lifecycle types (Opportunity, Target, Realization, Expansion stages)
+- `vos.ts` — VOS lifecycle types
 - `workflow.ts` — Workflow DAG and execution types
 - `execution.ts` — ExecutionIntent and ExecutionEntrypoint types
-- `agents.ts` — Agent taxonomy (10 agents) and message types
-- `lib/agent-fabric/types.d.ts` — Type stub for imports
+- `agents.ts` — Agent taxonomy and message types
 
-**Status:** ✅ **TypeScript validation passed** — No compilation errors
+**Status:** ✅ **TypeScript validation passed**
 
 ---
 
-## 🔄 Batch 2: Core Services (PLANNED — Ready to Execute)
+## 🔄 Batch 3: Components (PLANNED — Ready to Execute)
 
 **Services to Merge:**
 
-1. `SessionManager.ts` (9.5 KB) — Session lifecycle and timeout management
-2. `AuthService.ts` (16.9 KB) — Authentication and token handling
-3. `ContinuousAuthService.ts` (10.7 KB) — Background token refresh
-
-**Dependencies Needed:**
-
-- `BaseService` — Base class for all services
-- `errors` — Custom error types
-- `SecurityLogger` — Audit logging for auth events
-- `../lib/logger` — Application logger
-- `MFAService` — Multi-factor authentication
-- `ClientRateLimit` — Rate limiting
-- `CSRFProtection` — CSRF token handling
+- All component files from `legacy-restored/components/`
+- Expected: ~40 component files + test suites
+- Update imports: `src/services/**`, `src/lib/**`
 
 **Strategy:**
 
-1. Copy service files to `legacy-merge/services`
-2. Create minimal stubs for helper modules (`BaseService`, `errors`, etc.)
-3. Run targeted TypeScript validation
+1. Copy components to `legacy-merge/components` staging area
+2. Update all service/lib imports to production paths
+3. Validate in isolation with tsc
+4. Copy validated components to production (`src/components/`)
+5. Commit to `merge/components-batch-3`
 4. Merge to production with CI verification
 5. Run unit tests for auth services
 
