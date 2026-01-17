@@ -50,5 +50,6 @@
     "noImplicitThis": true
   },
   "include": ["src"],
+  "exclude": ["src/legacy-restored/**", "src/legacy-merge/**"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
