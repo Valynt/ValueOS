@@ -9,6 +9,15 @@ import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useState } from "react";
 
+type ResourceItem = {
+  id?: number | string;
+  title?: string;
+  description?: string;
+  type?: string;
+  pillarNumber: number;
+  pillarTitle: string;
+};
+
 export default function Resources() {
   const { user } = useAuth();
   const { data: pillars } = trpc.pillars.list.useQuery();
@@ -17,8 +26,8 @@ export default function Resources() {
   // Flatten all resources from all pillars
   const allResources = pillars?.flatMap(pillar => {
     const content = typeof pillar.content === 'string' ? JSON.parse(pillar.content) : pillar.content;
-    const resources = content?.resources || [];
-    return resources.map((resource: any) => ({
+    const resources = (content?.resources || []) as Array<Omit<ResourceItem, "pillarNumber" | "pillarTitle">>;
+    return resources.map((resource) => ({
       ...resource,
       pillarNumber: pillar.pillarNumber,
       pillarTitle: pillar.title,
@@ -33,7 +42,7 @@ export default function Resources() {
   );
 
   // Group resources by type
-  const resourcesByType = filteredResources.reduce((acc: any, resource) => {
+  const resourcesByType = filteredResources.reduce<Record<string, ResourceItem[]>>((acc, resource) => {
     const type = resource.type || 'Other';
     if (!acc[type]) acc[type] = [];
     acc[type].push(resource);
@@ -113,7 +122,7 @@ export default function Resources() {
               <CardHeader className="pb-3">
                 <CardDescription>Templates</CardDescription>
                 <CardTitle className="text-3xl">
-                  {allResources.filter((r: any) => r.type === 'Template').length}
+                  {allResources.filter((resource) => resource.type === 'Template').length}
                 </CardTitle>
               </CardHeader>
             </Card>
@@ -121,7 +130,7 @@ export default function Resources() {
               <CardHeader className="pb-3">
                 <CardDescription>Guides</CardDescription>
                 <CardTitle className="text-3xl">
-                  {allResources.filter((r: any) => r.type === 'Guide').length}
+                  {allResources.filter((resource) => resource.type === 'Guide').length}
                 </CardTitle>
               </CardHeader>
             </Card>
@@ -129,7 +138,7 @@ export default function Resources() {
               <CardHeader className="pb-3">
                 <CardDescription>Playbooks</CardDescription>
                 <CardTitle className="text-3xl">
-                  {allResources.filter((r: any) => r.type === 'Playbook').length}
+                  {allResources.filter((resource) => resource.type === 'Playbook').length}
                 </CardTitle>
               </CardHeader>
             </Card>
@@ -144,11 +153,11 @@ export default function Resources() {
             </Card>
           ) : (
             <div className="space-y-8">
-              {Object.entries(resourcesByType).map(([type, resources]: [string, any]) => (
+              {Object.entries(resourcesByType).map(([type, resources]) => (
                 <div key={type}>
                   <h2 className="text-2xl font-bold mb-4">{type}s</h2>
                   <div className="grid md:grid-cols-2 gap-4">
-                    {resources.map((resource: any, index: number) => (
+                    {resources.map((resource, index) => (
                       <Card
                         key={index}
                         className="bg-card text-card-foreground shadow-beautiful-md hover:shadow-beautiful-lg rounded-lg transition-all duration-300 hover:-translate-y-1"

@@ -298,7 +298,7 @@ export default function QuizInterface({
 
   const generateRecommendations = (
     score: number,
-    categoryBreakdown: Record<string, any>,
+    categoryBreakdown: Record<string, { correct: number; total: number; score: number }>,
     maturityLevel: number
   ): string[] => {
     const recommendations: string[] = [];
