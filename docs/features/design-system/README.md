@@ -35,6 +35,15 @@ The source of truth for design tokens is located in `tokens.css`.
 - **Lucide React**: Iconography library.
 - **Radix UI**: Headless accessible primitives for complex components (Dialogs, Popovers).
 
+## 🧩 Icon Usage Guidance
+
+Use the shared icon utility classes to keep icon sizing and color consistent across headers, cards, and empty states:
+
+- **Sizing**: `icon-sm`, `icon-md`, `icon-lg` for 16/20/32px icons.
+- **Color**: `icon-muted` for secondary iconography, `icon-accent` for emphasis.
+- **Inheritance**: Use size utilities only when the icon should inherit the surrounding text color.
+- **Consistency**: Prefer these utilities over ad-hoc `h-* w-*` classes in UI surfaces.
+
 ## ⚖️ Governance & Maintenance
 
 ### Contribution Process

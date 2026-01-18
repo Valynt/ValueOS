@@ -30,7 +30,7 @@ export function EmptyState({
     >
       {Icon && (
         <div className="mb-4 p-3 bg-muted rounded-full">
-          <Icon className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+          <Icon className="icon-lg icon-muted" aria-hidden="true" />
         </div>
       )}
       <h3 className="text-lg font-medium text-foreground mb-2">{title}</h3>
@@ -40,7 +40,7 @@ export function EmptyState({
       {action && (
         <Button onClick={action.onClick}>
           {ActionIcon && (
-            <ActionIcon className="h-4 w-4 mr-2" aria-hidden="true" />
+            <ActionIcon className="icon-sm mr-2" aria-hidden="true" />
           )}
           {action.label}
         </Button>
