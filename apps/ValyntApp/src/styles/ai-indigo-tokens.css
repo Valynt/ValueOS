@@ -88,31 +88,21 @@
   --font-mono: "JetBrains Mono", "Fira Code", Consolas, monospace;
 
   /* Display (Hero/Headlines) */
-  --text-display-xl: 4rem; /* 64px */
-  --text-display-lg: 3rem; /* 48px */
-  --text-display-md: 2.25rem; /* 36px */
+  --text-display-xl: var(--type-display-xl);
+  --text-display-lg: var(--type-display-lg);
+  --text-display-md: var(--type-display-md);
 
   /* Headings */
-  --text-heading-xl: 1.875rem; /* 30px */
-  --text-heading-lg: 1.5rem; /* 24px */
-  --text-heading-md: 1.25rem; /* 20px */
-  --text-heading-sm: 1.125rem; /* 18px */
+  --text-heading-xl: var(--type-heading-xl);
+  --text-heading-lg: var(--type-heading-lg);
+  --text-heading-md: var(--type-heading-md);
+  --text-heading-sm: var(--type-heading-sm);
 
   /* Body */
-  --text-body-lg: 1.125rem; /* 18px */
-  --text-body-md: 1rem; /* 16px */
-  --text-body-sm: 0.875rem; /* 14px */
-  --text-body-xs: 0.75rem; /* 12px */
-
-  /* Line Heights */
-  --leading-tight: 1.25;
-  --leading-normal: 1.5;
-  --leading-relaxed: 1.75;
-
-  /* Letter Spacing */
-  --tracking-tight: -0.025em;
-  --tracking-normal: 0;
-  --tracking-wide: 0.025em;
+  --text-body-lg: var(--type-body-lg);
+  --text-body-md: var(--type-body-md);
+  --text-body-sm: var(--type-body-sm);
+  --text-body-xs: var(--type-body-xs);
 
   /* ============================================
    * SPACING SCALE
