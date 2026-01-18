@@ -121,6 +121,11 @@ Please include the following information in your report:
    - Use generic error messages
    - Monitor error patterns
 
+#### Continuous Validation
+
+- **Route hardening checks**: `apps/ValyntApp/src/api/__tests__/route-hardening.test.ts` fails CI if API routers lack security headers or RBAC middleware without explicit exemption.
+- **Header/cookie runbook**: `docs/operations/HEADER_COOKIE_RUNBOOK.md` documents per-environment verification steps for gateway headers and session cookie flags.
+
 #### For Users
 
 1. **Account Security**
