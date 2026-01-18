@@ -12,6 +12,14 @@ import { ScenarioSelector } from '../../components/SDUI/ScenarioSelector';
 import ValueCanvas from '../ValueCanvas';
 import QuantumView from '../QuantumView';
 
+vi.mock('../../components/ChatCanvas/ChatCanvasLayout', () => ({
+  ChatCanvasLayout: ({ initialAction }: { initialAction?: { type: string; data: unknown } | null }) => (
+    <div data-testid="chat-canvas-layout" data-action={initialAction?.type ?? 'none'}>
+      {initialAction ? JSON.stringify(initialAction.data) : 'No initial action'}
+    </div>
+  ),
+}));
+
 // Mock external dependencies
 vi.mock('../../lib/supabase', () => ({
   supabase: {
@@ -165,24 +173,15 @@ describe('Template Integration Workflows', () => {
       ];
 
       for (const testCase of testCases) {
-        const mockUseLocation = vi.fn(() => ({
-          pathname: '/value-canvas',
-          search: '',
-          hash: '',
-          state: { source: testCase.source, ...testCase },
-          key: 'default',
-        }));
-
-        vi.mock('react-router-dom', async () => {
-          const actual = await vi.importActual('react-router-dom');
-          return {
-            ...actual,
-            useLocation: mockUseLocation,
-          };
-        });
-
         render(
-          <MemoryRouter>
+          <MemoryRouter
+            initialEntries={[
+              {
+                pathname: '/value-canvas',
+                state: { source: testCase.source, ...testCase },
+              },
+            ]}
+          >
             <ValueCanvas />
           </MemoryRouter>
         );
@@ -190,6 +189,7 @@ describe('Template Integration Workflows', () => {
         // Should render ChatCanvasLayout with correct initial action
         const layout = screen.getByTestId('chat-canvas-layout');
         expect(layout).toBeInTheDocument();
+        expect(layout).toHaveAttribute('data-action', testCase.expected);
 
         // Clear mock for next iteration
         vi.clearAllMocks();
