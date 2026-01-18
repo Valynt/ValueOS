@@ -182,8 +182,9 @@ const RATE_LIMIT_SCRIPT = `
 
   redis.call('PEXPIRE', key, window)
   local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
+  local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
   local oldestScore = 0
-  if oldest[2] then
+  if oldest and #oldest >= 2 then
     oldestScore = tonumber(oldest[2])
   end
 
