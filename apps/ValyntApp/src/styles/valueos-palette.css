@@ -6,7 +6,7 @@
 
 :root {
   /* Core palette */
-  --valueos-primary: 217 91% 60%;
+--valueos-primary: hsl(217 91% 60%);
   --valueos-primary-foreground: 0 0% 100%;
   --valueos-secondary: 210 40% 96%;
   --valueos-secondary-foreground: 222 47% 11%;
