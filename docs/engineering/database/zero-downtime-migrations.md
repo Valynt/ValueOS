@@ -4,6 +4,21 @@ This guide defines a safe, repeatable strategy for schema changes that must ship
 
 ---
 
+## 🔁 Standard Developer Workflow
+
+Use the Taskfile automation to generate, apply, and reset migrations in local development:
+
+- `task db:diff -- <name>`: generate a new migration from schema changes.
+- `task db:migrate`: apply pending migrations.
+- `task db:reset`: reset to a clean local database state.
+
+When a migration has a rollback path, include a matching rollback file under
+`supabase/migrations/rollback/` and ensure it is validated alongside the forward migration.
+If a rollback is unsafe (destructive change), document the forward-fix approach and sequencing
+in the release plan before deploying.
+
+---
+
 ## ✅ Strategy Overview
 
 ### 1) Expand/Contract Pattern
