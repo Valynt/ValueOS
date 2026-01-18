@@ -225,15 +225,29 @@
     --accent: var(--valueos-accent);
     --accent-foreground: var(--valueos-accent-foreground);
 
+    --destructive: var(--valueos-error);
+    --destructive-foreground: var(--valueos-on-status);
+
+    --success: var(--valueos-success);
+    --success-foreground: var(--valueos-on-status);
+
+    --warning: var(--valueos-warning);
+    --warning-foreground: var(--valueos-on-status);
+
     --border: var(--valueos-neutral-border);
     --input: var(--valueos-neutral-border);
+    --ring: var(--valueos-primary);
 
     --sidebar-background: var(--valueos-neutral-background);
     --sidebar-foreground: var(--valueos-neutral-foreground);
+    --sidebar-primary: var(--valueos-primary);
+    --sidebar-primary-foreground: var(--valueos-primary-foreground);
     --sidebar-accent: var(--valueos-neutral-subtle);
+    --sidebar-accent-foreground: var(--valueos-neutral-foreground);
     --sidebar-border: var(--valueos-neutral-border);
+    --sidebar-ring: var(--valueos-primary);
   }
-}
+
 
 /* ===================
    BASE STYLES
