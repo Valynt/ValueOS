@@ -7,7 +7,10 @@
 ## 🔒 Security Assessment
 
 ### Critical Findings
+<<<<<<< HEAD
 
+=======
+>>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
 ✅ **No critical security issues introduced**
 
 ### High Priority Issues
@@ -17,7 +20,10 @@
 **Status:** 🟡 Requires Action Before Merge
 
 ##### HIGH Severity: tar package
+<<<<<<< HEAD
 
+=======
+>>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
 - **Package:** `tar@<=7.5.2` (via supabase)
 - **CVE:** GHSA-8qq5-rm4j-mr97
 - **Issue:** Arbitrary File Overwrite and Symlink Poisoning
@@ -32,7 +38,10 @@ npm audit fix
 ```
 
 ##### LOW Severity: diff package
+<<<<<<< HEAD
 
+=======
+>>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
 - **Package:** `diff@<8.0.3` (via ts-node)
 - **CVE:** GHSA-73rr-hh4g-fpgx
 - **Issue:** DoS in parsePatch/applyPatch
@@ -50,7 +59,10 @@ npm update ts-node@latest --legacy-peer-deps
 #### ✅ Docker Security Enhancements
 
 1. **Non-Root User Enforcement**
+<<<<<<< HEAD
 
+=======
+>>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
    ```dockerfile
    # Before: Root user (implicit)
    # After: nginx-app:1001 (non-root)
@@ -60,14 +72,20 @@ npm update ts-node@latest --legacy-peer-deps
    ```
 
 2. **Non-Privileged Port**
+<<<<<<< HEAD
 
+=======
+>>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
    ```diff
    - EXPOSE 80  # Requires root
    + EXPOSE 8080  # Non-privileged
    ```
 
 3. **Read-Only Root Filesystem Ready**
+<<<<<<< HEAD
 
+=======
+>>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
    ```dockerfile
    # Necessary writable paths explicitly defined
    RUN mkdir -p /var/cache/nginx /var/run /var/log/nginx
@@ -83,11 +101,18 @@ npm update ts-node@latest --legacy-peer-deps
 #### ✅ Kubernetes Security
 
 1. **Cost Governance Annotations**
+<<<<<<< HEAD
 
    ```yaml
    annotations:
      valynt.io/llm-usage-limit: "500.00" # Prevents runaway costs
      valynt.io/cost-tracking: "enabled" # Audit trail
+=======
+   ```yaml
+   annotations:
+     valynt.io/llm-usage-limit: "500.00"  # Prevents runaway costs
+     valynt.io/cost-tracking: "enabled"   # Audit trail
+>>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
    ```
 
 2. **Namespace Isolation**
@@ -97,7 +122,10 @@ npm update ts-node@latest --legacy-peer-deps
 ### Security Checklist
 
 #### Before Staging Deployment
+<<<<<<< HEAD
 
+=======
+>>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
 - [ ] Update `supabase` package to fix tar vulnerability
 - [ ] Run `npm audit` and verify HIGH/CRITICAL cleared
 - [ ] Test Docker build with security scanner
@@ -105,7 +133,10 @@ npm update ts-node@latest --legacy-peer-deps
 - [ ] Test nginx responds on port 8080
 
 #### Before Production Deployment
+<<<<<<< HEAD
 
+=======
+>>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
 - [ ] 48-hour staging observation period completed
 - [ ] No security alerts triggered in staging
 - [ ] DevContainer self-healing tested in staging
@@ -115,7 +146,10 @@ npm update ts-node@latest --legacy-peer-deps
 ### Vulnerability Remediation Plan
 
 #### Immediate (Pre-Staging)
+<<<<<<< HEAD
 
+=======
+>>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
 ```bash
 # Fix HIGH severity issues
 npm update supabase@latest
@@ -126,7 +160,10 @@ npm audit --audit-level=high
 ```
 
 #### Short-term (Post-Merge, < 1 week)
+<<<<<<< HEAD
 
+=======
+>>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
 ```bash
 # Fix LOW severity issues
 npm update ts-node@latest --legacy-peer-deps
@@ -137,31 +174,49 @@ npm update --dev
 ```
 
 #### Long-term (Next Sprint)
+<<<<<<< HEAD
 
+=======
+>>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
 - Implement automated Dependabot
 - Add GitHub Actions security workflow
 - Configure Snyk or similar for continuous monitoring
 
 ### Risk Assessment
 
+<<<<<<< HEAD
 | Risk               | Severity | Likelihood | Impact   | Mitigation                             |
 | ------------------ | -------- | ---------- | -------- | -------------------------------------- |
 | tar path traversal | HIGH     | LOW        | HIGH     | Update supabase before production      |
 | diff DoS           | LOW      | VERY LOW   | LOW      | Dev dependency only, update post-merge |
 | Container escape   | MEDIUM   | VERY LOW   | CRITICAL | Non-root user prevents escalation      |
 | Cost overrun       | MEDIUM   | MEDIUM     | HIGH     | Cost governance limits enforced        |
+=======
+| Risk | Severity | Likelihood | Impact | Mitigation |
+|------|----------|------------|--------|------------|
+| tar path traversal | HIGH | LOW | HIGH | Update supabase before production |
+| diff DoS | LOW | VERY LOW | LOW | Dev dependency only, update post-merge |
+| Container escape | MEDIUM | VERY LOW | CRITICAL | Non-root user prevents escalation |
+| Cost overrun | MEDIUM | MEDIUM | HIGH | Cost governance limits enforced |
+>>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
 
 ### Compliance
 
 #### OWASP Top 10 (2021)
+<<<<<<< HEAD
 
+=======
+>>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
 - ✅ A01:2021 - Broken Access Control: Cost governance prevents abuse
 - ✅ A03:2021 - Injection: Environment validation prevents misconfig
 - ✅ A05:2021 - Security Misconfiguration: Non-root user, secure defaults
 - ✅ A06:2021 - Vulnerable Components: Identified and remediation planned
 
 #### CIS Docker Benchmark
+<<<<<<< HEAD
 
+=======
+>>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
 - ✅ 4.1 - Run containers with a non-root user
 - ✅ 4.5 - Use read-only root filesystem when possible
 - ✅ 4.6 - Limit container resources
@@ -169,23 +224,33 @@ npm update --dev
 ### Recommended Actions
 
 #### Pre-Merge (REQUIRED)
+<<<<<<< HEAD
 
 1. **Update vulnerable dependencies:**
 
+=======
+1. **Update vulnerable dependencies:**
+>>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
    ```bash
    npm update supabase@latest
    npm audit --audit-level=high
    ```
 
 2. **Build and scan Docker image:**
+<<<<<<< HEAD
 
+=======
+>>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
    ```bash
    docker build -f infra/docker/Dockerfile.frontend -t valynt-frontend:security-scan .
    docker scan valynt-frontend:security-scan
    ```
 
 3. **Test security controls:**
+<<<<<<< HEAD
 
+=======
+>>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
    ```bash
    # Verify non-root user
    docker run valynt-frontend:security-scan whoami
@@ -197,7 +262,10 @@ npm update --dev
    ```
 
 #### Post-Merge (RECOMMENDED)
+<<<<<<< HEAD
 
+=======
+>>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
 1. Update remaining LOW severity vulnerabilities
 2. Enable GitHub Dependabot alerts
 3. Add security scanning to CI/CD pipeline
@@ -208,7 +276,10 @@ npm update --dev
 **Security Review Status:** 🟡 **Conditional Approval**
 
 **Conditions:**
+<<<<<<< HEAD
 
+=======
+>>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
 1. ✅ Fix HIGH severity `tar` vulnerability before staging
 2. ✅ Complete staging security validation checklist
 3. ✅ 48-hour observation period in staging
@@ -219,7 +290,10 @@ npm update --dev
 ---
 
 **Next Steps:**
+<<<<<<< HEAD
 
+=======
+>>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
 1. Run `npm update supabase@latest && npm audit`
 2. Commit security fixes
 3. Deploy to staging
