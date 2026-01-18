@@ -86,12 +86,21 @@ npm run test -- --coverage
 # 3. Validate any database migrations
 ./scripts/validate-migration.sh supabase/migrations/[migration-file].sql
 
-# 4. Review PR checklist completed
+# 4. Run Supabase security lint and drift checks
+supabase db lint
+supabase db diff --use-migra --schema public
+
+# 5. Verify RLS and grant posture
+psql $DATABASE_URL -c "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND rowsecurity = false;"
+psql $DATABASE_URL -c "SELECT grantee, table_schema, table_name, privilege_type FROM information_schema.table_privileges WHERE grantee = 'PUBLIC' AND table_schema = 'public';"
+psql $DATABASE_URL -c "SELECT viewname, viewowner, CASE WHEN definition LIKE '%SECURITY DEFINER%' THEN 'DEFINER' ELSE 'INVOKER' END as security_type FROM pg_views WHERE schemaname = 'public';"
+
+# 6. Review PR checklist completed
 # - All items checked
 # - 2+ approvals received
 # - No unresolved comments
 
-# 5. Verify staging validation passed
+# 7. Verify staging validation passed
 # - Check staging-validation workflow status
 # - All integration tests passing
 # - Performance budgets met
