@@ -12,7 +12,7 @@ data:
       scrape_timeout: 10s
       evaluation_interval: 15s
       external_labels:
-        cluster: valuecanvas
+        cluster: valynt
         environment: ${ENVIRONMENT}
 
     # Alertmanager configuration
@@ -109,13 +109,13 @@ data:
             target_label: kubernetes_name
 
       # ValueCanvas Backend
-      - job_name: 'valuecanvas-backend'
+      - job_name: 'valynt-backend'
         kubernetes_sd_configs:
           - role: pod
             namespaces:
               names:
-                - valuecanvas-staging
-                - valuecanvas-production
+                - valynt-staging
+                - valynt-production
         relabel_configs:
           - source_labels: [__meta_kubernetes_pod_label_app]
             action: keep

@@ -7,6 +7,9 @@ import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import tseslint from "typescript-eslint";
+import react from "eslint-plugin-react";
+import security from "eslint-plugin-security";
+import importPlugin from "eslint-plugin-import";
 
 // Ignores config (must be first)
 const ignoresConfig = {
@@ -51,6 +54,18 @@ const pluginConfig = {
     "react-hooks": reactHooks,
     "react-refresh": reactRefresh,
     "jsx-a11y": jsxA11y,
+    react: react,
+    security: security,
+    import: importPlugin,
+  },
+  settings: {
+    react: {
+      version: "detect",
+    },
+    "import/resolver": {
+      typescript: true,
+      node: true,
+    },
   },
 };
 
@@ -120,8 +135,37 @@ const baseConfig = {
     "no-implied-eval": "error",
     "no-new-func": "error",
     "no-script-url": "error",
-
-    // Code quality and consistency
+    "react/jsx-no-target-blank": ["error", { allowReferrer: false }],
+    "react/no-danger": "error",
+    "react/no-unknown-property": "error",
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn",
+    "security/detect-buffer-noassert": "error",
+    "security/detect-child-process": "error",
+    "security/detect-disable-mustache-escape": "error",
+    "security/detect-eval-with-expression": "error",
+    "security/detect-new-buffer": "warn",
+    "security/detect-no-csrf-before-method-override": "error",
+    "security/detect-non-literal-fs-filename": "error",
+    "security/detect-non-literal-regexp": "error",
+    "security/detect-non-literal-require": "error",
+    "security/detect-object-injection": "warn",
+    "security/detect-possible-timing-attacks": "warn",
+    "security/detect-pseudoRandomBytes": "error",
+    "security/detect-unsafe-regex": "error",
+    "import/no-dynamic-require": "error",
+    "import/no-unresolved": "off", // TypeScript handles this
+    "import/order": [
+      "error",
+      {
+        groups: ["builtin", "external", "internal", "parent", "sibling", "index"],
+        "newlines-between": "always",
+        alphabetize: {
+          order: "asc",
+          caseInsensitive: true,
+        },
+      },
+    ],
     eqeqeq: ["error", "always"],
     "no-duplicate-imports": "error",
     "no-return-await": "error",

@@ -1,0 +1,165 @@
+<best_practices>
+  <general_principles>
+    <principle priority="high">
+      <name>Systematic Analysis</name>
+      <description>Perform comprehensive analysis by following a structured approach for each file, covering all required dimensions (bugs, performance, naming, ESLint, code smells, security)</description>
+      <rationale>Ensures thorough coverage and prevents missing critical issues</rationale>
+      <example>
+        <scenario>When analyzing a TypeScript file</scenario>
+        <good>Follow the complete checklist: bugs → performance → naming → ESLint → code smells → security</good>
+        <bad>Skipping steps or only focusing on one dimension</bad>
+      </example>
+    </principle>
+
+    <principle priority="high">
+      <name>Severity Classification</name>
+      <description>Classify all findings by severity level (Critical, High, Medium, Low) to help prioritize fixes</description>
+      <rationale>Enables developers to focus on the most important issues first</rationale>
+      <example>
+        <scenario>When identifying a bug</scenario>
+        <good>Classify as Critical: "Null pointer exception at line 42 - application will crash"</good>
+        <bad>Just noting "bug found" without severity</bad>
+      </example>
+    </principle>
+
+    <principle priority="high">
+      <name>Non-Invasive Approach</name>
+      <description>Analyze code without making commits or modifications. All findings should be documented for manual review and approval</description>
+      <rationale>Preserves repository integrity and gives developers control over changes</rationale>
+      <example>
+        <scenario>When finding an issue</scenario>
+        <good>Document: "Line 15: Consider using const instead of let (ESLint: prefer-const)"</good>
+        <bad>Automatically applying fixes without review</bad>
+      </example>
+    </principle>
+
+    <principle priority="medium">
+      <name>Progressive Analysis</name>
+      <description>Process directories systematically, tracking progress to allow resumption if interrupted</description>
+      <rationale>Enables handling large repositories and prevents re-analysis</rationale>
+      <example>
+        <scenario>Analyzing a large repository</scenario>
+        <good>Use .analysis-progress file to track completed directories</good>
+        <bad>Starting over from scratch if interrupted</bad>
+      </example>
+    </principle>
+
+    <principle priority="medium">
+      <name>Context-Aware Analysis</name>
+      <description>Consider the file type, language, and project context when analyzing code</description>
+      <rationale>Different file types require different analysis approaches and rules</rationale>
+      <example>
+        <scenario>Analyzing different file types</scenario>
+        <good>Apply TypeScript-specific rules to .ts files, React-specific patterns to .tsx files</good>
+        <bad>Using the same analysis approach for all file types</bad>
+      </example>
+    </principle>
+  </general_principles>
+
+  <code_conventions>
+    <convention category="naming">
+      <rule>Variable names should be descriptive and follow project conventions (camelCase for JavaScript/TypeScript)</rule>
+      <examples>
+        <good>userName, userCount, isValid</good>
+        <bad>u, x, temp, data</bad>
+      </examples>
+    </convention>
+    
+    <convention category="naming">
+      <rule>Function names should be verbs or verb phrases describing what they do</rule>
+      <examples>
+        <good>getUserData, validateInput, calculateTotal</good>
+        <bad>data, process, handle</bad>
+      </examples>
+    </convention>
+    
+    <convention category="naming">
+      <rule>Class names should be nouns or noun phrases using PascalCase</rule>
+      <examples>
+        <good>UserManager, AuthService, DataProcessor</good>
+        <bad>user_manager, authService, data_processor</bad>
+      </examples>
+    </convention>
+    
+    <convention category="naming">
+      <rule>Constants should use UPPER_SNAKE_CASE</rule>
+      <examples>
+        <good>MAX_RETRIES, API_TIMEOUT, DEFAULT_CONFIG</good>
+        <bad>maxRetries, apiTimeout, defaultConfig</bad>
+      </examples>
+    </convention>
+
+    <convention category="structure">
+      <rule>Functions should be focused and do one thing</rule>
+      <template>
+        // Good: Single responsibility
+        function validateEmail(email: string): boolean {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          return emailRegex.test(email);
+        }
+
+        // Bad: Multiple responsibilities
+        function processUser(user: User) {
+          // Validates email
+          // Saves to database
+          // Sends email
+          // Updates UI
+        }
+      </template>
+    </convention>
+    
+    <convention category="structure">
+      <rule>Use early returns to reduce nesting</rule>
+      <template>
+        // Good: Early return
+        function processUser(user: User | null) {
+          if (!user) return;
+          if (!user.isActive) return;
+          // Process active user
+        }
+
+        // Bad: Deep nesting
+        function processUser(user: User | null) {
+          if (user) {
+            if (user.isActive) {
+              // Process active user
+            }
+          }
+        }
+      </template>
+    </convention>
+  </code_conventions>
+
+  <common_pitfalls>
+    <pitfall>
+      <description>Missing null/undefined checks</description>
+      <why_problematic>Can cause runtime errors and crashes</why_problematic>
+      <correct_approach>Always check for null/undefined before accessing properties or calling methods</correct_approach>
+    </pitfall>
+
+    <pitfall>
+      <description>Using any type instead of specific types</description>
+      <why_problematic>Defeats TypeScript's type safety and can hide bugs</why_problematic>
+      <correct_approach>Use specific types or create proper interfaces/types</correct_approach>
+    </pitfall>
+
+    <pitfall>
+      <description>Not handling errors properly</description>
+      <why_problematic>Errors can go unhandled, causing unexpected behavior</why_problematic>
+      <correct_approach>Use try-catch blocks and proper error handling patterns</correct_approach>
+    </pitfall>
+
+    <pitfall>
+      <description>Memory leaks from event listeners or subscriptions</description>
+      <why_problematic>Can cause performance degradation and crashes over time</why_problematic>
+      <correct_approach>Clean up event listeners and subscriptions in useEffect cleanup or component unmount</correct_approach>
+    </pitfall>
+
+    <pitfall>
+      <description>Unnecessary re-renders in React components</description>
+      <why_problematic>Degrades performance and user experience</why_problematic>
+      <correct_approach>Use React.memo, useMemo, useCallback appropriately</correct_approach>
+    </pitfall>
+
+    <pitfall>
+      <description>Hardcoded values instead of constants

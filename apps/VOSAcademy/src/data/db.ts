@@ -1,6 +1,4 @@
 import { eq, and, desc, sql, count, avg } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
 import {
   User,
   InsertUser,
@@ -32,25 +30,10 @@ import {
   InsertSimulationAttempt,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
-
-let _db: ReturnType<typeof drizzle> | null = null;
-let _client: ReturnType<typeof postgres> | null = null;
+import { getDbConnection } from "./_core/db-connection";
 
 export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
-    try {
-      _client = postgres(process.env.DATABASE_URL, {
-        max: 1,
-        idle_timeout: 20,
-        connect_timeout: 10,
-      });
-      _db = drizzle(_client);
-    } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
-      _db = null;
-    }
-  }
-  return _db;
+  return getDbConnection();
 }
 
 // Re-export commonly used Drizzle ORM functions for convenience

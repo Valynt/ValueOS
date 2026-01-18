@@ -60,18 +60,6 @@ class InvoiceService {
         throw new Error(`Customer not found: ${stripeInvoice.customer}`);
       }
 
-      // Check if invoice already exists
-      const { data: existing } = await supabase
-        .from("invoices")
-        .select("id")
-        .eq("stripe_invoice_id", stripeInvoice.id)
-        .single();
-
-      if (existing) {
-        // Update existing
-        return this.updateInvoice(stripeInvoice);
-      }
-
       // Get subscription
       const { data: subscription } = await supabase
         .from("subscriptions")
@@ -119,7 +107,12 @@ class InvoiceService {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        if ((error as any).code === "23505") {
+          return this.updateInvoice(stripeInvoice);
+        }
+        throw error;
+      }
 
       logger.info("Invoice stored", { invoiceId: stripeInvoice.id });
 
@@ -137,32 +130,71 @@ class InvoiceService {
    * Update existing invoice
    */
   async updateInvoice(stripeInvoice: any): Promise<Invoice> {
-    const { data, error } = await supabase
+    return this.updateInvoiceWithCustomerStatus(stripeInvoice, null);
+  }
+
+  /**
+   * Update existing invoice with optimistic concurrency control
+   */
+  async updateInvoiceWithCustomerStatus(
+    stripeInvoice: any,
+    customerStatus: string | null
+  ): Promise<Invoice> {
+    // Transaction boundary: RPC function runs in a single database transaction
+    const { data: existing, error: fetchError } = await supabase
       .from("invoices")
-      .update({
-        invoice_number: stripeInvoice.number,
-        invoice_pdf_url: stripeInvoice.invoice_pdf,
-        hosted_invoice_url: stripeInvoice.hosted_invoice_url,
-        amount_due: (stripeInvoice.amount_due ?? 0) / 100,
-        amount_paid: (stripeInvoice.amount_paid ?? 0) / 100,
-        amount_remaining: (stripeInvoice.amount_remaining ?? 0) / 100,
-        subtotal: (stripeInvoice.subtotal ?? 0) / 100,
-        tax: (stripeInvoice.tax ?? 0) / 100,
-        total: (stripeInvoice.total ?? 0) / 100,
-        status: stripeInvoice.status,
-        paid_at: stripeInvoice.status_transitions?.paid_at
+      .select("version")
+      .eq("stripe_invoice_id", stripeInvoice.id)
+      .single();
+
+    if (fetchError) {
+      if ((fetchError as any).code !== "PGRST116") {
+        throw fetchError;
+      }
+    }
+
+    if (!existing) {
+      throw new Error(`Invoice not found: ${stripeInvoice.id}`);
+    }
+
+    const { data, error } = await supabase.rpc(
+      "update_invoice_and_customer_status",
+      {
+        p_stripe_invoice_id: stripeInvoice.id,
+        p_invoice_number: stripeInvoice.number,
+        p_invoice_pdf_url: stripeInvoice.invoice_pdf,
+        p_hosted_invoice_url: stripeInvoice.hosted_invoice_url,
+        p_amount_due: (stripeInvoice.amount_due ?? 0) / 100,
+        p_amount_paid: (stripeInvoice.amount_paid ?? 0) / 100,
+        p_amount_remaining: (stripeInvoice.amount_remaining ?? 0) / 100,
+        p_subtotal: (stripeInvoice.subtotal ?? 0) / 100,
+        p_tax: (stripeInvoice.tax ?? 0) / 100,
+        p_total: (stripeInvoice.total ?? 0) / 100,
+        p_status: stripeInvoice.status,
+        p_paid_at: stripeInvoice.status_transitions?.paid_at
           ? new Date(
               stripeInvoice.status_transitions.paid_at * 1000
             ).toISOString()
           : null,
-        line_items: stripeInvoice.lines?.data || [],
-        updated_at: new Date().toISOString(),
-      })
-      .eq("stripe_invoice_id", stripeInvoice.id)
-      .select()
-      .single();
+        p_line_items: stripeInvoice.lines?.data || [],
+        p_expected_version: existing.version,
+        p_customer_status: customerStatus,
+        p_stripe_customer_id: stripeInvoice.customer,
+      }
+    );
 
-    if (error) throw error;
+    if (error) {
+      if ((error as any).code === "40001") {
+        throw new Error(
+          `Invoice update conflict for stripe invoice ${stripeInvoice.id}`
+        );
+      }
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error(`Invoice update failed for ${stripeInvoice.id}`);
+    }
 
     return data;
   }

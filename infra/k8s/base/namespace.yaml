@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: valuecanvas
+  name: valynt
   labels:
-    name: valuecanvas
-    app.kubernetes.io/name: valuecanvas
-    app.kubernetes.io/part-of: valuecanvas-platform
+    name: valynt
+    app.kubernetes.io/name: valynt
+    app.kubernetes.io/part-of: valynt-platform

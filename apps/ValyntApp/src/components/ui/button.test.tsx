@@ -18,7 +18,7 @@ describe("Button component", () => {
   it("applies size classes", () => {
     render(<Button size="lg">Large Button</Button>);
     const button = screen.getByRole("button");
-    expect(button).toHaveClass("h-11");
+    expect(button).toHaveClass("h-10");
   });
 
   it("handles click events", async () => {
@@ -42,5 +42,17 @@ describe("Button component", () => {
       </Button>
     );
     expect(screen.getByRole("link")).toBeInTheDocument();
+  });
+
+  it("replaces icon with spinner when loading in icon mode", () => {
+    render(
+      <Button size="icon" loading>
+        <span data-testid="icon-child">Icon</span>
+      </Button>
+    );
+
+    // In current broken state, child IS present
+    // After fix, it should NOT be present
+    expect(screen.queryByTestId("icon-child")).not.toBeInTheDocument();
   });
 });

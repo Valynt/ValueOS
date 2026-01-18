@@ -53,7 +53,7 @@ log_warn() {
 is_newer() {
     local source=$1
     local target=$2
-    
+
     [ ! -e "$target" ] && return 0
     [ "$source" -nt "$target" ] && return 0
     return 1
@@ -63,12 +63,12 @@ update_dependencies() {
     if [ ! -f "${PROJECT_ROOT}/package.json" ]; then
         return 0
     fi
-    
+
     cd "$PROJECT_ROOT"
-    
+
     # Check if lockfile changed (most reliable indicator)
     local needs_update=false
-    
+
     if [ ! -d "node_modules" ]; then
         needs_update=true
         log_info "node_modules missing, installing..."
@@ -79,10 +79,21 @@ update_dependencies() {
         needs_update=true
         log_info "package.json changed, updating..."
     fi
-    
+
     if [ "$needs_update" = true ]; then
-        # Use npm ci for reproducible installs when lockfile exists
-        if [ -f "package-lock.json" ]; then
+        if [ -f "pnpm-lock.yaml" ]; then
+            if command -v corepack &>/dev/null; then
+                corepack enable >/dev/null 2>&1 || true
+                corepack prepare pnpm@9.15.4 --activate >/dev/null 2>&1 || true
+            fi
+
+            if pnpm install --frozen-lockfile --prefer-offline 2>/dev/null; then
+                log_success "Dependencies updated (pnpm)"
+            else
+                log_warn "pnpm install failed"
+            fi
+        elif [ -f "package-lock.json" ]; then
+            # Use npm ci for reproducible installs when lockfile exists
             if npm ci --prefer-offline --no-audit --no-fund 2>/dev/null; then
                 log_success "Dependencies updated (npm ci)"
             else
@@ -94,7 +105,7 @@ update_dependencies() {
             npm install --prefer-offline --no-audit --no-fund
             log_success "Dependencies installed"
         fi
-        
+
         # Touch node_modules to update timestamp
         touch node_modules
     else
@@ -107,11 +118,11 @@ update_prisma_client() {
         "${PROJECT_ROOT}/scripts/prisma/schema.prisma"
         "${PROJECT_ROOT}/prisma/schema.prisma"
     )
-    
+
     for schema_path in "${schema_paths[@]}"; do
         if [ -f "$schema_path" ]; then
             local prisma_dir="${PROJECT_ROOT}/node_modules/.prisma"
-            
+
             if is_newer "$schema_path" "$prisma_dir"; then
                 log_info "Prisma schema changed, regenerating client..."
                 if npx prisma generate --schema="$schema_path" 2>/dev/null; then
@@ -129,7 +140,7 @@ update_playwright() {
     # Only install Playwright browsers if config exists and browsers missing
     if [ -f "${PROJECT_ROOT}/playwright.config.ts" ] || [ -f "${PROJECT_ROOT}/.config/configs/playwright.config.ts" ]; then
         local playwright_cache="${HOME}/.cache/ms-playwright"
-        
+
         if [ ! -d "$playwright_cache" ]; then
             log_info "Installing Playwright browsers..."
             if npx playwright install chromium --with-deps 2>/dev/null; then
@@ -151,14 +162,14 @@ main() {
     echo "  Updating Container Content"
     echo "========================================"
     echo ""
-    
+
     mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
     echo "=== update-content.sh started at $(date -Iseconds) ===" >> "$LOG_FILE" 2>/dev/null || true
-    
+
     update_dependencies
     update_prisma_client
     update_playwright
-    
+
     echo ""
     log_success "Content update complete"
     echo ""

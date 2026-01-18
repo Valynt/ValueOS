@@ -1,6 +1,6 @@
 /**
  * Value Lifecycle Orchestrator with Saga Pattern
- * 
+ *
  * Coordinates multi-agent workflows across the value lifecycle stages
  * with compensation patterns for failure recovery.
  */

@@ -72,3 +72,16 @@ class Logger {
 
 export const logger = new Logger();
 export default logger;
+
+export function createLogger(options: { component: string }) {
+  return {
+    debug: (message: string, context?: LogContext) =>
+      logger.debug(message, { ...context, component: options.component }),
+    info: (message: string, context?: LogContext) =>
+      logger.info(message, { ...context, component: options.component }),
+    warn: (message: string, context?: LogContext) =>
+      logger.warn(message, { ...context, component: options.component }),
+    error: (message: string, error?: Error, context?: LogContext) =>
+      logger.error(message, error, { ...context, component: options.component }),
+  };
+}

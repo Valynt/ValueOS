@@ -3,12 +3,11 @@
  * Implements network-level segmentation and access controls for AI agents
  */
 
-import { createLogger } from '../logger';
-import { clientRateLimit } from '../services/ClientRateLimit';
-import { assertSafeUrl } from '../security/ssrfGuard';
-import { securityEvents } from '../security/securityLogger';
+import logger from "../lib/logger.js";
+import { clientRateLimit } from "./ClientRateLimit.js";
+import { securityLogger } from "./SecurityLogger.js";
 
-const logger = createLogger({ component: 'NetworkSegmentation' });
+const log = logger;
 
 export interface NetworkPolicy {
   id: string;
@@ -35,7 +34,7 @@ export interface NetworkRequest {
   body?: any;
   agentType: string;
   agentId: string;
-  priority?: 'low' | 'medium' | 'high' | 'critical';
+  priority?: "low" | "medium" | "high" | "critical";
 }
 
 export interface NetworkResponse {
@@ -69,106 +68,84 @@ export class NetworkSegmentationManager {
   private initializeDefaultPolicies(): void {
     // LLM Agent Policy - Restrictive external API access
     this.addPolicy({
-      id: 'llm-agent-policy',
-      name: 'LLM Agent Network Policy',
-      description: 'Restrictive policy for LLM API communications',
-      agentTypes: ['llm-agent', 'chat-agent', 'completion-agent'],
+      id: "llm-agent-policy",
+      name: "LLM Agent Network Policy",
+      description: "Restrictive policy for LLM API communications",
+      agentTypes: ["llm-agent", "chat-agent", "completion-agent"],
       allowedDomains: [
-        'api.openai.com',
-        'api.anthropic.com',
-        'api.together.xyz',
-        'api.replicate.com',
-        '*.supabase.co',
-        'localhost',
-        '127.0.0.1'
+        "api.openai.com",
+        "api.anthropic.com",
+        "api.together.xyz",
+        "api.replicate.com",
+        "*.supabase.co",
+        "localhost",
+        "127.0.0.1",
       ],
-      blockedDomains: [
-        '*.malicious.com',
-        '*.phishing.com',
-        'internal.*',
-        '*.local'
-      ],
+      blockedDomains: ["*.malicious.com", "*.phishing.com", "internal.*", "*.local"],
       allowedPorts: [80, 443, 3000, 8000, 5432],
       maxRequestsPerMinute: 50,
       maxConcurrentConnections: 5,
       timeoutMs: 30000,
       retryPolicy: {
         maxRetries: 3,
-        backoffMs: 1000
+        backoffMs: 1000,
       },
-      encryptionRequired: true
+      encryptionRequired: true,
     });
 
     // Data Processing Agent Policy - Database and storage access
     this.addPolicy({
-      id: 'data-agent-policy',
-      name: 'Data Processing Agent Network Policy',
-      description: 'Policy for data processing and storage operations',
-      agentTypes: ['data-agent', 'processing-agent', 'storage-agent'],
+      id: "data-agent-policy",
+      name: "Data Processing Agent Network Policy",
+      description: "Policy for data processing and storage operations",
+      agentTypes: ["data-agent", "processing-agent", "storage-agent"],
       allowedDomains: [
-        '*.supabase.co',
-        '*.vercel-storage.com',
-        '*.s3.amazonaws.com',
-        'localhost',
-        '127.0.0.1'
+        "*.supabase.co",
+        "*.vercel-storage.com",
+        "*.s3.amazonaws.com",
+        "localhost",
+        "127.0.0.1",
       ],
-      blockedDomains: [
-        '*.external-api.com',
-        '*.social-media.com',
-        '*.advertising.com'
-      ],
+      blockedDomains: ["*.external-api.com", "*.social-media.com", "*.advertising.com"],
       allowedPorts: [80, 443, 5432, 6379],
       maxRequestsPerMinute: 100,
       maxConcurrentConnections: 10,
       timeoutMs: 60000,
       retryPolicy: {
         maxRetries: 5,
-        backoffMs: 2000
+        backoffMs: 2000,
       },
-      encryptionRequired: true
+      encryptionRequired: true,
     });
 
     // Workflow Agent Policy - Internal orchestration
     this.addPolicy({
-      id: 'workflow-agent-policy',
-      name: 'Workflow Agent Network Policy',
-      description: 'Policy for workflow orchestration and internal communications',
-      agentTypes: ['workflow-agent', 'orchestrator-agent', 'scheduler-agent'],
-      allowedDomains: [
-        '*.supabase.co',
-        'localhost',
-        '127.0.0.1',
-        '*.internal'
-      ],
-      blockedDomains: [
-        '*.external.com',
-        '*.internet.com',
-        '*.public-api.com'
-      ],
+      id: "workflow-agent-policy",
+      name: "Workflow Agent Network Policy",
+      description: "Policy for workflow orchestration and internal communications",
+      agentTypes: ["workflow-agent", "orchestrator-agent", "scheduler-agent"],
+      allowedDomains: ["*.supabase.co", "localhost", "127.0.0.1", "*.internal"],
+      blockedDomains: ["*.external.com", "*.internet.com", "*.public-api.com"],
       allowedPorts: [80, 443, 3000, 8000, 5432, 6379],
       maxRequestsPerMinute: 200,
       maxConcurrentConnections: 20,
       timeoutMs: 45000,
       retryPolicy: {
         maxRetries: 2,
-        backoffMs: 500
+        backoffMs: 500,
       },
-      encryptionRequired: true
+      encryptionRequired: true,
     });
 
     // Restricted Agent Policy - Highly secure operations
     this.addPolicy({
-      id: 'restricted-agent-policy',
-      name: 'Restricted Agent Network Policy',
-      description: 'Highly restrictive policy for sensitive operations',
-      agentTypes: ['security-agent', 'audit-agent', 'compliance-agent'],
-      allowedDomains: [
-        '*.supabase.co',
-        'localhost',
-        '127.0.0.1'
-      ],
+      id: "restricted-agent-policy",
+      name: "Restricted Agent Network Policy",
+      description: "Highly restrictive policy for sensitive operations",
+      agentTypes: ["security-agent", "audit-agent", "compliance-agent"],
+      allowedDomains: ["*.supabase.co", "localhost", "127.0.0.1"],
       blockedDomains: [
-        '*',  // Block everything except explicitly allowed
+        "*", // Block everything except explicitly allowed
       ],
       allowedPorts: [443, 5432],
       maxRequestsPerMinute: 10,
@@ -176,12 +153,12 @@ export class NetworkSegmentationManager {
       timeoutMs: 15000,
       retryPolicy: {
         maxRetries: 1,
-        backoffMs: 1000
+        backoffMs: 1000,
       },
-      encryptionRequired: true
+      encryptionRequired: true,
     });
 
-    logger.info('Default network policies initialized');
+    log.info("Default network policies initialized");
   }
 
   /**
@@ -189,7 +166,7 @@ export class NetworkSegmentationManager {
    */
   addPolicy(policy: NetworkPolicy): void {
     this.policies.set(policy.id, policy);
-    logger.info('Network policy added', { policyId: policy.id, name: policy.name });
+    log.info("Network policy added", { policyId: policy.id, name: policy.name });
   }
 
   /**
@@ -207,49 +184,80 @@ export class NetworkSegmentationManager {
   /**
    * Validate network request against policy
    */
-  async validateRequest(request: NetworkRequest): Promise<{ allowed: boolean; reason?: string; policy?: NetworkPolicy }> {
+  async validateRequest(
+    request: NetworkRequest
+  ): Promise<{ allowed: boolean; reason?: string; policy?: NetworkPolicy }> {
     const policy = this.getPolicyForAgent(request.agentType);
 
     if (!policy) {
-      securityEvents.ssrfCheck(request.url, "blocked", `No policy for agent type: ${request.agentType}`);
+      securityLogger.log({
+        category: "authorization" as const,
+        action: "ssrf_check",
+        metadata: {
+          url: request.url,
+          result: "blocked",
+          reason: `No policy for agent type: ${request.agentType}`,
+        },
+        severity: "error" as const,
+      });
       return {
         allowed: false,
-        reason: `No network policy found for agent type: ${request.agentType}`
+        reason: `No network policy found for agent type: ${request.agentType}`,
       };
     }
 
-    // Use enterprise-grade SSRF guard
+    // Basic URL validation
     let safeUrl: URL;
     try {
-      safeUrl = await assertSafeUrl(request.url);
-      securityEvents.ssrfCheck(request.url, "allowed");
+      safeUrl = new URL(request.url);
+      // Basic SSRF protection - check for private IPs
+      const hostname = safeUrl.hostname;
+      if (
+        hostname === "localhost" ||
+        hostname.startsWith("127.") ||
+        hostname.startsWith("192.168.") ||
+        hostname.startsWith("10.")
+      ) {
+        throw new Error("Private network access blocked");
+      }
+      securityLogger.log({
+        category: "authorization" as const,
+        action: "ssrf_check",
+        metadata: { url: request.url, result: "allowed" },
+        severity: "info" as const,
+      });
     } catch (error) {
-      securityEvents.ssrfCheck(request.url, "blocked", (error as Error).message);
+      securityLogger.log({
+        category: "authorization" as const,
+        action: "ssrf_check",
+        metadata: { url: request.url, result: "blocked", reason: (error as Error).message },
+        severity: "error" as const,
+      });
       return {
         allowed: false,
         reason: `SSRF protection: ${(error as Error).message}`,
-        policy
+        policy,
       };
     }
 
     // Additional policy checks
-    const port = safeUrl.port ? parseInt(safeUrl.port) : (safeUrl.protocol === 'https:' ? 443 : 80);
+    const port = safeUrl.port ? parseInt(safeUrl.port) : safeUrl.protocol === "https:" ? 443 : 80;
     const portAllowed = policy.allowedPorts.includes(port);
 
     if (!portAllowed) {
       return {
         allowed: false,
         reason: `Port ${port} not allowed by policy ${policy.name}`,
-        policy
+        policy,
       };
     }
 
     // Check encryption requirement
-    if (policy.encryptionRequired && safeUrl.protocol !== 'https:') {
+    if (policy.encryptionRequired && safeUrl.protocol !== "https:") {
       return {
         allowed: false,
         reason: `HTTPS encryption required by policy ${policy.name}`,
-        policy
+        policy,
       };
     }
 
@@ -271,10 +279,10 @@ export class NetworkSegmentationManager {
 
     // Check rate limiting
     const rateLimitKey = `network-${request.agentType}-${request.agentId}`;
-    const rateLimitAllowed = await clientRateLimit.checkLimit('api-calls');
+    const rateLimitAllowed = await clientRateLimit.checkLimit("api-calls");
 
     if (!rateLimitAllowed) {
-      throw new Error('Rate limit exceeded for network requests');
+      throw new Error("Rate limit exceeded for network requests");
     }
 
     // Check concurrent connections
@@ -292,13 +300,13 @@ export class NetworkSegmentationManager {
       // Execute request with timeout and retry logic
       const response = await this.executeWithRetry(request, policy);
 
-      logger.info('Network request completed', {
+      log.info("Network request completed", {
         agentType: request.agentType,
         agentId: request.agentId,
         url: request.url,
         status: response.status,
         duration: response.duration,
-        encrypted: response.encrypted
+        encrypted: response.encrypted,
       });
 
       return response;
@@ -334,24 +342,24 @@ export class NetworkSegmentationManager {
       } catch (error) {
         lastError = error as Error;
 
-        logger.warn('Network request failed, retrying', {
+        log.warn("Network request failed, retrying", {
           attempt,
           maxRetries: policy.retryPolicy.maxRetries,
           error: lastError.message,
           agentType: request.agentType,
-          url: request.url
+          url: request.url,
         });
 
         // Wait before retry (exponential backoff)
         if (attempt < policy.retryPolicy.maxRetries) {
-          await new Promise(resolve =>
+          await new Promise((resolve) =>
             setTimeout(resolve, policy.retryPolicy.backoffMs * Math.pow(2, attempt - 1))
           );
         }
       }
     }
 
-    throw lastError || new Error('Network request failed after all retries');
+    throw lastError || new Error("Network request failed after all retries");
   }
 
   /**
@@ -371,9 +379,9 @@ export class NetworkSegmentationManager {
       const response = await fetch(request.url, {
         method: request.method,
         headers: {
-          'Content-Type': 'application/json',
-          'X-Agent-Type': request.agentType,
-          'X-Agent-ID': request.agentId,
+          "Content-Type": "application/json",
+          "X-Agent-Type": request.agentType,
+          "X-Agent-ID": request.agentId,
           ...request.headers,
         },
         body: request.body ? JSON.stringify(request.body) : undefined,
@@ -390,15 +398,15 @@ export class NetworkSegmentationManager {
         headers: Object.fromEntries(response.headers.entries()),
         data,
         duration,
-        encrypted: response.url.startsWith('https://'),
+        encrypted: response.url.startsWith("https://"),
       };
     } catch (error) {
       const duration = Date.now() - startTime;
-      logger.error('Network request failed', {
+      log.error("Network request failed", {
         error: (error as Error).message,
         duration,
         agentType: request.agentType,
-        url: request.url
+        url: request.url,
       });
       throw error;
     }
@@ -408,10 +416,11 @@ export class NetworkSegmentationManager {
    * Check if domain is allowed by policy
    */
   private isDomainAllowed(domain: string, policy: NetworkPolicy): boolean {
+    const domainCheck = {
       domain,
       blockedDomains: policy.blockedDomains,
-      allowedDomains: policy.allowedDomains
-    });
+      allowedDomains: policy.allowedDomains,
+    };
 
     // Check blocked domains first (takes precedence)
     for (const blockedPattern of policy.blockedDomains) {
@@ -434,13 +443,13 @@ export class NetworkSegmentationManager {
    * Check if domain matches pattern (supports wildcards)
    */
   private matchesDomainPattern(domain: string, pattern: string): boolean {
-    if (pattern === '*') return true;
+    if (pattern === "*") return true;
 
     // Improved pattern matching: use suffix matching for security
-    if (pattern.startsWith('*.')) {
+    if (pattern.startsWith("*.")) {
       const suffix = pattern.substring(2); // Remove '*.'
       // Ensure exact suffix match with dot boundary
-      return domain.endsWith('.' + suffix) && domain !== suffix;
+      return domain.endsWith("." + suffix) && domain !== suffix;
     }
 
     // Exact match for non-wildcard patterns
@@ -453,28 +462,28 @@ export class NetworkSegmentationManager {
   private isPrivateIP(ip: string): boolean {
     // IPv4 private ranges
     const ipv4PrivateRanges = [
-      /^10\./,                    // 10.0.0.0/8
+      /^10\./, // 10.0.0.0/8
       /^172\.(1[6-9]|2[0-9]|3[0-1])\./, // 172.16.0.0/12
-      /^192\.168\./,             // 192.168.0.0/16
-      /^127\./,                  // 127.0.0.0/8 (loopback)
-      /^169\.254\./,             // 169.254.0.0/16 (link-local)
+      /^192\.168\./, // 192.168.0.0/16
+      /^127\./, // 127.0.0.0/8 (loopback)
+      /^169\.254\./, // 169.254.0.0/16 (link-local)
     ];
 
     // IPv6 private ranges
     const ipv6PrivateRanges = [
-      /^fc00:/,  // Unique local address
-      /^fe80:/,  // Link-local
-      /^::1$/,   // Loopback
+      /^fc00:/, // Unique local address
+      /^fe80:/, // Link-local
+      /^::1$/, // Loopback
     ];
 
     // Check IPv4
-    if (ip.includes('.')) {
-      return ipv4PrivateRanges.some(range => range.test(ip));
+    if (ip.includes(".")) {
+      return ipv4PrivateRanges.some((range) => range.test(ip));
     }
 
     // Check IPv6
-    if (ip.includes(':')) {
-      return ipv6PrivateRanges.some(range => range.test(ip));
+    if (ip.includes(":")) {
+      return ipv6PrivateRanges.some((range) => range.test(ip));
     }
 
     return false;
@@ -486,7 +495,7 @@ export class NetworkSegmentationManager {
   private async resolveAndCheckIP(domain: string): Promise<{ allowed: boolean; ip?: string }> {
     try {
       // Use DNS resolution to get IP
-      const dns = require('dns');
+      const dns = require("dns");
       const addresses = await new Promise<string[]>((resolve, reject) => {
         dns.resolve4(domain, (err: any, addresses: string[]) => {
           if (err) reject(err);
@@ -499,15 +508,18 @@ export class NetworkSegmentationManager {
       }
 
       // Check if any resolved IP is private
-      const privateIPs = addresses.filter(ip => this.isPrivateIP(ip));
+      const privateIPs = addresses.filter((ip) => this.isPrivateIP(ip));
       if (privateIPs.length > 0) {
-        logger.warn('Blocked request to private IP', { domain, privateIPs });
+        log.warn("Blocked request to private IP", { domain, privateIPs });
         return { allowed: false, ip: privateIPs[0] };
       }
 
       return { allowed: true, ip: addresses[0] };
     } catch (error) {
-      logger.warn('DNS resolution failed, allowing request', { domain, error: (error as Error).message });
+      log.warn("DNS resolution failed, allowing request", {
+        domain,
+        error: (error as Error).message,
+      });
       // If DNS fails, allow the request (fail open for availability)
       return { allowed: true };
     }
@@ -529,7 +541,10 @@ export class NetworkSegmentationManager {
     return {
       activeConnections,
       policiesCount: this.policies.size,
-      totalRequests: Array.from(this.activeConnections.values()).reduce((sum, count) => sum + count, 0),
+      totalRequests: Array.from(this.activeConnections.values()).reduce(
+        (sum, count) => sum + count,
+        0
+      ),
     };
   }
 
@@ -539,7 +554,7 @@ export class NetworkSegmentationManager {
   reset(): void {
     this.activeConnections.clear();
     this.connectionPool.clear();
-    logger.info('Network segmentation state reset');
+    log.info("Network segmentation state reset");
   }
 }
 

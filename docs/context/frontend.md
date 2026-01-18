@@ -1,7 +1,7 @@
 # Frontend Context
 
 ## Overview
-ValueOS frontend is built with React 18.3, TypeScript, and Vite. The UI follows a deal-centric workflow with lifecycle stages.
+ValueOS frontend is built with React 18.3, TypeScript, and Vite. The application follows a modern SaaS architecture with a dark sidebar navigation, horizontal tabs for settings, and a conversational AI workspace for building value cases.
 
 ## Tech Stack
 
@@ -18,8 +18,8 @@ ValueOS frontend is built with React 18.3, TypeScript, and Vite. The UI follows 
 - **Recharts:** Data visualization
 
 ### State Management
-- **React Context:** Global state
-- **React Query:** Server state (planned)
+- **Zustand:** Global state (agent store)
+- **React Context:** Auth/tenant context
 - **Local Storage:** Persistence
 
 ### Forms & Validation
@@ -31,416 +31,300 @@ ValueOS frontend is built with React 18.3, TypeScript, and Vite. The UI follows 
 ## Project Structure
 
 ```
-src/
-├── components/          # React components
-│   ├── ui/             # Base UI components (Radix)
-│   ├── Deals/          # Deal-specific components
-│   ├── Chat/           # Chat interface (legacy)
-│   └── Layout/         # Layout components
-├── views/              # Page-level components
-│   ├── DealsView.tsx   # Main sales enablement UI
-│   ├── ChatView.tsx    # Legacy chat interface
-│   └── SettingsView.tsx
-├── services/           # API clients
-│   ├── UnifiedAgentAPI.ts
-│   ├── ValueCaseService.ts
-│   └── OpportunityService.ts
-├── lib/                # Utilities
-│   ├── supabase.ts     # Supabase client
-│   └── utils.ts        # Helper functions
-├── hooks/              # Custom React hooks
-├── types/              # TypeScript types
-├── config/             # Configuration
-└── styles/             # Global styles
+apps/ValyntApp/src/
+├── app/                    # App configuration
+│   ├── routes/            # Route definitions
+│   ├── providers/         # Context providers
+│   └── config/            # App configuration
+├── components/            # React components
+│   ├── ui/               # Base UI components (Button, Card, Input, etc.)
+│   ├── layout/           # Layout components (AppShell)
+│   ├── marketing/        # Marketing site components
+│   ├── settings/         # Settings components (SettingsRow, InviteModal)
+│   └── valueDrivers/     # Value driver components
+├── features/             # Feature modules
+│   ├── onboarding/       # Onboarding wizard
+│   └── workspace/        # Case workspace (agents, artifacts)
+├── pages/                # Page components
+│   ├── valueos/          # Main app pages
+│   ├── settings/         # Settings pages
+│   ├── marketing/        # Marketing pages
+│   ├── auth/             # Auth pages
+│   └── admin/            # Admin pages
+├── services/             # API clients
+├── hooks/                # Custom React hooks
+├── types/                # TypeScript types
+├── lib/                  # Utilities
+└── styles/               # Global styles & theme
 ```
 
 ---
 
-## Key Views
+## Application Layout
 
-### DealsView (`src/views/DealsView.tsx`)
-Main sales enablement interface.
+### AppShell (`components/layout/AppShell.tsx`)
+Main application layout with dark sidebar navigation.
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ ┌──────────┐ ┌─────────────────────────────────────────────┐ │
+│ │          │ │ Breadcrumb: Platform / Cases                │ │
+│ │  SIDEBAR │ ├─────────────────────────────────────────────┤ │
+│ │          │ │                                             │ │
+│ │ Platform │ │                                             │ │
+│ │ • Home   │ │              PAGE CONTENT                   │ │
+│ │ • Cases  │ │                                             │ │
+│ │ • Library│ │                                             │ │
+│ │   └ Temp │ │                                             │ │
+│ │   └ Driv │ │                                             │ │
+│ │          │ │                                             │ │
+│ │ Org      │ │                                             │ │
+│ │ • Team   │ │                                             │ │
+│ │ • Billing│ │                                             │ │
+│ │ • Setting│ │                                             │ │
+│ │          │ │                                             │ │
+│ │ ──────── │ │                                             │ │
+│ │ [Avatar] │ │                                             │ │
+│ │ Sarah K. │ │                                             │ │
+│ └──────────┘ └─────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Navigation Sections:**
+- **Platform:** Home, Cases, Library (with submenu: Templates, Value Drivers)
+- **Organization:** Team, Billing, Settings
+- **User Menu:** Links to profile settings
+
+### SettingsLayout (`pages/settings/SettingsLayout.tsx`)
+Horizontal tabs navigation for settings pages.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Settings                                                     │
+│ ─────────────────────────────────────────────────────────── │
+│ [My profile] [Security] [Billing] [Notifications] [Team]... │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│                    SETTINGS CONTENT                         │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Key Pages
+
+### Cases (`pages/valueos/CasesPage.tsx`)
+List view of all value cases with filtering and sorting.
 
 **Features:**
-- Deal import/creation
-- Deal selection
-- Lifecycle stage navigation
-- Business case generation
-- Persona customization
+- Grid/List view toggle
+- Search by name/company
+- Filter by status (Draft, In Progress, Committed, Closed)
+- Sort by updated, created, name, value
+- Summary stats (total cases, in progress, total value)
 
-**Layout:**
+### Case Workspace (`pages/valueos/CaseWorkspace.tsx`)
+Split-pane workspace for building value cases with AI assistance.
+
 ```
-┌─────────────────────────────────────┐
-│ Header: Import/Create Deal          │
-├─────────────────────────────────────┤
-│ Deal Selector (if no deal selected) │
-├─────────────────────────────────────┤
-│ Lifecycle Stage Navigation           │
-│ [Discovery] [Modeling] [Realization] │
-├─────────────────────────────────────┤
-│ Stage Content                        │
-│ - Discovery: Opportunity Analysis    │
-│ - Modeling: Value Model + Financial  │
-│ - Realization: Metrics Tracking      │
-│ - Expansion: Upsell Opportunities    │
-└─────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ ← Cases / Acme Corp Value Case          [Value Drivers] ... │
+├─────────────────────────────────────────────────────────────┤
+│ ┌─────────────────┐ ┌─────────────────────────────────────┐ │
+│ │                 │ │                                     │ │
+│ │  CONVERSATION   │ │           CANVAS                    │ │
+│ │                 │ │                                     │ │
+│ │  Agent messages │ │  KPI Cards                          │ │
+│ │  User input     │ │  Artifact display                   │ │
+│ │  Progress       │ │  (Tables, Charts, Models)           │ │
+│ │                 │ │                                     │ │
+│ │  [Input field]  │ │                                     │ │
+│ └─────────────────┘ └─────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-**State Management:**
-```typescript
-const [selectedDeal, setSelectedDeal] = useState<ValueCase | null>(null);
-const [currentStage, setCurrentStage] = useState<LifecycleStage>('discovery');
-const [isGenerating, setIsGenerating] = useState(false);
-```
+**Features:**
+- Conversational AI interface
+- Real-time artifact generation
+- Value Driver panel (toggle from header)
+- KPI cards display
+- Export to PDF
+- Share modal
+
+### Library Hub (`pages/valueos/LibraryPage.tsx`)
+Central hub for reusable assets.
+
+**Sections:**
+- Case Templates - Pre-built value case structures
+- Value Drivers - Strategic value propositions with formulas
+- Brand Assets - Link to branding settings
+- Playbooks - Coming soon
+
+### Value Driver Library (`pages/valueos/ValueDriverLibrary.tsx`)
+Admin command center for managing value drivers.
+
+**Features:**
+- Stats dashboard (total, published, usage, win rate)
+- Search and filter (by type, status)
+- Driver table with edit/archive actions
+- AI suggestions button
+- Full editor modal
+
+### Settings Pages
+
+| Page | Path | Purpose |
+|------|------|---------|
+| Profile | `/app/settings/profile` | Edit-in-place user profile |
+| Security | `/app/settings/security` | Password, 2FA, sessions |
+| Billing | `/app/settings/billing` | Meta-ROI dashboard, usage, invoices |
+| Notifications | `/app/settings/notifications` | Email, push, Slack preferences |
+| Team | `/app/settings/team` | Member management, invites |
+| Branding | `/app/settings/branding` | Logo, colors, fonts, boilerplate |
+| Integrations | `/app/settings/integrations` | CRM, communication, storage |
 
 ---
 
 ## Component Library
 
-### Base UI Components (`src/components/ui/`)
+### Base UI Components (`components/ui/`)
 
-All base components use Radix UI primitives with Tailwind styling.
-
-**Available Components:**
-- `button.tsx` - Button variants
-- `card.tsx` - Card container
-- `dialog.tsx` - Modal dialogs
-- `input.tsx` - Text inputs
-- `select.tsx` - Dropdown selects
-- `badge.tsx` - Status badges
-- `progress.tsx` - Progress bars
-- `tabs.tsx` - Tab navigation
-- `tooltip.tsx` - Tooltips
-- `alert.tsx` - Alert messages
-
-**Usage Pattern:**
-```typescript
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-
-<Card>
-  <Button variant="primary" size="lg">
-    Generate Business Case
-  </Button>
-</Card>
-```
-
-**Variants:**
-```typescript
-// Button variants
-variant: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link'
-size: 'default' | 'sm' | 'lg' | 'icon'
-
-// Badge variants
-variant: 'default' | 'secondary' | 'destructive' | 'outline'
-```
-
----
-
-### Deal Components (`src/components/Deals/`)
-
-#### DealImportModal
-Import deals from CRM or create manually.
-
-**Props:**
-```typescript
-interface DealImportModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onDealCreated: (deal: ValueCase) => void;
-}
-```
-
-**Features:**
-- CRM integration (Salesforce, HubSpot)
-- Manual deal creation
-- Company name validation
-- Description input
-
-#### DealSelector
-Browse and select existing deals.
-
-**Props:**
-```typescript
-interface DealSelectorProps {
-  onDealSelected: (deal: ValueCase) => void;
-}
-```
-
-**Features:**
-- Search by company name
-- Filter by lifecycle stage
-- Sort by date/status
-- Pagination
-
-#### LifecycleStageNav
-Navigate between lifecycle stages.
-
-**Props:**
-```typescript
-interface LifecycleStageNavProps {
-  currentStage: LifecycleStage;
-  onStageChange: (stage: LifecycleStage) => void;
-  completedStages: LifecycleStage[];
-}
-```
-
-**Stages:**
-1. Discovery - Identify pain points
-2. Modeling - Build value model
-3. Realization - Track delivery
-4. Expansion - Identify upsell
-
-#### BusinessCaseGenerator
-Orchestrate multi-agent workflow with real-time progress.
-
-**Props:**
-```typescript
-interface BusinessCaseGeneratorProps {
-  valueCaseId: string;
-  onComplete: (result: BusinessCaseResult) => void;
-}
-```
-
-**Features:**
-- Real-time progress updates
-- Agent execution streaming
-- Error handling
-- Retry logic
-- Confidence scores
-
-**Progress States:**
-```typescript
-type AgentStatus = 'pending' | 'running' | 'complete' | 'error';
-
-interface AgentProgress {
-  agent: string;
-  status: AgentStatus;
-  progress: number; // 0-100
-  message: string;
-  duration?: number;
-}
-```
-
-#### PersonaSelector
-Select and customize buyer persona.
-
-**Props:**
-```typescript
-interface PersonaSelectorProps {
-  selectedPersona: BuyerPersona | null;
-  onPersonaSelected: (persona: BuyerPersona) => void;
-}
-```
-
-**Personas:**
-1. **CFO** - Financial decision maker
-2. **CIO/CTO** - Technology leader
-3. **COO** - Operations executive
-4. **VP Sales** - Revenue leader
-5. **VP Marketing** - Marketing leader
-6. **Business Unit Leader** - Department head
-
-**Persona Attributes:**
-```typescript
-interface BuyerPersona {
-  role: string;
-  seniority: 'C-level' | 'VP' | 'Director' | 'Manager';
-  decision_authority: 'high' | 'medium' | 'low';
-  priorities: string[];
-  pain_points: string[];
-  success_metrics: string[];
-}
-```
-
-#### OpportunityAnalysisPanel
-Display identified pain points and objectives.
-
-**Props:**
-```typescript
-interface OpportunityAnalysisPanelProps {
-  valueCaseId: string;
-}
-```
-
-**Features:**
-- Pain point list with impact scores
-- Business objectives with priority
-- Data source attribution
-- Confidence indicators
-
-#### BenchmarkComparisonPanel
-Visualize industry benchmarks.
-
-**Props:**
-```typescript
-interface BenchmarkComparisonPanelProps {
-  valueCaseId: string;
-  kpiName: string;
-  currentValue: number;
-}
-```
-
-**Features:**
-- Percentile visualization
-- Gap analysis
-- Improvement opportunity
-- Industry comparison
-
----
-
-## Services
-
-### UnifiedAgentAPI (`src/services/UnifiedAgentAPI.ts`)
-Single interface for all agent invocations.
+| Component | Description |
+|-----------|-------------|
+| `button.tsx` | Button with variants (default, outline, ghost, destructive) |
+| `card.tsx` | Card container with header, content, footer |
+| `input.tsx` | Text input, SearchInput, Textarea |
+| `select.tsx` | SimpleSelect dropdown |
+| `badge.tsx` | Status badges |
+| `progress.tsx` | Progress bars |
+| `dialog.tsx` | Modal dialogs |
+| `avatar.tsx` | UserAvatar with initials |
+| `label.tsx` | Form labels |
 
 **Usage:**
 ```typescript
-import { getUnifiedAgentAPI } from '@/services/UnifiedAgentAPI';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { SearchInput } from '@/components/ui/input';
 
-const api = getUnifiedAgentAPI();
-
-// Invoke agent
-const response = await api.invoke({
-  agent: 'opportunity',
-  query: 'Analyze Acme Corp',
-  context: {
-    valueCaseId: 'uuid',
-    company: 'Acme Corp'
-  }
-});
-
-// Stream agent execution
-const stream = api.streamInvoke({
-  agent: 'opportunity',
-  query: 'Analyze Acme Corp',
-  context: { valueCaseId: 'uuid' }
-});
-
-for await (const chunk of stream) {
-  console.log(chunk.progress, chunk.message);
-}
+<Card>
+  <CardHeader>
+    <CardTitle>Title</CardTitle>
+  </CardHeader>
+  <CardContent>
+    <SearchInput placeholder="Search..." />
+    <Button variant="primary">Submit</Button>
+  </CardContent>
+</Card>
 ```
 
-### ValueCaseService (`src/services/ValueCaseService.ts`)
-CRUD operations for value cases.
+### Settings Components (`components/settings/`)
 
-**Methods:**
+| Component | Description |
+|-----------|-------------|
+| `SettingsRow` | Edit-in-place row with label, value, edit button |
+| `SettingsToggleRow` | Row with toggle switch |
+| `SettingsSection` | Titled card container |
+| `SettingsAlert` | Contextual alert (warning, info, success, error) |
+| `InviteModal` | Team member invitation modal |
+
+### Value Driver Components (`components/valueDrivers/`)
+
+| Component | Description |
+|-----------|-------------|
+| `ValueDriverEditor` | Full editor modal for creating/editing drivers |
+| `ValueDriverSelector` | Seller-facing selector for case builder |
+
+---
+
+## Types
+
+### Value Driver (`types/valueDriver.ts`)
+
 ```typescript
-class ValueCaseService {
-  async create(data: CreateValueCaseInput): Promise<ValueCase>;
-  async getById(id: string): Promise<ValueCase>;
-  async list(filters?: ValueCaseFilters): Promise<ValueCase[]>;
-  async update(id: string, data: UpdateValueCaseInput): Promise<ValueCase>;
-  async delete(id: string): Promise<void>;
-  async updateLifecycleStage(id: string, stage: LifecycleStage): Promise<void>;
+interface ValueDriver {
+  id: string;
+  name: string;
+  description: string;
+  type: "cost-savings" | "revenue-lift" | "productivity-gain" | "risk-mitigation";
+  personaTags: PersonaTag[];
+  salesMotionTags: SalesMotionTag[];
+  formula: ValueDriverFormula;
+  narrativePitch: string;
+  status: "draft" | "published" | "archived";
+  usageCount: number;
+  winRateCorrelation?: number;
 }
 
-// Singleton instance
-export const valueCaseService = new ValueCaseService();
-```
-
-### OpportunityService (`src/services/OpportunityService.ts`)
-Manage opportunities (pain points and objectives).
-
-**Methods:**
-```typescript
-class OpportunityService {
-  async create(data: CreateOpportunityInput): Promise<Opportunity>;
-  async listByValueCase(valueCaseId: string): Promise<Opportunity[]>;
-  async update(id: string, data: UpdateOpportunityInput): Promise<Opportunity>;
-  async delete(id: string): Promise<void>;
+interface ValueDriverFormula {
+  expression: string;
+  variables: FormulaVariable[];
+  resultUnit: "currency" | "percentage" | "hours" | "count";
 }
-
-export const opportunityService = new OpportunityService();
 ```
 
 ---
 
 ## Routing
 
-### AppRoutes (`src/AppRoutes.tsx`)
+### Route Structure (`app/routes/index.tsx`)
 
-```typescript
-<Routes>
-  <Route path="/" element={<DealsView />} />
-  <Route path="/deals" element={<DealsView />} />
-  <Route path="/deals/:id" element={<DealsView />} />
-  <Route path="/chat" element={<ChatView />} />
-  <Route path="/settings" element={<SettingsView />} />
-</Routes>
 ```
+/                           → Landing page (MarketingLayout)
+/login                      → Login page
+/signup                     → Signup page
+/setup                      → Onboarding wizard
 
-**Default Route:** `/` redirects to `/deals`
+/app                        → Home (AppShell)
+/app/cases                  → Cases list
+/app/cases/new              → New case workspace
+/app/cases/:id              → Case workspace
+/app/library                → Library hub
+/app/library/templates      → Templates list
+/app/library/drivers        → Value drivers admin
+/app/team                   → Team page
+/app/billing                → Billing page
+/app/settings/*             → Settings (nested routes)
 
----
-
-## State Management
-
-### Global State (Context)
-```typescript
-// src/contexts/AppContext.tsx
-interface AppState {
-  user: User | null;
-  tenant: Tenant | null;
-  selectedDeal: ValueCase | null;
-}
-
-const AppContext = createContext<AppState>(initialState);
-
-export const useApp = () => useContext(AppContext);
-```
-
-### Local State (Component)
-```typescript
-// Component-level state
-const [deals, setDeals] = useState<ValueCase[]>([]);
-const [loading, setLoading] = useState(false);
-const [error, setError] = useState<string | null>(null);
-```
-
-### Server State (React Query - Planned)
-```typescript
-// Future implementation
-const { data, isLoading, error } = useQuery({
-  queryKey: ['value-cases'],
-  queryFn: () => valueCaseService.list()
-});
+/settings/*                 → Standalone settings (without AppShell)
 ```
 
 ---
 
 ## Styling
 
-### Tailwind Configuration (`tailwind.config.js`)
+### Theme (`styles/valueos-theme.css`)
 
-**Custom Colors:**
-```javascript
-colors: {
-  primary: {
-    50: '#f0f9ff',
-    500: '#3b82f6',
-    900: '#1e3a8a'
-  },
-  success: '#10b981',
-  warning: '#f59e0b',
-  error: '#ef4444'
-}
-```
-
-**Custom Utilities:**
+**CSS Variables:**
 ```css
-/* src/styles/globals.css */
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+:root {
+  /* Primary - Blue */
+  --primary: 217 91% 60%;
+  --primary-foreground: 0 0% 100%;
+  
+  /* Semantic */
+  --background: 0 0% 100%;
+  --foreground: 222 47% 11%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 19% 35%;
+  
+  /* Sidebar */
+  --sidebar-background: 222 47% 11%;
+  --sidebar-foreground: 210 40% 98%;
+  
+  /* Marketing */
+  --bg-dark: #0B0C0F;
+  --accent-green: #18C3A5;
 }
 ```
+
+**Utility Classes:**
+- `.bg-grid` - Subtle dot grid pattern for marketing pages
+- `.scrollbar-thin` - Thin scrollbar styling
+- `.animate-in` / `.animate-out` - Entry/exit animations
 
 ### Component Styling Pattern
 ```typescript
-// Use cn() utility for conditional classes
 import { cn } from '@/lib/utils';
 
 <div className={cn(
@@ -452,228 +336,74 @@ import { cn } from '@/lib/utils';
 
 ---
 
-## Data Fetching
+## State Management
 
-### Pattern: Fetch on Mount
+### Agent Store (`features/workspace/agent/store.ts`)
+Zustand store for case workspace state.
+
 ```typescript
-useEffect(() => {
-  const fetchDeals = async () => {
-    setLoading(true);
-    try {
-      const data = await valueCaseService.list();
-      setDeals(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  fetchDeals();
-}, []);
+interface AgentState {
+  phase: AgentPhase;
+  messages: ConversationMessage[];
+  artifacts: Artifact[];
+  isStreaming: boolean;
+  // ... actions
+}
+
+const useAgentStore = create<AgentState>((set, get) => ({
+  // state and actions
+}));
 ```
 
-### Pattern: Optimistic Updates
+### Selectors
 ```typescript
-const handleUpdate = async (id: string, data: UpdateData) => {
-  // Optimistic update
-  setDeals(prev => prev.map(d => 
-    d.id === id ? { ...d, ...data } : d
-  ));
-  
-  try {
-    await valueCaseService.update(id, data);
-  } catch (err) {
-    // Revert on error
-    setDeals(prev => prev.map(d => 
-      d.id === id ? originalDeal : d
-    ));
-    setError(err.message);
-  }
-};
+import { useAgentStore, selectActiveArtifact } from '@/features/workspace/agent/store';
+
+const activeArtifact = useAgentStore(selectActiveArtifact);
 ```
 
 ---
 
-## Error Handling
-
-### Error Boundary
-```typescript
-// src/components/ErrorBoundary.tsx
-class ErrorBoundary extends React.Component {
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Error caught:', error, errorInfo);
-    // Log to error tracking service
-  }
-  
-  render() {
-    if (this.state.hasError) {
-      return <ErrorFallback />;
-    }
-    return this.props.children;
-  }
-}
-```
-
-### API Error Handling
-```typescript
-try {
-  const result = await api.invoke({ ... });
-} catch (error) {
-  if (error instanceof NetworkError) {
-    toast.error('Network error. Please check your connection.');
-  } else if (error instanceof AuthError) {
-    toast.error('Authentication failed. Please log in again.');
-  } else {
-    toast.error('An unexpected error occurred.');
-  }
-}
-```
-
----
-
-## Performance Optimization
+## Performance
 
 ### Code Splitting
-```typescript
-// Lazy load routes
-const ChatView = lazy(() => import('./views/ChatView'));
-const SettingsView = lazy(() => import('./views/SettingsView'));
+- All pages lazy-loaded with `React.lazy()`
+- Manual chunks in Vite config for vendor libraries
+- Separate chunks for Radix UI, Zustand, Supabase
 
-<Suspense fallback={<LoadingSpinner />}>
-  <Routes>
-    <Route path="/chat" element={<ChatView />} />
-    <Route path="/settings" element={<SettingsView />} />
-  </Routes>
-</Suspense>
+### Build Output
 ```
-
-### Memoization
-```typescript
-// Memoize expensive calculations
-const sortedDeals = useMemo(() => {
-  return deals.sort((a, b) => 
-    new Date(b.created_at) - new Date(a.created_at)
-  );
-}, [deals]);
-
-// Memoize callbacks
-const handleDealSelect = useCallback((deal: ValueCase) => {
-  setSelectedDeal(deal);
-}, []);
-```
-
-### Virtual Scrolling
-```typescript
-// For large lists (planned)
-import { useVirtualizer } from '@tanstack/react-virtual';
-
-const virtualizer = useVirtualizer({
-  count: deals.length,
-  getScrollElement: () => parentRef.current,
-  estimateSize: () => 100
-});
+vendor.js        ~410 KB (React, React DOM)
+vendorRouter.js  ~13 KB (React Router)
+vendorUI.js      ~21 KB (Lucide React)
+index.js         ~95 KB (App shell, routing)
+CaseWorkspace.js ~272 KB (Workspace features)
 ```
 
 ---
 
-## Testing
+## Accessibility
 
-### Component Tests
-```typescript
-// src/components/Deals/__tests__/DealSelector.test.tsx
-import { render, screen, fireEvent } from '@testing-library/react';
-import { DealSelector } from '../DealSelector';
-
-describe('DealSelector', () => {
-  it('renders deals list', () => {
-    render(<DealSelector onDealSelected={jest.fn()} />);
-    expect(screen.getByText('Select a Deal')).toBeInTheDocument();
-  });
-  
-  it('calls onDealSelected when deal clicked', () => {
-    const onSelect = jest.fn();
-    render(<DealSelector onDealSelected={onSelect} />);
-    
-    fireEvent.click(screen.getByText('Acme Corp'));
-    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({
-      company_name: 'Acme Corp'
-    }));
-  });
-});
-```
+- ARIA labels on icon-only buttons
+- `aria-pressed` for toggle buttons
+- `aria-hidden="true"` on decorative icons
+- Proper heading hierarchy (h1 → h2)
+- Color contrast ratio ≥ 4.5:1 for text
 
 ---
 
-## Common Patterns
+## Key Files
 
-### Loading States
-```typescript
-if (loading) {
-  return <LoadingSpinner />;
-}
-
-if (error) {
-  return <ErrorMessage message={error} />;
-}
-
-return <Content data={data} />;
-```
-
-### Form Handling
-```typescript
-const { register, handleSubmit, formState: { errors } } = useForm();
-
-const onSubmit = async (data: FormData) => {
-  try {
-    await valueCaseService.create(data);
-    toast.success('Deal created successfully');
-  } catch (err) {
-    toast.error('Failed to create deal');
-  }
-};
-
-<form onSubmit={handleSubmit(onSubmit)}>
-  <input {...register('company_name', { required: true })} />
-  {errors.company_name && <span>Required</span>}
-</form>
-```
-
-### Conditional Rendering
-```typescript
-{selectedDeal ? (
-  <DealDetails deal={selectedDeal} />
-) : (
-  <DealSelector onDealSelected={setSelectedDeal} />
-)}
-```
+| File | Purpose |
+|------|---------|
+| `app/routes/index.tsx` | Route definitions |
+| `components/layout/AppShell.tsx` | Main app layout |
+| `pages/settings/SettingsLayout.tsx` | Settings layout |
+| `styles/valueos-theme.css` | Theme variables |
+| `styles/globals.css` | Global styles |
+| `vite.config.ts` | Build configuration |
 
 ---
 
-## Troubleshooting
-
-### Build Errors
-```bash
-# Clear cache
-rm -rf node_modules/.vite
-
-# Rebuild
-npm run build
-```
-
-### Type Errors
-```bash
-# Regenerate types
-npm run type-check
-```
-
-### Hot Reload Issues
-```bash
-# Restart dev server
-npm run dev
-```
-
----
-
-**Last Updated:** 2026-01-06  
-**Related:** `src/`, `vite.config.ts`, `tailwind.config.js`
+**Last Updated:** 2026-01-16
+**Related:** `apps/ValyntApp/src/`, `vite.config.ts`, `tailwind.config.js`

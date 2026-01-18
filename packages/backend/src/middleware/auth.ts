@@ -5,6 +5,9 @@
 
 import { NextFunction, Request, Response } from 'express';
 import jwt, { JwtPayload } from 'jsonwebtoken';
+
+// Re-export requireRole from rbac for convenience
+export { requireRole } from './rbac';
 import { authService } from './services/AuthService';
 import { AuthenticationError } from './services/errors';
 import { createLogger } from '@shared/lib/logger';

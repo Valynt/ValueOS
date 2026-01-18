@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-config
+  namespace: valynt-agents
+  labels:
+    app.kubernetes.io/name: agent-config
+    app.kubernetes.io/component: config
+    app.kubernetes.io/part-of: valynt-agents
+data:
+  # Environment
+  environment: "production"
+  node-env: "production"
+
+  # Logging
+  log-level: "info"
+
+  # Monitoring
+  enable-metrics: "true"
+  enable-health-checks: "true"
+
+  # Performance settings
+  max-concurrent-requests: "10"
+  request-timeout-ms: "30000"
+
+  # Agent-specific defaults
+  default-agent-timeout: "300000" # 5 minutes for long-running agent queries
+  enable-circuit-breaker: "true"
+  circuit-breaker-failure-threshold: "5"
+  circuit-breaker-recovery-timeout: "60000"
+
+  # Database connection settings
+  db-connection-pool-size: "5"
+  db-connection-timeout: "10000"
+
+  # External service timeouts
+  external-api-timeout: "10000"
+  llm-api-timeout: "60000"
+
+  # Security
+  enable-cors: "false"
+  allowed-origins: "https://app.valynt.com"
+
+  # Feature flags
+  enable-structured-logging: "true"
+  enable-request-tracing: "true"

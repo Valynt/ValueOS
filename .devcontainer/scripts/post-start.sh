@@ -43,17 +43,17 @@ log_error() { echo -e "${RED}✗${NC} $1"; }
 check_disk_space() {
     local workspace_path="${PROJECT_ROOT}"
     local disk_usage=0
-    
+
     # Try to get disk usage (cross-platform)
     if command -v df &>/dev/null; then
         disk_usage=$(df "$workspace_path" 2>/dev/null | awk 'NR==2 {gsub(/%/,""); print $5}' || echo "0")
     fi
-    
+
     # Validate we got a number
     if ! [[ "$disk_usage" =~ ^[0-9]+$ ]]; then
         disk_usage=0
     fi
-    
+
     if [ "$disk_usage" -ge 95 ]; then
         log_error "Disk space critical: ${disk_usage}% used"
         echo "       Run: docker system prune -f"
@@ -62,7 +62,7 @@ check_disk_space() {
         log_warn "Disk space low: ${disk_usage}% used"
         return 0
     fi
-    
+
     return 0
 }
 
@@ -94,27 +94,41 @@ check_docker_socket() {
     return 1
 }
 
+run_self_heal() {
+    if [ -f "${SCRIPT_DIR}/self-heal.sh" ]; then
+        log_success "Running self-healing checks..."
+        bash "${SCRIPT_DIR}/self-heal.sh" || true
+        return 0
+    fi
+    return 1
+}
+
 ###############################################################################
 # Main
 ###############################################################################
 
 main() {
     cd "$PROJECT_ROOT"
-    
+
     echo ""
     echo "========================================"
     echo "  ValueOS Dev Container - Ready"
     echo "========================================"
     echo ""
-    
+
     local issues=0
-    
+
     # Run quick health checks
     check_disk_space || issues=$((issues + 1))
     check_node_modules || issues=$((issues + 1))
     check_env_file || issues=$((issues + 1))
     check_docker_socket || true  # Don't count as issue
-    
+
+    # Run self-healing if Docker is available
+    if check_docker_socket; then
+        run_self_heal || true
+    fi
+
     # Summary
     if [ $issues -eq 0 ]; then
         log_success "All checks passed"
@@ -122,7 +136,7 @@ main() {
         echo ""
         log_warn "$issues issue(s) found - see warnings above"
     fi
-    
+
     echo ""
     echo "Quick Start:"
     echo "  npm run dx        - Start full environment"
@@ -131,7 +145,7 @@ main() {
     echo ""
     echo "========================================"
     echo ""
-    
+
     # Always exit successfully - don't block container start
     exit 0
 }

@@ -43,7 +43,7 @@ spec:
         - name: GF_INSTALL_PLUGINS
           value: "grafana-piechart-panel,grafana-clock-panel"
         - name: GF_SERVER_ROOT_URL
-          value: "https://grafana.valuecanvas.com"
+          value: "https://grafana.valynt.com"
         - name: GF_AUTH_ANONYMOUS_ENABLED
           value: "false"
         - name: GF_USERS_ALLOW_SIGN_UP

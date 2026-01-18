@@ -1,0 +1,32 @@
+{
+  "name": "@valueos/agent-base",
+  "version": "1.0.0",
+  "description": "Shared base utilities and runtime for ValueOS agents",
+  "type": "module",
+  "private": true,
+  "exports": {
+    "./logger": "./src/logger.ts",
+    "./metrics": "./src/metrics.ts",
+    "./health": "./src/health.ts",
+    "./server": "./src/server.ts",
+    "./config": "./src/config.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "prom-client": "^14.2.0",
+    "zod": "^3.25.76"
+  },
+  "peerDependencies": {
+    "@valueos/memory": "workspace:*",
+    "@valueos/infra": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.19.29",
+    "typescript": "^5.9.3"
+  }
+}

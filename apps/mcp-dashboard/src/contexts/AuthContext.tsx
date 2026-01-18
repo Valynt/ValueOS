@@ -1,10 +1,7 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  ReactNode,
-} from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { secureTokenStorage } from "../lib/secureStorage";
+import { authRateLimiter } from "../lib/rateLimiter";
+import { csrfProtection } from "../lib/csrfProtection";
 
 export interface User {
   id: string;
@@ -37,6 +34,12 @@ interface AuthContextType {
   logout: () => void;
   register: (email: string, password: string, name: string) => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
+  getRateLimitStatus: (email: string) => {
+    attempts: number;
+    maxAttempts: number;
+    isLocked: boolean;
+    lockoutRemaining?: number;
+  };
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -58,37 +61,71 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Initialize CSRF protection
+    csrfProtection.initialize();
+
+    let cancelled = false;
+
     // Check for existing session
     const checkAuth = async () => {
       try {
-        const token = localStorage.getItem("auth_token");
-        if (token) {
+        const tokenData = secureTokenStorage.getAccessToken();
+        if (tokenData && !cancelled) {
           // Validate token with backend
           const response = await fetch("/api/auth/validate", {
             headers: {
-              Authorization: `Bearer ${token}`,
+              Authorization: `Bearer ${tokenData}`,
             },
           });
 
-          if (response.ok) {
+          if (response.ok && !cancelled) {
             const userData = await response.json();
             setUser(userData);
           } else {
-            localStorage.removeItem("auth_token");
+            secureTokenStorage.clearToken();
           }
         }
       } catch (error) {
-        console.error("Auth validation failed:", error);
-        localStorage.removeItem("auth_token");
+        if (!cancelled) {
+          console.error("Auth validation failed:", error);
+          secureTokenStorage.clearToken();
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     checkAuth();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
+    // Rate limiting check
+    const rateLimitStatus = authRateLimiter.canAttemptAuth(email);
+    if (!rateLimitStatus.allowed) {
+      const lockoutMinutes = rateLimitStatus.lockoutRemaining || 15;
+      throw new Error(`Too many failed attempts. Please try again in ${lockoutMinutes} minutes.`);
+    }
+
+    // Input validation
+    if (!email || !password) {
+      throw new Error("Email and password are required");
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      throw new Error("Invalid email format");
+    }
+
+    if (password.length < 8) {
+      throw new Error("Password must be at least 8 characters");
+    }
+
     setLoading(true);
     try {
       const response = await fetch("/api/auth/login", {
@@ -100,12 +137,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       if (!response.ok) {
-        throw new Error("Login failed");
+        const errorData = await response.json().catch(() => ({}));
+
+        // Record failed attempt for rate limiting
+        authRateLimiter.recordFailedAttempt(email);
+
+        throw new Error(errorData.message || "Login failed");
       }
 
       const { user: userData, token } = await response.json();
 
-      localStorage.setItem("auth_token", token);
+      // Validate response data
+      if (!userData || !token || !userData.id || !userData.email) {
+        authRateLimiter.recordFailedAttempt(email);
+        throw new Error("Invalid response from server");
+      }
+
+      // Record successful attempt (clears rate limit)
+      authRateLimiter.recordSuccessfulAttempt(email);
+
+      // Store token securely with expiration
+      const expiresAt = Date.now() + 60 * 60 * 1000; // 1 hour
+      secureTokenStorage.setToken({
+        token,
+        expiresAt,
+        userId: userData.id,
+      });
+
       setUser(userData);
     } catch (error) {
       throw error;
@@ -115,11 +173,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem("auth_token");
+    secureTokenStorage.clearToken();
     setUser(null);
   };
 
   const register = async (email: string, password: string, name: string) => {
+    // Rate limiting check
+    const rateLimitStatus = authRateLimiter.canAttemptAuth(email);
+    if (!rateLimitStatus.allowed) {
+      const lockoutMinutes = rateLimitStatus.lockoutRemaining || 15;
+      throw new Error(`Too many failed attempts. Please try again in ${lockoutMinutes} minutes.`);
+    }
+
+    // Input validation
+    if (!email || !password || !name) {
+      throw new Error("Email, password, and name are required");
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      throw new Error("Invalid email format");
+    }
+
+    if (password.length < 8) {
+      throw new Error("Password must be at least 8 characters");
+    }
+
+    if (name.trim().length < 2) {
+      throw new Error("Name must be at least 2 characters");
+    }
+
     setLoading(true);
     try {
       const response = await fetch("/api/auth/register", {
@@ -131,12 +214,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       if (!response.ok) {
-        throw new Error("Registration failed");
+        const errorData = await response.json().catch(() => ({}));
+
+        // Record failed attempt for rate limiting
+        authRateLimiter.recordFailedAttempt(email);
+
+        throw new Error(errorData.message || "Registration failed");
       }
 
       const { user: userData, token } = await response.json();
 
-      localStorage.setItem("auth_token", token);
+      // Validate response data
+      if (!userData || !token || !userData.id || !userData.email) {
+        authRateLimiter.recordFailedAttempt(email);
+        throw new Error("Invalid response from server");
+      }
+
+      // Record successful attempt (clears rate limit)
+      authRateLimiter.recordSuccessfulAttempt(email);
+
+      // Store token securely with expiration
+      const expiresAt = Date.now() + 60 * 60 * 1000; // 1 hour
+      secureTokenStorage.setToken({
+        token,
+        expiresAt,
+        userId: userData.id,
+      });
+
       setUser(userData);
     } catch (error) {
       throw error;
@@ -149,7 +253,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (!user) throw new Error("No user logged in");
 
     try {
-      const token = localStorage.getItem("auth_token");
+      const token = secureTokenStorage.getAccessToken();
+      if (!token) {
+        throw new Error("No authentication token found");
+      }
+
       const response = await fetch("/api/auth/profile", {
         method: "PATCH",
         headers: {
@@ -170,6 +278,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const getRateLimitStatus = (email: string) => {
+    return authRateLimiter.getRateLimitStatus(email);
+  };
+
   const value: AuthContextType = {
     user,
     loading,
@@ -177,6 +289,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     register,
     updateProfile,
+    getRateLimitStatus,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

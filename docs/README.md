@@ -30,6 +30,7 @@ Welcome to the ValueOS documentation hub. This is your starting point for unders
 
 - **[API Documentation](engineering/api/)** - REST API and client SDK guides
 - **[Database](engineering/database/)** - Schema, migrations, and data access
+- **[Zero-Downtime Migrations](engineering/database/zero-downtime-migrations.md)** - Expand/contract strategy and release checklist
 - **[Agents](engineering/agents/)** - Agent system documentation
 - **[SDUI](engineering/sdui/)** - Server-Driven UI implementation
 
@@ -71,6 +72,12 @@ Documentation lives alongside the code in the `docs/` directory. To contribute:
 - **Slack**: #engineering for questions
 - **GitHub Issues**: Report documentation bugs
 - **Pull Requests**: Contribute improvements
+
+---
+
+## Archived Documentation
+
+Some obsolete or deprecated documentation has been moved to the `archive/` directory for historical reference. This includes old roadmap documents, specific deployment reports, and outdated UI designs.
 
 ---
 

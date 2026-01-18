@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: valynt-agents
+  labels:
+    name: valynt-agents
+    app.kubernetes.io/name: valynt-agents
+    app.kubernetes.io/component: agents
+    app.kubernetes.io/part-of: valynt

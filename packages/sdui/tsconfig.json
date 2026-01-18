@@ -6,7 +6,6 @@
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     "outDir": "dist",
-    "rootDir": "src",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
@@ -21,7 +20,15 @@
     "noUnusedParameters": false,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@shared/*": ["../shared/src/*"],
+      "@backend/*": ["../backend/src/*"],
+      "@infra/*": ["../infra/*"],
+      "@memory/*": ["../memory/*"],
+      "@agents/*": ["../agents/*"],
+      "@integrations/*": ["../integrations/*"],
+      "@mcp/*": ["../mcp/*"],
+      "@sdui/*": ["./src/*"]
     }
   },
   "include": ["src/**/*"],

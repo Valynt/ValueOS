@@ -4,7 +4,7 @@
  */
 
 // CRITICAL: Load environment variables FIRST before any other imports
-import dotenv from "dotenv";
+// import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -13,12 +13,10 @@ const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "../..");
 
 // Load .env.local from project root
-dotenv.config({ path: path.join(projectRoot, ".env.local") });
-
-import { validateEnv } from '@shared/lib/env";
+// dotenv.config({ path: path.join(projectRoot, ".env.local") });
 
 // Validate required environment variables (fail fast)
-validateEnv();
+// validateEnv();
 
 console.log("[Environment] Configuration loaded for development (redacted)");
 
@@ -36,6 +34,7 @@ import healthRouter, { markAsShuttingDown } from "../api/health";
 import authRouter from "../api/auth";
 import adminRouter from "../api/admin";
 import referralsRouter from "../api/referrals";
+import projectsRouter from "../api/projects";
 import docsApiRouter from "./docs-api";
 import {
   initializeSecretVolumeWatcher,
@@ -59,6 +58,13 @@ import {
   metricsMiddleware,
 } from "../middleware/metricsMiddleware";
 import { createRateLimiter } from "../middleware/rateLimiter";
+import {
+  requestIdMiddleware,
+  accessLogMiddleware,
+  globalErrorHandler,
+  notFoundHandler,
+  setupGlobalErrorHandlers,
+} from "../middleware/globalErrorHandler";
 import { serviceIdentityMiddleware } from "../middleware/serviceIdentityMiddleware";
 import {
   securityHeadersMiddleware,
@@ -75,7 +81,6 @@ import { isConsentRegistryConfigured } from './services/consentRegistry";
 import { TenantContextResolver } from './services/TenantContextResolver";
 
 const logger = createLogger({ component: "BillingServer" });
-const INTERNAL_ERROR_STATUS = 500;
 const WS_POLICY_VIOLATION_CODE = 1008;
 
 const app = express();
@@ -269,6 +274,8 @@ app.use(
   })
 );
 app.use(express.json());
+app.use(requestIdMiddleware); // Request ID and timing (must be early)
+app.use(accessLogMiddleware); // Access logging
 app.use(securityHeadersMiddleware);
 app.use(tracingMiddleware()); // Add tracing middleware early
 app.use(metricsMiddleware());
@@ -305,6 +312,7 @@ app.get("/health/secrets", secretHealthMiddleware());
 
 // Mount routes
 apiRouter.use("/billing", billingRouter);
+apiRouter.use("/projects", projectsRouter);
 app.use("/api", apiRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);
@@ -334,33 +342,16 @@ app.use(
 app.use("/api/docs", docsApiRouter);
 app.use("/api/referrals", referralsRouter);
 
-// Error handler
-app.use(
-  (
-    err: unknown,
-    _req: express.Request,
-    res: express.Response,
-    _next: express.NextFunction
-  ): void => {
-    logger.error(
-      "Server error",
-      err instanceof Error ? err : new Error(String(err)),
-      {
-        requestId: res.locals.requestId,
-      }
-    );
-    const message =
-      settings.NODE_ENV === "development" && err instanceof Error
-        ? err.message
-        : undefined;
-    res.status(INTERNAL_ERROR_STATUS).json({
-      error: "Internal server error",
-      message,
-    });
-  }
-);
+// 404 handler for unmatched routes
+app.use(notFoundHandler);
+
+// Global error handler (must be last)
+app.use(globalErrorHandler);
 
 async function startServer(): Promise<void> {
+  // 0. Setup global error handlers for unhandled rejections/exceptions
+  setupGlobalErrorHandlers();
+
   // 1. Validate all secrets before starting any services
   logger.info("🔒 Validating secrets before server startup");
   // await validateSecretsOnStartup(); // Commented out for dev

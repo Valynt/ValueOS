@@ -83,6 +83,7 @@ export function createSubscription(
     metadata: {},
     created_at: now.toISOString(),
     updated_at: now.toISOString(),
+    version: 1,
     ...overrides,
   };
 }
@@ -206,6 +207,7 @@ export function createInvoice(overrides?: Partial<Invoice>): Invoice {
     metadata: {},
     created_at: now.toISOString(),
     updated_at: now.toISOString(),
+    version: 1,
     ...overrides,
   };
 }

@@ -8,10 +8,11 @@ import React, {
 } from "react";
 import { io, Socket } from "socket.io-client";
 import { useAuth } from "./AuthContext";
+import { secureTokenStorage } from "../lib/secureStorage";
 
 export interface StreamData {
   channel: string;
-  data: any;
+  data: Record<string, unknown>;
   timestamp: number;
   metadata?: {
     source?: string;
@@ -25,7 +26,7 @@ export interface WebhookNotification {
   type: "sec_filing" | "market_data" | "system_alert";
   title: string;
   message: string;
-  data: any;
+  data: Record<string, unknown>;
   timestamp: number;
   priority: "low" | "medium" | "high" | "critical";
 }
@@ -33,20 +34,15 @@ export interface WebhookNotification {
 interface WebSocketContextType {
   socket: Socket | null;
   isConnected: boolean;
-  subscribe: (
-    channel: string,
-    callback: (data: StreamData) => void
-  ) => () => void;
+  subscribe: (channel: string, callback: (data: StreamData) => void) => () => void;
   unsubscribe: (channel: string) => void;
-  broadcastToChannel: (channel: string, data: any) => void;
+  broadcastToChannel: (channel: string, data: Record<string, unknown>) => void;
   notifications: WebhookNotification[];
   clearNotifications: () => void;
   connectionStatus: "connecting" | "connected" | "disconnected" | "error";
 }
 
-const WebSocketContext = createContext<WebSocketContextType | undefined>(
-  undefined
-);
+const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
 
 export const useWebSocket = () => {
   const context = useContext(WebSocketContext);
@@ -60,9 +56,7 @@ interface WebSocketProviderProps {
   children: ReactNode;
 }
 
-export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
-  children,
-}) => {
+export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }) => {
   const { user } = useAuth();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -70,9 +64,9 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
     "connecting" | "connected" | "disconnected" | "error"
   >("disconnected");
   const [notifications, setNotifications] = useState<WebhookNotification[]>([]);
-  const [subscriptions, setSubscriptions] = useState<
-    Map<string, (data: StreamData) => void>
-  >(new Map());
+  const [subscriptions, setSubscriptions] = useState<Map<string, (data: StreamData) => void>>(
+    new Map()
+  );
 
   // Initialize socket connection
   useEffect(() => {
@@ -88,40 +82,59 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
 
     setConnectionStatus("connecting");
 
-    // Get auth token
-    const token = localStorage.getItem("auth_token");
+    // Get auth token from secure storage
+    const tokenData = secureTokenStorage.getAccessToken();
 
-    // Create socket connection
-    const newSocket = io(
-      process.env.REACT_APP_WS_URL || "http://localhost:3001",
-      {
-        auth: {
-          token,
-        },
-        transports: ["websocket", "polling"],
-        timeout: 5000,
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-      }
-    );
+    if (!tokenData) {
+      console.error("No authentication token available for WebSocket connection");
+      setConnectionStatus("error");
+      return;
+    }
+
+    // Create socket connection with secure authentication
+    const newSocket = io(process.env.REACT_APP_WS_URL || "http://localhost:3001", {
+      auth: {
+        token: tokenData,
+        userId: user.id,
+      },
+      transports: ["websocket", "polling"],
+      timeout: 5000,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      // Add security headers
+      extraHeaders: {
+        "X-Auth-Token": tokenData,
+        "X-User-ID": user.id,
+      },
+    });
 
     // Connection event handlers
     newSocket.on("connect", () => {
       setIsConnected(true);
       setConnectionStatus("connected");
-      console.log("WebSocket connected");
+      console.log("WebSocket connected securely");
     });
 
     newSocket.on("disconnect", (reason) => {
       setIsConnected(false);
       setConnectionStatus("disconnected");
       console.log("WebSocket disconnected:", reason);
+
+      // If disconnected due to authentication error, clear token
+      if (reason.toString().includes("auth") || reason.toString().includes("unauthorized")) {
+        secureTokenStorage.clearToken();
+      }
     });
 
     newSocket.on("connect_error", (error) => {
       setConnectionStatus("error");
       console.error("WebSocket connection error:", error);
+
+      // Handle authentication errors
+      if (error.message?.includes("auth") || error.message?.includes("unauthorized")) {
+        secureTokenStorage.clearToken();
+      }
     });
 
     // Data event handler
@@ -177,13 +190,21 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         return () => {};
       }
 
+      // Validate channel name for security
+      if (!/^[a-zA-Z0-9_-]+$/.test(channel)) {
+        console.error("Invalid channel name:", channel);
+        return () => {};
+      }
+
       // Store callback
       setSubscriptions((prev) => new Map(prev.set(channel, callback)));
 
-      // Subscribe on server
+      // Subscribe on server with authentication
       socket.emit("subscribe", {
         channels: [channel],
         filters: {},
+        userId: user?.id,
+        timestamp: Date.now(),
       });
 
       // Return unsubscribe function
@@ -191,7 +212,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         unsubscribe(channel);
       };
     },
-    [socket, isConnected]
+    [socket, isConnected, user]
   );
 
   const unsubscribe = useCallback(
@@ -205,18 +226,34 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         return newSubs;
       });
 
-      // Unsubscribe on server
+      // Unsubscribe on server with authentication
       socket.emit("unsubscribe", {
         channels: [channel],
+        userId: user?.id,
+        timestamp: Date.now(),
       });
     },
-    [socket, isConnected]
+    [socket, isConnected, user]
   );
 
   const broadcastToChannel = useCallback(
-    (channel: string, data: any) => {
+    (channel: string, data: Record<string, unknown>) => {
       if (!socket || !isConnected) {
         console.warn("Cannot broadcast: WebSocket not connected");
+        return;
+      }
+
+      // Validate channel name for security
+      if (!/^[a-zA-Z0-9_-]+$/.test(channel)) {
+        console.error("Invalid channel name for broadcast:", channel);
+        return;
+      }
+
+      // Validate data size to prevent abuse
+      const dataSize = JSON.stringify(data).length;
+      if (dataSize > 1024 * 1024) {
+        // 1MB limit
+        console.error("Data too large for broadcast:", dataSize);
         return;
       }
 
@@ -224,9 +261,10 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         channel,
         data,
         timestamp: Date.now(),
+        userId: user?.id,
       });
     },
-    [socket, isConnected]
+    [socket, isConnected, user]
   );
 
   const clearNotifications = useCallback(() => {
@@ -244,9 +282,5 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
     connectionStatus,
   };
 
-  return (
-    <WebSocketContext.Provider value={value}>
-      {children}
-    </WebSocketContext.Provider>
-  );
+  return <WebSocketContext.Provider value={value}>{children}</WebSocketContext.Provider>;
 };

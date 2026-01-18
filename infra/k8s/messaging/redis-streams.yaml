@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: redis-broker
-  namespace: valuecanvas
+  namespace: valynt
   labels:
     app: redis-broker
     component: messaging
@@ -19,7 +19,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: redis-broker
-  namespace: valuecanvas
+  namespace: valynt
   labels:
     app: redis-broker
     component: messaging
@@ -86,7 +86,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: message-worker
-  namespace: valuecanvas
+  namespace: valynt
   labels:
     app: message-worker
     component: messaging
@@ -107,15 +107,15 @@ spec:
     spec:
       containers:
         - name: message-worker
-          image: ${ECR_REGISTRY:-valuecanvas}/message-worker:${IMAGE_TAG:-latest}
+          image: ${ECR_REGISTRY:-valynt}/message-worker:${IMAGE_TAG:-latest}
           imagePullPolicy: IfNotPresent
           env:
             - name: REDIS_URL
               value: redis://redis-broker:6379
             - name: BROKER_STREAM
-              value: valuecanvas.events
+              value: valynt.events
             - name: BROKER_GROUP
-              value: valuecanvas-workers
+              value: valynt-workers
             - name: NODE_ENV
               value: production
           resources:
@@ -143,7 +143,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: message-worker
-  namespace: valuecanvas
+  namespace: valynt
 spec:
   scaleTargetRef:
     apiVersion: apps/v1

@@ -1,0 +1,344 @@
+<common_patterns>
+  <bug_patterns>
+    <pattern name="null_pointer_exception">
+      <description>Null pointer or undefined access without checking</description>
+      <example language="typescript">
+        <![CDATA[
+// BAD: Potential null pointer exception
+const user = getUser();
+console.log(user.name); // Will crash if user is null
+
+// GOOD: Proper null checking
+const user = getUser();
+if (user) {
+  console.log(user.name);
+}
+        ]]>
+      </example>
+      <severity>Critical</severity>
+      <fix>Add null/undefined checks before accessing properties</fix>
+    </pattern>
+
+    <pattern name="unhandled_promise_rejection">
+      <description>Async operations without proper error handling</description>
+      <example language="typescript">
+        <![CDATA[
+// BAD: Unhandled promise rejection
+async function fetchData() {
+  const response = await fetch('/api/data');
+  // No error handling
+}
+
+// GOOD: Proper error handling
+async function fetchData() {
+  try {
+    const response = await fetch('/api/data');
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to fetch data:', error);
+    throw error;
+  }
+}
+        ]]>
+      </example>
+      <severity>High</severity>
+      <fix>Wrap async operations in try-catch blocks</fix>
+    </pattern>
+
+    <pattern name="infinite_loop">
+      <description>Loop without proper termination condition</description>
+      <example language="typescript">
+        <![CDATA[
+// BAD: Infinite loop
+while (true) {
+  // No break condition
+}
+
+// GOOD: Proper termination
+let count = 0;
+while (count < 10) {
+  count++;
+}
+        ]]>
+      </example>
+      <severity>Critical</severity>
+      <fix>Ensure all loops have proper termination conditions</fix>
+    </pattern>
+
+    <pattern name="memory_leak">
+      <description>Resources not properly cleaned up</description>
+      <example language="typescript">
+        <![CDATA[
+// BAD: Memory leak in React component
+useEffect(() => {
+  const interval = setInterval(() => {
+    // Do something
+  }, 1000);
+  // Missing cleanup
+}, []);
+
+// GOOD: Proper cleanup
+useEffect(() => {
+  const interval = setInterval(() => {
+    // Do something
+  }, 1000);
+  return () => clearInterval(interval);
+}, []);
+        ]]>
+      </example>
+      <severity>High</severity>
+      <fix>Clean up event listeners, intervals, and subscriptions</fix>
+    </pattern>
+
+    <pattern name="race_condition">
+      <description>Unsynchronized access to shared resources</description>
+      <example language="typescript">
+        <![CDATA[
+// BAD: Race condition
+let counter = 0;
+function increment() {
+  counter++; // Not atomic
+}
+
+// GOOD: Use proper synchronization
+let counter = 0;
+const lock = new Mutex();
+async function increment() {
+  const release = await lock.acquire();
+  try {
+    counter++;
+  } finally {
+    release();
+  }
+}
+        ]]>
+      </example>
+      <severity>High</severity>
+      <fix>Use proper synchronization mechanisms</fix>
+    </pattern>
+  </bug_patterns>
+
+  <performance_patterns>
+    <pattern name="unnecessary_re_render">
+      <description>React component re-rendering unnecessarily</description>
+      <example language="typescript">
+        <![CDATA[
+// BAD: Component re-renders on every parent update
+function MyComponent({ data }) {
+  return <div>{data}</div>;
+}
+
+// GOOD: Memoized component
+const MyComponent = React.memo(({ data }) => {
+  return <div>{data}</div>;
+});
+        ]]>
+      </example>
+      <severity>Medium</severity>
+      <fix>Use React.memo, useMemo, useCallback appropriately</fix>
+    </pattern>
+
+    <pattern name="inefficient_algorithm">
+      <description>O(n²) or worse complexity where O(n) is possible</description>
+      <example language="typescript">
+        <![CDATA[
+// BAD: O(n²) nested loop
+function findDuplicates(arr: number[]): number[] {
+  const duplicates: number[] = [];
+  for (let i = 0; i < arr.length; i++) {
+    for (let j = i + 1; j < arr.length; j++) {
+      if (arr[i] === arr[j]) {
+        duplicates.push(arr[i]);
+      }
+    }
+  }
+  return duplicates;
+}
+
+// GOOD: O(n) using Set
+function findDuplicates(arr: number[]): number[] {
+  const seen = new Set<number>();
+  const duplicates: number[] = [];
+  for (const num of arr) {
+    if (seen.has(num)) {
+      duplicates.push(num);
+    } else {
+      seen.add(num);
+    }
+  }
+  return duplicates;
+}
+        ]]>
+      </example>
+      <severity>Medium</severity>
+      <fix>Use more efficient data structures and algorithms</fix>
+    </pattern>
+
+    <pattern name="redundant_computation">
+      <description>Calculating the same value multiple times</description>
+      <example language="typescript">
+        <![CDATA[
+// BAD: Redundant computation
+function processUsers(users: User[]) {
+  const activeUsers = users.filter(u => u.isActive);
+  const activeUserCount = activeUsers.length; // Recalculating
+  const activeUserNames = activeUsers.map(u => u.name); // Recalculating
+}
+
+// GOOD: Compute once
+function processUsers(users: User[]) {
+  const activeUsers = users.filter(u => u.isActive);
+  const activeUserCount = activeUsers.length;
+  const activeUserNames = activeUsers.map(u => u.name);
+}
+        ]]>
+      </example>
+      <severity>Low</severity>
+      <fix>Cache or reuse computed values</fix>
+    </pattern>
+
+    <pattern name="unnecessary_api_calls">
+      <description>Making API calls that could be cached</description>
+      <example language="typescript">
+        <![CDATA[
+// BAD: Unnecessary API calls
+function getUserData(userId: string) {
+  return fetch(`/api/users/${userId}`); // Called repeatedly
+}
+
+// GOOD: Cache API responses
+const userCache = new Map<string, Promise<User>>();
+function getUserData(userId: string) {
+  if (!userCache.has(userId)) {
+    userCache.set(userId, fetch(`/api/users/${userId}`).then(r => r.json()));
+  }
+  return userCache.get(userId)!;
+}
+        ]]>
+      </example>
+      <severity>Medium</severity>
+      <fix>Implement caching for API responses</fix>
+    </pattern>
+  </performance_patterns>
+
+  <naming_patterns>
+    <pattern name="ambiguous_variable_names">
+      <description>Variable names that don't describe their purpose</description>
+      <example language="typescript">
+        <![CDATA[
+// BAD: Ambiguous names
+const x = 10;
+const data = getUser();
+const temp = process(input);
+
+// GOOD: Descriptive names
+const userCount = 10;
+const userData = getUser();
+const processedResult = process(input);
+        ]]>
+      </example>
+      <severity>Low</severity>
+      <fix>Use descriptive, meaningful variable names</fix>
+    </pattern>
+
+    <pattern name="inconsistent_naming">
+      <description>Mixing naming conventions in the same codebase</description>
+      <example language="typescript">
+        <![CDATA[
+// BAD: Inconsistent naming
+const user_name = "John";
+const userName = "Jane";
+const USER_NAME = "Bob";
+
+// GOOD: Consistent naming (camelCase for variables)
+const userName = "John";
+const userAge = 30;
+const isActive = true;
+        ]]>
+      </example>
+      <severity>Low</severity>
+      <fix>Follow consistent naming conventions throughout the codebase</fix>
+    </pattern>
+
+    <pattern name="magic_numbers">
+      <description>Hardcoded numbers without explanation</description>
+      <example language="typescript">
+        <![CDATA[
+// BAD: Magic numbers
+if (status === 2) {
+  // What does 2 mean?
+}
+
+// GOOD: Named constants
+const STATUS_ACTIVE = 2;
+if (status === STATUS_ACTIVE) {
+  // Clear meaning
+}
+        ]]>
+      </example>
+      <severity>Low</severity>
+      <fix>Use named constants instead of magic numbers</fix>
+    </pattern>
+
+    <pattern name="boolean_prefix_misuse">
+      <description>Boolean variables without proper prefixes</description>
+      <example language="typescript">
+        <![CDATA[
+// BAD: Boolean without prefix
+const active = true;
+const valid = false;
+
+// GOOD: Boolean with proper prefix
+const isActive = true;
+const isValid = false;
+const hasPermission = true;
+        ]]>
+      </example>
+      <severity>Low</severity>
+      <fix>Prefix boolean variables with "is", "has", "can", "should"</fix>
+    </pattern>
+  </naming_patterns>
+
+  <eslint_patterns>
+    <pattern name="prefer_const">
+      <description>Using let when const would be more appropriate</description>
+      <example language="typescript">
+        <![CDATA[
+// BAD: Using let for never-reassigned variable
+let name = "John";
+console.log(name);
+
+// GOOD: Using const for never-reassigned variable
+const name = "John";
+console.log(name);
+        ]]>
+      </example>
+      <severity>Low</severity>
+      <fix>Use const for variables that are never reassigned</fix>
+    </pattern>
+
+    <pattern name="no_unused_vars">
+      <description>Variables declared but never used</description>
+      <example language="typescript">
+        <![CDATA[
+// BAD: Unused variable
+function process(data: string) {
+  const unused = "something";
+  return data;
+}
+
+// GOOD: Remove unused variables
+function process(data: string) {
+  return data;
+}
+        ]]>
+      </example>
+      <severity>Low</severity>
+      <fix>Remove unused variables or prefix with underscore if intentional</fix>
+    </pattern>
+
+    <pattern name="prefer_template_literals">
+      <description>Using string concatenation instead of template literals

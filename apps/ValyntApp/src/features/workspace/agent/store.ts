@@ -54,6 +54,10 @@ export interface AgentState {
     timestamp: number;
     canRestore: boolean;
   }>;
+
+  // Undo/Redo history
+  history: AgentState[];
+  historyIndex: number;
   
   // Error state
   error: {
@@ -79,10 +83,19 @@ export interface AgentActions {
   selectArtifact: (artifactId: string | null) => void;
   restoreCheckpoint: (checkpointId: string) => void;
   
+  // Undo/Redo
+  undo: () => void;
+  redo: () => void;
+  saveSnapshot: () => void;
+  
   // Control
   startRun: (runId: string) => void;
   cancelRun: () => void;
   reset: () => void;
+
+  // Session persistence
+  loadSession: (messages: ConversationMessage[], artifacts?: Record<string, Artifact>) => void;
+  getSessionData: () => { messages: ConversationMessage[]; artifacts: Artifact[] };
 }
 
 const initialState: AgentState = {
@@ -99,8 +112,12 @@ const initialState: AgentState = {
   artifacts: {},
   activeArtifactId: null,
   checkpoints: [],
+  history: [],
+  historyIndex: -1,
   error: null,
 };
+
+const MAX_HISTORY = 50; // Maximum undo steps
 
 export const useAgentStore = create<AgentState & AgentActions>()((set, get) => ({
   ...initialState,
@@ -354,6 +371,103 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
   reset: () => {
     set(initialState);
   },
+
+  // Save current state to history (call before making changes)
+  saveSnapshot: () => {
+    set((state) => {
+      // Don't save if streaming (too many intermediate states)
+      if (state.isStreaming) return state;
+
+      // Create snapshot without history to avoid circular reference
+      const snapshot: AgentState = {
+        phase: state.phase,
+        runId: state.runId,
+        isStreaming: state.isStreaming,
+        messages: [...state.messages],
+        streamingMessageId: state.streamingMessageId,
+        streamingContent: state.streamingContent,
+        planId: state.planId,
+        steps: [...state.steps],
+        assumptions: [...state.assumptions],
+        pendingQuestion: state.pendingQuestion,
+        artifacts: { ...state.artifacts },
+        activeArtifactId: state.activeArtifactId,
+        checkpoints: [...state.checkpoints],
+        history: [], // Don't include history in snapshot
+        historyIndex: -1,
+        error: state.error,
+      };
+
+      // Truncate future history if we're not at the end
+      const newHistory = state.history.slice(0, state.historyIndex + 1);
+      newHistory.push(snapshot);
+
+      // Limit history size
+      if (newHistory.length > MAX_HISTORY) {
+        newHistory.shift();
+      }
+
+      return {
+        ...state,
+        history: newHistory,
+        historyIndex: newHistory.length - 1,
+      };
+    });
+  },
+
+  undo: () => {
+    set((state) => {
+      if (state.historyIndex <= 0) return state;
+
+      const newIndex = state.historyIndex - 1;
+      const snapshot = state.history[newIndex];
+      
+      if (!snapshot) return state;
+
+      return {
+        ...snapshot,
+        history: state.history,
+        historyIndex: newIndex,
+      };
+    });
+  },
+
+  redo: () => {
+    set((state) => {
+      if (state.historyIndex >= state.history.length - 1) return state;
+
+      const newIndex = state.historyIndex + 1;
+      const snapshot = state.history[newIndex];
+      
+      if (!snapshot) return state;
+
+      return {
+        ...snapshot,
+        history: state.history,
+        historyIndex: newIndex,
+      };
+    });
+  },
+
+  loadSession: (messages: ConversationMessage[], artifacts?: Record<string, Artifact>) => {
+    set((state) => ({
+      ...state,
+      messages,
+      artifacts: artifacts || state.artifacts,
+      activeArtifactId: artifacts ? Object.keys(artifacts)[0] || null : state.activeArtifactId,
+      phase: 'idle',
+      isStreaming: false,
+      error: null,
+    }));
+  },
+
+  getSessionData: () => {
+    const state = get();
+    return {
+      messages: state.messages,
+      artifacts: Object.values(state.artifacts),
+    };
+  },
 }));
 
 // Selectors for common derived state
@@ -381,3 +495,9 @@ export const selectOverallProgress = (state: AgentState): number => {
   const runningProgress = running?.progress ?? 0;
   return Math.round(((completed + runningProgress / 100) / state.steps.length) * 100);
 };
+
+export const selectCanUndo = (state: AgentState): boolean =>
+  state.historyIndex > 0;
+
+export const selectCanRedo = (state: AgentState): boolean =>
+  state.historyIndex < state.history.length - 1;

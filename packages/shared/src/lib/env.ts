@@ -18,7 +18,7 @@ export function validateRequiredEnv() {
   if (_isBrowser) return;
 
   // Server-side validation
-  import("../config/validateEnv")
+  import("../../../backend/src/config/validateEnv")
     .then(({ validateEnvOrThrow }) => {
       validateEnvOrThrow();
     })
@@ -45,10 +45,7 @@ export interface GetEnvVarOptions {
   scope?: "browser" | "server";
 }
 
-export function getEnvVar(
-  key: string,
-  options: GetEnvVarOptions = {}
-): string | undefined {
+export function getEnvVar(key: string, options: GetEnvVarOptions = {}): string | undefined {
   const { required = false, defaultValue, scope } = options;
 
   let value: string | undefined;
@@ -68,9 +65,7 @@ export function getEnvVar(
 
   if (!value && required) {
     const errorScope = scope || (_isBrowser ? "browser" : "server");
-    throw new Error(
-      `Missing required ${errorScope} environment variable: ${key}`
-    );
+    throw new Error(`Missing required ${errorScope} environment variable: ${key}`);
   }
 
   return value;
@@ -90,9 +85,7 @@ export function checkIsBrowser(): boolean {
   return _isBrowser;
 }
 
-export function __setEnvSourceForTests(
-  envSource: Record<string, string>
-): void {
+export function __setEnvSourceForTests(envSource: Record<string, string>): void {
   if (_isBrowser) {
     Object.assign(import.meta.env, envSource);
   } else {
@@ -109,13 +102,8 @@ export function getSupabaseConfig(): {
 } {
   return {
     url: getEnvVar("VITE_SUPABASE_URL") || getEnvVar("SUPABASE_URL") || "",
-    anonKey:
-      getEnvVar("VITE_SUPABASE_ANON_KEY") ||
-      getEnvVar("SUPABASE_ANON_KEY") ||
-      "",
-    serviceRoleKey:
-      getEnvVar("SUPABASE_SERVICE_ROLE_KEY") ||
-      getEnvVar("SUPABASE_SERVICE_KEY"),
+    anonKey: getEnvVar("VITE_SUPABASE_ANON_KEY") || getEnvVar("SUPABASE_ANON_KEY") || "",
+    serviceRoleKey: getEnvVar("SUPABASE_SERVICE_ROLE_KEY") || getEnvVar("SUPABASE_SERVICE_KEY"),
   };
 }
 
@@ -129,8 +117,7 @@ export function getGroundtruthConfig(): {
       getEnvVar("VITE_GROUNDTRUTH_URL") ||
       getEnvVar("GROUNDTRUTH_URL") ||
       "https://api.groundtruth.example.com",
-    apiKey:
-      getEnvVar("VITE_GROUNDTRUTH_API_KEY") || getEnvVar("GROUNDTRUTH_API_KEY"),
+    apiKey: getEnvVar("VITE_GROUNDTRUTH_API_KEY") || getEnvVar("GROUNDTRUTH_API_KEY"),
     timeout: Number(getEnvVar("GROUNDTRUTH_TIMEOUT") || "30000"),
   };
 }
@@ -141,12 +128,8 @@ export function getLLMCostTrackerConfig(): {
   tableName: string;
 } {
   return {
-    supabaseUrl:
-      getEnvVar("VITE_SUPABASE_URL") || getEnvVar("SUPABASE_URL") || "",
-    supabaseKey:
-      getEnvVar("VITE_SUPABASE_ANON_KEY") ||
-      getEnvVar("SUPABASE_ANON_KEY") ||
-      "",
+    supabaseUrl: getEnvVar("VITE_SUPABASE_URL") || getEnvVar("SUPABASE_URL") || "",
+    supabaseKey: getEnvVar("VITE_SUPABASE_ANON_KEY") || getEnvVar("SUPABASE_ANON_KEY") || "",
     tableName: getEnvVar("LLM_COST_TABLE_NAME") || "llm_costs",
   };
 }

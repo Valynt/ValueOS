@@ -1,42 +1,126 @@
-import { Bell } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
+/**
+ * NotificationsPage - Toggle row pattern for notification preferences
+ */
+
+import { useState } from "react";
+import {
+  SettingsToggleRow,
+  SettingsSection,
+} from "@/components/settings";
+
+interface NotificationPrefs {
+  emailCaseUpdates: boolean;
+  emailTeamActivity: boolean;
+  emailWeeklyDigest: boolean;
+  emailMarketing: boolean;
+  pushCaseUpdates: boolean;
+  pushMentions: boolean;
+  pushReminders: boolean;
+  slackIntegration: boolean;
+  slackCaseUpdates: boolean;
+}
 
 export function NotificationsPage() {
+  const [prefs, setPrefs] = useState<NotificationPrefs>({
+    emailCaseUpdates: true,
+    emailTeamActivity: true,
+    emailWeeklyDigest: false,
+    emailMarketing: false,
+    pushCaseUpdates: true,
+    pushMentions: true,
+    pushReminders: false,
+    slackIntegration: false,
+    slackCaseUpdates: false,
+  });
+
+  const handleToggle = (key: keyof NotificationPrefs) => (checked: boolean) => {
+    setPrefs((prev) => ({ ...prev, [key]: checked }));
+  };
+
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5" />
-            Notification Preferences
-          </CardTitle>
-          <CardDescription>Manage how you receive notifications</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>Email Notifications</Label>
-              <p className="text-sm text-muted-foreground">Receive updates via email</p>
-            </div>
-            <input type="checkbox" defaultChecked className="h-4 w-4 rounded border-gray-300" />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>Push Notifications</Label>
-              <p className="text-sm text-muted-foreground">Receive browser push notifications</p>
-            </div>
-            <input type="checkbox" className="h-4 w-4 rounded border-gray-300" />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>Marketing Emails</Label>
-              <p className="text-sm text-muted-foreground">Receive product updates and tips</p>
-            </div>
-            <input type="checkbox" className="h-4 w-4 rounded border-gray-300" />
-          </div>
-        </CardContent>
-      </Card>
+    <div>
+      {/* Email Notifications */}
+      <SettingsSection
+        title="Email notifications"
+        description="Choose what updates you receive via email"
+      >
+        <div className="px-4">
+          <SettingsToggleRow
+            label="Case updates"
+            description="Get notified when cases you own or follow are updated"
+            checked={prefs.emailCaseUpdates}
+            onChange={handleToggle("emailCaseUpdates")}
+          />
+          <SettingsToggleRow
+            label="Team activity"
+            description="Updates when team members join, leave, or change roles"
+            checked={prefs.emailTeamActivity}
+            onChange={handleToggle("emailTeamActivity")}
+          />
+          <SettingsToggleRow
+            label="Weekly digest"
+            description="A summary of your team's activity each week"
+            checked={prefs.emailWeeklyDigest}
+            onChange={handleToggle("emailWeeklyDigest")}
+          />
+          <SettingsToggleRow
+            label="Product updates"
+            description="News about new features and improvements"
+            checked={prefs.emailMarketing}
+            onChange={handleToggle("emailMarketing")}
+          />
+        </div>
+      </SettingsSection>
+
+      {/* Push Notifications */}
+      <SettingsSection
+        title="Push notifications"
+        description="Real-time alerts in your browser"
+      >
+        <div className="px-4">
+          <SettingsToggleRow
+            label="Case updates"
+            description="Instant notifications for case changes"
+            checked={prefs.pushCaseUpdates}
+            onChange={handleToggle("pushCaseUpdates")}
+          />
+          <SettingsToggleRow
+            label="Mentions"
+            description="When someone mentions you in a comment"
+            checked={prefs.pushMentions}
+            onChange={handleToggle("pushMentions")}
+          />
+          <SettingsToggleRow
+            label="Reminders"
+            description="Task and deadline reminders"
+            checked={prefs.pushReminders}
+            onChange={handleToggle("pushReminders")}
+          />
+        </div>
+      </SettingsSection>
+
+      {/* Slack Integration */}
+      <SettingsSection
+        title="Slack"
+        description="Connect Slack to receive notifications in your workspace"
+      >
+        <div className="px-4">
+          <SettingsToggleRow
+            label="Enable Slack integration"
+            description="Connect your Slack workspace to ValueOS"
+            checked={prefs.slackIntegration}
+            onChange={handleToggle("slackIntegration")}
+          />
+          {prefs.slackIntegration && (
+            <SettingsToggleRow
+              label="Case updates in Slack"
+              description="Post case updates to a Slack channel"
+              checked={prefs.slackCaseUpdates}
+              onChange={handleToggle("slackCaseUpdates")}
+            />
+          )}
+        </div>
+      </SettingsSection>
     </div>
   );
 }
