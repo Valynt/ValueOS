@@ -44,6 +44,5 @@
     "exactOptionalPropertyTypes": true,
     "noImplicitThis": true
   },
-  "include": ["src"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": ["src"]
 }
