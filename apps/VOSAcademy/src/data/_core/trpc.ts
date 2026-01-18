@@ -50,16 +50,21 @@ export type RateLimitOptions = {
   windowMs?: number;
 };
 
-export const rateLimitMiddleware = ({ keyPrefix, maxRequests, windowMs }: RateLimitOptions) =>
   t.middleware(async ({ ctx, next }) => {
-    const identifiers = getRateLimitIdentifiers(ctx.req, ctx.user);
-    const key = buildRateLimitKey(keyPrefix, identifiers);
-    const result = await checkRateLimit(key, maxRequests, windowMs);
+    try {
+      const identifiers = getRateLimitIdentifiers(ctx.req, ctx.user);
+      const key = buildRateLimitKey(keyPrefix, identifiers);
+      const result = await checkRateLimit(key, maxRequests, windowMs);
 
-    applyRateLimitHeaders(ctx.res, result);
+      applyRateLimitHeaders(ctx.res, result);
 
-    if (!result.allowed) {
-      throwRateLimitExceeded();
+      if (!result.allowed) {
+        throwRateLimitExceeded();
+      }
+    } catch (error) {
+      console.error('[tRPC] Rate limit check failed:', error);
+      // Allow the request to proceed if rate limiting fails
+      // This prevents a Redis outage from taking down the API
     }
 
     return next();
