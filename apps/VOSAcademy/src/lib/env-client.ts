@@ -8,11 +8,30 @@ const REQUIRED_CLIENT_ENV_VARS = [
   'VITE_APP_ID',
 ] as const;
 
+const ALLOWED_NON_VITE_KEYS = new Set([
+  'BASE_URL',
+  'MODE',
+  'DEV',
+  'PROD',
+  'SSR',
+]);
+
 /**
  * Validate client-side environment variables
  */
 function validateClientEnv() {
   const missing: string[] = [];
+  const nonViteKeys = Object.keys(import.meta.env).filter(
+    (key) => !key.startsWith('VITE_') && !ALLOWED_NON_VITE_KEYS.has(key),
+  );
+
+  if (nonViteKeys.length > 0) {
+    console.error(
+      `[ENV] Non-VITE environment variables detected in client bundle: ${nonViteKeys.join(', ')}`,
+    );
+    console.error('[ENV] Client code must only consume variables prefixed with VITE_.');
+    return false;
+  }
 
   for (const key of REQUIRED_CLIENT_ENV_VARS) {
     if (!import.meta.env[key]) {

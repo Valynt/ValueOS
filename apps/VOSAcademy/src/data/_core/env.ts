@@ -1,6 +1,11 @@
 /**
  * Required environment variables for server-side operations
  */
+if (typeof window !== 'undefined') {
+  throw new Error('[ENV] Security risk: Server environment module loaded in browser context. This could expose server secrets. Use env-client.ts for browser environment variables which should be prefixed with VITE_.');
+}
+}
+
 const REQUIRED_SERVER_ENV_VARS = [
   'DATABASE_URL',
 ] as const;
