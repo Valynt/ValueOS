@@ -50,6 +50,7 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const tenantId = (req as any).tenantId;
     const { planTier, trialDays } = req.body;
+    const idempotencyKey = req.headers['idempotency-key'] as string || req.body.idempotencyKey;
 
     if (!tenantId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -62,7 +63,8 @@ router.post('/', async (req: Request, res: Response) => {
     const subscription = await SubscriptionService.createSubscription(
       tenantId,
       planTier as PlanTier,
-      trialDays
+      trialDays,
+      idempotencyKey
     );
 
     res.status(201).json(subscription);

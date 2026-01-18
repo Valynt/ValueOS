@@ -53,13 +53,14 @@ class SubscriptionService {
   async createSubscription(
     tenantId: string,
     planTier: PlanTier,
-    trialDays?: number
+    trialDays?: number,
+    idempotencyKey?: string
   ): Promise<Subscription> {
     if (!this.stripe || !supabase || !this.stripeService) {
       throw new Error("Billing service not configured");
     }
     try {
-      logger.info("Creating subscription", { tenantId, planTier });
+      logger.info("Creating subscription", { tenantId, planTier, idempotencyKey });
 
       // Get or create customer
       const customer = await CustomerService.getCustomerByTenantId(tenantId);
@@ -81,6 +82,10 @@ class SubscriptionService {
           tenant_id: tenantId,
           plan_tier: planTier,
         },
+      }, {
+        idempotencyKey: idempotencyKey ? 
+          this.stripeService.generateIdempotencyKey(tenantId, 'sub_create', idempotencyKey) : 
+          undefined
       });
 
       // Store in database with unique constraint on tenant_id for active subscriptions

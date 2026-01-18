@@ -52,10 +52,8 @@ export function setupTestEnv(overrides?: Record<string, string>) {
     STRIPE_SECRET_KEY: "sk_test_mock_key",
     VITE_STRIPE_PUBLISHABLE_KEY: "pk_test_mock_key",
     STRIPE_WEBHOOK_SECRET: "whsec_test_mock_secret",
-    VITE_SUPABASE_URL:
-      process.env.VITE_SUPABASE_URL || "http://localhost:54321",
-    SUPABASE_SERVICE_ROLE_KEY:
-      process.env.SUPABASE_SERVICE_ROLE_KEY || "test-service-role-key",
+    VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL || "http://localhost:54321",
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || "test-service-role-key",
     ...overrides,
   };
 
@@ -76,8 +74,7 @@ export function createWebhookSignature(
   // In real Stripe, this would be: t=timestamp,v1=signature
   // For testing, we'll use a simplified version
   const timestamp = Math.floor(Date.now() / 1000);
-  const payloadString =
-    typeof payload === "string" ? payload : JSON.stringify(payload);
+  const payloadString = typeof payload === "string" ? payload : JSON.stringify(payload);
 
   // Simple mock signature (in real tests with actual Stripe SDK, use stripe.webhooks.generateTestHeaderString)
   return `t=${timestamp},v1=mock_signature_${Buffer.from(payloadString).toString("base64").substring(0, 20)}`;
@@ -111,10 +108,7 @@ export const assertions = {
   /**
    * Assert object has required fields
    */
-  hasRequiredFields<T extends Record<string, any>>(
-    obj: T,
-    requiredFields: (keyof T)[]
-  ): void {
+  hasRequiredFields<T extends Record<string, any>>(obj: T, requiredFields: (keyof T)[]): void {
     requiredFields.forEach((field) => {
       if (!(field in obj) || obj[field] === undefined) {
         throw new Error(`Missing required field: ${String(field)}`);
@@ -126,8 +120,7 @@ export const assertions = {
    * Assert timestamp is recent
    */
   isRecentTimestamp(timestamp: string | Date, maxAgeMs: number = 5000): void {
-    const date =
-      typeof timestamp === "string" ? new Date(timestamp) : timestamp;
+    const date = typeof timestamp === "string" ? new Date(timestamp) : timestamp;
     const age = Date.now() - date.getTime();
 
     if (age < 0 || age > maxAgeMs) {
@@ -138,12 +131,7 @@ export const assertions = {
   /**
    * Assert value is within range
    */
-  inRange(
-    value: number,
-    min: number,
-    max: number,
-    label: string = "value"
-  ): void {
+  inRange(value: number, min: number, max: number, label: string = "value"): void {
     if (value < min || value > max) {
       throw new Error(`${label} ${value} is not within range [${min}, ${max}]`);
     }
@@ -164,9 +152,7 @@ export const performance = {
   /**
    * Measure execution time
    */
-  async measure<T>(
-    fn: () => Promise<T>
-  ): Promise<{ result: T; durationMs: number }> {
+  async measure<T>(fn: () => Promise<T>): Promise<{ result: T; durationMs: number }> {
     const start = Date.now();
     const result = await fn();
     const durationMs = Date.now() - start;
@@ -185,9 +171,7 @@ export const performance = {
     const { result, durationMs } = await this.measure(fn);
 
     if (durationMs > maxDurationMs) {
-      throw new Error(
-        `${label} took ${durationMs}ms, exceeded limit of ${maxDurationMs}ms`
-      );
+      throw new Error(`${label} took ${durationMs}ms, exceeded limit of ${maxDurationMs}ms`);
     }
 
     return result;
