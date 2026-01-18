@@ -6,6 +6,10 @@ metadata:
     app: opportunity-agent
     component: agent
     tier: backend
+  annotations:
+    valynt.io/llm-usage-limit: "200.00" # Monthly USD limit for this agent
+    valynt.io/cost-center: "agent-opportunity"
+    valynt.io/cost-tracking: "enabled"
 spec:
   replicas: 2
   selector:
@@ -22,14 +26,14 @@ spec:
         prometheus.io/port: "8080"
         prometheus.io/path: "/metrics"
     spec:
-      serviceAccountName: valuecanvas-agent
+      serviceAccountName: valynt-agent
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
         fsGroup: 1000
       containers:
       - name: opportunity-agent
-        image: ${ECR_REGISTRY}/valuecanvas-opportunity:${IMAGE_TAG}
+        image: ${ECR_REGISTRY}/valynt-opportunity:${IMAGE_TAG}
         imagePullPolicy: Always
         ports:
         - name: http
@@ -44,32 +48,32 @@ spec:
         - name: ENVIRONMENT
           valueFrom:
             configMapKeyRef:
-              name: valuecanvas-config
+              name: valynt-config
               key: environment
         - name: DATABASE_URL
           valueFrom:
             secretKeyRef:
-              name: valuecanvas-secrets
+              name: valynt-secrets
               key: database_url
         - name: SUPABASE_URL
           valueFrom:
             secretKeyRef:
-              name: valuecanvas-secrets
+              name: valynt-secrets
               key: supabase_url
         - name: SUPABASE_SERVICE_KEY
           valueFrom:
             secretKeyRef:
-              name: valuecanvas-secrets
+              name: valynt-secrets
               key: supabase_service_key
         - name: REDIS_URL
           valueFrom:
             configMapKeyRef:
-              name: valuecanvas-config
+              name: valynt-config
               key: redis_url
         - name: LLM_PROXY_URL
           valueFrom:
             configMapKeyRef:
-              name: valuecanvas-config
+              name: valynt-config
               key: llm_proxy_url
         - name: LOG_LEVEL
           value: "info"

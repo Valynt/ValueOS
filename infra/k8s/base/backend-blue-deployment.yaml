@@ -2,14 +2,14 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: backend-blue
-  namespace: valuecanvas
+  namespace: valynt
   labels:
     app: backend
     version: blue
     component: api
     app.kubernetes.io/name: backend
     app.kubernetes.io/component: api
-    app.kubernetes.io/part-of: valuecanvas
+    app.kubernetes.io/part-of: valynt
 spec:
   replicas: 2
   strategy:
@@ -33,7 +33,7 @@ spec:
         prometheus.io/port: "8000"
         prometheus.io/path: "/metrics"
     spec:
-      serviceAccountName: valuecanvas-backend
+      serviceAccountName: valynt-backend
       securityContext:
         runAsNonRoot: true
         runAsUser: 1001
@@ -43,7 +43,7 @@ spec:
 
       containers:
       - name: backend
-        image: REGISTRY_URL/valuecanvas-backend:latest
+        image: REGISTRY_URL/valynt-backend:latest
         imagePullPolicy: Always
 
         ports:
@@ -63,38 +63,38 @@ spec:
         - name: SUPABASE_URL
           valueFrom:
             secretKeyRef:
-              name: valuecanvas-secrets
+              name: valynt-secrets
               key: supabase-url
         - name: SUPABASE_ANON_KEY
           valueFrom:
             secretKeyRef:
-              name: valuecanvas-secrets
+              name: valynt-secrets
               key: supabase-anon-key
         - name: SUPABASE_SERVICE_KEY
           valueFrom:
             secretKeyRef:
-              name: valuecanvas-secrets
+              name: valynt-secrets
               key: supabase-service-key
         - name: TOGETHER_API_KEY
           valueFrom:
             secretKeyRef:
-              name: valuecanvas-secrets
+              name: valynt-secrets
               key: together-api-key
         - name: OPENAI_API_KEY
           valueFrom:
             secretKeyRef:
-              name: valuecanvas-secrets
+              name: valynt-secrets
               key: openai-api-key
               optional: true
         - name: JWT_SECRET
           valueFrom:
             secretKeyRef:
-              name: valuecanvas-secrets
+              name: valynt-secrets
               key: jwt-secret
         - name: REDIS_URL
           valueFrom:
             configMapKeyRef:
-              name: valuecanvas-config
+              name: valynt-config
               key: redis-url
 
         resources:

@@ -2,7 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: agent-network-policy
-  namespace: valuecanvas-agents
+  namespace: valynt-agents
 spec:
   podSelector:
     matchLabels:
@@ -14,14 +14,14 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
-              name: valuecanvas-backend
+              name: valynt-backend
       ports:
         - protocol: TCP
           port: 8080
     - from:
         - namespaceSelector:
             matchLabels:
-              name: valuecanvas-monitoring
+              name: valynt-monitoring
       ports:
         - protocol: TCP
           port: 9090
@@ -36,21 +36,21 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
-              name: valuecanvas-database
+              name: valynt-database
       ports:
         - protocol: TCP
           port: 5432
     - to:
         - namespaceSelector:
             matchLabels:
-              name: valuecanvas-redis
+              name: valynt-redis
       ports:
         - protocol: TCP
           port: 6379
     - to:
         - namespaceSelector:
             matchLabels:
-              name: valuecanvas-external
+              name: valynt-external
       ports:
         - protocol: TCP
           port: 443

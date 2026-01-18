@@ -2,7 +2,7 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: security-audit-retention
-  namespace: valuecanvas
+  namespace: valynt
 spec:
   schedule: "30 2 * * *"
   jobTemplate:
@@ -17,7 +17,7 @@ spec:
                 - name: DATABASE_URL
                   valueFrom:
                     secretKeyRef:
-                      name: valuecanvas-database
+                      name: valynt-database
                       key: url
               command: ["/bin/sh", "-c"]
               args:
