@@ -12,7 +12,9 @@
 curl -I https://your-gateway.example.com/ | grep -Ei 'content-security-policy|strict-transport-security|x-frame-options|x-content-type-options|referrer-policy'
 ```
 
+## Runbook
+- Follow the environment-specific checklist in `docs/operations/HEADER_COOKIE_RUNBOOK.md` to confirm gateway headers and session cookie flags in local, staging, and production.
+
 ## Notes
 - Configure these at the edge (Nginx/Envoy/Istio/Varnish/CDN) to cover every response, not just app-level middleware.
 - Keep CSP aligned with the app’s allowed origins/endpoints (connect-src should include your APIs/WS endpoints as needed).
-
