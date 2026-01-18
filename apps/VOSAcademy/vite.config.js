@@ -54,7 +54,7 @@ var __filename = fileURLToPath(import.meta.url);
 var __dirname = dirname(__filename);
 export default defineConfig(function (_a) {
     var mode = _a.mode;
-    var env = loadEnv(mode, process.cwd(), '');
+    var env = loadEnv(mode, process.cwd(), 'VITE_');
     // Make env vars available to server-side code
     process.env = __assign(__assign({}, process.env), env);
     return {

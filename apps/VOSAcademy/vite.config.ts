@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '');
+  const env = loadEnv(mode, process.cwd(), 'VITE_');
 
   // Make env vars available to server-side code
   process.env = { ...process.env, ...env };
@@ -76,4 +76,3 @@ export default defineConfig(({ mode }) => {
   },
   };
 });
-

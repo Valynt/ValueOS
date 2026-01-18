@@ -1,6 +1,10 @@
 /**
  * Required environment variables for server-side operations
  */
+if (typeof window !== 'undefined') {
+  throw new Error('[ENV] Server environment module loaded in the browser. Use env-client.ts instead.');
+}
+
 const REQUIRED_SERVER_ENV_VARS = [
   'DATABASE_URL',
 ] as const;
