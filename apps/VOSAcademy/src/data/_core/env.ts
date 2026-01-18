@@ -11,6 +11,11 @@ const REQUIRED_SERVER_ENV_VARS = [
 const OPTIONAL_SERVER_ENV_VARS = [
   'OWNER_OPENID',
   'NODE_ENV',
+  'SESSION_JWT_KEYS',
+  'SESSION_JWT_ISSUER',
+  'SESSION_JWT_AUDIENCE',
+  'SESSION_JWT_TTL_SECONDS',
+  'SESSION_JWT_TENANT',
 ] as const;
 
 /**
@@ -70,6 +75,8 @@ export const ENV = {
   nodeEnv: process.env.NODE_ENV || "development",
   oauthPortalUrl: process.env.VITE_OAUTH_PORTAL_URL || "",
   appId: process.env.VITE_APP_ID || "",
+  sessionJwtIssuer: process.env.SESSION_JWT_ISSUER || "",
+  sessionJwtAudience: process.env.SESSION_JWT_AUDIENCE || "",
 };
 
 /**
