@@ -165,7 +165,7 @@
     "lint:css": "stylelint \"src/**/*.{css,scss}\"",
     "lint:inline-check": "node scripts/check-inline-styles.cjs",
     "lint:all": "pnpm run lint && pnpm run lint:css && pnpm run lint:inline-check",
-    "lint:lockfile": "pnpm exec lockfile-lint --path package-lock.json --allowed-hosts registry.npmjs.org --allowed-hosts npm.pkg.github.com --allowed-hosts github.com --validate-https",
+"lint:lockfile": "pnpm exec lockfile-lint --path pnpm-lock.yaml --allowed-hosts registry.npmjs.org --allowed-hosts npm.pkg.github.com --allowed-hosts github.com --validate-https",
     "check:tw-config": "node scripts/validate-tailwind-config.js",
     "build:validate": "node scripts/dx/validate-build.js",
     "build:inject-config": "node scripts/inject-runtime-config.js",
