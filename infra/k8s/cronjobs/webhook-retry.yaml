@@ -3,7 +3,7 @@ kind: CronJob
 metadata:
   name: webhook-retry
   labels:
-    app: valuecanvas
+    app: valynt
     component: billing
     job-type: webhook-retry
 spec:
@@ -23,7 +23,7 @@ spec:
   jobTemplate:
     metadata:
       labels:
-        app: valuecanvas
+        app: valynt
         component: billing
         job-type: webhook-retry
     spec:
@@ -36,7 +36,7 @@ spec:
       template:
         metadata:
           labels:
-            app: valuecanvas
+            app: valynt
             component: billing
             job-type: webhook-retry
         spec:
@@ -44,7 +44,7 @@ spec:
           
           containers:
           - name: webhook-retry
-            image: valuecanvas/api:latest
+            image: valynt/api:latest
             imagePullPolicy: Always
             
             command:
@@ -118,7 +118,7 @@ kind: CronJob
 metadata:
   name: grace-period-cleanup
   labels:
-    app: valuecanvas
+    app: valynt
     component: billing
     job-type: grace-period-cleanup
 spec:
@@ -135,7 +135,7 @@ spec:
   jobTemplate:
     metadata:
       labels:
-        app: valuecanvas
+        app: valynt
         component: billing
         job-type: grace-period-cleanup
     spec:
@@ -146,7 +146,7 @@ spec:
       template:
         metadata:
           labels:
-            app: valuecanvas
+            app: valynt
             component: billing
             job-type: grace-period-cleanup
         spec:
@@ -154,7 +154,7 @@ spec:
           
           containers:
           - name: grace-period-cleanup
-            image: valuecanvas/api:latest
+            image: valynt/api:latest
             imagePullPolicy: Always
             
             command:

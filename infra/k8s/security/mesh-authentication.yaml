@@ -1,8 +1,8 @@
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
-  name: valuecanvas-default-peer-auth
-  namespace: valuecanvas
+  name: valynt-default-peer-auth
+  namespace: valynt
 spec:
   mtls:
     mode: STRICT
@@ -12,7 +12,7 @@ apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: api-allow-gateway-spiffe
-  namespace: valuecanvas
+  namespace: valynt
 spec:
   selector:
     matchLabels:
@@ -22,7 +22,7 @@ spec:
     - from:
         - source:
             principals:
-              - spiffe://valuecanvas/api-gateway
+              - spiffe://valynt/api-gateway
       to:
         - operation:
             ports: ["3000"]
@@ -32,7 +32,7 @@ apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: agents-allow-api-and-proxy
-  namespace: valuecanvas
+  namespace: valynt
 spec:
   selector:
     matchLabels:
@@ -42,8 +42,8 @@ spec:
     - from:
         - source:
             principals:
-              - spiffe://valuecanvas/api-gateway
-              - spiffe://valuecanvas/llm-proxy
+              - spiffe://valynt/api-gateway
+              - spiffe://valynt/llm-proxy
       to:
         - operation:
             ports: ["8080"]
@@ -53,7 +53,7 @@ apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: redis-allow-mesh-identities
-  namespace: valuecanvas
+  namespace: valynt
 spec:
   selector:
     matchLabels:
@@ -63,9 +63,9 @@ spec:
     - from:
         - source:
             principals:
-              - spiffe://valuecanvas/message-worker
-              - spiffe://valuecanvas/opportunity-agent
-              - spiffe://valuecanvas/api-gateway
+              - spiffe://valynt/message-worker
+              - spiffe://valynt/opportunity-agent
+              - spiffe://valynt/api-gateway
       to:
         - operation:
             ports: ["6379"]
@@ -75,7 +75,7 @@ apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: deny-plaintext
-  namespace: valuecanvas
+  namespace: valynt
 spec:
   action: DENY
   rules:

@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "packageManager": "pnpm@9.15.4",
+  "packageManager": "npm@10.8.2",
   "workspaces": [
     "packages/*",
     "apps/*"

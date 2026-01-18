@@ -1,7 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: valuecanvas-staging
+namespace: valynt-staging
 
 bases:
   - ../../base
@@ -21,13 +21,13 @@ replicas:
     count: 1
 
 images:
-  - name: REGISTRY_URL/valuecanvas-backend
+  - name: REGISTRY_URL/valynt-backend
     newTag: develop
-  - name: REGISTRY_URL/valuecanvas-frontend
+  - name: REGISTRY_URL/valynt-frontend
     newTag: develop
 
 configMapGenerator:
-  - name: valuecanvas-config
+  - name: valynt-config
     behavior: merge
     literals:
       - node-env=staging

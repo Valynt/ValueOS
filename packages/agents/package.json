@@ -19,8 +19,8 @@
     "zod": "^3.25.76"
   },
   "peerDependencies": {
-    "@valueos/memory": "workspace:*",
-    "@valueos/infra": "workspace:*"
+    "@valueos/memory": "file:../memory",
+    "@valueos/infra": "file:../infra"
   },
   "devDependencies": {
     "@types/node": "^20.19.29",

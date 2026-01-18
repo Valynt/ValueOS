@@ -2,7 +2,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: backend-hpa
-  namespace: valuecanvas
+  namespace: valynt
   labels:
     app: backend
 spec:
@@ -47,7 +47,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: frontend-hpa
-  namespace: valuecanvas
+  namespace: valynt
   labels:
     app: frontend
 spec:

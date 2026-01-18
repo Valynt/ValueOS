@@ -2,11 +2,11 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: agent-config
-  namespace: valuecanvas-agents
+  namespace: valynt-agents
   labels:
     app.kubernetes.io/name: agent-config
     app.kubernetes.io/component: config
-    app.kubernetes.io/part-of: valuecanvas-agents
+    app.kubernetes.io/part-of: valynt-agents
 data:
   # Environment
   environment: "production"
@@ -39,7 +39,7 @@ data:
 
   # Security
   enable-cors: "false"
-  allowed-origins: "https://app.valuecanvas.com"
+  allowed-origins: "https://app.valynt.com"
 
   # Feature flags
   enable-structured-logging: "true"
