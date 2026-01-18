@@ -36,6 +36,10 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -79,6 +83,10 @@
   --accent-foreground: oklch(0.141 0.005 285.823);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
+  --success: oklch(0.72 0.17 145);
+  --success-foreground: oklch(0.985 0 0);
+  --warning: oklch(0.8 0.16 85);
+  --warning-foreground: oklch(0.2 0.02 85);
   --border: oklch(0.92 0.004 286.32);
   --input: oklch(0.92 0.004 286.32);
   --ring: oklch(0.623 0.214 259.815);
@@ -109,6 +117,10 @@
   --accent-foreground:  oklch(0.92 0.005 65);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.985 0 0);
+  --success: oklch(0.78 0.18 145);
+  --success-foreground: oklch(0.985 0 0);
+  --warning: oklch(0.84 0.17 85);
+  --warning-foreground: oklch(0.2 0.02 85);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.488 0.243 264.376);
@@ -218,9 +230,9 @@
 /* VOS-specific utility classes */
 @layer utilities {
   .vos-gradient {
-    background-color: #000;
+    background-color: color-mix(in oklch, var(--primary) 30%, var(--accent) 70%);
     background-image: 
-      radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.05) 1px, transparent 0);
+      radial-gradient(circle at 1px 1px, color-mix(in oklch, var(--primary-foreground) 6%, transparent) 1px, transparent 0);
     background-size: 40px 40px;
     position: relative;
   }
@@ -232,32 +244,42 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.3) 100%);
+    background: radial-gradient(ellipse at center, transparent 0%, color-mix(in oklch, var(--primary) 35%, transparent) 100%);
     pointer-events: none;
   }
 
   .vos-gradient-subtle {
-    background: linear-gradient(135deg, oklch(0.98 0.001 286) 0%, oklch(0.95 0.001 286) 100%);
+    background: linear-gradient(
+      135deg,
+      color-mix(in oklch, var(--accent) 90%, var(--primary) 10%) 0%,
+      color-mix(in oklch, var(--accent) 70%, var(--primary) 30%) 100%
+    );
   }
 
   /* Maturity level colors */
   .maturity-0 {
-    @apply bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200;
+    background-color: color-mix(in oklch, var(--destructive) 15%, transparent);
+    color: var(--destructive);
   }
   .maturity-1 {
-    @apply bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200;
+    background-color: color-mix(in oklch, var(--warning) 15%, transparent);
+    color: var(--warning);
   }
   .maturity-2 {
-    @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200;
+    background-color: color-mix(in oklch, var(--accent) 18%, transparent);
+    color: var(--accent-foreground);
   }
   .maturity-3 {
-    @apply bg-lime-100 text-lime-800 dark:bg-lime-900 dark:text-lime-200;
+    background-color: color-mix(in oklch, var(--primary) 18%, transparent);
+    color: var(--primary);
   }
   .maturity-4 {
-    @apply bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200;
+    background-color: color-mix(in oklch, var(--success) 16%, transparent);
+    color: var(--success);
   }
   .maturity-5 {
-    @apply bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200;
+    background-color: color-mix(in oklch, var(--success) 22%, transparent);
+    color: var(--success);
   }
   
   /* Interactive card states */
@@ -272,12 +294,14 @@
   
   /* Success states for completed lessons */
   .lesson-complete {
-    @apply bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800;
+    background-color: color-mix(in oklch, var(--success) 12%, transparent);
+    border-color: color-mix(in oklch, var(--success) 35%, transparent);
   }
   
   /* In-progress states */
   .lesson-in-progress {
-    @apply bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800;
+    background-color: color-mix(in oklch, var(--primary) 12%, transparent);
+    border-color: color-mix(in oklch, var(--primary) 35%, transparent);
   }
   
   /* Locked/unavailable states */
@@ -291,19 +315,31 @@
   }
 
   .status-active {
-    @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20;
+    @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium;
+    background-color: color-mix(in oklch, var(--success) 12%, transparent);
+    color: var(--success);
+    border: 1px solid color-mix(in oklch, var(--success) 20%, transparent);
   }
 
   .status-pending {
-    @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border border-yellow-500/20;
+    @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium;
+    background-color: color-mix(in oklch, var(--warning) 12%, transparent);
+    color: var(--warning);
+    border: 1px solid color-mix(in oklch, var(--warning) 22%, transparent);
   }
 
   .status-locked {
-    @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-500/20;
+    @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium;
+    background-color: color-mix(in oklch, var(--accent) 12%, transparent);
+    color: var(--accent-foreground);
+    border: 1px solid color-mix(in oklch, var(--accent) 25%, transparent);
   }
 
   .status-complete {
-    @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20;
+    @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium;
+    background-color: color-mix(in oklch, var(--success) 14%, transparent);
+    color: var(--success);
+    border: 1px solid color-mix(in oklch, var(--success) 24%, transparent);
   }
 
   /* Monospace metrics (ValueCanvas terminal aesthetic) */
@@ -320,6 +356,7 @@
   /* Technical data display */
   .tech-data {
     font-family: var(--font-mono);
-    @apply text-sm text-green-600 dark:text-green-400;
+    @apply text-sm;
+    color: var(--success);
   }
 }
