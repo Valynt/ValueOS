@@ -25,7 +25,13 @@ We are an Agentic Platform. Users must trust the AI.
 - **Explain Reasoning**: Provide tooltips or "Why?" affordances.
 - **Feedback Loops**: Make it easy to correct the system.
 
-## 4. Progressive Disclosure
+## 4. Building a Consistent Design System
+
+This is the task of creating a single, reusable library of components (buttons, form fields, icons), styles (colors, typography), and guidelines.
+
+**Why it makes the difference:** Consistency builds trust and reduces cognitive load. When a button or link looks and behaves the same way everywhere in your app, users don't have to re-learn how to use your interface on every new screen. It makes the entire product feel cohesive, professional, and predictable, rather than a jumbled collection of different designs.
+
+## 5. Progressive Disclosure
 
 Don't overwhelm the user.
 
@@ -33,7 +39,7 @@ Don't overwhelm the user.
 - Allow **Drill-down** on demand.
 - Keep the "Zero State" clean and inviting.
 
-## 5. Consistency is Trust
+## 6. Consistency is Trust
 
 If it looks the same, it should act the same.
 
