@@ -39,7 +39,7 @@ async function captureScreenshot(): Promise<string | null> {
   await video.play();
 
   await new Promise((resolve) => {
-    video.onloadedmetadata = () => resolve(null);
+    video.onloadeddata = resolve;
   });
 
   const canvas = document.createElement("canvas");
