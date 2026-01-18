@@ -277,13 +277,12 @@ export class AgentMemoryService {
       // Text search
       if (query.textSearch) {
         const sanitizedSearch = sanitizePostgRESTFilterValue(query.textSearch);
-        if (sanitizedSearch) {
+        if (sanitizedSearch && sanitizedSearch.trim() !== '') {
           dbQuery = dbQuery.or(`
-            content->>title.ilike.%${sanitizedSearch}%,
-            content->>description.ilike.%${sanitizedSearch}%
+            content->->title.ilike.%${sanitizedSearch}%,
+            content->->description.ilike.%${sanitizedSearch}%
           `);
         }
-      }
 
       // Pagination
       const limit = query.limit || 50;
