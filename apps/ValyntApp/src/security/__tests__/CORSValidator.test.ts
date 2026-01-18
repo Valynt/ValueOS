@@ -12,7 +12,7 @@ import {
   isValidOrigin,
   validateCORSConfig,
 } from "../CORSValidator";
-import { __setEnvSourceForTests } from "../../lib/env";
+import { __setEnvSourceForTests } from "@lib/env";
 
 describe("CORSValidator", () => {
   describe("validateCORSConfig", () => {

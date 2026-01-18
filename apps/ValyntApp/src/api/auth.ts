@@ -15,10 +15,10 @@ import { requireAuth } from "../middleware/auth";
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation";
 import { authService } from "../services/AuthService";
 import { AuthenticationError, ValidationError } from "../services/errors";
-import { createLogger } from "../lib/logger";
-import { sanitizeForLogging } from "../lib/piiFilter";
+import { createLogger } from "@lib/logger";
+import { sanitizeForLogging } from "@lib/piiFilter";
 import { auditLogService } from "../services/AuditLogService";
-import { createServerSupabaseClient } from "../lib/supabase";
+import { createServerSupabaseClient } from "@lib/supabase";
 import { sanitizeErrorMessage } from "../utils/security";
 
 const logger = createLogger({ component: "AuthAPI" });

@@ -3,7 +3,7 @@ import { GenericContainer, StartedTestContainer } from "testcontainers";
 import { Client } from "pg";
 import fs from "fs";
 import path from "path";
-import { getEnvVar, setEnvVarForTests } from "../lib/env";
+import { getEnvVar, setEnvVarForTests } from "@lib/env";
 
 const POSTGRES_PORT = 5432;
 const REDIS_PORT = 6379;

@@ -672,4 +672,4 @@ export type {
   KPIHypothesis,
   FinancialModel,
   Assumption,
-} from "../lib/agent-fabric/types";
+} from "@lib/agent-fabric/types";

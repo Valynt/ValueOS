@@ -6,8 +6,8 @@
  * SECURITY: Now uses SecureMessageBus for all event communication
  */
 
-import { ServiceMessageBusAdapter } from "../lib/agent-fabric/ServiceMessageBusAdapter";
-import { logger } from "../lib/logger";
+import { ServiceMessageBusAdapter } from "@lib/agent-fabric/ServiceMessageBusAdapter";
+import { logger } from "@lib/logger";
 import { canvasSchemaService } from "./CanvasSchemaService";
 import { workflowSDUIAdapter } from "./WorkflowSDUIAdapter";
 import { getStageById } from "./workflows/WorkflowDAGDefinitions";

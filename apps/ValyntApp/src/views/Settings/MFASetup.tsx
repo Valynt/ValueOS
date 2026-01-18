@@ -8,7 +8,7 @@
 
 import React, { useState, useEffect } from "react";
 import { mfaService } from "../../services/MFAService";
-import { logger } from "../../lib/logger";
+import { logger } from "@lib/logger";
 
 interface MFASetupProps {
   userId: string;

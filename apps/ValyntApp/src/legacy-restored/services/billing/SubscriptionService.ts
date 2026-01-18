@@ -9,7 +9,7 @@ import StripeService from "./StripeService";
 import CustomerService from "./CustomerService";
 import { BillingMetric, PLANS, PlanTier } from "../../config/billing";
 import { Subscription, SubscriptionItem } from "../../types/billing";
-import { createLogger } from "../../lib/logger";
+import { createLogger } from "@lib/logger";
 
 const logger = createLogger({ component: "SubscriptionService" });
 

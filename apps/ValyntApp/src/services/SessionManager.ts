@@ -10,9 +10,9 @@
  * - Session refresh
  */
 
-import { logger } from '../lib/logger';
-import { BaseService } from './BaseService';
-import { authService } from './AuthService';
+import { logger } from "../lib/logger";
+import { BaseService } from "./BaseService";
+import { authService } from "./AuthService";
 
 export interface SessionConfig {
   idleTimeoutMs: number;
@@ -27,7 +27,12 @@ export interface SessionState {
   warningShown: boolean;
 }
 
-export type SessionEventType = 'idle_warning' | 'idle_timeout' | 'absolute_timeout' | 'activity' | 'logout';
+export type SessionEventType =
+  | "idle_warning"
+  | "idle_timeout"
+  | "absolute_timeout"
+  | "activity"
+  | "logout";
 
 export type SessionEventListener = (type: SessionEventType, data?: any) => void;
 
@@ -38,14 +43,14 @@ export class SessionManager extends BaseService {
     warningBeforeMs: 5 * 60 * 1000, // 5 minutes before timeout
   };
 
-  private static readonly STORAGE_KEY = 'session_state';
+  private static readonly STORAGE_KEY = "session_state";
   private static readonly ACTIVITY_EVENTS = [
-    'mousedown',
-    'mousemove',
-    'keydown',
-    'scroll',
-    'touchstart',
-    'click',
+    "mousedown",
+    "mousemove",
+    "keydown",
+    "scroll",
+    "touchstart",
+    "click",
   ];
 
   private config: SessionConfig;
@@ -55,7 +60,7 @@ export class SessionManager extends BaseService {
   private throttledActivityHandler: (() => void) | null = null;
 
   constructor(config?: Partial<SessionConfig>) {
-    super('SessionManager');
+    super("SessionManager");
     this.config = {
       ...SessionManager.DEFAULT_CONFIG,
       ...config,
@@ -66,7 +71,7 @@ export class SessionManager extends BaseService {
    * Initialize session management
    */
   async initialize(): Promise<void> {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
 
     const isAuthenticated = await authService.isAuthenticated();
     if (!isAuthenticated) {
@@ -82,7 +87,7 @@ export class SessionManager extends BaseService {
     this.bindActivityListeners();
     this.startMonitoring();
 
-    this.log('info', 'Session management initialized', {
+    this.log("info", "Session management initialized", {
       idleTimeoutMinutes: this.config.idleTimeoutMs / 60000,
       absoluteTimeoutMinutes: this.config.absoluteTimeoutMs / 60000,
     });
@@ -94,7 +99,8 @@ export class SessionManager extends BaseService {
   terminate(): void {
     this.unbindActivityListeners();
     this.stopMonitoring();
-    this.log('info', 'Session management terminated');
+    this.clearSessionState();
+    this.log("info", "Session management terminated");
   }
 
   /**
@@ -110,7 +116,7 @@ export class SessionManager extends BaseService {
     };
 
     this.saveSessionState(state);
-    this.emitEvent('activity', state);
+    this.emitEvent("activity", state);
 
     return state;
   }
@@ -119,7 +125,7 @@ export class SessionManager extends BaseService {
    * Get session state from storage
    */
   private getSessionState(): SessionState | null {
-    if (typeof window === 'undefined') return null;
+    if (typeof window === "undefined") return null;
 
     try {
       const stored = sessionStorage.getItem(SessionManager.STORAGE_KEY);
@@ -127,7 +133,7 @@ export class SessionManager extends BaseService {
 
       return JSON.parse(stored) as SessionState;
     } catch (error) {
-      this.log('error', 'Failed to parse session state', { error });
+      this.log("error", "Failed to parse session state", { error });
       return null;
     }
   }
@@ -136,15 +142,12 @@ export class SessionManager extends BaseService {
    * Save session state to storage
    */
   private saveSessionState(state: SessionState): void {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
 
     try {
-      sessionStorage.setItem(
-        SessionManager.STORAGE_KEY,
-        JSON.stringify(state)
-      );
+      sessionStorage.setItem(SessionManager.STORAGE_KEY, JSON.stringify(state));
     } catch (error) {
-      this.log('error', 'Failed to save session state', { error });
+      this.log("error", "Failed to save session state", { error });
     }
   }
 
@@ -152,12 +155,12 @@ export class SessionManager extends BaseService {
    * Clear session state
    */
   clearSessionState(): void {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
 
     try {
       sessionStorage.removeItem(SessionManager.STORAGE_KEY);
     } catch (error) {
-      this.log('error', 'Failed to clear session state', { error });
+      this.log("error", "Failed to clear session state", { error });
     }
   }
 
@@ -173,18 +176,18 @@ export class SessionManager extends BaseService {
     state.warningShown = false;
 
     this.saveSessionState(state);
-    this.emitEvent('activity', { lastActivity: now });
+    this.emitEvent("activity", { lastActivity: now });
   }
 
   /**
    * Bind activity listeners
    */
   private bindActivityListeners(): void {
-    if (typeof window === 'undefined' || this.activityListenersBound) return;
+    if (typeof window === "undefined" || this.activityListenersBound) return;
 
     this.throttledActivityHandler = this.throttle(() => this.recordActivity(), 10000);
 
-    SessionManager.ACTIVITY_EVENTS.forEach(event => {
+    SessionManager.ACTIVITY_EVENTS.forEach((event) => {
       window.addEventListener(event, this.throttledActivityHandler!, { passive: true });
     });
 
@@ -195,10 +198,10 @@ export class SessionManager extends BaseService {
    * Unbind activity listeners
    */
   private unbindActivityListeners(): void {
-    if (typeof window === 'undefined' || !this.activityListenersBound) return;
+    if (typeof window === "undefined" || !this.activityListenersBound) return;
 
     if (this.throttledActivityHandler) {
-      SessionManager.ACTIVITY_EVENTS.forEach(event => {
+      SessionManager.ACTIVITY_EVENTS.forEach((event) => {
         window.removeEventListener(event, this.throttledActivityHandler!);
       });
       this.throttledActivityHandler = null;
@@ -240,34 +243,31 @@ export class SessionManager extends BaseService {
     const sessionAge = now - state.sessionStart;
 
     if (sessionAge >= this.config.absoluteTimeoutMs) {
-      this.log('warn', 'Absolute session timeout reached', {
+      this.log("warn", "Absolute session timeout reached", {
         sessionAgeMinutes: sessionAge / 60000,
       });
-      await this.handleTimeout('absolute_timeout');
+      await this.handleTimeout("absolute_timeout");
       return;
     }
 
     if (idleTime >= this.config.idleTimeoutMs) {
-      this.log('warn', 'Idle timeout reached', {
+      this.log("warn", "Idle timeout reached", {
         idleMinutes: idleTime / 60000,
       });
-      await this.handleTimeout('idle_timeout');
+      await this.handleTimeout("idle_timeout");
       return;
     }
 
     const timeUntilIdleTimeout = this.config.idleTimeoutMs - idleTime;
-    if (
-      !state.warningShown &&
-      timeUntilIdleTimeout <= this.config.warningBeforeMs
-    ) {
+    if (!state.warningShown && timeUntilIdleTimeout <= this.config.warningBeforeMs) {
       state.warningShown = true;
       this.saveSessionState(state);
 
-      this.log('info', 'Showing idle warning', {
+      this.log("info", "Showing idle warning", {
         minutesRemaining: Math.ceil(timeUntilIdleTimeout / 60000),
       });
 
-      this.emitEvent('idle_warning', {
+      this.emitEvent("idle_warning", {
         timeoutIn: timeUntilIdleTimeout,
         minutesRemaining: Math.ceil(timeUntilIdleTimeout / 60000),
       });
@@ -277,7 +277,7 @@ export class SessionManager extends BaseService {
   /**
    * Handle session timeout
    */
-  private async handleTimeout(type: 'idle_timeout' | 'absolute_timeout'): Promise<void> {
+  private async handleTimeout(type: "idle_timeout" | "absolute_timeout"): Promise<void> {
     const state = this.getSessionState();
     if (state) {
       state.isActive = false;
@@ -289,9 +289,9 @@ export class SessionManager extends BaseService {
     try {
       await authService.logout();
       this.clearSessionState();
-      this.emitEvent('logout', { reason: type });
+      this.emitEvent("logout", { reason: type });
     } catch (error) {
-      this.log('error', 'Failed to logout on timeout', { error });
+      this.log("error", "Failed to logout on timeout", { error });
     }
   }
 
@@ -300,7 +300,7 @@ export class SessionManager extends BaseService {
    */
   extendSession(): void {
     this.recordActivity();
-    this.log('info', 'Session extended');
+    this.log("info", "Session extended");
   }
 
   /**
@@ -323,10 +323,7 @@ export class SessionManager extends BaseService {
       idleMinutes: idleTime / 60000,
       sessionAgeMinutes: sessionAge / 60000,
       timeUntilIdleTimeout: Math.max(0, this.config.idleTimeoutMs - idleTime),
-      timeUntilAbsoluteTimeout: Math.max(
-        0,
-        this.config.absoluteTimeoutMs - sessionAge
-      ),
+      timeUntilAbsoluteTimeout: Math.max(0, this.config.absoluteTimeoutMs - sessionAge),
     };
   }
 
@@ -351,11 +348,11 @@ export class SessionManager extends BaseService {
    * Emit event to listeners
    */
   private emitEvent(type: SessionEventType, data?: any): void {
-    this.eventListeners.forEach(listener => {
+    this.eventListeners.forEach((listener) => {
       try {
         listener(type, data);
       } catch (error) {
-        this.log('error', 'Event listener error', { type, error });
+        this.log("error", "Event listener error", { type, error });
       }
     });
   }
@@ -368,7 +365,7 @@ export class SessionManager extends BaseService {
     limit: number
   ): (...args: Parameters<T>) => void {
     let inThrottle: boolean;
-    return function(this: any, ...args: Parameters<T>) {
+    return function (this: any, ...args: Parameters<T>) {
       if (!inThrottle) {
         func.apply(this, args);
         inThrottle = true;

@@ -7,7 +7,7 @@
 
 import CircuitBreaker from "opossum";
 import { logger } from "../utils/logger";
-import { getEnvVar } from "../lib/env";
+import { getEnvVar } from "@lib/env";
 import { llmCache } from "./LLMCache";
 import { llmCostTracker } from "./LLMCostTracker";
 

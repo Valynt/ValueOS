@@ -3,7 +3,7 @@
  * Implements network-level segmentation and access controls for AI agents
  */
 
-import { logger } from "../lib/logger";
+import { logger } from "@lib/logger";
 import { clientRateLimit } from "../services/ClientRateLimit";
 import { assertSafeUrl } from "../security/ssrfGuard";
 import { securityEvents } from "../security/securityLogger";

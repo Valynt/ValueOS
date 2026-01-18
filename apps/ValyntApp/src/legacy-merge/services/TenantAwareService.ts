@@ -7,7 +7,7 @@
 
 import { BaseService } from "./BaseService";
 import { AuthorizationError, ValidationError } from "./errors";
-import { createLogger } from "../lib/logger";
+import { createLogger } from "@lib/logger";
 
 const logger = createLogger({ component: "TenantAwareService" });
 

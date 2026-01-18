@@ -1,0 +1,1467 @@
+diff -ruN apps/ValyntApp/src/test/factories.ts apps/ValyntApp/src/legacy-restored/test/factories.ts
+--- apps/ValyntApp/src/test/factories.ts	1970-01-01 00:00:00.000000000 +0000
++++ apps/ValyntApp/src/legacy-restored/test/factories.ts	2026-01-17 17:02:26.674594500 +0000
+@@ -0,0 +1,19 @@
++import { ComponentTemplate } from '../services/TemplateLibrary';
++
++type PartialExcept<T, K extends keyof T> = Partial<T> & Pick<T, K>;
++
++export function createTemplate(
++  overrides: PartialExcept<ComponentTemplate, 'id'>
++): ComponentTemplate {
++  const base: ComponentTemplate = {
++    id: 'template-id',
++    name: 'Example Template',
++    description: 'A helpful starting point',
++    category: 'metrics',
++    components: [],
++    tags: ['baseline'],
++    ...overrides,
++  };
++
++  return base;
++}
+diff -ruN apps/ValyntApp/src/test/rbac.local.test.ts apps/ValyntApp/src/legacy-restored/test/rbac.local.test.ts
+--- apps/ValyntApp/src/test/rbac.local.test.ts	1970-01-01 00:00:00.000000000 +0000
++++ apps/ValyntApp/src/legacy-restored/test/rbac.local.test.ts	2026-01-17 17:02:26.680600900 +0000
+@@ -0,0 +1,468 @@
++import { describe, it, expect, beforeAll } from "vitest";
++import { createClient, SupabaseClient } from "@supabase/supabase-js";
++
++/**
++ * RBAC Local Testing Suite
++ *
++ * This test file helps you verify role-based access control (RBAC)
++ * is working correctly in your local environment.
++ *
++ * Prerequisites:
++ * 1. Supabase local instance running (npm run supabase:start)
++ * 2. Migrations applied (npm run supabase:migrate)
++ * 3. At least one test user created
++ *
++ * To run:
++ * npm test -- rbac.local.test.ts
++ */
++
++describe("RBAC Local Testing", () => {
++  let supabase: SupabaseClient;
++  let serviceRoleClient: SupabaseClient;
++  let testUserId: string;
++  let testTenantId: string;
++
++  // Replace with your local Supabase credentials
++  const SUPABASE_URL =
++    process.env.VITE_SUPABASE_URL || "http://localhost:54321";
++  const SUPABASE_ANON_KEY =
++    process.env.VITE_SUPABASE_ANON_KEY || "your-anon-key";
++  const SUPABASE_SERVICE_ROLE_KEY =
++    process.env.SUPABASE_SERVICE_ROLE_KEY || "your-service-role-key";
++
++  beforeAll(async () => {
++    // Initialize clients
++    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
++    serviceRoleClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
++
++    // Create test tenant
++    testTenantId = `test-tenant-${Date.now()}`;
++    const { error: tenantError } = await serviceRoleClient
++      .from("tenants")
++      .insert({
++        id: testTenantId,
++        name: "Test Tenant for RBAC",
++        status: "active",
++      });
++
++    if (tenantError) {
++      console.error("Failed to create test tenant:", tenantError);
++    }
++
++    // Create or get a test user
++    const { data: users, error: userError } =
++      await serviceRoleClient.auth.admin.listUsers();
++
++    if (userError || !users?.users?.length) {
++      // Create test user if none exists
++      const { data: newUser, error: createError } =
++        await serviceRoleClient.auth.admin.createUser({
++          email: "test@valueos.local",
++          password: "test-password-123",
++          email_confirm: true,
++        });
++
++      if (createError) {
++        console.error("Failed to create test user:", createError);
++        throw createError;
++      }
++
++      testUserId = newUser.user!.id;
++    } else {
++      testUserId = users.users[0].id;
++    }
++
++    console.log("Test setup complete:", {
++      userId: testUserId,
++      tenantId: testTenantId,
++    });
++  });
++
++  describe("Role Management", () => {
++    it("should list all available roles", async () => {
++      const { data: roles, error } = await serviceRoleClient
++        .from("roles")
++        .select("*")
++        .order("name");
++
++      expect(error).toBeNull();
++      expect(roles).toBeDefined();
++      expect(roles!.length).toBeGreaterThan(0);
++
++      console.log(
++        "Available roles:",
++        roles?.map((r) => r.name)
++      );
++
++      // Check for expected system roles
++      const roleNames = roles?.map((r) => r.name) || [];
++      expect(roleNames).toContain("system_admin");
++      expect(roleNames).toContain("tenant_admin");
++    });
++
++    it("should have valid permission structure for each role", async () => {
++      const { data: roles, error } = await serviceRoleClient
++        .from("roles")
++        .select("*");
++
++      expect(error).toBeNull();
++
++      roles?.forEach((role) => {
++        expect(role.name).toBeDefined();
++        expect(role.permissions).toBeDefined();
++        expect(Array.isArray(role.permissions)).toBe(true);
++
++        console.log(`Role: ${role.name}, Permissions:`, role.permissions);
++      });
++    });
++  });
++
++  describe("Role Assignment", () => {
++    it("should assign tenant_admin role to user", async () => {
++      // Get tenant_admin role
++      const { data: role } = await serviceRoleClient
++        .from("roles")
++        .select("id")
++        .eq("name", "tenant_admin")
++        .single();
++
++      expect(role).toBeDefined();
++
++      // Assign role to user
++      const { data, error } = await serviceRoleClient
++        .from("user_roles")
++        .insert({
++          user_id: testUserId,
++          role_id: role!.id,
++          tenant_id: testTenantId,
++        })
++        .select();
++
++      expect(error).toBeNull();
++      expect(data).toBeDefined();
++      expect(data![0].user_id).toBe(testUserId);
++
++      console.log("Assigned tenant_admin role to user:", testUserId);
++    });
++
++    it("should verify role assignment", async () => {
++      const { data: userRoles, error } = await serviceRoleClient
++        .from("user_roles")
++        .select(
++          `
++          *,
++          roles (name, permissions)
++        `
++        )
++        .eq("user_id", testUserId);
++
++      expect(error).toBeNull();
++      expect(userRoles).toBeDefined();
++      expect(userRoles!.length).toBeGreaterThan(0);
++
++      console.log("User roles:", userRoles);
++
++      const hasAdminRole = userRoles?.some(
++        (ur: any) => ur.roles?.name === "tenant_admin"
++      );
++      expect(hasAdminRole).toBe(true);
++    });
++
++    it("should handle duplicate role assignment gracefully", async () => {
++      const { data: role } = await serviceRoleClient
++        .from("roles")
++        .select("id")
++        .eq("name", "tenant_admin")
++        .single();
++
++      // Try to assign the same role again
++      const { error } = await serviceRoleClient.from("user_roles").insert({
++        user_id: testUserId,
++        role_id: role!.id,
++        tenant_id: testTenantId,
++      });
++
++      // Should fail due to unique constraint or be handled by ON CONFLICT
++      expect(error).toBeDefined();
++    });
++
++    it("should assign system_admin role (global)", async () => {
++      const { data: role } = await serviceRoleClient
++        .from("roles")
++        .select("id")
++        .eq("name", "system_admin")
++        .single();
++
++      const { error } = await serviceRoleClient.from("user_roles").upsert({
++        user_id: testUserId,
++        role_id: role!.id,
++        tenant_id: null, // Global role
++      });
++
++      expect(error).toBeNull();
++
++      console.log("Assigned system_admin role (global) to user");
++    });
++  });
++
++  describe("Permission Checks", () => {
++    it("should retrieve all permissions for a user", async () => {
++      const { data: userRoles, error } = await serviceRoleClient
++        .from("user_roles")
++        .select(
++          `
++          user_id,
++          tenant_id,
++          roles (
++            name,
++            permissions
++          )
++        `
++        )
++        .eq("user_id", testUserId);
++
++      expect(error).toBeNull();
++      expect(userRoles).toBeDefined();
++
++      // Flatten all permissions
++      const allPermissions =
++        userRoles?.flatMap((ur: any) => ur.roles?.permissions || []) || [];
++
++      console.log("User permissions:", allPermissions);
++      expect(allPermissions.length).toBeGreaterThan(0);
++    });
++
++    it("should check if user has specific permission", async () => {
++      const permissionToCheck = "tenant.read";
++
++      const { data: userRoles } = await serviceRoleClient
++        .from("user_roles")
++        .select(
++          `
++          roles (
++            name,
++            permissions
++          )
++        `
++        )
++        .eq("user_id", testUserId);
++
++      const hasPermission = userRoles?.some((ur: any) => {
++        const permissions = ur.roles?.permissions || [];
++        return (
++          permissions.includes(permissionToCheck) ||
++          permissions.includes("tenant.*") ||
++          permissions.includes("*")
++        );
++      });
++
++      console.log(`User has '${permissionToCheck}' permission:`, hasPermission);
++      expect(hasPermission).toBeDefined();
++    });
++
++    it("should check wildcard permission matching", async () => {
++      const { data: userRoles } = await serviceRoleClient
++        .from("user_roles")
++        .select(
++          `
++          roles (permissions)
++        `
++        )
++        .eq("user_id", testUserId);
++
++      const permissions =
++        userRoles?.flatMap((ur: any) => ur.roles?.permissions || []) || [];
++
++      // Check if user has any wildcard permissions
++      const hasWildcard = permissions.some(
++        (p) => p === "*" || p.endsWith(".*")
++      );
++
++      console.log("Has wildcard permissions:", hasWildcard);
++      console.log("All permissions:", permissions);
++    });
++  });
++
++  describe("User-Tenant Relationship", () => {
++    it("should link user to tenant", async () => {
++      const { error } = await serviceRoleClient.from("user_tenants").upsert({
++        tenant_id: testTenantId,
++        user_id: testUserId,
++        role: "admin",
++      });
++
++      expect(error).toBeNull();
++
++      console.log("Linked user to tenant");
++    });
++
++    it("should retrieve user tenants", async () => {
++      const { data: userTenants, error } = await serviceRoleClient
++        .from("user_tenants")
++        .select(
++          `
++          *,
++          tenants (name, status)
++        `
++        )
++        .eq("user_id", testUserId);
++
++      expect(error).toBeNull();
++      expect(userTenants).toBeDefined();
++      expect(userTenants!.length).toBeGreaterThan(0);
++
++      console.log("User tenants:", userTenants);
++    });
++  });
++
++  describe("Multi-Role Scenarios", () => {
++    it("should assign multiple roles to same user", async () => {
++      const { data: roles } = await serviceRoleClient
++        .from("roles")
++        .select("id, name")
++        .in("name", ["tenant_admin", "security_admin"]);
++
++      expect(roles?.length).toBe(2);
++
++      const inserts = roles!.map((role) => ({
++        user_id: testUserId,
++        role_id: role.id,
++        tenant_id: role.name === "security_admin" ? null : testTenantId,
++      }));
++
++      const { error } = await serviceRoleClient
++        .from("user_roles")
++        .upsert(inserts);
++
++      // May error on duplicate, which is fine
++      console.log("Attempted to assign multiple roles");
++    });
++
++    it("should aggregate permissions from multiple roles", async () => {
++      const { data: userRoles } = await serviceRoleClient
++        .from("user_roles")
++        .select(
++          `
++          roles (name, permissions)
++        `
++        )
++        .eq("user_id", testUserId);
++
++      const allPermissions = new Set<string>();
++      userRoles?.forEach((ur: any) => {
++        ur.roles?.permissions?.forEach((p: string) => allPermissions.add(p));
++      });
++
++      console.log("Aggregated permissions:", Array.from(allPermissions));
++      expect(allPermissions.size).toBeGreaterThan(0);
++    });
++  });
++
++  describe("Role Removal", () => {
++    it("should remove role from user", async () => {
++      const { data: role } = await serviceRoleClient
++        .from("roles")
++        .select("id")
++        .eq("name", "security_admin")
++        .single();
++
++      if (!role) return;
++
++      const { error } = await serviceRoleClient
++        .from("user_roles")
++        .delete()
++        .eq("user_id", testUserId)
++        .eq("role_id", role.id);
++
++      expect(error).toBeNull();
++
++      console.log("Removed security_admin role from user");
++    });
++
++    it("should verify role was removed", async () => {
++      const { data: userRoles } = await serviceRoleClient
++        .from("user_roles")
++        .select(
++          `
++          roles (name)
++        `
++        )
++        .eq("user_id", testUserId);
++
++      const hasSecurityAdmin = userRoles?.some(
++        (ur: any) => ur.roles?.name === "security_admin"
++      );
++
++      expect(hasSecurityAdmin).toBe(false);
++    });
++  });
++
++  describe("Cleanup", () => {
++    it("should clean up test data", async () => {
++      // Remove user roles
++      await serviceRoleClient
++        .from("user_roles")
++        .delete()
++        .eq("user_id", testUserId);
++
++      // Remove user-tenant links
++      await serviceRoleClient
++        .from("user_tenants")
++        .delete()
++        .eq("user_id", testUserId)
++        .eq("tenant_id", testTenantId);
++
++      // Remove test tenant
++      await serviceRoleClient.from("tenants").delete().eq("id", testTenantId);
++
++      console.log("Cleaned up test data");
++    });
++  });
++});
++
++/**
++ * Helper function to check if user has permission
++ * This can be used in your application code
++ */
++export async function checkUserPermission(
++  supabase: SupabaseClient,
++  userId: string,
++  permission: string,
++  tenantId?: string
++): Promise<boolean> {
++  const { data: userRoles } = await supabase
++    .from("user_roles")
++    .select(
++      `
++      roles (permissions),
++      tenant_id
++    `
++    )
++    .eq("user_id", userId);
++
++  if (!userRoles) return false;
++
++  // Filter by tenant if specified
++  const relevantRoles = tenantId
++    ? userRoles.filter(
++        (ur: any) => ur.tenant_id === null || ur.tenant_id === tenantId
++      )
++    : userRoles;
++
++  // Check permissions
++  return relevantRoles.some((ur: any) => {
++    const permissions = ur.roles?.permissions || [];
++
++    // Exact match
++    if (permissions.includes(permission)) return true;
++
++    // Wildcard match (e.g., "tenant.*" matches "tenant.read")
++    const category = permission.split(".")[0];
++    if (permissions.includes(`${category}.*`)) return true;
++
++    // Full access
++    if (permissions.includes("*")) return true;
++
++    return false;
++  });
++}
+diff -ruN apps/ValyntApp/src/test/security/securityUtils.test.ts apps/ValyntApp/src/legacy-restored/test/security/securityUtils.test.ts
+--- apps/ValyntApp/src/test/security/securityUtils.test.ts	1970-01-01 00:00:00.000000000 +0000
++++ apps/ValyntApp/src/legacy-restored/test/security/securityUtils.test.ts	2026-01-17 17:02:26.690810500 +0000
+@@ -0,0 +1,44 @@
++import { describe, expect, it } from 'vitest';
++import { defaultPasswordPolicy, RateLimiter, sanitizeLLMContent, sanitizeUserInput, validatePassword } from '../../utils/security';
++
++describe('sanitizeUserInput', () => {
++  it('strips html and script tags', () => {
++    const result = sanitizeUserInput('<script>alert(1)</script>Hello <b>World</b>');
++    expect(result).toBe('Hello World');
++  });
++
++  it('enforces max length and trims whitespace', () => {
++    const result = sanitizeUserInput('   hello '.repeat(50), 20);
++    expect(result.length).toBeLessThanOrEqual(20);
++    expect(result.startsWith('hello')).toBe(true);
++  });
++});
++
++describe('password policy', () => {
++  it('enforces strong defaults', () => {
++    const weak = validatePassword('short');
++    expect(weak.valid).toBe(false);
++    const strong = validatePassword('VeryStr0ng!Pass', defaultPasswordPolicy);
++    expect(strong.valid).toBe(true);
++  });
++});
++
++describe('RateLimiter', () => {
++  it('blocks excessive attempts and returns retryAfter', () => {
++    const limiter = new RateLimiter({ maxAttempts: 2, windowMs: 1000, lockoutMs: 2000 });
++    const key = 'user@example.com';
++    expect(limiter.canAttempt(key).allowed).toBe(true);
++    limiter.recordFailure(key);
++    limiter.recordFailure(key);
++    const status = limiter.canAttempt(key);
++    expect(status.allowed).toBe(false);
++    expect(status.retryAfter).toBeGreaterThan(0);
++  });
++});
++
++describe('sanitizeLLMContent', () => {
++  it('escapes html entities', () => {
++    const sanitized = sanitizeLLMContent('<div>test</div>');
++    expect(sanitized).toContain('&lt;div&gt;');
++  });
++});
+diff -ruN apps/ValyntApp/src/test/setup-integration.ts apps/ValyntApp/src/legacy-restored/test/setup-integration.ts
+--- apps/ValyntApp/src/test/setup-integration.ts	1970-01-01 00:00:00.000000000 +0000
++++ apps/ValyntApp/src/legacy-restored/test/setup-integration.ts	2026-01-17 17:02:26.695568500 +0000
+@@ -0,0 +1,85 @@
++import { afterAll, beforeAll } from "vitest";
++import { setup, teardown } from "./testcontainers-global-setup";
++import { Client } from "pg";
++import fs from "fs";
++import path from "path";
++import { getEnvVar, setEnvVarForTests } from "../lib/env";
++import { getDatabaseUrl } from "../config/database";
++
++// Increase timeout for Docker operations
++const DOCKER_TIMEOUT = 120_000;
++
++beforeAll(async () => {
++  console.log("🐳 Starting integration test environment...");
++
++  // Check if Docker is available
++  const dockerAvailable = await isDockerAvailable();
++  if (!dockerAvailable) {
++    throw new Error(
++      "❌ Docker is not available or not running. Integration tests require Docker.\n" +
++        "   Please start Docker and ensure you have permissions to run containers.\n" +
++        "   For unit tests only, run: npm run test:unit"
++    );
++  }
++
++  await setup();
++
++  // Read DATABASE_URL from temp file (written by globalSetup in separate process)
++  let dbUrl = getDatabaseUrl();
++  if (!dbUrl) {
++    const envFilePath = path.resolve(__dirname, "../../.vitest-env.json");
++    if (fs.existsSync(envFilePath)) {
++      const envData = JSON.parse(fs.readFileSync(envFilePath, "utf8"));
++      dbUrl = envData.DATABASE_URL;
++      setEnvVarForTests("DATABASE_URL", dbUrl);
++    }
++  }
++
++  if (!dbUrl) {
++    throw new Error(
++      "❌ DATABASE_URL not set by testcontainers-global-setup.\n" +
++        "   This indicates a problem with the testcontainer initialization.\n" +
++        "   Check the logs above for any Docker-related errors."
++    );
++  }
++
++  // Verify database connectivity
++  const client = new Client({ connectionString: dbUrl });
++  await client.connect();
++  try {
++    const schemaExists = await client.query(
++      `SELECT 1 FROM information_schema.schemata WHERE schema_name = 'auth';`
++    );
++    if (schemaExists.rowCount === 0) throw new Error("auth schema not created");
++
++    const tableExists = await client.query(
++      `SELECT 1 FROM information_schema.tables WHERE table_schema='auth' AND table_name='users';`
++    );
++    if (tableExists.rowCount === 0) throw new Error("auth.users table not created");
++
++    const uidFunc = await client.query(
++      `SELECT 1 FROM information_schema.routines WHERE routine_schema='auth' AND routine_name='uid';`
++    );
++    if (uidFunc.rowCount === 0) throw new Error("auth.uid() function not created");
++
++    console.log("✅ Integration test environment ready");
++  } finally {
++    await client.end();
++  }
++}, DOCKER_TIMEOUT);
++
++afterAll(async () => {
++  console.log("\n🧹 Cleaning up integration test environment...");
++  await teardown();
++});
++
++// Helper function to check Docker availability
++async function isDockerAvailable(): Promise<boolean> {
++  try {
++    const { execSync } = require("child_process");
++    execSync("docker version", { stdio: "ignore" });
++    return true;
++  } catch {
++    return false;
++  }
++}
+diff -ruN apps/ValyntApp/src/test/setup.ts apps/ValyntApp/src/legacy-restored/test/setup.ts
+--- apps/ValyntApp/src/test/setup.ts	2026-01-15 15:01:42.212768300 +0000
++++ apps/ValyntApp/src/legacy-restored/test/setup.ts	2026-01-17 17:02:26.702499200 +0000
+@@ -1,65 +1,41 @@
+ import "@testing-library/jest-dom/vitest";
++import { afterAll, afterEach, beforeAll, vi } from "vitest";
+ import { cleanup } from "@testing-library/react";
+-import { afterEach, vi } from "vitest";
++import { setupServer } from "msw/node";
+ 
+-// Cleanup after each test
+-afterEach(() => {
+-  cleanup();
+-});
++// Re-use existing global setup for env vars and polyfills
++import "../../tests/setup";
+ 
+-// Mock window.matchMedia
+-Object.defineProperty(window, "matchMedia", {
+-  writable: true,
+-  value: vi.fn().mockImplementation((query: string) => ({
+-    matches: false,
+-    media: query,
+-    onchange: null,
+-    addListener: vi.fn(),
+-    removeListener: vi.fn(),
+-    addEventListener: vi.fn(),
+-    removeEventListener: vi.fn(),
+-    dispatchEvent: vi.fn(),
+-  })),
++vi.mock("../config/featureFlags", () => ({
++  featureFlags: {
++    ENABLE_UNIFIED_ORCHESTRATION: true,
++    ENABLE_STATELESS_ORCHESTRATION: false,
++    ENABLE_SAFE_JSON_PARSER: false,
++    ENABLE_INPUT_SANITIZATION: true,
++    ENABLE_TRACE_LOGGING: true,
++    ENABLE_CIRCUIT_BREAKER: true,
++    ENABLE_RATE_LIMITING: true,
++    ENABLE_AUDIT_LOGGING: true,
++  },
++  isFeatureEnabled: () => false,
++  getEnabledFeatures: () => [],
++  getDisabledFeatures: () => [],
++}));
++
++export const server = setupServer();
++
++beforeAll(() => {
++  vi.setSystemTime(new Date("2025-01-01T12:00:00-05:00"));
++  server.listen({ onUnhandledRequest: "warn" });
+ });
+ 
+-// Mock IntersectionObserver
+-class MockIntersectionObserver {
+-  observe = vi.fn();
+-  disconnect = vi.fn();
+-  unobserve = vi.fn();
+-}
+-
+-Object.defineProperty(window, "IntersectionObserver", {
+-  writable: true,
+-  value: MockIntersectionObserver,
++afterEach(() => {
++  cleanup();
++  server.resetHandlers();
++  vi.clearAllMocks();
++  vi.restoreAllMocks();
+ });
+ 
+-// Mock ResizeObserver
+-class MockResizeObserver {
+-  observe = vi.fn();
+-  disconnect = vi.fn();
+-  unobserve = vi.fn();
+-}
+-
+-Object.defineProperty(window, "ResizeObserver", {
+-  writable: true,
+-  value: MockResizeObserver,
++afterAll(() => {
++  server.close();
+ });
+-
+-// Mock localStorage
+-const localStorageMock = {
+-  getItem: vi.fn(),
+-  setItem: vi.fn(),
+-  removeItem: vi.fn(),
+-  clear: vi.fn(),
+-};
+-Object.defineProperty(window, "localStorage", { value: localStorageMock });
+-
+-// Mock sessionStorage
+-const sessionStorageMock = {
+-  getItem: vi.fn(),
+-  setItem: vi.fn(),
+-  removeItem: vi.fn(),
+-  clear: vi.fn(),
+-};
+-Object.defineProperty(window, "sessionStorage", { value: sessionStorageMock });
+diff -ruN apps/ValyntApp/src/test/setup-unit.ts apps/ValyntApp/src/legacy-restored/test/setup-unit.ts
+--- apps/ValyntApp/src/test/setup-unit.ts	1970-01-01 00:00:00.000000000 +0000
++++ apps/ValyntApp/src/legacy-restored/test/setup-unit.ts	2026-01-17 17:02:26.698706500 +0000
+@@ -0,0 +1,142 @@
++/**
++ * Unit Test Setup
++ *
++ * Pure unit test setup with zero external dependencies.
++ * No database connections, no Docker containers, no network calls.
++ */
++
++import "@testing-library/jest-dom/vitest";
++import { afterAll, afterEach, beforeAll, vi } from "vitest";
++import { cleanup } from "@testing-library/react";
++import { setupServer } from "msw/node";
++
++// Re-use existing global setup for env vars and polyfills
++import "../../tests/setup";
++
++// Mock feature flags for consistent unit testing
++vi.mock("../config/featureFlags", () => ({
++  featureFlags: {
++    ENABLE_UNIFIED_ORCHESTRATION: true,
++    ENABLE_STATELESS_ORCHESTRATION: false,
++    ENABLE_SAFE_JSON_PARSER: false,
++    ENABLE_INPUT_SANITIZATION: true,
++    ENABLE_TRACE_LOGGING: true,
++    ENABLE_CIRCUIT_BREAKER: true,
++    ENABLE_RATE_LIMITING: true,
++    ENABLE_AUDIT_LOGGING: true,
++  },
++  isFeatureEnabled: () => false,
++  getEnabledFeatures: () => [],
++  getDisabledFeatures: () => [],
++  shouldEnableForUser: (userId: string, percentage: number) => {
++    // Simple deterministic implementation for testing
++    if (percentage >= 100) return true;
++    if (percentage <= 0) return false;
++    // Use a simple hash based on user ID for consistency
++    const hash = userId.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
++    return hash % 100 < percentage;
++  },
++}));
++
++// Mock external services that unit tests should never need
++vi.mock("../config/database", () => ({
++  getDatabaseUrl: () => "mock://database",
++}));
++
++vi.mock("@supabase/supabase-js", () => ({
++  createClient: vi.fn(() => ({
++    from: vi.fn(() => ({
++      select: vi.fn(() => ({
++        eq: vi.fn(() => ({
++          single: vi.fn(() => Promise.resolve({ data: null, error: null })),
++        })),
++        in: vi.fn(() => ({
++          eq: vi.fn(() => ({
++            order: vi.fn(() => ({
++              limit: vi.fn(() => ({
++                single: vi.fn(() => Promise.resolve({ data: null, error: null })),
++              })),
++            })),
++          })),
++        })),
++      })),
++      insert: vi.fn(() => ({
++        select: vi.fn(() => ({
++          single: vi.fn(() => Promise.resolve({ data: null, error: null })),
++        })),
++      })),
++      update: vi.fn(() => ({
++        eq: vi.fn(() => ({
++          select: vi.fn(() => ({
++            single: vi.fn(() => Promise.resolve({ data: null, error: null })),
++          })),
++        })),
++      })),
++      delete: vi.fn(() => ({
++        eq: vi.fn(() => Promise.resolve({ error: null })),
++      })),
++    })),
++    auth: {
++      signIn: vi.fn(() => Promise.resolve({ data: { user: null }, error: null })),
++      signOut: vi.fn(() => Promise.resolve({ error: null })),
++      getUser: vi.fn(() => Promise.resolve({ data: { user: null }, error: null })),
++    },
++  })),
++}));
++
++// Mock Stripe for unit tests
++vi.mock("@stripe/stripe-js", () => ({
++  loadStripe: vi.fn(() => Promise.resolve(null)),
++}));
++
++// Mock Redis
++vi.mock("../lib/redis", () => ({
++  redisClient: {
++    get: vi.fn(() => Promise.resolve(null)),
++    set: vi.fn(() => Promise.resolve("OK")),
++    del: vi.fn(() => Promise.resolve(1)),
++    exists: vi.fn(() => Promise.resolve(0)),
++    expire: vi.fn(() => Promise.resolve(1)),
++  },
++}));
++
++export const server = setupServer();
++
++beforeAll(() => {
++  vi.setSystemTime(new Date("2025-01-01T12:00:00-05:00"));
++  server.listen({ onUnhandledRequest: "warn" });
++});
++
++afterEach(() => {
++  cleanup();
++  server.resetHandlers();
++  vi.clearAllMocks();
++  vi.restoreAllMocks();
++});
++
++afterAll(() => {
++  server.close();
++});
++
++// Export utilities for unit tests
++export const createMockSupabaseClient = () => ({
++  from: vi.fn(() => ({
++    select: vi.fn(() => ({
++      eq: vi.fn(() => ({
++        single: vi.fn(() => Promise.resolve({ data: null, error: null })),
++      })),
++    })),
++  })),
++  auth: {
++    signIn: vi.fn(() => Promise.resolve({ data: { user: null }, error: null })),
++    signOut: vi.fn(() => Promise.resolve({ error: null })),
++  },
++});
++
++export const createMockStripeService = () => ({
++  createCustomer: vi.fn(() => Promise.resolve({ id: "cus_test", email: "test@example.com" })),
++  createSubscription: vi.fn(() => Promise.resolve({ id: "sub_test", status: "active" })),
++  cancelSubscription: vi.fn(() => Promise.resolve({ id: "sub_test", status: "canceled" })),
++});
++
++console.log("🧪 Unit Test Environment Initialized (Zero Dependencies)");
+diff -ruN apps/ValyntApp/src/test/testcontainers-global-setup.ts apps/ValyntApp/src/legacy-restored/test/testcontainers-global-setup.ts
+--- apps/ValyntApp/src/test/testcontainers-global-setup.ts	1970-01-01 00:00:00.000000000 +0000
++++ apps/ValyntApp/src/legacy-restored/test/testcontainers-global-setup.ts	2026-01-17 17:02:26.712340000 +0000
+@@ -0,0 +1,188 @@
++import { PostgreSqlContainer, StartedPostgreSqlContainer } from "@testcontainers/postgresql";
++import { GenericContainer, StartedTestContainer } from "testcontainers";
++import { Client } from "pg";
++import fs from "fs";
++import path from "path";
++import { getEnvVar, setEnvVarForTests } from "../lib/env";
++
++const POSTGRES_PORT = 5432;
++const REDIS_PORT = 6379;
++
++// Store container instance globally to stop it later
++let container: StartedPostgreSqlContainer;
++let redisContainer: StartedTestContainer | undefined;
++
++export async function setup() {
++  console.warn("🐳 Starting Postgres Testcontainer...");
++
++  // 1. Start the container (matching Supabase's Postgres version approx)
++  container = await new PostgreSqlContainer("postgres:15.1")
++    .withDatabase("postgres")
++    .withUsername("postgres")
++    .withPassword("postgres")
++    .withExposedPorts(5432)
++    .start();
++
++  const dbUrl = container.getConnectionUri();
++  console.warn(`✅ Postgres started at ${dbUrl}`);
++
++  // 2. Set env var for tests to pick up - BOTH process.env and custom source
++  setEnvVarForTests("DATABASE_URL", dbUrl);
++
++  // 3. Write to temp file for worker processes to read (globalSetup runs in separate process)
++  const envFilePath = path.resolve(__dirname, "../../.vitest-env.json");
++  fs.writeFileSync(envFilePath, JSON.stringify({ DATABASE_URL: dbUrl }), "utf8");
++
++  // Ensure coverage folders exist (vitest coverage reporter writes here)
++  try {
++    fs.mkdirSync(path.resolve(__dirname, "../../coverage/.tmp"), {
++      recursive: true,
++    });
++  } catch (_err) {
++    // ignore
++  }
++
++  // Start Redis testcontainer and set REDIS_URL for tests
++  try {
++    console.warn("🐳 Starting Redis Testcontainer...");
++    redisContainer = await new GenericContainer("redis:7.0").withExposedPorts(6379).start();
++    const redisHost = redisContainer.getHost();
++    const redisPort = redisContainer.getMappedPort(6379);
++    const redisUrl = `redis://${redisHost}:${redisPort}`;
++    setEnvVarForTests("REDIS_URL", redisUrl);
++    console.warn(`✅ Redis started at ${redisUrl}`);
++  } catch (err) {
++    console.warn("⚠️ Failed to start Redis testcontainer, continuing without it:", err);
++  }
++
++  // 3. Connect to apply migrations
++  const client = new Client({ connectionString: dbUrl });
++  await client.connect();
++
++  try {
++    // Create extensions and minimal auth schema for RLS policies that reference auth.uid()
++    console.warn("   Setting up auth schema for tests...");
++    await client.query(`
++        CREATE EXTENSION IF NOT EXISTS pgcrypto;
++        CREATE SCHEMA IF NOT EXISTS auth;
++        CREATE TABLE IF NOT EXISTS auth.users (
++          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
++          email TEXT,
++          raw_user_meta_data JSONB DEFAULT '{}'::jsonb,
++          created_at TIMESTAMPTZ DEFAULT NOW(),
++          updated_at TIMESTAMPTZ DEFAULT NOW()
++        );
++        
++        -- Mock auth.uid() function for tests
++        CREATE OR REPLACE FUNCTION auth.uid() RETURNS UUID AS $$
++        BEGIN
++          RETURN '00000000-0000-0000-0000-000000000001'::UUID;
++        END;
++        $$ LANGUAGE plpgsql;
++        
++        -- Mock auth.role() function
++        CREATE OR REPLACE FUNCTION auth.role() RETURNS TEXT AS $$
++        BEGIN
++          RETURN 'authenticated'::TEXT;
++        END;
++        $$ LANGUAGE plpgsql;
++
++        -- Mock auth.jwt() function returns JSON with role and organization
++        CREATE OR REPLACE FUNCTION auth.jwt() RETURNS jsonb AS $$
++        BEGIN
++          RETURN jsonb_build_object('role', 'service_role', 'organization_id', 'org-0001');
++        END;
++        $$ LANGUAGE plpgsql;
++
++        -- Ensure commonly used roles exist in vanilla Postgres test container
++        DO $$ BEGIN
++          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
++            CREATE ROLE authenticated;
++          END IF;
++          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
++            CREATE ROLE service_role;
++          END IF;
++          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
++            CREATE ROLE anon;
++          END IF;
++        END $$;
++      `);
++
++    // Try to run full migrations first, fall back to minimal schema if they fail
++    const migrationsDir = path.resolve(__dirname, "../../supabase/migrations");
++    let migrationsSucceeded = false;
++
++    if (fs.existsSync(migrationsDir)) {
++      // Filter for numbered migrations and sort them to ensure correct order
++      const files = fs
++        .readdirSync(migrationsDir)
++        .filter((f) => f.endsWith(".sql"))
++        .sort((a, b) => a.localeCompare(b));
++
++      console.warn(`📂 Found ${files.length} migrations in ${migrationsDir}`);
++
++      try {
++        for (const file of files) {
++          const filePath = path.join(migrationsDir, file);
++          const sql = fs.readFileSync(filePath, "utf8");
++          console.warn(`   Running ${file}...`);
++          try {
++            await client.query(sql);
++          } catch (_err: any) {
++            // If extensions like pgvector are unavailable when running against a vanilla Postgres,
++            // log and continue. This keeps tests from failing due to optional extensions not present.
++            if (
++              _err &&
++              (_err.code === "0A000" ||
++                _err.message?.includes("extension") ||
++                _err.message?.includes("vector.control"))
++            ) {
++              console.warn(`   ⚠️ Skipping ${file} due to missing DB extension: ${_err.message}`);
++              continue;
++            }
++            // For other errors, log but don't throw - we'll use fallback schema
++            console.warn(`   ⚠️ Migration ${file} failed: ${_err.message}`);
++            throw _err; // Trigger fallback
++          }
++        }
++        migrationsSucceeded = true;
++        console.warn("✅ All migrations applied successfully");
++      } catch (err) {
++        console.warn("⚠️ Migrations failed, using minimal test schema instead");
++        migrationsSucceeded = false;
++      }
++    } else {
++      console.warn("⚠️ No migrations directory found at", migrationsDir);
++    }
++
++    // If migrations failed or don't exist, use minimal test schema
++    if (!migrationsSucceeded) {
++      console.warn("📂 Applying minimal test schema...");
++      const testSchemaPath = path.resolve(__dirname, "./test-db-schema.sql");
++      if (fs.existsSync(testSchemaPath)) {
++        const testSchema = fs.readFileSync(testSchemaPath, "utf8");
++        await client.query(testSchema);
++        console.warn("✅ Minimal test schema applied");
++      } else {
++        console.error("❌ Test schema file not found at", testSchemaPath);
++        throw new Error("Cannot initialize test database");
++      }
++    }
++  } catch (e) {
++    console.error("❌ Failed to apply migrations:", e);
++    throw e;
++  } finally {
++    await client.end();
++  }
++}
++
++export async function teardown() {
++  if (container) {
++    console.warn("🛑 Stopping Postgres Testcontainer...");
++    await container.stop();
++  }
++  if (redisContainer) {
++    console.warn("🛑 Stopping Redis Testcontainer...");
++    await redisContainer.stop();
++  }
++}
+diff -ruN apps/ValyntApp/src/test/test-db-schema.sql apps/ValyntApp/src/legacy-restored/test/test-db-schema.sql
+--- apps/ValyntApp/src/test/test-db-schema.sql	1970-01-01 00:00:00.000000000 +0000
++++ apps/ValyntApp/src/legacy-restored/test/test-db-schema.sql	2026-01-17 17:02:26.706225100 +0000
+@@ -0,0 +1,301 @@
++-- ============================================================================
++-- Test Database Schema
++-- ============================================================================
++-- Minimal schema for running tests without full Supabase setup
++-- This creates only the tables needed for tests to run
++-- ============================================================================
++
++-- Create extensions
++CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
++CREATE EXTENSION IF NOT EXISTS pgcrypto;
++
++-- ============================================================================
++-- Core Tables for Tests
++-- ============================================================================
++
++-- Organizations/Tenants
++CREATE TABLE IF NOT EXISTS organizations (
++  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
++  name TEXT NOT NULL,
++  slug TEXT,
++  status TEXT DEFAULT 'active',
++  created_at TIMESTAMPTZ DEFAULT NOW(),
++  updated_at TIMESTAMPTZ DEFAULT NOW()
++);
++
++-- User-Tenant Mapping
++CREATE TABLE IF NOT EXISTS user_tenants (
++  user_id UUID NOT NULL,
++  tenant_id UUID NOT NULL,
++  role TEXT DEFAULT 'member',
++  created_at TIMESTAMPTZ DEFAULT NOW(),
++  PRIMARY KEY (user_id, tenant_id)
++);
++
++-- User Roles
++CREATE TABLE IF NOT EXISTS user_roles (
++  user_id UUID NOT NULL,
++  role TEXT NOT NULL,
++  tenant_id UUID,
++  created_at TIMESTAMPTZ DEFAULT NOW(),
++  PRIMARY KEY (user_id, role, tenant_id)
++);
++
++-- Agent Sessions
++CREATE TABLE IF NOT EXISTS agent_sessions (
++  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
++  tenant_id UUID NOT NULL,
++  agent_id TEXT NOT NULL,
++  status TEXT DEFAULT 'active',
++  metadata JSONB DEFAULT '{}'::jsonb,
++  created_at TIMESTAMPTZ DEFAULT NOW(),
++  updated_at TIMESTAMPTZ DEFAULT NOW()
++);
++
++-- Agent Predictions
++CREATE TABLE IF NOT EXISTS agent_predictions (
++  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
++  tenant_id UUID NOT NULL,
++  session_id UUID,
++  agent_id TEXT NOT NULL,
++  prediction_data JSONB DEFAULT '{}'::jsonb,
++  confidence DECIMAL(3,2),
++  created_at TIMESTAMPTZ DEFAULT NOW()
++);
++
++-- Workflow Executions
++CREATE TABLE IF NOT EXISTS workflow_executions (
++  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
++  tenant_id UUID NOT NULL,
++  workflow_id TEXT NOT NULL,
++  status TEXT DEFAULT 'pending',
++  result JSONB,
++  persona TEXT,
++  industry TEXT,
++  fiscal_quarter TEXT,
++  execution_record JSONB DEFAULT '{}'::jsonb,
++  created_at TIMESTAMPTZ DEFAULT NOW(),
++  updated_at TIMESTAMPTZ DEFAULT NOW()
++);
++
++CREATE INDEX IF NOT EXISTS idx_test_workflow_executions_persona ON workflow_executions(persona);
++CREATE INDEX IF NOT EXISTS idx_test_workflow_executions_industry ON workflow_executions(industry);
++CREATE INDEX IF NOT EXISTS idx_test_workflow_executions_quarter ON workflow_executions(fiscal_quarter);
++
++CREATE TABLE IF NOT EXISTS workflow_stage_runs (
++  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
++  execution_id UUID REFERENCES workflow_executions(id) ON DELETE CASCADE,
++  stage_id TEXT NOT NULL,
++  stage_name TEXT,
++  lifecycle_stage TEXT,
++  status TEXT,
++  inputs JSONB DEFAULT '{}'::jsonb,
++  assumptions JSONB DEFAULT '[]'::jsonb,
++  outputs JSONB DEFAULT '{}'::jsonb,
++  economic_deltas JSONB DEFAULT '[]'::jsonb,
++  persona TEXT,
++  industry TEXT,
++  fiscal_quarter TEXT,
++  started_at TIMESTAMPTZ DEFAULT NOW(),
++  completed_at TIMESTAMPTZ,
++  created_at TIMESTAMPTZ DEFAULT NOW()
++);
++
++CREATE INDEX IF NOT EXISTS idx_test_stage_runs_execution ON workflow_stage_runs(execution_id);
++CREATE INDEX IF NOT EXISTS idx_test_stage_runs_persona ON workflow_stage_runs(persona);
++CREATE INDEX IF NOT EXISTS idx_test_stage_runs_industry ON workflow_stage_runs(industry);
++CREATE INDEX IF NOT EXISTS idx_test_stage_runs_quarter ON workflow_stage_runs(fiscal_quarter);
++
++-- Canvas Data
++CREATE TABLE IF NOT EXISTS canvas_data (
++  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
++  tenant_id UUID NOT NULL,
++  canvas_id TEXT NOT NULL,
++  data JSONB DEFAULT '{}'::jsonb,
++  created_at TIMESTAMPTZ DEFAULT NOW(),
++  updated_at TIMESTAMPTZ DEFAULT NOW()
++);
++
++-- Value Trees
++CREATE TABLE IF NOT EXISTS value_trees (
++  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
++  tenant_id UUID NOT NULL,
++  tree_data JSONB DEFAULT '{}'::jsonb,
++  created_at TIMESTAMPTZ DEFAULT NOW(),
++  updated_at TIMESTAMPTZ DEFAULT NOW()
++);
++
++-- Security Audit Log
++CREATE TABLE IF NOT EXISTS security_audit_log (
++  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
++  event_type TEXT NOT NULL,
++  user_id UUID,
++  tenant_id UUID,
++  details JSONB,
++  severity TEXT CHECK (severity IN ('info', 'warning', 'error', 'critical')),
++  created_at TIMESTAMPTZ DEFAULT NOW()
++);
++
++-- Secret Audit Logs (Added for SEC-003)
++CREATE TABLE IF NOT EXISTS secret_audit_logs (
++  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
++  tenant_id VARCHAR(255) NOT NULL,
++  user_id VARCHAR(255),
++  secret_key VARCHAR(255) NOT NULL,
++  action VARCHAR(50) NOT NULL CHECK (action IN ('READ', 'WRITE', 'DELETE', 'ROTATE')),
++  result VARCHAR(50) NOT NULL CHECK (result IN ('SUCCESS', 'FAILURE')),
++  error_message TEXT,
++  metadata JSONB DEFAULT '{}'::JSONB,
++  timestamp TIMESTAMPTZ DEFAULT NOW() NOT NULL,
++  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
++);
++
++-- Health Check Table
++CREATE TABLE IF NOT EXISTS health_check (
++  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
++  status TEXT DEFAULT 'healthy',
++  checked_at TIMESTAMPTZ DEFAULT NOW()
++);
++
++-- Insert a test health check record
++INSERT INTO health_check (status) VALUES ('healthy') ON CONFLICT DO NOTHING;
++
++-- ============================================================================
++-- Enable RLS on All Tables
++-- ============================================================================
++
++ALTER TABLE agent_sessions ENABLE ROW LEVEL SECURITY;
++ALTER TABLE agent_predictions ENABLE ROW LEVEL SECURITY;
++ALTER TABLE workflow_executions ENABLE ROW LEVEL SECURITY;
++ALTER TABLE workflow_stage_runs ENABLE ROW LEVEL SECURITY;
++ALTER TABLE canvas_data ENABLE ROW LEVEL SECURITY;
++ALTER TABLE value_trees ENABLE ROW LEVEL SECURITY;
++ALTER TABLE security_audit_log ENABLE ROW LEVEL SECURITY;
++ALTER TABLE secret_audit_logs ENABLE ROW LEVEL SECURITY;
++
++-- ============================================================================
++-- Basic RLS Policies for Tests
++-- ============================================================================
++
++-- Agent Sessions Policies
++CREATE POLICY "test_tenant_isolation_select" ON agent_sessions
++  FOR SELECT
++  USING (
++    tenant_id = (auth.jwt() ->> 'organization_id')::UUID
++    OR auth.role() = 'service_role'
++  );
++
++CREATE POLICY "test_tenant_isolation_insert" ON agent_sessions
++  FOR INSERT
++  WITH CHECK (
++    tenant_id = (auth.jwt() ->> 'organization_id')::UUID
++    OR auth.role() = 'service_role'
++  );
++
++-- Agent Predictions Policies
++CREATE POLICY "test_tenant_isolation_select" ON agent_predictions
++  FOR SELECT
++  USING (
++    tenant_id = (auth.jwt() ->> 'organization_id')::UUID
++    OR auth.role() = 'service_role'
++  );
++
++CREATE POLICY "test_tenant_isolation_insert" ON agent_predictions
++  FOR INSERT
++  WITH CHECK (
++    tenant_id = (auth.jwt() ->> 'organization_id')::UUID
++    OR auth.role() = 'service_role'
++  );
++
++-- Workflow Executions Policies
++CREATE POLICY "test_tenant_isolation_select" ON workflow_executions
++  FOR SELECT
++  USING (
++    tenant_id = (auth.jwt() ->> 'organization_id')::UUID
++    OR auth.role() = 'service_role'
++  );
++
++-- Workflow Stage Runs Policies (test harness only)
++CREATE POLICY "test_allow_stage_runs_all" ON workflow_stage_runs
++  FOR ALL
++  USING (true)
++  WITH CHECK (true);
++
++-- Canvas Data Policies
++CREATE POLICY "test_tenant_isolation_select" ON canvas_data
++  FOR SELECT
++  USING (
++    tenant_id = (auth.jwt() ->> 'organization_id')::UUID
++    OR auth.role() = 'service_role'
++  );
++
++-- Value Trees Policies
++CREATE POLICY "test_tenant_isolation_select" ON value_trees
++  FOR SELECT
++  USING (
++    tenant_id = (auth.jwt() ->> 'organization_id')::UUID
++    OR auth.role() = 'service_role'
++  );
++
++-- Security Audit Log - Admin only
++CREATE POLICY "admin_only_select" ON security_audit_log
++  FOR SELECT
++  USING (auth.role() = 'service_role');
++
++-- Secret Audit Logs Policies
++CREATE POLICY "secret_audit_logs_insert" ON secret_audit_logs
++  FOR INSERT
++  WITH CHECK (true);
++
++CREATE POLICY "secret_audit_logs_select" ON secret_audit_logs
++  FOR SELECT
++  USING (true);
++
++-- ============================================================================
++-- Test Data
++-- ============================================================================
++
++-- Insert test organizations
++INSERT INTO organizations (id, name, slug, status) VALUES
++  ('00000000-0000-0000-0000-000000000001'::UUID, 'Test Org 1', 'test-org-1', 'active'),
++  ('00000000-0000-0000-0000-000000000002'::UUID, 'Test Org 2', 'test-org-2', 'active')
++ON CONFLICT (id) DO NOTHING;
++
++-- Insert test user-tenant mappings
++INSERT INTO user_tenants (user_id, tenant_id) VALUES
++  ('00000000-0000-0000-0000-000000000001'::UUID, '00000000-0000-0000-0000-000000000001'::UUID),
++  ('00000000-0000-0000-0000-000000000002'::UUID, '00000000-0000-0000-0000-000000000002'::UUID)
++ON CONFLICT (user_id, tenant_id) DO NOTHING;
++
++-- ============================================================================
++-- Verification Function
++-- ============================================================================
++
++CREATE OR REPLACE FUNCTION verify_test_schema()
++RETURNS TABLE (
++  table_name TEXT,
++  table_exists BOOLEAN,
++  rls_enabled BOOLEAN
++) AS $$
++BEGIN
++  RETURN QUERY
++  SELECT 
++    t.tablename::TEXT,
++    true,
++    t.rowsecurity
++  FROM pg_tables t
++  WHERE t.schemaname = 'public'
++    AND t.tablename IN (
++      'agent_sessions',
++      'agent_predictions',
++      'workflow_executions',
++      'canvas_data',
++      'value_trees',
++      'security_audit_log',
++      'secret_audit_logs'
++    );
++END;
++$$ LANGUAGE plpgsql;
++
++-- Run verification
++SELECT * FROM verify_test_schema();
+diff -ruN apps/ValyntApp/src/test/test-utils.tsx apps/ValyntApp/src/legacy-restored/test/test-utils.tsx
+--- apps/ValyntApp/src/test/test-utils.tsx	1970-01-01 00:00:00.000000000 +0000
++++ apps/ValyntApp/src/legacy-restored/test/test-utils.tsx	2026-01-17 17:02:26.709320700 +0000
+@@ -0,0 +1,42 @@
++import React, { PropsWithChildren } from 'react';
++import { MemoryRouter, MemoryRouterProps } from 'react-router-dom';
++import { render, RenderOptions } from '@testing-library/react';
++import { AuthProvider } from '../contexts/AuthContext';
++
++type WrapperOptions = {
++  route?: string;
++  routerProps?: MemoryRouterProps;
++  withAuthProvider?: boolean;
++};
++
++const Providers: React.FC<PropsWithChildren<WrapperOptions>> = ({
++  children,
++  route = '/',
++  routerProps,
++  withAuthProvider = true,
++}) => {
++  const content = withAuthProvider ? <AuthProvider>{children}</AuthProvider> : children;
++
++  return (
++    <MemoryRouter initialEntries={[route]} {...routerProps}>
++      {content}
++    </MemoryRouter>
++  );
++};
++
++export function renderWithProviders(
++  ui: React.ReactElement,
++  options: WrapperOptions & RenderOptions = {}
++) {
++  const { route, routerProps, withAuthProvider = true, ...renderOptions } = options;
++  return render(ui, {
++    wrapper: ({ children }) => (
++      <Providers route={route} routerProps={routerProps} withAuthProvider={withAuthProvider}>
++        {children}
++      </Providers>
++    ),
++    ...renderOptions,
++  });
++}
++
++export * from '@testing-library/react';
+diff -ruN apps/ValyntApp/src/test/utils.tsx apps/ValyntApp/src/legacy-restored/test/utils.tsx
+--- apps/ValyntApp/src/test/utils.tsx	2026-01-15 15:01:44.460990700 +0000
++++ apps/ValyntApp/src/legacy-restored/test/utils.tsx	1970-01-01 00:00:00.000000000 +0000
+@@ -1,23 +0,0 @@
+-import { ReactElement } from "react";
+-import { render, RenderOptions } from "@testing-library/react";
+-import { BrowserRouter } from "react-router-dom";
+-import { AuthProvider } from "@/app/providers/AuthProvider";
+-
+-interface WrapperProps {
+-  children: React.ReactNode;
+-}
+-
+-function AllProviders({ children }: WrapperProps) {
+-  return (
+-    <BrowserRouter>
+-      <AuthProvider>{children}</AuthProvider>
+-    </BrowserRouter>
+-  );
+-}
+-
+-function customRender(ui: ReactElement, options?: Omit<RenderOptions, "wrapper">) {
+-  return render(ui, { wrapper: AllProviders, ...options });
+-}
+-
+-export * from "@testing-library/react";
+-export { customRender as render };
+diff -ruN apps/ValyntApp/src/test/vitest-global-setup.ts apps/ValyntApp/src/legacy-restored/test/vitest-global-setup.ts
+--- apps/ValyntApp/src/test/vitest-global-setup.ts	1970-01-01 00:00:00.000000000 +0000
++++ apps/ValyntApp/src/legacy-restored/test/vitest-global-setup.ts	2026-01-17 17:02:26.715338900 +0000
+@@ -0,0 +1,5 @@
++import { setup } from './testcontainers-global-setup';
++
++export default async function () {
++  await setup();
++}
+diff -ruN apps/ValyntApp/src/test/vitest-global-teardown.ts apps/ValyntApp/src/legacy-restored/test/vitest-global-teardown.ts
+--- apps/ValyntApp/src/test/vitest-global-teardown.ts	1970-01-01 00:00:00.000000000 +0000
++++ apps/ValyntApp/src/legacy-restored/test/vitest-global-teardown.ts	2026-01-17 17:02:26.718372100 +0000
+@@ -0,0 +1,5 @@
++import { teardown } from './testcontainers-global-setup';
++
++export default async function () {
++  await teardown();
++}

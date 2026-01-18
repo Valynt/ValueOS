@@ -23,8 +23,8 @@ import { PrivateCompanyModule } from "../modules/PrivateCompanyModule";
 import { IndustryBenchmarkModule } from "../modules/IndustryBenchmarkModule";
 import { ESOModule } from "../modules/StructuralTruthModule";
 import { ErrorCodes, GroundTruthError } from "../types";
-import { logger } from "../../lib/logger";
-import { sha256 } from "../../lib/contentHash";
+import { logger } from "@lib/logger";
+import { sha256 } from "@lib/contentHash";
 
 interface MCPServerConfig {
   // Module configurations

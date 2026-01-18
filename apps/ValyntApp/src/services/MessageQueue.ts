@@ -1,23 +1,23 @@
 /**
  * Message Queue Service
- * 
+ *
  * Async processing for LLM requests using BullMQ and Redis
  */
 
-import { Job, Queue, QueueEvents, Worker } from 'bullmq';
-import Redis from 'ioredis';
-import http from 'http';
-import { collectDefaultMetrics, Gauge, Registry } from 'prom-client';
-import { logger } from '../utils/logger';
-import { llmFallbackWithTracing } from './LLMFallbackWithTracing';
-import { promptVersionControl } from './PromptVersionControl';
-import { createClient } from '@supabase/supabase-js';
+import { Job, Queue, QueueEvents, Worker } from "bullmq";
+import Redis from "ioredis";
+import http from "http";
+import { collectDefaultMetrics, Gauge, Registry } from "prom-client";
+import { logger } from "../utils/logger";
+import { llmFallbackWithTracing } from "./LLMFallbackWithTracing";
+import { promptVersionControl } from "./PromptVersionControl";
+import { createClient } from "@supabase/supabase-js";
 
 // Lazy Redis connection – create when first used to allow test harness to set REDIS_URL
 let redisConnection: Redis | null = null;
 function getRedisConnection(): Redis {
   if (!redisConnection) {
-    redisConnection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+    redisConnection = new Redis(process.env.REDIS_URL || "redis://localhost:6379", {
       maxRetriesPerRequest: null,
     });
   }
@@ -26,7 +26,7 @@ function getRedisConnection(): Redis {
 
 // Job types
 export interface LLMJobData {
-  type: 'canvas_generation' | 'canvas_refinement' | 'custom_prompt';
+  type: "canvas_generation" | "canvas_refinement" | "custom_prompt";
   userId: string;
   sessionId?: string;
   promptKey?: string;
@@ -57,34 +57,39 @@ export class LLMQueueService {
   private queue: Queue<LLMJobData, LLMJobResult>;
   private worker: Worker<LLMJobData, LLMJobResult>;
   private events: QueueEvents;
-  private supabase: ReturnType<typeof createClient>;
+  private _supabase?: ReturnType<typeof createClient>;
   private metricsRegistry: Registry;
   private queueDepthGauge: Gauge;
   private queueDepth: number = 0;
   private metricsServer?: http.Server;
 
-  constructor() {
-    this.supabase = createClient(
-      process.env.SUPABASE_URL || '',
-      process.env.SUPABASE_KEY || ''
-    );
+  private get supabase(): ReturnType<typeof createClient> {
+    if (!this._supabase) {
+      const url =
+        process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "http://localhost:54321";
+      const key = process.env.SUPABASE_KEY || process.env.VITE_SUPABASE_ANON_KEY || "dummy";
+      this._supabase = createClient(url, key);
+    }
+    return this._supabase;
+  }
 
+  constructor() {
     this.metricsRegistry = new Registry();
     collectDefaultMetrics({ register: this.metricsRegistry });
     this.queueDepthGauge = new Gauge({
-      name: 'message_worker_queue_depth',
-      help: 'Current queue depth for message worker backlog',
-      labelNames: ['app'],
+      name: "message_worker_queue_depth",
+      help: "Current queue depth for message worker backlog",
+      labelNames: ["app"],
       registers: [this.metricsRegistry],
     });
 
     // Create queue
-    this.queue = new Queue<LLMJobData, LLMJobResult>('llm-processing', {
+    this.queue = new Queue<LLMJobData, LLMJobResult>("llm-processing", {
       connection: getRedisConnection(),
       defaultJobOptions: {
         attempts: 3,
         backoff: {
-          type: 'exponential',
+          type: "exponential",
           delay: 2000,
         },
         removeOnComplete: {
@@ -99,7 +104,7 @@ export class LLMQueueService {
 
     // Create worker
     this.worker = new Worker<LLMJobData, LLMJobResult>(
-      'llm-processing',
+      "llm-processing",
       this.processJob.bind(this),
       {
         connection: getRedisConnection(),
@@ -112,16 +117,18 @@ export class LLMQueueService {
     );
 
     // Create event listener
-    this.events = new QueueEvents('llm-processing', {
+    this.events = new QueueEvents("llm-processing", {
       connection: getRedisConnection(),
     });
 
     this.setupEventListeners();
-    this.startMetricsServer();
+    if (process.env.NODE_ENV !== "test" && !process.env.VITEST) {
+      this.startMetricsServer();
+    }
     this.refreshQueueDepth();
     setInterval(() => {
       this.refreshQueueDepth().catch((error) =>
-        logger.warn('Failed to refresh queue depth', error as Error)
+        logger.warn("Failed to refresh queue depth", error as Error)
       );
     }, 5000);
   }
@@ -137,13 +144,13 @@ export class LLMQueueService {
       jobId?: string;
     }
   ): Promise<Job<LLMJobData, LLMJobResult>> {
-    const job = await this.queue.add('llm-request', data, {
+    const job = await this.queue.add("llm-request", data, {
       priority: options?.priority,
       delay: options?.delay,
       jobId: options?.jobId,
     });
 
-    logger.info('LLM job added to queue', {
+    logger.info("LLM job added to queue", {
       jobId: job.id,
       type: data.type,
       userId: data.userId,
@@ -155,13 +162,11 @@ export class LLMQueueService {
   /**
    * Process job
    */
-  private async processJob(
-    job: Job<LLMJobData, LLMJobResult>
-  ): Promise<LLMJobResult> {
+  private async processJob(job: Job<LLMJobData, LLMJobResult>): Promise<LLMJobResult> {
     const startTime = Date.now();
     const { data } = job;
 
-    logger.info('Processing LLM job', {
+    logger.info("Processing LLM job", {
       jobId: job.id,
       type: data.type,
       userId: data.userId,
@@ -184,13 +189,13 @@ export class LLMQueueService {
       } else if (data.prompt) {
         prompt = data.prompt;
       } else {
-        throw new Error('Either promptKey+promptVariables or prompt must be provided');
+        throw new Error("Either promptKey+promptVariables or prompt must be provided");
       }
 
       // Process with LLM
       const response = await llmFallbackWithTracing.processRequest({
         prompt,
-        model: data.model || 'meta-llama/Llama-3-70b-chat-hf',
+        model: data.model || "meta-llama/Llama-3-70b-chat-hf",
         maxTokens: data.maxTokens,
         temperature: data.temperature,
         userId: data.userId,
@@ -217,7 +222,7 @@ export class LLMQueueService {
 
       const duration = Date.now() - startTime;
 
-      logger.info('LLM job completed', {
+      logger.info("LLM job completed", {
         jobId: job.id,
         type: data.type,
         userId: data.userId,
@@ -230,12 +235,12 @@ export class LLMQueueService {
     } catch (error) {
       const duration = Date.now() - startTime;
 
-      logger.error('LLM job failed', {
+      logger.error("LLM job failed", {
         jobId: job.id,
         type: data.type,
         userId: data.userId,
         duration,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : "Unknown error",
         attempt: job.attemptsMade + 1,
       });
 
@@ -246,12 +251,8 @@ export class LLMQueueService {
   /**
    * Store result in database
    */
-  private async storeResult(
-    jobId: string,
-    data: LLMJobData,
-    result: LLMJobResult
-  ): Promise<void> {
-    const { error } = await this.supabase.from('llm_job_results').insert({
+  private async storeResult(jobId: string, data: LLMJobData, result: LLMJobResult): Promise<void> {
+    const { error } = await this.supabase.from("llm_job_results").insert({
       job_id: jobId,
       user_id: data.userId,
       type: data.type,
@@ -268,7 +269,7 @@ export class LLMQueueService {
     });
 
     if (error) {
-      logger.error('Failed to store LLM job result', error);
+      logger.error("Failed to store LLM job result", error);
     }
   }
 
@@ -284,29 +285,29 @@ export class LLMQueueService {
     const job = await this.queue.getJob(jobId);
 
     if (!job) {
-      return { status: 'not_found' };
+      return { status: "not_found" };
     }
 
     const state = await job.getState();
     const progress = job.progress;
 
-    if (state === 'completed') {
+    if (state === "completed") {
       return {
-        status: 'completed',
+        status: "completed",
         result: job.returnvalue,
       };
     }
 
-    if (state === 'failed') {
+    if (state === "failed") {
       return {
-        status: 'failed',
+        status: "failed",
         error: job.failedReason,
       };
     }
 
     return {
       status: state,
-      progress: typeof progress === 'number' ? progress : undefined,
+      progress: typeof progress === "number" ? progress : undefined,
     };
   }
 
@@ -315,9 +316,9 @@ export class LLMQueueService {
    */
   async getJobResult(jobId: string): Promise<LLMJobResult | null> {
     const { data, error } = await this.supabase
-      .from('llm_job_results')
-      .select('*')
-      .eq('job_id', jobId)
+      .from("llm_job_results")
+      .select("*")
+      .eq("job_id", jobId)
       .single();
 
     if (error || !data) return null;
@@ -342,7 +343,7 @@ export class LLMQueueService {
     const job = await this.queue.getJob(jobId);
     if (job) {
       await job.remove();
-      logger.info('LLM job cancelled', { jobId });
+      logger.info("LLM job cancelled", { jobId });
     }
   }
 
@@ -367,7 +368,7 @@ export class LLMQueueService {
 
     const queueDepth = waiting + active + delayed;
     this.queueDepth = queueDepth;
-    this.queueDepthGauge.set({ app: 'message-worker' }, queueDepth);
+    this.queueDepthGauge.set({ app: "message-worker" }, queueDepth);
 
     return { waiting, active, completed, failed, delayed, queueDepth };
   }
@@ -376,35 +377,35 @@ export class LLMQueueService {
    * Setup event listeners
    */
   private setupEventListeners(): void {
-    this.worker.on('completed', (job) => {
-      logger.info('Job completed', {
+    this.worker.on("completed", (job) => {
+      logger.info("Job completed", {
         jobId: job.id,
         duration: Date.now() - job.processedOn!,
       });
     });
 
-    this.worker.on('failed', (job, error) => {
-      logger.error('Job failed', {
+    this.worker.on("failed", (job, error) => {
+      logger.error("Job failed", {
         jobId: job?.id,
         error: error.message,
         attempts: job?.attemptsMade,
       });
     });
 
-    this.worker.on('stalled', (jobId) => {
-      logger.warn('Job stalled', { jobId });
+    this.worker.on("stalled", (jobId) => {
+      logger.warn("Job stalled", { jobId });
     });
 
-    this.events.on('waiting', ({ jobId }) => {
-      logger.debug('Job waiting', { jobId });
+    this.events.on("waiting", ({ jobId }) => {
+      logger.debug("Job waiting", { jobId });
     });
 
-    this.events.on('active', ({ jobId }) => {
-      logger.debug('Job active', { jobId });
+    this.events.on("active", ({ jobId }) => {
+      logger.debug("Job active", { jobId });
     });
 
-    this.events.on('progress', ({ jobId, data }) => {
-      logger.debug('Job progress', { jobId, progress: data });
+    this.events.on("progress", ({ jobId, data }) => {
+      logger.debug("Job progress", { jobId, progress: data });
     });
   }
 
@@ -416,19 +417,19 @@ export class LLMQueueService {
     ]);
 
     this.queueDepth = waiting + active + delayed;
-    this.queueDepthGauge.set({ app: 'message-worker' }, this.queueDepth);
+    this.queueDepthGauge.set({ app: "message-worker" }, this.queueDepth);
   }
 
   private startMetricsServer(): void {
-    const metricsPort = Number(process.env.METRICS_PORT || '9464');
+    const metricsPort = Number(process.env.METRICS_PORT || "9464");
 
     this.metricsServer = http.createServer(async (_req, res) => {
-      res.setHeader('Content-Type', this.metricsRegistry.contentType);
+      res.setHeader("Content-Type", this.metricsRegistry.contentType);
       res.end(await this.metricsRegistry.metrics());
     });
 
     this.metricsServer.listen(metricsPort, () => {
-      logger.info('Message worker metrics server started', { port: metricsPort });
+      logger.info("Message worker metrics server started", { port: metricsPort });
     });
   }
 
@@ -436,7 +437,7 @@ export class LLMQueueService {
    * Graceful shutdown
    */
   async shutdown(): Promise<void> {
-    logger.info('Shutting down LLM queue service');
+    logger.info("Shutting down LLM queue service");
 
     await this.worker.close();
     await this.queue.close();
@@ -446,7 +447,7 @@ export class LLMQueueService {
     }
     await redisConnection.quit();
 
-    logger.info('LLM queue service shut down');
+    logger.info("LLM queue service shut down");
   }
 }
 
@@ -454,12 +455,12 @@ export class LLMQueueService {
 export const llmQueue = new LLMQueueService();
 
 // Graceful shutdown
-process.on('SIGTERM', async () => {
+process.on("SIGTERM", async () => {
   await llmQueue.shutdown();
   process.exit(0);
 });
 
-process.on('SIGINT', async () => {
+process.on("SIGINT", async () => {
   await llmQueue.shutdown();
   process.exit(0);
 });

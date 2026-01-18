@@ -5,19 +5,19 @@
  * with compensation patterns for failure recovery.
  */
 
-import { OpportunityAgent } from "../lib/agent-fabric/agents/OpportunityAgent";
-import { TargetAgent } from "../lib/agent-fabric/agents/TargetAgent";
-import { ExpansionAgent } from "../lib/agent-fabric/agents/ExpansionAgent";
-import { IntegrityAgent } from "../lib/agent-fabric/agents/IntegrityAgent";
-import { RealizationAgent } from "../lib/agent-fabric/agents/RealizationAgent";
-import { BaseAgent } from "../lib/agent-fabric/agents/BaseAgent";
-import { CircuitBreaker } from "../lib/resilience/CircuitBreaker";
-import { logger } from "../lib/logger";
+import { OpportunityAgent } from "@lib/agent-fabric/agents/OpportunityAgent";
+import { TargetAgent } from "@lib/agent-fabric/agents/TargetAgent";
+import { ExpansionAgent } from "@lib/agent-fabric/agents/ExpansionAgent";
+import { IntegrityAgent } from "@lib/agent-fabric/agents/IntegrityAgent";
+import { RealizationAgent } from "@lib/agent-fabric/agents/RealizationAgent";
+import { BaseAgent } from "@lib/agent-fabric/agents/BaseAgent";
+import { CircuitBreaker } from "@lib/resilience/CircuitBreaker";
+import { logger } from "@lib/logger";
 import { createClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
-import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
-import { MemorySystem } from "../lib/agent-fabric/MemorySystem";
-import { AuditLogger } from "../lib/agent-fabric/AuditLogger";
+import { LLMGateway } from "@lib/agent-fabric/LLMGateway";
+import { MemorySystem } from "@lib/agent-fabric/MemorySystem";
+import { AuditLogger } from "@lib/agent-fabric/AuditLogger";
 import { AgentConfig } from "../types/agent";
 import { workflowExecutionStore, WorkflowStatus } from "./WorkflowExecutionStore";
 import { TargetAgentInputSchema } from "../validators/agentInputs";

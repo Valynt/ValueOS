@@ -1,4 +1,4 @@
-import { getEnvVar } from "../lib/env";
+import { getEnvVar } from "@lib/env";
 import { settings } from "./settings";
 
 export function getDatabaseUrl(): string | undefined {

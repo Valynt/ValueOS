@@ -8,8 +8,8 @@
  */
 
 import { llmConfig } from "./llm";
-import type { LLMProvider } from "../lib/agent-fabric/llm-types";
-import { createLogger } from "../lib/logger";
+import type { LLMProvider } from "@lib/agent-fabric/llm-types";
+import { createLogger } from "@lib/logger";
 
 const validationLogger = createLogger({ component: "EnvValidation" });
 

@@ -12,7 +12,7 @@
 import React, { useState } from "react";
 import { startRegistration } from "@simplewebauthn/browser";
 import { webAuthnService } from "../../services/WebAuthnService";
-import { logger } from "../../lib/logger";
+import { logger } from "@lib/logger";
 
 interface WebAuthnSetupProps {
   userId: string;

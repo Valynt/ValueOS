@@ -14,8 +14,8 @@ import {
 } from "../middleware/rbac";
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation";
 import { adminUserService } from "../services/AdminUserService";
-import { createLogger } from "../lib/logger";
-import { sanitizeForLogging } from "../lib/piiFilter";
+import { createLogger } from "@lib/logger";
+import { sanitizeForLogging } from "@lib/piiFilter";
 
 const logger = createLogger({ component: "AdminAPI" });
 const router = createSecureRouter("strict");

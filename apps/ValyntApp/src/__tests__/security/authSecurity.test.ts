@@ -4,10 +4,10 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { authRateLimiter } from "../../lib/rateLimiter";
-import { secureTokenStorage } from "../../lib/secureStorage";
-import { csrfProtection } from "../../lib/csrfProtection";
-import { securityLogger } from "../../lib/securityLogger";
+import { authRateLimiter } from "@lib/rateLimiter";
+import { secureTokenStorage } from "@lib/secureStorage";
+import { csrfProtection } from "@lib/csrfProtection";
+import { securityLogger } from "@lib/securityLogger";
 import { authService } from "../../services/authServiceAbstraction";
 
 // Mock fetch for API calls

@@ -12,7 +12,7 @@
  * - Graceful logout on timeout
  */
 
-import { logger } from "../lib/logger";
+import { logger } from "@lib/logger";
 import {
   getSessionTimeoutForRole,
   RoleSessionConfig,

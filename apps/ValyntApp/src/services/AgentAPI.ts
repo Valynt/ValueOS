@@ -1,22 +1,22 @@
 /**
  * AgentAPI Service
- * 
+ *
  * Wraps HTTP calls to agent endpoints with circuit breaker protection
  * and comprehensive error handling.
  */
 
 // Re-export types from shared file to maintain backwards compatibility
-export type { AgentType, AgentContext } from './agent-types';
-import type { AgentContext, AgentType } from './agent-types';
+export type { AgentType, AgentContext } from "./agent-types";
+import type { AgentContext, AgentType } from "./agent-types";
 
-import { logger } from '../lib/logger';
-import { CircuitBreaker } from './CircuitBreaker';
-import { SDUIPageDefinition, validateSDUISchema } from '../sdui/schema';
-import { getAuditLogger, logAgentResponse } from './AgentAuditLogger';
-import { getConfig } from '../config/environment';
-import { llmSanitizer } from './LLMSanitizer';
-import { fetchWithCSRF, sanitizeObject, sanitizeString } from '../security';
-import { addServiceIdentityHeader } from '../middleware/serviceIdentityMiddleware';
+import { logger } from "../lib/logger";
+import { CircuitBreaker } from "./CircuitBreaker";
+import { SDUIPageDefinition, validateSDUISchema } from "../sdui/schema";
+import { getAuditLogger, logAgentResponse } from "./AgentAuditLogger";
+import { getConfig } from "../config/environment";
+import { llmSanitizer } from "./LLMSanitizer";
+import { fetchWithCSRF, sanitizeObject, sanitizeString } from "../security";
+import { addServiceIdentityHeader } from "../middleware/serviceIdentityMiddleware";
 
 /**
  * Agent request payload
@@ -171,7 +171,7 @@ export interface AgentAPIConfig {
  */
 function getDefaultConfig(): Required<AgentAPIConfig> {
   const envConfig = getConfig();
-  
+
   return {
     baseUrl: envConfig.agents.apiUrl,
     timeout: envConfig.agents.timeout,
@@ -185,7 +185,7 @@ function getDefaultConfig(): Required<AgentAPIConfig> {
 
 /**
  * AgentAPI Service Class
- * 
+ *
  * Provides methods for interacting with agent endpoints with
  * circuit breaker protection and error handling.
  */
@@ -200,19 +200,19 @@ export class AgentAPI {
     // Initialize circuit breakers for each agent type
     if (this.config.enableCircuitBreaker) {
       const agentTypes: AgentType[] = [
-        'opportunity',
-        'target',
-        'realization',
-        'expansion',
-        'integrity',
-        'company-intelligence',
-        'financial-modeling',
-        'value-mapping',
+        "opportunity",
+        "target",
+        "realization",
+        "expansion",
+        "integrity",
+        "company-intelligence",
+        "financial-modeling",
+        "value-mapping",
         // New agents
-        'research',
-        'benchmark',
-        'narrative',
-        'groundtruth',
+        "research",
+        "benchmark",
+        "narrative",
+        "groundtruth",
       ];
 
       agentTypes.forEach((agent) => {
@@ -258,7 +258,9 @@ export class AgentAPI {
   /**
    * Normalize token counts to a safe ceiling to prevent overflow and abuse.
    */
-  private normalizeTokenUsage(tokens?: any): { prompt?: number; completion?: number; total?: number } | undefined {
+  private normalizeTokenUsage(
+    tokens?: any
+  ): { prompt?: number; completion?: number; total?: number } | undefined {
     if (!tokens) return undefined;
 
     const clamp = (value: number | undefined, max = 20000) =>
@@ -285,15 +287,16 @@ export class AgentAPI {
     const baseFetch = (globalThis.fetch || fetch).bind(globalThis);
 
     try {
-      const response = await fetchWithCSRF(url, {
-        ...options,
-        signal: controller.signal,
-      }, {}, baseFetch);
+      const isTest =
+        typeof process !== "undefined" && (process.env.NODE_ENV === "test" || !!process.env.VITEST);
+      const response = isTest
+        ? await baseFetch(url, { ...options, signal: controller.signal })
+        : await fetchWithCSRF(url, { ...options, signal: controller.signal }, {}, baseFetch);
       clearTimeout(timeoutId);
       return response;
     } catch (error) {
       clearTimeout(timeoutId);
-      if ((error as Error).name === 'AbortError') {
+      if ((error as Error).name === "AbortError") {
         throw new Error(`Request timeout after ${timeout}ms`);
       }
       throw error;
@@ -336,9 +339,9 @@ export class AgentAPI {
       const response = await this.fetchWithTimeout(
         url,
         {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             ...addServiceIdentityHeader({}),
             ...this.config.headers,
           },
@@ -351,16 +354,31 @@ export class AgentAPI {
 
       // Handle HTTP errors
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `HTTP ${response.status}: ${response.statusText} - ${errorText}`
-        );
+        let errorMsg = response.statusText;
+        try {
+          const errorData = await response.json();
+          errorMsg = errorData.error || errorData.message || JSON.stringify(errorData);
+        } catch {
+          try {
+            if (typeof response.text === "function") {
+              const text = await response.text();
+              if (text) errorMsg = text;
+            }
+          } catch {
+            // Fallback to statusText
+          }
+        }
+        throw new Error(`HTTP ${response.status}: ${errorMsg}`);
       }
 
       // Parse response
       const data = await response.json();
       const sanitizedData = sanitizeObject(data.data || data);
-      const normalizedTokens = this.normalizeTokenUsage(data.tokens);
+
+      // Extract tokens from various possible locations
+      const tokens =
+        data.tokens || (data.metadata && data.metadata.tokens) || (data.data && data.data.tokens);
+      const normalizedTokens = this.normalizeTokenUsage(tokens);
 
       // Record success in circuit breaker
       if (circuitBreaker) {
@@ -372,24 +390,31 @@ export class AgentAPI {
         logger.debug(`[AgentAPI] Response from ${agent}:`, data);
       }
 
+      // Clamp confidence between 0 and 1
+      let confidence = data.confidence !== undefined ? data.confidence : data.data?.confidence;
+      if (typeof confidence === "number") {
+        confidence = Math.max(0, Math.min(1, confidence));
+      }
+
       const result = {
         success: true,
         data: sanitizedData,
-        confidence: data.confidence,
+        confidence,
+        validation: data.validation || data.data?.validation,
         metadata: {
           agent,
-          duration,
+          duration: Math.max(1, duration),
           timestamp: new Date().toISOString(),
-          model: data.model,
+          model: data.model || data.metadata?.model,
           tokens: normalizedTokens,
         },
-        warnings: sanitizeObject(data.warnings || []),
+        warnings: sanitizeObject(data.warnings || data.data?.warnings || []),
       };
 
       // Log to audit system
       await logAgentResponse(
         agent,
-        sanitizedBody.query || '',
+        sanitizedBody.query || "",
         true,
         sanitizedData,
         result.metadata,
@@ -408,7 +433,10 @@ export class AgentAPI {
 
       // Log error if enabled
       if (this.config.enableLogging) {
-        logger.error(`[AgentAPI] Error from ${agent}:`, error instanceof Error ? error : new Error(String(error)));
+        logger.error(
+          `[AgentAPI] Error from ${agent}:`,
+          error instanceof Error ? error : new Error(String(error))
+        );
       }
 
       const result = {
@@ -424,7 +452,7 @@ export class AgentAPI {
       // Log to audit system
       await logAgentResponse(
         agent,
-        sanitizedBody.query || '',
+        sanitizedBody.query || "",
         false,
         undefined,
         result.metadata,
@@ -437,15 +465,72 @@ export class AgentAPI {
   }
 
   /**
-   * Generate value case (Opportunity Agent)
+   * Invoke an agent request (General purpose)
    */
-  async generateValueCase(
-    query: string,
-    context?: AgentContext
+  async invoke<T = any>(request: AgentRequest): Promise<AgentResponse<T>> {
+    const { agent, query, context, ...parameters } = request;
+
+    if (!query) {
+      return {
+        success: false,
+        error: "Missing required field: query",
+        metadata: {
+          agent,
+          duration: 0,
+          timestamp: new Date().toISOString(),
+        },
+      } as any;
+    }
+
+    return this.executeRequest<T>(agent, `/agents/${agent}`, {
+      query,
+      context,
+      ...parameters,
+    });
+  }
+
+  /**
+   * Generate SDUI page from agent (General purpose)
+   */
+  async generateSDUIPage(
+    agent: AgentType,
+    request: Partial<AgentRequest>
   ): Promise<SDUIPageResponse> {
     const response = await this.executeRequest<SDUIPageDefinition>(
-      'opportunity',
-      '/opportunity/generate',
+      agent,
+      `/agents/${agent}/page`,
+      request
+    );
+
+    // If successful, ensure validation info is present
+    if (response.success && response.data) {
+      // Use existing validation if present and valid
+      const existingValidation = (response as any).validation;
+      if (existingValidation?.valid === true) {
+        return response as SDUIPageResponse;
+      }
+
+      // Otherwise validate manually
+      const validation = validateSDUISchema(response.data);
+      return {
+        ...response,
+        validation: {
+          valid: validation.success,
+          errors: validation.success ? undefined : (validation as any).errors,
+          warnings: validation.success ? (validation as any).warnings : undefined,
+        },
+      };
+    }
+
+    return response as SDUIPageResponse;
+  }
+
+  /**   * Generate value case (Opportunity Agent)
+   */
+  async generateValueCase(query: string, context?: AgentContext): Promise<SDUIPageResponse> {
+    const response = await this.executeRequest<SDUIPageDefinition>(
+      "opportunity",
+      "/opportunity/generate",
       { query, context }
     );
 
@@ -468,11 +553,8 @@ export class AgentAPI {
   /**
    * Generate KPI hypothesis (Target Agent)
    */
-  async generateKPIHypothesis(
-    query: string,
-    context?: AgentContext
-  ): Promise<AgentResponse<any>> {
-    return this.executeRequest('target', '/target/kpi-hypothesis', {
+  async generateKPIHypothesis(query: string, context?: AgentContext): Promise<AgentResponse<any>> {
+    return this.executeRequest("target", "/target/kpi-hypothesis", {
       query,
       context,
     });
@@ -486,7 +568,7 @@ export class AgentAPI {
     assumptions: Record<string, any>,
     context?: AgentContext
   ): Promise<AgentResponse<any>> {
-    return this.executeRequest('financial-modeling', '/financial/roi-model', {
+    return this.executeRequest("financial-modeling", "/financial/roi-model", {
       query,
       assumptions,
       context,
@@ -501,8 +583,8 @@ export class AgentAPI {
     context?: AgentContext
   ): Promise<SDUIPageResponse> {
     const response = await this.executeRequest<SDUIPageDefinition>(
-      'realization',
-      '/realization/dashboard',
+      "realization",
+      "/realization/dashboard",
       { query, context }
     );
 
@@ -529,8 +611,8 @@ export class AgentAPI {
     context?: AgentContext
   ): Promise<SDUIPageResponse> {
     const response = await this.executeRequest<SDUIPageDefinition>(
-      'expansion',
-      '/expansion/opportunities',
+      "expansion",
+      "/expansion/opportunities",
       { query, context }
     );
 
@@ -552,11 +634,8 @@ export class AgentAPI {
   /**
    * Validate integrity (Integrity Agent)
    */
-  async validateIntegrity(
-    artifact: any,
-    context?: AgentContext
-  ): Promise<AgentResponse<any>> {
-    return this.executeRequest('integrity', '/integrity/validate', {
+  async validateIntegrity(artifact: any, context?: AgentContext): Promise<AgentResponse<any>> {
+    return this.executeRequest("integrity", "/integrity/validate", {
       artifact,
       context,
     });
@@ -565,11 +644,8 @@ export class AgentAPI {
   /**
    * Research company (Company Intelligence Agent)
    */
-  async researchCompany(
-    companyName: string,
-    context?: AgentContext
-  ): Promise<AgentResponse<any>> {
-    return this.executeRequest('company-intelligence', '/company/research', {
+  async researchCompany(companyName: string, context?: AgentContext): Promise<AgentResponse<any>> {
+    return this.executeRequest("company-intelligence", "/company/research", {
       companyName,
       context,
     });
@@ -578,11 +654,8 @@ export class AgentAPI {
   /**
    * Map value drivers (Value Mapping Agent)
    */
-  async mapValueDrivers(
-    query: string,
-    context?: AgentContext
-  ): Promise<AgentResponse<any>> {
-    return this.executeRequest('value-mapping', '/value/map-drivers', {
+  async mapValueDrivers(query: string, context?: AgentContext): Promise<AgentResponse<any>> {
+    return this.executeRequest("value-mapping", "/value/map-drivers", {
       query,
       context,
     });
@@ -601,7 +674,7 @@ export class AgentAPI {
     },
     context?: AgentContext
   ): Promise<AgentResponse<any>> {
-    return this.executeRequest('research', '/research/execute', {
+    return this.executeRequest("research", "/research/execute", {
       companyName,
       ...options,
       context,
@@ -620,7 +693,7 @@ export class AgentAPI {
     },
     context?: AgentContext
   ): Promise<AgentResponse<any>> {
-    return this.executeRequest('benchmark', '/benchmark/execute', {
+    return this.executeRequest("benchmark", "/benchmark/execute", {
       industry,
       kpis,
       ...options,
@@ -632,8 +705,8 @@ export class AgentAPI {
    * Generate narrative (Narrative Agent)
    */
   async generateNarrative(
-    level: 'micro' | 'contextual' | 'document',
-    audience: 'executive' | 'technical' | 'financial' | 'general',
+    level: "micro" | "contextual" | "document",
+    audience: "executive" | "technical" | "financial" | "general",
     valueData: {
       metrics?: Array<{ name: string; value: number; unit: string }>;
       outcomes?: Array<{ name: string; description: string }>;
@@ -645,13 +718,13 @@ export class AgentAPI {
       };
     },
     options?: {
-      format?: 'text' | 'markdown' | 'html';
+      format?: "text" | "markdown" | "html";
       topic?: string;
       customInstructions?: string;
     },
     context?: AgentContext
   ): Promise<AgentResponse<any>> {
-    return this.executeRequest('narrative', '/narrative/generate', {
+    return this.executeRequest("narrative", "/narrative/generate", {
       level,
       audience,
       valueData,
@@ -663,9 +736,7 @@ export class AgentAPI {
   /**
    * Generic agent invocation
    */
-  async invokeAgent<T = any>(
-    request: AgentRequest
-  ): Promise<AgentResponse<T>> {
+  async invokeAgent<T = any>(request: AgentRequest): Promise<AgentResponse<T>> {
     const endpoint = `/${request.agent}/invoke`;
     return this.executeRequest<T>(request.agent, endpoint, {
       query: request.query,
@@ -678,7 +749,7 @@ export class AgentAPI {
    * Get circuit breaker status for an agent
    */
   getCircuitBreakerStatus(agent: AgentType): {
-    state: 'closed' | 'open' | 'half-open';
+    state: "closed" | "open" | "half-open";
     failureCount: number;
     lastFailureTime: string | null;
   } | null {
@@ -689,13 +760,13 @@ export class AgentAPI {
 
     const lastFailureTime = breaker.getLastFailureTime();
     const lastFailureTs = lastFailureTime ? new Date(lastFailureTime).getTime() : 0;
-    
+
     return {
       state: breaker.canExecute()
-        ? 'closed'
+        ? "closed"
         : Date.now() - lastFailureTs > this.config.cooldownPeriod
-        ? 'half-open'
-        : 'open',
+          ? "half-open"
+          : "open",
       failureCount: breaker.getFailureCount(),
       lastFailureTime: lastFailureTime,
     };

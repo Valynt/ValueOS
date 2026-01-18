@@ -10,9 +10,9 @@
  * - AI transparency (confidence, reasoning)
  */
 
-import { logger } from "../lib/logger";
+import { logger } from "@lib/logger";
 import { v4 as uuidv4 } from "uuid";
-import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
+import { LLMGateway } from "@lib/agent-fabric/LLMGateway";
 import { llmConfig } from "../config/llm";
 import {
   conversationHistoryService,
@@ -36,7 +36,7 @@ import {
   hasTemplateForStage,
 } from "../sdui/templates/chat-templates";
 import { sanitizeAgentInput } from "../utils/security";
-import { contextFabric } from "../lib/agent-fabric/ContextFabric";
+import { contextFabric } from "@lib/agent-fabric/ContextFabric";
 import { detectIndustry } from "../data/industryTemplates";
 import { geminiProxyService } from "./GeminiProxyService";
 import { FallbackAIService } from "./FallbackAIService";

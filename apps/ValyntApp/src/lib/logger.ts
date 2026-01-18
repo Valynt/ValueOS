@@ -1,7 +1,2 @@
-// Minimal logger stub for services
-export const logger = {
-  info: (msg: string, data?: any) => console.log(`[INFO] ${msg}`, data),
-  warn: (msg: string, data?: any) => console.warn(`[WARN] ${msg}`, data),
-  error: (msg: string, data?: any) => console.error(`[ERROR] ${msg}`, data),
-  debug: (msg: string, data?: any) => console.debug(`[DEBUG] ${msg}`, data),
-};
+export * from "@valueos/shared/lib/logger";
+export { default } from "@valueos/shared/lib/logger";

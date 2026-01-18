@@ -1,0 +1,18 @@
+{
+  "embedding": {
+    "provider": "openai",
+    "model": "nomic-embed-text",
+    "base_url": "http://localhost:11434/v1",
+    "api_key": "ollama"
+  },
+  "indexing": {
+    "include": [
+      "apps/ValyntApp/src/**/*.ts",
+      "apps/ValyntApp/src/**/*.tsx",
+      "diff-outputs/**/*.diff",
+      "docs/**/*.md"
+    ],
+    "exclude": ["node_modules/**", "dist/**", ".git/**"],
+    "watch": false
+  }
+}

@@ -5,7 +5,7 @@
  * Provides standardized error handling and user-friendly messages
  */
 
-import { logger } from "../lib/logger";
+import { logger } from "@lib/logger";
 import { useToast } from "../components/Common/Toast";
 import * as React from "react";
 

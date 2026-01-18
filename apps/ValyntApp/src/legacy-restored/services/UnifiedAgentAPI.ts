@@ -14,7 +14,7 @@
  * - Full observability and audit logging
  */
 
-import { logger } from "../lib/logger";
+import { logger } from "@lib/logger";
 import { v4 as uuidv4 } from "uuid";
 import { CircuitBreakerManager } from "./CircuitBreaker";
 import { AgentRecord, AgentRegistry } from "./AgentRegistry";
@@ -22,7 +22,7 @@ import { SDUIPageDefinition, validateSDUISchema } from "../sdui/schema";
 import { getAuditLogger, logAgentResponse } from "./AgentAuditLogger";
 import { AgentType } from "./agent-types";
 import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
-import { env, getEnvVar, getGroundtruthConfig } from "../lib/env";
+import { env, getEnvVar, getGroundtruthConfig } from "@lib/env";
 import GroundtruthAPI, {
   GroundtruthAPIConfig,
   GroundtruthRequestPayload,

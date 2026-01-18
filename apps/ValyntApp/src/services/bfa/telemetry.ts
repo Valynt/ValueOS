@@ -6,7 +6,7 @@
  */
 
 import { AgentContext, ToolExecutionResult } from "./types";
-import { logger } from "../../lib/logger";
+import { logger } from "@lib/logger";
 
 /**
  * Telemetry metrics for tool execution

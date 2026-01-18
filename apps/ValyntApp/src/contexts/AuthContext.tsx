@@ -5,12 +5,12 @@
 
 import React, { createContext, ReactNode, useContext, useEffect, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
-import { supabase } from "../lib/supabase";
-import { createLogger } from "../lib/logger";
+import { supabase } from "@lib/supabase";
+import { createLogger } from "@lib/logger";
 import { computePermissions, UserClaims } from "../types/security";
-import { analyticsClient } from "../lib/analyticsClient";
-import { secureTokenManager } from "../lib/auth/SecureTokenManager";
-import { getSupabaseConfig } from "../lib/env";
+import { analyticsClient } from "@lib/analyticsClient";
+import { secureTokenManager } from "@lib/auth/SecureTokenManager";
+import { getSupabaseConfig } from "@lib/env";
 
 const logger = createLogger({ component: "AuthContext" });
 

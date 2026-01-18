@@ -13,7 +13,7 @@ import { RoiModelCalculationRepository } from "../repositories/RoiModelCalculati
 import { ValueCommitRepository } from "../repositories/ValueCommitRepository";
 import { auditLogService } from "./AuditLogService";
 import { userSettingsService } from "./UserSettingsService";
-import { logger } from "../lib/logger";
+import { logger } from "@lib/logger";
 
 export class ModelService {
   private context: LifecycleContext;

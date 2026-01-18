@@ -5,11 +5,11 @@
  * Provides real-time usage monitoring and reporting.
  */
 
-import { logger } from "../lib/logger";
+import { logger } from "@lib/logger";
 import { createClient } from "@supabase/supabase-js";
 import { getConfig } from "../config/environment";
 import { isWithinLimits, TenantLimits, TenantUsage } from "./TenantProvisioning";
-import { supabase as publicSupabase } from "../lib/supabase";
+import { supabase as publicSupabase } from "@lib/supabase";
 import * as React from "react";
 
 /**
@@ -144,7 +144,7 @@ export async function getUsage(organizationId: string, period?: string): Promise
     return cached;
   }
 
-  const client = serviceRoleSupabase || publicSupabase;
+  const client = getServiceRoleSupabase() || publicSupabase;
 
   if (client) {
     try {
@@ -290,20 +290,32 @@ export async function canPerformAction(
   return { allowed: true };
 }
 
-const serviceRoleSupabase =
-  typeof window === "undefined"
-    ? createClient(
-        import.meta.env?.VITE_SUPABASE_URL || "",
-        import.meta.env?.SUPABASE_SERVICE_ROLE_KEY || ""
-      )
-    : null;
+let _serviceRoleSupabase: any = null;
+
+function getServiceRoleSupabase() {
+  if (!_serviceRoleSupabase) {
+    const url =
+      (typeof process !== "undefined" ? process.env.VITE_SUPABASE_URL : "") ||
+      import.meta.env?.VITE_SUPABASE_URL ||
+      "";
+    const key =
+      (typeof process !== "undefined" ? process.env.SUPABASE_SERVICE_ROLE_KEY : "") ||
+      import.meta.env?.SUPABASE_SERVICE_ROLE_KEY ||
+      "";
+    if (url && key) {
+      _serviceRoleSupabase = createClient(url, key);
+    }
+  }
+  return _serviceRoleSupabase;
+}
 
 /**
  * Persist usage to database (upsert into `tenant_usage` table)
  */
 async function persistUsage(usage: TenantUsage): Promise<void> {
-  if (!serviceRoleSupabase) {
-    logger.warn("Supabase client not available (browser environment)");
+  const client = getServiceRoleSupabase();
+  if (!client) {
+    logger.warn("Supabase client not available (check configuration)");
     return;
   }
 
@@ -320,7 +332,7 @@ async function persistUsage(usage: TenantUsage): Promise<void> {
       last_updated: usage.lastUpdated.toISOString(),
     } as Record<string, any>;
 
-    const { error } = await serviceRoleSupabase.from("tenant_usage").upsert(payload).select();
+    const { error } = await client.from("tenant_usage").upsert(payload).select();
 
     if (error) {
       logger.error("Failed to persist usage", error);
@@ -328,7 +340,7 @@ async function persistUsage(usage: TenantUsage): Promise<void> {
       logger.debug(`Usage persisted for ${usage.organizationId}`);
     }
   } catch (err) {
-    logger.error("Failed to persist usage", err instanceof Error ? err : undefined);
+    logger.error("Failed to persist usage", err as Error);
   }
 }
 
@@ -367,7 +379,7 @@ export async function getUsageHistory(
   organizationId: string,
   months: number = 12
 ): Promise<TenantUsage[]> {
-  const client = serviceRoleSupabase || publicSupabase;
+  const client = getServiceRoleSupabase() || publicSupabase;
 
   if (!client) {
     return [];

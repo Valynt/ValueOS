@@ -1,0 +1,47 @@
+--- apps/ValyntApp/src/App.tsx	2026-01-16 15:25:32.646221600 +0000
++++ apps/ValyntApp/src/legacy-restored/App.tsx	2026-01-17 17:02:22.204246900 +0000
+@@ -1,10 +1,38 @@
+-import { AppProviders } from "@app/providers/AppProviders";
+-import AppRoutes from "./AppRoutes";
++import React, { useEffect } from "react";
++import { ChatCanvasLayout } from "./components/ChatCanvas";
++import { sessionManager } from "./services/SessionManager";
++import { ProblemMonitor } from "./components/monitoring/ProblemMonitor";
++import { initialProblems } from "./data/initialProblems";
++
++/**
++ * Main Application Component
++ * Uses the modern Chat + Canvas UI as the primary interface
++ */
++function App() {
++  useEffect(() => {
++    sessionManager.initialize();
++    return () => sessionManager.terminate();
++  }, []);
+ 
+-export function App() {
+   return (
+-    <AppProviders>
+-      <AppRoutes />
+-    </AppProviders>
++    <>
++      <ProblemMonitor
++        autoStart={true}
++        initialProblems={initialProblems}
++        showIndicator={true}
++      />
++      <ChatCanvasLayout
++        onSettingsClick={() => {
++          // Settings navigation handled within ChatCanvasLayout
++          console.log("Settings clicked");
++        }}
++        onHelpClick={() => {
++          // Help navigation handled within ChatCanvasLayout
++          console.log("Help clicked");
++        }}
++      />
++    </>
+   );
+ }
++
++export default App;

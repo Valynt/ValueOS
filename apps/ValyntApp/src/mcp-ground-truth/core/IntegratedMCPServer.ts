@@ -18,8 +18,8 @@ import CausalTruth from "../../causal/causal-truth-enhanced";
 import { EnhancedBusinessCaseGenerator } from "../../causal/business-case-generator-enhanced";
 import { ReasoningEngine } from "../../reasoning/reasoning-engine";
 import { AuditTrailManager, ComplianceMonitor } from "../../audit/audit-trail";
-import { logger } from "../../lib/logger";
-import { sha256 } from "../../lib/contentHash";
+import { logger } from "@lib/logger";
+import { sha256 } from "@lib/contentHash";
 
 interface IntegratedMCPServerConfig {
   // Base MCP configuration

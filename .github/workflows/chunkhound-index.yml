@@ -1,0 +1,30 @@
+name: chunkhound-index
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  index:
+    runs-on: ubuntu-latest
+    if: ${{ secrets.OLLAMA_URL != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv (astral)
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          export PATH="$HOME/.local/bin:$PATH"
+      - name: Install chunkhound
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          uv tool install chunkhound
+      - name: Configure .chunkhound.json
+        run: cat .chunkhound.json
+      - name: Run chunkhound index
+        env:
+          CHUNKHOUND_OLLAMA_URL: ${{ secrets.OLLAMA_URL }}
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          chunkhound index --config .chunkhound.json --force-reindex

@@ -3,7 +3,7 @@ import { setup, teardown } from "./testcontainers-global-setup";
 import { Client } from "pg";
 import fs from "fs";
 import path from "path";
-import { getEnvVar, setEnvVarForTests } from "../lib/env";
+import { getEnvVar, setEnvVarForTests } from "@lib/env";
 import { getDatabaseUrl } from "../config/database";
 
 // Increase timeout for Docker operations

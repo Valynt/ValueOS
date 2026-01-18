@@ -3,7 +3,7 @@
  * Handles session management and authentication operations
  */
 
-import { logger } from "../../lib/logger";
+import { logger } from "@lib/logger";
 import { BaseService } from "./BaseService";
 import { AuthenticationError, RateLimitError, ValidationError } from "./errors";
 import { Session, User } from "@supabase/supabase-js";

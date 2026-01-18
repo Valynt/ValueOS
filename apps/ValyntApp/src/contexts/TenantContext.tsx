@@ -20,8 +20,8 @@ import {
 import { useLocation } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { fetchUserTenants, TenantInfo, isTenantApiEnabled } from "../api/tenant";
-import { createLogger } from "../lib/logger";
-import { analyticsClient } from "../lib/analyticsClient";
+import { createLogger } from "@lib/logger";
+import { analyticsClient } from "@lib/analyticsClient";
 
 const logger = createLogger({ component: "TenantContext" });
 

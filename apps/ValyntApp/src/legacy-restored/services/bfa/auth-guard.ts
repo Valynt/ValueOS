@@ -7,7 +7,7 @@
 
 import { AgentContext, AuthorizationError, AuthPolicy } from "./types";
 import { toolRegistry } from "./registry";
-import { logger } from "../../lib/logger";
+import { logger } from "@lib/logger";
 
 /**
  * Authorization guard for enforcing access control

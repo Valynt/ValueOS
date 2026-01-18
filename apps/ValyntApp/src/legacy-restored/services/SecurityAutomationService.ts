@@ -3,7 +3,7 @@ import { TenantAwareService } from "./TenantAwareService";
 import { AdvancedThreatDetectionService, SecurityEvent } from "./AdvancedThreatDetectionService";
 import { SecurityEnforcementService } from "./SecurityEnforcementService";
 import { SecurityEventValidator } from "./SecurityEventValidator";
-import { log } from "../lib/logger";
+import { log } from "@lib/logger";
 import { auditLogService, AuditLogService } from "./AuditLogService";
 
 export interface SecurityIncident {

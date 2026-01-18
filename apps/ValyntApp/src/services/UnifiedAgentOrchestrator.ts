@@ -14,7 +14,7 @@
  * - Extensible: Plugin architecture for routing strategies
  */
 
-import { logger } from "../lib/logger";
+import { logger } from "@lib/logger";
 import { v4 as uuidv4 } from "uuid";
 import { CircuitBreakerManager } from "./CircuitBreaker";
 import { AgentRecord, AgentRegistry } from "./AgentRegistry";
@@ -22,7 +22,7 @@ import { SDUIPageDefinition, validateSDUISchema } from "../sdui/schema";
 import { getAuditLogger, logAgentResponse } from "./AgentAuditLogger";
 import { AgentType } from "./agent-types";
 import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
-import { env, getEnvVar, getGroundtruthConfig } from "../lib/env";
+import { env, getEnvVar, getGroundtruthConfig } from "@lib/env";
 import GroundtruthAPI, {
   GroundtruthAPIConfig,
   GroundtruthRequestPayload,
@@ -37,10 +37,10 @@ import { AgentContext, AgentResponse as APIAgentResponse, getAgentAPI } from "./
 import { renderPage, RenderPageOptions } from "../sdui/renderPage";
 import { WorkflowDAG, WorkflowEvent, WorkflowStage } from "../types/workflow";
 import { AgentRoutingLayer, StageRoute } from "./AgentRoutingLayer";
-import { supabase } from "../lib/supabase";
+import { supabase } from "@lib/supabase";
 import { getAutonomyConfig } from "../config/autonomy";
-import { MemorySystem } from "../lib/agent-fabric/MemorySystem";
-import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
+import { MemorySystem } from "@lib/agent-fabric/MemorySystem";
+import { LLMGateway } from "@lib/agent-fabric/LLMGateway";
 import { llmConfig } from "../config/llm";
 import { z } from "zod";
 

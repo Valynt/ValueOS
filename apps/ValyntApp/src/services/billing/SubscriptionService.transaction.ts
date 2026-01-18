@@ -5,7 +5,7 @@
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
-import { logger } from "../../lib/logger";
+import { logger } from "@lib/logger";
 import { PlanTier } from "../../config/billing";
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || "";

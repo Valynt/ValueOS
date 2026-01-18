@@ -5,7 +5,7 @@
  * and real-time metrics collection with alerting capabilities.
  */
 
-import { logger } from "../../lib/logger";
+import { logger } from "@lib/logger";
 import { EventEmitter } from "events";
 
 // ============================================================================

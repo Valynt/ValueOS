@@ -1,16 +1,20 @@
-import { describe, expect, it, vi } from 'vitest';
-import type { ISecretProvider, SecretMetadata, SecretValue } from '../../config/secrets/ISecretProvider';
-import { SecretsService } from '../SecretsService';
-import { RbacService, RbacUser } from '../RbacService';
-import { AuthorizationError } from '../errors';
+import { describe, expect, it, vi } from "vitest";
+import type {
+  ISecretProvider,
+  SecretMetadata,
+  SecretValue,
+} from "../../config/secrets/ISecretProvider";
+import { SecretsService } from "../SecretsService";
+import { RbacService, RbacUser } from "../RbacService";
+import { AuthorizationError } from "../errors";
 
 class MockProvider implements ISecretProvider {
-  name = 'mock';
-  getSecret = vi.fn(async () => ({ value: 'secret' } as SecretValue));
+  name = "mock";
+  getSecret = vi.fn(async () => ({ value: "secret" }) as SecretValue);
   setSecret = vi.fn(async () => true);
   rotateSecret = vi.fn(async () => true);
   deleteSecret = vi.fn(async () => true);
-  listSecrets = vi.fn(async () => ['key-1']);
+  listSecrets = vi.fn(async () => ["key-1"]);
   getSecretMetadata = vi.fn(async () => null as SecretMetadata | null);
   secretExists = vi.fn(async () => true);
   auditAccess = vi.fn(async () => {});
@@ -22,48 +26,54 @@ class MockProvider implements ISecretProvider {
   }
 }
 
-const adminUser: RbacUser = { id: 'admin-1', roles: ['ROLE_ADMIN'] };
-const viewerUser: RbacUser = { id: 'viewer-1', roles: ['ROLE_VIEWER'] };
+const adminUser: RbacUser = { id: "admin-1", roles: ["ROLE_ADMIN"] };
+const viewerUser: RbacUser = { id: "viewer-1", roles: ["ROLE_VIEWER"] };
 
-describe('SecretsService RBAC enforcement', () => {
-  it('allows authorized users to read secrets', async () => {
+describe("SecretsService RBAC enforcement", () => {
+  it("allows authorized users to read secrets", async () => {
     const provider = new MockProvider();
     const rbac = new RbacService();
     const service = new SecretsService(provider, rbac);
 
-    const result = await service.getSecret('tenant-1', 'api-key', adminUser);
+    const result = await service.getSecret("tenant-1", "api-key", adminUser);
 
-    expect(result.value).toBe('secret');
+    expect(result.value).toBe("secret");
     expect(provider.getSecret).toHaveBeenCalled();
   });
 
-  it('blocks rotation for ROLE_VIEWER before hitting provider', async () => {
+  it("blocks rotation for ROLE_VIEWER before hitting provider", async () => {
     const provider = new MockProvider();
     const rbac = new RbacService();
     const service = new SecretsService(provider, rbac);
 
-    await expect(service.rotateSecret('tenant-1', 'api-key', viewerUser)).rejects.toBeInstanceOf(
-      AuthorizationError
+    await expect(service.rotateSecret("tenant-1", "api-key", viewerUser)).rejects.toThrow(
+      "Forbidden: missing secrets:rotate"
     );
 
     expect(provider.rotateSecret).not.toHaveBeenCalled();
   });
 
-  it('permits write operations for roles with write permission', async () => {
+  it("permits write operations for roles with write permission", async () => {
     const provider = new MockProvider();
     const rbac = new RbacService();
     const service = new SecretsService(provider, rbac);
 
     const metadata: SecretMetadata = {
-      tenantId: 'tenant-1',
-      secretPath: 'path',
-      version: 'v1',
+      tenantId: "tenant-1",
+      secretPath: "path",
+      version: "v1",
       createdAt: new Date().toISOString(),
       lastAccessed: new Date().toISOString(),
-      sensitivityLevel: 'high',
+      sensitivityLevel: "high",
     };
 
-    const success = await service.setSecret('tenant-1', 'api-key', { value: 'x' }, metadata, adminUser);
+    const success = await service.setSecret(
+      "tenant-1",
+      "api-key",
+      { value: "x" },
+      metadata,
+      adminUser
+    );
 
     expect(success).toBe(true);
     expect(provider.setSecret).toHaveBeenCalled();

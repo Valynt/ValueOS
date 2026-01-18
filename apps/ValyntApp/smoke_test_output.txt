@@ -1,0 +1,48 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.17 [39m[90m/workspaces/ValueOS/apps/ValyntApp[39m
+
+ [31m❯[39m src/__tests__/smoke.test.tsx [2m([22m[2m3 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 4612[2mms[22m[39m
+[31m     [31m×[31m should be able to import App component without crashing[39m[33m 4268[2mms[22m[39m
+[31m     [31m×[31m should be able to import bootstrap module without crashing[39m[32m 158[2mms[22m[39m
+     [32m✓[39m should be able to import core utilities without crashing[32m 184[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/__tests__/smoke.test.tsx[2m > [22mApplication Smoke Test[2m > [22mshould be able to import App component without crashing
+[31m[1mAssertionError[22m: expected undefined to be defined[39m
+[36m [2m❯[22m src/__tests__/smoke.test.tsx:[2m33:17[22m[39m
+    [90m 31| [39m  it("should be able to import App component without crashing", async …
+    [90m 32| [39m    [35mconst[39m [33mApp[39m [33m=[39m ([35mawait[39m [35mimport[39m([32m"../App"[39m))[33m.[39m[35mdefault[39m[33m;[39m
+    [90m 33| [39m    [34mexpect[39m([33mApp[39m)[33m.[39m[34mtoBeDefined[39m()[33m;[39m
+    [90m   | [39m                [31m^[39m
+    [90m 34| [39m  })[33m;[39m
+    [90m 35| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/__tests__/smoke.test.tsx[2m > [22mApplication Smoke Test[2m > [22mshould be able to import bootstrap module without crashing
+[31m[1mError[22m: Failed to resolve import "./lib/database" from "src/bootstrap.ts". Does the file exist?[39m
+  Plugin: [35mvite:import-analysis[39m
+  File: [36m/workspaces/ValueOS/apps/ValyntApp/src/bootstrap.ts[39m:18:40
+[33m  10 |  import { createLogger, logger as globalLogger, setupMonitoring } from "./lib/logger";
+  11 |  import { initializeSentry } from "./lib/sentry";
+  12 |  import { checkDatabaseConnection } from "./lib/database";
+     |                                           ^
+  13 |  export async function bootstrap(options = {}) {
+  14 |    const startTime = Date.now();[39m
+[90m [2m❯[22m TransformPluginContext._formatLog ../../node_modules/.pnpm/vite@7.3.1_@types+node@20.19.30_jiti@1.21.7_terser@5.46.0_tsx@4.21.0_yaml@2.8.2/node_modules/vite/dist/node/chunks/config.js:[2m28999:43[22m[39m
+[90m [2m❯[22m TransformPluginContext.error ../../node_modules/.pnpm/vite@7.3.1_@types+node@20.19.30_jiti@1.21.7_terser@5.46.0_tsx@4.21.0_yaml@2.8.2/node_modules/vite/dist/node/chunks/config.js:[2m28996:14[22m[39m
+[90m [2m❯[22m normalizeUrl ../../node_modules/.pnpm/vite@7.3.1_@types+node@20.19.30_jiti@1.21.7_terser@5.46.0_tsx@4.21.0_yaml@2.8.2/node_modules/vite/dist/node/chunks/config.js:[2m27119:18[22m[39m
+[90m [2m❯[22m ../../node_modules/.pnpm/vite@7.3.1_@types+node@20.19.30_jiti@1.21.7_terser@5.46.0_tsx@4.21.0_yaml@2.8.2/node_modules/vite/dist/node/chunks/config.js:[2m27177:32[22m[39m
+[90m [2m❯[22m TransformPluginContext.transform ../../node_modules/.pnpm/vite@7.3.1_@types+node@20.19.30_jiti@1.21.7_terser@5.46.0_tsx@4.21.0_yaml@2.8.2/node_modules/vite/dist/node/chunks/config.js:[2m27145:4[22m[39m
+[90m [2m❯[22m EnvironmentPluginContainer.transform ../../node_modules/.pnpm/vite@7.3.1_@types+node@20.19.30_jiti@1.21.7_terser@5.46.0_tsx@4.21.0_yaml@2.8.2/node_modules/vite/dist/node/chunks/config.js:[2m28797:14[22m[39m
+[90m [2m❯[22m loadAndTransform ../../node_modules/.pnpm/vite@7.3.1_@types+node@20.19.30_jiti@1.21.7_terser@5.46.0_tsx@4.21.0_yaml@2.8.2/node_modules/vite/dist/node/chunks/config.js:[2m22670:26[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (3)[39m
+[2m   Start at [22m 08:38:08
+[2m   Duration [22m 6.69s[2m (transform 4.31s, setup 364ms, import 214ms, tests 4.61s, environment 1.20s)[22m
+

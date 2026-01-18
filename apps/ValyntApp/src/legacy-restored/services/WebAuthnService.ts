@@ -22,7 +22,7 @@ import type {
   RegistrationResponseJSON,
   AuthenticationResponseJSON,
 } from "@simplewebauthn/browser";
-import { logger } from "../lib/logger";
+import { logger } from "@lib/logger";
 import { BaseService } from "./BaseService";
 import { AuthenticationError, ValidationError } from "./errors";
 

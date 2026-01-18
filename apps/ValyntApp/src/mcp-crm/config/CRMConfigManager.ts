@@ -6,7 +6,7 @@
  */
 
 import { ConfigurationManager, MCPCRMServerConfig, CRMProviderConfig } from "../../mcp-common";
-import { logger } from "../../lib/logger";
+import { logger } from "@lib/logger";
 
 export class CRMConfigManager {
   private static instance: CRMConfigManager;

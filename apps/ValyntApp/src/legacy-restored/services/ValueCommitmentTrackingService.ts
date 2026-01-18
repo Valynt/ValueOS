@@ -30,7 +30,7 @@ import {
   CommitmentAuditSchema,
   CommitmentRiskSchema,
 } from "../types/value-commitment-schemas.js";
-import { logger } from "../lib/logger";
+import { logger } from "@lib/logger";
 import { GroundTruthIntegrationService } from "./GroundTruthIntegrationService.js";
 
 export class ValueCommitmentTrackingService {

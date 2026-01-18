@@ -1,7 +1,7 @@
-import { logger } from '../lib/logger';
-import * as cheerio from 'cheerio';
-import crypto from 'crypto';
-import { createClient } from '@supabase/supabase-js';
+import { logger } from "../lib/logger";
+import * as cheerio from "cheerio";
+import crypto from "crypto";
+import { createClient } from "@supabase/supabase-js";
 
 export interface WebScraperResult {
   url: string;
@@ -22,17 +22,20 @@ export class WebScraperService {
   private dnsCache: Map<string, { ips: string[]; timestamp: number }> = new Map();
   private dnsCacheTtlMs = 5 * 60 * 1000; // 5 minutes DNS cache TTL
 
-  constructor(userAgent = 'ValueCanvasBot/1.0 (+http://valuecanvas.com)', redisUrl?: string) {
+  constructor(userAgent = "ValueCanvasBot/1.0 (+http://valuecanvas.com)", redisUrl?: string) {
     this.userAgent = userAgent;
-    this.encryptionKey = process.env.WEB_SCRAPER_ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
+    this.encryptionKey =
+      process.env.WEB_SCRAPER_ENCRYPTION_KEY || crypto.randomBytes(32).toString("hex");
 
     // Initialize Redis for distributed rate limiting
     if (redisUrl) {
       try {
         this.redis = createClient(redisUrl);
-        this.redis.on('error', (err: any) => logger.error('Redis connection error', { err }));
+        this.redis.on("error", (err: any) => logger.error("Redis connection error", { err }));
       } catch (error) {
-        logger.warn('Failed to initialize Redis, falling back to in-memory rate limiting', { error });
+        logger.warn("Failed to initialize Redis, falling back to in-memory rate limiting", {
+          error,
+        });
       }
     }
   }
@@ -43,7 +46,7 @@ export class WebScraperService {
     // Check cache first
     const cached = this.cache.get(url);
     if (cached && Date.now() - cached.timestamp < this.cacheTtlMs) {
-      logger.debug('Returning cached result', { url });
+      logger.debug("Returning cached result", { url });
       return cached.result;
     }
 
@@ -59,14 +62,14 @@ export class WebScraperService {
         while (redirectCount <= maxRedirects) {
           // Validate URL to prevent SSRF
           if (!(await this.isSafeUrl(currentUrl))) {
-            logger.warn('Web scraping blocked for unsafe URL', { url: currentUrl });
+            logger.warn("Web scraping blocked for unsafe URL", { url: currentUrl });
             return null;
           }
 
           // Check rate limit before making request (distributed)
           const hostname = new URL(currentUrl).hostname;
           if (!(await this.checkRateLimit(hostname))) {
-            logger.warn('Rate limit exceeded for domain', {
+            logger.warn("Rate limit exceeded for domain", {
               hostname,
               url: currentUrl,
             });
@@ -79,20 +82,21 @@ export class WebScraperService {
           try {
             // Use manual redirect handling to check every hop
             const response = await fetch(currentUrl, {
-              method: 'GET',
+              method: "GET",
               headers: {
-                'User-Agent': this.userAgent,
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+                "User-Agent": this.userAgent,
+                Accept:
+                  "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
               },
               signal: controller.signal,
-              redirect: 'manual'
+              redirect: "manual",
             });
 
             clearTimeout(timeoutId);
 
             // Handle redirects manually
             if (response.status >= 300 && response.status < 400) {
-              const location = response.headers.get('Location');
+              const location = response.headers.get("Location");
               if (!location) {
                 throw new Error(`Redirect with no Location header (status ${response.status})`);
               }
@@ -113,8 +117,8 @@ export class WebScraperService {
             }
 
             // Validate content type
-            const contentType = response.headers.get('content-type') || '';
-            if (!contentType.includes('text/html') && !contentType.includes('application/xhtml')) {
+            const contentType = response.headers.get("content-type") || "";
+            if (!contentType.includes("text/html") && !contentType.includes("application/xhtml")) {
               throw new Error(`Invalid content type: ${contentType}`);
             }
 
@@ -161,66 +165,12 @@ export class WebScraperService {
     }
 
     // All retries failed
-    logger.warn('Web scraping failed after all retries', {
+    logger.warn("Web scraping failed after all retries", {
       url,
       maxRetries,
       finalError: lastError?.message,
     });
     return null;
-  }
-              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
-            },
-            signal: controller.signal,
-            redirect: 'manual'
-          });
-
-          clearTimeout(timeoutId);
-
-          // Handle redirects manually
-          if (response.status >= 300 && response.status < 400) {
-            const location = response.headers.get('Location');
-            if (!location) {
-              throw new Error(`Redirect with no Location header (status ${response.status})`);
-            }
-
-            // Resolve relative URLs
-            try {
-              currentUrl = new URL(location, currentUrl).toString();
-            } catch (e) {
-              throw new Error(`Invalid redirect location: ${location}`);
-            }
-
-            redirectCount++;
-            continue;
-          }
-
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status} ${response.statusText}`);
-          }
-
-          const html = await response.text();
-          const content = this.extractContent(html);
-
-          return {
-            url: currentUrl,
-            title: content.title,
-            h1_tags: content.h1s,
-            main_content: content.text,
-            relevance_score: 1.0
-          };
-
-        } catch (fetchError) {
-          clearTimeout(timeoutId);
-          throw fetchError;
-        }
-      }
-
-      throw new Error(`Too many redirects (max ${maxRedirects})`);
-
-    } catch (error) {
-      logger.warn('Web scraping failed', { url, error: error instanceof Error ? error.message : String(error) });
-      return null;
-    }
   }
 
   private isSafeUrl(urlString: string): boolean {
@@ -228,14 +178,18 @@ export class WebScraperService {
       const url = new URL(urlString);
 
       // Block non-http protocols
-      if (!['http:', 'https:'].includes(url.protocol)) {
+      if (!["http:", "https:"].includes(url.protocol)) {
         return false;
       }
 
       const hostname = url.hostname.toLowerCase();
 
       // 1. Block localhost and specific local domains
-      if (hostname === 'localhost' || hostname.endsWith('.local') || hostname.endsWith('.localhost')) {
+      if (
+        hostname === "localhost" ||
+        hostname.endsWith(".local") ||
+        hostname.endsWith(".localhost")
+      ) {
         return false;
       }
 
@@ -243,7 +197,7 @@ export class WebScraperService {
       // Block ALL IPv6 literals.
       // Parsing IPv6 robustly without a library is error-prone.
       // Safe default: disallow direct IPv6 access (use domain names instead).
-      if (hostname.startsWith('[') || hostname.includes(':')) {
+      if (hostname.startsWith("[") || hostname.includes(":")) {
         // Simple check for colon in hostname often indicates IPv6 literal (unbracketed in some contexts) or port?
         // URL.hostname usually strips port. If it has colon, it's IPv6.
         // But [::1] -> hostname is "[::1]" or "::1"?
@@ -259,36 +213,36 @@ export class WebScraperService {
       const isIpLike = /^(\d+|0x[0-9a-f]+|0[0-7]+)(?:\.|$)/i.test(hostname);
 
       if (isIpLike) {
-         // If it's an IP, we apply strict checks.
+        // If it's an IP, we apply strict checks.
 
-         // Block Integer IPs (no dots) - e.g. http://2130706433
-         if (!hostname.includes('.')) return false;
+        // Block Integer IPs (no dots) - e.g. http://2130706433
+        if (!hostname.includes(".")) return false;
 
-         // Block Hex/Octal formats to prevent bypass
-         // Valid IPs should be decimal dot notation: d.d.d.d
-         const parts = hostname.split('.');
-         // If any part looks like hex (0x) or octal (leading 0 but not just '0'), block it.
-         if (parts.some(p => p.startsWith('0x') || (p.startsWith('0') && p.length > 1))) {
-             return false;
-         }
+        // Block Hex/Octal formats to prevent bypass
+        // Valid IPs should be decimal dot notation: d.d.d.d
+        const parts = hostname.split(".");
+        // If any part looks like hex (0x) or octal (leading 0 but not just '0'), block it.
+        if (parts.some((p) => p.startsWith("0x") || (p.startsWith("0") && p.length > 1))) {
+          return false;
+        }
 
-         // Check Private Ranges
-         // 127.0.0.0/8
-         if (hostname.startsWith('127.')) return false;
-         // 10.0.0.0/8
-         if (hostname.startsWith('10.')) return false;
-         // 192.168.0.0/16
-         if (hostname.startsWith('192.168.')) return false;
-         // 169.254.0.0/16 (Link Local / Cloud Metadata)
-         if (hostname.startsWith('169.254.')) return false;
-         // 0.0.0.0/8
-         if (hostname.startsWith('0.')) return false;
+        // Check Private Ranges
+        // 127.0.0.0/8
+        if (hostname.startsWith("127.")) return false;
+        // 10.0.0.0/8
+        if (hostname.startsWith("10.")) return false;
+        // 192.168.0.0/16
+        if (hostname.startsWith("192.168.")) return false;
+        // 169.254.0.0/16 (Link Local / Cloud Metadata)
+        if (hostname.startsWith("169.254.")) return false;
+        // 0.0.0.0/8
+        if (hostname.startsWith("0.")) return false;
 
-         // 172.16.0.0/12
-         if (hostname.startsWith('172.')) {
-             const secondOctet = parseInt(parts[1], 10);
-             if (secondOctet >= 16 && secondOctet <= 31) return false;
-         }
+        // 172.16.0.0/12
+        if (hostname.startsWith("172.")) {
+          const secondOctet = parseInt(parts[1], 10);
+          if (secondOctet >= 16 && secondOctet <= 31) return false;
+        }
       }
 
       return true;
@@ -304,7 +258,7 @@ export class WebScraperService {
   private extractContent(html: string): { title: string; h1s: string[]; text: string } {
     // 1. Extract Title
     const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-    const title = titleMatch ? this.cleanText(titleMatch[1]) : '';
+    const title = titleMatch ? this.cleanText(titleMatch[1]) : "";
 
     // 2. Extract H1s
     const h1s: string[] = [];
@@ -322,13 +276,16 @@ export class WebScraperService {
     let text = html;
 
     // Remove scripts, styles, svg, head, noscript, iframe
-    text = text.replace(/<(script|style|svg|head|noscript|iframe|nav|footer)[^>]*>[\s\S]*?<\/\1>/gi, ' ');
+    text = text.replace(
+      /<(script|style|svg|head|noscript|iframe|nav|footer)[^>]*>[\s\S]*?<\/\1>/gi,
+      " "
+    );
 
     // Remove comments
-    text = text.replace(/<!--[\s\S]*?-->/g, '');
+    text = text.replace(/<!--[\s\S]*?-->/g, "");
 
     // Remove all other tags
-    text = text.replace(/<[^>]+>/g, ' ');
+    text = text.replace(/<[^>]+>/g, " ");
 
     // Clean and normalize
     text = this.cleanText(text);
@@ -337,19 +294,19 @@ export class WebScraperService {
   }
 
   private cleanText(text: string): string {
-    if (!text) return '';
+    if (!text) return "";
 
     // Decode basic entities (very basic set)
     let cleaned = text
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'");
 
     // Normalize whitespace
-    cleaned = cleaned.replace(/\s+/g, ' ').trim();
+    cleaned = cleaned.replace(/\s+/g, " ").trim();
 
     return cleaned;
   }

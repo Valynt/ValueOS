@@ -15,7 +15,7 @@ import {
   ValidationError,
 } from "./types";
 import { BfaTelemetry } from "./telemetry";
-import { logger } from "../../lib/logger";
+import { logger } from "@lib/logger";
 
 /**
  * Abstract base class for semantic tools

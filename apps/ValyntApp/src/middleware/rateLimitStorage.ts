@@ -1,5 +1,5 @@
 import { createClient, RedisClientType } from "redis";
-import { logger } from "../lib/logger";
+import { logger } from "@lib/logger";
 
 export interface RateLimitBucket {
   tokens: number;

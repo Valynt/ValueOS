@@ -1,11 +1,12 @@
 /**
  * Code Execution Sandbox
- * 
+ *
  * Provides isolated, secure code execution environment for agent-generated code.
  * Uses VM2 for sandboxing with strict timeout and memory limits.
  */
 
-import { logger } from '../lib/logger';
+import { logger } from "../lib/logger";
+import vm from "node:vm";
 
 /**
  * Sandbox configuration
@@ -34,7 +35,7 @@ export interface SandboxResult {
 
 /**
  * CodeSandbox service for safe code execution
- * 
+ *
  * Security features:
  * - Isolated execution context
  * - Timeout enforcement
@@ -57,15 +58,12 @@ export class CodeSandbox {
 
   /**
    * Execute code in sandboxed environment
-   * 
+   *
    * @param code - JavaScript code to execute
    * @param context - Context variables to inject
    * @returns Execution result
    */
-  async execute(
-    code: string,
-    context: Record<string, any> = {}
-  ): Promise<SandboxResult> {
+  async execute(code: string, context: Record<string, any> = {}): Promise<SandboxResult> {
     const startTime = Date.now();
     const consoleOutput: string[] = [];
 
@@ -81,7 +79,7 @@ export class CodeSandbox {
 
       const executionTime = Date.now() - startTime;
 
-      logger.info('Sandbox execution successful', {
+      logger.info("Sandbox execution successful", {
         executionTime,
         codeLength: code.length,
       });
@@ -95,7 +93,7 @@ export class CodeSandbox {
     } catch (error) {
       const executionTime = Date.now() - startTime;
 
-      logger.warn('Sandbox execution failed', {
+      logger.warn("Sandbox execution failed", {
         error: error instanceof Error ? error.message : String(error),
         executionTime,
         codeLength: code.length,
@@ -132,15 +130,13 @@ export class CodeSandbox {
 
     for (const pattern of dangerousPatterns) {
       if (pattern.test(code)) {
-        throw new Error(
-          `Dangerous code pattern detected: ${pattern.source}`
-        );
+        throw new Error(`Dangerous code pattern detected: ${pattern.source}`);
       }
     }
 
     // Check code length
     if (code.length > 50000) {
-      throw new Error('Code exceeds maximum length (50KB)');
+      throw new Error("Code exceeds maximum length (50KB)");
     }
   }
 
@@ -154,22 +150,22 @@ export class CodeSandbox {
     // Safe console implementation
     const sandboxConsole = {
       log: (...args: any[]) => {
-        const message = args.map(String).join(' ');
+        const message = args.map(String).join(" ");
         consoleOutput.push(message);
       },
       error: (...args: any[]) => {
-        const message = args.map(String).join(' ');
+        const message = args.map(String).join(" ");
         consoleOutput.push(`ERROR: ${message}`);
       },
       warn: (...args: any[]) => {
-        const message = args.map(String).join(' ');
+        const message = args.map(String).join(" ");
         consoleOutput.push(`WARN: ${message}`);
       },
     };
 
     // Safe Math and JSON
-    const safeMath = { ...Math };
-    const safeJSON = { ...JSON };
+    const safeMath = Math;
+    const safeJSON = JSON;
 
     // Merge with user context (validated)
     const validatedContext = this.validateContext(userContext);
@@ -196,8 +192,8 @@ export class CodeSandbox {
 
     for (const [key, value] of Object.entries(context)) {
       // Skip functions and dangerous objects
-      if (typeof value === 'function') {
-        logger.warn('Skipping function in context', { key });
+      if (typeof value === "function") {
+        logger.warn("Skipping function in context", { key });
         continue;
       }
 
@@ -205,7 +201,7 @@ export class CodeSandbox {
       try {
         validated[key] = JSON.parse(JSON.stringify(value));
       } catch {
-        logger.warn('Could not serialize context value', { key });
+        logger.warn("Could not serialize context value", { key });
       }
     }
 
@@ -215,39 +211,30 @@ export class CodeSandbox {
   /**
    * Execute code with timeout enforcement
    */
-  private executeWithTimeout(
-    code: string,
-    context: Record<string, any>
-  ): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error(`Execution timeout (${this.config.timeout}ms)`));
-      }, this.config.timeout);
+  private async executeWithTimeout(code: string, context: Record<string, any>): Promise<any> {
+    // Wrap code in IIFE to capture return value and provide 'use strict'
+    const wrappedCode = `
+      (function() {
+        'use strict';
+        ${code}
+      })()
+    `;
 
-      try {
-        // Use Function constructor for basic sandboxing
-        // Note: For production, use VM2 or isolated-vm
-        const contextKeys = Object.keys(context);
-        const contextValues = Object.values(context);
-
-        // Wrap code in IIFE to capture return value
-        const wrappedCode = `
-          'use strict';
-          return (function() {
-            ${code}
-          })();
-        `;
-
-        const fn = new Function(...contextKeys, wrappedCode);
-        const result = fn(...contextValues);
-
-        clearTimeout(timeout);
-        resolve(result);
-      } catch (error) {
-        clearTimeout(timeout);
-        reject(error);
+    try {
+      return vm.runInNewContext(wrappedCode, context, {
+        timeout: this.config.timeout,
+        displayErrors: true,
+      });
+    } catch (error) {
+      if (
+        (error && (error as any).code === "ERR_SCRIPT_EXECUTION_TIMEOUT") ||
+        String(error).includes("Script execution timed out")
+      ) {
+        throw new Error(`Execution timeout (${this.config.timeout}ms)`);
       }
-    });
+      // Re-throw to be caught by the caller's catch block
+      throw error;
+    }
   }
 
   /**
@@ -264,7 +251,7 @@ export class CodeSandbox {
 
       // Stop on first error if configured
       if (!result.success) {
-        logger.warn('Batch execution stopped due to error', {
+        logger.warn("Batch execution stopped due to error", {
           completedCount: results.length,
           totalCount: codeSnippets.length,
         });
@@ -296,30 +283,30 @@ export const codeSandbox = new CodeSandbox();
 
 /**
  * SECURITY NOTE:
- * 
+ *
  * This implementation uses Function constructor for basic sandboxing.
  * For production use, consider:
- * 
+ *
  * 1. VM2 (node-only):
  *    npm install vm2
  *    const { VM } = require('vm2');
- * 
+ *
  * 2. isolated-vm (strongest isolation):
  *    npm install isolated-vm
- * 
+ *
  * 3. Web Workers (browser):
  *    Use Worker API for browser-based sandboxing
- * 
+ *
  * Current implementation provides:
  * ✅ Timeout enforcement
  * ✅ Pattern blocking
  * ✅ Context isolation
  * ✅ Console capture
- * 
+ *
  * Does NOT provide:
  * ❌ Complete VM isolation
  * ❌ Memory limit enforcement
  * ❌ Prototype pollution protection
- * 
+ *
  * Recommend upgrading to VM2 or isolated-vm for production.
  */

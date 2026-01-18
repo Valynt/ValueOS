@@ -20,9 +20,9 @@ import {
   initializeSecretVolumeWatcher,
   secretVolumeWatcher,
 } from "../config/secrets/SecretVolumeWatcher";
-import { createLogger } from "../lib/logger";
+import { createLogger } from "@lib/logger";
 import { createVersionedApiRouter } from "./versioning";
-import { initializeContext } from "../lib/context";
+import { initializeContext } from "@lib/context";
 import { tracingMiddleware } from "../config/telemetry";
 import { requestAuditMiddleware } from "../middleware/requestAuditMiddleware";
 import {

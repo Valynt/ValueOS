@@ -50,13 +50,14 @@ export function getEnvVar(key: string, options: GetEnvVarOptions = {}): string |
 
   let value: string | undefined;
 
-  if (_isBrowser) {
+  // Try process.env first if available (works in Node and many test envs)
+  if (typeof process !== "undefined" && process.env) {
+    value = process.env[key];
+  }
+
+  // Then try import.meta.env (Vite/Browser)
+  if (!value && typeof import.meta !== "undefined" && import.meta.env) {
     value = (import.meta.env as any)?.[key];
-  } else {
-    // Server-side only
-    if (typeof process !== "undefined" && process.env) {
-      value = process.env[key];
-    }
   }
 
   if (!value && defaultValue) {
@@ -125,11 +126,14 @@ export function getGroundtruthConfig(): {
 export function getLLMCostTrackerConfig(): {
   supabaseUrl: string;
   supabaseKey: string;
+  supabaseServiceRoleKey: string;
   tableName: string;
 } {
   return {
     supabaseUrl: getEnvVar("VITE_SUPABASE_URL") || getEnvVar("SUPABASE_URL") || "",
     supabaseKey: getEnvVar("VITE_SUPABASE_ANON_KEY") || getEnvVar("SUPABASE_ANON_KEY") || "",
+    supabaseServiceRoleKey:
+      getEnvVar("SUPABASE_SERVICE_ROLE_KEY") || getEnvVar("VITE_SUPABASE_SERVICE_ROLE_KEY") || "",
     tableName: getEnvVar("LLM_COST_TABLE_NAME") || "llm_costs",
   };
 }

@@ -3,27 +3,27 @@
  * Tests user authentication functionality including credentials validation, MFA, and rate limiting
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AuthService } from '../AuthService';
-import { ValidationError, RateLimitError, AuthenticationError } from '../errors';
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AuthService } from "../AuthService";
+import { ValidationError, RateLimitError, AuthenticationError } from "../errors";
 import {
-  createLogin Credentials,
+  createLoginCredentials,
   createSuccessfulLoginResponse,
   createAuthErrorResponse,
   TEST_PASSWORDS,
   TEST_EMAILS,
-} from '../../test-utils/auth.fixtures';
-import { setupAuthMocks, resetAuthMocks } from '../../test-utils/auth.helpers';
+} from "../../test-utils/auth.fixtures";
+import { setupAuthMocks, resetAuthMocks } from "../../test-utils/auth.helpers";
 
 // Setup mocks
 const mocks = setupAuthMocks();
 
-vi.mock('../../lib/supabase', () => ({
+vi.mock("../../lib/supabase", () => ({
   supabase: { auth: mocks.mockSupabaseAuth },
 }));
 
-vi.mock('../../security', async () => {
-  const actual = await vi.importActual<typeof import('../../security')>('../../security');
+vi.mock("../../security", async () => {
+  const actual = await vi.importActual<typeof import("../../security")>("../../security");
   return {
     ...actual,
     consumeAuthRateLimit: mocks.mockConsumeAuthRateLimit,
@@ -32,9 +32,9 @@ vi.mock('../../security', async () => {
   };
 });
 
-vi.mock('../../config/environment', async () => {
-  const actual = await vi.importActual<typeof import('../../config/environment')>(
-    '../../config/environment'
+vi.mock("../../config/environment", async () => {
+  const actual = await vi.importActual<typeof import("../../config/environment")>(
+    "../../config/environment"
   );
   return {
     ...actual,
@@ -42,11 +42,11 @@ vi.mock('../../config/environment', async () => {
   };
 });
 
-vi.mock('../ClientRateLimit', () => ({
+vi.mock("../ClientRateLimit", () => ({
   clientRateLimit: mocks.mockClientRateLimit,
 }));
 
-describe('AuthService - Login', () => {
+describe("AuthService - Login", () => {
   let service: AuthService;
 
   beforeEach(() => {
@@ -60,8 +60,8 @@ describe('AuthService - Login', () => {
     vi.clearAllMocks();
   });
 
-  describe('Successful Login', () => {
-    it('should successfully login with valid credentials', async () => {
+  describe("Successful Login", () => {
+    it("should successfully login with valid credentials", async () => {
       // Arrange
       const credentials = createLoginCredentials();
       const mockResponse = createSuccessfulLoginResponse();
@@ -83,7 +83,7 @@ describe('AuthService - Login', () => {
       });
     });
 
-    it('should reset rate limit after successful login', async () => {
+    it("should reset rate limit after successful login", async () => {
       // Arrange
       const credentials = createLoginCredentials();
       const mockResponse = createSuccessfulLoginResponse();
@@ -93,10 +93,10 @@ describe('AuthService - Login', () => {
       await service.login(credentials);
 
       // Assert
-      expect(mocks.mockResetRateLimit).toHaveBeenCalledWith('auth', credentials.email);
+      expect(mocks.mockResetRateLimit).toHaveBeenCalledWith("auth", credentials.email);
     });
 
-    it('should create session with valid credentials', async () => {
+    it("should create session with valid credentials", async () => {
       // Arrange
       const credentials = createLoginCredentials();
       const mockResponse = createSuccessfulLoginResponse();
@@ -112,32 +112,32 @@ describe('AuthService - Login', () => {
     });
   });
 
-  describe('Invalid Credentials', () => {
-    it('should throw AuthenticationError for invalid email', async () => {
+  describe("Invalid Credentials", () => {
+    it("should throw AuthenticationError for invalid email", async () => {
       // Arrange
       const credentials = createLoginCredentials({ email: TEST_EMAILS.invalid });
       mocks.mockSupabaseAuth.signInWithPassword.mockResolvedValue(
-        createAuthErrorResponse('Invalid login credentials')
+        createAuthErrorResponse("Invalid login credentials")
       );
 
       // Act & Assert
       await expect(service.login(credentials)).rejects.toThrow(AuthenticationError);
-      await expect(service.login(credentials)).rejects.toThrow('Invalid credentials');
+      await expect(service.login(credentials)).rejects.toThrow("Invalid credentials");
     });
 
-    it('should throw AuthenticationError for invalid password', async () => {
+    it("should throw AuthenticationError for invalid password", async () => {
       // Arrange
       const credentials = createLoginCredentials();
       mocks.mockSupabaseAuth.signInWithPassword.mockResolvedValue(
-        createAuthErrorResponse('Invalid login credentials')
+        createAuthErrorResponse("Invalid login credentials")
       );
 
       // Act & Assert
       await expect(service.login(credentials)).rejects.toThrow(AuthenticationError);
-      await expect(service.login(credentials)).rejects.toThrow('Invalid credentials');
+      await expect(service.login(credentials)).rejects.toThrow("Invalid credentials");
     });
 
-    it('should throw AuthenticationError when user is null in response', async () => {
+    it("should throw AuthenticationError when user is null in response", async () => {
       // Arrange
       const credentials = createLoginCredentials();
       mocks.mockSupabaseAuth.signInWithPassword.mockResolvedValue({
@@ -147,10 +147,10 @@ describe('AuthService - Login', () => {
 
       // Act & Assert
       await expect(service.login(credentials)).rejects.toThrow(AuthenticationError);
-      await expect(service.login(credentials)).rejects.toThrow('Invalid credentials');
+      await expect(service.login(credentials)).rejects.toThrow("Invalid credentials");
     });
 
-    it('should throw AuthenticationError when session is null in response', async () => {
+    it("should throw AuthenticationError when session is null in response", async () => {
       // Arrange
       const credentials = createLoginCredentials();
       const mockResponse = createSuccessfulLoginResponse();
@@ -161,25 +161,25 @@ describe('AuthService - Login', () => {
 
       // Act & Assert
       await expect(service.login(credentials)).rejects.toThrow(AuthenticationError);
-      await expect(service.login(credentials)).rejects.toThrow('Invalid credentials');
+      await expect(service.login(credentials)).rejects.toThrow("Invalid credentials");
     });
   });
 
-  describe('MFA Support', () => {
-    it('should require MFA code when MFA is enabled', async () => {
+  describe("MFA Support", () => {
+    it("should require MFA code when MFA is enabled", async () => {
       // Arrange
       mocks.mockGetConfig.mockReturnValue({ auth: { mfaEnabled: true } });
       const credentials = createLoginCredentials();
 
       // Act & Assert
       await expect(service.login(credentials)).rejects.toThrow(ValidationError);
-      await expect(service.login(credentials)).rejects.toThrow('MFA code required');
+      await expect(service.login(credentials)).rejects.toThrow("MFA code required");
     });
 
-    it('should successfully login with MFA code when MFA is enabled', async () => {
+    it("should successfully login with MFA code when MFA is enabled", async () => {
       // Arrange
       mocks.mockGetConfig.mockReturnValue({ auth: { mfaEnabled: true } });
-      const credentials = createLoginCredentials({ otpCode: '123456' });
+      const credentials = createLoginCredentials({ otpCode: "123456" });
       const mockResponse = createSuccessfulLoginResponse();
       mocks.mockSupabaseAuth.signInWithPassword.mockResolvedValue(mockResponse);
 
@@ -192,12 +192,12 @@ describe('AuthService - Login', () => {
         email: credentials.email,
         password: credentials.password,
         options: {
-          captchaToken: '123456',
+          captchaToken: "123456",
         },
       });
     });
 
-    it('should allow login without MFA code when MFA is disabled', async () => {
+    it("should allow login without MFA code when MFA is disabled", async () => {
       // Arrange
       mocks.mockGetConfig.mockReturnValue({ auth: { mfaEnabled: false } });
       const credentials = createLoginCredentials();
@@ -212,8 +212,8 @@ describe('AuthService - Login', () => {
     });
   });
 
-  describe('Rate Limiting', () => {
-    it('should enforce client-side rate limiting', async () => {
+  describe("Rate Limiting", () => {
+    it("should enforce client-side rate limiting", async () => {
       // Arrange
       const credentials = createLoginCredentials();
 
@@ -221,10 +221,10 @@ describe('AuthService - Login', () => {
       await expect(service.login(credentials)).rejects.toThrow();
 
       // Assert
-      expect(mocks.mockClientRateLimit.checkLimit).toHaveBeenCalledWith('auth-attempts');
+      expect(mocks.mockClientRateLimit.checkLimit).toHaveBeenCalledWith("auth-attempts");
     });
 
-    it('should throw RateLimitError when client rate limit exceeded', async () => {
+    it("should throw RateLimitError when client rate limit exceeded", async () => {
       // Arrange
       const credentials = createLoginCredentials();
       mocks.mockClientRateLimit.checkLimit.mockResolvedValue(false);
@@ -235,10 +235,11 @@ describe('AuthService - Login', () => {
       expect(mocks.mockSupabaseAuth.signInWithPassword).not.toHaveBeenCalled();
     });
 
-    it('should enforce server-side rate limiting', async () => {
+    it("should enforce server-side rate limiting", async () => {
       // Arrange
       const credentials = createLoginCredentials();
-      const mockResponse = createSuccessfulLoginResponse();      mocks.mockSupabaseAuth.signInWithPassword.mockResolvedValue(mockResponse);
+      const mockResponse = createSuccessfulLoginResponse();
+      mocks.mockSupabaseAuth.signInWithPassword.mockResolvedValue(mockResponse);
 
       // Act
       await service.login(credentials);
@@ -247,10 +248,10 @@ describe('AuthService - Login', () => {
       expect(mocks.mockConsumeAuthRateLimit).toHaveBeenCalledWith(credentials.email);
     });
 
-    it('should throw RateLimitError when server rate limit exceeded', async () => {
+    it("should throw RateLimitError when server rate limit exceeded", async () => {
       // Arrange
       const credentials = createLoginCredentials();
-      const { RateLimitExceededError } = await import('../../security');
+      const { RateLimitExceededError } = await import("../../security");
       mocks.mockConsumeAuthRateLimit.mockImplementation(() => {
         throw new RateLimitExceededError(1000, 5, 300000);
       });
@@ -262,59 +263,57 @@ describe('AuthService - Login', () => {
     });
   });
 
-  describe('Field Validation', () => {
-    it('should throw ValidationError when email is missing', async () => {
+  describe("Field Validation", () => {
+    it("should throw ValidationError when email is missing", async () => {
       // Arrange
-      const credentials = { password: 'SecurePass123!' } as any;
+      const credentials = { password: "SecurePass123!" } as any;
 
       // Act & Assert
-      await expect(service.login(credentials)).rejects.toThrow('Missing required fields: email');
+      await expect(service.login(credentials)).rejects.toThrow("Missing required fields: email");
       expect(mocks.mockSupabaseAuth.signInWithPassword).not.toHaveBeenCalled();
     });
 
-    it('should throw ValidationError when password is missing', async () => {
+    it("should throw ValidationError when password is missing", async () => {
       // Arrange
-      const credentials = { email: 'test@example.com' } as any;
+      const credentials = { email: "test@example.com" } as any;
 
       // Act & Assert
-      await expect(service.login(credentials)).rejects.toThrow(
-        'Missing required fields: password'
-      );
+      await expect(service.login(credentials)).rejects.toThrow("Missing required fields: password");
       expect(mocks.mockSupabaseAuth.signInWithPassword).not.toHaveBeenCalled();
     });
 
-    it('should throw ValidationError when both email and password are missing', async () => {
+    it("should throw ValidationError when both email and password are missing", async () => {
       // Arrange
       const credentials = {} as any;
 
       // Act & Assert
-      await expect(service.login(credentials)).rejects.toThrow('Missing required fields');
+      await expect(service.login(credentials)).rejects.toThrow("Missing required fields");
       expect(mocks.mockSupabaseAuth.signInWithPassword).not.toHaveBeenCalled();
     });
   });
 
-  describe('Error Handling', () => {
-    it('should handle Supabase errors gracefully', async () => {
+  describe("Error Handling", () => {
+    it("should handle Supabase errors gracefully", async () => {
       // Arrange
       const credentials = createLoginCredentials();
       mocks.mockSupabaseAuth.signInWithPassword.mockResolvedValue(
-        createAuthErrorResponse('Service unavailable')
+        createAuthErrorResponse("Service unavailable")
       );
 
       // Act & Assert
       await expect(service.login(credentials)).rejects.toThrow(AuthenticationError);
     });
 
-    it('should sanitize error messages from Supabase', async () => {
+    it("should sanitize error messages from Supabase", async () => {
       // Arrange
       const credentials = createLoginCredentials();
       mocks.mockSupabaseAuth.signInWithPassword.mockResolvedValue(
-        createAuthErrorResponse('Detailed Supabase error message')
+        createAuthErrorResponse("Detailed Supabase error message")
       );
 
       // Act & Assert
       await expect(service.login(credentials)).rejects.toThrow(AuthenticationError);
-      await expect(service.login(credentials)).rejects.toThrow('Invalid credentials');
+      await expect(service.login(credentials)).rejects.toThrow("Invalid credentials");
     });
   });
 });

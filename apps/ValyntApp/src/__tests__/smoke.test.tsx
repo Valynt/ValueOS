@@ -29,7 +29,8 @@ vi.mock("./lib/logger", () => ({
 
 describe("Application Smoke Test", () => {
   it("should be able to import App component without crashing", async () => {
-    const App = (await import("../App")).default;
+    const module = await import("../App");
+    const App = module.default || module.App;
     expect(App).toBeDefined();
   });
 

@@ -3,9 +3,9 @@
  * Manages secure token-based access for customer portal
  */
 
-import { supabase } from "../lib/supabase";
+import { supabase } from "@lib/supabase";
 import { BaseService } from "./BaseService";
-import { logger } from "../lib/logger";
+import { logger } from "@lib/logger";
 import { emailService } from "./EmailService";
 
 export interface CustomerAccessToken {

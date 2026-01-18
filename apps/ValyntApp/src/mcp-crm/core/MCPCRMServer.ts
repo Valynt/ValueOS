@@ -5,8 +5,8 @@
  * Uses tenant-level OAuth connections.
  */
 
-import { logger } from "../../lib/logger";
-import { supabase } from "../../lib/supabase";
+import { logger } from "@lib/logger";
+import { supabase } from "@lib/supabase";
 import { HubSpotModule } from "../modules/HubSpotModule";
 import { SalesforceModule } from "../modules/SalesforceModule";
 import { CRMConfigManager } from "../config/CRMConfigManager";

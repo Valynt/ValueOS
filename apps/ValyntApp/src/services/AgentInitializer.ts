@@ -9,7 +9,7 @@
 
 import { AgentAPI, AgentType } from "./AgentAPI";
 import { getConfig, isProduction } from "../config/environment";
-import { logger } from "../lib/logger";
+import { logger } from "@lib/logger";
 
 /**
  * Agent health status

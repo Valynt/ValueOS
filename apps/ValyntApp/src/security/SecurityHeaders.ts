@@ -6,7 +6,7 @@
  */
 
 import { getSecurityConfig } from "./SecurityConfig";
-import { logger } from "../lib/logger";
+import { logger } from "@lib/logger";
 
 /**
  * Generate Content Security Policy header value

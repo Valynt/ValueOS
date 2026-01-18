@@ -12,7 +12,7 @@ import type {
   SyncResult,
 } from "./IEnterpriseAdapter";
 import { RateLimiter } from "./RateLimiter";
-import { enhancedAuditLogger } from "../../lib/audit/EnhancedAuditLogger";
+import { enhancedAuditLogger } from "@lib/audit/EnhancedAuditLogger";
 import { createClient } from "@supabase/supabase-js";
 
 export abstract class EnterpriseAdapter implements IEnterpriseAdapter {

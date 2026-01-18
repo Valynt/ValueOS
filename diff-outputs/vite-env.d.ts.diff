@@ -1,0 +1,10 @@
+--- apps/ValyntApp/src/vite-env.d.ts	2026-01-15 14:01:07.534144200 +0000
++++ apps/ValyntApp/src/legacy-restored/vite-env.d.ts	2026-01-17 17:02:26.977921200 +0000
+@@ -1,7 +1 @@
+ /// <reference types="vite/client" />
+-
+-interface ImportMetaEnv {
+-  readonly VITE_SUPABASE_URL: string;
+-  readonly VITE_SUPABASE_ANON_KEY: string;
+-  readonly VITE_API_BASE_URL: string;
+-}

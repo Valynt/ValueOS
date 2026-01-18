@@ -11,7 +11,7 @@
  * 3. Origins are matched exactly (no pattern matching for security)
  */
 
-import { logger } from "../lib/logger";
+import { logger } from "@lib/logger";
 
 export interface CORSConfig {
   enabled: boolean;

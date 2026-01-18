@@ -13,7 +13,7 @@
  * - Configuration management
  */
 
-import { logger } from "../lib/logger";
+import { logger } from "@lib/logger";
 import { getConfig } from "../config/environment";
 import { getSecurityConfig, validateSecurityConfig } from "./SecurityConfig";
 import {

@@ -5,7 +5,7 @@
  * Enables evidence-based value predictions and confidence calibration.
  */
 
-import { logger } from "../lib/logger";
+import { logger } from "@lib/logger";
 import fs from "fs/promises";
 
 // ============================================================================
@@ -89,7 +89,10 @@ export class CausalTruthService {
   private kpiIndex = new Map<string, CausalRelationship[]>();
   private initialized = false;
 
-  constructor(private dataPath: string = "/home/ino/ValueOS/casual/data/causal_truth_db.json") {}
+  constructor(
+    private dataPath: string = process.env.CAUSAL_TRUTH_DB_PATH ||
+      "../../scripts/casual/data/causal_truth_db.json"
+  ) {}
 
   /**
    * Initialize the service by loading and indexing the causal truth database

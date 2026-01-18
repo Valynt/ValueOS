@@ -6,7 +6,7 @@
  */
 
 import { EventEmitter } from "events";
-import { logger } from "../../lib/logger";
+import { logger } from "@lib/logger";
 
 // ============================================================================
 // Rate Limiting Types

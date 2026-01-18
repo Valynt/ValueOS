@@ -1,0 +1,1794 @@
+diff -ruN apps/ValyntApp/src/integrations/base/EnterpriseAdapter.ts apps/ValyntApp/src/legacy-restored/integrations/base/EnterpriseAdapter.ts
+--- apps/ValyntApp/src/integrations/base/EnterpriseAdapter.ts	1970-01-01 00:00:00.000000000 +0000
++++ apps/ValyntApp/src/legacy-restored/integrations/base/EnterpriseAdapter.ts	2026-01-17 17:02:22.492523000 +0000
+@@ -0,0 +1,301 @@
++/**
++ * Base Enterprise Adapter
++ * Abstract base class providing common functionality for all adapters
++ */
++
++import type {
++  IEnterpriseAdapter,
++  AdapterConfig,
++  AdapterMetrics,
++  HealthStatus,
++  SyncOptions,
++  SyncResult,
++} from "./IEnterpriseAdapter";
++import { RateLimiter } from "./RateLimiter";
++import { enhancedAuditLogger } from "../../lib/audit/EnhancedAuditLogger";
++import { createClient } from "@supabase/supabase-js";
++
++export abstract class EnterpriseAdapter implements IEnterpriseAdapter {
++  abstract readonly adapterType: string;
++  abstract readonly displayName: string;
++
++  protected rateLimiter: RateLimiter;
++  protected config: AdapterConfig;
++  protected authenticated: boolean = false;
++  protected metrics: AdapterMetrics;
++  protected supabase: ReturnType<typeof createClient>;
++
++  constructor(config: AdapterConfig) {
++    this.config = config;
++    this.supabase = createClient(
++      process.env.NEXT_PUBLIC_SUPABASE_URL!,
++      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
++    );
++
++    this.rateLimiter = new RateLimiter({
++      adapterId: `${this.adapterType}:${config.connectionId}`,
++      maxRequests: config.rateLimits.maxRequestsPerSecond,
++      windowMs: 1000,
++      burstAllowance: config.rateLimits.burstAllowance,
++    });
++
++    this.metrics = {
++      totalSyncs: 0,
++      successfulSyncs: 0,
++      failedSyncs: 0,
++      avgSyncDuration: 0,
++      apiCallsToday: 0,
++      rateLimitUtilization: 0,
++    };
++  }
++
++  // Abstract methods that must be implemented by concrete adapters
++  abstract authenticate(): Promise<void>;
++  abstract refreshToken(): Promise<void>;
++  protected abstract performSync(
++    direction: "pull" | "push" | "bidirectional",
++    options?: SyncOptions
++  ): Promise<SyncResult>;
++
++  // CRUD operations - must be implemented
++  abstract create(entityType: string, data: any): Promise<any>;
++  abstract read(entityType: string, id: string): Promise<any>;
++  abstract update(entityType: string, id: string, data: any): Promise<any>;
++  abstract delete(entityType: string, id: string): Promise<void>;
++  abstract query(entityType: string, filters: any): Promise<any[]>;
++
++  /**
++   * Check if adapter is authenticated
++   */
++  isAuthenticated(): boolean {
++    return this.authenticated;
++  }
++
++  /**
++   * Sync with rate limiting and audit logging
++   */
++  async sync(
++    direction: "pull" | "push" | "bidirectional",
++    options?: SyncOptions
++  ): Promise<SyncResult> {
++    const startTime = Date.now();
++
++    try {
++      // Ensure authenticated
++      if (!this.authenticated) {
++        await this.authenticate();
++      }
++
++      // Rate limiting
++      await this.rateLimiter.acquire();
++
++      // Perform sync
++      const result = await this.performSync(direction, options);
++
++      // Update metrics
++      this.metrics.totalSyncs++;
++      if (result.status === "success") {
++        this.metrics.successfulSyncs++;
++      } else {
++        this.metrics.failedSyncs++;
++      }
++
++      const duration = Date.now() - startTime;
++      this.metrics.avgSyncDuration =
++        (this.metrics.avgSyncDuration * (this.metrics.totalSyncs - 1) +
++          duration) /
++        this.metrics.totalSyncs;
++
++      // Audit logging
++      await this.logAuditEvent("sync", {
++        direction,
++        status: result.status,
++        pullCount: result.pullCount,
++        pushCount: result.pushCount,
++        conflicts: result.conflicts.length,
++        duration,
++      });
++
++      // Save sync history
++      await this.saveSyncHistory(direction, result, startTime, Date.now());
++
++      return result;
++    } catch (error) {
++      this.metrics.failedSyncs++;
++
++      await this.logAuditEvent("sync_error", {
++        direction,
++        error: error instanceof Error ? error.message : "Unknown error",
++      });
++
++      throw error;
++    }
++  }
++
++  /**
++   * Batch create with rate limiting
++   */
++  async batchCreate(entityType: string, data: any[]): Promise<any[]> {
++    const results: any[] = [];
++    const batchSize = this.config.syncConfig.batchSize || 50;
++
++    for (let i = 0; i < data.length; i += batchSize) {
++      await this.rateLimiter.acquire();
++      const batch = data.slice(i, i + batchSize);
++      const batchResults = await this.performBatchCreate(entityType, batch);
++      results.push(...batchResults);
++    }
++
++    return results;
++  }
++
++  /**
++   * Batch update with rate limiting
++   */
++  async batchUpdate(
++    entityType: string,
++    updates: Array<{ id: string; data: any }>
++  ): Promise<any[]> {
++    const results: any[] = [];
++    const batchSize = this.config.syncConfig.batchSize || 50;
++
++    for (let i = 0; i < updates.length; i += batchSize) {
++      await this.rateLimiter.acquire();
++      const batch = updates.slice(i, i + batchSize);
++      const batchResults = await this.performBatchUpdate(entityType, batch);
++      results.push(...batchResults);
++    }
++
++    return results;
++  }
++
++  /**
++   * Health check
++   */
++  async healthCheck(): Promise<HealthStatus> {
++    try {
++      const rateLimitStatus = await this.rateLimiter.check();
++
++      return {
++        healthy: this.authenticated,
++        lastCheck: new Date(),
++        details: {
++          authenticated: this.authenticated,
++          rateLimitRemaining: rateLimitStatus.available,
++          lastSyncTime: await this.getLastSyncTime(),
++        },
++      };
++    } catch (error) {
++      return {
++        healthy: false,
++        lastCheck: new Date(),
++        details: {
++          authenticated: this.authenticated,
++          rateLimitRemaining: 0,
++          errors: [
++            error instanceof Error ? error.message : "Health check failed",
++          ],
++        },
++      };
++    }
++  }
++
++  /**
++   * Get adapter metrics
++   */
++  getMetrics(): AdapterMetrics {
++    return { ...this.metrics };
++  }
++
++  /**
++   * Disconnect adapter
++   */
++  async disconnect(): Promise<void> {
++    this.authenticated = false;
++  }
++
++  /**
++   * Protected helpers for concrete adapters
++   */
++  protected async performBatchCreate(
++    entityType: string,
++    data: any[]
++  ): Promise<any[]> {
++    // Default implementation: sequential creates
++    const results: any[] = [];
++    for (const item of data) {
++      results.push(await this.create(entityType, item));
++    }
++    return results;
++  }
++
++  protected async performBatchUpdate(
++    entityType: string,
++    updates: Array<{ id: string; data: any }>
++  ): Promise<any[]> {
++    // Default implementation: sequential updates
++    const results: any[] = [];
++    for (const update of updates) {
++      results.push(await this.update(entityType, update.id, update.data));
++    }
++    return results;
++  }
++
++  protected async logAuditEvent(action: string, metadata: any): Promise<void> {
++    await enhancedAuditLogger.logEvent({
++      category: "integration",
++      action: `${this.adapterType}_${action}`,
++      actor: {
++        id: this.config.connectionId,
++        role: "integration_adapter",
++        organizationId: this.config.organizationId,
++        auditToken: "",
++      },
++      resource: {
++        type: "integration",
++        id: this.config.connectionId,
++      },
++      result: "success",
++      severity: "info",
++      metadata,
++    });
++  }
++
++  protected async saveSyncHistory(
++    direction: string,
++    result: SyncResult,
++    startTime: number,
++    endTime: number
++  ): Promise<void> {
++    await this.supabase.from("sync_history").insert({
++      connection_id: this.config.connectionId,
++      sync_direction: direction,
++      started_at: new Date(startTime).toISOString(),
++      completed_at: new Date(endTime).toISOString(),
++      records_processed: result.pullCount + result.pushCount,
++      records_created: result.pullCount,
++      records_updated: result.pushCount,
++      records_failed: result.errors.length,
++      status: result.status,
++      metadata: {
++        conflicts: result.conflicts.length,
++        errors: result.errors,
++      },
++    });
++  }
++
++  protected async getLastSyncTime(): Promise<Date | undefined> {
++    const { data } = await this.supabase
++      .from("sync_history")
++      .select("completed_at")
++      .eq("connection_id", this.config.connectionId)
++      .eq("status", "completed")
++      .order("completed_at", { ascending: false })
++      .limit(1)
++      .single();
++
++    return data ? new Date(data.completed_at) : undefined;
++  }
++}
++
++export default EnterpriseAdapter;
+diff -ruN apps/ValyntApp/src/integrations/base/IEnterpriseAdapter.ts apps/ValyntApp/src/legacy-restored/integrations/base/IEnterpriseAdapter.ts
+--- apps/ValyntApp/src/integrations/base/IEnterpriseAdapter.ts	1970-01-01 00:00:00.000000000 +0000
++++ apps/ValyntApp/src/legacy-restored/integrations/base/IEnterpriseAdapter.ts	2026-01-17 17:02:22.499447000 +0000
+@@ -0,0 +1,164 @@
++/**
++ * Enterprise Adapter Interface
++ * Base interface that all enterprise integrations must implement
++ */
++
++export interface SyncOptions {
++  lastSyncTime?: Date;
++  changes?: any[];
++  batchSize?: number;
++  dryRun?: boolean;
++}
++
++export interface SyncResult {
++  status: "success" | "partial" | "failed";
++  pullCount: number;
++  pushCount: number;
++  conflicts: Conflict[];
++  errors: SyncError[];
++  metadata?: Record<string, any>;
++}
++
++export interface Conflict {
++  id: string;
++  localVersion: any;
++  remoteVersion: any;
++  timestamp: Date;
++  resolvedBy?: "local" | "remote" | "manual";
++}
++
++export interface SyncError {
++  entityId: string;
++  operation: "create" | "update" | "delete";
++  error: string;
++  retryable: boolean;
++}
++
++export interface WebhookHandler {
++  (event: WebhookEvent): Promise<void>;
++}
++
++export interface WebhookEvent {
++  type: string;
++  timestamp: Date;
++  payload: any;
++}
++
++export interface HealthStatus {
++  healthy: boolean;
++  lastCheck: Date;
++  details: {
++    authenticated: boolean;
++    rateLimitRemaining: number;
++    lastSyncTime?: Date;
++    errors?: string[];
++  };
++}
++
++export interface AdapterMetrics {
++  totalSyncs: number;
++  successfulSyncs: number;
++  failedSyncs: number;
++  avgSyncDuration: number;
++  apiCallsToday: number;
++  rateLimitUtilization: number;
++}
++
++/**
++ * Base interface for all enterprise adapters
++ */
++export interface IEnterpriseAdapter {
++  // Adapter metadata
++  readonly adapterType: string;
++  readonly displayName: string;
++
++  // Authentication
++  authenticate(): Promise<void>;
++  refreshToken(): Promise<void>;
++  isAuthenticated(): boolean;
++
++  // Sync operations
++  sync(
++    direction: "pull" | "push" | "bidirectional",
++    options?: SyncOptions
++  ): Promise<SyncResult>;
++
++  // CRUD operations
++  create(entityType: string, data: any): Promise<any>;
++  read(entityType: string, id: string): Promise<any>;
++  update(entityType: string, id: string, data: any): Promise<any>;
++  delete(entityType: string, id: string): Promise<void>;
++
++  // Batch operations
++  batchCreate(entityType: string, data: any[]): Promise<any[]>;
++  batchUpdate(
++    entityType: string,
++    updates: Array<{ id: string; data: any }>
++  ): Promise<any[]>;
++
++  // Query operations
++  query(entityType: string, filters: any): Promise<any[]>;
++
++  // Real-time updates (optional)
++  subscribeToWebhooks?(callback: WebhookHandler): Promise<void>;
++  unsubscribeFromWebhooks?(): Promise<void>;
++
++  // Health & monitoring
++  healthCheck(): Promise<HealthStatus>;
++  getMetrics(): AdapterMetrics;
++
++  // Lifecycle
++  disconnect(): Promise<void>;
++}
++
++/**
++ * Configuration for adapter connections
++ */
++export interface AdapterConfig {
++  // Connection details
++  connectionId: string;
++  organizationId: string;
++
++  // Authentication credentials (encrypted in storage)
++  credentials: {
++    type: "oauth" | "api_key" | "basic";
++    accessToken?: string;
++    refreshToken?: string;
++    apiKey?: string;
++    username?: string;
++    password?: string;
++    expiresAt?: Date;
++  };
++
++  // Sync configuration
++  syncConfig: {
++    enabled: boolean;
++    direction: "pull" | "push" | "bidirectional";
++    schedule: string; // Cron expression
++    batchSize: number;
++    conflictResolution: "local_wins" | "remote_wins" | "manual";
++  };
++
++  // Field mappings
++  fieldMappings: Record<string, FieldMapping>;
++
++  // Rate limiting
++  rateLimits: {
++    maxRequestsPerSecond: number;
++    maxRequestsPerDay: number;
++    burstAllowance: number;
++  };
++
++  // Metadata
++  metadata?: Record<string, any>;
++}
++
++export interface FieldMapping {
++  sourceField: string;
++  targetField: string;
++  transformer?: (value: any) => any;
++  required: boolean;
++  defaultValue?: any;
++}
++
++export default IEnterpriseAdapter;
+diff -ruN apps/ValyntApp/src/integrations/base/RateLimiter.ts apps/ValyntApp/src/legacy-restored/integrations/base/RateLimiter.ts
+--- apps/ValyntApp/src/integrations/base/RateLimiter.ts	1970-01-01 00:00:00.000000000 +0000
++++ apps/ValyntApp/src/legacy-restored/integrations/base/RateLimiter.ts	2026-01-17 17:02:22.506657100 +0000
+@@ -0,0 +1,180 @@
++/**
++ * Rate Limiter
++ * Token bucket algorithm for API rate limiting
++ */
++
++import { createClient } from "@supabase/supabase-js";
++
++export class RateLimitError extends Error {
++  constructor(
++    message: string,
++    public retryAfter: number
++  ) {
++    super(message);
++    this.name = "RateLimitError";
++  }
++}
++
++export interface RateLimiterConfig {
++  adapterId: string;
++  maxRequests: number;
++  windowMs: number;
++  burstAllowance?: number;
++}
++
++export class RateLimiter {
++  private supabase: ReturnType<typeof createClient>;
++
++  constructor(
++    private config: RateLimiterConfig,
++    supabase?: ReturnType<typeof createClient>
++  ) {
++    this.supabase =
++      supabase ||
++      createClient(
++        process.env.NEXT_PUBLIC_SUPABASE_URL!,
++        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
++      );
++  }
++
++  /**
++   * Acquire tokens from the rate limit bucket
++   */
++  async acquire(tokens: number = 1): Promise<void> {
++    const key = `rate_limit:${this.config.adapterId}`;
++    const now = Date.now();
++
++    // Get current bucket state
++    const bucketState = await this.getBucketState(key);
++
++    // Refill tokens based on elapsed time
++    const elapsedMs = now - bucketState.lastRefill;
++    const refillRate = this.config.maxRequests / this.config.windowMs;
++    const tokensToAdd = Math.floor(elapsedMs * refillRate);
++
++    const maxTokens = this.config.burstAllowance || this.config.maxRequests;
++    const currentTokens = Math.min(bucketState.tokens + tokensToAdd, maxTokens);
++
++    // Check if we have enough tokens
++    if (currentTokens >= tokens) {
++      // Consume tokens
++      await this.updateBucketState(key, {
++        tokens: currentTokens - tokens,
++        lastRefill: now,
++      });
++    } else {
++      // Calculate wait time
++      const tokensNeeded = tokens - currentTokens;
++      const waitTimeMs = Math.ceil(tokensNeeded / refillRate);
++
++      throw new RateLimitError(
++        `Rate limit exceeded for ${this.config.adapterId}. Retry after ${waitTimeMs}ms`,
++        waitTimeMs
++      );
++    }
++  }
++
++  /**
++   * Check remaining capacity without consuming tokens
++   */
++  async check(): Promise<{ available: number; max: number }> {
++    const key = `rate_limit:${this.config.adapterId}`;
++    const now = Date.now();
++    const bucketState = await this.getBucketState(key);
++
++    const elapsedMs = now - bucketState.lastRefill;
++    const refillRate = this.config.maxRequests / this.config.windowMs;
++    const tokensToAdd = Math.floor(elapsedMs * refillRate);
++
++    const maxTokens = this.config.burstAllowance || this.config.maxRequests;
++    const available = Math.min(bucketState.tokens + tokensToAdd, maxTokens);
++
++    return { available, max: maxTokens };
++  }
++
++  /**
++   * Reset the rate limit bucket (for testing)
++   */
++  async reset(): Promise<void> {
++    const key = `rate_limit:${this.config.adapterId}`;
++    const maxTokens = this.config.burstAllowance || this.config.maxRequests;
++
++    await this.updateBucketState(key, {
++      tokens: maxTokens,
++      lastRefill: Date.now(),
++    });
++  }
++
++  /**
++   * Get bucket state from storage
++   */
++  private async getBucketState(
++    key: string
++  ): Promise<{ tokens: number; lastRefill: number }> {
++    const { data, error } = await this.supabase
++      .from("rate_limit_buckets")
++      .select("tokens, last_refill")
++      .eq("key", key)
++      .single();
++
++    if (error || !data) {
++      // Initialize bucket
++      const maxTokens = this.config.burstAllowance || this.config.maxRequests;
++      const newState = {
++        key,
++        tokens: maxTokens,
++        last_refill: Date.now(),
++      };
++
++      await this.supabase.from("rate_limit_buckets").upsert(newState);
++
++      return { tokens: maxTokens, lastRefill: Date.now() };
++    }
++
++    return {
++      tokens: data.tokens,
++      lastRefill: new Date(data.last_refill).getTime(),
++    };
++  }
++
++  /**
++   * Update bucket state in storage
++   */
++  private async updateBucketState(
++    key: string,
++    state: { tokens: number; lastRefill: number }
++  ): Promise<void> {
++    await this.supabase.from("rate_limit_buckets").upsert({
++      key,
++      tokens: state.tokens,
++      last_refill: new Date(state.lastRefill).toISOString(),
++    });
++  }
++}
++
++/**
++ * In-memory rate limiter for development/testing
++ */
++export class InMemoryRateLimiter extends RateLimiter {
++  private buckets = new Map<string, { tokens: number; lastRefill: number }>();
++
++  protected async getBucketState(key: string) {
++    if (!this.buckets.has(key)) {
++      const maxTokens = this.config.burstAllowance || this.config.maxRequests;
++      this.buckets.set(key, {
++        tokens: maxTokens,
++        lastRefill: Date.now(),
++      });
++    }
++    return this.buckets.get(key)!;
++  }
++
++  protected async updateBucketState(
++    key: string,
++    state: { tokens: number; lastRefill: number }
++  ) {
++    this.buckets.set(key, state);
++  }
++}
++
++export default RateLimiter;
+diff -ruN apps/ValyntApp/src/integrations/hooks/useIntegrations.ts apps/ValyntApp/src/legacy-restored/integrations/hooks/useIntegrations.ts
+--- apps/ValyntApp/src/integrations/hooks/useIntegrations.ts	2026-01-15 15:24:59.343535300 +0000
++++ apps/ValyntApp/src/legacy-restored/integrations/hooks/useIntegrations.ts	1970-01-01 00:00:00.000000000 +0000
+@@ -1,63 +0,0 @@
+-import { useState, useCallback } from "react";
+-import type { Integration, IntegrationProvider } from "../types";
+-import { PROVIDERS } from "../types";
+-
+-export function useIntegrations() {
+-  const [integrations, setIntegrations] = useState<Integration[]>([]);
+-  const [isLoading, setIsLoading] = useState(false);
+-  const [error, setError] = useState<string | null>(null);
+-
+-  const fetchIntegrations = useCallback(async () => {
+-    setIsLoading(true);
+-    try {
+-      // TODO: Implement actual API call
+-      setIntegrations([]);
+-    } catch (err) {
+-      setError(err instanceof Error ? err.message : "Failed to fetch integrations");
+-    } finally {
+-      setIsLoading(false);
+-    }
+-  }, []);
+-
+-  const connect = useCallback(async (providerId: string) => {
+-    try {
+-      // TODO: Implement OAuth flow or API key setup
+-      const provider = PROVIDERS.find((p) => p.id === providerId);
+-      if (!provider) throw new Error("Unknown provider");
+-
+-      // Redirect to OAuth or show config modal
+-      console.log("Connect to", providerId);
+-    } catch (err) {
+-      setError(err instanceof Error ? err.message : "Failed to connect");
+-    }
+-  }, []);
+-
+-  const disconnect = useCallback(async (integrationId: string) => {
+-    try {
+-      // TODO: Implement actual API call
+-      setIntegrations((prev) => prev.filter((i) => i.id !== integrationId));
+-    } catch (err) {
+-      setError(err instanceof Error ? err.message : "Failed to disconnect");
+-    }
+-  }, []);
+-
+-  const sync = useCallback(async (integrationId: string) => {
+-    try {
+-      // TODO: Implement actual sync
+-      console.log("Sync", integrationId);
+-    } catch (err) {
+-      setError(err instanceof Error ? err.message : "Failed to sync");
+-    }
+-  }, []);
+-
+-  return {
+-    integrations,
+-    providers: PROVIDERS,
+-    isLoading,
+-    error,
+-    fetchIntegrations,
+-    connect,
+-    disconnect,
+-    sync,
+-  };
+-}
+diff -ruN apps/ValyntApp/src/integrations/hubspot/HubSpotAdapter.ts apps/ValyntApp/src/legacy-restored/integrations/hubspot/HubSpotAdapter.ts
+--- apps/ValyntApp/src/integrations/hubspot/HubSpotAdapter.ts	1970-01-01 00:00:00.000000000 +0000
++++ apps/ValyntApp/src/legacy-restored/integrations/hubspot/HubSpotAdapter.ts	2026-01-17 17:02:22.518879000 +0000
+@@ -0,0 +1,115 @@
++/**
++ * HubSpot Adapter
++ * Integration with HubSpot CRM - Deal sync
++ */
++
++import { EnterpriseAdapter } from "../base/EnterpriseAdapter";
++import type {
++  AdapterConfig,
++  SyncOptions,
++  SyncResult,
++} from "../base/IEnterpriseAdapter";
++import axios, { AxiosInstance } from "axios";
++
++export class HubSpotAdapter extends EnterpriseAdapter {
++  readonly adapterType = "hubspot";
++  readonly displayName = "HubSpot CRM";
++
++  private client: AxiosInstance;
++
++  constructor(config: AdapterConfig) {
++    super(config);
++
++    this.client = axios.create({
++      baseURL: "https://api.hubapi.com",
++      headers: {
++        Authorization: `Bearer ${config.credentials.apiKey}`,
++        "Content-Type": "application/json",
++      },
++    });
++  }
++
++  async authenticate(): Promise<void> {
++    this.authenticated = true; // Private app token doesn't expire
++  }
++
++  async refreshToken(): Promise<void> {
++    // No refresh needed for private app tokens
++  }
++
++  protected async performSync(
++    direction: string,
++    options?: SyncOptions
++  ): Promise<SyncResult> {
++    const result: SyncResult = {
++      status: "success",
++      pullCount: 0,
++      pushCount: 0,
++      conflicts: [],
++      errors: [],
++    };
++
++    if (direction === "pull" || direction === "bidirectional") {
++      await this.rateLimiter.acquire();
++      const response = await this.client.get("/crm/v3/objects/deals", {
++        params: {
++          properties: "dealname,amount,probability,dealstage,closedate",
++          limit: 100,
++        },
++      });
++      result.pullCount = response.data.results.length;
++    }
++
++    return result;
++  }
++
++  async create(entityType: string, data: any): Promise<any> {
++    await this.rateLimiter.acquire();
++    const response = await this.client.post(`/crm/v3/objects/${entityType}`, {
++      properties: data,
++    });
++    return response.data;
++  }
++
++  async read(entityType: string, id: string): Promise<any> {
++    await this.rateLimiter.acquire();
++    const response = await this.client.get(
++      `/crm/v3/objects/${entityType}/${id}`
++    );
++    return response.data;
++  }
++
++  async update(entityType: string, id: string, data: any): Promise<any> {
++    await this.rateLimiter.acquire();
++    await this.client.patch(`/crm/v3/objects/${entityType}/${id}`, {
++      properties: data,
++    });
++    return { id, ...data };
++  }
++
++  async delete(entityType: string, id: string): Promise<void> {
++    await this.rateLimiter.acquire();
++    await this.client.delete(`/crm/v3/objects/${entityType}/${id}`);
++  }
++
++  async query(entityType: string, filters: any): Promise<any[]> {
++    await this.rateLimiter.acquire();
++    const response = await this.client.post(
++      `/crm/v3/objects/${entityType}/search`,
++      {
++        filterGroups: [
++          {
++            filters: Object.entries(filters).map(([property, value]) => ({
++              propertyName: property,
++              operator: "EQ",
++              value,
++            })),
++          },
++        ],
++      }
++    );
++    return response.data.results;
++  }
++}
++
++export default HubSpotAdapter;
+diff -ruN apps/ValyntApp/src/integrations/index.ts apps/ValyntApp/src/legacy-restored/integrations/index.ts
+--- apps/ValyntApp/src/integrations/index.ts	2026-01-15 15:24:59.861011900 +0000
++++ apps/ValyntApp/src/legacy-restored/integrations/index.ts	2026-01-17 17:02:22.523813100 +0000
+@@ -1,2 +1,22 @@
+-export * from "./types";
+-export { useIntegrations } from "./hooks/useIntegrations";
++/**
++ * Integration Index
++ * Exports all enterprise adapters
++ */
++
++export { IEnterpriseAdapter } from "./base/IEnterpriseAdapter";
++export { EnterpriseAdapter } from "./base/EnterpriseAdapter";
++export { RateLimiter, RateLimitError } from "./base/RateLimiter";
++
++export { SalesforceAdapter } from "./salesforce/SalesforceAdapter";
++export { HubSpotAdapter } from "./hubspot/HubSpotAdapter";
++export { ServiceNowAdapter } from "./servicenow/ServiceNowAdapter";
++export { SlackAdapter } from "./slack/SlackAdapter";
++export { SharePointAdapter } from "./sharepoint/SharePointAdapter";
++
++export type {
++  AdapterConfig,
++  SyncOptions,
++  SyncResult,
++  HealthStatus,
++  AdapterMetrics,
++} from "./base/IEnterpriseAdapter";
+diff -ruN apps/ValyntApp/src/integrations/salesforce/SalesforceAdapter.ts apps/ValyntApp/src/legacy-restored/integrations/salesforce/SalesforceAdapter.ts
+--- apps/ValyntApp/src/integrations/salesforce/SalesforceAdapter.ts	1970-01-01 00:00:00.000000000 +0000
++++ apps/ValyntApp/src/legacy-restored/integrations/salesforce/SalesforceAdapter.ts	2026-01-17 17:02:22.532474400 +0000
+@@ -0,0 +1,398 @@
++/**
++ * Salesforce Adapter
++ * Bi-directional integration with Salesforce CRM
++ * Maps Opportunities ↔ ValueOS Opportunities
++ */
++
++import { EnterpriseAdapter } from "../base/EnterpriseAdapter";
++import type {
++  AdapterConfig,
++  SyncOptions,
++  SyncResult,
++  Conflict,
++  SyncError,
++} from "../base/IEnterpriseAdapter";
++import axios, { AxiosInstance } from "axios";
++
++export interface SalesforceOpportunity {
++  Id: string;
++  Name: string;
++  Amount: number;
++  Probability: number;
++  StageName: string;
++  CloseDate: string;
++  AccountId: string;
++  Account?: {
++    Name: string;
++  };
++  LastModifiedDate: string;
++  // Custom fields
++  ValueHypothesisId__c?: string;
++  ValueScore__c?: number;
++}
++
++export interface SalesforceCredentials {
++  accessToken: string;
++  refreshToken: string;
++  instanceUrl: string;
++  expiresAt: Date;
++}
++
++export class SalesforceAdapter extends EnterpriseAdapter {
++  readonly adapterType = "salesforce";
++  readonly displayName = "Salesforce CRM";
++
++  private client: AxiosInstance;
++  private apiVersion = "v59.0";
++
++  constructor(config: AdapterConfig) {
++    super(config);
++
++    const creds = config.credentials as unknown as SalesforceCredentials;
++    this.client = axios.create({
++      baseURL: `${creds.instanceUrl}/services/data/${this.apiVersion}`,
++      headers: {
++        Authorization: `Bearer ${creds.accessToken}`,
++        "Content-Type": "application/json",
++      },
++    });
++  }
++
++  /**
++   * Authenticate with Salesforce OAuth 2.0
++   */
++  async authenticate(): Promise<void> {
++    const creds = this.config.credentials as unknown as SalesforceCredentials;
++
++    // Check if token is expired
++    if (creds.expiresAt && new Date(creds.expiresAt) > new Date()) {
++      this.authenticated = true;
++      return;
++    }
++
++    // Refresh token
++    await this.refreshToken();
++  }
++
++  /**
++   * Refresh OAuth token
++   */
++  async refreshToken(): Promise<void> {
++    const creds = this.config.credentials as unknown as SalesforceCredentials;
++
++    try {
++      const response = await axios.post(
++        `${creds.instanceUrl}/services/oauth2/token`,
++        new URLSearchParams({
++          grant_type: "refresh_token",
++          refresh_token: creds.refreshToken,
++          client_id: process.env.SALESFORCE_CLIENT_ID!,
++          client_secret: process.env.SALESFORCE_CLIENT_SECRET!,
++        }),
++        {
++          headers: {
++            "Content-Type": "application/x-www-form-urlencoded",
++          },
++        }
++      );
++
++      const { access_token, instance_url } = response.data;
++
++      // Update credentials
++      creds.accessToken = access_token;
++      creds.instanceUrl = instance_url;
++      creds.expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
++
++      // Update client headers
++      this.client.defaults.baseURL = `${instance_url}/services/data/${this.apiVersion}`;
++      this.client.defaults.headers.common["Authorization"] =
++        `Bearer ${access_token}`;
++
++      // Save updated credentials
++      await this.updateCredentials(creds);
++
++      this.authenticated = true;
++    } catch (error) {
++      this.authenticated = false;
++      throw new Error(`Failed to refresh Salesforce token: ${error}`);
++    }
++  }
++
++  /**
++   * Perform bi-directional sync
++   */
++  protected async performSync(
++    direction: "pull" | "push" | "bidirectional",
++    options?: SyncOptions
++  ): Promise<SyncResult> {
++    const result: SyncResult = {
++      status: "success",
++      pullCount: 0,
++      pushCount: 0,
++      conflicts: [],
++      errors: [],
++    };
++
++    try {
++      if (direction === "pull" || direction === "bidirectional") {
++        const pullResult = await this.pullOpportunities(options);
++        result.pullCount = pullResult.count;
++        result.errors.push(...pullResult.errors);
++      }
++
++      if (direction === "push" || direction === "bidirectional") {
++        const pushResult = await this.pushValueHypotheses(options);
++        result.pushCount = pushResult.count;
++        result.errors.push(...pushResult.errors);
++        result.conflicts.push(...pushResult.conflicts);
++      }
++
++      if (result.errors.length > 0) {
++        result.status = "partial";
++      }
++    } catch (error) {
++      result.status = "failed";
++      result.errors.push({
++        entityId: "sync",
++        operation: "update",
++        error: error instanceof Error ? error.message : "Sync failed",
++        retryable: true,
++      });
++    }
++
++    return result;
++  }
++
++  /**
++   * Pull opportunities from Salesforce
++   */
++  private async pullOpportunities(options?: SyncOptions): Promise<{
++    count: number;
++    errors: SyncError[];
++  }> {
++    const lastSyncTime =
++      options?.lastSyncTime || (await this.getLastSyncTime());
++    const errors: SyncError[] = [];
++
++    // Build SOQL query
++    let query = `
++      SELECT Id, Name, Amount, Probability, StageName, CloseDate, 
++             AccountId, Account.Name, LastModifiedDate,
++             ValueHypothesisId__c, ValueScore__c
++      FROM Opportunity
++      WHERE IsDeleted = false
++    `;
++
++    if (lastSyncTime) {
++      const isoDate = lastSyncTime.toISOString();
++      query += ` AND LastModifiedDate > ${isoDate}`;
++    }
++
++    query += " ORDER BY LastModifiedDate ASC LIMIT 2000"; // Salesforce query limit
++
++    try {
++      await this.rateLimiter.acquire();
++      const response = await this.client.get("/query/", {
++        params: { q: query },
++      });
++
++      const opportunities: SalesforceOpportunity[] = response.data.records;
++
++      // Transform and upsert to ValueOS
++      for (const opp of opportunities) {
++        try {
++          await this.upsertOpportunity(opp);
++        } catch (error) {
++          errors.push({
++            entityId: opp.Id,
++            operation: "update",
++            error: error instanceof Error ? error.message : "Failed to upsert",
++            retryable: true,
++          });
++        }
++      }
++
++      return {
++        count: opportunities.length - errors.length,
++        errors,
++      };
++    } catch (error) {
++      throw new Error(`Failed to pull opportunities: ${error}`);
++    }
++  }
++
++  /**
++   * Push value hypotheses to Salesforce
++   */
++  private async pushValueHypotheses(options?: SyncOptions): Promise<{
++    count: number;
++    errors: SyncError[];
++    conflicts: Conflict[];
++  }> {
++    const localChanges = options?.changes || (await this.getLocalChanges());
++    const errors: SyncError[] = [];
++    const conflicts: Conflict[] = [];
++
++    for (const change of localChanges) {
++      try {
++        // Check for conflicts
++        const remote = await this.read("Opportunity", change.salesforce_id);
++        const conflict = this.detectConflict(change, remote);
++
++        if (conflict) {
++          conflicts.push(conflict);
++
++          // Resolve based on config
++          if (this.config.syncConfig.conflictResolution === "local_wins") {
++            await this.update("Opportunity", change.salesforce_id, change);
++          } else if (this.config.syncConfig.conflictResolution === "manual") {
++            continue; // Skip, requires manual resolution
++          }
++          // 'remote_wins' - do nothing
++        } else {
++          await this.update("Opportunity", change.salesforce_id, change);
++        }
++      } catch (error) {
++        errors.push({
++          entityId: change.id,
++          operation: "update",
++          error: error instanceof Error ? error.message : "Push failed",
++          retryable: true,
++        });
++      }
++    }
++
++    return {
++      count: localChanges.length - errors.length - conflicts.length,
++      errors,
++      conflicts,
++    };
++  }
++
++  /**
++   * Create Opportunity in Salesforce
++   */
++  async create(entityType: string, data: any): Promise<any> {
++    await this.rateLimiter.acquire();
++
++    const response = await this.client.post(`/sobjects/${entityType}/`, data);
++    return response.data;
++  }
++
++  /**
++   * Read Opportunity from Salesforce
++   */
++  async read(entityType: string, id: string): Promise<any> {
++    await this.rateLimiter.acquire();
++
++    const response = await this.client.get(`/sobjects/${entityType}/${id}`);
++    return response.data;
++  }
++
++  /**
++   * Update Opportunity in Salesforce
++   */
++  async update(entityType: string, id: string, data: any): Promise<any> {
++    await this.rateLimiter.acquire();
++
++    await this.client.patch(`/sobjects/${entityType}/${id}`, data);
++    return { id, ...data };
++  }
++
++  /**
++   * Delete Opportunity in Salesforce
++   */
++  async delete(entityType: string, id: string): Promise<void> {
++    await this.rateLimiter.acquire();
++
++    await this.client.delete(`/sobjects/${entityType}/${id}`);
++  }
++
++  /**
++   * Query opportunities with SOQL
++   */
++  async query(entityType: string, filters: any): Promise<any[]> {
++    await this.rateLimiter.acquire();
++
++    const query = this.buildSOQL(entityType, filters);
++    const response = await this.client.get("/query/", {
++      params: { q: query },
++    });
++
++    return response.data.records;
++  }
++
++  /**
++   * Transform Salesforce Opportunity to ValueOS format
++   */
++  private async upsertOpportunity(sfOpp: SalesforceOpportunity): Promise<void> {
++    const opportunity = {
++      salesforce_id: sfOpp.Id,
++      name: sfOpp.Name,
++      value: sfOpp.Amount || 0,
++      confidence: sfOpp.Probability || 0,
++      stage: sfOpp.StageName,
++      target_date: sfOpp.CloseDate,
++      account_name: sfOpp.Account?.Name,
++      value_hypothesis_id: sfOpp.ValueHypothesisId__c,
++      last_modified: new Date(sfOpp.LastModifiedDate),
++      source: "salesforce",
++    };
++
++    await this.supabase.from("opportunities").upsert(opportunity, {
++      onConflict: "salesforce_id",
++    });
++  }
++
++  /**
++   * Helper methods
++   */
++  private async updateCredentials(creds: SalesforceCredentials): Promise<void> {
++    await this.supabase
++      .from("integration_connections")
++      .update({ credentials: creds as any })
++      .eq("id", this.config.connectionId);
++  }
++
++  private async getLocalChanges(): Promise<any[]> {
++    const lastSync = await this.getLastSyncTime();
++
++    const { data } = await this.supabase
++      .from("value_hypotheses")
++      .select("*")
++      .gte("updated_at", lastSync?.toISOString() || new Date(0).toISOString())
++      .not("salesforce_id", "is", null);
++
++    return data || [];
++  }
++
++  private detectConflict(local: any, remote: any): Conflict | null {
++    const localTime = new Date(local.updated_at);
++    const remoteTime = new Date(remote.LastModifiedDate);
++
++    // Conflict if both changed since last sync
++    if (Math.abs(localTime.getTime() - remoteTime.getTime()) < 1000) {
++      return {
++        id: local.id,
++        localVersion: local,
++        remoteVersion: remote,
++        timestamp: new Date(),
++      };
++    }
++
++    return null;
++  }
++
++  private buildSOQL(entityType: string, filters: any): string {
++    let query = `SELECT Id, Name FROM ${entityType} WHERE `;
++
++    const conditions = Object.entries(filters).map(
++      ([key, value]) => `${key} = '${value}'`
++    );
++
++    query += conditions.join(" AND ");
++    return query;
++  }
++}
++
++export default SalesforceAdapter;
+diff -ruN apps/ValyntApp/src/integrations/servicenow/ServiceNowAdapter.ts apps/ValyntApp/src/legacy-restored/integrations/servicenow/ServiceNowAdapter.ts
+--- apps/ValyntApp/src/integrations/servicenow/ServiceNowAdapter.ts	1970-01-01 00:00:00.000000000 +0000
++++ apps/ValyntApp/src/legacy-restored/integrations/servicenow/ServiceNowAdapter.ts	2026-01-17 17:02:22.541212700 +0000
+@@ -0,0 +1,110 @@
++/**
++ * ServiceNow Adapter
++ * Integration with ServiceNow ITSM - Change Request tracking
++ */
++
++import { EnterpriseAdapter } from "../base/EnterpriseAdapter";
++import type {
++  AdapterConfig,
++  SyncOptions,
++  SyncResult,
++} from "../base/IEnterpriseAdapter";
++import axios, { AxiosInstance } from "axios";
++
++export class ServiceNowAdapter extends EnterpriseAdapter {
++  readonly adapterType = "servicenow";
++  readonly displayName = "ServiceNow ITSM";
++
++  private client: AxiosInstance;
++
++  constructor(config: AdapterConfig) {
++    super(config);
++
++    const instanceUrl = config.credentials.username; // Stored in username field for simplicity
++
++    this.client = axios.create({
++      baseURL: `${instanceUrl}/api/now`,
++      auth: {
++        username: config.credentials.username!,
++        password: config.credentials.password!,
++      },
++      headers: {
++        "Content-Type": "application/json",
++        Accept: "application/json",
++      },
++    });
++  }
++
++  async authenticate(): Promise<void> {
++    this.authenticated = true; // Basic auth doesn't require separate auth step
++  }
++
++  async refreshToken(): Promise<void> {
++    // No refresh needed for basic auth
++  }
++
++  protected async performSync(
++    direction: string,
++    options?: SyncOptions
++  ): Promise<SyncResult> {
++    const result: SyncResult = {
++      status: "success",
++      pullCount: 0,
++      pushCount: 0,
++      conflicts: [],
++      errors: [],
++    };
++
++    if (direction === "pull" || direction === "bidirectional") {
++      await this.rateLimiter.acquire();
++      const response = await this.client.get("/table/change_request", {
++        params: {
++          sysparm_query: "state!=closed",
++          sysparm_limit: 100,
++        },
++      });
++      result.pullCount = response.data.result.length;
++    }
++
++    return result;
++  }
++
++  async create(entityType: string, data: any): Promise<any> {
++    await this.rateLimiter.acquire();
++    const response = await this.client.post(`/table/${entityType}`, data);
++    return response.data.result;
++  }
++
++  async read(entityType: string, id: string): Promise<any> {
++    await this.rateLimiter.acquire();
++    const response = await this.client.get(`/table/${entityType}/${id}`);
++    return response.data.result;
++  }
++
++  async update(entityType: string, id: string, data: any): Promise<any> {
++    await this.rateLimiter.acquire();
++    const response = await this.client.put(`/table/${entityType}/${id}`, data);
++    return response.data.result;
++  }
++
++  async delete(entityType: string, id: string): Promise<void> {
++    await this.rateLimiter.acquire();
++    await this.client.delete(`/table/${entityType}/${id}`);
++  }
++
++  async query(entityType: string, filters: any): Promise<any[]> {
++    await this.rateLimiter.acquire();
++
++    const query = Object.entries(filters)
++      .map(([key, value]) => `${key}=${value}`)
++      .join("^");
++
++    const response = await this.client.get(`/table/${entityType}`, {
++      params: { sysparm_query: query },
++    });
++
++    return response.data.result;
++  }
++}
++
++export default ServiceNowAdapter;
+diff -ruN apps/ValyntApp/src/integrations/sharepoint/SharePointAdapter.ts apps/ValyntApp/src/legacy-restored/integrations/sharepoint/SharePointAdapter.ts
+--- apps/ValyntApp/src/integrations/sharepoint/SharePointAdapter.ts	1970-01-01 00:00:00.000000000 +0000
++++ apps/ValyntApp/src/legacy-restored/integrations/sharepoint/SharePointAdapter.ts	2026-01-17 17:02:22.547972100 +0000
+@@ -0,0 +1,135 @@
++/**
++ * SharePoint Adapter
++ * Document storage integration with Microsoft SharePoint
++ */
++
++import { EnterpriseAdapter } from "../base/EnterpriseAdapter";
++import type {
++  AdapterConfig,
++  SyncOptions,
++  SyncResult,
++} from "../base/IEnterpriseAdapter";
++import axios, { AxiosInstance } from "axios";
++
++export class SharePointAdapter extends EnterpriseAdapter {
++  readonly adapterType = "sharepoint";
++  readonly displayName = "SharePoint";
++
++  private client: AxiosInstance;
++  private siteId: string;
++
++  constructor(config: AdapterConfig) {
++    super(config);
++
++    this.siteId = config.metadata?.siteId || "";
++
++    this.client = axios.create({
++      baseURL: "https://graph.microsoft.com/v1.0",
++      headers: {
++        Authorization: `Bearer ${config.credentials.accessToken}`,
++        "Content-Type": "application/json",
++      },
++    });
++  }
++
++  async authenticate(): Promise<void> {
++    this.authenticated = true;
++  }
++
++  async refreshToken(): Promise<void> {
++    // OAuth refresh logic would go here
++  }
++
++  protected async performSync(
++    direction: string,
++    options?: SyncOptions
++  ): Promise<SyncResult> {
++    return {
++      status: "success",
++      pullCount: 0,
++      pushCount: 0,
++      conflicts: [],
++      errors: [],
++    };
++  }
++
++  /**
++   * Upload file
++   */
++  async create(
++    entityType: string,
++    data: { name: string; content: Buffer; folder?: string }
++  ): Promise<any> {
++    await this.rateLimiter.acquire();
++
++    const path = data.folder ? `${data.folder}/${data.name}` : data.name;
++
++    const response = await this.client.put(
++      `/sites/${this.siteId}/drive/root:/${path}:/content`,
++      data.content,
++      {
++        headers: {
++          "Content-Type": "application/octet-stream",
++        },
++      }
++    );
++
++    return response.data;
++  }
++
++  /**
++   * Download file
++   */
++  async read(entityType: string, id: string): Promise<any> {
++    await this.rateLimiter.acquire();
++
++    const response = await this.client.get(
++      `/sites/${this.siteId}/drive/items/${id}/content`,
++      {
++        responseType: "arraybuffer",
++      }
++    );
++
++    return response.data;
++  }
++
++  /**
++   * Update file metadata
++   */
++  async update(entityType: string, id: string, data: any): Promise<any> {
++    await this.rateLimiter.acquire();
++
++    const response = await this.client.patch(
++      `/sites/${this.siteId}/drive/items/${id}`,
++      data
++    );
++
++    return response.data;
++  }
++
++  /**
++   * Delete file
++   */
++  async delete(entityType: string, id: string): Promise<void> {
++    await this.rateLimiter.acquire();
++
++    await this.client.delete(`/sites/${this.siteId}/drive/items/${id}`);
++  }
++
++  /**
++   * Search files
++   */
++  async query(entityType: string, filters: any): Promise<any[]> {
++    await this.rateLimiter.acquire();
++
++    const searchQuery = filters.query || "";
++
++    const response = await this.client.get(
++      `/sites/${this.siteId}/drive/root/search(q='${searchQuery}')`
++    );
++
++    return response.data.value;
++  }
++}
++
++export default SharePointAdapter;
+diff -ruN apps/ValyntApp/src/integrations/slack/SlackAdapter.ts apps/ValyntApp/src/legacy-restored/integrations/slack/SlackAdapter.ts
+--- apps/ValyntApp/src/integrations/slack/SlackAdapter.ts	1970-01-01 00:00:00.000000000 +0000
++++ apps/ValyntApp/src/legacy-restored/integrations/slack/SlackAdapter.ts	2026-01-17 17:02:22.556586900 +0000
+@@ -0,0 +1,195 @@
++/**
++ * Slack Adapter
++ * Bot integration for notifications and interactive messages
++ */
++
++import { EnterpriseAdapter } from "../base/EnterpriseAdapter";
++import type {
++  AdapterConfig,
++  SyncOptions,
++  SyncResult,
++} from "../base/IEnterpriseAdapter";
++import axios, { AxiosInstance } from "axios";
++
++export interface SlackMessage {
++  channel: string;
++  text: string;
++  blocks?: any[];
++  thread_ts?: string;
++}
++
++export class SlackAdapter extends EnterpriseAdapter {
++  readonly adapterType = "slack";
++  readonly displayName = "Slack";
++
++  private client: AxiosInstance;
++
++  constructor(config: AdapterConfig) {
++    super(config);
++
++    this.client = axios.create({
++      baseURL: "https://slack.com/api",
++      headers: {
++        Authorization: `Bearer ${config.credentials.accessToken}`,
++        "Content-Type": "application/json",
++      },
++    });
++  }
++
++  async authenticate(): Promise<void> {
++    const response = await this.client.post("/auth.test");
++    this.authenticated = response.data.ok;
++  }
++
++  async refreshToken(): Promise<void> {
++    // Slack bot tokens don't expire
++  }
++
++  protected async performSync(
++    direction: string,
++    options?: SyncOptions
++  ): Promise<SyncResult> {
++    // Slack is push-only (notifications)
++    return {
++      status: "success",
++      pullCount: 0,
++      pushCount: 0,
++      conflicts: [],
++      errors: [],
++    };
++  }
++
++  /**
++   * Post message to channel
++   */
++  async create(entityType: string, data: SlackMessage): Promise<any> {
++    await this.rateLimiter.acquire();
++
++    const response = await this.client.post("/chat.postMessage", data);
++
++    if (!response.data.ok) {
++      throw new Error(`Slack API error: ${response.data.error}`);
++    }
++
++    return response.data;
++  }
++
++  /**
++   * Get message
++   */
++  async read(entityType: string, id: string): Promise<any> {
++    throw new Error("Read operation not supported for Slack");
++  }
++
++  /**
++   * Update message
++   */
++  async update(entityType: string, id: string, data: any): Promise<any> {
++    await this.rateLimiter.acquire();
++
++    const response = await this.client.post("/chat.update", {
++      ...data,
++      ts: id,
++    });
++
++    return response.data;
++  }
++
++  /**
++   * Delete message
++   */
++  async delete(entityType: string, id: string): Promise<void> {
++    await this.rateLimiter.acquire();
++
++    await this.client.post("/chat.delete", {
++      channel: entityType, // Channel ID
++      ts: id, // Message timestamp
++    });
++  }
++
++  /**
++   * Not applicable for Slack
++   */
++  async query(entityType: string, filters: any): Promise<any[]> {
++    return [];
++  }
++
++  /**
++   * Send approval request
++   */
++  async sendApprovalRequest(
++    channel: string,
++    title: string,
++    details: string
++  ): Promise<void> {
++    const blocks = [
++      {
++        type: "header",
++        text: {
++          type: "plain_text",
++          text: "⚠️ Approval Required",
++        },
++      },
++      {
++        type: "section",
++        text: {
++          type: "mrkdwn",
++          text: `*${title}*\n${details}`,
++        },
++      },
++      {
++        type: "actions",
++        elements: [
++          {
++            type: "button",
++            text: { type: "plain_text", text: "Approve" },
++            style: "primary",
++            value: "approve",
++          },
++          {
++            type: "button",
++            text: { type: "plain_text", text: "Reject" },
++            style: "danger",
++            value: "reject",
++          },
++        ],
++      },
++    ];
++
++    await this.create("message", { channel, text: title, blocks });
++  }
++
++  /**
++   * Send daily metrics summary
++   */
++  async sendDailySummary(channel: string, metrics: any): Promise<void> {
++    const blocks = [
++      {
++        type: "header",
++        text: {
++          type: "plain_text",
++          text: "📊 Daily Value Summary",
++        },
++      },
++      {
++        type: "section",
++        fields: [
++          {
++            type: "mrkdwn",
++            text: `*Total Value:*\n$${(metrics.totalValue / 1000000).toFixed(1)}M`,
++          },
++          { type: "mrkdwn", text: `*ROI:*\n${metrics.roi}%` },
++          {
++            type: "mrkdwn",
++            text: `*Opportunities:*\n${metrics.opportunities}`,
++          },
++          { type: "mrkdwn", text: `*Win Rate:*\n${metrics.winRate}%` },
++        ],
++      },
++    ];
++
++    await this.create("message", { channel, text: "Daily Summary", blocks });
++  }
++}
++
++export default SlackAdapter;
+diff -ruN apps/ValyntApp/src/integrations/types.ts apps/ValyntApp/src/legacy-restored/integrations/types.ts
+--- apps/ValyntApp/src/integrations/types.ts	2026-01-15 15:24:54.104742300 +0000
++++ apps/ValyntApp/src/legacy-restored/integrations/types.ts	1970-01-01 00:00:00.000000000 +0000
+@@ -1,65 +0,0 @@
+-export type IntegrationType = "crm" | "communication" | "storage" | "analytics" | "auth";
+-export type IntegrationStatus = "connected" | "disconnected" | "error" | "pending";
+-
+-export interface Integration {
+-  id: string;
+-  type: IntegrationType;
+-  provider: string;
+-  name: string;
+-  description: string;
+-  icon?: string;
+-  status: IntegrationStatus;
+-  config?: Record<string, unknown>;
+-  connectedAt?: string;
+-  lastSyncAt?: string;
+-}
+-
+-export interface IntegrationCredentials {
+-  apiKey?: string;
+-  clientId?: string;
+-  clientSecret?: string;
+-  accessToken?: string;
+-  refreshToken?: string;
+-  expiresAt?: string;
+-}
+-
+-export interface IntegrationProvider {
+-  id: string;
+-  type: IntegrationType;
+-  name: string;
+-  description: string;
+-  icon: string;
+-  authType: "oauth" | "apikey" | "basic";
+-  configSchema: Record<string, unknown>;
+-}
+-
+-// Known providers
+-export const PROVIDERS: IntegrationProvider[] = [
+-  {
+-    id: "salesforce",
+-    type: "crm",
+-    name: "Salesforce",
+-    description: "Connect your Salesforce CRM",
+-    icon: "salesforce",
+-    authType: "oauth",
+-    configSchema: {},
+-  },
+-  {
+-    id: "hubspot",
+-    type: "crm",
+-    name: "HubSpot",
+-    description: "Connect your HubSpot CRM",
+-    icon: "hubspot",
+-    authType: "oauth",
+-    configSchema: {},
+-  },
+-  {
+-    id: "slack",
+-    type: "communication",
+-    name: "Slack",
+-    description: "Connect Slack for notifications",
+-    icon: "slack",
+-    authType: "oauth",
+-    configSchema: {},
+-  },
+-];

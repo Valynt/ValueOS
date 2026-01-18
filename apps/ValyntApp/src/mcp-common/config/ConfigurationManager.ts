@@ -7,7 +7,7 @@
 
 import { readFileSync, existsSync, watchFile, unwatchFile } from "fs";
 import { resolve, join } from "path";
-import { logger } from "../../lib/logger";
+import { logger } from "@lib/logger";
 
 // ============================================================================
 // Configuration Schema Types

@@ -15,7 +15,7 @@
  */
 import { SupabaseClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
-import { logger } from "../lib/logger";
+import { logger } from "@lib/logger";
 import { WorkflowStateRepository } from "../repositories/WorkflowStateRepository";
 import {
   AgentResponse,
@@ -55,7 +55,7 @@ export interface QueryOptions {
   };
 }
 
-import { agentQueryLatency } from "../lib/monitoring/metrics";
+import { agentQueryLatency } from "@lib/monitoring/metrics";
 
 /**
  * Agent Query Service
