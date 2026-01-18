@@ -93,6 +93,7 @@ export async function validateSessionToken(token: string): Promise<User | null> 
       : keys;
 
     if (keyCandidates.length === 0) {
+      console.warn("[Session] No matching keys found for token");
       return null;
     }
 
