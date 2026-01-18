@@ -63,10 +63,13 @@ class StripeService {
   }
 
   /**
-   * Generate idempotency key
+   * Generate idempotency key derived from tenant and a unique request/transaction ID
+   * CRITICAL: Must be stable for the same operation to prevent double-billing
    */
-  public generateIdempotencyKey(prefix: string, uniqueId: string): string {
-    return `${prefix}_${uniqueId}_${Date.now()}`;
+  public generateIdempotencyKey(tenantId: string, operation: string, uniqueId: string): string {
+    // We combine tenantId, operation and uniqueId to ensure cross-tenant and cross-operation uniqueness
+    // while remaining stable for the same retry
+    return `vos_${tenantId}_${operation}_${uniqueId}`;
   }
 }
 

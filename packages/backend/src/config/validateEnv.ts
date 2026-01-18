@@ -73,8 +73,7 @@ export function validateLLMConfig(): LLMValidationResult {
   const warnings: string[] = [];
 
   // Get current provider
-  const provider =
-    (getEnv("VITE_LLM_PROVIDER") as LLMProvider) || llmConfig.provider;
+  const provider = (getEnv("VITE_LLM_PROVIDER") as LLMProvider) || llmConfig.provider;
   const { gatingEnabled } = llmConfig;
 
   // Validate provider configuration - Together AI is the only supported provider
@@ -91,10 +90,9 @@ export function validateLLMConfig(): LLMValidationResult {
   if (isNodeEnv) {
     const togetherKey = process.env.TOGETHER_API_KEY;
     const openaiKey = process.env.OPENAI_API_KEY;
-    const leakedClientKeys = [
-      "VITE_TOGETHER_API_KEY",
-      "VITE_SUPABASE_SERVICE_ROLE_KEY",
-    ].filter((key) => Boolean(process.env[key]));
+    const leakedClientKeys = ["VITE_TOGETHER_API_KEY", "VITE_SUPABASE_SERVICE_ROLE_KEY"].filter(
+      (key) => Boolean(process.env[key])
+    );
 
     if (leakedClientKeys.length > 0) {
       errors.push(
@@ -105,9 +103,7 @@ export function validateLLMConfig(): LLMValidationResult {
     // Check Together AI API key
     if (provider === "together") {
       if (!isValidValue(togetherKey)) {
-        errors.push(
-          "TOGETHER_API_KEY is required and must not be a placeholder"
-        );
+        errors.push("TOGETHER_API_KEY is required and must not be a placeholder");
       } else {
         providerAvailable = true;
       }
@@ -158,9 +154,7 @@ export function validateSupabaseConfig(): ValidationResult {
     if (isProduction()) {
       errors.push("VITE_SUPABASE_URL is required in production");
     } else {
-      warnings.push(
-        "VITE_SUPABASE_URL not set or invalid - database features will be disabled"
-      );
+      warnings.push("VITE_SUPABASE_URL not set or invalid - database features will be disabled");
     }
   }
 
@@ -168,9 +162,7 @@ export function validateSupabaseConfig(): ValidationResult {
     if (isProduction()) {
       errors.push("VITE_SUPABASE_ANON_KEY is required in production");
     } else {
-      warnings.push(
-        "VITE_SUPABASE_ANON_KEY not set or invalid - authentication will not work"
-      );
+      warnings.push("VITE_SUPABASE_ANON_KEY not set or invalid - authentication will not work");
     }
   }
 
@@ -214,6 +206,7 @@ export function validateSupabaseConfig(): ValidationResult {
 export function validateEnv(): ValidationResult & {
   llm: LLMValidationResult;
   supabase: ValidationResult;
+  security: ValidationResult;
   summary: { totalErrors: number; totalWarnings: number };
 } {
   const errors: string[] = [];
@@ -229,15 +222,18 @@ export function validateEnv(): ValidationResult & {
   errors.push(...supabaseValidation.errors);
   warnings.push(...supabaseValidation.warnings);
 
-  // 3. Validate URLs in production
+  // 3. Validate Security configuration
+  const securityValidation = validateSecurityConfig();
+  errors.push(...securityValidation.errors);
+  warnings.push(...securityValidation.warnings);
+
+  // 4. Validate URLs in production
   if (isProduction()) {
     const appUrl = getEnv("VITE_APP_URL");
     const httpsOnly = getEnv("VITE_HTTPS_ONLY");
 
     if (appUrl && !appUrl.startsWith("https://") && httpsOnly !== "false") {
-      errors.push(
-        "VITE_APP_URL must use HTTPS in production (or set VITE_HTTPS_ONLY=false)"
-      );
+      errors.push("VITE_APP_URL must use HTTPS in production (or set VITE_HTTPS_ONLY=false)");
     }
   }
 
@@ -250,10 +246,50 @@ export function validateEnv(): ValidationResult & {
     warnings,
     llm: llmValidation,
     supabase: supabaseValidation,
+    security: securityValidation,
     summary: {
       totalErrors: errors.length,
       totalWarnings: warnings.length,
     },
+  };
+}
+
+/**
+ * Validate security configuration
+ */
+function validateSecurityConfig(): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  const corsOrigins = getEnvVar("CORS_ALLOWED_ORIGINS", "");
+
+  if (isProduction()) {
+    // CORS Origins for production are explicitly configured and DO NOT include localhost
+    if (!corsOrigins) {
+      errors.push("CORS_ALLOWED_ORIGINS is mandatory in production");
+    } else if (corsOrigins.includes("localhost") || corsOrigins.includes("127.0.0.1")) {
+      errors.push("CORS_ALLOWED_ORIGINS cannot include localhost in production");
+    }
+
+    // TCT_SECRET is mandatory and cannot be default in production
+    const tctSecret = getEnvVar("TCT_SECRET", "");
+    if (!tctSecret) {
+      errors.push("TCT_SECRET is mandatory in production");
+    } else if (tctSecret === "default-jwt-secret-replace-me-in-production") {
+      errors.push("TCT_SECRET cannot use the default placeholder in production");
+    }
+  } else {
+    // Non-production warnings
+    const tctSecret = getEnvVar("TCT_SECRET", "");
+    if (!tctSecret || tctSecret === "default-jwt-secret-replace-me-in-production") {
+      warnings.push("TCT_SECRET is using default value; ensure this is intended for development");
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    warnings,
   };
 }
 
@@ -277,11 +313,7 @@ export function logValidationResults(result: ValidationResult): void {
     });
   }
 
-  if (
-    result.isValid &&
-    result.errors.length === 0 &&
-    result.warnings.length === 0
-  ) {
+  if (result.isValid && result.errors.length === 0 && result.warnings.length === 0) {
     validationLogger.info("ENV validation passed");
   }
 }

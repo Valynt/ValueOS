@@ -16,7 +16,7 @@ const projectRoot = path.resolve(__dirname, "../..");
 // dotenv.config({ path: path.join(projectRoot, ".env.local") });
 
 // Validate required environment variables (fail fast)
-// validateEnv();
+validateEnvOrThrow();
 
 console.log("[Environment] Configuration loaded for development (redacted)");
 
@@ -43,8 +43,7 @@ import {
 import {
   validateSecretsOnStartup,
   secretHealthMiddleware,
-} from './config/secrets/SecretValidator";
-import { createLogger } from '@shared/lib/logger";
+} from './config/secrets/SecretValidator";import { validateEnvOrThrow } from "./config/validateEnv";import { createLogger } from '@shared/lib/logger";
 import { createVersionedApiRouter } from "./versioning";
 import { initializeContext } from '@shared/lib/context";
 import { tracingMiddleware } from './config/telemetry";
@@ -354,7 +353,7 @@ async function startServer(): Promise<void> {
 
   // 1. Validate all secrets before starting any services
   logger.info("🔒 Validating secrets before server startup");
-  // await validateSecretsOnStartup(); // Commented out for dev
+  await validateSecretsOnStartup();
   logger.info("✅ Secret validation completed successfully");
 
   // 2. Validate production requirements

@@ -70,15 +70,9 @@ export class WorkflowStateRepository {
         .single();
 
       if (error) {
-<<<<<<< HEAD
-        logger.error('Failed to get workflow state', { error, sessionId });
-=======
 <<<<<<< Updated upstream
         logger.error('Failed to get workflow state', error, { sessionId });
-=======
         logger.error("Failed to get workflow state", { error, sessionId });
->>>>>>> Stashed changes
->>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
         return null;
       }
 
@@ -89,17 +83,10 @@ export class WorkflowStateRepository {
 
       return data.workflow_state as WorkflowState;
     } catch (error) {
-<<<<<<< HEAD
-      logger.error('Error getting workflow state', {
-        error: error instanceof Error ? error : undefined,
-=======
 <<<<<<< Updated upstream
       logger.error('Error getting workflow state', error instanceof Error ? error : undefined, {
-=======
       logger.error("Error getting workflow state", {
         error: error instanceof Error ? error : undefined,
->>>>>>> Stashed changes
->>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
         sessionId,
       });
       return null;
@@ -134,15 +121,9 @@ export class WorkflowStateRepository {
         .eq("tenant_id", resolvedTenantId);
 
       if (error) {
-<<<<<<< HEAD
-        logger.error('Failed to save workflow state', { error, sessionId });
-=======
 <<<<<<< Updated upstream
         logger.error('Failed to save workflow state', error, { sessionId });
-=======
         logger.error("Failed to save workflow state", { error, sessionId });
->>>>>>> Stashed changes
->>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
         throw error;
       }
 
@@ -196,17 +177,11 @@ export class WorkflowStateRepository {
         .single();
 
       if (error || !data) {
-<<<<<<< HEAD
-        logger.error('Failed to create session', { error, userId });
-=======
 <<<<<<< Updated upstream
         logger.error('Failed to create session', error, { userId });
->>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
         throw error || new Error('No session ID returned');
-=======
         logger.error("Failed to create session", { error, userId });
         throw error || new Error("No session ID returned");
->>>>>>> Stashed changes
       }
 
       logger.info("Session created", {
@@ -241,31 +216,18 @@ export class WorkflowStateRepository {
         .single();
 
       if (error) {
-<<<<<<< HEAD
-        logger.error('Failed to create session', { error, userId });
-=======
 <<<<<<< Updated upstream
         logger.error('Failed to get session', error, { sessionId });
-=======
         logger.error("Failed to create session", { error, userId });
->>>>>>> Stashed changes
->>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
         return null;
       }
 
       return data as SessionData;
     } catch (error) {
-<<<<<<< HEAD
-      logger.error('Error getting session', {
-        error: error instanceof Error ? error : undefined,
-=======
 <<<<<<< Updated upstream
       logger.error('Error getting session', error instanceof Error ? error : undefined, {
-=======
       logger.error("Error getting session", {
         error: error instanceof Error ? error : undefined,
->>>>>>> Stashed changes
->>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
         sessionId,
       });
       return null;
@@ -295,15 +257,9 @@ export class WorkflowStateRepository {
         .eq("tenant_id", resolvedTenantId);
 
       if (error) {
-<<<<<<< HEAD
-        logger.error('Failed to update session status', { error, sessionId, status });
-=======
 <<<<<<< Updated upstream
         logger.error('Failed to update session status', error, { sessionId, status });
-=======
         logger.error("Failed to update session status", { error, sessionId, status });
->>>>>>> Stashed changes
->>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
         throw error;
       }
 
@@ -371,31 +327,18 @@ export class WorkflowStateRepository {
         .limit(limit);
 
       if (error) {
-<<<<<<< HEAD
-        logger.error('Failed to get active sessions', { error, userId });
-=======
 <<<<<<< Updated upstream
         logger.error('Failed to get active sessions', error, { userId });
-=======
         logger.error("Failed to get active sessions", { error, userId });
->>>>>>> Stashed changes
->>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
         return [];
       }
 
       return (data || []) as SessionData[];
     } catch (error) {
-<<<<<<< HEAD
-      logger.error('Error getting active sessions', {
-        error: error instanceof Error ? error : undefined,
-=======
 <<<<<<< Updated upstream
       logger.error('Error getting active sessions', error instanceof Error ? error : undefined, {
-=======
       logger.error("Error getting active sessions", {
         error: error instanceof Error ? error : undefined,
->>>>>>> Stashed changes
->>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
         userId,
       });
       return [];
@@ -423,15 +366,9 @@ export class WorkflowStateRepository {
         .select("id");
 
       if (error) {
-<<<<<<< HEAD
-        logger.error('Failed to cleanup old sessions', { error, olderThanDays });
-=======
 <<<<<<< Updated upstream
         logger.error('Failed to cleanup old sessions', error, { olderThanDays });
-=======
         logger.error("Failed to cleanup old sessions", { error, olderThanDays });
->>>>>>> Stashed changes
->>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
         return 0;
       }
 
@@ -439,17 +376,10 @@ export class WorkflowStateRepository {
       logger.info("Old sessions cleaned up", { count, olderThanDays });
       return count;
     } catch (error) {
-<<<<<<< HEAD
-      logger.error('Error cleaning up old sessions', {
-        error: error instanceof Error ? error : undefined,
-=======
 <<<<<<< Updated upstream
       logger.error('Error cleaning up old sessions', error instanceof Error ? error : undefined, {
-=======
       logger.error("Error cleaning up old sessions", {
         error: error instanceof Error ? error : undefined,
->>>>>>> Stashed changes
->>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
         olderThanDays,
       });
       return 0;
@@ -494,15 +424,9 @@ export class WorkflowStateRepository {
         .select("id");
 
       if (error) {
-<<<<<<< HEAD
-        logger.error('Failed atomic state update', { error, sessionId });
-=======
 <<<<<<< Updated upstream
         logger.error('Failed atomic state update', error, { sessionId });
-=======
         logger.error("Failed atomic state update", { error, sessionId });
->>>>>>> Stashed changes
->>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
         return false;
       }
 
@@ -517,17 +441,10 @@ export class WorkflowStateRepository {
       logger.debug("Atomic state update succeeded", { sessionId });
       return true;
     } catch (error) {
-<<<<<<< HEAD
-      logger.error('Error saving workflow state', {
-        error: error instanceof Error ? error : undefined,
-=======
 <<<<<<< Updated upstream
       logger.error('Error in atomic state update', error instanceof Error ? error : undefined, {
-=======
       logger.error("Error saving workflow state", {
         error: error instanceof Error ? error : undefined,
->>>>>>> Stashed changes
->>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
         sessionId,
       });
       return false;
