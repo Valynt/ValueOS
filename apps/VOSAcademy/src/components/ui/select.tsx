@@ -2,7 +2,7 @@ import * as React from 'react';
 
 interface SelectContextValue {
   value?: string;
-  onValueChange?: (value: any) => void;
+  onValueChange?: (value: string) => void;
 }
 
 const SelectContext = React.createContext<SelectContextValue | null>(null);
@@ -10,7 +10,7 @@ const SelectContext = React.createContext<SelectContextValue | null>(null);
 interface SelectProps {
   value?: string;
   defaultValue?: string;
-  onValueChange?: (value: any) => void;
+  onValueChange?: (value: string) => void;
   children: React.ReactNode;
 }
 

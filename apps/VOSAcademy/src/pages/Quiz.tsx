@@ -12,6 +12,19 @@ import { Link, useParams, useLocation } from "wouter";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import type { QuizQuestion } from "@/drizzle/schema";
+
+interface QuizSubmissionResult {
+  success: boolean;
+  passed: boolean;
+  feedback: {
+    overall: string;
+    strengths: string[];
+    improvements: string[];
+    nextSteps: string[];
+  };
+  attemptNumber: number;
+}
 
 export default function Quiz() {
   const { pillarNumber } = useParams<{ pillarNumber: string }>();
@@ -21,7 +34,7 @@ export default function Quiz() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
-  const [quizResult, setQuizResult] = useState<any>(null);
+  const [quizResult, setQuizResult] = useState<QuizSubmissionResult | null>(null);
   const [lastScore, setLastScore] = useState<number | null>(null);
 
   const pillarNum = parseInt(pillarNumber || "1");
@@ -39,12 +52,12 @@ export default function Quiz() {
   );
 
   const submitQuizMutation = trpc.quiz.submitQuiz.useMutation({
-    onSuccess: (result: any) => {
+    onSuccess: (result: QuizSubmissionResult) => {
       setQuizResult(result);
       setQuizSubmitted(true);
       toast.success("Quiz completed!");
     },
-    onError: (error: any) => {
+    onError: (error: { message: string }) => {
       toast.error(`Failed to submit quiz: ${error.message}`);
     }
   });
@@ -56,7 +69,7 @@ export default function Quiz() {
 
   const isLoadingAny = loading || pillarLoading || questionsLoading;
   const totalQuestions = questions?.length ?? 0;
-  const currentQuestion = totalQuestions > 0 ? questions[currentQuestionIndex] : null;
+  const currentQuestion = totalQuestions > 0 ? (questions[currentQuestionIndex] as QuizQuestion) : null;
   const currentAnswer = selectedAnswers[currentQuestionIndex];
 
   const handleSelectAnswer = (value: string) => {
@@ -77,11 +90,11 @@ export default function Quiz() {
   const handleSubmitQuiz = () => {
     if (!questions || !questions.length || !pillar) return;
 
-    const answersPayload = questions.map((q: any, index: number) => {
+    const answersPayload = questions.map((question, index) => {
       const selected = selectedAnswers[index];
-      const isCorrect = selected === q.correctAnswer;
+      const isCorrect = selected === question.correctAnswer;
       return {
-        questionId: q.id,
+        questionId: question.id,
         selectedAnswer: selected,
         isCorrect,
         pointsEarned: isCorrect ? 1 : 0,
@@ -298,7 +311,7 @@ export default function Quiz() {
                   onValueChange={handleSelectAnswer}
                 >
                   <div className="space-y-3">
-                    {currentQuestion?.options?.map((option: any, idx: number) => {
+                    {currentQuestion?.options?.map((option, idx) => {
                       const optionLabel =
                         typeof option === "string"
                           ? option

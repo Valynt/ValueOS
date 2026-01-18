@@ -8,6 +8,23 @@ import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Icons } from "@/lib/icons";
 
+interface SimulationResult {
+  success: boolean;
+  passed: boolean;
+  overallScore: number;
+  categoryScores: {
+    technical: number;
+    crossFunctional: number;
+    aiAugmentation: number;
+  };
+  feedback: string;
+  attemptNumber: number;
+}
+
+interface ScenarioDataWithTargetLevel {
+  targetMaturityLevel?: number;
+}
+
 export function Simulations() {
   const [selectedScenario, setSelectedScenario] = useState<number | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
@@ -23,7 +40,7 @@ export function Simulations() {
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [startTime] = useState(Date.now());
   const [isComplete, setIsComplete] = useState(false);
-  const [finalResult, setFinalResult] = useState<any>(null);
+  const [finalResult, setFinalResult] = useState<SimulationResult | null>(null);
 
   const { data: scenarios, isLoading } = trpc.simulations.list.useQuery();
   const { data: scenario } = trpc.simulations.getById.useQuery(
@@ -169,7 +186,7 @@ export function Simulations() {
                     {s.difficulty}
                   </Badge>
                   <Badge variant="outline">
-                    Level {('targetMaturityLevel' in s ? (s as any).targetMaturityLevel : undefined) ?? 'N/A'}
+                    Level {(s.scenarioData as ScenarioDataWithTargetLevel | null)?.targetMaturityLevel ?? 'N/A'}
                   </Badge>
                 </div>
                 <CardTitle className="text-xl">{s.title}</CardTitle>
