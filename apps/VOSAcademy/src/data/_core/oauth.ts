@@ -71,7 +71,7 @@ export async function handleOAuthCallback(
         tenant,
         ipAddress,
         userAgent,
-        metadata: { reason: "user_info_missing" },
+        metadata: { reason: "user_info_missing", codePresent: Boolean(code) },
       });
       return {
         success: false,
