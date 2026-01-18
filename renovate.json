@@ -1,0 +1,13 @@
+{
+  "extends": ["config:base"],
+  "timezone": "UTC",
+  "schedule": ["before 5am on monday"],
+  "labels": ["dependencies", "security"],
+  "packageRules": [
+    {
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "npm minor/patch updates"
+    }
+  ]
+}
