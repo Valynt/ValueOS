@@ -135,3 +135,17 @@ export var simulationAttempts = mysqlTable("simulationAttempts", {
     feedback: text("feedback"),
     completedAt: timestamp("completedAt").defaultNow().notNull(),
 });
+// ============================================================================
+// Audit Logs
+// ============================================================================
+export var auditLogs = mysqlTable("auditLogs", {
+    id: int("id").autoincrement().primaryKey(),
+    timestamp: timestamp("timestamp").defaultNow().notNull(),
+    actor: varchar("actor", { length: 255 }).notNull(),
+    tenant: varchar("tenant", { length: 255 }),
+    action: varchar("action", { length: 255 }).notNull(),
+    result: varchar("result", { length: 50 }).notNull(),
+    ipAddress: varchar("ipAddress", { length: 255 }),
+    userAgent: text("userAgent"),
+    metadata: json("metadata").$type(),
+});

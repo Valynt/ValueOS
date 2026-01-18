@@ -228,3 +228,22 @@ export const simulationAttempts = pgTable("simulation_attempts", {
 
 export type SimulationAttempt = typeof simulationAttempts.$inferSelect;
 export type InsertSimulationAttempt = typeof simulationAttempts.$inferInsert;
+
+// ============================================================================
+// Audit Logs
+// ============================================================================
+
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  timestamp: timestamp("timestamp", { withTimezone: true }).defaultNow().notNull(),
+  actor: text("actor").notNull(),
+  tenant: text("tenant"),
+  action: text("action").notNull(),
+  result: text("result").notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+});
+
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = typeof auditLogs.$inferInsert;

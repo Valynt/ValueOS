@@ -1,6 +1,7 @@
 import { upsertUser } from "../db";
 import { createSessionToken } from "./session";
 import { getSessionCookieOptions, COOKIE_NAME } from "./cookies";
+import { getAuditContextFromRequest, logAuditEvent } from "../../lib/auditLogger";
 
 interface OAuthUserInfo {
   openId: string;
@@ -53,6 +54,8 @@ export async function handleOAuthCallback(
   req: any,
   res: any
 ): Promise<{ success: boolean; redirectUrl: string }> {
+  const { ipAddress, userAgent, tenant } = getAuditContextFromRequest(req);
+
   try {
     // Validate state parameter (should match what was sent)
     const expectedRedirectUri = Buffer.from(state, 'base64').toString('utf-8');
@@ -61,6 +64,15 @@ export async function handleOAuthCallback(
     const userInfo = await exchangeCodeForUserInfo(code);
     
     if (!userInfo) {
+      await logAuditEvent({
+        actor: "unknown",
+        action: "oauth.callback",
+        result: "failure",
+        tenant,
+        ipAddress,
+        userAgent,
+        metadata: { reason: "user_info_missing" },
+      });
       return {
         success: false,
         redirectUrl: '/?error=oauth_failed',
@@ -85,12 +97,31 @@ export async function handleOAuthCallback(
     
     res.setHeader('Set-Cookie', cookieString);
 
+    await logAuditEvent({
+      actor: userInfo.openId,
+      action: "oauth.callback",
+      result: "success",
+      tenant,
+      ipAddress,
+      userAgent,
+      metadata: { redirectUri: expectedRedirectUri },
+    });
+
     return {
       success: true,
       redirectUrl: '/dashboard',
     };
   } catch (error) {
     console.error('[OAuth] Callback handling failed:', error);
+    await logAuditEvent({
+      actor: "unknown",
+      action: "oauth.callback",
+      result: "failure",
+      tenant,
+      ipAddress,
+      userAgent,
+      metadata: { reason: "callback_error" },
+    });
     return {
       success: false,
       redirectUrl: '/?error=server_error',
