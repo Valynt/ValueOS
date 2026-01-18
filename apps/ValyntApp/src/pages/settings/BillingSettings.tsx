@@ -284,7 +284,7 @@ export function BillingSettings() {
             <div>
               <p className="text-sm text-muted-foreground mb-1">Payment Method</p>
               <div className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
+                <CreditCard className="icon-sm icon-muted" />
                 <span className="font-medium">
                   {BILLING.paymentMethod.type} •••• {BILLING.paymentMethod.last4}
                 </span>
@@ -320,7 +320,7 @@ export function BillingSettings() {
           <CardContent className="p-5">
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
-                <AlertTriangle className="h-5 w-5 text-amber-600" />
+                <AlertTriangle className="icon-md text-amber-600" />
               </div>
               <div className="flex-1">
                 <h4 className="font-semibold text-amber-900">You're almost at capacity</h4>

@@ -53,7 +53,12 @@ jobs:
           # Start only the database, exclude other services for speed
           supabase start --exclude gotrue,realtime,storage,imgproxy,inbucket,edge-runtime,logflare,vector
           echo "✅ Supabase started successfully"
-      
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
       - name: Verify migrations apply cleanly
         id: verify
         run: |
@@ -71,6 +76,64 @@ jobs:
           # Check for rollback migrations
           ROLLBACK_COUNT=$(ls -1 supabase/migrations/rollbacks/*.sql 2>/dev/null | wc -l || echo "0")
           echo "rollback_count=$ROLLBACK_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Run Supabase DB lint
+        run: |
+          echo "🔍 Running Supabase db lint..."
+          supabase db lint
+
+      - name: Check for schema drift
+        run: |
+          set -euo pipefail
+          echo "🔍 Checking for schema drift..."
+          supabase db diff --use-migra --schema public > schema-diff.sql
+          if [ -s schema-diff.sql ]; then
+            echo "❌ Schema drift detected:"
+            cat schema-diff.sql
+            exit 1
+          fi
+          echo "✅ No schema drift detected"
+
+      - name: Run RLS and security posture checks
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:54322/postgres
+        run: |
+          set -euo pipefail
+          echo "🔍 Checking RLS status for public tables..."
+          rls_missing=$(psql "$DATABASE_URL" -Atc "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND rowsecurity = false;")
+          if [ -n "$rls_missing" ]; then
+            echo "❌ RLS not enabled on public tables:"
+            echo "$rls_missing"
+            exit 1
+          fi
+          echo "✅ RLS enabled for all public tables"
+
+          echo "🔍 Checking for PUBLIC grants..."
+          public_grants=$(psql "$DATABASE_URL" -Atc "SELECT table_schema || '.' || table_name || ':' || privilege_type FROM information_schema.table_privileges WHERE grantee = 'PUBLIC' AND table_schema = 'public';")
+          if [ -n "$public_grants" ]; then
+            echo "❌ PUBLIC grants detected:"
+            echo "$public_grants"
+            exit 1
+          fi
+          echo "✅ No PUBLIC grants detected"
+
+          echo "🔍 Checking view security posture..."
+          view_security=$(psql "$DATABASE_URL" -Atc "SELECT viewname || ':' || CASE WHEN definition LIKE '%SECURITY DEFINER%' THEN 'DEFINER' ELSE 'INVOKER' END FROM pg_views WHERE schemaname = 'public';")
+          if [ -n "$view_security" ]; then
+            echo "ℹ️ View security posture:"
+            echo "$view_security"
+          else
+            echo "ℹ️ No public views found"
+          fi
+
+          echo "🔍 Checking function security posture..."
+          function_security=$(psql "$DATABASE_URL" -Atc "SELECT n.nspname || '.' || p.proname || ':' || CASE WHEN p.prosecdef THEN 'DEFINER' ELSE 'INVOKER' END FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public';")
+          if [ -n "$function_security" ]; then
+            echo "ℹ️ Function security posture:"
+            echo "$function_security"
+          else
+            echo "ℹ️ No public functions found"
+          fi
       
       - name: Run migration linting
         id: lint

@@ -1,4 +1,7 @@
 import { TRPCError } from "@trpc/server";
+import { randomUUID } from "crypto";
+import type { IncomingMessage, ServerResponse } from "http";
+import { createClient, type RedisClientType } from "redis";
 
 /**
  * Error handling utilities for tRPC procedures
@@ -143,47 +146,164 @@ export async function safeAsync<T>(
   }
 }
 
-/**
- * Rate limiting helper (simple in-memory implementation)
- * For production, use Redis or similar
- */
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+type RateLimitResult = {
+  allowed: boolean;
+  limit: number;
+  remaining: number;
+  resetAt: number;
+  retryAfterSeconds?: number;
+};
 
-export function checkRateLimit(
-  key: string,
-  maxRequests: number = 10,
-  windowMs: number = 60000
-): void {
-  const now = Date.now();
-  const record = rateLimitMap.get(key);
+type RateLimitIdentifiers = {
+  userId?: string | null;
+  tenantId?: string | null;
+  ip?: string | null;
+};
 
-  if (!record || now > record.resetAt) {
-    // Create new window
-    rateLimitMap.set(key, {
-      count: 1,
-      resetAt: now + windowMs,
+let redisClient: RedisClientType | null = null;
+let redisConnectPromise: Promise<RedisClientType | null> | null = null;
+
+const RATE_LIMIT_SCRIPT = `
+  local key = KEYS[1]
+  local now = tonumber(ARGV[1])
+  local window = tonumber(ARGV[2])
+  local limit = tonumber(ARGV[3])
+  local member = ARGV[4]
+
+  redis.call('ZREMRANGEBYSCORE', key, 0, now - window)
+  local count = redis.call('ZCARD', key)
+  local allowed = 0
+
+  if count < limit then
+    redis.call('ZADD', key, now, member)
+    count = count + 1
+    allowed = 1
+  end
+
+  redis.call('PEXPIRE', key, window)
+  local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
+  local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
+  local oldestScore = 0
+  if oldest and #oldest >= 2 then
+    oldestScore = tonumber(oldest[2])
+  end
+
+  return { allowed, count, oldestScore }
+`;
+
+const DEFAULT_REDIS_URL = "redis://localhost:6379";
+
+async function getRedisClient(): Promise<RedisClientType | null> {
+  if (redisClient?.isReady) {
+    return redisClient;
+  }
+
+  if (!redisConnectPromise) {
+    const client = createClient({
+      url: process.env.REDIS_URL || DEFAULT_REDIS_URL,
     });
+
+    client.on("error", (error) => {
+      console.error("[RateLimit] Redis error:", error);
+    });
+
+    redisConnectPromise = client.connect()
+      .then(() => {
+        redisClient = client;
+        return client;
+      })
+      .catch((error) => {
+        console.error("[RateLimit] Redis connection failed:", error);
+        redisClient = null;
+        redisConnectPromise = null;
+        return null;
+      });
+  }
+
+  return redisConnectPromise;
+}
+
+export function getRateLimitIdentifiers(req: IncomingMessage, user?: { id?: string | null; tenantId?: string | null } | null): RateLimitIdentifiers {
+  const forwardedFor = req.headers["x-forwarded-for"];
+  const ip = Array.isArray(forwardedFor)
+    ? forwardedFor[0]
+    : typeof forwardedFor === "string"
+    ? forwardedFor.split(",")[0]?.trim()
+    : req.socket.remoteAddress;
+
+  return {
+    userId: user?.id ?? null,
+    tenantId: user?.tenantId ?? null,
+    ip: ip ?? null,
+  };
+}
+
+export function buildRateLimitKey(prefix: string, identifiers: RateLimitIdentifiers): string {
+  const userId = identifiers.userId || "anonymous";
+  const tenantId = identifiers.tenantId || "unknown";
+  const ip = identifiers.ip || "unknown";
+
+  return `${prefix}:user:${userId}:tenant:${tenantId}:ip:${ip}`;
+}
+
+export function applyRateLimitHeaders(res: ServerResponse | undefined, result: RateLimitResult): void {
+  if (!res || res.headersSent) {
     return;
   }
 
-  if (record.count >= maxRequests) {
-    throw new TRPCError({
-      code: "TOO_MANY_REQUESTS",
-      message: "Rate limit exceeded. Please try again later.",
-    });
-  }
+  res.setHeader("X-RateLimit-Limit", result.limit.toString());
+  res.setHeader("X-RateLimit-Remaining", result.remaining.toString());
+  res.setHeader("X-RateLimit-Reset", Math.ceil(result.resetAt / 1000).toString());
 
-  record.count++;
+  if (!result.allowed && result.retryAfterSeconds !== undefined) {
+    res.setHeader("Retry-After", result.retryAfterSeconds.toString());
+  }
 }
 
-/**
- * Clean up old rate limit entries periodically
- */
-setInterval(() => {
+export async function checkRateLimit(
+  key: string,
+  maxRequests: number = 10,
+  windowMs: number = 60000
+): Promise<RateLimitResult> {
   const now = Date.now();
-  for (const [key, record] of rateLimitMap.entries()) {
-    if (now > record.resetAt) {
-      rateLimitMap.delete(key);
-    }
+  const redis = await getRedisClient();
+
+  if (!redis) {
+    console.warn("[RateLimit] Redis unavailable, allowing request.");
+    return {
+      allowed: true,
+      limit: maxRequests,
+      remaining: maxRequests,
+      resetAt: now + windowMs,
+    };
   }
-}, 60000); // Clean up every minute
+
+  const member = `${now}:${randomUUID()}`;
+  const result = await redis.eval(RATE_LIMIT_SCRIPT, {
+    keys: [key],
+    arguments: [now.toString(), windowMs.toString(), maxRequests.toString(), member],
+  });
+
+  const [allowedRaw, countRaw, oldestRaw] = result as [number, number, number];
+  const allowed = allowedRaw === 1;
+  const count = Number(countRaw) || 0;
+  const oldest = Number(oldestRaw) || 0;
+  const resetAt = oldest > 0 ? oldest + windowMs : now + windowMs;
+  const remaining = Math.max(maxRequests - count, 0);
+  const retryAfterSeconds = !allowed ? Math.max(Math.ceil((resetAt - now) / 1000), 1) : undefined;
+
+  return {
+    allowed,
+    limit: maxRequests,
+    remaining,
+    resetAt,
+    retryAfterSeconds,
+  };
+}
+
+export function throwRateLimitExceeded(): never {
+  throw new TRPCError({
+    code: "TOO_MANY_REQUESTS",
+    message: "Rate limit exceeded. Please try again later.",
+  });
+}

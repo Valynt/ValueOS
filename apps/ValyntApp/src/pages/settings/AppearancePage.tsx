@@ -8,7 +8,7 @@ export function AppearancePage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Palette className="h-5 w-5" />
+            <Palette className="icon-md icon-accent" />
             Appearance
           </CardTitle>
           <CardDescription>Customize how the app looks</CardDescription>
@@ -19,17 +19,17 @@ export function AppearancePage() {
             <div className="grid grid-cols-3 gap-4">
               <label className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground cursor-pointer has-[:checked]:border-primary">
                 <input type="radio" name="theme" value="light" className="sr-only" />
-                <Sun className="h-6 w-6 mb-2" />
+                <Sun className="icon-lg mb-2" />
                 Light
               </label>
               <label className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground cursor-pointer has-[:checked]:border-primary">
                 <input type="radio" name="theme" value="dark" className="sr-only" />
-                <Moon className="h-6 w-6 mb-2" />
+                <Moon className="icon-lg mb-2" />
                 Dark
               </label>
               <label className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground cursor-pointer has-[:checked]:border-primary">
                 <input type="radio" name="theme" value="system" defaultChecked className="sr-only" />
-                <Monitor className="h-6 w-6 mb-2" />
+                <Monitor className="icon-lg mb-2" />
                 System
               </label>
             </div>

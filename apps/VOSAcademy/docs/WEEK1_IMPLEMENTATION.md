@@ -113,6 +113,8 @@ echo "VITE_OAUTH_PORTAL_URL=https://your-oauth-portal.com" >> .env.local
 echo "VITE_APP_ID=your-app-id" >> .env.local
 ```
 
+> **Production TLS requirement:** for production deployments, append `sslmode=require` or `sslrootcert=/path/to/ca.pem` to the `DATABASE_URL` to enforce encrypted connections.
+
 ### 2. Run Tests
 ```bash
 npm run test tests/auth-flow.test.ts

@@ -54,7 +54,7 @@ var __filename = fileURLToPath(import.meta.url);
 var __dirname = dirname(__filename);
 export default defineConfig(function (_a) {
     var mode = _a.mode;
-    var env = loadEnv(mode, process.cwd(), '');
+    var env = loadEnv(mode, process.cwd(), 'VITE_');
     // Make env vars available to server-side code
     process.env = __assign(__assign({}, process.env), env);
     return {
@@ -64,9 +64,37 @@ export default defineConfig(function (_a) {
                 name: "api-server",
                 configureServer: function (server) {
                     var _this = this;
+                    // OAuth login handler
+                    server.middlewares.use("/api/oauth/login", function (req, res, next) { return __awaiter(_this, void 0, void 0, function () {
+                        var oauthModule, result, error_1;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    _a.trys.push([0, 3, , 4]);
+                                    return [4 /*yield*/, import("./src/data/_core/oauth")];
+                                case 1:
+                                    oauthModule = _a.sent();
+                                    return [4 /*yield*/, oauthModule.handleOAuthLogin(req, res)];
+                                case 2:
+                                    result = _a.sent();
+                                    res.statusCode = 302;
+                                    res.setHeader("Location", result.redirectUrl);
+                                    res.end();
+                                    return [3 /*break*/, 4];
+                                case 3:
+                                    error_1 = _a.sent();
+                                    console.error("OAuth login error:", error_1);
+                                    res.statusCode = 302;
+                                    res.setHeader("Location", "/?error=oauth_error");
+                                    res.end();
+                                    return [3 /*break*/, 4];
+                                case 4: return [2 /*return*/];
+                            }
+                        });
+                    }); });
                     // OAuth callback handler
                     server.middlewares.use("/api/oauth/callback", function (req, res, next) { return __awaiter(_this, void 0, void 0, function () {
-                        var url, code, state, oauthModule, result, error_1;
+                        var url, code, state, oauthModule, result, error_2;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0:
@@ -91,8 +119,8 @@ url = new URL(req.url || '', "http://".concat(req.headers.host || 'localhost:517
                                     res.end();
                                     return [3 /*break*/, 4];
                                 case 3:
-                                    error_1 = _a.sent();
-                                    console.error("OAuth callback error:", error_1);
+                                    error_2 = _a.sent();
+                                    console.error("OAuth callback error:", error_2);
                                     res.statusCode = 302;
                                     res.setHeader('Location', '/?error=oauth_error');
                                     res.end();
