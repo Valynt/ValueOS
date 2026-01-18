@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres, { type PendingQuery, type Sql } from "postgres";
 
@@ -47,6 +48,7 @@ let _db: ReturnType<typeof drizzle> | null = null;
 let _client: Sql | null = null;
 let _connectionAttempts = 0;
 const MAX_CONNECTION_ATTEMPTS = 3;
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 const envNumber = (value: string | undefined, fallback: number) => {
   if (!value) return fallback;
@@ -182,6 +184,43 @@ const computeRetryDelay = (attempt: number) => {
   return Math.min(base + jitter, dbConfig.retry.maxDelayMs);
 };
 
+const parseDatabaseUrl = (databaseUrl: string) => {
+  try {
+    return new URL(databaseUrl);
+  } catch {
+    throw new Error("[Database] DATABASE_URL must be a valid URL");
+  }
+};
+
+const getDatabaseSslConfig = (databaseUrl: string) => {
+  if (!IS_PRODUCTION) {
+    return undefined;
+  }
+
+  const url = parseDatabaseUrl(databaseUrl);
+  const sslmode = url.searchParams.get("sslmode")?.toLowerCase();
+  const sslrootcert = url.searchParams.get("sslrootcert");
+
+  if (sslrootcert) {
+    const caPath = decodeURIComponent(sslrootcert);
+    const ca = fs.readFileSync(caPath, "utf8");
+    return {
+      rejectUnauthorized: true,
+      ca,
+    };
+  }
+
+  if (sslmode === "require") {
+    return {
+      rejectUnauthorized: false,
+    };
+  }
+
+  throw new Error(
+    "[Database] DATABASE_URL must include sslmode=require or sslrootcert when NODE_ENV=production",
+  );
+};
+
 export const executeWithTimeout = async <T>(
   query: PendingQuery<T>,
   timeoutMs: number,
@@ -254,7 +293,10 @@ export const executeWithRetry = async <T>(
 };
 
 const createSqlClient = () => {
-  return postgres(process.env.DATABASE_URL ?? "", {
+  const databaseUrl = process.env.DATABASE_URL ?? "";
+  const ssl = getDatabaseSslConfig(databaseUrl);
+
+  return postgres(databaseUrl, {
     max: dbConfig.pool.max,
     min: dbConfig.pool.min,
     idle_timeout: dbConfig.pool.idleTimeoutSeconds,
@@ -263,6 +305,7 @@ const createSqlClient = () => {
       statement_timeout: dbConfig.timeouts.statementTimeoutMs,
       application_name: "vosacademy",
     },
+    ...(ssl ? { ssl } : {}),
     onnotice: () => {},
   });
 };
@@ -278,6 +321,10 @@ export async function getDbConnection() {
   if (!process.env.DATABASE_URL) {
     console.error("[Database] DATABASE_URL not configured");
     return null;
+  }
+
+  if (IS_PRODUCTION) {
+    getDatabaseSslConfig(process.env.DATABASE_URL);
   }
 
   if (_connectionAttempts >= MAX_CONNECTION_ATTEMPTS) {
