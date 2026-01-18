@@ -5,4 +5,4 @@ metadata:
   labels:
     name: observability
     app.kubernetes.io/name: observability
-    app.kubernetes.io/part-of: valuecanvas-platform
+    app.kubernetes.io/part-of: valynt-platform

@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: valuecanvas-config
-  namespace: valuecanvas
+  name: valynt-config
+  namespace: valynt
   labels:
-    app.kubernetes.io/name: valuecanvas
-    app.kubernetes.io/part-of: valuecanvas
+    app.kubernetes.io/name: valynt
+    app.kubernetes.io/part-of: valynt
 data:
   # Redis configuration
   redis-url: "redis://redis:6379"

@@ -1,11 +1,11 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: valuecanvas
-  namespace: valuecanvas
+  name: valynt
+  namespace: valynt
   labels:
-    app.kubernetes.io/name: valuecanvas
-    app.kubernetes.io/part-of: valuecanvas
+    app.kubernetes.io/name: valynt
+    app.kubernetes.io/part-of: valynt
   annotations:
     # AWS ALB Ingress Controller annotations
     kubernetes.io/ingress.class: alb
@@ -37,10 +37,10 @@ metadata:
     # alb.ingress.kubernetes.io/wafv2-acl-arn: "WAF_ARN_PLACEHOLDER"
     
     # Tags
-    alb.ingress.kubernetes.io/tags: Environment=production,Application=valuecanvas
+    alb.ingress.kubernetes.io/tags: Environment=production,Application=valynt
 spec:
   rules:
-  - host: app.valuecanvas.com
+  - host: app.valynt.com
     http:
       paths:
       - path: /api

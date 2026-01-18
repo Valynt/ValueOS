@@ -1,8 +1,8 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: valuecanvas-default-deny
-  namespace: valuecanvas
+  name: valynt-default-deny
+  namespace: valynt
 spec:
   podSelector: {}
   policyTypes:
@@ -13,8 +13,8 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: valuecanvas-allow-dns
-  namespace: valuecanvas
+  name: valynt-allow-dns
+  namespace: valynt
 spec:
   podSelector: {}
   policyTypes:
@@ -38,7 +38,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: api-allow-from-gateway
-  namespace: valuecanvas
+  namespace: valynt
 spec:
   podSelector:
     matchLabels:
@@ -52,7 +52,7 @@ spec:
               app: api-gateway
         - namespaceSelector:
             matchLabels:
-              name: valuecanvas
+              name: valynt
       ports:
         - protocol: TCP
           port: 3000
@@ -62,7 +62,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: agents-egress-allowlist
-  namespace: valuecanvas
+  namespace: valynt
 spec:
   podSelector:
     matchLabels:
@@ -73,7 +73,7 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
-              name: valuecanvas
+              name: valynt
           podSelector:
             matchLabels:
               app: redis-broker
@@ -83,7 +83,7 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
-              name: valuecanvas
+              name: valynt
           podSelector:
             matchLabels:
               app: llm-proxy
@@ -93,7 +93,7 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
-              name: valuecanvas
+              name: valynt
           podSelector:
             matchLabels:
               component: api
@@ -106,7 +106,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: messaging-egress-allow-redis
-  namespace: valuecanvas
+  namespace: valynt
 spec:
   podSelector:
     matchLabels:
@@ -117,7 +117,7 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
-              name: valuecanvas
+              name: valynt
           podSelector:
             matchLabels:
               app: redis-broker

@@ -2,13 +2,13 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: backend-network-policy
-  namespace: valuecanvas
+  namespace: valynt
   labels:
     app: backend
     component: api
     app.kubernetes.io/name: backend
     app.kubernetes.io/component: api
-    app.kubernetes.io/part-of: valuecanvas
+    app.kubernetes.io/part-of: valynt
 spec:
   podSelector:
     matchLabels:
@@ -25,7 +25,7 @@ spec:
       ports:
         - protocol: TCP
           port: 8000
-    # Allow traffic from other valuecanvas services
+    # Allow traffic from other valynt services
     - from:
         - podSelector: {}
       ports:
@@ -69,7 +69,7 @@ spec:
       ports:
         - protocol: TCP
           port: 6379
-    # Allow traffic to other valuecanvas services
+    # Allow traffic to other valynt services
     - to:
         - podSelector: {}
       ports:

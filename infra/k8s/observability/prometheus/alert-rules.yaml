@@ -6,9 +6,9 @@ metadata:
   labels:
     app: prometheus
 data:
-  valuecanvas-alerts.yml: |
+  valynt-alerts.yml: |
     groups:
-    - name: valuecanvas
+    - name: valynt
       interval: 30s
       rules:
       # High error rate
@@ -55,9 +55,9 @@ data:
       - alert: HighCPUUsage
         expr: |
           (
-            sum(rate(container_cpu_usage_seconds_total{namespace=~"valuecanvas.*"}[5m])) by (namespace, pod)
+            sum(rate(container_cpu_usage_seconds_total{namespace=~"valynt.*"}[5m])) by (namespace, pod)
             /
-            sum(container_spec_cpu_quota{namespace=~"valuecanvas.*"} / container_spec_cpu_period{namespace=~"valuecanvas.*"}) by (namespace, pod)
+            sum(container_spec_cpu_quota{namespace=~"valynt.*"} / container_spec_cpu_period{namespace=~"valynt.*"}) by (namespace, pod)
           ) > 0.8
         for: 10m
         labels:
@@ -70,9 +70,9 @@ data:
       - alert: HighMemoryUsage
         expr: |
           (
-            sum(container_memory_working_set_bytes{namespace=~"valuecanvas.*"}) by (namespace, pod)
+            sum(container_memory_working_set_bytes{namespace=~"valynt.*"}) by (namespace, pod)
             /
-            sum(container_spec_memory_limit_bytes{namespace=~"valuecanvas.*"}) by (namespace, pod)
+            sum(container_spec_memory_limit_bytes{namespace=~"valynt.*"}) by (namespace, pod)
           ) > 0.9
         for: 10m
         labels:
@@ -83,7 +83,7 @@ data:
 
       # Pod restart
       - alert: PodRestarting
-        expr: rate(kube_pod_container_status_restarts_total{namespace=~"valuecanvas.*"}[15m]) > 0
+        expr: rate(kube_pod_container_status_restarts_total{namespace=~"valynt.*"}[15m]) > 0
         for: 5m
         labels:
           severity: warning
@@ -153,9 +153,9 @@ data:
       # Deployment replica mismatch
       - alert: DeploymentReplicasMismatch
         expr: |
-          kube_deployment_spec_replicas{namespace=~"valuecanvas.*"}
+          kube_deployment_spec_replicas{namespace=~"valynt.*"}
           !=
-          kube_deployment_status_replicas_available{namespace=~"valuecanvas.*"}
+          kube_deployment_status_replicas_available{namespace=~"valynt.*"}
         for: 10m
         labels:
           severity: warning
