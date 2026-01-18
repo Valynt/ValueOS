@@ -1,6 +1,5 @@
 /**
  * AgentOrchestratorAdapter Tests
-<<<<<<< HEAD
  * 
  * Tests for the backward-compatible adapter that wraps UnifiedAgentOrchestrator
  */
@@ -128,7 +127,6 @@ import { agentOrchestrator } from '../AgentOrchestratorAdapter';
 
 describe('AgentOrchestratorAdapter', () => {
   beforeEach(() => {
-=======
  *
  * Tests for the adapter that connects the frontend to the backend
  * UnifiedAgentOrchestrator.
@@ -150,12 +148,10 @@ describe('AgentOrchestratorAdapter', () => {
 
   beforeEach(() => {
     adapter = new AgentOrchestratorAdapter();
->>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
     vi.clearAllMocks();
   });
 
   afterEach(() => {
-<<<<<<< HEAD
     vi.clearAllMocks();
   });
 
@@ -383,7 +379,6 @@ describe('Type Exports', () => {
     expect(module).toBeDefined();
   });
 });
-=======
     adapter.cancel();
   });
 
@@ -580,4 +575,3 @@ describe('Type Exports', () => {
     });
   });
 });
->>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98

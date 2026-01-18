@@ -3,11 +3,11 @@
  * Singleton wrapper for Stripe API client with error handling
  */
 
-import Stripe from 'stripe';
-import { STRIPE_CONFIG } from '../../config/billing';
-import { createLogger } from '../../lib/logger';
+import Stripe from "stripe";
+import { STRIPE_CONFIG } from "../../config/billing";
+import { createLogger } from "../../lib/logger";
 
-const logger = createLogger({ component: 'StripeService' });
+const logger = createLogger({ component: "StripeService" });
 
 class StripeService {
   private static instance: StripeService;
@@ -15,7 +15,7 @@ class StripeService {
 
   private constructor() {
     if (!STRIPE_CONFIG.secretKey) {
-      throw new Error('STRIPE_SECRET_KEY not configured');
+      throw new Error("STRIPE_SECRET_KEY not configured");
     }
 
     this.stripe = new Stripe(STRIPE_CONFIG.secretKey, {
@@ -25,7 +25,7 @@ class StripeService {
       timeout: 30000,
     });
 
-    logger.info('Stripe service initialized');
+    logger.info("Stripe service initialized");
   }
 
   public static getInstance(): StripeService {
@@ -45,21 +45,21 @@ class StripeService {
   public handleError(error: any, context: string): never {
     logger.error(`Stripe error in ${context}`, error);
 
-    if (error.type === 'StripeCardError') {
+    if (error.type === "StripeCardError") {
       throw new Error(`Card error: ${error.message}`);
-    } else if (error.type === 'StripeRateLimitError') {
-      throw new Error('Too many requests to Stripe API. Please try again later.');
-    } else if (error.type === 'StripeInvalidRequestError') {
+    } else if (error.type === "StripeRateLimitError") {
+      throw new Error("Too many requests to Stripe API. Please try again later.");
+    } else if (error.type === "StripeInvalidRequestError") {
       throw new Error(`Invalid request: ${error.message}`);
-    } else if (error.type === 'StripeAPIError') {
-      throw new Error('Stripe API error. Please try again later.');
-    } else if (error.type === 'StripeConnectionError') {
-      throw new Error('Connection error. Please check your internet connection.');
-    } else if (error.type === 'StripeAuthenticationError') {
-      throw new Error('Stripe authentication failed. Please contact support.');
+    } else if (error.type === "StripeAPIError") {
+      throw new Error("Stripe API error. Please try again later.");
+    } else if (error.type === "StripeConnectionError") {
+      throw new Error("Connection error. Please check your internet connection.");
+    } else if (error.type === "StripeAuthenticationError") {
+      throw new Error("Stripe authentication failed. Please contact support.");
     }
 
-    throw new Error(`Stripe error: ${error.message || 'Unknown error'}`);
+    throw new Error(`Stripe error: ${error.message || "Unknown error"}`);
   }
 
   /**

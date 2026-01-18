@@ -1,5 +1,4 @@
 /**
-<<<<<<< HEAD
  * Agent Orchestrator Adapter
  * 
  * PHASE 4: Unified orchestration with backward-compatible interface
@@ -179,7 +178,6 @@ class AgentOrchestratorAdapter {
     if (this.queryService) {
       return await this.queryService.getSession(sessionId, tenantId);
     }
-=======
  * AgentOrchestratorAdapter
  *
  * Provides a unified interface to the backend UnifiedAgentOrchestrator.
@@ -363,12 +361,10 @@ export class AgentOrchestratorAdapter {
       attempts++;
     }
 
->>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
     return null;
   }
 
   /**
-<<<<<<< HEAD
    * Get active sessions (new interface)
    */
   async getActiveSessions(userId: string, tenantId: string, limit?: number) {
@@ -438,7 +434,6 @@ export class AgentOrchestratorAdapter {
    */
   getUnifiedOrchestrator(): UnifiedAgentOrchestrator {
     return this.unifiedOrchestrator;
-=======
    * Cancel the current operation
    */
   cancel(): void {
@@ -467,12 +462,10 @@ export class AgentOrchestratorAdapter {
    */
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
->>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
   }
 }
 
 /**
-<<<<<<< HEAD
  * Export singleton adapter instance
  * 
  * This maintains backward compatibility while enabling gradual migration
@@ -483,8 +476,6 @@ export const agentOrchestrator = new AgentOrchestratorAdapter();
  * Export types from unified orchestrator for backward compatibility
  */
 export type { AgentResponse, StreamingUpdate } from './UnifiedAgentOrchestrator';
-=======
  * Default export
  */
 export default AgentOrchestratorAdapter;
->>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98

@@ -39,14 +39,16 @@ import docsApiRouter from "./docs-api";
 import {
   initializeSecretVolumeWatcher,
   secretVolumeWatcher,
-} from './config/secrets/SecretVolumeWatcher";
+} from "./config/secrets/SecretVolumeWatcher";
 import {
   validateSecretsOnStartup,
   secretHealthMiddleware,
-} from './config/secrets/SecretValidator";import { validateEnvOrThrow } from "./config/validateEnv";import { createLogger } from '@shared/lib/logger";
+} from "./config/secrets/SecretValidator";
+import { validateEnvOrThrow } from "./config/validateEnv";
+import { createLogger } from "@shared/lib/logger";
 import { createVersionedApiRouter } from "./versioning";
-import { initializeContext } from '@shared/lib/context";
-import { tracingMiddleware } from './config/telemetry";
+import { initializeContext } from "@shared/lib/context";
+import { tracingMiddleware } from "./config/telemetry";
 import { requestAuditMiddleware } from "../middleware/requestAuditMiddleware";
 import {
   getLatencySnapshot,

@@ -33,16 +33,17 @@ describe('StripeService', () => {
     expect(instance1).toBe(instance2);
   });
 
-  it('should generate unique idempotency keys', async () => {
+  it('should generate stable idempotency keys', () => {
     const stripeService = StripeService.getInstance();
     
-    const key1 = stripeService.generateIdempotencyKey('test', 'id1');
-    // Small delay to ensure different timestamp
-    await new Promise(resolve => setTimeout(resolve, 1));
-    const key2 = stripeService.generateIdempotencyKey('test', 'id1');
-    expect(key1).not.toBe(key2); // Different timestamps
-    expect(key1).toContain('test_id1_');
-    expect(key2).toContain('test_id1_');
+    const key1 = stripeService.generateIdempotencyKey('tenant1', 'sub_create', 'id1');
+    const key2 = stripeService.generateIdempotencyKey('tenant1', 'sub_create', 'id1');
+    const key3 = stripeService.generateIdempotencyKey('tenant1', 'sub_create', 'id2');
+    
+    expect(key1).toBe(key2);
+    expect(key1).not.toBe(key3);
+    expect(key1).toContain('tenant1');
+    expect(key1).toContain('sub_create');
   });
 
   it('should handle Stripe errors', () => {

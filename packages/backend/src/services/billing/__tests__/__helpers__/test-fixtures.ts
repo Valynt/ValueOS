@@ -22,8 +22,8 @@ export function setupMockStripe() {
         handleError: (error: any, context: string) => {
           throw error;
         },
-        generateIdempotencyKey: (prefix: string, uniqueId: string) =>
-          `${prefix}_${uniqueId}_${Date.now()}`,
+        generateIdempotencyKey: (tenantId: string, operation: string, uniqueId: string) =>
+          `vos_${tenantId}_${operation}_${uniqueId}`,
       })),
     },
   }));
