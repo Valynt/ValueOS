@@ -35,7 +35,7 @@ export const analyticsClient = {
   initialize: (options: AnalyticsInitOptions = {}) => {
     console.log("Analytics initialize:", options);
   },
-  identify: (userId: string, traits?: Record<string, any>) => {
+  identify: (userId: string, traits?: Record<string, unknown>) => {
     console.log("Analytics identify:", userId, traits);
   },
   track: (event: string, properties?: Record<string, any>) => {
