@@ -1,51 +1,52 @@
+@import "../../ValyntApp/src/styles/valueos-palette.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222.2 84% 4.9%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222.2 84% 4.9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --background: var(--valueos-neutral-background);
+    --foreground: var(--valueos-neutral-foreground);
+    --card: var(--valueos-neutral-background);
+    --card-foreground: var(--valueos-neutral-foreground);
+    --popover: var(--valueos-neutral-background);
+    --popover-foreground: var(--valueos-neutral-foreground);
+    --primary: var(--valueos-primary);
+    --primary-foreground: var(--valueos-primary-foreground);
+    --secondary: var(--valueos-secondary);
+    --secondary-foreground: var(--valueos-secondary-foreground);
+    --muted: var(--valueos-neutral-subtle);
+    --muted-foreground: var(--valueos-neutral-muted);
+    --accent: var(--valueos-accent);
+    --accent-foreground: var(--valueos-accent-foreground);
+    --destructive: var(--valueos-error);
+    --destructive-foreground: var(--valueos-on-status);
+    --border: var(--valueos-neutral-border);
+    --input: var(--valueos-neutral-border);
+    --ring: var(--valueos-primary);
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 84% 4.9%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 94.1%;
+    --background: var(--valueos-neutral-background);
+    --foreground: var(--valueos-neutral-foreground);
+    --card: var(--valueos-neutral-surface);
+    --card-foreground: var(--valueos-neutral-foreground);
+    --popover: var(--valueos-neutral-surface);
+    --popover-foreground: var(--valueos-neutral-foreground);
+    --primary: var(--valueos-primary);
+    --primary-foreground: var(--valueos-primary-foreground);
+    --secondary: var(--valueos-secondary);
+    --secondary-foreground: var(--valueos-secondary-foreground);
+    --muted: var(--valueos-neutral-subtle);
+    --muted-foreground: var(--valueos-neutral-muted);
+    --accent: var(--valueos-accent);
+    --accent-foreground: var(--valueos-accent-foreground);
+    --destructive: var(--valueos-error);
+    --destructive-foreground: var(--valueos-on-status);
+    --border: var(--valueos-neutral-border);
+    --input: var(--valueos-neutral-border);
+    --ring: var(--valueos-primary);
   }
 }
 

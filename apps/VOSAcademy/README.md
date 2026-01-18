@@ -26,7 +26,7 @@ Copy `.env.example` to `.env.local` (Vite) or `.env` for server-side scripts, th
 | --- | --- |
 | `VITE_OAUTH_PORTAL_URL` | Base URL for the OAuth portal used to generate login links. |
 | `VITE_APP_ID` | Application identifier passed to the OAuth portal. |
-| `DATABASE_URL` | Connection string for MySQL used by server-side data utilities and seed scripts. |
+| `DATABASE_URL` | Connection string for Postgres used by server-side data utilities and seed scripts. In production, include `sslmode=require` or `sslrootcert=/path/to/ca.pem` to enable TLS. |
 | `OWNER_OPENID` | Owner OpenID value used by backend utilities. |
 | `NODE_ENV` | Environment mode; defaults to `development` if not set. |
 

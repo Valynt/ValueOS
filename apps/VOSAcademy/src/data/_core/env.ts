@@ -1,6 +1,11 @@
 /**
  * Required environment variables for server-side operations
  */
+if (typeof window !== 'undefined') {
+  throw new Error('[ENV] Security risk: Server environment module loaded in browser context. This could expose server secrets. Use env-client.ts for browser environment variables which should be prefixed with VITE_.');
+}
+}
+
 const REQUIRED_SERVER_ENV_VARS = [
   'DATABASE_URL',
 ] as const;
@@ -11,6 +16,11 @@ const REQUIRED_SERVER_ENV_VARS = [
 const OPTIONAL_SERVER_ENV_VARS = [
   'OWNER_OPENID',
   'NODE_ENV',
+  'SESSION_JWT_KEYS',
+  'SESSION_JWT_ISSUER',
+  'SESSION_JWT_AUDIENCE',
+  'SESSION_JWT_TTL_SECONDS',
+  'SESSION_JWT_TENANT',
 ] as const;
 
 /**
@@ -70,7 +80,13 @@ export const ENV = {
   nodeEnv: process.env.NODE_ENV || "development",
   oauthPortalUrl: process.env.VITE_OAUTH_PORTAL_URL || "",
   appId: process.env.VITE_APP_ID || "",
-};
+  sessionJwtIssuer: process.env.SESSION_JWT_ISSUER || "",
+  appId: process.env.VITE_APP_ID || "",
+  sessionJwtIssuer: process.env.SESSION_JWT_ISSUER || "",
+  sessionJwtAudience: process.env.SESSION_JWT_AUDIENCE || "",
+  sessionJwtKeys: process.env.SESSION_JWT_KEYS || "",
+  sessionJwtTtlSeconds: process.env.SESSION_JWT_TTL_SECONDS || "",
+  sessionJwtTenant: process.env.SESSION_JWT_TENANT || "",
 
 /**
  * Check if all required environment variables are configured

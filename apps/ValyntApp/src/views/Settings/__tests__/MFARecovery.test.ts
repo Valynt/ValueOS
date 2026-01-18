@@ -372,8 +372,9 @@ function generateBackupCodes(count: number): string[] {
 }
 
 function hashCode(code: string): string {
-  // Simple hash for testing (use bcrypt/argon2 in production)
-  return `hashed_${code}`;
+  // Deterministic hash for testing (use bcrypt/argon2 in production)
+  const { createHash } = require('crypto');
+  return createHash('sha256').update(code).digest('hex');
 }
 
 function constantTimeCompare(a: string, b: string): boolean {
