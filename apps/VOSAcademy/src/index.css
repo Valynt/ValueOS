@@ -315,7 +315,7 @@
   }
 
   .status-active {
-    @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium;
+  .status-active {
     background-color: color-mix(in oklch, var(--success) 12%, transparent);
     color: var(--success);
     border: 1px solid color-mix(in oklch, var(--success) 20%, transparent);
