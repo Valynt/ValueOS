@@ -120,7 +120,7 @@ export async function handleOAuthCallback(
       tenant,
       ipAddress,
       userAgent,
-      metadata: { reason: "callback_error" },
+      metadata: { reason: "callback_error", error: error instanceof Error ? error.message : String(error) },
     });
     return {
       success: false,
