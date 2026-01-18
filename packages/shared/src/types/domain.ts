@@ -9,6 +9,10 @@ export interface Tenant {
   createdAt: Date;
 }
 
+export interface TenantScopedRecord {
+  tenant_id: string;
+}
+
 export type PlanTier = "free" | "standard" | "enterprise";
 
 export interface User {
