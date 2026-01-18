@@ -14,6 +14,8 @@ Welcome to the official design system for Valynt (ValueOS). This living style gu
   - [Input](./components/input.md)
   - [Card](./components/card.md)
   - [Modal](./components/modal.md)
+- **[Layout](./layout/)**: Grid and container standards.
+  - [Layout & Grid](./layout/grid.md)
 - **[Patterns](./patterns/)**: UX flows and compositions.
   - [Forms](./patterns/forms.md)
   - [Navigation](./patterns/navigation.md)

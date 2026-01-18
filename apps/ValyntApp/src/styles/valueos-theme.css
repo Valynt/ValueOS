@@ -189,6 +189,20 @@
     --header-height: 64px;
     --conversation-width: 35%;
     --canvas-width: 65%;
+    --container-max: 80rem; /* 1280px */
+    --container-padding-sm: 1rem; /* 16px */
+    --container-padding-md: 1.5rem; /* 24px */
+    --container-padding-lg: 2rem; /* 32px */
+
+    /* Spacing Scale (maps to Tailwind spacing where possible) */
+    --space-0: 0;
+    --space-1: 0.5rem; /* 8px (Tailwind: 2) */
+    --space-2: 1rem; /* 16px (Tailwind: 4) */
+    --space-3: 1.5rem; /* 24px (Tailwind: 6) */
+    --space-4: 2rem; /* 32px (Tailwind: 8) */
+    --space-5: 2.5rem; /* 40px (Tailwind: 10) */
+    --space-6: 3rem; /* 48px (Tailwind: 12) */
+    --space-8: 4rem; /* 64px (Tailwind: 16) */
     
     /* ===================
        TRANSITIONS
@@ -296,6 +310,31 @@
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .container {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: var(--container-padding-sm);
+    padding-right: var(--container-padding-sm);
+  }
+
+  @media (min-width: 640px) {
+    .container {
+      padding-left: var(--container-padding-md);
+      padding-right: var(--container-padding-md);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container {
+      padding-left: var(--container-padding-lg);
+      padding-right: var(--container-padding-lg);
+      max-width: var(--container-max);
     }
   }
 }
