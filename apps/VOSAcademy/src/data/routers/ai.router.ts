@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, rateLimitMiddleware, router } from "../_core/trpc";
 import { invokeLLM } from "../_core/llm";
 import { getDb } from "../db";
 import { pillars } from "../../drizzle/schema";
-import { safeLLMOperation, safeDbOperation, checkRateLimit, throwNotFound } from "../_core/error-handling";
+import { safeLLMOperation } from "../_core/error-handling";
 
 /**
  * AI Tutor router
@@ -15,6 +15,7 @@ export const aiRouter = router({
    * Provides conversational assistance for VOS learning
    */
   chat: protectedProcedure
+    .use(rateLimitMiddleware({ keyPrefix: "ai:chat", maxRequests: 20, windowMs: 60000 }))
     .input(z.object({
       messages: z.array(z.object({
         role: z.enum(["system", "user", "assistant"]),
@@ -22,9 +23,6 @@ export const aiRouter = router({
       }))
     }))
     .mutation(async ({ ctx, input }) => {
-      // Rate limit: 20 requests per minute per user
-      checkRateLimit(`ai-chat:${ctx.user.id}`, 20, 60000);
-
       const response = await safeLLMOperation(
         () => invokeLLM({ messages: input.messages }),
         {
@@ -50,6 +48,7 @@ export const aiRouter = router({
    * Creates audience-specific ROI narratives for business cases
    */
   roiNarrative: protectedProcedure
+    .use(rateLimitMiddleware({ keyPrefix: "ai:roi-narrative", maxRequests: 10, windowMs: 3600000 }))
     .input(z.object({
       businessCase: z.string(),
       benefits: z.array(z.string()),
@@ -62,8 +61,6 @@ export const aiRouter = router({
       audience: z.enum(['executive', 'finance', 'technical'])
     }))
     .mutation(async ({ ctx, input }) => {
-      // Rate limit: 10 ROI narratives per hour per user
-      checkRateLimit(`ai-roi:${ctx.user.id}`, 10, 3600000);
       const { businessCase, benefits, costs, timeframe, audience } = input;
 
       const totalCosts = costs.implementation + (costs.licensing || 0) + (costs.training || 0);
@@ -145,6 +142,7 @@ Format as a professional business case narrative.`;
    * Creates comprehensive value cases for VOS pillar implementations
    */
   valueCase: protectedProcedure
+    .use(rateLimitMiddleware({ keyPrefix: "ai:value-case", maxRequests: 5, windowMs: 3600000 }))
     .input(z.object({
       pillarId: z.number(),
       outcomes: z.array(z.string()),
@@ -163,8 +161,6 @@ Format as a professional business case narrative.`;
       audience: z.enum(['executive', 'finance', 'technical'])
     }))
     .mutation(async ({ ctx, input }) => {
-      // Rate limit: 5 value cases per hour per user
-      checkRateLimit(`ai-valuecase:${ctx.user.id}`, 5, 3600000);
       const { pillarId, outcomes, capabilities, kpis, costs, audience } = input;
 
       // Get pillar information
