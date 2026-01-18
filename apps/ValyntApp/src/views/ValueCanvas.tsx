@@ -10,34 +10,30 @@ export default function ValueCanvas() {
     const state = location.state as {
       source?: string;
       domain?: string;
-      data?: any;
+      data?: unknown;
       templateId?: string;
     } | null;
 
     if (!state?.source) return null;
 
-    if (state.source === "research" && state.domain) {
-      return { type: "research", data: state.domain };
+    switch (state.source) {
+      case "research":
+        return state.domain ? { type: "research", data: state.domain } : null;
+      case "sales-call":
+        return state.data ? { type: "sales-call", data: state.data } : null;
+      case "crm":
+        return state.data ? { type: "crm", data: state.data } : null;
+      case "upload-notes":
+        return state.data ? { type: "upload-notes", data: state.data } : null;
+      case "template":
+        return state.templateId
+          ? { type: "template", data: { id: state.templateId, ...state } }
+          : null;
+      case "generic":
+        return { type: "generic", data: state };
+      default:
+        return { type: "generic", data: state };
     }
-
-    if (state.source === "sales-call" && state.data) {
-      return { type: "sales-call", data: state.data };
-    }
-
-    if (state.source === "crm" && state.data) {
-      return { type: "crm", data: state.data };
-    }
-
-    if (state.source === "upload-notes" && state.data) {
-      return { type: "upload-notes", data: state.data };
-    }
-
-    if (state.source === "template" && state.templateId) {
-      return { type: "template", data: { id: state.templateId, ...state } };
-    }
-
-    // Fallback for direct searches or other sources
-    return { type: "generic", data: state };
   }, [location.state]);
 
   return <ChatCanvasLayout initialAction={initialAction} />;

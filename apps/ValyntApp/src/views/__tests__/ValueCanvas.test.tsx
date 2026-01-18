@@ -9,9 +9,9 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import ValueCanvas from '../ValueCanvas';
 
 // Mock the ChatCanvasLayout component
-vi.mock('../components/ChatCanvas/ChatCanvasLayout', () => ({
+vi.mock('../../components/ChatCanvas/ChatCanvasLayout', () => ({
   ChatCanvasLayout: ({ initialAction }: { initialAction: any }) => (
-    <div data-testid="chat-canvas-layout">
+    <div data-testid="chat-canvas-layout" tabIndex={0}>
       {initialAction ? (
         <div data-testid="initial-action" data-type={initialAction.type}>
           {JSON.stringify(initialAction.data)}
@@ -624,7 +624,7 @@ describe('ValueCanvas - Story Arc Canvas Template', () => {
           key: 'default',
         });
 
-        render(
+        const { unmount } = render(
           <MemoryRouter>
             <ValueCanvas />
           </MemoryRouter>
@@ -632,6 +632,8 @@ describe('ValueCanvas - Story Arc Canvas Template', () => {
 
         // Should render without crashing
         expect(screen.getByTestId('chat-canvas-layout')).toBeInTheDocument();
+
+        unmount();
       });
     });
   });
@@ -746,7 +748,7 @@ describe('ValueCanvas - Story Arc Canvas Template', () => {
           key: 'default',
         });
 
-        render(
+        const { unmount } = render(
           <MemoryRouter>
             <ValueCanvas />
           </MemoryRouter>
@@ -755,6 +757,8 @@ describe('ValueCanvas - Story Arc Canvas Template', () => {
         const actionElement = screen.getByTestId('initial-action');
         expect(actionElement).toBeInTheDocument();
         expect(actionElement).toHaveAttribute('data-type');
+
+        unmount();
       });
     });
   });
