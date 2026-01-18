@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '');
+  const env = loadEnv(mode, process.cwd(), 'VITE_');
 
   // Make env vars available to server-side code
   process.env = { ...process.env, ...env };
@@ -19,6 +19,23 @@ export default defineConfig(({ mode }) => {
     {
       name: "api-server",
       configureServer(server) {
+        // OAuth login handler
+        server.middlewares.use("/api/oauth/login", async (req: any, res: any, next: any) => {
+          try {
+            const oauthModule = await import("./src/data/_core/oauth" as any);
+            const result = await oauthModule.handleOAuthLogin(req, res);
+
+            res.statusCode = 302;
+            res.setHeader("Location", result.redirectUrl);
+            res.end();
+          } catch (error) {
+            console.error("OAuth login error:", error);
+            res.statusCode = 302;
+            res.setHeader("Location", "/?error=oauth_error");
+            res.end();
+          }
+        });
+
         // OAuth callback handler
         server.middlewares.use("/api/oauth/callback", async (req: any, res: any, next: any) => {
           try {
@@ -76,4 +93,3 @@ export default defineConfig(({ mode }) => {
   },
   };
 });
-

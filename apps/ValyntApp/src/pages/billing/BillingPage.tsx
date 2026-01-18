@@ -65,7 +65,7 @@ export function BillingPage() {
               ${plans.find((p) => p.id === currentPlan)?.price}/month
             </p>
           </div>
-          <CreditCard className="h-16 w-16 opacity-50" />
+          <CreditCard className="icon-lg text-primary-foreground/70" />
         </CardContent>
       </Card>
 
@@ -83,7 +83,7 @@ export function BillingPage() {
                   : "border-transparent text-muted-foreground hover:text-foreground"
               )}
             >
-              <tab.icon className="h-4 w-4" />
+              <tab.icon className="icon-sm" />
               {tab.label}
             </button>
           ))}
@@ -143,7 +143,7 @@ function UsageTab() {
       {/* Usage Alert */}
       <Card className="border-yellow-200 bg-yellow-50">
         <CardContent className="flex items-start gap-3 py-4">
-          <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
+          <AlertCircle className="icon-md text-yellow-600 mt-0.5" />
           <div>
             <p className="font-medium text-yellow-900">Usage Alert</p>
             <p className="text-sm text-yellow-800">
@@ -190,7 +190,7 @@ function PlansTab({
             <ul className="space-y-2">
               {plan.features.map((feature) => (
                 <li key={feature} className="flex items-center gap-2 text-sm">
-                  <Check className="h-4 w-4 text-primary" />
+                  <Check className="icon-sm icon-accent" />
                   {feature}
                 </li>
               ))}

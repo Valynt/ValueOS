@@ -7,11 +7,13 @@
 import { Request, Response, Router } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
+import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
 import { logger } from '../utils/logger';
 import { auditBulkDelete } from '../middleware/auditHooks';
 
 const router = Router();
 router.use(requestAuditMiddleware());
+router.use(securityHeadersMiddleware);
 
 // Initialize Supabase client (server-side)
 const supabase = createClient(

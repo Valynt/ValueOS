@@ -1,7 +1,10 @@
 import js from "@eslint/js";
 import globals from "globals";
+import importPlugin from "eslint-plugin-import";
+import jsxA11y from "eslint-plugin-jsx-a11y";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
+import security from "eslint-plugin-security";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
@@ -14,11 +17,27 @@ export default tseslint.config(
       globals: globals.browser,
     },
     plugins: {
+      "jsx-a11y": jsxA11y,
+      import: importPlugin,
       "react-hooks": reactHooks,
       "react-refresh": reactRefresh,
+      security: security,
     },
     rules: {
+      ...jsxA11y.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
+      "import/no-unresolved": "off",
+      "import/order": [
+        "error",
+        {
+          groups: ["builtin", "external", "internal", "parent", "sibling", "index"],
+          "newlines-between": "always",
+          alphabetize: {
+            order: "asc",
+            caseInsensitive: true,
+          },
+        },
+      ],
       "react-refresh/only-export-components": [
         "warn",
         { allowConstantExport: true },
@@ -27,6 +46,8 @@ export default tseslint.config(
         "warn",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
+      "security/detect-object-injection": "warn",
+      "security/detect-non-literal-fs-filename": "error",
       "no-restricted-imports": [
         "error",
         {

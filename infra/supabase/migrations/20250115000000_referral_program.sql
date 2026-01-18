@@ -91,11 +91,25 @@ CREATE POLICY "Users can view involved referrals" ON referrals
 
 -- Users can create referrals (will be verified by backend)
 CREATE POLICY "Users can create referrals" ON referrals
-    FOR INSERT WITH CHECK (auth.uid() = referrer_id);
+    FOR INSERT WITH CHECK (auth.uid() = referee_id);
+
+-- Users can update referrals they are involved in
+CREATE POLICY "Users can update involved referrals" ON referrals
+    FOR UPDATE USING (auth.uid() = referrer_id OR auth.uid() = referee_id)
+    WITH CHECK (auth.uid() = referrer_id OR auth.uid() = referee_id);
 
 -- Users can see their own rewards
 CREATE POLICY "Users can view own rewards" ON referral_rewards
     FOR SELECT USING (auth.uid() = user_id);
+
+-- Users can create rewards for themselves
+CREATE POLICY "Users can create own rewards" ON referral_rewards
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Users can update their own rewards
+CREATE POLICY "Users can update own rewards" ON referral_rewards
+    FOR UPDATE USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
 
 -- Functions for referral management
 
@@ -126,6 +140,10 @@ DECLARE
     new_referral_code_id UUID;
     new_code TEXT;
 BEGIN
+    IF auth.uid() IS NULL OR auth.uid() != p_user_id THEN
+        RAISE EXCEPTION 'Not authorized to create referral code for this user';
+    END IF;
+
     -- Check if user already has a referral code
     SELECT id INTO new_referral_code_id FROM referral_codes WHERE user_id = p_user_id AND is_active = true;
 
@@ -153,6 +171,10 @@ DECLARE
     new_referral_id UUID;
     reward_result JSON;
 BEGIN
+    IF auth.uid() IS NULL THEN
+        RETURN json_build_object('success', false, 'error', 'Authentication required');
+    END IF;
+
     -- Find valid referral code
     SELECT rc.id, rc.user_id as referrer_id INTO referral_code_record
     FROM referral_codes rc
@@ -162,21 +184,25 @@ BEGIN
         RETURN json_build_object('success', false, 'error', 'Invalid or inactive referral code');
     END IF;
 
+    IF referral_code_record.referrer_id = auth.uid() THEN
+        RETURN json_build_object('success', false, 'error', 'Referrers cannot claim their own code');
+    END IF;
+
     -- Check if email already used this referral code
     IF EXISTS(SELECT 1 FROM referrals WHERE referral_code_id = referral_code_record.id AND referee_email = p_referee_email) THEN
         RETURN json_build_object('success', false, 'error', 'This email has already used this referral code');
     END IF;
 
     -- Create referral record
-    INSERT INTO referrals (referrer_id, referral_code_id, referee_email, ip_address, user_agent, status)
-    VALUES (referral_code_record.referrer_id, referral_code_record.id, p_referee_email, p_ip_address, p_user_agent, 'claimed')
+    INSERT INTO referrals (referrer_id, referee_id, referral_code_id, referee_email, ip_address, user_agent, status)
+    VALUES (referral_code_record.referrer_id, auth.uid(), referral_code_record.id, p_referee_email, p_ip_address, p_user_agent, 'claimed')
     RETURNING id INTO new_referral_id;
 
     -- Create referee reward (20% discount)
     INSERT INTO referral_rewards (referral_id, user_id, reward_type, reward_value, status, expires_at)
     VALUES (
         new_referral_id,
-        referral_code_record.referrer_id,
+        auth.uid(),
         'referee_discount',
         '20%',
         'earned',
@@ -204,6 +230,10 @@ BEGIN
     WHERE id = p_referral_id AND status = 'claimed';
 
     IF NOT FOUND THEN
+        RETURN false;
+    END IF;
+
+    IF auth.uid() IS NULL OR auth.uid() != referral_record.referrer_id THEN
         RETURN false;
     END IF;
 
@@ -262,13 +292,25 @@ WHERE rc.is_active = true
 GROUP BY rc.user_id, rc.code, rc.id;
 
 -- Grant permissions
-GRANT USAGE ON SCHEMA public TO authenticated, anon;
-GRANT ALL ON referral_codes TO authenticated;
-GRANT ALL ON referrals TO authenticated;
-GRANT ALL ON referral_rewards TO authenticated;
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT USAGE ON SCHEMA public TO authenticated;
+
+REVOKE ALL ON TABLE referral_codes FROM PUBLIC;
+REVOKE ALL ON TABLE referrals FROM PUBLIC;
+REVOKE ALL ON TABLE referral_rewards FROM PUBLIC;
+REVOKE ALL ON TABLE referral_stats FROM PUBLIC;
+
+GRANT SELECT, INSERT, UPDATE ON referral_codes TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON referrals TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON referral_rewards TO authenticated;
 GRANT SELECT ON referral_stats TO authenticated;
 
 -- Grant execute permissions on functions
+REVOKE ALL ON FUNCTION generate_referral_code() FROM PUBLIC;
+REVOKE ALL ON FUNCTION create_user_referral_code(UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION process_referral_claim(TEXT, TEXT, INET, TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION complete_referral(UUID, UUID) FROM PUBLIC;
+
 GRANT EXECUTE ON FUNCTION generate_referral_code() TO authenticated;
 GRANT EXECUTE ON FUNCTION create_user_referral_code(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION process_referral_claim(TEXT, TEXT, INET, TEXT) TO authenticated;

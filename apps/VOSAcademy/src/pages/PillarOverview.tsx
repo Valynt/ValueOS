@@ -13,6 +13,14 @@ import { useCurriculum, useProgress } from "@/hooks/useCurriculum";
 import { getCurriculumForRole, CurriculumModule } from "@/data/curriculum";
 import { getModuleStatus } from "@/lib/progress-logic";
 
+type PillarResource = {
+  id?: number | string;
+  title?: string;
+  description?: string;
+  resourceType?: string;
+  fileUrl?: string;
+};
+
 export default function PillarOverview() {
   const { user } = useAuth();
   const params = useParams<{ pillarNumber: string }>();
@@ -44,7 +52,7 @@ export default function PillarOverview() {
     console.log('Completing module:', moduleId);
   };
 
-  const handleDownloadResource = (resource: any) => {
+  const handleDownloadResource = (resource: PillarResource) => {
     // TODO: Implement actual download logic
     // For now, simulate download or open in new tab
     if (resource.fileUrl) {
@@ -82,7 +90,7 @@ export default function PillarOverview() {
   }
 
   const content = typeof pillar.content === 'string' ? JSON.parse(pillar.content) : pillar.content;
-  const resources = content?.resources || [];
+  const resources = (content?.resources || []) as PillarResource[];
 
   return (
     <PageShell maxWidthClassName="max-w-5xl">
@@ -253,7 +261,7 @@ export default function PillarOverview() {
           className="mb-6"
         >
           <div className="grid gap-3">
-            {resources.map((resource: any) => (
+            {resources.map((resource) => (
               <div
                 key={resource.id}
                 className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-pointer"

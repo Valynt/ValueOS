@@ -103,6 +103,14 @@ const baseConfig = {
     "jsx-a11y/interactive-supports-focus": "error",
     "jsx-a11y/no-autofocus": "warn",
     "jsx-a11y/tabindex-no-positive": "error",
+    "jsx-a11y/anchor-is-valid": "error",
+    "jsx-a11y/click-events-have-key-events": "error",
+    "jsx-a11y/no-static-element-interactions": "warn",
+    "jsx-a11y/no-noninteractive-element-interactions": "warn",
+    "jsx-a11y/label-has-associated-control": "error",
+    "jsx-a11y/aria-props": "error",
+    "jsx-a11y/aria-roles": "error",
+    "jsx-a11y/role-has-required-aria-props": "error",
     "@typescript-eslint/no-explicit-any": "warn",
     "no-unused-vars": [
       "warn",
@@ -150,7 +158,7 @@ const baseConfig = {
     "security/detect-non-literal-regexp": "error",
     "security/detect-non-literal-require": "error",
     "security/detect-object-injection": "warn",
-    "security/detect-possible-timing-attacks": "warn",
+    "security/detect-possible-timing-attacks": "error",
     "security/detect-pseudoRandomBytes": "error",
     "security/detect-unsafe-regex": "error",
     "import/no-dynamic-require": "error",
@@ -160,10 +168,19 @@ const baseConfig = {
       {
         groups: ["builtin", "external", "internal", "parent", "sibling", "index"],
         "newlines-between": "always",
+        pathGroups: [
+          {
+            pattern: "@/**",
+            group: "internal",
+            position: "after",
+          },
+        ],
+        pathGroupsExcludedImportTypes: ["builtin"],
         alphabetize: {
           order: "asc",
           caseInsensitive: true,
         },
+        warnOnUnassignedImports: true,
       },
     ],
     eqeqeq: ["error", "always"],

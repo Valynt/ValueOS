@@ -115,15 +115,83 @@ vi.mock('../../services/billing/SubscriptionService', () => ({
   },
 }));
 
+vi.mock(
+  '../../services/AdminUserService',
+  () => ({
+  adminUserService: {
+    listTenantUsers: vi.fn().mockResolvedValue([]),
+    inviteUserToTenant: vi.fn().mockResolvedValue({}),
+    updateUserRole: vi.fn().mockResolvedValue(undefined),
+    removeUserFromTenant: vi.fn().mockResolvedValue(undefined),
+  },
+  }),
+  { virtual: true }
+);
+
+vi.mock(
+  '../../services/ModelCardService',
+  () => ({
+  modelCardService: {
+    getModelCard: vi.fn(() => ({ schemaVersion: '1.0.0', modelCard: {} })),
+  },
+  }),
+  { virtual: true }
+);
+
+vi.mock(
+  '../../services/UnifiedAgentAPI',
+  () => ({
+  getUnifiedAgentAPI: () => ({
+    invoke: vi.fn().mockResolvedValue({ success: true }),
+  }),
+  }),
+  { virtual: true }
+);
+
+vi.mock(
+  '../../services/MessageQueue',
+  () => ({
+  llmQueue: {
+    addJob: vi.fn().mockResolvedValue({ id: 'job-id' }),
+    getJobStatus: vi.fn().mockResolvedValue({ status: 'queued' }),
+    getJobResult: vi.fn().mockResolvedValue({}),
+    cancelJob: vi.fn().mockResolvedValue(undefined),
+    getMetrics: vi.fn().mockResolvedValue({}),
+    getJobs: vi.fn().mockResolvedValue([]),
+  },
+  }),
+  { virtual: true }
+);
+
+vi.mock(
+  '../../services/consentRegistry',
+  () => ({
+  consentRegistry: {
+    isConsentRequired: vi.fn(() => false),
+    registerConsent: vi.fn(),
+  },
+  }),
+  { virtual: true }
+);
+
 process.env.STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || 'sk_test_dummy';
 process.env.STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY || 'pk_test_dummy';
 process.env.VITE_SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'http://localhost';
 process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'service-role-key';
 
 import authRouter from '../auth';
+import adminRouter from '../admin';
+import agentsRouter from '../agents';
+import approvalsRouter from '../approvals';
 import billingRouter from '../billing';
+import docsRouter from '../docs';
+import documentsRouter from '../documents';
+import groundtruthRouter from '../groundtruth';
 import healthRouter from '../health';
+import knowledgeUploadRouter from '../knowledgeUpload';
 import llmRouter from '../llm';
+import queueRouter from '../queue';
+import workflowRouter from '../workflow';
 
 function collectMiddlewareNames(router: any): string[] {
   const names: string[] = [];
@@ -148,11 +216,22 @@ function collectMiddlewareNames(router: any): string[] {
 }
 
 const ROUTERS = [
+  { name: 'Admin', router: adminRouter },
+  { name: 'Agents', router: agentsRouter },
+  { name: 'Approvals', router: approvalsRouter },
   { name: 'Auth', router: authRouter },
   { name: 'Billing', router: billingRouter },
+  { name: 'Docs', router: docsRouter },
+  { name: 'Documents', router: documentsRouter },
+  { name: 'Groundtruth', router: groundtruthRouter },
   { name: 'Health', router: healthRouter },
+  { name: 'KnowledgeUpload', router: knowledgeUploadRouter },
   { name: 'LLM', router: llmRouter },
+  { name: 'Queue', router: queueRouter },
+  { name: 'Workflow', router: workflowRouter },
 ];
+
+const RBAC_EXEMPT_ROUTERS = new Set(['Approvals', 'Auth', 'Docs', 'Health', 'LLM', 'Queue']);
 
 describe('Route hardening', () => {
   it.each(ROUTERS)('%s router applies security headers middleware', ({ router }) => {
@@ -160,10 +239,17 @@ describe('Route hardening', () => {
     expect(names).toContain('securityHeadersMiddleware');
   });
 
-  it('enforces RBAC middleware on billing routes', () => {
-    const names = collectMiddlewareNames(billingRouter);
-    const hasRbac = names.some((name) => name.includes('requirePermission') || name.includes('requireRole'));
+  it.each(ROUTERS)('%s router enforces RBAC or is explicitly exempt', ({ name, router }) => {
+    const names = collectMiddlewareNames(router);
+    const hasRbac = names.some(
+      (middlewareName) =>
+        middlewareName.includes('requirePermission') || middlewareName.includes('requireRole')
+    );
+
+    if (RBAC_EXEMPT_ROUTERS.has(name)) {
+      return;
+    }
+
     expect(hasRbac).toBe(true);
   });
 });
-

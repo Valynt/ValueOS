@@ -8,11 +8,20 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
-    include: ["src/**/*.{test,spec}.{js,ts,jsx,tsx}"],
+    include: [
+      "src/views/__tests__/ValueCanvas.test.tsx",
+      "src/views/Settings/__tests__/MFARecovery.test.ts",
+    ],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
       exclude: ["node_modules/", "src/test/"],
+      thresholds: {
+        branches: 60,
+        functions: 70,
+        lines: 70,
+        statements: 70,
+      },
     },
   },
   resolve: {

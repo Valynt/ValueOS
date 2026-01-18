@@ -245,7 +245,7 @@ export default function Analytics() {
             </div>
 
             <div className="flex items-center gap-4">
-              <Select value={dateRange} onValueChange={(value: any) => setDateRange(value)}>
+              <Select value={dateRange} onValueChange={(value: '7d' | '30d' | '90d' | 'all') => setDateRange(value)}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>

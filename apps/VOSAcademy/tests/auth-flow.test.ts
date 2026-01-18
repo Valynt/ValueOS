@@ -1,6 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { generateKeyPairSync } from 'node:crypto';
+import jwt from 'jsonwebtoken';
 import { validateSessionToken, createSessionToken, parseCookies, getSessionFromRequest } from '../src/data/_core/session';
-import { handleOAuthCallback } from '../src/data/_core/oauth';
+import { handleOAuthCallback, handleOAuthLogin } from '../src/data/_core/oauth';
 
 // Mock database
 vi.mock('../src/data/db', () => ({
@@ -141,9 +143,100 @@ describe('Session Management', () => {
 });
 
 describe('OAuth Flow', () => {
+  const oauthPortalUrl = 'https://oauth.test';
+  const issuer = 'https://issuer.test';
+  const appId = 'app-123';
+  const userInfo = {
+    sub: 'test-user-123',
+    name: 'Test User',
+    email: 'test@example.com',
+  };
+
+  const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const jwk = publicKey.export({ format: 'jwk' }) as Record<string, string>;
+
+  const createIdToken = () =>
+    jwt.sign(
+      { sub: userInfo.sub, name: userInfo.name, email: userInfo.email },
+      privateKey,
+      {
+        algorithm: 'RS256',
+        keyid: 'test-kid',
+        issuer,
+        audience: appId,
+        expiresIn: '1h',
+      }
+    );
+
+  beforeEach(() => {
+    process.env.VITE_OAUTH_PORTAL_URL = oauthPortalUrl;
+    process.env.VITE_APP_ID = appId;
+    process.env.OAUTH_STATE_SECRET = 'state-secret';
+
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString();
+
+      if (url === `${oauthPortalUrl}/.well-known/openid-configuration`) {
+        return new Response(
+          JSON.stringify({
+            token_endpoint: `${oauthPortalUrl}/token`,
+            userinfo_endpoint: `${oauthPortalUrl}/userinfo`,
+            issuer,
+            jwks_uri: `${oauthPortalUrl}/.well-known/jwks.json`,
+          }),
+          { status: 200 }
+        );
+      }
+
+      if (url === `${oauthPortalUrl}/token`) {
+        return new Response(
+          JSON.stringify({
+            access_token: 'access-token',
+            id_token: createIdToken(),
+            token_type: 'Bearer',
+          }),
+          { status: 200 }
+        );
+      }
+
+      if (url === `${oauthPortalUrl}/userinfo`) {
+        return new Response(JSON.stringify(userInfo), { status: 200 });
+      }
+
+      if (url === `${oauthPortalUrl}/.well-known/jwks.json`) {
+        return new Response(
+          JSON.stringify({
+            keys: [
+              {
+                ...jwk,
+                kid: 'test-kid',
+                use: 'sig',
+                alg: 'RS256',
+              },
+            ],
+          }),
+          { status: 200 }
+        );
+      }
+
+      return new Response('Not Found', { status: 404 });
+    }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   describe('handleOAuthCallback', () => {
     it('should handle successful OAuth callback', async () => {
-      const req = { headers: {} };
+      const loginReq = { headers: {}, url: '/api/oauth/login?returnTo=/dashboard' };
+      const loginRes = { setHeader: vi.fn(), statusCode: 200 };
+      const loginResult = await handleOAuthLogin(loginReq, loginRes);
+      const loginRedirect = new URL(loginResult.redirectUrl);
+      const state = loginRedirect.searchParams.get('state');
+      const cookieHeader = loginRes.setHeader.mock.calls[0][1] as string;
+
+      const req = { headers: { cookie: cookieHeader } };
       const res = {
         setHeader: vi.fn(),
         statusCode: 200,
@@ -151,7 +244,7 @@ describe('OAuth Flow', () => {
       
       const result = await handleOAuthCallback(
         'test-code-123',
-        Buffer.from('/dashboard').toString('base64'),
+        state || '',
         req,
         res
       );
@@ -162,12 +255,19 @@ describe('OAuth Flow', () => {
     });
 
     it('should handle missing code', async () => {
-      const req = { headers: {} };
+      const loginReq = { headers: {}, url: '/api/oauth/login?returnTo=/dashboard' };
+      const loginRes = { setHeader: vi.fn(), statusCode: 200 };
+      const loginResult = await handleOAuthLogin(loginReq, loginRes);
+      const loginRedirect = new URL(loginResult.redirectUrl);
+      const state = loginRedirect.searchParams.get('state');
+      const cookieHeader = loginRes.setHeader.mock.calls[0][1] as string;
+
+      const req = { headers: { cookie: cookieHeader } };
       const res = { setHeader: vi.fn() };
       
       const result = await handleOAuthCallback(
         '',
-        'state',
+        state || '',
         req,
         res
       );

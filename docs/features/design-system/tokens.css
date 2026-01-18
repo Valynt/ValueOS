@@ -22,13 +22,21 @@
   --color-border-default: hsl(0, 0%, 16%);
   --color-border-strong: hsl(0, 0%, 23%);
 
-  /* Spacing Scale (8px Grid) */
-  --space-1: 0.5rem;  /* 8px */
-  --space-2: 1rem;    /* 16px */
-  --space-3: 1.5rem;  /* 24px */
-  --space-4: 2rem;    /* 32px */
-  --space-6: 3rem;    /* 48px */
-  --space-8: 4rem;    /* 64px */
+  /* Spacing Scale (maps to Tailwind spacing where possible) */
+  --space-0: 0;       /* 0px */
+  --space-1: 0.5rem;  /* 8px (Tailwind: 2) */
+  --space-2: 1rem;    /* 16px (Tailwind: 4) */
+  --space-3: 1.5rem;  /* 24px (Tailwind: 6) */
+  --space-4: 2rem;    /* 32px (Tailwind: 8) */
+  --space-5: 2.5rem;  /* 40px (Tailwind: 10) */
+  --space-6: 3rem;    /* 48px (Tailwind: 12) */
+  --space-8: 4rem;    /* 64px (Tailwind: 16) */
+
+  /* Container */
+  --container-max: 80rem;         /* 1280px */
+  --container-padding-sm: 1rem;   /* 16px (Tailwind: 4) */
+  --container-padding-md: 1.5rem; /* 24px (Tailwind: 6) */
+  --container-padding-lg: 2rem;   /* 32px (Tailwind: 8) */
 
   /* Typography */
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;

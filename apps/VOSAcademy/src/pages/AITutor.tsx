@@ -48,6 +48,22 @@ interface ROIData {
   audience: 'executive' | 'finance' | 'technical';
 }
 
+interface ROINarrativeFinancials {
+  totalCosts: number;
+  totalBenefits: number;
+  roi: string;
+}
+
+interface ValueCaseSummary {
+  pillarTitle: string;
+  totalOutcomes: number;
+  totalCapabilities: number;
+  totalKPIs: number;
+  estimatedCosts: number;
+  estimatedBenefits: number;
+  roi: string;
+}
+
 export default function AITutorPage() {
   const [activeTab, setActiveTab] = useState('chat');
   const [messages, setMessages] = useState<Message[]>([
@@ -70,7 +86,7 @@ export default function AITutorPage() {
   });
   const [newBenefit, setNewBenefit] = useState('');
   const [roiNarrative, setRoiNarrative] = useState<string | null>(null);
-  const [roiFinancials, setRoiFinancials] = useState<any>(null);
+  const [roiFinancials, setRoiFinancials] = useState<ROINarrativeFinancials | null>(null);
 
   // Value Case state
   const [valueCaseData, setValueCaseData] = useState<ValueCaseData>({
@@ -85,7 +101,7 @@ export default function AITutorPage() {
   const [newCapability, setNewCapability] = useState('');
   const [newKPI, setNewKPI] = useState({ name: '', baseline: 0, target: 0, timeframe: '3 months' });
   const [valueCase, setValueCase] = useState<string | null>(null);
-  const [valueCaseSummary, setValueCaseSummary] = useState<any>(null);
+  const [valueCaseSummary, setValueCaseSummary] = useState<ValueCaseSummary | null>(null);
 
   const chatMutation = trpc.ai.chat.useMutation();
   const roiMutation = trpc.ai.roiNarrative.useMutation();
