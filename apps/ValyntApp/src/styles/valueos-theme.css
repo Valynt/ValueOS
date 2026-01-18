@@ -1,6 +1,8 @@
+@import "./valueos-palette.css";
+
 /**
  * ValueOS Light Theme
- * 
+ *
  * CSS custom properties for the ValueOS design system.
  * Based on the Principal Product Designer deliverable.
  */
@@ -76,62 +78,62 @@
        =================== */
     
     /* Backgrounds */
-    --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
-    
-    --surface: 210 40% 98%;
-    --surface-elevated: 0 0% 100%;
+    --background: var(--valueos-neutral-background);
+    --foreground: var(--valueos-neutral-foreground);
+
+    --surface: var(--valueos-neutral-surface);
+    --surface-elevated: var(--valueos-neutral-background);
     
     /* Cards */
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card: var(--valueos-neutral-background);
+    --card-foreground: var(--valueos-neutral-foreground);
     
     /* Popovers */
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover: var(--valueos-neutral-background);
+    --popover-foreground: var(--valueos-neutral-foreground);
     
     /* Primary */
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
+    --primary: var(--valueos-primary);
+    --primary-foreground: var(--valueos-primary-foreground);
     
     /* Secondary */
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: var(--valueos-secondary);
+    --secondary-foreground: var(--valueos-secondary-foreground);
     
     /* Muted */
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 19% 35%;
+    --muted: var(--valueos-neutral-subtle);
+    --muted-foreground: var(--valueos-neutral-muted);
     
     /* Accent */
-    --accent: 210 40% 96%;
-    --accent-foreground: 222 47% 11%;
+    --accent: var(--valueos-accent);
+    --accent-foreground: var(--valueos-accent-foreground);
     
     /* Destructive */
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: var(--valueos-error);
+    --destructive-foreground: var(--valueos-on-status);
     
     /* Success */
-    --success: 160 84% 39%;
-    --success-foreground: 0 0% 100%;
+    --success: var(--valueos-success);
+    --success-foreground: var(--valueos-on-status);
     
     /* Warning */
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
+    --warning: var(--valueos-warning);
+    --warning-foreground: var(--valueos-on-status);
     
     /* Border & Input */
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 217 91% 60%;
+    --border: var(--valueos-neutral-border);
+    --input: var(--valueos-neutral-border);
+    --ring: var(--valueos-primary);
     
     /* Sidebar */
-    --sidebar-background: 222 47% 11%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 217 91% 60%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 25% 27%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 215 25% 27%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-background: var(--valueos-neutral-foreground);
+    --sidebar-foreground: var(--valueos-neutral-surface);
+    --sidebar-primary: var(--valueos-primary);
+    --sidebar-primary-foreground: var(--valueos-primary-foreground);
+    --sidebar-accent: var(--valueos-neutral-muted);
+    --sidebar-accent-foreground: var(--valueos-neutral-surface);
+    --sidebar-border: var(--valueos-neutral-muted);
+    --sidebar-ring: var(--valueos-primary);
     
     /* Border Radius */
     --radius: 0.5rem;
@@ -167,37 +169,37 @@
 
   /* Dark mode support (optional, for future) */
   .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-    
-    --surface: 217 33% 17%;
-    --surface-elevated: 215 25% 27%;
-    
-    --card: 217 33% 17%;
-    --card-foreground: 210 40% 98%;
-    
-    --popover: 217 33% 17%;
-    --popover-foreground: 210 40% 98%;
-    
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
-    
-    --secondary: 215 25% 27%;
-    --secondary-foreground: 210 40% 98%;
-    
-    --muted: 215 25% 27%;
-    --muted-foreground: 215 20% 65%;
-    
-    --accent: 215 25% 27%;
-    --accent-foreground: 210 40% 98%;
-    
-    --border: 215 25% 27%;
-    --input: 215 25% 27%;
-    
-    --sidebar-background: 222 47% 11%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-accent: 215 25% 27%;
-    --sidebar-border: 215 25% 27%;
+    --background: var(--valueos-neutral-background);
+    --foreground: var(--valueos-neutral-foreground);
+
+    --surface: var(--valueos-neutral-surface);
+    --surface-elevated: var(--valueos-neutral-subtle);
+
+    --card: var(--valueos-neutral-surface);
+    --card-foreground: var(--valueos-neutral-foreground);
+
+    --popover: var(--valueos-neutral-surface);
+    --popover-foreground: var(--valueos-neutral-foreground);
+
+    --primary: var(--valueos-primary);
+    --primary-foreground: var(--valueos-primary-foreground);
+
+    --secondary: var(--valueos-secondary);
+    --secondary-foreground: var(--valueos-secondary-foreground);
+
+    --muted: var(--valueos-neutral-subtle);
+    --muted-foreground: var(--valueos-neutral-muted);
+
+    --accent: var(--valueos-accent);
+    --accent-foreground: var(--valueos-accent-foreground);
+
+    --border: var(--valueos-neutral-border);
+    --input: var(--valueos-neutral-border);
+
+    --sidebar-background: var(--valueos-neutral-background);
+    --sidebar-foreground: var(--valueos-neutral-foreground);
+    --sidebar-accent: var(--valueos-neutral-subtle);
+    --sidebar-border: var(--valueos-neutral-border);
   }
 }
 

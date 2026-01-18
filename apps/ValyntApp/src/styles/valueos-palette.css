@@ -1,0 +1,53 @@
+/**
+ * ValueOS Canonical Palette
+ *
+ * Shared source-of-truth palette tokens for all ValueOS apps.
+ */
+
+:root {
+  /* Core palette */
+  --valueos-primary: 217 91% 60%;
+  --valueos-primary-foreground: 0 0% 100%;
+  --valueos-secondary: 210 40% 96%;
+  --valueos-secondary-foreground: 222 47% 11%;
+  --valueos-accent: 210 40% 96%;
+  --valueos-accent-foreground: 222 47% 11%;
+
+  /* Neutral roles */
+  --valueos-neutral-background: 0 0% 100%;
+  --valueos-neutral-foreground: 222 47% 11%;
+  --valueos-neutral-surface: 210 40% 98%;
+  --valueos-neutral-subtle: 210 40% 96%;
+  --valueos-neutral-muted: 215 19% 35%;
+  --valueos-neutral-border: 214 32% 91%;
+
+  /* Semantic status */
+  --valueos-success: 160 84% 39%;
+  --valueos-warning: 38 92% 50%;
+  --valueos-error: 0 84% 60%;
+  --valueos-on-status: 0 0% 100%;
+}
+
+.dark {
+  /* Core palette */
+  --valueos-primary: 217 91% 60%;
+  --valueos-primary-foreground: 0 0% 100%;
+  --valueos-secondary: 215 25% 27%;
+  --valueos-secondary-foreground: 210 40% 98%;
+  --valueos-accent: 215 25% 27%;
+  --valueos-accent-foreground: 210 40% 98%;
+
+  /* Neutral roles */
+  --valueos-neutral-background: 222 47% 11%;
+  --valueos-neutral-foreground: 210 40% 98%;
+  --valueos-neutral-surface: 217 33% 17%;
+  --valueos-neutral-subtle: 215 25% 27%;
+  --valueos-neutral-muted: 215 20% 65%;
+  --valueos-neutral-border: 215 25% 27%;
+
+  /* Semantic status */
+  --valueos-success: 160 84% 39%;
+  --valueos-warning: 38 92% 50%;
+  --valueos-error: 0 84% 60%;
+  --valueos-on-status: 0 0% 100%;
+}
