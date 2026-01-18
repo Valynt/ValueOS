@@ -1,3 +1,5 @@
+@import "../../../../packages/shared/src/styles/motion-shadows.css";
+
 /**
  * VALYNT focus-visible system
  * Uses semantic tokens for rings and outlines; no raw hex or px.
@@ -17,9 +19,9 @@
   outline-offset: var(--vc-focus-offset);
   border-radius: var(--vc-radius-card);
   transition:
-    outline-color var(--motion-micro) ease-out,
-    box-shadow var(--motion-micro) ease-out,
-    border-color var(--motion-micro) ease-out;
+    outline-color var(--motion-duration-micro) var(--motion-ease-out),
+    box-shadow var(--motion-duration-micro) var(--motion-ease-out),
+    border-color var(--motion-duration-micro) var(--motion-ease-out);
 }
 
 button:focus-visible,

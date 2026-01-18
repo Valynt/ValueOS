@@ -1,10 +1,12 @@
+@import "../../../../packages/shared/src/styles/motion-shadows.css";
+
 /**
  * VALYNT micro-interactions & motion utilities
  * Uses semantic tokens, dark-first surfaces, and approved timings.
  */
 
 .hover-scale {
-  transition: transform var(--motion-standard) ease-out;
+  transition: transform var(--motion-duration-standard) var(--motion-ease-out);
 }
 
 .hover-scale:hover {
@@ -17,9 +19,9 @@
 
 .hover-lift {
   transition:
-    transform var(--motion-standard) ease-out,
-    background-color var(--motion-standard) ease-out,
-    border-color var(--motion-standard) ease-out;
+    transform var(--motion-duration-standard) var(--motion-ease-out),
+    background-color var(--motion-duration-standard) var(--motion-ease-out),
+    border-color var(--motion-duration-standard) var(--motion-ease-out);
 }
 
 .hover-lift:hover {
@@ -33,7 +35,7 @@
 }
 
 .hover-glow {
-  transition: box-shadow var(--motion-standard) ease-out;
+  transition: box-shadow var(--motion-duration-standard) var(--motion-ease-out);
 }
 
 .hover-glow:hover {
@@ -52,7 +54,7 @@
 }
 
 .animate-pulse-slow {
-  animation: pulse var(--motion-page) cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  animation: pulse var(--motion-duration-page) var(--motion-ease-emphasis) infinite;
 }
 
 @keyframes shimmer {
@@ -74,7 +76,7 @@
     hsl(var(--foreground), 0) 100%
   );
   background-size: 62.5rem 100%;
-  animation: shimmer var(--motion-page) ease-in-out infinite;
+  animation: shimmer var(--motion-duration-page) var(--motion-ease-in-out) infinite;
 }
 
 @keyframes fade-in {
@@ -88,7 +90,7 @@
 }
 
 .animate-fade-in {
-  animation: fade-in var(--motion-standard) ease-out;
+  animation: fade-in var(--motion-duration-standard) var(--motion-ease-out);
 }
 
 @keyframes slide-in-bottom {
@@ -104,7 +106,7 @@
 }
 
 .animate-slide-in-bottom {
-  animation: slide-in-bottom var(--motion-standard) ease-out;
+  animation: slide-in-bottom var(--motion-duration-standard) var(--motion-ease-out);
 }
 
 @keyframes slide-in-right {
@@ -120,7 +122,7 @@
 }
 
 .animate-slide-in-right {
-  animation: slide-in-right var(--motion-standard) ease-out;
+  animation: slide-in-right var(--motion-duration-standard) var(--motion-ease-out);
 }
 
 @keyframes scale-in {
@@ -136,7 +138,7 @@
 }
 
 .animate-scale-in {
-  animation: scale-in var(--motion-standard) ease-out;
+  animation: scale-in var(--motion-duration-standard) var(--motion-ease-out);
 }
 
 @keyframes success-bounce {
@@ -159,7 +161,7 @@
 }
 
 .animate-success {
-  animation: success-bounce var(--motion-page) ease-out;
+  animation: success-bounce var(--motion-duration-page) var(--motion-ease-out);
 }
 
 @keyframes shake {
@@ -179,7 +181,7 @@
 }
 
 .animate-shake {
-  animation: shake var(--motion-standard) ease-out;
+  animation: shake var(--motion-duration-standard) var(--motion-ease-out);
 }
 
 @keyframes ping {
@@ -191,7 +193,7 @@
 }
 
 .animate-ping {
-  animation: ping var(--motion-page) cubic-bezier(0, 0, 0.2, 1) infinite;
+  animation: ping var(--motion-duration-page) var(--motion-ease-out) infinite;
 }
 
 @keyframes wiggle {
@@ -210,25 +212,25 @@
 }
 
 .animate-wiggle {
-  animation: wiggle var(--motion-standard) ease-in-out;
+  animation: wiggle var(--motion-duration-standard) var(--motion-ease-in-out);
 }
 
 .transition-colors {
-  transition: background-color var(--motion-standard) ease-out,
-              border-color var(--motion-standard) ease-out,
-              color var(--motion-standard) ease-out;
+  transition: background-color var(--motion-duration-standard) var(--motion-ease-out),
+              border-color var(--motion-duration-standard) var(--motion-ease-out),
+              color var(--motion-duration-standard) var(--motion-ease-out);
 }
 
 .transition-all {
-  transition: all var(--motion-standard) ease-out;
+  transition: all var(--motion-duration-standard) var(--motion-ease-out);
 }
 
 .transition-quick {
-  transition: all var(--motion-micro) ease-out;
+  transition: all var(--motion-duration-micro) var(--motion-ease-out);
 }
 
 .transition-slow {
-  transition: all var(--motion-page) ease-out;
+  transition: all var(--motion-duration-page) var(--motion-ease-out);
 }
 
 @keyframes progress-fill {
@@ -238,7 +240,7 @@
 }
 
 .animate-progress {
-  animation: progress-fill var(--motion-page) ease-out;
+  animation: progress-fill var(--motion-duration-page) var(--motion-ease-out);
 }
 
 @keyframes spin {
@@ -248,7 +250,7 @@
 }
 
 .animate-spin-slow {
-  animation: spin 3s linear infinite;
+  animation: spin var(--motion-duration-spin) var(--motion-ease-linear) infinite;
 }
 
 .ripple-effect {
@@ -266,7 +268,8 @@
   border-radius: 50%;
   background: hsl(var(--accent), 0.35);
   transform: translate(-50%, -50%);
-  transition: width var(--motion-page), height var(--motion-page);
+  transition: width var(--motion-duration-page) var(--motion-ease-out),
+    height var(--motion-duration-page) var(--motion-ease-out);
 }
 
 .ripple-effect:active::after {
@@ -276,16 +279,16 @@
 
 .click-feedback:active {
   transform: scale(0.95);
-  transition: transform var(--motion-micro) ease-out;
+  transition: transform var(--motion-duration-micro) var(--motion-ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
+    animation-duration: var(--motion-duration-micro) !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: var(--motion-duration-micro) !important;
   }
 
   .hover-scale:hover,
@@ -295,37 +298,37 @@
 }
 
 .transition-height {
-  transition: height var(--motion-page) ease-out;
+  transition: height var(--motion-duration-page) var(--motion-ease-out);
 }
 
 .transition-width {
-  transition: width var(--motion-page) ease-out;
+  transition: width var(--motion-duration-page) var(--motion-ease-out);
 }
 
 .transition-opacity {
-  transition: opacity var(--motion-standard) ease-out;
+  transition: opacity var(--motion-duration-standard) var(--motion-ease-out);
 }
 
 .delay-100 {
-  animation-delay: var(--motion-micro);
+  animation-delay: var(--motion-duration-micro);
 }
 
 .delay-200 {
-  animation-delay: var(--motion-standard);
+  animation-delay: var(--motion-duration-standard);
 }
 
 .delay-300 {
-  animation-delay: calc(var(--motion-standard) + var(--motion-micro));
+  animation-delay: calc(var(--motion-duration-standard) + var(--motion-duration-micro));
 }
 
 .duration-fast {
-  animation-duration: var(--motion-micro);
+  animation-duration: var(--motion-duration-micro);
 }
 
 .duration-normal {
-  animation-duration: var(--motion-standard);
+  animation-duration: var(--motion-duration-standard);
 }
 
 .duration-slow {
-  animation-duration: var(--motion-page);
+  animation-duration: var(--motion-duration-page);
 }

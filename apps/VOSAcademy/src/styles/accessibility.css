@@ -8,8 +8,8 @@
   --focus-ring-color: #007acc;
 
   /* Reduced motion preferences */
-  --transition-duration: 0.2s;
-  --animation-duration: 0.3s;
+  --transition-duration: var(--motion-duration-standard);
+  --animation-duration: var(--motion-duration-page);
 }
 
 /* High contrast mode support */
@@ -31,9 +31,9 @@
 /* Reduced motion preferences */
 @media (prefers-reduced-motion: reduce) {
   * {
-    animation-duration: 0.01ms !important;
+    animation-duration: var(--motion-duration-micro) !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: var(--motion-duration-micro) !important;
   }
 
   .animate-in {
