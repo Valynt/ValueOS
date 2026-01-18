@@ -24,6 +24,7 @@ interface QuizSubmissionResult {
     nextSteps: string[];
   };
   attemptNumber: number;
+  score?: number;
 }
 
 export default function Quiz() {
