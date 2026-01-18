@@ -106,6 +106,7 @@ export async function validateSessionToken(token: string): Promise<User | null> 
         }) as SessionClaims;
         break;
       } catch (error) {
+        console.debug(`[Session] Verification failed with key ${key.kid}:`, error);
         payload = null;
       }
     }
