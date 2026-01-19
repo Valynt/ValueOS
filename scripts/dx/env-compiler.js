@@ -42,10 +42,13 @@ function getUrlConfig(mode, ports) {
     process.env.SUPABASE_API_PORT,
     ports.supabase.apiPort
   );
-  const supabaseDbPort = resolvePort(
-    process.env.SUPABASE_DB_PORT,
-    ports.supabase.dbPort
+  const postgresPort = resolvePort(
+    process.env.POSTGRES_PORT,
+    ports.postgres.port
   );
+  const postgresUser = process.env.POSTGRES_USER || "postgres";
+  const postgresPassword = process.env.POSTGRES_PASSWORD || "dev_password";
+  const postgresDb = process.env.POSTGRES_DB || "valuecanvas_dev";
 
   if (mode === "docker") {
     // Docker mode: services communicate via Docker network DNS
@@ -61,7 +64,7 @@ function getUrlConfig(mode, ports) {
       // Backend internal URLs (Docker network)
       API_UPSTREAM: `http://backend:${backendPort}`,
       FRONTEND_UPSTREAM: "http://frontend:80",
-      DATABASE_URL: `postgresql://postgres:postgres@postgres:5432/postgres`,
+      DATABASE_URL: `postgresql://${postgresUser}:${postgresPassword}@postgres:5432/${postgresDb}`,
       REDIS_URL: "redis://redis:6379",
     };
   }
@@ -79,7 +82,7 @@ function getUrlConfig(mode, ports) {
     // Backend URLs (localhost)
     API_UPSTREAM: `http://localhost:${backendPort}`,
     FRONTEND_UPSTREAM: `http://localhost:${frontendPort}`,
-    DATABASE_URL: `postgresql://postgres:postgres@localhost:${supabaseDbPort}/postgres`,
+    DATABASE_URL: `postgresql://${postgresUser}:${postgresPassword}@localhost:${postgresPort}/${postgresDb}`,
     REDIS_URL: "redis://localhost:6379",
   };
 }
