@@ -31,9 +31,16 @@ export function validateEnv() {
   validateRequiredEnv();
 }
 
+const nodeEnvironment =
+  !_isBrowser && typeof process !== "undefined" ? process.env.NODE_ENV : undefined;
+
 export const env = {
-  isDevelopment: _isBrowser ? import.meta.env?.DEV === true : false,
-  isProduction: _isBrowser ? import.meta.env?.PROD === true : false,
+  isDevelopment: _isBrowser
+    ? import.meta.env?.DEV === true
+    : nodeEnvironment === "development",
+  isProduction: _isBrowser
+    ? import.meta.env?.PROD === true
+    : nodeEnvironment === "production",
   isTest: false,
   isBrowser: _isBrowser,
   isServer: !_isBrowser,
