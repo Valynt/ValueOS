@@ -5,6 +5,7 @@
 
 import React from "react";
 import {
+  BookOpen,
   FileText,
   FolderOpen,
   HelpCircle,
@@ -45,6 +46,7 @@ export function Sidebar({
 }: SidebarProps) {
   const inProgressCases = cases.filter((c) => c.status === "in-progress");
   const completedCases = cases.filter((c) => c.status === "completed");
+  const betaHubUrl = "https://docs.valuecanvas.com";
 
   return (
     <aside
@@ -115,24 +117,44 @@ export function Sidebar({
       {/* Bottom Actions */}
       <div className="border-t border-sidebar-border p-3">
         {!collapsed ? (
-          <div className="flex items-center justify-between">
-            <button
-              onClick={onSettingsClick}
+          <div className="flex flex-col gap-2">
+            <a
+              href={betaHubUrl}
+              target="_blank"
+              rel="noreferrer"
               className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
             >
-              <Settings className="h-4 w-4" />
-              Settings
-            </button>
-            <button
-              onClick={onHelpClick}
-              className="rounded-lg p-2 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
-              aria-label="Help"
-            >
-              <HelpCircle className="h-4 w-4" />
-            </button>
+              <BookOpen className="h-4 w-4" />
+              Beta Hub
+            </a>
+            <div className="flex items-center justify-between">
+              <button
+                onClick={onSettingsClick}
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              >
+                <Settings className="h-4 w-4" />
+                Settings
+              </button>
+              <button
+                onClick={onHelpClick}
+                className="rounded-lg p-2 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                aria-label="Help"
+              >
+                <HelpCircle className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2">
+            <a
+              href={betaHubUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-lg p-2 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              aria-label="Beta Hub"
+            >
+              <BookOpen className="h-4 w-4" />
+            </a>
             <button
               onClick={onSettingsClick}
               className="rounded-lg p-2 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
