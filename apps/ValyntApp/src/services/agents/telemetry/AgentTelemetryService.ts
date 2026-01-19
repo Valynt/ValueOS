@@ -1065,6 +1065,7 @@ export class AgentTelemetryService {
       },
     };
   }
+}
 
 // ============================================================================
 // Export Singleton
