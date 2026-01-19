@@ -1,6 +1,6 @@
 /**
  * Input Component
- * 
+ *
  * Base input with variants for text, search, and textarea.
  * Follows ValueOS design system.
  */
@@ -33,7 +33,8 @@ const inputVariants = cva(
 );
 
 export interface InputProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size">,
+  extends
+    Omit<React.InputHTMLAttributes<HTMLInputElement>, "size">,
     VariantProps<typeof inputVariants> {
   error?: boolean;
   leftIcon?: React.ReactNode;
@@ -102,15 +103,13 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
 
     return (
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search
+          className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden="true"
+        />
         <input
           type="search"
-          className={cn(
-            inputVariants({ inputSize: "md" }),
-            "pl-9",
-            showClear && "pr-9",
-            className
-          )}
+          className={cn(inputVariants({ inputSize: "md" }), "pl-9", showClear && "pr-9", className)}
           ref={ref}
           value={value}
           {...props}
@@ -120,8 +119,9 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
             type="button"
             onClick={onClear}
             className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            aria-label="Clear search"
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         )}
       </div>
@@ -133,8 +133,7 @@ SearchInput.displayName = "SearchInput";
 /**
  * Textarea - Multi-line text input
  */
-export interface TextareaProps
-  extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   error?: boolean;
 }
 
