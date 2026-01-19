@@ -19,6 +19,7 @@ import {
 export interface SecretDefinition {
   key: string;
   required: boolean;
+  requiredIf?: (env: NodeJS.ProcessEnv) => boolean;
   description: string;
   pattern?: RegExp;
   minLength?: number;
@@ -51,11 +52,11 @@ export const SECRET_DEFINITIONS: SecretDefinition[] = [
   // Database Secrets
   {
     key: "DATABASE_URL",
-    required: true,
-    description: "Primary database connection URL",
+    required: false,
+    description: "Optional direct Postgres connection URL (Supabase admin tasks)",
     pattern: /^postgres:\/\/[^:]+:[^@]+@[^:]+:\d+\/[^\/]+$/,
     category: "database",
-    critical: true,
+    critical: false,
   },
   {
     key: "SUPABASE_URL",
@@ -69,6 +70,14 @@ export const SECRET_DEFINITIONS: SecretDefinition[] = [
     key: "SUPABASE_SERVICE_KEY",
     required: true,
     description: "Supabase service role key (server-only)",
+    minLength: 20,
+    category: "auth",
+    critical: true,
+  },
+  {
+    key: "SUPABASE_ANON_KEY",
+    required: true,
+    description: "Supabase anonymous key (server-side usage)",
     minLength: 20,
     category: "auth",
     critical: true,
@@ -126,6 +135,32 @@ export const SECRET_DEFINITIONS: SecretDefinition[] = [
     pattern: /^redis:\/\/[^:]+:\d+$/,
     category: "infrastructure",
     critical: false, // Can run without Redis (degraded mode)
+  },
+
+  // Billing Secrets
+  {
+    key: "STRIPE_SECRET_KEY",
+    required: false,
+    requiredIf: (env) => env.ENABLE_BILLING === "true",
+    description: "Stripe secret key for billing operations",
+    category: "external",
+    critical: false,
+  },
+  {
+    key: "VITE_STRIPE_PUBLISHABLE_KEY",
+    required: false,
+    requiredIf: (env) => env.ENABLE_BILLING === "true",
+    description: "Stripe publishable key for billing UI",
+    category: "external",
+    critical: false,
+  },
+  {
+    key: "STRIPE_WEBHOOK_SECRET",
+    required: false,
+    requiredIf: (env) => env.ENABLE_BILLING === "true",
+    description: "Stripe webhook signing secret",
+    category: "external",
+    critical: false,
   },
   {
     key: "SENTRY_DSN",
@@ -205,12 +240,15 @@ export class SecretValidator {
     const {
       key,
       required,
+      requiredIf,
       description,
       pattern,
       minLength,
       critical,
       environment,
     } = secretDef;
+
+    const isRequired = required || (requiredIf ? requiredIf(process.env) : false);
 
     // Skip if not required in current environment
     if (environment && !environment.includes(this.environment)) {
@@ -232,7 +270,7 @@ export class SecretValidator {
 
       // Check if secret exists
       if (!secretValue) {
-        if (required) {
+        if (isRequired) {
           result.missingSecrets.push(key);
           result.isValid = false;
           if (critical) {

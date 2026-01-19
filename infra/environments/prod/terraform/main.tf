@@ -29,6 +29,25 @@ terraform {
   }
 }
 
+# Redis auth token configuration
+variable "redis_auth_token" {
+  type        = string
+  description = "Redis auth token (set via secure CI variable TF_VAR_redis_auth_token). If unset, Terraform reads from Secrets Manager."
+  default     = null
+  sensitive   = true
+}
+
+variable "redis_auth_token_secret_arn" {
+  type        = string
+  description = "ARN or name of the AWS Secrets Manager secret that stores the Redis auth token."
+  default     = null
+
+  validation {
+    condition     = var.redis_auth_token != null || var.redis_auth_token_secret_arn != null
+    error_message = "Provide redis_auth_token or redis_auth_token_secret_arn to supply the Redis auth token."
+  }
+}
+
 # Provider Configuration
 provider "aws" {
   region = var.aws_region
@@ -48,6 +67,11 @@ data "aws_availability_zones" "available" {
   state = "available"
 }
 
+data "aws_secretsmanager_secret_version" "redis_auth_token" {
+  count     = var.redis_auth_token == null ? 1 : 0
+  secret_id = var.redis_auth_token_secret_arn
+}
+
 # Local Variables
 locals {
   name_prefix = "valuecanvas-prod"
@@ -57,6 +81,8 @@ locals {
     Environment = "production"
     ManagedBy   = "Terraform"
   }
+
+  redis_auth_token = var.redis_auth_token != null ? var.redis_auth_token : data.aws_secretsmanager_secret_version.redis_auth_token[0].secret_string
 }
 
 # Production VPC (strict security)
@@ -363,7 +389,7 @@ resource "aws_elasticache_replication_group" "prod" {
 
   at_rest_encryption_enabled = true
   transit_encryption_enabled = true
-  auth_token                 = "redis_secure_auth_token_change_me"
+  auth_token                 = local.redis_auth_token
 
   tags = merge(
     local.common_tags,

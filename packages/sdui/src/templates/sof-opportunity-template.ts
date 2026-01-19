@@ -1,11 +1,11 @@
 /**
  * SOF Opportunity Page Template
- * 
+ *
  * Extended Opportunity template with System Mapping panel.
  */
 
-import type { SDUIPageDefinition } from '../schema';
-import type { SystemMap } from '../../types/sof';
+import type { SDUIPageDefinition } from "../schema";
+import type { SystemMap } from "../../types/sof";
 
 /**
  * Generate SOF-enhanced Opportunity page
@@ -16,27 +16,27 @@ export function generateSOFOpportunityPage(data: {
   personas?: any[];
   kpis?: any[];
 }): SDUIPageDefinition {
-  const sections: SDUIPageDefinition['sections'] = [
+  const sections: SDUIPageDefinition["sections"] = [
     // Header
     {
-      type: 'component',
-      component: 'PageHeader',
+      type: "component",
+      component: "PageHeader",
       version: 1,
       props: {
-        title: 'Opportunity Discovery',
-        subtitle: 'Identify and map systemic opportunities',
+        title: "Opportunity Discovery",
+        subtitle: "Identify and map systemic opportunities",
         breadcrumbs: [
-          { label: 'Home', href: '/' },
-          { label: 'Opportunities', href: '/opportunities' },
-          { label: data.businessCase?.name || 'New Opportunity' },
+          { label: "Home", href: "/" },
+          { label: "Opportunities", href: "/opportunities" },
+          { label: data.businessCase?.name || "New Opportunity" },
         ],
       },
     },
 
     // Main Content Grid
     {
-      type: 'component',
-      component: 'Grid',
+      type: "component",
+      component: "Grid",
       version: 1,
       props: {
         columns: 2,
@@ -44,24 +44,24 @@ export function generateSOFOpportunityPage(data: {
         children: [
           // Left Column: Traditional Opportunity Content
           {
-            type: 'component',
-            component: 'Stack',
+            type: "component",
+            component: "Stack",
             version: 1,
             props: {
               gap: 4,
               children: [
                 // Opportunity Overview
                 {
-                  type: 'component',
-                  component: 'Card',
+                  type: "component",
+                  component: "Card",
                   version: 1,
                   props: {
-                    title: 'Opportunity Overview',
-                    description: 'Core opportunity details and context',
+                    title: "Opportunity Overview",
+                    description: "Core opportunity details and context",
                     children: [
                       {
-                        type: 'component',
-                        component: 'OpportunityForm',
+                        type: "component",
+                        component: "OpportunityForm",
                         version: 1,
                         props: {
                           businessCase: data.businessCase,
@@ -73,16 +73,16 @@ export function generateSOFOpportunityPage(data: {
 
                 // Persona-System-KPI Triad
                 {
-                  type: 'component',
-                  component: 'Card',
+                  type: "component",
+                  component: "Card",
                   version: 1,
                   props: {
-                    title: 'Persona-System-KPI Triad',
-                    description: 'Connect stakeholders to system elements and metrics',
+                    title: "Persona-System-KPI Triad",
+                    description: "Connect stakeholders to system elements and metrics",
                     children: [
                       {
-                        type: 'component',
-                        component: 'TriadMapper',
+                        type: "component",
+                        component: "TriadMapper",
                         version: 1,
                         props: {
                           personas: data.personas || [],
@@ -96,18 +96,18 @@ export function generateSOFOpportunityPage(data: {
 
                 // Discovery Questions
                 {
-                  type: 'component',
-                  component: 'Card',
+                  type: "component",
+                  component: "Card",
                   version: 1,
                   props: {
-                    title: 'Discovery Questions',
+                    title: "Discovery Questions",
                     children: [
                       {
-                        type: 'component',
-                        component: 'DiscoveryQuestionnaire',
+                        type: "component",
+                        component: "DiscoveryQuestionnaire",
                         version: 1,
                         props: {
-                          stage: 'opportunity',
+                          stage: "opportunity",
                         },
                       },
                     ],
@@ -119,25 +119,25 @@ export function generateSOFOpportunityPage(data: {
 
           // Right Column: System Mapping
           {
-            type: 'component',
-            component: 'Stack',
+            type: "component",
+            component: "Stack",
             version: 1,
             props: {
               gap: 4,
-              children: ([
+              children: [
                 // System Map Canvas
                 {
-                  type: 'component',
-                  component: 'Card',
+                  type: "component",
+                  component: "Card",
                   version: 1,
                   props: {
-                    title: 'System Map',
-                    description: 'Visualize the opportunity system',
+                    title: "System Map",
+                    description: "Visualize the opportunity system",
                     children: [
                       data.systemMap
                         ? {
-                            type: 'component',
-                            component: 'SystemMapCanvas',
+                            type: "component",
+                            component: "SystemMapCanvas",
                             version: 1,
                             props: {
                               entities: data.systemMap.entities,
@@ -150,15 +150,15 @@ export function generateSOFOpportunityPage(data: {
                             },
                           }
                         : {
-                            type: 'component',
-                            component: 'EmptyState',
+                            type: "component",
+                            component: "EmptyState",
                             version: 1,
                             props: {
-                              title: 'No System Map Yet',
-                              description: 'Complete discovery to generate system map',
+                              title: "No System Map Yet",
+                              description: "Complete discovery to generate system map",
                               action: {
-                                label: 'Start Discovery',
-                                onClick: 'startDiscovery',
+                                label: "Start Discovery",
+                                onClick: "startDiscovery",
                               },
                             },
                           },
@@ -168,15 +168,15 @@ export function generateSOFOpportunityPage(data: {
 
                 // System Insights
                 data.systemMap && {
-                  type: 'component',
-                  component: 'Card',
+                  type: "component",
+                  component: "Card",
                   version: 1,
                   props: {
-                    title: 'System Insights',
+                    title: "System Insights",
                     children: [
                       {
-                        type: 'component',
-                        component: 'SystemInsightsPanel',
+                        type: "component",
+                        component: "SystemInsightsPanel",
                         version: 1,
                         props: {
                           systemMap: data.systemMap,
@@ -187,26 +187,27 @@ export function generateSOFOpportunityPage(data: {
                 },
 
                 // Leverage Points
-                data.systemMap && data.systemMap.leverage_points.length > 0 && {
-                  type: 'component',
-                  component: 'Card',
-                  version: 1,
-                  props: {
-                    title: 'Leverage Points',
-                    description: 'High-impact intervention opportunities',
-                    children: [
-                      {
-                        type: 'component',
-                        component: 'LeveragePointsList',
-                        version: 1,
-                        props: {
-                          leveragePoints: data.systemMap.leverage_points,
+                data.systemMap &&
+                  data.systemMap.leverage_points.length > 0 && {
+                    type: "component",
+                    component: "Card",
+                    version: 1,
+                    props: {
+                      title: "Leverage Points",
+                      description: "High-impact intervention opportunities",
+                      children: [
+                        {
+                          type: "component",
+                          component: "LeveragePointsList",
+                          version: 1,
+                          props: {
+                            leveragePoints: data.systemMap.leverage_points,
+                          },
                         },
-                      },
-                    ],
+                      ],
+                    },
                   },
-                },
-              ].filter(Boolean) as any[]),
+              ].filter(Boolean) as any[],
             },
           },
         ],
@@ -215,26 +216,26 @@ export function generateSOFOpportunityPage(data: {
 
     // Actions Footer
     {
-      type: 'component',
-      component: 'ActionBar',
+      type: "component",
+      component: "ActionBar",
       version: 1,
       props: {
         actions: [
           {
-            label: 'Save Draft',
-            variant: 'secondary',
-            onClick: 'saveDraft',
+            label: "Save Draft",
+            variant: "secondary",
+            onClick: "saveDraft",
           },
           {
-            label: 'Generate System Map',
-            variant: 'primary',
-            onClick: 'generateSystemMap',
+            label: "Generate System Map",
+            variant: "primary",
+            onClick: "generateSystemMap",
             disabled: !data.businessCase,
           },
           {
-            label: 'Continue to Target',
-            variant: 'primary',
-            onClick: 'continueToTarget',
+            label: "Continue to Target",
+            variant: "primary",
+            onClick: "continueToTarget",
             disabled: !data.systemMap,
           },
         ],
@@ -243,12 +244,12 @@ export function generateSOFOpportunityPage(data: {
   ];
 
   return {
-    type: 'page',
+    type: "page",
     version: 1,
     sections,
     metadata: {
-      theme: 'dark',
-      lifecycle_stage: 'opportunity',
+      theme: "dark",
+      lifecycle_stage: "opportunity",
       sofEnabled: true,
       requiresSystemMap: true,
     },

@@ -123,7 +123,6 @@ function loadSecretConfig(): SecretConfig {
 
     validation: {
       criticalSecrets: [
-        "DATABASE_URL",
         "SUPABASE_URL",
         "SUPABASE_SERVICE_KEY",
         "VITE_SUPABASE_ANON_KEY",

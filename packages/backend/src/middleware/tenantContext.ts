@@ -2,6 +2,15 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { AsyncLocalStorage } from "async_hooks";
 import { createLogger } from "@shared/lib/logger";
+<<<<<<< HEAD
+=======
+import {
+  getUserTenantId,
+  verifyTenantExists,
+  verifyTenantMembership,
+} from "@shared/lib/tenantVerification";
+import { validateEnv } from "../config/validateEnv";
+>>>>>>> 7823d3dee5da3de0b12c5c68a37810dc04000075
 
 const logger = createLogger({ component: "TenantContextMiddleware" });
 const tctSecret = process.env.TCT_SECRET || "default-tct-secret-change-me";
@@ -17,20 +26,112 @@ export interface TCTPayload {
 
 export const tenantContextStorage = new AsyncLocalStorage<TCTPayload>();
 
+type TenantCandidateSource = "tct" | "service-header" | "user-claim" | "user-lookup" | "request" | "none";
+
 /**
  * Middleware to extract and verify Tenant Context Token (TCT)
  */
 export const tenantContextMiddleware = (enforce = true) => {
+<<<<<<< HEAD
   return (req: Request, res: Response, next: NextFunction) => {
-    const authHeader = req.headers["x-tenant-context"];
+=======
+  const tctSecret = assertValidTctSecret();
 
-    if (!authHeader) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+>>>>>>> 7823d3dee5da3de0b12c5c68a37810dc04000075
+    const authHeader = req.headers["x-tenant-context"];
+    const userId = (req as any).user?.id as string | undefined;
+    let tenantSource: TenantCandidateSource = "none";
+    let resolvedTenantId: string | null = null;
+    let tctPayload: TCTPayload | null = null;
+
+    if (authHeader) {
+      const token = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+
+      try {
+        tctPayload = jwt.verify(token, tctSecret) as TCTPayload;
+        const requestTenantId = (req as any).tenantId as string | undefined;
+
+        if (requestTenantId && tctPayload.tid !== requestTenantId) {
+          logger.warn("Tenant context tenant mismatch", {
+            expected: requestTenantId,
+            received: tctPayload.tid,
+          });
+          return res.status(403).json({ error: "Tenant context mismatch" });
+        }
+
+        if (userId && tctPayload.sub !== userId) {
+          logger.warn("Tenant context user mismatch", {
+            expected: userId,
+            received: tctPayload.sub,
+          });
+          return res.status(403).json({ error: "Tenant context mismatch" });
+        }
+
+        resolvedTenantId = tctPayload.tid;
+        tenantSource = "tct";
+      } catch (error) {
+        logger.error("Invalid TCT", error);
+        if (enforce) {
+          return res.status(401).json({ error: "Invalid Tenant Context Token" });
+        }
+        return next();
+      }
+    }
+
+    if (!resolvedTenantId) {
+      const tenantHeader = req.header("x-tenant-id");
+      if (tenantHeader) {
+        if (!(req as any).serviceIdentityVerified) {
+          logger.warn("Blocked external tenant header usage", {
+            userId,
+            path: req.path,
+          });
+          return res.status(403).json({
+            error: "Forbidden",
+            message: "Tenant header is restricted to internal service requests.",
+          });
+        }
+        resolvedTenantId = tenantHeader;
+        tenantSource = "service-header";
+      }
+    }
+
+    if (!resolvedTenantId) {
+      const claimTenantId = (req as any).user?.tenant_id || (req as any).user?.organization_id;
+      if (claimTenantId) {
+        resolvedTenantId = claimTenantId;
+        tenantSource = "user-claim";
+      }
+    }
+
+    if (!resolvedTenantId) {
+      const routeTenantId = (req.params as { tenantId?: string } | undefined)?.tenantId;
+      if (routeTenantId) {
+        resolvedTenantId = routeTenantId;
+        tenantSource = "request";
+      }
+    }
+
+    if (!resolvedTenantId && userId) {
+      const userTenantId = await getUserTenantId(userId);
+      if (userTenantId) {
+        resolvedTenantId = userTenantId;
+        tenantSource = "user-lookup";
+      }
+    }
+
+    if (!resolvedTenantId) {
       if (enforce) {
-        return res.status(401).json({ error: "Missing X-Tenant-Context header" });
+        return res.status(403).json({
+          error: "tenant_required",
+          message: "Tenant context is required.",
+        });
       }
       return next();
     }
 
+<<<<<<< HEAD
     const token = Array.isArray(authHeader) ? authHeader[0] : authHeader;
 
     try {
@@ -41,14 +142,57 @@ export const tenantContextMiddleware = (enforce = true) => {
         // Also attach to request for convenience
         (req as any).tenantContext = decoded;
         next();
+=======
+    const tenantExists = await verifyTenantExists(resolvedTenantId);
+    if (!tenantExists) {
+      logger.warn("Tenant context resolved to inactive or unknown tenant", {
+        userId,
+        tenantId: resolvedTenantId,
+        source: tenantSource,
       });
-    } catch (error) {
-      logger.error("Invalid TCT", error);
-      if (enforce) {
-        return res.status(401).json({ error: "Invalid Tenant Context Token" });
-      }
-      next();
+      return res.status(404).json({
+        error: "Not Found",
+        message: "Tenant not found or inactive.",
+>>>>>>> 7823d3dee5da3de0b12c5c68a37810dc04000075
+      });
     }
+
+    const membershipUserId = tctPayload?.sub ?? userId;
+    if (membershipUserId) {
+      const isMember = await verifyTenantMembership(membershipUserId, resolvedTenantId);
+      if (!isMember) {
+        logger.warn("Tenant membership verification failed", {
+          userId: membershipUserId,
+          tenantId: resolvedTenantId,
+          source: tenantSource,
+        });
+        return res.status(403).json({
+          error: "Forbidden",
+          message: "User does not belong to tenant.",
+        });
+      }
+    } else if (enforce) {
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "Tenant membership could not be verified.",
+      });
+    }
+
+    const attachContext = () => {
+      (req as any).tenantId = resolvedTenantId;
+      (req as any).tenantSource = tenantSource;
+      next();
+    };
+
+    if (tctPayload) {
+      tenantContextStorage.run(tctPayload, () => {
+        (req as any).tenantContext = tctPayload;
+        attachContext();
+      });
+      return;
+    }
+
+    attachContext();
   };
 };
 

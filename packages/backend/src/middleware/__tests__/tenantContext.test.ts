@@ -2,11 +2,22 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { tenantContextMiddleware } from '../tenantContext';
 import { getUserTenantId, verifyTenantExists, verifyTenantMembership } from '@shared/lib/tenantVerification';
 
+<<<<<<< HEAD
 vi.mock('../../lib/tenantVerification', () => ({
+=======
+const tenantVerificationMocks = vi.hoisted(() => ({
+>>>>>>> 7823d3dee5da3de0b12c5c68a37810dc04000075
   getUserTenantId: vi.fn(),
   verifyTenantExists: vi.fn(),
   verifyTenantMembership: vi.fn(),
 }));
+<<<<<<< HEAD
+=======
+
+vi.mock('@shared/lib/tenantVerification', () => tenantVerificationMocks);
+
+const ORIGINAL_ENV = { ...process.env };
+>>>>>>> 7823d3dee5da3de0b12c5c68a37810dc04000075
 
 function mockRes() {
   return {
@@ -27,6 +38,9 @@ describe('tenantContextMiddleware', () => {
     } as any;
     const res = mockRes();
     const next = vi.fn();
+
+    tenantVerificationMocks.verifyTenantExists.mockResolvedValue(true);
+    tenantVerificationMocks.verifyTenantMembership.mockResolvedValue(true);
 
     await tenantContextMiddleware()(req, res as any, next);
 
@@ -50,6 +64,9 @@ describe('tenantContextMiddleware', () => {
     const res = mockRes();
     const next = vi.fn();
 
+    tenantVerificationMocks.verifyTenantExists.mockResolvedValue(true);
+    tenantVerificationMocks.verifyTenantMembership.mockResolvedValue(true);
+
     await tenantContextMiddleware()(req, res as any, next);
 
     expect(verifyTenantMembership).toHaveBeenCalledWith('user-123', 'tenant-123');
@@ -66,6 +83,9 @@ describe('tenantContextMiddleware', () => {
     } as any;
     const res = mockRes();
     const next = vi.fn();
+
+    tenantVerificationMocks.verifyTenantExists.mockResolvedValue(true);
+    tenantVerificationMocks.verifyTenantMembership.mockResolvedValue(true);
 
     await tenantContextMiddleware()(req, res as any, next);
 
@@ -140,6 +160,36 @@ describe('tenantContextMiddleware', () => {
     expect(res.json).toHaveBeenCalledWith({
       error: 'Not Found',
       message: 'Tenant not found or inactive.',
+    });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('rejects when user metadata claims another tenant', async () => {
+    process.env.NODE_ENV = 'test';
+    process.env.TCT_SECRET = 'test-secret';
+
+    const { tenantContextMiddleware } = await import('../tenantContext');
+
+    const req = {
+      headers: {},
+      user: {
+        id: 'user-123',
+        tenant_id: 'tenant-999',
+        user_metadata: { tenant_id: 'tenant-999' },
+      },
+    } as any;
+    const res = mockRes();
+    const next = vi.fn();
+
+    tenantVerificationMocks.verifyTenantExists.mockResolvedValue(true);
+    tenantVerificationMocks.verifyTenantMembership.mockResolvedValue(false);
+
+    await tenantContextMiddleware()(req, res as any, next);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'Forbidden',
+      message: 'User does not belong to tenant.',
     });
     expect(next).not.toHaveBeenCalled();
   });

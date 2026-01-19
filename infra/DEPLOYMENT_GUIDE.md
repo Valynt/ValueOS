@@ -27,6 +27,14 @@ ValueCanvas uses a modern, cloud-native infrastructure stack:
 - **CI/CD:** GitHub Actions
 - **Monitoring:** CloudWatch, DataDog (optional)
 
+### Production Database of Record
+
+**Supabase is the production database of record.** All production data, migrations, and backups target
+the Supabase-managed Postgres instance. The Terraform RDS modules are for non-production use (dev/staging)
+or optional experiments and are not part of the production data path unless explicitly adopted later.
+If a direct Postgres connection is needed (e.g., admin diagnostics), `DATABASE_URL` should point to the
+Supabase Postgres endpoint, but the app primarily uses Supabase APIs and service role keys in production.
+
 ## Architecture
 
 ### High-Level Architecture

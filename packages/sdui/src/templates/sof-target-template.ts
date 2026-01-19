@@ -1,11 +1,11 @@
 /**
  * SOF Target Page Template
- * 
+ *
  * Extended Target template with Intervention Designer and Outcome Hypotheses.
  */
 
-import type { SDUIPageDefinition } from '../schema';
-import type { InterventionPoint, OutcomeHypothesis, SystemMap } from '../../types/sof';
+import type { SDUIPageDefinition } from "../schema";
+import type { InterventionPoint, OutcomeHypothesis, SystemMap } from "../../types/sof";
 
 /**
  * Generate SOF-enhanced Target page
@@ -17,37 +17,37 @@ export function generateSOFTargetPage(data: {
   outcomeHypotheses?: OutcomeHypothesis[];
   kpis?: any[];
 }): SDUIPageDefinition {
-  const sections: SDUIPageDefinition['sections'] = [
+  const sections: SDUIPageDefinition["sections"] = [
     // Header
     {
-      type: 'component',
-      component: 'PageHeader',
+      type: "component",
+      component: "PageHeader",
       version: 1,
       props: {
-        title: 'Target Definition',
-        subtitle: 'Design interventions and engineer outcomes',
+        title: "Target Definition",
+        subtitle: "Design interventions and engineer outcomes",
         breadcrumbs: [
-          { label: 'Home', href: '/' },
-          { label: 'Opportunities', href: '/opportunities' },
-          { label: data.businessCase?.name || 'Business Case' },
-          { label: 'Target' },
+          { label: "Home", href: "/" },
+          { label: "Opportunities", href: "/opportunities" },
+          { label: data.businessCase?.name || "Business Case" },
+          { label: "Target" },
         ],
       },
     },
 
     // System Map Reference
     {
-      type: 'component',
-      component: 'Card',
+      type: "component",
+      component: "Card",
       version: 1,
       props: {
-        title: 'System Context',
+        title: "System Context",
         collapsible: true,
         defaultCollapsed: true,
         children: [
           {
-            type: 'component',
-            component: 'SystemMapCanvas',
+            type: "component",
+            component: "SystemMapCanvas",
             version: 1,
             props: {
               entities: data.systemMap.entities,
@@ -65,41 +65,41 @@ export function generateSOFTargetPage(data: {
 
     // Main Content
     {
-      type: 'component',
-      component: 'Tabs',
+      type: "component",
+      component: "Tabs",
       version: 1,
       props: {
-        defaultTab: 'interventions',
+        defaultTab: "interventions",
         children: [
           // Interventions Tab
           {
-            type: 'component',
-            component: 'TabPanel',
+            type: "component",
+            component: "TabPanel",
             version: 1,
             props: {
-              id: 'interventions',
-              label: 'Intervention Design',
-              icon: 'target',
+              id: "interventions",
+              label: "Intervention Design",
+              icon: "target",
               children: [
                 {
-                  type: 'component',
-                  component: 'Stack',
+                  type: "component",
+                  component: "Stack",
                   version: 1,
                   props: {
                     gap: 4,
-                    children: ([
+                    children: [
                       // Intervention Designer
                       {
-                        type: 'component',
-                        component: 'Card',
+                        type: "component",
+                        component: "Card",
                         version: 1,
                         props: {
-                          title: 'Intervention Designer',
-                          description: 'Design high-leverage interventions from system map',
+                          title: "Intervention Designer",
+                          description: "Design high-leverage interventions from system map",
                           children: [
                             {
-                              type: 'component',
-                              component: 'InterventionDesigner',
+                              type: "component",
+                              component: "InterventionDesigner",
                               version: 1,
                               props: {
                                 systemMap: data.systemMap,
@@ -111,58 +111,60 @@ export function generateSOFTargetPage(data: {
                       },
 
                       // Intervention Points List
-                      data.interventionPoints && data.interventionPoints.length > 0 && {
-                        type: 'component',
-                        component: 'Card',
-                        version: 1,
-                        props: {
-                          title: 'Designed Interventions',
-                          description: `${data.interventionPoints.length} intervention(s) identified`,
-                          children: [
-                            {
-                              type: 'component',
-                              component: 'Grid',
-                              version: 1,
-                              props: {
-                                columns: 2,
-                                gap: 4,
-                                children: data.interventionPoints.map((intervention) => ({
-                                  type: 'component',
-                                  component: 'InterventionPointCard',
-                                  version: 1,
-                                  props: {
-                                    intervention,
-                                    showRisks: true,
-                                    showPathways: true,
-                                  },
-                                })),
+                      data.interventionPoints &&
+                        data.interventionPoints.length > 0 && {
+                          type: "component",
+                          component: "Card",
+                          version: 1,
+                          props: {
+                            title: "Designed Interventions",
+                            description: `${data.interventionPoints.length} intervention(s) identified`,
+                            children: [
+                              {
+                                type: "component",
+                                component: "Grid",
+                                version: 1,
+                                props: {
+                                  columns: 2,
+                                  gap: 4,
+                                  children: data.interventionPoints.map((intervention) => ({
+                                    type: "component",
+                                    component: "InterventionPointCard",
+                                    version: 1,
+                                    props: {
+                                      intervention,
+                                      showRisks: true,
+                                      showPathways: true,
+                                    },
+                                  })),
+                                },
                               },
-                            },
-                          ],
+                            ],
+                          },
                         },
-                      },
 
                       // Intervention Sequence
-                      data.interventionPoints && data.interventionPoints.length > 1 && {
-                        type: 'component',
-                        component: 'Card',
-                        version: 1,
-                        props: {
-                          title: 'Implementation Sequence',
-                          description: 'Recommended order based on dependencies',
-                          children: [
-                            {
-                              type: 'component',
-                              component: 'InterventionSequenceTimeline',
-                              version: 1,
-                              props: {
-                                interventions: data.interventionPoints,
+                      data.interventionPoints &&
+                        data.interventionPoints.length > 1 && {
+                          type: "component",
+                          component: "Card",
+                          version: 1,
+                          props: {
+                            title: "Implementation Sequence",
+                            description: "Recommended order based on dependencies",
+                            children: [
+                              {
+                                type: "component",
+                                component: "InterventionSequenceTimeline",
+                                version: 1,
+                                props: {
+                                  interventions: data.interventionPoints,
+                                },
                               },
-                            },
-                          ],
+                            ],
+                          },
                         },
-                      },
-                    ].filter(Boolean) as any[]),
+                    ].filter(Boolean) as any[],
                   },
                 },
               ],
@@ -171,33 +173,33 @@ export function generateSOFTargetPage(data: {
 
           // Outcome Hypotheses Tab
           {
-            type: 'component',
-            component: 'TabPanel',
+            type: "component",
+            component: "TabPanel",
             version: 1,
             props: {
-              id: 'outcomes',
-              label: 'Outcome Hypotheses',
-              icon: 'lightbulb',
+              id: "outcomes",
+              label: "Outcome Hypotheses",
+              icon: "lightbulb",
               children: [
                 {
-                  type: 'component',
-                  component: 'Stack',
+                  type: "component",
+                  component: "Stack",
                   version: 1,
                   props: {
                     gap: 4,
-                    children: ([
+                    children: [
                       // Outcome Engineer
                       {
-                        type: 'component',
-                        component: 'Card',
+                        type: "component",
+                        component: "Card",
                         version: 1,
                         props: {
-                          title: 'Outcome Engineer',
-                          description: 'Build systemic outcome hypotheses',
+                          title: "Outcome Engineer",
+                          description: "Build systemic outcome hypotheses",
                           children: [
                             {
-                              type: 'component',
-                              component: 'OutcomeEngineer',
+                              type: "component",
+                              component: "OutcomeEngineer",
                               version: 1,
                               props: {
                                 systemMap: data.systemMap,
@@ -210,47 +212,49 @@ export function generateSOFTargetPage(data: {
                       },
 
                       // Outcome Hypotheses List
-                      data.outcomeHypotheses && data.outcomeHypotheses.length > 0 && {
-                        type: 'component',
-                        component: 'Card',
-                        version: 1,
-                        props: {
-                          title: 'Outcome Hypotheses',
-                          description: `${data.outcomeHypotheses.length} hypothesis(es) created`,
-                          children: data.outcomeHypotheses.map((hypothesis) => ({
-                            type: 'component',
-                            component: 'OutcomeHypothesisCard',
-                            version: 1,
-                            props: {
-                              hypothesis,
-                              showCausalChain: true,
-                              showAssumptions: true,
-                            },
-                          })),
-                        },
-                      },
-
-                      // Causal Chain Visualization
-                      data.outcomeHypotheses && data.outcomeHypotheses.length > 0 && {
-                        type: 'component',
-                        component: 'Card',
-                        version: 1,
-                        props: {
-                          title: 'Causal Pathways',
-                          description: 'Intervention → System Change → KPI → Value',
-                          children: [
-                            {
-                              type: 'component',
-                              component: 'CausalChainVisualization',
+                      data.outcomeHypotheses &&
+                        data.outcomeHypotheses.length > 0 && {
+                          type: "component",
+                          component: "Card",
+                          version: 1,
+                          props: {
+                            title: "Outcome Hypotheses",
+                            description: `${data.outcomeHypotheses.length} hypothesis(es) created`,
+                            children: data.outcomeHypotheses.map((hypothesis) => ({
+                              type: "component",
+                              component: "OutcomeHypothesisCard",
                               version: 1,
                               props: {
-                                hypotheses: data.outcomeHypotheses,
+                                hypothesis,
+                                showCausalChain: true,
+                                showAssumptions: true,
                               },
-                            },
-                          ],
+                            })),
+                          },
                         },
-                      },
-                    ].filter(Boolean) as any[]),
+
+                      // Causal Chain Visualization
+                      data.outcomeHypotheses &&
+                        data.outcomeHypotheses.length > 0 && {
+                          type: "component",
+                          component: "Card",
+                          version: 1,
+                          props: {
+                            title: "Causal Pathways",
+                            description: "Intervention → System Change → KPI → Value",
+                            children: [
+                              {
+                                type: "component",
+                                component: "CausalChainVisualization",
+                                version: 1,
+                                props: {
+                                  hypotheses: data.outcomeHypotheses,
+                                },
+                              },
+                            ],
+                          },
+                        },
+                    ].filter(Boolean) as any[],
                   },
                 },
               ],
@@ -259,25 +263,25 @@ export function generateSOFTargetPage(data: {
 
           // KPI Mapping Tab
           {
-            type: 'component',
-            component: 'TabPanel',
+            type: "component",
+            component: "TabPanel",
             version: 1,
             props: {
-              id: 'kpis',
-              label: 'KPI Mapping',
-              icon: 'chart',
+              id: "kpis",
+              label: "KPI Mapping",
+              icon: "chart",
               children: [
                 {
-                  type: 'component',
-                  component: 'Card',
+                  type: "component",
+                  component: "Card",
                   version: 1,
                   props: {
-                    title: 'Intervention → KPI Impact Matrix',
-                    description: 'Map interventions to expected KPI changes',
+                    title: "Intervention → KPI Impact Matrix",
+                    description: "Map interventions to expected KPI changes",
                     children: [
                       {
-                        type: 'component',
-                        component: 'OutcomePathwayMatrix',
+                        type: "component",
+                        component: "OutcomePathwayMatrix",
                         version: 1,
                         props: {
                           interventions: data.interventionPoints || [],
@@ -296,25 +300,25 @@ export function generateSOFTargetPage(data: {
 
     // Actions Footer
     {
-      type: 'component',
-      component: 'ActionBar',
+      type: "component",
+      component: "ActionBar",
       version: 1,
       props: {
         actions: [
           {
-            label: 'Back to Opportunity',
-            variant: 'secondary',
-            onClick: 'backToOpportunity',
+            label: "Back to Opportunity",
+            variant: "secondary",
+            onClick: "backToOpportunity",
           },
           {
-            label: 'Save Progress',
-            variant: 'secondary',
-            onClick: 'saveProgress',
+            label: "Save Progress",
+            variant: "secondary",
+            onClick: "saveProgress",
           },
           {
-            label: 'Continue to Realization',
-            variant: 'primary',
-            onClick: 'continueToRealization',
+            label: "Continue to Realization",
+            variant: "primary",
+            onClick: "continueToRealization",
             disabled: !data.interventionPoints || data.interventionPoints.length === 0,
           },
         ],
@@ -323,12 +327,12 @@ export function generateSOFTargetPage(data: {
   ];
 
   return {
-    type: 'page',
+    type: "page",
     version: 1,
     sections,
     metadata: {
-      theme: 'dark',
-      lifecycle_stage: 'target',
+      theme: "dark",
+      lifecycle_stage: "target",
       sofEnabled: true,
       requiresInterventions: true,
       requiresOutcomeHypotheses: true,

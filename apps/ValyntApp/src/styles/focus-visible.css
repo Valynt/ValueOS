@@ -1,0 +1,5 @@
+@import "../../../../packages/shared/src/styles/motion-shadows.css";
+
+:focus-visible {
+  transition: box-shadow var(--motion-duration-micro) var(--motion-ease-standard);
+}

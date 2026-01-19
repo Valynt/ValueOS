@@ -1,11 +1,11 @@
 /**
  * SOF Expansion Page Template
- * 
+ *
  * Extended Expansion template with System Replication and Scaling Analysis.
  */
 
-import type { SDUIPageDefinition } from '../schema';
-import type { FeedbackLoop, InterventionPoint, SystemMap } from '../../types/sof';
+import type { SDUIPageDefinition } from "../schema";
+import type { FeedbackLoop, InterventionPoint, SystemMap } from "../../types/sof";
 
 /**
  * Generate SOF-enhanced Expansion page
@@ -21,79 +21,79 @@ export function generateSOFExpansionPage(data: {
     replicationReadiness?: number;
   };
 }): SDUIPageDefinition {
-  const closedLoops = data.feedbackLoops.filter((loop) => loop.closure_status === 'closed');
+  const closedLoops = data.feedbackLoops.filter((loop) => loop.closure_status === "closed");
   const isReadyForExpansion = closedLoops.length > 0;
 
-  const sections: SDUIPageDefinition['sections'] = ([
+  const sections: SDUIPageDefinition["sections"] = [
     // Header
     {
-      type: 'component',
-      component: 'PageHeader',
+      type: "component",
+      component: "PageHeader",
       version: 1,
       props: {
-        title: 'Expansion Planning',
-        subtitle: 'Replicate successful interventions to new contexts',
+        title: "Expansion Planning",
+        subtitle: "Replicate successful interventions to new contexts",
         breadcrumbs: [
-          { label: 'Home', href: '/' },
-          { label: 'Opportunities', href: '/opportunities' },
-          { label: data.businessCase?.name || 'Business Case' },
-          { label: 'Expansion' },
+          { label: "Home", href: "/" },
+          { label: "Opportunities", href: "/opportunities" },
+          { label: data.businessCase?.name || "Business Case" },
+          { label: "Expansion" },
         ],
       },
     },
 
     // Readiness Check
     !isReadyForExpansion && {
-      type: 'component',
-      component: 'Alert',
+      type: "component",
+      component: "Alert",
       version: 1,
       props: {
-        variant: 'warning',
-        title: 'Not Ready for Expansion',
-        message: 'At least one feedback loop must be closed before expanding to new contexts.',
+        variant: "warning",
+        title: "Not Ready for Expansion",
+        message: "At least one feedback loop must be closed before expanding to new contexts.",
       },
     },
 
     // Expansion Overview
     isReadyForExpansion && {
-      type: 'component',
-      component: 'Grid',
+      type: "component",
+      component: "Grid",
       version: 1,
       props: {
         columns: 3,
         gap: 4,
         children: [
           {
-            type: 'component',
-            component: 'StatCard',
+            type: "component",
+            component: "StatCard",
             version: 1,
             props: {
-              label: 'Closed Loops',
+              label: "Closed Loops",
               value: closedLoops.length,
-              icon: 'check-circle',
-              color: 'green',
+              icon: "check-circle",
+              color: "green",
             },
           },
           {
-            type: 'component',
-            component: 'StatCard',
+            type: "component",
+            component: "StatCard",
             version: 1,
             props: {
-              label: 'Target Contexts',
+              label: "Target Contexts",
               value: data.expansionData?.targetContexts?.length || 0,
-              icon: 'map',
-              color: 'blue',
+              icon: "map",
+              color: "blue",
             },
           },
           {
-            type: 'component',
-            component: 'StatCard',
+            type: "component",
+            component: "StatCard",
             version: 1,
             props: {
-              label: 'Replication Readiness',
+              label: "Replication Readiness",
               value: `${data.expansionData?.replicationReadiness || 0}%`,
-              icon: 'trending-up',
-              color: 'purple',
+              icon: "trending-up",
+              color: "purple",
             },
           },
         ],
@@ -102,41 +102,41 @@ export function generateSOFExpansionPage(data: {
 
     // Main Content
     isReadyForExpansion && {
-      type: 'component',
-      component: 'Tabs',
+      type: "component",
+      component: "Tabs",
       version: 1,
       props: {
-        defaultTab: 'analysis',
+        defaultTab: "analysis",
         children: [
           // System Analysis Tab
           {
-            type: 'component',
-            component: 'TabPanel',
+            type: "component",
+            component: "TabPanel",
             version: 1,
             props: {
-              id: 'analysis',
-              label: 'System Analysis',
-              icon: 'search',
+              id: "analysis",
+              label: "System Analysis",
+              icon: "search",
               children: [
                 {
-                  type: 'component',
-                  component: 'Stack',
+                  type: "component",
+                  component: "Stack",
                   version: 1,
                   props: {
                     gap: 4,
                     children: [
                       // System Replication Analyzer
                       {
-                        type: 'component',
-                        component: 'Card',
+                        type: "component",
+                        component: "Card",
                         version: 1,
                         props: {
-                          title: 'System Replication Analysis',
-                          description: 'Identify transferable patterns and context dependencies',
+                          title: "System Replication Analysis",
+                          description: "Identify transferable patterns and context dependencies",
                           children: [
                             {
-                              type: 'component',
-                              component: 'SystemReplicationAnalyzer',
+                              type: "component",
+                              component: "SystemReplicationAnalyzer",
                               version: 1,
                               props: {
                                 systemMap: data.systemMap,
@@ -150,16 +150,16 @@ export function generateSOFExpansionPage(data: {
 
                       // Transferability Matrix
                       {
-                        type: 'component',
-                        component: 'Card',
+                        type: "component",
+                        component: "Card",
                         version: 1,
                         props: {
-                          title: 'Transferability Assessment',
-                          description: 'Which system elements can be replicated?',
+                          title: "Transferability Assessment",
+                          description: "Which system elements can be replicated?",
                           children: [
                             {
-                              type: 'component',
-                              component: 'TransferabilityMatrix',
+                              type: "component",
+                              component: "TransferabilityMatrix",
                               version: 1,
                               props: {
                                 systemMap: data.systemMap,
@@ -172,16 +172,16 @@ export function generateSOFExpansionPage(data: {
 
                       // Context Dependencies
                       {
-                        type: 'component',
-                        component: 'Card',
+                        type: "component",
+                        component: "Card",
                         version: 1,
                         props: {
-                          title: 'Context Dependencies',
-                          description: 'Critical factors that vary by context',
+                          title: "Context Dependencies",
+                          description: "Critical factors that vary by context",
                           children: [
                             {
-                              type: 'component',
-                              component: 'ContextDependencyList',
+                              type: "component",
+                              component: "ContextDependencyList",
                               version: 1,
                               props: {
                                 systemMap: data.systemMap,
@@ -200,33 +200,33 @@ export function generateSOFExpansionPage(data: {
 
           // Target Contexts Tab
           {
-            type: 'component',
-            component: 'TabPanel',
+            type: "component",
+            component: "TabPanel",
             version: 1,
             props: {
-              id: 'contexts',
-              label: 'Target Contexts',
-              icon: 'map-pin',
+              id: "contexts",
+              label: "Target Contexts",
+              icon: "map-pin",
               children: [
                 {
-                  type: 'component',
-                  component: 'Stack',
+                  type: "component",
+                  component: "Stack",
                   version: 1,
                   props: {
                     gap: 4,
-                    children: ([
+                    children: [
                       // Context Selector
                       {
-                        type: 'component',
-                        component: 'Card',
+                        type: "component",
+                        component: "Card",
                         version: 1,
                         props: {
-                          title: 'Select Target Contexts',
-                          description: 'Choose contexts for intervention replication',
+                          title: "Select Target Contexts",
+                          description: "Choose contexts for intervention replication",
                           children: [
                             {
-                              type: 'component',
-                              component: 'ContextSelector',
+                              type: "component",
+                              component: "ContextSelector",
                               version: 1,
                               props: {
                                 availableContexts: data.expansionData?.targetContexts || [],
@@ -238,51 +238,53 @@ export function generateSOFExpansionPage(data: {
                       },
 
                       // Context Comparison
-                      data.expansionData?.targetContexts && data.expansionData.targetContexts.length > 0 && {
-                        type: 'component',
-                        component: 'Card',
-                        version: 1,
-                        props: {
-                          title: 'Context Comparison',
-                          description: 'Compare target contexts to source context',
-                          children: [
-                            {
-                              type: 'component',
-                              component: 'ContextComparisonTable',
-                              version: 1,
-                              props: {
-                                sourceContext: {
-                                  systemMap: data.systemMap,
-                                  interventionPoint: data.interventionPoint,
+                      data.expansionData?.targetContexts &&
+                        data.expansionData.targetContexts.length > 0 && {
+                          type: "component",
+                          component: "Card",
+                          version: 1,
+                          props: {
+                            title: "Context Comparison",
+                            description: "Compare target contexts to source context",
+                            children: [
+                              {
+                                type: "component",
+                                component: "ContextComparisonTable",
+                                version: 1,
+                                props: {
+                                  sourceContext: {
+                                    systemMap: data.systemMap,
+                                    interventionPoint: data.interventionPoint,
+                                  },
+                                  targetContexts: data.expansionData.targetContexts,
                                 },
-                                targetContexts: data.expansionData.targetContexts,
                               },
-                            },
-                          ],
+                            ],
+                          },
                         },
-                      },
 
                       // Adaptation Requirements
-                      data.expansionData?.targetContexts && data.expansionData.targetContexts.length > 0 && {
-                        type: 'component',
-                        component: 'Card',
-                        version: 1,
-                        props: {
-                          title: 'Adaptation Requirements',
-                          description: 'How to adapt intervention for each context',
-                          children: data.expansionData.targetContexts.map((context) => ({
-                            type: 'component',
-                            component: 'AdaptationPlan',
-                            version: 1,
-                            props: {
-                              context,
-                              interventionPoint: data.interventionPoint,
-                              systemMap: data.systemMap,
-                            },
-                          })),
+                      data.expansionData?.targetContexts &&
+                        data.expansionData.targetContexts.length > 0 && {
+                          type: "component",
+                          component: "Card",
+                          version: 1,
+                          props: {
+                            title: "Adaptation Requirements",
+                            description: "How to adapt intervention for each context",
+                            children: data.expansionData.targetContexts.map((context) => ({
+                              type: "component",
+                              component: "AdaptationPlan",
+                              version: 1,
+                              props: {
+                                context,
+                                interventionPoint: data.interventionPoint,
+                                systemMap: data.systemMap,
+                              },
+                            })),
+                          },
                         },
-                      },
-                    ].filter(Boolean) as any[]),
+                    ].filter(Boolean) as any[],
                   },
                 },
               ],
@@ -291,33 +293,33 @@ export function generateSOFExpansionPage(data: {
 
           // Scaling Strategy Tab
           {
-            type: 'component',
-            component: 'TabPanel',
+            type: "component",
+            component: "TabPanel",
             version: 1,
             props: {
-              id: 'scaling',
-              label: 'Scaling Strategy',
-              icon: 'trending-up',
+              id: "scaling",
+              label: "Scaling Strategy",
+              icon: "trending-up",
               children: [
                 {
-                  type: 'component',
-                  component: 'Stack',
+                  type: "component",
+                  component: "Stack",
                   version: 1,
                   props: {
                     gap: 4,
                     children: [
                       // Scaling Factor Analysis
                       {
-                        type: 'component',
-                        component: 'Card',
+                        type: "component",
+                        component: "Card",
                         version: 1,
                         props: {
-                          title: 'Scaling Factors',
-                          description: 'Key factors that enable or constrain scaling',
+                          title: "Scaling Factors",
+                          description: "Key factors that enable or constrain scaling",
                           children: [
                             {
-                              type: 'component',
-                              component: 'ScalingFactorAnalysis',
+                              type: "component",
+                              component: "ScalingFactorAnalysis",
                               version: 1,
                               props: {
                                 systemMap: data.systemMap,
@@ -332,16 +334,16 @@ export function generateSOFExpansionPage(data: {
 
                       // Scaling Sequence
                       {
-                        type: 'component',
-                        component: 'Card',
+                        type: "component",
+                        component: "Card",
                         version: 1,
                         props: {
-                          title: 'Scaling Sequence',
-                          description: 'Recommended order for context expansion',
+                          title: "Scaling Sequence",
+                          description: "Recommended order for context expansion",
                           children: [
                             {
-                              type: 'component',
-                              component: 'ScalingSequenceTimeline',
+                              type: "component",
+                              component: "ScalingSequenceTimeline",
                               version: 1,
                               props: {
                                 targetContexts: data.expansionData?.targetContexts || [],
@@ -354,16 +356,16 @@ export function generateSOFExpansionPage(data: {
 
                       // Risk Assessment
                       {
-                        type: 'component',
-                        component: 'Card',
+                        type: "component",
+                        component: "Card",
                         version: 1,
                         props: {
-                          title: 'Scaling Risks',
-                          description: 'Potential challenges in expansion',
+                          title: "Scaling Risks",
+                          description: "Potential challenges in expansion",
                           children: [
                             {
-                              type: 'component',
-                              component: 'ScalingRiskMatrix',
+                              type: "component",
+                              component: "ScalingRiskMatrix",
                               version: 1,
                               props: {
                                 targetContexts: data.expansionData?.targetContexts || [],
@@ -382,25 +384,25 @@ export function generateSOFExpansionPage(data: {
 
           // Replication Playbook Tab
           {
-            type: 'component',
-            component: 'TabPanel',
+            type: "component",
+            component: "TabPanel",
             version: 1,
             props: {
-              id: 'playbook',
-              label: 'Replication Playbook',
-              icon: 'book',
+              id: "playbook",
+              label: "Replication Playbook",
+              icon: "book",
               children: [
                 {
-                  type: 'component',
-                  component: 'Card',
+                  type: "component",
+                  component: "Card",
                   version: 1,
                   props: {
-                    title: 'Intervention Replication Playbook',
-                    description: 'Step-by-step guide for replicating this intervention',
+                    title: "Intervention Replication Playbook",
+                    description: "Step-by-step guide for replicating this intervention",
                     children: [
                       {
-                        type: 'component',
-                        component: 'ReplicationPlaybook',
+                        type: "component",
+                        component: "ReplicationPlaybook",
                         version: 1,
                         props: {
                           systemMap: data.systemMap,
@@ -421,40 +423,40 @@ export function generateSOFExpansionPage(data: {
 
     // Actions Footer
     {
-      type: 'component',
-      component: 'ActionBar',
+      type: "component",
+      component: "ActionBar",
       version: 1,
       props: {
         actions: [
           {
-            label: 'Back to Realization',
-            variant: 'secondary',
-            onClick: 'backToRealization',
+            label: "Back to Realization",
+            variant: "secondary",
+            onClick: "backToRealization",
           },
           {
-            label: 'Export Playbook',
-            variant: 'secondary',
-            onClick: 'exportPlaybook',
+            label: "Export Playbook",
+            variant: "secondary",
+            onClick: "exportPlaybook",
             disabled: !isReadyForExpansion,
           },
           {
-            label: 'Create Expansion Plan',
-            variant: 'primary',
-            onClick: 'createExpansionPlan',
+            label: "Create Expansion Plan",
+            variant: "primary",
+            onClick: "createExpansionPlan",
             disabled: !isReadyForExpansion || !data.expansionData?.targetContexts?.length,
           },
         ],
       },
     },
-  ].filter(Boolean) as any[]);
+  ].filter(Boolean) as any[];
 
   return {
-    type: 'page',
+    type: "page",
     version: 1,
     sections,
     metadata: {
-      theme: 'dark',
-      lifecycle_stage: 'expansion',
+      theme: "dark",
+      lifecycle_stage: "expansion",
       sofEnabled: true,
       requiresClosedLoops: true,
       supportsReplication: true,
@@ -463,4 +465,3 @@ export function generateSOFExpansionPage(data: {
 }
 
 export default generateSOFExpansionPage;
-
