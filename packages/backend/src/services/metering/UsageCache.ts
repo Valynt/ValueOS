@@ -7,7 +7,7 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { BILLING_METRICS, USAGE_CACHE_TTL } from "../../config/billing";
 import type { BillingMetric } from "../../config/billing";
 import { createLogger } from "../../lib/logger";
-import { getEnvVar, getServerSupabaseConfig } from "../../lib/env";
+import { getEnvVar, getSupabaseConfig } from "../../lib/env";
 import Redis, { type RedisClientType } from "redis";
 
 // Constants
@@ -17,7 +17,7 @@ const MILLISECONDS_MULTIPLIER = 1000;
 const logger = createLogger({ component: "UsageCache" });
 
 const { url: supabaseUrl, serviceRoleKey: supabaseServiceRoleKey } =
-  getServerSupabaseConfig();
+  getSupabaseConfig();
 
 let supabase: SupabaseClient | null = null;
 

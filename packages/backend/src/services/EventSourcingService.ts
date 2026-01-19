@@ -8,7 +8,7 @@
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { logger } from "../lib/logger";
-import { BaseEvent, Event, EVENT_TOPICS } from "../types/events";
+import { BaseEvent, Event, EVENT_TOPICS } from "@shared/types/events";
 import { getEventProducer } from "./EventProducer";
 
 export interface EventStoreRecord {
@@ -90,9 +90,7 @@ export class EventSourcingService {
   /**
    * Get events by correlation ID
    */
-  async getEventsByCorrelationId(
-    correlationId: string
-  ): Promise<EventStoreRecord[]> {
+  async getEventsByCorrelationId(correlationId: string): Promise<EventStoreRecord[]> {
     try {
       const { data, error } = await this.supabase
         .from("event_store")
@@ -216,9 +214,7 @@ export class EventSourcingService {
           created_at: new Date(),
         };
 
-        const { error } = await this.supabase
-          .from("projections")
-          .insert(projection);
+        const { error } = await this.supabase.from("projections").insert(projection);
 
         if (error) {
           logger.error("Failed to create projection", error, {
@@ -260,12 +256,7 @@ export class EventSourcingService {
           });
           // Invalidate cache and retry
           this.projections.get(projectionType)?.delete(projectionKey);
-          return this.updateProjection(
-            projectionType,
-            projectionKey,
-            event,
-            updateFunction
-          );
+          return this.updateProjection(projectionType, projectionKey, event, updateFunction);
         }
 
         if (error) {
@@ -303,10 +294,7 @@ export class EventSourcingService {
   /**
    * Get a projection
    */
-  async getProjection(
-    projectionType: string,
-    projectionKey: string
-  ): Promise<Projection | null> {
+  async getProjection(projectionType: string, projectionKey: string): Promise<Projection | null> {
     try {
       // Check memory cache first
       const cached = this.projections.get(projectionType)?.get(projectionKey);
@@ -352,10 +340,7 @@ export class EventSourcingService {
   /**
    * Get all projections of a type
    */
-  async getProjectionsByType(
-    projectionType: string,
-    limit: number = 100
-  ): Promise<Projection[]> {
+  async getProjectionsByType(projectionType: string, limit: number = 100): Promise<Projection[]> {
     try {
       const { data, error } = await this.supabase
         .from("projections")
@@ -394,14 +379,11 @@ export class EventSourcingService {
     try {
       // Get all relevant events
       const events = await this.getEventsByType(`${projectionType}.*`);
-      const filteredEvents = eventFilter
-        ? events.filter((e) => eventFilter(e as any))
-        : events;
+      const filteredEvents = eventFilter ? events.filter((e) => eventFilter(e as any)) : events;
 
       // Sort by timestamp
       filteredEvents.sort(
-        (a, b) =>
-          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       );
 
       // Rebuild projection
@@ -422,8 +404,7 @@ export class EventSourcingService {
         projection_key: projectionKey,
         data: currentData,
         version: filteredEvents.length,
-        last_event_id:
-          filteredEvents[filteredEvents.length - 1]?.event_id || "",
+        last_event_id: filteredEvents[filteredEvents.length - 1]?.event_id || "",
         last_updated: new Date(),
         created_at: new Date(),
       };

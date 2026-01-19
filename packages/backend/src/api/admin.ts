@@ -8,12 +8,9 @@ import { Request, Response } from "express";
 import { createSecureRouter } from "../middleware/secureRouter";
 import { requireAuth } from "../middleware/auth";
 import { tenantContextMiddleware } from "../middleware/tenantContext";
-import {
-  requireAllPermissions,
-  requirePermission,
-} from "../middleware/rbac";
+import { requireAllPermissions, requirePermission } from "../middleware/rbac";
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation";
-import { adminUserService } from "./services/AdminUserService";
+import { adminUserService } from "../services/AdminUserService";
 import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
 

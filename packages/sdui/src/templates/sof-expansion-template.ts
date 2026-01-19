@@ -4,7 +4,7 @@
  * Extended Expansion template with System Replication and Scaling Analysis.
  */
 
-import type { SDUIPageDefinition } from '../types';
+import type { SDUIPageDefinition } from '../schema';
 import type { FeedbackLoop, InterventionPoint, SystemMap } from '../../types/sof';
 
 /**
@@ -24,10 +24,12 @@ export function generateSOFExpansionPage(data: {
   const closedLoops = data.feedbackLoops.filter((loop) => loop.closure_status === 'closed');
   const isReadyForExpansion = closedLoops.length > 0;
 
-  const components: SDUIPageDefinition['components'] = [
+  const sections: SDUIPageDefinition['sections'] = ([
     // Header
     {
-      type: 'PageHeader',
+      type: 'component',
+      component: 'PageHeader',
+      version: 1,
       props: {
         title: 'Expansion Planning',
         subtitle: 'Replicate successful interventions to new contexts',
@@ -42,7 +44,9 @@ export function generateSOFExpansionPage(data: {
 
     // Readiness Check
     !isReadyForExpansion && {
-      type: 'Alert',
+      type: 'component',
+      component: 'Alert',
+      version: 1,
       props: {
         variant: 'warning',
         title: 'Not Ready for Expansion',
@@ -52,302 +56,374 @@ export function generateSOFExpansionPage(data: {
 
     // Expansion Overview
     isReadyForExpansion && {
-      type: 'Grid',
+      type: 'component',
+      component: 'Grid',
+      version: 1,
       props: {
         columns: 3,
         gap: 4,
+        children: [
+          {
+            type: 'component',
+            component: 'StatCard',
+            version: 1,
+            props: {
+              label: 'Closed Loops',
+              value: closedLoops.length,
+              icon: 'check-circle',
+              color: 'green',
+            },
+          },
+          {
+            type: 'component',
+            component: 'StatCard',
+            version: 1,
+            props: {
+              label: 'Target Contexts',
+              value: data.expansionData?.targetContexts?.length || 0,
+              icon: 'map',
+              color: 'blue',
+            },
+          },
+          {
+            type: 'component',
+            component: 'StatCard',
+            version: 1,
+            props: {
+              label: 'Replication Readiness',
+              value: `${data.expansionData?.replicationReadiness || 0}%`,
+              icon: 'trending-up',
+              color: 'purple',
+            },
+          },
+        ],
       },
-      children: [
-        {
-          type: 'StatCard',
-          props: {
-            label: 'Closed Loops',
-            value: closedLoops.length,
-            icon: 'check-circle',
-            color: 'green',
-          },
-        },
-        {
-          type: 'StatCard',
-          props: {
-            label: 'Target Contexts',
-            value: data.expansionData?.targetContexts?.length || 0,
-            icon: 'map',
-            color: 'blue',
-          },
-        },
-        {
-          type: 'StatCard',
-          props: {
-            label: 'Replication Readiness',
-            value: `${data.expansionData?.replicationReadiness || 0}%`,
-            icon: 'trending-up',
-            color: 'purple',
-          },
-        },
-      ],
     },
 
     // Main Content
     isReadyForExpansion && {
-      type: 'Tabs',
+      type: 'component',
+      component: 'Tabs',
+      version: 1,
       props: {
         defaultTab: 'analysis',
-      },
-      children: [
-        // System Analysis Tab
-        {
-          type: 'TabPanel',
-          props: {
-            id: 'analysis',
-            label: 'System Analysis',
-            icon: 'search',
-          },
-          children: [
-            {
-              type: 'Stack',
-              props: { gap: 4 },
+        children: [
+          // System Analysis Tab
+          {
+            type: 'component',
+            component: 'TabPanel',
+            version: 1,
+            props: {
+              id: 'analysis',
+              label: 'System Analysis',
+              icon: 'search',
               children: [
-                // System Replication Analyzer
                 {
-                  type: 'Card',
+                  type: 'component',
+                  component: 'Stack',
+                  version: 1,
                   props: {
-                    title: 'System Replication Analysis',
-                    description: 'Identify transferable patterns and context dependencies',
-                  },
-                  children: [
-                    {
-                      type: 'SystemReplicationAnalyzer',
-                      props: {
-                        systemMap: data.systemMap,
-                        interventionPoint: data.interventionPoint,
-                        feedbackLoops: closedLoops,
+                    gap: 4,
+                    children: [
+                      // System Replication Analyzer
+                      {
+                        type: 'component',
+                        component: 'Card',
+                        version: 1,
+                        props: {
+                          title: 'System Replication Analysis',
+                          description: 'Identify transferable patterns and context dependencies',
+                          children: [
+                            {
+                              type: 'component',
+                              component: 'SystemReplicationAnalyzer',
+                              version: 1,
+                              props: {
+                                systemMap: data.systemMap,
+                                interventionPoint: data.interventionPoint,
+                                feedbackLoops: closedLoops,
+                              },
+                            },
+                          ],
+                        },
                       },
-                    },
-                  ],
-                },
 
-                // Transferability Matrix
-                {
-                  type: 'Card',
-                  props: {
-                    title: 'Transferability Assessment',
-                    description: 'Which system elements can be replicated?',
-                  },
-                  children: [
-                    {
-                      type: 'TransferabilityMatrix',
-                      props: {
-                        systemMap: data.systemMap,
-                        interventionPoint: data.interventionPoint,
+                      // Transferability Matrix
+                      {
+                        type: 'component',
+                        component: 'Card',
+                        version: 1,
+                        props: {
+                          title: 'Transferability Assessment',
+                          description: 'Which system elements can be replicated?',
+                          children: [
+                            {
+                              type: 'component',
+                              component: 'TransferabilityMatrix',
+                              version: 1,
+                              props: {
+                                systemMap: data.systemMap,
+                                interventionPoint: data.interventionPoint,
+                              },
+                            },
+                          ],
+                        },
                       },
-                    },
-                  ],
-                },
 
-                // Context Dependencies
-                {
-                  type: 'Card',
-                  props: {
-                    title: 'Context Dependencies',
-                    description: 'Critical factors that vary by context',
-                  },
-                  children: [
-                    {
-                      type: 'ContextDependencyList',
-                      props: {
-                        systemMap: data.systemMap,
-                        interventionPoint: data.interventionPoint,
+                      // Context Dependencies
+                      {
+                        type: 'component',
+                        component: 'Card',
+                        version: 1,
+                        props: {
+                          title: 'Context Dependencies',
+                          description: 'Critical factors that vary by context',
+                          children: [
+                            {
+                              type: 'component',
+                              component: 'ContextDependencyList',
+                              version: 1,
+                              props: {
+                                systemMap: data.systemMap,
+                                interventionPoint: data.interventionPoint,
+                              },
+                            },
+                          ],
+                        },
                       },
-                    },
-                  ],
+                    ],
+                  },
                 },
               ],
             },
-          ],
-        },
-
-        // Target Contexts Tab
-        {
-          type: 'TabPanel',
-          props: {
-            id: 'contexts',
-            label: 'Target Contexts',
-            icon: 'map-pin',
           },
-          children: [
-            {
-              type: 'Stack',
-              props: { gap: 4 },
-              children: [
-                // Context Selector
-                {
-                  type: 'Card',
-                  props: {
-                    title: 'Select Target Contexts',
-                    description: 'Choose contexts for intervention replication',
-                  },
-                  children: [
-                    {
-                      type: 'ContextSelector',
-                      props: {
-                        availableContexts: data.expansionData?.targetContexts || [],
-                        systemMap: data.systemMap,
-                      },
-                    },
-                  ],
-                },
 
-                // Context Comparison
-                data.expansionData?.targetContexts && data.expansionData.targetContexts.length > 0 && {
-                  type: 'Card',
+          // Target Contexts Tab
+          {
+            type: 'component',
+            component: 'TabPanel',
+            version: 1,
+            props: {
+              id: 'contexts',
+              label: 'Target Contexts',
+              icon: 'map-pin',
+              children: [
+                {
+                  type: 'component',
+                  component: 'Stack',
+                  version: 1,
                   props: {
-                    title: 'Context Comparison',
-                    description: 'Compare target contexts to source context',
+                    gap: 4,
+                    children: ([
+                      // Context Selector
+                      {
+                        type: 'component',
+                        component: 'Card',
+                        version: 1,
+                        props: {
+                          title: 'Select Target Contexts',
+                          description: 'Choose contexts for intervention replication',
+                          children: [
+                            {
+                              type: 'component',
+                              component: 'ContextSelector',
+                              version: 1,
+                              props: {
+                                availableContexts: data.expansionData?.targetContexts || [],
+                                systemMap: data.systemMap,
+                              },
+                            },
+                          ],
+                        },
+                      },
+
+                      // Context Comparison
+                      data.expansionData?.targetContexts && data.expansionData.targetContexts.length > 0 && {
+                        type: 'component',
+                        component: 'Card',
+                        version: 1,
+                        props: {
+                          title: 'Context Comparison',
+                          description: 'Compare target contexts to source context',
+                          children: [
+                            {
+                              type: 'component',
+                              component: 'ContextComparisonTable',
+                              version: 1,
+                              props: {
+                                sourceContext: {
+                                  systemMap: data.systemMap,
+                                  interventionPoint: data.interventionPoint,
+                                },
+                                targetContexts: data.expansionData.targetContexts,
+                              },
+                            },
+                          ],
+                        },
+                      },
+
+                      // Adaptation Requirements
+                      data.expansionData?.targetContexts && data.expansionData.targetContexts.length > 0 && {
+                        type: 'component',
+                        component: 'Card',
+                        version: 1,
+                        props: {
+                          title: 'Adaptation Requirements',
+                          description: 'How to adapt intervention for each context',
+                          children: data.expansionData.targetContexts.map((context) => ({
+                            type: 'component',
+                            component: 'AdaptationPlan',
+                            version: 1,
+                            props: {
+                              context,
+                              interventionPoint: data.interventionPoint,
+                              systemMap: data.systemMap,
+                            },
+                          })),
+                        },
+                      },
+                    ].filter(Boolean) as any[]),
                   },
-                  children: [
-                    {
-                      type: 'ContextComparisonTable',
-                      props: {
-                        sourceContext: {
+                },
+              ],
+            },
+          },
+
+          // Scaling Strategy Tab
+          {
+            type: 'component',
+            component: 'TabPanel',
+            version: 1,
+            props: {
+              id: 'scaling',
+              label: 'Scaling Strategy',
+              icon: 'trending-up',
+              children: [
+                {
+                  type: 'component',
+                  component: 'Stack',
+                  version: 1,
+                  props: {
+                    gap: 4,
+                    children: [
+                      // Scaling Factor Analysis
+                      {
+                        type: 'component',
+                        component: 'Card',
+                        version: 1,
+                        props: {
+                          title: 'Scaling Factors',
+                          description: 'Key factors that enable or constrain scaling',
+                          children: [
+                            {
+                              type: 'component',
+                              component: 'ScalingFactorAnalysis',
+                              version: 1,
+                              props: {
+                                systemMap: data.systemMap,
+                                interventionPoint: data.interventionPoint,
+                                feedbackLoops: closedLoops,
+                                scalingFactors: data.expansionData?.scalingFactors || [],
+                              },
+                            },
+                          ],
+                        },
+                      },
+
+                      // Scaling Sequence
+                      {
+                        type: 'component',
+                        component: 'Card',
+                        version: 1,
+                        props: {
+                          title: 'Scaling Sequence',
+                          description: 'Recommended order for context expansion',
+                          children: [
+                            {
+                              type: 'component',
+                              component: 'ScalingSequenceTimeline',
+                              version: 1,
+                              props: {
+                                targetContexts: data.expansionData?.targetContexts || [],
+                                scalingFactors: data.expansionData?.scalingFactors || [],
+                              },
+                            },
+                          ],
+                        },
+                      },
+
+                      // Risk Assessment
+                      {
+                        type: 'component',
+                        component: 'Card',
+                        version: 1,
+                        props: {
+                          title: 'Scaling Risks',
+                          description: 'Potential challenges in expansion',
+                          children: [
+                            {
+                              type: 'component',
+                              component: 'ScalingRiskMatrix',
+                              version: 1,
+                              props: {
+                                targetContexts: data.expansionData?.targetContexts || [],
+                                interventionPoint: data.interventionPoint,
+                              },
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+
+          // Replication Playbook Tab
+          {
+            type: 'component',
+            component: 'TabPanel',
+            version: 1,
+            props: {
+              id: 'playbook',
+              label: 'Replication Playbook',
+              icon: 'book',
+              children: [
+                {
+                  type: 'component',
+                  component: 'Card',
+                  version: 1,
+                  props: {
+                    title: 'Intervention Replication Playbook',
+                    description: 'Step-by-step guide for replicating this intervention',
+                    children: [
+                      {
+                        type: 'component',
+                        component: 'ReplicationPlaybook',
+                        version: 1,
+                        props: {
                           systemMap: data.systemMap,
                           interventionPoint: data.interventionPoint,
+                          feedbackLoops: closedLoops,
+                          targetContexts: data.expansionData?.targetContexts || [],
                         },
-                        targetContexts: data.expansionData.targetContexts,
                       },
-                    },
-                  ],
-                },
-
-                // Adaptation Requirements
-                data.expansionData?.targetContexts && data.expansionData.targetContexts.length > 0 && {
-                  type: 'Card',
-                  props: {
-                    title: 'Adaptation Requirements',
-                    description: 'How to adapt intervention for each context',
-                  },
-                  children: data.expansionData.targetContexts.map((context) => ({
-                    type: 'AdaptationPlan',
-                    props: {
-                      context,
-                      interventionPoint: data.interventionPoint,
-                      systemMap: data.systemMap,
-                    },
-                  })),
-                },
-              ].filter(Boolean),
-            },
-          ],
-        },
-
-        // Scaling Strategy Tab
-        {
-          type: 'TabPanel',
-          props: {
-            id: 'scaling',
-            label: 'Scaling Strategy',
-            icon: 'trending-up',
-          },
-          children: [
-            {
-              type: 'Stack',
-              props: { gap: 4 },
-              children: [
-                // Scaling Factor Analysis
-                {
-                  type: 'Card',
-                  props: {
-                    title: 'Scaling Factors',
-                    description: 'Key factors that enable or constrain scaling',
-                  },
-                  children: [
-                    {
-                      type: 'ScalingFactorAnalysis',
-                      props: {
-                        systemMap: data.systemMap,
-                        interventionPoint: data.interventionPoint,
-                        feedbackLoops: closedLoops,
-                        scalingFactors: data.expansionData?.scalingFactors || [],
-                      },
-                    },
-                  ],
-                },
-
-                // Scaling Sequence
-                {
-                  type: 'Card',
-                  props: {
-                    title: 'Scaling Sequence',
-                    description: 'Recommended order for context expansion',
-                  },
-                  children: [
-                    {
-                      type: 'ScalingSequenceTimeline',
-                      props: {
-                        targetContexts: data.expansionData?.targetContexts || [],
-                        scalingFactors: data.expansionData?.scalingFactors || [],
-                      },
-                    },
-                  ],
-                },
-
-                // Risk Assessment
-                {
-                  type: 'Card',
-                  props: {
-                    title: 'Scaling Risks',
-                    description: 'Potential challenges in expansion',
-                  },
-                  children: [
-                    {
-                      type: 'ScalingRiskMatrix',
-                      props: {
-                        targetContexts: data.expansionData?.targetContexts || [],
-                        interventionPoint: data.interventionPoint,
-                      },
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-
-        // Replication Playbook Tab
-        {
-          type: 'TabPanel',
-          props: {
-            id: 'playbook',
-            label: 'Replication Playbook',
-            icon: 'book',
-          },
-          children: [
-            {
-              type: 'Card',
-              props: {
-                title: 'Intervention Replication Playbook',
-                description: 'Step-by-step guide for replicating this intervention',
-              },
-              children: [
-                {
-                  type: 'ReplicationPlaybook',
-                  props: {
-                    systemMap: data.systemMap,
-                    interventionPoint: data.interventionPoint,
-                    feedbackLoops: closedLoops,
-                    targetContexts: data.expansionData?.targetContexts || [],
+                    ],
                   },
                 },
               ],
             },
-          ],
-        },
-      ],
+          },
+        ],
+      },
     },
 
     // Actions Footer
     {
-      type: 'ActionBar',
+      type: 'component',
+      component: 'ActionBar',
+      version: 1,
       props: {
         actions: [
           {
@@ -370,14 +446,15 @@ export function generateSOFExpansionPage(data: {
         ],
       },
     },
-  ].filter(Boolean);
+  ].filter(Boolean) as any[]);
 
   return {
-    type: 'ExpansionPage',
-    layout: 'default',
-    components,
+    type: 'page',
+    version: 1,
+    sections,
     metadata: {
-      stage: 'expansion',
+      theme: 'dark',
+      lifecycle_stage: 'expansion',
       sofEnabled: true,
       requiresClosedLoops: true,
       supportsReplication: true,
@@ -386,3 +463,4 @@ export function generateSOFExpansionPage(data: {
 }
 
 export default generateSOFExpansionPage;
+

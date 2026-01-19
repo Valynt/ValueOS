@@ -13,11 +13,11 @@ import { Request, Response } from "express";
 import { createSecureRouter } from "../middleware/secureRouter";
 import { requireAuth } from "../middleware/auth";
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation";
-import { authService } from "./services/AuthService";
-import { AuthenticationError, ValidationError } from "./services/errors";
+import { authService } from "../services/AuthService";
+import { AuthenticationError, ValidationError } from "../services/errors";
 import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
-import { auditLogService } from "./services/AuditLogService";
+import { auditLogService } from "../services/AuditLogService";
 import { createServerSupabaseClient } from "@shared/lib/supabase";
 import { sanitizeErrorMessage } from "../utils/security";
 

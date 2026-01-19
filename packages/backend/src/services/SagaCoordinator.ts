@@ -8,7 +8,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { logger } from "../lib/logger";
 import { getEventProducer } from "./EventProducer";
-import { EVENT_TOPICS } from "../types/events";
+import { EVENT_TOPICS } from "@shared/types/events";
 
 export interface SagaStep {
   stepId: string;
@@ -76,11 +76,7 @@ export class SagaCoordinator {
   /**
    * Start a new saga
    */
-  async startSaga(
-    sagaType: string,
-    correlationId: string,
-    initialData?: any
-  ): Promise<string> {
+  async startSaga(sagaType: string, correlationId: string, initialData?: any): Promise<string> {
     const definition = this.sagaDefinitions.get(sagaType);
     if (!definition) {
       throw new Error(`Saga definition not found: ${sagaType}`);
@@ -198,10 +194,7 @@ export class SagaCoordinator {
   /**
    * Execute saga steps
    */
-  private async executeSaga(
-    sagaState: SagaState,
-    definition: SagaDefinition
-  ): Promise<void> {
+  private async executeSaga(sagaState: SagaState, definition: SagaDefinition): Promise<void> {
     const timeout = definition.timeout || 300000; // 5 minutes default
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error("Saga timeout")), timeout);
@@ -323,8 +316,7 @@ export class SagaCoordinator {
             status: "completed",
             input: stepState.result,
             output: result,
-            duration:
-              stepState.endTime.getTime() - stepState.startTime!.getTime(),
+            duration: stepState.endTime.getTime() - stepState.startTime!.getTime(),
           },
         });
 
@@ -339,9 +331,7 @@ export class SagaCoordinator {
         });
 
         if (attempt < maxRetries) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, retryDelay * Math.pow(2, attempt))
-          );
+          await new Promise((resolve) => setTimeout(resolve, retryDelay * Math.pow(2, attempt)));
         } else {
           stepState.status = "failed";
           stepState.error = (error as Error).message;
@@ -363,8 +353,7 @@ export class SagaCoordinator {
               status: "failed",
               input: stepState.result,
               error: (error as Error).message,
-              duration:
-                stepState.endTime.getTime() - stepState.startTime!.getTime(),
+              duration: stepState.endTime.getTime() - stepState.startTime!.getTime(),
               retryCount: attempt,
             },
           });

@@ -4,7 +4,7 @@
  * Extended Target template with Intervention Designer and Outcome Hypotheses.
  */
 
-import type { SDUIPageDefinition } from '../types';
+import type { SDUIPageDefinition } from '../schema';
 import type { InterventionPoint, OutcomeHypothesis, SystemMap } from '../../types/sof';
 
 /**
@@ -17,10 +17,12 @@ export function generateSOFTargetPage(data: {
   outcomeHypotheses?: OutcomeHypothesis[];
   kpis?: any[];
 }): SDUIPageDefinition {
-  const components: SDUIPageDefinition['components'] = [
+  const sections: SDUIPageDefinition['sections'] = [
     // Header
     {
-      type: 'PageHeader',
+      type: 'component',
+      component: 'PageHeader',
+      version: 1,
       props: {
         title: 'Target Definition',
         subtitle: 'Design interventions and engineer outcomes',
@@ -35,216 +37,268 @@ export function generateSOFTargetPage(data: {
 
     // System Map Reference
     {
-      type: 'Card',
+      type: 'component',
+      component: 'Card',
+      version: 1,
       props: {
         title: 'System Context',
         collapsible: true,
         defaultCollapsed: true,
-      },
-      children: [
-        {
-          type: 'SystemMapCanvas',
-          props: {
-            entities: data.systemMap.entities,
-            relationships: data.systemMap.relationships,
-            leveragePoints: data.systemMap.leverage_points,
-            constraints: data.systemMap.constraints,
-            width: 600,
-            height: 400,
-            interactive: false,
+        children: [
+          {
+            type: 'component',
+            component: 'SystemMapCanvas',
+            version: 1,
+            props: {
+              entities: data.systemMap.entities,
+              relationships: data.systemMap.relationships,
+              leveragePoints: data.systemMap.leverage_points,
+              constraints: data.systemMap.constraints,
+              width: 600,
+              height: 400,
+              interactive: false,
+            },
           },
-        },
-      ],
+        ],
+      },
     },
 
     // Main Content
     {
-      type: 'Tabs',
+      type: 'component',
+      component: 'Tabs',
+      version: 1,
       props: {
         defaultTab: 'interventions',
-      },
-      children: [
-        // Interventions Tab
-        {
-          type: 'TabPanel',
-          props: {
-            id: 'interventions',
-            label: 'Intervention Design',
-            icon: 'target',
-          },
-          children: [
-            {
-              type: 'Stack',
-              props: { gap: 4 },
+        children: [
+          // Interventions Tab
+          {
+            type: 'component',
+            component: 'TabPanel',
+            version: 1,
+            props: {
+              id: 'interventions',
+              label: 'Intervention Design',
+              icon: 'target',
               children: [
-                // Intervention Designer
                 {
-                  type: 'Card',
+                  type: 'component',
+                  component: 'Stack',
+                  version: 1,
                   props: {
-                    title: 'Intervention Designer',
-                    description: 'Design high-leverage interventions from system map',
-                  },
-                  children: [
-                    {
-                      type: 'InterventionDesigner',
-                      props: {
-                        systemMap: data.systemMap,
-                        kpis: data.kpis || [],
-                      },
-                    },
-                  ],
-                },
-
-                // Intervention Points List
-                data.interventionPoints && data.interventionPoints.length > 0 && {
-                  type: 'Card',
-                  props: {
-                    title: 'Designed Interventions',
-                    description: `${data.interventionPoints.length} intervention(s) identified`,
-                  },
-                  children: [
-                    {
-                      type: 'Grid',
-                      props: {
-                        columns: 2,
-                        gap: 4,
-                      },
-                      children: data.interventionPoints.map((intervention) => ({
-                        type: 'InterventionPointCard',
+                    gap: 4,
+                    children: ([
+                      // Intervention Designer
+                      {
+                        type: 'component',
+                        component: 'Card',
+                        version: 1,
                         props: {
-                          intervention,
-                          showRisks: true,
-                          showPathways: true,
+                          title: 'Intervention Designer',
+                          description: 'Design high-leverage interventions from system map',
+                          children: [
+                            {
+                              type: 'component',
+                              component: 'InterventionDesigner',
+                              version: 1,
+                              props: {
+                                systemMap: data.systemMap,
+                                kpis: data.kpis || [],
+                              },
+                            },
+                          ],
                         },
-                      })),
-                    },
-                  ],
-                },
-
-                // Intervention Sequence
-                data.interventionPoints && data.interventionPoints.length > 1 && {
-                  type: 'Card',
-                  props: {
-                    title: 'Implementation Sequence',
-                    description: 'Recommended order based on dependencies',
-                  },
-                  children: [
-                    {
-                      type: 'InterventionSequenceTimeline',
-                      props: {
-                        interventions: data.interventionPoints,
                       },
-                    },
-                  ],
-                },
-              ].filter(Boolean),
-            },
-          ],
-        },
 
-        // Outcome Hypotheses Tab
-        {
-          type: 'TabPanel',
-          props: {
-            id: 'outcomes',
-            label: 'Outcome Hypotheses',
-            icon: 'lightbulb',
-          },
-          children: [
-            {
-              type: 'Stack',
-              props: { gap: 4 },
-              children: [
-                // Outcome Engineer
-                {
-                  type: 'Card',
-                  props: {
-                    title: 'Outcome Engineer',
-                    description: 'Build systemic outcome hypotheses',
-                  },
-                  children: [
-                    {
-                      type: 'OutcomeEngineer',
-                      props: {
-                        systemMap: data.systemMap,
-                        interventionPoints: data.interventionPoints || [],
-                        kpis: data.kpis || [],
+                      // Intervention Points List
+                      data.interventionPoints && data.interventionPoints.length > 0 && {
+                        type: 'component',
+                        component: 'Card',
+                        version: 1,
+                        props: {
+                          title: 'Designed Interventions',
+                          description: `${data.interventionPoints.length} intervention(s) identified`,
+                          children: [
+                            {
+                              type: 'component',
+                              component: 'Grid',
+                              version: 1,
+                              props: {
+                                columns: 2,
+                                gap: 4,
+                                children: data.interventionPoints.map((intervention) => ({
+                                  type: 'component',
+                                  component: 'InterventionPointCard',
+                                  version: 1,
+                                  props: {
+                                    intervention,
+                                    showRisks: true,
+                                    showPathways: true,
+                                  },
+                                })),
+                              },
+                            },
+                          ],
+                        },
                       },
-                    },
-                  ],
-                },
 
-                // Outcome Hypotheses List
-                data.outcomeHypotheses && data.outcomeHypotheses.length > 0 && {
-                  type: 'Card',
-                  props: {
-                    title: 'Outcome Hypotheses',
-                    description: `${data.outcomeHypotheses.length} hypothesis(es) created`,
-                  },
-                  children: data.outcomeHypotheses.map((hypothesis) => ({
-                    type: 'OutcomeHypothesisCard',
-                    props: {
-                      hypothesis,
-                      showCausalChain: true,
-                      showAssumptions: true,
-                    },
-                  })),
-                },
-
-                // Causal Chain Visualization
-                data.outcomeHypotheses && data.outcomeHypotheses.length > 0 && {
-                  type: 'Card',
-                  props: {
-                    title: 'Causal Pathways',
-                    description: 'Intervention → System Change → KPI → Value',
-                  },
-                  children: [
-                    {
-                      type: 'CausalChainVisualization',
-                      props: {
-                        hypotheses: data.outcomeHypotheses,
+                      // Intervention Sequence
+                      data.interventionPoints && data.interventionPoints.length > 1 && {
+                        type: 'component',
+                        component: 'Card',
+                        version: 1,
+                        props: {
+                          title: 'Implementation Sequence',
+                          description: 'Recommended order based on dependencies',
+                          children: [
+                            {
+                              type: 'component',
+                              component: 'InterventionSequenceTimeline',
+                              version: 1,
+                              props: {
+                                interventions: data.interventionPoints,
+                              },
+                            },
+                          ],
+                        },
                       },
-                    },
-                  ],
-                },
-              ].filter(Boolean),
-            },
-          ],
-        },
-
-        // KPI Mapping Tab
-        {
-          type: 'TabPanel',
-          props: {
-            id: 'kpis',
-            label: 'KPI Mapping',
-            icon: 'chart',
-          },
-          children: [
-            {
-              type: 'Card',
-              props: {
-                title: 'Intervention → KPI Impact Matrix',
-                description: 'Map interventions to expected KPI changes',
-              },
-              children: [
-                {
-                  type: 'OutcomePathwayMatrix',
-                  props: {
-                    interventions: data.interventionPoints || [],
-                    kpis: data.kpis || [],
+                    ].filter(Boolean) as any[]),
                   },
                 },
               ],
             },
-          ],
-        },
-      ],
+          },
+
+          // Outcome Hypotheses Tab
+          {
+            type: 'component',
+            component: 'TabPanel',
+            version: 1,
+            props: {
+              id: 'outcomes',
+              label: 'Outcome Hypotheses',
+              icon: 'lightbulb',
+              children: [
+                {
+                  type: 'component',
+                  component: 'Stack',
+                  version: 1,
+                  props: {
+                    gap: 4,
+                    children: ([
+                      // Outcome Engineer
+                      {
+                        type: 'component',
+                        component: 'Card',
+                        version: 1,
+                        props: {
+                          title: 'Outcome Engineer',
+                          description: 'Build systemic outcome hypotheses',
+                          children: [
+                            {
+                              type: 'component',
+                              component: 'OutcomeEngineer',
+                              version: 1,
+                              props: {
+                                systemMap: data.systemMap,
+                                interventionPoints: data.interventionPoints || [],
+                                kpis: data.kpis || [],
+                              },
+                            },
+                          ],
+                        },
+                      },
+
+                      // Outcome Hypotheses List
+                      data.outcomeHypotheses && data.outcomeHypotheses.length > 0 && {
+                        type: 'component',
+                        component: 'Card',
+                        version: 1,
+                        props: {
+                          title: 'Outcome Hypotheses',
+                          description: `${data.outcomeHypotheses.length} hypothesis(es) created`,
+                          children: data.outcomeHypotheses.map((hypothesis) => ({
+                            type: 'component',
+                            component: 'OutcomeHypothesisCard',
+                            version: 1,
+                            props: {
+                              hypothesis,
+                              showCausalChain: true,
+                              showAssumptions: true,
+                            },
+                          })),
+                        },
+                      },
+
+                      // Causal Chain Visualization
+                      data.outcomeHypotheses && data.outcomeHypotheses.length > 0 && {
+                        type: 'component',
+                        component: 'Card',
+                        version: 1,
+                        props: {
+                          title: 'Causal Pathways',
+                          description: 'Intervention → System Change → KPI → Value',
+                          children: [
+                            {
+                              type: 'component',
+                              component: 'CausalChainVisualization',
+                              version: 1,
+                              props: {
+                                hypotheses: data.outcomeHypotheses,
+                              },
+                            },
+                          ],
+                        },
+                      },
+                    ].filter(Boolean) as any[]),
+                  },
+                },
+              ],
+            },
+          },
+
+          // KPI Mapping Tab
+          {
+            type: 'component',
+            component: 'TabPanel',
+            version: 1,
+            props: {
+              id: 'kpis',
+              label: 'KPI Mapping',
+              icon: 'chart',
+              children: [
+                {
+                  type: 'component',
+                  component: 'Card',
+                  version: 1,
+                  props: {
+                    title: 'Intervention → KPI Impact Matrix',
+                    description: 'Map interventions to expected KPI changes',
+                    children: [
+                      {
+                        type: 'component',
+                        component: 'OutcomePathwayMatrix',
+                        version: 1,
+                        props: {
+                          interventions: data.interventionPoints || [],
+                          kpis: data.kpis || [],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
     },
 
     // Actions Footer
     {
-      type: 'ActionBar',
+      type: 'component',
+      component: 'ActionBar',
+      version: 1,
       props: {
         actions: [
           {
@@ -269,11 +323,12 @@ export function generateSOFTargetPage(data: {
   ];
 
   return {
-    type: 'TargetPage',
-    layout: 'default',
-    components,
+    type: 'page',
+    version: 1,
+    sections,
     metadata: {
-      stage: 'target',
+      theme: 'dark',
+      lifecycle_stage: 'target',
       sofEnabled: true,
       requiresInterventions: true,
       requiresOutcomeHypotheses: true,

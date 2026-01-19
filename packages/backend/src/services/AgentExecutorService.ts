@@ -16,7 +16,7 @@ import {
   createBaseEvent,
   BaseEvent,
   Event,
-} from "../types/events";
+} from "@shared/types/events";
 import { AgentType } from "./agent-types";
 import { logger } from "../lib/logger";
 import { registerShutdownHandler } from "../lib/shutdown/gracefulShutdown";
@@ -90,11 +90,7 @@ export class AgentExecutorService {
 
       // Create agent response event
       const agentResponseEvent: AgentResponseEvent = {
-        ...createBaseEvent(
-          "agent.response",
-          event.correlationId,
-          "agent-executor"
-        ),
+        ...createBaseEvent("agent.response", event.correlationId, "agent-executor"),
         eventType: "agent.response" as const,
         payload: {
           agentId: payload.agentId,
@@ -105,19 +101,14 @@ export class AgentExecutorService {
           error: response.success === false ? response.error : undefined,
           latency,
           tokens: response.metadata?.tokens,
-          cost: response.metadata?.tokens
-            ? response.metadata.tokens.total * 0.00001
-            : undefined,
+          cost: response.metadata?.tokens ? response.metadata.tokens.total * 0.00001 : undefined,
           cached: false,
           status: response.success !== false ? "success" : "error",
         },
       };
 
       // Publish response event
-      await this.eventProducer.publish(
-        EVENT_TOPICS.AGENT_RESPONSES,
-        agentResponseEvent
-      );
+      await this.eventProducer.publish(EVENT_TOPICS.AGENT_RESPONSES, agentResponseEvent);
 
       // Store events for audit trail
       await this.eventSourcing.storeEvent(event);
@@ -148,11 +139,7 @@ export class AgentExecutorService {
 
       // Create error response event
       const errorResponseEvent: AgentResponseEvent = {
-        ...createBaseEvent(
-          "agent.response",
-          event.correlationId,
-          "agent-executor"
-        ),
+        ...createBaseEvent("agent.response", event.correlationId, "agent-executor"),
         eventType: "agent.response" as const,
         payload: {
           agentId: payload.agentId,
@@ -167,10 +154,7 @@ export class AgentExecutorService {
       };
 
       // Publish error response event
-      await this.eventProducer.publish(
-        EVENT_TOPICS.AGENT_RESPONSES,
-        errorResponseEvent
-      );
+      await this.eventProducer.publish(EVENT_TOPICS.AGENT_RESPONSES, errorResponseEvent);
 
       // Store events for audit trail
       await this.eventSourcing.storeEvent(event);
@@ -198,11 +182,7 @@ export class AgentExecutorService {
   ): Promise<void> {
     try {
       const dlqEvent: BaseEvent = {
-        ...createBaseEvent(
-          "agent.dlq",
-          originalEvent.correlationId,
-          "agent-executor"
-        ),
+        ...createBaseEvent("agent.dlq", originalEvent.correlationId, "agent-executor"),
         metadata: {
           originalEventId: originalEvent.eventId,
           originalEventType: originalEvent.eventType,
@@ -276,8 +256,7 @@ export class AgentExecutorService {
 
       currentData.errorCount += 1;
       const errorType = error.name || "Unknown";
-      currentData.errorTypes[errorType] =
-        (currentData.errorTypes[errorType] || 0) + 1;
+      currentData.errorTypes[errorType] = (currentData.errorTypes[errorType] || 0) + 1;
 
       currentData.recentErrors.push({
         timestamp: new Date().toISOString(),

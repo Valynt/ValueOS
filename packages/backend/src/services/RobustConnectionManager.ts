@@ -14,7 +14,6 @@
  */
 
 import { logger } from '../lib/logger';
-import { getEnvVar } from '../lib/env';
 
 /**
  * Connection strategy types
@@ -154,9 +153,7 @@ export class RobustConnectionManager extends BrowserEventEmitter {
     super();
 
     // Environment-aware defaults
-    const devFlag = getEnvVar("DEV");
-    const isDevelopment =
-      devFlag !== undefined ? devFlag !== "false" : getEnvVar("NODE_ENV") === "development";
+    const isDevelopment = import.meta.env?.DEV || false;
     const isCodespaces = typeof window !== 'undefined' &&
                         window.location.hostname.includes('github.dev');
 
@@ -164,7 +161,7 @@ export class RobustConnectionManager extends BrowserEventEmitter {
       primaryStrategy: 'websocket',
       fallbackStrategies: ['polling'],
       websocketUrl: isDevelopment
-        ? `ws://localhost:${getEnvVar("VITE_HMR_PORT") || '24678'}`
+        ? `ws://localhost:${import.meta.env?.VITE_HMR_PORT || '24678'}`
         : `wss://${window.location.host}`,
       pollingUrl: `${window.location.origin}/api/poll`,
       sseUrl: `${window.location.origin}/api/events`,

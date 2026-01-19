@@ -7,12 +7,11 @@ import { createClient } from '@supabase/supabase-js';
 import { BillingMetric } from '../../config/billing';
 import { UsageSummary } from '../../types/billing';
 import { createLogger } from '../../lib/logger';
-import { getServerSupabaseConfig } from '../../lib/env';
 
 const logger = createLogger({ component: 'MetricsCollector' });
 
-const { url: supabaseUrl, serviceRoleKey: supabaseServiceRoleKey } =
-  getServerSupabaseConfig();
+const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL;
+const supabaseServiceRoleKey = import.meta.env?.SUPABASE_SERVICE_ROLE_KEY;
 
 // Only initialize server-side
 let supabase: any = null;

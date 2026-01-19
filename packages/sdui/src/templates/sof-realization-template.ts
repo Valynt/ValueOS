@@ -4,7 +4,7 @@
  * Extended Realization template with Feedback Loop Viewer and System Stability.
  */
 
-import type { SDUIPageDefinition } from '../types';
+import type { SDUIPageDefinition } from '../schema';
 import type { FeedbackLoop, InterventionPoint, SystemMap } from '../../types/sof';
 
 /**
@@ -24,10 +24,12 @@ export function generateSOFRealizationPage(data: {
   const activeLoops = data.feedbackLoops?.filter((loop) => loop.realization_stage === 'active') || [];
   const closedLoops = data.feedbackLoops?.filter((loop) => loop.closure_status === 'closed') || [];
 
-  const components: SDUIPageDefinition['components'] = [
+  const sections: SDUIPageDefinition['sections'] = ([
     // Header
     {
-      type: 'PageHeader',
+      type: 'component',
+      component: 'PageHeader',
+      version: 1,
       props: {
         title: 'Realization Tracking',
         subtitle: 'Monitor feedback loops and behavior changes',
@@ -42,232 +44,288 @@ export function generateSOFRealizationPage(data: {
 
     // Status Overview
     {
-      type: 'Grid',
+      type: 'component',
+      component: 'Grid',
+      version: 1,
       props: {
         columns: 4,
         gap: 4,
+        children: [
+          {
+            type: 'component',
+            component: 'StatCard',
+            version: 1,
+            props: {
+              label: 'Implementation',
+              value: data.realizationData?.implementationStatus || 'planning',
+              icon: 'rocket',
+              color: 'blue',
+            },
+          },
+          {
+            type: 'component',
+            component: 'StatCard',
+            version: 1,
+            props: {
+              label: 'Active Loops',
+              value: activeLoops.length,
+              icon: 'refresh',
+              color: 'green',
+            },
+          },
+          {
+            type: 'component',
+            component: 'StatCard',
+            version: 1,
+            props: {
+              label: 'Closed Loops',
+              value: closedLoops.length,
+              icon: 'check-circle',
+              color: 'purple',
+            },
+          },
+          {
+            type: 'component',
+            component: 'StatCard',
+            version: 1,
+            props: {
+              label: 'Behavior Changes',
+              value: data.realizationData?.observedChanges?.length || 0,
+              icon: 'trending-up',
+              color: 'orange',
+            },
+          },
+        ],
       },
-      children: [
-        {
-          type: 'StatCard',
-          props: {
-            label: 'Implementation',
-            value: data.realizationData?.implementationStatus || 'planning',
-            icon: 'rocket',
-            color: 'blue',
-          },
-        },
-        {
-          type: 'StatCard',
-          props: {
-            label: 'Active Loops',
-            value: activeLoops.length,
-            icon: 'refresh',
-            color: 'green',
-          },
-        },
-        {
-          type: 'StatCard',
-          props: {
-            label: 'Closed Loops',
-            value: closedLoops.length,
-            icon: 'check-circle',
-            color: 'purple',
-          },
-        },
-        {
-          type: 'StatCard',
-          props: {
-            label: 'Behavior Changes',
-            value: data.realizationData?.observedChanges?.length || 0,
-            icon: 'trending-up',
-            color: 'orange',
-          },
-        },
-      ],
     },
 
     // Main Content
     {
-      type: 'Grid',
+      type: 'component',
+      component: 'Grid',
+      version: 1,
       props: {
         columns: 2,
         gap: 6,
+        children: [
+          // Left Column: Feedback Loops
+          {
+            type: 'component',
+            component: 'Stack',
+            version: 1,
+            props: {
+              gap: 4,
+              children: ([
+                // Feedback Loop Summary
+                {
+                  type: 'component',
+                  component: 'Card',
+                  version: 1,
+                  props: {
+                    title: 'Feedback Loop Status',
+                    description: 'System dynamics and loop closure',
+                    children: [
+                      {
+                        type: 'component',
+                        component: 'FeedbackLoopSummary',
+                        version: 1,
+                        props: {
+                          loops: data.feedbackLoops || [],
+                          systemMap: data.systemMap,
+                        },
+                      },
+                    ],
+                  },
+                },
+
+                // Active Feedback Loops
+                ...activeLoops.map((loop) => ({
+                  type: 'component',
+                  component: 'FeedbackLoopViewer',
+                  version: 1,
+                  props: {
+                    loop,
+                    showMetrics: true,
+                    showBehaviorChanges: true,
+                  },
+                })),
+
+                // Closed Loops (Collapsed)
+                closedLoops.length > 0 && {
+                  type: 'component',
+                  component: 'Card',
+                  version: 1,
+                  props: {
+                    title: 'Closed Feedback Loops',
+                    description: `${closedLoops.length} loop(s) successfully closed`,
+                    collapsible: true,
+                    defaultCollapsed: true,
+                    children: closedLoops.map((loop) => ({
+                      type: 'component',
+                      component: 'FeedbackLoopViewer',
+                      version: 1,
+                      props: {
+                        loop,
+                        compact: true,
+                        showMetrics: false,
+                        showBehaviorChanges: false,
+                      },
+                    })),
+                  },
+                },
+              ].filter(Boolean) as any[]),
+            },
+          },
+
+          // Right Column: Behavior Changes & System Updates
+          {
+            type: 'component',
+            component: 'Stack',
+            version: 1,
+            props: {
+              gap: 4,
+              children: ([
+                // System Stability Indicators
+                {
+                  type: 'component',
+                  component: 'Card',
+                  version: 1,
+                  props: {
+                    title: 'System Stability',
+                    description: 'Overall system health and dynamics',
+                    children: [
+                      {
+                        type: 'component',
+                        component: 'SystemStabilityIndicator',
+                        version: 1,
+                        props: {
+                          feedbackLoops: data.feedbackLoops || [],
+                          systemMap: data.systemMap,
+                        },
+                      },
+                    ],
+                  },
+                },
+
+                // Behavior Change Timeline
+                data.realizationData && data.realizationData.observedChanges.length > 0 && {
+                  type: 'component',
+                  component: 'Card',
+                  version: 1,
+                  props: {
+                    title: 'Behavior Change Timeline',
+                    description: 'Observed changes over time',
+                    children: [
+                      {
+                        type: 'component',
+                        component: 'BehaviorChangeTimeline',
+                        version: 1,
+                        props: {
+                          changes: data.realizationData.observedChanges,
+                        },
+                      },
+                    ],
+                  },
+                },
+
+                // System Update Log
+                {
+                  type: 'component',
+                  component: 'Card',
+                  version: 1,
+                  props: {
+                    title: 'System Updates',
+                    description: 'Recent system state changes',
+                    children: [
+                      {
+                        type: 'component',
+                        component: 'SystemUpdateLog',
+                        version: 1,
+                        props: {
+                          updates: data.feedbackLoops?.flatMap((loop) => loop.system_updates) || [],
+                          maxItems: 10,
+                        },
+                      },
+                    ],
+                  },
+                },
+
+                // Loop Metrics Panel
+                data.feedbackLoops && data.feedbackLoops.some((loop) => loop.loop_metrics.length > 0) && {
+                  type: 'component',
+                  component: 'Card',
+                  version: 1,
+                  props: {
+                    title: 'Loop Performance Metrics',
+                    description: 'Quantitative loop measurements',
+                    children: [
+                      {
+                        type: 'component',
+                        component: 'LoopMetricsPanel',
+                        version: 1,
+                        props: {
+                          loops: data.feedbackLoops.filter((loop) => loop.loop_metrics.length > 0),
+                        },
+                      },
+                    ],
+                  },
+                },
+
+                // Recommendations
+                {
+                  type: 'component',
+                  component: 'Card',
+                  version: 1,
+                  props: {
+                    title: 'Realization Recommendations',
+                    description: 'Actions to strengthen feedback loops',
+                    children: [
+                      {
+                        type: 'component',
+                        component: 'RealizationRecommendations',
+                        version: 1,
+                        props: {
+                          feedbackLoops: data.feedbackLoops || [],
+                          realizationData: data.realizationData,
+                        },
+                      },
+                    ],
+                  },
+                },
+              ].filter(Boolean) as any[]),
+            },
+          },
+        ],
       },
-      children: [
-        // Left Column: Feedback Loops
-        {
-          type: 'Stack',
-          props: { gap: 4 },
-          children: [
-            // Feedback Loop Summary
-            {
-              type: 'Card',
-              props: {
-                title: 'Feedback Loop Status',
-                description: 'System dynamics and loop closure',
-              },
-              children: [
-                {
-                  type: 'FeedbackLoopSummary',
-                  props: {
-                    loops: data.feedbackLoops || [],
-                    systemMap: data.systemMap,
-                  },
-                },
-              ],
-            },
-
-            // Active Feedback Loops
-            ...activeLoops.map((loop) => ({
-              type: 'FeedbackLoopViewer',
-              props: {
-                loop,
-                showMetrics: true,
-                showBehaviorChanges: true,
-              },
-            })),
-
-            // Closed Loops (Collapsed)
-            closedLoops.length > 0 && {
-              type: 'Card',
-              props: {
-                title: 'Closed Feedback Loops',
-                description: `${closedLoops.length} loop(s) successfully closed`,
-                collapsible: true,
-                defaultCollapsed: true,
-              },
-              children: closedLoops.map((loop) => ({
-                type: 'FeedbackLoopViewer',
-                props: {
-                  loop,
-                  compact: true,
-                  showMetrics: false,
-                  showBehaviorChanges: false,
-                },
-              })),
-            },
-          ].filter(Boolean),
-        },
-
-        // Right Column: Behavior Changes & System Updates
-        {
-          type: 'Stack',
-          props: { gap: 4 },
-          children: [
-            // System Stability Indicators
-            {
-              type: 'Card',
-              props: {
-                title: 'System Stability',
-                description: 'Overall system health and dynamics',
-              },
-              children: [
-                {
-                  type: 'SystemStabilityIndicator',
-                  props: {
-                    feedbackLoops: data.feedbackLoops || [],
-                    systemMap: data.systemMap,
-                  },
-                },
-              ],
-            },
-
-            // Behavior Change Timeline
-            data.realizationData && data.realizationData.observedChanges.length > 0 && {
-              type: 'Card',
-              props: {
-                title: 'Behavior Change Timeline',
-                description: 'Observed changes over time',
-              },
-              children: [
-                {
-                  type: 'BehaviorChangeTimeline',
-                  props: {
-                    changes: data.realizationData.observedChanges,
-                  },
-                },
-              ],
-            },
-
-            // System Update Log
-            {
-              type: 'Card',
-              props: {
-                title: 'System Updates',
-                description: 'Recent system state changes',
-              },
-              children: [
-                {
-                  type: 'SystemUpdateLog',
-                  props: {
-                    updates: data.feedbackLoops?.flatMap((loop) => loop.system_updates) || [],
-                    maxItems: 10,
-                  },
-                },
-              ],
-            },
-
-            // Loop Metrics Panel
-            data.feedbackLoops && data.feedbackLoops.some((loop) => loop.loop_metrics.length > 0) && {
-              type: 'Card',
-              props: {
-                title: 'Loop Performance Metrics',
-                description: 'Quantitative loop measurements',
-              },
-              children: [
-                {
-                  type: 'LoopMetricsPanel',
-                  props: {
-                    loops: data.feedbackLoops.filter((loop) => loop.loop_metrics.length > 0),
-                  },
-                },
-              ],
-            },
-
-            // Recommendations
-            {
-              type: 'Card',
-              props: {
-                title: 'Realization Recommendations',
-                description: 'Actions to strengthen feedback loops',
-              },
-              children: [
-                {
-                  type: 'RealizationRecommendations',
-                  props: {
-                    feedbackLoops: data.feedbackLoops || [],
-                    realizationData: data.realizationData,
-                  },
-                },
-              ],
-            },
-          ].filter(Boolean),
-        },
-      ],
     },
 
     // KPI Dashboard
     data.realizationData?.kpiMeasurements && data.realizationData.kpiMeasurements.length > 0 && {
-      type: 'Card',
+      type: 'component',
+      component: 'Card',
+      version: 1,
       props: {
         title: 'KPI Performance',
         description: 'Measured outcomes vs. targets',
-      },
-      children: [
-        {
-          type: 'KPIDashboard',
-          props: {
-            measurements: data.realizationData.kpiMeasurements,
-            interventionPoint: data.interventionPoint,
+        children: [
+          {
+            type: 'component',
+            component: 'KPIDashboard',
+            version: 1,
+            props: {
+              measurements: data.realizationData.kpiMeasurements,
+              interventionPoint: data.interventionPoint,
+            },
           },
-        },
-      ],
+        ],
+      },
     },
 
     // Actions Footer
     {
-      type: 'ActionBar',
+      type: 'component',
+      component: 'ActionBar',
+      version: 1,
       props: {
         actions: [
           {
@@ -294,19 +352,20 @@ export function generateSOFRealizationPage(data: {
         ],
       },
     },
-  ].filter(Boolean);
+  ].filter(Boolean) as any[]);
 
   return {
-    type: 'RealizationPage',
-    layout: 'default',
-    components,
+    type: 'page',
+    version: 1,
+    sections,
     metadata: {
-      stage: 'realization',
+      theme: 'dark',
+      lifecycle_stage: 'realization',
       sofEnabled: true,
       requiresFeedbackLoops: true,
-      tracksBehaviorChanges: true,
     },
   };
 }
 
 export default generateSOFRealizationPage;
+

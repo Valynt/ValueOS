@@ -10,7 +10,6 @@ import { createClient } from "@supabase/supabase-js";
 import { getConfig } from "../config/environment";
 import { isWithinLimits, TenantLimits, TenantUsage } from "./TenantProvisioning";
 import { supabase as publicSupabase } from "../lib/supabase";
-import { getServerSupabaseConfig } from "../lib/env";
 import * as React from "react";
 
 /**
@@ -291,22 +290,13 @@ export async function canPerformAction(
   return { allowed: true };
 }
 
-const { url: supabaseUrl, serviceRoleKey: supabaseServiceRoleKey } =
-  getServerSupabaseConfig();
-
 const serviceRoleSupabase =
-  typeof window === "undefined" && supabaseUrl && supabaseServiceRoleKey
-    ? createClient(supabaseUrl, supabaseServiceRoleKey)
+  typeof window === "undefined"
+    ? createClient(
+        import.meta.env?.VITE_SUPABASE_URL || "",
+        import.meta.env?.SUPABASE_SERVICE_ROLE_KEY || ""
+      )
     : null;
-
-if (
-  typeof window === "undefined" &&
-  (!supabaseUrl || !supabaseServiceRoleKey)
-) {
-  logger.warn(
-    "Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing"
-  );
-}
 
 /**
  * Persist usage to database (upsert into `tenant_usage` table)

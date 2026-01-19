@@ -5,10 +5,10 @@ import { rateLimiters } from "../middleware/rateLimiter";
 import { validateRequest } from "../middleware/inputValidation";
 import { logger } from "@shared/lib/logger";
 import { requirePermission } from "../middleware/rbac";
-import { getEventProducer } from "./services/EventProducer";
-import { getEventSourcingService } from "./services/EventSourcingService";
-import { createBaseEvent, EVENT_TOPICS, AgentRequestEvent } from "../types/events";
-import { AgentType } from "./services/agent-types";
+import { getEventProducer } from "../services/EventProducer";
+import { getEventSourcingService } from "../services/EventSourcingService";
+import { createBaseEvent, EVENT_TOPICS, AgentRequestEvent } from "@shared/types/events";
+import { AgentType } from "../services/agent-types";
 import { v4 as uuidv4 } from "uuid";
 import { getServiceConfigManager, getAgentAPIConfig } from "./config/ServiceConfigManager";
 

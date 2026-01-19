@@ -7,7 +7,7 @@
 
 import { Kafka, Producer, Message, CompressionTypes, logLevel } from "kafkajs";
 import { logger } from "../lib/logger";
-import { BaseEvent } from "../types/events";
+import { BaseEvent } from "@shared/types/events";
 import {
   kafkaProducerEventsTotal,
   kafkaProducerLatency,
@@ -77,13 +77,9 @@ export class EventProducer {
         brokers: this.config.brokers.length,
       });
     } catch (error) {
-      logger.error(
-        "Failed to connect event producer to Kafka",
-        error as Error,
-        {
-          clientId: this.config.clientId,
-        }
-      );
+      logger.error("Failed to connect event producer to Kafka", error as Error, {
+        clientId: this.config.clientId,
+      });
       throw error;
     }
   }

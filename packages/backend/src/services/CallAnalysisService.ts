@@ -12,7 +12,6 @@ import { llmConfig } from "../config/llm";
 import { sanitizeForLogging } from "../lib/piiFilter";
 import { secureLLMComplete } from "../lib/llm/secureLLMWrapper";
 import { createExternalAPIAdapter } from "../lib/agent-fabric/ExternalAPIAdapter";
-import { getEnvVar } from "../lib/env";
 
 // ============================================================================
 // Types
@@ -78,8 +77,7 @@ class CallAnalysisService {
 
   constructor() {
     this.llm = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
-    const supabaseUrl =
-      getEnvVar("VITE_SUPABASE_URL") || getEnvVar("SUPABASE_URL") || "";
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
     this.functionUrl = `${supabaseUrl}/functions/v1/transcribe-audio`;
     this.apiAdapter = createExternalAPIAdapter("CallAnalysisService", "call-analysis");
   }

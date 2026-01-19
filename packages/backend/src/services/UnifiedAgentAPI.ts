@@ -857,19 +857,11 @@ export class UnifiedAgentAPI {
   }
 
   private assertRoutingConfigured(agent: AgentType): void {
-    const resolvedBaseUrl = this.getResolvedBaseUrl();
-    const isNodeProduction =
-      typeof process !== "undefined" && process.env?.NODE_ENV === "production";
-
-    if (isNodeProduction && !resolvedBaseUrl) {
-      throw new Error(PRODUCTION_ROUTING_ERROR);
-    }
-
     if (!env.isProduction) {
       return;
     }
 
-    const hasBaseUrl = Boolean(resolvedBaseUrl);
+    const hasBaseUrl = Boolean(this.getResolvedBaseUrl());
     const hasEndpoint = Boolean(this.registry.getAgent(agent)?.endpoint);
 
     if (!hasBaseUrl && !hasEndpoint) {

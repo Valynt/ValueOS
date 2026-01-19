@@ -10,25 +10,14 @@ import { logger } from '../lib/logger';
 import { TenantAwareService } from './TenantAwareService';
 import { AuditLogService } from './AuditLogService';
 import { ValidationError } from './errors';
-import { getServerSupabaseConfig } from '../lib/env';
 
 // Only instantiate server-side Supabase client. Prevents bundler/runtime errors in browser.
-const { url: supabaseUrl, serviceRoleKey: supabaseServiceRoleKey } =
-  getServerSupabaseConfig();
-
-const supabase =
-  typeof window === 'undefined' && supabaseUrl && supabaseServiceRoleKey
-    ? createClient(supabaseUrl, supabaseServiceRoleKey)
-    : (null as any);
-
-if (
-  typeof window === 'undefined' &&
-  (!supabaseUrl || !supabaseServiceRoleKey)
-) {
-  logger.warn(
-    'Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing'
-  );
-}
+const supabase = (typeof window === 'undefined')
+  ? createClient(
+      import.meta.env?.VITE_SUPABASE_URL || '',
+      import.meta.env?.SUPABASE_SERVICE_ROLE_KEY || ''
+    )
+  : (null as any);
 
 export class TenantMembershipService extends TenantAwareService {
   private auditLog: AuditLogService;

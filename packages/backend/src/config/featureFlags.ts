@@ -13,7 +13,6 @@
  */
 
 import { logger } from "../lib/logger";
-import { getEnvVar } from "../lib/env";
 
 /**
  * Feature flag configuration
@@ -79,40 +78,40 @@ function loadFeatureFlags(): FeatureFlags {
   const flags: FeatureFlags = {
     // Unified orchestration (consolidation flag)
     ENABLE_UNIFIED_ORCHESTRATION: parseBoolean(
-      getEnvVar("VITE_ENABLE_UNIFIED_ORCHESTRATION"),
+      import.meta.env.VITE_ENABLE_UNIFIED_ORCHESTRATION,
       true // Default: enabled (use consolidated orchestrator)
     ),
     // Legacy stateless flag (deprecated, kept for backward compatibility)
     ENABLE_STATELESS_ORCHESTRATION: parseBoolean(
-      getEnvVar("VITE_ENABLE_STATELESS_ORCHESTRATION"),
+      import.meta.env.VITE_ENABLE_STATELESS_ORCHESTRATION,
       false // Default: disabled (superseded by unified)
     ),
     ENABLE_SAFE_JSON_PARSER: parseBoolean(
-      getEnvVar("VITE_ENABLE_SAFE_JSON_PARSER"),
+      import.meta.env.VITE_ENABLE_SAFE_JSON_PARSER,
       true // Default: enabled (low risk, high benefit)
     ),
     ENABLE_INPUT_SANITIZATION: parseBoolean(
-      getEnvVar("VITE_ENABLE_INPUT_SANITIZATION"),
+      import.meta.env.VITE_ENABLE_INPUT_SANITIZATION,
       true // Default: enabled (security)
     ),
     ENABLE_TRACE_LOGGING: parseBoolean(
-      getEnvVar("VITE_ENABLE_TRACE_LOGGING"),
+      import.meta.env.VITE_ENABLE_TRACE_LOGGING,
       true // Default: enabled (observability)
     ),
     ENABLE_CIRCUIT_BREAKER: parseBoolean(
-      getEnvVar("VITE_ENABLE_CIRCUIT_BREAKER"),
+      import.meta.env.VITE_ENABLE_CIRCUIT_BREAKER,
       true // Default: enabled (safety)
     ),
     ENABLE_RATE_LIMITING: parseBoolean(
-      getEnvVar("VITE_ENABLE_RATE_LIMITING"),
+      import.meta.env.VITE_ENABLE_RATE_LIMITING,
       true // Default: enabled (security)
     ),
     ENABLE_AUDIT_LOGGING: parseBoolean(
-      getEnvVar("VITE_ENABLE_AUDIT_LOGGING"),
+      import.meta.env.VITE_ENABLE_AUDIT_LOGGING,
       true // Default: enabled (compliance)
     ),
     ENABLE_ASYNC_AGENT_EXECUTION: parseBoolean(
-      getEnvVar("VITE_ENABLE_ASYNC_AGENT_EXECUTION"),
+      import.meta.env.VITE_ENABLE_ASYNC_AGENT_EXECUTION,
       false // Default: disabled (gradual rollout)
     ),
   };

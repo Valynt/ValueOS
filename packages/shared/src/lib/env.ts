@@ -31,16 +31,9 @@ export function validateEnv() {
   validateRequiredEnv();
 }
 
-const nodeEnvironment =
-  !_isBrowser && typeof process !== "undefined" ? process.env.NODE_ENV : undefined;
-
 export const env = {
-  isDevelopment: _isBrowser
-    ? import.meta.env?.DEV === true
-    : nodeEnvironment === "development",
-  isProduction: _isBrowser
-    ? import.meta.env?.PROD === true
-    : nodeEnvironment === "production",
+  isDevelopment: _isBrowser ? import.meta.env?.DEV === true : false,
+  isProduction: _isBrowser ? import.meta.env?.PROD === true : false,
   isTest: false,
   isBrowser: _isBrowser,
   isServer: !_isBrowser,
@@ -102,18 +95,6 @@ export function __setEnvSourceForTests(envSource: Record<string, string>): void 
   }
 }
 
-export function __getEnvSourceForTests(): Record<string, string> {
-  if (_isBrowser) {
-    return { ...(import.meta.env as Record<string, string>) };
-  }
-
-  if (typeof process !== "undefined" && process.env) {
-    return { ...(process.env as Record<string, string>) };
-  }
-
-  return {};
-}
-
 export function getSupabaseConfig(): {
   url: string;
   anonKey: string;
@@ -124,36 +105,6 @@ export function getSupabaseConfig(): {
     anonKey: getEnvVar("VITE_SUPABASE_ANON_KEY") || getEnvVar("SUPABASE_ANON_KEY") || "",
     serviceRoleKey: getEnvVar("SUPABASE_SERVICE_ROLE_KEY") || getEnvVar("SUPABASE_SERVICE_KEY"),
   };
-}
-
-export function getServerSupabaseConfig(options: { required?: boolean } = {}): {
-  url: string;
-  serviceRoleKey: string;
-} {
-  const { required = false } = options;
-
-  const url =
-    getEnvVar("VITE_SUPABASE_URL", { scope: "server" }) ||
-    getEnvVar("SUPABASE_URL", { scope: "server" }) ||
-    "";
-  const serviceRoleKey =
-    getEnvVar("SUPABASE_SERVICE_ROLE_KEY", { scope: "server" }) ||
-    getEnvVar("SUPABASE_SERVICE_KEY", { scope: "server" }) ||
-    "";
-
-  if (required && !url) {
-    throw new Error(
-      "Missing required server environment variable: VITE_SUPABASE_URL (or SUPABASE_URL)"
-    );
-  }
-
-  if (required && !serviceRoleKey) {
-    throw new Error(
-      "Missing required server environment variable: SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SERVICE_KEY)"
-    );
-  }
-
-  return { url, serviceRoleKey };
 }
 
 export function getGroundtruthConfig(): {

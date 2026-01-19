@@ -7,7 +7,7 @@
 
 import { Kafka, Consumer, EachMessagePayload, logLevel } from "kafkajs";
 import { logger } from "../lib/logger";
-import { BaseEvent } from "../types/events";
+import { BaseEvent } from "@shared/types/events";
 import { tenantContextStorage, TCTPayload } from "../middleware/tenantContext";
 import jwt from "jsonwebtoken";
 
@@ -86,14 +86,10 @@ export class EventConsumer {
         topics: this.config.topics,
       });
     } catch (error) {
-      logger.error(
-        "Failed to connect event consumer to Kafka",
-        error as Error,
-        {
-          clientId: this.config.clientId,
-          groupId: this.config.groupId,
-        }
-      );
+      logger.error("Failed to connect event consumer to Kafka", error as Error, {
+        clientId: this.config.clientId,
+        groupId: this.config.groupId,
+      });
       throw error;
     }
   }
@@ -233,7 +229,11 @@ export class EventConsumer {
 
       // Extract TCT from headers and wrap handler in context
       const tctHeader = message.headers?.["x-tenant-context"];
-      const tctToken = tctHeader ? (Array.isArray(tctHeader) ? tctHeader[0].toString() : tctHeader.toString()) : null;
+      const tctToken = tctHeader
+        ? Array.isArray(tctHeader)
+          ? tctHeader[0].toString()
+          : tctHeader.toString()
+        : null;
 
       if (tctToken) {
         try {
@@ -323,10 +323,7 @@ export class EventConsumer {
   /**
    * Send failed messages to dead letter queue
    */
-  private async sendToDeadLetterQueue(
-    payload: EachMessagePayload,
-    error: Error
-  ): Promise<void> {
+  private async sendToDeadLetterQueue(payload: EachMessagePayload, error: Error): Promise<void> {
     // TODO: Implement dead letter queue functionality
     logger.error("Dead letter queue not implemented yet", error, {
       topic: payload.topic,

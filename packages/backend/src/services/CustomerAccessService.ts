@@ -7,7 +7,6 @@ import { supabase } from "../lib/supabase";
 import { BaseService } from "./BaseService";
 import { logger } from "../lib/logger";
 import { emailService } from "./EmailService";
-import { getEnvVar } from "../lib/env";
 
 export interface CustomerAccessToken {
   id: string;
@@ -253,11 +252,7 @@ export class CustomerAccessService extends BaseService {
    * Build portal URL from token
    */
   private buildPortalUrl(token: string): string {
-    const baseUrl =
-      getEnvVar("VITE_APP_URL") ||
-      (typeof window !== "undefined"
-        ? window.location.origin
-        : "http://localhost:3000");
+    const baseUrl = import.meta.env.VITE_APP_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
     return `${baseUrl}/customer/portal?token=${encodeURIComponent(token)}`;
   }
 

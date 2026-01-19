@@ -14,7 +14,7 @@ import {
   UnifiedAgentAPI,
   UnifiedAgentRequest,
 } from '../UnifiedAgentAPI';
-import { __setEnvSourceForTests, env, getEnvVar } from '../../lib/env';
+import { getEnvVar } from '../../lib/env';
 
 // Mock fetch
 global.fetch = vi.fn();
@@ -57,7 +57,6 @@ vi.mock('../../sdui/schema', () => ({
 describe('UnifiedAgentAPI', () => {
   let api: UnifiedAgentAPI;
   let originalEnv: Record<string, string | undefined>;
-  let originalRuntimeFlags: { isProduction: boolean; isDevelopment: boolean };
 
   beforeEach(() => {
     originalEnv = {
@@ -65,10 +64,6 @@ describe('UnifiedAgentAPI', () => {
       MODE: getEnvVar('MODE'),
       VITE_AGENT_API_URL: getEnvVar('VITE_AGENT_API_URL'),
       AGENT_API_URL: getEnvVar('AGENT_API_URL'),
-    };
-    originalRuntimeFlags = {
-      isProduction: env.isProduction,
-      isDevelopment: env.isDevelopment,
     };
     resetUnifiedAgentAPI();
     api = new UnifiedAgentAPI();
@@ -78,8 +73,6 @@ describe('UnifiedAgentAPI', () => {
   afterEach(() => {
     vi.clearAllMocks();
     __setEnvSourceForTests(originalEnv);
-    env.isProduction = originalRuntimeFlags.isProduction;
-    env.isDevelopment = originalRuntimeFlags.isDevelopment;
   });
 
   describe('Singleton Pattern', () => {
@@ -327,27 +320,6 @@ describe('UnifiedAgentAPI', () => {
         'Mock routing is disabled in production. Configure baseUrl or agent endpoints.'
       );
     });
-
-it('should throw in Node production even when env.isProduction is false', async () => {
-  __setEnvSourceForTests({ NODE_ENV: 'production' });
-  const originalIsProduction = env.isProduction;
-  try {
-    env.isProduction = false;
-    const prodApi = new UnifiedAgentAPI();
-
-    const response = await prodApi.invoke({
-      agent: 'opportunity',
-      query: 'Test',
-    });
-
-    expect(response.success).toBe(false);
-    expect(response.error).toBe(
-      'Mock routing is disabled in production. Configure baseUrl or agent endpoints.'
-    );
-  } finally {
-    env.isProduction = originalIsProduction;
-  }
-});
 
     it('should invoke via env baseUrl in production', async () => {
       __setEnvSourceForTests({

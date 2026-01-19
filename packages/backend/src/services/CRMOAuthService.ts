@@ -7,7 +7,6 @@
 
 import { supabase } from "../lib/supabase";
 import { logger } from "../lib/logger";
-import { getEnvVar } from "../lib/env";
 
 // ============================================================================
 // Types
@@ -36,8 +35,7 @@ class CRMOAuthService {
   private functionUrl: string;
 
   constructor() {
-    const supabaseUrl =
-      getEnvVar("VITE_SUPABASE_URL") || getEnvVar("SUPABASE_URL") || "";
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
     this.functionUrl = `${supabaseUrl}/functions/v1/crm-oauth`;
   }
 
