@@ -328,21 +328,26 @@ describe('UnifiedAgentAPI', () => {
       );
     });
 
-    it('should throw in Node production even when env.isProduction is false', async () => {
-      __setEnvSourceForTests({ NODE_ENV: 'production' });
-      env.isProduction = false;
-      const prodApi = new UnifiedAgentAPI();
+it('should throw in Node production even when env.isProduction is false', async () => {
+  __setEnvSourceForTests({ NODE_ENV: 'production' });
+  const originalIsProduction = env.isProduction;
+  try {
+    env.isProduction = false;
+    const prodApi = new UnifiedAgentAPI();
 
-      const response = await prodApi.invoke({
-        agent: 'opportunity',
-        query: 'Test',
-      });
-
-      expect(response.success).toBe(false);
-      expect(response.error).toBe(
-        'Mock routing is disabled in production. Configure baseUrl or agent endpoints.'
-      );
+    const response = await prodApi.invoke({
+      agent: 'opportunity',
+      query: 'Test',
     });
+
+    expect(response.success).toBe(false);
+    expect(response.error).toBe(
+      'Mock routing is disabled in production. Configure baseUrl or agent endpoints.'
+    );
+  } finally {
+    env.isProduction = originalIsProduction;
+  }
+});
 
     it('should invoke via env baseUrl in production', async () => {
       __setEnvSourceForTests({
