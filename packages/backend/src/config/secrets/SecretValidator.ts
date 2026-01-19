@@ -51,11 +51,11 @@ export const SECRET_DEFINITIONS: SecretDefinition[] = [
   // Database Secrets
   {
     key: "DATABASE_URL",
-    required: true,
-    description: "Primary database connection URL",
+    required: false,
+    description: "Optional direct Postgres connection URL (Supabase admin tasks)",
     pattern: /^postgres:\/\/[^:]+:[^@]+@[^:]+:\d+\/[^\/]+$/,
     category: "database",
-    critical: true,
+    critical: false,
   },
   {
     key: "SUPABASE_URL",
