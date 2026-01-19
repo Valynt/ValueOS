@@ -9,7 +9,7 @@
 
 import { llmConfig } from "./llm.js";
 import type { LLMProvider } from "../lib/agent-fabric/llm-types.js";
-import { createLogger } from "../lib/logger.js";
+import { createLogger } from "@shared/lib/logger";
 
 const validationLogger = createLogger({ component: "EnvValidation" });
 
@@ -261,7 +261,7 @@ function validateSecurityConfig(): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  const corsOrigins = getEnvVar("CORS_ALLOWED_ORIGINS", "");
+  const corsOrigins = getEnv("CORS_ALLOWED_ORIGINS") || "";
 
   if (isProduction()) {
     // CORS Origins for production are explicitly configured and DO NOT include localhost
@@ -272,7 +272,7 @@ function validateSecurityConfig(): ValidationResult {
     }
 
     // TCT_SECRET is mandatory and cannot be default in production
-    const tctSecret = getEnvVar("TCT_SECRET", "");
+    const tctSecret = getEnv("TCT_SECRET") || "";
     if (!tctSecret) {
       errors.push("TCT_SECRET is mandatory in production");
     } else if (tctSecret === "default-jwt-secret-replace-me-in-production") {
@@ -280,14 +280,16 @@ function validateSecurityConfig(): ValidationResult {
     }
   } else {
     // Non-production warnings
-    const tctSecret = getEnvVar("TCT_SECRET", "");
+    const tctSecret = getEnv("TCT_SECRET") || "";
     if (!tctSecret || tctSecret === "default-jwt-secret-replace-me-in-production") {
       warnings.push("TCT_SECRET is using default value; ensure this is intended for development");
     }
   }
 
+  const isValid = errors.length === 0;
   return {
-    isValid: errors.length === 0,
+    valid: isValid,
+    isValid,
     errors,
     warnings,
   };

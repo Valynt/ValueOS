@@ -9,7 +9,7 @@
 import { Request, Response, NextFunction } from "express";
 import { getSecurityConfig } from "../security/SecurityConfig";
 import { getCORSHeaders, isOriginAllowed } from "../security/CORSValidator";
-import { logger } from '@shared/lib/logger";
+import { logger } from "@shared/lib/logger";
 
 /**
  * CORS middleware for Express

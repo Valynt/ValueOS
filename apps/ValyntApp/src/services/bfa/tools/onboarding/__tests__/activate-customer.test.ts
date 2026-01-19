@@ -1,4 +1,3 @@
-```typescript
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { ActivateCustomer } from "../activate-customer";
 import { AgentContext } from "../../../types";
@@ -52,9 +51,7 @@ describe("ActivateCustomer", () => {
         email: "test@example.com",
         status: "pending",
         activation_code: "123456",
-        activation_code_expires_at: new Date(
-          Date.now() + 3600000
-        ).toISOString(),
+        activation_code_expires_at: new Date(Date.now() + 3600000).toISOString(),
       };
 
       // Mock sequence for validateBusinessRules and performActivation
@@ -87,9 +84,9 @@ describe("ActivateCustomer", () => {
         activationCode: "short",
       };
 
-      await expect(
-        tool.execute(invalidInput as any, mockContext)
-      ).rejects.toThrow("Input validation failed");
+      await expect(tool.execute(invalidInput as any, mockContext)).rejects.toThrow(
+        "Input validation failed"
+      );
     });
   });
 
@@ -103,9 +100,7 @@ describe("ActivateCustomer", () => {
       (supabase.from as any).mockReturnValue({
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi
-          .fn()
-          .mockResolvedValue({ data: null, error: new Error("Not found") }),
+        single: vi.fn().mockResolvedValue({ data: null, error: new Error("Not found") }),
       });
 
       await expect(tool.execute(input, mockContext)).rejects.toThrow(
@@ -122,9 +117,7 @@ describe("ActivateCustomer", () => {
       (supabase.from as any).mockReturnValue({
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi
-          .fn()
-          .mockResolvedValue({ data: { status: "active" }, error: null }),
+        single: vi.fn().mockResolvedValue({ data: { status: "active" }, error: null }),
       });
 
       await expect(tool.execute(input, mockContext)).rejects.toThrow(
@@ -169,17 +162,13 @@ describe("ActivateCustomer", () => {
           data: {
             status: "pending",
             activation_code: "123456",
-            activation_code_expires_at: new Date(
-              Date.now() - 3600000
-            ).toISOString(),
+            activation_code_expires_at: new Date(Date.now() - 3600000).toISOString(),
           },
           error: null,
         }),
       });
 
-      await expect(tool.execute(input, mockContext)).rejects.toThrow(
-        "Activation code has expired"
-      );
+      await expect(tool.execute(input, mockContext)).rejects.toThrow("Activation code has expired");
     });
   });
 
@@ -210,9 +199,7 @@ describe("ActivateCustomer", () => {
         }),
       });
 
-      await expect(tool.execute(input, wrongTenantContext)).rejects.toThrow(
-        "Tenant access denied"
-      );
+      await expect(tool.execute(input, wrongTenantContext)).rejects.toThrow("Tenant access denied");
     });
   });
 

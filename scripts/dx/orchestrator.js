@@ -158,9 +158,9 @@ async function startSupabase() {
     runCommand("supabase start");
     log.success("Supabase started");
   } catch (error) {
-    log.error("Failed to start Supabase");
+    log.warn("Failed to start Supabase - continuing with dx postgres container");
     console.error(error.message);
-    process.exit(1);
+    // Don't exit - continue with dx postgres for testing
   }
 
   // Wait for Supabase API to be healthy
@@ -196,8 +196,8 @@ async function startSupabase() {
           "Supabase containers are running (health check skipped in DevContainer)"
         );
       } else {
-        log.error("Supabase Kong container is not running");
-        process.exit(1);
+        log.warn("Supabase Kong container is not running - continuing with dx postgres");
+        // Don't exit - continue with dx postgres for testing
       }
     } catch (error) {
       log.warn("Could not verify Supabase container status, continuing anyway");
@@ -205,10 +205,11 @@ async function startSupabase() {
   } else {
     const healthy = await waitForHealth(supabaseUrl, 30000);
     if (!healthy) {
-      log.error("Supabase API did not become healthy in time");
-      process.exit(1);
+      log.warn("Supabase API did not become healthy in time - continuing with dx postgres");
+      // Don't exit - continue with dx postgres for testing
+    } else {
+      log.success("Supabase API is healthy");
     }
-    log.success("Supabase API is healthy");
   }
 }
 

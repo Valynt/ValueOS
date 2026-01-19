@@ -5,10 +5,10 @@
  * automated alerting, and threat detection.
  */
 
-import { logger } from '../lib/logger';
-import { getAuditLogger, AgentAuditLog } from '../services/AgentAuditLogger';
-import { getSecureSharedContext } from '../services/SecureSharedContext';
-import { secureMessageBus } from '../lib/agent-fabric/SecureMessageBus';
+import { logger } from "../../lib/logger";
+import { getAuditLogger, AgentAuditLog } from "../AgentAuditLogger";
+import { getSecureSharedContext } from "../SecureSharedContext";
+import { secureMessageBus } from "../../lib/agent-fabric/SecureMessageBus";
 
 // ============================================================================
 // Types
@@ -28,18 +28,18 @@ export interface SecurityEvent {
 }
 
 export type SecurityEventType =
-  | 'context_share_denied'
-  | 'context_share_blocked'
-  | 'message_signature_invalid'
-  | 'replay_attack_detected'
-  | 'agent_compromised'
-  | 'circuit_breaker_opened'
-  | 'high_sensitivity_data_access'
-  | 'unauthorized_communication_attempt'
-  | 'encryption_failure'
-  | 'audit_log_anomaly';
+  | "context_share_denied"
+  | "context_share_blocked"
+  | "message_signature_invalid"
+  | "replay_attack_detected"
+  | "agent_compromised"
+  | "circuit_breaker_opened"
+  | "high_sensitivity_data_access"
+  | "unauthorized_communication_attempt"
+  | "encryption_failure"
+  | "audit_log_anomaly";
 
-export type SecuritySeverity = 'low' | 'medium' | 'high' | 'critical';
+export type SecuritySeverity = "low" | "medium" | "high" | "critical";
 
 export interface SecurityAlert {
   id: string;
@@ -56,12 +56,12 @@ export interface SecurityAlert {
 }
 
 export type AlertType =
-  | 'immediate_notification'
-  | 'email_alert'
-  | 'slack_notification'
-  | 'pager_duty'
-  | 'security_team_escalation'
-  | 'management_escalation';
+  | "immediate_notification"
+  | "email_alert"
+  | "slack_notification"
+  | "pager_duty"
+  | "security_team_escalation"
+  | "management_escalation";
 
 export interface SecurityMetrics {
   totalEvents: number;
@@ -112,9 +112,9 @@ export class SecurityMonitor {
       compromisedAgents: 1, // 1 total
     },
     escalationRules: {
-      highSensitivityAccess: ['immediate_notification', 'email_alert'],
-      agentCompromised: ['immediate_notification', 'slack_notification', 'pager_duty'],
-      circuitBreakerOpened: ['immediate_notification', 'security_team_escalation'],
+      highSensitivityAccess: ["immediate_notification", "email_alert"],
+      agentCompromised: ["immediate_notification", "slack_notification", "pager_duty"],
+      circuitBreakerOpened: ["immediate_notification", "security_team_escalation"],
     },
     retentionPeriod: 30, // 30 days
   };
@@ -145,7 +145,7 @@ export class SecurityMonitor {
       this.updateMetrics();
     }, 300000);
 
-    logger.info('Security monitoring started', {
+    logger.info("Security monitoring started", {
       alertThresholds: this.config.alertThresholds,
       escalationRules: Object.keys(this.config.escalationRules),
     });
@@ -163,7 +163,7 @@ export class SecurityMonitor {
       clearInterval(this.metricsInterval);
       this.metricsInterval = null;
     }
-    logger.info('Security monitoring stopped');
+    logger.info("Security monitoring stopped");
   }
 
   /**
@@ -189,7 +189,7 @@ export class SecurityMonitor {
 
     this.events.set(event.id, event);
 
-    logger.warn('Security event recorded', {
+    logger.warn("Security event recorded", {
       eventId: event.id,
       type,
       severity,
@@ -220,9 +220,8 @@ export class SecurityMonitor {
       await this.analyzeReplayAttacks(recentLogs);
       await this.analyzeHighSensitivityAccess(recentLogs);
       await this.analyzeCommunicationPatterns(recentLogs);
-
     } catch (error) {
-      logger.error('Error analyzing audit logs', error instanceof Error ? error : undefined);
+      logger.error("Error analyzing audit logs", error instanceof Error ? error : undefined);
     }
   }
 
@@ -230,21 +229,21 @@ export class SecurityMonitor {
    * Analyze denied context shares
    */
   private async analyzeDeniedContextShares(logs: AgentAuditLog[]): Promise<void> {
-    const deniedShares = logs.filter(log =>
-      log.input_query === 'context_share_denied' && !log.success
+    const deniedShares = logs.filter(
+      (log) => log.input_query === "context_share_denied" && !log.success
     );
 
     if (deniedShares.length >= this.config.alertThresholds.deniedContextShares) {
       this.recordEvent(
-        'context_share_denied',
-        'high',
-        'audit_analysis',
+        "context_share_denied",
+        "high",
+        "audit_analysis",
         `High rate of denied context shares: ${deniedShares.length} in last minute`,
         {
           count: deniedShares.length,
           threshold: this.config.alertThresholds.deniedContextShares,
-          agents: deniedShares.map(log => log.agent_name),
-          reasons: deniedShares.map(log => log.error_message),
+          agents: deniedShares.map((log) => log.agent_name),
+          reasons: deniedShares.map((log) => log.error_message),
         }
       );
     }
@@ -254,21 +253,22 @@ export class SecurityMonitor {
    * Analyze invalid signatures
    */
   private async analyzeInvalidSignatures(logs: AgentAuditLog[]): Promise<void> {
-    const signatureErrors = logs.filter(log =>
-      log.error_message?.includes('signature') ||
-      log.error_message?.includes('Invalid message signature')
+    const signatureErrors = logs.filter(
+      (log) =>
+        log.error_message?.includes("signature") ||
+        log.error_message?.includes("Invalid message signature")
     );
 
     if (signatureErrors.length >= this.config.alertThresholds.invalidSignatures) {
       this.recordEvent(
-        'message_signature_invalid',
-        'high',
-        'audit_analysis',
+        "message_signature_invalid",
+        "high",
+        "audit_analysis",
         `High rate of invalid message signatures: ${signatureErrors.length} in last minute`,
         {
           count: signatureErrors.length,
           threshold: this.config.alertThresholds.invalidSignatures,
-          agents: signatureErrors.map(log => log.agent_name),
+          agents: signatureErrors.map((log) => log.agent_name),
         }
       );
     }
@@ -278,21 +278,22 @@ export class SecurityMonitor {
    * Analyze replay attacks
    */
   private async analyzeReplayAttacks(logs: AgentAuditLog[]): Promise<void> {
-    const replayAttacks = logs.filter(log =>
-      log.error_message?.includes('replay') ||
-      log.error_message?.includes('Replay attack detected')
+    const replayAttacks = logs.filter(
+      (log) =>
+        log.error_message?.includes("replay") ||
+        log.error_message?.includes("Replay attack detected")
     );
 
     if (replayAttacks.length >= this.config.alertThresholds.replayAttacks) {
       this.recordEvent(
-        'replay_attack_detected',
-        'critical',
-        'audit_analysis',
+        "replay_attack_detected",
+        "critical",
+        "audit_analysis",
         `Replay attack detected: ${replayAttacks.length} attempts in last minute`,
         {
           count: replayAttacks.length,
           threshold: this.config.alertThresholds.replayAttacks,
-          agents: replayAttacks.map(log => log.agent_name),
+          agents: replayAttacks.map((log) => log.agent_name),
         }
       );
     }
@@ -302,22 +303,23 @@ export class SecurityMonitor {
    * Analyze high sensitivity data access
    */
   private async analyzeHighSensitivityAccess(logs: AgentAuditLog[]): Promise<void> {
-    const highSensitivityAccess = logs.filter(log =>
-      log.error_message?.includes('trust level') ||
-      log.error_message?.includes('sensitive data') ||
-      log.context?.metadata?.dataSensitivity === 'high'
+    const highSensitivityAccess = logs.filter(
+      (log) =>
+        log.error_message?.includes("trust level") ||
+        log.error_message?.includes("sensitive data") ||
+        log.context?.metadata?.dataSensitivity === "high"
     );
 
     if (highSensitivityAccess.length > 0) {
       this.recordEvent(
-        'high_sensitivity_data_access',
-        'high',
-        'audit_analysis',
+        "high_sensitivity_data_access",
+        "high",
+        "audit_analysis",
         `High sensitivity data access attempts: ${highSensitivityAccess.length} in last minute`,
         {
           count: highSensitivityAccess.length,
-          agents: highSensitivityAccess.map(log => log.agent_name),
-          contexts: highSensitivityAccess.map(log => log.context?.metadata),
+          agents: highSensitivityAccess.map((log) => log.agent_name),
+          contexts: highSensitivityAccess.map((log) => log.context?.metadata),
         }
       );
     }
@@ -330,7 +332,7 @@ export class SecurityMonitor {
     // Group by agent pairs
     const agentPairs = new Map<string, number>();
 
-    logs.forEach(log => {
+    logs.forEach((log) => {
       if (log.context?.metadata?.toAgent) {
         const pair = `${log.agent_name}-${log.context.metadata.toAgent}`;
         agentPairs.set(pair, (agentPairs.get(pair) || 0) + 1);
@@ -339,11 +341,12 @@ export class SecurityMonitor {
 
     // Look for unusual patterns
     for (const [pair, count] of agentPairs.entries()) {
-      if (count > 20) { // More than 20 communications per minute
+      if (count > 20) {
+        // More than 20 communications per minute
         this.recordEvent(
-          'unauthorized_communication_attempt',
-          'medium',
-          'pattern_analysis',
+          "unauthorized_communication_attempt",
+          "medium",
+          "pattern_analysis",
           `Unusual communication pattern: ${count} messages for ${pair}`,
           {
             agentPair: pair,
@@ -359,9 +362,9 @@ export class SecurityMonitor {
    * Evaluate if an alert should be triggered
    */
   private evaluateAlerting(event: SecurityEvent): void {
-    const alertTypes = this.config.escalationRules[event.type] || ['immediate_notification'];
+    const alertTypes = this.config.escalationRules[event.type] || ["immediate_notification"];
 
-    alertTypes.forEach(alertType => {
+    alertTypes.forEach((alertType) => {
       this.createAlert(event.id, alertType, event.severity);
     });
   }
@@ -369,11 +372,7 @@ export class SecurityMonitor {
   /**
    * Create a security alert
    */
-  private createAlert(
-    eventId: string,
-    type: AlertType,
-    severity: SecuritySeverity
-  ): SecurityAlert {
+  private createAlert(eventId: string, type: AlertType, severity: SecuritySeverity): SecurityAlert {
     const alert: SecurityAlert = {
       id: `alert_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       eventId,
@@ -403,7 +402,7 @@ export class SecurityMonitor {
     severity: SecuritySeverity
   ): string {
     const event = this.events.get(eventId);
-    if (!event) return 'Security alert generated';
+    if (!event) return "Security alert generated";
 
     return `[${severity.toUpperCase()}] ${event.description} (${type})`;
   }
@@ -413,11 +412,16 @@ export class SecurityMonitor {
    */
   private calculateEscalationLevel(severity: SecuritySeverity): number {
     switch (severity) {
-      case 'critical': return 3;
-      case 'high': return 2;
-      case 'medium': return 1;
-      case 'low': return 0;
-      default: return 0;
+      case "critical":
+        return 3;
+      case "high":
+        return 2;
+      case "medium":
+        return 1;
+      case "low":
+        return 0;
+      default:
+        return 0;
     }
   }
 
@@ -425,7 +429,7 @@ export class SecurityMonitor {
    * Send alert notification
    */
   private sendAlert(alert: SecurityAlert): void {
-    logger.warn('Security alert triggered', {
+    logger.warn("Security alert triggered", {
       alertId: alert.id,
       eventId: alert.eventId,
       type: alert.type,
@@ -436,22 +440,22 @@ export class SecurityMonitor {
 
     // In production, integrate with actual notification systems
     switch (alert.type) {
-      case 'email_alert':
+      case "email_alert":
         this.sendEmailAlert(alert);
         break;
-      case 'slack_notification':
+      case "slack_notification":
         this.sendSlackAlert(alert);
         break;
-      case 'pager_duty':
+      case "pager_duty":
         this.sendPagerDutyAlert(alert);
         break;
-      case 'security_team_escalation':
+      case "security_team_escalation":
         this.escalateToSecurityTeam(alert);
         break;
-      case 'management_escalation':
+      case "management_escalation":
         this.escalateToManagement(alert);
         break;
-      case 'immediate_notification':
+      case "immediate_notification":
         this.sendImmediateNotification(alert);
         break;
     }
@@ -461,7 +465,7 @@ export class SecurityMonitor {
    * Send email alert (placeholder)
    */
   private sendEmailAlert(alert: SecurityAlert): void {
-    logger.info('Email alert sent', { alertId: alert.id, message: alert.message });
+    logger.info("Email alert sent", { alertId: alert.id, message: alert.message });
     // TODO: Integrate with email service
   }
 
@@ -469,7 +473,7 @@ export class SecurityMonitor {
    * Send Slack alert (placeholder)
    */
   private sendSlackAlert(alert: SecurityAlert): void {
-    logger.info('Slack alert sent', { alertId: alert.id, message: alert.message });
+    logger.info("Slack alert sent", { alertId: alert.id, message: alert.message });
     // TODO: Integrate with Slack API
   }
 
@@ -477,7 +481,7 @@ export class SecurityMonitor {
    * Send PagerDuty alert (placeholder)
    */
   private sendPagerDutyAlert(alert: SecurityAlert): void {
-    logger.info('PagerDuty alert sent', { alertId: alert.id, message: alert.message });
+    logger.info("PagerDuty alert sent", { alertId: alert.id, message: alert.message });
     // TODO: Integrate with PagerDuty API
   }
 
@@ -485,7 +489,7 @@ export class SecurityMonitor {
    * Escalate to security team (placeholder)
    */
   private escalateToSecurityTeam(alert: SecurityAlert): void {
-    logger.warn('Security team escalation', { alertId: alert.id, message: alert.message });
+    logger.warn("Security team escalation", { alertId: alert.id, message: alert.message });
     // TODO: Integrate with security team notification system
   }
 
@@ -493,7 +497,7 @@ export class SecurityMonitor {
    * Escalate to management (placeholder)
    */
   private escalateToManagement(alert: SecurityAlert): void {
-    logger.error('Management escalation', { alertId: alert.id, message: alert.message });
+    logger.error("Management escalation", { alertId: alert.id, message: alert.message });
     // TODO: Integrate with management notification system
   }
 
@@ -501,7 +505,7 @@ export class SecurityMonitor {
    * Send immediate notification (placeholder)
    */
   private sendImmediateNotification(alert: SecurityAlert): void {
-    logger.warn('Immediate notification sent', { alertId: alert.id, message: alert.message });
+    logger.warn("Immediate notification sent", { alertId: alert.id, message: alert.message });
     // TODO: Integrate with real-time notification system
   }
 
@@ -512,45 +516,54 @@ export class SecurityMonitor {
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-    const recentEvents = Array.from(this.events.values())
-      .filter(event => event.timestamp >= oneDayAgo);
+    const recentEvents = Array.from(this.events.values()).filter(
+      (event) => event.timestamp >= oneDayAgo
+    );
 
-    const eventsByType = recentEvents.reduce((acc, event) => {
-      acc[event.type] = (acc[event.type] || 0) + 1;
-      return acc;
-    }, {} as Record<SecurityEventType, number>);
+    const eventsByType = recentEvents.reduce(
+      (acc, event) => {
+        acc[event.type] = (acc[event.type] || 0) + 1;
+        return acc;
+      },
+      {} as Record<SecurityEventType, number>
+    );
 
-    const eventsBySeverity = recentEvents.reduce((acc, event) => {
-      acc[event.severity] = (acc[event.severity] || 0) + 1;
-      return acc;
-    }, {} as Record<SecuritySeverity, number>);
+    const eventsBySeverity = recentEvents.reduce(
+      (acc, event) => {
+        acc[event.severity] = (acc[event.severity] || 0) + 1;
+        return acc;
+      },
+      {} as Record<SecuritySeverity, number>
+    );
 
     const activeAlerts = Array.from(this.alerts.values()).filter(
-      alert => !alert.acknowledged && !alert.autoResolved
+      (alert) => !alert.acknowledged && !alert.autoResolved
     );
 
     const acknowledgedAlerts = Array.from(this.alerts.values()).filter(
-      alert => alert.acknowledged
+      (alert) => alert.acknowledged
     );
 
-    const escalatedAlerts = activeAlerts.filter(
-      alert => alert.escalationLevel >= 2
-    );
+    const escalatedAlerts = activeAlerts.filter((alert) => alert.escalationLevel >= 2);
 
-    const resolvedEvents = recentEvents.filter(event => event.resolved);
-    const meanTimeToResolution = resolvedEvents.length > 0
-      ? resolvedEvents.reduce((sum, event) => {
-          const resolutionTime = event.resolvedAt!.getTime() - event.timestamp.getTime();
-          return sum + resolutionTime;
-        }, 0) / resolvedEvents.length / 1000 / 60 // Convert to minutes
-      : 0;
+    const resolvedEvents = recentEvents.filter((event) => event.resolved);
+    const meanTimeToResolution =
+      resolvedEvents.length > 0
+        ? resolvedEvents.reduce((sum, event) => {
+            const resolutionTime = event.resolvedAt!.getTime() - event.timestamp.getTime();
+            return sum + resolutionTime;
+          }, 0) /
+          resolvedEvents.length /
+          1000 /
+          60 // Convert to minutes
+        : 0;
 
     const compromisedAgents = recentEvents.filter(
-      event => event.type === 'agent_compromised'
+      (event) => event.type === "agent_compromised"
     ).length;
 
     const blockedCommunications = recentEvents.filter(
-      event => event.type === 'unauthorized_communication_attempt'
+      (event) => event.type === "unauthorized_communication_attempt"
     ).length;
 
     return {
@@ -572,7 +585,7 @@ export class SecurityMonitor {
   private updateMetrics(): void {
     const metrics = this.getMetrics();
 
-    logger.info('Security metrics updated', metrics);
+    logger.info("Security metrics updated", metrics);
 
     // Cleanup old events
     this.cleanupOldEvents();
@@ -582,9 +595,7 @@ export class SecurityMonitor {
    * Cleanup old events and alerts
    */
   private cleanupOldEvents(): void {
-    const cutoffDate = new Date(
-      Date.now() - this.config.retentionPeriod * 24 * 60 * 60 * 1000
-    );
+    const cutoffDate = new Date(Date.now() - this.config.retentionPeriod * 24 * 60 * 60 * 1000);
 
     let eventsCleaned = 0;
     for (const [id, event] of this.events.entries()) {
@@ -603,7 +614,7 @@ export class SecurityMonitor {
     }
 
     if (eventsCleaned > 0 || alertsCleaned > 0) {
-      logger.debug('Security data cleanup completed', {
+      logger.debug("Security data cleanup completed", {
         eventsCleaned,
         alertsCleaned,
         retentionPeriod: this.config.retentionPeriod,
@@ -622,7 +633,7 @@ export class SecurityMonitor {
     alert.acknowledgedBy = acknowledgedBy;
     alert.acknowledgedAt = new Date();
 
-    logger.info('Security alert acknowledged', {
+    logger.info("Security alert acknowledged", {
       alertId,
       acknowledgedBy,
       acknowledgedAt: alert.acknowledgedAt,
@@ -649,7 +660,7 @@ export class SecurityMonitor {
       }
     }
 
-    logger.info('Security event resolved', {
+    logger.info("Security event resolved", {
       eventId,
       resolvedBy,
       resolvedAt: event.resolvedAt,
@@ -672,7 +683,7 @@ export class SecurityMonitor {
    */
   getActiveAlerts(): SecurityAlert[] {
     return Array.from(this.alerts.values())
-      .filter(alert => !alert.acknowledged && !alert.autoResolved)
+      .filter((alert) => !alert.acknowledged && !alert.autoResolved)
       .sort((a, b) => b.escalationLevel - a.escalationLevel);
   }
 

@@ -1,9 +1,9 @@
 import { randomUUID } from "crypto";
 import { NextFunction, Request, Response } from "express";
-import { securityAuditService } from './services/SecurityAuditService";
-import { logger } from '@shared/lib/logger";
-import { runWithContext } from '@shared/lib/context";
-import { getTraceContextForLogging } from './config/telemetry";
+import { securityAuditService } from "./services/SecurityAuditService";
+import { logger } from "@shared/lib/logger";
+import { runWithContext } from "@shared/lib/context";
+import { getTraceContextForLogging } from "./config/telemetry";
 
 const DEFAULT_IGNORED_PATHS = ["/health", "/metrics"];
 

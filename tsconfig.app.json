@@ -52,7 +52,7 @@
     "exactOptionalPropertyTypes": true,
     "noImplicitThis": true
   },
-  "include": ["./src"],
+  "include": ["src", "scripts", "packages/*/src", "apps/*/src"],
   "exclude": [
     "./src/**/*.test.ts",
     "./src/**/*.test.tsx",

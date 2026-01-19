@@ -3,14 +3,14 @@
  * Endpoints for managing subscriptions
  */
 
-import express, { Request, Response } from 'express';
-import SubscriptionService from '../services/billing/SubscriptionService';
-import CustomerService from '../services/billing/CustomerService';
-import { PlanTier } from '../config/billing';
-import { createLogger } from '@shared/lib/logger';
+import express, { Request, Response } from "express";
+import SubscriptionService from "../services/billing/SubscriptionService";
+import CustomerService from "../services/billing/CustomerService";
+import { PlanTier } from "../config/billing";
+import { createLogger } from "@shared/lib/logger";
 
 const router = express.Router();
-const logger = createLogger({ component: 'SubscriptionsAPI' });
+const logger = createLogger({ component: "SubscriptionsAPI" });
 
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
   requestId: (req as any).requestId || res.locals.requestId,
@@ -21,24 +21,24 @@ const withRequestContext = (req: Request, res: Response, meta?: Record<string, u
  * GET /api/billing/subscription
  * Get current subscription
  */
-router.get('/', async (req: Request, res: Response) => {
+router.get("/", async (req: Request, res: Response) => {
   try {
     const tenantId = (req as any).tenantId;
-    
+
     if (!tenantId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
     const subscription = await SubscriptionService.getActiveSubscription(tenantId);
-    
+
     if (!subscription) {
-      return res.status(404).json({ error: 'No active subscription found' });
+      return res.status(404).json({ error: "No active subscription found" });
     }
 
     res.json(subscription);
   } catch (error) {
-    logger.error('Error fetching subscription', error as Error, withRequestContext(req, res));
-    res.status(500).json({ error: 'Failed to fetch subscription' });
+    logger.error("Error fetching subscription", error as Error, withRequestContext(req, res));
+    res.status(500).json({ error: "Failed to fetch subscription" });
   }
 });
 
@@ -46,18 +46,18 @@ router.get('/', async (req: Request, res: Response) => {
  * POST /api/billing/subscription
  * Create new subscription
  */
-router.post('/', async (req: Request, res: Response) => {
+router.post("/", async (req: Request, res: Response) => {
   try {
     const tenantId = (req as any).tenantId;
     const { planTier, trialDays } = req.body;
-    const idempotencyKey = req.headers['idempotency-key'] as string || req.body.idempotencyKey;
+    const idempotencyKey = (req.headers["idempotency-key"] as string) || req.body.idempotencyKey;
 
     if (!tenantId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
     if (!planTier) {
-      return res.status(400).json({ error: 'planTier is required' });
+      return res.status(400).json({ error: "planTier is required" });
     }
 
     const subscription = await SubscriptionService.createSubscription(
@@ -69,8 +69,8 @@ router.post('/', async (req: Request, res: Response) => {
 
     res.status(201).json(subscription);
   } catch (error) {
-    logger.error('Error creating subscription', error as Error, withRequestContext(req, res));
-    res.status(500).json({ error: 'Failed to create subscription' });
+    logger.error("Error creating subscription", error as Error, withRequestContext(req, res));
+    res.status(500).json({ error: "Failed to create subscription" });
   }
 });
 
@@ -78,17 +78,17 @@ router.post('/', async (req: Request, res: Response) => {
  * PUT /api/billing/subscription
  * Update subscription (upgrade/downgrade)
  */
-router.put('/', async (req: Request, res: Response) => {
+router.put("/", async (req: Request, res: Response) => {
   try {
     const tenantId = (req as any).tenantId;
     const { planTier } = req.body;
 
     if (!tenantId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
     if (!planTier) {
-      return res.status(400).json({ error: 'planTier is required' });
+      return res.status(400).json({ error: "planTier is required" });
     }
 
     const subscription = await SubscriptionService.updateSubscription(
@@ -98,8 +98,8 @@ router.put('/', async (req: Request, res: Response) => {
 
     res.json(subscription);
   } catch (error) {
-    logger.error('Error updating subscription', error as Error, withRequestContext(req, res));
-    res.status(500).json({ error: 'Failed to update subscription' });
+    logger.error("Error updating subscription", error as Error, withRequestContext(req, res));
+    res.status(500).json({ error: "Failed to update subscription" });
   }
 });
 
@@ -107,24 +107,24 @@ router.put('/', async (req: Request, res: Response) => {
  * DELETE /api/billing/subscription
  * Cancel subscription
  */
-router.delete('/', async (req: Request, res: Response) => {
+router.delete("/", async (req: Request, res: Response) => {
   try {
     const tenantId = (req as any).tenantId;
     const { immediately } = req.query;
 
     if (!tenantId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
     const subscription = await SubscriptionService.cancelSubscription(
       tenantId,
-      immediately === 'true'
+      immediately === "true"
     );
 
     res.json(subscription);
   } catch (error) {
-    logger.error('Error canceling subscription', error as Error, withRequestContext(req, res));
-    res.status(500).json({ error: 'Failed to cancel subscription' });
+    logger.error("Error canceling subscription", error as Error, withRequestContext(req, res));
+    res.status(500).json({ error: "Failed to cancel subscription" });
   }
 });
 
@@ -132,17 +132,17 @@ router.delete('/', async (req: Request, res: Response) => {
  * POST /api/billing/subscription/preview
  * Preview invoice for plan change
  */
-router.post('/preview', async (req: Request, res: Response) => {
+router.post("/preview", async (req: Request, res: Response) => {
   try {
     const tenantId = (req as any).tenantId;
     const { planTier } = req.body;
 
     if (!tenantId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
     if (!planTier) {
-      return res.status(400).json({ error: 'planTier is required' });
+      return res.status(400).json({ error: "planTier is required" });
     }
 
     const preview = await SubscriptionService.previewSubscriptionChange(
@@ -152,8 +152,8 @@ router.post('/preview', async (req: Request, res: Response) => {
 
     res.json(preview);
   } catch (error) {
-    logger.error('Error previewing subscription', error as Error, withRequestContext(req, res));
-    res.status(500).json({ error: 'Failed to preview subscription' });
+    logger.error("Error previewing subscription", error as Error, withRequestContext(req, res));
+    res.status(500).json({ error: "Failed to preview subscription" });
   }
 });
 

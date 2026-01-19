@@ -1,5 +1,5 @@
-import { createHistogram } from './config/telemetry";
-import { logger } from '@shared/lib/logger";
+import { createHistogram } from "./config/telemetry";
+import { logger } from "@shared/lib/logger";
 
 const WINDOW_SIZE = 120;
 const latencyWindows = new Map<string, number[]>();

@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 
-const baseArgs = ["vitest", "run", "--reporter=verbose"];
+const baseArgs = ["exec", "vitest", "run", "--reporter=verbose"];
 const watchLike = true; // keep looping even after green
 const delayMs = 500;
 
@@ -30,8 +30,8 @@ function extractFailingFiles(output) {
   // Common patterns include:
   // FAIL  path/to/test.spec.ts
   // ❯ path/to/test.spec.ts (in stack headers)
-  const failLine = output.matchAll(/FAIL\s+([^\s]+?\.(test|spec)\.[jt]sx?)/g);
-  for (const m of failLine) files.add(m[1]);
+  const failLineMatches = output.matchAll(/FAIL\s+([^\s]+?\.(test|spec)\.[jt]sx?)/g);
+  for (const m of failLineMatches) files.add(m[1]);
 
   const pathish = output.matchAll(/([^\s'"()]+?\.(test|spec)\.[jt]sx?)/g);
   for (const m of pathish) files.add(m[1]);
@@ -48,13 +48,11 @@ async function main() {
 
   // Loop forever
   for (;;) {
-    const args = targets.length
-      ? [...baseArgs, ...targets]
-      : baseArgs;
+    const args = targets.length ? [...baseArgs, ...targets] : baseArgs;
 
     // Run under Node inspector so VS Code can attach/launch easily
     // If you use VS Code "launch" config, it will handle inspector flags there instead.
-    const { code, out } = await run("npx", args);
+    const { code, out } = await run("pnpm", args);
 
     if (code === 0) {
       console.log("\n✅ All tests passed.");

@@ -15,7 +15,7 @@ import {
   AgentHealthStatus,
 } from "../core/IAgent";
 import { AgentType } from "../../agent-types";
-import { ConfidenceLevel } from "../../../types/agent";
+import { ConfidenceLevel } from "../../../types/vos";
 import { logger } from "../../../utils/logger";
 import { v4 as uuidv4 } from "uuid";
 
@@ -49,22 +49,35 @@ export interface AgentTelemetryEvent {
 }
 
 export interface AgentTelemetrySummary {
+  /** Total executions */
   totalExecutions: number;
+  /** Successful executions */
   successfulExecutions: number;
+  /** Failed executions */
   failedExecutions: number;
-  successRate: number;
-  errorRate: number;
+  /** Average execution time */
   avgExecutionTime: number;
+  /** Success rate */
+  successRate: number;
+  /** Error rate */
+  errorRate: number;
+  /** Top error types */
+  topErrorTypes: Array<{
+    type: string;
+    count: number;
+    percentage: number;
+  }>;
+  /** Performance metrics */
   performance: {
     p50: number;
     p90: number;
     p95: number;
     p99: number;
   };
-  totalTokens: number;
-  totalCost: number;
-  avgTokensPerExecution: number;
-  avgCostPerExecution: number;
+  /** Resource usage averages */
+  avgResourceUsage: AgentResourceUsage;
+  /** Agent health summary */
+  healthSummary: Record<AgentType, AgentHealthStatus>;
 }
 
 export interface AgentMetrics {
@@ -86,8 +99,8 @@ export interface ValueLifecycleMetrics {
 }
 
 export interface PerformanceAlert {
-  type: 'error_rate' | 'execution_time' | 'p99_latency' | 'memory_usage' | 'token_usage';
-  severity: 'info' | 'warning' | 'critical';
+  type: "error_rate" | "execution_time" | "p99_latency" | "memory_usage" | "token_usage";
+  severity: "info" | "warning" | "critical";
   message: string;
   threshold: number;
   currentValue: number;
@@ -95,7 +108,7 @@ export interface PerformanceAlert {
 }
 
 export interface SystemHealth {
-  status: 'healthy' | 'degraded' | 'unhealthy';
+  status: "healthy" | "degraded" | "unhealthy";
   score: number;
   activeTraces: number;
   totalExecutions: number;
@@ -145,6 +158,8 @@ export interface AgentExecutionTrace {
   sessionId?: string;
   /** User ID */
   userId?: string;
+  /** Organization ID */
+  organizationId?: string;
   /** Execution start time */
   startTime: Date;
   /** Execution end time */
@@ -167,6 +182,8 @@ export interface AgentExecutionTrace {
   resourceUsage: AgentResourceUsage;
   /** Trace events */
   events: AgentTelemetryEvent[];
+  /** Additional data */
+  data?: Record<string, unknown>;
 }
 
 export interface AgentExecutionStep {
@@ -359,8 +376,6 @@ export class AgentTelemetryService {
 
     // Record start event
     this.recordTelemetryEvent({
-      eventId: uuidv4(),
-      timestamp: new Date(),
       type: "agent_execution_start",
       agentType: request.agentType,
       sessionId: request.sessionId,
@@ -707,13 +722,14 @@ export class AgentTelemetryService {
     const failedExecutions = traces.filter((t) => t.status === "failed").length;
 
     // Calculate performance metrics
-    const executionTimes = traces.map((t) =>
-      t.endTime ? t.endTime.getTime() - t.startTime.getTime() : 0
-    ).filter((t) => t > 0);
+    const executionTimes = traces
+      .map((t) => (t.endTime ? t.endTime.getTime() - t.startTime.getTime() : 0))
+      .filter((t) => t > 0);
 
-    const avgExecutionTime = executionTimes.length > 0
-      ? executionTimes.reduce((a, b) => a + b, 0) / executionTimes.length
-      : 0;
+    const avgExecutionTime =
+      executionTimes.length > 0
+        ? executionTimes.reduce((a, b) => a + b, 0) / executionTimes.length
+        : 0;
 
     // Calculate percentiles
     const sortedTimes = executionTimes.sort((a, b) => a - b);
@@ -722,12 +738,35 @@ export class AgentTelemetryService {
     const p95 = sortedTimes[Math.floor(sortedTimes.length * 0.95)] || 0;
     const p99 = sortedTimes[Math.floor(sortedTimes.length * 0.99)] || 0;
 
-    // Calculate token usage metrics
-    const totalTokens = traces.reduce((sum, t) => sum + t.metrics.tokenUsage.total, 0);
-    const totalCost = traces.reduce((sum, t) => sum + t.metrics.tokenUsage.cost, 0);
-
     // Calculate error rate
     const errorRate = totalExecutions > 0 ? (failedExecutions / totalExecutions) * 100 : 0;
+
+    // Calculate error types
+    const errorTypes = traces
+      .filter((t) => t.error)
+      .reduce(
+        (acc, t) => {
+          const type = t.error!.type;
+          acc[type] = (acc[type] || 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>
+      );
+
+    const topErrorTypes = Object.entries(errorTypes)
+      .map(([type, count]) => ({
+        type,
+        count,
+        percentage: totalExecutions > 0 ? (count / totalExecutions) * 100 : 0,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    // Calculate resource usage
+    const avgResourceUsage = this.calculateAverageResourceUsage(traces);
+
+    // Calculate health summary - placeholder for now
+    const healthSummary = {} as Record<AgentType, AgentHealthStatus>;
 
     return {
       totalExecutions,
@@ -737,10 +776,9 @@ export class AgentTelemetryService {
       errorRate,
       avgExecutionTime,
       performance: { p50, p90, p95, p99 },
-      totalTokens,
-      totalCost,
-      avgTokensPerExecution: totalExecutions > 0 ? totalTokens / totalExecutions : 0,
-      avgCostPerExecution: totalExecutions > 0 ? totalCost / totalExecutions : 0,
+      topErrorTypes,
+      avgResourceUsage,
+      healthSummary,
     };
   }
 
@@ -749,38 +787,47 @@ export class AgentTelemetryService {
    */
   getValueLifecycleMetrics(timeWindow?: { start: Date; end: Date }): ValueLifecycleMetrics {
     const traces = timeWindow
-      ? this.completedTraces.filter(t =>
-          t.startTime >= timeWindow.start && t.startTime <= timeWindow.end
+      ? this.completedTraces.filter(
+          (t) => t.startTime >= timeWindow.start && t.startTime <= timeWindow.end
         )
       : this.completedTraces;
 
     const agentMetrics: Record<AgentType, AgentMetrics> = {} as any;
 
     // Calculate metrics per agent type
-    const agentTypes: AgentType[] = ['opportunity', 'target', 'expansion', 'integrity', 'realization'];
+    const agentTypes: AgentType[] = [
+      "opportunity",
+      "target",
+      "expansion",
+      "integrity",
+      "realization",
+    ];
 
     for (const agentType of agentTypes) {
-      const agentTraces = traces.filter(t => t.agentType === agentType);
       const summary = this.getTelemetrySummary(agentType, timeWindow);
 
       agentMetrics[agentType] = {
         executions: summary.totalExecutions,
         successRate: summary.successRate,
         avgExecutionTime: summary.avgExecutionTime,
-        avgCost: summary.avgCostPerExecution,
-        throughput: summary.totalExecutions / (timeWindow ?
-          (timeWindow.end.getTime() - timeWindow.start.getTime()) / (1000 * 60 * 60) : 1
-        ),
+        avgCost: 0, // TODO: Calculate actual cost
+        throughput:
+          summary.totalExecutions /
+          (timeWindow
+            ? (timeWindow.end.getTime() - timeWindow.start.getTime()) / (1000 * 60 * 60)
+            : 1),
       };
     }
 
     // Calculate overall lifecycle metrics
     const totalValue = traces.reduce((sum, t) => {
-      const value = t.data?.value || 0;
+      const value = (t.data?.value as number) || 0;
       return sum + value;
     }, 0);
 
     const avgValuePerExecution = traces.length > 0 ? totalValue / traces.length : 0;
+
+    const totalCost = 0; // TODO: Calculate actual total cost
 
     return {
       agentMetrics,
@@ -788,7 +835,7 @@ export class AgentTelemetryService {
       overallSuccessRate: this.getTelemetrySummary(undefined, timeWindow).successRate,
       totalValueGenerated: totalValue,
       avgValuePerExecution,
-      totalCost: this.getTelemetrySummary(undefined, timeWindow).totalCost,
+      totalCost,
       roi: totalCost > 0 ? (totalValue / totalCost) * 100 : 0,
     };
   }
@@ -803,36 +850,38 @@ export class AgentTelemetryService {
     // Check error rate threshold
     if (summary.errorRate > 10) {
       alerts.push({
-        type: 'error_rate',
-        severity: 'critical',
+        type: "error_rate",
+        severity: "critical",
         message: `High error rate detected: ${summary.errorRate.toFixed(2)}%`,
         threshold: 10,
         currentValue: summary.errorRate,
-        recommendation: 'Check agent health and system resources',
+        recommendation: "Check agent health and system resources",
       });
     }
 
     // Check average execution time
-    if (summary.avgExecutionTime > 10000) { // 10 seconds
+    if (summary.avgExecutionTime > 10000) {
+      // 10 seconds
       alerts.push({
-        type: 'execution_time',
-        severity: 'warning',
+        type: "execution_time",
+        severity: "warning",
         message: `High average execution time: ${summary.avgExecutionTime.toFixed(0)}ms`,
         threshold: 10000,
         currentValue: summary.avgExecutionTime,
-        recommendation: 'Optimize agent logic or increase resources',
+        recommendation: "Optimize agent logic or increase resources",
       });
     }
 
     // Check P99 latency
-    if (summary.performance.p99 > 30000) { // 30 seconds
+    if (summary.performance.p99 > 30000) {
+      // 30 seconds
       alerts.push({
-        type: 'p99_latency',
-        severity: 'warning',
+        type: "p99_latency",
+        severity: "warning",
         message: `High P99 latency: ${summary.performance.p99.toFixed(0)}ms`,
         threshold: 30000,
         currentValue: summary.performance.p99,
-        recommendation: 'Investigate performance bottlenecks',
+        recommendation: "Investigate performance bottlenecks",
       });
     }
 
@@ -846,9 +895,9 @@ export class AgentTelemetryService {
     const alerts = this.checkPerformanceThresholds();
     const summary = this.getTelemetrySummary();
 
-    const healthScore = Math.max(0, 100 - (alerts.length * 20)); // Deduct 20 points per alert
+    const healthScore = Math.max(0, 100 - alerts.length * 20); // Deduct 20 points per alert
 
-    const status = healthScore >= 80 ? 'healthy' : healthScore >= 60 ? 'degraded' : 'unhealthy';
+    const status = healthScore >= 80 ? "healthy" : healthScore >= 60 ? "degraded" : "unhealthy";
 
     return {
       status,
@@ -861,6 +910,24 @@ export class AgentTelemetryService {
       lastUpdated: new Date(),
     };
   }
+
+  /**
+   * Get service statistics
+   */
+  getStatistics(): {
+    totalExecutions: number;
+    successfulExecutions: number;
+    failedExecutions: number;
+    avgExecutionTime: number;
+    successRate: number;
+    errorRate: number;
+    topErrorTypes: Array<{ type: string; count: number; percentage: number }>;
+    performance: any;
+    avgResourceUsage: any;
+  } {
+    const traces = [...this.completedTraces];
+    const totalExecutions = traces.length;
+    const successfulExecutions = traces.filter((t) => t.status === "completed").length;
     const failedExecutions = traces.filter((t) => t.status === "failed").length;
     const successRate = totalExecutions > 0 ? successfulExecutions / totalExecutions : 0;
     const errorRate = totalExecutions > 0 ? failedExecutions / totalExecutions : 0;
@@ -910,33 +977,6 @@ export class AgentTelemetryService {
     };
   }
 
-  /**
-   * Reset all telemetry data
-   */
-  reset(): void {
-    this.activeTraces.clear();
-    this.completedTraces = [];
-    this.telemetryEvents = [];
-    logger.info("Agent telemetry data reset");
-  }
-
-  /**
-   * Get service statistics
-   */
-  getStatistics(): {
-    activeTraces: number;
-    completedTraces: number;
-    totalEvents: number;
-    memoryUsage: number;
-  } {
-    return {
-      activeTraces: this.activeTraces.size,
-      completedTraces: this.completedTraces.length,
-      totalEvents: this.telemetryEvents.length,
-      memoryUsage: this.estimateMemoryUsage(),
-    };
-  }
-
   // ============================================================================
   // Private Methods
   // ============================================================================
@@ -966,7 +1006,7 @@ export class AgentTelemetryService {
 
     const getPercentile = (p: number): number => {
       const index = Math.ceil((p / 100) * values.length) - 1;
-      return values[Math.max(0, Math.min(index, values.length - 1))];
+      return values[Math.max(0, Math.min(index, values.length - 1))]!;
     };
 
     return {
@@ -1025,18 +1065,6 @@ export class AgentTelemetryService {
       },
     };
   }
-
-  /**
-   * Estimate memory usage
-   */
-  private estimateMemoryUsage(): number {
-    // Rough estimation in MB
-    const traceSize = this.activeTraces.size * 0.1; // ~100KB per active trace
-    const completedSize = this.completedTraces.length * 0.05; // ~50KB per completed trace
-    const eventSize = this.telemetryEvents.length * 0.01; // ~10KB per event
-    return traceSize + completedSize + eventSize;
-  }
-}
 
 // ============================================================================
 // Export Singleton

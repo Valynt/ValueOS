@@ -12,11 +12,11 @@
  - Performance signal accuracy verification
  */
 
-import { logger } from '../lib/logger';
-import { AdversarialValidator } from './AdversarialValidator';
-import { SDUIPageDefinition } from '@sdui/schema';
-import { WorkflowState } from '../repositories/WorkflowStateRepository';
-import { AgentMemoryService } from './AgentMemoryService';
+import { logger } from "../lib/logger";
+import { AdversarialValidator } from "./AdversarialValidator";
+import { SDUIPageDefinition } from "@sdui/schema";
+import { WorkflowState } from "../repositories/WorkflowStateRepository";
+import { AgentMemoryService } from "./AgentMemoryService";
 
 // ============================================================================
 // Types
@@ -32,17 +32,17 @@ export interface IntegrityValidationRequest {
 }
 
 export enum ContentType {
-  SDUI_PAGE = 'sdui_page',
-  WORKFLOW_STATE = 'workflow_state',
-  AGENT_REASONING = 'agent_reasoning',
-  METRIC_DATA = 'metric_data',
-  MEMORY_CONTENT = 'memory_content',
+  SDUI_PAGE = "sdui_page",
+  WORKFLOW_STATE = "workflow_state",
+  AGENT_REASONING = "agent_reasoning",
+  METRIC_DATA = "metric_data",
+  MEMORY_CONTENT = "memory_content",
 }
 
 export enum ValidationLevel {
-  BASIC = 'basic',
-  STANDARD = 'standard',
-  COMPREHENSIVE = 'comprehensive',
+  BASIC = "basic",
+  STANDARD = "standard",
+  COMPREHENSIVE = "comprehensive",
 }
 
 export interface IntegrityContent {
@@ -56,7 +56,7 @@ export interface IntegrityContent {
 }
 
 export interface SourceReference {
-  type: 'url' | 'document' | 'database' | 'api' | 'internal';
+  type: "url" | "document" | "database" | "api" | "internal";
   reference: string;
   title?: string;
   lastVerified?: Date;
@@ -75,26 +75,26 @@ export interface IntegrityValidationResult {
 
 export interface IntegrityCheck {
   type: CheckType;
-  status: 'pass' | 'fail' | 'warning';
+  status: "pass" | "fail" | "warning";
   score: number;
   details: string;
   evidence?: any;
 }
 
 export enum CheckType {
-  CONFIDENCE_REASONING = 'confidence_reasoning',
-  SOURCE_VERIFICATION = 'source_verification',
-  LOGICAL_CONSISTENCY = 'logical_consistency',
-  DATA_INTEGRITY = 'data_integrity',
-  CONTEXT_ALIGNMENT = 'context_alignment',
-  CROSS_AGENT_CONSISTENCY = 'cross_agent_consistency',
-  PERFORMANCE_ACCURACY = 'performance_accuracy',
-  COMPLIANCE_CHECK = 'compliance_check',
+  CONFIDENCE_REASONING = "confidence_reasoning",
+  SOURCE_VERIFICATION = "source_verification",
+  LOGICAL_CONSISTENCY = "logical_consistency",
+  DATA_INTEGRITY = "data_integrity",
+  CONTEXT_ALIGNMENT = "context_alignment",
+  CROSS_AGENT_CONSISTENCY = "cross_agent_consistency",
+  PERFORMANCE_ACCURACY = "performance_accuracy",
+  COMPLIANCE_CHECK = "compliance_check",
 }
 
 export interface IntegrityViolation {
   type: CheckType;
-  severity: 'low' | 'medium' | 'high' | 'critical';
+  severity: "low" | "medium" | "high" | "critical";
   description: string;
   impact: string;
   remediation: string;
@@ -111,11 +111,7 @@ export class IntegrityValidationService {
   private sourceVerifier: SourceVerifier;
   private consistencyChecker: ConsistencyChecker;
 
-  constructor(
-    agentMemoryService: AgentMemoryService,
-    supabaseUrl: string,
-    supabaseKey: string
-  ) {
+  constructor(agentMemoryService: AgentMemoryService, supabaseUrl: string, supabaseKey: string) {
     this.adversarialValidator = new AdversarialValidator();
     this.agentMemoryService = agentMemoryService;
     this.sourceVerifier = new SourceVerifier(supabaseUrl, supabaseKey);
@@ -131,7 +127,7 @@ export class IntegrityValidationService {
     const violations: IntegrityViolation[] = [];
 
     try {
-      logger.info('Starting integrity validation', {
+      logger.info("Starting integrity validation", {
         traceId: request.traceId,
         contentType: request.contentType,
         agentType: request.agentType,
@@ -158,7 +154,8 @@ export class IntegrityValidationService {
       const recommendations = this.generateRecommendations(checks, violations);
 
       const result: IntegrityValidationResult = {
-        valid: violations.filter(v => v.severity === 'critical' || v.severity === 'high').length === 0,
+        valid:
+          violations.filter((v) => v.severity === "critical" || v.severity === "high").length === 0,
         overallScore,
         checks,
         violations,
@@ -167,7 +164,7 @@ export class IntegrityValidationService {
         nextReview: this.calculateNextReviewDate(violations),
       };
 
-      logger.info('Integrity validation completed', {
+      logger.info("Integrity validation completed", {
         traceId: request.traceId,
         valid: result.valid,
         overallScore: result.overallScore,
@@ -177,19 +174,17 @@ export class IntegrityValidationService {
       });
 
       return result;
-
     } catch (error) {
-      logger.error('Failed to parse structural response', 'Parse error', {
+      logger.error("Failed to parse structural response", "Parse error", {
         traceId: request.traceId,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : "Unknown error",
       });
       return {
         hallucinatedComponents: [],
         structurallyConsistent: false,
-        inconsistencyReason: 'Parse error',
+        inconsistencyReason: "Parse error",
         confidence: 0.5,
-        }],
-        recommendations: ['Retry validation', 'Check system logs'],
+        recommendations: ["Retry validation", "Check system logs"],
         validatedAt: new Date(),
       };
     }
@@ -268,7 +263,7 @@ export class IntegrityValidationService {
 
       checks.push({
         type: CheckType.DATA_INTEGRITY,
-        status: structure.valid ? 'pass' : 'fail',
+        status: structure.valid ? "pass" : "fail",
         score: structure.score,
         details: structure.details,
       });
@@ -276,10 +271,10 @@ export class IntegrityValidationService {
       if (!structure.valid) {
         violations.push({
           type: CheckType.DATA_INTEGRITY,
-          severity: 'high',
-          description: 'SDUI page structure is invalid',
-          impact: 'Cannot render or process the content',
-          remediation: 'Fix structural issues in SDUI page definition',
+          severity: "high",
+          description: "SDUI page structure is invalid",
+          impact: "Cannot render or process the content",
+          remediation: "Fix structural issues in SDUI page definition",
           evidence: structure.errors,
         });
       }
@@ -297,14 +292,14 @@ export class IntegrityValidationService {
     if (request.content.confidence !== undefined) {
       const confidence = request.content.confidence;
 
-      let status: 'pass' | 'fail' | 'warning' = 'pass';
+      let status: "pass" | "fail" | "warning" = "pass";
       let score = confidence;
 
       if (confidence < 0.3) {
-        status = 'fail';
+        status = "fail";
         score = 0.2;
       } else if (confidence < 0.6) {
-        status = 'warning';
+        status = "warning";
         score = confidence;
       }
 
@@ -315,13 +310,13 @@ export class IntegrityValidationService {
         details: `Confidence score: ${confidence}`,
       });
 
-      if (status === 'fail') {
+      if (status === "fail") {
         violations.push({
           type: CheckType.CONFIDENCE_REASONING,
-          severity: 'medium',
-          description: 'Confidence score is too low',
-          impact: 'Content may not be trustworthy',
-          remediation: 'Improve reasoning quality or adjust confidence',
+          severity: "medium",
+          description: "Confidence score is too low",
+          impact: "Content may not be trustworthy",
+          remediation: "Improve reasoning quality or adjust confidence",
           evidence: { confidence },
         });
       }
@@ -341,7 +336,7 @@ export class IntegrityValidationService {
 
       checks.push({
         type: CheckType.SOURCE_VERIFICATION,
-        status: verification.valid ? 'pass' : 'fail',
+        status: verification.valid ? "pass" : "fail",
         score: verification.trustScore,
         details: `Verified ${verification.verifiedCount}/${request.content.sources.length} sources`,
       });
@@ -349,10 +344,10 @@ export class IntegrityValidationService {
       if (!verification.valid) {
         violations.push({
           type: CheckType.SOURCE_VERIFICATION,
-          severity: 'high',
-          description: 'Sources could not be verified',
-          impact: 'Content may contain fabricated references',
-          remediation: 'Use verifiable sources or remove unverifiable claims',
+          severity: "high",
+          description: "Sources could not be verified",
+          impact: "Content may contain fabricated references",
+          remediation: "Use verifiable sources or remove unverifiable claims",
           evidence: verification.issues,
         });
       }
@@ -375,7 +370,7 @@ export class IntegrityValidationService {
 
       checks.push({
         type: CheckType.LOGICAL_CONSISTENCY,
-        status: consistency.consistent ? 'pass' : 'fail',
+        status: consistency.consistent ? "pass" : "fail",
         score: consistency.score,
         details: consistency.details,
       });
@@ -383,10 +378,10 @@ export class IntegrityValidationService {
       if (!consistency.consistent) {
         violations.push({
           type: CheckType.LOGICAL_CONSISTENCY,
-          severity: 'medium',
-          description: 'Reasoning contains logical inconsistencies',
-          impact: 'Conclusions may not be logically sound',
-          remediation: 'Review and fix logical reasoning',
+          severity: "medium",
+          description: "Reasoning contains logical inconsistencies",
+          impact: "Conclusions may not be logically sound",
+          remediation: "Review and fix logical reasoning",
           evidence: consistency.inconsistencies,
         });
       }
@@ -408,7 +403,7 @@ export class IntegrityValidationService {
 
     checks.push({
       type: CheckType.CONTEXT_ALIGNMENT,
-      status: alignment.aligned ? 'pass' : 'fail',
+      status: alignment.aligned ? "pass" : "fail",
       score: alignment.score,
       details: alignment.details,
     });
@@ -416,10 +411,10 @@ export class IntegrityValidationService {
     if (!alignment.aligned) {
       violations.push({
         type: CheckType.CONTEXT_ALIGNMENT,
-        severity: 'medium',
-        description: 'Content does not align with provided context',
-        impact: 'Response may not be relevant to current situation',
-        remediation: 'Ensure content aligns with context or update context',
+        severity: "medium",
+        description: "Content does not align with provided context",
+        impact: "Response may not be relevant to current situation",
+        remediation: "Ensure content aligns with context or update context",
         evidence: alignment.mismatches,
       });
     }
@@ -448,7 +443,7 @@ export class IntegrityValidationService {
 
       checks.push({
         type: CheckType.CROSS_AGENT_CONSISTENCY,
-        status: consistency.consistent ? 'pass' : 'warning',
+        status: consistency.consistent ? "pass" : "warning",
         score: consistency.score,
         details: `Checked against ${relatedMemories.memories.length} related memories`,
       });
@@ -456,15 +451,18 @@ export class IntegrityValidationService {
       if (!consistency.consistent) {
         violations.push({
           type: CheckType.CROSS_AGENT_CONSISTENCY,
-          severity: 'low',
-          description: 'Content is inconsistent with previous agent outputs',
-          impact: 'May cause confusion for users',
-          remediation: 'Ensure consistency with established knowledge',
+          severity: "low",
+          description: "Content is inconsistent with previous agent outputs",
+          impact: "May cause confusion for users",
+          remediation: "Ensure consistency with established knowledge",
           evidence: consistency.inconsistencies,
         });
       }
     } catch (error) {
-      logger.warn('Could not check cross-agent consistency', error instanceof Error ? error : undefined);
+      logger.warn(
+        "Could not check cross-agent consistency",
+        error instanceof Error ? error : undefined
+      );
     }
   }
 
@@ -484,7 +482,7 @@ export class IntegrityValidationService {
 
       checks.push({
         type: CheckType.PERFORMANCE_ACCURACY,
-        status: accuracy.accurate ? 'pass' : 'warning',
+        status: accuracy.accurate ? "pass" : "warning",
         score: accuracy.score,
         details: accuracy.details,
       });
@@ -492,10 +490,10 @@ export class IntegrityValidationService {
       if (!accuracy.accurate) {
         violations.push({
           type: CheckType.PERFORMANCE_ACCURACY,
-          severity: 'medium',
-          description: 'Metrics appear unrealistic or inaccurate',
-          impact: 'May mislead decision-making',
-          remediation: 'Verify metric calculations and data sources',
+          severity: "medium",
+          description: "Metrics appear unrealistic or inaccurate",
+          impact: "May mislead decision-making",
+          remediation: "Verify metric calculations and data sources",
           evidence: accuracy.issues,
         });
       }
@@ -516,12 +514,12 @@ export class IntegrityValidationService {
     if (complianceIssues.length > 0) {
       checks.push({
         type: CheckType.COMPLIANCE_CHECK,
-        status: 'fail',
+        status: "fail",
         score: 0.3,
         details: `Found ${complianceIssues.length} compliance issues`,
       });
 
-      complianceIssues.forEach(issue => {
+      complianceIssues.forEach((issue) => {
         violations.push({
           type: CheckType.COMPLIANCE_CHECK,
           severity: issue.severity,
@@ -534,9 +532,9 @@ export class IntegrityValidationService {
     } else {
       checks.push({
         type: CheckType.COMPLIANCE_CHECK,
-        status: 'pass',
+        status: "pass",
         score: 1.0,
-        details: 'No compliance issues found',
+        details: "No compliance issues found",
       });
     }
   }
@@ -559,22 +557,23 @@ export class IntegrityValidationService {
         traceId: request.traceId,
       };
 
-      const adversarialResult = await this.adversarialValidator.validateResponse(adversarialRequest);
+      const adversarialResult =
+        await this.adversarialValidator.validateResponse(adversarialRequest);
 
       checks.push({
         type: CheckType.DATA_INTEGRITY,
-        status: adversarialResult.valid ? 'pass' : 'fail',
+        status: adversarialResult.valid ? "pass" : "fail",
         score: adversarialResult.confidence,
         details: `Adversarial validation: ${adversarialResult.issues.length} issues found`,
       });
 
       if (!adversarialResult.valid) {
-        adversarialResult.issues.forEach(issue => {
+        adversarialResult.issues.forEach((issue) => {
           violations.push({
             type: CheckType.DATA_INTEGRITY,
-            severity: issue.severity === 'critical' ? 'critical' : 'high',
+            severity: issue.severity === "critical" ? "critical" : "high",
             description: `Adversarial validation: ${issue.description}`,
-            impact: 'Content integrity compromised',
+            impact: "Content integrity compromised",
             remediation: issue.suggestedFix,
             evidence: issue,
           });
@@ -597,18 +596,18 @@ export class IntegrityValidationService {
     let score = 1.0;
 
     // Check required fields
-    if (!page.type || page.type !== 'page') {
-      errors.push('Invalid page type');
+    if (!page.type || page.type !== "page") {
+      errors.push("Invalid page type");
       score -= 0.3;
     }
 
     if (!page.sections || !Array.isArray(page.sections)) {
-      errors.push('Sections must be an array');
+      errors.push("Sections must be an array");
       score -= 0.3;
     }
 
     if (!page.version) {
-      errors.push('Version is required');
+      errors.push("Version is required");
       score -= 0.2;
     }
 
@@ -620,7 +619,7 @@ export class IntegrityValidationService {
           score -= 0.1;
         }
 
-        if (section.type === 'component' && !section.component) {
+        if (section.type === "component" && !section.component) {
           errors.push(`Section ${index}: Component is required for component type`);
           score -= 0.1;
         }
@@ -630,7 +629,7 @@ export class IntegrityValidationService {
     return {
       valid: errors.length === 0,
       score: Math.max(0, score),
-      details: `SDUI structure validation: ${errors.length === 0 ? 'passed' : `${errors.length} errors`}`,
+      details: `SDUI structure validation: ${errors.length === 0 ? "passed" : `${errors.length} errors`}`,
       errors,
     };
   }
@@ -646,58 +645,67 @@ export class IntegrityValidationService {
       /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/, // Email
     ];
 
-    if (piiPatterns.some(pattern => pattern.test(textContent))) {
+    if (piiPatterns.some((pattern) => pattern.test(textContent))) {
       issues.push({
-        severity: 'high',
-        description: 'Potential PII detected in content',
-        impact: 'Privacy compliance violation',
-        remediation: 'Remove or redact PII data',
-        evidence: 'PII patterns detected',
+        severity: "high",
+        description: "Potential PII detected in content",
+        impact: "Privacy compliance violation",
+        remediation: "Remove or redact PII data",
+        evidence: "PII patterns detected",
       });
     }
 
     return issues;
   }
 
-  private calculateOverallScore(checks: IntegrityCheck[], violations: IntegrityViolation[]): number {
+  private calculateOverallScore(
+    checks: IntegrityCheck[],
+    violations: IntegrityViolation[]
+  ): number {
     if (checks.length === 0) return 1.0;
 
-    const checkScores = checks.map(check => check.score);
+    const checkScores = checks.map((check) => check.score);
     const violationPenalties = violations.reduce((total, violation) => {
       const penalties = { low: 0.1, medium: 0.3, high: 0.6, critical: 1.0 };
       return total + penalties[violation.severity];
     }, 0);
 
-    const averageCheckScore = checkScores.reduce((sum, score) => sum + score, 0) / checkScores.length;
+    const averageCheckScore =
+      checkScores.reduce((sum, score) => sum + score, 0) / checkScores.length;
 
     return Math.max(0, averageCheckScore - violationPenalties);
   }
 
-  private generateRecommendations(checks: IntegrityCheck[], violations: IntegrityViolation[]): string[] {
+  private generateRecommendations(
+    checks: IntegrityCheck[],
+    violations: IntegrityViolation[]
+  ): string[] {
     const recommendations = new Set<string>();
 
     // Add recommendations from violations
-    violations.forEach(violation => {
+    violations.forEach((violation) => {
       recommendations.add(violation.remediation);
     });
 
     // Add recommendations based on failed checks
-    checks.filter(check => check.status === 'fail').forEach(check => {
-      switch (check.type) {
-        case CheckType.CONFIDENCE_REASONING:
-          recommendations.add('Review confidence scoring methodology');
-          break;
-        case CheckType.SOURCE_VERIFICATION:
-          recommendations.add('Implement source verification system');
-          break;
-        case CheckType.LOGICAL_CONSISTENCY:
-          recommendations.add('Improve logical reasoning validation');
-          break;
-        case CheckType.DATA_INTEGRITY:
-          recommendations.add('Enhance data validation rules');
-          break;
-      }
-    });
+    checks
+      .filter((check) => check.status === "fail")
+      .forEach((check) => {
+        switch (check.type) {
+          case CheckType.CONFIDENCE_REASONING:
+            recommendations.add("Review confidence scoring methodology");
+            break;
+          case CheckType.SOURCE_VERIFICATION:
+            recommendations.add("Implement source verification system");
+            break;
+          case CheckType.LOGICAL_CONSISTENCY:
+            recommendations.add("Improve logical reasoning validation");
+            break;
+          case CheckType.DATA_INTEGRITY:
+            recommendations.add("Enhance data validation rules");
+            break;
+        }
+      });
 
     return Array.from(recommendations);
   }
@@ -708,8 +716,8 @@ export class IntegrityValidationService {
       return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     }
 
-    const criticalViolations = violations.filter(v => v.severity === 'critical').length;
-    const highViolations = violations.filter(v => v.severity === 'high').length;
+    const criticalViolations = violations.filter((v) => v.severity === "critical").length;
+    const highViolations = violations.filter((v) => v.severity === "high").length;
 
     if (criticalViolations > 0) {
       // Critical violations require immediate review
@@ -729,7 +737,7 @@ export class IntegrityValidationService {
 // ============================================================================
 
 interface ComplianceIssue {
-  severity: 'low' | 'medium' | 'high';
+  severity: "low" | "medium" | "high";
   description: string;
   impact: string;
   remediation: string;
@@ -758,7 +766,10 @@ class SourceVerifier {
 }
 
 class ConsistencyChecker {
-  async checkReasoningConsistency(reasoning: string[], content: IntegrityContent): Promise<{
+  async checkReasoningConsistency(
+    reasoning: string[],
+    content: IntegrityContent
+  ): Promise<{
     consistent: boolean;
     score: number;
     details: string;
@@ -768,12 +779,15 @@ class ConsistencyChecker {
     return {
       consistent: true,
       score: 0.8,
-      details: 'Reasoning appears consistent',
+      details: "Reasoning appears consistent",
       inconsistencies: [],
     };
   }
 
-  async checkContextAlignment(content: IntegrityContent, context: Record<string, any>): Promise<{
+  async checkContextAlignment(
+    content: IntegrityContent,
+    context: Record<string, any>
+  ): Promise<{
     aligned: boolean;
     score: number;
     details: string;
@@ -783,12 +797,15 @@ class ConsistencyChecker {
     return {
       aligned: true,
       score: 0.9,
-      details: 'Content aligns with context',
+      details: "Content aligns with context",
       mismatches: [],
     };
   }
 
-  async checkCrossAgentConsistency(content: IntegrityContent, memories: any[]): Promise<{
+  async checkCrossAgentConsistency(
+    content: IntegrityContent,
+    memories: any[]
+  ): Promise<{
     consistent: boolean;
     score: number;
     details: string;
@@ -798,12 +815,15 @@ class ConsistencyChecker {
     return {
       consistent: true,
       score: 0.85,
-      details: 'Consistent with agent memories',
+      details: "Consistent with agent memories",
       inconsistencies: [],
     };
   }
 
-  async checkMetricAccuracy(metrics: Record<string, number>, context: Record<string, any>): Promise<{
+  async checkMetricAccuracy(
+    metrics: Record<string, number>,
+    context: Record<string, any>
+  ): Promise<{
     accurate: boolean;
     score: number;
     details: string;
@@ -813,7 +833,7 @@ class ConsistencyChecker {
     return {
       accurate: true,
       score: 0.9,
-      details: 'Metrics appear accurate',
+      details: "Metrics appear accurate",
       issues: [],
     };
   }

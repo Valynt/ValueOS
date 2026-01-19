@@ -40,10 +40,7 @@ import {
   initializeSecretVolumeWatcher,
   secretVolumeWatcher,
 } from "./config/secrets/SecretVolumeWatcher";
-import {
-  validateSecretsOnStartup,
-  secretHealthMiddleware,
-} from "./config/secrets/SecretValidator";
+import { validateSecretsOnStartup, secretHealthMiddleware } from "./config/secrets/SecretValidator";
 import { validateEnvOrThrow } from "./config/validateEnv";
 import { createLogger } from "@shared/lib/logger";
 import { createVersionedApiRouter } from "./versioning";
@@ -54,10 +51,7 @@ import {
   getLatencySnapshot,
   latencyMetricsMiddleware,
 } from "../middleware/latencyMetricsMiddleware";
-import {
-  getMetricsRegistry,
-  metricsMiddleware,
-} from "../middleware/metricsMiddleware";
+import { getMetricsRegistry, metricsMiddleware } from "../middleware/metricsMiddleware";
 import { createRateLimiter } from "../middleware/rateLimiter";
 import {
   requestIdMiddleware,
@@ -67,19 +61,12 @@ import {
   setupGlobalErrorHandlers,
 } from "../middleware/globalErrorHandler";
 import { serviceIdentityMiddleware } from "../middleware/serviceIdentityMiddleware";
-import {
-  securityHeadersMiddleware,
-  cspReportHandler,
-} from "../middleware/securityHeaders";
-import {
-  extractTenantId,
-  requireAuth,
-  verifyAccessToken,
-} from "../middleware/auth";
+import { securityHeadersMiddleware, cspReportHandler } from "../middleware/securityHeaders";
+import { extractTenantId, requireAuth, verifyAccessToken } from "../middleware/auth";
 import { tenantContextMiddleware } from "../middleware/tenantContext";
-import { settings } from './config/settings";
-import { isConsentRegistryConfigured } from './services/consentRegistry";
-import { TenantContextResolver } from './services/TenantContextResolver";
+import { settings } from "./config/settings";
+import { isConsentRegistryConfigured } from "./services/consentRegistry";
+import { TenantContextResolver } from "./services/TenantContextResolver";
 
 const logger = createLogger({ component: "BillingServer" });
 const WS_POLICY_VIOLATION_CODE = 1008;
@@ -132,10 +119,7 @@ function getRequestedTenantId(req: IncomingMessage): string | null {
   );
 }
 
-async function authenticateWebSocket(
-  ws: WebSocket,
-  req: IncomingMessage
-): Promise<void> {
+async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promise<void> {
   const clientIp = req.socket.remoteAddress;
   const token = getWebSocketToken(req);
 
@@ -167,10 +151,7 @@ async function authenticateWebSocket(
   if (!tenantId) {
     const requestedTenantId = getRequestedTenantId(req);
     if (requestedTenantId) {
-      const hasAccess = await tenantResolver.hasTenantAccess(
-        userId,
-        requestedTenantId
-      );
+      const hasAccess = await tenantResolver.hasTenantAccess(userId, requestedTenantId);
       if (!hasAccess) {
         logger.warn("WebSocket authentication failed: tenant access denied", {
           clientIp,
@@ -242,10 +223,7 @@ async function authenticateWebSocket(
           logger.warn("Unknown WebSocket message type", { type: message.type });
       }
     } catch (error) {
-      logger.error(
-        "Error handling WebSocket message",
-        error instanceof Error ? error : undefined
-      );
+      logger.error("Error handling WebSocket message", error instanceof Error ? error : undefined);
     }
   });
 
@@ -302,11 +280,7 @@ app.get("/metrics/latency", (_req, res) => {
 });
 
 // CSP Reporting Endpoint
-app.post(
-  "/api/csp-report",
-  express.json({ type: "application/csp-report" }),
-  cspReportHandler
-);
+app.post("/api/csp-report", express.json({ type: "application/csp-report" }), cspReportHandler);
 
 // Secret Health Check Endpoint
 app.get("/health/secrets", secretHealthMiddleware());
@@ -334,12 +308,7 @@ app.use(
   groundtruthRouter
 );
 app.use("/api", workflowRouter);
-app.use(
-  "/api/documents",
-  requireAuth,
-  tenantContextMiddleware(),
-  documentRouter
-);
+app.use("/api/documents", requireAuth, tenantContextMiddleware(), documentRouter);
 app.use("/api/docs", docsApiRouter);
 app.use("/api/referrals", referralsRouter);
 
@@ -394,21 +363,16 @@ async function startServer(): Promise<void> {
   }
 
   server.listen(PORT, () => {
-    logger.info(
-      `Billing API server with WebSocket support running on port ${PORT}`,
-      {
-        url: `http://localhost:${PORT}`,
-        webSocketUrl: `ws://localhost:${PORT}/ws/sdui`,
-        healthCheck: `http://localhost:${PORT}/health`,
-      }
-    );
+    logger.info(`Billing API server with WebSocket support running on port ${PORT}`, {
+      url: `http://localhost:${PORT}`,
+      webSocketUrl: `ws://localhost:${PORT}/ws/sdui`,
+      healthCheck: `http://localhost:${PORT}/health`,
+    });
   });
 }
 
 const isMainModule =
-  typeof require !== "undefined" &&
-  typeof module !== "undefined" &&
-  require.main === module;
+  typeof require !== "undefined" && typeof module !== "undefined" && require.main === module;
 
 // Start server when executed directly (or when running via tsx watch in development)
 if (isMainModule || settings.NODE_ENV === "development") {
