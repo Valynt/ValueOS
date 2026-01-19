@@ -8,6 +8,7 @@ const logger = createLogger({ component: "TenantContextMiddleware" });
 const DEFAULT_TCT_SECRET = "default-tct-secret-change-me";
 const LEGACY_DEFAULT_TCT_SECRET = "default-jwt-secret-replace-me-in-production";
 const INVALID_TCT_SECRETS = new Set([DEFAULT_TCT_SECRET, LEGACY_DEFAULT_TCT_SECRET]);
+const TCT_ERROR_MESSAGE = "TCT_SECRET must be configured and cannot use the default placeholder in production";
 
 const resolveTctSecret = (): string => process.env.TCT_SECRET || DEFAULT_TCT_SECRET;
 
