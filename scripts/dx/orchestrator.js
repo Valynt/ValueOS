@@ -140,6 +140,19 @@ function isSupabaseRunning() {
 async function startSupabase() {
   log.info("Starting Supabase...");
 
+  // Skip Supabase in Docker-in-Docker environments where port forwarding doesn't work
+  const isDevContainer =
+    process.env.REMOTE_CONTAINERS === "true" ||
+    process.env.CODESPACES === "true" ||
+    fs.existsSync("/.dockerenv");
+
+  if (isDevContainer) {
+    log.warn("DevContainer detected - skipping Supabase (using dx postgres instead)");
+    log.info("Supabase doesn't work reliably in Docker-in-Docker environments");
+    log.info("Using valueos-postgres container on port 5432 for development");
+    return;
+  }
+
   if (!commandExists("supabase")) {
     log.error("Supabase CLI not found. Install with: npm install -g supabase");
     process.exit(1);
@@ -169,10 +182,7 @@ async function startSupabase() {
 
   // In DevContainer/Codespaces, Docker port forwarding may not work from shell
   // but containers are accessible. Verify container is running instead.
-  const isDevContainer =
-    process.env.REMOTE_CONTAINERS === "true" ||
-    process.env.CODESPACES === "true" ||
-    fs.existsSync("/.dockerenv");
+  // Note: isDevContainer already declared at function start
 
   if (isDevContainer) {
     log.info("DevContainer detected - verifying Supabase container status instead of health check");

@@ -1,15 +1,15 @@
 /**
  * Chat Realization Stage SDUI Template
- * 
+ *
  * Template for rendering agent responses during the Realization stage.
  * Focus: Value tracking, outcome measurement, success validation
- * 
+ *
  * Phase 3: Stage-specific SDUI generation
  */
 
-import type { SDUIPageDefinition } from '../schema';
-import type { WorkflowState } from '../../repositories/WorkflowStateRepository';
-import { v4 as uuidv4 } from 'uuid';
+import type { SDUIPageDefinition } from "../schema";
+import type { WorkflowState } from "../../repositories/WorkflowStateRepository";
+import { v4 as uuidv4 } from "uuid";
 
 export interface RealizationTemplateContext {
   content: string;
@@ -22,7 +22,7 @@ export interface RealizationTemplateContext {
 
 /**
  * Generate Realization stage SDUI page
- * 
+ *
  * Components:
  * - AgentResponseCard: Main response with reasoning
  * - ValueTracker: Actual vs. target KPIs
@@ -31,17 +31,17 @@ export interface RealizationTemplateContext {
  */
 export function generateRealizationPage(context: RealizationTemplateContext): SDUIPageDefinition {
   const { content, confidence, reasoning, workflowState, sessionId, traceId } = context;
-  
-  const sections: SDUIPageDefinition['sections'] = [
+
+  const sections: SDUIPageDefinition["sections"] = [
     {
-      type: 'component',
-      component: 'AgentResponseCard',
+      type: "component",
+      component: "AgentResponseCard",
       version: 1,
       props: {
         response: {
           id: uuidv4(),
-          agentId: 'realization',
-          agentName: 'Realization Agent',
+          agentId: "realization",
+          agentName: "Realization Agent",
           timestamp: new Date().toISOString(),
           content,
           confidence,
@@ -49,13 +49,13 @@ export function generateRealizationPage(context: RealizationTemplateContext): SD
             id: `step-${i}`,
             step: i + 1,
             description: r,
-            confidence: Math.max(0.5, confidence - (i * 0.05)),
+            confidence: Math.max(0.5, confidence - i * 0.05),
           })),
-          status: 'pending' as const,
+          status: "pending" as const,
         },
         showReasoning: true,
         showActions: true,
-        stage: 'realization',
+        stage: "realization",
       },
     },
   ];
@@ -63,38 +63,43 @@ export function generateRealizationPage(context: RealizationTemplateContext): SD
   // Add value tracking insights if high confidence
   if (confidence > 0.7) {
     sections.push({
-      type: 'component',
-      component: 'InsightCard',
+      type: "component",
+      component: "InsightCard",
       version: 1,
       props: {
-        title: 'Value Realization Focus',
-        description: 'Key areas to track and measure',
+        title: "Value Realization Focus",
+        description: "Key areas to track and measure",
         items: [
-          { icon: 'activity', label: 'KPI Tracking', description: 'Monitor actual vs. target metrics' },
-          { icon: 'check-circle', label: 'Milestones', description: 'Track delivery progress' },
-          { icon: 'alert-triangle', label: 'Risk Flags', description: 'Identify value at risk' },
-          { icon: 'refresh-cw', label: 'Adjustments', description: 'Course corrections needed' },
+          {
+            icon: "activity",
+            label: "KPI Tracking",
+            description: "Monitor actual vs. target metrics",
+          },
+          { icon: "check-circle", label: "Milestones", description: "Track delivery progress" },
+          { icon: "alert-triangle", label: "Risk Flags", description: "Identify value at risk" },
+          { icon: "refresh-cw", label: "Adjustments", description: "Course corrections needed" },
         ],
       },
     });
   }
 
   return {
-    type: 'page',
+    type: "page",
     version: 1,
     sections,
     metadata: {
-      lifecycle_stage: 'realization',
+      theme: "dark",
+      lifecycle_stage: "realization",
       case_id: workflowState.context.caseId as string,
       session_id: sessionId,
       generated_at: Date.now(),
-      agent_name: 'Realization Agent',
+      agent_name: "Realization Agent",
       confidence_score: confidence,
-      priority: 'critical', // Actual value tracking is critical
-      required_components: ['AgentResponseCard'],
-      optional_components: ['InsightCard', 'ValueTracker', 'MilestoneTimeline'],
+      priority: "critical", // Actual value tracking is critical
+      required_components: ["AgentResponseCard"],
+      optional_components: ["InsightCard", "ValueTracker", "MilestoneTimeline"],
       accessibility: {
-        level: 'AA',
+        level: "AA",
         screen_reader_optimized: true,
         keyboard_navigation: true,
         high_contrast_mode: true, // Important for data viz

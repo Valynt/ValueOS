@@ -1,9 +1,9 @@
 /**
  * VIRTUAL DEVELOPMENT TEAM ORCHESTRATOR
- * 
+ *
  * This script simulates the "Master Orchestration" workflow described in the
  * Agentic Platform Development methodology.
- * 
+ *
  * Usage: npm run agent:dev -- --feature="Implement Customer Refund BFA"
  */
 
@@ -56,12 +56,12 @@ async function loadPrompt(role: string): Promise<string> {
 
 async function runArchitectPhase(featureDescription: string): Promise<ArchitectureSpec> {
   console.log('\n🏗️  [ARCHITECT] Designing interfaces...');
-  
+
   try {
     // In a real implementation, this would call the LLM
     // const architectPrompt = await loadPrompt('architect');
     // const response = await generateContent(architectPrompt + "\nTASK: " + featureDescription);
-    
+
     // For now, return a mock specification
     const mockSpec: ArchitectureSpec = {
       module: "CustomerOnboarding",
@@ -93,15 +93,15 @@ async function runArchitectPhase(featureDescription: string): Promise<Architectu
 
 async function runScaffolderPhase(architectSpec: ArchitectureSpec): Promise<string[]> {
   console.log('\n🔨 [SCAFFOLDER] Implementing code...');
-  
+
   try {
     // In a real implementation, this would call the LLM
     // const scaffolderPrompt = await loadPrompt('scaffolder');
     // const response = await generateContent(scaffolderPrompt + "\nSPEC: " + JSON.stringify(architectSpec, null, 2));
-    
+
     const outputDir = path.join(process.cwd(), 'generated-features', architectSpec.module);
     fs.mkdirSync(outputDir, { recursive: true });
-    
+
     // Generate mock implementation file
     const toolFile = path.join(outputDir, 'activate-customer.ts');
     const toolContent = `/**
@@ -127,10 +127,10 @@ const outputSchema = z.object({
 export class ActivateCustomer extends BaseSemanticTool<typeof inputSchema._type, typeof outputSchema._type> {
   id = 'activate_customer';
   description = 'Activate a customer account with validation';
-  
+
   inputSchema = inputSchema;
   outputSchema = outputSchema;
-  
+
   policy = {
     resource: 'customer',
     action: 'activate',
@@ -143,13 +143,13 @@ export class ActivateCustomer extends BaseSemanticTool<typeof inputSchema._type,
   ): Promise<typeof outputSchema._type> {
     // Validate business rules
     await this.validateBusinessRules(input, context);
-    
+
     // Check tenant access
     await this.checkTenantAccess(context.tenantId, context);
-    
+
     // Execute database operation
     const result = await this.performDatabaseOperation(input, context);
-    
+
     return result;
   }
 
@@ -184,7 +184,7 @@ export class ActivateCustomer extends BaseSemanticTool<typeof inputSchema._type,
     context: AgentContext
   ): Promise<typeof outputSchema._type> {
     const activatedAt = new Date();
-    
+
     const { data, error } = await supabase
       .from('customers')
       .update({
@@ -209,9 +209,9 @@ export class ActivateCustomer extends BaseSemanticTool<typeof inputSchema._type,
   }
 }
 `;
-    
+
     fs.writeFileSync(toolFile, toolContent);
-    
+
     console.log('✅ Code Scaffolded');
     return [toolFile];
   } catch (error) {
@@ -221,19 +221,19 @@ export class ActivateCustomer extends BaseSemanticTool<typeof inputSchema._type,
 
 async function runTestEngineerPhase(implementations: string[]): Promise<string[]> {
   console.log('\n🧪 [TEST ENGINEER] Generating tests...');
-  
+
   try {
     // In a real implementation, this would call the LLM
     // const testPrompt = await loadPrompt('test-engineer');
     // const response = await generateContent(testPrompt + "\nIMPLEMENTATION: " + implementationContent);
-    
+
     const testFiles: string[] = [];
-    
+
     for (const implementationFile of implementations) {
       const testFile = implementationFile.replace('.ts', '.test.ts');
       const testDir = path.dirname(testFile);
       fs.mkdirSync(testDir, { recursive: true });
-      
+
       const testContent = `/**
  * Auto-generated Tests: Activate Customer BFA Tool
  */
@@ -263,10 +263,10 @@ describe('ActivateCustomer', () => {
         customerId: '123e4567-e89b-12d3-a456-426614174000',
         activationCode: 'VALID123'
       };
-      
+
       // Mock successful activation
       const result = await tool.execute(input, mockContext);
-      
+
       expect(result.success).toBe(true);
       expect(result.activatedAt).toBeInstanceOf(Date);
       expect(result.welcomeMessage).toContain('Welcome');
@@ -277,7 +277,7 @@ describe('ActivateCustomer', () => {
         customerId: 'invalid-uuid',
         activationCode: '123' // too short
       };
-      
+
       await expect(tool.execute(invalidInput, mockContext))
         .rejects.toThrow('Input validation failed');
     });
@@ -289,7 +289,7 @@ describe('ActivateCustomer', () => {
         customerId: '123e4567-e89b-12d3-a456-426614174000',
         activationCode: 'VALID123'
       };
-      
+
       await expect(tool.execute(input, mockContext))
         .rejects.toThrow('Customer not found');
     });
@@ -299,7 +299,7 @@ describe('ActivateCustomer', () => {
         customerId: '123e4567-e89b-12d3-a456-426614174000',
         activationCode: 'VALID123'
       };
-      
+
       await expect(tool.execute(input, mockContext))
         .rejects.toThrow('invalid_customer_status');
     });
@@ -311,23 +311,23 @@ describe('ActivateCustomer', () => {
         ...mockContext,
         permissions: ['insufficient_permission']
       };
-      
+
       const input = {
         customerId: '123e4567-e89b-12d3-a456-426614174000',
         activationCode: 'VALID123'
       };
-      
+
       await expect(tool.execute(input, unauthorizedContext))
         .rejects.toThrow('Insufficient permissions');
     });
   });
 });
 `;
-      
+
       fs.writeFileSync(testFile, testContent);
       testFiles.push(testFile);
     }
-    
+
     console.log('✅ Tests Generated');
     return testFiles;
   } catch (error) {
@@ -341,18 +341,18 @@ async function runReviewerPhase(
   tests: string[]
 ): Promise<{ approved: boolean; issues: any[] }> {
   console.log('\n🕵️  [REVIEWER] Analyzing security and performance...');
-  
+
   try {
     // In a real implementation, this would call the LLM
     // const reviewerPrompt = await loadPrompt('reviewer');
     // const response = await generateContent(reviewerPrompt + "\nARTIFACTS: " + allArtifacts);
-    
+
     // Mock review - assume everything passes
     const reviewResult = {
       approved: true,
       issues: []
     };
-    
+
     console.log('✅ Review Passed');
     return reviewResult;
   } catch (error) {
@@ -361,21 +361,21 @@ async function runReviewerPhase(
 }
 
 async function runVirtualTeam(featureDescription: string): Promise<DevelopmentResult> {
-  console.log(\`🚀 Starting Virtual Agent Team for: "\${featureDescription}"\`);
+  console.log(`🚀 Starting Virtual Agent Team for: "${featureDescription}"`);
 
   try {
     // Phase 1: Architect
     const architectSpec = await runArchitectPhase(featureDescription);
-    
+
     // Phase 2: Scaffolder
     const implementations = await runScaffolderPhase(architectSpec);
-    
+
     // Phase 3: Test Engineer
     const tests = await runTestEngineerPhase(implementations);
-    
+
     // Phase 4: Reviewer
     const reviewResult = await runReviewerPhase(architectSpec, implementations, tests);
-    
+
     if (!reviewResult.approved) {
       return {
         status: 'needs_rework',
@@ -388,10 +388,10 @@ async function runVirtualTeam(featureDescription: string): Promise<DevelopmentRe
         }))
       };
     }
-    
+
     // Success
     console.log('\\n🎉 Workflow Complete. Feature is production ready!');
-    
+
     return {
       status: 'production_ready',
       feature: featureDescription,
@@ -409,7 +409,7 @@ async function runVirtualTeam(featureDescription: string): Promise<DevelopmentRe
         architectural_compliance: '100%'
       }
     };
-    
+
   } catch (error) {
     console.error('❌ Virtual Team execution failed:', error);
     throw error;

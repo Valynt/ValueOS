@@ -3,25 +3,25 @@
  * Tests session retrieval, refresh, logout, and cache management
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AuthService } from '../AuthService';
-import { AuthenticationError } from '../errors';
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AuthService } from "../AuthService";
+import { AuthenticationError } from "../errors";
 import {
   createMockSession,
   createMockUser,
   createAuthErrorResponse,
-} from '../../test-utils/auth.fixtures';
-import { setupAuthMocks, resetAuthMocks } from '../../test-utils/auth.helpers';
+} from "../../test-utils/auth.fixtures";
+import { setupAuthMocks, resetAuthMocks } from "../../test-utils/auth.helpers";
 
 // Setup mocks
 const mocks = setupAuthMocks();
 
-vi.mock('../../lib/supabase', () => ({
+vi.mock("../../lib/supabase", () => ({
   supabase: { auth: mocks.mockSupabaseAuth },
 }));
 
-vi.mock('../../security', async () => {
-  const actual = await vi.importActual<typeof import('../../security')>('../../security');
+vi.mock("../../security", async () => {
+  const actual = await vi.importActual<typeof import("../../security")>("../../security");
   return {
     ...actual,
     consumeAuthRateLimit: mocks.mockConsumeAuthRateLimit,
@@ -30,9 +30,9 @@ vi.mock('../../security', async () => {
   };
 });
 
-vi.mock('../../config/environment', async () => {
-  const actual = await vi.importActual<typeof import('../../config/environment')>(
-    '../../config/environment'
+vi.mock("../../config/environment", async () => {
+  const actual = await vi.importActual<typeof import("../../config/environment")>(
+    "../../config/environment"
   );
   return {
     ...actual,
@@ -40,11 +40,11 @@ vi.mock('../../config/environment', async () => {
   };
 });
 
-vi.mock('../ClientRateLimit', () => ({
+vi.mock("../ClientRateLimit", () => ({
   clientRateLimit: mocks.mockClientRateLimit,
 }));
 
-describe('AuthService - Session Management', () => {
+describe("AuthService - Session Management", () => {
   let service: AuthService;
 
   beforeEach(() => {
@@ -56,8 +56,8 @@ describe('AuthService - Session Management', () => {
     vi.clearAllMocks();
   });
 
-  describe('Get Session', () => {
-    it('should retrieve current session successfully', async () => {
+  describe("Get Session", () => {
+    it("should retrieve current session successfully", async () => {
       // Arrange
       const mockSession = createMockSession();
       mocks.mockSupabaseAuth.getSession.mockResolvedValue({
@@ -73,7 +73,7 @@ describe('AuthService - Session Management', () => {
       expect(mocks.mockSupabaseAuth.getSession).toHaveBeenCalled();
     });
 
-    it('should return null when no session exists', async () => {
+    it("should return null when no session exists", async () => {
       // Arrange
       mocks.mockSupabaseAuth.getSession.mockResolvedValue({
         data: { session: null },
@@ -87,18 +87,18 @@ describe('AuthService - Session Management', () => {
       expect(result).toBeNull();
     });
 
-    it('should throw AuthenticationError on Supabase error', async () => {
+    it("should throw AuthenticationError on Supabase error", async () => {
       // Arrange
       mocks.mockSupabaseAuth.getSession.mockResolvedValue({
         data: { session: null },
-        error: { message: 'Session expired', status: 401, name: 'AuthApiError' },
+        error: { message: "Session expired", status: 401, name: "AuthApiError" },
       });
 
       // Act & Assert
       await expect(service.getSession()).rejects.toThrow(AuthenticationError);
     });
 
-    it('should use deduplication for concurrent requests', async () => {
+    it("should use deduplication for concurrent requests", async () => {
       // Arrange
       const mockSession = createMockSession();
       mocks.mockSupabaseAuth.getSession.mockResolvedValue({
@@ -107,10 +107,7 @@ describe('AuthService - Session Management', () => {
       });
 
       // Act - Make two concurrent requests
-      const [result1, result2] = await Promise.all([
-        service.getSession(),
-        service.getSession(),
-      ]);
+      const [result1, result2] = await Promise.all([service.getSession(), service.getSession()]);
 
       // Assert
       expect(result1).toEqual(mockSession);
@@ -120,8 +117,8 @@ describe('AuthService - Session Management', () => {
     });
   });
 
-  describe('Get Current User', () => {
-    it('should retrieve current user successfully', async () => {
+  describe("Get Current User", () => {
+    it("should retrieve current user successfully", async () => {
       // Arrange
       const mockUser = createMockUser();
       mocks.mockSupabaseAuth.getUser.mockResolvedValue({
@@ -137,7 +134,7 @@ describe('AuthService - Session Management', () => {
       expect(mocks.mockSupabaseAuth.getUser).toHaveBeenCalled();
     });
 
-    it('should return null when no user is authenticated', async () => {
+    it("should return null when no user is authenticated", async () => {
       // Arrange
       mocks.mockSupabaseAuth.getUser.mockResolvedValue({
         data: { user: null },
@@ -151,11 +148,11 @@ describe('AuthService - Session Management', () => {
       expect(result).toBeNull();
     });
 
-    it('should throw AuthenticationError on Supabase error', async () => {
+    it("should throw AuthenticationError on Supabase error", async () => {
       // Arrange
       mocks.mockSupabaseAuth.getUser.mockResolvedValue({
         data: { user: null },
-        error: { message: 'Invalid token', status: 401, name: 'AuthApiError' },
+        error: { message: "Invalid token", status: 401, name: "AuthApiError" },
       });
 
       // Act & Assert
@@ -163,8 +160,8 @@ describe('AuthService - Session Management', () => {
     });
   });
 
-  describe('Refresh Session', () => {
-    it('should successfully refresh session', async () => {
+  describe("Refresh Session", () => {
+    it("should successfully refresh session", async () => {
       // Arrange
       const mockUser = createMockUser();
       const mockSession = createMockSession({ user: mockUser });
@@ -182,18 +179,18 @@ describe('AuthService - Session Management', () => {
       expect(mocks.mockSupabaseAuth.refreshSession).toHaveBeenCalled();
     });
 
-    it('should throw AuthenticationError when refresh fails', async () => {
+    it("should throw AuthenticationError when refresh fails", async () => {
       // Arrange
       mocks.mockSupabaseAuth.refreshSession.mockResolvedValue({
         data: { user: null, session: null },
-        error: { message: 'Refresh token expired', status: 401, name: 'AuthApiError' },
+        error: { message: "Refresh token expired", status: 401, name: "AuthApiError" },
       });
 
       // Act & Assert
       await expect(service.refreshSession()).rejects.toThrow(AuthenticationError);
     });
 
-    it('should throw AuthenticationError when user is null after refresh', async () => {
+    it("should throw AuthenticationError when user is null after refresh", async () => {
       // Arrange
       const mockSession = createMockSession();
       mocks.mockSupabaseAuth.refreshSession.mockResolvedValue({
@@ -203,10 +200,10 @@ describe('AuthService - Session Management', () => {
 
       // Act & Assert
       await expect(service.refreshSession()).rejects.toThrow(AuthenticationError);
-      await expect(service.refreshSession()).rejects.toThrow('Session refresh failed');
+      await expect(service.refreshSession()).rejects.toThrow("Session refresh failed");
     });
 
-    it('should throw AuthenticationError when session is null after refresh', async () => {
+    it("should throw AuthenticationError when session is null after refresh", async () => {
       // Arrange
       const mockUser = createMockUser();
       mocks.mockSupabaseAuth.refreshSession.mockResolvedValue({
@@ -216,12 +213,12 @@ describe('AuthService - Session Management', () => {
 
       // Act & Assert
       await expect(service.refreshSession()).rejects.toThrow(AuthenticationError);
-      await expect(service.refreshSession()).rejects.toThrow('Session refresh failed');
+      await expect(service.refreshSession()).rejects.toThrow("Session refresh failed");
     });
   });
 
-  describe('Logout', () => {
-    it('should successfully logout user', async () => {
+  describe("Logout", () => {
+    it("should successfully logout user", async () => {
       // Arrange
       mocks.mockSupabaseAuth.signOut.mockResolvedValue({
         error: null,
@@ -234,19 +231,19 @@ describe('AuthService - Session Management', () => {
       expect(mocks.mockSupabaseAuth.signOut).toHaveBeenCalled();
     });
 
-    it('should throw AuthenticationError on logout failure', async () => {
+    it("should throw AuthenticationError on logout failure", async () => {
       // Arrange
       mocks.mockSupabaseAuth.signOut.mockResolvedValue({
-        error: { message: 'Logout failed', status: 500, name: 'AuthApiError' },
+        error: { message: "Logout failed", status: 500, name: "AuthApiError" },
       });
 
       // Act & Assert
       await expect(service.logout()).rejects.toThrow(AuthenticationError);
     });
 
-    it('should clear cache after logout', async () => {
+    it("should clear cache after logout", async () => {
       // Arrange
-      mocks.mockSupabaseAuth.sign Out.mockResolvedValue({
+      mocks.mockSupabaseAuth.signOut.mockResolvedValue({
         error: null,
       });
 
@@ -269,8 +266,8 @@ describe('AuthService - Session Management', () => {
     });
   });
 
-  describe('Is Authenticated', () => {
-    it('should return true when session exists', async () => {
+  describe("Is Authenticated", () => {
+    it("should return true when session exists", async () => {
       // Arrange
       const mockSession = createMockSession();
       mocks.mockSupabaseAuth.getSession.mockResolvedValue({
@@ -285,7 +282,7 @@ describe('AuthService - Session Management', () => {
       expect(result).toBe(true);
     });
 
-    it('should return false when no session exists', async () => {
+    it("should return false when no session exists", async () => {
       // Arrange
       mocks.mockSupabaseAuth.getSession.mockResolvedValue({
         data: { session: null },

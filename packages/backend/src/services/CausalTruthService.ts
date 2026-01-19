@@ -56,13 +56,22 @@ export interface Evidence {
 export interface CausalImpact {
   action: string;
   targetKpi: string;
+  direction: "INCREASE" | "DECREASE";
   impact: {
     p10: number;
     p50: number;
     p90: number;
     unit: string;
   };
+  impact_distribution?: {
+    // Alias for compatibility
+    p10: number;
+    p50: number;
+    p90: number;
+    unit: string;
+  };
   confidence: number;
+  confidence_score?: number; // Alias for compatibility
   evidence: Evidence[];
   mechanism: string;
   cascadingEffects: CascadingEffect[];
@@ -142,8 +151,11 @@ export class CausalTruthService {
     return {
       action: bestMatch.driver_action,
       targetKpi: bestMatch.target_kpi,
+      direction: bestMatch.direction,
       impact: bestMatch.impact_distribution,
+      impact_distribution: bestMatch.impact_distribution,
       confidence: bestMatch.confidence_score,
+      confidence_score: bestMatch.confidence_score,
       evidence: bestMatch.evidence,
       mechanism: bestMatch.mechanism,
       cascadingEffects: bestMatch.cascading_effects,

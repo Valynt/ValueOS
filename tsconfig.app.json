@@ -54,6 +54,8 @@
   },
   "include": ["src", "scripts", "packages/*/src", "apps/*/src"],
   "exclude": [
+    "**/legacy-merge/**",
+    "**/legacy-restored/**",
     "./src/**/*.test.ts",
     "./src/**/*.test.tsx",
     "./src/**/*.spec.ts",

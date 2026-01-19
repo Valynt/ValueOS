@@ -4,9 +4,9 @@
  * Production-grade logging with correlation IDs and safe metadata.
  */
 
-import { redactSensitiveData } from './redaction';
+import { redactSensitiveData } from "./redaction";
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+type LogLevel = "debug" | "info" | "warn" | "error";
 
 interface LogEntry {
   timestamp: string;
@@ -33,9 +33,9 @@ function createEntry(level: LogLevel, message: string, meta?: Record<string, unk
 function output(entry: LogEntry): void {
   const json = JSON.stringify(entry);
 
-  if (entry.level === 'error') {
+  if (entry.level === "error") {
     console.error(json);
-  } else if (entry.level === 'warn') {
+  } else if (entry.level === "warn") {
     console.warn(json);
   } else {
     console.log(json);
@@ -47,21 +47,28 @@ function output(entry: LogEntry): void {
  */
 export const logger = {
   debug(message: string, meta?: Record<string, unknown>): void {
-    if (process.env.LOG_LEVEL === 'debug') {
-      output(createEntry('debug', message, meta));
+    if (process.env.LOG_LEVEL === "debug") {
+      output(createEntry("debug", message, meta));
     }
   },
 
   info(message: string, meta?: Record<string, unknown>): void {
-    output(createEntry('info', message, meta));
+    output(createEntry("info", message, meta));
   },
 
   warn(message: string, meta?: Record<string, unknown>): void {
-    output(createEntry('warn', message, meta));
+    output(createEntry("warn", message, meta));
   },
 
-  error(message: string, meta?: Record<string, unknown>): void {
-    output(createEntry('error', message, meta));
+  error(message: string, error?: unknown, meta?: Record<string, unknown>): void {
+    const errorMeta =
+      error instanceof Error
+        ? { errorType: error.name, errorMessage: error.message, stack: error.stack }
+        : error
+          ? { error: String(error) }
+          : {};
+
+    output(createEntry("error", message, { ...errorMeta, ...meta }));
   },
 };
 

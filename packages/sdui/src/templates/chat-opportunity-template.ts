@@ -29,11 +29,8 @@ export interface OpportunityTemplateContext {
  * - StakeholderMap: Key stakeholders mentioned
  * - NextStepsTimeline: Suggested next actions
  */
-export function generateOpportunityPage(
-  context: OpportunityTemplateContext
-): SDUIPageDefinition {
-  const { content, confidence, reasoning, workflowState, sessionId, traceId } =
-    context;
+export function generateOpportunityPage(context: OpportunityTemplateContext): SDUIPageDefinition {
+  const { content, confidence, reasoning, workflowState, sessionId, traceId } = context;
 
   const sections: SDUIPageDefinition["sections"] = [
     {
@@ -65,8 +62,7 @@ export function generateOpportunityPage(
 
   // Heuristic: Extract hypotheses from the text content
   // Looking for patterns like "**Title**: Description" or "1. Title: Description"
-  const hypothesisRegex =
-    /(?:^|\n)(?:-|\d+\.)\s+\*\*?([^\*:]+)\*\*?:?\s+(.+)(?:\n|$)/g;
+  const hypothesisRegex = /(?:^|\n)(?:-|\d+\.)\s+\*\*?([^\*:]+)\*\*?:?\s+(.+)(?:\n|$)/g;
   const hypotheses: any[] = [];
   let match;
 
@@ -85,18 +81,15 @@ export function generateOpportunityPage(
 
   // If found, add a section for them
   if (hypotheses.length > 0) {
-    sections.push({
-      type: "layout",
-      layout: "Grid",
-      props: { columns: 1, gap: 4 },
-      children: hypotheses.map((h) => ({
+    hypotheses.forEach((h) => {
+      sections.push({
         type: "component",
         component: "ValueHypothesisCard",
         version: 1,
         props: {
           hypothesis: h,
         },
-      })),
+      });
     });
   } else {
     // If no structured hypotheses found but confidence is high, show the discovery insights
@@ -107,8 +100,7 @@ export function generateOpportunityPage(
         version: 1,
         props: {
           title: "Discovery Focus Areas",
-          prompt:
-            "Key areas to explore in this opportunity based on initial research:",
+          prompt: "Key areas to explore in this opportunity based on initial research:",
           questions: [
             "What are the specific pain points identified?",
             "Who are the key decision makers?",
@@ -124,6 +116,7 @@ export function generateOpportunityPage(
     version: 1,
     sections,
     metadata: {
+      theme: "dark",
       lifecycle_stage: "opportunity",
       case_id: workflowState.context.caseId as string,
       session_id: sessionId,

@@ -1,5 +1,5 @@
 import { Request, Response, Router } from "express";
-import { modelCardService } from "./services/ModelCardService";
+import { modelCardService } from "../services/ModelCardService";
 import { securityHeadersMiddleware } from "../middleware/securityMiddleware";
 import { rateLimiters } from "../middleware/rateLimiter";
 import { validateRequest } from "../middleware/inputValidation";
@@ -7,48 +7,37 @@ import { logger } from "@shared/lib/logger";
 import { requirePermission } from "../middleware/rbac";
 import { getEventProducer } from "./services/EventProducer";
 import { getEventSourcingService } from "./services/EventSourcingService";
-import {
-  createBaseEvent,
-  EVENT_TOPICS,
-  AgentRequestEvent,
-} from "../types/events";
+import { createBaseEvent, EVENT_TOPICS, AgentRequestEvent } from "../types/events";
 import { AgentType } from "./services/agent-types";
 import { v4 as uuidv4 } from "uuid";
-import {
-  getServiceConfigManager,
-  getAgentAPIConfig,
-} from "./config/ServiceConfigManager";
+import { getServiceConfigManager, getAgentAPIConfig } from "./config/ServiceConfigManager";
 
 const router = Router();
 router.use(securityHeadersMiddleware);
 router.use(requirePermission("agents.execute"));
 
 // ... rest of the code remains the same ...
-router.get(
-  "/:agentId/info",
-  rateLimiters.loose,
-  (req: Request, res: Response) => {
-    const { agentId } = req.params;
-    const modelCard = modelCardService.getModelCard(agentId as string);
+router.get("/:agentId/info", rateLimiters.loose, (req: Request, res: Response) => {
+  const { agentId } = req.params;
+  const modelCard = modelCardService.getModelCard(agentId as string);
 
-    if (!modelCard) {
-      return res.status(404).json({
-        error: "Model card not found",
-        message: `No model metadata available for agent ${agentId}`,
-      });
-    }
-
-    res.setHeader("x-model-card-version", modelCard.schemaVersion);
-
-    return res.json({
-      success: true,
-      data: {
-        agent_id: agentId,
-        model_card: modelCard.modelCard,
-      },
+  if (!modelCard) {
+    return res.status(404).json({
+      error: "Model card not found",
+      message: `No model metadata available for agent ${agentId}`,
     });
   }
-);
+
+  res.setHeader("x-model-card-version", modelCard.schemaVersion);
+
+  return res.json({
+    success: true,
+    data: {
+      agent_id: agentId,
+      model_card: modelCard.modelCard,
+    },
+  });
+});
 
 /**
  * Invoke an agent asynchronously using event-driven architecture
@@ -101,11 +90,7 @@ router.post(
 
       // Create agent request event
       const agentRequestEvent: AgentRequestEvent = {
-        ...createBaseEvent(
-          "agent.request" as const,
-          correlationId,
-          "agent-api"
-        ),
+        ...createBaseEvent("agent.request" as const, correlationId, "agent-api"),
         payload: {
           agentId,
           userId,
@@ -120,10 +105,7 @@ router.post(
       };
 
       // Publish event to Kafka
-      await eventProducer.publish(
-        EVENT_TOPICS.AGENT_REQUESTS,
-        agentRequestEvent
-      );
+      await eventProducer.publish(EVENT_TOPICS.AGENT_REQUESTS, agentRequestEvent);
 
       logger.info("Agent request event published", {
         agentId,
@@ -168,77 +150,65 @@ router.post(
 /**
  * Get agent job status
  */
-router.get(
-  "/jobs/:jobId",
-  rateLimiters.loose,
-  async (req: Request, res: Response) => {
-    const { jobId } = req.params;
+router.get("/jobs/:jobId", rateLimiters.loose, async (req: Request, res: Response) => {
+  const { jobId } = req.params;
 
-    try {
-      const eventSourcing = getEventSourcingService();
+  try {
+    const eventSourcing = getEventSourcingService();
 
-      // Get audit trail for this job
-      const auditTrail = await eventSourcing.getAuditTrail(jobId);
+    // Get audit trail for this job
+    const auditTrail = await eventSourcing.getAuditTrail(jobId);
 
-      if (!auditTrail) {
-        return res.status(404).json({
-          error: "Job not found",
-          message: `No job found with ID ${jobId}`,
-        });
-      }
-
-      // Check if we have a response event
-      const events = auditTrail.data?.events || [];
-      const responseEvent = events.find(
-        (e: any) => e.eventType === "agent.response"
-      );
-
-      if (responseEvent) {
-        // Job completed
-        res.json({
-          success: true,
-          data: {
-            jobId,
-            status: "completed",
-            result: responseEvent.payload.response,
-            error: responseEvent.payload.error,
-            latency: responseEvent.payload.latency,
-            completedAt: responseEvent.timestamp,
-          },
-        });
-      } else {
-        // Job still processing or queued
-        const requestEvent = events.find(
-          (e: any) => e.eventType === "agent.request"
-        );
-        res.json({
-          success: true,
-          data: {
-            jobId,
-            status: "processing",
-            agentId: requestEvent?.payload?.agentId,
-            queuedAt: requestEvent?.timestamp,
-            estimatedDuration: "30s",
-            message: "Agent request is being processed",
-          },
-        });
-      }
-    } catch (error) {
-      logger.error(
-        "Job status check failed",
-        error instanceof Error ? error : undefined,
-        {
-          jobId,
-        }
-      );
-
-      res.status(500).json({
-        success: false,
-        error: "Job status check failed",
-        message: error instanceof Error ? error.message : "Unknown error",
+    if (!auditTrail) {
+      return res.status(404).json({
+        error: "Job not found",
+        message: `No job found with ID ${jobId}`,
       });
     }
+
+    // Check if we have a response event
+    const events = auditTrail.data?.events || [];
+    const responseEvent = events.find((e: any) => e.eventType === "agent.response");
+
+    if (responseEvent) {
+      // Job completed
+      res.json({
+        success: true,
+        data: {
+          jobId,
+          status: "completed",
+          result: responseEvent.payload.response,
+          error: responseEvent.payload.error,
+          latency: responseEvent.payload.latency,
+          completedAt: responseEvent.timestamp,
+        },
+      });
+    } else {
+      // Job still processing or queued
+      const requestEvent = events.find((e: any) => e.eventType === "agent.request");
+      res.json({
+        success: true,
+        data: {
+          jobId,
+          status: "processing",
+          agentId: requestEvent?.payload?.agentId,
+          queuedAt: requestEvent?.timestamp,
+          estimatedDuration: "30s",
+          message: "Agent request is being processed",
+        },
+      });
+    }
+  } catch (error) {
+    logger.error("Job status check failed", error instanceof Error ? error : undefined, {
+      jobId,
+    });
+
+    res.status(500).json({
+      success: false,
+      error: "Job status check failed",
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
   }
-);
+});
 
 export default router;

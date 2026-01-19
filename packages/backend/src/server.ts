@@ -25,16 +25,16 @@ import express from "express";
 import cors from "cors";
 import { createServer, type IncomingMessage } from "http";
 import { WebSocket, WebSocketServer } from "ws";
-import billingRouter from "../api/billing";
-import agentsRouter from "../api/agents";
-import groundtruthRouter from "../api/groundtruth";
-import workflowRouter from "../api/workflow";
-import documentRouter from "../api/documents";
-import healthRouter, { markAsShuttingDown } from "../api/health";
-import authRouter from "../api/auth";
-import adminRouter from "../api/admin";
-import referralsRouter from "../api/referrals";
-import projectsRouter from "../api/projects";
+import billingRouter from "./api/billing";
+import agentsRouter from "./api/agents";
+import groundtruthRouter from "./api/groundtruth";
+import workflowRouter from "./api/workflow";
+import documentRouter from "./api/documents";
+import healthRouter, { markAsShuttingDown } from "./api/health";
+import authRouter from "./api/auth";
+import adminRouter from "./api/admin";
+import referralsRouter from "./api/referrals";
+import projectsRouter from "./api/projects";
 import docsApiRouter from "./docs-api";
 import {
   initializeSecretVolumeWatcher,
@@ -46,24 +46,24 @@ import { createLogger } from "@shared/lib/logger";
 import { createVersionedApiRouter } from "./versioning";
 import { initializeContext } from "@shared/lib/context";
 import { tracingMiddleware } from "./config/telemetry";
-import { requestAuditMiddleware } from "../middleware/requestAuditMiddleware";
+import { requestAuditMiddleware } from "./middleware/requestAuditMiddleware";
 import {
   getLatencySnapshot,
   latencyMetricsMiddleware,
-} from "../middleware/latencyMetricsMiddleware";
-import { getMetricsRegistry, metricsMiddleware } from "../middleware/metricsMiddleware";
-import { createRateLimiter } from "../middleware/rateLimiter";
+} from "./middleware/latencyMetricsMiddleware";
+import { getMetricsRegistry, metricsMiddleware } from "./middleware/metricsMiddleware";
+import { createRateLimiter } from "./middleware/rateLimiter";
 import {
   requestIdMiddleware,
   accessLogMiddleware,
   globalErrorHandler,
   notFoundHandler,
   setupGlobalErrorHandlers,
-} from "../middleware/globalErrorHandler";
-import { serviceIdentityMiddleware } from "../middleware/serviceIdentityMiddleware";
-import { securityHeadersMiddleware, cspReportHandler } from "../middleware/securityHeaders";
-import { extractTenantId, requireAuth, verifyAccessToken } from "../middleware/auth";
-import { tenantContextMiddleware } from "../middleware/tenantContext";
+} from "./middleware/globalErrorHandler";
+import { serviceIdentityMiddleware } from "./middleware/serviceIdentityMiddleware";
+import { securityHeadersMiddleware, cspReportHandler } from "./middleware/securityHeaders";
+import { extractTenantId, requireAuth, verifyAccessToken } from "./middleware/auth";
+import { tenantContextMiddleware } from "./middleware/tenantContext";
 import { settings } from "./config/settings";
 import { isConsentRegistryConfigured } from "./services/consentRegistry";
 import { TenantContextResolver } from "./services/TenantContextResolver";
