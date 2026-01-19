@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { onboardingService, type OnboardingStep } from "@/services/onboarding";
+import { analyticsClient } from "@/lib/analyticsClient";
 
 interface OnboardingWizardProps {
   onComplete?: () => void;
@@ -14,10 +15,23 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
   const [state, setState] = useState(() => onboardingService.getState());
 
   const handleCompleteStep = (stepId: string) => {
+    const activeStep = state.steps.find((step) => step.id === stepId);
     onboardingService.completeStep(stepId);
-    setState(onboardingService.getState());
+    const updatedState = onboardingService.getState();
+    setState(updatedState);
+
+    analyticsClient.trackWorkflowEvent("onboarding_step_completed", "onboarding", {
+      step_id: stepId,
+      step_title: activeStep?.title,
+      step_index: activeStep ? state.steps.indexOf(activeStep) + 1 : undefined,
+      total_steps: state.steps.length,
+    });
 
     if (onboardingService.isCompleted()) {
+      analyticsClient.trackWorkflowEvent("onboarding_completed", "onboarding", {
+        completed_steps: updatedState.steps.filter((step) => step.completed).length,
+        total_steps: updatedState.steps.length,
+      });
       onComplete?.();
     }
   };

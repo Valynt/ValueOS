@@ -7,6 +7,7 @@
 
 import { api } from './api/client';
 import type { Artifact, ArtifactContent } from '@/features/workspace/agent/types';
+import { analyticsClient } from '@/lib/analyticsClient';
 
 // ============================================================================
 // Types
@@ -108,6 +109,11 @@ class ArtifactsService {
    */
   async create(request: CreateArtifactRequest): Promise<PersistedArtifact> {
     const response = await api.post<ApiResponse<PersistedArtifact>>(API_BASE, request);
+    analyticsClient.trackWorkflowEvent('asset_created', 'artifact', {
+      artifact_type: request.type,
+      value_case_id: request.valueCaseId,
+      artifact_id: response.data.id,
+    });
     return response.data;
   }
 
@@ -122,6 +128,11 @@ class ArtifactsService {
       `${API_BASE}/batch`,
       { valueCaseId, artifacts }
     );
+    analyticsClient.trackWorkflowEvent('asset_created', 'artifact', {
+      artifact_count: artifacts.length,
+      value_case_id: valueCaseId,
+      artifact_types: artifacts.map((artifact) => artifact.type),
+    });
     return response.data;
   }
 
