@@ -30,6 +30,13 @@ jest.mock('../../../middleware/auth', () => ({
   }),
 }));
 
+jest.mock('../../../middleware/tenantContext', () => ({
+  tenantContextMiddleware: () => (req: any, _res: any, next: any) => {
+    req.tenantId = req.tenantId || 'tenant-123';
+    next();
+  },
+}));
+
 // Mock rate limiter
 jest.mock('../../../middleware/rateLimiter', () => ({
   createRateLimiter: jest.fn(() => (_req: any, _res: any, next: any) => next()),
