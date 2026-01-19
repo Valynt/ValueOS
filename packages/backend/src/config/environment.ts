@@ -8,6 +8,8 @@
  * Note: Cannot import logger here due to circular dependency
  */
 
+import { getEnvVar } from "../lib/env";
+
 function writeStdout(message: string) {
   if (typeof process !== "undefined" && process.stdout) {
     process.stdout.write(`${message}\n`);
@@ -156,13 +158,7 @@ export interface EnvironmentConfig {
  * Get environment variable with fallback
  */
 function getEnv(key: string, defaultValue: string = ""): string {
-  if (typeof import.meta !== "undefined" && import.meta.env) {
-    return import.meta.env[key] || defaultValue;
-  }
-  if (typeof process !== "undefined" && process.env) {
-    return process.env[key] || defaultValue;
-  }
-  return defaultValue;
+  return getEnvVar(key, { defaultValue }) || defaultValue;
 }
 
 /**

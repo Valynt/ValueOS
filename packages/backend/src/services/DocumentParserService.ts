@@ -10,6 +10,7 @@ import { logger } from '../lib/logger';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import type TaskContext from '../lib/agent-fabric/TaskContext';
 import { llmConfig } from '../config/llm';
+import { getEnvVar } from '../lib/env';
 
 // ============================================================================
 // Types
@@ -52,7 +53,8 @@ class DocumentParserService {
 
   constructor() {
     this.llm = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+    const supabaseUrl =
+      getEnvVar("VITE_SUPABASE_URL") || getEnvVar("SUPABASE_URL") || "";
     this.functionUrl = `${supabaseUrl}/functions/v1/parse-document`;
   }
 
