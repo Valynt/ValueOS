@@ -8,6 +8,7 @@
 import { webSocketManager } from './WebSocketManager';
 import { robustConnectionManager } from './RobustConnectionManager';
 import { logger } from '../lib/logger';
+import { getEnvVar } from '../lib/env';
 
 // Local helper types for the usage guide
 type WSMessage = { type?: string; payload?: any; strategy?: string; [key: string]: any };
@@ -22,7 +23,7 @@ type ConnectionHealth = { isHealthy: boolean; strategy?: string; details?: any; 
 export function setupBasicWebSocket() {
   // Connect to WebSocket
   webSocketManager.connect({
-    url: import.meta.env?.VITE_WEBSOCKET_URL || 'ws://localhost:8080/ws',
+    url: getEnvVar("VITE_WEBSOCKET_URL") || 'ws://localhost:8080/ws',
     workspaceId: 'workspace-123',
     userId: 'user-456',
     reconnect: true,

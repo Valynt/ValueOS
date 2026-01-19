@@ -51,9 +51,7 @@ const log = {
   warn: (msg) => console.log(`${colors.yellow}⚠${colors.reset} ${msg}`),
   error: (msg) => console.error(`${colors.red}✗${colors.reset} ${msg}`),
   step: (num, msg) =>
-    console.log(
-      `\n${colors.cyan}[${num}]${colors.reset} ${colors.bold}${msg}${colors.reset}`
-    ),
+    console.log(`\n${colors.cyan}[${num}]${colors.reset} ${colors.bold}${msg}${colors.reset}`),
 };
 
 // State files
@@ -109,9 +107,7 @@ async function waitForHealth(url, timeout = HEALTH_CHECK_TIMEOUT) {
         // Debug log for failure status
         if (Date.now() - startTime > 5000) {
           // Only log after 5s to reduce noise
-          console.log(
-            `[debug] Health check ${url} returned status ${response.status}`
-          );
+          console.log(`[debug] Health check ${url} returned status ${response.status}`);
         }
       }
     } catch (error) {
@@ -164,10 +160,7 @@ async function startSupabase() {
   }
 
   // Wait for Supabase API to be healthy
-  const supabaseApiPort = resolvePort(
-    process.env.SUPABASE_API_PORT,
-    ports.supabase.apiPort
-  );
+  const supabaseApiPort = resolvePort(process.env.SUPABASE_API_PORT, ports.supabase.apiPort);
   // Use 127.0.0.1 to avoid localhost resolution issues
   const supabaseUrl = `http://127.0.0.1:${supabaseApiPort}/rest/v1/`;
 
@@ -182,9 +175,7 @@ async function startSupabase() {
     fs.existsSync("/.dockerenv");
 
   if (isDevContainer) {
-    log.info(
-      "DevContainer detected - verifying Supabase container status instead of health check"
-    );
+    log.info("DevContainer detected - verifying Supabase container status instead of health check");
     try {
       const containerStatus = runCommand(
         'docker ps --filter name=supabase_kong_ValueOS --format "{{.Status}}"',
@@ -192,9 +183,7 @@ async function startSupabase() {
       ).trim();
 
       if (containerStatus && containerStatus.includes("Up")) {
-        log.success(
-          "Supabase containers are running (health check skipped in DevContainer)"
-        );
+        log.success("Supabase containers are running (health check skipped in DevContainer)");
       } else {
         log.warn("Supabase Kong container is not running - continuing with dx postgres");
         // Don't exit - continue with dx postgres for testing
@@ -241,9 +230,7 @@ function startDockerDeps(mode) {
   log.info("Starting Docker dependencies...");
 
   const composeFile =
-    mode === "docker"
-      ? "infra/docker/docker-compose.dev.yml"
-      : "docker-compose.deps.yml";
+    mode === "docker" ? "infra/docker/docker-compose.dev.yml" : "docker-compose.deps.yml";
 
   try {
     runCommand(`docker compose --env-file .env.ports -f ${composeFile} up -d`, {
@@ -263,17 +250,13 @@ function startDockerDeps(mode) {
 function stopDockerDeps() {
   log.info("Stopping Docker dependencies...");
 
-  const composeFiles = [
-    "infra/docker/docker-compose.dev.yml",
-    "docker-compose.deps.yml",
-  ];
+  const composeFiles = ["infra/docker/docker-compose.dev.yml", "docker-compose.deps.yml"];
 
   for (const file of composeFiles) {
     try {
-      runCommand(
-        `docker compose --env-file .env.ports -f ${file} down --remove-orphans`,
-        { silent: true }
-      );
+      runCommand(`docker compose --env-file .env.ports -f ${file} down --remove-orphans`, {
+        silent: true,
+      });
     } catch {
       // Ignore errors
     }
@@ -288,17 +271,13 @@ function stopDockerDeps() {
 function resetDockerDeps() {
   log.info("Resetting Docker dependencies (removing volumes)...");
 
-  const composeFiles = [
-    "infra/docker/docker-compose.dev.yml",
-    "docker-compose.deps.yml",
-  ];
+  const composeFiles = ["infra/docker/docker-compose.dev.yml", "docker-compose.deps.yml"];
 
   for (const file of composeFiles) {
     try {
-      runCommand(
-        `docker compose --env-file .env.ports -f ${file} down -v --remove-orphans`,
-        { silent: true }
-      );
+      runCommand(`docker compose --env-file .env.ports -f ${file} down -v --remove-orphans`, {
+        silent: true,
+      });
     } catch {
       // Ignore errors
     }
@@ -331,15 +310,11 @@ async function verifySchema() {
 
   // Check migration status
   try {
-    const migrationList = runCommand(
-      "supabase migration list 2>/dev/null || echo ''",
-      { silent: true }
-    );
+    const migrationList = runCommand("supabase migration list 2>/dev/null || echo ''", {
+      silent: true,
+    });
 
-    if (
-      migrationList.includes("not applied") ||
-      migrationList.includes("pending")
-    ) {
+    if (migrationList.includes("not applied") || migrationList.includes("pending")) {
       log.warn("Pending migrations detected");
       return false;
     }
@@ -612,15 +587,9 @@ async function main() {
   if (mode === "docker") {
     writeDxState(mode);
 
-    const frontendPort = resolvePort(
-      process.env.VITE_PORT,
-      ports.frontend.port
-    );
+    const frontendPort = resolvePort(process.env.VITE_PORT, ports.frontend.port);
     const backendPort = resolvePort(process.env.API_PORT, ports.backend.port);
-    const supabaseApiPort = resolvePort(
-      process.env.SUPABASE_API_PORT,
-      ports.supabase.apiPort
-    );
+    const supabaseApiPort = resolvePort(process.env.SUPABASE_API_PORT, ports.supabase.apiPort);
 
     console.log(`
 ╔════════════════════════════════════════════════════════════════╗
@@ -673,10 +642,7 @@ async function main() {
   await new Promise((resolve) => setTimeout(resolve, 5000));
 
   const frontendPort = resolvePort(process.env.VITE_PORT, ports.frontend.port);
-  const supabaseApiPort = resolvePort(
-    process.env.SUPABASE_API_PORT,
-    ports.supabase.apiPort
-  );
+  const supabaseApiPort = resolvePort(process.env.SUPABASE_API_PORT, ports.supabase.apiPort);
 
   console.log(`
 ╔════════════════════════════════════════════════════════════════╗

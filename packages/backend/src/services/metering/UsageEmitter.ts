@@ -6,17 +6,27 @@
 import { createClient } from "@supabase/supabase-js";
 import { BillingMetric } from "../../config/billing";
 import { createLogger } from "../../lib/logger";
+import { getServerSupabaseConfig } from "../../lib/env";
 
 const logger = createLogger({ component: "UsageEmitter" });
 
+const { url: supabaseUrl, serviceRoleKey: supabaseServiceRoleKey } =
+  getServerSupabaseConfig();
+
 // Server-only Supabase client
 const supabase =
-  typeof window === "undefined"
-    ? createClient(
-        import.meta.env?.VITE_SUPABASE_URL || "",
-        import.meta.env?.SUPABASE_SERVICE_ROLE_KEY || ""
-      )
+  typeof window === "undefined" && supabaseUrl && supabaseServiceRoleKey
+    ? createClient(supabaseUrl, supabaseServiceRoleKey)
     : (null as any);
+
+if (
+  typeof window === "undefined" &&
+  (!supabaseUrl || !supabaseServiceRoleKey)
+) {
+  logger.warn(
+    "Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing"
+  );
+}
 
 // In-memory buffer for failed events (dead-letter queue)
 interface FailedUsageEvent {

@@ -38,8 +38,9 @@ const isServer = typeof window === "undefined";
 let managedSecrets: Record<string, string> = {};
 // optimization: Skip secret hydration in development to prevent startup hangs
 // caused by unreachable Vault/AWS endpoints
-// We use import.meta.env.SSR check if available (Vite), otherwise runtime check
-const isViteSsrBuild = import.meta.env?.SSR;
+// We use SSR env flag if available, otherwise runtime check
+const isViteSsrBuild =
+  getEnvVar("SSR") === "true" || getEnvVar("SSR") === "1";
 
 // Async initialization for server-side secret hydration
 // Wrapped in IIFE to avoid top-level await which isn't supported in all build targets

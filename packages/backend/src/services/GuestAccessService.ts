@@ -7,6 +7,7 @@
 
 import { supabase } from "../lib/supabase";
 import { logger } from "../lib/logger";
+import { getEnvVar } from "../lib/env";
 import crypto from "crypto";
 
 // Database row types for guest access tables
@@ -505,7 +506,8 @@ class GuestAccessService {
    * Generate magic link URL
    */
   private generateMagicLink(token: string): string {
-    const baseUrl = import.meta.env.VITE_APP_URL || "http://localhost:5173";
+    const baseUrl =
+      getEnvVar("VITE_APP_URL") || "http://localhost:5173";
     return `${baseUrl}/guest/access?token=${token}`;
   }
 

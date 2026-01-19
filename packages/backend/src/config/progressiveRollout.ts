@@ -12,6 +12,7 @@
 
 import { logger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
+import { getEnvVar } from '../lib/env';
 
 export interface RolloutConfig {
   featureName: string;
@@ -321,7 +322,15 @@ export class ProgressiveRollout {
   private async sendRollbackAlert(reason: string): Promise<void> {
     // Send to monitoring system
     try {
-      await fetch(import.meta.env.VITE_WEBHOOK_URL, {
+      const webhookUrl = getEnvVar("VITE_WEBHOOK_URL");
+      if (!webhookUrl) {
+        logger.warn("Rollback webhook URL not configured", {
+          feature: this.featureName,
+        });
+        return;
+      }
+
+      await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

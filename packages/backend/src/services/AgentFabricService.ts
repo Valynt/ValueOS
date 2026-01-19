@@ -2,6 +2,7 @@ import { logger } from '../lib/logger';
 import { AgentFabric, AgentFabricResult } from '../lib/agent-fabric';
 import { CanvasComponent } from '../types';
 import { supabase } from '../lib/supabase';
+import { getEnvVar } from '../lib/env';
 
 export class AgentFabricService {
   private fabric: AgentFabric;
@@ -9,8 +10,8 @@ export class AgentFabricService {
 
   constructor() {
     this.fabric = new AgentFabric(
-      import.meta.env.VITE_SUPABASE_URL,
-      import.meta.env.VITE_SUPABASE_ANON_KEY,
+      getEnvVar("VITE_SUPABASE_URL") || getEnvVar("SUPABASE_URL") || "",
+      getEnvVar("VITE_SUPABASE_ANON_KEY") || getEnvVar("SUPABASE_ANON_KEY") || "",
       'together'
     );
   }
