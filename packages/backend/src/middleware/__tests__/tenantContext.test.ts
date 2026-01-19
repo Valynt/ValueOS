@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import jwt from 'jsonwebtoken';
 
+const tenantVerificationMocks = vi.hoisted(() => ({
+  getUserTenantId: vi.fn(),
+  verifyTenantExists: vi.fn(),
+  verifyTenantMembership: vi.fn(),
+}));
+
+vi.mock('@shared/lib/tenantVerification', () => tenantVerificationMocks);
+
 const ORIGINAL_ENV = { ...process.env };
 
 function mockRes() {
@@ -44,6 +52,9 @@ describe('tenantContextMiddleware', () => {
     const res = mockRes();
     const next = vi.fn();
 
+    tenantVerificationMocks.verifyTenantExists.mockResolvedValue(true);
+    tenantVerificationMocks.verifyTenantMembership.mockResolvedValue(true);
+
     await tenantContextMiddleware()(req, res as any, next);
 
     expect(next).toHaveBeenCalled();
@@ -76,6 +87,9 @@ describe('tenantContextMiddleware', () => {
     } as any;
     const res = mockRes();
     const next = vi.fn();
+
+    tenantVerificationMocks.verifyTenantExists.mockResolvedValue(true);
+    tenantVerificationMocks.verifyTenantMembership.mockResolvedValue(true);
 
     await tenantContextMiddleware()(req, res as any, next);
 
@@ -111,6 +125,9 @@ describe('tenantContextMiddleware', () => {
     const res = mockRes();
     const next = vi.fn();
 
+    tenantVerificationMocks.verifyTenantExists.mockResolvedValue(true);
+    tenantVerificationMocks.verifyTenantMembership.mockResolvedValue(true);
+
     await tenantContextMiddleware()(req, res as any, next);
 
     expect(res.status).toHaveBeenCalledWith(403);
@@ -127,5 +144,35 @@ describe('tenantContextMiddleware', () => {
     expect(() => tenantContextMiddleware()).toThrow(
       'TCT_SECRET must be configured and cannot use the default placeholder in production'
     );
+  });
+
+  it('rejects when user metadata claims another tenant', async () => {
+    process.env.NODE_ENV = 'test';
+    process.env.TCT_SECRET = 'test-secret';
+
+    const { tenantContextMiddleware } = await import('../tenantContext');
+
+    const req = {
+      headers: {},
+      user: {
+        id: 'user-123',
+        tenant_id: 'tenant-999',
+        user_metadata: { tenant_id: 'tenant-999' },
+      },
+    } as any;
+    const res = mockRes();
+    const next = vi.fn();
+
+    tenantVerificationMocks.verifyTenantExists.mockResolvedValue(true);
+    tenantVerificationMocks.verifyTenantMembership.mockResolvedValue(false);
+
+    await tenantContextMiddleware()(req, res as any, next);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'Forbidden',
+      message: 'User does not belong to tenant.',
+    });
+    expect(next).not.toHaveBeenCalled();
   });
 });

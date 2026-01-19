@@ -58,7 +58,6 @@ export function extractTenantId(claims: JwtPayload | null, user?: any): string |
     (claims?.tenant_id as string | undefined) ??
     (claims?.organization_id as string | undefined) ??
     (claims?.app_metadata as any)?.tenant_id ??
-    (user?.user_metadata?.tenant_id as string | undefined) ??
     (user?.app_metadata?.tenant_id as string | undefined) ??
     (user?.tenant_id as string | undefined)
   );

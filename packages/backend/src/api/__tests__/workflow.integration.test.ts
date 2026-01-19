@@ -28,8 +28,9 @@ vi.mock('../../middleware/rbac', () => ({
   requirePermission: () => (_req: any, _res: any, next: any) => next(),
 }));
 
-vi.mock('../../lib/tenantVerification', () => ({
+vi.mock('@shared/lib/tenantVerification', () => ({
   getUserTenantId: vi.fn().mockResolvedValue(null),
+  verifyTenantExists: vi.fn().mockResolvedValue(true),
   verifyTenantMembership: vi.fn().mockResolvedValue(true),
 }));
 

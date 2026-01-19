@@ -8,6 +8,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z, ZodError } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
+import { tenantContextMiddleware } from '../../middleware/tenantContext';
 import { 
   CreateMessageSchema,
   BatchCreateMessagesSchema,
@@ -393,6 +394,7 @@ router.use(requestLogger);
 
 // All routes require authentication
 router.use(requireAuth);
+router.use(tenantContextMiddleware());
 
 // POST /messages - Create single message
 router.post(
