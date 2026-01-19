@@ -275,13 +275,20 @@ function validateSecurityConfig(): ValidationResult {
     const tctSecret = getEnv("TCT_SECRET") || "";
     if (!tctSecret) {
       errors.push("TCT_SECRET is mandatory in production");
-    } else if (tctSecret === "default-jwt-secret-replace-me-in-production") {
+    } else if (
+      tctSecret === "default-jwt-secret-replace-me-in-production" ||
+      tctSecret === "default-tct-secret-change-me"
+    ) {
       errors.push("TCT_SECRET cannot use the default placeholder in production");
     }
   } else {
     // Non-production warnings
     const tctSecret = getEnv("TCT_SECRET") || "";
-    if (!tctSecret || tctSecret === "default-jwt-secret-replace-me-in-production") {
+    if (
+      !tctSecret ||
+      tctSecret === "default-jwt-secret-replace-me-in-production" ||
+      tctSecret === "default-tct-secret-change-me"
+    ) {
       warnings.push("TCT_SECRET is using default value; ensure this is intended for development");
     }
   }
