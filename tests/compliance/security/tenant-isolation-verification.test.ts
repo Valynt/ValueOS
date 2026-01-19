@@ -131,6 +131,31 @@ describe('Tenant Isolation Verification', () => {
     });
   });
 
+  describe('Billing RLS Policies', () => {
+    it('should enforce tenant isolation on billing tables', async () => {
+      const { data, error } = await adminClient.rpc('verify_billing_rls_policies');
+
+      expect(error).toBeNull();
+      expect(data?.length).toBeGreaterThan(0);
+
+      data?.forEach(row => {
+        expect(row.rls_enabled).toBe(true);
+        expect(row.tenant_policy_count).toBe(4);
+      });
+    });
+
+    it('should allow service_role access on billing tables', async () => {
+      const { data, error } = await adminClient.rpc('verify_billing_rls_policies');
+
+      expect(error).toBeNull();
+      expect(data?.length).toBeGreaterThan(0);
+
+      data?.forEach(row => {
+        expect(row.service_role_policy_count).toBeGreaterThan(0);
+      });
+    });
+  });
+
   describe('Cross-Tenant Access Prevention', () => {
     it('should prevent reading data from other tenants', async () => {
       // Create data for tenant 1
