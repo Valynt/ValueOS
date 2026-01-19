@@ -322,10 +322,12 @@ async function startServer(): Promise<void> {
   // 0. Setup global error handlers for unhandled rejections/exceptions
   setupGlobalErrorHandlers();
 
-  // 1. Validate all secrets before starting any services
-  logger.info("🔒 Validating secrets before server startup");
-  await validateSecretsOnStartup();
-  logger.info("✅ Secret validation completed successfully");
+  // 1. Validate all secrets before starting any services (production only)
+  if (settings.NODE_ENV === "production") {
+    logger.info("🔒 Validating secrets before server startup");
+    await validateSecretsOnStartup();
+    logger.info("✅ Secret validation completed successfully");
+  }
 
   // 2. Validate production requirements
   if (settings.NODE_ENV === "production" && !isConsentRegistryConfigured()) {
