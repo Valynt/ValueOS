@@ -153,11 +153,26 @@ export class RateLimitKeyService {
     req: Request,
     context?: Partial<RateLimitKeyContext>
   ): string | undefined {
-    // Priority: context > request > undefined
-    return context?.tenantId ||
-           (req as any).tenantId ||
-           req.headers['x-tenant-id'] as string ||
-           undefined;
+    // Priority: context > request > internal service header > undefined
+    if (context?.tenantId) {
+      return context.tenantId;
+    }
+
+    const reqTenantId = (req as any).tenantId as string | undefined;
+    if (reqTenantId) {
+      return reqTenantId;
+    }
+
+    const serviceIdentityVerified = Boolean((req as any).serviceIdentityVerified);
+    if (serviceIdentityVerified) {
+      const headerTenant = req.headers['x-tenant-id'];
+      if (Array.isArray(headerTenant)) {
+        return headerTenant[0];
+      }
+      return headerTenant as string | undefined;
+    }
+
+    return undefined;
   }
 
   /**
