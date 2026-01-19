@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { tenantContextMiddleware } from '../tenantContext';
 import { getUserTenantId, verifyTenantExists, verifyTenantMembership } from '@shared/lib/tenantVerification';
 
-vi.mock('../../lib/tenantVerification', () => ({
+vi.mock('@shared/lib/tenantVerification', () => ({
   getUserTenantId: vi.fn(),
   verifyTenantExists: vi.fn(),
   verifyTenantMembership: vi.fn(),
@@ -105,6 +105,7 @@ describe('tenantContextMiddleware', () => {
   it('falls back to user tenant lookup when no candidate provided', async () => {
     (getUserTenantId as unknown as { mockResolvedValue: (value: string) => void }).mockResolvedValue('tenant-lookup');
     (verifyTenantExists as unknown as { mockResolvedValue: (value: boolean) => void }).mockResolvedValue(true);
+    (verifyTenantMembership as unknown as { mockResolvedValue: (value: boolean) => void }).mockResolvedValue(true);
 
     const req = {
       header: vi.fn(() => undefined),
@@ -142,5 +143,29 @@ describe('tenantContextMiddleware', () => {
       message: 'Tenant not found or inactive.',
     });
     expect(next).not.toHaveBeenCalled();
+  });
+
+  it('denies access when user metadata claims another tenant', async () => {
+    (getUserTenantId as unknown as { mockResolvedValue: (value: null) => void }).mockResolvedValue(null);
+
+    const req = {
+      header: vi.fn(() => undefined),
+      params: {},
+      user: { id: 'user-999', user_metadata: { tenant_id: 'tenant-spoof' } },
+    } as any;
+    const res = mockRes();
+    const next = vi.fn();
+
+    await tenantContextMiddleware()(req, res as any, next);
+
+    expect(getUserTenantId).toHaveBeenCalledWith('user-999');
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'Forbidden',
+      message: 'Tenant context is required.',
+    });
+    expect(next).not.toHaveBeenCalled();
+    expect(verifyTenantExists).not.toHaveBeenCalled();
+    expect(verifyTenantMembership).not.toHaveBeenCalled();
   });
 });

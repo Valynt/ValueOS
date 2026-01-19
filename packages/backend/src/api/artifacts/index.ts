@@ -20,13 +20,9 @@ import {
   NotFoundError,
   DatabaseError,
 } from './repository';
-// Note: Auth middleware imports may need adjustment based on your setup
-// import { requireAuth, requireRole } from '../../middleware/auth';
-// import { createRateLimiter, RateLimitTier } from '../../middleware/rateLimiter';
+import { requireAuth, requireRole } from '../../middleware/auth';
+import { tenantContextMiddleware } from '../../middleware/tenantContext';
 
-// Placeholder middleware until auth is wired up
-const requireAuth = (_req: Request, _res: Response, next: NextFunction) => next();
-const requireRole = (_roles: string[]) => (_req: Request, _res: Response, next: NextFunction) => next();
 const standardLimiter = (_req: Request, _res: Response, next: NextFunction) => next();
 const strictLimiter = (_req: Request, _res: Response, next: NextFunction) => next();
 
@@ -375,6 +371,7 @@ router.use(requestLogger);
 
 // All routes require authentication
 router.use(requireAuth);
+router.use(tenantContextMiddleware());
 
 // POST /artifacts - Create single
 router.post(

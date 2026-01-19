@@ -28,6 +28,7 @@ import {
   DatabaseError,
 } from './repository';
 import { requireAuth, requireRole, AuthenticatedRequest } from '../../middleware/auth';
+import { tenantContextMiddleware } from '../../middleware/tenantContext';
 import { createRateLimiter, RateLimitTier } from '../../middleware/rateLimiter';
 import { logger } from '../../lib/logger';
 
@@ -338,6 +339,7 @@ router.use(requestLogger);
 
 // All routes require authentication
 router.use(requireAuth);
+router.use(tenantContextMiddleware());
 
 // POST /cases - Create
 router.post(

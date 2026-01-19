@@ -20,6 +20,8 @@ import {
   NotFoundError,
   DatabaseError,
 } from './repository';
+import { requireAuth, requireRole } from '../../middleware/auth';
+import { tenantContextMiddleware } from '../../middleware/tenantContext';
 
 // ============================================================================
 // Types
@@ -36,10 +38,6 @@ interface AuthenticatedRequest extends Request {
 // ============================================================================
 
 const router = Router();
-
-// Placeholder middleware until auth is wired up
-const requireAuth = (_req: Request, _res: Response, next: NextFunction) => next();
-const requireRole = (_roles: string[]) => (_req: Request, _res: Response, next: NextFunction) => next();
 
 // Simple logger
 const logger = {
@@ -393,6 +391,7 @@ router.use(requestLogger);
 
 // All routes require authentication
 router.use(requireAuth);
+router.use(tenantContextMiddleware());
 
 // POST /messages - Create single message
 router.post(
