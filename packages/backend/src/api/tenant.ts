@@ -7,6 +7,7 @@
 
 import { supabase } from "@shared/lib/supabase";
 import { createLogger } from "@shared/lib/logger";
+import { getEnvVar } from "../lib/env";
 
 const logger = createLogger({ component: "TenantAPI" });
 
@@ -35,7 +36,7 @@ export interface TenantApiResponse<T> {
  * Check if tenant API is enabled via feature flag
  */
 export function isTenantApiEnabled(): boolean {
-  return import.meta.env.VITE_TENANTS_API_ENABLED !== "false";
+  return getEnvVar("VITE_TENANTS_API_ENABLED") !== "false";
 }
 
 /**
