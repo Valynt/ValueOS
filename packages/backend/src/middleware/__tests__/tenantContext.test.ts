@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { tenantContextMiddleware } from '../tenantContext';
 import { getUserTenantId, verifyTenantExists, verifyTenantMembership } from '@shared/lib/tenantVerification';
 
-vi.mock('../../lib/tenantVerification', () => ({
+vi.mock('@shared/lib/tenantVerification', () => ({
   getUserTenantId: vi.fn(),
   verifyTenantExists: vi.fn(),
   verifyTenantMembership: vi.fn(),
@@ -35,6 +35,7 @@ describe('tenantContextMiddleware', () => {
     expect(req.tenantId).toBeUndefined();
     expect(getUserTenantId).not.toHaveBeenCalled();
     expect(verifyTenantMembership).not.toHaveBeenCalled();
+    expect(verifyTenantExists).not.toHaveBeenCalled();
   });
 
   it('accepts service header when identity verified and membership valid', async () => {
@@ -53,7 +54,9 @@ describe('tenantContextMiddleware', () => {
     await tenantContextMiddleware()(req, res as any, next);
 
     expect(verifyTenantMembership).toHaveBeenCalledWith('user-123', 'tenant-123');
+    expect(verifyTenantExists).toHaveBeenCalledWith('tenant-123');
     expect(req.tenantId).toBe('tenant-123');
+    expect(req.tenantSource).toBe('service-header');
     expect(next).toHaveBeenCalled();
     expect(res.status).not.toHaveBeenCalled();
   });
@@ -77,6 +80,7 @@ describe('tenantContextMiddleware', () => {
     expect(next).not.toHaveBeenCalled();
     expect(req.tenantId).toBeUndefined();
     expect(verifyTenantMembership).not.toHaveBeenCalled();
+    expect(verifyTenantExists).not.toHaveBeenCalled();
   });
 
   it('requires tenant membership verification for user tenants', async () => {
@@ -94,6 +98,7 @@ describe('tenantContextMiddleware', () => {
     await tenantContextMiddleware()(req, res as any, next);
 
     expect(verifyTenantMembership).toHaveBeenCalledWith('user-222', 'tenant-222');
+    expect(verifyTenantExists).toHaveBeenCalledWith('tenant-222');
     expect(res.status).toHaveBeenCalledWith(403);
     expect(res.json).toHaveBeenCalledWith({
       error: 'Forbidden',
@@ -117,6 +122,7 @@ describe('tenantContextMiddleware', () => {
     await tenantContextMiddleware()(req, res as any, next);
 
     expect(getUserTenantId).toHaveBeenCalledWith('user-789');
+    expect(verifyTenantExists).toHaveBeenCalledWith('tenant-lookup');
     expect(req.tenantId).toBe('tenant-lookup');
     expect(req.tenantSource).toBe('user-lookup');
     expect(next).toHaveBeenCalled();
@@ -142,5 +148,26 @@ describe('tenantContextMiddleware', () => {
       message: 'Tenant not found or inactive.',
     });
     expect(next).not.toHaveBeenCalled();
+  });
+
+  it('accepts tenant from route parameter and verifies membership', async () => {
+    (verifyTenantExists as unknown as { mockResolvedValue: (value: boolean) => void }).mockResolvedValue(true);
+    (verifyTenantMembership as unknown as { mockResolvedValue: (value: boolean) => void }).mockResolvedValue(true);
+
+    const req = {
+      header: vi.fn(() => undefined),
+      params: { tenantId: 'tenant-route' },
+      user: { id: 'user-555' },
+    } as any;
+    const res = mockRes();
+    const next = vi.fn();
+
+    await tenantContextMiddleware()(req, res as any, next);
+
+    expect(verifyTenantExists).toHaveBeenCalledWith('tenant-route');
+    expect(verifyTenantMembership).toHaveBeenCalledWith('user-555', 'tenant-route');
+    expect(req.tenantId).toBe('tenant-route');
+    expect(req.tenantSource).toBe('route-param');
+    expect(next).toHaveBeenCalled();
   });
 });
