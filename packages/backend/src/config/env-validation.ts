@@ -126,8 +126,8 @@ const productionEnvSchema = baseEnvSchema.extend({
   CSRF_ENABLED: z.literal("true").transform(Boolean),
   CSP_ENABLED: z.literal("true").transform(Boolean),
 
-  // Production requires database configuration
-  DATABASE_URL: z.string().url("Production requires DATABASE_URL"),
+  // Production requires Supabase configuration
+  DATABASE_URL: z.string().url().optional(),
   SUPABASE_URL: z.string().url("Production requires SUPABASE_URL"),
   SUPABASE_ANON_KEY: z.string().min(1, "Production requires SUPABASE_ANON_KEY"),
   VITE_SUPABASE_URL: z.string().url("Production requires VITE_SUPABASE_URL"),

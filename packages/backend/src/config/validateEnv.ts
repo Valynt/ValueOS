@@ -181,11 +181,7 @@ export function validateSupabaseConfig(): ValidationResult {
     }
 
     if (!isValidValue(databaseUrl)) {
-      if (isProduction()) {
-        errors.push("DATABASE_URL is required in production");
-      } else {
-        warnings.push("DATABASE_URL not set or invalid");
-      }
+      warnings.push("DATABASE_URL not set or invalid - direct Postgres access disabled");
     }
   }
 
