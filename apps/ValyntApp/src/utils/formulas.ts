@@ -1,12 +1,39 @@
 // /workspaces/ValueOS/src/utils/formulas.ts
+import { createSafeEvaluator } from "@/lib/safeExpressionEvaluator";
+
 export function evaluateFormula(formula: string, vars: Record<string, number>): number {
-  const sanitizedFormula = formula.replace(/\b[a-zA-Z_][a-zA-Z0-9_]*\b/g, (match) => {
-    if (vars.hasOwnProperty(match)) {
-      return vars[match].toString();
+  // Validate input
+  if (typeof formula !== "string" || formula.trim() === "") {
+    throw new Error("Formula must be a non-empty string");
+  }
+
+  // Check for dangerous patterns
+  const dangerousPatterns = [
+    /eval\s*\(/,
+    /Function\s*\(/,
+    /constructor\s*\(/,
+    /prototype\s*\./,
+    /__proto__/,
+    /import\s+/,
+    /require\s*\(/,
+    /process\./,
+    /global\./,
+    /window\./,
+    /document\./,
+    /console\./,
+    /setTimeout/,
+    /setInterval/,
+    /\<script/i,
+    /javascript:/i,
+  ];
+
+  for (const pattern of dangerousPatterns) {
+    if (pattern.test(formula)) {
+      throw new Error("Dangerous code pattern detected in formula");
     }
-    throw new Error(`Unknown variable: ${match}`);
-  });
-  // Use Function for safe eval
-  const func = new Function("Math", `return ${sanitizedFormula}`);
-  return func(Math);
+  }
+
+  // Use safe evaluator
+  const evaluate = createSafeEvaluator();
+  return evaluate(formula, vars);
 }

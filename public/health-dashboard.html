@@ -91,345 +91,290 @@
 
       .status.unhealthy {
         background: #f8d7da;
-        color: #721c24;
-      }
+      </div>
+    </div>
 
-      .status.not_configured {
-        background: #e2e3e5;
-        color: #383d41;
-      }
-
-      .metric {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 10px;
-      }
-
-      .metric-value {
-        font-weight: bold;
-      }
-
-      .alerts {
-        background: #fff3cd;
-        border: 1px solid #ffeaa7;
-        border-radius: 5px;
-        padding: 15px;
-        margin-top: 10px;
-      }
-
-      .alert {
-        margin-bottom: 10px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #ffeaa7;
-      }
-
-      .alert:last-child {
-        margin-bottom: 0;
-        padding-bottom: 0;
-        border-bottom: none;
-      }
-
-      .alert-title {
-        font-weight: bold;
-        color: #856404;
-      }
-
-      .alert-time {
-        font-size: 0.8em;
-        color: #666;
-      }
-
-      .refresh {
-        background: #007bff;
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 5px;
-        cursor: pointer;
-        margin-bottom: 20px;
-      }
-
-      .refresh:hover {
-        background: #0056b3;
-      }
-
-      .loading {
-        text-align: center;
-        padding: 20px;
-        color: #666;
-      }
-
-      .error {
-        background: #f8d7da;
-        color: #721c24;
-        padding: 15px;
-        border-radius: 5px;
-        margin-bottom: 20px;
-      }
-
-      @media (max-width: 768px) {
-        .dashboard {
-          grid-template-columns: 1fr;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <div class="header">
-        <h1>🏥 ValueOS Health Dashboard</h1>
-        <p>Real-time health monitoring across all services</p>
+    <div class="grid">
+      <div class="card">
+        <h2>System Metrics</h2>
+        <div id="metrics">
+          <div class="loading">Loading metrics...</div>
+        </div>
       </div>
 
-      <button class="refresh" onclick="refreshData()">🔄 Refresh</button>
-
-      <div id="error" class="error" style="display: none"></div>
-
-      <div class="dashboard">
-        <div class="card">
-          <h3>📊 Overall Health</h3>
-          <div id="overall-status" class="loading">Loading...</div>
+      <div class="card">
+        <h2>Service Status</h2>
+        <div id="services">
+          <div class="loading">Loading services...</div>
         </div>
+      </div>
 
-        <div class="card">
-          <h3>⚡ Performance Metrics</h3>
-          <div id="metrics" class="loading">Loading...</div>
+      <div class="card">
+        <h2>Active Alerts</h2>
+        <div id="alerts">
+          <div class="loading">Loading alerts...</div>
         </div>
+      </div>
 
-        <div class="card">
-          <h3>🔍 Service Status</h3>
-          <div id="services" class="loading">Loading...</div>
+      <div class="card">
+        <h2>Trends (1h)</h2>
+        <div id="trends">
+          <div class="loading">Loading trends...</div>
         </div>
+      </div>
 
-        <div class="card">
-          <h3>🚨 Active Alerts</h3>
-          <div id="alerts" class="loading">Loading...</div>
-        </div>
-
-        <div class="card">
-          <h3>📈 Health Trends</h3>
-          <div id="trends" class="loading">Loading...</div>
-        </div>
-
-        <div class="card">
-          <h3>📋 Recent History</h3>
-          <div id="history" class="loading">Loading...</div>
+      <div class="card">
+        <h2>Recent History</h2>
+        <div id="history">
+          <div class="loading">Loading history...</div>
         </div>
       </div>
     </div>
 
-    <script>
-      let healthData = {};
-      let metricsData = {};
-      let alertsData = [];
-      let historyData = [];
-      let trendsData = {};
+    <div id="error" style="display: none;"></div>
+  </div>
 
-      async function fetchData() {
+  <script>
+    let healthData = {};
+    let metricsData = {};
+    let alertsData = [];
+    let trendsData = {};
+    let historyData = [];
+
+    // Safe HTML utility functions
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function safeSetText(elementId, text) {
+      const element = document.getElementById(elementId);
+      if (element) {
+        element.textContent = text;
+      }
+    }
+
+    function safeClearElement(elementId) {
+      const element = document.getElementById(elementId);
+      if (element) {
+        while (element.firstChild) {
+          element.removeChild(element.firstChild);
+        }
+      }
+    }
+
+    function createMetric(label, value) {
+      const metric = document.createElement('div');
+      metric.className = 'metric';
+
+      const labelSpan = document.createElement('span');
+      labelSpan.textContent = label;
+      metric.appendChild(labelSpan);
+
+      const valueSpan = document.createElement('span');
+      valueSpan.className = 'metric-value';
+      valueSpan.textContent = value;
+      metric.appendChild(valueSpan);
+
+      return metric;
+    }
+
+    function createStatusDiv(status) {
+      const statusDiv = document.createElement('div');
+      statusDiv.className = `status ${status}`;
+      statusDiv.textContent = status.toUpperCase();
+      return statusDiv;
+    }
+
+    function createAlert(alert) {
+      const alertDiv = document.createElement('div');
+      alertDiv.className = 'alert';
+
+      const titleDiv = document.createElement('div');
+      titleDiv.className = 'alert-title';
+      titleDiv.textContent = alert.message;
+      alertDiv.appendChild(titleDiv);
+
+      const timeDiv = document.createElement('div');
+      timeDiv.className = 'alert-time';
+      timeDiv.textContent = `Started: ${new Date(alert.startedAt).toLocaleString()}`;
+      alertDiv.appendChild(timeDiv);
+
+      return alertDiv;
+    }
+
+    async function fetchData() {
+      try {
+        // Fetch basic health data
+        const healthResponse = await fetch("/health");
+        if (!healthResponse.ok) {
+          throw new Error(`Health check failed: ${healthResponse.status}`);
+        }
+        healthData = await healthResponse.json();
+
+        // Fetch metrics (requires auth)
         try {
-          document.getElementById("error").style.display = "none";
-
-          // Fetch health status
-          const healthResponse = await fetch("/health");
-          healthData = await healthResponse.json();
-
-          // Fetch metrics (requires auth)
-          try {
-            const metricsResponse = await fetch("/health/metrics");
-            if (metricsResponse.ok) {
-              metricsData = await metricsResponse.json();
-            }
-          } catch (e) {
-            console.log("Metrics require authentication");
+          const metricsResponse = await fetch("/health/metrics");
+          if (metricsResponse.ok) {
+            metricsData = await metricsResponse.json();
           }
+        } catch (e) {
+          console.log("Metrics require authentication");
+        }
 
-          // Fetch alerts (requires auth)
-          try {
-            const alertsResponse = await fetch("/health/alerts?active=true");
-            if (alertsResponse.ok) {
-              const alertsResult = await alertsResponse.json();
-              alertsData = alertsResult.alerts || [];
-            }
-          } catch (e) {
-            console.log("Alerts require authentication");
+        // Fetch alerts (requires auth)
+        try {
+          const alertsResponse = await fetch("/health/alerts");
+          if (alertsResponse.ok) {
+            const alertsResult = await alertsResponse.json();
+            alertsData = alertsResult.alerts || [];
           }
+        } catch (e) {
+          console.log("Alerts require authentication");
+        }
 
-          // Fetch history (requires auth)
-          try {
-            const historyResponse = await fetch(
-              "/health/history?trends=true&timeWindow=3600000"
-            );
-            if (historyResponse.ok) {
-              const historyResult = await historyResponse.json();
-              historyData = historyResult.history || [];
-              trendsData = historyResult.trends || {};
-            }
-          } catch (e) {
-            console.log("History requires authentication");
+        // Fetch history (requires auth)
+        try {
+          const historyResponse = await fetch(
+            "/health/history?trends=true&timeWindow=3600000"
+          );
+          if (historyResponse.ok) {
+            const historyResult = await historyResponse.json();
+            historyData = historyResult.history || [];
+            trendsData = historyResult.trends || {};
           }
-
-          updateUI();
-        } catch (error) {
-          document.getElementById("error").textContent =
-            `Failed to load health data: ${error.message}`;
-          document.getElementById("error").style.display = "block";
-        }
-      }
-
-      function updateUI() {
-        updateOverallStatus();
-        updateMetrics();
-        updateServices();
-        updateAlerts();
-        updateTrends();
-        updateHistory();
-      }
-
-      function updateOverallStatus() {
-        const status = healthData.status || "unknown";
-        const uptime = healthData.uptime
-          ? `${Math.floor(healthData.uptime / 60)}m ${healthData.uptime % 60}s`
-          : "unknown";
-
-        document.getElementById("overall-status").innerHTML = `
-                <div class="status ${status}">${status.toUpperCase()}</div>
-                <div class="metric">
-                    <span>Uptime:</span>
-                    <span class="metric-value">${uptime}</span>
-                </div>
-                <div class="metric">
-                    <span>Version:</span>
-                    <span class="metric-value">${healthData.version || "unknown"}</span>
-                </div>
-            `;
-      }
-
-      function updateMetrics() {
-        if (!metricsData.services) {
-          document.getElementById("metrics").innerHTML =
-            "<p>No metrics available (authentication required)</p>";
-          return;
+        } catch (e) {
+          console.log("History requires authentication");
         }
 
-        const services = Object.keys(metricsData.services);
-        let html = "";
+        updateUI();
+      } catch (error) {
+        const errorElement = document.getElementById("error");
+        errorElement.textContent = `Failed to load health data: ${error.message}`;
+        errorElement.style.display = "block";
+      }
+    }
 
-        services.forEach((service) => {
-          const stats = metricsData.services[service];
-          html += `
-                    <div class="metric">
-                        <span>${service}:</span>
-                        <span class="metric-value">${stats.successRate ? (stats.successRate * 100).toFixed(1) : 0}% success</span>
-                    </div>
-                `;
-        });
+    function updateUI() {
+      updateOverallStatus();
+      updateMetrics();
+      updateServices();
+      updateAlerts();
+      updateTrends();
+      updateHistory();
+    }
 
-        document.getElementById("metrics").innerHTML = html;
+    function updateOverallStatus() {
+      const status = healthData.status || "unknown";
+      const uptime = healthData.uptime
+        ? `${Math.floor(healthData.uptime / 60)}m ${healthData.uptime % 60}s`
+        : "unknown";
+
+      const container = document.getElementById("overall-status");
+      safeClearElement("overall-status");
+
+      const statusDiv = createStatusDiv(status);
+      container.appendChild(statusDiv);
+
+      container.appendChild(createMetric("Uptime:", uptime));
+      container.appendChild(createMetric("Version:", healthData.version || "unknown"));
+    }
+
+    function updateMetrics() {
+      if (!metricsData.services) {
+        safeSetText("metrics", "No metrics available (authentication required)");
+        return;
       }
 
-      function updateServices() {
-        const checks = healthData.checks || {};
-        let html = "";
+      const container = document.getElementById("metrics");
+      safeClearElement("metrics");
 
-        Object.entries(checks).forEach(([service, check]) => {
-          html += `
-                    <div class="metric">
-                        <span>${service}:</span>
-                        <span class="status ${check.status}">${check.status}</span>
-                    </div>
-                `;
-        });
+      Object.entries(metricsData.services).forEach(([service, stats]) => {
+        const successRate = stats.successRate ? (stats.successRate * 100).toFixed(1) : "0";
+        container.appendChild(createMetric(`${service}:`, `${successRate}% success`));
+      });
+    }
 
-        document.getElementById("services").innerHTML = html;
+    function updateServices() {
+      const checks = healthData.checks || {};
+      const container = document.getElementById("services");
+      safeClearElement("services");
+
+      Object.entries(checks).forEach(([service, check]) => {
+        const metric = createMetric(`${service}:`, "");
+        const statusDiv = createStatusDiv(check.status);
+        metric.appendChild(statusDiv);
+        container.appendChild(metric);
+      });
+    }
+
+    function updateAlerts() {
+      if (alertsData.length === 0) {
+        safeSetText("alerts", "No active alerts");
+        return;
       }
 
-      function updateAlerts() {
-        if (alertsData.length === 0) {
-          document.getElementById("alerts").innerHTML =
-            "<p>No active alerts</p>";
-          return;
-        }
+      const container = document.getElementById("alerts");
+      safeClearElement("alerts");
 
-        let html = '<div class="alerts">';
-        alertsData.forEach((alert) => {
-          const time = new Date(alert.startedAt).toLocaleString();
-          html += `
-                    <div class="alert">
-                        <div class="alert-title">${alert.message}</div>
-                        <div class="alert-time">Started: ${time}</div>
-                    </div>
-                `;
-        });
-        html += "</div>";
+      const alertsContainer = document.createElement('div');
+      alertsContainer.className = 'alerts';
 
-        document.getElementById("alerts").innerHTML = html;
+      alertsData.forEach((alert) => {
+        alertsContainer.appendChild(createAlert(alert));
+      });
+
+      container.appendChild(alertsContainer);
+    }
+
+    function updateTrends() {
+      if (!trendsData.overall) {
+        safeSetText("trends", "No trend data available (authentication required)");
+        return;
       }
 
-      function updateTrends() {
-        if (!trendsData.overall) {
-          document.getElementById("trends").innerHTML =
-            "<p>No trend data available (authentication required)</p>";
-          return;
-        }
+      const container = document.getElementById("trends");
+      safeClearElement("trends");
 
-        const overall = trendsData.overall;
-        let html = `
-                <div class="metric">
-                    <span>Total Checks:</span>
-                    <span class="metric-value">${overall.total}</span>
-                </div>
-                <div class="metric">
-                    <span>Healthy:</span>
-                    <span class="metric-value">${overall.healthy}</span>
-                </div>
-                <div class="metric">
-                    <span>Degraded:</span>
-                    <span class="metric-value">${overall.degraded}</span>
-                </div>
-                <div class="metric">
-                    <span>Unhealthy:</span>
-                    <span class="metric-value">${overall.unhealthy}</span>
-                </div>
-            `;
+      const overall = trendsData.overall;
+      container.appendChild(createMetric("Total Checks:", overall.total));
+      container.appendChild(createMetric("Healthy:", overall.healthy));
+      container.appendChild(createMetric("Degraded:", overall.degraded));
+      container.appendChild(createMetric("Unhealthy:", overall.unhealthy));
+    }
 
-        document.getElementById("trends").innerHTML = html;
+    function updateHistory() {
+      if (historyData.length === 0) {
+        safeSetText("history", "No history available (authentication required)");
+        return;
       }
 
-      function updateHistory() {
-        if (historyData.length === 0) {
-          document.getElementById("history").innerHTML =
-            "<p>No history available (authentication required)</p>";
-          return;
-        }
+      const container = document.getElementById("history");
+      safeClearElement("history");
 
-        const recent = historyData.slice(-5); // Last 5 snapshots
-        let html = "";
+      const recent = historyData.slice(-5); // Last 5 snapshots
+      recent.forEach((snapshot) => {
+        const time = new Date(snapshot.timestamp).toLocaleTimeString();
+        const metric = createMetric(`${time}:`, "");
+        const statusDiv = createStatusDiv(snapshot.overallStatus);
+        metric.appendChild(statusDiv);
+        container.appendChild(metric);
+      });
+    }
 
-        recent.forEach((snapshot) => {
-          const time = new Date(snapshot.timestamp).toLocaleTimeString();
-          html += `
-                    <div class="metric">
-                        <span>${time}:</span>
-                        <span class="status ${snapshot.overallStatus}">${snapshot.overallStatus}</span>
-                    </div>
-                `;
-        });
-
-        document.getElementById("history").innerHTML = html;
-      }
-
-      function refreshData() {
-        document.querySelectorAll(".loading").forEach((el) => {
-          el.textContent = "Loading...";
-        });
-        fetchData();
-      }
-
-      // Auto-refresh every 30 seconds
-      setInterval(fetchData, 30000);
-
-      // Initial load
+    function refreshData() {
+      document.querySelectorAll(".loading").forEach((el) => {
+        el.textContent = "Loading...";
+      });
       fetchData();
-    </script>
-  </body>
+    }
+
+    // Auto-refresh every 30 seconds
+    setInterval(fetchData, 30000);
+
+    // Initial load
+    fetchData();
+  </script>
+</body>
 </html>

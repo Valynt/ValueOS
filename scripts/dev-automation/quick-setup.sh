@@ -42,19 +42,59 @@ print_warning() {
     echo -e "${YELLOW}⚠${NC} $1"
 }
 
-# 1. Check prerequisites
+# 1. Check and setup Node.js version
+print_status "Setting up Node.js version..."
+NVMRC_PATH=".config/.nvmrc"
+if [ -f "$NVMRC_PATH" ]; then
+    REQUIRED_NODE_VERSION=$(cat "$NVMRC_PATH" | tr -d '\n')
+    CURRENT_NODE_VERSION=$(node --version | sed 's/v//')
+
+    echo "Required Node.js version: v$REQUIRED_NODE_VERSION"
+    echo "Current Node.js version: v$CURRENT_NODE_VERSION"
+
+    # Setup nvm if available
+    if [ -d "/usr/local/share/nvm" ]; then
+        export NVM_DIR="/usr/local/share/nvm"
+        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+        if command -v nvm >/dev/null 2>&1; then
+            nvm use "$REQUIRED_NODE_VERSION" 2>/dev/null || {
+                print_status "Installing Node.js v$REQUIRED_NODE_VERSION..."
+                nvm install "$REQUIRED_NODE_VERSION"
+                nvm use "$REQUIRED_NODE_VERSION"
+            }
+            print_success "Node.js v$REQUIRED_NODE_VERSION activated"
+        else
+            print_warning "nvm not available, using current Node.js version"
+        fi
+    else
+        print_warning "nvm not found, using current Node.js version"
+    fi
+else
+    print_warning "$NVMRC_PATH not found, using default Node.js version"
+fi
+
+# 2. Check prerequisites
 print_status "Checking prerequisites..."
 command -v node >/dev/null 2>&1 || { echo "❌ Node.js is required but not installed. Aborting." >&2; exit 1; }
 command -v npm >/dev/null 2>&1 || { echo "❌ npm is required but not installed. Aborting." >&2; exit 1; }
 command -v git >/dev/null 2>&1 || { echo "❌ git is required but not installed. Aborting." >&2; exit 1; }
 print_success "Prerequisites met"
 
-# 2. Install dependencies
+# 3. Install dependencies
 print_status "Installing dependencies..."
+# Fix permissions for node_modules if it exists
+if [ -d "node_modules" ]; then
+    print_status "Fixing node_modules permissions..."
+    sudo chown -R $(whoami):$(whoami) node_modules 2>/dev/null || {
+        print_warning "Could not fix permissions, trying clean install..."
+        rm -rf node_modules
+    }
+fi
 npm ci --prefer-offline --no-audit --no-fund
 print_success "Dependencies installed"
 
-# 3. Set up environment
+# 4. Set up environment
 print_status "Setting up environment..."
 if [ ! -f ".env" ]; then
     if [ -f ".env.example" ]; then
@@ -67,25 +107,25 @@ else
     print_success ".env already exists"
 fi
 
-# 4. Generate Prisma client
+# 5. Generate Prisma client
 if [ -f "scripts/prisma/schema.prisma" ]; then
     print_status "Generating Prisma client..."
     npx prisma generate
     print_success "Prisma client generated"
 fi
 
-# 5. Set up Git hooks
+# 6. Set up Git hooks
 if [ -d ".husky" ]; then
     print_status "Setting up Git hooks..."
     npx husky install
     print_success "Git hooks configured"
 fi
 
-# 6. Build project
+# 7. Build project
 print_status "Building project..."
 npm run build 2>/dev/null || print_warning "Build failed (this is OK for initial setup)"
 
-# 7. Run tests
+# 8. Run tests
 print_status "Running tests..."
 npm test 2>/dev/null || print_warning "Some tests failed (review and fix)"
 

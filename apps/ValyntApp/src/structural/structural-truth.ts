@@ -1,19 +1,19 @@
 /**
  * Structural Truth Module
- * 
+ *
  * Implements the mathematical foundation for business case generation:
  * - Formula registry and evaluation engine
  * - KPI dependency resolution
  * - Benchmark validation
  * - Value driver tree population
- * 
+ *
  * Part of Phase 3 - Integration & Business Case Generation
  */
 
-import { 
-  StructuralKPINode, 
-  StructuralEdge, 
-  FormulaRegistry, 
+import {
+  StructuralKPINode,
+  StructuralEdge,
+  FormulaRegistry,
   StructuralGraph,
   StructuralPersona,
   StructuralIndustry,
@@ -21,14 +21,15 @@ import {
   FormulaResult,
   FormulaStep,
   ValidationResult,
-  checkBenchmarkAlignment
-} from '../types/structural-truth';
-import { 
-  ALL_STRUCTURAL_KPIS, 
-  EXTENDED_STRUCTURAL_EDGES, 
+  checkBenchmarkAlignment,
+} from "../types/structural-truth";
+import {
+  ALL_STRUCTURAL_KPIS,
+  EXTENDED_STRUCTURAL_EDGES,
   INITIAL_FORMULA_REGISTRY,
-  EXTENDED_STRUCTURAL_PERSONA_MAPS
-} from '../types/structural-data';
+  EXTENDED_STRUCTURAL_PERSONA_MAPS,
+} from "../types/structural-data";
+import { evaluateFormula } from "@/utils/formulas";
 
 export interface FormulaInput {
   kpiId: string;
@@ -56,7 +57,7 @@ export interface StructuralTruthConfig {
 
 /**
  * Structural Truth Engine
- * 
+ *
  * Handles all mathematical relationships and formula calculations
  */
 export class StructuralTruth {
@@ -71,7 +72,7 @@ export class StructuralTruth {
       strictValidation: true,
       maxFormulaDepth: 10,
       enableBenchmarkChecks: true,
-      ...config
+      ...config,
     };
 
     this.formulaRegistry = new Map();
@@ -86,12 +87,12 @@ export class StructuralTruth {
    */
   private initializeGraph(): void {
     // Build KPI map
-    ALL_STRUCTURAL_KPIS.forEach(kpi => {
+    ALL_STRUCTURAL_KPIS.forEach((kpi) => {
       this.kpiMap.set(kpi.id, kpi);
     });
 
     // Build edge map
-    EXTENDED_STRUCTURAL_EDGES.forEach(edge => {
+    EXTENDED_STRUCTURAL_EDGES.forEach((edge) => {
       if (!this.edgeMap.has(edge.sourceId)) {
         this.edgeMap.set(edge.sourceId, []);
       }
@@ -99,7 +100,7 @@ export class StructuralTruth {
     });
 
     // Build formula registry
-    INITIAL_FORMULA_REGISTRY.forEach(formula => {
+    INITIAL_FORMULA_REGISTRY.forEach((formula) => {
       this.formulaRegistry.set(formula.formula_id, formula);
     });
 
@@ -109,10 +110,12 @@ export class StructuralTruth {
       nodes: ALL_STRUCTURAL_KPIS,
       edges: EXTENDED_STRUCTURAL_EDGES,
       personaMaps: EXTENDED_STRUCTURAL_PERSONA_MAPS,
-      formulas: INITIAL_FORMULA_REGISTRY
+      formulas: INITIAL_FORMULA_REGISTRY,
     };
 
-    console.log(`[StructuralTruth] Initialized with ${this.kpiMap.size} KPIs, ${this.edgeMap.size} edges, ${this.formulaRegistry.size} formulas`);
+    console.log(
+      `[StructuralTruth] Initialized with ${this.kpiMap.size} KPIs, ${this.edgeMap.size} edges, ${this.formulaRegistry.size} formulas`
+    );
   }
 
   /**
@@ -125,19 +128,22 @@ export class StructuralTruth {
   /**
    * Get KPI benchmark data
    */
-  getKPIBenchmark(kpiId: string, persona?: StructuralPersona): { p25: number; p50: number; p75: number } | null {
+  getKPIBenchmark(
+    kpiId: string,
+    persona?: StructuralPersona
+  ): { p25: number; p50: number; p75: number } | null {
     const kpi = this.kpiMap.get(kpiId);
     if (!kpi) return null;
 
     // Apply persona-specific adjustments if needed
     if (persona) {
-      const personaMap = this.graph.personaMaps.find(p => p.persona === persona);
+      const personaMap = this.graph.personaMaps.find((p) => p.persona === persona);
       if (personaMap && personaMap.keyKPIs.includes(kpiId)) {
         // Persona-critical KPIs get 10% tighter benchmarks
         return {
           p25: kpi.benchmarks.p25 * 1.1,
           p50: kpi.benchmarks.p50,
-          p75: kpi.benchmarks.p75 * 0.9
+          p75: kpi.benchmarks.p75 * 0.9,
         };
       }
     }
@@ -145,7 +151,7 @@ export class StructuralTruth {
     return {
       p25: kpi.benchmarks.p25,
       p50: kpi.benchmarks.p50,
-      p75: kpi.benchmarks.p75
+      p75: kpi.benchmarks.p75,
     };
   }
 
@@ -153,7 +159,7 @@ export class StructuralTruth {
    * Get all KPIs for a specific industry
    */
   getKPIsByIndustry(industry: StructuralIndustry): StructuralKPINode[] {
-    return ALL_STRUCTURAL_KPIS.filter(kpi => kpi.domain === industry);
+    return ALL_STRUCTURAL_KPIS.filter((kpi) => kpi.domain === industry);
   }
 
   /**
@@ -169,17 +175,17 @@ export class StructuralTruth {
    */
   getDependents(kpiId: string): string[] {
     const dependents: string[] = [];
-    
+
     for (const [sourceId, edges] of this.edgeMap) {
-      edges.forEach(edge => {
-        if (edge.targetId === kpiId && edge.type === 'causal_driver') {
+      edges.forEach((edge) => {
+        if (edge.targetId === kpiId && edge.type === "causal_driver") {
           dependents.push(sourceId);
         }
       });
     }
 
     // Also check formula dependencies
-    this.formulaRegistry.forEach(formula => {
+    this.formulaRegistry.forEach((formula) => {
       if (formula.input_kpis.includes(kpiId)) {
         dependents.push(formula.output_kpi);
       }
@@ -191,26 +197,26 @@ export class StructuralTruth {
   /**
    * Evaluate a formula with given inputs
    */
-  evaluateFormula(
+  async evaluateFormula(
     formulaId: string,
     inputs: FormulaInput[]
-  ): FormulaEvaluationResult {
+  ): Promise<FormulaEvaluationResult> {
     const formula = this.formulaRegistry.get(formulaId);
     if (!formula) {
       return {
         success: false,
-        errors: [`Formula ${formulaId} not found`]
+        errors: [`Formula ${formulaId} not found`],
       };
     }
 
     // Validate inputs
-    const inputMap = new Map(inputs.map(i => [i.kpiId, i]));
-    const missingInputs = formula.input_kpis.filter(id => !inputMap.has(id));
-    
+    const inputMap = new Map(inputs.map((i) => [i.kpiId, i]));
+    const missingInputs = formula.input_kpis.filter((id) => !inputMap.has(id));
+
     if (missingInputs.length > 0) {
       return {
         success: false,
-        errors: [`Missing required inputs: ${missingInputs.join(', ')}`]
+        errors: [`Missing required inputs: ${missingInputs.join(", ")}`],
       };
     }
 
@@ -230,57 +236,60 @@ export class StructuralTruth {
 
     try {
       switch (formula.functional_form) {
-        case 'ratio':
+        case "ratio":
           result = variables[formula.input_kpis[0]] / variables[formula.input_kpis[1]];
           steps.push({
             calculation: `${formula.input_kpis[0]} / ${formula.input_kpis[1]}`,
             result,
-            unit: formula.required_units[0]
+            unit: formula.required_units[0],
           });
           break;
 
-        case 'difference':
-          result = variables[formula.input_kpis[0]] + variables[formula.input_kpis[1]] - variables[formula.input_kpis[2]];
+        case "difference":
+          result =
+            variables[formula.input_kpis[0]] +
+            variables[formula.input_kpis[1]] -
+            variables[formula.input_kpis[2]];
           steps.push({
             calculation: `${formula.input_kpis[0]} + ${formula.input_kpis[1]} - ${formula.input_kpis[2]}`,
             result,
-            unit: formula.required_units[0]
+            unit: formula.required_units[0],
           });
           break;
 
-        case 'product':
+        case "product":
           result = formula.input_kpis.reduce((acc, kpi) => acc * variables[kpi], 1);
           steps.push({
-            calculation: formula.input_kpis.join(' * '),
+            calculation: formula.input_kpis.join(" * "),
             result,
-            unit: formula.required_units[0]
+            unit: formula.required_units[0],
           });
           break;
 
         default:
-          // Custom formula - use eval with sanitization
-          const expression = formula.formula
-            .replace(/([a-z_]+)/g, (match) => {
-              return variables[match] !== undefined ? variables[match].toString() : match;
-            });
-          
-          result = eval(expression);
+          // Custom formula - use safe evaluator
+          const expression = formula.formula.replace(/([a-z_]+)/g, (match) => {
+            return variables[match] !== undefined ? variables[match].toString() : match;
+          });
+
+          // Use safe evaluator instead of eval
+          result = evaluateFormula(expression, variables);
           steps.push({
             calculation: formula.formula,
             result,
-            unit: formula.required_units[0]
+            unit: formula.required_units[0],
           });
       }
 
       // Validate against constraints
       const validation = this.validateFormulaResult(formula, result);
-      
+
       if (!validation.valid && this.config.strictValidation) {
         return {
           success: false,
           errors: validation.errors,
           warnings: validation.warnings,
-          intermediateSteps: steps
+          intermediateSteps: steps,
         };
       }
 
@@ -289,17 +298,18 @@ export class StructuralTruth {
         output: {
           kpiId: formula.output_kpi,
           value: result,
-          confidence: avgConfidence * validation.confidence
+          confidence: avgConfidence * validation.confidence,
         },
         intermediateSteps: steps,
-        warnings: validation.warnings
+        warnings: validation.warnings,
       };
-
     } catch (error) {
       return {
         success: false,
-        errors: [`Formula evaluation error: ${error instanceof Error ? error.message : 'Unknown error'}`],
-        intermediateSteps: steps
+        errors: [
+          `Formula evaluation error: ${error instanceof Error ? error.message : "Unknown error"}`,
+        ],
+        intermediateSteps: steps,
       };
     }
   }
@@ -327,12 +337,15 @@ export class StructuralTruth {
     // Check logical constraints
     for (const check of formula.validation_constraints.logical_checks) {
       try {
-        // Simple constraint evaluation
-        const checkResult = eval(check.replace(/([a-z_]+)/g, (match) => {
-          return formula.input_kpis.includes(match) ? result.toString() : match;
-        }));
-        
-        if (!checkResult) {
+        // Simple constraint evaluation - use safe evaluator
+        const constraintResult = evaluateFormula(
+          check.replace(/([a-z_]+)/g, (match) => {
+            return formula.input_kpis.includes(match) ? result.toString() : match;
+          }),
+          {}
+        );
+
+        if (!constraintResult) {
           warnings.push(`Logical check failed: ${check}`);
           confidence *= 0.9;
         }
@@ -345,7 +358,7 @@ export class StructuralTruth {
       valid: errors.length === 0,
       errors,
       warnings,
-      confidence
+      confidence,
     };
   }
 
@@ -362,22 +375,22 @@ export class StructuralTruth {
 
     const traverse = (kpiId: string, currentImpact: number, depth: number) => {
       if (depth > maxDepth || visited.has(`${kpiId}-${depth}`)) return;
-      
+
       visited.add(`${kpiId}-${depth}`);
-      
+
       // Find formulas that use this KPI as input
-      this.formulaRegistry.forEach(formula => {
+      this.formulaRegistry.forEach((formula) => {
         if (formula.input_kpis.includes(kpiId)) {
           // Calculate how much this KPI contributes to the output
           const inputIndex = formula.input_kpis.indexOf(kpiId);
           const sensitivity = this.calculateSensitivity(formula, inputIndex);
-          
+
           const outputImpact = currentImpact * sensitivity;
-          
+
           impacts.push({
             kpiId: formula.output_kpi,
             impact: outputImpact,
-            depth: depth + 1
+            depth: depth + 1,
           });
 
           // Recursively traverse
@@ -387,15 +400,15 @@ export class StructuralTruth {
 
       // Also check edge relationships
       const edges = this.edgeMap.get(kpiId) || [];
-      edges.forEach(edge => {
-        if (edge.type === 'causal_driver') {
+      edges.forEach((edge) => {
+        if (edge.type === "causal_driver") {
           const edgeImpact = currentImpact * edge.strength;
           impacts.push({
             kpiId: edge.targetId,
             impact: edgeImpact,
-            depth: depth + 1
+            depth: depth + 1,
           });
-          
+
           traverse(edge.targetId, edgeImpact, depth + 1);
         }
       });
@@ -431,17 +444,21 @@ export class StructuralTruth {
     });
 
     switch (formula.functional_form) {
-      case 'ratio':
+      case "ratio":
         return variables[formula.input_kpis[0]] / variables[formula.input_kpis[1]];
-      case 'difference':
-        return variables[formula.input_kpis[0]] + variables[formula.input_kpis[1]] - variables[formula.input_kpis[2]];
-      case 'product':
+      case "difference":
+        return (
+          variables[formula.input_kpis[0]] +
+          variables[formula.input_kpis[1]] -
+          variables[formula.input_kpis[2]]
+        );
+      case "product":
         return formula.input_kpis.reduce((acc, kpi) => acc * variables[kpi], 1);
       default:
         const expression = formula.formula.replace(/([a-z_]+)/g, (match) => {
           return variables[match] !== undefined ? variables[match].toString() : match;
         });
-        return eval(expression);
+        return evaluateFormula(expression, variables);
     }
   }
 
@@ -456,11 +473,11 @@ export class StructuralTruth {
    * Find KPIs by persona
    */
   getKPIsForPersona(persona: StructuralPersona): StructuralKPINode[] {
-    const personaMap = this.graph.personaMaps.find(p => p.persona === persona);
+    const personaMap = this.graph.personaMaps.find((p) => p.persona === persona);
     if (!personaMap) return [];
 
     return personaMap.keyKPIs
-      .map(id => this.kpiMap.get(id))
+      .map((id) => this.kpiMap.get(id))
       .filter((kpi): kpi is StructuralKPINode => kpi !== undefined);
   }
 
@@ -468,14 +485,14 @@ export class StructuralTruth {
    * Get financial driver for persona
    */
   getFinancialDriver(persona: StructuralPersona): string | undefined {
-    const personaMap = this.graph.personaMaps.find(p => p.persona === persona);
+    const personaMap = this.graph.personaMaps.find((p) => p.persona === persona);
     return personaMap?.financialDriver;
   }
 }
 
 /**
  * Formula Registry API
- * 
+ *
  * Provides a clean interface for formula operations
  */
 export class FormulaRegistryAPI {
@@ -495,14 +512,14 @@ export class FormulaRegistryAPI {
    * Get all formulas for a KPI
    */
   getFormulasForKPI(kpiId: string): FormulaRegistry[] {
-    return Array.from(this.registry.values()).filter(f => f.output_kpi === kpiId);
+    return Array.from(this.registry.values()).filter((f) => f.output_kpi === kpiId);
   }
 
   /**
    * Get formulas that use this KPI as input
    */
   getFormulasUsingKPI(kpiId: string): FormulaRegistry[] {
-    return Array.from(this.registry.values()).filter(f => f.input_kpis.includes(kpiId));
+    return Array.from(this.registry.values()).filter((f) => f.input_kpis.includes(kpiId));
   }
 
   /**
@@ -518,8 +535,8 @@ export class FormulaRegistryAPI {
    */
   getDependents(kpiId: string): string[] {
     const dependents: string[] = [];
-    
-    this.registry.forEach(formula => {
+
+    this.registry.forEach((formula) => {
       if (formula.input_kpis.includes(kpiId)) {
         dependents.push(formula.output_kpi);
       }
@@ -536,19 +553,19 @@ export class FormulaRegistryAPI {
     if (!formula) {
       return {
         success: false,
-        errors: [`Formula ${formulaId} not found`]
+        errors: [`Formula ${formulaId} not found`],
       };
     }
 
     // Use the structural truth engine for evaluation
     // This is a simplified version - in practice, we'd use the main engine
-    const inputMap = new Map(inputs.map(i => [i.kpiId, i]));
-    const missingInputs = formula.input_kpis.filter(id => !inputMap.has(id));
-    
+    const inputMap = new Map(inputs.map((i) => [i.kpiId, i]));
+    const missingInputs = formula.input_kpis.filter((id) => !inputMap.has(id));
+
     if (missingInputs.length > 0) {
       return {
         success: false,
-        errors: [`Missing required inputs: ${missingInputs.join(', ')}`]
+        errors: [`Missing required inputs: ${missingInputs.join(", ")}`],
       };
     }
 
@@ -563,22 +580,25 @@ export class FormulaRegistryAPI {
 
     try {
       let result: number;
-      
+
       switch (formula.functional_form) {
-        case 'ratio':
+        case "ratio":
           result = variables[formula.input_kpis[0]] / variables[formula.input_kpis[1]];
           break;
-        case 'difference':
-          result = variables[formula.input_kpis[0]] + variables[formula.input_kpis[1]] - variables[formula.input_kpis[2]];
+        case "difference":
+          result =
+            variables[formula.input_kpis[0]] +
+            variables[formula.input_kpis[1]] -
+            variables[formula.input_kpis[2]];
           break;
-        case 'product':
+        case "product":
           result = formula.input_kpis.reduce((acc, kpi) => acc * variables[kpi], 1);
           break;
         default:
           const expression = formula.formula.replace(/([a-z_]+)/g, (match) => {
             return variables[match] !== undefined ? variables[match].toString() : match;
           });
-          result = eval(expression);
+          result = evaluateFormula(expression, variables);
       }
 
       return {
@@ -586,14 +606,13 @@ export class FormulaRegistryAPI {
         output: {
           kpiId: formula.output_kpi,
           value: result,
-          confidence: avgConfidence
-        }
+          confidence: avgConfidence,
+        },
       };
-
     } catch (error) {
       return {
         success: false,
-        errors: [`Evaluation error: ${error instanceof Error ? error.message : 'Unknown error'}`]
+        errors: [`Evaluation error: ${error instanceof Error ? error.message : "Unknown error"}`],
       };
     }
   }
@@ -607,4 +626,4 @@ export class FormulaRegistryAPI {
 }
 
 // Export types and utilities
-export * from '../types/structural-truth';
+export * from "../types/structural-truth";

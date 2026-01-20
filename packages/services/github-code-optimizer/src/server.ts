@@ -1,10 +1,16 @@
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import { logger } from './utils/logger.js';
-import { webhookRouter } from './webhooks/router.js';
-import { dashboardRouter } from './dashboard/router.js';
-import { config } from './config/index.js';
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
+import {
+  safeClearElement,
+  safeSetPlaceholder,
+  safeCreateJobRow,
+  safeCreateOptimizationCard,
+} from "./safe-html";
+import { logger } from "./utils/logger.js";
+import { webhookRouter } from "./webhooks/router.js";
+import { dashboardRouter } from "./dashboard/router.js";
+import { config } from "./config/index.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,20 +18,20 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(helmet());
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+app.get("/health", (req, res) => {
+  res.json({ status: "healthy", timestamp: new Date().toISOString() });
 });
 
 // API routes
-app.use('/webhooks', webhookRouter);
-app.use('/api', dashboardRouter);
+app.use("/webhooks", webhookRouter);
+app.use("/api", dashboardRouter);
 
 // Dashboard HTML page
-app.get('/dashboard', (req, res) => {
+app.get("/dashboard", (req, res) => {
   res.send(`
 <!DOCTYPE html>
 <html lang="en">
@@ -129,19 +135,13 @@ app.get('/dashboard', (req, res) => {
                 // Fetch jobs
                 const jobs = await fetchData('/api/jobs');
                 const jobsBody = document.getElementById('jobsBody');
-                jobsBody.innerHTML = '';
+                safeClearElement('jobsBody');
 
                 if (jobs.length === 0) {
-                    jobsBody.innerHTML = '<tr><td colspan="4">No jobs found</td></tr>';
+                    safeSetPlaceholder('jobsBody', 'No jobs found');
                 } else {
                     jobs.slice(0, 10).forEach(job => {
-                        const row = document.createElement('tr');
-                        row.innerHTML = \`
-                            <td>\${job.repository.fullName}</td>
-                            <td class="status-\${job.status}">\${job.status.toUpperCase()}</td>
-                            <td>\${new Date(job.startedAt).toLocaleString()}</td>
-                            <td>\${job.completedAt ? Math.round((new Date(job.completedAt) - new Date(job.startedAt)) / 1000) + 's' : '-'}</td>
-                        \`;
+                        const row = safeCreateJobRow(job);
                         jobsBody.appendChild(row);
                     });
                 }
@@ -149,38 +149,19 @@ app.get('/dashboard', (req, res) => {
                 // Fetch recent optimizations from all repositories
                 const repositories = await fetchData('/api/repositories');
                 const optimizationsContainer = document.getElementById('optimizationsContainer');
-                optimizationsContainer.innerHTML = '';
+                safeClearElement('optimizationsContainer');
 
                 if (repositories.length === 0) {
-                    optimizationsContainer.innerHTML = '<p>No repositories configured</p>';
+                    safeSetPlaceholder('optimizationsContainer', 'No repositories configured');
                 } else {
                     let hasOptimizations = false;
                     for (const repo of repositories) {
                         try {
-                            const optimizations = await fetchData(\`/api/repositories/\${repo.owner.login}/\${repo.name}/optimizations\`);
+                            const optimizations = await fetchData(`/api/repositories/${repo.owner.login}/${repo.name}/optimizations`);
                             if (optimizations.length > 0) {
                                 hasOptimizations = true;
                                 optimizations.slice(0, 5).forEach(opt => {
-                                    const card = document.createElement('div');
-                                    card.className = 'optimization-card';
-                                    card.innerHTML = \`
-                                        <div class="optimization-title">\${opt.type}: \${opt.filePath}</div>
-                                        <div class="optimization-description">\${opt.description}</div>
-                                        <div class="optimization-metrics">
-                                            <div class="metric">
-                                                <span class="metric-label">Complexity</span>
-                                                <span class="metric-value">\${opt.beforeMetrics?.complexity || 'N/A'} → \${opt.afterMetrics?.complexity || 'N/A'}</span>
-                                            </div>
-                                            <div class="metric">
-                                                <span class="metric-label">Performance</span>
-                                                <span class="metric-value">\${opt.beforeMetrics?.performance || 'N/A'} → \${opt.afterMetrics?.performance || 'N/A'}</span>
-                                            </div>
-                                            <div class="metric">
-                                                <span class="metric-label">Confidence</span>
-                                                <span class="metric-value">\${Math.round(opt.confidence * 100)}%</span>
-                                            </div>
-                                        </div>
-                                    \`;
+                                    const card = safeCreateOptimizationCard(opt);
                                     optimizationsContainer.appendChild(card);
                                 });
                             }
@@ -189,7 +170,7 @@ app.get('/dashboard', (req, res) => {
                         }
                     }
                     if (!hasOptimizations) {
-                        optimizationsContainer.innerHTML = '<p>No optimizations found</p>';
+                        safeSetPlaceholder('optimizationsContainer', 'No optimizations found');
                     }
                 }
             } catch (error) {
@@ -211,26 +192,26 @@ app.get('/dashboard', (req, res) => {
 
 // Error handling
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  logger.error('Unhandled error:', err);
-  res.status(500).json({ error: 'Internal server error' });
+  logger.error("Unhandled error:", err);
+  res.status(500).json({ error: "Internal server error" });
 });
 
 // Start server
 app.listen(PORT, () => {
   logger.info(`GitHub Code Optimizer Bot running on port ${PORT}`);
-  logger.info('Configuration:', {
-    githubToken: config.github.token ? 'configured' : 'missing',
-    openRouterKey: config.openRouter.apiKey ? 'configured' : 'missing',
-    database: config.database.type
+  logger.info("Configuration:", {
+    githubToken: config.github.token ? "configured" : "missing",
+    openRouterKey: config.openRouter.apiKey ? "configured" : "missing",
+    database: config.database.type,
   });
 });
 
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM received, shutting down gracefully');
+process.on("SIGTERM", () => {
+  logger.info("SIGTERM received, shutting down gracefully");
   process.exit(0);
 });
 
-process.on('SIGINT', () => {
-  logger.info('SIGINT received, shutting down gracefully');
+process.on("SIGINT", () => {
+  logger.info("SIGINT received, shutting down gracefully");
   process.exit(0);
 });
