@@ -21,8 +21,9 @@ const DEFAULT_CONFIG: DOMPurify.Config = {
     'strong',
     'ul',
     'span',
+    'img',
   ],
-  ALLOWED_ATTR: ['href', 'target', 'rel', 'title', 'class'],
+  ALLOWED_ATTR: ['href', 'target', 'rel', 'title', 'class', 'src', 'alt', 'width', 'height'],
   ALLOW_DATA_ATTR: false,
   ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i,
 };
