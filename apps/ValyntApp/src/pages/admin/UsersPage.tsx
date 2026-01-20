@@ -1,9 +1,10 @@
+import { Mail, MoreHorizontal, Plus, Search, Shield } from "lucide-react";
 import { useState } from "react";
-import { Search, Plus, MoreHorizontal, Mail, Shield } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
 interface User {
   id: string;
@@ -96,8 +97,8 @@ export function UsersPage() {
                   </Badge>
                   <Badge className={statusColors[user.status]}>{user.status}</Badge>
                   <span className="text-sm text-muted-foreground w-24">{user.lastActive}</span>
-                  <Button variant="ghost" size="icon">
-                    <MoreHorizontal className="h-4 w-4" />
+                  <Button variant="ghost" size="icon" aria-label="More actions">
+                    <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
                   </Button>
                 </div>
               </div>
