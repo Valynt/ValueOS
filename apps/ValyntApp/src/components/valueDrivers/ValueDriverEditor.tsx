@@ -1,6 +1,6 @@
 /**
  * ValueDriverEditor - Modal for creating/editing value drivers
- * 
+ *
  * Full editor with formula builder, persona tags, and narrative pitch.
  */
 
@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { SimpleSelect } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { evaluateFormula } from "@/utils/formulas";
 import {
   ValueDriver,
   ValueDriverType,
@@ -44,8 +45,23 @@ const TYPE_OPTIONS = Object.entries(VALUE_DRIVER_TYPE_LABELS).map(([value, label
   label,
 }));
 
-const ALL_PERSONAS: PersonaTag[] = ["cro", "cmo", "cfo", "cto", "vp-sales", "se-director", "cs-leader", "procurement"];
-const ALL_MOTIONS: SalesMotionTag[] = ["new-logo", "renewal", "expansion", "land-expand", "competitive-displacement"];
+const ALL_PERSONAS: PersonaTag[] = [
+  "cro",
+  "cmo",
+  "cfo",
+  "cto",
+  "vp-sales",
+  "se-director",
+  "cs-leader",
+  "procurement",
+];
+const ALL_MOTIONS: SalesMotionTag[] = [
+  "new-logo",
+  "renewal",
+  "expansion",
+  "land-expand",
+  "competitive-displacement",
+];
 
 export function ValueDriverEditor({ driver, onSave, onClose }: ValueDriverEditorProps) {
   const isNew = !driver;
@@ -73,17 +89,13 @@ export function ValueDriverEditor({ driver, onSave, onClose }: ValueDriverEditor
 
   const togglePersonaTag = (tag: PersonaTag) => {
     const current = formData.personaTags || [];
-    const updated = current.includes(tag)
-      ? current.filter((t) => t !== tag)
-      : [...current, tag];
+    const updated = current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag];
     handleChange("personaTags", updated);
   };
 
   const toggleMotionTag = (tag: SalesMotionTag) => {
     const current = formData.salesMotionTags || [];
-    const updated = current.includes(tag)
-      ? current.filter((t) => t !== tag)
-      : [...current, tag];
+    const updated = current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag];
     handleChange("salesMotionTags", updated);
   };
 
@@ -104,9 +116,7 @@ export function ValueDriverEditor({ driver, onSave, onClose }: ValueDriverEditor
   const updateVariable = (id: string, updates: Partial<FormulaVariable>) => {
     handleChange("formula", {
       ...formData.formula!,
-      variables: formData.formula!.variables.map((v) =>
-        v.id === id ? { ...v, ...updates } : v
-      ),
+      variables: formData.formula!.variables.map((v) => (v.id === id ? { ...v, ...updates } : v)),
     });
   };
 
@@ -124,10 +134,10 @@ export function ValueDriverEditor({ driver, onSave, onClose }: ValueDriverEditor
       vars.forEach((v) => {
         scope[v.name] = v.defaultValue;
       });
-      
-      // Simple eval for demo - in production use a proper expression parser
+
+      // Use safe evaluator instead of new Function
       const expr = formData.formula?.expression || "0";
-      const result = new Function(...Object.keys(scope), `return ${expr}`)(...Object.values(scope));
+      const result = evaluateFormula(expr, scope);
       setPreviewValue(result);
     } catch {
       setPreviewValue(null);
@@ -212,7 +222,9 @@ export function ValueDriverEditor({ driver, onSave, onClose }: ValueDriverEditor
               <Label>Status</Label>
               <SimpleSelect
                 value={formData.status || "draft"}
-                onValueChange={(v) => handleChange("status", v as "draft" | "published" | "archived")}
+                onValueChange={(v) =>
+                  handleChange("status", v as "draft" | "published" | "archived")
+                }
                 options={[
                   { value: "draft", label: "Draft" },
                   { value: "published", label: "Published" },
@@ -312,7 +324,11 @@ export function ValueDriverEditor({ driver, onSave, onClose }: ValueDriverEditor
                     <Input
                       type="number"
                       value={variable.defaultValue}
-                      onChange={(e) => updateVariable(variable.id, { defaultValue: parseFloat(e.target.value) || 0 })}
+                      onChange={(e) =>
+                        updateVariable(variable.id, {
+                          defaultValue: parseFloat(e.target.value) || 0,
+                        })
+                      }
                       className="text-sm"
                     />
                   </div>
@@ -349,7 +365,9 @@ export function ValueDriverEditor({ driver, onSave, onClose }: ValueDriverEditor
               <Label className="text-xs">Formula Expression</Label>
               <Input
                 value={formData.formula?.expression}
-                onChange={(e) => handleChange("formula", { ...formData.formula!, expression: e.target.value })}
+                onChange={(e) =>
+                  handleChange("formula", { ...formData.formula!, expression: e.target.value })
+                }
                 placeholder="e.g., demosPerMonth * timeSaved * hourlyRate * 12"
                 className="font-mono text-sm mt-1"
               />

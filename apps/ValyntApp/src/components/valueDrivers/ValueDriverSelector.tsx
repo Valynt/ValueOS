@@ -1,19 +1,11 @@
 /**
  * ValueDriverSelector - Seller-facing component for selecting value drivers
- * 
+ *
  * Shows only published drivers with persona-specific summaries and editable fields.
  */
 
 import { useState } from "react";
-import {
-  Search,
-  Plus,
-  Check,
-  ChevronRight,
-  TrendingUp,
-  Calculator,
-  Sparkles,
-} from "lucide-react";
+import { Search, Plus, Check, ChevronRight, TrendingUp, Calculator, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, SearchInput } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +18,7 @@ import {
   VALUE_DRIVER_TYPE_LABELS,
   PERSONA_TAG_LABELS,
 } from "@/types/valueDriver";
+import { evaluateFormula } from "@/utils/formulas";
 
 interface SelectedDriver {
   driver: ValueDriver;
@@ -79,8 +72,8 @@ export function ValueDriverSelector({
       driver.formula.variables.forEach((v) => {
         scope[v.name] = customValues[v.name] ?? v.defaultValue;
       });
-      const result = new Function(...Object.keys(scope), `return ${driver.formula.expression}`)(...Object.values(scope));
-      return result;
+      // Use safe evaluator instead of new Function
+      return evaluateFormula(driver.formula.expression, scope);
     } catch {
       return 0;
     }
@@ -132,9 +125,7 @@ export function ValueDriverSelector({
                         {VALUE_DRIVER_TYPE_LABELS[driver.type]}
                       </Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {driver.narrativePitch}
-                    </p>
+                    <p className="text-sm text-muted-foreground">{driver.narrativePitch}</p>
                     <div className="flex items-center gap-2 mt-2">
                       {driver.personaTags.slice(0, 3).map((tag) => (
                         <Badge key={tag} variant="outline" className="text-xs">
@@ -175,7 +166,12 @@ export function ValueDriverSelector({
                         }}
                       >
                         {isExpanded ? "Collapse" : "Expand"}
-                        <ChevronRight className={cn("h-4 w-4 ml-1 transition-transform", isExpanded && "rotate-90")} />
+                        <ChevronRight
+                          className={cn(
+                            "h-4 w-4 ml-1 transition-transform",
+                            isExpanded && "rotate-90"
+                          )}
+                        />
                       </Button>
                     </div>
 
@@ -188,7 +184,9 @@ export function ValueDriverSelector({
                             </label>
                             <Input
                               type="number"
-                              value={selectedData?.customValues[variable.name] ?? variable.defaultValue}
+                              value={
+                                selectedData?.customValues[variable.name] ?? variable.defaultValue
+                              }
                               onChange={(e) => {
                                 const newValues = {
                                   ...selectedData?.customValues,
