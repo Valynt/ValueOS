@@ -31,4 +31,16 @@ describe('sanitizeHtml', () => {
     const cleaned = sanitizeHtml(dirty);
     expect(cleaned).toContain('rel="noopener noreferrer"');
   });
+
+  it('allows image tags with allowed attributes', () => {
+    const dirty = '<img src="image.jpg" alt="test image" width="100" height="100" />';
+    const cleaned = sanitizeHtml(dirty);
+    expect(cleaned).toBe('<img src="image.jpg" alt="test image" width="100" height="100">');
+  });
+
+  it('removes dangerous attributes from image tags', () => {
+    const dirty = '<img src="image.jpg" onerror="alert(1)" />';
+    const cleaned = sanitizeHtml(dirty);
+    expect(cleaned).toBe('<img src="image.jpg">');
+  });
 });
