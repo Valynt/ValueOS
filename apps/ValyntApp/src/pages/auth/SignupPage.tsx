@@ -201,13 +201,15 @@ export function SignupPage() {
           </button>
 
           {/* Bypass Button */}
-          <button
-            type="button"
-            onClick={handleBypass}
-            className="inline-flex items-center justify-center w-full h-11 px-4 rounded-md border border-yellow-600 bg-yellow-900/20 text-yellow-400 font-medium hover:bg-yellow-900/30 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-black transition-colors text-xs"
-          >
-            ⚡ Bypass Signup
-          </button>
+          {import.meta.env.DEV && (
+            <button
+              type="button"
+              onClick={handleBypass}
+              className="inline-flex items-center justify-center w-full h-11 px-4 rounded-md border border-yellow-600 bg-yellow-900/20 text-yellow-400 font-medium hover:bg-yellow-900/30 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-black transition-colors text-xs"
+            >
+              ⚡ Bypass Signup
+            </button>
+          )}
         </form>
 
         {/* Footer */}

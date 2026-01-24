@@ -5,3 +5,5 @@ export const logger = {
   error: (msg: string, data?: any) => console.error(`[ERROR] ${msg}`, data),
   debug: (msg: string, data?: any) => console.debug(`[DEBUG] ${msg}`, data),
 };
+
+export const createLogger = () => logger;
