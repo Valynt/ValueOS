@@ -4,6 +4,8 @@ ValueOS is a multi-workspace platform for value modeling and lifecycle intellige
 
 ## Setup
 
+**Note:** `pnpm run setup` is for workstation bootstrapping only. Docker builds and CI pipelines do not use it; they rely on deterministic `pnpm install --frozen-lockfile`.
+
 1. Install Node.js 20+ (use `.nvmrc`) and Docker Desktop.
 2. Enable Corepack and install dependencies:
 

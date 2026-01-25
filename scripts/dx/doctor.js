@@ -2,6 +2,7 @@
 
 /**
  * DX Doctor: fail-fast preflight checks for dev environment.
+ * Workstation-only checks. Not for use in Docker builds.
  */
 
 import fs from "fs";

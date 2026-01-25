@@ -18,6 +18,14 @@ RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 FROM base AS deps
 WORKDIR /app
 
+# Install native build tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    make \
+    g++ \
+    build-essential \
+  && rm -rf /var/lib/apt/lists/*
+
 # Copy only the files needed to resolve the workspace + lockfile for deterministic installs
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY .npmrc* ./
@@ -30,6 +38,14 @@ COPY packages/sdui/package.json packages/sdui/
 # Deterministic install with cached pnpm store
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
   pnpm install --frozen-lockfile --prefer-offline --filter @valueos/backend...
+
+# Builder stage for build verification
+FROM deps AS builder
+WORKDIR /app
+COPY packages/backend ./packages/backend
+COPY packages/shared ./packages/shared
+COPY packages/sdui ./packages/sdui
+RUN pnpm --filter @valueos/backend build
 
 FROM base AS runtime
 WORKDIR /app
