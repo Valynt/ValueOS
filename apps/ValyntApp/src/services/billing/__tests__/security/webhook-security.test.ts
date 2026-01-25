@@ -13,8 +13,26 @@ import {
 } from "../__helpers__/stripe-mocks";
 import { createWebhookSignature } from "../__helpers__/test-fixtures";
 
+// Mock Stripe library
+vi.mock("stripe", () => {
+  const constructEvent = vi.fn((payload, signature) => {
+    if (!signature || signature.includes("invalid")) {
+      throw new Error("Invalid signature");
+    }
+    return JSON.parse(payload as string);
+  });
+
+  return {
+    default: class MockStripe {
+      webhooks = {
+        constructEvent,
+      };
+    },
+  };
+});
+
 // Mock the billing config
-vi.mock("../../config/billing", () => ({
+vi.mock("../../../../config/billing", () => ({
   STRIPE_CONFIG: {
     secretKey: "sk_test_mock",
     publishableKey: "pk_test_mock",

@@ -325,115 +325,144 @@ export class AgentAPI {
       };
     }
 
-    try {
-      // Log request if enabled
-      if (this.config.enableLogging) {
-        logger.debug(`[AgentAPI] Request to ${agent}:`, { endpoint, body: sanitizedBody });
-      }
+    let lastError: Error | null = null;
+    const maxRetries = 3;
 
-      // Make HTTP request
-      const url = `${this.config.baseUrl}${endpoint}`;
-      const response = await this.fetchWithTimeout(
-        url,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...addServiceIdentityHeader({}),
-            ...this.config.headers,
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Log request if enabled
+        if (this.config.enableLogging) {
+          logger.debug(`[AgentAPI] Request to ${agent} (Attempt ${attempt}/${maxRetries}):`, { endpoint, body: sanitizedBody });
+        }
+
+        // Make HTTP request
+        const url = `${this.config.baseUrl}${endpoint}`;
+        const response = await this.fetchWithTimeout(
+          url,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...addServiceIdentityHeader({}),
+              ...this.config.headers,
+            },
+            body: JSON.stringify(sanitizedBody),
           },
-          body: JSON.stringify(sanitizedBody),
-        },
-        this.config.timeout
-      );
-
-      const duration = Date.now() - startTime;
-
-      // Handle HTTP errors
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `HTTP ${response.status}: ${response.statusText} - ${errorText}`
+          this.config.timeout
         );
-      }
 
-      // Parse response
-      const data = await response.json();
-      const sanitizedData = sanitizeObject(data.data || data);
-      const normalizedTokens = this.normalizeTokenUsage(data.tokens);
+        const duration = Date.now() - startTime;
 
-      // Record success in circuit breaker
-      if (circuitBreaker) {
-        circuitBreaker.recordSuccess();
-      }
+        // Handle HTTP errors
+        if (!response.ok) {
+          const isServerErr = response.status >= 500;
+          if (isServerErr && attempt < maxRetries) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          const errorText = await response.text();
+          throw new Error(
+            `HTTP ${response.status}: ${response.statusText} - ${errorText}`
+          );
+        }
 
-      // Log response if enabled
-      if (this.config.enableLogging) {
-        logger.debug(`[AgentAPI] Response from ${agent}:`, data);
-      }
+        // Parse response
+        const data = await response.json();
+        const sanitizedData = sanitizeObject(data.data || data);
+        const normalizedTokens = this.normalizeTokenUsage(data.tokens);
 
-      const result = {
-        success: true,
-        data: sanitizedData,
-        confidence: data.confidence,
-        metadata: {
+        // Record success in circuit breaker
+        if (circuitBreaker) {
+          circuitBreaker.recordSuccess();
+        }
+
+        // Log response if enabled
+        if (this.config.enableLogging) {
+          logger.debug(`[AgentAPI] Response from ${agent}:`, data);
+        }
+
+        const result = {
+          success: true,
+          data: sanitizedData,
+          confidence: data.confidence,
+          metadata: {
+            agent,
+            duration,
+            timestamp: new Date().toISOString(),
+            model: data.model,
+            tokens: normalizedTokens,
+          },
+          warnings: sanitizeObject(data.warnings || []),
+        };
+
+        // Log to audit system
+        await logAgentResponse(
           agent,
-          duration,
-          timestamp: new Date().toISOString(),
-          model: data.model,
-          tokens: normalizedTokens,
-        },
-        warnings: sanitizeObject(data.warnings || []),
-      };
+          sanitizedBody.query || '',
+          true,
+          sanitizedData,
+          result.metadata,
+          undefined,
+          sanitizedBody.context
+        );
 
-      // Log to audit system
-      await logAgentResponse(
-        agent,
-        sanitizedBody.query || '',
-        true,
-        sanitizedData,
-        result.metadata,
-        undefined,
-        sanitizedBody.context
-      );
+        return result;
 
-      return result;
-    } catch (error) {
-      const duration = Date.now() - startTime;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
 
-      // Record failure in circuit breaker
-      if (circuitBreaker) {
-        circuitBreaker.recordFailure();
+        const isRetryable = lastError.message.includes("HTTP 5") ||
+                           lastError.message.includes("timeout") ||
+                           lastError.message.includes("fetch");
+
+        if (attempt < maxRetries && isRetryable) {
+          const backoff = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+          if (this.config.enableLogging) {
+            logger.warn(`[AgentAPI] Retry ${attempt} for ${agent} after ${backoff}ms due to: ${lastError.message}`);
+          }
+          await new Promise(resolve => setTimeout(resolve, backoff));
+          continue;
+        }
+
+        // Break loop for non-retryable errors or max retries
+        break;
       }
-
-      // Log error if enabled
-      if (this.config.enableLogging) {
-        logger.error(`[AgentAPI] Error from ${agent}:`, error instanceof Error ? error : new Error(String(error)));
-      }
-
-      const result = {
-        success: false,
-        error: (error as Error).message,
-        metadata: {
-          agent,
-          duration,
-          timestamp: new Date().toISOString(),
-        },
-      };
-
-      // Log to audit system
-      await logAgentResponse(
-        agent,
-        sanitizedBody.query || '',
-        false,
-        undefined,
-        result.metadata,
-        (error as Error).message,
-        sanitizedBody.context
-      );
-
-      return result;
     }
+
+    // Handle final failure
+    const duration = Date.now() - startTime;
+
+    // Record failure in circuit breaker
+    if (circuitBreaker) {
+      circuitBreaker.recordFailure();
+    }
+
+    // Log error if enabled
+    if (this.config.enableLogging) {
+      logger.error(`[AgentAPI] Error from ${agent}:`, lastError);
+    }
+
+    const result = {
+      success: false,
+      error: lastError?.message || "Unknown error",
+      metadata: {
+        agent,
+        duration,
+        timestamp: new Date().toISOString(),
+      },
+    };
+
+    // Log to audit system
+    await logAgentResponse(
+      agent,
+      sanitizedBody.query || '',
+      false,
+      undefined,
+      result.metadata,
+      result.error,
+      sanitizedBody.context
+    );
+
+    return result;
   }
 
   /**
@@ -672,6 +701,69 @@ export class AgentAPI {
       context: request.context,
       parameters: request.parameters,
     });
+  }
+
+  /**
+   * Stream agent response using SSE (via fetch for auth headers)
+   */
+  streamAgentResponse(jobId: string, onUpdate: (data: any) => void): () => void {
+    const controller = new AbortController();
+    const url = `${this.config.baseUrl}/jobs/${jobId}/stream`;
+
+    // Start streaming in background
+    (async () => {
+      try {
+        const response = await fetchWithCSRF(url, {
+          signal: controller.signal,
+          headers: {
+            ...addServiceIdentityHeader({}),
+            ...this.config.headers,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error("No readable stream");
+
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const json = line.slice(6);
+              try {
+                const data = JSON.parse(json);
+                onUpdate(data);
+                if (data.status === 'completed' || data.status === 'error') {
+                  controller.abort();
+                  return;
+                }
+              } catch (e) {
+                logger.warn('[AgentAPI] Failed to parse SSE message', e);
+              }
+            }
+          }
+        }
+      } catch (error: any) {
+        if (error.name !== 'AbortError') {
+          logger.error('[AgentAPI] SSE Stream error', error);
+          onUpdate({ status: 'error', error: error.message });
+        }
+      }
+    })();
+
+    return () => controller.abort();
   }
 
   /**

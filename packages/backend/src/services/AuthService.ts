@@ -3,7 +3,6 @@
  * Handles session management and authentication operations
  */
 
-import { logger } from "../lib/logger";
 import { BaseService } from "./BaseService";
 import { AuthenticationError, RateLimitError, ValidationError } from "./errors";
 import { Session, User } from "@supabase/supabase-js";
@@ -53,7 +52,17 @@ export class AuthService extends BaseService {
 
   constructor() {
     super("AuthService");
-    this.tctSecret = process.env.TCT_SECRET || "default-tct-secret-change-me";
+    if (!process.env.TCT_SECRET) {
+      if (process.env.NODE_ENV === "production") {
+        throw new Error("TCT_SECRET must be set in production");
+      }
+      // In development, we can log a warning but still need a value to function
+      // Ideally this should come from .env.local
+      console.warn("WARN: TCT_SECRET not set, using insecure default for development only.");
+      this.tctSecret = "default-tct-secret-change-me";
+    } else {
+      this.tctSecret = process.env.TCT_SECRET;
+    }
   }
 
   private isBrowser(): boolean {
@@ -340,7 +349,7 @@ export class AuthService extends BaseService {
           }
 
           if (mfaResult.usedBackupCode) {
-            logger.warn("User logged in with backup code", {
+            this.log("warn", "User logged in with backup code", {
               userId: data.user.id,
             });
           }

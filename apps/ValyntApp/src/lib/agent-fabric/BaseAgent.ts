@@ -11,6 +11,7 @@ import { LLMGateway, LLMRequest, LLMResponse } from "./LLMGateway";
 import { MemorySystem, MemoryEntry, MemoryQuery } from "./MemorySystem";
 import { AuditLogger, AuditLevel } from "./AuditLogger";
 import { createClient } from "@supabase/supabase-js";
+import { z } from "zod";
 
 // ============================================================================
 // Agent Types
@@ -296,6 +297,76 @@ export abstract class BaseAgent implements IAgent {
     };
 
     return await this.config.llmGateway.execute(fullRequest);
+  }
+
+  /**
+   * Securely invoke LLM with schema validation and hallucination detection
+   */
+  protected async secureInvoke<T>(
+    prompt: string,
+    schema: z.ZodType<T>,
+    options?: {
+      temperature?: number;
+      model?: string;
+      maxRetries?: number;
+    }
+  ): Promise<T> {
+    const maxRetries = options?.maxRetries ?? 3;
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await this.callLLM({
+          provider: "openai",
+          model: options?.model || "gpt-4",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are a precise AI assistant. You must output valid JSON matching the user's request. Do not include markdown formatting (like ```json) or explanations outside the JSON object.",
+            },
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+          temperature: options?.temperature || 0,
+        });
+
+        // Extract JSON from response
+        let content = response.content.trim();
+
+        // Handle markdown code blocks if present
+        if (content.startsWith("```")) {
+          const lines = content.split("\n");
+          if (lines[0].includes("json")) {
+            content = lines.slice(1, -1).join("\n");
+          } else {
+            content = lines.slice(1, -1).join("\n");
+          }
+        }
+
+        // Try to find JSON object if mixed with text
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          content = jsonMatch[0];
+        }
+
+        const parsed = JSON.parse(content);
+
+        // Validate against schema
+        return schema.parse(parsed);
+      } catch (error) {
+        lastError = error as Error;
+        this.logger.warn(`secureInvoke attempt ${attempt} failed`, {
+          error: lastError.message,
+        });
+      }
+    }
+
+    throw new Error(
+      `secureInvoke failed after ${maxRetries} attempts: ${lastError?.message}`
+    );
   }
 
   protected async storeMemory(

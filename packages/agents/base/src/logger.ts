@@ -18,6 +18,11 @@ export interface Logger {
   info(message: string, context?: LogContext): void;
   warn(message: string, context?: LogContext): void;
   error(message: string, error?: Error, context?: LogContext): void;
+  trackError(
+    error: Error,
+    context?: LogContext,
+    severity?: "low" | "medium" | "high" | "critical"
+  ): void;
 }
 
 class ConsoleLogger implements Logger {
@@ -50,7 +55,20 @@ class ConsoleLogger implements Logger {
   }
 
   error(message: string, error?: Error, context?: LogContext): void {
-    console.error(this.formatMessage("ERROR", message, error, context));
+    console.error(this.formatMessage("ERROR", message, context, error));
+  }
+
+  trackError(
+    error: Error,
+    context?: LogContext,
+    severity: "low" | "medium" | "high" | "critical" = "medium"
+  ): void {
+    const enrichedContext = {
+      ...(context || {}),
+      severity,
+      alert: severity === "high" || severity === "critical",
+    };
+    this.error(error.message, error, enrichedContext);
   }
 }
 

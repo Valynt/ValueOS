@@ -12,6 +12,7 @@
 import { Request, Response } from "express";
 import { createSecureRouter } from "../middleware/secureRouter";
 import { requireAuth } from "../middleware/auth";
+import { requireMFA } from "../middleware/mfa";
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation";
 import { authService } from "../services/AuthService";
 import { AuthenticationError, ValidationError } from "../services/errors";
@@ -20,6 +21,7 @@ import { sanitizeForLogging } from "@shared/lib/piiFilter";
 import { auditLogService } from "../services/AuditLogService";
 import { createServerSupabaseClient } from "@shared/lib/supabase";
 import { sanitizeErrorMessage } from "../utils/security";
+import { getConfig } from "../config/environment";
 
 const logger = createLogger({ component: "AuthAPI" });
 const router = createSecureRouter("strict");
@@ -267,7 +269,7 @@ router.post(
         type: "signup",
         email,
         options: {
-          emailRedirectTo: `${req.protocol}://${req.get("host")}/auth/callback`,
+          emailRedirectTo: `${getConfig().app.url}/auth/callback`,
         },
       });
 
@@ -311,9 +313,14 @@ router.post(
   }
 );
 
-router.post("/password/update", requireAuth, async (req: Request, res: Response) => {
-  try {
-    const { newPassword } = req.body;
+router.post(
+  "/password/update",
+  requireAuth,
+  requireMFA,
+  validateRequest(ValidationSchemas.updatePassword),
+  async (req: Request, res: Response) => {
+    try {
+      const { newPassword } = req.body;
 
     if (!newPassword) {
       return res.status(400).json({

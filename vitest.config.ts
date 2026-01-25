@@ -8,7 +8,11 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: ["./apps/ValyntApp/src/test/setup.ts"],
-    include: ["apps/**/*.{test,spec}.{js,ts,jsx,tsx}", "packages/**/*.{test,spec}.{js,ts,jsx,tsx}"],
+    include: [
+      "apps/**/*.{test,spec}.{js,ts,jsx,tsx}",
+      "packages/**/*.{test,spec}.{js,ts,jsx,tsx}",
+      "tests/**/*.{test,spec}.{js,ts,jsx,tsx}",
+    ],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],

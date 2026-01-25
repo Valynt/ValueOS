@@ -43,7 +43,7 @@ type QueryResponse = z.infer<typeof ResponseSchema>;
  * Mock LLM service for research analysis
  * In production, this would integrate with actual LLM APIs
  */
-class ResearchAnalyzer {
+export class ResearchAnalyzer {
   async analyzeResearch(query: string, context?: QueryRequest["context"]): Promise<QueryResponse> {
     logger.info("Analyzing research", { query, userId: context?.userId });
 
@@ -212,7 +212,7 @@ const customHealthChecks = [
 
 // Create and start the server
 const config = getConfig();
-const app = createServer({
+export const app = createServer({
   agentType: "research",
   version: "1.0.0",
   customHealthChecks,

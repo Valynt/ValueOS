@@ -5,6 +5,7 @@
  * Protects against XSS, SQL injection, command injection, and other threats.
  */
 
+import DOMPurify from 'isomorphic-dompurify';
 import { getSecurityConfig } from './SecurityConfig';
 
 /**
@@ -40,23 +41,6 @@ const HTML_ENTITIES: Record<string, string> = {
   "'": '&#x27;',
   '/': '&#x2F;',
 };
-
-/**
- * Dangerous HTML tags
- */
-const DANGEROUS_TAGS = new Set([
-  'script', 'iframe', 'object', 'embed', 'applet', 'meta', 'link',
-  'style', 'form', 'input', 'button', 'textarea', 'select',
-]);
-
-/**
- * Dangerous HTML attributes
- */
-const DANGEROUS_ATTRIBUTES = new Set([
-  'onclick', 'onload', 'onerror', 'onmouseover', 'onmouseout',
-  'onkeydown', 'onkeyup', 'onkeypress', 'onfocus', 'onblur',
-  'onchange', 'onsubmit', 'onreset', 'ondblclick', 'oncontextmenu',
-]);
 
 /**
  * SQL injection patterns
@@ -132,27 +116,6 @@ export function decodeHtml(text: string): string {
 }
 
 /**
- * Strip HTML tags
- */
-export function stripHtmlTags(html: string, allowedTags: string[] = []): string {
-  const allowedSet = new Set(allowedTags.map(tag => tag.toLowerCase()));
-  
-  return html.replace(/<\/?([a-z][a-z0-9]*)\b[^>]*>/gi, (match, tag) => {
-    if (allowedSet.has(tag.toLowerCase())) {
-      return match;
-    }
-    return '';
-  });
-}
-
-/**
- * Strip dangerous HTML attributes
- */
-export function stripDangerousAttributes(html: string): string {
-  return html.replace(/\s+(on\w+|javascript:|data:)\s*=\s*["'][^"']*["']/gi, '');
-}
-
-/**
  * Sanitize HTML content
  */
 export function sanitizeHtml(
@@ -165,8 +128,6 @@ export function sanitizeHtml(
     allowedTags = [],
     allowedAttributes = {},
     maxLength = config.maxStringLength,
-    stripScripts = config.stripScripts,
-    encodeHtml: shouldEncode = !allowHtml,
   } = options;
 
   let sanitized = html;
@@ -181,47 +142,32 @@ export function sanitizeHtml(
     return encodeHtml(sanitized);
   }
 
-  // Strip script tags
-  if (stripScripts) {
-    sanitized = sanitized.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-  }
+  // Prepare DOMPurify config
+  const purifyConfig: DOMPurify.Config = {};
 
-  // Strip dangerous tags
-  for (const tag of DANGEROUS_TAGS) {
-    const regex = new RegExp(`<${tag}\\b[^<]*(?:(?!<\\/${tag}>)<[^<]*)*<\\/${tag}>`, 'gi');
-    sanitized = sanitized.replace(regex, '');
-  }
-
-  // Strip dangerous attributes
-  sanitized = stripDangerousAttributes(sanitized);
-
-  // Strip non-allowed tags
   if (allowedTags.length > 0) {
-    sanitized = stripHtmlTags(sanitized, allowedTags);
+    purifyConfig.ALLOWED_TAGS = allowedTags;
+  } else {
+    // Default safe configuration if no tags specified
+    purifyConfig.USE_PROFILES = { html: true };
+    purifyConfig.ADD_ATTR = ['target']; // Allow target attribute (often used for links)
   }
 
-  // Filter attributes
   if (Object.keys(allowedAttributes).length > 0) {
-    sanitized = sanitized.replace(/<([a-z][a-z0-9]*)\b([^>]*)>/gi, (match, tag, attrs) => {
-      const allowedAttrs = allowedAttributes[tag.toLowerCase()] || [];
-      if (allowedAttrs.length === 0) {
-        return `<${tag}>`;
-      }
-
-      const filteredAttrs = attrs.replace(/\s+([a-z-]+)\s*=\s*["']([^"']*)["']/gi, 
-        (attrMatch: string, name: string, value: string) => {
-          if (allowedAttrs.includes(name.toLowerCase())) {
-            return ` ${name}="${encodeHtml(value)}"`;
-          }
-          return '';
-        }
-      );
-
-      return `<${tag}${filteredAttrs}>`;
+    // Flatten allowed attributes as DOMPurify applies them globally
+    const allAllowedAttrs = new Set<string>();
+    Object.values(allowedAttributes).forEach(attrs => {
+      attrs.forEach(attr => allAllowedAttrs.add(attr));
     });
+    purifyConfig.ALLOWED_ATTR = Array.from(allAllowedAttrs);
+
+    // When explicit attributes are provided, disable profile defaults to ensure strict whitelist
+    delete purifyConfig.USE_PROFILES;
+    delete purifyConfig.ADD_ATTR;
   }
 
-  return sanitized;
+  // Sanitize using DOMPurify
+  return DOMPurify.sanitize(sanitized, purifyConfig) as string;
 }
 
 /**

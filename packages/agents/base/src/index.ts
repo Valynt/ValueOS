@@ -25,3 +25,9 @@ export { loadConfig, getConfig, isProduction, isDevelopment, type AgentConfig } 
 
 // Server
 export { createServer, startServer, type ServerOptions } from "./server.js";
+
+// Context management
+export { ContextManager, type Message, type ContextConfig } from "./context.js";
+
+// Safety
+export { SafetyGuard, type ValidationResult } from "./safety.js";
