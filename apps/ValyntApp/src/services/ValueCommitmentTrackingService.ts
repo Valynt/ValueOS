@@ -32,6 +32,7 @@ import {
 } from "../types/value-commitment-schemas.js";
 import { logger } from "../lib/logger";
 import { GroundTruthIntegrationService } from "./GroundTruthIntegrationService.js";
+import { supabase } from "../lib/supabase";
 
 export class ValueCommitmentTrackingService {
   private groundTruthService: GroundTruthIntegrationService;
@@ -276,8 +277,16 @@ export class ValueCommitmentTrackingService {
 
       const validatedData = CommitmentMilestoneSchema.parse(data);
 
-      // TODO: Insert into database
-      // const milestone = await this.db.insert('commitment_milestones').values(validatedData).returning();
+      // Insert into database
+      if (!supabase) throw new Error("Supabase client not initialized");
+
+      const { data: milestone, error } = await supabase
+        .from("commitment_milestones")
+        .insert(validatedData)
+        .select()
+        .single();
+
+      if (error) throw error;
 
       // Create audit entry
       await this.createAuditEntry(
@@ -286,18 +295,18 @@ export class ValueCommitmentTrackingService {
         userId,
         "updated",
         {},
-        validatedData,
+        milestone,
         "Milestone added"
       );
 
       logger.info("Milestone created", {
         commitmentId,
         tenantId,
-        milestoneId: validatedData.id,
-        title: validatedData.title,
+        milestoneId: milestone.id,
+        title: milestone.title,
       });
 
-      return validatedData as CommitmentMilestone;
+      return milestone as CommitmentMilestone;
     } catch (error) {
       logger.error("Failed to create milestone", { error, commitmentId, tenantId });
       throw error;
