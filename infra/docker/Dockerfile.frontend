@@ -22,7 +22,15 @@ COPY packages/ ./packages/
 # Install dependencies (frozen lockfile for reproducibility)
 RUN pnpm install --frozen-lockfile --prefer-offline
 
-# Stage 2: Builder
+# Stage 2: Development
+FROM deps AS development
+WORKDIR /app/apps/ValyntApp
+ENV NODE_ENV=development
+EXPOSE 5173
+# Ensure host is 0.0.0.0 for docker access
+CMD ["pnpm", "run", "dev", "--host", "0.0.0.0"]
+
+# Stage 3: Builder
 FROM node:${NODE_VERSION}-bookworm-slim AS builder
 
 # Redeclare build arguments for this stage
@@ -73,7 +81,7 @@ RUN pnpm run build
 # Verify build output
 RUN test -f dist/index.html || (echo "ERROR: Build failed - dist/index.html not found" && exit 1)
 
-# Stage 3: Production runtime with nginx
+# Stage 4: Production runtime with nginx
 FROM nginx:1.27-alpine AS runtime
 
 # Security: Run as non-root user
