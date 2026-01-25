@@ -31,6 +31,7 @@ import {
   CommitmentRiskSchema,
 } from "../types/value-commitment-schemas.js";
 import { logger } from "../lib/logger";
+import { supabase } from "../lib/supabase";
 import { GroundTruthIntegrationService } from "./GroundTruthIntegrationService.js";
 
 export class ValueCommitmentTrackingService {
@@ -416,26 +417,31 @@ export class ValueCommitmentTrackingService {
     lastMeasuredAt?: string
   ): Promise<CommitmentMetric> {
     try {
-      // TODO: Update in database
-      // const existing = await this.db.query.commitment_metrics.findFirst({
-      //   where: eq('id', metricId) && eq('tenant_id', tenantId)
-      // });
-      // const updated = await this.db.update('commitment_metrics')
-      //   .set({
-      //     current_value: currentValue,
-      //     last_measured_at: lastMeasuredAt || new Date().toISOString(),
-      //     updated_at: new Date()
-      //   })
-      //   .where(eq('id', metricId))
-      //   .returning();
+      if (!supabase) {
+        throw new Error("Supabase client not initialized");
+      }
+
+      const { data: updated, error } = await supabase
+        .from("commitment_metrics")
+        .update({
+          current_value: currentValue,
+          last_measured_at: lastMeasuredAt || new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", metricId)
+        .eq("tenant_id", tenantId)
+        .select()
+        .single();
+
+      if (error) throw error;
 
       // Create audit entry
       await this.createAuditEntry(
         tenantId,
-        "",
+        updated.commitment_id,
         userId,
         "metric_updated",
-        {},
+        { metricId },
         { metricId, currentValue },
         "Metric value updated"
       );
@@ -445,7 +451,7 @@ export class ValueCommitmentTrackingService {
 
       logger.info("Metric value updated", { metricId, tenantId, currentValue });
 
-      return {} as CommitmentMetric;
+      return updated as CommitmentMetric;
     } catch (error) {
       logger.error("Failed to update metric value", { error, metricId, tenantId });
       throw error;
