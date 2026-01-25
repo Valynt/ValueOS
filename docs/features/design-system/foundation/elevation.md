@@ -20,6 +20,18 @@ While subtle in dark mode, shadows add definition.
 | `--shadow-md`   | `0 4px 6px -1px rgb(0 0 0 / 0.5)`  | Dropdowns, Hover states.               |
 | `--shadow-glow` | `0 0 15px rgba(16, 185, 129, 0.3)` | **Active/Brand** elements (Teal Glow). |
 
+## Normalized Shadow Tokens
+
+To prevent drift between product surfaces and shared UI utilities, normalize on the shared shadow scale
+used by `packages/shared/src/styles/motion-shadows.css`. Map localized shadow tokens to this scale:
+
+| Shared Token  | Recommended Usage                     | Notes |
+| ------------ | ------------------------------------- | ----- |
+| `--shadow-1` | Inputs, buttons, small cards          | Subtle elevation. |
+| `--shadow-2` | Hover states, dropdowns, menus        | Default hover lift. |
+| `--shadow-3` | Drawers, modals, floating panels      | Use sparingly. |
+| `--shadow-4` | Hero overlays or high-emphasis states | Avoid stacking. |
+
 ## Borders as Elevation
 
 in ultra-dark interfaces, shadows can disappear. We use **1px Borders** to reinforce separation.
