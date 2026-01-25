@@ -45,6 +45,8 @@ export interface UnifiedAgentRequest {
   sessionId?: string;
   /** User ID */
   userId?: string;
+  /** Tenant ID for multi-tenant isolation */
+  tenantId?: string;
   /** Additional context */
   context?: Record<string, any>;
   /** Request parameters */
@@ -175,6 +177,7 @@ function validateAndSanitizeRequest(request: UnifiedAgentRequest): UnifiedAgentR
   return {
     ...request,
     query: sanitizedQuery,
+    tenantId: request.tenantId?.trim() || undefined,
   };
 }
 
@@ -244,6 +247,7 @@ export class UnifiedAgentAPI {
       traceId,
       agent: request.agent,
       sessionId: request.sessionId,
+      tenantId: request.tenantId,
     });
 
     // Validate and sanitize the request
@@ -272,8 +276,12 @@ export class UnifiedAgentAPI {
       this.assertRoutingConfigured(request.agent);
 
       // Add idempotency check
-      if (request.idempotencyKey) {
-        const existingResponse = await this.checkIdempotency(request.idempotencyKey);
+      const idempotencyKey = this.buildIdempotencyKey(
+        request.idempotencyKey,
+        request.tenantId
+      );
+      if (idempotencyKey) {
+        const existingResponse = await this.checkIdempotency(idempotencyKey);
         if (existingResponse) {
           return existingResponse;
         }
@@ -316,7 +324,12 @@ export class UnifiedAgentAPI {
           result.success,
           result.data,
           result.metadata,
-          result.error
+          result.error,
+          {
+            userId: request.userId,
+            organizationId: request.tenantId,
+            sessionId: request.sessionId,
+          }
         );
       }
 
@@ -328,8 +341,8 @@ export class UnifiedAgentAPI {
       });
 
       // Store response in idempotency cache if idempotency key was provided
-      if (request.idempotencyKey) {
-        this.storeIdempotencyResponse(request.idempotencyKey, result);
+      if (idempotencyKey) {
+        this.storeIdempotencyResponse(idempotencyKey, result);
       }
 
       return result;
@@ -549,13 +562,22 @@ export class UnifiedAgentAPI {
     traceId: string
   ): Promise<UnifiedAgentResponse> {
     const url = this.resolveAgentInvokeUrl(request.agent);
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "X-Trace-ID": traceId,
+    };
+
+    if (request.tenantId) {
+      headers["X-Tenant-ID"] = request.tenantId;
+    }
+
+    if (request.idempotencyKey) {
+      headers["Idempotency-Key"] = request.idempotencyKey;
+    }
 
     const response = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Trace-ID": traceId,
-      },
+      headers,
       body: JSON.stringify({
         query: request.query,
         context: request.context,
@@ -774,6 +796,15 @@ export class UnifiedAgentAPI {
     }
 
     throw new Error("Agent routing configuration missing. Set baseUrl or agent endpoints.");
+  }
+
+  private buildIdempotencyKey(idempotencyKey?: string, tenantId?: string): string | null {
+    if (!idempotencyKey) {
+      return null;
+    }
+
+    const tenantPrefix = tenantId?.trim() || "global";
+    return `${tenantPrefix}:${idempotencyKey}`;
   }
 
   /**

@@ -49,6 +49,8 @@ router.post(
   async (req: Request, res: Response) => {
     const { agentId } = req.params;
     const { query, context, parameters, sessionId } = req.body;
+    const idempotencyKey =
+      req.header("Idempotency-Key") || req.header("x-idempotency-key") || undefined;
 
     // Add tenant context validation
     const tenantId = (req as any).tenantId;
@@ -77,6 +79,8 @@ router.post(
         parameters,
         sessionId,
         userId,
+        tenantId,
+        idempotencyKey,
       });
 
       res.json(response);
