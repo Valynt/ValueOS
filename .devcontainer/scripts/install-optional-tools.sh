@@ -119,10 +119,73 @@ install_trivy() {
     return 1
 }
 
+install_kubectl() {
+    if command -v kubectl &>/dev/null; then
+        log "kubectl already installed"
+        return 0
+    fi
+
+    log "Installing kubectl..."
+    local version
+    version=$(curl -L -s https://dl.k8s.io/release/stable.txt)
+    local url="https://dl.k8s.io/release/${version}/bin/linux/amd64/kubectl"
+    local dest="/usr/local/bin/kubectl"
+
+    if sudo curl -fsSL "$url" -o "$dest"; then
+        sudo chmod +x "$dest"
+        log "kubectl installed"
+        return 0
+    fi
+
+    log "kubectl installation failed"
+    return 1
+}
+
+install_helm() {
+    if command -v helm &>/dev/null; then
+        log "helm already installed"
+        return 0
+    fi
+
+    log "Installing helm..."
+    if curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash; then
+         log "helm installed"
+         return 0
+    fi
+
+    log "helm installation failed"
+    return 1
+}
+
+install_terraform() {
+    if command -v terraform &>/dev/null; then
+        log "terraform already installed"
+        return 0
+    fi
+
+    log "Installing terraform..."
+    if wget -qO- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg; then
+        echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list > /dev/null
+        sudo apt-get update
+        if sudo apt-get install -y terraform; then
+            log "terraform installed"
+            return 0
+        fi
+    fi
+
+    log "terraform installation failed"
+    return 1
+}
+
 main() {
     ensure_log_dir
 
     # Install a minimal set; failures are non-fatal but logged
+    install_kubectl || log "install_kubectl failed"
+    install_helm || log "install_helm failed"
+    install_terraform || log "install_terraform failed"
+
+    # Security tools
     install_dive || log "install_dive failed"
     install_hadolint || log "install_hadolint failed"
     install_trivy || log "install_trivy failed"

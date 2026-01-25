@@ -286,15 +286,15 @@ main() {
     print_summary
 
         # Optional: install heavy developer/security tooling if explicitly opted-in
-        if [ "${INSTALL_OPTIONAL_TOOLS:-false}" = "true" ]; then
-            log_info "INSTALL_OPTIONAL_TOOLS=true detected — running optional tools installer"
+        if [ "${INSTALL_OPTIONAL_TOOLS:-false}" = "true" ] || [ "${INSTALL_OPTIONAL_TOOLS:-0}" = "1" ]; then
+            log_info "INSTALL_OPTIONAL_TOOLS enabled — running optional tools installer"
             if bash ".devcontainer/scripts/install-optional-tools.sh" 2>&1 | tee -a "$LOG_FILE"; then
                 log_success "Optional tools installed"
             else
                 log_warn "Optional tools installation encountered errors (see log)"
             fi
         else
-            log_info "Optional tools not requested (set INSTALL_OPTIONAL_TOOLS=true to enable)"
+            log_info "Optional tools not requested (set INSTALL_OPTIONAL_TOOLS=1 to enable)"
         fi
 }
 
