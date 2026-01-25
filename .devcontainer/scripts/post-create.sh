@@ -144,10 +144,11 @@ generate_prisma_client() {
     for schema_path in "${schema_paths[@]}"; do
         if [ -f "$schema_path" ]; then
             log_info "Generating Prisma client from ${schema_path}..."
-            if npx prisma generate --schema="$schema_path" 2>/dev/null; then
+            # Run non-interactive and capture output to the post-create log to avoid prompts
+            if npx --yes prisma generate --schema="$schema_path" >> "$LOG_FILE" 2>&1; then
                 log_success "Prisma client generated"
             else
-                log_warn "Prisma client generation failed (non-critical)"
+                log_warn "Prisma client generation failed (non-critical). See $LOG_FILE for details"
             fi
             return 0
         fi

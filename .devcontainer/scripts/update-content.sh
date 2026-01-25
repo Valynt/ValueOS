@@ -125,10 +125,11 @@ update_prisma_client() {
 
             if is_newer "$schema_path" "$prisma_dir"; then
                 log_info "Prisma schema changed, regenerating client..."
-                if npx prisma generate --schema="$schema_path" 2>/dev/null; then
+                # Run non-interactive and capture output to the update log to avoid prompts
+                if npx --yes prisma generate --schema="$schema_path" >> "$LOG_FILE" 2>&1; then
                     log_success "Prisma client regenerated"
                 else
-                    log_warn "Prisma generation failed (non-critical)"
+                    log_warn "Prisma generation failed (non-critical). See $LOG_FILE for details"
                 fi
             fi
             return 0
