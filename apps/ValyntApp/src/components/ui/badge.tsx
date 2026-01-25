@@ -69,8 +69,9 @@ const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(
               onRemove?.();
             }}
             className="ml-1 -mr-0.5 rounded-full p-0.5 hover:bg-black/10"
+            aria-label="Remove"
           >
-            <X className="h-3 w-3" />
+            <X className="h-3 w-3" aria-hidden="true" />
           </button>
         )}
       </div>
