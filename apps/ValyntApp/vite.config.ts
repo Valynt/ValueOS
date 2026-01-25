@@ -6,9 +6,11 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const vitePort = Number(process.env.VITE_PORT || 5173);
 const hmrPort = Number(process.env.VITE_HMR_PORT || vitePort);
+const hmrClientPort = Number(process.env.VITE_HMR_CLIENT_PORT || hmrPort);
 const hmrHost = process.env.VITE_HMR_HOST || "localhost";
 const hmrProtocol = process.env.VITE_HMR_PROTOCOL || "ws";
 const viteHost = process.env.VITE_HOST || "0.0.0.0";
+const usePolling = process.env.VITE_USE_POLLING === "true";
 
 export default defineConfig({
   plugins: [react()],
@@ -37,7 +39,14 @@ export default defineConfig({
       protocol: hmrProtocol,
       host: hmrHost,
       port: hmrPort,
+      clientPort: hmrClientPort,
     },
+    watch: usePolling
+      ? {
+          usePolling: true,
+          interval: 200,
+        }
+      : undefined,
     // Proxy API requests to backend - enables relative URLs in browser
     // This eliminates hostname issues in Gitpod/Codespaces environments
     proxy: {

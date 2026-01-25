@@ -132,6 +132,7 @@ REDIS_URL=${urls.REDIS_URL}
 VITE_PORT=${frontendPort}
 VITE_HOST=0.0.0.0
 VITE_HMR_PORT=${ports.frontend.hmrPort}
+VITE_HMR_CLIENT_PORT=${ports.frontend.hmrPort}
 VITE_HMR_HOST=localhost
 VITE_HMR_PROTOCOL=ws
 API_PORT=${backendPort}
