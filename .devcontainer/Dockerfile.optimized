@@ -117,7 +117,7 @@ FROM security AS dbtools
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 ARG INSTALL_DBTOOLS=1
-ARG SUPABASE_VERSION=1.200.0
+ARG SUPABASE_VERSION=2.43.0
 ARG PRISMA_VERSION=5.25.0
 
 # Install Database tools (Supabase, Prisma, pgcli)
