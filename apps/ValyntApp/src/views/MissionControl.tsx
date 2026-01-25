@@ -10,16 +10,15 @@ import {
   FileBox,
 } from "lucide-react";
 import { useNavigate, createSearchParams } from "react-router-dom";
-import { Button } from "@/components/Common/Button";
-import { ActionCard } from "@/components/Common/ActionCard";
+import { Button } from "@/components/ui/button";
 
 // Modals
-import { SalesCallModal } from "@/components/Modals/SalesCallModal";
-import { CRMImportModal } from "@/components/Modals/CRMImportModal";
-import { UploadNotesModal } from "@/components/Modals/UploadNotesModal";
-import { EmailAnalysisModal } from "@/components/Modals/EmailAnalysisModal";
-import { ResearchCompanyModal } from "@/components/Modals/ResearchCompanyModal";
-import { TemplateSelectorModal } from "@/components/Modals/TemplateSelectorModal";
+import { SalesCallModal } from "@/components/modals/SalesCallModal";
+import { CRMImportModal } from "@/components/modals/CRMImportModal";
+import { UploadNotesModal } from "@/components/modals/UploadNotesModal";
+import { EmailAnalysisModal } from "@/components/modals/EmailAnalysisModal";
+import { ResearchCompanyModal } from "@/components/modals/ResearchCompanyModal";
+import { TemplateSelectorModal } from "@/components/modals/TemplateSelectorModal";
 
 type ActiveModal =
   | null
@@ -313,6 +312,32 @@ export default function MissionControl() {
     </div>
   );
 }
+
+const ActionCard = ({
+  icon,
+  title,
+  subtitle,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  onClick: () => void;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="flex flex-col items-start p-6 text-left bg-surface-2 border border-border rounded-xl hover:bg-surface-3 transition-all hover:shadow-md group h-full"
+  >
+    <div className="mb-4 text-teal-500 group-hover:text-teal-400 transition-colors">
+      {icon}
+    </div>
+    <h3 className="text-lg font-semibold text-foreground mb-2 group-hover:text-teal-400 transition-colors">
+      {title}
+    </h3>
+    <p className="text-sm text-text-muted leading-relaxed">{subtitle}</p>
+  </button>
+);
 
 const QuickActionButton = ({
   icon,

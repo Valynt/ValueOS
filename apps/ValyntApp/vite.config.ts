@@ -20,14 +20,14 @@ export default defineConfig({
       "@hooks": path.resolve(__dirname, "./src/hooks"),
       "@types": path.resolve(__dirname, "./src/types"),
       "@assets": path.resolve(__dirname, "./src/assets"),
-      "@valueos/shared": path.resolve(__dirname, "../packages/shared/src"),
+      "@valueos/shared": path.resolve(__dirname, "../../packages/shared/src"),
     },
   },
   server: {
     host: "0.0.0.0",
     port: 5173,
     strictPort: true,
-    allowedHosts: [".gitpod.dev", ".gitpod.io", ".github.dev", "localhost"],
+    allowedHosts: true,
     hmr:
       process.env.REMOTE_CONTAINERS === "true" || process.env.CODESPACES === "true"
         ? false

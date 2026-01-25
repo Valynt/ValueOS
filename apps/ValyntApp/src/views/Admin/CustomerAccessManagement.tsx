@@ -15,7 +15,7 @@ import {
 } from "@/services/CustomerAccessService";
 import { CustomerAccessTable } from "@/components/admin/CustomerAccessTable";
 import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/components/Common/Toast";
+import { useToast } from "@/components/common/Toast";
 import { logger } from "@/lib/logger";
 
 export function CustomerAccessManagement() {

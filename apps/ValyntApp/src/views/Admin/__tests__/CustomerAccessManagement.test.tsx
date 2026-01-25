@@ -21,7 +21,7 @@ vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ user: { id: "user-1" } }),
 }));
 
-vi.mock("@/components/Common/Toast", () => ({
+vi.mock("@/components/common/Toast", () => ({
   useToast: () => ({
     success: vi.fn(),
     error: vi.fn(),

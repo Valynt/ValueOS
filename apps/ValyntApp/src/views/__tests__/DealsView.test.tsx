@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 // Mocks
 const mockErrorToast = vi.fn();
-vi.mock('@/components/Common/Toast', () => ({
+vi.mock('@/components/common/Toast', () => ({
   useToast: () => ({
     error: mockErrorToast,
   }),

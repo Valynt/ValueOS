@@ -17,7 +17,7 @@ import { CanonicalAction } from '../types/sdui-integration';
 vi.mock('../services/CanvasSchemaService');
 vi.mock('../services/ActionRouter');
 vi.mock('../lib/logger');
-vi.mock('../components/Common/Toast', () => ({
+vi.mock('../components/common/Toast', () => ({
   useToast: () => ({
     error: vi.fn(),
     success: vi.fn(),

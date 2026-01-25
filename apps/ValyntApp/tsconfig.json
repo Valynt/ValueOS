@@ -27,8 +27,8 @@
       "@hooks/*": ["./src/hooks/*"],
       "@types/*": ["./src/types/*"],
       "@assets/*": ["./src/assets/*"],
-      "@valueos/shared": ["../packages/shared/src"],
-      "@valueos/shared/*": ["../packages/shared/src/*"]
+      "@valueos/shared": ["../../packages/shared/src"],
+      "@valueos/shared/*": ["../../packages/shared/src/*"]
     },
 
     /* Strict TypeScript Configuration */
