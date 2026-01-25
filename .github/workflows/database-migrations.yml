@@ -20,6 +20,14 @@ on:
         options:
           - staging
           - production
+      phase:
+        description: "Zero-downtime migration phase"
+        required: true
+        default: "expand"
+        type: choice
+        options:
+          - expand
+          - contract
 
 permissions:
   contents: read
@@ -135,15 +143,11 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
-      - name: Check migration status
-        run: npx prisma migrate status
+      - name: Run zero-downtime migrations
+        run: ./scripts/migrations/zero-downtime/prisma-migrate.sh
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
-
-      - name: Deploy migrations
-        run: npx prisma migrate deploy
-        env:
-          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          ZERO_DOWNTIME_PHASE: ${{ github.event.inputs.phase || 'expand' }}
 
       - name: Verify deployment
         run: |
@@ -211,15 +215,11 @@ jobs:
           # Alternative: Use Supabase backup API
           echo "Backup would be created at: $BACKUP_FILE"
 
-      - name: Check migration status
-        run: npx prisma migrate status
+      - name: Run zero-downtime migrations
+        run: ./scripts/migrations/zero-downtime/prisma-migrate.sh
         env:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
-
-      - name: Deploy migrations
-        run: npx prisma migrate deploy
-        env:
-          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          ZERO_DOWNTIME_PHASE: ${{ github.event.inputs.phase || 'expand' }}
 
       - name: Verify deployment
         run: |
