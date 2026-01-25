@@ -3,8 +3,8 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CoordinatorAgent } from '../../src/agents/CoordinatorAgent';
-import type { CreateTaskIntent } from '../../src/types/Subgoal';
+import { CoordinatorAgent } from '../../apps/ValyntApp/src/lib/agent-fabric/agents/CoordinatorAgent';
+import type { CreateTaskIntent } from '../../apps/ValyntApp/src/legacy-restored/types/Subgoal';
 
 describe('CoordinatorAgent', () => {
   let agent: CoordinatorAgent;

@@ -6,8 +6,8 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import { InterventionDesignerAgent } from '../../src/agents/sof/InterventionDesignerAgent';
-import type { InterventionPoint, SystemMap } from '../../src/types/sof';
+import { InterventionDesignerAgent } from '../../apps/ValyntApp/src/lib/agent-fabric/agents/InterventionDesignerAgent';
+import type { InterventionPoint, SystemMap } from '../../apps/ValyntApp/src/lib/agent-fabric/agents/sof-types';
 
 describe('InterventionDesignerAgent', () => {
   let agent: InterventionDesignerAgent;
