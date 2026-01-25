@@ -130,7 +130,8 @@
         "ms-vscode.hexeditor",
         "redhat.vscode-yaml",
         "Prisma.prisma",
-        "ms-vscode.vscode-json"
+        "ms-vscode.vscode-json",
+        "RooVeterinaryInc.roo-cline"
       ],
       "settings": {
         "files.watcherExclude": {
