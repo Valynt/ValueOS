@@ -198,26 +198,29 @@ export class ProgressiveRollout {
    */
   async getMetrics(): Promise<RolloutMetrics> {
     try {
-      // Get usage stats
-      const { data: usageData, error: usageError } = await supabase
-        .from('feature_usage')
-        .select('enabled')
-        .eq('feature_name', this.featureName)
-        .gte('timestamp', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()); // Last 24 hours
+      const timestamp = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(); // Last 24 hours
+
+      const [
+        { data: usageData, error: usageError },
+        { data: errorData, error: errorError }
+      ] = await Promise.all([
+        supabase
+          .from('feature_usage')
+          .select('enabled')
+          .eq('feature_name', this.featureName)
+          .gte('timestamp', timestamp),
+        supabase
+          .from('feature_errors')
+          .select('id')
+          .eq('feature_name', this.featureName)
+          .gte('timestamp', timestamp)
+      ]);
 
       if (usageError) throw usageError;
+      if (errorError) throw errorError;
 
       const totalUsers = usageData.length;
       const enabledUsers = usageData.filter(u => u.enabled).length;
-
-      // Get error stats
-      const { data: errorData, error: errorError } = await supabase
-        .from('feature_errors')
-        .select('id')
-        .eq('feature_name', this.featureName)
-        .gte('timestamp', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
-
-      if (errorError) throw errorError;
 
       const errors = errorData.length;
       const errorRate = enabledUsers > 0 ? (errors / enabledUsers) * 100 : 0;
