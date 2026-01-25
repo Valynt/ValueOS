@@ -345,7 +345,8 @@ services:
       - valueos-network
     profiles: ["istio"]
     depends_on:
-      - istiod
+      istiod:
+        condition: service_healthy
     restart: unless-stopped
 
   grafana:
@@ -366,7 +367,8 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
     depends_on:
-      - prometheus
+      prometheus:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health >/dev/null 2>&1 || exit 1"]
       interval: 10s
@@ -440,7 +442,8 @@ services:
       - valueos-network
     profiles: ["istio"]
     depends_on:
-      - istiod
+      istiod:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "nc -z localhost 80"]
       interval: 10s
@@ -473,7 +476,8 @@ services:
       - valueos-network
     profiles: ["istio"]
     depends_on:
-      - istiod
+      istiod:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "nc -z localhost 443 || nc -z localhost 15017"]
       interval: 10s
