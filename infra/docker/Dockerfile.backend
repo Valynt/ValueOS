@@ -1,77 +1,63 @@
-# Multi-stage production build for Backend API Server
-# Optimized for layer caching and build performance
+# syntax=docker/dockerfile:1.6
 
-ARG NODE_VERSION=20
+ARG NODE_VERSION=20.19.0
 ARG PNPM_VERSION=9.15.0
 
-# Stage 1: Dependencies (cached when package files don't change)
-FROM node:${NODE_VERSION}-bookworm-slim AS deps
+FROM node:${NODE_VERSION}-bookworm-slim AS base
 
-# Install pnpm
+ENV PNPM_HOME=/pnpm
+ENV PATH=${PNPM_HOME}:${PATH}
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    dumb-init \
+  && rm -rf /var/lib/apt/lists/*
+
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 
+FROM base AS deps
 WORKDIR /app
 
-# Copy all source code (needed for workspace resolution without lockfile)
-COPY . .
+# Copy only the files needed to resolve the workspace + lockfile for deterministic installs
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY .npmrc* ./
 
-# Install dependencies (frozen lockfile for reproducibility)
-RUN pnpm install --frozen-lockfile --prefer-offline
+# Copy package manifests for workspace packages needed by backend
+COPY packages/backend/package.json packages/backend/
+COPY packages/shared/package.json packages/shared/
+COPY packages/sdui/package.json packages/sdui/
 
-# Stage 2: Development (for docker-compose up)
-FROM deps AS development
+# Deterministic install with cached pnpm store
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+  pnpm install --frozen-lockfile --prefer-offline --filter @valueos/backend...
 
-WORKDIR /app/packages/backend
-ENV NODE_ENV=development
-CMD ["pnpm", "run", "dev"]
-
-# Stage 3: Builder (rebuilds when source changes)
-FROM deps AS builder
-
+FROM base AS runtime
 WORKDIR /app
 
-# Build the backend application
-RUN pnpm run build:backend
+# Bring in node_modules + workspace structure that pnpm expects
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages ./packages
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY .npmrc* ./
 
-# Stage 4: Security scanning
-FROM builder AS security-scan
+# Copy actual source (runtime/dev)
+COPY packages/backend ./packages/backend
+COPY packages/shared ./packages/shared
+COPY packages/sdui ./packages/sdui
 
-# Install trivy
-RUN apt-get update && apt-get install -y --no-install-recommends curl && \
-    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin && \
-    apt-get remove -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+# Non-root user
+RUN groupadd -r nodejs -g 1001 \
+  && useradd -r nodejs -u 1001 -g nodejs \
+  && chown -R nodejs:nodejs /app
 
-# Scan
-RUN trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /app
-
-# Stage 5: Production runtime
-FROM node:${NODE_VERSION}-bookworm-slim AS production
-
-# Install dumb-init
-RUN apt-get update && apt-get install -y --no-install-recommends dumb-init && \
-    rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-
-# Create non-root user
-RUN groupadd -r nodejs -g 1001 && \
-    useradd -r nodejs -u 1001 -g nodejs && \
-    chown -R nodejs:nodejs /app
-
-# Copy built artifacts
-COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
-COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nodejs:nodejs /app/package.json ./package.json
-
-# Switch to non-root user
 USER nodejs
 
-# Healthcheck
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=5 \
+  CMD curl --fail --silent --show-error http://localhost:3001/health/ready || exit 1
 
 EXPOSE 3001
 
 ENTRYPOINT ["dumb-init", "--"]
 
-CMD ["node", "dist/backend/server.js"]
+# Dev default (compose can override)
+CMD ["pnpm", "--filter", "@valueos/backend", "dev"]

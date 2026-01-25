@@ -57,7 +57,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: ".nvmrc"
-          cache: "npm"
+          cache: "pnpm"
 
       - name: Verify Node.js major matches .nvmrc
         run: |
@@ -75,22 +75,23 @@ jobs:
       - name: Validate package.json
         run: |
           # Check if package.json is valid
-          npm pkg get name
-          npm pkg get version
+          node -e "const pkg=require('./package.json'); if(!pkg.name||!pkg.version){process.exit(1)}"
 
       - name: Check for dependency conflicts (Lockfile Sync)
         run: |
-          # npm ci fails if package-lock.json is out of sync
-          npm ci --ignore-scripts
+          # pnpm install fails if pnpm-lock.yaml is out of sync
+          corepack enable
+          corepack prepare pnpm@9.15.0 --activate
+          pnpm install --frozen-lockfile --prefer-offline --ignore-scripts
 
       - name: Audit dependencies
         run: |
-          npm audit --audit-level=moderate
+          pnpm audit --audit-level=moderate
         continue-on-error: true
 
       - name: Check for outdated dependencies
         run: |
-          npm outdated || true
+          pnpm outdated || true
 
   validate-scripts:
     name: Validate Automation Scripts
@@ -135,8 +136,8 @@ jobs:
 
       - name: Validate Vite config
         run: |
-          # Check if vite.config.ts exists
-          [ -f "vite.config.ts" ] || exit 1
+          # Check if vite.config.ts exists for the main app
+          [ -f "apps/ValyntApp/vite.config.ts" ] || exit 1
 
       - name: Validate Vitest config
         run: |
