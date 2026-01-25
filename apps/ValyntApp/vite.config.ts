@@ -29,14 +29,11 @@ export default defineConfig({
     strictPort: true,
     allowedHosts: [".gitpod.dev", ".gitpod.io", ".github.dev", "localhost"],
     hmr:
-      process.env.REMOTE_CONTAINERS === "true" ||
-      process.env.CODESPACES === "true"
+      process.env.REMOTE_CONTAINERS === "true" || process.env.CODESPACES === "true"
         ? false
         : {
             clientPort:
-              process.env.GITPOD_WORKSPACE_URL || process.env.CODESPACE_NAME
-                ? 443
-                : 24678,
+              process.env.GITPOD_WORKSPACE_URL || process.env.CODESPACE_NAME ? 443 : 24678,
             port: 24678,
           },
     // Proxy API requests to backend - enables relative URLs in browser
@@ -92,6 +89,12 @@ export default defineConfig({
         "os",
         "buffer",
       ],
+      input: process.env.SSR
+        ? {
+            main: path.resolve(__dirname, "index.html"),
+            server: path.resolve(__dirname, "src/entry-server.tsx"),
+          }
+        : undefined,
       output: {
         manualChunks: (id) => {
           if (id.includes("node_modules")) {
@@ -107,6 +110,7 @@ export default defineConfig({
     },
     minify: "terser",
     sourcemap: false,
+    ssr: process.env.SSR ? true : false,
   },
   optimizeDeps: {
     include: ["react", "react-dom", "react-router-dom"],

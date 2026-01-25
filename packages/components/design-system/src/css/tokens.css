@@ -1,0 +1,46 @@
+:root {
+  /* Colors */
+  --vds-color-bg: #0f1724;
+  --vds-color-surface-1: #0b1220;
+  --vds-color-surface-2: #111826;
+  --vds-color-primary: #08a0a0;
+  --vds-color-primary-600: #007777;
+  --vds-color-accent: #0fbf9b;
+  --vds-color-success: #16a34a;
+  --vds-color-warning: #f59e0b;
+  --vds-color-danger: #ef4444;
+  --vds-color-text-primary: #e6eef3;
+  --vds-color-text-muted: #9aa6b2;
+  --vds-color-border: #1f2937;
+  --vds-color-focus: #96f2d6;
+
+  /* Spacing (rem) */
+  --vds-space-0: 0rem;
+  --vds-space-1: 0.25rem;
+  --vds-space-2: 0.5rem;
+  --vds-space-3: 0.75rem;
+  --vds-space-4: 1rem;
+  --vds-space-5: 1.5rem;
+  --vds-space-6: 2rem;
+  --vds-space-7: 3rem;
+  --vds-space-8: 4rem;
+
+  /* Typography */
+  --vds-type-xs: 0.75rem;
+  --vds-type-sm: 0.875rem;
+  --vds-type-base: 1rem;
+  --vds-type-lg: 1.125rem;
+  --vds-type-xl: 1.25rem;
+  --vds-type-2xl: 1.5rem;
+  --vds-font-family-base:
+    Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  --vds-weight-regular: 400;
+  --vds-weight-medium: 500;
+  --vds-weight-bold: 700;
+
+  /* Elevation (shadows) */
+  --vds-elev-0: none;
+  --vds-elev-1: 0 1px 2px rgba(2, 6, 23, 0.6);
+  --vds-elev-2: 0 6px 16px rgba(2, 6, 23, 0.6);
+  --vds-elev-3: 0 12px 32px rgba(2, 6, 23, 0.6);
+}

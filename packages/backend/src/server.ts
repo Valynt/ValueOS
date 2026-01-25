@@ -63,6 +63,7 @@ import {
 } from "./middleware/globalErrorHandler";
 import { serviceIdentityMiddleware } from "./middleware/serviceIdentityMiddleware";
 import { securityHeadersMiddleware, cspReportHandler } from "./middleware/securityHeaders";
+import { cachingMiddleware } from "./middleware/cachingMiddleware";
 import { extractTenantId, requireAuth, verifyAccessToken } from "./middleware/auth";
 import { tenantContextMiddleware } from "./middleware/tenantContext";
 import { tenantDbContextMiddleware } from "./middleware/tenantDbContext";
@@ -258,6 +259,7 @@ app.use(express.json());
 app.use(requestIdMiddleware); // Request ID and timing (must be early)
 app.use(accessLogMiddleware); // Access logging
 app.use(securityHeadersMiddleware);
+app.use(cachingMiddleware); // HTTP caching headers
 app.use(tracingMiddleware()); // Add tracing middleware early
 app.use(metricsMiddleware());
 app.use(requestAuditMiddleware());

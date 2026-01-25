@@ -1,19 +1,11 @@
 /**
  * TeamSettings - Team member management within settings
- * 
+ *
  * Member table with search, role assignment, and invite functionality.
  */
 
-import { useState } from "react";
-import {
-  Search,
-  UserPlus,
-  Shield,
-  Users,
-  Eye,
-  ChevronRight,
-  RotateCw,
-} from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, UserPlus, Shield, Users, Eye, ChevronRight, RotateCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,70 +13,61 @@ import { UserAvatar } from "@/components/ui/avatar";
 import { SearchInput } from "@/components/ui/input";
 import { SimpleSelect } from "@/components/ui/select";
 import { InviteModal } from "@/components/settings/InviteModal";
+import { supabase } from "@/lib/supabase";
+import { emailService } from "@/services/EmailService";
+import { rbacService } from "@/services/RbacService";
+import { useAuth } from "@/hooks/useAuth";
+import { logger } from "@/lib/logger";
 
 interface TeamMember {
   id: string;
-  name: string;
   email: string;
   role: "admin" | "member" | "viewer";
   status: "active" | "invited";
-  lastActive?: string;
+  invited_at?: string;
+  last_active?: string;
+  name?: string;
 }
 
-const TEAM_MEMBERS: TeamMember[] = [
-  {
-    id: "1",
-    name: "Sarah K.",
-    email: "sarah@acme.com",
-    role: "admin",
-    status: "active",
-    lastActive: "2 hours ago",
-  },
-  {
-    id: "2",
-    name: "John D.",
-    email: "john@acme.com",
-    role: "member",
-    status: "active",
-    lastActive: "1 day ago",
-  },
-  {
-    id: "3",
-    name: "Pending",
-    email: "alex@acme.com",
-    role: "member",
-    status: "invited",
-  },
-];
-
-const ROLE_OPTIONS = [
-  { value: "admin", label: "Admin" },
-  { value: "member", label: "Member" },
-  { value: "viewer", label: "Viewer" },
-];
-
-const ROLE_DESCRIPTIONS = [
-  {
-    role: "Admin",
-    icon: Shield,
-    description: "Manage team, billing, and integrations",
-  },
-  {
-    role: "Member",
-    icon: Users,
-    description: "Create and edit value cases",
-  },
-  {
-    role: "Viewer",
-    icon: Eye,
-    description: "View cases (read-only)",
-  },
-];
-
 export function TeamSettings() {
+  const { user, organizationId } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
-  const [members, setMembers] = useState(TEAM_MEMBERS);
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const userRole = user?.role || "viewer"; // Assume user has role
+  const canInvite = rbacService.can(
+    { id: user?.id || "", roles: [userRole] },
+    "team:invite",
+    organizationId
+  );
+  const canManageRoles = rbacService.can(
+    { id: user?.id || "", roles: [userRole] },
+    "team:manage_roles",
+    organizationId
+  );
+
+  useEffect(() => {
+    fetchTeamMembers();
+  }, [organizationId]);
+
+  const fetchTeamMembers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("team_members")
+        .select("*")
+        .eq("organization_id", organizationId);
+
+      if (error) throw error;
+
+      setMembers(data || []);
+    } catch (error) {
+      logger.error("Failed to fetch team members", { error });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredMembers = members.filter(
     (member) =>
@@ -92,21 +75,101 @@ export function TeamSettings() {
       member.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleRoleChange = (memberId: string, newRole: string) => {
-    setMembers((prev) =>
-      prev.map((m) =>
-        m.id === memberId ? { ...m, role: newRole as TeamMember["role"] } : m
-      )
-    );
+  const handleRoleChange = async (memberId: string, newRole: string) => {
+    if (!canManageRoles) {
+      logger.warn("User attempted to change role without permission", { userId: user?.id });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("team_members")
+        .update({ role: newRole })
+        .eq("id", memberId)
+        .eq("organization_id", organizationId);
+
+      if (error) throw error;
+
+      setMembers((prev) =>
+        prev.map((m) => (m.id === memberId ? { ...m, role: newRole as TeamMember["role"] } : m))
+      );
+    } catch (error) {
+      logger.error("Failed to update member role", { error, memberId });
+    }
   };
 
-  const handleResendInvite = (memberId: string) => {
-    console.log("Resending invite to:", memberId);
+  const handleResendInvite = async (memberId: string) => {
+    const member = members.find((m) => m.id === memberId);
+    if (!member) return;
+
+    try {
+      const inviteLink = `${window.location.origin}/accept-invite?token=${memberId}`; // Generate proper token
+      await emailService.send({
+        to: member.email,
+        subject: `You're invited to join ${user?.organizationName || "our team"}`,
+        template: "invite",
+        data: {
+          inviterName: user?.name || "Team Admin",
+          organizationName: user?.organizationName || "ValueOS",
+          inviteLink,
+          role: member.role,
+        },
+      });
+      logger.info("Resent invite", { memberId, email: member.email });
+    } catch (error) {
+      logger.error("Failed to resend invite", { error, memberId });
+    }
   };
 
-  const handleInvite = (emails: string[], role: string, message: string) => {
-    console.log("Inviting:", { emails, role, message });
-    setInviteModalOpen(false);
+  const handleInvite = async (emails: string[], role: string, message: string) => {
+    if (!canInvite) {
+      logger.warn("User attempted to invite without permission", { userId: user?.id });
+      return;
+    }
+
+    try {
+      for (const email of emails) {
+        // Check if already invited or member
+        const existing = members.find((m) => m.email === email);
+        if (existing) continue;
+
+        // Insert invite into DB
+        const { data, error } = await supabase
+          .from("team_members")
+          .insert({
+            email,
+            role,
+            status: "invited",
+            organization_id: organizationId,
+            invited_by: user?.id,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Send email
+        const inviteLink = `${window.location.origin}/accept-invite?token=${data.id}`;
+        await emailService.send({
+          to: email,
+          subject: `You're invited to join ${user?.organizationName || "our team"}`,
+          template: "invite",
+          data: {
+            inviterName: user?.name || "Team Admin",
+            organizationName: user?.organizationName || "ValueOS",
+            inviteLink,
+            role,
+          },
+        });
+
+        // Add to local state
+        setMembers((prev) => [...prev, data]);
+      }
+
+      setInviteModalOpen(false);
+    } catch (error) {
+      logger.error("Failed to send invites", { error });
+    }
   };
 
   return (
@@ -114,10 +177,12 @@ export function TeamSettings() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Team Members</h2>
-        <Button onClick={() => setInviteModalOpen(true)} size="sm">
-          <UserPlus className="h-4 w-4 mr-2" />
-          Invite
-        </Button>
+        {canInvite && (
+          <Button onClick={() => setInviteModalOpen(true)} size="sm">
+            <UserPlus className="h-4 w-4 mr-2" />
+            Invite
+          </Button>
+        )}
       </div>
 
       {/* Search */}
@@ -153,10 +218,7 @@ export function TeamSettings() {
               >
                 {/* Name with Avatar */}
                 <div className="col-span-4 flex items-center gap-3">
-                  <UserAvatar
-                    name={member.status === "invited" ? "?" : member.name}
-                    size="sm"
-                  />
+                  <UserAvatar name={member.status === "invited" ? "?" : member.name} size="sm" />
                   <span className="font-medium">
                     {member.status === "invited" ? "Pending" : member.name}
                   </span>
@@ -198,9 +260,7 @@ export function TeamSettings() {
                       </Button>
                     </>
                   ) : (
-                    <span className="text-sm text-muted-foreground">
-                      {member.lastActive}
-                    </span>
+                    <span className="text-sm text-muted-foreground">{member.lastActive}</span>
                   )}
                 </div>
               </div>
@@ -224,9 +284,7 @@ export function TeamSettings() {
                 <Icon className="h-4 w-4 mt-0.5 text-muted-foreground" />
                 <div>
                   <span className="font-medium">{item.role}</span>
-                  <span className="text-muted-foreground ml-2">
-                    • {item.description}
-                  </span>
+                  <span className="text-muted-foreground ml-2">• {item.description}</span>
                 </div>
               </div>
             );
