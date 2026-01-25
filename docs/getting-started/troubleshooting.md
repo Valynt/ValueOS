@@ -46,6 +46,18 @@ kill -9 <PID>
 pnpm run dx:env -- --mode local --force
 ```
 
+### Deprecated Supabase key warning
+
+**Symptom:** `SUPABASE_SERVICE_KEY is deprecated`
+
+**Cause:** Legacy key name in your env files.
+
+**Fix:**
+
+```bash
+pnpm run dx:env -- --mode local --force
+```
+
 ### Supabase not responding
 
 **Symptom:** `supabase status` shows not running or API returns connection errors

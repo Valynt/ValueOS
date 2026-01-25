@@ -1,29 +1,31 @@
 # Development Environment Baseline Snapshot
 
+This snapshot documents the current, canonical development commands and ports. For the full quickstart, see [docs/getting-started/quickstart.md](../getting-started/quickstart.md).
+
 ## Canonical Dev Commands (from package.json)
 
 ### Environment Setup
 
-- `pnpm run env:dev` - Node script that sets up .env.local with Supabase keys and URLs
-- `pnpm run env:validate` - TypeScript script that validates environment configuration
+- `pnpm run dx:env` - Generate `.env.local`, `.env.ports`, and `deploy/envs/.env.ports`
+- `pnpm run dx:env:validate` - Validate env files
 
 ### Development Stack Commands
 
-- `pnpm run dx` - Runs doctor.js check then dev.js (starts deps + backend + frontend)
-- `pnpm run dx:doctor` - Doctor check script
-- `pnpm run dx:docker` - Full Docker mode (uses infra/docker/docker-compose.dev.yml)
-- `pnpm run dx:down` - Stops Docker services, removes lock/state files
-- `pnpm run dx:reset` - Stops Docker services with volume removal
-- `pnpm run dx:clean` - Full cleanup (stops services, removes env files)
+- `pnpm run dx` - Full local stack (deps + Supabase + backend + frontend)
+- `pnpm run dx:doctor` - Preflight checks
+- `pnpm run dx:docker` - Full Docker mode (uses `infra/docker/docker-compose.dev.yml`)
+- `pnpm run dx:down` - Stop all containers + clear DX state
+- `pnpm run dx:reset` - Reset containers and volumes
+- `pnpm run dx:clean` - Full cleanup (containers + env files)
 - `pnpm run dx:check` - Comprehensive environment validation
 - `pnpm run dx:ps` - Docker ps for services
 - `pnpm run dx:logs` - Docker logs for services
 
 ### Application Services
 
-- `npm run dev` - Vite dev server (frontend)
-- `npm run backend:dev` - Backend dev server with tsx watch
-- `npm run health` - Health check script
+- `pnpm run dev` - Vite dev server (frontend)
+- `pnpm run backend:dev` - Backend dev server with tsx watch
+- `pnpm run health` - Health check script
 
 ### Database Commands
 
@@ -31,7 +33,7 @@
 - `pnpm run db:push` - Supabase db push
 - `pnpm run db:pull` - Supabase db pull
 - `pnpm run db:reset` - Supabase db reset
-- `npm run seed:demo` - Create demo user
+- `pnpm run seed:demo` - Create demo user
 - `pnpm run db:types` - Generate TypeScript types from Supabase
 - `pnpm run db:test` - Run Supabase tests
 
@@ -41,13 +43,14 @@
 
 - Frontend: 5173 (Vite dev server)
 - Backend: 3001 (API server)
-- Postgres: 5432 (Database)
-- Redis: 6379 (Cache)
+- Postgres: 5432 (deps container)
+- Redis: 6379 (deps container)
 
 ### Supabase Services
 
 - Supabase API: 54321
 - Supabase Studio: 54323
+- Supabase DB: 54322
 
 ### Observability (profiles: observability)
 
@@ -67,65 +70,25 @@
 
 ### Primary Environment Files
 
-- `.env.local` - Main local environment file (created/copied from deploy/envs/.env.local template)
-- `deploy/envs/.env.ports` - Ports and container-specific env vars
-- `.env.ports` - Generated ports file (created by dx scripts)
-
-### Frontend Environment Variables (VITE\_\*)
-
-- `VITE_SUPABASE_URL` - Supabase API URL (http://localhost:54321)
-- `VITE_SUPABASE_ANON_KEY` - Supabase anonymous key (JWT token)
-- `VITE_API_BASE_URL` - Backend API URL (http://backend:3001 in containers)
-- `VITE_PORT` - Frontend port (5173)
-
-### Backend Environment Variables
-
-- `SUPABASE_URL` - Supabase API URL (http://localhost:54321)
-- `SUPABASE_ANON_KEY` - Supabase anonymous key
-- `SUPABASE_SERVICE_ROLE_KEY` - Service role key for server operations
-- `API_PORT` - Backend port (3001)
-- `DATABASE_URL` - Postgres connection string
-- `DB_URL` - Alternative database URL
-- `REDIS_URL` - Redis connection string
-- `KAFKA_BROKERS` - Kafka broker URLs
-- `SCHEMA_REGISTRY_URL` - Schema registry URL
+- `.env.local` - Main local environment file (generated)
+- `.env.ports` - Generated ports file
+- `deploy/envs/.env.ports` - Docker Compose env file
 
 ### Scripts That Write Environment Files
 
-- `scripts/setup-dev-env.js` - Writes .env.local and deploy/envs/.env.ports
-- `scripts/dx/ports.js` - Generates .env.ports from config/ports.json
-- `scripts/dx/dev.js` - Calls writePortsEnvFile to create .env.ports
+- `scripts/dx/env-compiler.js` - Generates `.env.local` + `.env.ports`
+- `scripts/dx/ports.js` - Loads ports from `config/ports.json`
+- `scripts/dx/orchestrator.js` - Orchestrates env generation + services
 
 ## Supabase Runtime Configuration
 
-### CLI-Based Approach
-
-Supabase is **not** managed as a Docker service in the compose files. Instead:
-
-- Expected to run via `npx supabase start` (separate from dx)
-- Ports 54321 (API) and 54323 (Studio) are referenced but not started by dx
-- `pnpm run db:reset` assumes Supabase is already running
-- `seed:demo` will fail with ECONNREFUSED if Supabase not started
-
-### Docker Compose Services
-
-- `infra/docker/docker-compose.dev.yml` - Full stack including backend/frontend containers
-- `docker-compose.deps.yml` - Only postgres/redis for local development
-- Both use `deploy/envs/.env.ports` for environment variables
+- **Local mode (`pnpm run dx`)**: DX orchestrator starts Supabase via the CLI and waits for the API to become reachable.
+- **Docker mode (`pnpm run dx:docker`)**: Supabase runs as part of `infra/docker/docker-compose.dev.yml`.
+- **DevContainers/Codespaces**: Supabase startup is skipped by DX if Docker-in-Docker port forwarding is unreliable; the stack uses the `valueos-postgres` container on port 5432 instead.
 
 ## Migration/Seed Flow
 
-### Database Initialization
-
-1. `pnpm run db:setup` - Initial Supabase project setup
-2. `pnpm run db:push` - Push schema migrations to local Supabase
-3. `pnpm run db:reset` - Reset database (requires running Supabase)
-4. `npm run seed:demo` - Create demo user data
-5. `pnpm run db:types` - Generate TypeScript types
-
-### Current Issues Identified
-
-- Supabase startup is manual (`npx supabase start` not integrated into dx)
-- dx:check validates containers but not Supabase status
-- Environment variable naming inconsistent (SUPABASE_SERVICE_KEY vs SUPABASE_SERVICE_ROLE_KEY)
-- Multiple .env files with potential drift (.env.local vs deploy/envs/.env.ports vs .env.ports)
+1. `pnpm run dx` - Starts the stack and applies migrations automatically.
+2. `pnpm run db:reset` - Reset database if needed.
+3. `pnpm run seed:demo` - Create demo user data.
+4. `pnpm run db:types` - Generate TypeScript types.

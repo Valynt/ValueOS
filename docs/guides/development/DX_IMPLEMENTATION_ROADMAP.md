@@ -266,7 +266,7 @@ async function startDevServer() {
   await startServices([
     { name: "backend", command: "npm run dev:backend", color: "blue" },
     { name: "frontend", command: "npm run dev:frontend", color: "green" },
-    { name: "supabase", command: "supabase start", color: "yellow" },
+    { name: "dx", command: "pnpm run dx", color: "yellow" },
   ]);
 }
 ```

@@ -10,7 +10,7 @@
 - **Documentation co-location:** Maintain schema documentation alongside migrations in `docs/engineering/database/` and cross-link key schema references in `docs/context/database.md` so the system of record stays aligned with migration history.【F:docs/context/database.md†L20-L520】【F:docs/engineering/database/zero-downtime-migrations.md†L1-L80】
 
 ## Migration workflow & safety
-- **Standard developer flow:** Use Taskfile automation for `task db:diff -- <name>` to generate migrations, `task db:migrate` to apply, and `task db:reset` for clean local state. Documented in the development lifecycle Taskfile guide.【F:docs/environments/ValueOS Development Lifecycle Management Taskfile.md†L67-L90】【F:docs/environments/ValueOS Development Lifecycle Management Taskfile.md†L135-L146】
+- **Standard developer flow:** Use Supabase CLI commands to generate/apply migrations in local development (e.g., `supabase db diff --file <name>`, `supabase db push`, `supabase db reset`). For the full local stack, follow the Local Dev Quickstart.【F:docs/getting-started/quickstart.md†L1-L60】
 - **Backward-compatible strategy:** Follow expand/contract (additive-first, destructive-later) with explicit rollout/rollback sequencing to avoid downtime.【F:docs/engineering/database/zero-downtime-migrations.md†L1-L160】
 - **Rollback/forward-fix planning:** Require rollback or forward-fix steps for each migration, and verify rollback files in `supabase/migrations/rollback/` when used, per migration safety runbooks.【F:docs/operations/deployment.md†L213-L340】【F:docs/operations/SECURITY_REMEDIATION.md†L204-L219】
 
