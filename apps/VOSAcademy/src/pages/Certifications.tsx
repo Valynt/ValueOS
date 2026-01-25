@@ -59,8 +59,12 @@ export default function Certifications() {
   };
 
   const handleShareCertificate = (certId: number) => {
-    toast.info("Certificate sharing feature coming soon!");
-    // TODO: Implement social sharing
+    const cert = certifications?.find(c => c?.id === certId);
+    if (!cert) return;
+
+    const text = `I just earned the ${cert.tier} certification for ${cert.pillarTitle} on VOS Academy! 🚀 #VOSAcademy #ProfessionalDevelopment`;
+    const url = `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -102,6 +106,7 @@ export default function Certifications() {
                 expiresAt: cert.expiresAt ? new Date(cert.expiresAt) : null
               }))}
               totalPillars={10}
+              onShare={handleShareCertificate}
             />
           </div>
 
@@ -124,7 +129,11 @@ export default function Certifications() {
                 <Button 
                   variant="outline" 
                   className="w-full justify-start"
-                  onClick={() => toast.info("Feature coming soon!")}
+                  onClick={() => {
+                    const text = "I'm leveling up my skills with VOS Academy! 🚀 #VOSAcademy #ValueSelling";
+                    const url = `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(text)}`;
+                    window.open(url, '_blank', 'noopener,noreferrer');
+                  }}
                 >
                   <Share2 className="h-4 w-4 mr-2" />
                   Share on LinkedIn
