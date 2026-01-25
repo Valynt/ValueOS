@@ -32,6 +32,9 @@
       "@mcp/*": ["./packages/mcp/*"],
       "@mcp-common/*": ["./packages/mcp/common/*"],
       "@sdui/*": ["./packages/sdui/src/*"]
+      ,
+      "@valueos/design-system": ["./packages/components/design-system/src"],
+      "@valueos/design-system/*": ["./packages/components/design-system/src/*"]
     },
 
     /* Linting - Strict Configuration */

@@ -27,6 +27,7 @@ export default defineConfig({
       "@lib": path.resolve(__dirname, "./apps/ValyntApp/src/lib"),
       "@hooks": path.resolve(__dirname, "./apps/ValyntApp/src/hooks"),
       "@types": path.resolve(__dirname, "./apps/ValyntApp/src/types"),
+      "@valueos/design-system": path.resolve(__dirname, "./packages/components/design-system/src"),
     },
   },
 });
