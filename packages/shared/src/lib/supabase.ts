@@ -1,5 +1,25 @@
 import { createClient, type SupabaseClientOptions } from "@supabase/supabase-js";
 import { getEnvVar, getSupabaseConfig } from "./env";
+import { withRetry, retryPredicates } from "./retry";
+
+// Custom fetch with retry logic for network stability
+const fetchWithRetry = async (
+  input: RequestInfo | URL,
+  init?: RequestInit
+): Promise<Response> => {
+  const result = await withRetry(() => fetch(input, init), {
+    retryOn: (error) =>
+      retryPredicates.networkErrors(error) ||
+      retryPredicates.serverErrors(error),
+    maxAttempts: 3,
+    baseDelayMs: 500,
+  });
+
+  if (result.ok) {
+    return result.value;
+  }
+  throw result.error;
+};
 
 // Client-side configuration - only uses anon key
 const supabaseConfig = getSupabaseConfig();
@@ -27,6 +47,9 @@ if (supabaseUrl && supabaseAnonKey) {
       autoRefreshToken: true,
       persistSession: false, // We handle persistence manually via SecureTokenManager for rotation support
       detectSessionInUrl: true,
+    },
+    global: {
+      fetch: fetchWithRetry,
     },
   };
 
@@ -91,6 +114,7 @@ export function createRequestSupabaseClient(req: {
       headers: {
         Authorization: `Bearer ${token}`,
       },
+      fetch: fetchWithRetry,
     },
   };
 
@@ -140,6 +164,9 @@ export function createServerSupabaseClient(serviceKey?: string) {
     },
     auth: {
       autoRefreshToken: false, // Server-side doesn't need auto-refresh
+    },
+    global: {
+      fetch: fetchWithRetry,
     },
   };
 
