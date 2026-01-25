@@ -67,12 +67,12 @@ jobs:
 
 ```dockerfile
 # Multi-stage build for smaller images
-FROM node:20-alpine AS builder
+FROM node:20.19.0-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --only=production
 
-FROM node:20-alpine
+FROM node:20.19.0-alpine
 WORKDIR /app
 COPY --from=builder /app/node_modules ./node_modules
 COPY . .

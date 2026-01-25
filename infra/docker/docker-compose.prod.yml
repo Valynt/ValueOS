@@ -42,7 +42,7 @@ services:
         condition: service_healthy
 
   frontend:
-    image: node:20-alpine
+    image: node:20.19.0-alpine
     container_name: valueos-frontend-prod
     working_dir: /app
     command:
