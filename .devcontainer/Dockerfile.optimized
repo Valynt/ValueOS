@@ -9,7 +9,6 @@
 # Build: docker build -f Dockerfile.optimized -t valueos-dev .
 
 ARG VARIANT=ubuntu-22.04
-ARG NODE_VERSION=20
 
 # Stage 1: Base image with system dependencies
 FROM mcr.microsoft.com/vscode/devcontainers/base:${VARIANT} AS base
@@ -51,114 +50,14 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     # Compression
     zip \
     unzip \
-    # Python (for node-gyp)
+    # Python (for node-gyp and tools)
     python3 \
     python3-pip \
     # Verify critical tools installed
     && command -v git && command -v curl && command -v make
 
-# Stage 2: Node.js installation
-FROM base AS nodejs
-
-ARG NODE_VERSION
-
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
-
-# Install Node.js using official NodeSource repository
-# Retry logic for network resilience
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    for i in 1 2 3; do \
-        curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - && break || \
-        { echo "Retry $i/3 failed"; sleep 5; }; \
-    done \
-    && apt-get install -y nodejs \
-    # Verify Node.js installed correctly
-    && node --version && npm --version
-
-# Enable corepack and install pnpm
-# Pin pnpm version for reproducibility
-RUN corepack enable && corepack prepare pnpm@9.15.0 --activate \
-    # Verify installation
-    && pnpm --version
-
-# Stage 4: Development tools
-FROM nodejs AS devtools
-
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
-
-# Install Terraform with retry
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    for i in 1 2 3; do \
-        wget -qO- https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg && break || \
-        { echo "Retry $i/3 failed"; sleep 5; }; \
-    done \
-    && echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list \
-    && apt-get update \
-    && apt-get install -y terraform \
-    && terraform version || true
-
-# Stage 5: Security tools (moved to post-create optional installer)
-FROM devtools AS security
-
-# NOTE: Heavy or optional security tooling is intentionally moved out of
-# the main image build to keep the base image small and reproducible.
-# Use the post-create opt-in installer at:
-#   .devcontainer/scripts/install-optional-tools.sh
-
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
-
-RUN echo "Optional security tooling moved to .devcontainer/scripts/install-optional-tools.sh" || true
-
-# Stage 6: Database tools
-FROM security AS dbtools
-
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
-
-ARG INSTALL_DBTOOLS=1
-ARG SUPABASE_VERSION=1.200.0
-ARG PRISMA_VERSION=5.25.0
-
-# Install Database tools (Supabase, Prisma, pgcli)
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    if [ "$INSTALL_DBTOOLS" = "1" ]; then \
-        set -eux; \
-        \
-        # Ensure required installers exist
-        apt-get update; \
-        apt-get install -y --no-install-recommends curl ca-certificates; \
-        \
-        # Install Supabase CLI (pinned, from GitHub releases)
-        arch="$(uname -m)"; \
-        case "$arch" in \
-            x86_64) sb_arch="linux_amd64" ;; \
-            aarch64|arm64) sb_arch="linux_arm64" ;; \
-            *) echo "Unsupported arch: $arch"; exit 1 ;; \
-        esac; \
-        url="https://github.com/supabase/cli/releases/download/v${SUPABASE_VERSION}/supabase_${SUPABASE_VERSION}_${sb_arch}.tar.gz"; \
-        for i in 1 2 3; do \
-            curl -fL "$url" -o /tmp/supabase.tar.gz && break || { echo "Retry $i/3 failed"; sleep 5; }; \
-        done; \
-        tar -xzf /tmp/supabase.tar.gz -C /tmp; \
-        install -m 0755 /tmp/supabase /usr/local/bin/supabase; \
-        rm -f /tmp/supabase.tar.gz /tmp/supabase; \
-        supabase --version; \
-        \
-        # Install Prisma CLI (pinned)
-        corepack enable; \
-        pnpm add -g prisma@${PRISMA_VERSION}; \
-        prisma --version; \
-        \
-        # Install pgcli (optional but useful)
-        pip3 install --no-cache-dir pgcli; \
-    else \
-        echo "Skipping dbtools installation"; \
-    fi
-
-# Stage 7: Final image with user setup
-FROM dbtools AS final
+# Stage 2: Final image with user setup
+FROM base AS final
 
 # Create workspace directory as root and set permissions
 RUN mkdir -p /workspaces/valuecanvas && \
@@ -201,7 +100,7 @@ LABEL org.opencontainers.image.title="ValueOS Dev Container" \
 
 # Healthcheck to verify container is ready
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD node --version && npm --version || exit 1
+    CMD command -v git || exit 1
 
 # Default command
 CMD ["/bin/bash"]

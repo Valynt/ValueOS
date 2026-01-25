@@ -6,7 +6,6 @@ services:
       context: .
       dockerfile: Dockerfile.optimized
       args:
-        NODE_VERSION: "20"
         VARIANT: "ubuntu-22.04"
     volumes:
       - ..:/workspaces/valuecanvas:cached
