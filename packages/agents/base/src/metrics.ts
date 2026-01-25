@@ -49,6 +49,35 @@ export const metrics = {
     help: "Number of active connections",
   }),
 
+  // Reasoning metrics
+  agentReasoningTokens: new Histogram({
+    name: "agent_reasoning_tokens",
+    help: "Number of tokens used for reasoning",
+    labelNames: ["agent_type", "model"],
+    buckets: [100, 500, 1000, 2000, 4000, 8000, 16000],
+  }),
+
+  // Tool usage metrics
+  agentToolUsage: new Counter({
+    name: "agent_tool_usage_total",
+    help: "Total number of tool executions",
+    labelNames: ["agent_type", "tool_name", "status"],
+  }),
+
+  // Memory operation metrics
+  agentMemoryOperations: new Counter({
+    name: "agent_memory_operations_total",
+    help: "Total number of memory operations",
+    labelNames: ["agent_type", "operation", "memory_type", "status"],
+  }),
+
+  // Safety metrics
+  agentSafetyViolations: new Counter({
+    name: "agent_safety_violations_total",
+    help: "Total number of safety violations detected",
+    labelNames: ["agent_type", "violation_type", "source"],
+  }),
+
   // Custom metrics for agent-specific needs
   customMetrics: new Map<string, Gauge | Counter | Histogram>(),
 };

@@ -8,6 +8,7 @@ import { getConfig } from "./config.js";
 import { logger } from "./logger.js";
 import { getMetricsRegistry } from "./metrics.js";
 import { healthMiddleware, HealthChecker, defaultHealthChecks } from "./health.js";
+import { SafetyGuard } from "./safety.js";
 
 export interface ServerOptions {
   agentType: string;
@@ -26,6 +27,27 @@ export function createServer(options: ServerOptions): express.Application {
   // Middleware
   app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ extended: true }));
+
+  // Safety Middleware
+  app.use((req, res, next) => {
+    if (req.method === "POST" || req.method === "PUT") {
+      const guard = new SafetyGuard();
+      if (req.body && typeof req.body === "object") {
+        const bodyStr = JSON.stringify(req.body);
+        const result = guard.validateInput(bodyStr, options.agentType);
+        if (!result.valid) {
+          logger.warn("Safety check failed", {
+            reason: result.reason,
+            ip: req.ip,
+            agentType: options.agentType,
+          });
+          res.status(400).json({ error: "Safety check failed", details: result.reason });
+          return;
+        }
+      }
+    }
+    next();
+  });
 
   // Request logging
   app.use((req, res, next) => {
