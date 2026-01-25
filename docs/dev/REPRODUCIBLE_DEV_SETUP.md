@@ -239,8 +239,8 @@ npm run seed:demo
 Demo data seeded successfully!
 
 Login credentials:
-  Email: demo@valueos.dev
-  Password: Demo123!@#
+  Email: demouser@valynt.com
+  Password: passord
   Role: admin
 ```
 
@@ -334,8 +334,8 @@ Open browser to: `http://localhost:5173`
 ### 8.2 Login with Demo User
 
 ```
-Email: demo@valueos.dev
-Password: Demo123!@#
+Email: demouser@valynt.com
+Password: passord
 ```
 
 **Expected**:
@@ -520,8 +520,8 @@ echo "Backend: http://localhost:3001"
 echo "Supabase Studio: http://localhost:54323"
 echo ""
 echo "Demo credentials:"
-echo "  Email: demo@valueos.dev"
-echo "  Password: Demo123!@#"
+echo "  Email: demouser@valynt.com"
+echo "  Password: passord"
 echo ""
 npm run dev
 ```
@@ -545,7 +545,7 @@ bash scripts/setup-dev-clean.sh
 - [ ] `curl http://127.0.0.1:3001/health` returns `{"status":"ok"}`
 - [ ] `curl http://127.0.0.1:5173/` returns HTML
 - [ ] Browser loads `http://localhost:5173` without hanging
-- [ ] Login with `demo@valueos.dev` / `Demo123!@#` succeeds
+- [ ] Login with `demouser@valynt.com` / `passord` succeeds
 - [ ] Dashboard displays after login
 
 ---
@@ -609,8 +609,8 @@ Frontend dev server configuration:
 **Credentials**:
 
 ```
-Email: demo@valueos.dev
-Password: Demo123!@#
+Email: demouser@valynt.com
+Password: passord
 Role: admin
 Tenant: Default Organization
 ```

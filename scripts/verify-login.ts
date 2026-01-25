@@ -19,8 +19,8 @@ const projectRoot = path.resolve(__dirname, "..");
 dotenv.config({ path: path.join(projectRoot, ".env.local") });
 
 // Demo user credentials (INVARIANT - see docs/SYSTEM_INVARIANTS.md)
-const DEMO_EMAIL = "demo@valueos.dev";
-const DEMO_PASSWORD = "Demo123!@#";
+const DEMO_EMAIL = "demouser@valynt.com";
+const DEMO_PASSWORD = "passord";
 const DEMO_UUID = "00000000-0000-0000-0000-000000000001";
 
 async function verifyLogin() {

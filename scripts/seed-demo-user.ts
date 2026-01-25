@@ -50,8 +50,8 @@ async function seedDemoData() {
     console.log(`✅ Created demo tenant: ${tenant.name}`);
 
     // Create demo user with fixed credentials (INVARIANT - do not change)
-    const demoUserEmail = "demo@valueos.dev";
-    const demoUserPassword = "Demo123!@#";
+    const demoUserEmail = "demouser@valynt.com";
+    const demoUserPassword = "passord";
     const demoUserId = "00000000-0000-0000-0000-000000000001"; // Fixed UUID for determinism
 
     // First, create the user via Supabase Auth

@@ -35,7 +35,7 @@ echo "Test 1: Create value case..."
 TOKEN=$(curl -s -X POST http://127.0.0.1:54321/auth/v1/token?grant_type=password \
   -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0" \
   -H "Content-Type: application/json" \
-  -d '{"email":"demo@valueos.dev","password":"Demo123!@#"}' | \
+  -d '{"email":"demouser@valynt.com","password":"passord"}' | \
   grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
 
 [ -n "$TOKEN" ] || { echo "FAIL: Could not get auth token"; exit 1; }
@@ -50,7 +50,7 @@ echo "✓ Protected endpoints work"
 
 # Test 3: Database connectivity
 DB_TEST=$(docker exec valueos-postgres psql -U postgres -d postgres -tAc \
-  "SELECT COUNT(*) FROM auth.users WHERE email='demo@valueos.dev'")
+  "SELECT COUNT(*) FROM auth.users WHERE email='demouser@valynt.com'")
 
 [ "$DB_TEST" = "1" ] || { echo "FAIL: Demo user not in database"; exit 1; }
 echo "✓ Database queries work"
