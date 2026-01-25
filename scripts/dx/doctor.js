@@ -1197,6 +1197,13 @@ async function main() {
   // Phase 1: Setup (must run first)
   ensurePortsEnvFile();
 
+  console.log("\nPorts Configuration:");
+  console.log(`  Frontend:        ${frontendUrl}`);
+  console.log(`  Backend:         ${backendUrl}`);
+  console.log(`  Supabase API:    http://localhost:${supabaseApiPort}`);
+  console.log(`  Supabase Studio: http://localhost:${supabaseStudioPort}`);
+  console.log("");
+
   // Phase 2: Independent environment checks (run in parallel)
   await Promise.all([
     Promise.resolve().then(() => {
@@ -1400,11 +1407,6 @@ async function main() {
   } else {
     console.log("\n✅ All preflight checks passed.\n");
   }
-  console.log("Ports:");
-  console.log(`  Frontend:        ${frontendUrl}`);
-  console.log(`  Backend:         ${backendUrl}`);
-  console.log(`  Supabase API:    http://localhost:${supabaseApiPort}`);
-  console.log(`  Supabase Studio: http://localhost:${supabaseStudioPort}\n`);
 
   console.log("Next steps:");
   console.log(`  Start dev stack: ./dev up --mode ${mode}`);

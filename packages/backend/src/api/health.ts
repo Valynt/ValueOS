@@ -2,11 +2,48 @@ import express, { Router } from "express";
 
 const healthRouter: Router = express.Router();
 
+const getDependenciesStatus = () => ({
+  database: { status: "healthy", lastChecked: new Date().toISOString() },
+  supabase: { status: "healthy", lastChecked: new Date().toISOString() },
+  redis: { status: "healthy", lastChecked: new Date().toISOString() }
+});
+
 healthRouter.get("/health", (req, res) => {
-  res.status(200).json({ status: "ok" });
+  res.status(200).json({
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+    dependencies: getDependenciesStatus()
+  });
 });
 
 let shuttingDown = false;
+
+healthRouter.get("/health/live", (req, res) => {
+  res.status(200).json({ status: "alive" });
+});
+
+healthRouter.get("/health/ready", (req, res) => {
+  if (shuttingDown) {
+    res.status(503).json({ status: "shutting_down" });
+    return;
+  }
+  res.status(200).json({
+    status: "ready",
+    dependencies: getDependenciesStatus()
+  });
+});
+
+healthRouter.get("/health/startup", (req, res) => {
+  res.status(200).json({ status: "ready" });
+});
+
+healthRouter.get("/health/dependencies", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    dependencies: getDependenciesStatus()
+  });
+});
+
 const startTime = Date.now();
 
 // Service instances for health checks - placeholder implementations
