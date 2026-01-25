@@ -126,7 +126,9 @@ export class ProgressiveRollout {
     const isInRollout = this.isUserInPercentage(userId, this.config.percentage);
 
     // Track usage
-    await this.trackUsage(userId, isInRollout);
+    this.trackUsage(userId, isInRollout).catch(err => {
+      logger.error('Failed to track usage', { feature: this.featureName, error: err });
+    });
 
     return isInRollout;
   }
