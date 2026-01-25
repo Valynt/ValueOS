@@ -448,4 +448,11 @@ export const api = {
   getCurrentUser: () => apiClient.get("/api/user/me"),
 
   updateProfile: (data: any) => apiClient.put("/api/user/profile", data),
+
+  // Billing
+  getSubscription: () => apiClient.get("/api/billing/subscription"),
+
+  changePlan: (planTier: string) => apiClient.put("/api/billing/subscription/plan", { planTier }),
+
+  cancelSubscription: () => apiClient.post("/api/billing/subscription/cancel"),
 };

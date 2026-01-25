@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import type { Subscription, PlanTier } from "../types";
+import { api } from "../../../api/client/unified-api-client";
 
 export function useSubscription() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -12,22 +13,14 @@ export function useSubscription() {
 
   const fetchSubscription = async () => {
     setIsLoading(true);
+    setError(null);
     try {
-      // TODO: Implement actual API call
-      // const res = await fetch("/api/billing/subscription");
-      // const data = await res.json();
-      // setSubscription(data);
-
-      // Mock data for now
-      setSubscription({
-        id: "sub_1",
-        userId: "user_1",
-        planTier: "pro",
-        status: "active",
-        currentPeriodStart: new Date().toISOString(),
-        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        cancelAtPeriodEnd: false,
-      });
+      const response = await api.getSubscription();
+      if (response.success && response.data) {
+        setSubscription(response.data);
+      } else {
+        throw new Error(response.error?.message || "Failed to fetch subscription");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch subscription");
     } finally {
@@ -36,18 +29,28 @@ export function useSubscription() {
   };
 
   const changePlan = async (newPlan: PlanTier) => {
+    setError(null);
     try {
-      // TODO: Implement actual API call
-      setSubscription((prev) => (prev ? { ...prev, planTier: newPlan } : null));
+      const response = await api.changePlan(newPlan);
+      if (response.success && response.data) {
+        setSubscription(response.data);
+      } else {
+        throw new Error(response.error?.message || "Failed to change plan");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to change plan");
     }
   };
 
   const cancelSubscription = async () => {
+    setError(null);
     try {
-      // TODO: Implement actual API call
-      setSubscription((prev) => (prev ? { ...prev, cancelAtPeriodEnd: true } : null));
+      const response = await api.cancelSubscription();
+      if (response.success && response.data) {
+        setSubscription(response.data);
+      } else {
+        throw new Error(response.error?.message || "Failed to cancel subscription");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to cancel subscription");
     }
