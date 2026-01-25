@@ -2,22 +2,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { tenantContextMiddleware } from '../tenantContext';
 import { getUserTenantId, verifyTenantExists, verifyTenantMembership } from '@shared/lib/tenantVerification';
 
-<<<<<<< HEAD
-vi.mock('../../lib/tenantVerification', () => ({
-=======
 const tenantVerificationMocks = vi.hoisted(() => ({
->>>>>>> 7823d3dee5da3de0b12c5c68a37810dc04000075
   getUserTenantId: vi.fn(),
   verifyTenantExists: vi.fn(),
   verifyTenantMembership: vi.fn(),
 }));
-<<<<<<< HEAD
-=======
 
 vi.mock('@shared/lib/tenantVerification', () => tenantVerificationMocks);
 
 const ORIGINAL_ENV = { ...process.env };
->>>>>>> 7823d3dee5da3de0b12c5c68a37810dc04000075
 
 function mockRes() {
   return {
@@ -29,6 +22,7 @@ function mockRes() {
 describe('tenantContextMiddleware', () => {
   afterEach(() => {
     vi.clearAllMocks();
+    process.env = { ...ORIGINAL_ENV };
   });
 
   it('allows requests with no user and no tenant candidate', async () => {

@@ -22,13 +22,14 @@ import { consentRegistry } from './services/consentRegistry';
 import { sanitizeAgentInput } from '../utils/security';
 import { requireAuth } from '../middleware/auth';
 import { tenantContextMiddleware } from '../middleware/tenantContext';
+import { tenantDbContextMiddleware } from '../middleware/tenantDbContext';
 
 const router = Router();
 router.use(requestAuditMiddleware());
 router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
 router.use(requireAuth);
-router.use(tenantContextMiddleware());
+router.use(tenantContextMiddleware(), tenantDbContextMiddleware());
 
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
   requestId: (req as any).requestId || res.locals.requestId,
