@@ -12,6 +12,7 @@ import { trpc } from "@/lib/trpc";
 import { useCurriculum, useProgress } from "@/hooks/useCurriculum";
 import { getCurriculumForRole, CurriculumModule } from "@/data/curriculum";
 import { getModuleStatus } from "@/lib/progress-logic";
+import { downloadFile } from "@/lib/download";
 
 type PillarResource = {
   id?: number | string;
@@ -52,15 +53,33 @@ export default function PillarOverview() {
     console.log('Completing module:', moduleId);
   };
 
-  const handleDownloadResource = (resource: PillarResource) => {
-    // TODO: Implement actual download logic
-    // For now, simulate download or open in new tab
-    if (resource.fileUrl) {
-      window.open(resource.fileUrl, '_blank');
-    } else {
-      // Fallback for resources without URLs
+  const handleDownloadResource = async (resource: PillarResource) => {
+    if (!resource.fileUrl) {
       console.log('Download requested for:', resource.title);
-      // Could show a toast or download placeholder
+      return;
+    }
+
+    // Determine filename from URL or title
+    const filename = resource.fileUrl.split('/').pop() || resource.title || 'download';
+
+    try {
+      // If it's a relative path, use downloadFile to force download
+      if (resource.fileUrl.startsWith('/')) {
+        await downloadFile(resource.fileUrl, filename);
+      } else {
+        // For external URLs, try downloadFile first, fallback to window.open
+        try {
+          // Attempt to download if CORS allows
+          await downloadFile(resource.fileUrl, filename);
+        } catch {
+          // Fallback to opening in new tab
+          window.open(resource.fileUrl, '_blank');
+        }
+      }
+    } catch (error) {
+      console.error('Download failed:', error);
+      // Final fallback
+      window.open(resource.fileUrl, '_blank');
     }
   };
 
