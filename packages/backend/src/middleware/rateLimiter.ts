@@ -13,7 +13,7 @@
 
 import { Request, Response, NextFunction } from "express";
 import { logger } from "@shared/lib/logger";
-import { RateLimitKeyService } from "./services/RateLimitKeyService";
+import { RateLimitKeyService } from "../services/RateLimitKeyService";
 import { RedisRateLimitStore, RateLimitEntry } from "./redisRateLimitStore";
 
 /**
