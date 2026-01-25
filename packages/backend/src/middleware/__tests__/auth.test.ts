@@ -9,13 +9,16 @@ vi.mock('../../services/AuthService', () => ({
 }));
 
 vi.mock('../../lib/supabase', () => ({
+  createRequestSupabaseClient: vi.fn(),
+  getRequestSupabaseClient: vi.fn(),
   getSupabaseClient: vi.fn(),
 }));
 
 const { requireAuth } = await import('../auth');
 const { requirePermission } = await import('../rbac');
 const { authService } = await import('../../services/AuthService');
-const { getSupabaseClient } = await import('../../lib/supabase');
+const { createRequestSupabaseClient, getRequestSupabaseClient, getSupabaseClient } =
+  await import('../../lib/supabase');
 
 function mockRes() {
   return {
@@ -31,6 +34,12 @@ describe('auth middleware', () => {
     (getSupabaseClient as unknown as { mockImplementation: (_fn: () => never) => void }).mockImplementation(() => {
       throw new Error('supabase unavailable');
     });
+    (createRequestSupabaseClient as unknown as { mockImplementation: (_fn: () => {}) => void }).mockImplementation(
+      (req: any) => {
+        req.supabase = {};
+        return req.supabase;
+      }
+    );
   });
 
   afterEach(() => {
@@ -119,7 +128,9 @@ describe('permission middleware', () => {
       }),
     };
 
-    (getSupabaseClient as unknown as { mockReturnValue: (_value: typeof supabase) => void }).mockReturnValue(supabase);
+    (getRequestSupabaseClient as unknown as { mockReturnValue: (_value: typeof supabase) => void }).mockReturnValue(
+      supabase
+    );
 
     const req = {
       user: { id: 'user-123', tenant_id: 'tenant-abc' },

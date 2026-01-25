@@ -12,7 +12,7 @@ import { authService } from './services/AuthService';
 import { AuthenticationError } from './services/errors';
 import { createLogger } from '@shared/lib/logger';
 import { sanitizeForLogging } from '@shared/lib/piiFilter';
-import { getSupabaseClient } from '@shared/lib/supabase';
+import { createRequestSupabaseClient, getSupabaseClient } from '@shared/lib/supabase';
 import { getEnvVar } from '@shared/lib/env';
 
 const logger = createLogger({ component: 'AuthMiddleware' });
@@ -70,6 +70,12 @@ function applyAuthContext(req: Request, user: any, session: any, claims: JwtPayl
   (req as any).user = userWithTenant;
   (req as any).session = session;
   (req as any).tenantId = tenantId;
+}
+
+function ensureAuthHeader(req: Request, token?: string | null) {
+  if (!token) return;
+  if (req.headers.authorization) return;
+  (req.headers as Record<string, string>).authorization = `Bearer ${token}`;
 }
 
 async function verifyTokenWithSupabase(token: string) {
@@ -181,6 +187,8 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
     // Add user and session to request for use in handlers
     applyAuthContext(req, user, session, claims);
+    ensureAuthHeader(req, session?.access_token);
+    createRequestSupabaseClient(req);
 
     logger.debug('Authentication successful', {
       userId: sanitizeForLogging(user.id),
@@ -231,6 +239,8 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
 
     if (user && session) {
       applyAuthContext(req, user, session, claims);
+      ensureAuthHeader(req, session?.access_token);
+      createRequestSupabaseClient(req);
 
       logger.debug('Optional authentication successful', {
         userId: sanitizeForLogging(user.id),
