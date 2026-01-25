@@ -234,16 +234,28 @@ export class CacheEncryption {
     let totalEncryptMs = 0;
     let totalDecryptMs = 0;
 
-    for (let i = 0; i < iterations; i++) {
-      // Encrypt
-      const encStart = Date.now();
-      const encrypted = this.encrypt(testData, tenantId);
-      totalEncryptMs += Date.now() - encStart;
+    // Process in chunks to avoid blocking event loop
+    const BATCH_SIZE = 100;
 
-      // Decrypt
-      const decStart = Date.now();
-      this.decrypt(encrypted, tenantId);
-      totalDecryptMs += Date.now() - decStart;
+    for (let i = 0; i < iterations; i += BATCH_SIZE) {
+      const end = Math.min(i + BATCH_SIZE, iterations);
+
+      for (let j = i; j < end; j++) {
+        // Encrypt
+        const encStart = Date.now();
+        const encrypted = this.encrypt(testData, tenantId);
+        totalEncryptMs += Date.now() - encStart;
+
+        // Decrypt
+        const decStart = Date.now();
+        this.decrypt(encrypted, tenantId);
+        totalDecryptMs += Date.now() - decStart;
+      }
+
+      // Yield to event loop
+      if (end < iterations) {
+        await new Promise((resolve) => setImmediate(resolve));
+      }
     }
 
     const averageEncryptionMs = totalEncryptMs / iterations;
