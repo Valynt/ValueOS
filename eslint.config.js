@@ -109,7 +109,7 @@ const baseConfig = {
     "jsx-a11y/no-noninteractive-element-interactions": "warn",
     "jsx-a11y/label-has-associated-control": "error",
     "jsx-a11y/aria-props": "error",
-    "jsx-a11y/aria-roles": "error",
+    "jsx-a11y/aria-role": "error",
     "jsx-a11y/role-has-required-aria-props": "error",
     "@typescript-eslint/no-explicit-any": "warn",
     "no-unused-vars": [

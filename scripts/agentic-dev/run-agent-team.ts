@@ -397,10 +397,10 @@ async function runVirtualTeam(featureDescription: string): Promise<DevelopmentRe
       feature: featureDescription,
       module: architectSpec.module,
       artifacts: {
-        specification: \`generated-features/\${architectSpec.module}/spec.json\`,
+        specification: `generated-features/${architectSpec.module}/spec.json`,
         implementation: implementations,
         tests: tests,
-        review: \`generated-features/\${architectSpec.module}/review.json\`
+        review: `generated-features/${architectSpec.module}/review.json`
       },
       metrics: {
         code_coverage: '95%',
