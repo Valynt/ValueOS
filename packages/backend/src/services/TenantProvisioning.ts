@@ -793,26 +793,38 @@ async function archiveTenantData(organizationId: string): Promise<void> {
     const archivePayload: Record<string, unknown> = {};
     const tableColumnCache: Record<string, Set<string>> = {};
 
-    for (const entry of tablesToArchive) {
-      const { data: columnRows, error: columnError } = await supabase
-        .from('information_schema.columns')
-        .select('column_name')
-        .eq('table_schema', 'public')
-        .eq('table_name', entry.table);
+    // Optimization: Batch fetch columns for all tables
+    const tableNames = tablesToArchive.map((t) => t.table);
+    const { data: allColumns, error: columnsError } = await supabase
+      .from('information_schema.columns')
+      .select('table_name, column_name')
+      .eq('table_schema', 'public')
+      .in('table_name', tableNames);
 
-      if (columnError) {
-        errors.push(`Failed to inspect columns for ${entry.table}: ${columnError.message}`);
-        continue;
+    if (columnsError) {
+      throw new Error(`Failed to inspect columns: ${columnsError.message}`);
+    }
+
+    (allColumns || []).forEach((row) => {
+      if (!tableColumnCache[row.table_name]) {
+        tableColumnCache[row.table_name] = new Set();
       }
+      tableColumnCache[row.table_name].add(row.column_name);
+    });
 
-      const columns = new Set((columnRows || []).map((row) => row.column_name));
-      tableColumnCache[entry.table] = columns;
+    // Optimization: Parallel data fetching with concurrency limit
+    await runWithConcurrency(tablesToArchive, async (entry) => {
+      const columns = tableColumnCache[entry.table];
+      if (!columns) {
+        errors.push(`Missing column metadata for ${entry.table}`);
+        return;
+      }
 
       const availableTenantColumns = entry.tenantColumns.filter((column) => columns.has(column));
 
       if (availableTenantColumns.length === 0) {
         errors.push(`No tenant identifier columns found for ${entry.table}`);
-        continue;
+        return;
       }
 
       let query = supabase.from(entry.table).select('*');
@@ -826,11 +838,11 @@ async function archiveTenantData(organizationId: string): Promise<void> {
       const { data, error } = await query;
       if (error) {
         errors.push(`Failed to export ${entry.table}: ${error.message}`);
-        continue;
+        return;
       }
 
       archivePayload[entry.table] = data || [];
-    }
+    }, 5);
 
     if (errors.length > 0) {
       throw new Error(`Archival export failed: ${errors.join('; ')}`);
@@ -887,17 +899,18 @@ async function archiveTenantData(organizationId: string): Promise<void> {
       cases: 'closed_at',
     };
 
-    for (const entry of tablesToArchive) {
+    // Optimization: Parallel archival updates with concurrency limit
+    await runWithConcurrency(tablesToArchive, async (entry) => {
       const columns = tableColumnCache[entry.table];
       if (!columns) {
         errors.push(`Missing column metadata for ${entry.table}`);
-        continue;
+        return;
       }
 
       const availableTenantColumns = entry.tenantColumns.filter((column) => columns.has(column));
       if (availableTenantColumns.length === 0) {
         errors.push(`No tenant identifier columns found for ${entry.table}`);
-        continue;
+        return;
       }
 
       const updatePayload: Record<string, unknown> = {};
@@ -959,12 +972,12 @@ async function archiveTenantData(organizationId: string): Promise<void> {
                 break;
               }
             }
-            continue;
+            return;
           }
         }
 
         errors.push(`No archival fields available for ${entry.table}`);
-        continue;
+        return;
       }
 
       let updateQuery = supabase.from(entry.table).update(updatePayload);
@@ -979,7 +992,7 @@ async function archiveTenantData(organizationId: string): Promise<void> {
       if (updateError) {
         errors.push(`Failed to mark ${entry.table} as archived: ${updateError.message}`);
       }
-    }
+    }, 5);
 
     if (errors.length > 0) {
       throw new Error(`Archival update incomplete: ${errors.join('; ')}`);
@@ -1374,4 +1387,30 @@ function getDefaultPermissions(role: string): string[] {
   };
 
   return permissions[role] || [];
+}
+
+/**
+ * Execute tasks with concurrency limit
+ */
+async function runWithConcurrency<T>(
+  items: T[],
+  task: (item: T) => Promise<void>,
+  concurrency: number
+): Promise<void> {
+  const results: Promise<void>[] = [];
+  const executing = new Set<Promise<void>>();
+
+  for (const item of items) {
+    const p = task(item).then(() => {
+      executing.delete(p);
+    });
+    results.push(p);
+    executing.add(p);
+
+    if (executing.size >= concurrency) {
+      await Promise.race(executing);
+    }
+  }
+
+  await Promise.all(results);
 }
