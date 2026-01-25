@@ -14,14 +14,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.15.0
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "18.19.0"
-          cache: "npm"
+          node-version: "20"
+          cache: "pnpm"
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Generate env for local mode
         run: node scripts/dx/env-compiler.js --mode local --force
@@ -47,6 +52,41 @@ jobs:
           fi
           echo "Contradiction detection working correctly"
 
+  docker-smoke:
+    name: Docker Smoke Test
+    runs-on: ubuntu-latest
+    needs: env-validation
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.15.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Make dev script executable
+        run: chmod +x dev
+
+      - name: Bootstrap Environment
+        run: ./dev up
+
+      - name: Run Smoke Tests
+        run: ./dev smoke
+
+      - name: Cleanup
+        if: always()
+        run: ./dev down
+
   unit-integration:
     name: Unit & Integration Tests
     runs-on: ubuntu-latest
@@ -55,20 +95,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.15.0
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "18.19.0"
-          cache: "npm"
+          node-version: "20"
+          cache: "pnpm"
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Generate environment
         run: node scripts/dx/env-compiler.js --mode local --force
 
       - name: Run CI verification suite
-        run: npm run ci:verify
+        run: pnpm run ci:verify
 
   playwright-smoke:
     name: Playwright Smoke
@@ -78,20 +123,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.15.0
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "18.19.0"
-          cache: "npm"
+          node-version: "20"
+          cache: "pnpm"
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+        run: pnpm exec playwright install --with-deps
 
       - name: Run smoke specs
-        run: npx playwright test test/playwright/critical-flows.spec.ts --reporter=line
+        run: pnpm exec playwright test test/playwright/critical-flows.spec.ts --reporter=line
 
   testcafe-smoke:
     name: TestCafe Smoke
@@ -101,17 +151,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.15.0
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "18.19.0"
-          cache: "npm"
+          node-version: "20"
+          cache: "pnpm"
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Run TestCafe smoke tests
-        run: npm run test:testcafe
+        run: pnpm run test:testcafe
 
   deps-outdated-report:
     name: Dependency Outdated Report
@@ -121,19 +176,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.15.0
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "18.19.0"
-          cache: "npm"
+          node-version: "20"
+          cache: "pnpm"
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Generate outdated report
         run: |
           mkdir -p reports
-          npm run --silent deps:outdated > reports/npm-outdated.json || true
+          pnpm run --silent deps:outdated > reports/npm-outdated.json || true
 
       - name: Upload outdated report
         if: always()

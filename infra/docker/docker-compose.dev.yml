@@ -174,8 +174,9 @@ services:
   # Backend API server
   backend:
     build:
-      context: ..
-      dockerfile: docker/Dockerfile.backend
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.backend
+      target: development
     container_name: valueos-backend
     ports:
       - "${API_PORT:-3001}:3001"
@@ -198,28 +199,34 @@ services:
       - KAFKA_BROKERS=kafka:9092
       - SCHEMA_REGISTRY_URL=http://schema-registry:8081
     env_file:
-      - ../deploy/envs/.env.ports
-      - ../deploy/envs/.env.local
+      - ../../deploy/envs/.env.ports
+      - ../../deploy/envs/.env.local
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
-      - ../src:/app/src
-      - ../package.json:/app/package.json
-      - node_modules:/app/node_modules
-    tmpfs:
-      - /tmp:noexec,nosuid,size=100m,uid=1000,gid=1000
+      - ../../packages/backend/src:/app/src
+      - ../../packages/backend/package.json:/app/package.json
+    # No tmpfs needed if we want to write logs/etc, but good for security.
+    # For dev, maybe we want persistence?
+    # Keeping existing config but removing node_modules volume as we want the container's modules.
     networks:
       - valueos-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   # Frontend (Nginx + React)
   frontend:
     build:
-      context: ..
-      dockerfile: docker/Dockerfile.frontend
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.frontend
+      target: development
     container_name: valueos-frontend
     deploy:
       resources:
@@ -229,21 +236,28 @@ services:
         reservations:
           memory: 128M
     ports:
-      - "${VITE_PORT:-5173}:80"
+      - "${VITE_PORT:-5173}:5173"
     environment:
       - VITE_SUPABASE_URL=${VITE_SUPABASE_URL:-http://host.docker.internal:${SUPABASE_API_PORT:-54321}}
       - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
       - VITE_API_BASE_URL=http://backend:${API_PORT:-3001}
+      - HOST=0.0.0.0
     env_file:
-      - ../deploy/envs/.env.ports
+      - ../../deploy/envs/.env.ports
+      - ../../deploy/envs/.env.local
     depends_on:
       - backend
-    tmpfs:
-      - /tmp:noexec,nosuid,size=50m,uid=1000,gid=1000
-      - /var/cache/nginx:noexec,nosuid,size=10m,uid=1000,gid=1000
+    volumes:
+      - ../../apps/ValyntApp:/app/apps/ValyntApp
+      - /app/apps/ValyntApp/node_modules
     networks:
       - valueos-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5173/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   # Caddy reverse proxy
   caddy:
@@ -263,14 +277,14 @@ services:
     environment:
       DEV_DOMAIN: ${DEV_DOMAIN:-localhost}
       API_UPSTREAM: ${API_UPSTREAM:-http://backend:${API_PORT:-3001}}
-      FRONTEND_UPSTREAM: ${FRONTEND_UPSTREAM:-http://frontend:80}
+      FRONTEND_UPSTREAM: ${FRONTEND_UPSTREAM:-http://frontend:5173}
       CADDY_ADMIN: ${CADDY_ADMIN:-0.0.0.0:${CADDY_ADMIN_PORT:-2019}}
       CADDY_LOG_DIR: /var/log/caddy
       CADDY_STORAGE: /data
       CADDY_LOG_LEVEL: ${CADDY_LOG_LEVEL:-DEBUG}
       AUTO_HTTPS: ${AUTO_HTTPS:-off}
     volumes:
-      - ../infra/caddy/Caddyfile.dev:/etc/caddy/Caddyfile.dev
+      - ../caddy/Caddyfile.dev:/etc/caddy/Caddyfile.dev
       - caddy_data:/data
       - caddy_logs:/var/log/caddy
     networks:
@@ -294,7 +308,7 @@ services:
     ports:
       - "${PROMETHEUS_PORT:-9090}:9090"
     volumes:
-      - ../infra/devcontainer/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ../../infra/devcontainer/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
