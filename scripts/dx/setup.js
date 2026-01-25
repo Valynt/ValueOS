@@ -76,6 +76,30 @@ function envFileExists() {
 }
 
 /**
+ * Check for an existing DX session
+ */
+function getExistingDxSession() {
+  const projectRoot = path.resolve(__dirname, '../..');
+  const dxStatePath = path.join(projectRoot, '.dx-state.json');
+
+  if (!fs.existsSync(dxStatePath)) {
+    return null;
+  }
+
+  try {
+    const state = JSON.parse(fs.readFileSync(dxStatePath, 'utf8'));
+    try {
+      process.kill(state.pid, 0);
+      return state;
+    } catch {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Ensure .env exists for tooling that expects it
  */
 function ensureDotEnvFromLocal() {
@@ -265,9 +289,17 @@ async function main() {
 
     // Step 6: Optional start
     if (shouldStart) {
-      const startSuccess = exec('npm run dx', 'Start development environment');
-      if (!startSuccess) {
-        throw new Error('Development start failed');
+      const existingSession = getExistingDxSession();
+      if (existingSession) {
+        console.log(
+          `\n⚠️  Development environment already running (pid ${existingSession.pid}, mode ${existingSession.mode}).`
+        );
+        console.log('   Skipping automatic start to avoid duplicate processes.\n');
+      } else {
+        const startSuccess = exec('npm run dx', 'Start development environment');
+        if (!startSuccess) {
+          throw new Error('Development start failed');
+        }
       }
     }
     
