@@ -19,6 +19,7 @@ export interface LLMRequest {
   userId: string;
   sessionId?: string;
   tenantId?: string;
+  stream?: boolean;
 }
 
 export interface LLMResponse {
@@ -192,6 +193,111 @@ export class LLMFallbackService {
   }
 
   /**
+   * Call Together.ai API with streaming
+   */
+  private async *callTogetherAIStream(
+    request: LLMRequest
+  ): AsyncGenerator<string, void, unknown> {
+    const startTime = Date.now();
+    this.stats.togetherAI.calls++;
+
+    try {
+      const togetherApiKey = getEnvVar("TOGETHER_API_KEY");
+      if (!togetherApiKey)
+        throw new Error("Together.ai API key not configured");
+
+      const response = await fetch(
+        "https://api.together.ai/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${togetherApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: request.model,
+            messages: [{ role: "user", content: request.prompt }],
+            max_tokens: request.maxTokens || 1000,
+            temperature: request.temperature || 0.7,
+            stream: true,
+          }),
+          // Increase timeout for streaming connections
+          signal: AbortSignal.timeout(60000),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Together.ai API error: ${response.status} - ${error}`);
+      }
+
+      if (!response.body) throw new Error("No response body");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      // @ts-ignore - response.body is iterable in Node environment
+      for await (const chunk of response.body) {
+        buffer += decoder.decode(chunk as BufferSource, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed === "data: [DONE]") continue;
+          if (trimmed.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(trimmed.slice(6));
+              const content = data.choices[0]?.delta?.content;
+              if (content) {
+                yield content;
+              }
+            } catch (e) {
+              logger.warn("Error parsing SSE data", { line: trimmed, error: e });
+            }
+          }
+        }
+      }
+
+      // Handle any remaining buffer
+      if (buffer.trim() && buffer.trim() !== "data: [DONE]") {
+        const trimmed = buffer.trim();
+        if (trimmed.startsWith("data: ")) {
+           try {
+              const data = JSON.parse(trimmed.slice(6));
+              const content = data.choices[0]?.delta?.content;
+              if (content) {
+                yield content;
+              }
+            } catch (e) {
+              logger.warn("Error parsing SSE data", { line: trimmed, error: e });
+            }
+        }
+      }
+
+      logger.llm("Together.ai stream completed", {
+        provider: "together_ai",
+        model: request.model,
+        success: true,
+        latency: Date.now() - startTime,
+      });
+
+    } catch (error) {
+      this.stats.togetherAI.failures++;
+
+      logger.llm("Together.ai stream failed", {
+        provider: "together_ai",
+        model: request.model,
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+        latency: Date.now() - startTime,
+      });
+
+      throw error;
+    }
+  }
+
+  /**
    * Process LLM request with circuit breaker
    */
   async processRequest(request: LLMRequest): Promise<LLMResponse> {
@@ -228,6 +334,18 @@ export class LLMFallbackService {
       logger.error("Together.ai request failed", error as Error);
       throw new Error("LLM provider unavailable. Please try again later.");
     }
+  }
+
+  /**
+   * Stream LLM request
+   */
+  async *streamRequest(request: LLMRequest): AsyncGenerator<string, void, unknown> {
+    // Skip cache for streaming requests for now
+    this.stats.cache.misses++;
+
+    // TODO: Implement circuit breaker for streaming
+    // Currently bypassing breaker for streaming to support AsyncGenerator return type
+    yield* this.callTogetherAIStream(request);
   }
 
   /**
