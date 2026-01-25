@@ -9,28 +9,19 @@ export function useTeam(teamId?: string) {
   const [error, setError] = useState<string | null>(null);
 
   const fetchTeam = useCallback(async () => {
-    if (!teamId) return;
+    if (!teamId) {
+      setIsLoading(false);
+      return;
+    }
 
     setIsLoading(true);
     try {
-      // TODO: Replace with actual API calls
-      // const data = await api.get(`/teams/${teamId}/members`);
-      // setMembers(data.members);
-      // setInvites(data.invites);
-
-      // Mock data
-      setMembers([
-        {
-          id: "1",
-          userId: "u1",
-          email: "owner@example.com",
-          fullName: "Team Owner",
-          role: "owner",
-          status: "active",
-          joinedAt: new Date().toISOString(),
-        },
-      ]);
-      setInvites([]);
+      const data = await api.get<{ members: TeamMember[]; invites: TeamInvite[] }>(
+        `/api/teams/${teamId}/members`
+      );
+      setMembers(data.members);
+      setInvites(data.invites);
+      setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch team");
     } finally {
@@ -43,43 +34,51 @@ export function useTeam(teamId?: string) {
   }, [fetchTeam]);
 
   const inviteMember = async (email: string, role: TeamRole) => {
+    if (!teamId) return;
     try {
-      // await api.post(`/teams/${teamId}/invites`, { email, role });
+      await api.post(`/api/teams/${teamId}/invites`, { email, role });
       await fetchTeam();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to invite member");
+      const message = err instanceof Error ? err.message : "Failed to invite member";
+      setError(message);
       throw err;
     }
   };
 
   const updateMemberRole = async (memberId: string, role: TeamRole) => {
+    if (!teamId) return;
     try {
-      // await api.patch(`/teams/${teamId}/members/${memberId}`, { role });
+      await api.patch(`/api/teams/${teamId}/members/${memberId}`, { role });
       setMembers((prev) =>
         prev.map((m) => (m.id === memberId ? { ...m, role } : m))
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update role");
+      const message = err instanceof Error ? err.message : "Failed to update role";
+      setError(message);
       throw err;
     }
   };
 
   const removeMember = async (memberId: string) => {
+    if (!teamId) return;
     try {
-      // await api.delete(`/teams/${teamId}/members/${memberId}`);
+      await api.delete(`/api/teams/${teamId}/members/${memberId}`);
       setMembers((prev) => prev.filter((m) => m.id !== memberId));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to remove member");
+      const message = err instanceof Error ? err.message : "Failed to remove member";
+      setError(message);
       throw err;
     }
   };
 
   const cancelInvite = async (inviteId: string) => {
+    if (!teamId) return;
     try {
-      // await api.delete(`/teams/${teamId}/invites/${inviteId}`);
+      await api.delete(`/api/teams/${teamId}/invites/${inviteId}`);
       setInvites((prev) => prev.filter((i) => i.id !== inviteId));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to cancel invite");
+      const message = err instanceof Error ? err.message : "Failed to cancel invite";
+      setError(message);
       throw err;
     }
   };
