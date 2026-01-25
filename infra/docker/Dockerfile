@@ -22,11 +22,19 @@ RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
 WORKDIR /app
 
-# Copy all source code (needed for workspace resolution without lockfile)
+# Copy lockfile and workspace config for caching
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc* ./
+
+# Install dependencies into store
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+    pnpm fetch
+
+# Copy all source code
 COPY . .
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile=false
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+    pnpm install --frozen-lockfile --offline
 
 # ============================================================================
 # Stage 2: Backend Builder

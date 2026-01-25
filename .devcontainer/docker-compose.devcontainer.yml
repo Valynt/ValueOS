@@ -1,0 +1,27 @@
+version: '3.9'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.optimized
+      args:
+        NODE_VERSION: "20"
+        VARIANT: "ubuntu-22.04"
+    volumes:
+      - ..:/workspaces/valuecanvas:cached
+    # Overriding command to keep container running
+    command: /bin/sh -c "while sleep 1000; do :; done"
+    init: true
+    # Connect to the same network as dependencies
+    networks:
+      - valueos-network
+    # Environment variables matching dev environment
+    environment:
+      NODE_ENV: development
+      # Hostnames for services in compose
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      DB_HOST: postgres
+    # Mount docker socket for docker-in-docker (handled by feature, but good to be explicit if doing manual compose)
+    # But usually devcontainer feature handles this.
