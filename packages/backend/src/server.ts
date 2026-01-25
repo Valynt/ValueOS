@@ -22,6 +22,7 @@ console.log("[Environment] Configuration loaded for development (redacted)");
 
 // Now safe to import modules that depend on env vars
 import express from "express";
+import compression from "compression";
 import cors from "cors";
 import { createServer, type IncomingMessage } from "http";
 import { WebSocket, WebSocketServer } from "ws";
@@ -55,7 +56,7 @@ import {
   latencyMetricsMiddleware,
 } from "./middleware/latencyMetricsMiddleware";
 import { getMetricsRegistry, metricsMiddleware } from "./middleware/metricsMiddleware";
-import { createRateLimiter } from "./middleware/rateLimiter";
+import { createRateLimiter, rateLimiters } from "./middleware/rateLimiter";
 import {
   requestIdMiddleware,
   accessLogMiddleware,
@@ -257,6 +258,7 @@ app.use(
     credentials: true,
   })
 );
+app.use(compression());
 app.use(express.json());
 app.use(requestIdMiddleware); // Request ID and timing (must be early)
 app.use(accessLogMiddleware); // Access logging
@@ -292,6 +294,9 @@ app.post("/api/csp-report", express.json({ type: "application/csp-report" }), cs
 app.get("/health/secrets", secretHealthMiddleware());
 
 // Mount routes
+// Apply standard rate limiting to all API routes by default
+app.use("/api", rateLimiters.standard);
+
 apiRouter.use("/billing", billingRouter);
 apiRouter.use("/projects", projectsRouter);
 apiRouter.use(

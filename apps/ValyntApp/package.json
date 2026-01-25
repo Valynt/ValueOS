@@ -30,7 +30,7 @@
     "@radix-ui/react-tooltip": "^1.1.2",
     "@supabase/supabase-js": "^2.90.1",
     "@tanstack/react-query": "^5.0.0",
-    "@valueos/shared": "*",
+    "@valueos/shared": "workspace:*",
     "@xyflow/react": "^12.3.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -68,6 +68,7 @@
     "tailwindcss": "^3.4.19",
     "typescript": "^5.9.3",
     "vite": "^6.0.0",
+    "vite-plugin-compression": "^0.5.1",
     "vitest": "^4.0.17"
   }
 }
