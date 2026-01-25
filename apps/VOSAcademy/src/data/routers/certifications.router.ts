@@ -5,14 +5,14 @@ import * as db from "../db";
 
 /**
  * Determine certification tier based on score
- * Bronze: 80-84%, Silver: 85-94%, Gold: 95%+
+ * Bronze: <80%, Silver: 80-94%, Gold: 95%+
  */
 function determineCertificationTier(cert: { score?: number | null }): "bronze" | "silver" | "gold" {
   const score = cert.score || 0;
   
   if (score >= 95) {
     return "gold";
-  } else if (score >= 85) {
+  } else if (score >= 80) {
     return "silver";
   } else {
     return "bronze";
