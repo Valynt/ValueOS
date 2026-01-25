@@ -35,6 +35,7 @@ export default defineConfig({
       "@hooks": path.resolve(__dirname, "../../apps/ValyntApp/src/hooks"),
       "@types": path.resolve(__dirname, "../../apps/ValyntApp/src/types"),
       "@shared": path.resolve(__dirname, "../../packages/shared/src"),
+      "@mcp": path.resolve(__dirname, "../../packages/mcp"),
     },
   },
 });
