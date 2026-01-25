@@ -69,7 +69,7 @@ The `scripts/migrations/zero-downtime/alembic-migrate.sh` helper is designed to 
 ZERO_DOWNTIME_PHASE=expand \
 DATABASE_URL=postgresql://... \
 ALEMBIC_CONFIG=alembic.ini \
-ZERO_DOWNTIME_BACKFILL_SQL=migrations/backfill_users.sql \
+ZERO_DOWNTIME_BACKFILL_SQL=supabase/migrations/backfill_users.sql \
 ./scripts/migrations/zero-downtime/alembic-migrate.sh
 ```
 
@@ -77,7 +77,7 @@ ZERO_DOWNTIME_BACKFILL_SQL=migrations/backfill_users.sql \
 ZERO_DOWNTIME_PHASE=contract \
 DATABASE_URL=postgresql://... \
 ALEMBIC_CONFIG=alembic.ini \
-ZERO_DOWNTIME_CLEANUP_SQL=migrations/cleanup_legacy.sql \
+ZERO_DOWNTIME_CLEANUP_SQL=supabase/migrations/cleanup_legacy.sql \
 ./scripts/migrations/zero-downtime/alembic-migrate.sh
 ```
 

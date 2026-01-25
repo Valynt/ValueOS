@@ -1,7 +1,7 @@
 # Schema, Migration, and Database Governance Plan
 
 ## Inventory & baseline
-- **Enumerate migration sources:** Inventory and track all schema/migration SQL under `infra/supabase/migrations/` with naming aligned to the 14-digit `YYYYMMDDHHMMSS_description.sql` convention and dependency annotations as documented in the Supabase migration fix notes.【F:infra/supabase/MIGRATION_FIX.md†L58-L90】
+- **Enumerate migration sources:** Inventory and track all schema/migration SQL under `supabase/migrations/` with naming aligned to the 14-digit `YYYYMMDDHHMMSS_description.sql` convention and dependency annotations as documented in the Supabase migration fix notes.【F:infra/supabase/MIGRATION_FIX.md†L58-L90】
 - **Review prior fixes:** Use the Supabase migration fix and resolution notes as baseline context for dependency order, rollback guidance, and lint expectations before planning new schema changes.【F:infra/supabase/MIGRATION_FIX.md†L1-L119】【F:infra/supabase/ISSUE_RESOLVED.md†L1-L91】
 - **Config alignment check:** Validate `infra/supabase/config.toml` against expected environment parity (ports, schema exposure, and database major version), and record any gaps as work items in the migration backlog.【F:infra/supabase/config.toml†L1-L81】【F:docs/dev/SYSTEM_INVARIANTS.md†L46-L146】
 
