@@ -130,6 +130,39 @@ jobs:
           else
             echo "✅ All migrations have rollback scripts"
           fi
+
+  rls-validation:
+    name: RLS Policy Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start Supabase local stack
+        run: npx supabase start
+        env:
+          SUPABASE_DB_PASSWORD: postgres
+
+      - name: Run RLS tests
+        run: npm run test:rls
+        env:
+          SUPABASE_DB_PASSWORD: postgres
+
+      - name: Stop Supabase local stack
+        if: always()
+        run: npx supabase stop
+        env:
+          SUPABASE_DB_PASSWORD: postgres
   
   performance-check:
     name: Performance Budget Check
@@ -193,6 +226,7 @@ jobs:
       - code-quality-gates
       - security-validation
       - migration-validation
+      - rls-validation
       - performance-check
     if: always()
     
@@ -204,12 +238,14 @@ jobs:
           echo "Code Quality: ${{ needs.code-quality-gates.result }}"
           echo "Security: ${{ needs.security-validation.result }}"
           echo "Migrations: ${{ needs.migration-validation.result }}"
+          echo "RLS: ${{ needs.rls-validation.result }}"
           echo "Performance: ${{ needs.performance-check.result }}"
           echo ""
           
           if [[ "${{ needs.code-quality-gates.result }}" != "success" ]] || \
              [[ "${{ needs.security-validation.result }}" != "success" ]] || \
              [[ "${{ needs.migration-validation.result }}" != "success" ]] || \
+             [[ "${{ needs.rls-validation.result }}" != "success" ]] || \
              [[ "${{ needs.performance-check.result }}" != "success" ]]; then
             echo "❌ PR validation FAILED"
             echo "Review failed checks above before merging"
@@ -233,12 +269,14 @@ jobs:
             const codeQuality = '${{ needs.code-quality-gates.result }}';
             const security = '${{ needs.security-validation.result }}';
             const migrations = '${{ needs.migration-validation.result }}';
+            const rls = '${{ needs.rls-validation.result }}';
             const performance = '${{ needs.performance-check.result }}';
             
             const allPassed = 
               codeQuality === 'success' &&
               security === 'success' &&
               migrations === 'success' &&
+              rls === 'success' &&
               performance === 'success';
             
             const body = `## PR Validation Results
@@ -246,6 +284,7 @@ jobs:
             ${statusEmoji[codeQuality]} **Code Quality Gates**: ${codeQuality}
             ${statusEmoji[security]} **Security Validation**: ${security}
             ${statusEmoji[migrations]} **Migration Validation**: ${migrations}
+            ${statusEmoji[rls]} **RLS Policy Tests**: ${rls}
             ${statusEmoji[performance]} **Performance Check**: ${performance}
             
             ---
