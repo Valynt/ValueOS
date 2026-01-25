@@ -31,6 +31,7 @@ import {
   CommitmentRiskSchema,
 } from "../types/value-commitment-schemas.js";
 import { logger } from "../lib/logger";
+import { supabase } from "../lib/supabase";
 import { GroundTruthIntegrationService } from "./GroundTruthIntegrationService.js";
 
 export class ValueCommitmentTrackingService {
@@ -475,8 +476,16 @@ export class ValueCommitmentTrackingService {
 
       const validatedData = CommitmentRiskSchema.parse(data);
 
-      // TODO: Insert into database
-      // const risk = await this.db.insert('commitment_risks').values(validatedData).returning();
+      // Insert into database
+      if (!supabase) throw new Error("Supabase client not initialized");
+
+      const { data: risk, error } = await supabase
+        .from("commitment_risks")
+        .insert(validatedData)
+        .select()
+        .single();
+
+      if (error) throw error;
 
       // Create audit entry
       await this.createAuditEntry(
@@ -485,19 +494,19 @@ export class ValueCommitmentTrackingService {
         userId,
         "risk_assessed",
         {},
-        validatedData,
+        risk,
         "Risk identified"
       );
 
       logger.info("Risk created", {
         commitmentId,
         tenantId,
-        riskId: validatedData.id,
-        riskTitle: validatedData.risk_title,
-        riskScore: validatedData.risk_score,
+        riskId: risk.id,
+        riskTitle: risk.risk_title,
+        riskScore: risk.risk_score,
       });
 
-      return validatedData as CommitmentRisk;
+      return risk as CommitmentRisk;
     } catch (error) {
       logger.error("Failed to create risk", { error, commitmentId, tenantId });
       throw error;
