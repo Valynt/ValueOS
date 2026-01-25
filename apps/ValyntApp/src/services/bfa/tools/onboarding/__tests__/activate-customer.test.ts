@@ -16,7 +16,7 @@ vi.mock("../../../../../lib/supabase", () => ({
   },
 }));
 
-vi.mock("../../../../lib/logger", () => ({
+vi.mock("../../../../../lib/logger", () => ({
   logger: {
     info: vi.fn(),
     warn: vi.fn(),
@@ -186,20 +186,21 @@ describe("ActivateCustomer", () => {
 
       // Base tool handles tenant access check if called, but ActivateCustomer calls it explicitly in executeBusinessLogic
       // We need to mock the validation step first
+      // In a real scenario, querying with a wrong tenantId will return no rows
       (supabase.from as any).mockReturnValue({
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({
-          data: {
-            status: "pending",
-            activation_code: "123456",
-            tenant_id: "test-tenant-id",
-          },
-          error: null,
+          data: null,
+          error: { message: "No rows found" },
         }),
+        update: vi.fn().mockReturnThis(),
       });
 
-      await expect(tool.execute(input, wrongTenantContext)).rejects.toThrow("Tenant access denied");
+      // The validation rule "Customer must exist and belong to the tenant" throws if not found
+      await expect(tool.execute(input, wrongTenantContext)).rejects.toThrow(
+        /not found or not accessible/
+      );
     });
   });
 

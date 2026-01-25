@@ -7,6 +7,8 @@ import { vi } from "vitest";
 import { createMockStripeClient } from "./stripe-mocks";
 import { createCompleteBillingSetup } from "./billing-factories";
 import type { PlanTier } from "../../config/billing";
+// Import StripeService for spyOn
+import StripeService from "../../StripeService";
 
 /**
  * Setup mock Stripe for tests
@@ -14,19 +16,15 @@ import type { PlanTier } from "../../config/billing";
 export function setupMockStripe() {
   const mockClient = createMockStripeClient();
 
-  // Mock the StripeService to return our mock client
-  vi.mock("../../StripeService", () => ({
-    default: {
-      getInstance: vi.fn(() => ({
-        getClient: () => mockClient,
-        handleError: (error: any, context: string) => {
-          throw error;
-        },
-        generateIdempotencyKey: (prefix: string, uniqueId: string) =>
-          `${prefix}_${uniqueId}_${Date.now()}`,
-      })),
+  // Mock the StripeService using spyOn instead of vi.mock to avoid hoisting issues
+  vi.spyOn(StripeService, 'getInstance').mockReturnValue({
+    getClient: () => mockClient,
+    handleError: (error: any, context: string) => {
+      throw error;
     },
-  }));
+    generateIdempotencyKey: (prefix: string, uniqueId: string) =>
+      `${prefix}_${uniqueId}_${Date.now()}`,
+  } as any);
 
   return mockClient;
 }

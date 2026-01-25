@@ -126,7 +126,9 @@ export class ProgressiveRollout {
     const isInRollout = this.isUserInPercentage(userId, this.config.percentage);
 
     // Track usage
-    await this.trackUsage(userId, isInRollout);
+    this.trackUsage(userId, isInRollout).catch(err => {
+      logger.error('Failed to track usage', { feature: this.featureName, error: err });
+    });
 
     return isInRollout;
   }
@@ -198,26 +200,29 @@ export class ProgressiveRollout {
    */
   async getMetrics(): Promise<RolloutMetrics> {
     try {
-      // Get usage stats
-      const { data: usageData, error: usageError } = await supabase
-        .from('feature_usage')
-        .select('enabled')
-        .eq('feature_name', this.featureName)
-        .gte('timestamp', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()); // Last 24 hours
+      const timestamp = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(); // Last 24 hours
+
+      const [
+        { data: usageData, error: usageError },
+        { data: errorData, error: errorError }
+      ] = await Promise.all([
+        supabase
+          .from('feature_usage')
+          .select('enabled')
+          .eq('feature_name', this.featureName)
+          .gte('timestamp', timestamp),
+        supabase
+          .from('feature_errors')
+          .select('id')
+          .eq('feature_name', this.featureName)
+          .gte('timestamp', timestamp)
+      ]);
 
       if (usageError) throw usageError;
+      if (errorError) throw errorError;
 
       const totalUsers = usageData.length;
       const enabledUsers = usageData.filter(u => u.enabled).length;
-
-      // Get error stats
-      const { data: errorData, error: errorError } = await supabase
-        .from('feature_errors')
-        .select('id')
-        .eq('feature_name', this.featureName)
-        .gte('timestamp', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
-
-      if (errorError) throw errorError;
 
       const errors = errorData.length;
       const errorRate = enabledUsers > 0 ? (errors / enabledUsers) * 100 : 0;
@@ -380,14 +385,16 @@ export class RolloutManager {
   async getAllMetrics(): Promise<Map<string, RolloutMetrics>> {
     const metrics = new Map<string, RolloutMetrics>();
 
-    for (const [featureName, rollout] of this.rollouts) {
-      try {
-        const rolloutMetrics = await rollout.getMetrics();
-        metrics.set(featureName, rolloutMetrics);
-      } catch (error) {
-        logger.error('Failed to get metrics for rollout', { featureName, error });
-      }
-    }
+    await Promise.all(
+      Array.from(this.rollouts.entries()).map(async ([featureName, rollout]) => {
+        try {
+          const rolloutMetrics = await rollout.getMetrics();
+          metrics.set(featureName, rolloutMetrics);
+        } catch (error) {
+          logger.error('Failed to get metrics for rollout', { featureName, error });
+        }
+      })
+    );
 
     return metrics;
   }

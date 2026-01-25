@@ -8,10 +8,11 @@ import { trpc } from "@/lib/trpc";
 import { Award, Download, Share2 } from "lucide-react";
 import { Link } from "wouter";
 import { toast } from "sonner";
+import { generateCertificatePDF, generateCertificateId } from "@/lib/certificate-generator";
 
 export default function Certifications() {
   const { user, loading: authLoading } = useAuth();
-  
+
   const { data: certifications, isLoading } = trpc.certifications.getUserCertifications.useQuery(
     undefined,
     { enabled: !!user }
@@ -53,9 +54,49 @@ export default function Certifications() {
     );
   }
 
-  const handleDownloadCertificate = (certId: number) => {
-    toast.info("Certificate download feature coming soon!");
-    // TODO: Implement PDF certificate generation
+  const handleDownloadCertificate = async (certId: number) => {
+    try {
+      if (!certifications) {
+        toast.error("Certifications data not available");
+        return;
+      }
+
+      const cert = certifications.find(c => c.id === certId);
+      if (!cert) {
+        toast.error("Certification not found");
+        return;
+      }
+
+      const toastId = toast.loading("Generating certificate...");
+
+      const certificateData = {
+        userName: user?.name || "VOS Academy Student",
+        pillarTitle: cert.pillarTitle,
+        vosRole: user?.vosRole || "Professional",
+        tier: cert.tier,
+        score: cert.score,
+        awardedAt: new Date(cert.earnedAt),
+        certificateId: generateCertificateId()
+      };
+
+      const blob = await generateCertificatePDF(certificateData);
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `VOS-Certificate-${cert.pillarTitle.replace(/\s+/g, '-')}-${cert.tier}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.dismiss(toastId);
+      toast.success("Certificate downloaded successfully!");
+    } catch (error) {
+      console.error("Certificate generation failed:", error);
+      toast.dismiss();
+      toast.error("Failed to generate certificate");
+    }
   };
 
   const handleShareCertificate = (certId: number) => {
@@ -102,6 +143,7 @@ export default function Certifications() {
                 expiresAt: cert.expiresAt ? new Date(cert.expiresAt) : null
               }))}
               totalPillars={10}
+              onDownload={handleDownloadCertificate}
             />
           </div>
 
@@ -113,16 +155,16 @@ export default function Certifications() {
                 <CardTitle className="text-base">Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full justify-start"
-                  onClick={() => toast.info("Feature coming soon!")}
+                  onClick={() => toast.info("Please download certificates individually from the list.")}
                 >
                   <Download className="h-4 w-4 mr-2" />
                   Download All Certificates
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full justify-start"
                   onClick={() => toast.info("Feature coming soon!")}
                 >

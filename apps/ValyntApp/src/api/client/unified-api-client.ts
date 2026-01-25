@@ -435,6 +435,8 @@ export const api = {
   // Workflows
   executeWorkflow: (data: any) => apiClient.post("/api/workflows/execute", data),
 
+  getWorkflow: (id: string) => apiClient.get(`/api/workflows/${id}`),
+
   getWorkflowStatus: (id: string) => apiClient.get(`/api/workflows/${id}/status`),
 
   // Integrations
@@ -448,4 +450,12 @@ export const api = {
   getCurrentUser: () => apiClient.get("/api/user/me"),
 
   updateProfile: (data: any) => apiClient.put("/api/user/profile", data),
+
+  // LLM
+  chat: (data: {
+    prompt: string;
+    model?: string;
+    maxTokens?: number;
+    temperature?: number;
+  }) => apiClient.post("/api/llm/chat", data),
 };

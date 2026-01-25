@@ -128,27 +128,52 @@ export class AdminUserService {
     }
 
     const rows = data ?? [];
-    const userRecords = await Promise.all(
-      rows.map(async (row) => {
-        const { data: userData } = await this.getSupabase().auth.admin.getUserById(row.user_id);
-        const user = userData?.user;
-        const fullName =
-          (user?.user_metadata?.full_name as string | undefined) ||
-          (user?.user_metadata?.name as string | undefined) ||
-          (user?.email ? user.email.split("@")[0] : "User");
+    if (rows.length === 0) {
+      return [];
+    }
 
-        return {
-          id: row.user_id,
-          email: user?.email || "",
-          fullName,
-          role: this.formatRoleLabel(row.role || "member"),
-          status: (row.status || "active") as TenantUserRecord["status"],
-          lastLoginAt: user?.last_sign_in_at || undefined,
-          createdAt: row.created_at || user?.created_at || new Date().toISOString(),
-          groups: [],
-        };
-      })
-    );
+    const userIds = rows.map((r) => r.user_id);
+
+    // Optimize: Bulk fetch users from auth schema using service role to avoid N+1
+    const { data: usersData, error: usersError } = await this.getSupabase()
+      .schema("auth")
+      .from("users")
+      .select("id, email, raw_user_meta_data, last_sign_in_at, created_at")
+      .in("id", userIds);
+
+    if (usersError) {
+      logger.warn("Failed to bulk fetch users", usersError);
+    }
+
+    const userMap = new Map<string, any>();
+    if (usersData) {
+      usersData.forEach((u: any) => {
+        userMap.set(u.id, {
+          ...u,
+          // Map DB column raw_user_meta_data to user_metadata expected by logic
+          user_metadata: u.raw_user_meta_data,
+        });
+      });
+    }
+
+    const userRecords = rows.map((row) => {
+      const user = userMap.get(row.user_id);
+      const fullName =
+        (user?.user_metadata?.full_name as string | undefined) ||
+        (user?.user_metadata?.name as string | undefined) ||
+        (user?.email ? user.email.split("@")[0] : "User");
+
+      return {
+        id: row.user_id,
+        email: user?.email || "",
+        fullName,
+        role: this.formatRoleLabel(row.role || "member"),
+        status: (row.status || "active") as TenantUserRecord["status"],
+        lastLoginAt: user?.last_sign_in_at || undefined,
+        createdAt: row.created_at || user?.created_at || new Date().toISOString(),
+        groups: [],
+      };
+    });
 
     return userRecords;
   }

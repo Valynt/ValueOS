@@ -4,10 +4,10 @@
  */
 
 import { NextFunction, Request, Response } from 'express';
-import { createLogger } from '../lib/logger';
+import { Logger } from '../utils/logger';
 import { sanitizeForLogging } from '../lib/piiFilter';
 
-const logger = createLogger({ component: 'InputValidation' });
+const logger = new Logger({ component: 'InputValidation' });
 
 // Input validation patterns
 const PATTERNS = {

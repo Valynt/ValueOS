@@ -35,7 +35,7 @@ vi.mock('@/services/ValueCaseService', () => ({
 }));
 
 // Mock child components to isolate the test and trigger the error
-vi.mock('@/components/Deals/BusinessCaseGenerator', () => ({
+vi.mock('@/components/deals/BusinessCaseGenerator', () => ({
   BusinessCaseGenerator: ({ onError }: { onError: (msg: string) => void }) => (
     <button data-testid="trigger-error" onClick={() => onError('Simulated Error')}>
       Trigger Error
@@ -44,13 +44,13 @@ vi.mock('@/components/Deals/BusinessCaseGenerator', () => ({
 }));
 
 // Mock other components to avoid rendering issues
-vi.mock('@/components/Deals/DealSelector', () => ({ DealSelector: () => <div>DealSelector</div> }));
-vi.mock('@/components/Deals/DealImportModal', () => ({ DealImportModal: () => <div>DealImportModal</div> }));
-vi.mock('@/components/Deals/LifecycleStageNav', () => ({ LifecycleStageNav: () => <div>LifecycleStageNav</div> }));
-vi.mock('@/components/Deals/PersonaSelector', () => ({ PersonaSelector: () => <div>PersonaSelector</div> }));
-vi.mock('@/components/Deals/OpportunityAnalysisPanel', () => ({ OpportunityAnalysisPanel: () => <div>OpportunityAnalysisPanel</div> }));
-vi.mock('@/components/Deals/BenchmarkComparisonPanel', () => ({ BenchmarkComparisonPanel: () => <div>BenchmarkComparisonPanel</div> }));
-vi.mock('@/components/Deals/ShareCustomerButton', () => ({ ShareCustomerButton: () => <div>ShareCustomerButton</div> }));
+vi.mock('@/components/deals/DealSelector', () => ({ DealSelector: () => <div>DealSelector</div> }));
+vi.mock('@/components/deals/DealImportModal', () => ({ DealImportModal: () => <div>DealImportModal</div> }));
+vi.mock('@/components/deals/LifecycleStageNav', () => ({ LifecycleStageNav: () => <div>LifecycleStageNav</div> }));
+vi.mock('@/components/deals/PersonaSelector', () => ({ PersonaSelector: () => <div>PersonaSelector</div> }));
+vi.mock('@/components/deals/OpportunityAnalysisPanel', () => ({ OpportunityAnalysisPanel: () => <div>OpportunityAnalysisPanel</div> }));
+vi.mock('@/components/deals/BenchmarkComparisonPanel', () => ({ BenchmarkComparisonPanel: () => <div>BenchmarkComparisonPanel</div> }));
+vi.mock('@/components/deals/ShareCustomerButton', () => ({ ShareCustomerButton: () => <div>ShareCustomerButton</div> }));
 
 describe('DealsView', () => {
   beforeEach(() => {

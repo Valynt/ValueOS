@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import { RecommendationsCard } from "@/components/RecommendationsCard";
 import { SidebarLayout } from "@/components/SidebarLayout";
 import { getLoginUrl } from "@/data/const";
 import { useCurriculum, useProgress } from "@/hooks/useCurriculum";
+import { getPillarStatus } from "@/lib/progress-logic";
 import {
   BookOpen,
   TrendingUp,
@@ -29,18 +31,22 @@ import { Link } from "wouter";
 export default function Dashboard() {
   const { user, loading, isAuthenticated } = useAuth();
   const { curriculum, isLoading: curriculumLoading } = useCurriculum();
-  const { progressStats, recommendedModules } = useProgress();
+  const { progressStats, recommendedModules, completedModules, inProgressModules } = useProgress();
 
-  // Fetch all pillars
-  // TODO: Replace with real data source. tRPC is not configured; using an empty list for now.
-  const pillars: Array<{
-    id: string | number;
-    pillarNumber: number;
-    title: string;
-    description: string;
-    targetMaturityLevel: number;
-    duration: string;
-  }> = [];
+  // Fetch all pillars based on curriculum
+  const pillars = useMemo(() => {
+    if (!curriculum) return [];
+
+    return curriculum.pillars.map(pillar => ({
+      id: pillar.pillarId,
+      pillarNumber: pillar.pillarId,
+      title: pillar.title,
+      description: pillar.description,
+      targetMaturityLevel: pillar.targetMaturityLevel,
+      duration: "Varies" // TODO: Calculate actual duration from modules
+    }));
+  }, [curriculum]);
+
   const pillarsLoading = false;
 
   // Redirect to login if not authenticated
@@ -77,9 +83,20 @@ export default function Dashboard() {
 
   // Get curriculum-driven pillar access
   const getPillarAccess = (pillarId: number) => {
-    if (!curriculum) return { canAccess: true, status: 'available' as const };
-    // TODO: Integrate with actual progress tracking
-    return { canAccess: true, status: 'available' as const };
+    if (!curriculum || !user?.vosRole) return { canAccess: true, status: 'available' as const };
+
+    const status = getPillarStatus(
+      pillarId,
+      user.vosRole,
+      user.maturityLevel || 0,
+      completedModules,
+      inProgressModules
+    );
+
+    return {
+      canAccess: status.status !== 'locked',
+      status: status.status
+    };
   };
 
   const getMaturityLevelColor = (level: number) => {

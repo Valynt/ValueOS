@@ -1,0 +1,227 @@
+/**
+ * ChatCanvasLayout - Decomposed Architecture
+ *
+ * Composes three distinct layers:
+ * - Shell Layer: Static navigation and tenant context
+ * - Orchestration Layer: Agent state management
+ * - Canvas Layer: Dynamic SDUI widget host
+ *
+ * This replaces the monolithic "God Component" with a modular architecture.
+ */
+
+import React, { useState, useCallback, useEffect } from "react";
+
+// Shell Layer
+import { Sidebar, TopBar, CommandBar } from "@/components/shell";
+import type { ValueCase } from "@/components/shell";
+
+// Orchestration Layer
+import { AgentStatusIndicator } from "@/components/orchestration";
+import { useAgentOrchestrator } from "@/hooks/useAgentOrchestrator";
+import { useCanvasState } from "@/hooks/useCanvasState";
+
+// Canvas Layer
+import {
+  ValueSummaryCard,
+  AgentResponseCard,
+  ChatInput,
+} from "@/components/canvas";
+
+// Mock data for demonstration
+const mockCases: ValueCase[] = [
+  { id: "1", name: "Acme Corp ROI Analysis", status: "in-progress", updatedAt: "2 hours ago" },
+  { id: "2", name: "TechStart Value Model", status: "in-progress", updatedAt: "Yesterday" },
+  { id: "3", name: "Enterprise Solutions", status: "completed", updatedAt: "3 days ago" },
+  { id: "4", name: "Global Retail Assessment", status: "completed", updatedAt: "1 week ago" },
+];
+
+interface ChatCanvasLayoutProps {
+  onSettingsClick?: () => void;
+  onHelpClick?: () => void;
+}
+
+export function ChatCanvasLayout({ onSettingsClick, onHelpClick }: ChatCanvasLayoutProps) {
+  // Shell state
+  const [selectedCaseId, setSelectedCaseId] = useState<string | null>("1");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [commandBarOpen, setCommandBarOpen] = useState(false);
+
+  // Orchestration hooks
+  const {
+    state: agentState,
+    context: agentContext,
+    thoughts,
+    isProcessing,
+    submitQuery,
+    cancel,
+  } = useAgentOrchestrator({
+    onThought: (event) => console.log("Thought:", event),
+    onStateChange: (state) => console.log("Agent state:", state),
+  });
+
+  const {
+    assumptions,
+    metrics,
+    isDirty,
+    calculateMetrics,
+    commit,
+  } = useCanvasState();
+
+  // Calculate metrics when assumptions change
+  useEffect(() => {
+    calculateMetrics();
+  }, [assumptions, calculateMetrics]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setCommandBarOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  // Handlers
+  const handleSelectCase = useCallback((id: string) => {
+    setSelectedCaseId(id);
+  }, []);
+
+  const handleNewCase = useCallback(() => {
+    console.log("Create new case");
+  }, []);
+
+  const handleCommandSubmit = useCallback((query: string) => {
+    setCommandBarOpen(false);
+    submitQuery(query);
+  }, [submitQuery]);
+
+  const handleChatSubmit = useCallback((action: string, payload?: unknown) => {
+    if (action === "submit" && payload && typeof payload === "object" && "message" in payload) {
+      submitQuery((payload as { message: string }).message);
+    }
+  }, [submitQuery]);
+
+  // Derived state
+  const selectedCase = mockCases.find((c) => c.id === selectedCaseId);
+  const title = selectedCase?.name ?? "Select a case";
+
+  return (
+    <div className="flex h-screen bg-background text-foreground">
+      {/* Shell Layer: Sidebar */}
+      <Sidebar
+        cases={mockCases}
+        selectedCaseId={selectedCaseId}
+        collapsed={sidebarCollapsed}
+        onSelectCase={handleSelectCase}
+        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        onNewCase={handleNewCase}
+        onSettingsClick={onSettingsClick}
+        onHelpClick={onHelpClick}
+      />
+
+      {/* Main Content */}
+      <main className="flex flex-1 flex-col overflow-hidden">
+        {/* Shell Layer: TopBar */}
+        <TopBar
+          title={title}
+          onCommandBarOpen={() => setCommandBarOpen(true)}
+        />
+
+        {/* Orchestration Layer: Status */}
+        {isProcessing && (
+          <div className="border-b border-border bg-card/50 px-6 py-2">
+            <AgentStatusIndicator
+              state={agentState}
+              currentStep={agentContext.currentStep}
+            />
+          </div>
+        )}
+
+        {/* Canvas Layer */}
+        <div className="flex-1 overflow-auto bg-background p-6">
+          {selectedCaseId ? (
+            <div className="mx-auto max-w-5xl space-y-6">
+              {/* Value Summary Widget */}
+              <ValueSummaryCard
+                id="value-summary"
+                data={{
+                  title: "Value Summary",
+                  status: selectedCase?.status === "completed" ? "Completed" : "In Progress",
+                  roi: metrics.roi || 324,
+                  annualValue: metrics.annualValue || 2400000,
+                  stakeholders: 12,
+                }}
+              />
+
+              {/* Agent Response Widget */}
+              <AgentResponseCard
+                id="agent-response"
+                data={{
+                  agentName: "Value Intelligence Agent",
+                  status: isProcessing ? agentContext.currentStep : "Analysis complete",
+                  summary: "Based on the discovery data, I've identified 3 primary value drivers for this account:",
+                  valueDrivers: [
+                    { title: "Operational Efficiency", description: "40% reduction in manual processes" },
+                    { title: "Revenue Growth", description: "15% increase in customer retention" },
+                    { title: "Cost Avoidance", description: "$800K annual savings in compliance" },
+                  ],
+                }}
+              />
+
+              {/* Thought Stream (when processing) */}
+              {thoughts.length > 0 && (
+                <div className="rounded-xl border border-border bg-card/50 p-4">
+                  <h4 className="mb-2 text-sm font-medium text-muted-foreground">Agent Thoughts</h4>
+                  <div className="space-y-1 font-mono text-xs text-muted-foreground">
+                    {thoughts.slice(-5).map((thought) => (
+                      <div key={thought.id} className="flex items-start gap-2">
+                        <span className="text-primary">[{thought.type}]</span>
+                        <span>{thought.content}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Chat Input Widget */}
+              <ChatInput
+                id="chat-input"
+                data={{
+                  placeholder: "Ask a follow-up question...",
+                  disabled: isProcessing,
+                }}
+                onAction={handleChatSubmit}
+              />
+            </div>
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <div className="text-center">
+                <div className="mx-auto h-12 w-12 text-muted-foreground/50">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M3 21h18M3 7v14M21 7v14M6 7V4a1 1 0 011-1h10a1 1 0 011 1v3M9 21v-4a1 1 0 011-1h4a1 1 0 011 1v4" />
+                  </svg>
+                </div>
+                <h2 className="mt-4 text-lg font-medium">No case selected</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Select a case from the sidebar or create a new one
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* Shell Layer: Command Bar */}
+      <CommandBar
+        open={commandBarOpen}
+        onClose={() => setCommandBarOpen(false)}
+        onSubmit={handleCommandSubmit}
+      />
+    </div>
+  );
+}
+
+export default ChatCanvasLayout;

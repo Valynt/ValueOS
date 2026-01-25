@@ -30,8 +30,8 @@ class WebhookService {
     // Initialize Stripe service only if billing is configured
     try {
       this.stripe = StripeService.getInstance().getClient();
-    } catch (_error) {
-      logger.warn('Stripe service not available, billing features disabled');
+    } catch (error) {
+      logger.warn('Stripe service not available, billing features disabled', error);
       this.stripe = null;
     }
   }

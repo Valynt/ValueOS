@@ -44,7 +44,7 @@ npm run build      # Should succeed
 ```typescript
 // ValyntApp/package.json - add workspace dependency
 "dependencies": {
-  "@valueos/shared": "workspace:*"
+  "@valueos/shared": "^1.0.0"
 }
 ```
 

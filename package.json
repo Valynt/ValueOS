@@ -32,7 +32,7 @@
     "health": "node scripts/dx/health.js",
     "env:validate": "tsx scripts/env-validate.ts",
     "env:dev": "node scripts/setup-dev-env.js",
-    "build": "pnpm --filter valynt-app build",
+    "build": "npm run build --workspace=valynt-app",
     "build:minimal": "pnpm --filter valynt-app build -- --mode minimal",
     "build:bare": "pnpm --filter valynt-app build -- --mode bare",
     "debug": "pnpm --filter valynt-app dev -- --mode debug",
@@ -57,7 +57,7 @@
     "bias:probes": "tsx scripts/run-bias-probes.ts",
     "typecheck": "tsc --noEmit --project tsconfig.json",
     "test:rls": "supabase test db supabase/tests/database/rls_policies.test.sql supabase/tests/database/multi_tenant_rls.test.sql",
-    "test:perf": "vitest run --config .config/configs/vitest.config.ts --include \"test/performance/**/*.test.ts\"",
+    "test:perf": "vitest run tests/performance/**/*.test.ts --config vitest.config.ts",
     "test:testcafe": "testcafe chrome:headless test/testcafe/**/*.test.js",
     "sdk:generate": "openapi-typescript openapi.yaml --output packages/shared/src/types/api.ts",
     "db:setup": "bash infra/supabase/setup.sh",
@@ -75,8 +75,8 @@
     "db:test:seed": "tsx scripts/test-db-seed.ts",
     "db:test:setup": "npm run db:test:init && npm run db:test:seed",
     "test:rls:leakage": "tsx scripts/test-rls-leakage.ts",
-    "test:load": "k6 run test/performance/load-test.js",
-    "test:a11y": "npx playwright test --config .config/configs/playwright.config.ts test/playwright/accessibility.spec.ts",
+    "test:load": "k6 run scripts/test/performance/load-test.js",
+    "test:a11y": "npx playwright test --config .config/configs/playwright.config.ts scripts/test/playwright/accessibility.spec.ts",
     "docker:build": "docker-compose -f infra/docker/docker-compose.dev.yml build",
     "docker:up": "docker-compose -f infra/docker/docker-compose.dev.yml up",
     "docker:up:build": "docker-compose -f infra/docker/docker-compose.dev.yml up --build",
@@ -96,7 +96,7 @@
     "ci:verify": "npm run lint && npm run typecheck && npm run check:legacy-routes && npm run lint:docs-paths && npm run test && npm run build",
     "db:validate": "tsx scripts/run-sql-file.ts supabase/tests/database/validate_all_fixes.sql",
     "db:validate-tenant-rls": "bash scripts/validate-tenant-rls.sh",
-    "security:scan": "npm audit --audit-level=high",
+    "security:scan": "pnpm audit --audit-level=high",
     "security:scan:snyk": "snyk test --severity-threshold=high",
     "security:scan:all": "npm run security:scan && npm run security:scan:snyk",
     "security:sbom": "npx @cyclonedx/cyclonedx-npm --output-file sbom.json --output-format JSON",
@@ -317,7 +317,7 @@
     "snyk": "^1.1301.2",
     "stylelint": "^16.26.1",
     "stylelint-config-standard": "^39.0.1",
-    "supabase": "^2.72.6",
+    "supabase": "^2.72.8",
     "supertest": "^7.2.2",
     "tailwindcss": "^3.4.19",
     "testcontainers": "^11.11.0",
@@ -325,7 +325,7 @@
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.53.0",
-    "vite": "^6.0.0",
+    "vite": "^6.1.6",
     "vitest": "^4.0.17"
   },
   "lint-staged": {
@@ -350,6 +350,8 @@
     "glob@7": "npm:glob@^8.0.0",
     "node-domexception": "npm:node-domexception@^1.0.0",
     "lodash.isequal": "npm:lodash.isequal@^4.5.0",
-    "whatwg-encoding": "npm:whatwg-encoding@^3.1.1"
+    "whatwg-encoding": "npm:whatwg-encoding@^3.1.1",
+    "esbuild": "^0.25.0",
+    "tar": "^7.5.6"
   }
 }

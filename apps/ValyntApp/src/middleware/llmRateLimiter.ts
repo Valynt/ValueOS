@@ -12,7 +12,7 @@ import { Request, Response } from 'express';
 import { NextFunction } from 'express';
 import { RateLimitKeyService } from '../services/RateLimitKeyService';
 import { redisCircuitBreaker } from '../services/RedisCircuitBreaker';
-import { logger } from '../lib/logger';
+import { logger } from '../utils/logger';
 
 // Extended Request interface for rate limiting
 interface RateLimitRequest extends Request {

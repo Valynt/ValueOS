@@ -5,7 +5,7 @@
  * retries, and monitoring.
  */
 
-import { Kafka, Consumer, EachMessagePayload, logLevel } from "kafkajs";
+import { Kafka, Consumer, Producer, EachMessagePayload, logLevel } from "kafkajs";
 import { logger } from "../lib/logger";
 import { BaseEvent } from "@shared/types/events";
 import { tenantContextStorage, TCTPayload } from "../middleware/tenantContext";
@@ -31,6 +31,7 @@ export interface EventHandler {
 
 export class EventConsumer {
   private consumer: Consumer;
+  private producer: Producer;
   private kafka: Kafka;
   private isConnected: boolean = false;
   private isSubscribed: boolean = false;
@@ -68,6 +69,8 @@ export class EventConsumer {
       maxBytes: 5242880, // 5MB
     });
 
+    this.producer = this.kafka.producer();
+
     this.setupEventHandlers();
   }
 
@@ -79,6 +82,7 @@ export class EventConsumer {
 
     try {
       await this.consumer.connect();
+      await this.producer.connect();
       this.isConnected = true;
       logger.info("Event consumer connected to Kafka", {
         clientId: this.config.clientId,
@@ -102,6 +106,7 @@ export class EventConsumer {
 
     try {
       await this.consumer.disconnect();
+      await this.producer.disconnect();
       this.isConnected = false;
       this.isSubscribed = false;
       logger.info("Event consumer disconnected from Kafka", {
@@ -264,8 +269,7 @@ export class EventConsumer {
         headers: message.headers,
       });
 
-      // TODO: Implement dead letter queue logic here
-      // await this.sendToDeadLetterQueue(payload, error);
+      await this.sendToDeadLetterQueue(payload, error as Error);
     } finally {
       this.processingMessages.delete(messageKey);
     }
@@ -324,12 +328,41 @@ export class EventConsumer {
    * Send failed messages to dead letter queue
    */
   private async sendToDeadLetterQueue(payload: EachMessagePayload, error: Error): Promise<void> {
-    // TODO: Implement dead letter queue functionality
-    logger.error("Dead letter queue not implemented yet", error, {
-      topic: payload.topic,
-      partition: payload.partition,
-      offset: payload.message.offset,
-    });
+    const { topic, partition, message } = payload;
+    const dlqTopic = `${topic}.dlq`;
+
+    try {
+      await this.producer.send({
+        topic: dlqTopic,
+        messages: [
+          {
+            key: message.key,
+            value: message.value,
+            headers: {
+              ...message.headers,
+              "x-original-topic": topic,
+              "x-original-partition": partition.toString(),
+              "x-original-offset": message.offset,
+              "x-error-message": error.message,
+              "x-error-stack": error.stack || "",
+              "x-error-timestamp": new Date().toISOString(),
+            },
+          },
+        ],
+      });
+
+      logger.info("Message sent to DLQ", {
+        dlqTopic,
+        originalTopic: topic,
+        offset: message.offset,
+      });
+    } catch (dlqError) {
+      logger.error("Failed to send message to DLQ", dlqError as Error, {
+        dlqTopic,
+        originalTopic: topic,
+        offset: message.offset,
+      });
+    }
   }
 }
 

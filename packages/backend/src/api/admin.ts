@@ -12,6 +12,7 @@ import { tenantDbContextMiddleware } from "../middleware/tenantDbContext";
 import { requireAllPermissions, requirePermission } from "../middleware/rbac";
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation";
 import { adminUserService } from "../services/AdminUserService";
+import { auditLogService } from "../services/AuditLogService";
 import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
 
@@ -19,6 +20,45 @@ const logger = createLogger({ component: "AdminAPI" });
 const router = createSecureRouter("strict");
 
 router.use(requireAuth, tenantContextMiddleware(), tenantDbContextMiddleware());
+
+router.get("/audit-logs", requirePermission("users.read"), async (req: Request, res: Response) => {
+  try {
+    const tenantId = (req as any).tenantId as string | undefined;
+    if (!tenantId) {
+      return res.status(400).json({ error: "Tenant ID required" });
+    }
+
+    const {
+      userId,
+      action,
+      resourceType,
+      resourceId,
+      startDate,
+      endDate,
+      status,
+      limit,
+      offset,
+    } = req.query;
+
+    const logs = await auditLogService.query({
+      tenantId,
+      userId: userId as string,
+      action: action as string | string[],
+      resourceType: resourceType as string | string[],
+      resourceId: resourceId as string,
+      startDate: startDate as string,
+      endDate: endDate as string,
+      status: status as "success" | "failed",
+      limit: limit ? Number(limit) : undefined,
+      offset: offset ? Number(offset) : undefined,
+    });
+
+    res.json({ logs });
+  } catch (error) {
+    logger.error("Failed to fetch audit logs", sanitizeForLogging(error));
+    res.status(500).json({ error: "Failed to fetch audit logs" });
+  }
+});
 
 router.get("/users", requirePermission("users.read"), async (req: Request, res: Response) => {
   try {

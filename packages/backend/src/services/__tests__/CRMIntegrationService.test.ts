@@ -1,13 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const hubspotMock = {
+const hubspotMock = vi.hoisted(() => ({
   isConnected: vi.fn(),
   searchDeals: vi.fn(),
   addDealNote: vi.fn(),
-};
+}));
 
 vi.mock('@mcp/crm/modules/HubSpotModule', () => ({
-  HubSpotModule: vi.fn(() => hubspotMock),
+  HubSpotModule: class {
+    constructor() { return hubspotMock; }
+  },
+}));
+
+const integrationControlMock = vi.hoisted(() => ({
+  areIntegrationsEnabled: vi.fn(),
+}));
+
+vi.mock('../IntegrationControlService', () => ({
+  integrationControlService: integrationControlMock,
+}));
+
+vi.mock('../../lib/supabase', () => ({
+  createServerSupabaseClient: vi.fn(),
 }));
 
 import { crmIntegrationService } from '../CRMIntegrationService';
@@ -20,6 +34,8 @@ describe('CRMIntegrationService', () => {
     hubspotMock.isConnected.mockReset();
     hubspotMock.searchDeals.mockReset();
     hubspotMock.addDealNote.mockReset();
+    integrationControlMock.areIntegrationsEnabled.mockReset();
+    integrationControlMock.areIntegrationsEnabled.mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -37,9 +53,19 @@ describe('CRMIntegrationService', () => {
     hubspotMock.isConnected.mockReturnValue(false);
     hubspotMock.searchDeals.mockResolvedValue({ deals: [] });
 
-    const result = await crmIntegrationService.fetchDeals();
+    const result = await crmIntegrationService.fetchDeals('test-tenant');
 
     expect(hubspotMock.searchDeals).toHaveBeenCalled();
+    expect(result).toEqual([]);
+  });
+
+  it('returns empty array when integrations are disabled', async () => {
+    integrationControlMock.areIntegrationsEnabled.mockResolvedValue(false);
+
+    const result = await crmIntegrationService.fetchDeals('test-tenant');
+
+    expect(integrationControlMock.areIntegrationsEnabled).toHaveBeenCalledWith('test-tenant');
+    expect(hubspotMock.searchDeals).not.toHaveBeenCalled();
     expect(result).toEqual([]);
   });
 });

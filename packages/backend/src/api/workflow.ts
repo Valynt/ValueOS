@@ -22,6 +22,28 @@ const workflowExplainParamsSchema = {
   stepId: { type: 'string', required: true, minLength: 1, maxLength: 100 },
 };
 
+router.get(
+  '/workflows/:id',
+  rateLimiters.standard,
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    // Mock response until persistence layer is ready
+    const workflow = {
+      id,
+      name: "Untitled Workflow",
+      status: "draft",
+      steps: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    return res.json({
+      success: true,
+      data: workflow,
+    });
+  }
+);
+
 function sanitizeEvidence(evidence: any): Array<{ source?: string; description?: string; confidence?: number }> {
   if (!Array.isArray(evidence)) return [];
   return evidence.map(item => ({

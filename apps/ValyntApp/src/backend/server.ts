@@ -9,6 +9,7 @@ import { createServer, type IncomingMessage } from "http";
 import { WebSocket, WebSocketServer } from "ws";
 import billingRouter from "../api/billing";
 import agentsRouter from "../api/agents";
+import canvasRouter from "../api/canvas";
 import groundtruthRouter from "../api/groundtruth";
 import llmRouter from "../api/llm";
 import workflowRouter from "../api/workflow";
@@ -16,12 +17,13 @@ import documentRouter from "../api/documents";
 import healthRouter, { markAsShuttingDown } from "../api/health";
 import authRouter from "../api/auth";
 import adminRouter from "../api/admin";
+import projectsRouter from "../api/projects";
 import docsApiRouter from "./docs-api";
 import {
   initializeSecretVolumeWatcher,
   secretVolumeWatcher,
 } from "../config/secrets/SecretVolumeWatcher";
-import { createLogger } from "../lib/logger";
+import { Logger } from "../utils/logger";
 import { createVersionedApiRouter } from "./versioning";
 import { initializeContext } from "../lib/context";
 import { tracingMiddleware } from "../config/telemetry";
@@ -39,8 +41,9 @@ import { tenantContextMiddleware } from "../middleware/tenantContext";
 import { settings } from "../config/settings";
 import { isConsentRegistryConfigured } from "../services/consentRegistry";
 import { TenantContextResolver } from "../services/TenantContextResolver";
+import { errorHandler } from "../middleware/errorHandler";
 
-const logger = createLogger({ component: "BillingServer" });
+const logger = new Logger({ component: "BillingServer" });
 const INTERNAL_ERROR_STATUS = 500;
 const WS_POLICY_VIOLATION_CODE = 1008;
 
@@ -265,30 +268,26 @@ app.use(
   agentExecutionLimiter,
   groundtruthRouter
 );
+app.use(
+  "/api/canvas",
+  serviceIdentityMiddleware,
+  requireAuth,
+  tenantContextMiddleware(),
+  canvasRouter
+);
 app.use("/api/llm", llmRouter);
 app.use("/api", workflowRouter);
 app.use("/api/documents", requireAuth, tenantContextMiddleware(), documentRouter);
 app.use("/api/docs", docsApiRouter);
+app.use(
+  "/api/workspaces/:tenantId/projects",
+  requireAuth,
+  tenantContextMiddleware(),
+  projectsRouter
+);
 
 // Error handler
-app.use(
-  (
-    err: unknown,
-    _req: express.Request,
-    res: express.Response,
-    _next: express.NextFunction
-  ): void => {
-    logger.error("Server error", err instanceof Error ? err : new Error(String(err)), {
-      requestId: res.locals.requestId,
-    });
-    const message =
-      settings.NODE_ENV === "development" && err instanceof Error ? err.message : undefined;
-    res.status(INTERNAL_ERROR_STATUS).json({
-      error: "Internal server error",
-      message,
-    });
-  }
-);
+app.use(errorHandler);
 
 async function startServer(): Promise<void> {
   if (settings.NODE_ENV === "production" && !isConsentRegistryConfigured()) {

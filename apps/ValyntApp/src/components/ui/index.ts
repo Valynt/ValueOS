@@ -98,3 +98,5 @@ export { Label } from "./label";
 export { Progress } from "./progress";
 export { RadioGroup, RadioGroupItem } from "./radio-group";
 export { ScrollArea } from "./scroll-area";
+export { Alert, AlertDescription } from "./alert";
+export { Separator } from "./separator";

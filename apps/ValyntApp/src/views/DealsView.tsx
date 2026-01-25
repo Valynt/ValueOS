@@ -7,18 +7,18 @@
 
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { DealImportModal } from "@/components/Deals/DealImportModal";
-import { DealSelector } from "@/components/Deals/DealSelector";
-import { LifecycleStageNav } from "@/components/Deals/LifecycleStageNav";
-import { BusinessCaseGenerator } from "@/components/Deals/BusinessCaseGenerator";
+import { DealImportModal } from "@/components/deals/DealImportModal";
+import { DealSelector } from "@/components/deals/DealSelector";
+import { LifecycleStageNav } from "@/components/deals/LifecycleStageNav";
+import { BusinessCaseGenerator } from "@/components/deals/BusinessCaseGenerator";
 import {
   type BuyerPersona,
   PersonaSelector,
-} from "@/components/Deals/PersonaSelector";
-import { OpportunityAnalysisPanel } from "@/components/Deals/OpportunityAnalysisPanel";
-import { BenchmarkComparisonPanel } from "@/components/Deals/BenchmarkComparisonPanel";
+} from "@/components/deals/PersonaSelector";
+import { OpportunityAnalysisPanel } from "@/components/deals/OpportunityAnalysisPanel";
+import { BenchmarkComparisonPanel } from "@/components/deals/BenchmarkComparisonPanel";
 import { type ValueCase, valueCaseService } from "@/services/ValueCaseService";
-import { ShareCustomerButton } from "@/components/Deals/ShareCustomerButton";
+import { ShareCustomerButton } from "@/components/deals/ShareCustomerButton";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";

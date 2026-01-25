@@ -9,7 +9,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import ValueCanvas from '../ValueCanvas';
 
 // Mock the ChatCanvasLayout component
-vi.mock('../../components/ChatCanvas/ChatCanvasLayout', () => ({
+vi.mock('../../components/chat-canvas/ChatCanvasLayout', () => ({
   ChatCanvasLayout: ({ initialAction }: { initialAction: any }) => (
     <div data-testid="chat-canvas-layout" tabIndex={0}>
       {initialAction ? (
