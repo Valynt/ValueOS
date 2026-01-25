@@ -5,7 +5,6 @@
  * Provides comprehensive tracking and management of value commitments throughout their lifecycle.
  */
 
-import { z } from "zod";
 import {
   ValueCommitment,
   CommitmentStakeholder,
@@ -32,11 +31,14 @@ import {
 } from "../types/value-commitment-schemas.js";
 import { logger } from "../lib/logger";
 import { GroundTruthIntegrationService } from "./GroundTruthIntegrationService.js";
+import { TenantAwareService } from "./TenantAwareService";
 
-export class ValueCommitmentTrackingService {
+export class ValueCommitmentTrackingService extends TenantAwareService {
+  // @ts-expect-error - Reserved for future use
   private groundTruthService: GroundTruthIntegrationService;
 
   constructor(groundTruthService: GroundTruthIntegrationService) {
+    super("ValueCommitmentTrackingService");
     this.groundTruthService = groundTruthService;
   }
 
@@ -71,7 +73,7 @@ export class ValueCommitmentTrackingService {
       // Create audit entry
       await this.createAuditEntry(
         tenantId,
-        validatedData.id,
+        validatedData.id!,
         userId,
         "created",
         {},
@@ -80,7 +82,7 @@ export class ValueCommitmentTrackingService {
       );
 
       // Add creator as owner stakeholder
-      await this.addStakeholder(validatedData.id, tenantId, userId, {
+      await this.addStakeholder(validatedData.id!, tenantId, userId, {
         role: "owner",
         responsibility: "Commitment owner and primary responsible party",
         accountability_percentage: 100,
@@ -136,19 +138,49 @@ export class ValueCommitmentTrackingService {
     reason?: string
   ): Promise<ValueCommitment> {
     try {
-      // TODO: Update in database
-      // const existing = await this.getCommitmentBasic(commitmentId, tenantId);
-      // const updated = await this.db.update('value_commitments')
-      //   .set({ status, progress_percentage: progressPercentage, updated_at: new Date() })
-      //   .where(eq('id', commitmentId))
-      //   .returning();
+      // Fetch existing commitment to capture previous state for audit
+      const [existing] = await this.queryWithTenantCheck<ValueCommitment>(
+        "value_commitments",
+        userId,
+        { id: commitmentId, tenant_id: tenantId }
+      );
+
+      if (!existing) {
+        throw new Error(`Commitment ${commitmentId} not found`);
+      }
+
+      const updates: Record<string, any> = {
+        status,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (progressPercentage !== undefined) {
+        updates.progress_percentage = progressPercentage;
+      }
+
+      const updated = await this.updateWithTenantCheck<ValueCommitment>(
+        "value_commitments",
+        userId,
+        commitmentId,
+        updates
+      );
 
       // Create audit entry
-      // await this.createAuditEntry(tenantId, commitmentId, userId, 'status_changed',
-      //   { status: existing.status, progress_percentage: existing.progress_percentage },
-      //   { status, progress_percentage: progressPercentage },
-      //   reason || 'Status update'
-      // );
+      await this.createAuditEntry(
+        tenantId,
+        commitmentId,
+        userId,
+        "status_changed",
+        {
+          status: existing.status,
+          progress_percentage: existing.progress_percentage,
+        },
+        {
+          status,
+          progress_percentage: progressPercentage ?? existing.progress_percentage,
+        },
+        reason || "Status update"
+      );
 
       logger.info("Commitment status updated", {
         commitmentId,
@@ -157,8 +189,7 @@ export class ValueCommitmentTrackingService {
         progressPercentage,
       });
 
-      // Return mock updated commitment
-      return {} as ValueCommitment;
+      return updated;
     } catch (error) {
       logger.error("Failed to update commitment status", { error, commitmentId, tenantId });
       throw error;
@@ -224,7 +255,7 @@ export class ValueCommitmentTrackingService {
   async updateStakeholder(
     stakeholderId: string,
     tenantId: string,
-    userId: string,
+    _userId: string,
     updates: Partial<
       Pick<
         CommitmentStakeholder,
@@ -313,7 +344,7 @@ export class ValueCommitmentTrackingService {
     userId: string,
     progressPercentage: number,
     status?: CommitmentMilestone["status"],
-    actualDate?: string
+    _actualDate?: string
   ): Promise<CommitmentMilestone> {
     try {
       // TODO: Update in database and trigger progress recalculation
@@ -413,7 +444,7 @@ export class ValueCommitmentTrackingService {
     tenantId: string,
     userId: string,
     currentValue: number,
-    lastMeasuredAt?: string
+    _lastMeasuredAt?: string
   ): Promise<CommitmentMetric> {
     try {
       // TODO: Update in database
@@ -681,8 +712,12 @@ export class ValueCommitmentTrackingService {
 
       const validatedAudit = CommitmentAuditSchema.parse(auditData);
 
-      // TODO: Insert audit entry
-      // await this.db.insert('commitment_audits').values(validatedAudit);
+      await this.insertWithTenantCheck(
+        "commitment_audits",
+        userId,
+        tenantId,
+        validatedAudit
+      );
 
       logger.debug("Audit entry created", { commitmentId, tenantId, action });
     } catch (error) {
