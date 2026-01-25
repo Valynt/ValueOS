@@ -456,7 +456,7 @@ Deployment can proceed when **all** are true:
 
 ## 9. References
 
-- [Docker Compose Dev Configuration](./docker-compose.dev.yml)
+- [Docker Compose Dev Configuration](./infra/docker/docker-compose.dev.yml)
 - [Environment Variables Example](./.env.example)
 - [Database Migrations](./supabase/migrations/)
 - [Health Check Endpoint](./src/api/health.ts)

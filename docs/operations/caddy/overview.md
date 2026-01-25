@@ -12,18 +12,18 @@ This document explains how the new Caddy layer is wired for dev/stage/prod, the 
 
 ## Topology by environment
 
-- **Dev (`infra/docker/docker-compose.dev-caddy.yml`)**
+- **Dev (`infra/docker/docker-compose.caddy.yml`)**
   - Caddy on port 8080 → `/` proxied to Vite dev server (`frontend:5173`), `/api/*` + `/ws/*` → API (`backend:3001`).
   - HTTP only; admin API exposed on `:2019` for live reloads.
   - HMR stays same-origin via Caddy to avoid CORS.
 
-- **Stage (`docker-compose.staging.yml`)**
+- **Stage (`infra/docker/docker-compose.staging.yml`)**
   - Caddy terminates TLS (ACME staging CA by default) and serves static assets from `dist` mounted at `/srv/www`.
   - `/api/*` and `/ws/*` proxied to `backend:${API_PORT:-3001}` inside the compose network.
   - HTTP → HTTPS redirect; health at `/healthz` answered by Caddy.
   - To run behind a cloud LB, switch `tls` to `tls internal` in `infra/caddy/Caddyfile.stage` and rely on forwarded headers.
 
-- **Prod (`docker-compose.prod.yml`)**
+- **Prod (`infra/docker/docker-compose.prod.yml`)**
   - Same routing as stage with ACME production CA and stricter headers (HSTS).
   - Caddy serves static assets from `/srv/www` and proxies `/api/*` + `/ws/*` to `backend:${API_PORT:-3001}`.
   - HTTP → HTTPS redirect; Caddy health at `/healthz`.
@@ -52,10 +52,10 @@ This document explains how the new Caddy layer is wired for dev/stage/prod, the 
 
 ## Docker Compose integration
 
-- **Dev:** `docker compose -f infra/docker/docker-compose.dev-caddy.yml up --build` → browse `http://localhost:8080`. Caddy upstreams are auto-wired to `frontend:5173` and `backend:3001`.
+- **Dev:** `docker compose -f infra/docker/docker-compose.caddy.yml up --build` → browse `http://localhost:8080`. Caddy upstreams are auto-wired to `frontend:5173` and `backend:3001`.
 - **Stage/Prod:** build the SPA (`npm run build` to populate `dist/`), then:
-  - Stage: `APP_DOMAIN=staging.example.com ACME_EMAIL=ops@example.com docker compose -f docker-compose.staging.yml up -d`
-  - Prod: `APP_DOMAIN=app.example.com ACME_EMAIL=security@example.com docker compose -f docker-compose.prod.yml up -d`
+  - Stage: `APP_DOMAIN=staging.example.com ACME_EMAIL=ops@example.com docker compose -f infra/docker/docker-compose.staging.yml up -d`
+  - Prod: `APP_DOMAIN=app.example.com ACME_EMAIL=security@example.com docker compose -f infra/docker/docker-compose.prod.yml up -d`
     Static assets mount from `dist` into Caddy at `/srv/www`; backend runs from source via `npm run backend:dev` (swap to a compiled server image if desired).
 
 ## Codebase refactors & validation checklist
