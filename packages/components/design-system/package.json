@@ -10,9 +10,12 @@
     "src"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node ./scripts/generate-tokens.mjs && tsc -p tsconfig.json",
+    "generate-tokens": "node ./scripts/generate-tokens.mjs",
+    "verify-tokens": "node ./scripts/generate-tokens.mjs --verify",
     "test": "vitest",
     "lint": "eslint src --ext .ts,.tsx",
+    "lint:design-tokens": "node ./scripts/generate-tokens.mjs --verify",
     "changeset": "changeset"
   },
   "devDependencies": {

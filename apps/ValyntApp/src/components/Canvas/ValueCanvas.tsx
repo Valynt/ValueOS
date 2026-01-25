@@ -1,6 +1,6 @@
 /**
  * ValueCanvas - Interactive canvas for value driver configuration
- * 
+ *
  * Features:
  * - Drag-and-drop value drivers from library
  * - Real-time calculation updates
@@ -8,18 +8,19 @@
  * - Tenant-scoped operations
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { useDrop } from 'react-dnd';
-import { DndProvider } from 'react-dnd-html5-backend';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ValueDriverCard } from './ValueDriverCard';
-import { ValueDriverEditor } from '../valueDrivers/ValueDriverEditor';
-import { calculationEngine } from '@/services/CalculationEngine';
-import { PlaygroundSessionService } from '@/services/PlaygroundSessionService';
-import { useOrganization } from '@/hooks/useOrganization';
-import { ValueDriver, CanvasComponent } from '@/types/valueDriver';
-import { logger } from '@/lib/logger';
+import React, { useState, useEffect, useCallback } from "react";
+import { useDrop, useDrag } from "react-dnd";
+import { DndProvider } from "react-dnd";
+import { HTML5Backend } from "react-dnd-html5-backend";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ValueDriverCard } from "./ValueDriverCard";
+import { ValueDriverEditor } from "../valueDrivers/ValueDriverEditor";
+import { calculationEngine } from "@/services/CalculationEngine";
+import { PlaygroundSessionService } from "@/services/PlaygroundSessionService";
+import { useOrganization } from "@/hooks/useOrganization";
+import { ValueDriver, CanvasComponent, MOCK_VALUE_DRIVERS } from "@/types/valueDriver";
+import { logger } from "@/lib/logger";
 
 interface ValueCanvasProps {
   sessionId: string;
@@ -43,7 +44,7 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
           setCanvasComponents(session.data.canvasComponents || []);
         }
       } catch (error) {
-        logger.error('Failed to load session', { sessionId, organizationId, error });
+        logger.error("Failed to load session", { sessionId, organizationId, error });
       }
     };
     loadSession();
@@ -58,7 +59,7 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
           organizationId,
         });
       } catch (error) {
-        logger.error('Auto-save failed', { sessionId, error });
+        logger.error("Auto-save failed", { sessionId, error });
       }
     };
     const timeout = setTimeout(autoSave, 1000); // Auto-save after 1s
@@ -67,19 +68,19 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
 
   const handleDrop = useCallback((item: { driver: ValueDriver }) => {
     const newDriver = { ...item.driver, id: `${item.driver.id}-${Date.now()}` };
-    setDrivers(prev => [...prev, newDriver]);
+    setDrivers((prev) => [...prev, newDriver]);
     // Add to canvas components
     const component: CanvasComponent = {
       id: newDriver.id,
-      type: 'valueDriver',
+      type: "valueDriver",
       props: { driver: newDriver, value: newDriver.defaultValue },
       position: { x: 0, y: 0 }, // Default position
     };
-    setCanvasComponents(prev => [...prev, component]);
+    setCanvasComponents((prev) => [...prev, component]);
   }, []);
 
   const [{ isOver }, drop] = useDrop(() => ({
-    accept: 'valueDriver',
+    accept: "valueDriver",
     drop: handleDrop,
     collect: (monitor) => ({
       isOver: monitor.isOver(),
@@ -91,33 +92,34 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
   };
 
   const handleSaveDriver = (updatedDriver: ValueDriver) => {
-    setDrivers(prev => prev.map(d => d.id === updatedDriver.id ? updatedDriver : d));
-    setCanvasComponents(prev =>
-      prev.map(c =>
-        c.id === updatedDriver.id
-          ? { ...c, props: { ...c.props, driver: updatedDriver } }
-          : c
+    setDrivers((prev) => prev.map((d) => (d.id === updatedDriver.id ? updatedDriver : d)));
+    setCanvasComponents((prev) =>
+      prev.map((c) =>
+        c.id === updatedDriver.id ? { ...c, props: { ...c.props, driver: updatedDriver } } : c
       )
     );
     setEditingDriver(null);
   };
 
   const handleDeleteDriver = (driverId: string) => {
-    setDrivers(prev => prev.filter(d => d.id !== driverId));
-    setCanvasComponents(prev => prev.filter(c => c.id !== driverId));
+    setDrivers((prev) => prev.filter((d) => d.id !== driverId));
+    setCanvasComponents((prev) => prev.filter((c) => c.id !== driverId));
   };
 
   const handleValueChange = (componentId: string, newValue: any) => {
-    setCanvasComponents(prev => {
-      const updated = prev.map(c =>
+    setCanvasComponents((prev) => {
+      const updated = prev.map((c) =>
         c.id === componentId ? { ...c, props: { ...c.props, value: newValue } } : c
       );
       // Trigger calculation cascade
       const updates = calculationEngine.calculateCascade(componentId, updated);
-      updates.forEach(update => {
-        const index = updated.findIndex(c => c.id === update.componentId);
+      updates.forEach((update) => {
+        const index = updated.findIndex((c) => c.id === update.componentId);
         if (index !== -1) {
-          updated[index] = { ...updated[index], props: { ...updated[index].props, value: update.newValue } };
+          updated[index] = {
+            ...updated[index],
+            props: { ...updated[index].props, value: update.newValue },
+          };
         }
       });
       return [...updated];
@@ -129,21 +131,38 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
       await sessionService.commitSession(sessionId, organizationId);
       onSave();
     } catch (error) {
-      logger.error('Explicit save failed', { sessionId, error });
+      logger.error("Explicit save failed", { sessionId, error });
     }
   };
+  const LibraryDriverCard: React.FC<{ driver: ValueDriver }> = ({ driver }) => {
+    const [{ isDragging }, drag] = useDrag(() => ({
+      type: "valueDriver",
+      item: { driver },
+      collect: (monitor) => ({
+        isDragging: monitor.isDragging(),
+      }),
+    }));
 
+    return (
+      <Card ref={drag} className={`cursor-move ${isDragging ? "opacity-50" : ""}`}>
+        <CardContent className="p-3">
+          <div className="text-sm font-medium">{driver.name}</div>
+          <div className="text-xs text-gray-500">{driver.description}</div>
+        </CardContent>
+      </Card>
+    );
+  };
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="flex h-full">
         <div
           ref={drop}
           className={`flex-1 p-4 border-2 border-dashed ${
-            isOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+            isOver ? "border-blue-500 bg-blue-50" : "border-gray-300"
           }`}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {canvasComponents.map(component => (
+            {canvasComponents.map((component) => (
               <ValueDriverCard
                 key={component.id}
                 component={component}
@@ -163,7 +182,12 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
           <Button onClick={handleExplicitSave} className="w-full mb-4">
             Save to Backend
           </Button>
-          {/* Library or other controls */}
+          <h3 className="text-lg font-semibold mb-2">Value Driver Library</h3>
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {MOCK_VALUE_DRIVERS.map((driver) => (
+              <LibraryDriverCard key={driver.id} driver={driver} />
+            ))}
+          </div>
         </div>
       </div>
       {editingDriver && (

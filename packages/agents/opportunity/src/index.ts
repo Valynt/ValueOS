@@ -43,7 +43,7 @@ type QueryResponse = z.infer<typeof ResponseSchema>;
  * Mock LLM service for opportunity analysis
  * In production, this would integrate with actual LLM APIs
  */
-class OpportunityAnalyzer {
+export class OpportunityAnalyzer {
   async analyzeOpportunities(
     query: string,
     context?: QueryRequest["context"]
@@ -205,7 +205,7 @@ const customHealthChecks = [
 
 // Create and start the server
 const config = getConfig();
-const app = createServer({
+export const app = createServer({
   agentType: "opportunity",
   version: "1.0.0",
   customHealthChecks,

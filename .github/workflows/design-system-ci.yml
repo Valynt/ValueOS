@@ -3,10 +3,10 @@ name: Design System CI
 on:
   push:
     paths:
-      - 'packages/components/design-system/**'
+      - "packages/components/design-system/**"
   pull_request:
     paths:
-      - 'packages/components/design-system/**'
+      - "packages/components/design-system/**"
 
 jobs:
   build-and-test:
@@ -17,7 +17,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: 'pnpm'
+          cache: "pnpm"
       - name: Install deps
         run: pnpm install --frozen-lockfile
       - name: Build design-system

@@ -1,9 +1,9 @@
 /**
  * CaseWorkspace - Split-pane workspace for value cases
- * 
+ *
  * Left: Conversation panel with agent messages
  * Right: Canvas with artifact rendering
- * 
+ *
  * Integrates with agent store and mock stream for MVP.
  */
 
@@ -26,16 +26,21 @@ import { UserAvatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
 // Agent store and types
-import { 
-  useAgentStore, 
-  selectActiveArtifact, 
+import {
+  useAgentStore,
+  selectActiveArtifact,
   selectArtifacts,
   selectOverallProgress,
   selectCanUndo,
   selectCanRedo,
 } from "@/features/workspace/agent/store";
 import { useAgentStream } from "@/features/workspace/agent/useAgentStream";
-import type { AgentPhase, ConversationMessage, WorkflowStepState, Artifact } from "@/features/workspace/agent/types";
+import type {
+  AgentPhase,
+  ConversationMessage,
+  WorkflowStepState,
+  Artifact,
+} from "@/features/workspace/agent/types";
 
 // Services
 import { conversationsService } from "@/services/conversations";
@@ -50,6 +55,9 @@ import { FloatingToolbar } from "@/features/workspace/components/FloatingToolbar
 import { KPICards, type KPIData } from "@/features/workspace/components/KPICards";
 import { ShareModal } from "@/features/workspace/components/ShareModal";
 import { exportToPdf } from "@/features/workspace/services/exportPdf";
+
+// Agent Chat
+import { AgentChat } from "@/components/AgentChat";
 
 // Value Drivers
 import { ValueDriverSelector } from "@/components/valueDrivers";
@@ -68,11 +76,13 @@ export function CaseWorkspace() {
   const [showDriverPanel, setShowDriverPanel] = useState(false);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [sessionLoaded, setSessionLoaded] = useState(false);
-  const [selectedDrivers, setSelectedDrivers] = useState<Array<{
-    driver: ValueDriver;
-    customValues: Record<string, number>;
-    calculatedValue: number;
-  }>>([]);
+  const [selectedDrivers, setSelectedDrivers] = useState<
+    Array<{
+      driver: ValueDriver;
+      customValues: Record<string, number>;
+      calculatedValue: number;
+    }>
+  >([]);
 
   // Agent store
   const {
@@ -104,19 +114,19 @@ export function CaseWorkspace() {
   const overallProgress = useAgentStore(selectOverallProgress);
   const canUndo = useAgentStore(selectCanUndo);
   const canRedo = useAgentStore(selectCanRedo);
-  
+
   // Memoize artifact list to avoid creating new array on every render
-  const artifactList = React.useMemo(() => 
-    Object.values(artifacts).sort((a, b) => b.updatedAt - a.updatedAt),
+  const artifactList = React.useMemo(
+    () => Object.values(artifacts).sort((a, b) => b.updatedAt - a.updatedAt),
     [artifacts]
   );
 
   // Extract KPI data from artifacts
   const kpiData = React.useMemo((): KPIData => {
-    const financialArtifact = artifactList.find(a => a.type === 'financial_projection');
-    const valueArtifact = artifactList.find(a => a.type === 'value_model');
-    
-    if (financialArtifact?.content.kind === 'chart') {
+    const financialArtifact = artifactList.find((a) => a.type === "financial_projection");
+    const valueArtifact = artifactList.find((a) => a.type === "value_model");
+
+    if (financialArtifact?.content.kind === "chart") {
       const config = financialArtifact.content.config as Record<string, unknown> | undefined;
       const metrics = config?.metrics as Record<string, number> | undefined;
       return {
@@ -125,14 +135,14 @@ export function CaseWorkspace() {
         paybackMonths: metrics?.paybackMonths,
         costOfInaction: 45000, // Default estimate
         industryComparison: {
-          npv: '+12% vs industry avg',
-          payback: '-1.5 Mo vs industry avg',
-          costOfInaction: 'High Risk vs industry avg',
+          npv: "+12% vs industry avg",
+          payback: "-1.5 Mo vs industry avg",
+          costOfInaction: "High Risk vs industry avg",
         },
       };
     }
-    
-    if (valueArtifact?.content.kind === 'json') {
+
+    if (valueArtifact?.content.kind === "json") {
       const data = valueArtifact.content.data as Record<string, unknown>;
       return {
         totalValue: data.totalValue as number | undefined,
@@ -141,7 +151,7 @@ export function CaseWorkspace() {
         costOfInaction: 45000,
       };
     }
-    
+
     return {};
   }, [artifactList]);
 
@@ -149,7 +159,7 @@ export function CaseWorkspace() {
   // Persists artifacts and messages to backend when caseId is available
   const { sendMessage: sendAgentMessage } = useAgentStream({
     useMock: false, // Using real Together AI API
-    companyName: 'Acme Corp',
+    companyName: "Acme Corp",
     valueCaseId: caseId,
     persistArtifacts: !!caseId, // Enable artifact persistence when we have a case ID
     persistMessages: !!caseId, // Enable message persistence when we have a case ID
@@ -182,11 +192,13 @@ export function CaseWorkspace() {
         // Load into store
         if (uiMessages.length > 0 || Object.keys(artifactsMap).length > 0) {
           loadSession(uiMessages, artifactsMap);
-          console.log(`Loaded session: ${uiMessages.length} messages, ${Object.keys(artifactsMap).length} artifacts`);
+          console.log(
+            `Loaded session: ${uiMessages.length} messages, ${Object.keys(artifactsMap).length} artifacts`
+          );
         }
       } catch (error) {
         // Session load failure is not critical - user can start fresh
-        console.warn('Failed to load conversation session:', error);
+        console.warn("Failed to load conversation session:", error);
       } finally {
         setIsLoadingSession(false);
         setSessionLoaded(true);
@@ -199,8 +211,8 @@ export function CaseWorkspace() {
   // Export handler
   const handleExport = useCallback(() => {
     exportToPdf({
-      title: 'Value Case Analysis',
-      companyName: 'Acme Corp',
+      title: "Value Case Analysis",
+      companyName: "Acme Corp",
       artifacts: artifactList,
       kpiData,
       confidential: true,
@@ -210,8 +222,11 @@ export function CaseWorkspace() {
   // Copy to clipboard
   const handleCopy = useCallback(() => {
     const text = artifactList
-      .map(a => `${a.title}\n${a.content.kind === 'markdown' ? a.content.markdown : JSON.stringify(a.content, null, 2)}`)
-      .join('\n\n---\n\n');
+      .map(
+        (a) =>
+          `${a.title}\n${a.content.kind === "markdown" ? a.content.markdown : JSON.stringify(a.content, null, 2)}`
+      )
+      .join("\n\n---\n\n");
     navigator.clipboard.writeText(text);
   }, [artifactList]);
 
@@ -232,38 +247,41 @@ export function CaseWorkspace() {
   }, [inputValue, isStreaming, sendAgentMessage]);
 
   // Handle option selection (for clarify questions)
-  const handleOptionSelect = useCallback((optionId: string) => {
-    selectOption(optionId);
-    
-    // Continue the stream after selection
-    sendAgentMessage('continue');
-  }, [selectOption, sendAgentMessage]);
+  const handleOptionSelect = useCallback(
+    (optionId: string) => {
+      selectOption(optionId);
+
+      // Continue the stream after selection
+      sendAgentMessage("continue");
+    },
+    [selectOption, sendAgentMessage]
+  );
 
   // Handle plan approval
   const handleApprovePlan = useCallback(() => {
     approvePlan();
-    
+
     // Continue execution
-    sendAgentMessage('execute');
+    sendAgentMessage("execute");
   }, [approvePlan, sendAgentMessage]);
 
   // Get phase display info
   const getPhaseInfo = (phase: AgentPhase) => {
     switch (phase) {
-      case 'idle':
-        return { label: 'Ready', color: 'bg-slate-100 text-slate-600' };
-      case 'clarify':
-        return { label: 'Clarifying', color: 'bg-blue-100 text-blue-700' };
-      case 'plan':
-        return { label: 'Planning', color: 'bg-amber-100 text-amber-700' };
-      case 'execute':
-        return { label: 'Executing', color: 'bg-purple-100 text-purple-700' };
-      case 'review':
-        return { label: 'Review', color: 'bg-emerald-100 text-emerald-700' };
-      case 'finalize':
-        return { label: 'Complete', color: 'bg-emerald-100 text-emerald-700' };
+      case "idle":
+        return { label: "Ready", color: "bg-slate-100 text-slate-600" };
+      case "clarify":
+        return { label: "Clarifying", color: "bg-blue-100 text-blue-700" };
+      case "plan":
+        return { label: "Planning", color: "bg-amber-100 text-amber-700" };
+      case "execute":
+        return { label: "Executing", color: "bg-purple-100 text-purple-700" };
+      case "review":
+        return { label: "Review", color: "bg-emerald-100 text-emerald-700" };
+      case "finalize":
+        return { label: "Complete", color: "bg-emerald-100 text-emerald-700" };
       default:
-        return { label: phase, color: 'bg-slate-100 text-slate-600' };
+        return { label: phase, color: "bg-slate-100 text-slate-600" };
     }
   };
 
@@ -288,14 +306,16 @@ export function CaseWorkspace() {
         </div>
         <div className="flex items-center gap-3">
           <Badge className={phaseInfo.color}>{phaseInfo.label}</Badge>
-          <Button 
-            variant={showDriverPanel ? "default" : "outline"} 
-            size="sm" 
+          <Button
+            variant={showDriverPanel ? "default" : "outline"}
+            size="sm"
             onClick={() => setShowDriverPanel(!showDriverPanel)}
           >
             Value Drivers {selectedDrivers.length > 0 && `(${selectedDrivers.length})`}
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => setShowShareModal(true)}>Share</Button>
+          <Button variant="ghost" size="sm" onClick={() => setShowShareModal(true)}>
+            Share
+          </Button>
           <Button size="sm">Export</Button>
         </div>
       </header>
@@ -312,9 +332,12 @@ export function CaseWorkspace() {
                 <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                   <span className="text-2xl">🎯</span>
                 </div>
-                <h3 className="font-semibold text-slate-800 mb-2">Start Building Your Value Case</h3>
+                <h3 className="font-semibold text-slate-800 mb-2">
+                  Start Building Your Value Case
+                </h3>
                 <p className="text-sm text-slate-500 max-w-xs mx-auto">
-                  Tell me about the company you're analyzing, and I'll help you build a defensible ROI model.
+                  Tell me about the company you're analyzing, and I'll help you build a defensible
+                  ROI model.
                 </p>
               </div>
             )}
@@ -339,9 +362,18 @@ export function CaseWorkspace() {
               <div className="flex justify-start">
                 <div className="bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-sm">
                   <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                    <div
+                      className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
+                      style={{ animationDelay: "0ms" }}
+                    />
+                    <div
+                      className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
+                      style={{ animationDelay: "150ms" }}
+                    />
+                    <div
+                      className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
+                      style={{ animationDelay: "300ms" }}
+                    />
                   </div>
                 </div>
               </div>
@@ -357,7 +389,7 @@ export function CaseWorkspace() {
             )}
 
             {/* Plan card */}
-            {phase === 'plan' && steps.length > 0 && (
+            {phase === "plan" && steps.length > 0 && (
               <PlanCard
                 steps={steps}
                 assumptions={assumptions}
@@ -368,7 +400,7 @@ export function CaseWorkspace() {
             )}
 
             {/* Execution progress */}
-            {phase === 'execute' && steps.length > 0 && (
+            {phase === "execute" && steps.length > 0 && (
               <ExecutionCard steps={steps} progress={overallProgress} />
             )}
 
@@ -396,8 +428,8 @@ export function CaseWorkspace() {
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSend()}
                   placeholder={
-                    phase === 'idle' 
-                      ? "e.g., 'Build a value case for Stripe'" 
+                    phase === "idle"
+                      ? "e.g., 'Build a value case for Stripe'"
                       : "Ask a follow-up question..."
                   }
                   disabled={isStreaming}
@@ -440,7 +472,7 @@ export function CaseWorkspace() {
                 <KPICards data={kpiData} />
               </div>
             )}
-            
+
             {/* Artifact Display */}
             <div className="flex-1 overflow-hidden">
               {activeArtifact ? (
@@ -475,22 +507,27 @@ export function CaseWorkspace() {
                   selectedDrivers={selectedDrivers}
                   onSelect={(driver) => {
                     const defaultValues: Record<string, number> = {};
-                    driver.formula.variables.forEach(v => {
+                    driver.formula.variables.forEach((v) => {
                       defaultValues[v.name] = v.defaultValue;
                     });
-                    setSelectedDrivers([...selectedDrivers, {
-                      driver,
-                      customValues: defaultValues,
-                      calculatedValue: 0,
-                    }]);
+                    setSelectedDrivers([
+                      ...selectedDrivers,
+                      {
+                        driver,
+                        customValues: defaultValues,
+                        calculatedValue: 0,
+                      },
+                    ]);
                   }}
                   onRemove={(driverId) => {
-                    setSelectedDrivers(selectedDrivers.filter(s => s.driver.id !== driverId));
+                    setSelectedDrivers(selectedDrivers.filter((s) => s.driver.id !== driverId));
                   }}
                   onUpdateValues={(driverId, values) => {
-                    setSelectedDrivers(selectedDrivers.map(s => 
-                      s.driver.id === driverId ? { ...s, customValues: values } : s
-                    ));
+                    setSelectedDrivers(
+                      selectedDrivers.map((s) =>
+                        s.driver.id === driverId ? { ...s, customValues: values } : s
+                      )
+                    );
                   }}
                 />
               </div>
@@ -515,7 +552,7 @@ export function CaseWorkspace() {
       <ShareModal
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}
-        caseId={caseId || 'new'}
+        caseId={caseId || "new"}
         caseTitle="Acme Corp Value Case"
         companyName="Acme Corp"
       />
@@ -525,21 +562,17 @@ export function CaseWorkspace() {
 
 // Message bubble component
 function MessageBubble({ message }: { message: ConversationMessage }) {
-  const isUser = message.role === 'user';
+  const isUser = message.role === "user";
 
   return (
     <div className={cn("flex", isUser ? "justify-end" : "justify-start")}>
       <div
         className={cn(
           "max-w-[90%] rounded-2xl px-4 py-3 shadow-sm",
-          isUser
-            ? "bg-primary text-white"
-            : "bg-white border border-slate-200 text-slate-800"
+          isUser ? "bg-primary text-white" : "bg-white border border-slate-200 text-slate-800"
         )}
       >
-        {!isUser && (
-          <div className="text-xs font-semibold text-primary mb-1">VALUEOS AGENT</div>
-        )}
+        {!isUser && <div className="text-xs font-semibold text-primary mb-1">VALUEOS AGENT</div>}
         <div className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</div>
 
         {message.metadata?.reasoning && (
@@ -650,13 +683,7 @@ function PlanCard({
 }
 
 // Execution progress card
-function ExecutionCard({
-  steps,
-  progress,
-}: {
-  steps: WorkflowStepState[];
-  progress: number;
-}) {
+function ExecutionCard({ steps, progress }: { steps: WorkflowStepState[]; progress: number }) {
   return (
     <Card className="p-4 bg-white border-purple-200 shadow-sm">
       <div className="flex items-center justify-between mb-3">
@@ -677,15 +704,21 @@ function ExecutionCard({
         {steps.map((step) => (
           <div key={step.id} className="flex items-center gap-2">
             <div className="w-5 flex justify-center">
-              {step.status === 'completed' && <CheckCircle2 size={16} className="text-emerald-500" />}
-              {step.status === 'running' && <PlayCircle size={16} className="text-purple-500 animate-pulse" />}
-              {step.status === 'pending' && <Circle size={16} className="text-slate-300" />}
-              {step.status === 'error' && <AlertCircle size={16} className="text-red-500" />}
+              {step.status === "completed" && (
+                <CheckCircle2 size={16} className="text-emerald-500" />
+              )}
+              {step.status === "running" && (
+                <PlayCircle size={16} className="text-purple-500 animate-pulse" />
+              )}
+              {step.status === "pending" && <Circle size={16} className="text-slate-300" />}
+              {step.status === "error" && <AlertCircle size={16} className="text-red-500" />}
             </div>
-            <span className={cn(
-              "text-sm",
-              step.status === 'pending' ? "text-slate-400" : "text-slate-700"
-            )}>
+            <span
+              className={cn(
+                "text-sm",
+                step.status === "pending" ? "text-slate-400" : "text-slate-700"
+              )}
+            >
               {step.label}
             </span>
           </div>
@@ -713,9 +746,7 @@ function ErrorCard({
           <div className="text-sm font-medium text-red-800 mb-1">Something went wrong</div>
           <p className="text-sm text-red-600 mb-3">{message}</p>
           {suggestions && suggestions.length > 0 && (
-            <div className="text-xs text-red-500 mb-3">
-              Try: {suggestions.join(' or ')}
-            </div>
+            <div className="text-xs text-red-500 mb-3">Try: {suggestions.join(" or ")}</div>
           )}
           <Button variant="outline" size="sm" onClick={onRetry}>
             Try Again
@@ -730,26 +761,26 @@ function ErrorCard({
 function EmptyCanvas({ phase }: { phase: AgentPhase }) {
   const getMessage = () => {
     switch (phase) {
-      case 'idle':
+      case "idle":
         return {
-          title: 'Start a Conversation',
-          description: 'Ask the agent to analyze a company and artifacts will appear here.',
+          title: "Start a Conversation",
+          description: "Ask the agent to analyze a company and artifacts will appear here.",
         };
-      case 'clarify':
-      case 'plan':
+      case "clarify":
+      case "plan":
         return {
-          title: 'Preparing Analysis',
-          description: 'Answer the questions on the left to continue.',
+          title: "Preparing Analysis",
+          description: "Answer the questions on the left to continue.",
         };
-      case 'execute':
+      case "execute":
         return {
-          title: 'Building Your Value Case',
-          description: 'Artifacts will appear here as the agent works.',
+          title: "Building Your Value Case",
+          description: "Artifacts will appear here as the agent works.",
         };
       default:
         return {
-          title: 'Canvas',
-          description: 'Select an artifact to view it here.',
+          title: "Canvas",
+          description: "Select an artifact to view it here.",
         };
     }
   };
