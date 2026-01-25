@@ -6,7 +6,6 @@
   ],
   "service": "app",
   "workspaceFolder": "/workspaces/valuecanvas",
-
   "features": {
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
       "version": "latest",
@@ -34,7 +33,9 @@
       "userUid": "1000",
       "userGid": "1000"
     }
-  },
+  }
+}
+
 
   "remoteUser": "vscode",
 
