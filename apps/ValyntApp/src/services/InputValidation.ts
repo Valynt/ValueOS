@@ -3,7 +3,7 @@
  * Provides comprehensive JSON schema validation and input sanitization
  */
 
-import { createLogger } from '../logger';
+import { createLogger } from '../lib/logger';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 

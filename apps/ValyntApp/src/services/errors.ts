@@ -33,7 +33,7 @@ export class ServiceError extends Error {
     this.statusCode = statusCode;
     this.details = details;
     this.timestamp = new Date();
-    Object.setPrototypeOf(this, ServiceError.prototype);
+    Object.setPrototypeOf(this, new.target.prototype);
   }
 
   toJSON() {
