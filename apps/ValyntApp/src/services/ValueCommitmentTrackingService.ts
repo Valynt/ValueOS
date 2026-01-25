@@ -31,6 +31,7 @@ import {
   CommitmentRiskSchema,
 } from "../types/value-commitment-schemas.js";
 import { logger } from "../lib/logger";
+import { supabase } from "../lib/supabase";
 import { GroundTruthIntegrationService } from "./GroundTruthIntegrationService.js";
 
 export class ValueCommitmentTrackingService {
@@ -377,8 +378,15 @@ export class ValueCommitmentTrackingService {
 
       const validatedData = CommitmentMetricSchema.parse(data);
 
-      // TODO: Insert into database
-      // const metric = await this.db.insert('commitment_metrics').values(validatedData).returning();
+      if (!supabase) throw new Error("Supabase client not initialized");
+
+      const { data: metric, error } = await supabase
+        .from('commitment_metrics')
+        .insert(validatedData)
+        .select()
+        .single();
+
+      if (error) throw error;
 
       // Create audit entry
       await this.createAuditEntry(
@@ -387,18 +395,18 @@ export class ValueCommitmentTrackingService {
         userId,
         "updated",
         {},
-        validatedData,
+        metric,
         "Success metric added"
       );
 
       logger.info("Metric created", {
         commitmentId,
         tenantId,
-        metricId: validatedData.id,
-        metricName: validatedData.metric_name,
+        metricId: metric.id,
+        metricName: metric.metric_name,
       });
 
-      return validatedData as CommitmentMetric;
+      return metric as CommitmentMetric;
     } catch (error) {
       logger.error("Failed to create metric", { error, commitmentId, tenantId });
       throw error;
