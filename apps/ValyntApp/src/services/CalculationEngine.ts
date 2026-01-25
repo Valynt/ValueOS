@@ -5,8 +5,8 @@
  * cycle detection, and smart recalculation for value driver trees.
  */
 
-import { HyperFormula } from 'hyperformula';
-import { logger } from '../lib/logger';
+import { HyperFormula } from "hyperformula";
+import { logger } from "../lib/logger";
 
 export interface CalculationResult {
   nodeId: string;
@@ -29,20 +29,20 @@ export class CalculationEngine {
   constructor() {
     // Initialize HyperFormula with standard configuration
     this.hf = HyperFormula.buildEmpty({
-      licenseKey: 'gpl-v3', // Using GPL v3 license
+      licenseKey: "gpl-v3", // Using GPL v3 license
       useColumnIndex: false,
       useRowIndex: false,
-      dateFormats: ['MM/DD/YYYY', 'DD/MM/YYYY'],
-      timeFormats: ['hh:mm', 'hh:mm:ss.sss'],
-      currencySymbol: ['$'],
-      decimalSeparator: '.',
-      thousandSeparator: ',',
-      functionArgSeparator: ',',
-      arrayColumnSeparator: ';',
-      arrayRowSeparator: '|',
+      dateFormats: ["MM/DD/YYYY", "DD/MM/YYYY"],
+      timeFormats: ["hh:mm", "hh:mm:ss.sss"],
+      currencySymbol: ["$"],
+      decimalSeparator: ".",
+      thousandSeparator: ",",
+      functionArgSeparator: ",",
+      arrayColumnSeparator: ";",
+      arrayRowSeparator: "|",
     });
 
-    logger.info('CalculationEngine initialized with HyperFormula');
+    logger.info("CalculationEngine initialized with HyperFormula");
   }
 
   /**
@@ -74,9 +74,9 @@ export class CalculationEngine {
       this.nodeIdToNamedExpression.set(nodeId, sanitizedId);
       this.namedExpressionToNodeId.set(sanitizedId, nodeId);
 
-      logger.debug('Registered node', { nodeId, sanitizedId, formula });
+      logger.debug("Registered node", { nodeId, sanitizedId, formula });
     } catch (error) {
-      logger.error('Failed to register node', { nodeId, formula, error });
+      logger.error("Failed to register node", { nodeId, formula, error });
       throw new Error(`Failed to register node ${nodeId}: ${error}`);
     }
   }
@@ -97,12 +97,14 @@ export class CalculationEngine {
       // Get all affected nodes
       return this.recalculate();
     } catch (error) {
-      logger.error('Failed to update input', { nodeId, value, error });
-      return [{
-        nodeId,
-        value: 0,
-        error: `Calculation error: ${error}`
-      }];
+      logger.error("Failed to update input", { nodeId, value, error });
+      return [
+        {
+          nodeId,
+          value: 0,
+          error: `Calculation error: ${error}`,
+        },
+      ];
     }
   }
 
@@ -125,12 +127,14 @@ export class CalculationEngine {
       // Get all affected nodes
       return this.recalculate();
     } catch (error) {
-      logger.error('Failed to update formula', { nodeId, formula, error });
-      return [{
-        nodeId,
-        value: 0,
-        error: `Formula error: ${error}`
-      }];
+      logger.error("Failed to update formula", { nodeId, formula, error });
+      return [
+        {
+          nodeId,
+          value: 0,
+          error: `Formula error: ${error}`,
+        },
+      ];
     }
   }
 
@@ -146,9 +150,9 @@ export class CalculationEngine {
         this.namedExpressionToNodeId.delete(sanitizedId);
       }
 
-      logger.debug('Removed node', { nodeId });
+      logger.debug("Removed node", { nodeId });
     } catch (error) {
-      logger.error('Failed to remove node', { nodeId, error });
+      logger.error("Failed to remove node", { nodeId, error });
     }
   }
 
@@ -163,9 +167,9 @@ export class CalculationEngine {
       }
 
       const result = this.hf.getNamedExpressionValue(sanitizedId);
-      return typeof result === 'number' ? result : 0;
+      return typeof result === "number" ? result : 0;
     } catch (error) {
-      logger.error('Failed to get value', { nodeId, error });
+      logger.error("Failed to get value", { nodeId, error });
       return 0;
     }
   }
@@ -184,24 +188,24 @@ export class CalculationEngine {
       for (const [nodeId, sanitizedId] of this.nodeIdToNamedExpression.entries()) {
         try {
           const value = this.hf.getNamedExpressionValue(sanitizedId);
-          const numericValue = typeof value === 'number' ? value : 0;
+          const numericValue = typeof value === "number" ? value : 0;
 
           results.push({
             nodeId,
-            value: numericValue
+            value: numericValue,
           });
         } catch (error) {
           results.push({
             nodeId,
             value: 0,
-            error: `Calculation error: ${error}`
+            error: `Calculation error: ${error}`,
           });
         }
       }
 
       return results;
     } catch (error) {
-      logger.error('Recalculation failed', { error });
+      logger.error("Recalculation failed", { error });
       return [];
     }
   }
@@ -255,7 +259,7 @@ export class CalculationEngine {
    */
   private sanitizeNodeId(nodeId: string): string {
     // Replace special characters and ensure starts with letter
-    return 'node_' + nodeId.replace(/[^a-zA-Z0-9_]/g, '_');
+    return "node_" + nodeId.replace(/[^a-zA-Z0-9_]/g, "_");
   }
 
   /**
@@ -276,16 +280,16 @@ export class CalculationEngine {
       this.hf.suspendEvaluation();
 
       for (const node of nodes) {
-        this.registerNode(node.id, node.formula || '', node.value);
+        this.registerNode(node.id, node.formula || "", node.value);
       }
 
       // Resume evaluation
       this.hf.resumeEvaluation();
       this.recalculate();
 
-      logger.debug('Batch registered nodes', { count: nodes.length });
+      logger.debug("Batch registered nodes", { count: nodes.length });
     } catch (error) {
-      logger.error('Batch registration failed', { error });
+      logger.error("Batch registration failed", { error });
       throw error;
     }
   }
@@ -298,8 +302,8 @@ export class CalculationEngine {
       namedExpressions: this.hf.getAllNamedExpressionsSerialized(),
       nodeMappings: {
         nodeIdToNamedExpression: Array.from(this.nodeIdToNamedExpression.entries()),
-        namedExpressionToNodeId: Array.from(this.namedExpressionToNodeId.entries())
-      }
+        namedExpressionToNodeId: Array.from(this.namedExpressionToNodeId.entries()),
+      },
     };
   }
 
@@ -323,9 +327,9 @@ export class CalculationEngine {
         this.hf.setNamedExpressions(data.namedExpressions);
       }
 
-      logger.debug('Deserialized calculation engine state');
+      logger.debug("Deserialized calculation engine state");
     } catch (error) {
-      logger.error('Failed to deserialize engine state', { error });
+      logger.error("Failed to deserialize engine state", { error });
       throw error;
     }
   }

@@ -5,19 +5,19 @@
  * Manages nodes, edges, driver values, and UI state for real-time calculations.
  */
 
-import { create } from 'zustand';
-import { devtools, persist } from 'zustand/middleware';
-import { Node, Edge, addEdge, Connection } from '@xyflow/react';
-import { zundo } from 'zundo';
+import { create } from "zustand";
+import { devtools, persist } from "zustand/middleware";
+import { Node, Edge, addEdge, Connection } from "@xyflow/react";
+import { zundo } from "zundo";
 
 // Types for the store
 export interface ValueDriverNode {
   id: string;
-  type: 'input' | 'calculated';
+  type: "input" | "calculated";
   label: string;
   formula?: string;
   value: number;
-  format: 'currency' | 'percentage' | 'number';
+  format: "currency" | "percentage" | "number";
   position: { x: number; y: number };
 }
 
@@ -36,7 +36,7 @@ export interface DriverValues {
 export interface DriverDefinitions {
   [nodeId: string]: {
     formula: string;
-    format: 'currency' | 'percentage' | 'number';
+    format: "currency" | "percentage" | "number";
     label: string;
   };
 }
@@ -86,7 +86,12 @@ interface ValueCanvasStore extends GraphSlice, ModelSlice, UiSlice {
   addDriverNode: (node: ValueDriverNode) => void;
   updateDriverFormula: (nodeId: string, formula: string) => void;
   deleteDriverNode: (nodeId: string) => void;
-  loadCanvas: (data: { nodes: Node[]; edges: Edge[]; driverDefinitions: DriverDefinitions; driverValues: DriverValues }) => void;
+  loadCanvas: (data: {
+    nodes: Node[];
+    edges: Edge[];
+    driverDefinitions: DriverDefinitions;
+    driverValues: DriverValues;
+  }) => void;
   reset: () => void;
 }
 
@@ -117,96 +122,137 @@ const useValueCanvasStore = create<ValueCanvasStore>()(
         ...initialState,
 
         // Graph slice actions
-        addNode: (node) => set((state) => ({
-          nodes: [...state.nodes, node]
-        }), false, 'addNode'),
+        addNode: (node) =>
+          set(
+            (state) => ({
+              nodes: [...state.nodes, node],
+            }),
+            false,
+            "addNode"
+          ),
 
-        updateNode: (nodeId, updates) => set((state) => ({
-          nodes: state.nodes.map(node =>
-            node.id === nodeId ? { ...node, ...updates } : node
-          )
-        }), false, 'updateNode'),
+        updateNode: (nodeId, updates) =>
+          set(
+            (state) => ({
+              nodes: state.nodes.map((node) =>
+                node.id === nodeId ? { ...node, ...updates } : node
+              ),
+            }),
+            false,
+            "updateNode"
+          ),
 
-        removeNode: (nodeId) => set((state) => ({
-          nodes: state.nodes.filter(node => node.id !== nodeId),
-          edges: state.edges.filter(edge => edge.source !== nodeId && edge.target !== nodeId)
-        }), false, 'removeNode'),
+        removeNode: (nodeId) =>
+          set(
+            (state) => ({
+              nodes: state.nodes.filter((node) => node.id !== nodeId),
+              edges: state.edges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId),
+            }),
+            false,
+            "removeNode"
+          ),
 
-        addEdge: (edge) => set((state) => ({
-          edges: addEdge(edge, state.edges)
-        }), false, 'addEdge'),
+        addEdge: (edge) =>
+          set(
+            (state) => ({
+              edges: addEdge(edge, state.edges),
+            }),
+            false,
+            "addEdge"
+          ),
 
-        removeEdge: (edgeId) => set((state) => ({
-          edges: state.edges.filter(edge => edge.id !== edgeId)
-        }), false, 'removeEdge'),
+        removeEdge: (edgeId) =>
+          set(
+            (state) => ({
+              edges: state.edges.filter((edge) => edge.id !== edgeId),
+            }),
+            false,
+            "removeEdge"
+          ),
 
         onConnect: (connection) => {
           const edge = {
             ...connection,
             id: `edge-${connection.source}-${connection.target}`,
-            type: 'default'
+            type: "default",
           };
           get().addEdge(edge);
         },
 
-        setNodes: (nodes) => set({ nodes }, false, 'setNodes'),
-        setEdges: (edges) => set({ edges }, false, 'setEdges'),
+        setNodes: (nodes) => set({ nodes }, false, "setNodes"),
+        setEdges: (edges) => set({ edges }, false, "setEdges"),
 
         // Model slice actions
-        updateDriverDefinition: (nodeId, definition) => set((state) => ({
-          driverDefinitions: {
-            ...state.driverDefinitions,
-            [nodeId]: {
-              ...state.driverDefinitions[nodeId],
-              ...definition
-            }
-          }
-        }), false, 'updateDriverDefinition'),
+        updateDriverDefinition: (nodeId, definition) =>
+          set(
+            (state) => ({
+              driverDefinitions: {
+                ...state.driverDefinitions,
+                [nodeId]: {
+                  ...state.driverDefinitions[nodeId],
+                  ...definition,
+                },
+              },
+            }),
+            false,
+            "updateDriverDefinition"
+          ),
 
-        updateDriverValue: (nodeId, value) => set((state) => ({
-          driverValues: {
-            ...state.driverValues,
-            [nodeId]: value
-          }
-        }), false, 'updateDriverValue'),
+        updateDriverValue: (nodeId, value) =>
+          set(
+            (state) => ({
+              driverValues: {
+                ...state.driverValues,
+                [nodeId]: value,
+              },
+            }),
+            false,
+            "updateDriverValue"
+          ),
 
-        batchUpdateValues: (updates) => set((state) => ({
-          driverValues: {
-            ...state.driverValues,
-            ...updates
-          }
-        }), false, 'batchUpdateValues'),
+        batchUpdateValues: (updates) =>
+          set(
+            (state) => ({
+              driverValues: {
+                ...state.driverValues,
+                ...updates,
+              },
+            }),
+            false,
+            "batchUpdateValues"
+          ),
 
-        setDriverDefinitions: (definitions) => set({ driverDefinitions: definitions }, false, 'setDriverDefinitions'),
-        setDriverValues: (values) => set({ driverValues: values }, false, 'setDriverValues'),
+        setDriverDefinitions: (definitions) =>
+          set({ driverDefinitions: definitions }, false, "setDriverDefinitions"),
+        setDriverValues: (values) => set({ driverValues: values }, false, "setDriverValues"),
 
         // UI slice actions
-        setSelectedNodeId: (nodeId) => set({ selectedNodeId: nodeId }, false, 'setSelectedNodeId'),
-        setIsEditorOpen: (open) => set({ isEditorOpen: open }, false, 'setIsEditorOpen'),
-        setIsLibraryOpen: (open) => set({ isLibraryOpen: open }, false, 'setIsLibraryOpen'),
-        setIsSaving: (saving) => set({ isSaving: saving }, false, 'setIsSaving'),
-        setLastSaved: (date) => set({ lastSaved: date }, false, 'setLastSaved'),
-        setError: (error) => set({ error }, false, 'setError'),
+        setSelectedNodeId: (nodeId) => set({ selectedNodeId: nodeId }, false, "setSelectedNodeId"),
+        setIsEditorOpen: (open) => set({ isEditorOpen: open }, false, "setIsEditorOpen"),
+        setIsLibraryOpen: (open) => set({ isLibraryOpen: open }, false, "setIsLibraryOpen"),
+        setIsSaving: (saving) => set({ isSaving: saving }, false, "setIsSaving"),
+        setLastSaved: (date) => set({ lastSaved: date }, false, "setLastSaved"),
+        setError: (error) => set({ error }, false, "setError"),
 
         // Coordinated actions
         addDriverNode: (driverNode) => {
           const node: Node = {
             id: driverNode.id,
-            type: driverNode.type === 'input' ? 'inputNode' : 'calculatedNode',
+            type: driverNode.type === "input" ? "inputNode" : "calculatedNode",
             position: driverNode.position,
             data: {
               label: driverNode.label,
               value: driverNode.value,
               format: driverNode.format,
-              formula: driverNode.formula
-            }
+              formula: driverNode.formula,
+            },
           };
 
           get().addNode(node);
           get().updateDriverDefinition(driverNode.id, {
-            formula: driverNode.formula || '',
+            formula: driverNode.formula || "",
             format: driverNode.format,
-            label: driverNode.label
+            label: driverNode.label,
           });
           get().updateDriverValue(driverNode.id, driverNode.value);
         },
@@ -218,32 +264,49 @@ const useValueCanvasStore = create<ValueCanvasStore>()(
 
         deleteDriverNode: (nodeId) => {
           get().removeNode(nodeId);
-          set((state) => {
-            const { [nodeId]: _, ...driverDefinitions } = state.driverDefinitions;
-            const { [nodeId]: __, ...driverValues } = state.driverValues;
-            return { driverDefinitions, driverValues };
-          }, false, 'deleteDriverNode');
+          set(
+            (state) => {
+              const { [nodeId]: _, ...driverDefinitions } = state.driverDefinitions;
+              const { [nodeId]: __, ...driverValues } = state.driverValues;
+              return { driverDefinitions, driverValues };
+            },
+            false,
+            "deleteDriverNode"
+          );
         },
 
-        loadCanvas: (data) => set({
-          nodes: data.nodes,
-          edges: data.edges,
-          driverDefinitions: data.driverDefinitions,
-          driverValues: data.driverValues
-        }, false, 'loadCanvas'),
+        loadCanvas: (data) =>
+          set(
+            {
+              nodes: data.nodes,
+              edges: data.edges,
+              driverDefinitions: data.driverDefinitions,
+              driverValues: data.driverValues,
+            },
+            false,
+            "loadCanvas"
+          ),
 
-        reset: () => set(initialState, false, 'reset')
+        reset: () => set(initialState, false, "reset"),
       }),
-      { name: 'value-canvas-store' }
+      { name: "value-canvas-store" }
     ),
     {
       // zundo options
       handleSet: (handleSet) => (payload, replace) => {
         // Only include actions that should be undoable
         const undoableActions = [
-          'addNode', 'updateNode', 'removeNode', 'addEdge', 'removeEdge',
-          'updateDriverDefinition', 'updateDriverValue', 'batchUpdateValues',
-          'addDriverNode', 'updateDriverFormula', 'deleteDriverNode'
+          "addNode",
+          "updateNode",
+          "removeNode",
+          "addEdge",
+          "removeEdge",
+          "updateDriverDefinition",
+          "updateDriverValue",
+          "batchUpdateValues",
+          "addDriverNode",
+          "updateDriverFormula",
+          "deleteDriverNode",
         ];
 
         if (undoableActions.includes(payload?.type)) {
@@ -252,7 +315,7 @@ const useValueCanvasStore = create<ValueCanvasStore>()(
           // For non-undoable actions, just set without history
           payload?.type && handleSet({ ...payload, type: undefined }, replace);
         }
-      }
+      },
     }
   )
 );
@@ -265,7 +328,7 @@ export const useTemporalStore = () => {
     redo: store.redo,
     clear: store.clear,
     pastStates: store.pastStates,
-    futureStates: store.futureStates
+    futureStates: store.futureStates,
   };
 };
 

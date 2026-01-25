@@ -1,6 +1,6 @@
 /**
  * BillingSettings - Usage & Billing (Meta-ROI Dashboard)
- * 
+ *
  * Strategic billing page that proves ValueOS pays for itself.
  * Shows platform ROI, usage breakdown, billing details, and expansion triggers.
  */
@@ -82,7 +82,7 @@ export function BillingSettings() {
 
   const handleUpgrade = async () => {
     try {
-      const { url } = await billingService.createCheckoutSession('standard');
+      const { url } = await billingService.createCheckoutSession("standard");
       if (url) {
         window.location.href = url;
       }
@@ -90,12 +90,15 @@ export function BillingSettings() {
       // Best-effort: log to console for now
       // In real UI, surface an error toast
       // eslint-disable-next-line no-console
-      console.error('Failed to create checkout session', err);
+      console.error("Failed to create checkout session", err);
     }
   };
 
   const roiMultiple = Math.round(PLATFORM_ROI.valueCasesGenerated / PLATFORM_ROI.subscriptionCost);
-  const roiPercent = ((PLATFORM_ROI.valueCasesGenerated / PLATFORM_ROI.subscriptionCost) * 100).toFixed(0);
+  const roiPercent = (
+    (PLATFORM_ROI.valueCasesGenerated / PLATFORM_ROI.subscriptionCost) *
+    100
+  ).toFixed(0);
 
   const seatsPercent = (USAGE.seats.used / USAGE.seats.total) * 100;
   const casesPercent = (USAGE.cases.used / USAGE.cases.total) * 100;
@@ -134,16 +137,22 @@ export function BillingSettings() {
                   <p className="text-sm text-muted-foreground">Pipeline Influenced</p>
                 </div>
                 <div>
-                  <p className="text-3xl font-bold text-emerald-600">
-                    {roiMultiple}x
-                  </p>
+                  <p className="text-3xl font-bold text-emerald-600">{roiMultiple}x</p>
                   <p className="text-sm text-muted-foreground">Return on Subscription</p>
                 </div>
               </div>
               <p className="mt-4 text-sm text-muted-foreground">
-                You spent <span className="font-medium text-foreground">${PLATFORM_ROI.subscriptionCost.toLocaleString()}</span> this year 
-                and generated <span className="font-medium text-foreground">${(PLATFORM_ROI.valueCasesGenerated / 1000000).toFixed(1)}M</span> in 
-                value cases. That's a <span className="font-medium text-emerald-600">{roiPercent}% return</span> on ValueOS.
+                You spent{" "}
+                <span className="font-medium text-foreground">
+                  ${PLATFORM_ROI.subscriptionCost.toLocaleString()}
+                </span>{" "}
+                this year and generated{" "}
+                <span className="font-medium text-foreground">
+                  ${(PLATFORM_ROI.valueCasesGenerated / 1000000).toFixed(1)}M
+                </span>{" "}
+                in value cases. That's a{" "}
+                <span className="font-medium text-emerald-600">{roiPercent}% return</span> on
+                ValueOS.
               </p>
             </div>
           </div>
@@ -183,7 +192,10 @@ export function BillingSettings() {
                 <Briefcase className="h-4 w-4 text-muted-foreground" />
                 <span className="font-medium">Cases</span>
                 {isNearCapacity && (
-                  <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 text-xs">
+                  <Badge
+                    variant="outline"
+                    className="bg-amber-100 text-amber-700 border-amber-300 text-xs"
+                  >
                     Near Limit
                   </Badge>
                 )}
@@ -192,9 +204,9 @@ export function BillingSettings() {
                 {USAGE.cases.used}/{USAGE.cases.total}
               </span>
             </div>
-            <Progress 
-              value={casesPercent} 
-              className={cn("h-2 mb-3", isNearCapacity && "[&>div]:bg-amber-500")} 
+            <Progress
+              value={casesPercent}
+              className={cn("h-2 mb-3", isNearCapacity && "[&>div]:bg-amber-500")}
             />
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">{casesPercent}% used</span>
@@ -221,7 +233,9 @@ export function BillingSettings() {
           </div>
           <div className="flex items-baseline gap-2 mb-3">
             <span className="text-2xl font-bold">{USAGE.aiCredits.used}</span>
-            <span className="text-muted-foreground">/ {USAGE.aiCredits.total.toLocaleString()}</span>
+            <span className="text-muted-foreground">
+              / {USAGE.aiCredits.total.toLocaleString()}
+            </span>
           </div>
           <Progress value={creditsPercent} className="h-2" />
         </CardContent>
@@ -290,7 +304,10 @@ export function BillingSettings() {
               <p className={cn("font-medium", renewalUrgent && "text-amber-600")}>
                 {BILLING.nextBillDate} (${BILLING.nextBillAmount.toLocaleString()})
                 {renewalUrgent && (
-                  <Badge variant="outline" className="ml-2 bg-amber-100 text-amber-700 border-amber-300 text-xs">
+                  <Badge
+                    variant="outline"
+                    className="ml-2 bg-amber-100 text-amber-700 border-amber-300 text-xs"
+                  >
                     {BILLING.renewsInDays} days
                   </Badge>
                 )}
@@ -340,7 +357,8 @@ export function BillingSettings() {
               <div className="flex-1">
                 <h4 className="font-semibold text-amber-900">You're almost at capacity</h4>
                 <p className="text-sm text-amber-700 mt-1">
-                  You've used {USAGE.cases.used} of {USAGE.cases.total} cases. Upgrade now for uninterrupted access.
+                  You've used {USAGE.cases.used} of {USAGE.cases.total} cases. Upgrade now for
+                  uninterrupted access.
                 </p>
               </div>
               <Button size="sm" className="bg-amber-600 hover:bg-amber-700" onClick={handleUpgrade}>
@@ -405,9 +423,7 @@ export function BillingSettings() {
                 <div className="col-span-3 text-sm font-medium">
                   ${invoice.amount.toLocaleString()}
                 </div>
-                <div className="col-span-3 text-sm text-muted-foreground">
-                  {invoice.id}
-                </div>
+                <div className="col-span-3 text-sm text-muted-foreground">{invoice.id}</div>
                 <div className="col-span-2">
                   <Badge
                     variant="secondary"

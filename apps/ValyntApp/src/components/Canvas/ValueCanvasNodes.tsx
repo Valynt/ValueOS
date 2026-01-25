@@ -4,39 +4,42 @@
  * React Flow node components for input and calculated value drivers.
  */
 
-import React, { memo, useCallback } from 'react';
-import { Handle, Position, NodeProps } from '@xyflow/react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { TrendingUp, TrendingDown } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import useValueCanvasStore from '@/stores/valueCanvasStore';
-import { calculationEngine } from '@/services/CalculationEngine';
+import React, { memo, useCallback } from "react";
+import { Handle, Position, NodeProps } from "@xyflow/react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { TrendingUp, TrendingDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+import useValueCanvasStore from "@/stores/valueCanvasStore";
+import { calculationEngine } from "@/services/CalculationEngine";
 
 // Input Node - for leaf drivers that users can modify
 export const InputNode = memo(({ id, data }: NodeProps) => {
   const { updateDriverValue, driverValues } = useValueCanvasStore();
 
-  const handleValueChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = parseFloat(event.target.value) || 0;
-    updateDriverValue(id, newValue);
+  const handleValueChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const newValue = parseFloat(event.target.value) || 0;
+      updateDriverValue(id, newValue);
 
-    // Trigger calculation
-    calculationEngine.updateInput(id, newValue);
-  }, [id, updateDriverValue]);
+      // Trigger calculation
+      calculationEngine.updateInput(id, newValue);
+    },
+    [id, updateDriverValue]
+  );
 
   const currentValue = driverValues[id] ?? data.value ?? 0;
-  const format = data.format || 'number';
+  const format = data.format || "number";
 
   const formatValue = (value: number) => {
     switch (format) {
-      case 'currency':
-        return new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: 'USD'
+      case "currency":
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
         }).format(value);
-      case 'percentage':
+      case "percentage":
         return `${(value * 100).toFixed(2)}%`;
       default:
         return value.toLocaleString();
@@ -47,7 +50,7 @@ export const InputNode = memo(({ id, data }: NodeProps) => {
     <Card className="min-w-[200px] shadow-md border-2 border-blue-200 bg-blue-50/50">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium text-blue-900">
-          {data.label || 'Input Driver'}
+          {data.label || "Input Driver"}
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
@@ -73,24 +76,24 @@ export const InputNode = memo(({ id, data }: NodeProps) => {
   );
 });
 
-InputNode.displayName = 'InputNode';
+InputNode.displayName = "InputNode";
 
 // Calculated Node - for derived values with formulas
 export const CalculatedNode = memo(({ id, data }: NodeProps) => {
   const { driverValues } = useValueCanvasStore();
 
   const currentValue = driverValues[id] ?? data.value ?? 0;
-  const format = data.format || 'number';
-  const formula = data.formula || '';
+  const format = data.format || "number";
+  const formula = data.formula || "";
 
   const formatValue = (value: number) => {
     switch (format) {
-      case 'currency':
-        return new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: 'USD'
+      case "currency":
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
         }).format(value);
-      case 'percentage':
+      case "percentage":
         return `${(value * 100).toFixed(2)}%`;
       default:
         return value.toLocaleString();
@@ -116,7 +119,7 @@ export const CalculatedNode = memo(({ id, data }: NodeProps) => {
     <Card className="min-w-[200px] shadow-md border-2 border-green-200 bg-green-50/50">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium text-green-900 flex items-center justify-between">
-          <span>{data.label || 'Calculated Driver'}</span>
+          <span>{data.label || "Calculated Driver"}</span>
           <TrendIndicator />
         </CardTitle>
       </CardHeader>
@@ -153,7 +156,7 @@ export const CalculatedNode = memo(({ id, data }: NodeProps) => {
   );
 });
 
-CalculatedNode.displayName = 'CalculatedNode';
+CalculatedNode.displayName = "CalculatedNode";
 
 // Node types registry for React Flow
 export const nodeTypes = {
