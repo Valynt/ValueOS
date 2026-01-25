@@ -435,6 +435,8 @@ export const api = {
   // Workflows
   executeWorkflow: (data: any) => apiClient.post("/api/workflows/execute", data),
 
+  getWorkflow: (id: string) => apiClient.get(`/api/workflows/${id}`),
+
   getWorkflowStatus: (id: string) => apiClient.get(`/api/workflows/${id}/status`),
 
   // Integrations

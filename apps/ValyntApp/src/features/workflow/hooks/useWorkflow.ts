@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { api } from "../../../api/client/unified-api-client";
 import type { Workflow, WorkflowStep, WorkflowStatus } from "../types";
 
 export function useWorkflow(workflowId?: string) {
@@ -9,15 +10,12 @@ export function useWorkflow(workflowId?: string) {
   const loadWorkflow = useCallback(async (id: string) => {
     setIsLoading(true);
     try {
-      // TODO: Implement actual API call
-      setWorkflow({
-        id,
-        name: "Untitled Workflow",
-        status: "draft",
-        steps: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
+      const response = await api.getWorkflow(id);
+      if (response.success && response.data?.data) {
+        setWorkflow(response.data.data);
+      } else {
+        throw new Error(response.error?.message || "Failed to load workflow");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load workflow");
     } finally {
