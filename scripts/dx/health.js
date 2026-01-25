@@ -20,6 +20,14 @@ const postgresPort = resolvePort(
   portConfig.postgres.port
 );
 const redisPort = resolvePort(process.env.REDIS_PORT, portConfig.redis.port);
+const supabaseApiPort = resolvePort(
+  process.env.SUPABASE_API_PORT,
+  portConfig.supabase.apiPort
+);
+const caddyHttpPort = resolvePort(
+  process.env.CADDY_HTTP_PORT,
+  portConfig.edge.httpPort
+);
 
 const backendUrl = process.env.BACKEND_URL || `http://localhost:${backendPort}`;
 const frontendUrl =
@@ -124,6 +132,13 @@ async function runHealthChecks() {
   const frontendResult = await checkHttpEndpoint("Frontend", `${frontendUrl}`);
   checkHealth("Frontend", frontendResult.healthy, frontendResult.message);
 
+  // Gateway /healthz (Caddy)
+  const gatewayResult = await checkHttpEndpoint(
+    "Gateway",
+    `http://localhost:${caddyHttpPort}/healthz`
+  );
+  checkHealth("Gateway", gatewayResult.healthy, gatewayResult.message);
+
   // Database (via backend)
   const dbResult = await checkHttpEndpoint(
     "Database",
@@ -137,6 +152,13 @@ async function runHealthChecks() {
     `${backendUrl}/health/dependencies`
   );
   checkHealth("Redis", redisResult.healthy, redisResult.message);
+
+  // Supabase Auth
+  const supabaseAuthResult = await checkHttpEndpoint(
+    "Supabase Auth",
+    `http://localhost:${supabaseApiPort}/auth/v1/health`
+  );
+  checkHealth("Supabase Auth", supabaseAuthResult.healthy, supabaseAuthResult.message);
 
   // Docker services
   const postgresCheck = checkDockerService("postgres");

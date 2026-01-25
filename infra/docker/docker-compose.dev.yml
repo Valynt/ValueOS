@@ -255,6 +255,9 @@ services:
       VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
       VITE_API_BASE_URL: http://backend:${API_PORT:-3001}
       HOST: 0.0.0.0
+      VITE_HMR_HOST: ${VITE_HMR_HOST:-localhost}
+      VITE_HMR_PORT: ${VITE_HMR_PORT:-24678}
+      VITE_HMR_PROTOCOL: ${VITE_HMR_PROTOCOL:-ws}
     env_file:
       - ../../.env.ports
       - ../../.env.local

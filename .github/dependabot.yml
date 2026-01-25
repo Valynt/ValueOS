@@ -35,9 +35,12 @@ updates:
       - dependency-type: "all"
     # Ignore specific packages if needed
     ignore:
-      # Example: ignore major version updates for stable packages
-      # - dependency-name: "react"
-      #   update-types: ["version-update:semver-major"]
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "web-vitals"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-router-dom"
+        update-types: ["version-update:semver-major"]
 
   # Python dependencies
   - package-ecosystem: "pip"

@@ -3,11 +3,27 @@
   "timezone": "UTC",
   "schedule": ["before 5am on monday"],
   "labels": ["dependencies", "security"],
+  "requiredStatusChecks": ["build", "test", "lint"],
   "packageRules": [
     {
       "matchManagers": ["npm"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "npm minor/patch updates"
+    },
+    {
+      "groupName": "vite ecosystem",
+      "matchPackageNames": ["vite", "@vitejs/plugin-react", "vitest", "@vitest/*"],
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "groupName": "react router & vitals",
+      "matchPackageNames": ["react-router-dom", "web-vitals"],
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "matchPackageNames": ["vite", "web-vitals", "react-router-dom"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
     }
   ]
 }

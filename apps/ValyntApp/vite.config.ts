@@ -10,6 +10,13 @@ const hmrClientPort = Number(process.env.VITE_HMR_CLIENT_PORT || hmrPort);
 const hmrHost = process.env.VITE_HMR_HOST || "localhost";
 const hmrProtocol = process.env.VITE_HMR_PROTOCOL || "ws";
 const viteHost = process.env.VITE_HOST || "0.0.0.0";
+
+const isCi = process.env.CI === "true";
+const isDockerMode =
+  process.env.DX_MODE === "docker" ||
+  process.env.DOCKER === "true" ||
+  process.env.DX_DOCKER === "1";
+
 const usePolling = process.env.VITE_USE_POLLING === "true";
 
 export default defineConfig({
@@ -31,15 +38,17 @@ export default defineConfig({
     },
   },
   server: {
-    host: viteHost,
+    host: isDockerMode ? "0.0.0.0" : viteHost,
     port: vitePort,
-    strictPort: true,
+    strictPort: isCi,
     allowedHosts: [".gitpod.dev", ".gitpod.io", ".github.dev", "localhost"],
     hmr: {
       protocol: hmrProtocol,
       host: hmrHost,
       port: hmrPort,
-      clientPort: hmrClientPort,
+      // In Docker, ensure the browser uses the same port the server is binding.
+      // Outside Docker, allow explicit override for remote/devcontainers.
+      clientPort: isDockerMode ? hmrPort : hmrClientPort,
     },
     watch: usePolling
       ? {

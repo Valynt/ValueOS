@@ -45,7 +45,7 @@
     "react-router-dom": "^6.30.3",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
-    "web-vitals": "^4.2.4",
+    "web-vitals": "4.2.4",
     "zod": "^3.25.76",
     "zundo": "^2.1.0"
   },
