@@ -13,6 +13,10 @@ This directory contains GitHub Actions workflows that automate:
 - 🔄 Infrastructure drift detection
 - 📊 Deployment notifications and monitoring
 
+## Canonical CI Entry Point
+
+For application CI, workflows should call the single entry point `npm run ci:verify`, which runs linting, type checks, legacy route checks, tests, and the build in a consistent order. Use this script in workflows instead of bespoke step lists so CI behavior stays aligned across pipelines.
+
 ## Workflows
 
 ### 1. Terraform Validation (`terraform-validate.yml`)

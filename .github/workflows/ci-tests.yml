@@ -67,14 +67,8 @@ jobs:
       - name: Generate environment
         run: node scripts/dx/env-compiler.js --mode local --force
 
-      - name: Build (Vite)
-        run: npm run build
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Tests (Vitest)
-        run: npm run test
+      - name: Run CI verification suite
+        run: npm run ci:verify
 
   playwright-smoke:
     name: Playwright Smoke
