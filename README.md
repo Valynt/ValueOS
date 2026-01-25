@@ -37,7 +37,7 @@ Run these from the repo root.
 | Type-check | `pnpm run typecheck` |
 | Tests (with coverage) | `pnpm run test` |
 | Build | `pnpm run build` |
-| Full CI verification | `pnpm run ci:verify` |
+| Full CI verification | `ppnpm run ci:verify` |
 
 ## Environment variables
 

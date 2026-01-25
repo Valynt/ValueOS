@@ -21,7 +21,7 @@ Steps:
 
 5) You may now push local migrations:
 
-  SUPABASE_ACCESS_TOKEN=... npm run db:push
+  SUPABASE_ACCESS_TOKEN=... pnpm run db:push
 
 6) Run validation tests:
 

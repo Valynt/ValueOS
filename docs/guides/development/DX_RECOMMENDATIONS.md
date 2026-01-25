@@ -67,7 +67,7 @@ Current ValueOS setup takes 35+ minutes with 40% success rate, causing developer
 
 **Actions**:
 
-- [ ] Implement `npm run setup` that handles everything
+- [ ] Implement `pnpm run setup` that handles everything
 - [ ] Auto-detect platform and configure accordingly
 - [ ] Auto-generate secure secrets
 - [ ] Auto-start Docker services
@@ -90,7 +90,7 @@ Current ValueOS setup takes 35+ minutes with 40% success rate, causing developer
 # Total: 30-45 minutes, error-prone
 
 # Proposed (automated)
-npm run setup
+pnpm run setup
 npm run dev
 # Total: < 5 minutes, reliable
 ```
@@ -184,7 +184,7 @@ JWT_SECRET=a1b2c3d4e5f6...  // 32 bytes of entropy
 ```javascript
 // Startup check
 if (process.env.JWT_SECRET === "secret123") {
-  throw new Error("Weak JWT secret detected. Run: npm run setup");
+  throw new Error("Weak JWT secret detected. Run: pnpm run setup");
 }
 ```
 
@@ -282,7 +282,7 @@ All systems operational! 🎉
       Fix: kill -9 <PID>
 
    3. Environment vars missing
-      Fix: npm run setup
+      Fix: pnpm run setup
 ```
 
 **Why This Matters**:
@@ -377,7 +377,7 @@ Happy coding! 🚀
    macOS: Open Docker Desktop
    Linux: sudo systemctl start docker
 
-   Then run: npm run setup
+   Then run: pnpm run setup
 ```
 
 **Missing Dependency**:

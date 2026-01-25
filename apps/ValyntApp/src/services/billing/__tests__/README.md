@@ -58,7 +58,7 @@ Ensure your test database has the billing schema migrated:
 
 ```bash
 # Run migrations
-npm run db:migrate
+pnpm run db:migrate
 
 # Or use Supabase CLI
 supabase db reset

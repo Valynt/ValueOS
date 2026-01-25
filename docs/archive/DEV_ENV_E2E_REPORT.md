@@ -3,8 +3,8 @@
 ## Start Order (Corrected)
 
 1. `npx supabase start` (start Supabase first)
-2. `npm run dx` (start frontend/backend/deps)
-3. `npm run dx:check` (verify health)
+2. `pnpm run dx` (start frontend/backend/deps)
+3. `pnpm run dx:check` (verify health)
 4. `npx supabase db reset` (apply migrations)
 5. `npm run seed:demo` (create demo user)
 6. Open http://localhost:5173 and login
@@ -24,7 +24,7 @@
 - Frontend started successfully on port 5173
 - Backend started on port 3001 (after fixes)
 - Supabase services running on ports 54321-54323
-- Health check passed: `npm run dx:check` showed 10/10 checks passed
+- Health check passed: `pnpm run dx:check` showed 10/10 checks passed
 
 ## Migration Results
 

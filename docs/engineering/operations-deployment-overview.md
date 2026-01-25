@@ -45,13 +45,13 @@ npm install
 
 ```bash
 cp deploy/envs/.env.example .env.local
-npm run env:dev  # Configures Supabase keys
+pnpm run env:dev  # Configures Supabase keys
 ```
 
 3. **Start development stack**:
 
 ```bash
-npm run dx  # Full stack with Docker
+pnpm run dx  # Full stack with Docker
 # OR
 ./scripts/dev-caddy-start.sh  # With Caddy proxy
 ```
@@ -69,8 +69,8 @@ npm run dx  # Full stack with Docker
 # Development
 npm run dev              # Start frontend dev server
 npm run dev:backend      # Start backend only
-npm run dx               # Full development stack
-npm run dx:check         # Health verification
+pnpm run dx               # Full development stack
+pnpm run dx:check         # Health verification
 
 # Testing
 npm run test:unit        # Unit tests
@@ -79,8 +79,8 @@ npm run test:rls         # RLS policy tests
 npm run security:scan    # Security scanning
 
 # Database
-npm run db:reset         # Reset local database
-npm run db:migrate       # Apply migrations
+pnpm run db:reset         # Reset local database
+pnpm run db:migrate       # Apply migrations
 npm run seed:demo        # Create demo data
 
 # Quality gates
@@ -105,7 +105,7 @@ This workflow covers three distinct stages:
 
 ```bash
 # Run automated setup
-npm run setup
+pnpm run setup
 
 # Or manual check
 node --version    # Should be v20+
@@ -120,7 +120,7 @@ supabase --version
 | ----------------------- | ---------------------------- | ----------------------------------------- |
 | 1. Install Dependencies | `npm install`                | Installs all project dependencies         |
 | 2. Start Supabase       | `supabase start`             | Starts local Supabase (DB, Auth, Storage) |
-| 3. Generate Types       | `npm run db:types`           | Generates TypeScript types from DB schema |
+| 3. Generate Types       | `pnpm run db:types`           | Generates TypeScript types from DB schema |
 | 4. Launch Frontend      | `npm run dev`                | Starts Vite dev server with HMR           |
 | 5. Access               | Open `http://localhost:3000` | Application accessible                    |
 
@@ -198,7 +198,7 @@ docker-compose -f infra/docker/docker-compose.staging.yml up -d
 | Security Scan          | `npm run security:scan:all`   | No high-severity vulnerabilities |
 | Performance Tests      | `npm run test:perf`           | Meets performance benchmarks     |
 | RLS Tests              | `npm run test:rls`            | All RLS policies enforced        |
-| Database Validation    | `npm run db:validate`         | All fixes validated              |
+| Database Validation    | `pnpm run db:validate`         | All fixes validated              |
 | SAML Tests             | `npm run test:saml`           | SAML compliance verified         |
 
 #### Staging Commands
@@ -244,13 +244,13 @@ curl -f http://grafana.yourdomain.com/api/health
 
 ```bash
 # Create backup
-npm run db:backup
+pnpm run db:backup
 
 # Test restore (on staging)
-npm run db:restore --backup=<backup-file>
+pnpm run db:restore --backup=<backup-file>
 
 # Verify data integrity
-npm run db:validate
+pnpm run db:validate
 ```
 
 **Success Criteria:**
@@ -268,7 +268,7 @@ npm run db:validate
 npm run test:rls
 
 # 2. Validate tenant isolation
-npm run db:validate
+pnpm run db:validate
 
 # 3. Check RBAC enforcement
 npm run test:rbac
@@ -713,7 +713,7 @@ The CI/CD pipeline enforces these checks:
 
 ```bash
 # Run all CI checks locally
-npm run ci:verify
+pnpm run ci:verify
 
 # Individual checks
 npm run lint
@@ -808,7 +808,7 @@ kubectl logs -f deployment/valueos-app
 kubectl exec -it deployment/valueos-app -- env
 
 # Check database connectivity
-kubectl exec -it deployment/valueos-app -- npm run db:check
+kubectl exec -it deployment/valueos-app -- pnpm run db:check
 ```
 
 **High Latency:**
@@ -821,7 +821,7 @@ kubectl top pods
 curl http://localhost:3000/metrics
 
 # Database performance
-npm run db:performance-check
+pnpm run db:performance-check
 ```
 
 **Deployment Failures:**
@@ -872,7 +872,7 @@ kubectl get pods -l app=valueos
 
 ```bash
 # Automated backups
-npm run db:backup  # Daily automated
+pnpm run db:backup  # Daily automated
 
 # Manual backup
 pg_dump $DATABASE_URL > backup-$(date +%Y%m%d).sql

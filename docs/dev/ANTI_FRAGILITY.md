@@ -160,7 +160,7 @@ Provides "Fix It" buttons for known failure scenarios instead of just reporting 
 | ------------------- | ---------------------- | ------------------------------------------------------ |
 | `seed-database`     | DB connected but empty | Runs `npm run seed:demo`                               |
 | `refresh-dev-token` | JWT expired            | Gets fresh dev token                                   |
-| `run-migrations`    | Pending migrations     | Runs `npm run db:push`                                 |
+| `run-migrations`    | Pending migrations     | Runs `pnpm run db:push`                                 |
 | `clear-all-storage` | Always available       | Nukes localStorage, sessionStorage, IndexedDB, cookies |
 | `restart-backend`   | Backend unresponsive   | Triggers server restart                                |
 | `enable-ghost-mode` | Backend down           | Activates MSW mocking                                  |

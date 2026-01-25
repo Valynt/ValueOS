@@ -4,20 +4,20 @@
 
 ### Environment Setup
 
-- `npm run env:dev` - Node script that sets up .env.local with Supabase keys and URLs
-- `npm run env:validate` - TypeScript script that validates environment configuration
+- `pnpm run env:dev` - Node script that sets up .env.local with Supabase keys and URLs
+- `pnpm run env:validate` - TypeScript script that validates environment configuration
 
 ### Development Stack Commands
 
-- `npm run dx` - Runs doctor.js check then dev.js (starts deps + backend + frontend)
-- `npm run dx:doctor` - Doctor check script
-- `npm run dx:docker` - Full Docker mode (uses infra/docker/docker-compose.dev.yml)
-- `npm run dx:down` - Stops Docker services, removes lock/state files
-- `npm run dx:reset` - Stops Docker services with volume removal
-- `npm run dx:clean` - Full cleanup (stops services, removes env files)
-- `npm run dx:check` - Comprehensive environment validation
-- `npm run dx:ps` - Docker ps for services
-- `npm run dx:logs` - Docker logs for services
+- `pnpm run dx` - Runs doctor.js check then dev.js (starts deps + backend + frontend)
+- `pnpm run dx:doctor` - Doctor check script
+- `pnpm run dx:docker` - Full Docker mode (uses infra/docker/docker-compose.dev.yml)
+- `pnpm run dx:down` - Stops Docker services, removes lock/state files
+- `pnpm run dx:reset` - Stops Docker services with volume removal
+- `pnpm run dx:clean` - Full cleanup (stops services, removes env files)
+- `pnpm run dx:check` - Comprehensive environment validation
+- `pnpm run dx:ps` - Docker ps for services
+- `pnpm run dx:logs` - Docker logs for services
 
 ### Application Services
 
@@ -27,13 +27,13 @@
 
 ### Database Commands
 
-- `npm run db:setup` - Supabase setup script
-- `npm run db:push` - Supabase db push
-- `npm run db:pull` - Supabase db pull
-- `npm run db:reset` - Supabase db reset
+- `pnpm run db:setup` - Supabase setup script
+- `pnpm run db:push` - Supabase db push
+- `pnpm run db:pull` - Supabase db pull
+- `pnpm run db:reset` - Supabase db reset
 - `npm run seed:demo` - Create demo user
-- `npm run db:types` - Generate TypeScript types from Supabase
-- `npm run db:test` - Run Supabase tests
+- `pnpm run db:types` - Generate TypeScript types from Supabase
+- `pnpm run db:test` - Run Supabase tests
 
 ## Services and Ports (from config/ports.json)
 
@@ -104,7 +104,7 @@ Supabase is **not** managed as a Docker service in the compose files. Instead:
 
 - Expected to run via `npx supabase start` (separate from dx)
 - Ports 54321 (API) and 54323 (Studio) are referenced but not started by dx
-- `npm run db:reset` assumes Supabase is already running
+- `pnpm run db:reset` assumes Supabase is already running
 - `seed:demo` will fail with ECONNREFUSED if Supabase not started
 
 ### Docker Compose Services
@@ -117,11 +117,11 @@ Supabase is **not** managed as a Docker service in the compose files. Instead:
 
 ### Database Initialization
 
-1. `npm run db:setup` - Initial Supabase project setup
-2. `npm run db:push` - Push schema migrations to local Supabase
-3. `npm run db:reset` - Reset database (requires running Supabase)
+1. `pnpm run db:setup` - Initial Supabase project setup
+2. `pnpm run db:push` - Push schema migrations to local Supabase
+3. `pnpm run db:reset` - Reset database (requires running Supabase)
 4. `npm run seed:demo` - Create demo user data
-5. `npm run db:types` - Generate TypeScript types
+5. `pnpm run db:types` - Generate TypeScript types
 
 ### Current Issues Identified
 

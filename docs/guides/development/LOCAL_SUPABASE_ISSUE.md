@@ -167,7 +167,7 @@ Add to `package.json`:
 
 ```bash
 # 1. Switch to dev environment
-npm run env:dev
+pnpm run env:dev
 
 # 2. Create feature branch
 git checkout -b feature/my-feature
@@ -186,8 +186,8 @@ npm run dev
 
 #  7. When ready for production
 git checkout main
-npm run env:prod
-npm run db:push:safe
+pnpm run env:prod
+pnpm run db:push:safe
 ```
 
 ---

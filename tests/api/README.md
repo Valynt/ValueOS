@@ -71,5 +71,5 @@ SUPABASE_SERVICE_KEY=your-service-key
 Initialize test database:
 
 ```bash
-npm run db:test:setup
+pnpm run db:test:setup
 ```

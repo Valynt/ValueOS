@@ -333,10 +333,10 @@ supabase db repair [migration-version]
 
 ```bash
 # Create manual backup
-npm run db:backup:manual
+pnpm run db:backup:manual
 
 # Verify backup created
-npm run db:backup:list
+pnpm run db:backup:list
 
 # Backup location
 # backups/backup-[timestamp].sql
@@ -349,13 +349,13 @@ npm run db:backup:list
 ./scripts/validate-migration.sh supabase/migrations/[file].sql
 
 # 2. Test in staging first
-npm run db:push:staging
+pnpm run db:push:staging
 
 # 3. Verify staging works
 npm run test:staging
 
 # 4. Apply to production (with warning)
-npm run db:push:prod
+pnpm run db:push:prod
 # (5 second delay, Ctrl+C to cancel)
 ```
 
@@ -391,7 +391,7 @@ npm run staging:clean      # Clean staging environment
 
 ```bash
 # Staging database management
-npm run db:push:staging    # Push schema to staging
+pnpm run db:push:staging    # Push schema to staging
 ```
 
 #### Testing in Staging
@@ -418,11 +418,11 @@ Production deployments use Caddy for:
 
 ```bash
 # Caddy management
-npm run dx:caddy:start     # Start Caddy (dev)
-npm run dx:caddy:stop      # Stop Caddy (dev)
-npm run dx:caddy:logs      # View Caddy logs
-npm run dx:caddy:validate  # Validate Caddy config
-npm run dx:caddy:reload    # Reload Caddy config
+pnpm run dx:caddy:start     # Start Caddy (dev)
+pnpm run dx:caddy:stop      # Stop Caddy (dev)
+pnpm run dx:caddy:logs      # View Caddy logs
+pnpm run dx:caddy:validate  # Validate Caddy config
+pnpm run dx:caddy:reload    # Reload Caddy config
 ```
 
 ### Database Infrastructure
@@ -467,9 +467,9 @@ Safe database migrations with:
 
 ```bash
 # Migration operations
-npm run db:push            # Apply migrations
-npm run db:pull            # Pull remote schema
-npm run db:reset           # Reset database (dev only)
+pnpm run db:push            # Apply migrations
+pnpm run db:pull            # Pull remote schema
+pnpm run db:reset           # Reset database (dev only)
 npm run migration:safety   # Safety checks
 npm run migration:validate # Validate migrations
 ```
@@ -511,7 +511,7 @@ npm run docker:ps
 npm run docker:logs [container-name]
 
 # Validate configuration
-npm run env:validate
+pnpm run env:validate
 npm run config:validate
 ```
 
@@ -519,7 +519,7 @@ npm run config:validate
 
 ```bash
 # Test database connectivity
-npm run db:test
+pnpm run db:test
 
 # Check database logs
 npm run docker:logs postgres
@@ -529,17 +529,17 @@ npm run docker:logs postgres
 
 ```bash
 # Validate Caddy configuration
-npm run dx:caddy:validate
+pnpm run dx:caddy:validate
 
 # Check certificate status
-npm run dx:caddy:logs
+pnpm run dx:caddy:logs
 ```
 
 ### Health Checks
 
 ```bash
 # Comprehensive health check
-npm run dx:check
+pnpm run dx:check
 
 # Individual service health
 curl http://localhost:3001/health
@@ -550,7 +550,7 @@ curl http://localhost:54321/health
 
 ```bash
 # View all logs
-npm run dx:logs
+pnpm run dx:logs
 
 # Service-specific logs
 npm run docker:logs [service-name]

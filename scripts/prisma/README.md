@@ -77,7 +77,7 @@ DATABASE_URL="postgresql://user:password@host:5432/database?schema=public"
 
 ```bash
 # Development
-npm run db:migrate
+pnpm run db:migrate
 
 # Or using script
 ./scripts/db-migrate.sh development
@@ -87,7 +87,7 @@ npm run db:migrate
 
 ```bash
 # Development
-npm run db:seed
+pnpm run db:seed
 
 # Or using script
 ./scripts/db-seed.sh development
@@ -110,7 +110,7 @@ npx prisma migrate dev --name add_new_feature
 
 # 3. Review generated SQL in prisma/migrations/
 # 4. Test migration
-npm run db:migrate
+pnpm run db:migrate
 
 # 5. Commit migration files
 git add prisma/migrations/

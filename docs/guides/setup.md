@@ -39,24 +39,24 @@ ValueOS provides a deterministic local development environment with automated se
 ```bash
 # First-time setup
 npm install
-npm run env:dev          # Setup environment with real keys
-npm run dx               # Start development stack
-npm run db:reset         # Reset database
+pnpm run env:dev          # Setup environment with real keys
+pnpm run dx               # Start development stack
+pnpm run db:reset         # Reset database
 npm run seed:demo        # Create demo user
 
 # Daily development
-npm run dx               # Start stack
-npm run dx:down          # Stop stack
+pnpm run dx               # Start stack
+pnpm run dx:down          # Stop stack
 
 # Health verification
-npm run dx:check         # Comprehensive health check
+pnpm run dx:check         # Comprehensive health check
 ```
 
 **Quick Start (5 minutes):**
 
 1. Install Docker Desktop and ensure it's running
-2. Run: `npm install && npm run env:dev && npm run dx`
-3. Run: `npm run db:reset && npm run seed:demo`
+2. Run: `npm install && pnpm run env:dev && pnpm run dx`
+3. Run: `pnpm run db:reset && npm run seed:demo`
 4. Open: `http://localhost:5173`
 5. Login with credentials from `seed:demo` output
 
@@ -66,19 +66,19 @@ Environment management is handled through dedicated scripts:
 
 ```bash
 # Setup local development environment
-npm run env:dev           # Configures local dev with real keys
+pnpm run env:dev           # Configures local dev with real keys
 
 # Switch to staging environment
-npm run env:staging
+pnpm run env:staging
 
 # Switch to production environment
-npm run env:production
+pnpm run env:production
 
 # Check current environment
-npm run env:status
+pnpm run env:status
 
 # Validate environment configuration
-npm run env:validate
+pnpm run env:validate
 ```
 
 ### Port Management
@@ -96,14 +96,14 @@ Services are configured to avoid port conflicts:
 
 ```bash
 # Stack operations
-npm run dx                # Start full development stack
-npm run dx:down           # Stop development stack
-npm run dx:reset          # Full reset (removes volumes)
-npm run dx:clean          # Complete cleanup
-npm run dx:check          # Health verification
-npm run dx:doctor         # Preflight checks
-npm run dx:logs           # View logs
-npm run dx:ps             # Show containers
+pnpm run dx                # Start full development stack
+pnpm run dx:down           # Stop development stack
+pnpm run dx:reset          # Full reset (removes volumes)
+pnpm run dx:clean          # Complete cleanup
+pnpm run dx:check          # Health verification
+pnpm run dx:doctor         # Preflight checks
+pnpm run dx:logs           # View logs
+pnpm run dx:ps             # Show containers
 ```
 
 ### Quality Gates
@@ -112,7 +112,7 @@ All changes must pass automated quality checks:
 
 ```bash
 # Run all quality checks
-npm run ci:verify
+pnpm run ci:verify
 
 # Individual checks
 npm run lint              # ESLint

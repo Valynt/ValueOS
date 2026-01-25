@@ -36,22 +36,22 @@ Comprehensive tests for the LLM-MARL (Multi-Agent Reinforcement Learning) implem
 
 ### Run All LLM-MARL Tests
 ```bash
-npm test test/llm-marl
+pnpm test test/llm-marl
 ```
 
 ### Run Specific Test File
 ```bash
-npm test test/llm-marl/coordinator-agent.test.ts
+pnpm test test/llm-marl/coordinator-agent.test.ts
 ```
 
 ### Run with Coverage
 ```bash
-npm test -- --coverage test/llm-marl
+pnpm test -- --coverage test/llm-marl
 ```
 
 ### Watch Mode
 ```bash
-npm test -- --watch test/llm-marl
+pnpm test -- --watch test/llm-marl
 ```
 
 ## Test Structure

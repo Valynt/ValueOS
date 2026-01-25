@@ -20,7 +20,7 @@ Common issues and solutions for ValueOS development.
 
 ### Setup Script Fails
 
-**Symptom**: `npm run setup` exits with errors
+**Symptom**: `pnpm run setup` exits with errors
 
 **Solutions**:
 
@@ -35,8 +35,8 @@ Common issues and solutions for ValueOS development.
 2. **Clean and retry**:
 
    ```bash
-   rm -rf node_modules package-lock.json .env
-   npm run setup
+   rm -rf node_modules pnpm-lock.yaml .env
+   pnpm run setup
    ```
 
 3. **Check disk space**:
@@ -68,7 +68,7 @@ Common issues and solutions for ValueOS development.
 
    ```bash
    npm cache clean --force
-   rm -rf node_modules package-lock.json
+   rm -rf node_modules pnpm-lock.yaml
    npm install
    ```
 
@@ -282,13 +282,13 @@ API_PORT=3002 npm run backend:dev
 
    ```bash
    rm .env
-   npm run setup
+   pnpm run setup
    ```
 
 3. **Validate .env**:
 
    ```bash
-   npm run env:validate
+   pnpm run env:validate
    ```
 
 4. **Check required variables**:
@@ -308,7 +308,7 @@ API_PORT=3002 npm run backend:dev
 ```bash
 # Regenerate with secure secrets
 rm .env
-npm run setup
+pnpm run setup
 ```
 
 ---
@@ -376,7 +376,7 @@ npm run setup
    ```bash
    docker-compose down -v
    docker-compose up -d
-   npm run db:reset
+   pnpm run db:reset
    ```
 
 ---
@@ -396,8 +396,8 @@ npm run setup
 2. **Reset and retry**:
 
    ```bash
-   npm run db:reset
-   npm run db:push
+   pnpm run db:reset
+   pnpm run db:push
    ```
 
 3. **Check migration files**:
@@ -409,8 +409,8 @@ npm run setup
 
 4. **Manual migration**:
    ```bash
-   npm run db:repair
-   npm run db:push
+   pnpm run db:repair
+   pnpm run db:push
    ```
 
 ---
@@ -701,7 +701,7 @@ docker-compose logs
 
 5. **Backup before major changes**:
    ```bash
-   npm run db:backup
+   pnpm run db:backup
    git stash
    ```
 
@@ -720,8 +720,8 @@ npm run health
 ```bash
 # Nuclear option - resets everything
 docker-compose down -v
-rm -rf node_modules package-lock.json .env
-npm run setup
+rm -rf node_modules pnpm-lock.yaml .env
+pnpm run setup
 ```
 
 ### Check Logs
@@ -747,7 +747,7 @@ lsof -i :5173 && kill -9 <PID> # or :$VITE_PORT
 docker-compose restart
 
 # Environment issues
-rm .env && npm run setup
+rm .env && pnpm run setup
 
 # Dependency issues
 rm -rf node_modules && npm install

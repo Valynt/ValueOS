@@ -41,7 +41,7 @@ npm run security:scan:all
 5. **🔴 CRITICAL** Create database backup:
 
 ```bash
-npm run db:backup
+pnpm run db:backup
 ```
 
 6. Verify backup:

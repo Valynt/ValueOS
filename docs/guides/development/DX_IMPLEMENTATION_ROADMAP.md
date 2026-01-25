@@ -121,7 +121,7 @@ async function generateEnvironment() {
 **User Experience**:
 
 ```bash
-$ npm run setup
+$ pnpm run setup
 
 🎯 Let's set up your ValueOS environment!
 
@@ -234,7 +234,7 @@ All services ready!
 ```bash
 # Fresh machine test
 rm -rf node_modules .env
-npm run setup
+pnpm run setup
 # Should complete in < 10 minutes
 ```
 
@@ -386,7 +386,7 @@ class ProgressTracker {
 **User Experience**:
 
 ```bash
-$ npm run setup
+$ pnpm run setup
 
 🎯 Setting up ValueOS...
 
@@ -536,7 +536,7 @@ async function handleError(error) {
 #!/bin/sh
 npm run lint
 npm run test:security
-npm run env:validate
+pnpm run env:validate
 ```
 
 **Security Checks**:
@@ -624,7 +624,7 @@ git clone https://github.com/Valynt/ValueOS.git
 cd ValueOS
 
 # Run setup (takes ~5 minutes)
-npm run setup
+pnpm run setup
 
 # Start development
 npm run dev
@@ -667,12 +667,12 @@ Open http://localhost:5173 to see the app!
 We've completely rebuilt our setup process:
 
 ✅ Setup time: 35 min → 5 min (86% faster!)
-✅ Single command: npm run setup
+✅ Single command: pnpm run setup
 ✅ Auto-detects your platform
 ✅ Helpful error messages
 ✅ Comprehensive health checks
 
-Try it: npm run setup
+Try it: pnpm run setup
 
 Docs: docs/GETTING_STARTED.md
 Feedback: #engineering

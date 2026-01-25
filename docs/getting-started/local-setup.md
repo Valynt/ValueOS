@@ -40,7 +40,7 @@ npm install
 cp deploy/envs/.env.example .env.local
 
 # Configure development environment
-npm run env:dev
+pnpm run env:dev
 ```
 
 #### Environment Files Explained
@@ -56,7 +56,7 @@ npm run env:dev
 
 ```bash
 # Start full development stack
-npm run dx
+pnpm run dx
 
 # Or use Caddy reverse proxy setup
 ./scripts/dev-caddy-start.sh
@@ -66,7 +66,7 @@ npm run dx
 
 ```bash
 # Apply migrations and seed data
-npm run db:reset
+pnpm run db:reset
 
 # Create demo user
 npm run seed:demo
@@ -84,7 +84,7 @@ npm run seed:demo
 
 ```bash
 # Full stack (recommended)
-npm run dx
+pnpm run dx
 
 # Frontend only (if backend already running)
 npm run dev
@@ -126,13 +126,13 @@ npm run lint && npx tsc --noEmit
 open http://localhost:54323
 
 # Reset database
-npm run db:reset
+pnpm run db:reset
 
 # Create new migration
 npx supabase migration new <name>
 
 # Apply migrations
-npm run db:migrate
+pnpm run db:migrate
 ```
 
 ## IDE Configuration
@@ -192,7 +192,7 @@ Create `.vscode/settings.json`:
 
 ## Service URLs
 
-When running `npm run dx`, these services are available:
+When running `pnpm run dx`, these services are available:
 
 - **Frontend**: `http://localhost:5173`
 - **Backend API**: `http://localhost:3001`

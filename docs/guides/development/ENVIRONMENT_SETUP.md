@@ -13,9 +13,9 @@
 **Environment Switching:**
 
 ```bash
-npm run env:status          # Show current environment
-npm run env:staging         # Switch to staging
-npm run env:production      # Switch to production
+pnpm run env:status          # Show current environment
+pnpm run env:staging         # Switch to staging
+pnpm run env:production      # Switch to production
 ```
 
 **Development:**
@@ -28,9 +28,9 @@ npm run dev:production      # Start dev server with production
 **Database Operations:**
 
 ```bash
-npm run db:backup:manual    # Create timestamped backup
-npm run db:push:staging     # Push migrations to staging
-npm run db:push:prod        # Push to production (5s delay)
+pnpm run db:backup:manual    # Create timestamped backup
+pnpm run db:push:staging     # Push migrations to staging
+pnpm run db:push:prod        # Push to production (5s delay)
 ```
 
 ---
@@ -77,7 +77,7 @@ VITE_SUPABASE_ANON_KEY=eyJhbGci...actual-key-here
 
 ```bash
 # Switch to staging environment
-npm run env:staging
+pnpm run env:staging
 
 # Link Supabase CLI
 npx supabase link --project-ref <your-staging-ref>
@@ -88,7 +88,7 @@ npx supabase link --project-ref <your-staging-ref>
 
 ```bash
 # Push all 5 existing migrations
-npm run db:push:staging
+pnpm run db:push:staging
 ```
 
 You should see:
@@ -109,7 +109,7 @@ Type `Y` to confirm.
 
 ```bash
 # Check current environment
-npm run env:status
+pnpm run env:status
 # Should show: Current environment: https://abc123xyz.supabase.co
 
 # Start dev server
@@ -127,10 +127,10 @@ npm run dev:staging
 
 ```bash
 # Verify you're on staging
-npm run env:status
+pnpm run env:status
 
 # If not, switch
-npm run env:staging
+pnpm run env:staging
 
 # Start development
 npm run dev
@@ -140,7 +140,7 @@ npm run dev
 
 ```bash
 # Ensure on staging
-npm run env:staging
+pnpm run env:staging
 
 # Create migration
 npx supabase migration new my_feature_name
@@ -149,7 +149,7 @@ npx supabase migration new my_feature_name
 # supabase/migrations/YYYYMMDDHHMMSS_my_feature_name.sql
 
 # Test on staging
-npm run db:push:staging
+pnpm run db:push:staging
 
 # If there's an issue, rollback
 npx supabase migration repair --status reverted <migration-id>
@@ -159,19 +159,19 @@ npx supabase migration repair --status reverted <migration-id>
 
 ```bash
 # 1. Create backup of production
-npm run env:production
-npm run db:backup:manual
+pnpm run env:production
+pnpm run db:backup:manual
 
 # 2. Review what will be deployed
 npx supabase migration list
 
 # 3. Switch back to staging to test one more time
-npm run env:staging
+pnpm run env:staging
 npm run dev
 # Manually test your changes
 
 # 4. Deploy to production (has 5-second safety delay)
-npm run db:push:prod
+pnpm run db:push:prod
 ```
 
 ---
@@ -181,14 +181,14 @@ npm run db:push:prod
 ### "Which environment am I using?"
 
 ```bash
-npm run env:status
+pnpm run env:status
 ```
 
 ### "I pushed to the wrong environment!"
 
 ```bash
 # If you have a backup:
-npm run env:production  # or env:staging
+pnpm run env:production  # or env:staging
 npx supabase db dump > restore.sql
 # Contact admin for help with restore
 
@@ -203,7 +203,7 @@ npx supabase migration repair --status reverted <migration-id>
 cp backups/.env.local.backup.YYYYMMDD .env.local
 
 # Or recreate:
-npm run env:staging  # for daily dev
+pnpm run env:staging  # for daily dev
 ```
 
 ### "Migrations won't push"
@@ -219,7 +219,7 @@ npx supabase migration list
 
 ## Safety Features
 
-✅ **5-Second Delay** - `npm run db:push:prod` has built-in delay  
+✅ **5-Second Delay** - `pnpm run db:push:prod` has built-in delay  
 ✅ **Environment Labels** - Clear SUCCESS/WARNING emoji indicators  
 ✅ **Backup Scripts** - Easy timestamped backups  
 ✅ **Environment Status** - Always know which DB you're connected to  

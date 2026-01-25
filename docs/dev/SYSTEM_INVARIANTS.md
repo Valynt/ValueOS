@@ -256,7 +256,7 @@ curl http://127.0.0.1:3001/health
 
 ### Lockfiles
 
-- `package-lock.json`: Committed, must not drift
+- `pnpm-lock.yaml`: Committed, must not drift
 - Docker image tags: Pinned in `docker-compose.yml`
 - Supabase version: Pinned in `supabase/config.toml`
 
@@ -341,7 +341,7 @@ All commands must succeed for the system to be considered operational.
 **Changing ports**:
 
 - Update `config/ports.json`
-- Run `npm run env:dev`
+- Run `pnpm run env:dev`
 - Update any hardcoded references
 - Restart all services
 

@@ -38,22 +38,22 @@ Comprehensive tests for the Systemic Outcome Framework (SOF) implementation.
 
 ### Run All SOF Tests
 ```bash
-npm test test/sof
+pnpm test test/sof
 ```
 
 ### Run Specific Test File
 ```bash
-npm test test/sof/system-mapper-agent.test.ts
+pnpm test test/sof/system-mapper-agent.test.ts
 ```
 
 ### Run with Coverage
 ```bash
-npm test -- --coverage test/sof
+pnpm test -- --coverage test/sof
 ```
 
 ### Watch Mode
 ```bash
-npm test -- --watch test/sof
+pnpm test -- --watch test/sof
 ```
 
 ## Test Structure

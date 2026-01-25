@@ -35,7 +35,7 @@ DX uses docker-compose with `--env-file deploy/envs/.env.ports`, so:
 ### 1. Clear DX Lock and Stop Partial State
 
 ```bash
-npm run dx:down
+pnpm run dx:down
 docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' | grep -E 'supabase|postgres|value|dx' || true
 ```
 
@@ -62,7 +62,7 @@ SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZ
 ### 4. Start Development Environment
 
 ```bash
-npm run dx
+pnpm run dx
 ```
 
 ### 5. Reset Local Database
@@ -70,7 +70,7 @@ npm run dx
 Use correct command for local development:
 
 ```bash
-npm run db:reset
+pnpm run db:reset
 ```
 
 ### 6. Verify Environment Loading
@@ -88,8 +88,8 @@ curl -sS "http://localhost:54321/rest/v1/" | head
 ### 8. Restart Clean (if needed)
 
 ```bash
-npm run dx:down
-npm run dx
+pnpm run dx:down
+pnpm run dx
 ```
 
 ## Expected End State

@@ -18,7 +18,7 @@ wsl --install
 cd /mnt/c/Users/YourName/Projects
 git clone https://github.com/Valynt/ValueOS.git
 cd ValueOS
-npm run setup
+pnpm run setup
 npm start
 ```
 
@@ -277,7 +277,7 @@ npm run logs
 
 # Reset everything
 npm run clean
-npm run setup
+pnpm run setup
 ```
 
 ---

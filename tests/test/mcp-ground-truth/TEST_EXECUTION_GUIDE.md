@@ -1,7 +1,7 @@
 # MCP Ground Truth Server - Test Execution Guide
 
-**Version:** 1.0  
-**Date:** November 27, 2025  
+**Version:** 1.0
+**Date:** November 27, 2025
 **Audience:** QA Engineers, Developers, DevOps
 
 ---
@@ -11,12 +11,14 @@
 ### Prerequisites
 
 1. **Environment Setup:**
+
    ```bash
    cd /workspaces/ValueCanvas
    npm install
    ```
 
 2. **Environment Variables:**
+
    ```bash
    # Create .env.test file
    cat > .env.test << EOF
@@ -77,9 +79,9 @@ test/mcp-ground-truth/
 ### Test Naming Convention
 
 ```typescript
-describe('Phase X: Feature Category', () => {
-  describe('QA-XX-NNN: Test Case Name', () => {
-    it('should verify specific behavior', async () => {
+describe("Phase X: Feature Category", () => {
+  describe("QA-XX-NNN: Test Case Name", () => {
+    it("should verify specific behavior", async () => {
       // Test implementation
     });
   });
@@ -92,13 +94,13 @@ describe('Phase X: Feature Category', () => {
 
 ### Test Cases
 
-| Test ID | Description | Status | Priority |
-|---------|-------------|--------|----------|
-| QA-FE-001 | Native SQL Editor | ✅ Implemented | High |
-| QA-FE-002 | Interactive Notebooks | ✅ Implemented | High |
-| QA-FE-003 | Multi-Language Support | ✅ Implemented | Medium |
-| QA-FE-004 | Multi-Warehouse Connectivity | ✅ Implemented | High |
-| QA-FE-005 | Data Caching Performance | ✅ Implemented | High |
+| Test ID   | Description                  | Status         | Priority |
+| --------- | ---------------------------- | -------------- | -------- |
+| QA-FE-001 | Native SQL Editor            | ✅ Implemented | High     |
+| QA-FE-002 | Interactive Notebooks        | ✅ Implemented | High     |
+| QA-FE-003 | Multi-Language Support       | ✅ Implemented | Medium   |
+| QA-FE-004 | Multi-Warehouse Connectivity | ✅ Implemented | High     |
+| QA-FE-005 | Data Caching Performance     | ✅ Implemented | High     |
 
 ### Running Phase 1 Tests
 
@@ -116,18 +118,20 @@ npm test test/mcp-ground-truth/phase1-analyst-developer.test.ts -- --reporter=ve
 ### Expected Results
 
 **Success Criteria:**
+
 - All tests pass
 - Average latency < 400ms
 - Cache performance improvement > 50%
 - Tier 1 confidence > 0.9
 
 **Sample Output:**
+
 ```
 ✓ QA-FE-001: Native SQL Editor with Ground Truth Data (5)
   ✓ should execute SQL query with MCP Ground Truth data (245ms)
   ✓ should complete query within performance target (189ms)
   ✓ should include monitoring metrics (156ms)
-  
+
 ✓ QA-FE-002: Interactive Notebooks with Financial Modeling (2)
   ✓ should fetch data for notebook analysis (234ms)
   ✓ should preserve provenance in analysis (145ms)
@@ -143,11 +147,11 @@ Time:        3.456s
 
 ### Test Cases
 
-| Test ID | Description | Status | Priority |
-|---------|-------------|--------|----------|
-| QA-AI-001 | AI-Assisted Query Generation | ✅ Implemented | High |
-| QA-AI-002 | Visualization Interactivity | ✅ Implemented | High |
-| QA-AI-003 | Automated Python Workflows | ✅ Implemented | Medium |
+| Test ID   | Description                  | Status         | Priority |
+| --------- | ---------------------------- | -------------- | -------- |
+| QA-AI-001 | AI-Assisted Query Generation | ✅ Implemented | High     |
+| QA-AI-002 | Visualization Interactivity  | ✅ Implemented | High     |
+| QA-AI-003 | Automated Python Workflows   | ✅ Implemented | Medium   |
 
 ### Running Phase 2 Tests
 
@@ -165,12 +169,14 @@ DEBUG=ai:* npm test test/mcp-ground-truth/phase2-ai-query-generation.test.ts
 ### Expected Results
 
 **Success Criteria:**
+
 - Zero hallucinations (all claims verified)
 - AI query accuracy > 95%
 - Follow-up context maintained
 - Automated workflows execute successfully
 
 **Sample Output:**
+
 ```
 ✓ QA-AI-001: AI-Assisted Query with Ground Truth Validation (5)
   ✓ should generate accurate query from natural language (312ms)
@@ -190,11 +196,11 @@ Time:        2.789s
 
 ### Test Cases
 
-| Test ID | Description | Status | Priority |
-|---------|-------------|--------|----------|
-| QA-INT-001 | SaaS API Integration | ⏳ Pending | Medium |
-| QA-GOV-001 | Role-Based Governance | ⏳ Pending | High |
-| QA-GOV-002 | Insight Embedding | ⏳ Pending | Medium |
+| Test ID    | Description           | Status     | Priority |
+| ---------- | --------------------- | ---------- | -------- |
+| QA-INT-001 | SaaS API Integration  | ⏳ Pending | Medium   |
+| QA-GOV-001 | Role-Based Governance | ⏳ Pending | High     |
+| QA-GOV-002 | Insight Embedding     | ⏳ Pending | Medium   |
 
 ### Running Phase 3 Tests (When Implemented)
 
@@ -220,37 +226,37 @@ on:
   push:
     branches: [main, develop]
     paths:
-      - 'src/mcp-ground-truth/**'
-      - 'test/mcp-ground-truth/**'
+      - "src/mcp-ground-truth/**"
+      - "test/mcp-ground-truth/**"
   pull_request:
     branches: [main, develop]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20'
-          cache: 'npm'
-      
+          node-version: "20"
+          cache: "npm"
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Run Phase 1 tests
         run: npm test test/mcp-ground-truth/phase1-analyst-developer.test.ts
         env:
           ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
-      
+
       - name: Run Phase 2 tests
         run: npm test test/mcp-ground-truth/phase2-ai-query-generation.test.ts
         env:
           ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
-      
+
       - name: Upload coverage
         uses: codecov/codecov-action@v3
         with:
@@ -280,12 +286,12 @@ npm test test/mcp-ground-truth -- -t "Performance" --reporter=verbose
 
 ### Expected Performance Metrics
 
-| Operation | Target | Typical | Max Acceptable |
-|-----------|--------|---------|----------------|
-| Single metric fetch | <250ms | ~180ms | 400ms |
-| Multiple metrics | <400ms | ~280ms | 600ms |
-| Cache hit | <50ms | ~30ms | 100ms |
-| Cross-source join | <2000ms | ~1200ms | 3000ms |
+| Operation           | Target  | Typical | Max Acceptable |
+| ------------------- | ------- | ------- | -------------- |
+| Single metric fetch | <250ms  | ~180ms  | 400ms          |
+| Multiple metrics    | <400ms  | ~280ms  | 600ms          |
+| Cache hit           | <50ms   | ~30ms   | 100ms          |
+| Cross-source join   | <2000ms | ~1200ms | 3000ms         |
 
 ### Load Testing
 
@@ -329,6 +335,7 @@ node --inspect-brk node_modules/.bin/vitest test/mcp-ground-truth/phase1-analyst
 #### Issue: "Module not initialized"
 
 **Solution:**
+
 ```typescript
 // Ensure beforeAll is called
 beforeAll(async () => {
@@ -339,6 +346,7 @@ beforeAll(async () => {
 #### Issue: "Rate limit exceeded"
 
 **Solution:**
+
 ```bash
 # Use demo API key for testing
 export ALPHA_VANTAGE_API_KEY=demo
@@ -350,9 +358,10 @@ npm test test/mcp-ground-truth -- --test-timeout=10000
 #### Issue: "Timeout errors"
 
 **Solution:**
+
 ```typescript
 // Increase timeout for slow tests
-it('should fetch data', async () => {
+it("should fetch data", async () => {
   // Test implementation
 }, 30000); // 30 second timeout
 ```
@@ -386,9 +395,9 @@ it('should fetch data', async () => {
 ### Using Mock Data
 
 ```typescript
-import mockData from './fixtures/mock-responses.json';
+import mockData from "./fixtures/mock-responses.json";
 
-it('should handle mock data', () => {
+it("should handle mock data", () => {
   const data = mockData.apple_financials;
   expect(data.data[0].value).toBeGreaterThan(0);
 });
@@ -410,12 +419,12 @@ open coverage/public/public/index.html
 
 ### Coverage Targets
 
-| Component | Target | Current |
-|-----------|--------|---------|
-| Core modules | >90% | TBD |
-| Data modules | >85% | TBD |
-| Integration | >80% | TBD |
-| Overall | >85% | TBD |
+| Component    | Target | Current |
+| ------------ | ------ | ------- |
+| Core modules | >90%   | TBD     |
+| Data modules | >85%   | TBD     |
+| Integration  | >80%   | TBD     |
+| Overall      | >85%   | TBD     |
 
 ---
 
@@ -424,23 +433,25 @@ open coverage/public/public/index.html
 ### Adding New Tests
 
 1. **Create test file:**
+
    ```bash
    touch test/mcp-ground-truth/new-feature.test.ts
    ```
 
 2. **Follow template:**
-   ```typescript
-   import { describe, it, expect, beforeAll } from 'vitest';
-   import { createDevServer } from '../../src/mcp-ground-truth';
 
-   describe('New Feature', () => {
+   ```typescript
+   import { describe, it, expect, beforeAll } from "vitest";
+   import { createDevServer } from "../../src/mcp-ground-truth";
+
+   describe("New Feature", () => {
      let mcpServer;
 
      beforeAll(async () => {
        mcpServer = await createDevServer();
      });
 
-     it('should test new feature', async () => {
+     it("should test new feature", async () => {
        // Test implementation
      });
    });
@@ -454,11 +465,13 @@ open coverage/public/public/index.html
 ### Updating Tests
 
 1. **Identify failing tests:**
+
    ```bash
    npm test test/mcp-ground-truth -- --reporter=verbose
    ```
 
 2. **Update test expectations:**
+
    ```typescript
    // Update expected values
    expect(result.value).toBe(newExpectedValue);
@@ -478,21 +491,25 @@ open coverage/public/public/index.html
 **Symptom:** Tests fail intermittently
 
 **Possible Causes:**
+
 - Network issues
 - Rate limiting
 - Timing issues
 
 **Solutions:**
+
 1. Add retries:
+
    ```typescript
-   it.retry(3)('should fetch data', async () => {
+   it.retry(3)("should fetch data", async () => {
      // Test implementation
    });
    ```
 
 2. Increase timeouts:
+
    ```typescript
-   it('should fetch data', async () => {
+   it("should fetch data", async () => {
      // Test implementation
    }, 30000);
    ```
@@ -504,12 +521,15 @@ open coverage/public/public/index.html
 **Symptom:** Tests run slowly
 
 **Solutions:**
+
 1. Run tests in parallel:
+
    ```bash
    npm test test/mcp-ground-truth -- --threads
    ```
 
 2. Use caching:
+
    ```typescript
    // Cache server instance
    let cachedServer;
@@ -523,7 +543,7 @@ open coverage/public/public/index.html
 
 3. Skip slow tests in development:
    ```typescript
-   it.skip('slow test', async () => {
+   it.skip("slow test", async () => {
      // Test implementation
    });
    ```
@@ -548,6 +568,7 @@ npm test test/mcp-ground-truth -- --reporter=junit --outputFile=test-results.xml
 ### Test Metrics
 
 Track these metrics over time:
+
 - Test count
 - Pass rate
 - Average execution time
@@ -559,19 +580,21 @@ Track these metrics over time:
 ## Best Practices
 
 ### DO:
-✅ Use descriptive test names  
-✅ Test one thing per test  
-✅ Clean up after tests  
-✅ Use appropriate timeouts  
-✅ Mock external dependencies when appropriate  
-✅ Document complex test logic  
+
+✅ Use descriptive test names
+✅ Test one thing per test
+✅ Clean up after tests
+✅ Use appropriate timeouts
+✅ Mock external dependencies when appropriate
+✅ Document complex test logic
 
 ### DON'T:
-❌ Test implementation details  
-❌ Use hard-coded values without explanation  
-❌ Skip error handling  
-❌ Ignore flaky tests  
-❌ Commit commented-out tests  
+
+❌ Test implementation details
+❌ Use hard-coded values without explanation
+❌ Skip error handling
+❌ Ignore flaky tests
+❌ Commit commented-out tests
 
 ---
 
@@ -593,6 +616,6 @@ Track these metrics over time:
 
 ---
 
-**Guide Version:** 1.0  
-**Last Updated:** November 27, 2025  
+**Guide Version:** 1.0
+**Last Updated:** November 27, 2025
 **Maintainer:** QA Team

@@ -655,7 +655,7 @@ const client = new ValueOS({
 **Solution:**
 ```bash
 # Clear cache and reinstall
-rm -rf node_modules package-lock.json
+rm -rf node_modules pnpm-lock.yaml
 npm install
 ```
 

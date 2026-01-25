@@ -34,11 +34,13 @@ ValueOS/
 ### Package Dependencies
 
 **Dependency Direction (STRICT):**
+
 ```
 apps → backend → agents → memory → infra → shared
 ```
 
 **Path Aliases:**
+
 - `@shared/*` → `packages/shared/src/*`
 - `@backend/*` → `packages/backend/src/*`
 - `@infra/*` → `packages/infra/*`
@@ -50,39 +52,47 @@ apps → backend → agents → memory → infra → shared
 ## Core Packages
 
 ### @valueos/agents
+
 Agent runtime framework with core, orchestration, tools, and evaluation modules.
 
 **Structure:**
+
 - `core/` - Base agent classes and interfaces
 - `orchestration/` - Workflow orchestration and DAG execution
 - `tools/` - Agent tool implementations
 - `evaluation/` - Agent performance evaluation
 
 **Key Features:**
+
 - Multi-agent coordination
 - Circuit breaker pattern
 - Authority level restrictions
 - Secure LLM invocation
 
 ### @valueos/backend
+
 Express.js API server with middleware, routing, and service orchestration.
 
 **Structure:**
+
 - `src/server.ts` - Main server entry point
 - `src/routes/` - API route handlers
 - `src/middleware/` - Express middleware
 - `src/services/` - Business logic services
 
 **Key Features:**
+
 - JWT authentication
 - Rate limiting with Redis
 - WebSocket support
 - Comprehensive logging
 
 ### @valueos/shared
+
 Runtime-agnostic utilities shared across all packages.
 
 **Structure:**
+
 - `src/logger/` - Winston logging configuration
 - `src/supabase/` - Supabase client utilities
 - `src/env/` - Environment validation
@@ -91,18 +101,22 @@ Runtime-agnostic utilities shared across all packages.
 - `src/health/` - Health check utilities
 
 ### @valueos/infra
+
 Infrastructure adapters for external services.
 
 **Structure:**
+
 - `database/` - Database adapters and migrations
 - `observability/` - Monitoring and metrics
 - `queues/` - Message queue implementations
 - `storage/` - File storage adapters
 
 ### @valueos/memory
+
 Memory layer for semantic, episodic, and vector storage.
 
 **Structure:**
+
 - `semantic/` - Semantic memory implementation
 - `episodic/` - Episodic memory storage
 - `vector/` - Vector database integration
@@ -111,15 +125,18 @@ Memory layer for semantic, episodic, and vector storage.
 ## Applications
 
 ### ValyntApp
+
 Main React frontend application built with Vite.
 
 **Structure:**
+
 - `src/app/` - Application routes and layouts
 - `src/components/` - React components
 - `src/features/` - Feature-specific modules
 - `src/services/` - API client services
 
 **Key Technologies:**
+
 - React 18 with TypeScript
 - Vite for build tooling
 - TailwindCSS for styling
@@ -127,9 +144,11 @@ Main React frontend application built with Vite.
 - React Router for navigation
 
 ### MCP Dashboard
+
 Dashboard for monitoring MCP (Model Context Protocol) servers.
 
 **Structure:**
+
 - `src/` - Dashboard application source
 - `index.html` - Entry point
 - `package.json` - Dependencies
@@ -163,24 +182,28 @@ npm run db:reset         # Reset database
 ### Key Scripts
 
 **Development:**
+
 - `npm run dx` - Start development environment
 - `npm run dev` - Frontend development
 - `npm run backend:dev` - Backend development
 - `npm run agent:dev` - Agent development
 
 **Testing:**
+
 - `npm run test` - Full test suite
 - `npm run test:unit` - Unit tests only
 - `npm run test:integration` - Integration tests
 - `npm run ci:verify` - CI verification pipeline
 
 **Database:**
+
 - `npm run db:setup` - Initialize database
 - `npm run db:push` - Apply migrations
 - `npm run db:reset` - Reset database
 - `npm run db:types` - Generate TypeScript types
 
 **Building:**
+
 - `npm run build` - Production build
 - `npm run build:backend` - Backend compilation
 - `npm run build:minimal` - Minimal frontend build
@@ -190,16 +213,19 @@ npm run db:reset         # Reset database
 ### Docker Configuration
 
 **Development:**
+
 - `infra/docker/docker-compose.dev.yml` - Development services
 - `infra/docker/docker-compose.test.yml` - Test environment
 
 **Production:**
+
 - `infra/docker/docker-compose.prod.yml` - Production deployment
 - `infra/docker/Dockerfile` - Application container
 
 ### Monitoring
 
 **Stack:**
+
 - Prometheus for metrics collection
 - Grafana for visualization
 - Winston for application logging
@@ -208,6 +234,7 @@ npm run db:reset         # Reset database
 ### Services
 
 **Core Services:**
+
 - PostgreSQL (via Supabase)
 - Redis for caching and sessions
 - Caddy for reverse proxy
@@ -224,9 +251,10 @@ npm run db:reset         # Reset database
 ### Path Aliases
 
 Configured in `tsconfig.json` and Vite for clean imports:
+
 ```typescript
-import { logger } from '@shared/logger'
-import { BaseAgent } from '@agents/core'
+import { logger } from "@shared/logger";
+import { BaseAgent } from "@agents/core";
 ```
 
 ## Testing Strategy
@@ -234,16 +262,19 @@ import { BaseAgent } from '@agents/core'
 ### Test Types
 
 **Unit Tests:**
+
 - Vitest configuration in `.config/configs/vitest.config.unit.ts`
 - Fast execution with mocked dependencies
 - Coverage requirements: >90% critical paths
 
 **Integration Tests:**
+
 - Docker-based test environment
 - Real database and services
 - End-to-end API testing
 
 **E2E Tests:**
+
 - Playwright for browser automation
 - Accessibility testing with axe-core
 - Performance testing with k6
@@ -366,6 +397,7 @@ Documented in `docs/architecture/active-architectural-decisions.md` with current
 ## Quick Start
 
 1. **Clone and install:**
+
    ```bash
    git clone <repository>
    cd ValueOS
@@ -373,12 +405,14 @@ Documented in `docs/architecture/active-architectural-decisions.md` with current
    ```
 
 2. **Setup environment:**
+
    ```bash
    npm run env:dev
    npm run dx
    ```
 
 3. **Start development:**
+
    ```bash
    npm run dev
    ```
@@ -399,13 +433,13 @@ Documented in `docs/architecture/active-architectural-decisions.md` with current
 
 ### Commands Reference
 
-| Task | Command | Documentation |
-|------|---------|---------------|
-| Local setup | `npm run setup` | Setup Guide |
-| Run tests | `npm run ci:verify` | Testing Guide |
+| Task              | Command               | Documentation    |
+| ----------------- | --------------------- | ---------------- |
+| Local setup       | `npm run setup`       | Setup Guide      |
+| Run tests         | `npm run ci:verify`   | Testing Guide    |
 | Deploy to staging | `npm run env:staging` | Deployment Guide |
-| Database reset | `npm run db:reset` | Database Guide |
-| Health check | `npm run dx:check` | Monitoring Guide |
+| Database reset    | `npm run db:reset`    | Database Guide   |
+| Health check      | `npm run dx:check`    | Monitoring Guide |
 
 ---
 

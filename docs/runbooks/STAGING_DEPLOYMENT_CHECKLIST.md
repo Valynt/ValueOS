@@ -77,7 +77,7 @@ NODE_ENV=staging
 EOF
 
 # 2. Verify database migrations are applied
-npm run db:push -- --environment staging
+pnpm run db:push -- --environment staging
 
 # 3. Check Supabase connection
 psql $STAGING_DATABASE_URL -c "SELECT version();"

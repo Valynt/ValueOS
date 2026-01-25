@@ -17,7 +17,7 @@ brew install node@20 docker
 # 3. Clone and setup
 git clone https://github.com/Valynt/ValueOS.git
 cd ValueOS
-npm run setup
+pnpm run setup
 npm start
 ```
 
@@ -343,7 +343,7 @@ npm run logs
 
 # Reset everything
 npm run clean
-npm run setup
+pnpm run setup
 ```
 
 ---

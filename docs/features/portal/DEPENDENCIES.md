@@ -238,7 +238,7 @@ npm update react-markdown react-syntax-highlighter remark-gfm
 **Solution**:
 ```bash
 # Clear cache and reinstall
-rm -rf node_modules package-lock.json
+rm -rf node_modules pnpm-lock.yaml
 npm install
 ```
 
@@ -334,7 +334,7 @@ npm update
 
 1. **Regular updates**: Update dependencies monthly
 2. **Audit regularly**: Run `npm audit` before deployments
-3. **Lock versions**: Use `package-lock.json`
+3. **Lock versions**: Use `pnpm-lock.yaml`
 4. **Review changes**: Check changelogs before updating
 5. **Test thoroughly**: Test after dependency updates
 

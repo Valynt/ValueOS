@@ -51,7 +51,7 @@ npm install
 added X packages in Ys
 ```
 
-**Determinism**: `package-lock.json` ensures exact versions.
+**Determinism**: `pnpm-lock.yaml` ensures exact versions.
 
 ---
 
@@ -60,7 +60,7 @@ added X packages in Ys
 ### 2.1 Generate Development Environment Files
 
 ```bash
-npm run env:dev
+pnpm run env:dev
 ```
 
 **Expected Output**:
@@ -211,7 +211,7 @@ npx supabase migration list
 ### 4.3 Generate TypeScript Types
 
 ```bash
-npm run db:types
+pnpm run db:types
 ```
 
 **Expected Output**:
@@ -410,7 +410,7 @@ Check browser DevTools > Console:
 ### Fixed Inputs
 
 - **Node version**: Locked via `.nvmrc` (v20.x)
-- **Dependencies**: Locked via `package-lock.json`
+- **Dependencies**: Locked via `pnpm-lock.yaml`
 - **Supabase keys**: Fixed demo keys in `env-compiler.js`
 - **Database schema**: Versioned migrations in `supabase/migrations/`
 - **Ports**: Centralized in `config/ports.json`
@@ -423,7 +423,7 @@ Check browser DevTools > Console:
 
 ### Idempotent Operations
 
-- `npm run env:dev`: Overwrites existing files
+- `pnpm run env:dev`: Overwrites existing files
 - `npm run seed:demo`: Uses `ON CONFLICT` to avoid duplicates
 - `npx supabase db push`: Skips already-applied migrations
 
@@ -487,7 +487,7 @@ echo "=== ValueOS Reproducible Dev Setup ==="
 npm install
 
 # 2. Generate environment
-npm run env:dev
+pnpm run env:dev
 
 # 3. Start Docker deps
 docker compose --env-file .env.ports -f docker-compose.deps.yml up -d
@@ -500,7 +500,7 @@ npx supabase start
 npx supabase db push
 
 # 6. Generate types
-npm run db:types
+pnpm run db:types
 
 # 7. Seed demo user
 npm run seed:demo
@@ -641,7 +641,7 @@ To start fresh:
 
 ```bash
 # Stop all services
-npm run dx:down
+pnpm run dx:down
 npx supabase stop --no-backup
 
 # Remove containers and volumes

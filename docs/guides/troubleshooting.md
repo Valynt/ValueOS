@@ -21,7 +21,7 @@ docker --version
 docker info
 
 # Reset Docker environment
-npm run dx:clean
+pnpm run dx:clean
 ```
 
 ### Port Conflicts
@@ -59,7 +59,7 @@ npm --version
 nvm use
 
 # Reinstall dependencies
-rm -rf node_modules package-lock.json
+rm -rf node_modules pnpm-lock.yaml
 npm install
 ```
 
@@ -73,16 +73,16 @@ npm install
 
 ```bash
 # Check database container
-npm run dx:ps
+pnpm run dx:ps
 
 # View database logs
 npm run docker:logs postgres
 
 # Test connection
-npm run db:test
+pnpm run db:test
 
 # Reset database
-npm run db:reset
+pnpm run db:reset
 ```
 
 ### Migration Failures
@@ -93,13 +93,13 @@ npm run db:reset
 
 ```bash
 # Check migration status
-npm run db:validate
+pnpm run db:validate
 
 # Pull remote schema
-npm run db:pull
+pnpm run db:pull
 
 # Repair migrations
-npm run db:repair
+pnpm run db:repair
 
 # Manual migration repair
 npm run migration:validate
@@ -121,7 +121,7 @@ rm -rf dist node_modules/.vite
 npm run typecheck
 
 # Clean install
-npm run dx:clean
+pnpm run dx:clean
 npm install
 
 # Check for TypeScript errors
@@ -136,17 +136,17 @@ npm run build:backend
 
 ```bash
 # Check application logs
-npm run dx:logs
+pnpm run dx:logs
 
 # Health check
 npm run health
 
 # Environment validation
-npm run env:validate
+pnpm run env:validate
 
 # Restart services
-npm run dx:down
-npm run dx
+pnpm run dx:down
+pnpm run dx
 ```
 
 ### Frontend Development Issues
@@ -201,7 +201,7 @@ npm run test -- [test-file]
 npm run test:docker:integration
 
 # Check test database
-npm run db:test:setup
+pnpm run db:test:setup
 
 # View test logs
 npm run docker:logs test-db
@@ -234,7 +234,7 @@ docker build --dry-run -t valueos .
 
 ```bash
 # Validate environment
-npm run env:validate
+pnpm run env:validate
 
 # Check required variables
 echo $DATABASE_URL
@@ -252,13 +252,13 @@ npm run config:diff
 
 ```bash
 # Validate Caddy configuration
-npm run dx:caddy:validate
+pnpm run dx:caddy:validate
 
 # Check certificate status
-npm run dx:caddy:logs
+pnpm run dx:caddy:logs
 
 # Renew certificates
-npm run dx:caddy:reload
+pnpm run dx:caddy:reload
 ```
 
 ## Performance Issues
@@ -314,8 +314,8 @@ docker network inspect valueos-network
 curl http://backend:3001/health
 
 # Restart network
-npm run dx:down
-npm run dx
+pnpm run dx:down
+pnpm run dx
 ```
 
 ### External API Failures
@@ -329,7 +329,7 @@ npm run dx
 ping api.supabase.co
 
 # Validate API keys
-npm run env:validate
+pnpm run env:validate
 
 # Check rate limits
 # Review external service dashboards
@@ -341,13 +341,13 @@ npm run env:validate
 
 ```bash
 # View all logs
-npm run dx:logs
+pnpm run dx:logs
 
 # Service-specific logs
 npm run docker:logs backend
 
 # Search logs
-npm run dx:logs | grep "ERROR"
+pnpm run dx:logs | grep "ERROR"
 
 # Structured log analysis
 npm run analyze:logs
@@ -357,7 +357,7 @@ npm run analyze:logs
 
 ```bash
 # Comprehensive health check
-npm run dx:check
+pnpm run dx:check
 
 # Individual health endpoints
 curl http://localhost:3001/health
@@ -373,13 +373,13 @@ docker stats
 
 ```bash
 # Nuclear option - complete cleanup
-npm run dx:clean
+pnpm run dx:clean
 
 # Reinitialize everything
 npm install
-npm run env:dev
-npm run dx
-npm run db:reset
+pnpm run env:dev
+pnpm run dx
+pnpm run db:reset
 npm run seed:demo
 ```
 
@@ -387,13 +387,13 @@ npm run seed:demo
 
 ```bash
 # Create backup
-npm run db:backup
+pnpm run db:backup
 
 # Restore from backup
-npm run db:restore [backup-file]
+pnpm run db:restore [backup-file]
 
 # Manual data repair
-npm run db:repair
+pnpm run db:repair
 ```
 
 ### Rollback Deployment

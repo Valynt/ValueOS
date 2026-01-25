@@ -15,7 +15,7 @@ This directory contains GitHub Actions workflows that automate:
 
 ## Canonical CI Entry Point
 
-For application CI, workflows should call the single entry point `npm run ci:verify`, which runs linting, type checks, legacy route checks, tests, and the build in a consistent order. Use this script in workflows instead of bespoke step lists so CI behavior stays aligned across pipelines.
+For application CI, workflows should call the single entry point `pnpm run ci:verify`, which runs linting, type checks, legacy route checks, tests, and the build in a consistent order. Use this script in workflows instead of bespoke step lists so CI behavior stays aligned across pipelines.
 
 ## Workflows
 

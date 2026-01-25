@@ -304,7 +304,7 @@ curl http://localhost:5173/health || echo "Server not running"
 curl https://your-project.supabase.co/rest/v1/ || echo "Supabase unreachable"
 
 # Check database connection
-npm run db:health-check
+pnpm run db:health-check
 ```
 
 ### After Testing

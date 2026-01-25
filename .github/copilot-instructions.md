@@ -278,12 +278,12 @@ export class MyTool implements Tool<Input, Output> {
 ### Start Development
 
 ```bash
-npm run setup              # Initial setup
-npm run dx                  # Start local dev environment (orchestrator)
+pnpm run setup              # Initial setup
+pnpm run dx                  # Start local dev environment (orchestrator)
 npm run dev                 # Frontend dev server
-npm run dx:docker           # Docker-based dev environment
-npm run db:setup            # Bootstrap Supabase locally
-npm run db:types            # Regenerate TypeScript types
+pnpm run dx:docker           # Docker-based dev environment
+pnpm run db:setup            # Bootstrap Supabase locally
+pnpm run db:types            # Regenerate TypeScript types
 ```
 
 ### Testing
@@ -293,7 +293,7 @@ npm run test                # Unit + integration (sequential)
 npm run test:rls            # RLS policy validation
 npm run test:watch          # Watch mode
 npm run typecheck           # TypeScript validation
-npm run ci:verify           # Full CI pipeline locally
+pnpm run ci:verify           # Full CI pipeline locally
 npm run security:scan       # Dependency audit
 ```
 

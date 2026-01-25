@@ -40,10 +40,10 @@
 
 ### ✅ Scripts and Commands
 
-- [x] `npm run setup` - Automated setup
+- [x] `pnpm run setup` - Automated setup
 - [x] `npm run health` - Health checks
 - [x] `npm run dev` - Unified dev server
-- [x] `npm run env:validate` - Environment validation
+- [x] `pnpm run env:validate` - Environment validation
 
 ---
 
@@ -106,7 +106,7 @@ We've completely rebuilt our setup process to make onboarding faster and easier:
 
 **What's New:**
 ✅ Setup time: 35 min → **< 5 min** (86% faster!)
-✅ Single command: `npm run setup` does everything
+✅ Single command: `pnpm run setup` does everything
 ✅ Auto-detects your platform (macOS/Windows/Linux)
 ✅ Helpful error messages with actionable solutions
 ✅ Health checks: `npm run health` verifies everything works
@@ -117,7 +117,7 @@ We've completely rebuilt our setup process to make onboarding faster and easier:
 ```bash
 git clone https://github.com/Valynt/ValueOS.git
 cd ValueOS
-npm run setup
+pnpm run setup
 npm run dev
 ```
 ````

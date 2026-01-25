@@ -7,7 +7,7 @@ This document describes the CI/CD guardrails and the local commands that mirror 
 Run the same checks locally that CI enforces:
 
 ```bash
-npm run ci:verify
+pnpm run ci:verify
 ```
 
 This runs:

@@ -26,14 +26,14 @@ npm install
 cp deploy/envs/.env.example .env.local
 
 # Set up development environment (configures Supabase keys)
-npm run env:dev
+pnpm run env:dev
 ```
 
 ### 3. Start Development Stack
 
 ```bash
 # Start all services (Supabase, Redis, Backend, Frontend)
-npm run dx
+pnpm run dx
 
 # Or use the Caddy reverse proxy setup
 ./scripts/dev-caddy-start.sh
@@ -43,7 +43,7 @@ npm run dx
 
 ```bash
 # Run health check
-npm run dx:check
+pnpm run dx:check
 
 # Or check individual services
 curl http://localhost:3001/health
@@ -68,11 +68,11 @@ This creates a demo user with credentials displayed in the terminal output.
 
 | Command               | Purpose                                           |
 | --------------------- | ------------------------------------------------- |
-| `npm run dx`          | Start development environment                     |
-| `npm run dx:down`     | Stop all services                                 |
-| `npm run dx:check`    | Health check all services                         |
-| `npm run dx:logs`     | View service logs                                 |
-| `npm run db:reset`    | Reset local database                              |
+| `pnpm run dx`          | Start development environment                     |
+| `pnpm run dx:down`     | Stop all services                                 |
+| `pnpm run dx:check`    | Health check all services                         |
+| `pnpm run dx:logs`     | View service logs                                 |
+| `pnpm run db:reset`    | Reset local database                              |
 | `npm run dev`         | Start frontend only (if services already running) |
 | `npm run dev:backend` | Start backend only                                |
 | `supabase start`      | Start Supabase locally                            |
@@ -123,17 +123,17 @@ PORT=5174 npm run dev
 
 ```bash
 # Regenerate environment
-npm run env:dev
+pnpm run env:dev
 
 # Restart services
-npm run dx:down && npm run dx
+pnpm run dx:down && pnpm run dx
 ```
 
 ### Database Connection Failed
 
 ```bash
 # Reset the database
-npm run db:reset
+pnpm run db:reset
 
 # Check database logs
 docker logs valueos-postgres
@@ -143,7 +143,7 @@ docker logs valueos-postgres
 
 ```bash
 # Validate configuration
-npm run env:validate
+pnpm run env:validate
 
 # Check Vite environment loading
 node -r dotenv/config -e "console.log('SUPABASE_URL:', process.env.VITE_SUPABASE_URL)"
