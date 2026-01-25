@@ -16,29 +16,36 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 
 FROM base AS deps
-
 WORKDIR /app
 
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml .npmrc* ./
+# Copy only the files needed to resolve the workspace + lockfile for deterministic installs
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY .npmrc* ./
+
+# Copy package manifests for workspace packages needed by backend
 COPY packages/backend/package.json packages/backend/
 COPY packages/shared/package.json packages/shared/
 COPY packages/sdui/package.json packages/sdui/
 
+# Deterministic install with cached pnpm store
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
   pnpm install --frozen-lockfile --prefer-offline --filter @valueos/backend...
 
 FROM base AS runtime
-
 WORKDIR /app
 
+# Bring in node_modules + workspace structure that pnpm expects
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages ./packages
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml .npmrc* ./
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY .npmrc* ./
 
+# Copy actual source (runtime/dev)
 COPY packages/backend ./packages/backend
 COPY packages/shared ./packages/shared
 COPY packages/sdui ./packages/sdui
 
+# Non-root user
 RUN groupadd -r nodejs -g 1001 \
   && useradd -r nodejs -u 1001 -g nodejs \
   && chown -R nodejs:nodejs /app
@@ -52,4 +59,5 @@ EXPOSE 3001
 
 ENTRYPOINT ["dumb-init", "--"]
 
+# Dev default (compose can override)
 CMD ["pnpm", "--filter", "@valueos/backend", "dev"]

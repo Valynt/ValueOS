@@ -7,7 +7,7 @@
 
 import CircuitBreaker from "opossum";
 import { logger } from "../utils/logger";
-import { getEnvVar } from "../lib/env";
+import { getEnvVar } from "@shared/lib/env";
 import { llmCache } from "./LLMCache";
 import { llmCostTracker } from "./LLMCostTracker";
 
@@ -227,6 +227,155 @@ export class LLMFallbackService {
     } catch (error) {
       logger.error("Together.ai request failed", error as Error);
       throw new Error("LLM provider unavailable. Please try again later.");
+    }
+  }
+
+  /**
+   * Process LLM request with streaming
+   * Bypasses circuit breaker for now to support AsyncGenerator
+   */
+  async *streamRequest(
+    request: LLMRequest
+  ): AsyncGenerator<{ content: string; done: boolean }> {
+    // Check cache first
+    const cached = await llmCache.get(request.prompt, request.model);
+    if (cached) {
+      this.stats.cache.hits++;
+      logger.cache(
+        "hit",
+        `${request.model}:${request.prompt.substring(0, 50)}`
+      );
+
+      yield { content: cached.response, done: true };
+      return;
+    }
+
+    this.stats.cache.misses++;
+
+    const startTime = Date.now();
+    this.stats.togetherAI.calls++;
+
+    try {
+      const togetherApiKey = getEnvVar("TOGETHER_API_KEY");
+      if (!togetherApiKey)
+        throw new Error("Together.ai API key not configured");
+
+      const response = await fetch(
+        "https://api.together.ai/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${togetherApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: request.model,
+            messages: [{ role: "user", content: request.prompt }],
+            max_tokens: request.maxTokens || 1000,
+            temperature: request.temperature || 0.7,
+            stream: true,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Together.ai API error: ${response.status} - ${error}`);
+      }
+
+      if (!response.body) {
+        throw new Error("No response body");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedContent = "";
+      let buffer = "";
+      let usage: any = null;
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || ""; // Keep the last incomplete line in buffer
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || !trimmed.startsWith("data: ")) continue;
+
+            const dataStr = trimmed.substring(6); // Remove 'data: '
+            if (dataStr === "[DONE]") continue;
+
+            try {
+              const data = JSON.parse(dataStr);
+
+              // Together AI sends usage in the last chunk or separate chunk
+              if (data.usage) {
+                usage = data.usage;
+              }
+
+              const content = data.choices?.[0]?.delta?.content || "";
+              if (content) {
+                accumulatedContent += content;
+                yield { content, done: false };
+              }
+            } catch (e) {
+              // Ignore parse errors for partial lines
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+
+      // Final yield to signal done
+      yield { content: "", done: true };
+
+      // Calculate stats and cache
+      const latency = Date.now() - startTime;
+
+      const promptTokens = usage?.prompt_tokens || 0;
+      const completionTokens = usage?.completion_tokens || 0;
+
+      const cost = llmCostTracker.calculateCost(
+        request.model,
+        promptTokens,
+        completionTokens
+      );
+
+      // Track usage
+      await llmCostTracker.trackUsage({
+        userId: request.userId,
+        sessionId: request.sessionId,
+        provider: "together_ai",
+        model: request.model,
+        promptTokens,
+        completionTokens,
+        endpoint: "/api/llm/chat",
+        success: true,
+        latencyMs: latency,
+      });
+
+      // Cache response
+      await llmCache.set(request.prompt, request.model, accumulatedContent, {
+        promptTokens,
+        completionTokens,
+        cost,
+      });
+
+      logger.llm("Together.ai stream succeeded", {
+        provider: "together_ai",
+        model: request.model,
+        latency,
+        success: true,
+      });
+    } catch (error) {
+      this.stats.togetherAI.failures++;
+      logger.error("Together.ai stream failed", error as Error);
+      throw error;
     }
   }
 

@@ -147,40 +147,166 @@ class LLMService {
   }
 
   /**
-   * Stream a chat completion (if supported by backend)
-   * Falls back to regular chat if streaming not available
+   * Stream a chat completion
    */
   async *streamChat(
     request: LLMChatRequest,
     onChunk?: (chunk: LLMStreamChunk) => void
   ): AsyncGenerator<LLMStreamChunk> {
-    // For now, use regular chat and simulate streaming
-    // TODO: Implement real streaming when backend supports it
+    // Try direct Together.ai API first if available
+    if (this.hasDirectAccess()) {
+      yield* this.streamChatDirect(request, onChunk);
+      return;
+    }
+
     try {
-      const response = await this.chat(request);
-      
-      // Simulate streaming by yielding words
-      const words = response.content.split(' ');
-      let accumulated = '';
-      
-      for (let i = 0; i < words.length; i++) {
-        const word = words[i] + (i < words.length - 1 ? ' ' : '');
-        accumulated += word;
-        
-        const chunk: LLMStreamChunk = {
-          content: word,
-          done: i === words.length - 1,
-        };
-        
-        onChunk?.(chunk);
-        yield chunk;
-        
-        // Small delay to simulate streaming
-        await new Promise(resolve => setTimeout(resolve, 20));
+      const response = await fetch(`${this.baseUrl}/llm/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          prompt: request.prompt,
+          model: request.model || DEFAULT_MODEL,
+          maxTokens: request.maxTokens || 1000,
+          temperature: request.temperature || 0.7,
+          stream: true,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(error.message || `LLM request failed: ${response.status}`);
+      }
+
+      if (!response.body) {
+        throw new Error('No response body');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith('data: ')) continue;
+
+          const dataStr = trimmed.substring(6);
+          try {
+            const data = JSON.parse(dataStr);
+            if (data.error) {
+              throw new Error(data.error);
+            }
+
+            const chunk: LLMStreamChunk = {
+              content: data.content || '',
+              done: data.done || false
+            };
+
+            onChunk?.(chunk);
+            yield chunk;
+
+            if (data.done) return;
+          } catch (e) {
+            console.error('Failed to parse SSE', e);
+          }
+        }
       }
     } catch (error) {
+      console.error('Stream chat error', error);
       throw error;
     }
+  }
+
+  /**
+   * Stream a chat completion directly to Together.ai
+   */
+  async *streamChatDirect(
+    request: LLMChatRequest,
+    onChunk?: (chunk: LLMStreamChunk) => void
+  ): AsyncGenerator<LLMStreamChunk> {
+    if (!this.togetherApiKey) {
+      throw new Error('Together.ai API key not configured');
+    }
+
+    const model = request.model || DEFAULT_MODEL;
+
+    const response = await fetch(`${TOGETHER_API_URL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.togetherApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: request.prompt }],
+        max_tokens: request.maxTokens || 1000,
+        temperature: request.temperature || 0.7,
+        stream: true,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Together.ai API error: ${response.status} - ${error}`);
+    }
+
+    if (!response.body) {
+      throw new Error('No response body');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('data: ')) continue;
+
+        const dataStr = trimmed.substring(6);
+        if (dataStr === '[DONE]') {
+          const chunk = { content: '', done: true };
+          onChunk?.(chunk);
+          yield chunk;
+          return;
+        }
+
+        try {
+          const data = JSON.parse(dataStr);
+          const content = data.choices?.[0]?.delta?.content || '';
+
+          if (content) {
+            const chunk = { content, done: false };
+            onChunk?.(chunk);
+            yield chunk;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+
+    // Ensure we yield done if we exit loop without [DONE] (e.g. network close)
+    const chunk = { content: '', done: true };
+    onChunk?.(chunk);
+    yield chunk;
   }
 
   /**
