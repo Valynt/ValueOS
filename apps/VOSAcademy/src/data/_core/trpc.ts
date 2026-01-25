@@ -50,6 +50,7 @@ export type RateLimitOptions = {
   windowMs?: number;
 };
 
+export const rateLimitMiddleware = ({ keyPrefix, maxRequests, windowMs }: RateLimitOptions) =>
   t.middleware(async ({ ctx, next }) => {
     try {
       const identifiers = getRateLimitIdentifiers(ctx.req, ctx.user);
