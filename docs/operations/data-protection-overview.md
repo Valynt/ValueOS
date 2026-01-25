@@ -6,7 +6,7 @@
 - **Cases and workflows**: user-linked ticket titles/descriptions and statuses in `public.cases` and `public.workflows`.【F:supabase/migrations/20250101000000_baseline_schema.sql†L99-L129】
 - **Messages**: conversational content and role metadata in `public.messages` (often contains free-form PII).【F:supabase/migrations/20250101000000_baseline_schema.sql†L131-L140】
 - **Audit trails**: immutable operational events with IP/user agent fields in `public.audit_logs` and `public.security_audit_log` (plus agent-focused entries).【F:supabase/migrations/20250101000000_baseline_schema.sql†L258-L293】
-- **Internal app DB**: organization- and user-scoped tables (including emails, names, password hashes) in the primary migration under `migrations/001_initial_schema.sql`.【F:migrations/001_initial_schema.sql†L14-L125】
+- **Internal app DB**: organization- and user-scoped tables (including emails, names, password hashes) are defined in Supabase migrations under `supabase/migrations/`.
 
 ## Event and data flow sources
 - **API request auditing**: every Express request (except health/metrics) now emits a structured security audit event with request ID, actor, action, resource path, status, IP, and timing metadata.【F:src/middleware/requestAuditMiddleware.ts†L6-L63】【F:src/backend/server.ts†L8-L31】

@@ -216,7 +216,7 @@ Critical (4)  4          8          12          16
 
 ### Migration File
 
-Located at: `infra/migrations/003_value_commitment_tracking.sql`
+Located at: `supabase/migrations/` (value commitment tracking migration)
 
 ### Key Features
 

@@ -22,11 +22,11 @@
 2. **Database migrations (ordered)**
    - Apply backward-compatible migrations first:
      ```bash
-     supabase db push --file migrations/2024*-add-columns.sql
+     supabase db push --file supabase/migrations/2024*-add-columns.sql
      ```
    - Apply breaking migrations only after app pods are updated and read replicas are healthy:
      ```bash
-     supabase db push --file migrations/2024*-drop-columns.sql
+     supabase db push --file supabase/migrations/2024*-drop-columns.sql
      ```
    - Verify schema versions:
      ```sql

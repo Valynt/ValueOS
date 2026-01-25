@@ -38,11 +38,43 @@ if [ $attempt -gt $max_attempts ]; then
     exit 1
 fi
 
-# 2. Check if migrations directory exists
-if [ ! -d "migrations" ]; then
-    echo -e "${YELLOW}⚠️ No migrations directory found, creating...${NC}"
-    mkdir -p migrations
-    echo -e "${GREEN}✅ Created migrations directory${NC}"
+# 2. Enforce Supabase migrations directory
+allowed_migrations_dir="supabase/migrations"
+disallowed_migrations_dirs=(
+    "migrations"
+    "db/migrations"
+    "database/migrations"
+    "infra/migrations"
+    "infra/supabase/migrations"
+    "scripts/migrations"
+    "prisma/migrations"
+)
+
+echo -e "${YELLOW}🔍 Validating migration directories...${NC}"
+
+if [ ! -d "$allowed_migrations_dir" ]; then
+    echo -e "${RED}❌ Expected migrations directory not found: $allowed_migrations_dir${NC}"
+    echo -e "${YELLOW}💡 Create or sync migrations under $allowed_migrations_dir${NC}"
+    exit 1
+fi
+
+disallowed_found=0
+
+for disallowed_dir in "${disallowed_migrations_dirs[@]}"; do
+    if [ -d "$disallowed_dir" ]; then
+        if ls "$disallowed_dir"/*.sql 1> /dev/null 2>&1; then
+            echo -e "${RED}❌ Disallowed migration source detected: $disallowed_dir${NC}"
+            echo -e "${YELLOW}💡 Move migrations to $allowed_migrations_dir before running.${NC}"
+            disallowed_found=1
+        else
+            echo -e "${YELLOW}⚠️ Disallowed migration directory exists (no SQL files): $disallowed_dir${NC}"
+        fi
+    fi
+done
+
+if [ $disallowed_found -ne 0 ]; then
+    echo -e "${RED}❌ Aborting due to disallowed migration directories.${NC}"
+    exit 1
 fi
 
 # 3. Run Supabase migrations if available
@@ -129,10 +161,7 @@ migration_failed=0
 
 # Look for SQL migration files in common locations
 migration_paths=(
-    "migrations/*.sql"
     "supabase/migrations/*.sql"
-    "db/migrations/*.sql"
-    "database/migrations/*.sql"
 )
 
 for path_pattern in "${migration_paths[@]}"; do
