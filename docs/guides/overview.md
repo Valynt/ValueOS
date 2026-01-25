@@ -556,7 +556,7 @@ npm run test:integration # Integration tests (requires Docker)
 
 **How do I add a new agent?**
 
-1. Create agent file in `src/agents/`
+1. Create agent file in `apps/ValyntApp/src/lib/agent-fabric/agents/`
 2. Extend `BaseAgent` class
 3. Implement required methods
 4. Register in `AgentRegistry`

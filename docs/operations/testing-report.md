@@ -211,21 +211,21 @@ From `TEST_FIXES_APPLIED.md` (December 1, 2025).
 
 ### 5.2 OpportunityAgent – Constructor Signature
 
-- **File:** `src/agents/__tests__/OpportunityAgent.test.ts`
+- **File:** `apps/ValyntApp/src/lib/agent-fabric/agents/__tests__/OpportunityAgent.test.ts`
 - **Issue:** Test constructing agent with positional args instead of `AgentConfig` object.
 - **Fix:** Use proper config object `{ id, organizationId, userId, sessionId, llmGateway, memorySystem, auditLogger, supabase }`.
 - **Result:** ✅ Agent instantiates correctly in tests.
 
 ### 5.3 OpportunityAgent – Async `extractJSON`
 
-- **File:** `src/lib/agent-fabric/agents/OpportunityAgent.ts`
+- **File:** `apps/ValyntApp/src/lib/agent-fabric/agents/OpportunityAgent.ts`
 - **Issue:** `extractJSON()` is async but was called without `await`, causing `undefined` output usage.
 - **Fix:** `const parsed = await this.extractJSON(response.content);`
 - **Result:** ✅ Parsed structure available before use.
 
 ### 5.4 OpportunityAgent – Defensive Array Access
 
-- **File:** `src/lib/agent-fabric/agents/OpportunityAgent.ts`
+- **File:** `apps/ValyntApp/src/lib/agent-fabric/agents/OpportunityAgent.ts`
 - **Issue:** Direct `.map()` on possibly missing arrays (`parsed.pain_points`, `parsed.business_objectives`).
 - **Fix:**
   - `const painPoints = parsed.pain_points || [];`

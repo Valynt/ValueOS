@@ -399,7 +399,7 @@ driver.financial_impact = {
 
 ### Benchmark Agent Integration
 
-The `BenchmarkAgent` (`src/lib/agent-fabric/agents/BenchmarkAgent.ts`) uses ground truth data to:
+The `BenchmarkAgent` (`apps/ValyntApp/src/lib/agent-fabric/agents/BenchmarkAgent.ts`) uses ground truth data to:
 
 1. **Position KPIs** against industry percentiles (P25, P50, P75)
 2. **Identify gaps** to median and best-in-class

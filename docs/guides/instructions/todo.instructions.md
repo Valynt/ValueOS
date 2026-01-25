@@ -28,7 +28,7 @@ applyTo: "**"
 
 ### Immediate (Days 1-2)
 
-1. ⏳ Delete legacy src/agents/ directory (run `bash scripts/cleanup-legacy-agents.sh`)
+1. ✅ Delete legacy agents directory (cleanup script completed)
 2. ✅ **COMPLETED**: Unit tests created for all 8 agents
    - RealizationAgent.security.test.ts (267 lines)
    - ExpansionAgent.security.test.ts (190 lines)

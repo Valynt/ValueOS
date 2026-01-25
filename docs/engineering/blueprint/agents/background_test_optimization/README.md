@@ -14,6 +14,6 @@ Integration:
 
 - Add the agent manifest to deployment manifests or registry if your orchestrator requires it.
 
-- Implement the production-grade agent using the `src/lib/agent-fabric/agents/BackgroundTestOptimizationAgent.ts` skeleton and add tests for the agent's core logic.
+- Implement the production-grade agent using the `apps/ValyntApp/src/lib/agent-fabric/agents/BackgroundTestOptimizationAgent.ts` skeleton and add tests for the agent's core logic.
 
 See also: blueprint/agents for other manifests and patterns.

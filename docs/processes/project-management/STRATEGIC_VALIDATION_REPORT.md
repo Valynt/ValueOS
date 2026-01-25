@@ -25,17 +25,16 @@ External strategic analysis identified **9 critical gaps** between documentation
 
 ```
 Actual Agents Found:
-src/agents/
-├── CoordinatorAgent.ts (22KB) ✅ Master orchestrator
-├── CommunicatorAgent.ts (9KB) ✅ User interaction
-├── InterventionDesignerAgent.ts (20KB) ⚠️ NOT in docs
-├── OutcomeEngineerAgent.ts (26KB) ⚠️ NOT in docs
-├── RealizationLoopAgent.ts (20KB) ⚠️ Different from "Realization Agent"
-├── SystemMapperAgent.ts (18KB) ⚠️ NOT in docs
-└── ValueEvalAgent.ts (14KB) ⚠️ NOT in docs
+apps/ValyntApp/src/lib/agent-fabric/agents/
+├── OpportunityAgent.ts ✅ Opportunity discovery
+├── TargetAgent.ts ✅ Intervention design
+├── RealizationAgent.ts ✅ Realization tracking
+├── ExpansionAgent.ts ✅ Expansion planning
+├── IntegrityAgent.ts ✅ Quality checks
+└── BaseAgent.ts ✅ Shared agent base
 ```
 
-**Gap:** Documentation mentions "Opportunity, Target, Expansion, Integrity" agents that don't exist in codebase.
+**Gap:** Documentation and code now align on lifecycle agent naming; keep agent-fabric paths current.
 
 ---
 
@@ -97,10 +96,10 @@ Found:
 | Documentation Says   | Codebase Has               | Status             |
 | -------------------- | -------------------------- | ------------------ |
 | ValueCanvas Platform | ValueCanvas (package.json) | ✅ Match           |
-| Opportunity Agent    | OutcomeEngineerAgent?      | ❌ Unclear mapping |
-| Target Agent         | InterventionDesignerAgent? | ❌ Unclear mapping |
-| Expansion Agent      | NOT FOUND                  | ❌ Missing         |
-| Integrity Agent      | ValueEvalAgent?            | ❌ Unclear mapping |
+| Opportunity Agent    | OpportunityAgent           | ✅ Match           |
+| Target Agent         | TargetAgent                | ✅ Match           |
+| Expansion Agent      | ExpansionAgent             | ✅ Match           |
+| Integrity Agent      | IntegrityAgent             | ✅ Match           |
 
 **Impact:** New developers/users cannot map documentation to code.
 
@@ -244,15 +243,13 @@ grep -r "dangerouslySetInnerHTML" src/
 Official Brand: ValueCanvas
 Tagline: "AI-Powered Value Modeling Platform"
 
-Agent Naming (Proposed Mapping):
-  CoordinatorAgent: [Keep] Master orchestrator
-  CommunicatorAgent: [Keep] User interaction
-  OutcomeEngineerAgent: [Rename] → OpportunityAgent
-  InterventionDesignerAgent: [Rename] → TargetAgent
-  RealizationLoopAgent: [Keep] Realization tracking
-  SystemMapperAgent: [Integrate into] → CoordinatorAgent
-  ValueEvalAgent: [Rename] → IntegrityAgent
-  [Create NEW] → ExpansionAgent
+Agent Naming (Current):
+  OpportunityAgent: Opportunity discovery
+  TargetAgent: Intervention design
+  RealizationAgent: Realization tracking
+  ExpansionAgent: Expansion planning
+  IntegrityAgent: Quality checks
+  BaseAgent: Shared agent base
 
 Remove References:
   - [RESOLVED] "ValueVerse" naming (consolidated to ValueCanvas)
@@ -286,7 +283,7 @@ Tasks:
 - [ ] Test history persistence
 
 // 3. Agent Service Integration (4 hours)
-File: src/agents/CoordinatorAgent.ts
+File: apps/ValyntApp/src/services/UnifiedAgentOrchestrator.ts
 Tasks:
 - [ ] Add OpenAI function calling for layouts
 - [ ] Validate agent SDUI responses
@@ -405,7 +402,7 @@ Checks:
 - [ ] CSP headers block inline scripts
 
 // 2. Agent Response Validation
-File: src/agents/CoordinatorAgent.ts
+File: apps/ValyntApp/src/lib/agent-fabric/agents/BaseAgent.ts
 Checks:
 - [ ] Validate LLM responses against schema
 - [ ] Implement prompt injection detection
@@ -501,12 +498,12 @@ Checks:
 | ---- | ------------------------------- | ----------- | ------------------------ | ------ | -------- |
 | TD-1 | ValueCanvas naming consistency  | ✅ Resolved | All files                | 0h     | Complete |
 | TD-2 | Sprint 5 integration incomplete | 🔴 Critical | SDUI components          | 18h    | Week 1   |
-| TD-3 | Agent naming mismatch           | 🔴 Critical | docs/ + src/agents/      | 8h     | Week 1   |
+| TD-3 | Agent naming mismatch           | 🔴 Critical | docs/ + apps/ValyntApp/src/lib/agent-fabric/agents/      | 8h     | Week 1   |
 | TD-4 | Value metrics not instrumented  | 🟡 High     | NEW: ValueMetricsTracker | 12h    | Week 2   |
 | TD-5 | SVG rendering vulnerability     | 🟡 High     | src/sdui/engine/         | 6h     | Week 3   |
 | TD-6 | Missing user onboarding flow    | 🟡 High     | UI components            | 16h    | Week 2   |
-| TD-7 | Agent memory system             | 🟢 Medium   | src/agents/              | 8h     | Week 3   |
-| TD-8 | LLM fallback strategies         | 🟢 Medium   | src/agents/              | 6h     | Week 3   |
+| TD-7 | Agent memory system             | 🟢 Medium   | apps/ValyntApp/src/lib/agent-fabric/agents/              | 8h     | Week 3   |
+| TD-8 | LLM fallback strategies         | 🟢 Medium   | apps/ValyntApp/src/lib/agent-fabric/agents/              | 6h     | Week 3   |
 | TD-9 | K8s deployment docs             | 🔵 Low      | Defer                    | N/A    | Future   |
 
 **Total Effort:** 78 hours (~2 weeks with 2 engineers)
@@ -628,18 +625,17 @@ Success: < 5 minutes, > 90% user satisfaction
 
 ## Appendix: Codebase Inventory
 
-### Agent System (7 Agents)
+### Agent System (6 Agents)
 
 ```
-src/agents/
-├── CoordinatorAgent.ts ✅ (22KB) - Master orchestrator
-├── CommunicatorAgent.ts ✅ (9KB) - User interaction
-├── InterventionDesignerAgent.ts ✅ (20KB)
-├── OutcomeEngineerAgent.ts ✅ (26KB)
-├── RealizationLoopAgent.ts ✅ (20KB)
-├── SystemMapperAgent.ts ✅ (18KB)
-└── ValueEvalAgent.ts ✅ (14KB)
-Total: 7 agents, ~129KB of code
+apps/ValyntApp/src/lib/agent-fabric/agents/
+├── OpportunityAgent.ts ✅
+├── TargetAgent.ts ✅
+├── RealizationAgent.ts ✅
+├── ExpansionAgent.ts ✅
+├── IntegrityAgent.ts ✅
+└── BaseAgent.ts ✅
+Total: 6 agents, agent-fabric sources aligned with lifecycle stages
 ```
 
 ### SDUI System

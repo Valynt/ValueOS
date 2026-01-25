@@ -46,10 +46,10 @@ These map 1:1 to value lifecycle stages.
 
 | Stage       | Agent             | Former Name               | File                                      |
 |------------|-------------------|---------------------------|-------------------------------------------|
-| Opportunity | `OpportunityAgent` | `OutcomeEngineerAgent`    | `src/agents/OpportunityAgent.ts`         |
-| Target      | `TargetAgent`     | `InterventionDesignerAgent` | `src/agents/TargetAgent.ts`            |
-| Realization | `RealizationAgent`| `RealizationLoopAgent`    | `src/agents/RealizationAgent.ts`        |
-| Expansion   | `ExpansionAgent`  | (new)                     | `src/lib/agent-fabric/agents/ExpansionAgent.ts` |
+| Opportunity | `OpportunityAgent` | `OutcomeEngineerAgent`    | `apps/ValyntApp/src/lib/agent-fabric/agents/OpportunityAgent.ts`         |
+| Target      | `TargetAgent`     | `InterventionDesignerAgent` | `apps/ValyntApp/src/lib/agent-fabric/agents/TargetAgent.ts`            |
+| Realization | `RealizationAgent`| `RealizationLoopAgent`    | `apps/ValyntApp/src/lib/agent-fabric/agents/RealizationAgent.ts`        |
+| Expansion   | `ExpansionAgent`  | (new)                     | `apps/ValyntApp/src/lib/agent-fabric/agents/ExpansionAgent.ts` |
 
 ### 2.2 Support & Governance Agents
 
@@ -69,7 +69,7 @@ SystemMapperAgent is **deprecated** and its responsibilities are folded into `Co
 ### 3.1 OpportunityAgent
 
 - **Stage:** Opportunity (Stage 1)
-- **File:** `src/agents/OpportunityAgent.ts`
+- **File:** `apps/ValyntApp/src/lib/agent-fabric/agents/OpportunityAgent.ts`
 - **ID:** `opportunity-v1`
 
 Responsibilities:
@@ -83,7 +83,7 @@ Responsibilities:
 ### 3.2 TargetAgent
 
 - **Stage:** Target (Stage 2)
-- **File:** `src/agents/TargetAgent.ts`
+- **File:** `apps/ValyntApp/src/lib/agent-fabric/agents/TargetAgent.ts`
 - **ID:** `target-v1`
 
 Responsibilities:
@@ -96,7 +96,7 @@ Responsibilities:
 ### 3.3 RealizationAgent
 
 - **Stage:** Realization (Stage 3)
-- **File:** `src/agents/RealizationAgent.ts`
+- **File:** `apps/ValyntApp/src/lib/agent-fabric/agents/RealizationAgent.ts`
 - **ID:** `realization-v1`
 
 Responsibilities:
@@ -109,7 +109,7 @@ Responsibilities:
 ### 3.4 ExpansionAgent
 
 - **Stage:** Expansion (Stage 4)
-- **File:** `src/lib/agent-fabric/agents/ExpansionAgent.ts`
+- **File:** `apps/ValyntApp/src/lib/agent-fabric/agents/ExpansionAgent.ts`
 - **ID:** `expansion-v1`
 
 Responsibilities:
@@ -122,7 +122,7 @@ Responsibilities:
 ### 3.5 IntegrityAgent
 
 - **Stage:** Cross-cutting
-- **File:** `src/agents/IntegrityAgent.ts`
+- **File:** `apps/ValyntApp/src/lib/agent-fabric/agents/IntegrityAgent.ts`
 - **ID:** `integrity-v1`
 
 Responsibilities:
@@ -135,7 +135,7 @@ Responsibilities:
 ### 3.6 CommunicatorAgent
 
 - **Stage:** Cross-cutting
-- **File:** `src/agents/CommunicatorAgent.ts`
+- **File:** `apps/ValyntApp/src/lib/agent-fabric/agents/CommunicatorAgent.ts`
 - **ID:** `communicator-v1`
 
 Responsibilities:
@@ -147,7 +147,7 @@ Responsibilities:
 ### 3.7 CoordinatorAgent
 
 - **Stage:** Orchestration
-- **File:** `src/agents/CoordinatorAgent.ts`
+- **File:** `apps/ValyntApp/src/lib/agent-fabric/agents/CoordinatorAgent.ts`
 - **ID:** `coordinator-v1`
 
 Responsibilities:
@@ -164,7 +164,7 @@ Responsibilities:
 
 ### 4.1 BaseAgent
 
-All concrete agents extend a common `BaseAgent` (location may vary, e.g. `src/lib/agent-fabric/agents/BaseAgent.ts`). It provides:
+All concrete agents extend a common `BaseAgent` (location may vary, e.g. `apps/ValyntApp/src/lib/agent-fabric/agents/BaseAgent.ts`). It provides:
 
 - Integration with `LLMGateway` (multi-provider LLM access).
 - Access to `MemorySystem` (episodic, semantic, working, procedural memory).
@@ -413,14 +413,14 @@ All legacy references to old names should be migrated to the new taxonomy (see m
 
 Key files related to agents and Agent Fabric:
 
-- `src/agents/OpportunityAgent.ts`
-- `src/agents/TargetAgent.ts`
-- `src/agents/RealizationAgent.ts`
-- `src/agents/IntegrityAgent.ts`
-- `src/agents/CommunicatorAgent.ts`
-- `src/agents/CoordinatorAgent.ts`
-- `src/lib/agent-fabric/agents/ExpansionAgent.ts`
-- `src/lib/agent-fabric/agents/BaseAgent.ts`
+- `apps/ValyntApp/src/lib/agent-fabric/agents/OpportunityAgent.ts`
+- `apps/ValyntApp/src/lib/agent-fabric/agents/TargetAgent.ts`
+- `apps/ValyntApp/src/lib/agent-fabric/agents/RealizationAgent.ts`
+- `apps/ValyntApp/src/lib/agent-fabric/agents/IntegrityAgent.ts`
+- `apps/ValyntApp/src/lib/agent-fabric/agents/CommunicatorAgent.ts`
+- `apps/ValyntApp/src/lib/agent-fabric/agents/CoordinatorAgent.ts`
+- `apps/ValyntApp/src/lib/agent-fabric/agents/ExpansionAgent.ts`
+- `apps/ValyntApp/src/lib/agent-fabric/agents/BaseAgent.ts`
 - `src/lib/agent-fabric/LLMGateway.ts`
 - `src/lib/agent-fabric/MemorySystem.ts`
 - `src/lib/observability.ts` (agent tracing helpers)

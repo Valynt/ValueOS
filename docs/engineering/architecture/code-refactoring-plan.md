@@ -28,7 +28,7 @@ private getAgentForStage(stage: LifecycleStage): BaseAgent {
 #### After
 
 ```typescript
-// src/lib/agent-fabric/agents/BaseAgent.ts
+// apps/ValyntApp/src/lib/agent-fabric/agents/BaseAgent.ts
 export abstract class BaseAgent {
   protected supabase: SupabaseClient;
   protected context: LifecycleContext;
