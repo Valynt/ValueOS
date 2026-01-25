@@ -34,7 +34,7 @@ kill -9 <PID>
 ```
 
 3. **Use different ports:**
-   Edit `docker-compose.observability.yml` and change port mappings:
+   Edit `infra/docker/docker-compose.observability.yml` and change port mappings:
 
 ```yaml
 ports:
@@ -55,7 +55,7 @@ Health check failed
 
 ```bash
 # Wait longer for services to initialize
-docker-compose -f docker-compose.observability.yml up -d
+docker-compose -f infra/docker/docker-compose.observability.yml up -d
 sleep 60
 ```
 
@@ -93,7 +93,7 @@ Ensure at least 4GB RAM is available.
 
 ```bash
 # Check Loki logs for errors
-docker-compose -f docker-compose.observability.yml logs loki
+docker-compose -f infra/docker/docker-compose.observability.yml logs loki
 
 # Verify Loki is receiving data
 curl http://localhost:3100/metrics | grep loki_ingester_
@@ -141,7 +141,7 @@ limits_config:
 Restart Loki:
 
 ```bash
-docker-compose -f docker-compose.observability.yml restart loki
+docker-compose -f infra/docker/docker-compose.observability.yml restart loki
 ```
 
 ---
@@ -181,7 +181,7 @@ await tempoClient.waitForTrace(traceId, 20000);
 
 ```bash
 # Check Tempo logs for parsing errors
-docker-compose -f docker-compose.observability.yml logs tempo | grep error
+docker-compose -f infra/docker/docker-compose.observability.yml logs tempo | grep error
 ```
 
 4. **Force flush:**
@@ -321,7 +321,7 @@ CORS error when accessing Grafana
 ```
 
 **Solution:**
-Add allowed origins in `docker-compose.observability.yml`:
+Add allowed origins in `infra/docker/docker-compose.observability.yml`:
 
 ```yaml
 environment:
@@ -419,7 +419,7 @@ compactor:
 
 ```bash
 docker system prune -a
-docker-compose -f docker-compose.observability.yml restart
+docker-compose -f infra/docker/docker-compose.observability.yml restart
 ```
 
 ---
@@ -472,7 +472,7 @@ If you're still stuck:
 
 ```bash
 # Service versions
-docker-compose -f docker-compose.observability.yml ps
+docker-compose -f infra/docker/docker-compose.observability.yml ps
 
 # Resource usage
 docker stats --no-stream

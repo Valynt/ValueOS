@@ -31,4 +31,23 @@ describe('sanitizeHtml', () => {
     const cleaned = sanitizeHtml(dirty);
     expect(cleaned).toContain('rel="noopener noreferrer"');
   });
+
+  it('allows img tags with safe attributes', () => {
+    const dirty =
+      '<img src="x" alt="test" width="10" height="10" title="image" class="img-fluid" onerror="alert(1)">';
+    const cleaned = sanitizeHtml(dirty);
+    expect(cleaned).toBe(
+      '<img src="x" alt="test" width="10" height="10" title="image" class="img-fluid">'
+    );
+  });
+
+  it('allows block elements like div and table', () => {
+    const dirty =
+      '<div><p>Text</p></div><table><tr><td>Cell</td></tr></table>';
+    const cleaned = sanitizeHtml(dirty);
+    // DOMPurify may normalize HTML (e.g., adding tbody)
+    expect(cleaned).toContain('<div><p>Text</p></div>');
+    expect(cleaned).toContain('<table>');
+    expect(cleaned).toContain('<td>Cell</td>');
+  });
 });

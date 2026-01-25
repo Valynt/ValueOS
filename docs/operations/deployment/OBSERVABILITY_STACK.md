@@ -516,7 +516,7 @@ datasources:
 
 ### Docker Compose (Local)
 
-**`docker-compose.observability.yml`**:
+**`infra/docker/docker-compose.observability.yml`**:
 ```yaml
 version: '3.8'
 
@@ -615,7 +615,7 @@ volumes:
 
 ```bash
 # Start observability stack
-docker-compose -f docker-compose.observability.yml up -d
+docker-compose -f infra/docker/docker-compose.observability.yml up -d
 
 # Access dashboards
 open http://localhost:3001  # Grafana (admin/admin)

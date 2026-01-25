@@ -11,7 +11,7 @@
 
 - `npm run dx` - Runs doctor.js check then dev.js (starts deps + backend + frontend)
 - `npm run dx:doctor` - Doctor check script
-- `npm run dx:docker` - Full Docker mode (uses docker-compose.dev.yml)
+- `npm run dx:docker` - Full Docker mode (uses infra/docker/docker-compose.dev.yml)
 - `npm run dx:down` - Stops Docker services, removes lock/state files
 - `npm run dx:reset` - Stops Docker services with volume removal
 - `npm run dx:clean` - Full cleanup (stops services, removes env files)
@@ -109,7 +109,7 @@ Supabase is **not** managed as a Docker service in the compose files. Instead:
 
 ### Docker Compose Services
 
-- `docker-compose.dev.yml` - Full stack including backend/frontend containers
+- `infra/docker/docker-compose.dev.yml` - Full stack including backend/frontend containers
 - `docker-compose.deps.yml` - Only postgres/redis for local development
 - Both use `deploy/envs/.env.ports` for environment variables
 

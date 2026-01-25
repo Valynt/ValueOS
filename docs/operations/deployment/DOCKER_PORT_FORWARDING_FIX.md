@@ -19,7 +19,7 @@ You have:
 
 ## ✅ Solution 1: Fix Port Mapping (Recommended)
 
-### Update docker-compose.dev.yml
+### Update infra/docker/docker-compose.dev.yml
 
 The current configuration has the app on port 5173, but your vite.config.ts is set to port 3000. Let's align them:
 

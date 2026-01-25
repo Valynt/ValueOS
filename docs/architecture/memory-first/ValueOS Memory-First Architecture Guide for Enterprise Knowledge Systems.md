@@ -66,7 +66,7 @@ A standardized layout for the ValueOS implementation ensures modularity and clea
 ```text
 /
 ├── supabase/
-│   └── migrations/             # SQL schema, RLS policies, and HNSW indexes
+│   └── migrations/         # SQL schema, RLS policies, and HNSW indexes
 ├── src/
 │   ├── services/
 │   │   ├── MemoryPipeline.ts   # Write Plane: Ingestion & Extraction

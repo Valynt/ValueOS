@@ -508,6 +508,26 @@ interface InteractionRouterReturn {
 - **Privacy by Design**: Enhanced data protection
 - **Compliance Automation**: Regulatory requirement management
 
+## Architecture & Scalability Assessment
+
+**Score:** 3 (Established)
+
+### Strengths
+
+- Row-level security is used to enforce tenant isolation, with audit evidence noting RLS enabled for all tables.
+- CI/CD supports containerized deployments with digest-based promotion to EKS, indicating scalable deploy patterns.
+- DR/backup runbook defines PITR and multi-environment RPO/RTO targets, supporting resilience planning.
+
+### Gaps
+
+- No explicit documentation of horizontal scaling policies, autoscaling thresholds, or multi-region failover.
+- API versioning and backward compatibility practices are not described in the reviewed sources.
+
+### Recommendations (to move to 4)
+
+- Document and automate scaling policies (HPA, queue backpressure thresholds, autoscale triggers).
+- Define API versioning and deprecation policies with backward compatibility guarantees.
+
 ---
 
 **Document Status**: ✅ **Production Ready**

@@ -186,5 +186,5 @@ SELECT ...
 
 ## Migration Reference
 
-The index changes are codified in:
-- `scripts/migrations/002_indexing_strategy.sql`
+The index changes are codified in the Supabase migrations under:
+- `supabase/migrations/` (indexing strategy migration)

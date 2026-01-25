@@ -31,7 +31,7 @@ tests.push({
     const fs = require('fs');
     const required = [
       'package.json',
-      'src/agents/CoordinatorAgent.ts',
+      'apps/ValyntApp/src/lib/agent-fabric/agents/CoordinatorAgent.ts',
       'src/services/MessageBus.ts',
       'src/services/UIGenerationTracker.ts',
       'src/services/UIRefinementLoop.ts',

@@ -32,7 +32,7 @@ function AuthInternalProvider({ children }: { children: ReactNode }) {
   } = useAuth0();
 
   const signIn = async (email?: string, password?: string) => {
-    if (email === "dev@valynt.com" && password === "bypass") {
+    if (import.meta.env.DEV && email === "dev@valynt.com" && password === "bypass") {
       // Bypass Auth0 for development
       setBypassUser({
         id: "dev-user-id",

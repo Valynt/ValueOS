@@ -24,6 +24,11 @@ const SettingsSchema = z.object({
   ALERT_WEBHOOK_URL: z.string().url().optional(),
   ALERT_EMAIL_RECIPIENT: z.string().email().optional(),
   DATABASE_URL: z.string().url().optional(),
+  DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(50).optional(),
+  DATABASE_POOL_IDLE_TIMEOUT_MS: z.coerce.number().int().min(1000).optional(),
+  DATABASE_POOL_CONNECTION_TIMEOUT_MS: z.coerce.number().int().min(1000).optional(),
+  DATABASE_POOL_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(1000).optional(),
+  DATABASE_POOL_QUERY_TIMEOUT_MS: z.coerce.number().int().min(1000).optional(),
 
   // Shared variables
   // Add any env vars that might be used in both frontend and backend here.
@@ -101,6 +106,11 @@ const resolvedEnv = {
   ALERT_WEBHOOK_URL: readEnv("ALERT_WEBHOOK_URL"),
   ALERT_EMAIL_RECIPIENT: readEnv("ALERT_EMAIL_RECIPIENT"),
   DATABASE_URL: readEnv("DATABASE_URL"),
+  DATABASE_POOL_MAX: readEnv("DATABASE_POOL_MAX"),
+  DATABASE_POOL_IDLE_TIMEOUT_MS: readEnv("DATABASE_POOL_IDLE_TIMEOUT_MS"),
+  DATABASE_POOL_CONNECTION_TIMEOUT_MS: readEnv("DATABASE_POOL_CONNECTION_TIMEOUT_MS"),
+  DATABASE_POOL_STATEMENT_TIMEOUT_MS: readEnv("DATABASE_POOL_STATEMENT_TIMEOUT_MS"),
+  DATABASE_POOL_QUERY_TIMEOUT_MS: readEnv("DATABASE_POOL_QUERY_TIMEOUT_MS"),
 };
 
 let parsedSettings;
@@ -124,6 +134,11 @@ const defaultCorsOrigins = [
 ];
 
 const DEFAULT_API_PORT = 3001;
+const DEFAULT_DB_POOL_MAX = 10;
+const DEFAULT_DB_POOL_IDLE_TIMEOUT_MS = 30_000;
+const DEFAULT_DB_POOL_CONNECTION_TIMEOUT_MS = 5_000;
+const DEFAULT_DB_POOL_STATEMENT_TIMEOUT_MS = 30_000;
+const DEFAULT_DB_POOL_QUERY_TIMEOUT_MS = 30_000;
 
 const parseCorsOrigins = (value?: string) =>
   (value ? value.split(",") : defaultCorsOrigins)
@@ -133,6 +148,17 @@ const parseCorsOrigins = (value?: string) =>
 export const settings = {
   ...parsedSettings,
   API_PORT: Number(parsedSettings.API_PORT) || DEFAULT_API_PORT,
+  databasePool: {
+    max: parsedSettings.DATABASE_POOL_MAX ?? DEFAULT_DB_POOL_MAX,
+    idleTimeoutMs:
+      parsedSettings.DATABASE_POOL_IDLE_TIMEOUT_MS ?? DEFAULT_DB_POOL_IDLE_TIMEOUT_MS,
+    connectionTimeoutMs:
+      parsedSettings.DATABASE_POOL_CONNECTION_TIMEOUT_MS ?? DEFAULT_DB_POOL_CONNECTION_TIMEOUT_MS,
+    statementTimeoutMs:
+      parsedSettings.DATABASE_POOL_STATEMENT_TIMEOUT_MS ?? DEFAULT_DB_POOL_STATEMENT_TIMEOUT_MS,
+    queryTimeoutMs:
+      parsedSettings.DATABASE_POOL_QUERY_TIMEOUT_MS ?? DEFAULT_DB_POOL_QUERY_TIMEOUT_MS,
+  },
   security: {
     corsOrigins: parseCorsOrigins(parsedSettings.CORS_ALLOWED_ORIGINS),
   },

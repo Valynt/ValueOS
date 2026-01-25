@@ -37,6 +37,7 @@ import adminRouter from "./api/admin";
 import referralsRouter from "./api/referrals";
 import projectsRouter from "./api/projects";
 import analyticsRouter from "./api/analytics";
+import initiativesRouter from "./api/initiatives";
 import docsApiRouter from "./docs-api";
 import {
   initializeSecretVolumeWatcher,
@@ -293,6 +294,13 @@ app.get("/health/secrets", secretHealthMiddleware());
 // Mount routes
 apiRouter.use("/billing", billingRouter);
 apiRouter.use("/projects", projectsRouter);
+apiRouter.use(
+  "/initiatives",
+  requireAuth,
+  tenantContextMiddleware(),
+  tenantDbContextMiddleware(),
+  initiativesRouter
+);
 app.use("/api", apiRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);

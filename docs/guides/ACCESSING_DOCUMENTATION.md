@@ -203,29 +203,25 @@ App.tsx
 
 ---
 
-## 6. User Experience
+## 6. User Experience & Accessibility
 
-### Desktop View
+**Score: 3 (Established)**
 
-- Full-width documentation portal
-- Sticky header with search
-- Responsive grid layout for categories
-- Clean, readable article pages
+### Strengths
 
-### Mobile View
+- Accessibility standards are documented (linting guardrails, WCAG AA expectations, testing steps).
+- CI includes dedicated accessibility testing (Playwright + `npm run test:a11y`).
+- Design lint workflow enforces UI consistency via linting, style checks, and inline style detection.
 
-- Hamburger menu for categories
-- Touch-optimized search
-- Scrollable content
-- Optimized for reading
+### Gaps
 
-### Accessibility
+- Localization/i18n strategy is not described in the reviewed sources.
+- No explicit onboarding or UX measurement program (e.g., funnels, task success rate) is documented.
 
-- ✅ Screen reader compatible
-- ✅ Keyboard navigation
-- ✅ ARIA labels
-- ✅ High contrast ratios
-- ✅ Focus indicators
+### Recommendations (to move to 4)
+
+- Add localization and language support strategy with testing for RTL and regional formats.
+- Establish UX quality metrics (activation, task success, drop-off) and include them in release criteria.
 
 ---
 

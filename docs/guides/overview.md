@@ -235,10 +235,10 @@ npm run test:docker
 npm run test:docker:integration
 
 # Manual Docker setup
-docker-compose -f docker-compose.test.yml up -d
-docker-compose -f docker-compose.test.yml logs -f test-ready
+docker-compose -f infra/docker/docker-compose.test.yml up -d
+docker-compose -f infra/docker/docker-compose.test.yml logs -f test-ready
 TEST_MODE=integration npm run test:integration
-docker-compose -f docker-compose.test.yml down
+docker-compose -f infra/docker/docker-compose.test.yml down
 ```
 
 ### Environment Requirements
@@ -385,31 +385,31 @@ src/
 
 ```bash
 cd /workspaces/ValueOS/infra
-docker-compose -f docker-compose.observability.yml up -d
+docker-compose -f infra/docker/docker-compose.observability.yml up -d
 ```
 
 **Access URLs:**
 
-- **Jaeger UI**: http://localhost:16686
-- **Grafana**: http://localhost:3001 (admin/admin)
+- **Grafana**: http://localhost:3000
+- **Tempo**: http://localhost:3200
 - **Prometheus**: http://localhost:9090
 
-#### Start Only Jaeger (Minimal)
+#### Start Only Tempo (Minimal)
 
 ```bash
 cd /workspaces/ValueOS/infra
-docker-compose -f docker-compose.observability.yml up -d jaeger
+docker-compose -f infra/docker/docker-compose.observability.yml up -d tempo
 ```
 
 ### Service Overview
 
-#### Jaeger (Port 16686)
+#### Tempo (Port 3200)
 
-- **Purpose**: Distributed tracing UI
+- **Purpose**: Distributed tracing backend
 - **Shows**: Request flows, latency, errors
 - **Use for**: Debugging performance issues, understanding service dependencies
 
-#### Grafana (Port 3001)
+#### Grafana (Port 3000)
 
 - **Purpose**: Visualization dashboards
 - **Shows**: Metrics, logs, traces in one place
@@ -430,25 +430,25 @@ docker-compose -f docker-compose.observability.yml up -d jaeger
 docker network create valuecanvas-network
 
 # Start observability stack
-docker-compose -f docker-compose.observability.yml up -d
+docker-compose -f infra/docker/docker-compose.observability.yml up -d
 ```
 
 #### Port Conflicts
 
 ```bash
 # Check port usage
-lsof -i :16686  # Jaeger UI
-lsof -i :3001   # Grafana
+lsof -i :3000   # Grafana
+lsof -i :3200   # Tempo
 lsof -i :9090   # Prometheus
 
-# Modify ports in docker-compose.observability.yml if needed
+# Modify ports in infra/docker/docker-compose.observability.yml if needed
 ```
 
 #### Missing Traces
 
 ```bash
-# Verify Jaeger is running
-docker ps | grep jaeger
+# Verify Tempo is running
+docker ps | grep tempo
 
 # Check application configuration
 curl http://localhost:4318/v1/traces
@@ -456,27 +456,27 @@ curl http://localhost:4318/v1/traces
 # Generate test traffic
 curl http://localhost:5173/api/health
 
-# Check Jaeger logs
-docker logs valuecanvas-jaeger
+# Check Tempo logs
+docker logs valueos-tempo
 ```
 
 ### Quick Commands Reference
 
 ```bash
 # Start all services
-docker-compose -f infra/docker-compose.observability.yml up -d
+docker-compose -f infra/docker/docker-compose.observability.yml up -d
 
 # Stop all services
-docker-compose -f infra/docker-compose.observability.yml down
+docker-compose -f infra/docker/docker-compose.observability.yml down
 
 # View logs
-docker-compose -f infra/docker-compose.observability.yml logs -f
+docker-compose -f infra/docker/docker-compose.observability.yml logs -f
 
 # Restart specific service
-docker-compose -f infra/docker-compose.observability.yml restart jaeger
+docker-compose -f infra/docker/docker-compose.observability.yml restart tempo
 
 # Check status
-docker-compose -f infra/docker-compose.observability.yml ps
+docker-compose -f infra/docker/docker-compose.observability.yml ps
 ```
 
 ## Frequently Asked Questions
@@ -556,7 +556,7 @@ npm run test:integration # Integration tests (requires Docker)
 
 **How do I add a new agent?**
 
-1. Create agent file in `src/agents/`
+1. Create agent file in `apps/ValyntApp/src/lib/agent-fabric/agents/`
 2. Extend `BaseAgent` class
 3. Implement required methods
 4. Register in `AgentRegistry`

@@ -44,7 +44,7 @@ The following assets have been integrated into the repository and are now under 
 ### Infrastructure & Configuration
 *   `flake.nix` & `flake.lock`: The source of truth for all system dependencies.
 *   `.devcontainer/devcontainer.json`: The orchestration layer for VS Code/Cursor integration.
-*   `docker-compose.dev.yml`: Definitions for the Multi-Agent support services (Redis, Jaeger, Postgres).
+*   `infra/docker/docker-compose.dev.yml`: Definitions for the Multi-Agent support services (Redis, Jaeger, Postgres).
 
 ### Tooling & Scripts
 *   `scripts/self-healing/check-health.sh`: Validates the state of the local fabric.

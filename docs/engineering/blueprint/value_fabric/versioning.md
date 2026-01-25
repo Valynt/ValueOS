@@ -4,16 +4,16 @@ The Value Fabric persists critical data models that underpin all agents. To ensu
 
 ## Migration Framework
 
-We recommend using **Flyway** (for Java-based environments) or **Alembic** (for Python) to manage PostgreSQL migrations. Each migration is stored in the `migrations/` directory and is named using the `V<version>__<description>.sql` convention.
+We recommend using **Flyway** (for Java-based environments) or **Alembic** (for Python) to manage PostgreSQL migrations. Each migration is stored in `supabase/migrations/` and follows the repository convention of `YYYYMMDDHHMMSS_description.sql`.
 
-_Example:_ `V1__initial_setup.sql` initializes all tables and constraints. Future revisions should follow incremental numbering (`V2`, `V3`, etc.), providing idempotent and reversible scripts where possible.
+_Example:_ `20260101000000_initial_setup.sql` initializes all tables and constraints. Future revisions should follow the timestamp-based naming convention, providing idempotent and reversible scripts where possible.
 
 ## Schema Versioning
 
 All schema files (JSON Schema, Cypher ontology, PostgreSQL schema) are kept under version control (Git). Each modification should include:
 
 1. **Change Description** – Document what changed and why in the pull request or commit message.
-2. **Migration Script** – Add a migration file to `migrations/` reflecting the change.
+2. **Migration Script** – Add a migration file to `supabase/migrations/` reflecting the change.
 3. **Backward Compatibility Assessment** – Determine whether existing data needs transformation. Provide data migration scripts where necessary.
 
 ## Data Flow

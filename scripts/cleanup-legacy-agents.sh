@@ -6,8 +6,9 @@
 
 set -e
 
-LEGACY_DIR="/workspaces/ValueCanvas/src/agents"
-BACKUP_DIR="/workspaces/ValueCanvas/backup/legacy-agents-$(date +%Y%m%d-%H%M%S)"
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+LEGACY_DIR="$REPO_ROOT/src/agents"
+BACKUP_DIR="$REPO_ROOT/backup/legacy-agents-$(date +%Y%m%d-%H%M%S)"
 
 echo "🔍 Verifying legacy directory exists..."
 if [ ! -d "$LEGACY_DIR" ]; then
@@ -20,12 +21,12 @@ ls -la "$LEGACY_DIR"
 
 echo ""
 echo "🔍 Double-checking for active imports (should be ZERO)..."
-IMPORT_COUNT=$(grep -r "from ['\"].*src/agents/" /workspaces/ValueCanvas/src --include="*.ts" --include="*.tsx" 2>/dev/null | wc -l || echo "0")
+IMPORT_COUNT=$(grep -r "from ['\"].*src/agents/" "$REPO_ROOT/src" --include="*.ts" --include="*.tsx" 2>/dev/null | wc -l || echo "0")
 
 if [ "$IMPORT_COUNT" -gt 0 ]; then
   echo "❌ ABORT: Found $IMPORT_COUNT active imports from src/agents/"
   echo "Manual review required before deletion!"
-  grep -r "from ['\"].*src/agents/" /workspaces/ValueCanvas/src --include="*.ts" --include="*.tsx" 2>/dev/null || true
+  grep -r "from ['\"].*src/agents/" "$REPO_ROOT/src" --include="*.ts" --include="*.tsx" 2>/dev/null || true
   exit 1
 fi
 

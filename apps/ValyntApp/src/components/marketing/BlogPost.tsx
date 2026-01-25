@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Calendar, Clock, Tag, ArrowLeft, Share2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { sanitizeHtml } from '../../utils/sanitizeHtml';
 import { SEO } from './SEO';
 
 interface BlogPostData {
@@ -253,7 +254,7 @@ export default function BlogPost() {
               <div
                 className="leading-relaxed"
                 style={{ color: '#E0E0E0' }}
-                dangerouslySetInnerHTML={{ __html: post.content }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.content) }}
               />
             </div>
 

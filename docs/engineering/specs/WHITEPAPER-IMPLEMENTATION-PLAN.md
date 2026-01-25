@@ -154,14 +154,14 @@ graph.addEdge({
 
 **Current Implementation**:
 
-- ✅ `src/lib/agent-fabric/agents/IntegrityAgent.ts` - Exists!
+- ✅ `apps/ValyntApp/src/lib/agent-fabric/agents/IntegrityAgent.ts` - Exists!
 - ✅ Hallucination detection in agent outputs
 - ⚠️ **GAP**: Not connected to benchmark validation
 
 **Required Enhancement**:
 
 ```typescript
-// src/lib/agent-fabric/agents/IntegrityAgent.ts
+// apps/ValyntApp/src/lib/agent-fabric/agents/IntegrityAgent.ts
 class IntegrityAgent extends BaseAgent {
   private benchmarkLibrary: GroundTruthLibrary;
 

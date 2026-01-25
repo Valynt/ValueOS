@@ -84,6 +84,28 @@ ValueCanvas has been audited for security best practices, data privacy complianc
 
 ---
 
+### Infrastructure & Cloud Security
+
+**Score:** 3 (Established)
+
+**Strengths**
+
+- CI pipeline includes SBOM generation, container builds, and vulnerability scanning before deployment.
+- Dedicated security scan workflow covers dependency audits, CodeQL, Trivy filesystem/image scans, Semgrep, secret scanning, and IaC checks (Checkov).
+- Secret handling guidance discourages committing secrets and recommends secret managers for production deployments.
+
+**Gaps**
+
+- No explicit documentation of network isolation, container hardening baselines, or secrets rotation within infrastructure docs in the reviewed sources.
+- Compliance audit calls out manual API key rotation, indicating incomplete operational hardening for credentials.
+
+**Recommendations (to move to 4)**
+
+- Add a documented cloud security baseline (network segmentation, container runtime hardening, CIS benchmarks) and operationalize verification.
+- Automate API key rotation and secret lifecycle management with an auditable schedule (e.g., 90-day rotation).
+
+---
+
 ## Privacy Compliance
 
 ### GDPR Compliance

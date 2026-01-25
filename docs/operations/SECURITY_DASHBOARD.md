@@ -117,6 +117,26 @@ safety check -r requirements.txt
 
 ---
 
+## 📦 Dependency Outdated Baseline (CI)
+
+### CI Report
+- **Job**: Dependency Outdated Report (runs in CI on PRs and main/develop pushes).
+- **Artifact**: `npm-outdated-report` (`reports/npm-outdated.json`).
+- **Command**: `npm run deps:outdated` (captures JSON output for parsing).
+
+### Ownership
+- **Primary owner**: Platform/DevOps (CI health + dependency hygiene).
+- **Secondary owner**: Security (risk triage + escalation).
+- **Escalation**: Engineering managers for critical or blocked upgrades.
+
+### Upgrade Cadence
+- **Weekly**: Review `npm-outdated-report` and create/update dependency tickets.
+- **Monthly**: Batch minor/patch upgrades for low/medium risk packages.
+- **Within 7 days**: High/critical security-impacting upgrades.
+- **Same day**: Emergency fixes for actively exploited vulnerabilities.
+
+---
+
 ## 📈 Security Metrics
 
 ### Current

@@ -6,7 +6,7 @@ This directory contains a production-ready observability stack based on the LGTM
 
 ```
 ValueOS/
-├── docker-compose.observability.yml    # Docker compose file for LGTM stack
+├── infra/docker/docker-compose.observability.yml    # Canonical LGTM compose entry point
 ├── Makefile.observability              # Convenience commands
 ├── observability/                      # Service configurations
 │   ├── grafana/
@@ -84,6 +84,8 @@ All services are configured for local development with:
 - **This README**: Overview and quick reference
 
 ## 🚀 Quick Start
+
+For the canonical inventory of infra entry points, see [`infra/README.md`](../../infra/README.md).
 
 1. **Install dependencies:**
 
