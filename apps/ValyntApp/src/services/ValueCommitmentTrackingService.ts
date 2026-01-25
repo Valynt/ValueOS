@@ -5,7 +5,6 @@
  * Provides comprehensive tracking and management of value commitments throughout their lifecycle.
  */
 
-import { z } from "zod";
 import {
   ValueCommitment,
   CommitmentStakeholder,
@@ -22,6 +21,7 @@ import {
   CommitmentAuditInsert,
   CommitmentRiskInsert,
 } from "../types/value-commitment-tracking.js";
+import { SupabaseClient } from "@supabase/supabase-js";
 import {
   ValueCommitmentSchema,
   CommitmentStakeholderSchema,
@@ -34,10 +34,13 @@ import { logger } from "../lib/logger";
 import { GroundTruthIntegrationService } from "./GroundTruthIntegrationService.js";
 
 export class ValueCommitmentTrackingService {
+  // @ts-ignore - Property is instantiated but not used yet
   private groundTruthService: GroundTruthIntegrationService;
+  private db: SupabaseClient;
 
-  constructor(groundTruthService: GroundTruthIntegrationService) {
+  constructor(groundTruthService: GroundTruthIntegrationService, db: SupabaseClient) {
     this.groundTruthService = groundTruthService;
+    this.db = db;
   }
 
   // =========================
@@ -65,35 +68,41 @@ export class ValueCommitmentTrackingService {
       // Validate the data
       const validatedData = ValueCommitmentSchema.parse(commitmentData);
 
-      // TODO: Insert into database
-      // const commitment = await this.db.insert('value_commitments').values(validatedData).returning();
+      // Insert into database
+      const { data: commitment, error } = await this.db
+        .from("value_commitments")
+        .insert(validatedData)
+        .select()
+        .single();
+
+      if (error) throw error;
 
       // Create audit entry
       await this.createAuditEntry(
         tenantId,
-        validatedData.id,
+        commitment.id,
         userId,
         "created",
         {},
-        validatedData,
+        commitment,
         "Initial commitment creation"
       );
 
       // Add creator as owner stakeholder
-      await this.addStakeholder(validatedData.id, tenantId, userId, {
+      await this.addStakeholder(commitment.id, tenantId, userId, {
         role: "owner",
         responsibility: "Commitment owner and primary responsible party",
         accountability_percentage: 100,
       });
 
       logger.info("Value commitment created", {
-        commitmentId: validatedData.id,
+        commitmentId: commitment.id,
         tenantId,
         userId,
-        title: validatedData.title,
+        title: commitment.title,
       });
 
-      return validatedData as ValueCommitment;
+      return commitment as ValueCommitment;
     } catch (error) {
       logger.error("Failed to create value commitment", { error, tenantId, userId });
       throw error;
@@ -130,10 +139,10 @@ export class ValueCommitmentTrackingService {
   async updateCommitmentStatus(
     commitmentId: string,
     tenantId: string,
-    userId: string,
+    _userId: string,
     status: ValueCommitment["status"],
     progressPercentage?: number,
-    reason?: string
+    _reason?: string
   ): Promise<ValueCommitment> {
     try {
       // TODO: Update in database
@@ -176,7 +185,10 @@ export class ValueCommitmentTrackingService {
     commitmentId: string,
     tenantId: string,
     userId: string,
-    stakeholderData: Omit<CommitmentStakeholderInsert, "commitment_id" | "tenant_id" | "user_id">
+    stakeholderData: Omit<
+      CommitmentStakeholderInsert,
+      "commitment_id" | "tenant_id" | "user_id" | "joined_at" | "last_active_at"
+    >
   ): Promise<CommitmentStakeholder> {
     try {
       const data = {
@@ -190,8 +202,14 @@ export class ValueCommitmentTrackingService {
 
       const validatedData = CommitmentStakeholderSchema.parse(data);
 
-      // TODO: Insert into database
-      // const stakeholder = await this.db.insert('commitment_stakeholders').values(validatedData).returning();
+      // Insert into database
+      const { data: stakeholder, error } = await this.db
+        .from("commitment_stakeholders")
+        .insert(validatedData)
+        .select()
+        .single();
+
+      if (error) throw error;
 
       // Create audit entry
       await this.createAuditEntry(
@@ -211,7 +229,7 @@ export class ValueCommitmentTrackingService {
         role: stakeholderData.role,
       });
 
-      return validatedData as CommitmentStakeholder;
+      return stakeholder as CommitmentStakeholder;
     } catch (error) {
       logger.error("Failed to add stakeholder", { error, commitmentId, tenantId, userId });
       throw error;
@@ -224,7 +242,7 @@ export class ValueCommitmentTrackingService {
   async updateStakeholder(
     stakeholderId: string,
     tenantId: string,
-    userId: string,
+    _userId: string,
     updates: Partial<
       Pick<
         CommitmentStakeholder,
@@ -313,7 +331,7 @@ export class ValueCommitmentTrackingService {
     userId: string,
     progressPercentage: number,
     status?: CommitmentMilestone["status"],
-    actualDate?: string
+    _actualDate?: string
   ): Promise<CommitmentMilestone> {
     try {
       // TODO: Update in database and trigger progress recalculation
@@ -413,7 +431,7 @@ export class ValueCommitmentTrackingService {
     tenantId: string,
     userId: string,
     currentValue: number,
-    lastMeasuredAt?: string
+    _lastMeasuredAt?: string
   ): Promise<CommitmentMetric> {
     try {
       // TODO: Update in database
@@ -679,12 +697,17 @@ export class ValueCommitmentTrackingService {
         change_reason: reason,
       };
 
-      const validatedAudit = CommitmentAuditSchema.parse(auditData);
+      // Validate audit data
+      CommitmentAuditSchema.parse(auditData);
 
-      // TODO: Insert audit entry
-      // await this.db.insert('commitment_audits').values(validatedAudit);
+      // Insert audit entry
+      const { error } = await this.db.from("commitment_audits").insert(auditData);
 
-      logger.debug("Audit entry created", { commitmentId, tenantId, action });
+      if (error) {
+        logger.error("Failed to insert audit entry", { error, commitmentId, tenantId });
+      } else {
+        logger.debug("Audit entry created", { commitmentId, tenantId, action });
+      }
     } catch (error) {
       logger.error("Failed to create audit entry", { error, commitmentId, tenantId });
       // Don't throw - audit failures shouldn't break business logic
