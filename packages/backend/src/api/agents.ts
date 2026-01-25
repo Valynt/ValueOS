@@ -11,6 +11,9 @@ import { createBaseEvent, EVENT_TOPICS, AgentRequestEvent } from "@shared/types/
 import { AgentType } from "../services/agent-types";
 import { v4 as uuidv4 } from "uuid";
 import { getServiceConfigManager, getAgentAPIConfig } from "./config/ServiceConfigManager";
+import { z } from "zod";
+import { agentCache } from "../services/CacheService";
+import { getMetricsCollector } from "../services/MetricsCollector";
 
 const router = Router();
 router.use(securityHeadersMiddleware);
@@ -57,15 +60,30 @@ router.get("/:agentId/info", rateLimiters.loose, (req: Request, res: Response) =
 router.post(
   "/:agentId/invoke",
   rateLimiters.agentExecution,
-  validateRequest({
-    query: { type: "string" as const, required: true, maxLength: 2000 },
-    context: { type: "string" as const, maxLength: 1000 },
-    parameters: { type: "object" as const },
-    sessionId: { type: "string" as const, maxLength: 100 },
-  }),
+  // Basic validation middleware removed in favor of Zod inside handler
   async (req: Request, res: Response) => {
     const { agentId } = req.params;
-    const { query, context, parameters, sessionId } = req.body;
+
+    // Zod Validation Schema
+    const invokeSchema = z.object({
+      query: z.string().max(2000),
+      context: z.any().optional(), // Flexible context
+      parameters: z.record(z.unknown()).optional(),
+      sessionId: z.string().max(100).optional(),
+    });
+
+    // Validate request body
+    const validationResult = invokeSchema.safeParse(req.body);
+
+    if (!validationResult.success) {
+      return res.status(400).json({
+        error: "Invalid request",
+        message: "Request validation failed",
+        details: validationResult.error.errors,
+      });
+    }
+
+    const { query, context, parameters, sessionId } = validationResult.data;
 
     // Add tenant context validation
     const tenantId = (req as any).tenantId;
@@ -76,11 +94,31 @@ router.post(
       });
     }
 
-    if (!query || typeof query !== "string") {
-      return res.status(400).json({
-        error: "Invalid request",
-        message: "Query parameter is required and must be a string",
-      });
+    // Check Cache
+    try {
+      const startTime = Date.now();
+      const cachedResponse = await agentCache.get(query, { ...context, agentId, tenantId });
+      if (cachedResponse) {
+        // Record Cache Hit Metric
+        try {
+          const metrics = getMetricsCollector();
+          metrics.recordAgentInvocation(agentId, true, Date.now() - startTime);
+          metrics.recordLLMCall("cache", agentId, 0, 0, true);
+        } catch (mErr) { /* ignore */ }
+
+        return res.json({
+          success: true,
+          data: {
+            jobId: "cached-result",
+            status: "completed",
+            result: cachedResponse,
+            message: "Result retrieved from cache",
+            cached: true,
+          },
+        });
+      }
+    } catch (cacheError) {
+      logger.warn("Cache check failed", cacheError instanceof Error ? cacheError : undefined);
     }
 
     try {
@@ -172,12 +210,31 @@ router.get("/jobs/:jobId", rateLimiters.loose, async (req: Request, res: Respons
 
     if (responseEvent) {
       // Job completed
+      const result = responseEvent.payload.response;
+
+      // Populate Cache if successful
+      if (result && !responseEvent.payload.error) {
+        const requestEvent = events.find((e: any) => e.eventType === "agent.request");
+        if (requestEvent?.payload) {
+          const { query, context, agentId, tenantId } = requestEvent.payload;
+          try {
+            await agentCache.set(
+              query,
+              { ...context, agentId, tenantId },
+              result
+            );
+          } catch (cacheError) {
+            logger.warn("Failed to cache agent response", cacheError instanceof Error ? cacheError : undefined);
+          }
+        }
+      }
+
       res.json({
         success: true,
         data: {
           jobId,
           status: "completed",
-          result: responseEvent.payload.response,
+          result: result,
           error: responseEvent.payload.error,
           latency: responseEvent.payload.latency,
           completedAt: responseEvent.timestamp,
@@ -209,6 +266,102 @@ router.get("/jobs/:jobId", rateLimiters.loose, async (req: Request, res: Respons
       message: error instanceof Error ? error.message : "Unknown error",
     });
   }
+});
+
+/**
+ * Stream agent job status (SSE)
+ */
+router.get("/jobs/:jobId/stream", rateLimiters.loose, async (req: Request, res: Response) => {
+  const { jobId } = req.params;
+
+  // Set SSE headers
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  if (res.flushHeaders) res.flushHeaders();
+
+  const sendEvent = (data: any) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  const eventSourcing = getEventSourcingService();
+  let isActive = true;
+
+  req.on("close", () => {
+    isActive = false;
+  });
+
+  const pollInterval = 1000;
+  const timeout = 120000; // 2 minutes timeout
+  const startTime = Date.now();
+
+  const checkStatus = async () => {
+    if (!isActive) return;
+
+    if (Date.now() - startTime > timeout) {
+      sendEvent({ status: "error", error: "Timeout waiting for job completion" });
+      res.end();
+      return;
+    }
+
+    try {
+      const auditTrail = await eventSourcing.getAuditTrail(jobId);
+
+      if (auditTrail) {
+        const events = auditTrail.data?.events || [];
+        const responseEvent = events.find((e: any) => e.eventType === "agent.response");
+
+        if (responseEvent) {
+          const result = responseEvent.payload.response;
+          const error = responseEvent.payload.error;
+
+          // Populate Cache if successful
+          if (result && !error) {
+            const requestEvent = events.find((e: any) => e.eventType === "agent.request");
+            if (requestEvent?.payload) {
+              const { query, context, agentId, tenantId } = requestEvent.payload;
+              try {
+                await agentCache.set(
+                  query,
+                  { ...context, agentId, tenantId },
+                  result
+                );
+              } catch (cacheError) {
+                logger.warn("Failed to cache agent response in SSE", cacheError instanceof Error ? cacheError : undefined);
+              }
+            }
+          }
+
+          sendEvent({
+            status: "completed",
+            result,
+            error,
+            latency: responseEvent.payload.latency,
+            completedAt: responseEvent.timestamp,
+          });
+          res.end();
+          return;
+        } else {
+          // Send processing update
+          const requestEvent = events.find((e: any) => e.eventType === "agent.request");
+          sendEvent({
+            status: "processing",
+            agentId: requestEvent?.payload?.agentId,
+            queuedAt: requestEvent?.timestamp,
+          });
+        }
+      }
+
+      setTimeout(checkStatus, pollInterval);
+    } catch (error) {
+      logger.error("SSE Polling error", error instanceof Error ? error : undefined);
+      sendEvent({ status: "error", message: "Internal polling error" });
+      res.end();
+    }
+  };
+
+  // Start polling
+  checkStatus();
 });
 
 export default router;
