@@ -66,12 +66,13 @@ SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 # Install Node.js using official NodeSource repository
 # Retry logic for network resilience
-RUN for i in 1 2 3; do \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    for i in 1 2 3; do \
         curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - && break || \
         { echo "Retry $i/3 failed"; sleep 5; }; \
     done \
     && apt-get install -y nodejs \
-    && rm -rf /var/lib/apt/lists/* \
     # Verify Node.js installed correctly
     && node --version && npm --version
 
@@ -86,31 +87,16 @@ FROM nodejs AS devtools
 
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
-# Install Kubernetes tools with retry
-RUN for i in 1 2 3; do \
-        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && break || \
-        { echo "Retry $i/3 failed"; sleep 5; }; \
-    done \
-    && install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl \
-    && rm kubectl \
-    && kubectl version --client || true
-
-# Install Helm with retry
-RUN for i in 1 2 3; do \
-        curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash && break || \
-        { echo "Retry $i/3 failed"; sleep 5; }; \
-    done \
-    && helm version || true
-
 # Install Terraform with retry
-RUN for i in 1 2 3; do \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    for i in 1 2 3; do \
         wget -qO- https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg && break || \
         { echo "Retry $i/3 failed"; sleep 5; }; \
     done \
     && echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list \
     && apt-get update \
     && apt-get install -y terraform \
-    && rm -rf /var/lib/apt/lists/* \
     && terraform version || true
 
 # Stage 5: Security tools (moved to post-create optional installer)
@@ -135,13 +121,14 @@ ARG SUPABASE_VERSION=1.200.0
 ARG PRISMA_VERSION=5.25.0
 
 # Install Database tools (Supabase, Prisma, pgcli)
-RUN if [ "$INSTALL_DBTOOLS" = "1" ]; then \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    if [ "$INSTALL_DBTOOLS" = "1" ]; then \
         set -eux; \
         \
         # Ensure required installers exist
         apt-get update; \
         apt-get install -y --no-install-recommends curl ca-certificates; \
-        rm -rf /var/lib/apt/lists/*; \
         \
         # Install Supabase CLI (pinned, from GitHub releases)
         arch="$(uname -m)"; \
