@@ -95,9 +95,6 @@ function ensureNodeVersion() {
 
 function ensurePnpm() {
   run("corepack enable", { stdio: ci ? "ignore" : "inherit" });
-  run(`corepack prepare pnpm@${pnpmVersion} --activate`, {
-    stdio: ci ? "ignore" : "inherit",
-  });
 
   const actual = runCapture("pnpm -v");
   if (actual !== pnpmVersion) {

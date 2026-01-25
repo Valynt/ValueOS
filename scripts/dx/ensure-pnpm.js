@@ -8,7 +8,7 @@ const isPnpm = userAgent.includes("pnpm") || execPath.includes("pnpm");
 
 if (!isPnpm) {
   console.error("❌ This repo uses pnpm only.");
-  console.error("   Use: corepack enable && corepack prepare pnpm@9.15.0 --activate");
+  console.error("   Use: corepack enable");
   console.error("   Then: pnpm install");
   process.exit(1);
 }

@@ -4,7 +4,6 @@
 # Optimized for React 18.3 + Vite 6.x + pnpm monorepo
 
 ARG NODE_VERSION=20.19.0
-ARG PNPM_VERSION=9.15.0
 
 # Stage 1: Dependencies
 FROM node:${NODE_VERSION}-bookworm-slim AS deps
@@ -17,8 +16,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
   && rm -rf /var/lib/apt/lists/*
 
-# Install pnpm globally
-RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+# Enable corepack
+RUN corepack enable
 
 WORKDIR /app
 
@@ -43,15 +42,14 @@ CMD ["pnpm", "run", "dev", "--host", "0.0.0.0"]
 FROM node:${NODE_VERSION}-bookworm-slim AS builder
 
 # Redeclare build arguments for this stage
-ARG PNPM_VERSION=9.15.0
 ARG VITE_SUPABASE_URL=http://localhost:54321
 ARG VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
 ARG VITE_API_BASE_URL=/api
 ARG VITE_APP_URL=http://localhost:5173
 ARG NODE_ENV=production
 
-# Install pnpm globally
-RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+# Enable corepack
+RUN corepack enable
 
 WORKDIR /app
 
