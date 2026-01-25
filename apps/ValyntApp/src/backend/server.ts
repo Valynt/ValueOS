@@ -21,7 +21,7 @@ import {
   initializeSecretVolumeWatcher,
   secretVolumeWatcher,
 } from "../config/secrets/SecretVolumeWatcher";
-import { createLogger } from "../lib/logger";
+import { Logger } from "../utils/logger";
 import { createVersionedApiRouter } from "./versioning";
 import { initializeContext } from "../lib/context";
 import { tracingMiddleware } from "../config/telemetry";
@@ -39,8 +39,9 @@ import { tenantContextMiddleware } from "../middleware/tenantContext";
 import { settings } from "../config/settings";
 import { isConsentRegistryConfigured } from "../services/consentRegistry";
 import { TenantContextResolver } from "../services/TenantContextResolver";
+import { errorHandler } from "../middleware/errorHandler";
 
-const logger = createLogger({ component: "BillingServer" });
+const logger = new Logger({ component: "BillingServer" });
 const INTERNAL_ERROR_STATUS = 500;
 const WS_POLICY_VIOLATION_CODE = 1008;
 
@@ -271,24 +272,7 @@ app.use("/api/documents", requireAuth, tenantContextMiddleware(), documentRouter
 app.use("/api/docs", docsApiRouter);
 
 // Error handler
-app.use(
-  (
-    err: unknown,
-    _req: express.Request,
-    res: express.Response,
-    _next: express.NextFunction
-  ): void => {
-    logger.error("Server error", err instanceof Error ? err : new Error(String(err)), {
-      requestId: res.locals.requestId,
-    });
-    const message =
-      settings.NODE_ENV === "development" && err instanceof Error ? err.message : undefined;
-    res.status(INTERNAL_ERROR_STATUS).json({
-      error: "Internal server error",
-      message,
-    });
-  }
-);
+app.use(errorHandler);
 
 async function startServer(): Promise<void> {
   if (settings.NODE_ENV === "production" && !isConsentRegistryConfigured()) {

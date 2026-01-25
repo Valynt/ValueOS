@@ -5,9 +5,9 @@
  */
 
 import { NextFunction, Request, Response } from 'express';
-import { createLogger } from '../lib/logger';
+import { Logger } from '../utils/logger';
 
-const logger = createLogger({ component: 'CostTracker' });
+const logger = new Logger({ component: 'CostTracker' });
 
 /**
  * Token pricing per 1M tokens (as of Dec 2024)

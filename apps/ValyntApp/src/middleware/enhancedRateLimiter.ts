@@ -10,7 +10,7 @@
  */
 
 import { NextFunction, Request, Response } from 'express';
-import { logger } from '../lib/logger';
+import { logger } from '../utils/logger';
 import { MLAnomalyDetectionService } from '../services/MLAnomalyDetectionService';
 import { DistributedAttackDetectionService } from '../services/DistributedAttackDetectionService';
 import { RateLimitEscalationService } from '../services/RateLimitEscalationService';
