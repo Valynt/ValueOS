@@ -9,8 +9,8 @@
 ### Fixed Credentials
 
 ```
-Email:    demo@valueos.dev
-Password: Demo123!@#
+Email:    demouser@valynt.com
+Password: passord
 UUID:     00000000-0000-0000-0000-000000000001 (deterministic)
 ```
 
@@ -166,8 +166,8 @@ Content-Type: application/json
 
 ```json
 {
-  "email": "demo@valueos.dev",
-  "password": "Demo123!@#"
+  "email": "demouser@valynt.com",
+  "password": "passord"
 }
 ```
 
@@ -292,7 +292,7 @@ Run these to verify invariants hold:
 ```bash
 # 1. Check demo user exists
 docker exec valueos-postgres psql -U postgres -d postgres -c \
-  "SELECT email, id FROM auth.users WHERE email='demo@valueos.dev'"
+  "SELECT email, id FROM auth.users WHERE email='demouser@valynt.com'"
 
 # 2. Verify port configuration
 grep -E "port.*:" config/ports.json
@@ -307,7 +307,7 @@ npx supabase migration list
 curl -X POST http://127.0.0.1:54321/auth/v1/token?grant_type=password \
   -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
   -H "Content-Type: application/json" \
-  -d '{"email":"demo@valueos.dev","password":"Demo123!@#"}' | jq .access_token
+  -d '{"email":"demouser@valynt.com","password":"passord"}' | jq .access_token
 
 # 6. Verify health
 curl http://127.0.0.1:3001/health
