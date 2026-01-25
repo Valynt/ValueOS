@@ -8,12 +8,19 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { llmFallback, LLMFallbackService } from "../../LLMFallback";
+import { llmFallback, LLMFallbackService } from "../LLMFallback";
 
 // Mock dependencies
-vi.mock("../../../utils/logger");
-vi.mock("../../../lib/env");
-vi.mock("../../LLMCache");
+vi.mock("../../utils/logger");
+vi.mock("@shared/lib/env", () => ({
+  getEnvVar: vi.fn(),
+  getLLMCostTrackerConfig: vi.fn(() => ({
+    supabaseUrl: 'http://localhost',
+    supabaseServiceRoleKey: 'key',
+    tableName: 'llm_costs'
+  }))
+}));
+vi.mock("../LLMCache");
 vi.mock("../../LLMCostTracker");
 
 describe("LLMFallback Service - Together AI Only", () => {
