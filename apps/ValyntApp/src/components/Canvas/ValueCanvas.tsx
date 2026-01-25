@@ -5,7 +5,11 @@
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
  *
+=======
+ * 
+>>>>>>> Stashed changes
 =======
  * 
 >>>>>>> Stashed changes
@@ -33,6 +37,7 @@
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 import React, { useState, useEffect, useCallback } from "react";
 import { useDrop, useDrag } from "react-dnd";
 import { DndProvider } from "react-dnd";
@@ -47,6 +52,8 @@ import { useOrganization } from "@/hooks/useOrganization";
 import { ValueDriver, CanvasComponent, MOCK_VALUE_DRIVERS } from "@/types/valueDriver";
 import { logger } from "@/lib/logger";
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 =======
@@ -71,6 +78,9 @@ import { logger } from '@/lib/logger';
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
@@ -108,7 +118,11 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         logger.error("Failed to load session", { sessionId, organizationId, error });
+=======
+        logger.error('Failed to load session', { sessionId, organizationId, error });
+>>>>>>> Stashed changes
 =======
         logger.error('Failed to load session', { sessionId, organizationId, error });
 >>>>>>> Stashed changes
@@ -143,7 +157,11 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         logger.error("Auto-save failed", { sessionId, error });
+=======
+        logger.error('Auto-save failed', { sessionId, error });
+>>>>>>> Stashed changes
 =======
         logger.error('Auto-save failed', { sessionId, error });
 >>>>>>> Stashed changes
@@ -172,6 +190,7 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     setDrivers((prev) => [...prev, newDriver]);
     // Add to canvas components
     const component: CanvasComponent = {
@@ -186,6 +205,8 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
   const [{ isOver }, drop] = useDrop(() => ({
     accept: "valueDriver",
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 =======
@@ -211,6 +232,9 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
@@ -236,11 +260,14 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     setDrivers((prev) => prev.map((d) => (d.id === updatedDriver.id ? updatedDriver : d)));
     setCanvasComponents((prev) =>
       prev.map((c) =>
         c.id === updatedDriver.id ? { ...c, props: { ...c.props, driver: updatedDriver } } : c
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 =======
@@ -259,6 +286,9 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
@@ -274,6 +304,7 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
   };
 
   const handleDeleteDriver = (driverId: string) => {
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
@@ -295,6 +326,8 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
     setDrivers(prev => prev.filter(d => d.id !== driverId));
     setCanvasComponents(prev => prev.filter(c => c.id !== driverId));
   };
@@ -306,6 +339,9 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
@@ -319,6 +355,7 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
       );
       // Trigger calculation cascade
       const updates = calculationEngine.calculateCascade(componentId, updated);
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
@@ -340,6 +377,8 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
       updates.forEach(update => {
         const index = updated.findIndex(c => c.id === update.componentId);
         if (index !== -1) {
@@ -348,6 +387,9 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
@@ -368,6 +410,7 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
       await sessionService.commitSession(sessionId, organizationId);
       onSave();
     } catch (error) {
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
@@ -403,6 +446,8 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
       logger.error('Explicit save failed', { sessionId, error });
     }
   };
@@ -411,6 +456,9 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
@@ -431,12 +479,15 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
             isOver ? "border-blue-500 bg-blue-50" : "border-gray-300"
           }`}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {canvasComponents.map((component) => (
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 =======
@@ -454,6 +505,9 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
@@ -487,12 +541,16 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
           <h3 className="text-lg font-semibold mb-2">Value Driver Library</h3>
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {MOCK_VALUE_DRIVERS.map((driver) => (
               <LibraryDriverCard key={driver.id} driver={driver} />
             ))}
           </div>
+=======
+          {/* Library or other controls */}
+>>>>>>> Stashed changes
 =======
           {/* Library or other controls */}
 >>>>>>> Stashed changes
@@ -524,7 +582,11 @@ export const ValueCanvas: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 };
+=======
+};
+>>>>>>> Stashed changes
 =======
 };
 >>>>>>> Stashed changes
