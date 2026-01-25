@@ -212,7 +212,7 @@ wss.on("connection", (ws: WebSocket, req) => {
 app.use(
   cors({
     origin: settings.security.corsOrigins,
-    credentials: true,
+    credentials: false,
   })
 );
 app.use(express.json());
