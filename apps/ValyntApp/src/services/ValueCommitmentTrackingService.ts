@@ -5,7 +5,6 @@
  * Provides comprehensive tracking and management of value commitments throughout their lifecycle.
  */
 
-import { z } from "zod";
 import {
   ValueCommitment,
   CommitmentStakeholder,
@@ -32,12 +31,15 @@ import {
 } from "../types/value-commitment-schemas.js";
 import { logger } from "../lib/logger";
 import { GroundTruthIntegrationService } from "./GroundTruthIntegrationService.js";
+import { TenantAwareService } from "./TenantAwareService";
 
-export class ValueCommitmentTrackingService {
+export class ValueCommitmentTrackingService extends TenantAwareService {
   private groundTruthService: GroundTruthIntegrationService;
 
   constructor(groundTruthService: GroundTruthIntegrationService) {
+    super("ValueCommitmentTrackingService");
     this.groundTruthService = groundTruthService;
+    void this.groundTruthService;
   }
 
   // =========================
@@ -67,11 +69,12 @@ export class ValueCommitmentTrackingService {
 
       // TODO: Insert into database
       // const commitment = await this.db.insert('value_commitments').values(validatedData).returning();
+      const commitmentId = validatedData.id || "temp-id"; // Fallback for types until DB implementation
 
       // Create audit entry
       await this.createAuditEntry(
         tenantId,
-        validatedData.id,
+        commitmentId,
         userId,
         "created",
         {},
@@ -80,14 +83,14 @@ export class ValueCommitmentTrackingService {
       );
 
       // Add creator as owner stakeholder
-      await this.addStakeholder(validatedData.id, tenantId, userId, {
+      await this.addStakeholder(commitmentId, tenantId, userId, {
         role: "owner",
         responsibility: "Commitment owner and primary responsible party",
         accountability_percentage: 100,
       });
 
       logger.info("Value commitment created", {
-        commitmentId: validatedData.id,
+        commitmentId,
         tenantId,
         userId,
         title: validatedData.title,
@@ -143,6 +146,10 @@ export class ValueCommitmentTrackingService {
       //   .where(eq('id', commitmentId))
       //   .returning();
 
+      // Avoid unused variable warnings
+      void userId;
+      void reason;
+
       // Create audit entry
       // await this.createAuditEntry(tenantId, commitmentId, userId, 'status_changed',
       //   { status: existing.status, progress_percentage: existing.progress_percentage },
@@ -176,7 +183,10 @@ export class ValueCommitmentTrackingService {
     commitmentId: string,
     tenantId: string,
     userId: string,
-    stakeholderData: Omit<CommitmentStakeholderInsert, "commitment_id" | "tenant_id" | "user_id">
+    stakeholderData: Omit<
+      CommitmentStakeholderInsert,
+      "commitment_id" | "tenant_id" | "user_id" | "joined_at" | "last_active_at"
+    >
   ): Promise<CommitmentStakeholder> {
     try {
       const data = {
@@ -190,8 +200,19 @@ export class ValueCommitmentTrackingService {
 
       const validatedData = CommitmentStakeholderSchema.parse(data);
 
-      // TODO: Insert into database
-      // const stakeholder = await this.db.insert('commitment_stakeholders').values(validatedData).returning();
+      // Validate tenant access before insertion
+      await this.validateTenantAccess(userId, tenantId);
+
+      // Insert into database
+      const { data: stakeholder, error } = await this.supabase
+        .from("commitment_stakeholders")
+        .insert(validatedData)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
 
       // Create audit entry
       await this.createAuditEntry(
@@ -211,7 +232,7 @@ export class ValueCommitmentTrackingService {
         role: stakeholderData.role,
       });
 
-      return validatedData as CommitmentStakeholder;
+      return stakeholder as CommitmentStakeholder;
     } catch (error) {
       logger.error("Failed to add stakeholder", { error, commitmentId, tenantId, userId });
       throw error;
@@ -241,6 +262,9 @@ export class ValueCommitmentTrackingService {
       //   .set({ ...updates, updated_at: new Date() })
       //   .where(eq('id', stakeholderId))
       //   .returning();
+
+      // Avoid unused variable warnings
+      void userId;
 
       // Create audit entry
       // await this.createAuditEntry(tenantId, updated.commitment_id, userId, 'updated', existing, updated, 'Stakeholder updated');
@@ -326,6 +350,8 @@ export class ValueCommitmentTrackingService {
       //   })
       //   .where(eq('id', milestoneId))
       //   .returning();
+
+      void actualDate;
 
       // Create audit entry
       await this.createAuditEntry(
@@ -428,6 +454,8 @@ export class ValueCommitmentTrackingService {
       //   })
       //   .where(eq('id', metricId))
       //   .returning();
+
+      void lastMeasuredAt;
 
       // Create audit entry
       await this.createAuditEntry(
@@ -683,6 +711,7 @@ export class ValueCommitmentTrackingService {
 
       // TODO: Insert audit entry
       // await this.db.insert('commitment_audits').values(validatedAudit);
+      void validatedAudit;
 
       logger.debug("Audit entry created", { commitmentId, tenantId, action });
     } catch (error) {
