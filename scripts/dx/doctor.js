@@ -300,27 +300,43 @@ function checkDocker() {
     if (majorVersion < 2) {
       reportFailure(
         "Docker Compose v2 required",
-        `docker compose version ${composeVersion} detected.`,
+        `Detected version: "${composeVersion}" (parsed major: ${majorVersion}) via command: docker compose version --short`,
         "Upgrade Docker Desktop/Engine to use Compose v2."
       );
     }
   } catch {
     reportFailure(
       "Docker Compose missing",
-      "docker compose (v2) is not available.",
+      "Command failed: docker compose version --short. docker compose (v2) is not available.",
       "Install Docker Desktop or Docker Engine with Compose v2."
     );
   }
 
   try {
-    const info = runCommand("docker info --format '{{json .}}'");
-    const parsed = JSON.parse(info);
+    // Check if BuildKit is enabled via environment variable or buildx plugin
     const buildkitEnabled =
-      parsed?.Buildkit === true || parsed?.Buildkit === "true";
+      process.env.DOCKER_BUILDKIT === "1" ||
+      process.env.DOCKER_BUILDKIT?.toLowerCase() === "true";
+    
+    // If not enabled via env var, check if buildx plugin is available
+    let hasBuildxPlugin = false;
     if (!buildkitEnabled) {
+      try {
+        const info = runCommand("docker info --format '{{json .}}'");
+        const parsed = JSON.parse(info);
+        hasBuildxPlugin = parsed?.ClientInfo?.Plugins?.some(
+          plugin => plugin.Name === "buildx"
+        );
+      } catch {
+        // Ignore JSON parsing failures
+      }
+    }
+    
+    if (!buildkitEnabled && !hasBuildxPlugin) {
+      const envValue = process.env.DOCKER_BUILDKIT || "not set";
       reportFailure(
         "Docker BuildKit disabled",
-        "Docker BuildKit is not enabled.",
+        `BuildKit not enabled. Environment variable: DOCKER_BUILDKIT="${envValue}". Detection command: docker info --format '{{json .}}' (checked for buildx plugin)`,
         "Enable BuildKit: export DOCKER_BUILDKIT=1 (or enable in Docker Desktop settings)."
       );
     }
