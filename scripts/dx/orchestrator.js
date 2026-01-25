@@ -293,7 +293,7 @@ function stopSupabase() {
 /**
  * Start Docker dependencies
  */
-async function startDockerDeps(mode: string) {
+async function startDockerDeps(mode) {
   log.info("Starting Docker dependencies...");
 
   const composeFile =
