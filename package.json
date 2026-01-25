@@ -32,7 +32,7 @@
     "health": "node scripts/dx/health.js",
     "env:validate": "tsx scripts/env-validate.ts",
     "env:dev": "node scripts/setup-dev-env.js",
-    "build": "pnpm --filter valynt-app build",
+    "build": "npm run build --workspace=valynt-app",
     "build:minimal": "pnpm --filter valynt-app build -- --mode minimal",
     "build:bare": "pnpm --filter valynt-app build -- --mode bare",
     "debug": "pnpm --filter valynt-app dev -- --mode debug",
