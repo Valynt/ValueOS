@@ -25,6 +25,7 @@ import {
 } from '../../lib/db/errors';
 import { requireAuth, requireRole, AuthenticatedRequest } from '../../middleware/auth';
 import { tenantContextMiddleware } from '../../middleware/tenantContext';
+import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext';
 import { createRateLimiter, RateLimitTier } from '../../middleware/rateLimiter';
 import { logger } from '../../lib/logger';
 
@@ -399,7 +400,7 @@ router.use(requestLogger);
 
 // All routes require authentication
 router.use(requireAuth);
-router.use(tenantContextMiddleware());
+router.use(tenantContextMiddleware(), tenantDbContextMiddleware());
 
 // POST /drivers - Create (Admin only)
 router.post(

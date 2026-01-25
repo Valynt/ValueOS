@@ -9,6 +9,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z, ZodError } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { tenantContextMiddleware } from '../../middleware/tenantContext';
+import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext';
 import { 
   CreateArtifactSchema,
   UpdateArtifactSchema,
@@ -376,7 +377,7 @@ router.use(requestLogger);
 
 // All routes require authentication
 router.use(requireAuth);
-router.use(tenantContextMiddleware());
+router.use(tenantContextMiddleware(), tenantDbContextMiddleware());
 
 // POST /artifacts - Create single
 router.post(
