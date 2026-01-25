@@ -380,14 +380,16 @@ export class RolloutManager {
   async getAllMetrics(): Promise<Map<string, RolloutMetrics>> {
     const metrics = new Map<string, RolloutMetrics>();
 
-    for (const [featureName, rollout] of this.rollouts) {
-      try {
-        const rolloutMetrics = await rollout.getMetrics();
-        metrics.set(featureName, rolloutMetrics);
-      } catch (error) {
-        logger.error('Failed to get metrics for rollout', { featureName, error });
-      }
-    }
+    await Promise.all(
+      Array.from(this.rollouts.entries()).map(async ([featureName, rollout]) => {
+        try {
+          const rolloutMetrics = await rollout.getMetrics();
+          metrics.set(featureName, rolloutMetrics);
+        } catch (error) {
+          logger.error('Failed to get metrics for rollout', { featureName, error });
+        }
+      })
+    );
 
     return metrics;
   }
