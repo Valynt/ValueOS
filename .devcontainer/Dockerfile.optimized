@@ -201,6 +201,10 @@ RUN if [ "$INSTALL_DBTOOLS" = "1" ]; then \
 # Stage 7: Final image with user setup
 FROM dbtools AS final
 
+# Create workspace directory as root and set permissions
+RUN mkdir -p /workspaces/valuecanvas && \
+    chown -R vscode:vscode /workspaces/valuecanvas
+
 # Switch to vscode user for remaining setup
 USER vscode
 
@@ -210,13 +214,12 @@ RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc \
 
 # Create workspace directories
 RUN mkdir -p \
-    ~/workspace \
     ~/.cache \
     ~/.npm \
     ~/.local/bin
 
 # Set working directory
-WORKDIR /workspace
+WORKDIR /workspaces/valuecanvas
 
 # Environment variables for reproducible builds
 ENV ENVIRONMENT=development \

@@ -13,8 +13,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     && rm -rf /var/lib/apt/lists/*
 
+RUN mkdir -p /workspaces/valuecanvas && chown -R vscode:vscode /workspaces/valuecanvas
+
 USER vscode
 
-WORKDIR /workspace
+WORKDIR /workspaces/valuecanvas
 
 CMD ["/bin/bash"]
