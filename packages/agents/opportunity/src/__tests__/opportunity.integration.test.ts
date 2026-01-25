@@ -16,13 +16,19 @@ vi.mock("@valueos/agents/base", () => ({
     customMetrics: new Map(),
     healthStatus: 1,
   },
-  createServer: vi.fn((config) => {
+  createServer: vi.fn((arg1, arg2) => {
+    if (arg2) {
+      return Promise.resolve();
+    }
+    const config = arg1;
     // Mock createServer to return an express app
     const express = require("express");
     const mockApp = express();
     mockApp.use(express.json());
     // Add the routes
-    config.middleware.forEach((router: any) => mockApp.use(router));
+    if (config.middleware) {
+      config.middleware.forEach((router: any) => mockApp.use(router));
+    }
     return mockApp;
   }),
   getConfig: vi.fn(() => ({ PORT: 3000 })),
