@@ -491,3 +491,62 @@ export async function checkPermission(
   const supabase = createServerSupabaseClient();
   return hasPermission(supabase, userId, tenantId, permission);
 }
+
+/**
+ * Policy function type for ABAC
+ * @param user The authenticated user object
+ * @param resource The resource being accessed (optional)
+ * @returns boolean or Promise<boolean> indicating access
+ */
+export type Policy<T = any> = (user: any, resource?: T) => boolean | Promise<boolean>;
+
+/**
+ * Require policy middleware (ABAC)
+ */
+export function requirePolicy<T>(
+  policy: Policy<T>,
+  resourceExtractor?: (req: Request) => T | Promise<T>
+) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = (req as any).user;
+
+      if (!user) {
+        return res.status(401).json({
+          error: "Unauthorized",
+          message: "Authentication required",
+        });
+      }
+
+      let resource: T | undefined;
+      if (resourceExtractor) {
+        resource = await resourceExtractor(req);
+      }
+
+      const allowed = await policy(user, resource);
+
+      if (!allowed) {
+        logger.warn("Policy denied", {
+          userId: user.id,
+          path: req.path,
+        });
+
+        return res.status(403).json({
+          error: "Forbidden",
+          message: "Access denied by policy",
+        });
+      }
+
+      next();
+    } catch (error) {
+      logger.error(
+        "Policy middleware error",
+        error instanceof Error ? error : undefined
+      );
+      return res.status(500).json({
+        error: "Internal Server Error",
+        message: "Policy check failed",
+      });
+    }
+  };
+}

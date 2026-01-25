@@ -298,6 +298,15 @@ export class MFAService extends BaseService {
     // Stub WebAuthn
     return { verified: true };
   }
+
+  /**
+   * Verify challenge for step-up authentication
+   * Alias for verifyMFAToken to indicate intent
+   */
+  async verifyChallenge(userId: string, token: string): Promise<boolean> {
+    const result = await this.verifyMFAToken(userId, token);
+    return result.verified;
+  }
 }
 
 export const mfaService = new MFAService();
