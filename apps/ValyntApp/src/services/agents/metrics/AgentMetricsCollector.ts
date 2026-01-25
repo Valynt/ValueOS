@@ -627,14 +627,15 @@ export class AgentMetricsCollector {
    * Calculate cost metrics
    */
   private calculateCostMetrics(summary: AgentTelemetrySummary): CostMetrics {
-    const costPerRequest = 0.01; // Estimate
-    const totalCost = summary.totalExecutions * costPerRequest;
+    const totalCost = summary.totalCost;
+    const costPerRequest = summary.avgCost;
 
     return {
       totalCost,
       costPerRequest,
-      costPerSuccess: costPerRequest * (summary.successRate || 0),
-      costPerToken: costPerRequest / 1000, // Estimate
+      costPerSuccess:
+        summary.successfulExecutions > 0 ? totalCost / summary.successfulExecutions : 0,
+      costPerToken: 0.00001, // Estimate as we don't have total tokens in summary
       hourlyCost: totalCost / 24,
       dailyCost: totalCost,
       monthlyCostProjection: totalCost * 30,
