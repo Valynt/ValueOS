@@ -8,13 +8,17 @@ CI test stages:
 2. Typecheck: `npm run typecheck` — TypeScript type correctness
 3. Unit: `npm run test:unit` — Quick feedback; must pass before other stages
 4. Integration: `npm run test:integration` (CI: `npm run test:integration:ci`) — Postgres/Redis/Message bus checks; uses services
-5. E2E: `npm run test:e2e` — Playwright runs on the running app
+5. RLS: `npm run test:rls` — Supabase policy enforcement checks
+6. E2E: `npm run test:e2e` — Playwright runs on the running app
 
 Architecture & operational notes:
 
 - Runs-on: `ubuntu-latest`
 - Integration runner uses GitHub Actions services: Postgres 15 & Redis 7
 - Use `$GITHUB_ENV` to set `DATABASE_URL` and `REDIS_URL`
+- RLS tests run against a local, ephemeral Supabase stack started via `npx supabase start`
+- No production keys are required; the CLI supplies local anon/service keys
+- CI sets `SUPABASE_DB_PASSWORD=postgres` to align with the default local stack credentials
 - Upload artifacts from integration & E2E runs into `test-results/` and `playwright-report/`
 - Retention: 14–30 days based on artifact size and workflow cost
 
