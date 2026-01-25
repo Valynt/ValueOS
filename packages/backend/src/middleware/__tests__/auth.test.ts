@@ -2,19 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import jwt from 'jsonwebtoken';
 import { __setEnvSourceForTests } from '@shared/lib/env';
 
-vi.mock('../../services/AuthService', () => ({
-  authService: {
-    getSession: vi.fn(),
-  },
-}));
-
 vi.mock('../../lib/supabase', () => ({
   getSupabaseClient: vi.fn(),
 }));
 
 const { requireAuth } = await import('../auth');
 const { requirePermission } = await import('../rbac');
-const { authService } = await import('../../services/AuthService');
 const { getSupabaseClient } = await import('../../lib/supabase');
 
 function mockRes() {
@@ -83,8 +76,6 @@ describe('auth middleware', () => {
   });
 
   it('rejects missing tokens with 401', async () => {
-    (authService.getSession as unknown as { mockResolvedValue: (_value: null) => void }).mockResolvedValue(null);
-
     const req = {
       headers: {},
     } as any;

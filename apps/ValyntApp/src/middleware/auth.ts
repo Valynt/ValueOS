@@ -5,7 +5,6 @@
 
 import { NextFunction, Request, Response } from 'express';
 import jwt, { JwtPayload } from 'jsonwebtoken';
-import { authService } from '../services/AuthService';
 import { AuthenticationError } from '../services/errors';
 import { createLogger } from '../lib/logger';
 import { sanitizeForLogging } from '../lib/piiFilter';
@@ -140,32 +139,19 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     let user = null;
     let claims: JwtPayload | null = null;
 
-    // Try to get session from various sources
-    if (bearerToken) {
-      const verified = await verifyAccessToken(bearerToken);
-      if (!verified) {
-        throw new AuthenticationError('Invalid or expired token');
-      }
-
-      session = verified.session;
-      user = verified.user;
-      claims = verified.claims ?? null;
-    } else {
-      // Try to get current session from Supabase (may be from cookies)
-      session = await authService.getSession();
-      if (session?.access_token) {
-        const verified = await verifyAccessToken(session.access_token);
-        if (!verified) {
-          throw new AuthenticationError('Invalid or expired token');
-        }
-
-        session = verified.session;
-        user = verified.user;
-        claims = verified.claims ?? null;
-      } else {
-        throw new AuthenticationError('Authentication required');
-      }
+    // API authentication is Authorization header only.
+    if (!bearerToken) {
+      throw new AuthenticationError('Authorization header required');
     }
+
+    const verified = await verifyAccessToken(bearerToken);
+    if (!verified) {
+      throw new AuthenticationError('Invalid or expired token');
+    }
+
+    session = verified.session;
+    user = verified.user;
+    claims = verified.claims ?? null;
 
     if (!session || !user) {
       logger.warn('Authentication required but no valid session found', {
@@ -215,16 +201,6 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
       session = verified?.session ?? null;
       user = verified?.user ?? null;
       claims = verified?.claims ?? null;
-    } else {
-      session = await authService.getSession();
-      if (session?.access_token) {
-        const verified = await verifyAccessToken(session.access_token);
-        session = verified?.session ?? null;
-        user = verified?.user ?? null;
-        claims = verified?.claims ?? null;
-      } else {
-        user = session?.user ?? null;
-      }
     }
 
     if (user && session) {
