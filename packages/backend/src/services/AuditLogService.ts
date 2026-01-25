@@ -34,8 +34,8 @@ export interface AuditLogCreateInput {
 export interface AuditLogQuery {
   tenantId?: string;
   userId?: string;
-  action?: string;
-  resourceType?: string;
+  action?: string | string[];
+  resourceType?: string | string[];
   resourceId?: string;
   startDate?: string;
   endDate?: string;
@@ -228,11 +228,19 @@ export class AuditLogService extends BaseService {
         }
 
         if (query.action) {
-          dbQuery = dbQuery.eq("action" as any, query.action as any);
+          if (Array.isArray(query.action)) {
+            dbQuery = dbQuery.in("action" as any, query.action);
+          } else {
+            dbQuery = dbQuery.eq("action" as any, query.action as any);
+          }
         }
 
         if (query.resourceType) {
-          dbQuery = dbQuery.eq("resource_type" as any, query.resourceType as any);
+          if (Array.isArray(query.resourceType)) {
+            dbQuery = dbQuery.in("resource_type" as any, query.resourceType);
+          } else {
+            dbQuery = dbQuery.eq("resource_type" as any, query.resourceType as any);
+          }
         }
 
         if (query.resourceId) {
