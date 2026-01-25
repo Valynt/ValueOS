@@ -263,9 +263,10 @@ function startDockerDeps(mode) {
 
   const composeFile =
     mode === "docker" ? "infra/docker/docker-compose.dev.yml" : "docker-compose.deps.yml";
+  const buildFlag = mode === "docker" ? " --build --pull=missing" : "";
 
   try {
-    runCommand(`docker compose --env-file .env.ports -f ${composeFile} up -d`, {
+    runCommand(`docker compose --env-file .env.ports -f ${composeFile} up -d${buildFlag}`, {
       silent: false,
     });
     log.success("Docker dependencies started");

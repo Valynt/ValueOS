@@ -249,6 +249,7 @@ services:
           memory: 128M
     ports:
       - "${VITE_PORT:-5173}:5173"
+      - "${VITE_HMR_PORT:-24678}:${VITE_HMR_PORT:-24678}"
     environment:
       VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-http://host.docker.internal:${SUPABASE_API_PORT:-54321}}
       VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
@@ -479,6 +480,7 @@ services:
 
 networks:
   valueos-network:
+    name: valueos-network
     driver: bridge
 
 volumes:

@@ -39,7 +39,7 @@ wait_for() {
 }
 
 wait_for "Backend" "http://localhost:${API_PORT:-3001}/health/ready"
-wait_for "Frontend" "http://localhost:${VITE_PORT:-5173}/health"
+wait_for "Frontend" "http://localhost:${VITE_PORT:-5173}/"
 wait_for "Caddy" "http://localhost:${CADDY_HTTP_PORT:-8080}/healthz"
 
 echo "🏗️  Building frontend (valynt-app)..."

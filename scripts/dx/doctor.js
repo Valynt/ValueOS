@@ -107,6 +107,8 @@ const frontendUrl =
 const backendUrl = process.env.BACKEND_URL || `http://localhost:${backendPort}`;
 
 const failures = [];
+const unhealthyContainers = new Set();
+const restartingContainers = new Set();
 
 function reportFailure(title, details, fix) {
   failures.push({ title, details, fix });
@@ -462,10 +464,12 @@ function checkDockerContainerHealth() {
       const isRestarting = status === "restarting";
       if (healthStatus === "unhealthy") {
         unhealthy.push(name);
+        unhealthyContainers.add(name);
       }
       if (isRestarting || restartCount > 1) {
         const detail = `${name} (restarts: ${Number.isNaN(restartCount) ? "unknown" : restartCount}${isRestarting ? ", restarting" : ""})`;
         restartLoops.push(detail);
+        restartingContainers.add(name);
       }
     } catch {
       // Ignore containers that cannot be inspected.
@@ -489,6 +493,54 @@ function checkDockerContainerHealth() {
     detailParts.join(" "),
     "Run: pnpm run dx:reset"
   );
+}
+
+function printToolVersions() {
+  console.log("\n🧰 Tool versions:");
+  console.log(`  Node:     ${process.version}`);
+
+  if (commandExists("pnpm")) {
+    try {
+      console.log(`  pnpm:     ${runCommand("pnpm -v").trim()}`);
+    } catch {
+      console.log("  pnpm:     unknown (failed to execute)");
+    }
+  } else {
+    console.log("  pnpm:     missing");
+  }
+
+  if (commandExists("docker")) {
+    try {
+      console.log(`  Docker:   ${runCommand("docker --version").trim()}`);
+      console.log(`  Compose:  ${runCommand("docker compose version --short").trim()}`);
+    } catch {
+      console.log("  Docker:   unknown (failed to execute)");
+    }
+  } else {
+    console.log("  Docker:   missing");
+  }
+  console.log("");
+}
+
+function printFailureLogs() {
+  if (!commandExists("docker")) {
+    return;
+  }
+
+  const targets = new Set([...unhealthyContainers, ...restartingContainers]);
+  if (targets.size === 0) {
+    return;
+  }
+
+  console.log("\n🧾 Recent container logs (tail 80):");
+  targets.forEach((name) => {
+    try {
+      const output = runCommand(`docker logs --tail 80 ${name}`, { stdio: "pipe" });
+      console.log(`\n--- ${name} ---\n${output.trim()}`);
+    } catch {
+      console.log(`\n--- ${name} ---\nUnable to fetch logs.`);
+    }
+  });
 }
 
 function checkSupabase() {
@@ -892,7 +944,8 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`\n🧪 DX Doctor (mode: ${mode})\n`);
+  console.log(`\n🩺 DX Doctor (mode: ${mode})`);
+  printToolVersions();
 
   // Phase 1: Setup (must run first)
   ensurePortsEnvFile();
@@ -1051,6 +1104,8 @@ async function main() {
       });
     }
 
+    printFailureLogs();
+
     // In soft mode, only exit if there are blocking failures
     if (softMode) {
       if (blockingFailures.length > 0) {
@@ -1071,6 +1126,11 @@ async function main() {
   console.log(`  Backend:         ${backendUrl}`);
   console.log(`  Supabase API:    http://localhost:${supabaseApiPort}`);
   console.log(`  Supabase Studio: http://localhost:${supabaseStudioPort}\n`);
+
+  console.log("Next steps:");
+  console.log(`  Start dev stack: ./dev up --mode ${mode}`);
+  console.log("  Tail logs:       ./dev logs <service>");
+  console.log("  Reset stack:     ./dev reset\n");
 }
 
 main().catch((error) => {
