@@ -6,6 +6,7 @@
  */
 
 import { useState } from "react";
+import { billingService } from "@/services/billing";
 import {
   Rocket,
   TrendingUp,
@@ -78,6 +79,20 @@ const ENTERPRISE_FEATURES = [
 
 export function BillingSettings() {
   const [autoRenew, setAutoRenew] = useState(BILLING.autoRenew);
+
+  const handleUpgrade = async () => {
+    try {
+      const { url } = await billingService.createCheckoutSession('standard');
+      if (url) {
+        window.location.href = url;
+      }
+    } catch (err) {
+      // Best-effort: log to console for now
+      // In real UI, surface an error toast
+      // eslint-disable-next-line no-console
+      console.error('Failed to create checkout session', err);
+    }
+  };
 
   const roiMultiple = Math.round(PLATFORM_ROI.valueCasesGenerated / PLATFORM_ROI.subscriptionCost);
   const roiPercent = ((PLATFORM_ROI.valueCasesGenerated / PLATFORM_ROI.subscriptionCost) * 100).toFixed(0);
@@ -328,7 +343,7 @@ export function BillingSettings() {
                   You've used {USAGE.cases.used} of {USAGE.cases.total} cases. Upgrade now for uninterrupted access.
                 </p>
               </div>
-              <Button size="sm" className="bg-amber-600 hover:bg-amber-700">
+              <Button size="sm" className="bg-amber-600 hover:bg-amber-700" onClick={handleUpgrade}>
                 Upgrade Plan
               </Button>
             </div>

@@ -8,6 +8,7 @@ import subscriptionsRouter from './subscriptions';
 import usageRouter from './usage';
 import invoicesRouter from './invoices';
 import webhooksRouter from './webhooks';
+import checkoutRouter from './checkout';
 import { securityHeadersMiddleware } from '../../middleware/securityMiddleware';
 import { serviceIdentityMiddleware } from '../../middleware/serviceIdentityMiddleware';
 import { requirePermission } from '../../middleware/rbac';
@@ -44,6 +45,13 @@ router.use(
   tenantContextMiddleware(),
   requirePermission('billing.read'),
   invoicesRouter
+);
+router.use(
+  '/checkout',
+  requireAuth,
+  tenantContextMiddleware(),
+  requirePermission('billing.manage'),
+  checkoutRouter
 );
 
 export default router;

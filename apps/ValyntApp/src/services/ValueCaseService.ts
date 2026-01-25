@@ -9,6 +9,7 @@ import { logger } from '../lib/logger';
 import type { LifecycleStage } from '../types/vos';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { TenantAwareService, type TenantContext } from './TenantAwareService';
+import { permissionService } from './PermissionService';
 import { secureTokenManager } from '../lib/auth/SecureTokenManager';
 import { createLogger } from '../lib/logger';
 
@@ -217,6 +218,9 @@ class ValueCaseService extends TenantAwareService {
       // Ensure user is allowed to create within this tenant
       await this.validateTenantAccess(userId, tenantId);
 
+      // Require edit permission - prevents Viewer role from creating cases
+      await permissionService.requirePermission(userId, 'user.edit', 'organization', tenantId);
+
       // Create in business_cases table (simpler, always works)
       const { data, error } = await this.supabase
         .from('business_cases')
@@ -253,6 +257,9 @@ class ValueCaseService extends TenantAwareService {
   async updateValueCase(id: string, update: ValueCaseUpdate): Promise<ValueCase | null> {
     try {
       const { userId, tenantId } = await this.getTenantContextFromSession();
+
+      // Require edit permission - prevents Viewer role from updating cases
+      await permissionService.requirePermission(userId, 'user.edit', 'organization', tenantId);
 
       // Try updating in business_cases first
       const { data, error } = await this.supabase
@@ -292,7 +299,10 @@ class ValueCaseService extends TenantAwareService {
    */
   async deleteValueCase(id: string): Promise<boolean> {
     try {
-      const { userId } = await this.getTenantContextFromSession();
+      const { userId, tenantId } = await this.getTenantContextFromSession();
+
+      // Require edit permission - prevents Viewer role from deleting cases
+      await permissionService.requirePermission(userId, 'user.edit', 'organization', tenantId);
 
       const { error } = await this.supabase
         .from('business_cases')
@@ -334,6 +344,9 @@ class ValueCaseService extends TenantAwareService {
   ): Promise<ValueCase | null> {
     try {
       const { userId, tenantId } = await this.getTenantContextFromSession();
+
+      // Require edit permission - prevents Viewer role from linking deals
+      await permissionService.requirePermission(userId, 'user.edit', 'organization', tenantId);
 
       debugLogger.info('Linking deal to value case', { caseId, dealId: deal.id });
 
@@ -379,6 +392,9 @@ class ValueCaseService extends TenantAwareService {
   async unlinkDeal(caseId: string): Promise<ValueCase | null> {
     try {
       const { userId, tenantId } = await this.getTenantContextFromSession();
+
+      // Require edit permission - prevents Viewer role from unlinking deals
+      await permissionService.requirePermission(userId, 'user.edit', 'organization', tenantId);
 
       debugLogger.info('Unlinking deal from value case', { caseId });
 
@@ -452,6 +468,9 @@ class ValueCaseService extends TenantAwareService {
     try {
       const { userId, tenantId } = await this.getTenantContextFromSession();
 
+      // Require edit permission - prevents Viewer role from committing values
+      await permissionService.requirePermission(userId, 'user.edit', 'organization', tenantId);
+
       debugLogger.info('Committing value for case', { caseId, totalValue: options.totalValue });
 
       // Get current metadata first
@@ -515,6 +534,9 @@ class ValueCaseService extends TenantAwareService {
   async lockValueCase(caseId: string): Promise<ValueCase | null> {
     try {
       const { userId, tenantId } = await this.getTenantContextFromSession();
+
+      // Require edit permission - prevents Viewer role from locking cases
+      await permissionService.requirePermission(userId, 'user.edit', 'organization', tenantId);
 
       debugLogger.info('Locking value case', { caseId });
 
