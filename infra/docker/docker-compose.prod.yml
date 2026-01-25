@@ -103,7 +103,7 @@ services:
           "CMD",
           "node",
           "-e",
-          "require('http').get('http://localhost:${API_PORT:-3001}/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))",
+          "require('http').get('http://localhost:${API_PORT:-3001}/health/ready', (r) => process.exit(r.statusCode === 200 ? 0 : 1))",
         ]
       interval: 30s
       timeout: 5s
@@ -146,13 +146,19 @@ services:
       - zookeeper-logs:/var/lib/zookeeper/log
     networks:
       - valueos-network
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc -w 2 localhost 2181 | grep imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   kafka:
     image: confluentinc/cp-kafka:7.4.0
     container_name: valueos-kafka-prod
     restart: unless-stopped
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181

@@ -30,7 +30,7 @@ git clone https://github.com/valynt/valueos.git
 cd valueos
 corepack enable
 corepack prepare pnpm@9.15.0 --activate
-pnpm install
+pnpm install --frozen-lockfile
 pnpm run dx:env -- --mode local --force
 pnpm run dx
 ```
@@ -48,7 +48,7 @@ pnpm run dx:env -- --mode local --force
 pnpm run dx
 ```
 
-**Expected outcome:** frontend/backend run on the host, dependencies run in Docker.
+**Expected outcome:** frontend/backend run on the host, dependencies run in Docker, and Supabase is started by the DX orchestrator.
 
 ### Option B: Full Docker mode
 

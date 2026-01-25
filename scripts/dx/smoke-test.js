@@ -44,6 +44,10 @@ const checks = [
     url: `http://127.0.0.1:${backendPort}/health`,
   },
   {
+    name: "Backend Readiness",
+    url: `http://127.0.0.1:${backendPort}/health/ready`,
+  },
+  {
     name: "Backend DB readiness",
     url: `http://127.0.0.1:${backendPort}/health/dependencies`,
   },

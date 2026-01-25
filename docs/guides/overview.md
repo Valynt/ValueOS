@@ -210,34 +210,34 @@ interface AgentEvent {
 
 ```bash
 # Unit tests with coverage (recommended for development)
-npm test
+pnpm run test
 
 # Unit tests without coverage
-npm run test:unit
+pnpm run test:unit
 
 # Watch mode for development
-npm run test:watch
+pnpm run test:watch
 
 # Integration tests (requires Docker)
-npm run test:integration
+pnpm run test:integration
 
 # All tests
-npm run test:all
+pnpm run test:all
 ```
 
 #### Docker Testing
 
 ```bash
 # Unit tests in Docker container
-npm run test:docker
+pnpm run test:docker
 
 # Integration tests with Docker services
-npm run test:docker:integration
+pnpm run test:docker:integration
 
 # Manual Docker setup
 docker-compose -f infra/docker/docker-compose.test.yml up -d
 docker-compose -f infra/docker/docker-compose.test.yml logs -f test-ready
-TEST_MODE=integration npm run test:integration
+TEST_MODE=integration pnpm run test:integration
 docker-compose -f infra/docker/docker-compose.test.yml down
 ```
 
@@ -354,7 +354,7 @@ src/
 ### Linting Guardrails
 
 - `eslint-plugin-jsx-a11y` enabled for ARIA labels and focus requirements
-- CI runs `npm run lint` to catch accessibility violations
+- CI runs `pnpm run lint` to catch accessibility violations
 - Flags positive tabindex values and unmanaged autofocus
 
 ### Component Checklist
@@ -549,9 +549,9 @@ Yes, designed for horizontal scaling with load balancing, connection pooling, an
 **How do I run tests?**
 
 ```bash
-npm test              # Unit tests with coverage
-npm run test:unit     # Unit tests only
-npm run test:integration # Integration tests (requires Docker)
+pnpm run test              # Unit tests with coverage
+pnpm run test:unit          # Unit tests only
+pnpm run test:integration   # Integration tests (requires Docker)
 ```
 
 **How do I add a new agent?**
@@ -634,35 +634,8 @@ CACHE_TTL=3600
 
 ### Troubleshooting
 
-**Installation fails with "npm not found"**
-Install Node.js from nodejs.org
-
-**"Supabase connection failed"**
-
-1. Check Docker is running
-2. Run `supabase start`
-3. Verify `.env` configuration
-4. Check firewall settings
-
-**"Port 5173 already in use"**
-
-```bash
-npm run dev -- --port 3000
-```
-
-**Database migrations fail**
-
-1. Check Supabase is running
-2. Verify connection string
-3. Run `supabase db reset`
-4. Check migration files for errors
-
-**LLM API errors**
-
-1. Verify API key is set
-2. Check API key is valid
-3. Verify provider is correct
-4. Check rate limits
+For the canonical list of symptoms → causes → fixes, see
+[Common Issues + Fixes](../getting-started/troubleshooting.md).
 
 ### General Questions
 

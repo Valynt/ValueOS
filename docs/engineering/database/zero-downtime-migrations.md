@@ -6,11 +6,11 @@ This guide defines a safe, repeatable strategy for schema changes that must ship
 
 ## 🔁 Standard Developer Workflow
 
-Use the Taskfile automation to generate, apply, and reset migrations in local development:
+Use the Supabase CLI to generate, apply, and reset migrations in local development:
 
-- `task db:diff -- <name>`: generate a new migration from schema changes.
-- `task db:migrate`: apply pending migrations.
-- `task db:reset`: reset to a clean local database state.
+- `supabase db diff --file <name>`: generate a new migration from schema changes.
+- `supabase db push`: apply pending migrations.
+- `supabase db reset`: reset to a clean local database state.
 
 When a migration has a rollback path, include a matching rollback file under
 `supabase/migrations/rollback/` and ensure it is validated alongside the forward migration.
@@ -66,8 +66,8 @@ Every migration PR should run:
 Use existing scripts:
 
 ```bash
-npm run migration:validate
-npm run migration:safety
+pnpm run migration:validate
+pnpm run migration:safety
 ```
 
 ---
@@ -144,8 +144,8 @@ ALTER TABLE public.organizations
 - [ ] Backfill plan defined (batch size, runtime, monitoring)
 - [ ] Index creation uses `CONCURRENTLY` where applicable
 - [ ] Rollback plan documented (or forward-fix marked as required)
-- [ ] Migration scripts validated: `npm run migration:validate`
-- [ ] Migration safety checks pass: `npm run migration:safety`
+- [ ] Migration scripts validated: `pnpm run migration:validate`
+- [ ] Migration safety checks pass: `pnpm run migration:safety`
 - [ ] Staging run completed with verification queries
 
 ### ✅ Release

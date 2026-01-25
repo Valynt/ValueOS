@@ -12,7 +12,7 @@ ValueOS is a multi-workspace platform for value modeling and lifecycle intellige
 ```bash
 corepack enable
 corepack prepare pnpm@9.15.0 --activate
-pnpm install
+pnpm install --frozen-lockfile
 ```
 
 3. Generate local environment files:

@@ -558,16 +558,16 @@ interface AnalysisResult {
 ### Development
 
 ```bash
-npm run dev          # Start Vite dev server (port 5173)
-npm run backend      # Start Express backend (port 3000)
-supabase start       # Start Supabase stack
+pnpm run dx          # Start full local stack (frontend + backend + deps)
+pnpm run dev         # Frontend only (port 5173)
+pnpm run backend:dev # Backend only (port 3001)
 ```
 
 ### Production
 
 ```bash
-npm run build        # Build for production
-npm run preview      # Test production build
+pnpm run build        # Build for production
+pnpm run preview      # Test production build
 ```
 
 ### Observability
@@ -738,10 +738,10 @@ docker-compose -f infra/docker/docker-compose.observability.yml up -d
 ### Commands
 
 ```bash
-npm run typecheck    # Check TypeScript
-npm test            # Run tests
-npm run lint        # Lint code
-npm run build       # Build for production
+pnpm run typecheck    # Check TypeScript
+pnpm run test         # Run tests
+pnpm run lint         # Lint code
+pnpm run build        # Build for production
 ```
 
 ---

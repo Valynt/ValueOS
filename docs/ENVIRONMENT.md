@@ -68,36 +68,8 @@ pnpm run dx:docker  # Docker mode
 ```
 
 ## Troubleshooting
-
-### "Blank screen" or "silent fetch failures"
-
-This is almost always an env issue. Run:
-
-```bash
-pnpm run dx:env:validate
-```
-
-If it fails, regenerate:
-
-```bash
-pnpm run dx:env -- --mode local --force
-```
-
-### "Mode mismatch detected"
-
-Your `.env.local` was generated for a different mode. Regenerate:
-
-```bash
-pnpm run dx:env -- --mode local --force
-```
-
-### "SUPABASE_SERVICE_KEY is deprecated"
-
-Rename to `SUPABASE_SERVICE_ROLE_KEY` in your env files, or regenerate:
-
-```bash
-pnpm run dx:env -- --mode local --force
-```
+For a single, canonical list of symptoms → causes → fixes, see
+[Common Issues + Fixes](getting-started/troubleshooting.md).
 
 ## For Contributors
 

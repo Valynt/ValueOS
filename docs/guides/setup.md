@@ -23,6 +23,10 @@ source ~/.bashrc
 nvm install
 nvm use
 
+# Enable Corepack + pnpm
+corepack enable
+corepack prepare pnpm@9.15.0 --activate
+
 # Verify installations
 node --version
 pnpm --version
@@ -40,7 +44,7 @@ ValueOS provides a deterministic local development environment with automated se
 # First-time setup
 corepack enable
 corepack prepare pnpm@9.15.0 --activate
-pnpm install
+pnpm install --frozen-lockfile
 pnpm run dx:env -- --mode local --force
 pnpm run dx
 pnpm run db:reset
@@ -62,10 +66,10 @@ Environment management is handled through dedicated scripts:
 # Setup local development environment
 pnpm run dx:env -- --mode local --force
 
-# Switch to staging environment
+# Switch to staging environment (overwrites .env.local)
 pnpm run env:staging
 
-# Switch to production environment
+# Switch to production environment (overwrites .env.local)
 pnpm run env:production
 
 # Check current environment
@@ -83,7 +87,8 @@ Services are configured to avoid port conflicts:
 - Backend API: 3001 (Backend services)
 - Supabase API: 54321 (Local development)
 - Supabase Studio: 54323 (Database admin)
-- PostgreSQL: 5432 (Database)
+- Supabase DB: 54322 (Database)
+- PostgreSQL (deps container): 5432
 - Redis: 6379 (Cache)
 
 ### Development Stack Management

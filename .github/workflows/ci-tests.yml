@@ -77,15 +77,10 @@ jobs:
       - name: Make dev script executable
         run: chmod +x dev
 
-      - name: Bootstrap Environment
-        run: ./dev up
-
-      - name: Run Smoke Tests
-        run: ./dev smoke
-
-      - name: Cleanup
-        if: always()
-        run: ./dev down
+      - name: Run Smoke Test Script
+        run: |
+          chmod +x scripts/ci/smoke.sh
+          ./scripts/ci/smoke.sh
 
   unit-integration:
     name: Unit & Integration Tests

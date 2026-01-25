@@ -5,7 +5,7 @@
 #
 # Design principles:
 # - Fast execution (< 5 seconds)
-# - Never fail (all checks are advisory)
+# - Never fail (all checks are advisory) except critical version guards
 # - Cross-platform compatible
 # - Minimal output unless issues found
 ###############################################################################
@@ -39,6 +39,21 @@ log_error() { echo -e "${RED}✗${NC} $1"; }
 ###############################################################################
 # Health Check Functions
 ###############################################################################
+
+check_node_version() {
+    local node_version
+    if ! node_version="$(node -p "process.versions.node" 2>/dev/null)"; then
+        log_error "Node.js is not available on PATH"
+        exit 1
+    fi
+
+    if [[ "${node_version}" != 20.* ]]; then
+        log_error "❌ Node version mismatch: ${node_version} (expected 20.x)"
+        exit 1
+    fi
+
+    log_success "✅ Node ${node_version}"
+}
 
 check_disk_space() {
     local workspace_path="${PROJECT_ROOT}"
@@ -109,6 +124,8 @@ run_self_heal() {
 
 main() {
     cd "$PROJECT_ROOT"
+
+    check_node_version
 
     echo ""
     echo "========================================"

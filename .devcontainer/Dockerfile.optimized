@@ -160,28 +160,40 @@ SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 ARG INSTALL_DBTOOLS=1
 ARG SUPABASE_VERSION=1.200.0
+ARG PRISMA_VERSION=5.25.0
 
 # Install Database tools (Supabase, Prisma, pgcli)
 RUN if [ "$INSTALL_DBTOOLS" = "1" ]; then \
-        # Install Supabase CLI
+        set -eux; \
+        \
+        # Ensure required installers exist
+        apt-get update; \
+        apt-get install -y --no-install-recommends curl ca-certificates; \
+        rm -rf /var/lib/apt/lists/*; \
+        \
+        # Install Supabase CLI (pinned, from GitHub releases)
         arch="$(uname -m)"; \
         case "$arch" in \
             x86_64) sb_arch="linux_amd64" ;; \
             aarch64|arm64) sb_arch="linux_arm64" ;; \
             *) echo "Unsupported arch: $arch"; exit 1 ;; \
         esac; \
-        curl -fL "https://github.com/supabase/cli/releases/download/v${SUPABASE_VERSION}/supabase_${sb_arch}.tar.gz" -o /tmp/supabase.tar.gz \
-        && tar -xzf /tmp/supabase.tar.gz -C /tmp \
-        && install -m 0755 /tmp/supabase /usr/local/bin/supabase \
-        && rm /tmp/supabase.tar.gz /tmp/supabase \
-        && supabase --version \
+        url="https://github.com/supabase/cli/releases/download/v${SUPABASE_VERSION}/supabase_${SUPABASE_VERSION}_${sb_arch}.tar.gz"; \
+        for i in 1 2 3; do \
+            curl -fL "$url" -o /tmp/supabase.tar.gz && break || { echo "Retry $i/3 failed"; sleep 5; }; \
+        done; \
+        tar -xzf /tmp/supabase.tar.gz -C /tmp; \
+        install -m 0755 /tmp/supabase /usr/local/bin/supabase; \
+        rm -f /tmp/supabase.tar.gz /tmp/supabase; \
+        supabase --version; \
         \
-        # Install Prisma CLI
-        && pnpm install -g prisma@5 \
-        && prisma --version \
+        # Install Prisma CLI (pinned)
+        corepack enable; \
+        pnpm add -g prisma@${PRISMA_VERSION}; \
+        prisma --version; \
         \
-        # Install pgcli for better PostgreSQL CLI (optional)
-        && pip3 install --no-cache-dir pgcli; \
+        # Install pgcli (optional but useful)
+        pip3 install --no-cache-dir pgcli; \
     else \
         echo "Skipping dbtools installation"; \
     fi
