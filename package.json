@@ -166,7 +166,7 @@
     "lint:inline-check": "node scripts/check-inline-styles.cjs",
     "lint:all": "npm run lint && npm run lint:css && npm run lint:inline-check",
     "check:tw-config": "node scripts/validate-tailwind-config.js",
-    "build:validate": "node scripts/dx/validate-build.js",
+    "build:validate": "node scripts/dx/validate-build.js && bash scripts/ci/check-client-bundle-secrets.sh",
     "build:inject-config": "node scripts/inject-runtime-config.js",
     "build:prod": "npm run build && npm run build:inject-config -- --env production",
     "storybook": "storybook dev -p 6006",

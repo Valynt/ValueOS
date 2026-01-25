@@ -6,7 +6,7 @@
  */
 
 import { z } from "zod";
-import { getAppConfig } from "../../shared/config/app-config";
+import { getClientConfig } from "@shared/config/client-config";
 
 // ============================================================================
 // Types
@@ -65,7 +65,7 @@ export class UnifiedApiClient {
   };
 
   constructor(config: Partial<ApiClientConfig> = {}) {
-    const appConfig = getAppConfig();
+    const appConfig = getClientConfig();
 
     this.config = {
       baseUrl: config.baseUrl || appConfig.api.baseUrl,
