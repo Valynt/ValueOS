@@ -29,6 +29,8 @@ Migrations run automatically as part of the CI/CD pipeline. The migration job wi
 3. Verify the schema against the latest JSON Schema definitions.
 4. Log results and alert maintainers of any failures.
 
+For production rollouts, follow the **zero-downtime migration playbook** (expand → migrate → contract) and automate the phase controls in CI/CD. See the guide in `docs/guides/development/zero-downtime-migrations.md` for Alembic + Prisma automation helpers.
+
 ## Reversion
 
 If a migration introduces breaking issues, roll back using the version control tag associated with the prior release and apply a corrective migration. Avoid editing migration files that have already been applied; instead, create new migrations to adjust the schema.
