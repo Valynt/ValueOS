@@ -1,10 +1,10 @@
 import { NextFunction, Request, Response } from 'express';
-import { createLogger } from '../lib/logger';
+import { Logger } from '../utils/logger';
 import { getUserTenantId, verifyTenantExists, verifyTenantMembership } from '../lib/tenantVerification';
 
 type TenantCandidateSource = 'service-header' | 'user-claim' | 'request' | 'none';
 
-const logger = createLogger({ component: 'TenantContextMiddleware' });
+const logger = new Logger({ component: 'TenantContextMiddleware' });
 
 export function resolveTenantCandidate(req: Request): { tenantId: string | null; source: TenantCandidateSource } {
   const tenantHeader = req.header('x-tenant-id');

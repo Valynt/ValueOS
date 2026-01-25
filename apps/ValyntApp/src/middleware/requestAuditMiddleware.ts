@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { NextFunction, Request, Response } from 'express';
 import { securityAuditService } from '../services/SecurityAuditService';
-import { logger } from '../lib/logger';
+import { logger } from '../utils/logger';
 import { runWithContext } from '../lib/context';
 import { getTraceContextForLogging } from '../config/telemetry';
 
