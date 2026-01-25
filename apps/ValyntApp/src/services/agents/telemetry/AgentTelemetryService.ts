@@ -78,6 +78,10 @@ export interface AgentTelemetrySummary {
   avgResourceUsage: AgentResourceUsage;
   /** Agent health summary */
   healthSummary: Record<AgentType, AgentHealthStatus>;
+  /** Total cost */
+  totalCost: number;
+  /** Average cost per execution */
+  avgCost: number;
 }
 
 export interface AgentMetrics {
@@ -276,38 +280,6 @@ export interface AgentExecutionError {
   retryable: boolean;
   /** Error context */
   context?: Record<string, unknown>;
-}
-
-export interface AgentTelemetrySummary {
-  /** Total executions */
-  totalExecutions: number;
-  /** Successful executions */
-  successfulExecutions: number;
-  /** Failed executions */
-  failedExecutions: number;
-  /** Average execution time */
-  avgExecutionTime: number;
-  /** Success rate */
-  successRate: number;
-  /** Error rate */
-  errorRate: number;
-  /** Top error types */
-  topErrorTypes: Array<{
-    type: string;
-    count: number;
-    percentage: number;
-  }>;
-  /** Performance metrics */
-  performance: {
-    p50: number;
-    p90: number;
-    p95: number;
-    p99: number;
-  };
-  /** Resource usage averages */
-  avgResourceUsage: AgentResourceUsage;
-  /** Agent health summary */
-  healthSummary: Record<AgentType, AgentHealthStatus>;
 }
 
 // ============================================================================
@@ -765,6 +737,14 @@ export class AgentTelemetryService {
     // Calculate resource usage
     const avgResourceUsage = this.calculateAverageResourceUsage(traces);
 
+    // Calculate cost
+    const totalCost = traces.reduce((sum, t) => {
+      const cost = t.metrics?.tokenUsage?.cost || 0;
+      return sum + cost;
+    }, 0);
+
+    const avgCost = totalExecutions > 0 ? totalCost / totalExecutions : 0;
+
     // Calculate health summary - placeholder for now
     const healthSummary = {} as Record<AgentType, AgentHealthStatus>;
 
@@ -779,6 +759,8 @@ export class AgentTelemetryService {
       topErrorTypes,
       avgResourceUsage,
       healthSummary,
+      totalCost,
+      avgCost,
     };
   }
 
@@ -810,7 +792,7 @@ export class AgentTelemetryService {
         executions: summary.totalExecutions,
         successRate: summary.successRate,
         avgExecutionTime: summary.avgExecutionTime,
-        avgCost: 0, // TODO: Calculate actual cost
+        avgCost: summary.avgCost,
         throughput:
           summary.totalExecutions /
           (timeWindow
@@ -827,7 +809,10 @@ export class AgentTelemetryService {
 
     const avgValuePerExecution = traces.length > 0 ? totalValue / traces.length : 0;
 
-    const totalCost = 0; // TODO: Calculate actual total cost
+    const totalCost = traces.reduce((sum, t) => {
+      const cost = t.metrics?.tokenUsage?.cost || 0;
+      return sum + cost;
+    }, 0);
 
     return {
       agentMetrics,
