@@ -38,7 +38,7 @@ import {
   PERSONA_TAG_LABELS,
   SALES_MOTION_LABELS,
 } from "@/types/valueDriver";
-import { ValueDriverEditor } from "@/components/valueDrivers/ValueDriverEditor";
+import { ValueDriverEditor } from "@/components/value-drivers/ValueDriverEditor";
 
 const TYPE_COLORS: Record<ValueDriverType, string> = {
   "cost-savings": "bg-emerald-100 text-emerald-700 border-emerald-200",

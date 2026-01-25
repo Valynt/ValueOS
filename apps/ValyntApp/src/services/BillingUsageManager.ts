@@ -94,5 +94,4 @@ export class BillingUsageManager {
   }
 }
 
-export const createBillingUsageManager = (organizationId: string) => new BillingUsageManager(organizationId);</content>
-<parameter name="filePath">/workspaces/ValueOS/apps/ValyntApp/src/services/BillingUsageManager.ts
+export const createBillingUsageManager = (organizationId: string) => new BillingUsageManager(organizationId);

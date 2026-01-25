@@ -6,7 +6,7 @@ import { ProtectedRoute } from "./route-guards";
 
 const LandingPage = lazy(() => import("@pages/marketing/LandingPage"));
 const DashboardPage = lazy(() => import("@pages/app/DashboardPage"));
-const ChatCanvasLayout = lazy(() => import("@components/ChatCanvas/ChatCanvasLayout"));
+const ChatCanvasLayout = lazy(() => import("@components/chat-canvas/ChatCanvasLayout"));
 const NotFoundPage = lazy(() => import("@pages/errors/NotFoundPage"));
 
 // ValueOS pages
