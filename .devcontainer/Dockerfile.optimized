@@ -81,28 +81,8 @@ RUN corepack enable && corepack prepare pnpm@9.15.0 --activate \
     # Verify installation
     && pnpm --version
 
-# Stage 3: Docker CLI installation
-FROM nodejs AS docker
-
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
-
-# Install Docker CLI and Docker Compose with BuildKit cache
-# Retry logic for GPG key download
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    mkdir -p /etc/apt/keyrings \
-    && for i in 1 2 3; do \
-        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && break || \
-        { echo "Retry $i/3 failed"; sleep 5; }; \
-    done \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null \
-    && apt-get update \
-    && apt-get install -y docker-ce-cli docker-compose-plugin docker-buildx-plugin \
-    # Verify Docker CLI installed
-    && docker --version
-
 # Stage 4: Development tools
-FROM docker AS devtools
+FROM nodejs AS devtools
 
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
