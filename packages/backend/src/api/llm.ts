@@ -6,7 +6,7 @@
  */
 
 import { Request, Response, Router } from 'express';
-import { llmFallback } from './services/LLMFallback';
+import { llmFallback } from '../services/LLMFallback';
 import { llmRateLimiter } from '../middleware/llmRateLimiter';
 import { logger } from '../utils/logger';
 import {
@@ -50,7 +50,7 @@ router.post(
   llmRateLimiter,
   async (req: Request, res: Response) => {
   try {
-    const { prompt, model, maxTokens, temperature } = req.body;
+    const { prompt, model, maxTokens, temperature, stream } = req.body;
     
     // Validate request
     if (!prompt || typeof prompt !== 'string') {
@@ -94,8 +94,39 @@ router.post(
         sessionId,
         model,
         promptLength: sanitizedPrompt.length,
+        stream: !!stream
       })
     );
+
+    if (stream) {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.flushHeaders();
+
+      try {
+        const streamGenerator = llmFallback.streamRequest({
+          prompt: sanitizedPrompt,
+          model,
+          maxTokens,
+          temperature,
+          userId,
+          sessionId
+        });
+
+        for await (const chunk of streamGenerator) {
+          res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+        }
+
+        res.end();
+      } catch (error) {
+        logger.error('LLM stream failed', error as Error, withRequestContext(req, res));
+        // Send error event
+        res.write(`data: ${JSON.stringify({ error: 'Stream failed', done: true })}\n\n`);
+        res.end();
+      }
+      return;
+    }
 
     // Process request with fallback
     const response = await llmFallback.processRequest({
