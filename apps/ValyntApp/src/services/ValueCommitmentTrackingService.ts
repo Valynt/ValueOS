@@ -32,9 +32,11 @@ import {
 } from "../types/value-commitment-schemas.js";
 import { logger } from "../lib/logger";
 import { GroundTruthIntegrationService } from "./GroundTruthIntegrationService.js";
+import { supabase } from "../lib/supabase";
 
 export class ValueCommitmentTrackingService {
   private groundTruthService: GroundTruthIntegrationService;
+  private supabase = supabase;
 
   constructor(groundTruthService: GroundTruthIntegrationService) {
     this.groundTruthService = groundTruthService;
@@ -136,19 +138,51 @@ export class ValueCommitmentTrackingService {
     reason?: string
   ): Promise<ValueCommitment> {
     try {
-      // TODO: Update in database
-      // const existing = await this.getCommitmentBasic(commitmentId, tenantId);
-      // const updated = await this.db.update('value_commitments')
-      //   .set({ status, progress_percentage: progressPercentage, updated_at: new Date() })
-      //   .where(eq('id', commitmentId))
-      //   .returning();
+      if (!this.supabase) {
+        throw new Error("Supabase client not initialized");
+      }
+
+      // Fetch existing commitment for audit
+      const { data: existing, error: fetchError } = await this.supabase
+        .from("value_commitments")
+        .select("*")
+        .eq("id", commitmentId)
+        .eq("tenant_id", tenantId)
+        .single();
+
+      if (fetchError || !existing) {
+        throw new Error(`Commitment not found: ${commitmentId}`);
+      }
+
+      // Update in database
+      const { data: updated, error: updateError } = await this.supabase
+        .from("value_commitments")
+        .update({
+          status,
+          progress_percentage: progressPercentage,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", commitmentId)
+        .select()
+        .single();
+
+      if (updateError) {
+        throw updateError;
+      }
 
       // Create audit entry
-      // await this.createAuditEntry(tenantId, commitmentId, userId, 'status_changed',
-      //   { status: existing.status, progress_percentage: existing.progress_percentage },
-      //   { status, progress_percentage: progressPercentage },
-      //   reason || 'Status update'
-      // );
+      await this.createAuditEntry(
+        tenantId,
+        commitmentId,
+        userId,
+        "status_changed",
+        {
+          status: existing.status,
+          progress_percentage: existing.progress_percentage,
+        },
+        { status, progress_percentage: progressPercentage },
+        reason || "Status update"
+      );
 
       logger.info("Commitment status updated", {
         commitmentId,
@@ -157,8 +191,7 @@ export class ValueCommitmentTrackingService {
         progressPercentage,
       });
 
-      // Return mock updated commitment
-      return {} as ValueCommitment;
+      return updated as ValueCommitment;
     } catch (error) {
       logger.error("Failed to update commitment status", { error, commitmentId, tenantId });
       throw error;
@@ -669,6 +702,11 @@ export class ValueCommitmentTrackingService {
     reason: string
   ): Promise<void> {
     try {
+      if (!this.supabase) {
+        logger.warn("Supabase client not available for audit log");
+        return;
+      }
+
       const auditData: CommitmentAuditInsert = {
         commitment_id: commitmentId,
         tenant_id: tenantId,
@@ -681,10 +719,15 @@ export class ValueCommitmentTrackingService {
 
       const validatedAudit = CommitmentAuditSchema.parse(auditData);
 
-      // TODO: Insert audit entry
-      // await this.db.insert('commitment_audits').values(validatedAudit);
+      const { error } = await this.supabase
+        .from("commitment_audits")
+        .insert(validatedAudit);
 
-      logger.debug("Audit entry created", { commitmentId, tenantId, action });
+      if (error) {
+        logger.error("Failed to insert audit entry", { error });
+      } else {
+        logger.debug("Audit entry created", { commitmentId, tenantId, action });
+      }
     } catch (error) {
       logger.error("Failed to create audit entry", { error, commitmentId, tenantId });
       // Don't throw - audit failures shouldn't break business logic
