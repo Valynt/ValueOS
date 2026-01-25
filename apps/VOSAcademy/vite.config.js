@@ -99,7 +99,7 @@ export default defineConfig(function (_a) {
                             switch (_a.label) {
                                 case 0:
                                     _a.trys.push([0, 3, , 4]);
-url = new URL(req.url || '', "http://".concat(req.headers.host || 'localhost:5173'));
+                                    url = new URL(req.url || '', "http://".concat(req.headers.host));
                                     code = url.searchParams.get('code');
                                     state = url.searchParams.get('state');
                                     if (!code || !state) {
@@ -131,7 +131,7 @@ url = new URL(req.url || '', "http://".concat(req.headers.host || 'localhost:517
                     }); });
                     // tRPC handler
                     server.middlewares.use("/api/trpc", function (req, res, next) { return __awaiter(_this, void 0, void 0, function () {
-                        var createHTTPHandler, routersModule, trpcModule_1, trpcHandler, error_2;
+                        var createHTTPHandler, routersModule, trpcModule_1, trpcHandler, error_3;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0:
@@ -152,9 +152,9 @@ url = new URL(req.url || '', "http://".concat(req.headers.host || 'localhost:517
                                     trpcHandler(req, res);
                                     return [3 /*break*/, 5];
                                 case 4:
-                                    error_2 = _a.sent();
-                                    console.error("tRPC handler error:", error_2);
-                                    next(error_2);
+                                    error_3 = _a.sent();
+                                    console.error("tRPC handler error:", error_3);
+                                    next(error_3);
                                     return [3 /*break*/, 5];
                                 case 5: return [2 /*return*/];
                             }
