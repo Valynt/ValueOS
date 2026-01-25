@@ -448,4 +448,12 @@ export const api = {
   getCurrentUser: () => apiClient.get("/api/user/me"),
 
   updateProfile: (data: any) => apiClient.put("/api/user/profile", data),
+
+  // LLM
+  chat: (data: {
+    prompt: string;
+    model?: string;
+    maxTokens?: number;
+    temperature?: number;
+  }) => apiClient.post("/api/llm/chat", data),
 };

@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
-import type { ChatMessage, ChatSession } from "../types";
+import type { ChatMessage } from "../types";
+import { api } from "../../../api/client/unified-api-client";
 
 export function useChat(sessionId?: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -19,14 +20,36 @@ export function useChat(sessionId?: string) {
     setError(null);
 
     try {
-      // TODO: Implement actual chat API
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const response = await api.chat({
+        prompt: content,
+        model: "mistralai/Mixtral-8x7B-Instruct-v0.1",
+      });
+
+      if (!response.success) {
+        throw new Error(response.error?.message || "Network request failed");
+      }
+
+      if (response.data && !response.data.success) {
+        throw new Error(
+          response.data.error || response.data.message || "Request failed"
+        );
+      }
+
+      const result = response.data?.data;
+
+      if (!result) {
+        throw new Error("Invalid response format");
+      }
 
       const assistantMessage: ChatMessage = {
         id: `msg_${Date.now() + 1}`,
         role: "assistant",
-        content: `Response to: "${content}"`,
+        content: result.content,
         timestamp: new Date().toISOString(),
+        metadata: {
+          model: result.model,
+          tokens: result.usage?.totalTokens,
+        },
       };
 
       setMessages((prev) => [...prev, assistantMessage]);

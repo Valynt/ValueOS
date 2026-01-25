@@ -13,6 +13,7 @@ export default defineConfig({
       "src/views/Settings/__tests__/MFARecovery.test.ts",
       "src/routes/__tests__/routeConfig.test.ts",
       "src/features/chat/components/__tests__/*.test.tsx",
+      "src/features/chat/hooks/__tests__/*.test.tsx",
     ],
     coverage: {
       provider: "v8",
