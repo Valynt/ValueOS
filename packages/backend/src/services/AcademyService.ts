@@ -253,9 +253,7 @@ class AcademyService {
       );
 
       // Check eligibility for each level
-      const progress: CertificationProgress[] = [];
-      
-      for (const level of levels) {
+      const progressPromises = levels.map(async (level) => {
         const earned = earnedCerts.get(level);
         
         const { data: eligible } = await supabase.rpc('check_certification_eligibility', {
@@ -263,15 +261,15 @@ class AcademyService {
           p_level: level,
         });
 
-        progress.push({
+        return {
           level,
           requirements: this.getCertificationRequirements(level),
           percentComplete: earned ? 100 : eligible ? 100 : 0,
           earnedAt: earned?.earned_at ? new Date(earned.earned_at) : undefined,
-        });
-      }
+        } as CertificationProgress;
+      });
 
-      return progress;
+      return Promise.all(progressPromises);
     } catch (error) {
       logger.error('Failed to fetch certification progress', error instanceof Error ? error : undefined);
       return [];
