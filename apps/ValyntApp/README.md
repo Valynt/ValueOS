@@ -4,9 +4,17 @@ Modern SaaS frontend built with Vite, React, TypeScript, and Tailwind CSS.
 
 ## Getting Started
 
+For a full local stack (frontend + backend + Supabase), follow the repo quickstart:
+- [`docs/getting-started/quickstart.md`](../../docs/getting-started/quickstart.md)
+
+If you only need the frontend:
+
 ```bash
-npm install
-npm run dev
+corepack enable
+corepack prepare pnpm@9.15.0 --activate
+pnpm install
+pnpm run dx:env -- --mode local --force
+pnpm --filter valynt-app dev
 ```
 
 ## Project Structure
@@ -33,9 +41,11 @@ ValyntApp/
 
 ## Scripts
 
-- `npm run dev` — Start dev server
-- `npm run build` — Production build
-- `npm run lint` — Lint code
-- `npm run format` — Format code
-- `npm run typecheck` — Type check
-- `npm run test` — Run tests
+Run these from the repo root:
+
+- `pnpm --filter valynt-app dev` — Start dev server
+- `pnpm --filter valynt-app build` — Production build
+- `pnpm run lint` — Lint code
+- `pnpm run format` — Format code
+- `pnpm run typecheck` — Type check
+- `pnpm run test` — Run tests

@@ -23,7 +23,7 @@ This guide covers the complete deployment lifecycle from local development throu
 
 #### Development Environment
 
-- **Node.js**: v20+ with npm
+- **Node.js**: v20+ with Corepack/pnpm
 - **Docker Desktop**: For local development
 - **Supabase CLI**: For database management
 - **kubectl**: For Kubernetes operations
@@ -33,30 +33,11 @@ This guide covers the complete deployment lifecycle from local development throu
 
 #### Local Development Setup
 
-1. **Clone and setup**:
+Use the canonical quickstart to avoid drift:
 
-```bash
-git clone https://github.com/valynt/valueos.git
-cd valueos
-npm install
-```
+- [`docs/getting-started/quickstart.md`](../getting-started/quickstart.md)
 
-2. **Environment configuration**:
-
-```bash
-cp deploy/envs/.env.example .env.local
-pnpm run env:dev  # Configures Supabase keys
-```
-
-3. **Start development stack**:
-
-```bash
-pnpm run dx  # Full stack with Docker
-# OR
-./scripts/dev-caddy-start.sh  # With Caddy proxy
-```
-
-4. **Access points**:
+**Access points**:
 
 - Frontend: http://localhost:5173
 - Backend API: http://localhost:3001
@@ -67,26 +48,26 @@ pnpm run dx  # Full stack with Docker
 
 ```bash
 # Development
-npm run dev              # Start frontend dev server
-npm run dev:backend      # Start backend only
+pnpm run dev              # Start frontend dev server
+pnpm run backend:dev      # Start backend only
 pnpm run dx               # Full development stack
 pnpm run dx:check         # Health verification
 
 # Testing
-npm run test:unit        # Unit tests
-npm run test:integration # Integration tests
-npm run test:rls         # RLS policy tests
-npm run security:scan    # Security scanning
+pnpm run test:unit        # Unit tests
+pnpm run test:integration # Integration tests
+pnpm run test:rls         # RLS policy tests
+pnpm run security:scan    # Security scanning
 
 # Database
 pnpm run db:reset         # Reset local database
-pnpm run db:migrate       # Apply migrations
-npm run seed:demo        # Create demo data
+pnpm run db:push          # Apply migrations
+pnpm run seed:demo        # Create demo data
 
 # Quality gates
-npm run lint             # Code linting
-npm run typecheck        # TypeScript validation
-npm run build            # Production build
+pnpm run lint             # Code linting
+pnpm run typecheck        # TypeScript validation
+pnpm run build            # Production build
 ```
 
 ## Go-Live Workflow: Local → Staging → Production
@@ -104,43 +85,36 @@ This workflow covers three distinct stages:
 #### Prerequisites Check
 
 ```bash
-# Run automated setup
-pnpm run setup
-
-# Or manual check
-node --version    # Should be v20+
-npm --version     # Should be v9+
-docker --version  # Should be v24+
-supabase --version
+# Preflight checks
+pnpm run dx:doctor
 ```
 
 #### Launch Sequence
 
-| Step                    | Command                      | Output / Goal                             |
-| ----------------------- | ---------------------------- | ----------------------------------------- |
-| 1. Install Dependencies | `npm install`                | Installs all project dependencies         |
-| 2. Start Supabase       | `supabase start`             | Starts local Supabase (DB, Auth, Storage) |
-| 3. Generate Types       | `pnpm run db:types`           | Generates TypeScript types from DB schema |
-| 4. Launch Frontend      | `npm run dev`                | Starts Vite dev server with HMR           |
-| 5. Access               | Open `http://localhost:3000` | Application accessible                    |
+| Step | Command | Output / Goal |
+| --- | --- | --- |
+| 1. Generate env | `pnpm run dx:env -- --mode local --force` | Creates `.env.local` and `.env.ports` |
+| 2. Start stack | `pnpm run dx` | Starts dependencies, backend, frontend |
+| 3. Verify | `pnpm run dx:check` | Confirms services are healthy |
+| 4. Access | Open `http://localhost:5173` | Application accessible |
 
 #### Development Commands
 
 ```bash
 # Start development
-npm run dev
+pnpm run dev
 
 # Run tests in watch mode
-npm run test:watch
+pnpm run test:watch
 
 # Type checking
-npm run typecheck
+pnpm run typecheck
 
 # Lint code
-npm run lint
+pnpm run lint
 
 # Fix linting issues
-npm run lint:fix
+pnpm run lint:fix
 ```
 
 #### Debugging Tools
@@ -155,7 +129,7 @@ npm run lint:fix
 
 ```bash
 # Check for console.log statements
-npm run lint:console
+pnpm run lint:console
 
 # This must pass before staging/production
 ```
@@ -164,13 +138,13 @@ npm run lint:console
 
 ```bash
 # Check dev environment health
-npm run dev:health
+pnpm run dev:health
 
 # Diagnose issues
-npm run dev:diagnose
+pnpm run dev:diagnose
 
 # Auto-fix common problems
-npm run dev:auto-fix
+pnpm run dev:auto-fix
 ```
 
 ### Staging Validation & Hardening
@@ -183,10 +157,10 @@ Simulate production environment to validate deployment and configuration.
 
 ```bash
 # Build and start staging environment
-npm run staging:start
+pnpm run staging:start
 
 # Or step-by-step
-npm run staging:build
+pnpm run staging:build
 docker-compose -f infra/docker/docker-compose.staging.yml up -d
 ```
 
@@ -194,27 +168,27 @@ docker-compose -f infra/docker/docker-compose.staging.yml up -d
 
 | Check                  | Command                       | Success Criteria                 |
 | ---------------------- | ----------------------------- | -------------------------------- |
-| Golden Path Monitoring | `npm run monitor:golden-path` | All critical user flows pass     |
-| Security Scan          | `npm run security:scan:all`   | No high-severity vulnerabilities |
-| Performance Tests      | `npm run test:perf`           | Meets performance benchmarks     |
-| RLS Tests              | `npm run test:rls`            | All RLS policies enforced        |
+| Golden Path Monitoring | `pnpm run monitor:golden-path` | All critical user flows pass     |
+| Security Scan          | `pnpm run security:scan:all`   | No high-severity vulnerabilities |
+| Performance Tests      | `pnpm run test:perf`           | Meets performance benchmarks     |
+| RLS Tests              | `pnpm run test:rls`            | All RLS policies enforced        |
 | Database Validation    | `pnpm run db:validate`         | All fixes validated              |
-| SAML Tests             | `npm run test:saml`           | SAML compliance verified         |
+| SAML Tests             | `pnpm run test:saml`           | SAML compliance verified         |
 
 #### Staging Commands
 
 ```bash
 # View logs
-npm run staging:logs
+pnpm run staging:logs
 
 # Run tests against staging
-npm run staging:test
+pnpm run staging:test
 
 # Stop staging
-npm run staging:stop
+pnpm run staging:stop
 
 # Clean up (removes volumes)
-npm run staging:clean
+pnpm run staging:clean
 ```
 
 ### Production Go-Live & Final Audit
@@ -265,19 +239,19 @@ pnpm run db:validate
 
 ```bash
 # 1. Verify RLS on all tables
-npm run test:rls
+pnpm run test:rls
 
 # 2. Validate tenant isolation
 pnpm run db:validate
 
 # 3. Check RBAC enforcement
-npm run test:rbac
+pnpm run test:rbac
 
 # 4. Scan for vulnerabilities
-npm run security:scan:all
+pnpm run security:scan:all
 
 # 5. Check for console.log statements
-npm run lint:console
+pnpm run lint:console
 ```
 
 **All must pass before production deployment.**
@@ -343,7 +317,7 @@ docker-compose -f infra/docker/docker-compose.prod.yml up -d --build
 
 ```bash
 # Run golden path monitors against production
-PLAYWRIGHT_BASE_URL=https://yourdomain.com npm run monitor:golden-path
+PLAYWRIGHT_BASE_URL=https://yourdomain.com pnpm run monitor:golden-path
 
 # Check health endpoints
 curl -f https://yourdomain.com/health
@@ -375,8 +349,8 @@ docker-compose -f infra/docker/docker-compose.prod.yml up -d --no-deps app
 #### Frontend (Vite/React UI)
 
 1. **Pre-flight**: Ensure `.env` contains `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; LLM keys must be configured in the server/edge runtime (e.g., Supabase function `llm-proxy`).
-2. **Build**: `npm ci && npm run build` (artifacts emitted to `dist/`).
-3. **Smoke test**: `npm run preview -- --host 0.0.0.0 --port 4173` and validate `/documentation` renders.
+2. **Build**: `pnpm install --frozen-lockfile && pnpm run build` (artifacts emitted to `dist/`).
+3. **Smoke test**: `pnpm run preview -- --host 0.0.0.0 --port 4173` and validate `/documentation` renders.
 4. **Deploy**: Upload `dist/` to the CDN/edge host (e.g., Vercel/Netlify) with cache invalidation on `public/public/index.html` and `assets/*`.
 5. **Post-deploy**: Run synthetic check hitting `/` and `/documentation` to confirm UI hydration and documentation search bar load.
 
@@ -408,7 +382,7 @@ docker-compose -f infra/docker/docker-compose.prod.yml up -d --no-deps app
 - **Supabase connection errors**: Re-issue service role keys, verify IP allowlists, and confirm PostgREST availability.
 - **Documentation search returns empty**: Rebuild search indexes by re-saving affected `doc_pages`; confirm analytics tables are writable.
 - **Workflow stuck in `queued`**: Inspect `task_queue` for orphaned tasks, restart orchestrator workers, and replay with idempotency keys.
-- **Frontend build failures**: Clear `node_modules` and rerun `npm ci`; verify TypeScript config matches `tsconfig.app.json` presets.
+- **Frontend build failures**: Clear `node_modules` and rerun `pnpm install --frozen-lockfile`; verify TypeScript config matches `tsconfig.app.json` presets.
 - **RLS permission denials**: Check session tokens, validate policy rules in `policy_rules`, and test with a service role to isolate policy errors.
 
 ### Rollback Procedures by Epic
@@ -716,11 +690,11 @@ The CI/CD pipeline enforces these checks:
 pnpm run ci:verify
 
 # Individual checks
-npm run lint
-npm run typecheck
-npm run test
-npm run build
-npm run security:scan
+pnpm run lint
+pnpm run typecheck
+pnpm run test
+pnpm run build
+pnpm run security:scan
 ```
 
 ### Pipeline Stages

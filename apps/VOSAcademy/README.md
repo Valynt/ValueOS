@@ -3,24 +3,30 @@
 Documentation for running and contributing to the Vite + React TypeScript app.
 
 ## Setup
-- Install **Node.js 18+** and **npm**.
-- Install dependencies:
-  ```bash
-  npm install
-  ```
+
+- Install **Node.js 20+** and enable **Corepack**.
+- Install dependencies from the repo root:
+
+```bash
+corepack enable
+corepack prepare pnpm@9.15.0 --activate
+pnpm install
+```
 
 ## Development scripts
-The project uses npm scripts for common tasks:
+
+Run these from the repo root:
 
 | Command | Purpose |
 | --- | --- |
-| `npm run dev` | Start the Vite dev server with hot reloading. |
-| `npm run build` | Type-check and build the production bundle. |
-| `npm run preview` | Serve the built app locally to verify the production output. |
-| `npm run test` | Run the unit test suite with Vitest. |
+| `pnpm --filter vosacademy dev` | Start the Vite dev server with hot reloading. |
+| `pnpm --filter vosacademy build` | Type-check and build the production bundle. |
+| `pnpm --filter vosacademy preview` | Serve the built app locally to verify the production output. |
+| `pnpm --filter vosacademy test` | Run the unit test suite with Vitest. |
 
 ## Environment variables
-Copy `.env.example` to `.env.local` (Vite) or `.env` for server-side scripts, then fill in the values. Alternatively, export variables in your shell before running commands. Relevant keys:
+
+Copy `.env.example` to `.env.local`, then fill in the values. Alternatively, export variables in your shell before running commands. Relevant keys:
 
 | Variable | Description |
 | --- | --- |
@@ -31,29 +37,33 @@ Copy `.env.example` to `.env.local` (Vite) or `.env` for server-side scripts, th
 | `NODE_ENV` | Environment mode; defaults to `development` if not set. |
 
 ### Secrets and credential handling
+
 - Do not commit real secrets or production credentials. The `.env.example` file documents required keys with safe placeholders.
 - Store real values outside of version control (for example, through deployment-time environment variables or a secrets manager).
 - Rotate and revoke any credentials that are accidentally exposed in a working copy or build log.
 
 ## How to run the app
+
 1. Configure environment variables.
 2. Start the dev server:
    ```bash
-   npm run dev
+   pnpm --filter vosacademy dev
    ```
 3. Open the URL printed by Vite (default `http://localhost:5173`).
 
 To preview the production build locally after building:
+
 ```bash
-npm run build
-npm run preview
+pnpm --filter vosacademy build
+pnpm --filter vosacademy preview
 ```
 
 ## Tests, linting, and builds
-- **Tests:** `npm run test`
-- **Lockfile lint:** `npm run lint:lockfile`
+
+- **Tests:** `pnpm --filter vosacademy test`
+- **Lockfile lint:** `pnpm --filter vosacademy lint:lockfile`
 - **Lint:** Run ESLint directly (a script is not yet defined):
   ```bash
-  npx eslint .
+  pnpm --filter vosacademy exec eslint .
   ```
-- **Build:** `npm run build`
+- **Build:** `pnpm --filter vosacademy build`

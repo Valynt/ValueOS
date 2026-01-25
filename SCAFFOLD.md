@@ -159,54 +159,54 @@ Dashboard for monitoring MCP (Model Context Protocol) servers.
 
 ```bash
 # Initial setup
-npm install
-npm run env:dev
-npm run dx
+corepack enable
+corepack prepare pnpm@9.15.0 --activate
+pnpm install
+pnpm run dx:env -- --mode local --force
+pnpm run dx
 
 # Development
-npm run dev              # Start frontend
-npm run backend:dev      # Start backend server
-npm run agent:dev        # Start agent development
+pnpm run dev              # Start frontend
+pnpm run backend:dev      # Start backend server
+pnpm run agent:dev        # Start agent development
 
 # Testing
-npm run ci:verify        # Full CI verification
-npm run test:unit        # Unit tests
-npm run test:integration # Integration tests
+pnpm run ci:verify        # Full CI verification
+pnpm run test:unit        # Unit tests
+pnpm run test:integration # Integration tests
 
 # Database
-npm run db:setup         # Database setup
-npm run db:push          # Push migrations
-npm run db:reset         # Reset database
+pnpm run db:push          # Push migrations
+pnpm run db:reset         # Reset database
 ```
 
 ### Key Scripts
 
 **Development:**
 
-- `npm run dx` - Start development environment
-- `npm run dev` - Frontend development
-- `npm run backend:dev` - Backend development
-- `npm run agent:dev` - Agent development
+- `pnpm run dx` - Start development environment
+- `pnpm run dev` - Frontend development
+- `pnpm run backend:dev` - Backend development
+- `pnpm run agent:dev` - Agent development
 
 **Testing:**
 
-- `npm run test` - Full test suite
-- `npm run test:unit` - Unit tests only
-- `npm run test:integration` - Integration tests
-- `npm run ci:verify` - CI verification pipeline
+- `pnpm run test` - Full test suite
+- `pnpm run test:unit` - Unit tests only
+- `pnpm run test:integration` - Integration tests
+- `pnpm run ci:verify` - CI verification pipeline
 
 **Database:**
 
-- `npm run db:setup` - Initialize database
-- `npm run db:push` - Apply migrations
-- `npm run db:reset` - Reset database
-- `npm run db:types` - Generate TypeScript types
+- `pnpm run db:push` - Apply migrations
+- `pnpm run db:reset` - Reset database
+- `pnpm run db:types` - Generate TypeScript types
 
 **Building:**
 
-- `npm run build` - Production build
-- `npm run build:backend` - Backend compilation
-- `npm run build:minimal` - Minimal frontend build
+- `pnpm run build` - Production build
+- `pnpm run build:backend` - Backend compilation
+- `pnpm run build:minimal` - Minimal frontend build
 
 ## Infrastructure
 
@@ -396,31 +396,8 @@ Documented in `docs/architecture/active-architectural-decisions.md` with current
 
 ## Quick Start
 
-1. **Clone and install:**
-
-   ```bash
-   git clone <repository>
-   cd ValueOS
-   npm install
-   ```
-
-2. **Setup environment:**
-
-   ```bash
-   npm run env:dev
-   npm run dx
-   ```
-
-3. **Start development:**
-
-   ```bash
-   npm run dev
-   ```
-
-4. **Run tests:**
-   ```bash
-   npm run ci:verify
-   ```
+Follow the canonical quickstart to avoid drift:
+- [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md)
 
 ## Support
 
@@ -429,17 +406,17 @@ Documented in `docs/architecture/active-architectural-decisions.md` with current
 - [Setup Guide](docs/guides/setup.md)
 - [Architecture Overview](docs/architecture/system-overview.md)
 - [API Documentation](docs/engineering/api/)
-- [Troubleshooting Guide](docs/guides/troubleshooting.md)
+- [Troubleshooting Guide](docs/getting-started/troubleshooting.md)
 
 ### Commands Reference
 
 | Task              | Command               | Documentation    |
 | ----------------- | --------------------- | ---------------- |
-| Local setup       | `npm run setup`       | Setup Guide      |
-| Run tests         | `npm run ci:verify`   | Testing Guide    |
-| Deploy to staging | `npm run env:staging` | Deployment Guide |
-| Database reset    | `npm run db:reset`    | Database Guide   |
-| Health check      | `npm run dx:check`    | Monitoring Guide |
+| Local setup       | `pnpm run dx`         | Setup Guide      |
+| Run tests         | `pnpm run ci:verify`  | Testing Guide    |
+| Deploy to staging | `pnpm run env:staging` | Deployment Guide |
+| Database reset    | `pnpm run db:reset`   | Database Guide   |
+| Health check      | `pnpm run dx:check`   | Monitoring Guide |
 
 ---
 

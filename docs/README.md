@@ -4,7 +4,7 @@ Welcome to the ValueOS documentation hub. This is your starting point for unders
 
 ## Quick Links
 
-- **[Quick Start](getting-started/quickstart.md)** - Get running in 3 commands
+- **[Quick Start](getting-started/quickstart.md)** - Local Dev Quickstart (canonical)
 - **[Local Development Setup](getting-started/local-setup.md)** - Complete local development guide
 - **[Deployment Guide](operations/deployment.md)** - Production deployment procedures
 - **[Architecture Overview](architecture/overview.md)** - System architecture and design

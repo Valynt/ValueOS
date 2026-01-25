@@ -30,28 +30,21 @@ ValueOS maintains a professional and inclusive environment with clear expectatio
 
 **Prerequisites:**
 
-- Node.js 18+, Docker Desktop, Supabase CLI
+- Node.js 20+, Docker Desktop, Corepack/pnpm
 - Git configuration with name and email
 - GitHub account
 
 **Environment Setup:**
 
+Use the canonical quickstart to avoid drift:
+- [`docs/getting-started/quickstart.md`](../getting-started/quickstart.md)
+
+Minimal verification commands:
+
 ```bash
-# Fork and clone repository
-git clone https://github.com/YOUR_USERNAME/ValueCanvas.git
-cd ValueCanvas
-
-# Set up environment
-npm install
-cp .env.local .env
-# Edit .env with LLM API key
-
-# Start development environment
-./start.sh
-
-# Verify setup
-npm test
-npm run lint
+pnpm run dx:check
+pnpm run test
+pnpm run lint
 ```
 
 **Branch Management:**
