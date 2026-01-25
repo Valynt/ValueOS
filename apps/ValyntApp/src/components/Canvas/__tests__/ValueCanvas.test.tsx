@@ -1,11 +1,19 @@
+<<<<<<< Updated upstream
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { vi } from "vitest";
 import { ValueCanvas } from "../ValueCanvas";
 import { ValueDriver, MOCK_VALUE_DRIVERS } from "@/types/valueDriver";
+=======
+import { render, screen, fireEvent } from "@testing-library/react";
+import { vi } from "vitest";
+import { ValueCanvas } from "../ValueCanvas";
+import { ValueDriver } from "@/types/valueDriver";
+>>>>>>> Stashed changes
 
 // Mock react-dnd
 vi.mock("react-dnd", () => ({
   useDrop: () => [{ isOver: false }, vi.fn()],
+<<<<<<< Updated upstream
   useDrag: () => [{ isDragging: false }, vi.fn()],
 }));
 vi.mock("react-dnd-html5-backend", () => ({
@@ -15,6 +23,11 @@ vi.mock("react-dnd", () => ({
   DndProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   useDrop: vi.fn(() => [{ isOver: false }, vi.fn()]),
   useDrag: vi.fn(() => [{ isDragging: false }, vi.fn()]),
+=======
+}));
+vi.mock("react-dnd-html5-backend", () => ({
+  DndProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+>>>>>>> Stashed changes
 }));
 
 // Mock services
@@ -33,6 +46,7 @@ vi.mock("@/services/PlaygroundSessionService", () => ({
 vi.mock("@/hooks/useOrganization", () => ({
   useOrganization: () => ({ organizationId: "test-org" }),
 }));
+<<<<<<< Updated upstream
 vi.mock("@/components/valueDrivers/ValueDriverEditor", () => ({
   ValueDriverEditor: ({ onClose }: { onClose: () => void }) => <div>Editor Mock <button onClick={onClose}>Close</button></div>,
 }));
@@ -46,6 +60,8 @@ vi.mock("./ValueDriverCard", () => ({
     </div>
   ),
 }));
+=======
+>>>>>>> Stashed changes
 
 describe("ValueCanvas", () => {
   const mockOnSave = vi.fn();
@@ -66,6 +82,7 @@ describe("ValueCanvas", () => {
     expect(screen.getByText("Save to Backend")).toBeInTheDocument();
   });
 
+<<<<<<< Updated upstream
   it("renders library drivers", () => {
     render(<ValueCanvas sessionId="test-session" onSave={mockOnSave} />);
     MOCK_VALUE_DRIVERS.forEach(driver => {
@@ -73,10 +90,13 @@ describe("ValueCanvas", () => {
     });
   });
 
+=======
+>>>>>>> Stashed changes
   it("calls onSave when save button is clicked", async () => {
     render(<ValueCanvas sessionId="test-session" onSave={mockOnSave} />);
     const saveButton = screen.getByText("Save to Backend");
     fireEvent.click(saveButton);
+<<<<<<< Updated upstream
     await waitFor(() => expect(mockOnSave).toHaveBeenCalled());
   });
 
@@ -85,6 +105,8 @@ describe("ValueCanvas", () => {
     render(<ValueCanvas sessionId="test-session" onSave={mockOnSave} />);
     const saveButton = screen.getByText("Save to Backend");
     fireEvent.click(saveButton);
+=======
+>>>>>>> Stashed changes
     // Since it's async, we might need to wait, but for simplicity
     expect(mockOnSave).toHaveBeenCalled();
   });
