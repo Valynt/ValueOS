@@ -439,7 +439,7 @@ CHECK (discount_rate >= 0 AND discount_rate <= 1);
 - Network isolation
 
 ```dockerfile
-FROM node:20-alpine
+FROM node:20.19.0-alpine
 
 # Create non-root user
 RUN addgroup -g 1000 node && adduser -u 1000 -G node -s /bin/sh -D node

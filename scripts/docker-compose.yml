@@ -39,7 +39,7 @@ services:
 
   # Build validation service - runs before other services
   build-validator:
-    image: node:20-alpine
+    image: node:20.19.0-alpine
     container_name: valueos-build-validator
     working_dir: /app
     volumes:

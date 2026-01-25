@@ -186,7 +186,7 @@ tail -f /tmp/vite.log
 **File:** `Dockerfile.frontend`
 
 ```dockerfile
-FROM node:20-alpine
+FROM node:20.19.0-alpine
 
 WORKDIR /app
 
@@ -214,7 +214,7 @@ CMD ["npm", "run", "dev"]
 **File:** `Dockerfile.backend`
 
 ```dockerfile
-FROM node:20-alpine
+FROM node:20.19.0-alpine
 
 # Install socat for port forwarding
 RUN apk add --no-cache socat
