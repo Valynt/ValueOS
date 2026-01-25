@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback } from "react";
 
 /**
  * Hook for prefetching routes and resources
@@ -8,21 +8,21 @@ export const usePrefetch = () => {
     // For React Router, we can preload route components
     // This is a simplified implementation - in practice, you'd integrate
     // with your route definitions and lazy loading
-    console.debug('Prefetching route:', route);
+    console.debug("Prefetching route:", route);
 
     // Example: preload critical components based on route
     switch (route) {
-      case '/dashboard':
+      case "/dashboard":
         // Preload dashboard components
-        import('../views/Dashboard');
+        import("../views/Dashboard");
         break;
-      case '/projects':
+      case "/projects":
         // Preload projects components
-        import('../views/Projects');
+        import("../views/Projects");
         break;
-      case '/agents':
+      case "/agents":
         // Preload agents components
-        import('../views/Agents');
+        import("../views/Agents");
         break;
       default:
         break;
@@ -31,12 +31,12 @@ export const usePrefetch = () => {
 
   const prefetchResource = useCallback(async (url: string) => {
     // Prefetch static resources
-    if ('serviceWorker' in navigator && 'caches' in window) {
+    if ("serviceWorker" in navigator && "caches" in window) {
       try {
-        const cache = await caches.open('prefetch-cache');
+        const cache = await caches.open("prefetch-cache");
         await cache.add(url);
       } catch (error) {
-        console.warn('Resource prefetch failed:', error);
+        console.warn("Resource prefetch failed:", error);
       }
     }
   }, []);

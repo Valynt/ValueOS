@@ -49,10 +49,7 @@ describe("Opportunity Agent API Integration Tests", () => {
         },
       };
 
-      const response = await request(app)
-        .post("/query")
-        .send(queryPayload)
-        .expect(200);
+      const response = await request(app).post("/query").send(queryPayload).expect(200);
 
       // Validate response schema
       expect(response.body).toHaveProperty("opportunities");
@@ -97,10 +94,7 @@ describe("Opportunity Agent API Integration Tests", () => {
         },
       };
 
-      const response = await request(app)
-        .post("/query")
-        .send(queryPayload)
-        .expect(200);
+      const response = await request(app).post("/query").send(queryPayload).expect(200);
 
       // Ensure the response is generated (tenant isolation would be enforced at data access level)
       expect(response.body.opportunities.length).toBeGreaterThan(0);
@@ -122,10 +116,7 @@ describe("Opportunity Agent API Integration Tests", () => {
         invalidField: "test",
       };
 
-      const response = await request(app)
-        .post("/query")
-        .send(invalidPayload)
-        .expect(400);
+      const response = await request(app).post("/query").send(invalidPayload).expect(400);
 
       expect(response.body).toHaveProperty("error");
       expect(response.body.error).toBe("Invalid request format");
@@ -150,10 +141,7 @@ describe("Opportunity Agent API Integration Tests", () => {
         query: "partnership opportunities",
       };
 
-      const response = await request(app)
-        .post("/query")
-        .send(queryPayload)
-        .expect(200);
+      const response = await request(app).post("/query").send(queryPayload).expect(200);
 
       expect(response.body.opportunities.length).toBeGreaterThan(0);
       expect(response.body.analysis).toContain("partnership");
@@ -163,16 +151,15 @@ describe("Opportunity Agent API Integration Tests", () => {
       // Mock the analyzer to throw an error
       const { OpportunityAnalyzer } = await import("../index");
       const originalAnalyze = OpportunityAnalyzer.prototype.analyzeOpportunities;
-      OpportunityAnalyzer.prototype.analyzeOpportunities = vi.fn().mockRejectedValue(new Error("Mock error"));
+      OpportunityAnalyzer.prototype.analyzeOpportunities = vi
+        .fn()
+        .mockRejectedValue(new Error("Mock error"));
 
       const queryPayload = {
         query: "test query",
       };
 
-      const response = await request(app)
-        .post("/query")
-        .send(queryPayload)
-        .expect(500);
+      const response = await request(app).post("/query").send(queryPayload).expect(500);
 
       expect(response.body).toHaveProperty("error");
       expect(response.body.error).toBe("Internal server error");
@@ -186,10 +173,7 @@ describe("Opportunity Agent API Integration Tests", () => {
         query: "market expansion",
       };
 
-      const response = await request(app)
-        .post("/query")
-        .send(queryPayload)
-        .expect(200);
+      const response = await request(app).post("/query").send(queryPayload).expect(200);
 
       // Additional schema validation
       response.body.opportunities.forEach((opp: any) => {

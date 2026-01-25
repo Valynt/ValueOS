@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
-import { Link, useMatch, useResolvedPath } from 'react-router-dom';
-import { usePrefetch } from '../../hooks/usePrefetch';
+import React, { useEffect, useRef } from "react";
+import { Link, useMatch, useResolvedPath } from "react-router-dom";
+import { usePrefetch } from "../../hooks/usePrefetch";
 
 interface PrefetchLinkProps {
   to: string;
@@ -21,7 +21,7 @@ export const PrefetchLink: React.FC<PrefetchLinkProps> = ({
   className,
   prefetch = true,
   intersection = false,
-  rootMargin = '50px',
+  rootMargin = "50px",
   ...props
 }) => {
   const linkRef = useRef<HTMLAnchorElement>(null);
@@ -48,12 +48,12 @@ export const PrefetchLink: React.FC<PrefetchLinkProps> = ({
       }
     };
 
-    link.addEventListener('mouseenter', handleMouseEnter);
-    link.addEventListener('mouseleave', handleMouseLeave);
+    link.addEventListener("mouseenter", handleMouseEnter);
+    link.addEventListener("mouseleave", handleMouseLeave);
 
     return () => {
-      link.removeEventListener('mouseenter', handleMouseEnter);
-      link.removeEventListener('mouseleave', handleMouseLeave);
+      link.removeEventListener("mouseenter", handleMouseEnter);
+      link.removeEventListener("mouseleave", handleMouseLeave);
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
@@ -81,12 +81,7 @@ export const PrefetchLink: React.FC<PrefetchLinkProps> = ({
   }, [intersection, to, rootMargin, prefetchRoute]);
 
   return (
-    <Link
-      ref={linkRef}
-      to={to}
-      className={className}
-      {...props}
-    >
+    <Link ref={linkRef} to={to} className={className} {...props}>
       {children}
     </Link>
   );

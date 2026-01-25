@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { usePrefetch } from './usePrefetch';
+import { useEffect, useRef } from "react";
+import { usePrefetch } from "./usePrefetch";
 
 interface UseIntersectionPrefetchOptions {
   route?: string;
@@ -15,7 +15,7 @@ interface UseIntersectionPrefetchOptions {
 export const useIntersectionPrefetch = ({
   route,
   resource,
-  rootMargin = '50px',
+  rootMargin = "50px",
   threshold = 0.1,
   enabled = true,
 }: UseIntersectionPrefetchOptions) => {
