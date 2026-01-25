@@ -17,7 +17,7 @@
       "version": "latest"
     },
     "ghcr.io/devcontainers/features/node:1": {
-      "version": "18",
+      "version": "20",
       "nodeGypDependencies": true
     },
     "ghcr.io/devcontainers/features/python:1": {
