@@ -9,7 +9,7 @@
 # Build: docker build -f Dockerfile.optimized -t valueos-dev .
 
 ARG VARIANT=ubuntu-22.04
-ARG NODE_VERSION=22
+ARG NODE_VERSION=20
 
 # Stage 1: Base image with system dependencies
 FROM mcr.microsoft.com/vscode/devcontainers/base:${VARIANT} AS base
@@ -17,10 +17,13 @@ FROM mcr.microsoft.com/vscode/devcontainers/base:${VARIANT} AS base
 # Fail fast on any error
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
+# Set environment variables for non-interactive installs
+ENV DEBIAN_FRONTEND=noninteractive
+
 # Install system dependencies in a single layer with BuildKit cache
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && export DEBIAN_FRONTEND=noninteractive \
+    apt-get update \
     && apt-get install -y --no-install-recommends \
     # Build tools
     build-essential \
@@ -155,20 +158,33 @@ FROM security AS dbtools
 
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
-# Install Supabase CLI with retry
-RUN for i in 1 2 3; do \
-        curl -fsSL https://raw.githubusercontent.com/supabase/cli/main/install.sh | sh && break || \
-        { echo "Retry $i/3 failed"; sleep 5; }; \
-    done \
-    && supabase --version || echo "Warning: Supabase CLI installation failed (non-critical)"
+ARG INSTALL_DBTOOLS=1
+ARG SUPABASE_VERSION=1.200.0
 
-# Install Prisma CLI
-RUN pnpm install -g prisma@5 \
-    && prisma --version
-
-# Install pgcli for better PostgreSQL CLI (optional)
-RUN pip3 install --no-cache-dir pgcli \
-    || echo "Warning: pgcli installation failed (non-critical)"
+# Install Database tools (Supabase, Prisma, pgcli)
+RUN if [ "$INSTALL_DBTOOLS" = "1" ]; then \
+        # Install Supabase CLI
+        arch="$(uname -m)"; \
+        case "$arch" in \
+            x86_64) sb_arch="linux_amd64" ;; \
+            aarch64|arm64) sb_arch="linux_arm64" ;; \
+            *) echo "Unsupported arch: $arch"; exit 1 ;; \
+        esac; \
+        curl -fL "https://github.com/supabase/cli/releases/download/v${SUPABASE_VERSION}/supabase_${sb_arch}.tar.gz" -o /tmp/supabase.tar.gz \
+        && tar -xzf /tmp/supabase.tar.gz -C /tmp \
+        && install -m 0755 /tmp/supabase /usr/local/bin/supabase \
+        && rm /tmp/supabase.tar.gz /tmp/supabase \
+        && supabase --version \
+        \
+        # Install Prisma CLI
+        && pnpm install -g prisma@5 \
+        && prisma --version \
+        \
+        # Install pgcli for better PostgreSQL CLI (optional)
+        && pip3 install --no-cache-dir pgcli; \
+    else \
+        echo "Skipping dbtools installation"; \
+    fi
 
 # Stage 7: Final image with user setup
 FROM dbtools AS final

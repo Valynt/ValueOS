@@ -16,10 +16,6 @@
     "ghcr.io/devcontainers/features/github-cli:1": {
       "version": "latest"
     },
-    "ghcr.io/devcontainers/features/node:1": {
-      "version": "18",
-      "nodeGypDependencies": true
-    },
     "ghcr.io/devcontainers/features/python:1": {
       "version": "3.11",
       "installTools": "true"
