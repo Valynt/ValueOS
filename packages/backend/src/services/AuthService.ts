@@ -52,10 +52,17 @@ export class AuthService extends BaseService {
 
   constructor() {
     super("AuthService");
-    if (process.env.NODE_ENV === "production" && !process.env.TCT_SECRET) {
-      throw new Error("TCT_SECRET must be set in production");
+    if (!process.env.TCT_SECRET) {
+      if (process.env.NODE_ENV === "production") {
+        throw new Error("TCT_SECRET must be set in production");
+      }
+      // In development, we can log a warning but still need a value to function
+      // Ideally this should come from .env.local
+      console.warn("WARN: TCT_SECRET not set, using insecure default for development only.");
+      this.tctSecret = "default-tct-secret-change-me";
+    } else {
+      this.tctSecret = process.env.TCT_SECRET;
     }
-    this.tctSecret = process.env.TCT_SECRET || "default-tct-secret-change-me";
   }
 
   private isBrowser(): boolean {

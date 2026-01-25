@@ -12,6 +12,7 @@
 import { Request, Response } from "express";
 import { createSecureRouter } from "../middleware/secureRouter";
 import { requireAuth } from "../middleware/auth";
+import { requireMFA } from "../middleware/mfa";
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation";
 import { authService } from "../services/AuthService";
 import { AuthenticationError, ValidationError } from "../services/errors";
@@ -312,9 +313,14 @@ router.post(
   }
 );
 
-router.post("/password/update", requireAuth, async (req: Request, res: Response) => {
-  try {
-    const { newPassword } = req.body;
+router.post(
+  "/password/update",
+  requireAuth,
+  requireMFA,
+  validateRequest(ValidationSchemas.updatePassword),
+  async (req: Request, res: Response) => {
+    try {
+      const { newPassword } = req.body;
 
     if (!newPassword) {
       return res.status(400).json({

@@ -382,6 +382,10 @@ export const ValidationSchemas = {
     fullName: { type: 'string' as const, required: true, minLength: 2, maxLength: 100 }
   },
 
+  updatePassword: {
+    newPassword: { type: 'string' as const, required: true, minLength: 8 }
+  },
+
   adminInviteUser: {
     email: { type: 'email' as const, required: true },
     role: {
