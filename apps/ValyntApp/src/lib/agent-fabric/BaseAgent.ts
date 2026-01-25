@@ -11,6 +11,7 @@ import { LLMGateway, LLMRequest, LLMResponse } from "./LLMGateway";
 import { MemorySystem, MemoryEntry, MemoryQuery } from "./MemorySystem";
 import { AuditLogger, AuditLevel } from "./AuditLogger";
 import { createClient } from "@supabase/supabase-js";
+import { ConfigurationManager } from "./ConfigurationManager";
 
 // ============================================================================
 // Agent Types
@@ -32,6 +33,7 @@ export abstract class BaseAgent implements IAgent {
   protected config: BaseAgentConfig;
   protected executionCount = 0;
   protected lastExecutionTime = 0;
+  protected configManager = ConfigurationManager.getInstance();
 
   constructor(config: BaseAgentConfig) {
     this.config = config;
@@ -290,12 +292,26 @@ export abstract class BaseAgent implements IAgent {
   }
 
   protected async callLLM(request: Omit<LLMRequest, "id">): Promise<LLMResponse> {
+    return this.secureInvoke(request);
+  }
+
+  private async executeLLMRequest(request: Omit<LLMRequest, "id">): Promise<LLMResponse> {
     const fullRequest: LLMRequest = {
       id: uuidv4(),
       ...request,
     };
 
     return await this.config.llmGateway.execute(fullRequest);
+  }
+
+  protected async secureInvoke(request: Omit<LLMRequest, "id">): Promise<LLMResponse> {
+    const safetyCheck = this.configManager.checkSafety(this.config.id, request);
+    if (!safetyCheck.safe) {
+      logger.warn(`Safety violation for agent ${this.config.id}: ${safetyCheck.reason}`);
+      throw new Error(`Safety violation: ${safetyCheck.reason}`);
+    }
+
+    return this.executeLLMRequest(request);
   }
 
   protected async storeMemory(

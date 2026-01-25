@@ -7,6 +7,7 @@
 
 import { logger } from "../../utils/logger";
 import { v4 as uuidv4 } from "uuid";
+import { ConfigurationManager } from "./ConfigurationManager";
 
 // ============================================================================
 // Provider Types
@@ -73,6 +74,7 @@ abstract class BaseLLMProvider {
   }
 
   abstract execute(request: Omit<LLMRequest, "id" | "provider">): Promise<LLMResponse>;
+  abstract healthCheck(): Promise<boolean>;
 
   protected checkRateLimits(): void {
     const now = Date.now();
@@ -104,6 +106,23 @@ abstract class BaseLLMProvider {
 }
 
 class OpenAIProvider extends BaseLLMProvider {
+  async healthCheck(): Promise<boolean> {
+    try {
+      // Simple connectivity check
+      const response = await fetch("https://api.openai.com/v1/models", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.config.apiKey}`,
+        },
+        signal: AbortSignal.timeout(5000),
+      });
+      return response.ok;
+    } catch (error) {
+      logger.warn("OpenAI health check failed", { error });
+      return false;
+    }
+  }
+
   async execute(request: Omit<LLMRequest, "id" | "provider">): Promise<LLMResponse> {
     this.checkRateLimits();
 
@@ -181,6 +200,30 @@ class OpenAIProvider extends BaseLLMProvider {
 }
 
 class AnthropicProvider extends BaseLLMProvider {
+  async healthCheck(): Promise<boolean> {
+    try {
+      // Connectivity check
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": this.config.apiKey,
+          "Content-Type": "application/json",
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-3-haiku-20240307",
+          messages: [{ role: "user", content: "ping" }],
+          max_tokens: 1,
+        }),
+        signal: AbortSignal.timeout(5000),
+      });
+      return response.ok;
+    } catch (error) {
+      logger.warn("Anthropic health check failed", { error });
+      return false;
+    }
+  }
+
   async execute(request: Omit<LLMRequest, "id" | "provider">): Promise<LLMResponse> {
     this.checkRateLimits();
 
@@ -263,6 +306,7 @@ class AnthropicProvider extends BaseLLMProvider {
 export class LLMGateway {
   private providers: Map<LLMProvider, BaseLLMProvider> = new Map();
   private defaultProvider: LLMProvider = "openai";
+  private configManager = ConfigurationManager.getInstance();
 
   constructor(configs: Record<LLMProvider, LLMProviderConfig>) {
     // Initialize providers
@@ -273,6 +317,19 @@ export class LLMGateway {
       this.providers.set("anthropic", new AnthropicProvider(configs.anthropic));
     }
     // Add other providers as needed
+
+    // Update ConfigurationManager with initial configs
+    const currentConfig = this.configManager.getConfig();
+    this.configManager.updateConfig({
+      providers: {
+        enabled: Array.from(this.providers.keys()) as LLMProvider[],
+        fallbackOrder:
+          currentConfig.providers.fallbackOrder.length > 0
+            ? currentConfig.providers.fallbackOrder
+            : ["openai", "anthropic"], // Preserve if set
+        configs: { ...currentConfig.providers.configs, ...configs },
+      },
+    });
 
     logger.info("LLM Gateway initialized", {
       providers: Array.from(this.providers.keys()),
@@ -286,38 +343,62 @@ export class LLMGateway {
       ...request,
     };
 
-    const provider = this.providers.get(request.provider);
-    if (!provider) {
-      throw new Error(`Unsupported LLM provider: ${request.provider}`);
-    }
-
-    logger.info("Executing LLM request", {
-      requestId: enrichedRequest.id,
-      provider: request.provider,
-      model: request.model,
-      messageCount: request.messages.length,
+    const providersToTry = [request.provider];
+    const fallback = this.configManager.getConfig().providers.fallbackOrder;
+    fallback.forEach((p) => {
+      if (p !== request.provider && !providersToTry.includes(p)) {
+        providersToTry.push(p);
+      }
     });
 
-    try {
-      const response = await provider.execute(request);
+    let lastError: Error | undefined;
 
-      logger.info("LLM request completed successfully", {
+    for (const providerName of providersToTry) {
+      const provider = this.providers.get(providerName);
+      if (!provider) {
+        if (providerName === request.provider) {
+             logger.warn(`Primary provider ${providerName} not configured, trying fallback`);
+        }
+        continue;
+      }
+
+      logger.info("Executing LLM request", {
         requestId: enrichedRequest.id,
-        provider: request.provider,
+        provider: providerName,
         model: request.model,
-        cost: response.cost,
-        latency: response.latency,
+        messageCount: request.messages.length,
       });
 
-      return response;
-    } catch (error) {
-      logger.error("LLM request failed", error as Error, {
-        requestId: enrichedRequest.id,
-        provider: request.provider,
-        model: request.model,
-      });
-      throw error;
+      try {
+        const response = await provider.execute(request);
+
+        // Track cost
+        this.configManager.trackCost(
+          process.env.NODE_ENV || "development",
+          response.cost
+        );
+
+        logger.info("LLM request completed successfully", {
+          requestId: enrichedRequest.id,
+          provider: providerName,
+          model: request.model,
+          cost: response.cost,
+          latency: response.latency,
+        });
+
+        return response;
+      } catch (error) {
+        logger.error(`LLM request failed with provider ${providerName}`, error as Error, {
+          requestId: enrichedRequest.id,
+          provider: providerName,
+          model: request.model,
+        });
+        lastError = error as Error;
+        // Continue to next provider
+      }
     }
+
+    throw lastError || new Error("All providers failed or no provider configured");
   }
 
   setDefaultProvider(provider: LLMProvider): void {
@@ -347,6 +428,14 @@ export class LLMGateway {
       requestsPerMinute: instance.requestCount || 0,
       tokensPerMinute: instance.tokenCount || 0,
     };
+  }
+
+  async healthCheck(): Promise<Record<LLMProvider, boolean>> {
+    const results: Record<string, boolean> = {};
+    for (const [name, provider] of this.providers.entries()) {
+      results[name] = await provider.healthCheck();
+    }
+    return results as Record<LLMProvider, boolean>;
   }
 }
 

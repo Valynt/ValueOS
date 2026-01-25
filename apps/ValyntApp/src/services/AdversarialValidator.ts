@@ -12,7 +12,7 @@
  */
 
 import { logger } from '../lib/logger';
-import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
+import { LLMGateway, createLLMGateway } from '../lib/agent-fabric/LLMGateway';
 import { llmConfig } from '../config/llm';
 import { SDUIPageDefinition } from '../sdui/schema';
 import { v4 as uuidv4 } from 'uuid';
@@ -90,7 +90,7 @@ export class AdversarialValidator {
   private challengePrompts: Map<ChallengeType, ChallengePrompt[]>;
 
   constructor() {
-    this.llm = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
+    this.llm = createLLMGateway();
     this.initializeChallengePrompts();
   }
 

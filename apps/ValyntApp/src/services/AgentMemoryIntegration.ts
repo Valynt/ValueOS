@@ -9,7 +9,7 @@ import { AgentAPI, AgentRequest, AgentResponse } from './AgentAPI';
 import { MemorySystem } from '../lib/agent-fabric/MemorySystem';
 import { logger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
-import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
+import { LLMGateway, createLLMGateway } from '../lib/agent-fabric/LLMGateway';
 
 export interface MemoryEnhancedRequest extends AgentRequest {
   /** Session ID for memory persistence */
@@ -43,7 +43,7 @@ export class AgentMemoryIntegration {
 
   constructor() {
     this.agentAPI = new AgentAPI();
-    this.llmGateway = new LLMGateway(supabase as any);
+    this.llmGateway = createLLMGateway();
     this.memorySystem = new MemorySystem(supabase as any, this.llmGateway);
   }
 
