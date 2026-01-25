@@ -9,7 +9,7 @@ echo "🚀 Deploying DB migrations to staging..."
 
 # Check if Supabase CLI is available
 if ! command -v supabase &> /dev/null; then
-    echo "❌ Supabase CLI not found. Install with: npm install -g supabase"
+    echo "❌ Supabase CLI not found. Install with: pnpm install -g supabase"
     exit 1
 fi
 

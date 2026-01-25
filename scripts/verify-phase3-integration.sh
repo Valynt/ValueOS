@@ -274,7 +274,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 if command -v npm &> /dev/null; then
     check_info "Running TypeScript check..."
-    if npm run build --if-present > /dev/null 2>&1; then
+    if pnpm run build --if-present > /dev/null 2>&1; then
         check_pass "TypeScript compilation successful"
     else
         check_warn "TypeScript compilation has warnings (check manually)"
@@ -304,7 +304,7 @@ echo "  ✅ Documentation complete"
 echo ""
 echo "Next Steps:"
 echo "  1. Run database migration: supabase db push"
-echo "  2. Run tests: npm test"
+echo "  2. Run tests: pnpm test"
 echo "  3. Deploy to staging: docker-compose -f docker-compose.prod.yml up -d"
 echo "  4. Monitor with queries from docs/MONITORING_QUERIES.md"
 echo ""

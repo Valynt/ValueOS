@@ -91,7 +91,7 @@ if [ -d "node_modules" ]; then
         rm -rf node_modules
     }
 fi
-npm ci --prefer-offline --no-audit --no-fund
+pnpm install --frozen-lockfile --prefer-offline --no-audit --no-fund
 print_success "Dependencies installed"
 
 # 4. Set up environment
@@ -110,24 +110,24 @@ fi
 # 5. Generate Prisma client
 if [ -f "scripts/prisma/schema.prisma" ]; then
     print_status "Generating Prisma client..."
-    npx prisma generate
+    pnpm prisma generate
     print_success "Prisma client generated"
 fi
 
 # 6. Set up Git hooks
 if [ -d ".husky" ]; then
     print_status "Setting up Git hooks..."
-    npx husky install
+    pnpm husky install
     print_success "Git hooks configured"
 fi
 
 # 7. Build project
 print_status "Building project..."
-npm run build 2>/dev/null || print_warning "Build failed (this is OK for initial setup)"
+pnpm run build 2>/dev/null || print_warning "Build failed (this is OK for initial setup)"
 
 # 8. Run tests
 print_status "Running tests..."
-npm test 2>/dev/null || print_warning "Some tests failed (review and fix)"
+pnpm test 2>/dev/null || print_warning "Some tests failed (review and fix)"
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -135,10 +135,10 @@ echo "✅ Setup complete!"
 echo ""
 echo "Next steps:"
 echo "  1. Review and update .env file"
-echo "  2. Start development server: npm run dev"
+echo "  2. Start development server: pnpm run dev"
 echo "  3. Frontend: http://localhost:${VITE_PORT}"
 echo "  4. Backend: http://localhost:${API_PORT}"
-echo "  5. Run tests: npm test"
+echo "  5. Run tests: pnpm test"
 echo ""
 echo "Happy coding! 🎉"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

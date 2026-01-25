@@ -188,11 +188,11 @@ if [ -f "package.json" ]; then
 
     for script in "${migration_scripts[@]}"; do
         if grep -q "\"$script\":" package.json; then
-            echo -e "${BLUE}🔄 Running npm run $script${NC}"
-            if npm run $script; then
-                echo -e "${GREEN}✅ npm run $script completed${NC}"
+            echo -e "${BLUE}🔄 Running pnpm run $script${NC}"
+            if pnpm run $script; then
+                echo -e "${GREEN}✅ pnpm run $script completed${NC}"
             else
-                echo -e "${YELLOW}⚠️ npm run $script failed${NC}"
+                echo -e "${YELLOW}⚠️ pnpm run $script failed${NC}"
             fi
             break
         fi
@@ -236,5 +236,5 @@ echo "  User: $POSTGRES_USER"
 echo ""
 echo -e "${BLUE}📋 Useful commands:${NC}"
 echo "  db-connect    - Connect to database"
-echo "  npm run db:push - Push schema changes"
-echo "  npm run db:reset - Reset database"
+echo "  pnpm run db:push - Push schema changes"
+echo "  pnpm run db:reset - Reset database"

@@ -52,8 +52,8 @@ log_verify "✓ Docker $(docker --version | cut -d' ' -f3 | tr -d ',')"
 log_step "2. Cleaning previous state..."
 
 # Stop any running services
-npm run dx:down 2>/dev/null || true
-npx supabase stop --no-backup 2>/dev/null || true
+pnpm run dx:down 2>/dev/null || true
+pnpm supabase stop --no-backup 2>/dev/null || true
 
 # Kill zombie processes
 pkill -9 -f "tsx watch" 2>/dev/null || true
@@ -72,7 +72,7 @@ log_verify "✓ Clean state achieved"
 # ============================================================================
 log_step "3. Installing dependencies..."
 
-npm ci || fail "npm ci failed - check package-lock.json"
+pnpm install --frozen-lockfile || fail "pnpm install --frozen-lockfile failed - check package-lock.json"
 
 log_verify "✓ Dependencies installed from lockfile"
 
@@ -81,7 +81,7 @@ log_verify "✓ Dependencies installed from lockfile"
 # ============================================================================
 log_step "4. Generating environment configuration..."
 
-npm run env:dev || fail "Environment generation failed"
+pnpm run env:dev || fail "Environment generation failed"
 
 # Verify critical env vars exist
 grep -q "VITE_SUPABASE_ANON_KEY=" .env.local || fail ".env.local missing VITE_SUPABASE_ANON_KEY"
@@ -115,7 +115,7 @@ log_verify "✓ Redis ready"
 # ============================================================================
 log_step "6. Starting Supabase local stack..."
 
-npx supabase start || fail "Supabase start failed"
+pnpm supabase start || fail "Supabase start failed"
 
 # Verify Supabase containers
 SUPABASE_CONTAINERS=$(docker ps --filter name=supabase --format "{{.Names}}" | wc -l)
@@ -130,10 +130,10 @@ log_verify "✓ Supabase stack running ($SUPABASE_CONTAINERS containers)"
 # ============================================================================
 log_step "7. Applying database migrations..."
 
-npx supabase db push || fail "Database migrations failed"
+pnpm supabase db push || fail "Database migrations failed"
 
 # Verify migrations applied
-MIGRATION_STATUS=$(npx supabase migration list 2>/dev/null | grep -c "applied" || echo "0")
+MIGRATION_STATUS=$(pnpm supabase migration list 2>/dev/null | grep -c "applied" || echo "0")
 log_verify "✓ Migrations applied (count: $MIGRATION_STATUS)"
 
 # ============================================================================
@@ -141,7 +141,7 @@ log_verify "✓ Migrations applied (count: $MIGRATION_STATUS)"
 # ============================================================================
 log_step "8. Generating TypeScript types from schema..."
 
-npm run db:types || fail "Type generation failed"
+pnpm run db:types || fail "Type generation failed"
 
 [ -f "src/types/supabase.ts" ] || fail "Generated types file not found"
 
@@ -152,7 +152,7 @@ log_verify "✓ TypeScript types generated"
 # ============================================================================
 log_step "9. Creating demo user..."
 
-npm run seed:demo || fail "Demo user seeding failed"
+pnpm run seed:demo || fail "Demo user seeding failed"
 
 # Verify user exists via direct DB query
 USER_EXISTS=$(docker exec valueos-postgres psql -U postgres -d postgres -tAc \
@@ -171,7 +171,7 @@ log_verify "  Role: admin"
 # ============================================================================
 log_step "10. Starting backend server..."
 
-npm run backend:dev > /tmp/valueos-backend.log 2>&1 &
+pnpm run backend:dev > /tmp/valueos-backend.log 2>&1 &
 BACKEND_PID=$!
 
 # Wait for backend to be ready
@@ -204,7 +204,7 @@ log_verify "✓ Health check: $HEALTH_RESPONSE"
 # ============================================================================
 log_step "11. Starting frontend dev server..."
 
-npm run dev > /tmp/valueos-frontend.log 2>&1 &
+pnpm run dev > /tmp/valueos-frontend.log 2>&1 &
 FRONTEND_PID=$!
 
 # Wait for frontend
@@ -302,7 +302,7 @@ echo "  Frontend: $FRONTEND_PID"
 echo ""
 echo "To stop:"
 echo "  kill $BACKEND_PID $FRONTEND_PID"
-echo "  npm run dx:down"
+echo "  pnpm run dx:down"
 echo ""
 echo "Logs:"
 echo "  Backend:  tail -f /tmp/valueos-backend.log"

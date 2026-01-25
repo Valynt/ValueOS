@@ -126,7 +126,7 @@ async function validateBuild() {
     return true;
   } else {
     console.log('\n❌ Build validation failed\n');
-    console.log('Please run: npm run build\n');
+    console.log('Please run: pnpm run build\n');
     return false;
   }
 }

@@ -62,7 +62,7 @@ check(
   "Environment files exist",
   () => fileExists(".env.local") && fileExists("deploy/envs/.env.ports"),
   "Missing required environment files",
-  "npm run env:dev"
+  "pnpm run env:dev"
 );
 
 check(
@@ -107,7 +107,7 @@ check(
     }
   },
   "DX containers are not running",
-  "npm run dx"
+  "pnpm run dx"
 );
 
 // Database Connectivity
@@ -122,7 +122,7 @@ check(
     }
   },
   "PostgreSQL is not ready",
-  "Wait for database to start or run: npm run dx:reset && npm run dx"
+  "Wait for database to start or run: pnpm run dx:reset && pnpm run dx"
 );
 
 check(
@@ -136,7 +136,7 @@ check(
     }
   },
   "Redis is not ready",
-  "Wait for Redis to start or run: npm run dx:reset && npm run dx"
+  "Wait for Redis to start or run: pnpm run dx:reset && pnpm run dx"
 );
 
 // Frontend Configuration
@@ -170,7 +170,7 @@ check(
     }
   },
   "Backend API is not responding",
-  "Check backend logs: npm run dx:logs backend"
+  "Check backend logs: pnpm run dx:logs backend"
 );
 
 check(
@@ -186,7 +186,7 @@ check(
     }
   },
   "Frontend is not accessible",
-  "Check frontend logs: npm run dx:logs frontend"
+  "Check frontend logs: pnpm run dx:logs frontend"
 );
 
 // Summary

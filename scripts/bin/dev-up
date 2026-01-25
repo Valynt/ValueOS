@@ -205,7 +205,7 @@ if docker exec valueos-postgres pg_isready -U postgres -d valuecanvas_dev &> /de
     # Run migrations if they exist
     if [ -f "package.json" ] && grep -q "db:push" package.json; then
         echo -e "${YELLOW}🔄 Running database migrations...${NC}"
-        if npm run db:push &> /dev/null; then
+        if pnpm run db:push &> /dev/null; then
             echo -e "${GREEN}✅ Migrations completed${NC}"
         else
             echo -e "${YELLOW}⚠️ Migration failed (may be normal for first run)${NC}"

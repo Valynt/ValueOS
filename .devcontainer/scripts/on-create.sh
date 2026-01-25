@@ -181,7 +181,7 @@ install_global_tools() {
     # Supabase CLI (optional, non-critical)
     if ! command_exists supabase; then
         log_info "Installing Supabase CLI..."
-        if retry_command $MAX_RETRIES "npm install -g supabase --silent 2>/dev/null"; then
+        if retry_command $MAX_RETRIES "pnpm install -g supabase --silent 2>/dev/null"; then
             log_success "Supabase CLI installed"
         else
             log_warn "Supabase CLI installation failed (non-critical)"
@@ -238,11 +238,11 @@ setup_shell_aliases() {
     cat >> "$rc_file" << 'ALIASES'
 
 # ValueOS Development Aliases
-alias dev-up="npm run dx"
-alias dev-down="npm run dx:down"
-alias dev-logs="npm run dx:logs"
-alias dev-ps="npm run dx:ps"
-alias dev-health="npm run health"
+alias dev-up="pnpm run dx"
+alias dev-down="pnpm run dx:down"
+alias dev-logs="pnpm run dx:logs"
+alias dev-ps="pnpm run dx:ps"
+alias dev-health="pnpm run health"
 
 # Database aliases
 alias db-connect="docker exec -it valueos-postgres psql -U postgres -d valuecanvas_dev"
@@ -251,11 +251,11 @@ alias redis-connect="docker exec -it valueos-redis redis-cli"
 # Development helpers
 alias dc='docker compose'
 alias k='kubectl'
-alias npm-clean='rm -rf node_modules package-lock.json && npm install'
-alias dev='npm run dev'
-alias test='npm test'
-alias build='npm run build'
-alias lint='npm run lint'
+alias npm-clean='rm -rf node_modules package-lock.json && pnpm install'
+alias dev='pnpm run dev'
+alias test='pnpm test'
+alias build='pnpm run build'
+alias lint='pnpm run lint'
 
 # Git aliases
 alias gs='git status'
@@ -319,7 +319,7 @@ check_docker_service "PostgreSQL" "valueos-postgres" "pg_isready -U postgres" ||
 check_docker_service "Redis" "valueos-redis" "redis-cli ping" || true
 
 echo ""
-echo "Run 'npm run dx' to start all services"
+echo "Run 'pnpm run dx' to start all services"
 HEALTHSCRIPT
     
     chmod +x "${bin_dir}/valueos-health"

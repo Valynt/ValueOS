@@ -50,7 +50,7 @@ echo "📊 Generating test coverage..."
 if command -v nyc &> /dev/null; then
   nyc report --reporter=text > "$EVIDENCE_DIR/coverage.txt" 2>&1 || true
 else
-  echo "Coverage report: Run 'npm test' to generate"
+  echo "Coverage report: Run 'pnpm test' to generate"
 fi
 
 # 6. Performance Metrics

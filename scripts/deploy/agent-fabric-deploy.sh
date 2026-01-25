@@ -128,13 +128,13 @@ run_integration_tests() {
     log_info "Running integration tests..."
 
     # Test agent endpoints
-    kubectl exec -n "$NAMESPACE" deployment/agent-fabric -- npm run test:integration
+    kubectl exec -n "$NAMESPACE" deployment/agent-fabric -- pnpm run test:integration
 
     # Test telemetry
-    kubectl exec -n "$NAMESPACE" deployment/agent-fabric -- npm run test:telemetry
+    kubectl exec -n "$NAMESPACE" deployment/agent-fabric -- pnpm run test:telemetry
 
     # Test security
-    kubectl exec -n "$NAMESPACE" deployment/agent-fabric -- npm run test:security
+    kubectl exec -n "$NAMESPACE" deployment/agent-fabric -- pnpm run test:security
 
     log_success "Integration tests passed"
 }

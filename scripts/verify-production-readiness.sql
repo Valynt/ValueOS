@@ -174,7 +174,7 @@ BEGIN
     -- In production, this would be tested via actual API calls with JWT tokens
     
     RAISE NOTICE '  ℹ️  Multi-tenancy isolation requires end-to-end testing with actual JWT tokens';
-    RAISE NOTICE '     Run: npm run test:rls for comprehensive RLS policy tests';
+    RAISE NOTICE '     Run: pnpm run test:rls for comprehensive RLS policy tests';
     
     -- Cleanup test data
     DELETE FROM public.users WHERE id IN (user_a, user_b);
@@ -368,7 +368,7 @@ BEGIN
     RAISE NOTICE '';
     RAISE NOTICE 'Next Steps:';
     RAISE NOTICE '  1. Review any ❌ FAIL or ⚠️  WARNING messages';
-    RAISE NOTICE '  2. Run end-to-end tests: npm run test:rls';
+    RAISE NOTICE '  2. Run end-to-end tests: pnpm run test:rls';
     RAISE NOTICE '  3. Test with actual user JWTs in staging environment';
     RAISE NOTICE '  4. Configure monitoring alerts (see PRE_PRODUCTION_CHECKLIST.md)';
     RAISE NOTICE '  5. Complete deployment sign-off checklist';

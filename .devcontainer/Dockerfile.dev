@@ -3,16 +3,17 @@ FROM node:18.19.0-bullseye
 # Install required tools for development
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash curl ca-certificates git postgresql-client \
+  && npm install -g pnpm@9.15.0 \
   && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /work
 
 # Copy package files first for better caching
-COPY package*.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Install dependencies
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
 # Copy repository contents
 COPY . /work
@@ -21,4 +22,4 @@ COPY . /work
 EXPOSE 5173 3001 54321 54323 54322
 
 # Default command (can be overridden)
-CMD ["bash", "-lc", "npm run dx --mode local"]
+CMD ["bash", "-lc", "pnpm run dx --mode local"]

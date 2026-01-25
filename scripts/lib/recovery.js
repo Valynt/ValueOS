@@ -77,7 +77,7 @@ const errorPatterns = [
       console.log(`🔧 Auto-installing...`);
       
       try {
-        execSync(`npm install ${module}`, { stdio: 'inherit' });
+        execSync(`pnpm install ${module}`, { stdio: 'inherit' });
         console.log(`✅ Dependency installed\n`);
         return { installed: true };
       } catch (error) {
@@ -89,7 +89,7 @@ const errorPatterns = [
    Missing dependency: ${context.module}
    
    Fix:
-   npm install ${context.module}`
+   pnpm install ${context.module}`
   },
   
   {

@@ -5,7 +5,7 @@
  * that Together AI is properly configured.
  *
  * Usage:
- *   npx tsx scripts/validate-together-ai.ts
+ *   pnpm tsx scripts/validate-together-ai.ts
  */
 
 import { validateTogetherAIStartup } from "../src/utils/togetherAIValidation";

@@ -178,7 +178,7 @@ async function validateEnvironment() {
   const resolvedEnv = resolveEnvPath();
   if (!resolvedEnv.path) {
     console.log('❌ No environment file found (.env.local or .env)');
-    console.log('\nRun: npm run setup\n');
+    console.log('\nRun: pnpm run setup\n');
     return false;
   }
 
@@ -204,7 +204,7 @@ async function validateEnvironment() {
   } else {
     console.log('\n❌ Environment validation failed\n');
     console.log('Fix issues above or regenerate:');
-    console.log('  rm .env.local && npm run setup\n');
+    console.log('  rm .env.local && pnpm run setup\n');
     return false;
   }
 }

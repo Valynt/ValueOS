@@ -4,7 +4,7 @@
  * This script simulates the "Master Orchestration" workflow described in the
  * Agentic Platform Development methodology.
  *
- * Usage: npm run agent:dev -- --feature="Implement Customer Refund BFA"
+ * Usage: pnpm run agent:dev -- --feature="Implement Customer Refund BFA"
  */
 
 import fs from 'fs';
@@ -422,5 +422,5 @@ if (featureFlag) {
   const feature = featureFlag.split('=')[1];
   runVirtualTeam(feature).catch(console.error);
 } else {
-  console.log("Please provide a feature description: npm run agent:dev -- --feature='My Feature'");
+  console.log("Please provide a feature description: pnpm run agent:dev -- --feature='My Feature'");
 }

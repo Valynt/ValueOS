@@ -227,7 +227,7 @@ if docker exec ${PROJECT_NAME}-postgres-1 pg_isready -U postgres -d valueos_prod
     # Run production migrations
     if [ -f "package.json" ] && grep -q "db:push" package.json; then
         echo -e "${YELLOW}🔄 Running production database migrations...${NC}"
-        if npm run db:push; then
+        if pnpm run db:push; then
             echo -e "${GREEN}✅ Production migrations completed${NC}"
         else
             echo -e "${RED}❌ Production migration failed - this is critical${NC}"

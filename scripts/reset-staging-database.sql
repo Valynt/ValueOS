@@ -409,7 +409,7 @@ BEGIN
     RAISE NOTICE '       OR: supabase migration up';
     RAISE NOTICE '';
     RAISE NOTICE '  2. ✅ Regenerate TypeScript types:';
-    RAISE NOTICE '       npm run db:types';
+    RAISE NOTICE '       pnpm run db:types';
     RAISE NOTICE '';
     RAISE NOTICE '  3. ✅ Apply security hardening:';
     RAISE NOTICE '       psql $DATABASE_URL < docs/database/enterprise_saas_hardened_config_v2.sql';

@@ -206,7 +206,7 @@ run_smoke_tests() {
   
   # Run smoke tests (adjust based on your setup)
   if command -v npm &> /dev/null && [[ -f "package.json" ]]; then
-    if npm run test:smoke; then
+    if pnpm run test:smoke; then
       log_info "✓ Smoke tests passed"
     else
       log_error "✗ Smoke tests failed!"

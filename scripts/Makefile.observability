@@ -94,17 +94,17 @@ verify:
 # Run unit tests
 test-unit:
 	@echo "🧪 Running unit tests..."
-	npm run test:observability:unit
+	pnpm run test:observability:unit
 
 # Run integration tests
 test-integration:
 	@echo "🧪 Running integration tests..."
-	npm run test:observability:integration
+	pnpm run test:observability:integration
 
 # Run E2E tests
 test-e2e:
 	@echo "🧪 Running E2E tests..."
-	npm run test:observability:e2e
+	pnpm run test:observability:e2e
 
 # Run all tests
 test-all:

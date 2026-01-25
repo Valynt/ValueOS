@@ -71,7 +71,7 @@ function checkSupabaseStatus() {
 
   if (!commandExists("supabase")) {
     log.error("Supabase CLI not installed");
-    log.info("Install with: npm install -g supabase");
+    log.info("Install with: pnpm install -g supabase");
     return { ok: false, running: false };
   }
 
@@ -110,7 +110,7 @@ function checkEnvUrls() {
   const envPath = path.join(projectRoot, ".env.local");
   if (!fs.existsSync(envPath)) {
     log.warn(".env.local not found");
-    log.info("Run: npm run dx:env --mode local");
+    log.info("Run: pnpm run dx:env --mode local");
     return { ok: false };
   }
 
@@ -196,7 +196,7 @@ function checkMigrations() {
       migrations
         .filter((m) => m.status === "pending")
         .forEach((m) => log.info(`  - ${m.line}`));
-      log.info("Run: npm run db:push to apply");
+      log.info("Run: pnpm run db:push to apply");
       return { ok: false, pending: pendingCount, applied: appliedCount };
     }
 
@@ -235,8 +235,8 @@ function checkSchemaDrift() {
       log.warn(`Schema drift detected (${lines} lines of changes)`);
       log.info("Database state differs from migrations");
       log.info("Options:");
-      log.info("  1. npm run db:reset - Rebuild from migrations (loses data)");
-      log.info("  2. npm run db:push  - Apply pending migrations");
+      log.info("  1. pnpm run db:reset - Rebuild from migrations (loses data)");
+      log.info("  2. pnpm run db:push  - Apply pending migrations");
       log.info("  3. supabase db diff - View the differences");
       return { ok: false, drift: true, changes: lines };
     }
@@ -290,7 +290,7 @@ function runSchemaSmokeTest() {
 
     if (tables.length === 0) {
       log.warn("No tables found in public schema");
-      log.info("Run: npm run db:push to apply migrations");
+      log.info("Run: pnpm run db:push to apply migrations");
       return { ok: false, tables: [] };
     }
 
@@ -347,7 +347,7 @@ function checkTypes() {
 
   if (!fs.existsSync(typesPath)) {
     log.warn("supabase.ts types file not found");
-    log.info("Run: npm run db:types to generate");
+    log.info("Run: pnpm run db:types to generate");
     return { ok: false, exists: false };
   }
 
@@ -368,7 +368,7 @@ function checkTypes() {
 
   if (newerMigrations.length > 0) {
     log.warn(`Types may be outdated (${newerMigrations.length} newer migrations)`);
-    log.info("Run: npm run db:types to regenerate");
+    log.info("Run: pnpm run db:types to regenerate");
     return { ok: false, exists: true, outdated: true, count: newerMigrations.length };
   }
 
@@ -379,7 +379,7 @@ function checkTypes() {
 
   if (!hasPublicSchema || !hasTablesType) {
     log.warn("Types file may be incomplete or corrupted");
-    log.info("Run: npm run db:types to regenerate");
+    log.info("Run: pnpm run db:types to regenerate");
     return { ok: false, exists: true, incomplete: true };
   }
 
@@ -421,7 +421,7 @@ async function autoFix(results) {
   if (results.types && (results.types.outdated || !results.types.exists)) {
     log.info("Regenerating TypeScript types...");
     try {
-      runCommand("npm run db:types");
+      runCommand("pnpm run db:types");
       log.success("Types regenerated");
     } catch (error) {
       log.error(`Failed to regenerate types: ${error.message}`);
@@ -453,11 +453,11 @@ async function fullReset() {
     runCommand("supabase db push");
 
     log.info("Regenerating types...");
-    runCommand("npm run db:types");
+    runCommand("pnpm run db:types");
 
     log.info("Seeding demo data...");
     try {
-      runCommand("npm run seed:demo");
+      runCommand("pnpm run seed:demo");
     } catch {
       log.warn("Seed failed (may be OK if no seed script)");
     }
@@ -539,8 +539,8 @@ ${colors.bold}╔═════════════════════
   }
 
   console.log("\nOptions:");
-  console.log("  npm run db:verify --fix   - Attempt to fix issues automatically");
-  console.log("  npm run db:verify --reset - Full reset and rebuild (loses data)");
+  console.log("  pnpm run db:verify --fix   - Attempt to fix issues automatically");
+  console.log("  pnpm run db:verify --reset - Full reset and rebuild (loses data)");
   console.log("");
 
   process.exit(1);

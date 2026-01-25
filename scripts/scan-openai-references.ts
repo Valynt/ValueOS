@@ -5,7 +5,7 @@
  * that should be removed or updated to use Together AI.
  *
  * Usage:
- *   npx tsx scripts/scan-openai-references.ts
+ *   pnpm tsx scripts/scan-openai-references.ts
  */
 
 import * as fs from "fs";

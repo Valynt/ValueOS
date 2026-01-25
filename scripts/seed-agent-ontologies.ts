@@ -5,7 +5,7 @@
  * Source: supabase/migrations/20251117131452_create_agent_fabric_schema.sql
  * 
  * Usage:
- *   npx ts-node scripts/seed-agent-ontologies.ts
+ *   pnpm ts-node scripts/seed-agent-ontologies.ts
  */
 
 import { createClient } from '@supabase/supabase-js';

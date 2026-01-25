@@ -202,11 +202,11 @@ print_section "Recommendations"
 echo ""
 
 if ! lsof -i :"$VITE_PORT" > /dev/null 2>&1; then
-    echo "1. Start frontend: VITE_PORT=${VITE_PORT} npm run dev"
+    echo "1. Start frontend: VITE_PORT=${VITE_PORT} pnpm run dev"
 fi
 
 if ! lsof -i :"$API_PORT" > /dev/null 2>&1; then
-    echo "2. Start backend: API_PORT=${API_PORT} npm run backend:dev"
+    echo "2. Start backend: API_PORT=${API_PORT} pnpm run backend:dev"
 fi
 
 if ! grep -q "host: '0.0.0.0'" vite.config.ts 2>/dev/null; then

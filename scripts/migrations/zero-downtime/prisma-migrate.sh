@@ -11,19 +11,19 @@ fi
 
 echo "🚀 Running Prisma zero-downtime migration ($PHASE phase)..."
 
-npx prisma migrate status
-npx prisma migrate deploy
+pnpm prisma migrate status
+pnpm prisma migrate deploy
 
 if [[ -n "${ZERO_DOWNTIME_BACKFILL_SQL:-}" && "$PHASE" == "expand" ]]; then
   echo "🧩 Running backfill SQL ($ZERO_DOWNTIME_BACKFILL_SQL)"
-  npx prisma db execute --file "$ZERO_DOWNTIME_BACKFILL_SQL"
+  pnpm prisma db execute --file "$ZERO_DOWNTIME_BACKFILL_SQL"
 fi
 
 if [[ -n "${ZERO_DOWNTIME_CLEANUP_SQL:-}" && "$PHASE" == "contract" ]]; then
   echo "🧹 Running cleanup SQL ($ZERO_DOWNTIME_CLEANUP_SQL)"
-  npx prisma db execute --file "$ZERO_DOWNTIME_CLEANUP_SQL"
+  pnpm prisma db execute --file "$ZERO_DOWNTIME_CLEANUP_SQL"
 fi
 
-npx prisma migrate status
+pnpm prisma migrate status
 
 echo "✅ Prisma zero-downtime migration complete ($PHASE phase)."

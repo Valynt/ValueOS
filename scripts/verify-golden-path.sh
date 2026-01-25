@@ -20,8 +20,8 @@ cleanup() {
   echo ""
   echo "Cleaning up..."
   kill $BACKEND_PID $FRONTEND_PID 2>/dev/null || true
-  npm run dx:down >/dev/null 2>&1 || true
-  npx supabase stop --no-backup >/dev/null 2>&1 || true
+  pnpm run dx:down >/dev/null 2>&1 || true
+  pnpm supabase stop --no-backup >/dev/null 2>&1 || true
 }
 
 trap cleanup EXIT

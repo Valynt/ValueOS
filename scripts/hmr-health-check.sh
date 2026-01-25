@@ -89,7 +89,7 @@ restart_vite() {
     cd "$PROJECT_ROOT"
     
     # Start in background with nohup for persistence
-    nohup npm run dev > "$PROJECT_ROOT/logs/vite-dev.log" 2>&1 &
+    nohup pnpm run dev > "$PROJECT_ROOT/logs/vite-dev.log" 2>&1 &
     local new_pid=$!
     
     log "📝 Vite started with PID: $new_pid"

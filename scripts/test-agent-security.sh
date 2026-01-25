@@ -26,7 +26,7 @@ run_test() {
   
   echo -e "${YELLOW}Running: ${test_name}${NC}"
   
-  if npx vitest run "$test_file" --reporter=verbose; then
+  if pnpm vitest run "$test_file" --reporter=verbose; then
     echo -e "${GREEN}✓ PASSED: ${test_name}${NC}"
     ((TESTS_PASSED++))
   else
@@ -102,12 +102,12 @@ fi
 echo ""
 echo -e "${YELLOW}Running TypeScript type check...${NC}"
 
-if npm run typecheck -- --noEmit src/lib/agent-fabric/agents/*.ts 2>&1 | grep -q "Found 0 errors"; then
+if pnpm run typecheck -- --noEmit src/lib/agent-fabric/agents/*.ts 2>&1 | grep -q "Found 0 errors"; then
   echo -e "${GREEN}✓ No TypeScript errors in agent files${NC}"
   ((TESTS_PASSED++))
 else
   echo -e "${RED}✗ TypeScript errors found${NC}"
-  npm run typecheck -- --noEmit src/lib/agent-fabric/agents/*.ts || true
+  pnpm run typecheck -- --noEmit src/lib/agent-fabric/agents/*.ts || true
   ((TESTS_FAILED++))
 fi
 
@@ -124,7 +124,7 @@ if [ $TESTS_FAILED -eq 0 ]; then
   echo ""
   echo "Ready for staging deployment:"
   echo "  1. Run: bash scripts/cleanup-legacy-agents.sh"
-  echo "  2. Run: npm run test:rls"
+  echo "  2. Run: pnpm run test:rls"
   echo "  3. Deploy to staging"
   echo ""
   exit 0

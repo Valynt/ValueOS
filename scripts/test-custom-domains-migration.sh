@@ -39,7 +39,7 @@ echo ""
 # Check if Supabase is running
 log_info "Checking if Supabase is running..."
 if ! docker ps | grep -q "supabase-db"; then
-    log_error "Supabase is not running. Start it with: npx supabase start"
+    log_error "Supabase is not running. Start it with: pnpm supabase start"
     exit 1
 fi
 log_success "Supabase is running"
@@ -218,6 +218,6 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 echo "Next steps:"
 echo "1. Review the migration files"
-echo "2. Run migrations in staging: npx supabase db push"
+echo "2. Run migrations in staging: pnpm supabase db push"
 echo "3. Verify in staging environment"
 echo "4. Deploy to production"

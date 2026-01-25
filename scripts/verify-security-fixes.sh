@@ -26,11 +26,11 @@ NC='\033[0m' # No Color
 # ============================================================================
 
 echo "Step 1: Checking TypeScript compilation..."
-if npm run typecheck > /dev/null 2>&1; then
+if pnpm run typecheck > /dev/null 2>&1; then
     echo -e "${GREEN}✓ TypeScript compilation successful${NC}"
 else
     echo -e "${RED}✗ TypeScript compilation failed${NC}"
-    npm run typecheck
+    pnpm run typecheck
     exit 1
 fi
 
@@ -186,7 +186,7 @@ fi
 echo ""
 echo "Step 8: Running unit tests..."
 
-if npm test -- --run 2>&1 | grep -q "0 failed"; then
+if pnpm test -- --run 2>&1 | grep -q "0 failed"; then
     echo -e "${GREEN}✓ Unit tests passing${NC}"
 else
     echo -e "${YELLOW}⚠ Some unit tests may need updates${NC}"
@@ -205,7 +205,7 @@ echo ""
 echo -e "${GREEN}✓ All critical security fixes verified${NC}"
 echo ""
 echo "Next steps:"
-echo "  1. Run full test suite: npm test"
+echo "  1. Run full test suite: pnpm test"
 echo "  2. Deploy to staging environment"
 echo "  3. Execute integration tests"
 echo "  4. Review CRITICAL_SECURITY_FIXES_IMPLEMENTATION_REPORT.md"

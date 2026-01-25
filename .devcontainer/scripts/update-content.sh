@@ -93,16 +93,16 @@ update_dependencies() {
                 log_warn "pnpm install failed"
             fi
         elif [ -f "package-lock.json" ]; then
-            # Use npm ci for reproducible installs when lockfile exists
-            if npm ci --prefer-offline --no-audit --no-fund 2>/dev/null; then
-                log_success "Dependencies updated (npm ci)"
+            # Use pnpm install --frozen-lockfile for reproducible installs when lockfile exists
+            if pnpm install --frozen-lockfile --prefer-offline --no-audit --no-fund 2>/dev/null; then
+                log_success "Dependencies updated (pnpm install --frozen-lockfile)"
             else
-                log_warn "npm ci failed, trying npm install..."
-                npm install --prefer-offline --no-audit --no-fund
-                log_success "Dependencies updated (npm install)"
+                log_warn "pnpm install --frozen-lockfile failed, trying pnpm install..."
+                pnpm install --prefer-offline --no-audit --no-fund
+                log_success "Dependencies updated (pnpm install)"
             fi
         else
-            npm install --prefer-offline --no-audit --no-fund
+            pnpm install --prefer-offline --no-audit --no-fund
             log_success "Dependencies installed"
         fi
 
@@ -126,7 +126,7 @@ update_prisma_client() {
             if is_newer "$schema_path" "$prisma_dir"; then
                 log_info "Prisma schema changed, regenerating client..."
                 # Run non-interactive and capture output to the update log to avoid prompts
-                if npx --yes prisma generate --schema="$schema_path" >> "$LOG_FILE" 2>&1; then
+                if pnpm prisma generate --schema="$schema_path" >> "$LOG_FILE" 2>&1; then
                     log_success "Prisma client regenerated"
                 else
                     log_warn "Prisma generation failed (non-critical). See $LOG_FILE for details"
@@ -144,7 +144,7 @@ update_playwright() {
 
         if [ ! -d "$playwright_cache" ]; then
             log_info "Installing Playwright browsers..."
-            if npx playwright install chromium --with-deps 2>/dev/null; then
+            if pnpm playwright install chromium --with-deps 2>/dev/null; then
                 log_success "Playwright browsers installed"
             else
                 log_warn "Playwright installation failed (non-critical)"

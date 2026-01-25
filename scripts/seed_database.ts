@@ -2,7 +2,7 @@
  * Seed Development Database
  *
  * This script seeds the development database with realistic multi-tenant test data.
- * It is designed to be run via `tsx`, e.g., `npx tsx scripts/seed_database.ts`
+ * It is designed to be run via `tsx`, e.g., `pnpm tsx scripts/seed_database.ts`
  *
  * SECURITY: This script should ONLY be run in development/test environments.
  * It will refuse to run in production.

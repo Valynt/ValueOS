@@ -40,7 +40,7 @@ fi
 
 if ! command -v supabase &> /dev/null; then
     echo -e "${YELLOW}⚠️  Supabase CLI not installed${NC}"
-    echo "   Install with: npm install -g supabase"
+    echo "   Install with: pnpm install -g supabase"
     echo "   Or use Supabase Cloud instead"
 else
     echo -e "${GREEN}✅ Supabase CLI installed${NC}"
@@ -70,7 +70,7 @@ echo ""
 # Install dependencies
 if [ ! -d "node_modules" ]; then
     echo "📦 Installing dependencies..."
-    npm install
+    pnpm install
     echo -e "${GREEN}✅ Dependencies installed${NC}"
 else
     echo -e "${GREEN}✅ Dependencies already installed${NC}"
@@ -140,4 +140,4 @@ echo ""
 echo "Press Ctrl+C to stop"
 echo ""
 
-npm run dev
+pnpm run dev

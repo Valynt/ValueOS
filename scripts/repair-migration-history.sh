@@ -12,7 +12,7 @@ fi
 
 # Ensure supabase CLI is available via npm
 if ! npm exec -- supabase --help >/dev/null 2>&1; then
-  echo "Supabase CLI not available via npm. Install 'supabase' with 'npm install -D supabase' or use 'npm login'"
+  echo "Supabase CLI not available via npm. Install 'supabase' with 'pnpm install -D supabase' or use 'npm login'"
   exit 2
 fi
 

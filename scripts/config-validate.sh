@@ -181,9 +181,9 @@ echo "Warnings: $VALIDATION_WARNINGS"
 if [ $VALIDATION_ERRORS -eq 0 ]; then
     echo -e "${GREEN}✅ All configurations are valid${NC}"
     echo -e "\n${BLUE}🚀 Next Steps${NC}"
-    echo "1. Run 'npm run config:diff <env1> <env2>' to compare specific environments"
-    echo "2. Run 'npm run config:generate <env>' to create new environment files"
-    echo "3. Run 'npm run config:migrate' to update existing configurations"
+    echo "1. Run 'pnpm run config:diff <env1> <env2>' to compare specific environments"
+    echo "2. Run 'pnpm run config:generate <env>' to create new environment files"
+    echo "3. Run 'pnpm run config:migrate' to update existing configurations"
     exit 0
 else
     echo -e "${RED}❌ Found $VALIDATION_ERRORS configuration errors${NC}"

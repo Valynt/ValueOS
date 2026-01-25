@@ -122,13 +122,13 @@ Key libraries
 
 Setup
 - Install: pnpm i
-- Development (primary app): npm run dev --workspace=ValyntApp
-- Build: npm run build --workspace=ValyntApp
-- Lint/Format: npm run lint && npm run format
+- Development (primary app): pnpm --filter valynt-app dev
+- Build: pnpm --filter valynt-app build
+- Lint/Format: pnpm run lint && pnpm run format
 - Tests:
-  - Unit: npm run test:unit
-  - Integration: npm run test:integration
-  - All: npm run test:all
+  - Unit: pnpm run test:unit
+  - Integration: pnpm run test:integration
+  - All: pnpm run test:all
   - Playwright (smoke/a11y/SAML): see package.json scripts
 
 ## 8. Other Notes

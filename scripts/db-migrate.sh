@@ -17,8 +17,8 @@ echo -e "${GREEN}Database Migration - ${ENVIRONMENT}${NC}"
 echo -e "${GREEN}========================================${NC}"
 
 # Check prerequisites
-if ! command -v npx &> /dev/null; then
-    echo -e "${RED}Error: npx is not installed${NC}"
+if ! command -v pnpm &> /dev/null; then
+    echo -e "${RED}Error: pnpm is not installed${NC}"
     exit 1
 fi
 
@@ -57,11 +57,11 @@ fi
 
 # Generate Prisma Client
 echo -e "\n${YELLOW}Generating Prisma Client...${NC}"
-npx prisma generate
+pnpm prisma generate
 
 # Run migrations
 echo -e "\n${YELLOW}Running migrations...${NC}"
-npx prisma migrate deploy
+pnpm prisma migrate deploy
 
 if [ $? -eq 0 ]; then
     echo -e "\n${GREEN}========================================${NC}"
@@ -82,6 +82,6 @@ fi
 
 # Show migration status
 echo -e "\n${YELLOW}Migration Status:${NC}"
-npx prisma migrate status
+pnpm prisma migrate status
 
 echo -e "\n${GREEN}Done!${NC}"

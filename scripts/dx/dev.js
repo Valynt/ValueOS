@@ -111,7 +111,7 @@ function assertNoActiveDx() {
       )
     );
     console.error(
-      formatLog("dx", "Stop it first or run: npm run dx:down", colors.yellow)
+      formatLog("dx", "Stop it first or run: pnpm run dx:down", colors.yellow)
     );
     process.exit(1);
   } catch {
@@ -293,7 +293,7 @@ async function main() {
     console.error(
       formatLog(
         "dx",
-        `DX lock indicates ${lock.mode} (${lock.composeFile}). Run "npm run dx:down" before starting ${mode}.`,
+        `DX lock indicates ${lock.mode} (${lock.composeFile}). Run "pnpm run dx:down" before starting ${mode}.`,
         colors.yellow
       )
     );
@@ -313,7 +313,7 @@ async function main() {
         formatLog("dx", "Full Docker stack is already running.", colors.green)
       );
       console.log(
-        formatLog("dx", 'Use "npm run dx:down" to stop it.', colors.yellow)
+        formatLog("dx", 'Use "pnpm run dx:down" to stop it.', colors.yellow)
       );
       process.exit(0);
     }
@@ -322,7 +322,7 @@ async function main() {
       console.error(
         formatLog(
           "dx",
-          `Local deps are running (${depsRunning.join(", ")}). Stop them with "npm run dx:down".`,
+          `Local deps are running (${depsRunning.join(", ")}). Stop them with "pnpm run dx:down".`,
           colors.yellow
         )
       );
@@ -372,7 +372,7 @@ async function main() {
     console.log("\n" + "=".repeat(60));
     console.log("✅ Docker services are running!");
     console.log("=".repeat(60) + "\n");
-    console.log('💡 Run "npm run dx:down" to stop the environment.\n');
+    console.log('💡 Run "pnpm run dx:down" to stop the environment.\n');
     return;
   }
 
@@ -381,7 +381,7 @@ async function main() {
     console.error(
       formatLog(
         "dx",
-        `Full Docker stack already running (${fullRunning.join(", ")}). Stop it with "npm run dx:down" or use "npm run dx:docker".`,
+        `Full Docker stack already running (${fullRunning.join(", ")}). Stop it with "pnpm run dx:down" or use "pnpm run dx:docker".`,
         colors.yellow
       )
     );
@@ -406,7 +406,7 @@ async function main() {
     console.error(
       formatLog(
         "dx",
-        `${conflicts.join(". ")}. Run "npm run dx:down" or start with "npm run dx:docker".`,
+        `${conflicts.join(". ")}. Run "pnpm run dx:down" or start with "pnpm run dx:docker".`,
         colors.yellow
       )
     );
@@ -434,7 +434,7 @@ async function main() {
   } else {
     const backendProc = startService(
       "backend",
-      "npm run backend:dev",
+      "pnpm run backend:dev",
       colors.blue
     );
     services.push(backendProc);
@@ -462,7 +462,7 @@ async function main() {
       process.exit(1);
     }
   } else {
-    const frontendProc = startService("frontend", "npm run dev", colors.green);
+    const frontendProc = startService("frontend", "pnpm run dev", colors.green);
     services.push(frontendProc);
   }
 

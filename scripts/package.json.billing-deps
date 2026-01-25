@@ -13,5 +13,5 @@
     "billing:submit": "node -r ts-node/register src/services/metering/UsageSink.ts",
     "billing:setup-stripe": "./infrastructure/billing/stripe-products-setup.sh"
   },
-  "instructions": "Run: npm install stripe uuid redis && npm install --save-dev @types/uuid"
+  "instructions": "Run: pnpm install stripe uuid redis && pnpm install --save-dev @types/uuid"
 }

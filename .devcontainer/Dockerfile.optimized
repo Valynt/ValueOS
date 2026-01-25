@@ -163,7 +163,7 @@ RUN for i in 1 2 3; do \
     && supabase --version || echo "Warning: Supabase CLI installation failed (non-critical)"
 
 # Install Prisma CLI
-RUN npm install -g prisma@5 \
+RUN pnpm install -g prisma@5 \
     && prisma --version
 
 # Install pgcli for better PostgreSQL CLI (optional)

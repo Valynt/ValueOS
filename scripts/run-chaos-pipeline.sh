@@ -32,7 +32,7 @@ echo ""
 # Step 1: Run unit tests
 echo -e "${BLUE}Step 1: Chaos Unit Tests${NC}"
 echo "------------------------"
-if npm run test:chaos; then
+if pnpm run test:chaos; then
     echo -e "${GREEN}✓ Chaos unit tests passed${NC}"
     ((SUCCESS_COUNT++))
 else

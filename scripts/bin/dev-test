@@ -199,7 +199,7 @@ if docker exec ${PROJECT_NAME}-postgres-1 pg_isready -U postgres -d valueos_test
     # Run test migrations
     if [ -f "package.json" ] && grep -q "db:push" package.json; then
         echo -e "${YELLOW}🔄 Running test database migrations...${NC}"
-        if npm run db:push &> /dev/null; then
+        if pnpm run db:push &> /dev/null; then
             echo -e "${GREEN}✅ Test migrations completed${NC}"
         else
             echo -e "${YELLOW}⚠️ Migration failed (may be normal for test setup)${NC}"
@@ -272,4 +272,4 @@ echo "  API Health:  http://localhost:$API_PORT/health"
 echo "  API Docs:    http://localhost:$API_PORT/api-docs"
 echo ""
 echo -e "${GREEN}🧪 Test environment ready for testing!${NC}"
-echo -e "${BLUE}💡 Run tests with: npm test${NC}"
+echo -e "${BLUE}💡 Run tests with: pnpm test${NC}"

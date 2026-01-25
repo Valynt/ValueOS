@@ -68,7 +68,7 @@ check_disk_space() {
 
 check_node_modules() {
     if [ ! -d "${PROJECT_ROOT}/node_modules" ]; then
-        log_warn "node_modules missing - run 'npm install'"
+        log_warn "node_modules missing - run 'pnpm install'"
         return 1
     fi
     return 0
@@ -139,9 +139,9 @@ main() {
 
     echo ""
     echo "Quick Start:"
-    echo "  npm run dx        - Start full environment"
-    echo "  npm run dev       - Start frontend only"
-    echo "  npm run dx:doctor - Run diagnostics"
+    echo "  pnpm run dx        - Start full environment"
+    echo "  pnpm run dev       - Start frontend only"
+    echo "  pnpm run dx:doctor - Run diagnostics"
     echo ""
     echo "========================================"
     echo ""
