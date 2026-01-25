@@ -2,10 +2,33 @@ import type { NextFunction, Request, Response } from "express";
 import type { Pool, PoolClient } from "pg";
 import { createLogger } from "@shared/lib/logger";
 import { getDatabaseUrl } from "../config/database";
+import { settings } from "../config/settings";
 
 const logger = createLogger({ component: "TenantDbContextMiddleware" });
 
 let pool: Pool | null = null;
+let poolShutdownRegistered = false;
+
+const closePool = async () => {
+  if (!pool) {
+    return;
+  }
+  try {
+    await pool.end();
+  } finally {
+    pool = null;
+  }
+};
+
+const registerPoolShutdownHooks = () => {
+  if (poolShutdownRegistered) {
+    return;
+  }
+  poolShutdownRegistered = true;
+  process.once("SIGTERM", () => void closePool());
+  process.once("SIGINT", () => void closePool());
+  process.once("beforeExit", () => void closePool());
+};
 
 const getPool = async (): Promise<Pool | null> => {
   const databaseUrl = getDatabaseUrl();
@@ -15,7 +38,18 @@ const getPool = async (): Promise<Pool | null> => {
 
   if (!pool) {
     const { Pool } = await import("pg");
-    pool = new Pool({ connectionString: databaseUrl });
+    pool = new Pool({
+      connectionString: databaseUrl,
+      max: settings.databasePool.max,
+      idleTimeoutMillis: settings.databasePool.idleTimeoutMs,
+      connectionTimeoutMillis: settings.databasePool.connectionTimeoutMs,
+      statement_timeout: settings.databasePool.statementTimeoutMs,
+      query_timeout: settings.databasePool.queryTimeoutMs,
+    });
+    pool.on("error", (error) => {
+      logger.error("Unexpected database pool error", error instanceof Error ? error : undefined);
+    });
+    registerPoolShutdownHooks();
   }
 
   return pool;
