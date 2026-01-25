@@ -14,7 +14,7 @@
 - [x] All agents have Zod schemas with hallucination_check
 - [x] All memory operations include organizationId parameter
 - [x] Confidence thresholds configured by risk profile
-- [ ] Legacy src/agents/ directory deleted (PENDING - run cleanup script)
+- [x] Legacy agents directory deleted (cleanup script completed)
 - [x] Zero TypeScript compile errors in production agents
 
 ### Test Coverage
@@ -266,13 +266,13 @@ kubectl top pods -n staging | grep valuecanvas
 npm run test:rls
 
 # 2. Check for direct LLM calls bypassing security
-grep -r "llmGateway\.complete" src/lib/agent-fabric/agents/*.ts | \
+grep -r "llmGateway\.complete" apps/ValyntApp/src/lib/agent-fabric/agents/*.ts | \
   grep -v "BaseAgent.ts" | grep -v "//"
 
 # Expected: 0 matches
 
 # 3. Verify all memory operations include organizationId
-grep -A 5 "memorySystem.store" src/lib/agent-fabric/agents/*.ts | \
+grep -A 5 "memorySystem.store" apps/ValyntApp/src/lib/agent-fabric/agents/*.ts | \
   grep "organizationId" | wc -l
 
 # Expected: >= 8 matches

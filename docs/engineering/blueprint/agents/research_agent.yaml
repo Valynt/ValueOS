@@ -58,7 +58,7 @@ spec:
           type: string
           enum: [high, medium, low]
   entrypoint:
-    module: src/lib/agent-fabric/agents/ResearchAgent.ts
+    module: apps/ValyntApp/src/lib/agent-fabric/agents/ResearchAgent.ts
     class: ResearchAgent
     method: execute
     httpEndpoint: "/api/agents/research/execute"

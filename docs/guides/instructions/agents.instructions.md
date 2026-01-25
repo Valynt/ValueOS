@@ -1,11 +1,11 @@
 ---
-applyTo: "src/lib/agent-fabric/agents/**,src/agents/**"
+applyTo: "apps/ValyntApp/src/lib/agent-fabric/agents/**"
 description: AI Agent Modules development guidelines
 ---
 
 # AI Agent Modules
 
-**Paths:** `src/lib/agent-fabric/agents/*` & `src/agents/*`
+**Paths:** `apps/ValyntApp/src/lib/agent-fabric/agents/*`
 
 - Each agent = single class in `[AgentName]Agent.ts`
 - MUST extend `BaseAgent`

@@ -86,7 +86,7 @@ All agents extend the `BaseAgent` class which provides:
 - Circuit breaker protection
 - Input sanitization
 
-**Location:** `/src/lib/agent-fabric/agents/BaseAgent.ts`
+**Location:** `/apps/ValyntApp/src/lib/agent-fabric/agents/BaseAgent.ts`
 
 ### Core Agents
 

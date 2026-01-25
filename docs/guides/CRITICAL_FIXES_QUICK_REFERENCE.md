@@ -26,7 +26,7 @@
 **Solution:** Replaced all `llmGateway.complete()` with `secureInvoke()` + Zod schemas
 
 **Files Changed:**
-- `src/lib/agent-fabric/agents/AdversarialReasoningAgents.ts` - 3 agents updated
+- `apps/ValyntApp/src/lib/agent-fabric/agents/AdversarialReasoningAgents.ts` - 3 agents updated
 - `src/lib/agent-fabric/RetrievalEngine.ts` - 1 agent updated
 
 **Security Impact:** 🟡 HIGH reliability issue resolved
@@ -39,7 +39,7 @@
 
 **Files Changed:**
 - `src/lib/agent-fabric/SafeJSONParser.ts` - NEW 400+ line module
-- `src/lib/agent-fabric/agents/BaseAgent.ts` - Integrated safe parser
+- `apps/ValyntApp/src/lib/agent-fabric/agents/BaseAgent.ts` - Integrated safe parser
 
 **Security Impact:** 🟡 HIGH reliability issue resolved
 
