@@ -17,7 +17,9 @@
     },
     "ghcr.io/devcontainers/features/node:1": {
       "version": "20",
-      "nodeGypDependencies": true
+      "nodeGypDependencies": true,
+      "pnpmVersion": "9.15.0",
+      "yarnVersion": "1.22.22"
     },
     "ghcr.io/devcontainers/features/python:1": {
       "version": "3.11",
@@ -33,9 +35,7 @@
       "userUid": "1000",
       "userGid": "1000"
     }
-  }
-}
-
+  },
 
   "remoteUser": "vscode",
 

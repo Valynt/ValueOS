@@ -83,6 +83,36 @@ setup_logging() {
     echo "=== post-create.sh started at $(date -Iseconds) ===" >> "$LOG_FILE" 2>/dev/null || true
 }
 
+install_global_tools() {
+    log_info "Installing global development tools..."
+
+    # Ensure corepack is enabled
+    if command_exists corepack; then
+        corepack enable >/dev/null 2>&1 || true
+    fi
+
+    # Pin npm version
+    if npm install -g npm@10.9.0 >/dev/null 2>&1; then
+        log_success "npm@10.9.0 installed"
+    else
+        log_warn "Failed to pin npm version"
+    fi
+
+    # Install global tools
+    if npm install -g tsx@4.19.2 nodemon@3.1.9 pm2@5.4.3 >/dev/null 2>&1; then
+        log_success "Global tools (tsx, nodemon, pm2) installed"
+    else
+        log_warn "Failed to install global tools"
+    fi
+
+    # Install Prisma CLI
+    if pnpm add -g prisma@5.25.0 >/dev/null 2>&1; then
+        log_success "Prisma CLI installed"
+    else
+        log_warn "Failed to install Prisma CLI"
+    fi
+}
+
 install_dependencies() {
     log_info "Installing project dependencies..."
 
@@ -97,8 +127,7 @@ install_dependencies() {
         log_info "Using pnpm for reproducible install..."
 
         if command_exists corepack; then
-            corepack enable >/dev/null 2>&1 || true
-            corepack prepare pnpm@9.15.4 --activate >/dev/null 2>&1 || true
+            corepack prepare pnpm@9.15.0 --activate >/dev/null 2>&1 || true
         fi
 
         if run_with_timeout $NPM_INSTALL_TIMEOUT pnpm install --frozen-lockfile --prefer-offline 2>&1; then
@@ -268,6 +297,8 @@ main() {
     cd "$PROJECT_ROOT"
 
     setup_logging
+
+    install_global_tools
 
     # Critical step - fail if this fails
     install_dependencies || {
