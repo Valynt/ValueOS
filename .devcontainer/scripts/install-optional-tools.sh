@@ -119,6 +119,53 @@ install_trivy() {
     return 1
 }
 
+install_kubectl() {
+    local version=v1.30.0
+    local url="https://dl.k8s.io/release/${version}/bin/linux/amd64/kubectl"
+    local dest="${HOME}/.local/bin/kubectl"
+
+    if [ -x "$dest" ]; then
+        log "kubectl already present"
+        return 0
+    fi
+
+    log "Installing kubectl ${version}..."
+    if curl -fsSL -o "$dest" "$url"; then
+        chmod +x "$dest"
+        log "kubectl installed to $dest"
+        return 0
+    fi
+
+    log "kubectl installation failed"
+    return 1
+}
+
+install_helm() {
+    local version=v3.15.1
+    local url="https://get.helm.sh/helm-${version}-linux-amd64.tar.gz"
+    local tmp_dir="/tmp/helm_install"
+    local dest="${HOME}/.local/bin/helm"
+
+    if [ -x "$dest" ]; then
+        log "helm already present"
+        return 0
+    fi
+
+    log "Installing helm ${version}..."
+    mkdir -p "$tmp_dir"
+    if curl -fsSL "$url" | tar -xz -C "$tmp_dir"; then
+        mv "${tmp_dir}/linux-amd64/helm" "$dest"
+        chmod +x "$dest"
+        rm -rf "$tmp_dir"
+        log "helm installed to $dest"
+        return 0
+    fi
+
+    rm -rf "$tmp_dir"
+    log "helm installation failed"
+    return 1
+}
+
 main() {
     ensure_log_dir
 
@@ -126,6 +173,8 @@ main() {
     install_dive || log "install_dive failed"
     install_hadolint || log "install_hadolint failed"
     install_trivy || log "install_trivy failed"
+    install_kubectl || log "install_kubectl failed"
+    install_helm || log "install_helm failed"
 
     log "Optional tools installation complete"
 }
