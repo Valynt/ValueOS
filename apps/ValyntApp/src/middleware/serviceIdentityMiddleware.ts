@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import { getAutonomyConfig } from '../config/autonomy';
-import { nonceStore } from './nonceStore';
+import { NonceStoreUnavailableError, nonceStore } from './nonceStore';
 
 // Use browser-compatible crypto when available, fallback to Node crypto
 const randomUUID = (): string => {
@@ -41,8 +41,8 @@ export function serviceIdentityMiddleware(req: Request, res: Response, next: Nex
     return res.status(401).json({ error: 'Request nonce required' });
   }
 
-  const cacheKey = `${provided}:${nonce}`;
-  nonceStore.consumeOnce(cacheKey).then((unique) => {
+  const requireRedis = process.env.NODE_ENV === 'production';
+  nonceStore.consumeOnce(provided, nonce, { requireRedis }).then((unique) => {
     if (!unique) {
       return res.status(401).json({ error: 'Replay detected' });
     }
@@ -50,7 +50,12 @@ export function serviceIdentityMiddleware(req: Request, res: Response, next: Nex
     (req as any).serviceIdentityVerified = true;
     (req as any).requestNonce = nonce;
     next();
-  }).catch(() => res.status(500).json({ error: 'Nonce validation failed' }));
+  }).catch((error) => {
+    if (error instanceof NonceStoreUnavailableError) {
+      return res.status(503).json({ error: 'Replay protection unavailable' });
+    }
+    return res.status(500).json({ error: 'Nonce validation failed' });
+  });
 
 }
 

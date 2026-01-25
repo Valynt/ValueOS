@@ -186,7 +186,6 @@ const baseConfig = {
     eqeqeq: ["error", "always"],
     "no-duplicate-imports": "error",
     "no-return-await": "error",
-
     // Import organization
     "@typescript-eslint/consistent-import": "off", // Let auto-import handle this
     "sort-imports": [
@@ -212,6 +211,14 @@ const baseConfig = {
         selector:
           "CallExpression[callee.object.name='llmGateway'][callee.property.name='complete']",
         message: "Direct calls to llmGateway.complete are forbidden; use secureLLMInvoke instead.",
+      },
+      {
+        selector: "AssignmentExpression[left.property.name='innerHTML']",
+        message: "Do not assign to innerHTML. Use textContent or sanitizeHtml() with an allowlist.",
+      },
+      {
+        selector: "AssignmentExpression[left.property.name='outerHTML']",
+        message: "Do not assign to outerHTML. Use DOM APIs or sanitizeHtml() with an allowlist.",
       },
     ],
 

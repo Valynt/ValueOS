@@ -1,12 +1,20 @@
-import {
-  createClient,
-  type SupabaseClientOptions,
-} from "@supabase/supabase-js";
-import { settings } from "../config/settings";
+import { createClient, type SupabaseClientOptions } from "@supabase/supabase-js";
+import { getEnvVar, getSupabaseConfig } from "./env";
 
 // Client-side configuration - only uses anon key
-const supabaseUrl = settings.VITE_SUPABASE_URL;
-const supabaseAnonKey = settings.VITE_SUPABASE_ANON_KEY;
+const supabaseConfig = getSupabaseConfig();
+const supabaseUrl = supabaseConfig.url;
+const supabaseAnonKey = supabaseConfig.anonKey;
+const supabaseServiceRoleKey = supabaseConfig.serviceRoleKey;
+const nodeEnv = getEnvVar("NODE_ENV") || getEnvVar("VITE_APP_ENV");
+const allowInsecureAnonServerClient =
+  getEnvVar("ALLOW_INSECURE_ANON_SERVER_CLIENT") === "true";
+const isServer = typeof window === "undefined";
+const isProduction = nodeEnv === "production";
+
+if (isServer && isProduction && !supabaseServiceRoleKey) {
+  throw new Error("SUPABASE_SERVICE_ROLE_KEY is required in production");
+}
 
 // Validate required client-side configuration
 let supabase: any = null;
@@ -41,24 +49,89 @@ export function getSupabaseClient() {
   return supabase;
 }
 
+function parseBearerToken(header?: string | string[]): string | null {
+  if (!header) return null;
+  const headerValue = Array.isArray(header) ? header[0] : header;
+  if (!headerValue) return null;
+  const prefix = "Bearer ";
+  if (!headerValue.startsWith(prefix)) return null;
+  const token = headerValue.slice(prefix.length).trim();
+  return token.length > 0 ? token : null;
+}
+
+export function createRequestSupabaseClient(req: {
+  headers?: { authorization?: string | string[] };
+  supabase?: any;
+  supabaseUser?: any;
+  user?: any;
+}) {
+  if (!isServer) {
+    throw new Error("Request-scoped Supabase client can only be used server-side");
+  }
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Supabase client not configured for request-scoped access");
+  }
+
+  const token = parseBearerToken(req.headers?.authorization);
+  if (!token) {
+    throw new Error("Authorization bearer token required for request-scoped Supabase client");
+  }
+
+  const requestOptions: SupabaseClientOptions<"public"> = {
+    db: {
+      schema: "public",
+    },
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  };
+
+  const client = createClient(supabaseUrl, supabaseAnonKey, requestOptions);
+  (req as any).supabase = client;
+  (req as any).supabaseUser = (req as any).user ?? null;
+  return client;
+}
+
+export function getRequestSupabaseClient(req: {
+  headers?: { authorization?: string | string[] };
+  supabase?: any;
+  supabaseUser?: any;
+  user?: any;
+}) {
+  return (req as any).supabase ?? createRequestSupabaseClient(req);
+}
+
 // Server-side Supabase client - for backend services only
 // This should NEVER be used in client-side code
 export function createServerSupabaseClient(serviceKey?: string) {
-  const serverKey =
-    serviceKey ||
-    settings.SUPABASE_SERVICE_ROLE_KEY ||
-    settings.VITE_SUPABASE_ANON_KEY;
+  const serverKey = serviceKey || supabaseServiceRoleKey;
 
   if (!serverKey) {
-    throw new Error(
-      "Supabase service key is required for server-side operations"
-    );
+    if (isProduction || !allowInsecureAnonServerClient) {
+      throw new Error("Supabase service role key is required for server-side operations");
+    }
+
+    if (!supabaseAnonKey) {
+      throw new Error("Supabase anon key missing for insecure server client fallback");
+    }
   }
 
   if (typeof window !== "undefined") {
     throw new Error(
       "Server Supabase client cannot be used in browser environment"
     );
+  }
+
+  if (!supabaseUrl) {
+    throw new Error("Supabase URL is required for server-side operations");
   }
 
   const serverOptions: SupabaseClientOptions<"public"> = {
@@ -70,5 +143,6 @@ export function createServerSupabaseClient(serviceKey?: string) {
     },
   };
 
-  return createClient(supabaseUrl, serverKey, serverOptions);
+  const resolvedKey = serverKey ?? supabaseAnonKey!;
+  return createClient(supabaseUrl, resolvedKey, serverOptions);
 }

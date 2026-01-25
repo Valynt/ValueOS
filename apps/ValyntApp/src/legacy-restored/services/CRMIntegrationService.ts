@@ -35,9 +35,13 @@ export class CRMIntegrationService {
     // Check connection status
     const isConnected = crmModule.isConnected();
 
-    // MOCK: Return mock data if in development AND not connected
+    const devMocksEnabled =
+      process.env.DEV_MOCKS_ENABLED === "true" ||
+      process.env.DEV_MOCKS_ENABLED === "1";
+
+    // MOCK: Return mock data if allowed in dev AND not connected
     // This allows testing real integration in dev if configured/connected
-    if (process.env.NODE_ENV !== "production" && !isConnected) {
+    if (devMocksEnabled && process.env.NODE_ENV !== "production" && !isConnected) {
       logger.info("[MOCK] Fetching CRM deals (Dev mode & Not Connected)");
       // Simulate network delay
       await new Promise((resolve) => setTimeout(resolve, 800));
@@ -119,8 +123,13 @@ export class CRMIntegrationService {
 
       let success = false;
 
+      const devMocksEnabled =
+        process.env.DEV_MOCKS_ENABLED === "true" ||
+        process.env.DEV_MOCKS_ENABLED === "1";
+
       // MOCK: Check if we are in a mock/demo environment
       if (
+        devMocksEnabled &&
         process.env.NODE_ENV !== "production" &&
         !dealId.startsWith("deal_")
       ) {

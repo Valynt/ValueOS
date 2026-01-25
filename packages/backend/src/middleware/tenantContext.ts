@@ -2,18 +2,24 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { AsyncLocalStorage } from "async_hooks";
 import { createLogger } from "@shared/lib/logger";
-<<<<<<< HEAD
-=======
 import {
   getUserTenantId,
   verifyTenantExists,
   verifyTenantMembership,
 } from "@shared/lib/tenantVerification";
 import { validateEnv } from "../config/validateEnv";
->>>>>>> 7823d3dee5da3de0b12c5c68a37810dc04000075
 
 const logger = createLogger({ component: "TenantContextMiddleware" });
-const tctSecret = process.env.TCT_SECRET || "default-tct-secret-change-me";
+const DEFAULT_TCT_SECRET = "default-tct-secret-change-me";
+
+const assertValidTctSecret = (): string => {
+  const secret = process.env.TCT_SECRET || DEFAULT_TCT_SECRET;
+  if (process.env.NODE_ENV === "production" && secret === DEFAULT_TCT_SECRET) {
+    validateEnv();
+    throw new Error("TCT_SECRET must be configured in production.");
+  }
+  return secret;
+};
 
 export interface TCTPayload {
   iss: string;
@@ -32,13 +38,9 @@ type TenantCandidateSource = "tct" | "service-header" | "user-claim" | "user-loo
  * Middleware to extract and verify Tenant Context Token (TCT)
  */
 export const tenantContextMiddleware = (enforce = true) => {
-<<<<<<< HEAD
-  return (req: Request, res: Response, next: NextFunction) => {
-=======
   const tctSecret = assertValidTctSecret();
 
   return async (req: Request, res: Response, next: NextFunction) => {
->>>>>>> 7823d3dee5da3de0b12c5c68a37810dc04000075
     const authHeader = req.headers["x-tenant-context"];
     const userId = (req as any).user?.id as string | undefined;
     let tenantSource: TenantCandidateSource = "none";
@@ -131,18 +133,6 @@ export const tenantContextMiddleware = (enforce = true) => {
       return next();
     }
 
-<<<<<<< HEAD
-    const token = Array.isArray(authHeader) ? authHeader[0] : authHeader;
-
-    try {
-      const decoded = jwt.verify(token, tctSecret) as TCTPayload;
-
-      // Store in AsyncLocalStorage for propagation
-      tenantContextStorage.run(decoded, () => {
-        // Also attach to request for convenience
-        (req as any).tenantContext = decoded;
-        next();
-=======
     const tenantExists = await verifyTenantExists(resolvedTenantId);
     if (!tenantExists) {
       logger.warn("Tenant context resolved to inactive or unknown tenant", {
@@ -153,7 +143,6 @@ export const tenantContextMiddleware = (enforce = true) => {
       return res.status(404).json({
         error: "Not Found",
         message: "Tenant not found or inactive.",
->>>>>>> 7823d3dee5da3de0b12c5c68a37810dc04000075
       });
     }
 

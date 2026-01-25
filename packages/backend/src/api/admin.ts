@@ -8,6 +8,7 @@ import { Request, Response } from "express";
 import { createSecureRouter } from "../middleware/secureRouter";
 import { requireAuth } from "../middleware/auth";
 import { tenantContextMiddleware } from "../middleware/tenantContext";
+import { tenantDbContextMiddleware } from "../middleware/tenantDbContext";
 import { requireAllPermissions, requirePermission } from "../middleware/rbac";
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation";
 import { adminUserService } from "../services/AdminUserService";
@@ -17,7 +18,7 @@ import { sanitizeForLogging } from "@shared/lib/piiFilter";
 const logger = createLogger({ component: "AdminAPI" });
 const router = createSecureRouter("strict");
 
-router.use(requireAuth, tenantContextMiddleware());
+router.use(requireAuth, tenantContextMiddleware(), tenantDbContextMiddleware());
 
 router.get("/users", requirePermission("users.read"), async (req: Request, res: Response) => {
   try {

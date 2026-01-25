@@ -13,7 +13,7 @@
 import { NextFunction, Request, Response } from "express";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { logger } from "@shared/lib/logger";
-import { getSupabaseClient } from "@shared/lib/supabase";
+import { createServerSupabaseClient, getRequestSupabaseClient } from "@shared/lib/supabase";
 import {
   type Permission as UnifiedPermission,
   hasPermission as matchPermission,
@@ -155,7 +155,7 @@ export function requirePermission(
         });
       }
 
-      const supabase = getSupabaseClient();
+      const supabase = getRequestSupabaseClient(req);
       const allowed = await hasPermission(
         supabase,
         userId,
@@ -227,7 +227,7 @@ export function requireRole(role: Role | Role[]) {
         });
       }
 
-      const supabase = getSupabaseClient();
+      const supabase = getRequestSupabaseClient(req);
 
       // Get user's roles
       const { data: userRoles, error } = await supabase
@@ -296,7 +296,7 @@ export function requireOwnership(
 
       const userId = user.id;
       const resourceId = getResourceId(req);
-      const supabase = getSupabaseClient();
+      const supabase = getRequestSupabaseClient(req);
 
       // Check if user owns the resource
       const { data, error } = await supabase
@@ -367,7 +367,7 @@ export function requireAnyPermission(...permissions: Permission[]) {
         });
       }
 
-      const supabase = getSupabaseClient();
+      const supabase = getRequestSupabaseClient(req);
 
       // Check if user has any of the permissions
       for (const permission of permissions) {
@@ -435,7 +435,7 @@ export function requireAllPermissions(...permissions: Permission[]) {
         });
       }
 
-      const supabase = getSupabaseClient();
+      const supabase = getRequestSupabaseClient(req);
 
       // Check if user has all permissions
       for (const permission of permissions) {
@@ -488,6 +488,6 @@ export async function checkPermission(
   tenantId: string,
   permission: Permission
 ): Promise<boolean> {
-  const supabase = getSupabaseClient();
+  const supabase = createServerSupabaseClient();
   return hasPermission(supabase, userId, tenantId, permission);
 }

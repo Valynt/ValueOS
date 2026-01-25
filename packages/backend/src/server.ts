@@ -28,6 +28,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import billingRouter from "./api/billing";
 import agentsRouter from "./api/agents";
 import groundtruthRouter from "./api/groundtruth";
+import llmRouter from "./api/llm";
 import workflowRouter from "./api/workflow";
 import documentRouter from "./api/documents";
 import healthRouter, { markAsShuttingDown } from "./api/health";
@@ -64,6 +65,7 @@ import { serviceIdentityMiddleware } from "./middleware/serviceIdentityMiddlewar
 import { securityHeadersMiddleware, cspReportHandler } from "./middleware/securityHeaders";
 import { extractTenantId, requireAuth, verifyAccessToken } from "./middleware/auth";
 import { tenantContextMiddleware } from "./middleware/tenantContext";
+import { tenantDbContextMiddleware } from "./middleware/tenantDbContext";
 import { settings } from "./config/settings";
 import { isConsentRegistryConfigured } from "./services/consentRegistry";
 import { TenantContextResolver } from "./services/TenantContextResolver";
@@ -296,6 +298,7 @@ app.use(
   serviceIdentityMiddleware,
   requireAuth,
   tenantContextMiddleware(),
+  tenantDbContextMiddleware(),
   agentExecutionLimiter,
   agentsRouter
 );
@@ -304,11 +307,19 @@ app.use(
   serviceIdentityMiddleware,
   requireAuth,
   tenantContextMiddleware(),
+  tenantDbContextMiddleware(),
   agentExecutionLimiter,
   groundtruthRouter
 );
+app.use("/api/llm", llmRouter);
 app.use("/api", workflowRouter);
-app.use("/api/documents", requireAuth, tenantContextMiddleware(), documentRouter);
+app.use(
+  "/api/documents",
+  requireAuth,
+  tenantContextMiddleware(),
+  tenantDbContextMiddleware(),
+  documentRouter
+);
 app.use("/api/docs", docsApiRouter);
 app.use("/api/referrals", referralsRouter);
 

@@ -161,6 +161,24 @@ describe('UnifiedAgentAPI', () => {
       expect(response.metadata?.duration).toBeDefined();
       expect(response.metadata?.duration).toBeGreaterThanOrEqual(0);
     });
+
+    it('should scope idempotency cache to tenant', async () => {
+      const request = {
+        agent: 'opportunity' as const,
+        query: 'Test',
+        idempotencyKey: 'idem-123',
+      };
+
+      const execSpy = vi.spyOn(api as any, 'executeAgentRequest');
+      execSpy
+        .mockResolvedValueOnce({ success: true, data: { value: 'first' } })
+        .mockResolvedValueOnce({ success: true, data: { value: 'second' } });
+
+      await api.invoke({ ...request, tenantId: 'tenant-a' });
+      await api.invoke({ ...request, tenantId: 'tenant-b' });
+
+      expect(execSpy).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('callAgent()', () => {
@@ -420,6 +438,27 @@ describe('UnifiedAgentAPI', () => {
         expect.objectContaining({
           headers: expect.objectContaining({
             'X-Trace-ID': 'trace-123',
+          }),
+        })
+      );
+    });
+
+    it('should include tenant and idempotency headers when provided', async () => {
+      const httpApi = new UnifiedAgentAPI({ baseUrl: 'http://localhost:8080' });
+
+      await httpApi.invoke({
+        agent: 'opportunity',
+        query: 'Test',
+        tenantId: 'tenant-123',
+        idempotencyKey: 'idem-001',
+      });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'X-Tenant-ID': 'tenant-123',
+            'Idempotency-Key': 'idem-001',
           }),
         })
       );

@@ -13,6 +13,7 @@ import { serviceIdentityMiddleware } from '../../middleware/serviceIdentityMiddl
 import { requirePermission } from '../../middleware/rbac';
 import { requireAuth } from '../../middleware/auth';
 import { tenantContextMiddleware } from '../../middleware/tenantContext';
+import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext';
 
 const router = express.Router();
 
@@ -28,6 +29,7 @@ router.use(
   '/subscription',
   requireAuth,
   tenantContextMiddleware(),
+  tenantDbContextMiddleware(),
   requirePermission('billing.manage'),
   subscriptionsRouter
 );
@@ -35,6 +37,7 @@ router.use(
   '/usage',
   requireAuth,
   tenantContextMiddleware(),
+  tenantDbContextMiddleware(),
   requirePermission('billing.read'),
   usageRouter
 );
@@ -42,6 +45,7 @@ router.use(
   '/invoices',
   requireAuth,
   tenantContextMiddleware(),
+  tenantDbContextMiddleware(),
   requirePermission('billing.read'),
   invoicesRouter
 );

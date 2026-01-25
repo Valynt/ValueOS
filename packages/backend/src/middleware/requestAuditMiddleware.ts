@@ -48,7 +48,6 @@ export function requestAuditMiddleware(options?: { ignoredPaths?: string[] }) {
     }
 
     const requestId = getRequestId(req);
-    const actor = getActor(req);
     const startedAt = Date.now();
 
     res.locals.requestId = requestId;
@@ -58,12 +57,13 @@ export function requestAuditMiddleware(options?: { ignoredPaths?: string[] }) {
     // Prepare context
     const context = {
       requestId,
-      userId: actor.id,
+      userId: (req as any).user?.id,
       ...getTraceContextForLogging(),
     };
 
     runWithContext(context, () => {
       res.on("finish", async () => {
+        const actor = getActor(req);
         try {
           await securityAuditService.logRequestEvent({
             requestId,

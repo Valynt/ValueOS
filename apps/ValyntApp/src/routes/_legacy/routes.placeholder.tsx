@@ -1,4 +1,7 @@
-// /workspaces/ValueOS/src/routes.tsx
+/**
+ * @deprecated Not active. Not imported.
+ * Placeholder routes preserved for reference only. Do not wire without security review.
+ */
 import React from "react";
 import { Routes, Route } from "react-router-dom";
 
@@ -13,7 +16,7 @@ const Insights = () => <div>Insights</div>;
 const Admin = () => <div>Admin</div>;
 const Settings = () => <div>Settings</div>;
 
-const AppRoutes: React.FC = () => {
+const PlaceholderRoutes: React.FC = () => {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
@@ -29,4 +32,4 @@ const AppRoutes: React.FC = () => {
   );
 };
 
-export default AppRoutes;
+void PlaceholderRoutes;

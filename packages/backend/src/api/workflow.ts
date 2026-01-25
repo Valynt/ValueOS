@@ -1,5 +1,4 @@
 import { Request, Response, Router } from 'express';
-import { supabase } from '@shared/lib/supabase';
 import { logger } from '@shared/lib/logger';
 import { rateLimiters } from '../middleware/rateLimiter';
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
@@ -8,12 +7,14 @@ import { validateRequest } from '../middleware/inputValidation';
 import { requirePermission } from '../middleware/rbac';
 import { requireAuth } from '../middleware/auth';
 import { tenantContextMiddleware } from '../middleware/tenantContext';
+import { tenantDbContextMiddleware } from '../middleware/tenantDbContext';
 
 const router = Router();
 router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
 router.use(requireAuth);
 router.use(tenantContextMiddleware());
+router.use(tenantDbContextMiddleware());
 router.use(requirePermission('agents.execute'));
 
 const workflowExplainParamsSchema = {
@@ -37,6 +38,7 @@ router.get(
   async (req: Request, res: Response) => {
     const { executionId, stepId } = req.params;
     const tenantId = (req as any).tenantId;
+    const db = (req as any).db as { query?: (query: string, params?: unknown[]) => Promise<any> } | undefined;
 
     if (!tenantId) {
       return res.status(403).json({
@@ -45,18 +47,27 @@ router.get(
       });
     }
 
-    try {
-      const { data, error } = await supabase
-        .from('workflow_execution_logs')
-        .select('execution_id, stage_id, output_data')
-        .eq('execution_id', executionId)
-        .eq('stage_id', stepId)
-        .eq('tenant_id', tenantId)
-        .order('started_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    if (!db?.query) {
+      return res.status(500).json({
+        error: 'tenant_db_unavailable',
+        message: 'Tenant database context is required to access workflow execution logs',
+      });
+    }
 
-      if (error || !data) {
+    try {
+      const { rows } = await db.query(
+        `SELECT execution_id, stage_id, output_data
+         FROM workflow_execution_logs
+         WHERE execution_id = $1
+           AND stage_id = $2
+         ORDER BY started_at DESC
+         LIMIT 1`,
+        [executionId, stepId]
+      );
+
+      const data = rows?.[0];
+
+      if (!data) {
         return res.status(404).json({
           error: 'not_found',
           message: 'No execution step was found for the provided identifiers',

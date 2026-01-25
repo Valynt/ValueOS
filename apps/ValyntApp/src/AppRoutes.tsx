@@ -17,6 +17,7 @@ import { EnvironmentBanner } from "./components/common/EnvironmentBanner";
 import { CommandPaletteProvider } from "./components/CommandPalette";
 import { SDUIStateProvider } from "./lib/state/SDUIStateProvider";
 import { supabase } from "./lib/supabase";
+import { publicRoutePaths, redirectRoutes } from "./routes/routeConfig";
 
 // Lazy load auth pages (public routes) - Modern design
 const LoginPage = lazy(() =>
@@ -61,6 +62,20 @@ const App = lazy(() => import("./App").then((m) => ({ default: m.App })));
 // const DocsPortal = lazy(() => import("./components/docs/DocsPortal"));
 
 export function AppRoutes() {
+  const publicRouteElements: Record<string, JSX.Element> = {
+    "/login": <LoginPage />,
+    "/signup": <SignupPage />,
+    "/reset-password": <ResetPasswordPage />,
+    "/auth/callback": <AuthCallback />,
+  };
+  const resolvePublicElement = (path: string) => {
+    const element = publicRouteElements[path];
+    if (!element) {
+      throw new Error(`Missing route element for ${path}`);
+    }
+    return element;
+  };
+
   return (
     <BrowserRouter>
       <ErrorBoundary>
@@ -73,15 +88,22 @@ export function AppRoutes() {
                     <Suspense fallback={<LoadingSpinner />}>
                       <Routes>
                         {/* Public Auth Routes */}
-                        <Route path="/login" element={<LoginPage />} />
-                        <Route path="/signup" element={<SignupPage />} />
-                        <Route path="/reset-password" element={<ResetPasswordPage />} />
-
-                        {/* OAuth Callback */}
-                        <Route path="/auth/callback" element={<AuthCallback />} />
+                        {publicRoutePaths.map((path) => (
+                          <Route
+                            key={path}
+                            path={path}
+                            element={resolvePublicElement(path)}
+                          />
+                        ))}
 
                         {/* Root redirect to login */}
-                        <Route path="/" element={<Navigate to="/login" replace />} />
+                        {redirectRoutes.map((route) => (
+                          <Route
+                            key={route.path}
+                            path={route.path}
+                            element={<Navigate to={route.to} replace />}
+                          />
+                        ))}
 
                         {/* Sales Enablement - Deals View */}
                         {/* <Route
