@@ -116,7 +116,7 @@ FROM security AS dbtools
 
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
-ARG INSTALL_DBTOOLS=1
+ARG INSTALL_DBTOOLS=0
 ARG SUPABASE_VERSION=2.43.0
 ARG PRISMA_VERSION=5.25.0
 
