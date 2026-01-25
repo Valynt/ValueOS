@@ -483,6 +483,7 @@ services:
 
 networks:
   valueos-network:
+    name: valueos-network
     driver: bridge
 
 volumes:

@@ -9,6 +9,7 @@
     "apps/*"
   ],
   "scripts": {
+    "preinstall": "node scripts/dx/ensure-pnpm.js",
     "setup": "node scripts/dx/setup.js",
     "dx": "node scripts/dev-cli.js",
     "dx:docker": "node scripts/dev-cli.js up --mode docker",

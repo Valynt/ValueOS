@@ -54,9 +54,12 @@ function parseEnvFile(content) {
 function checkRequired(env) {
   const required = [
     'NODE_ENV',
+    'VITE_SUPABASE_URL',
+    'VITE_SUPABASE_ANON_KEY',
     'DATABASE_URL',
-    'JWT_SECRET',
-    'VITE_SUPABASE_URL'
+    'REDIS_URL',
+    'VITE_PORT',
+    'API_PORT'
   ];
 
   const missing = required.filter(key => !env[key] || env[key].trim() === '');

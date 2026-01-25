@@ -293,44 +293,55 @@ function stopSupabase() {
 /**
  * Start Docker dependencies
  */
-async function startDockerDeps(mode) {
+async function startDockerDeps(mode: string) {
   log.info("Starting Docker dependencies...");
 
   const composeFile =
-    mode === "docker" ? "infra/docker/docker-compose.dev.yml" : "docker-compose.deps.yml";
+    mode === "docker"
+      ? "infra/docker/docker-compose.dev.yml"
+      : "docker-compose.deps.yml";
+
+  // In full docker mode, we want images current and builds reproducible.
+  // For deps-only mode, do not force builds.
+  const upFlags = mode === "docker" ? " --build --pull=missing" : "";
 
   try {
     await runWithRetries("Docker pull", async () => {
-      runCommand(`docker compose --env-file .env.ports -f ${composeFile} pull --ignore-pull-failures`, {
-        silent: false,
-      });
+      runCommand(
+        `docker compose --env-file .env.ports -f ${composeFile} pull --ignore-pull-failures`,
+        { silent: false }
+      );
     });
 
-    await runWithRetries("Docker build", async () => {
-      try {
-        runCommand(`docker compose --env-file .env.ports -f ${composeFile} build --pull`, {
-          silent: false,
-        });
-      } catch (error) {
-        const message = error.message || "";
-        if (message.includes("ERR_PNPM") || message.includes("pnpm") || message.includes("store")) {
-          log.warn("Detected possible pnpm store corruption. Pruning build cache before retry.");
-          runCommand("docker builder prune -af", { silent: false });
+    if (mode === "docker") {
+      await runWithRetries("Docker build", async () => {
+        try {
+          runCommand(`docker compose --env-file .env.ports -f ${composeFile} build --pull`, {
+            silent: false,
+          });
+        } catch (error: any) {
+          const message = String(error?.message || "");
+          if (message.includes("ERR_PNPM") || message.includes("pnpm") || message.includes("store")) {
+            log.warn(
+              "Detected possible pnpm store/build cache corruption. Pruning Docker build cache before retry."
+            );
+            runCommand("docker builder prune -af", { silent: false });
+          }
+          throw error;
         }
-        throw error;
-      }
-    });
+      });
+    }
 
     await runWithRetries("Docker up", async () => {
-      runCommand(`docker compose --env-file .env.ports -f ${composeFile} up -d`, {
+      runCommand(`docker compose --env-file .env.ports -f ${composeFile} up -d${upFlags}`, {
         silent: false,
       });
     });
 
     log.success("Docker dependencies started");
-  } catch (error) {
+  } catch (error: any) {
     log.error("Failed to start Docker dependencies");
-    console.error(error.message);
+    console.error(String(error?.message || error));
     process.exit(1);
   }
 }
