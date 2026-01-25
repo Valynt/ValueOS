@@ -3,7 +3,6 @@
  * Handles session management and authentication operations
  */
 
-import { logger } from "../lib/logger";
 import { BaseService } from "./BaseService";
 import { AuthenticationError, RateLimitError, ValidationError } from "./errors";
 import { Session, User } from "@supabase/supabase-js";
@@ -53,6 +52,9 @@ export class AuthService extends BaseService {
 
   constructor() {
     super("AuthService");
+    if (process.env.NODE_ENV === "production" && !process.env.TCT_SECRET) {
+      throw new Error("TCT_SECRET must be set in production");
+    }
     this.tctSecret = process.env.TCT_SECRET || "default-tct-secret-change-me";
   }
 
@@ -340,7 +342,7 @@ export class AuthService extends BaseService {
           }
 
           if (mfaResult.usedBackupCode) {
-            logger.warn("User logged in with backup code", {
+            this.log("warn", "User logged in with backup code", {
               userId: data.user.id,
             });
           }
