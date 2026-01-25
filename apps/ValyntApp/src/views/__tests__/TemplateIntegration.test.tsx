@@ -12,7 +12,7 @@ import { ScenarioSelector } from '../../components/SDUI/ScenarioSelector';
 import ValueCanvas from '../ValueCanvas';
 import QuantumView from '../QuantumView';
 
-vi.mock('../../components/ChatCanvas/ChatCanvasLayout', () => ({
+vi.mock('../../components/chat-canvas/ChatCanvasLayout', () => ({
   ChatCanvasLayout: ({ initialAction }: { initialAction?: { type: string; data: unknown } | null }) => (
     <div data-testid="chat-canvas-layout" data-action={initialAction?.type ?? 'none'}>
       {initialAction ? JSON.stringify(initialAction.data) : 'No initial action'}

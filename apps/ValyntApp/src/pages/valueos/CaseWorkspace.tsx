@@ -60,7 +60,7 @@ import { exportToPdf } from "@/features/workspace/services/exportPdf";
 import { AgentChat } from "@/components/AgentChat";
 
 // Value Drivers
-import { ValueDriverSelector } from "@/components/valueDrivers";
+import { ValueDriverSelector } from "@/components/value-drivers";
 import { ValueDriver, MOCK_VALUE_DRIVERS } from "@/types/valueDriver";
 
 export function CaseWorkspace() {

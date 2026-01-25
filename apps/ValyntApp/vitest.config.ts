@@ -8,13 +8,7 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
-    include: [
-      "src/views/__tests__/ValueCanvas.test.tsx",
-      "src/views/Settings/__tests__/MFARecovery.test.ts",
-      "src/routes/__tests__/routeConfig.test.ts",
-      "src/features/chat/components/__tests__/*.test.tsx",
-      "src/features/chat/hooks/__tests__/*.test.tsx",
-    ],
+    include: ["src/**/*.{test,spec}.{ts,tsx}"],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],

@@ -12,11 +12,11 @@
 import React, { useState, useCallback, useEffect } from "react";
 
 // Shell Layer
-import { Sidebar, TopBar, CommandBar } from "@/components/Shell";
-import type { ValueCase } from "@/components/Shell";
+import { Sidebar, TopBar, CommandBar } from "@/components/shell";
+import type { ValueCase } from "@/components/shell";
 
 // Orchestration Layer
-import { AgentStatusIndicator } from "@/components/Orchestration";
+import { AgentStatusIndicator } from "@/components/orchestration";
 import { useAgentOrchestrator } from "@/hooks/useAgentOrchestrator";
 import { useCanvasState } from "@/hooks/useCanvasState";
 
@@ -25,7 +25,7 @@ import {
   ValueSummaryCard,
   AgentResponseCard,
   ChatInput,
-} from "@/components/Canvas";
+} from "@/components/canvas";
 
 // Mock data for demonstration
 const mockCases: ValueCase[] = [

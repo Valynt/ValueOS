@@ -12,7 +12,7 @@ import { ProtectedRoute } from "./app/routes/route-guards";
 import { ToastProvider } from "./components/common/Toast";
 import ErrorBoundary from "./components/common/ErrorBoundary";
 import { LoadingSpinner } from "./components/common/LoadingSpinner";
-import { BetaFeedbackWidget } from "./components/Feedback/BetaFeedbackWidget";
+import { BetaFeedbackWidget } from "./components/feedback/BetaFeedbackWidget";
 import { EnvironmentBanner } from "./components/common/EnvironmentBanner";
 import { CommandPaletteProvider } from "./components/CommandPalette";
 import { SDUIStateProvider } from "./lib/state/SDUIStateProvider";

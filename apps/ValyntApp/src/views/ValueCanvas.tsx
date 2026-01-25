@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { useLocation } from "react-router-dom";
-import { ChatCanvasLayout } from "../components/ChatCanvas/ChatCanvasLayout";
+import { ChatCanvasLayout } from "../components/chat-canvas/ChatCanvasLayout";
 
 export default function ValueCanvas() {
   const location = useLocation();
