@@ -343,7 +343,15 @@ export class CacheService {
    * Delete multiple keys at once
    */
   async deleteMany(keys: string[], options: CacheOptions = {}): Promise<void> {
-    await Promise.all(keys.map((key) => this.delete(key, options)));
+    const storage = options.storage || "memory";
+
+    if (storage === "redis") {
+      const namespace = options.namespace || this.defaultNamespace;
+      const fullKeys = keys.map((key) => this.getFullKey(key, namespace));
+      await this.deleteManyFromRedis(fullKeys);
+    } else {
+      await Promise.all(keys.map((key) => this.delete(key, options)));
+    }
   }
 
   /**
@@ -684,6 +692,22 @@ export class CacheService {
     } catch (error) {
       logger.error(
         "Failed to invalidate Redis pattern",
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Delete multiple values from Redis
+   */
+  private async deleteManyFromRedis(keys: string[]): Promise<void> {
+    if (!this.redisClient || keys.length === 0) return;
+
+    try {
+      await this.redisClient.del(keys);
+    } catch (error) {
+      logger.error(
+        "Failed to delete many from Redis",
         error instanceof Error ? error : undefined
       );
     }
