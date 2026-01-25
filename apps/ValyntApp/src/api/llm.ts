@@ -49,7 +49,7 @@ router.post(
   llmRateLimiter,
   async (req: Request, res: Response) => {
   try {
-    const { prompt, model, maxTokens, temperature } = req.body;
+    const { prompt, model, maxTokens, temperature, stream } = req.body;
     
     // Validate request
     if (!prompt || typeof prompt !== 'string') {
@@ -97,6 +97,36 @@ router.post(
     );
 
     // Process request with fallback
+    if (stream) {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      try {
+        const generator = llmFallback.streamRequest({
+          prompt: sanitizedPrompt,
+          model,
+          maxTokens,
+          temperature,
+          userId,
+          sessionId,
+          stream: true
+        });
+
+        for await (const chunk of generator) {
+          res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+        }
+
+        res.write('data: [DONE]\n\n');
+        res.end();
+      } catch (error) {
+        logger.error('LLM streaming failed', error as Error, withRequestContext(req, res));
+        res.write(`data: ${JSON.stringify({ error: 'Stream failed' })}\n\n`);
+        res.end();
+      }
+      return;
+    }
+
     const response = await llmFallback.processRequest({
       prompt: sanitizedPrompt,
       model,

@@ -45,14 +45,65 @@ class LLMClient {
   }
 
   async *stream(request: LLMRequest): AsyncGenerator<string, void, unknown> {
-    // TODO: Implement actual streaming
-    const response = await this.complete(request);
+    const config = { ...this.config, ...request.config };
+    const messages = request.messages;
+    const lastMessage = messages[messages.length - 1];
+    const prompt = lastMessage?.content || "";
 
-    // Simulate streaming by yielding chunks
-    const words = response.content.split(" ");
-    for (const word of words) {
-      yield word + " ";
-      await new Promise((resolve) => setTimeout(resolve, 50));
+    const response = await fetch("/api/llm/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
+      },
+      body: JSON.stringify({
+        prompt,
+        model: config.model,
+        maxTokens: config.maxTokens,
+        temperature: config.temperature,
+        stream: true,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`LLM stream error: ${response.status} ${response.statusText}`);
+    }
+
+    if (!response.body) {
+      throw new Error("No response body");
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed === "data: [DONE]") continue;
+          if (trimmed.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(trimmed.slice(6));
+              if (data.error) throw new Error(data.error);
+              if (data.content) yield data.content;
+            } catch (e) {
+              if (e instanceof Error && e.message === "Stream failed") throw e;
+              // Ignore parse errors for malformed lines
+              console.warn("Error parsing LLM stream chunk:", e);
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
     }
   }
 }
