@@ -27,7 +27,7 @@ cd valueos
 ```bash
 corepack enable
 corepack prepare pnpm@9.15.0 --activate
-pnpm install
+pnpm install --frozen-lockfile
 ```
 
 **Expected outcome:** pnpm installs dependencies and creates `node_modules/`.
@@ -63,6 +63,7 @@ pnpm run seed:demo
 - **Backend Health**: http://localhost:3001/health
 - **Supabase API**: http://localhost:54321
 - **Supabase Studio**: http://localhost:54323
+- **Supabase DB**: localhost:54322
 
 ## Next steps
 

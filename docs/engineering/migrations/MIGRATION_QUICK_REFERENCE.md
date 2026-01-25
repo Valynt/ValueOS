@@ -73,8 +73,8 @@ supabase db push
 psql postgresql://postgres:postgres@localhost:54322/postgres -c "\d+ new_table"
 
 # Test app
-npm run dev
-npm test
+pnpm run dev
+pnpm run test
 ```
 
 ---

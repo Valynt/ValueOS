@@ -12,7 +12,7 @@ Follow the canonical Local Dev Quickstart:
 ```bash
 corepack enable
 corepack prepare pnpm@9.15.0 --activate
-pnpm install
+pnpm install --frozen-lockfile
 pnpm run dx:env -- --mode local --force
 pnpm run dx
 ```

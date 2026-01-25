@@ -267,16 +267,16 @@ docker ps
 
 # Check Node
 node --version
-npm --version
+pnpm --version
 
 # Run diagnostics
-npm run doctor
+pnpm run dx:doctor
 
 # View logs
-npm run logs
+pnpm run dx:logs
 
 # Reset everything
-npm run clean
+pnpm run dx:clean
 pnpm run setup
 ```
 
@@ -295,7 +295,7 @@ pnpm run setup
 
 If you're still stuck:
 
-1. Run `npm run doctor` and share output
-2. Check logs: `npm run logs`
+1. Run `pnpm run dx:doctor` and share output
+2. Check logs: `pnpm run dx:logs`
 3. Ask in #engineering on Slack
-4. See main troubleshooting: `docs/TROUBLESHOOTING.md`
+4. See main troubleshooting: `docs/getting-started/troubleshooting.md`

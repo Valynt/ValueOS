@@ -204,9 +204,9 @@ source ~/.zprofile
 # - Memory: 6GB+
 # - Swap: 1GB+
 
-# Reset Supabase
-npx supabase stop
-npx supabase start
+# Reset local stack (Supabase + deps)
+pnpm run dx:down
+pnpm run dx
 ```
 
 ---
@@ -303,10 +303,10 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"
 
 # Aliases
-alias dc="docker-compose"
+alias dc="docker compose"
 alias dps="docker ps"
-alias nrs="npm run start"
-alias nrd="npm run dev"
+alias nrs="pnpm run dx"
+alias nrd="pnpm run dev"
 
 # Auto-load .env files
 export $(cat .env | xargs)
@@ -331,18 +331,18 @@ docker ps
 docker info
 
 # Check ports
-lsof -i :3000               # Backend
+lsof -i :3001               # Backend
 lsof -i :5173               # Frontend
 lsof -i :54321              # Supabase
 
 # Run diagnostics
-npm run doctor
+pnpm run dx:doctor
 
 # View logs
-npm run logs
+pnpm run dx:logs
 
 # Reset everything
-npm run clean
+pnpm run dx:clean
 pnpm run setup
 ```
 
@@ -390,7 +390,7 @@ brew upgrade --cask docker
 
 If you're still stuck:
 
-1. Run `npm run doctor` and share output
-2. Check logs: `npm run logs`
+1. Run `pnpm run dx:doctor` and share output
+2. Check logs: `pnpm run dx:logs`
 3. Ask in #engineering on Slack
 4. See main troubleshooting: `docs/TROUBLESHOOTING.md`

@@ -1,13 +1,14 @@
 # Dev Environment E2E Report
 
+> **Archive notice:** This report reflects a historical run and may include outdated commands. For current, copy/paste runnable instructions, use the [Local Dev Quickstart](../getting-started/quickstart.md).
+
 ## Start Order (Corrected)
 
-1. `npx supabase start` (start Supabase first)
-2. `pnpm run dx` (start frontend/backend/deps)
-3. `pnpm run dx:check` (verify health)
-4. `npx supabase db reset` (apply migrations)
-5. `npm run seed:demo` (create demo user)
-6. Open http://localhost:5173 and login
+1. `pnpm run dx` (start deps, Supabase, backend, frontend)
+2. `pnpm run dx:check` (verify health)
+3. `pnpm run db:reset` (apply migrations)
+4. `pnpm run seed:demo` (create demo user)
+5. Open http://localhost:5173 and login
 
 ## Services Discovered and Their Ports
 
@@ -28,7 +29,7 @@
 
 ## Migration Results
 
-- Database reset successful via `npx supabase db reset`
+- Database reset successful via `pnpm run db:reset`
 - Schema migrations applied to local Supabase instance
 
 ## Dummy User Creation Proof
@@ -58,12 +59,12 @@
 - SecurityAuditService failures: Commented out for dev environment
 - Missing env vars: Added DATABASE_URL, JWT_SECRET, ENCRYPTION_KEY, REDIS_URL
 - Secret validation blocking startup: Commented out for dev
-- Supabase CLI not available: Used npx supabase with local installation
+- Supabase CLI not available: Used local `pnpm` binary from devDependencies
 - Database migrations: Used local Supabase instance instead of remote
 - Auth provider not running: Started local Supabase for authentication
 - Supabase not ready: Seed failed because Supabase API not accessible at localhost:54321
-- Need to wait for npx supabase start to complete fully
-- Once ready, run npm run seed:demo and proceed to UI login
+- Need to wait for Supabase to become reachable before seeding
+- Once ready, run pnpm run seed:demo and proceed to UI login
 - ✅ Seed script executed successfully
 - User created: demo.user@example.com / DemoUser!2345 / Demo User
 - ✅ Full dev environment validated end-to-end

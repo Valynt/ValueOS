@@ -124,13 +124,13 @@ When an agent writes to the local Supabase instance, the `supabase_request_id` i
 ---
 
 ## 5. Operational Commands
-The environment includes self-healing mechanics managed via the `Taskfile.yml`.
+The current repository uses the DX scripts and Docker Compose for local observability workflows.
 
 | Command | Purpose |
 | :--- | :--- |
-| `task debug:agents` | Spins up the OTel stack and follows agent logs in the terminal. |
-| `task repair` | Force-restarts the OTel Collector and clears orphaned Jaeger volumes. |
-| `task benchmark` | Executes `BenchmarkAgent` and opens the Grafana dashboard. |
+| `pnpm run dx:logs` | Follow logs for the local stack (including observability containers). |
+| `pnpm run dx:check` | Validate health of local services. |
+| `docker compose --env-file .env.ports -f infra/docker/docker-compose.dev.yml restart otel-collector` | Restart the OTel Collector if telemetry stalls. |
 
 ### Healthcheck Script Logic
 If the OTel Collector stops receiving signals, the environment's internal daemon executes the following recovery logic:
