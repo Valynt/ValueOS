@@ -52,7 +52,7 @@ import { userService } from '@valueos/backend/services';
 ## Integration Status
 
 **@valueos/shared** is now connected via:
-- `package.json`: `"@valueos/shared": "workspace:*"`
+- `package.json`: `"@valueos/shared": "^1.0.0"`
 - `tsconfig.json`: Path aliases configured
 - `vite.config.ts`: Alias + externals for Node deps
 
