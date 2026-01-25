@@ -447,7 +447,7 @@ async function initializeSettings(config: TenantConfig): Promise<void> {
 /**
  * Create default team and roles
  */
-async function createTeamsAndRoles(config: TenantConfig): Promise<void> {
+export async function createTeamsAndRoles(config: TenantConfig): Promise<void> {
   const supabase = createServerSupabaseClient();
   const tenantId = config.organizationId;
 
@@ -470,22 +470,24 @@ async function createTeamsAndRoles(config: TenantConfig): Promise<void> {
 
   // 2. Ensure global roles exist and assign owner
   const defaultRoles = ['owner', 'admin', 'member', 'viewer'];
-   
+
+  // OPTIMIZATION: Fetch all roles at once
+  const { data: existingRoles, error: rolesError } = await supabase
+    .from('roles')
+    .select('id, name')
+    .in('name', defaultRoles);
+
+  if (rolesError) {
+    throw new Error(`Failed to check roles: ${rolesError.message}`);
+  }
+
+  const existingRolesMap = new Map((existingRoles || []).map((r) => [r.name, r.id]));
+  let ownerRoleId: string | undefined;
+
   for (const roleName of defaultRoles) {
-    // Check if role exists globally
-    const { data: existingRoles, error: roleError } = await supabase
-      .from('roles')
-      .select('id, name')
-      .eq('name', roleName)
-      .limit(1);
+    let roleId = existingRolesMap.get(roleName);
 
-    if (roleError) {
-      throw new Error(`Failed to check role ${roleName}: ${roleError.message}`);
-    }
-
-    let roleId: string;
-
-    if (!existingRoles || existingRoles.length === 0) {
+    if (!roleId) {
       // Create role if missing (global)
       const { data: newRole, error: createError } = await supabase
         .from('roles')
@@ -493,7 +495,7 @@ async function createTeamsAndRoles(config: TenantConfig): Promise<void> {
           name: roleName,
           description: `System role: ${roleName}`,
           permissions: getDefaultPermissions(roleName),
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
         })
         .select('id')
         .single();
@@ -503,38 +505,41 @@ async function createTeamsAndRoles(config: TenantConfig): Promise<void> {
       }
       roleId = newRole.id;
       logger.debug(`Created missing global role: ${roleName}`);
-    } else {
-      roleId = existingRoles[0].id;
     }
 
-    // 3. Assign owner role to creator
     if (roleName === 'owner') {
-      // Check if user has this role for this tenant already
-      const { data: existingUserRole, error: userRoleCheckError } = await supabase
-        .from('user_roles')
-        .select('role_id')
-        .eq('user_id', config.ownerId)
-        .eq('tenant_id', tenantId)
-        .eq('role_id', roleId)
-        .single();
+      ownerRoleId = roleId;
+    }
+  }
 
-      if (userRoleCheckError && userRoleCheckError.code !== 'PGRST116') { // PGRST116 is "Row not found"
-          throw new Error(`Failed to check user role assignment: ${userRoleCheckError.message}`);
+  // 3. Assign owner role to creator
+  if (ownerRoleId) {
+    // Check if user has this role for this tenant already
+    const { data: existingUserRole, error: userRoleCheckError } = await supabase
+      .from('user_roles')
+      .select('role_id')
+      .eq('user_id', config.ownerId)
+      .eq('tenant_id', tenantId)
+      .eq('role_id', ownerRoleId)
+      .single();
+
+    if (userRoleCheckError && userRoleCheckError.code !== 'PGRST116') {
+      // PGRST116 is "Row not found"
+      throw new Error(`Failed to check user role assignment: ${userRoleCheckError.message}`);
+    }
+
+    if (!existingUserRole) {
+      const { error: assignError } = await supabase.from('user_roles').insert({
+        user_id: config.ownerId,
+        tenant_id: tenantId,
+        role_id: ownerRoleId,
+        created_at: new Date().toISOString(),
+      });
+
+      if (assignError) {
+        throw new Error(`Failed to assign owner role: ${assignError.message}`);
       }
-
-      if (!existingUserRole) {
-        const { error: assignError } = await supabase.from('user_roles').insert({
-          user_id: config.ownerId,
-          tenant_id: tenantId,
-          role_id: roleId,
-          created_at: new Date().toISOString(),
-        });
-
-        if (assignError) {
-          throw new Error(`Failed to assign owner role: ${assignError.message}`);
-        }
-        logger.debug(`Assigned owner role to ${config.ownerId} for tenant ${tenantId}`);
-      }
+      logger.debug(`Assigned owner role to ${config.ownerId} for tenant ${tenantId}`);
     }
   }
 
