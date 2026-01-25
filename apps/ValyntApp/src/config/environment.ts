@@ -143,6 +143,7 @@ export interface EnvironmentConfig {
     sourceMaps: boolean;
     reactDevTools: boolean;
     logLevel: LogLevel;
+    mocksEnabled: boolean;
   };
 
   // Testing
@@ -322,6 +323,7 @@ export function loadEnvironmentConfig(): EnvironmentConfig {
       sourceMaps: getBoolEnv('VITE_SOURCE_MAPS', env !== 'production'),
       reactDevTools: getBoolEnv('VITE_REACT_DEVTOOLS', env === 'development'),
       logLevel: getEnv('LOG_LEVEL', env === 'production' ? 'warn' : 'info') as LogLevel,
+      mocksEnabled: getBoolEnv('DEV_MOCKS_ENABLED', env === 'development'),
     },
 
     test: {
@@ -339,6 +341,7 @@ export function validateEnvironmentConfig(config: EnvironmentConfig): string[] {
 
   // Production-specific validations
   if (config.app.env === 'production') {
+    const devMocksRaw = getEnv('DEV_MOCKS_ENABLED');
     if (!config.database.url) {
       errors.push('VITE_SUPABASE_URL is required in production');
     }
@@ -350,6 +353,12 @@ export function validateEnvironmentConfig(config: EnvironmentConfig): string[] {
     }
     if (config.security.httpsOnly && !config.app.url.startsWith('https://')) {
       errors.push('VITE_APP_URL must use HTTPS in production');
+    }
+    if (!devMocksRaw) {
+      errors.push('DEV_MOCKS_ENABLED must be explicitly set to false in production');
+    }
+    if (config.dev.mocksEnabled) {
+      errors.push('DEV_MOCKS_ENABLED must be false in production');
     }
   }
 

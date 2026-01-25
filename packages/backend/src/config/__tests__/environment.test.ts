@@ -85,6 +85,17 @@ describe('Environment Configuration', () => {
       expect(errors.some(e => e.includes('SUPABASE_URL'))).toBe(true);
     });
 
+    it('should require dev mocks to be disabled in production', () => {
+      process.env.DEV_MOCKS_ENABLED = 'true';
+      const config = loadEnvironmentConfig();
+      config.app.env = 'production';
+
+      const errors = validateEnvironmentConfig(config);
+
+      expect(errors.some(e => e.includes('DEV_MOCKS_ENABLED'))).toBe(true);
+      delete process.env.DEV_MOCKS_ENABLED;
+    });
+
     it('should validate agent fabric requirements', () => {
       const config = loadEnvironmentConfig();
       config.features.agentFabric = true;

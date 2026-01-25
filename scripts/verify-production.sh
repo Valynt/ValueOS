@@ -152,6 +152,13 @@ check_security() {
     else
         echo -e "${GREEN}✓${NC} No production keys in .env files"
     fi
+
+    if [ "$DEV_MOCKS_ENABLED" != "false" ]; then
+        echo -e "${RED}✗${NC} DEV_MOCKS_ENABLED must be false in production"
+        return 1
+    else
+        echo -e "${GREEN}✓${NC} DEV_MOCKS_ENABLED is disabled in production"
+    fi
     
     echo ""
 }

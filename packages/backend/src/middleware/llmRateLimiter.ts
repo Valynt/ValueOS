@@ -102,25 +102,44 @@ async function rateLimitHandler(req: RateLimitRequest, res: Response) {
   });
 
   // Track in database for analytics
-  try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabase = createClient(
-      process.env.VITE_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_KEY!
-    );
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    await supabase.from('rate_limit_violations').insert({
-      user_id: req.user?.id || null,
-      ip_address: req.ip,
-      endpoint: req.path,
-      tier,
-      limit: limit.max,
-      window_ms: limit.windowMs,
-      violated_at: new Date().toISOString()
-    });
-  } catch (error) {
-    logger.error('Failed to log rate limit violation:', error);
-    logger.error('Failed to log rate limit violation to database', error instanceof Error ? error : new Error(String(error)));
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    const message = 'Missing SUPABASE_SERVICE_ROLE_KEY or VITE_SUPABASE_URL for LLM rate limit logging';
+    if (process.env.NODE_ENV === 'production') {
+      logger.error(message, {
+        hasSupabaseUrl: Boolean(supabaseUrl),
+        hasServiceRoleKey: Boolean(supabaseServiceRoleKey),
+      });
+      res.status(500).json({
+        error: 'Rate limit logging misconfigured',
+        message,
+      });
+      return;
+    }
+    logger.warn(message);
+  } else {
+    try {
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+
+      await supabase.from('rate_limit_violations').insert({
+        user_id: req.user?.id || null,
+        ip_address: req.ip,
+        endpoint: req.path,
+        tier,
+        limit: limit.max,
+        window_ms: limit.windowMs,
+        violated_at: new Date().toISOString()
+      });
+    } catch (error) {
+      logger.error('Failed to log rate limit violation:', error);
+      logger.error(
+        'Failed to log rate limit violation to database',
+        error instanceof Error ? error : new Error(String(error))
+      );
+    }
   }
 
   res.status(429).json({
@@ -357,4 +376,3 @@ export async function resetRateLimit(userId: string): Promise<void> {
     throw error;
   }
 }
-
