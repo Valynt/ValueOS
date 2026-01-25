@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import type { Workspace, WorkspaceMember } from "../types";
+import { api } from "../../../services/api/client";
 
 export function useWorkspace(workspaceId?: string) {
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
@@ -12,22 +13,12 @@ export function useWorkspace(workspaceId?: string) {
 
     setIsLoading(true);
     try {
-      // TODO: Implement actual API call
-      // const res = await fetch(`/api/workspaces/${workspaceId}`);
-      // const data = await res.json();
-      // setWorkspace(data.workspace);
-      // setMembers(data.members);
-
-      // Mock data for now
-      setWorkspace({
-        id: workspaceId,
-        name: "My Workspace",
-        slug: "my-workspace",
-        ownerId: "user_1",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-      setMembers([]);
+      const data = await api.get<{ workspace: Workspace; members: WorkspaceMember[] }>(
+        `/workspaces/${workspaceId}`
+      );
+      setWorkspace(data.workspace);
+      setMembers(data.members);
+      setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch workspace");
     } finally {
@@ -43,26 +34,33 @@ export function useWorkspace(workspaceId?: string) {
     if (!workspace) return;
 
     try {
-      // TODO: Implement actual API call
-      setWorkspace({ ...workspace, ...updates, updatedAt: new Date().toISOString() });
+      const updated = await api.patch<Workspace>(`/workspaces/${workspace.id}`, updates);
+      setWorkspace(updated);
+      setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update workspace");
     }
   };
 
   const inviteMember = async (email: string, role: WorkspaceMember["role"]) => {
+    if (!workspaceId) return;
+
     try {
-      // TODO: Implement actual API call
-      console.log("Invite member:", email, role);
+      await api.post(`/workspaces/${workspaceId}/members`, { email, role });
+      await fetchWorkspace();
+      setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to invite member");
     }
   };
 
   const removeMember = async (memberId: string) => {
+    if (!workspaceId) return;
+
     try {
-      // TODO: Implement actual API call
+      await api.delete(`/workspaces/${workspaceId}/members/${memberId}`);
       setMembers((prev) => prev.filter((m) => m.id !== memberId));
+      setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to remove member");
     }
