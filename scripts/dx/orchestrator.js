@@ -24,6 +24,7 @@
 
 import { execSync, spawn } from "child_process";
 import fs from "fs";
+import net from "net";
 import path from "path";
 import { fileURLToPath } from "url";
 import { resolveMode } from "./lib/mode.js";
@@ -72,6 +73,27 @@ function runCommand(command, options = {}) {
     stdio: options.silent ? "pipe" : "inherit",
     encoding: "utf8",
     ...options,
+  });
+}
+
+/**
+ * Check if a local port is already in use
+ */
+function isPortInUse(port, host = "127.0.0.1") {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    const onFailure = () => {
+      socket.destroy();
+      resolve(false);
+    };
+
+    socket.setTimeout(1000);
+    socket.once("error", onFailure);
+    socket.once("timeout", onFailure);
+    socket.connect(port, host, () => {
+      socket.end();
+      resolve(true);
+    });
   });
 }
 
@@ -363,8 +385,6 @@ async function seedDatabase() {
 function startBackend() {
   log.info("Starting backend...");
 
-  const backendPort = resolvePort(process.env.API_PORT, ports.backend.port);
-
   const proc = spawn("npm", ["run", "backend:dev"], {
     cwd: projectRoot,
     stdio: ["ignore", "pipe", "pipe"],
@@ -622,11 +642,20 @@ async function main() {
 
   // Step 7: Start backend
   log.step(7, "Starting backend");
-  const backendProc = startBackend();
-  services.push(backendProc);
+  const backendPort = resolvePort(process.env.API_PORT, ports.backend.port);
+  const backendPortInUse = await isPortInUse(backendPort);
+
+  let backendProc = null;
+  if (backendPortInUse) {
+    log.warn(
+      `Backend port ${backendPort} is already in use. Skipping backend start to avoid duplicates.`
+    );
+  } else {
+    backendProc = startBackend();
+    services.push(backendProc);
+  }
 
   // Wait for backend to be healthy
-  const backendPort = resolvePort(process.env.API_PORT, ports.backend.port);
   const backendHealthUrl = `http://127.0.0.1:${backendPort}/health`;
 
   log.info(`Waiting for backend at ${backendHealthUrl}...`);
@@ -641,8 +670,18 @@ async function main() {
 
   // Step 8: Start frontend
   log.step(8, "Starting frontend");
-  const frontendProc = startFrontend();
-  services.push(frontendProc);
+  const frontendPort = resolvePort(process.env.VITE_PORT, ports.frontend.port);
+  const frontendPortInUse = await isPortInUse(frontendPort);
+
+  let frontendProc = null;
+  if (frontendPortInUse) {
+    log.warn(
+      `Frontend port ${frontendPort} is already in use. Skipping frontend start to avoid duplicates.`
+    );
+  } else {
+    frontendProc = startFrontend();
+    services.push(frontendProc);
+  }
 
   // Setup shutdown handler
   setupShutdownHandler(services);
@@ -651,7 +690,6 @@ async function main() {
   // Wait for frontend
   await new Promise((resolve) => setTimeout(resolve, 5000));
 
-  const frontendPort = resolvePort(process.env.VITE_PORT, ports.frontend.port);
   const supabaseApiPort = resolvePort(process.env.SUPABASE_API_PORT, ports.supabase.apiPort);
 
   console.log(`
