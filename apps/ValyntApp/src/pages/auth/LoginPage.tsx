@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
-import { useAuth } from "@/app/providers/AuthProvider";
+import { useAuth } from "@/contexts/AuthContext";
 import { Logo } from "@/components/marketing/Logo";
 
 export function LoginPage() {
@@ -10,7 +10,7 @@ export function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { signIn } = useAuth();
+  const { login, signInWithProvider } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -22,7 +22,7 @@ export function LoginPage() {
     setLoading(true);
 
     try {
-      await signIn(email, password);
+      await login({ email, password });
       navigate(from, { replace: true });
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "An error occurred";
@@ -37,11 +37,9 @@ export function LoginPage() {
     setError("");
 
     try {
-      // TODO: Implement actual Google OAuth
       console.log("Google sign in initiated");
-      // For now, simulate successful login
-      await signIn("demo@valynt.com", "password");
-      navigate(from, { replace: true });
+      await signInWithProvider("google");
+      // Redirect happens automatically
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Google sign in failed";
       setError(errorMessage);
@@ -56,9 +54,9 @@ export function LoginPage() {
     setError("");
 
     try {
-      console.log("Calling signIn with bypass credentials");
-      await signIn("dev@valynt.com", "bypass");
-      console.log("signIn returned, navigating");
+      console.log("Calling login with bypass credentials");
+      await login({ email: "dev@valynt.com", password: "bypass" });
+      console.log("login returned, navigating");
       navigate(from, { replace: true });
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Bypass failed";

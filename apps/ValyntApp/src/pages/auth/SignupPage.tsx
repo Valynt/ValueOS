@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
-import { useAuth } from "@/app/providers/AuthProvider";
+import { useAuth } from "@/contexts/AuthContext";
 import { Logo } from "@/components/marketing/Logo";
 
 export function SignupPage() {
@@ -11,7 +11,7 @@ export function SignupPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { signUp } = useAuth();
+  const { signup, signInWithProvider } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -20,7 +20,7 @@ export function SignupPage() {
     setLoading(true);
 
     try {
-      await signUp(email, password, fullName);
+      await signup({ email, password, fullName });
       navigate("/dashboard", { replace: true });
     } catch (err: unknown) {
       const errorMessage =
@@ -36,11 +36,9 @@ export function SignupPage() {
     setError("");
 
     try {
-      // TODO: Implement actual Google OAuth
       console.log("Google sign in initiated");
-      // For now, simulate successful signup
-      await signUp("demo@valynt.com", "password", "Demo User");
-      navigate("/dashboard", { replace: true });
+      await signInWithProvider("google");
+      // Redirect happens automatically
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error ? err.message : "Google sign in failed";
@@ -56,7 +54,11 @@ export function SignupPage() {
 
     try {
       // Bypass authentication for development
-      await signUp("dev@valynt.com", "bypass", "Dev User");
+      await signup({
+        email: "dev@valynt.com",
+        password: "bypass",
+        fullName: "Dev User",
+      });
       navigate("/dashboard", { replace: true });
     } catch (err: unknown) {
       const errorMessage =
