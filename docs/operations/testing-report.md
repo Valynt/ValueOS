@@ -353,6 +353,21 @@ npm test -- src/test/resilience/ResilienceTests.test.ts
 - No `any` in production paths
 - Logging and telemetry integrated on critical flows
 
+### 7.2 Coverage Thresholds & Rationale
+
+**Vitest coverage thresholds (enforced in config):**
+
+- Lines: 75%
+- Functions: 70%
+- Branches: 65%
+- Statements: 75%
+
+**Rationale:**
+
+- Establish a minimum quality floor while broader test coverage is still being expanded.
+- Branch coverage is intentionally lower to account for complex conditional flows and feature-flagged paths.
+- Thresholds are consistent across unit and integration configs to avoid drift and keep CI expectations clear.
+
 ---
 
 ## 8. How to Run the Test Suite
