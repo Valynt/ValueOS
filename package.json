@@ -99,6 +99,7 @@
     "security:scan:snyk": "snyk test --severity-threshold=high",
     "security:scan:all": "npm run security:scan && npm run security:scan:snyk",
     "security:sbom": "npx @cyclonedx/cyclonedx-npm --output-file sbom.json --output-format JSON",
+    "deps:outdated": "npm outdated --json",
     "storybook:snapshot": "storybook test --watch=false",
     "billing:aggregate": "node -r tsx/cjs packages/backend/src/services/metering/UsageAggregator.ts",
     "billing:submit": "node -r tsx/cjs packages/backend/src/services/metering/UsageSink.ts",
