@@ -39,17 +39,27 @@ export const useWebVitals = () => {
  * Send metrics to analytics service
  */
 function sendToAnalytics(name: string, metric: any) {
-  // In a real implementation, send to your analytics service
-  // For now, just log to console
-  console.log(`Web Vital ${name}:`, {
-    name: metric.name,
-    value: metric.value,
-    rating: metric.rating,
-    delta: metric.delta,
-    entries: metric.entries,
+  // Send to custom analytics endpoint
+  fetch("/api/analytics/web-vitals", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      name: metric.name,
+      value: metric.value,
+      rating: metric.rating,
+      delta: metric.delta,
+      entries: metric.entries,
+      url: window.location.href,
+      userAgent: navigator.userAgent,
+      timestamp: new Date().toISOString(),
+    }),
+  }).catch((error) => {
+    console.warn("Failed to send web vitals to analytics:", error);
   });
 
-  // Example: Send to Google Analytics 4
+  // Also send to Google Analytics 4 if available
   if (typeof window !== "undefined" && (window as any).gtag) {
     (window as any).gtag("event", name, {
       event_category: "Web Vitals",
@@ -59,10 +69,12 @@ function sendToAnalytics(name: string, metric: any) {
     });
   }
 
-  // Example: Send to custom analytics endpoint
-  // fetch('/api/analytics/web-vitals', {
-  //   method: 'POST',
-  //   body: JSON.stringify(metric),
-  //   headers: { 'Content-Type': 'application/json' },
-  // });
+  // Log to console for debugging
+  console.log(`Web Vital ${name}:`, {
+    name: metric.name,
+    value: metric.value,
+    rating: metric.rating,
+    delta: metric.delta,
+    entries: metric.entries,
+  });
 }

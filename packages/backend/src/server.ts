@@ -36,6 +36,7 @@ import authRouter from "./api/auth";
 import adminRouter from "./api/admin";
 import referralsRouter from "./api/referrals";
 import projectsRouter from "./api/projects";
+import analyticsRouter from "./api/analytics";
 import docsApiRouter from "./docs-api";
 import {
   initializeSecretVolumeWatcher,
@@ -324,6 +325,7 @@ app.use(
 );
 app.use("/api/docs", docsApiRouter);
 app.use("/api/referrals", referralsRouter);
+app.use("/api/analytics", analyticsRouter);
 
 // 404 handler for unmatched routes
 app.use(notFoundHandler);

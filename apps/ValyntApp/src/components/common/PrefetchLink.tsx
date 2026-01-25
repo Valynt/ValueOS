@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Link, useMatch, useResolvedPath } from "react-router-dom";
+import { Link, NavLink, useMatch, useResolvedPath } from "react-router-dom";
 import { usePrefetch } from "../../hooks/usePrefetch";
 
 interface PrefetchLinkProps {
@@ -84,5 +84,92 @@ export const PrefetchLink: React.FC<PrefetchLinkProps> = ({
     <Link ref={linkRef} to={to} className={className} {...props}>
       {children}
     </Link>
+  );
+};
+
+interface PrefetchNavLinkProps extends PrefetchLinkProps {
+  end?: boolean;
+  caseSensitive?: boolean;
+  children: React.ReactNode | ((props: { isActive: boolean }) => React.ReactNode);
+}
+
+/**
+ * Enhanced NavLink component with prefetching capabilities
+ */
+export const PrefetchNavLink: React.FC<PrefetchNavLinkProps> = ({
+  to,
+  children,
+  className,
+  prefetch = true,
+  intersection = false,
+  rootMargin = "50px",
+  end = false,
+  caseSensitive = false,
+  ...props
+}) => {
+  const linkRef = useRef<HTMLAnchorElement>(null);
+  const { prefetchRoute } = usePrefetch();
+
+  useEffect(() => {
+    if (!prefetch || !linkRef.current) return;
+
+    const link = linkRef.current;
+    let timeoutId: NodeJS.Timeout;
+
+    const handleMouseEnter = () => {
+      timeoutId = setTimeout(() => {
+        prefetchRoute(to);
+      }, 100);
+    };
+
+    const handleMouseLeave = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+
+    link.addEventListener("mouseenter", handleMouseEnter);
+    link.addEventListener("mouseleave", handleMouseLeave);
+
+    return () => {
+      link.removeEventListener("mouseenter", handleMouseEnter);
+      link.removeEventListener("mouseleave", handleMouseLeave);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [prefetch, to, prefetchRoute]);
+
+  useEffect(() => {
+    if (!intersection || !linkRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            prefetchRoute(to);
+            observer.disconnect();
+          }
+        });
+      },
+      { rootMargin }
+    );
+
+    observer.observe(linkRef.current);
+
+    return () => observer.disconnect();
+  }, [intersection, to, rootMargin, prefetchRoute]);
+
+  return (
+    <NavLink
+      ref={linkRef}
+      to={to}
+      end={end}
+      caseSensitive={caseSensitive}
+      className={className}
+      {...props}
+    >
+      {children}
+    </NavLink>
   );
 };

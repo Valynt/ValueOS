@@ -11,6 +11,7 @@ import {
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/app/providers/AuthProvider";
+import { PrefetchNavLink } from "@/components/common/PrefetchLink";
 
 const navItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -51,9 +52,11 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 p-2 space-y-1">
         {navItems.map((item) => (
-          <NavLink
+          <PrefetchNavLink
             key={item.path}
             to={item.path}
+            prefetch={true}
+            intersection={false}
             className={({ isActive }) =>
               cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
@@ -66,7 +69,7 @@ export function Sidebar() {
           >
             <item.icon className="w-5 h-5 flex-shrink-0" />
             {!collapsed && <span>{item.label}</span>}
-          </NavLink>
+          </PrefetchNavLink>
         ))}
       </nav>
 
