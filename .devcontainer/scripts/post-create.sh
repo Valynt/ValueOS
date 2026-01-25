@@ -283,6 +283,18 @@ main() {
     verify_environment || log_warn "Some environment checks failed"
 
     print_summary
+
+        # Optional: install heavy developer/security tooling if explicitly opted-in
+        if [ "${INSTALL_OPTIONAL_TOOLS:-false}" = "true" ]; then
+            log_info "INSTALL_OPTIONAL_TOOLS=true detected — running optional tools installer"
+            if bash ".devcontainer/scripts/install-optional-tools.sh" 2>&1 | tee -a "$LOG_FILE"; then
+                log_success "Optional tools installed"
+            else
+                log_warn "Optional tools installation encountered errors (see log)"
+            fi
+        else
+            log_info "Optional tools not requested (set INSTALL_OPTIONAL_TOOLS=true to enable)"
+        fi
 }
 
 main "$@"
