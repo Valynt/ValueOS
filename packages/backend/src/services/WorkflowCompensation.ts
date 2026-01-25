@@ -149,11 +149,11 @@ export class WorkflowCompensation {
   }
 
   private async compensateOpportunityStage(context: CompensationContext): Promise<void> {
-    for (const artifactId of context.artifacts_created) {
+    if (context.artifacts_created.length > 0) {
       await supabase
         .from('opportunity_artifacts')
         .delete()
-        .eq('id', artifactId);
+        .in('id', context.artifacts_created);
     }
   }
 
@@ -185,29 +185,29 @@ export class WorkflowCompensation {
   }
 
   private async compensateRealizationStage(context: CompensationContext): Promise<void> {
-    for (const artifactId of context.artifacts_created) {
+    if (context.artifacts_created.length > 0) {
       await supabase
         .from('realization_artifacts')
         .delete()
-        .eq('id', artifactId);
+        .in('id', context.artifacts_created);
     }
   }
 
   private async compensateExpansionStage(context: CompensationContext): Promise<void> {
-    for (const artifactId of context.artifacts_created) {
+    if (context.artifacts_created.length > 0) {
       await supabase
         .from('expansion_artifacts')
         .delete()
-        .eq('id', artifactId);
+        .in('id', context.artifacts_created);
     }
   }
 
   private async compensateIntegrityStage(context: CompensationContext): Promise<void> {
-    for (const artifactId of context.artifacts_created) {
+    if (context.artifacts_created.length > 0) {
       await supabase
         .from('integrity_artifacts')
         .delete()
-        .eq('id', artifactId);
+        .in('id', context.artifacts_created);
     }
   }
 
