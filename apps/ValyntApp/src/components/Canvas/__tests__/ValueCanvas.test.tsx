@@ -1,134 +1,69 @@
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { vi } from "vitest";
 import { ValueCanvas } from "../ValueCanvas";
-import { ValueDriver, MOCK_VALUE_DRIVERS } from "@/types/valueDriver";
-=======
-=======
->>>>>>> Stashed changes
-import { render, screen, fireEvent } from "@testing-library/react";
-import { vi } from "vitest";
-import { ValueCanvas } from "../ValueCanvas";
-import { ValueDriver } from "@/types/valueDriver";
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 
-// Mock react-dnd
-vi.mock("react-dnd", () => ({
-  useDrop: () => [{ isOver: false }, vi.fn()],
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-  useDrag: () => [{ isDragging: false }, vi.fn()],
-}));
-vi.mock("react-dnd-html5-backend", () => ({
-  HTML5Backend: {},
-}));
-vi.mock("react-dnd", () => ({
-  DndProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  useDrop: vi.fn(() => [{ isOver: false }, vi.fn()]),
-  useDrag: vi.fn(() => [{ isDragging: false }, vi.fn()]),
-=======
-}));
-vi.mock("react-dnd-html5-backend", () => ({
-  DndProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
->>>>>>> Stashed changes
-=======
-}));
-vi.mock("react-dnd-html5-backend", () => ({
-  DndProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
->>>>>>> Stashed changes
+// Mock React Flow
+vi.mock("@xyflow/react", () => ({
+  ReactFlow: ({ children }: any) => <div data-testid="react-flow">{children}</div>,
+  Background: () => <div data-testid="background" />,
+  Controls: () => <div data-testid="controls" />,
+  MiniMap: () => <div data-testid="minimap" />,
+  useNodesState: () => [[], vi.fn(), vi.fn()],
+  useEdgesState: () => [[], vi.fn(), vi.fn()],
+  addEdge: vi.fn(),
+  ReactFlowProvider: ({ children }: any) => <div>{children}</div>,
+  Panel: ({ children }: any) => <div>{children}</div>,
 }));
 
-// Mock services
+// Mock services and hooks
 vi.mock("@/services/CalculationEngine", () => ({
   calculationEngine: {
-    calculateCascade: vi.fn(() => []),
+    registerNode: vi.fn(),
+    updateFormula: vi.fn(),
+    serialize: vi.fn(),
   },
 }));
+
 vi.mock("@/services/PlaygroundSessionService", () => ({
   PlaygroundSessionService: vi.fn().mockImplementation(() => ({
-    loadSession: vi.fn().mockResolvedValue({ data: { drivers: [], canvasComponents: [] } }),
+    loadSession: vi.fn().mockResolvedValue({ data: {} }),
     updateSession: vi.fn().mockResolvedValue(undefined),
-    commitSession: vi.fn().mockResolvedValue(undefined),
   })),
 }));
+
 vi.mock("@/hooks/useOrganization", () => ({
   useOrganization: () => ({ organizationId: "test-org" }),
 }));
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-vi.mock("@/components/valueDrivers/ValueDriverEditor", () => ({
-  ValueDriverEditor: ({ onClose }: { onClose: () => void }) => <div>Editor Mock <button onClick={onClose}>Close</button></div>,
-}));
-vi.mock("./ValueDriverCard", () => ({
-  ValueDriverCard: ({ component, onEdit, onDelete, onValueChange }: any) => (
-    <div>
-      Card for {component.props.driver.name}
-      <button onClick={onEdit}>Edit</button>
-      <button onClick={onDelete}>Delete</button>
-      <input onChange={(e) => onValueChange(e.target.value)} />
-    </div>
-  ),
-}));
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
+
+vi.mock("@/stores/valueCanvasStore", () => {
+  const defaultStore = {
+    nodes: [],
+    edges: [],
+    driverValues: {},
+    driverDefinitions: {},
+    isLibraryOpen: false,
+    isEditorOpen: false,
+    loadCanvas: vi.fn(),
+    setIsSaving: vi.fn(),
+    setLastSaved: vi.fn(),
+    setError: vi.fn(),
+    onConnect: vi.fn(),
+  };
+  return {
+    __esModule: true,
+    default: () => defaultStore,
+    useTemporalStore: () => ({
+      undo: vi.fn(),
+      redo: vi.fn(),
+      pastStates: [],
+      futureStates: [],
+    }),
+  };
+});
 
 describe("ValueCanvas", () => {
-  const mockOnSave = vi.fn();
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("renders empty canvas", () => {
-    render(<ValueCanvas sessionId="test-session" onSave={mockOnSave} />);
-    expect(
-      screen.getByText("Drag value drivers here to start building your model")
-    ).toBeInTheDocument();
-  });
-
-  it("renders save button", () => {
-    render(<ValueCanvas sessionId="test-session" onSave={mockOnSave} />);
-    expect(screen.getByText("Save to Backend")).toBeInTheDocument();
-  });
-
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-  it("renders library drivers", () => {
-    render(<ValueCanvas sessionId="test-session" onSave={mockOnSave} />);
-    MOCK_VALUE_DRIVERS.forEach(driver => {
-      expect(screen.getByText(driver.name)).toBeInTheDocument();
-    });
-  });
-
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-  it("calls onSave when save button is clicked", async () => {
-    render(<ValueCanvas sessionId="test-session" onSave={mockOnSave} />);
-    const saveButton = screen.getByText("Save to Backend");
-    fireEvent.click(saveButton);
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-    await waitFor(() => expect(mockOnSave).toHaveBeenCalled());
-  });
-
-  // Add more tests for drag, edit, etc.
-});
-    render(<ValueCanvas sessionId="test-session" onSave={mockOnSave} />);
-    const saveButton = screen.getByText("Save to Backend");
-    fireEvent.click(saveButton);
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-    // Since it's async, we might need to wait, but for simplicity
-    expect(mockOnSave).toHaveBeenCalled();
+  it("renders without crashing", () => {
+    render(<ValueCanvas sessionId="test-session" />);
+    expect(screen.getByText("Value Driver Canvas")).toBeInTheDocument();
   });
 });

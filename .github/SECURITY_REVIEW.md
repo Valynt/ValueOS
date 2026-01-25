@@ -116,12 +116,6 @@ npm update ts-node@latest --legacy-peer-deps
 
 #### Immediate (Pre-Staging)
 
-<<<<<<< HEAD
-
-=======
-
-> > > > > > > abdf1deaad6ae735b2af5e199e9cf9d374047a98
-
 ```bash
 # Fix HIGH severity issues
 npm update supabase@latest
@@ -160,12 +154,6 @@ npm update --dev
 ### Compliance
 
 #### OWASP Top 10 (2021)
-
-<<<<<<< HEAD
-
-=======
-
-> > > > > > > abdf1deaad6ae735b2af5e199e9cf9d374047a98
 
 - ✅ A01:2021 - Broken Access Control: Cost governance prevents abuse
 - ✅ A03:2021 - Injection: Environment validation prevents misconfig
@@ -209,12 +197,6 @@ npm update --dev
    ```
 
 #### Post-Merge (RECOMMENDED)
-
-<<<<<<< HEAD
-
-=======
-
-> > > > > > > abdf1deaad6ae735b2af5e199e9cf9d374047a98
 
 1. Update remaining LOW severity vulnerabilities
 2. Enable GitHub Dependabot alerts
