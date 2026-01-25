@@ -17,14 +17,18 @@ vi.mock('../AuditLogService', () => ({
   },
 }));
 
-vi.mock('../lib/logger', () => ({
-  logger: {
+vi.mock('../../lib/logger', () => {
+  const loggerMock = {
     info: vi.fn(),
     debug: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-  },
-}));
+  };
+  return {
+    logger: loggerMock,
+    createLogger: vi.fn().mockReturnValue(loggerMock),
+  };
+});
 
 vi.mock('../config/environment', () => ({
   getConfig: vi.fn().mockReturnValue({
@@ -110,13 +114,32 @@ describe('TenantProvisioning - revokeAllAccess', () => {
             upsert: vi.fn().mockReturnValue({ onConflict: vi.fn().mockResolvedValue({ error: null }) })
         };
     });
-
-    vi.mock('../billing/SubscriptionService', () => ({
-        default: {
-            cancelSubscription: vi.fn().mockResolvedValue(undefined)
-        }
-    }));
   });
+
+  vi.mock('../billing/SubscriptionService', () => ({
+      default: {
+          cancelSubscription: vi.fn().mockResolvedValue(undefined)
+      }
+  }));
+
+  vi.mock('../billing/CustomerService', () => ({
+      default: {
+          createCustomer: vi.fn(),
+          updatePaymentMethod: vi.fn()
+      }
+  }));
+
+  vi.mock('../SettingsService', () => ({
+      settingsService: {
+          initializeOrganizationSettings: vi.fn()
+      }
+  }));
+
+  vi.mock('../EmailService', () => ({
+      emailService: {
+          send: vi.fn()
+      }
+  }));
 
   it('should disable integrations and scrub credentials', async () => {
     await deprovisionTenant('org-123');

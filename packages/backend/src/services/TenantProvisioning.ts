@@ -887,17 +887,17 @@ async function archiveTenantData(organizationId: string): Promise<void> {
       cases: 'closed_at',
     };
 
-    for (const entry of tablesToArchive) {
+    await Promise.all(tablesToArchive.map(async (entry) => {
       const columns = tableColumnCache[entry.table];
       if (!columns) {
         errors.push(`Missing column metadata for ${entry.table}`);
-        continue;
+        return;
       }
 
       const availableTenantColumns = entry.tenantColumns.filter((column) => columns.has(column));
       if (availableTenantColumns.length === 0) {
         errors.push(`No tenant identifier columns found for ${entry.table}`);
-        continue;
+        return;
       }
 
       const updatePayload: Record<string, unknown> = {};
@@ -935,6 +935,8 @@ async function archiveTenantData(organizationId: string): Promise<void> {
         if (columns.has('metadata') && columns.has('id')) {
           const rows = archivePayload[entry.table];
           if (Array.isArray(rows)) {
+            // Note: Parallelizing row updates within a table could also be done,
+            // but might hit rate limits. Keeping sequential for rows for now.
             for (const row of rows) {
               if (!row || !('id' in row)) {
                 errors.push(`Failed to archive metadata for ${entry.table}: missing id`);
@@ -959,12 +961,12 @@ async function archiveTenantData(organizationId: string): Promise<void> {
                 break;
               }
             }
-            continue;
+            return;
           }
         }
 
         errors.push(`No archival fields available for ${entry.table}`);
-        continue;
+        return;
       }
 
       let updateQuery = supabase.from(entry.table).update(updatePayload);
@@ -979,7 +981,7 @@ async function archiveTenantData(organizationId: string): Promise<void> {
       if (updateError) {
         errors.push(`Failed to mark ${entry.table} as archived: ${updateError.message}`);
       }
-    }
+    }));
 
     if (errors.length > 0) {
       throw new Error(`Archival update incomplete: ${errors.join('; ')}`);

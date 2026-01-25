@@ -13,7 +13,7 @@
 
 // Browser-compatible hash function (replaces Node.js crypto)
 import { logger } from "../lib/logger";
-import { sanitizeForLogging } from "../lib/piiFilter";
+import { sanitizeForLogging } from "@shared/lib/piiFilter";
 import { BaseService } from "./BaseService";
 import { createServerSupabaseClient } from "../lib/supabase";
 import { AuditLogEntry } from "../types";
