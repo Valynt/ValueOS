@@ -101,6 +101,18 @@ install_dependencies() {
             corepack prepare pnpm@9.15.4 --activate >/dev/null 2>&1 || true
         fi
 
+        # Run dev doctor checks
+        if [ -f "./dev" ]; then
+            log_info "Running dev doctor environment checks..."
+            chmod +x ./dev
+            if ./dev doctor; then
+                log_success "Dev doctor passed"
+            else
+                log_error "Dev doctor failed. Please resolve the issues above."
+                return 1
+            fi
+        fi
+
         if run_with_timeout $NPM_INSTALL_TIMEOUT pnpm install --frozen-lockfile --prefer-offline 2>&1; then
             log_success "Dependencies installed (reproducible)"
         else
