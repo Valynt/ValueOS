@@ -293,7 +293,11 @@ function checkDocker() {
 
   try {
     const composeVersion = runCommand("docker compose version --short").trim();
-    if (!composeVersion.startsWith("v2")) {
+    // Parse version to handle both v2.x.x and 2.x.x formats
+    const versionParts = composeVersion.replace(/^v/, '').split('.');
+    const majorVersion = parseInt(versionParts[0], 10);
+    
+    if (majorVersion < 2) {
       reportFailure(
         "Docker Compose v2 required",
         `docker compose version ${composeVersion} detected.`,
