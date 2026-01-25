@@ -13,14 +13,13 @@ import { WebSocketProvider } from "./contexts/WebSocketContext";
 import DashboardLayout from "./components/layout/DashboardLayout";
 
 // Page Components
-import Dashboard from "./pages/Dashboard";
-import CompanySearch from "./pages/CompanySearch";
-import CompanyDetails from "./pages/CompanyDetails";
-import SentimentAnalysis from "./pages/SentimentAnalysis";
-import Forecasting from "./pages/Forecasting";
-import APIManagement from "./pages/APIManagement";
-import AdminPanel from "./pages/AdminPanel";
-import Login from "./pages/Login";
+import {
+  adminRoutes,
+  catchAllRoute,
+  protectedIndexRedirect,
+  protectedRoutes,
+  publicRoutes,
+} from "./routeConfig";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -84,7 +83,13 @@ function App() {
           <Router>
             <Routes>
               {/* Public Routes */}
-              <Route path="/login" element={<Login />} />
+              {publicRoutes.map((route) => (
+                <Route
+                  key={route.path}
+                  path={route.path}
+                  element={route.element}
+                />
+              ))}
 
               {/* Protected Routes */}
               <Route
@@ -95,27 +100,33 @@ function App() {
                   </ProtectedRoute>
                 }
               >
-                <Route index element={<Navigate to="/dashboard" replace />} />
-                <Route path="dashboard" element={<Dashboard />} />
-                <Route path="companies" element={<CompanySearch />} />
-                <Route path="companies/:cik" element={<CompanyDetails />} />
-                <Route path="sentiment" element={<SentimentAnalysis />} />
-                <Route path="forecasting" element={<Forecasting />} />
-                <Route path="api-management" element={<APIManagement />} />
+                <Route
+                  index
+                  element={<Navigate to={protectedIndexRedirect} replace />}
+                />
+                {protectedRoutes.map((route) => (
+                  <Route
+                    key={route.path}
+                    path={route.path}
+                    element={route.element}
+                  />
+                ))}
 
                 {/* Admin Routes */}
-                <Route
-                  path="admin"
-                  element={
-                    <AdminRoute>
-                      <AdminPanel />
-                    </AdminRoute>
-                  }
-                />
+                {adminRoutes.map((route) => (
+                  <Route
+                    key={route.path}
+                    path={route.path}
+                    element={<AdminRoute>{route.element}</AdminRoute>}
+                  />
+                ))}
               </Route>
 
               {/* Catch all route */}
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              <Route
+                path={catchAllRoute.path}
+                element={<Navigate to={catchAllRoute.redirectTo} replace />}
+              />
             </Routes>
           </Router>
         </WebSocketProvider>
